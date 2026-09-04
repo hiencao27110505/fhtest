@@ -554,6 +554,9 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
        Lives INSIDE this modal because the global .sheet layer (z 60) sits under the
        modal (z 62); positioned children anchor to the modal box. Empty = hidden. -->
   <div id="csv-rowsheet"></div>
+  <!-- The toolbox sheets (① Chọn nhanh · ② Chỉnh sửa) — same reason they live
+       in here. Painted by csvToolSheetSync each render; empty = hidden. -->
+  <div id="csv-toolsheet"></div>
 </div>
 
 <!-- EXPENSE CREATE / EDIT — full-screen modal -->

@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Duyệt giao dịch — hộp công cụ: Chọn &amp; Chỉnh sửa (3 trạng thái)</title>
+<style>
+/* ===== Tokens — copied from src/css/10-tokens.css (Sage default) ===== */
+:root{
+  --brand:#2E9E6B; --brand-ink:#1F7E52; --brand-2:#5FD3A0;
+  --brand-tint:#e9f7f0; --brand-glow:rgba(46,158,107,.32);
+  --grad-brand:linear-gradient(135deg,#34B87A,#5FC98D);
+  --danger:#E0322F; --danger-tint:#fdecef;
+  --good:#1a9d5f; --good-tint:#e7f5ee;
+  --amber:#B8730B; --amber-tint:#fbefda;
+  --ink:#191022; --ink-2:#3a2f45; --muted:#6b6576; --muted-soft:#78727f;
+  --canvas:#f4f1f6; --pearl:#fbfafc; --surface:#f9f7f8; --white:#fff;
+  --hairline:#e9e4ee; --divider:#f1edf4; --chev:#cfc8d6;
+  --fill-neutral:rgba(138,132,148,.14);
+  --shadow-card:0 1px 3px rgba(25,16,34,.05),0 8px 24px rgba(25,16,34,.04);
+  --shadow-raised:0 2px 6px rgba(25,16,34,.06),0 16px 34px rgba(25,16,34,.12);
+  --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+body{font-family:var(--text);background:#e7e2ec;color:var(--ink)}
+.num{font-family:var(--disp);font-variant-numeric:tabular-nums}
+button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}
+button:focus-visible{outline:2px solid var(--brand);outline-offset:2px;border-radius:8px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ===== Gallery ===== */
+.wrap{max-width:1560px;margin:0 auto;padding:44px 28px 90px}
+.hero{max-width:960px}
+.hero h1{font-family:var(--disp);font-size:28px;font-weight:800;letter-spacing:-.5px}
+.hero p{margin-top:10px;font-size:15px;color:var(--muted);line-height:1.55}
+.law{margin-top:16px;display:flex;flex-direction:column;gap:8px;max-width:760px}
+.law span{display:flex;align-items:baseline;gap:10px;background:var(--white);border:1px solid var(--hairline);border-radius:14px;padding:10px 15px;font-size:13.5px;font-weight:600;color:var(--ink-2)}
+.law i{font-style:normal;font-family:var(--disp);font-weight:800;color:var(--brand-ink);flex:none}
+.set{margin-top:56px}
+.sethead{max-width:960px}
+.sethead .tag{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.08em;color:var(--brand-ink);background:var(--brand-tint);border-radius:6px;padding:3px 8px;margin-right:8px;vertical-align:2px}
+.sethead .tag.alt{color:var(--amber);background:var(--amber-tint)}
+.sethead b{font-size:17px;font-weight:750;font-family:var(--disp)}
+.sethead p{margin-top:7px;font-size:13.5px;color:var(--muted);line-height:1.55}
+.sethead p i{font-style:normal;font-weight:800;color:var(--brand-ink)}
+.sethead p .ok{font-weight:700;color:var(--good)} .sethead p .no{font-weight:700;color:var(--amber)}
+.states{margin-top:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:26px;max-width:1400px}
+.stlbl{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;color:var(--muted);margin:0 auto 12px;max-width:380px;padding:0 6px}
+.stlbl i{font-style:normal;width:20px;height:20px;border-radius:99px;background:var(--ink);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex:none}
+
+/* ===== Phone ===== */
+.phone{width:100%;max-width:380px;height:740px;margin:0 auto;background:var(--pearl);overflow:hidden;display:flex;flex-direction:column;border-radius:44px;border:10px solid #05030a;box-shadow:0 26px 54px rgba(10,5,20,.26);position:relative}
+.scr{flex:1;overflow:hidden;background:var(--pearl);position:relative;display:flex;flex-direction:column}
+.grab{width:44px;height:5px;border-radius:99px;background:var(--hairline);margin:10px auto 2px;flex:none}
+.nav{display:flex;align-items:center;justify-content:space-between;padding:12px 18px 10px;flex:none}
+.nav b{font-family:var(--disp);font-size:16.5px;font-weight:700}
+.nav .side{font-size:16px;font-weight:700;color:var(--brand-ink)}
+.nav .side.dim{font-weight:500}
+.body{flex:1;overflow:hidden;padding:0 14px;position:relative}
+.brief{display:flex;align-items:baseline;gap:6px;font-size:12.5px;font-weight:600;color:var(--ink);padding:2px 4px 0;flex-wrap:wrap}
+.brief .up{color:var(--good)} .brief .dot{color:var(--chev)}
+.fade{position:absolute;left:0;right:0;bottom:0;height:56px;background:linear-gradient(transparent,var(--pearl));pointer-events:none}
+.toast{position:absolute;left:50%;transform:translateX(-50%);bottom:92px;background:var(--ink);color:#fff;font-size:12px;font-weight:600;border-radius:99px;padding:9px 15px;white-space:nowrap;box-shadow:var(--shadow-raised);z-index:5}
+.toast b{color:var(--brand-2);font-weight:750;margin-left:7px}
+.toast.lo{bottom:20px}
+
+/* ===== Tool 1 — chips + verbs ===== */
+.chips{display:flex;gap:7px;overflow:hidden;padding:12px 2px 2px}
+.chip{flex:none;display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;color:var(--ink-2);background:var(--white);border:1px solid var(--hairline);border-radius:99px;padding:7px 12px;line-height:1}
+.chip .cnt{font-size:11px;font-weight:700;color:var(--muted-soft)}
+.chip .car{font-size:9px;color:var(--muted-soft)}
+.chip.on{background:var(--brand-tint);border-color:transparent;color:var(--brand-ink)}
+.chip.on .cnt,.chip.on .car{color:var(--brand-ink)}
+.chip.on::before{content:"✓";font-size:11px;font-weight:800}
+.verb{display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:var(--white);border:1px solid var(--divider);border-radius:15px;padding:10px 13px;margin-top:10px;box-shadow:var(--shadow-card)}
+.verb .who{flex:1 1 100%;display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.verb .who b{font-size:13.5px;font-weight:700}
+.verb .who small{white-space:nowrap;font-size:11px;font-weight:600;color:var(--muted)}
+.verb .btns{display:flex;gap:7px;margin-left:auto}
+.vbtn{flex:none;font-size:12.5px;font-weight:700;border-radius:99px;padding:8px 12px;line-height:1}
+.vbtn.pri{color:#fff;background:var(--grad-brand);box-shadow:0 3px 8px var(--brand-glow)}
+.vbtn.sec{color:var(--brand-ink);background:var(--brand-tint)}
+.vbtn.ter{color:var(--muted);background:var(--fill-neutral)}
+.mini-bars{display:flex;align-items:flex-end;gap:8px;padding:13px 4px 0;overflow:hidden}
+.bcol{flex:none;width:38px;display:flex;flex-direction:column;align-items:center;gap:4px}
+.bstack{position:relative;height:36px;width:100%;display:flex;align-items:flex-end;justify-content:center}
+.bar{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:22px;border-radius:6px 6px 0 0;background:var(--fill-neutral)}
+.bar.sel{background:var(--good)}
+.blbl{font-size:9px;font-weight:600;color:var(--muted-soft)}
+
+/* ===== Cards ===== */
+.datelbl{margin:14px 4px 6px;font-size:11.5px;font-weight:800;letter-spacing:.09em;color:var(--muted);text-transform:uppercase}
+.datelbl.row{display:flex;align-items:center;justify-content:space-between;margin-right:4px}
+.grpsel{font-size:12px;font-weight:700;color:var(--brand-ink);letter-spacing:0;text-transform:none}
+.card{background:var(--white);border:1px solid var(--divider);border-radius:15px;padding:11px 13px;margin-bottom:8px;display:flex;align-items:flex-start;gap:11px;box-shadow:var(--shadow-card);position:relative}
+.card .cbody{flex:1;min-width:0}
+.card .t{font-size:14px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card .m{font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted-soft);margin-top:3px;display:flex;gap:5px;align-items:center;flex-wrap:wrap}
+.card .m .cat{font-weight:600;text-transform:none;letter-spacing:0;font-size:11px;color:var(--muted)}
+.card .m .cat.new{color:var(--brand-ink);font-weight:700}
+.card .m .cat.none{color:var(--amber)}
+.card .amt{font-family:var(--disp);font-size:15px;font-weight:750;white-space:nowrap;margin-top:1px}
+.card .rgt{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:none}
+.dupb{display:inline-block;font-size:9.5px;font-weight:800;color:var(--amber);background:var(--amber-tint);border-radius:5px;padding:2px 6px;text-transform:none}
+.ckb{width:22px;height:22px;border-radius:8px;border:1.5px solid var(--chev);background:var(--white);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:transparent}
+.ckb.on{background:var(--grad-brand);border-color:transparent;color:#fff;box-shadow:0 3px 8px var(--brand-glow)}
+.card.hit{border-color:rgba(46,158,107,.35)}
+.card.hit::before{content:"";position:absolute;left:-1px;top:10px;bottom:10px;width:3px;border-radius:0 3px 3px 0;background:var(--grad-brand)}
+.card.miss{opacity:.38}
+
+/* ===== Tool 2 — action surfaces ===== */
+.actbar{position:absolute;left:0;right:0;bottom:0;background:rgba(251,250,252,.92);backdrop-filter:blur(18px);border-top:1px solid var(--hairline);display:flex;align-items:center;justify-content:space-around;padding:11px 10px 22px}
+.actbar .a{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10.5px;font-weight:650;color:var(--brand-ink)}
+.actbar .a.dgr{color:var(--danger)}
+.actbar .a .ic{font-size:18px;line-height:1}
+.sheet-scrim{position:absolute;inset:0;background:rgba(20,12,28,.34)}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--white);border-radius:22px 22px 0 0;box-shadow:var(--shadow-raised);padding:10px 16px 22px}
+.sheet .grip{width:36px;height:5px;border-radius:99px;background:var(--hairline);margin:2px auto 12px}
+.sheet h3{font-family:var(--disp);font-size:16px;font-weight:750}
+.sheet h3 small{font-size:11.5px;font-weight:600;color:var(--muted);margin-left:6px}
+.edrow{display:flex;align-items:center;gap:11px;padding:12px 2px;border-bottom:1px solid var(--divider);font-size:14px;font-weight:650}
+.edrow .ic{width:30px;height:30px;border-radius:10px;background:var(--brand-tint);display:flex;align-items:center;justify-content:center;font-size:14px;flex:none}
+.edrow .v{margin-left:auto;font-size:12.5px;font-weight:600;color:var(--muted);display:flex;align-items:center;gap:5px}
+.edrow .v .chev{color:var(--chev);font-size:12px}
+.edrow.dgr{border-bottom:0;color:var(--danger)}
+.edrow.dgr .ic{background:var(--danger-tint)}
+.facet{margin-top:12px}
+.facet .fl{font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted-soft);margin-bottom:7px}
+.facet .fr{display:flex;gap:7px;flex-wrap:wrap}
+.toolbtns{display:flex;gap:8px;padding:12px 2px 0}
+.tbtn{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;font-size:13px;font-weight:700;border:1px solid var(--hairline);background:var(--white);border-radius:13px;padding:10px 0;box-shadow:var(--shadow-card)}
+.tbtn .n{font-size:10.5px;font-weight:800;background:var(--brand-tint);color:var(--brand-ink);border-radius:99px;padding:2px 7px}
+.seg2{display:flex;background:var(--fill-neutral);border-radius:11px;padding:2px;margin-top:10px}
+.seg2 span{flex:1;text-align:center;font-size:12.5px;font-weight:700;padding:7px 0;border-radius:9px;color:var(--muted)}
+.seg2 span.on{background:var(--white);color:var(--ink);box-shadow:0 1px 3px rgba(25,16,34,.12)}
+.tcard{background:var(--white);border:1px solid var(--divider);border-radius:17px;padding:12px 14px;margin-top:10px;box-shadow:var(--shadow-card)}
+.tcard .thead{display:flex;align-items:baseline;justify-content:space-between}
+.tcard .thead b{font-size:13.5px;font-weight:750}
+.tcard .thead .done{font-size:13px;font-weight:800;color:var(--brand-ink)}
+.tcard .thead .done.q{color:var(--muted)}
+.rail{display:flex;gap:8px;align-items:center;padding:11px 0 2px;overflow:hidden}
+.rail .rc{flex:none;width:36px;height:36px;border-radius:99px;background:var(--surface);border:1px solid var(--divider);display:flex;align-items:center;justify-content:center;font-size:16px}
+.rail .rc.on{background:var(--brand-tint);border-color:var(--brand);box-shadow:0 3px 8px var(--brand-glow)}
+.edline{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--divider);font-size:13px;font-weight:650}
+.edline .v{margin-left:auto;color:var(--muted);font-weight:600;font-size:12.5px}
+.edline.dgr{color:var(--danger)}
+.step{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:var(--muted);padding-bottom:4px}
+.step i{font-style:normal;width:19px;height:19px;border-radius:99px;background:var(--fill-neutral);display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:800}
+.step .on{color:var(--brand-ink)}
+.step .on i{background:var(--grad-brand);color:#fff}
+.step .ok i{background:var(--good-tint);color:var(--good)}
+.step .ok{color:var(--good)}
+.step .ln{flex:1;height:1px;background:var(--divider)}
+.step > span{display:inline-flex;align-items:center;gap:6px}
+.prevrow{display:flex;align-items:center;justify-content:space-between;margin-top:13px;padding:10px 13px;background:var(--surface);border-radius:13px}
+.prevrow b{font-size:13.5px;font-weight:750}
+.prevrow small{font-size:12px;font-weight:600;color:var(--muted)}
+.tray{position:absolute;left:12px;right:12px;bottom:14px;background:var(--white);border:1px solid var(--divider);border-radius:17px;box-shadow:var(--shadow-raised);padding:10px 13px;z-index:4}
+.tray .trow{display:flex;align-items:baseline;justify-content:space-between}
+.tray .trow b{font-size:13px;font-weight:750}
+.tray .trow small{font-size:11.5px;font-weight:600;color:var(--muted)}
+.tray .tacts{display:flex;gap:7px;margin-top:9px}
+.tray .tacts .vbtn{flex:1;text-align:center}
+.pillc{position:absolute;left:50%;transform:translateX(-50%);bottom:16px;background:var(--white);border:1px solid var(--divider);border-radius:99px;padding:8px 15px;box-shadow:var(--shadow-raised);font-size:12.5px;font-weight:750;display:flex;align-items:center;gap:7px;white-space:nowrap;z-index:4}
+.pillc .dotb{width:7px;height:7px;border-radius:99px;background:var(--brand)}
+.pillc small{font-weight:600;color:var(--muted)}
+.blk{background:var(--white);border:1px solid var(--divider);border-radius:17px;padding:11px 14px 12px;margin-top:10px;box-shadow:var(--shadow-card)}
+.blk .bh{font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted-soft);margin-bottom:4px}
+.blk .bh.act{color:var(--brand-ink)}
+.rule{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--divider);font-size:13.5px;font-weight:650}
+.rule:last-child{border-bottom:0}
+.rule .ic{width:28px;height:28px;border-radius:9px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:13px;flex:none}
+.rule small{display:block;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-soft)}
+.rule .rx{margin-left:auto;color:var(--chev);font-weight:800;font-size:12px}
+.conn{display:flex;justify-content:center;padding:2px 0}
+.conn .seg{display:inline-flex;background:var(--fill-neutral);border-radius:99px;padding:2px}
+.conn .seg span{font-size:10.5px;font-weight:750;padding:3px 11px;border-radius:99px;color:var(--muted)}
+.conn .seg span.on{background:var(--white);color:var(--ink);box-shadow:0 1px 3px rgba(25,16,34,.12)}
+.clus{display:flex;align-items:center;gap:10px;background:var(--brand-tint);border-radius:13px;padding:10px 12px;margin:12px 0 4px}
+.clus.q{background:var(--surface)}
+.clus .cb{flex:1}
+.clus .cb b{font-size:12.5px;font-weight:750;color:var(--brand-ink);display:block}
+.clus.q .cb b{color:var(--ink)}
+.clus .cb small{font-size:10.5px;font-weight:600;color:var(--brand-ink);opacity:.75}
+.clus.q .cb small{color:var(--muted);opacity:1}
+.clus .go{font-size:12px;font-weight:800;color:var(--brand-ink)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="hero">
+  <h1>Duyệt giao dịch — hộp công cụ: Chọn &amp; Chỉnh sửa</h1>
+  <p>Một hộp công cụ, <b>hai công cụ tách bạch</b>, bàn giao bằng vùng chọn. Mỗi hướng dưới đây kể trọn một lượt dùng
+     qua <b>ba trạng thái</b>: vừa mở hàng chờ → đang dùng công cụ → đã áp dụng (kèm hoàn tác). Kịch bản chung:
+     <i>“từ MB Bank và không trùng lặp → ghi cả cụm vào sổ Cá nhân”</i>.</p>
+  <div class="law">
+    <span><i>① Chọn hàng loạt</i> HOẶC trong một nhóm (MB + VCB) · VÀ giữa các nhóm (Nguồn ∩ Không trùng) · động từ Chọn / Thêm / Bỏ chọn trên vùng khớp</span>
+    <span><i>② Chỉnh hàng loạt</i> Danh mục · Ghi vào (kèm tuyến theo nguồn) · Xoá — tác động lên “N đã chọn”; Nhập vẫn là nút chốt trên nav</span>
+  </div>
+</div>
+
+<!-- ============================================================ A -->
+<div class="set">
+  <div class="sethead"><span class="tag">A · ĐỀ XUẤT</span><b>Trên lọc, dưới sửa</b>
+    <p><i>①</i> chip điều kiện + động từ ngay dưới thống kê — thẻ khớp sáng, thẻ lệch mờ. <i>②</i> thanh đáy thường trực: mỗi nút mở picker riêng, áp dụng ngay + toast hoàn tác.
+    <span class="ok">✓ Tách bạch nhất về không gian, đúng văn phạm iOS.</span> <span class="no">✕ Thanh đáy che thẻ cuối khi cuộn.</span></p></div>
+  <div class="states">
+    <div><div class="stlbl"><i>1</i> Vừa mở — tick sẵn, chưa lọc</div>
+    <div class="phone"><div class="scr">
+      <div class="grab"></div>
+      <div class="nav"><span class="side dim">Huỷ</span><b>Duyệt giao dịch</b><span class="side">Nhập 20</span></div>
+      <div class="body">
+        <div class="brief"><span class="num">23</span> giao dịch <span class="dot">·</span> ↓ <span class="num">2.140.000 ₫</span> <span class="dot">·</span> <span class="up">↑ <span class="num">0 ₫</span></span></div>
+        <div class="mini-bars">
+          <div class="bcol"><span class="bstack"><i class="bar" style="height:38%"></i><i class="bar sel" style="height:30%"></i></span><span class="blbl">4/8</span></div>
+          <div class="bcol"><span class="bstack"><i class="bar" style="height:60%"></i><i class="bar sel" style="height:50%"></i></span><span class="blbl">11/8</span></div>
+          <div class="bcol"><span class="bstack"><i class="bar" style="height:95%"></i><i class="bar sel" style="height:82%"></i></span><span class="blbl">18/8</span></div>
+          <div class="bcol"><span class="bstack"><i class="bar" style="height:44%"></i><i class="bar sel" style="height:38%"></i></span><span class="blbl">25/8</span></div>
+        </div>
+        <div class="chips">
+          <span class="chip">Nguồn <span class="car">▾</span></span>
+          <span class="chip">Không trùng <span class="cnt">20</span></span>
+          <span class="chip">Tuần này <span class="cnt">9</span></span>
+        </div>
+        <div class="datelbl">26 thg 8</div>
+        <div class="card"><div class="cbody"><div class="t">Highlands Coffee</div><div class="m">MB Bank · 09:41 <span class="cat">· ☕ Ăn uống</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−81.900 ₫</span></div></div>
+        <div class="card"><div class="cbody"><div class="t">Shopee</div><div class="m">Ví MoMo · 14:02 <span class="cat">· 🛍️ Mua sắm</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−245.000 ₫</span></div></div>
+        <div class="card"><div class="cbody"><div class="t">NGUYEN THU TRANG chuyen tien</div><div class="m">MB Bank · 18:20 <span class="dupb">lặp lại?</span></div></div><div class="rgt"><span class="ckb"></span><span class="amt num">−200.000 ₫</span></div></div>
+        <div class="fade"></div>
+      </div>
+      <div class="actbar">
+        <span class="a"><span class="ic">🏷️</span>Danh mục</span>
+        <span class="a"><span class="ic">📥</span>Ghi vào</span>
+        <span class="a dgr"><span class="ic">🗑️</span>Xoá 20</span>
+      </div>
+    </div></div></div>
+    <div><div class="stlbl"><i>2</i> Lọc MB ∩ không trùng → Chọn 12</div>
+    <div class="phone"><div class="scr">
+      <div class="grab"></div>
+      <div class="nav"><span class="side dim">Huỷ</span><b>Duyệt giao dịch</b><span class="side">Nhập 12</span></div>
+      <div class="body">
+        <div class="brief"><span class="num">23</span> giao dịch <span class="dot">·</span> ↓ <span class="num">2.140.000 ₫</span> <span class="dot">·</span> <span class="up">↑ <span class="num">0 ₫</span></span></div>
+        <div class="chips">
+          <span class="chip on">Nguồn · MB Bank <span class="car">▾</span></span>
+          <span class="chip on">Không trùng</span>
+          <span class="chip">Tuần này <span class="cnt">9</span></span>
+        </div>
+        <div class="verb">
+          <span class="who"><b>Khớp 12 · <span class="num">940.000 ₫</span></b><small>MB Bank ∩ không trùng</small></span>
+          <span class="btns"><button class="vbtn pri">Chọn 12</button><button class="vbtn sec">Thêm</button><button class="vbtn ter">Bỏ chọn</button></span>
+        </div>
+        <div class="datelbl">26 thg 8</div>
+        <div class="card hit"><div class="cbody"><div class="t">Highlands Coffee</div><div class="m">MB Bank · 09:41 <span class="cat">· ☕ Ăn uống</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−81.900 ₫</span></div></div>
+        <div class="card miss"><div class="cbody"><div class="t">Shopee</div><div class="m">Ví MoMo · 14:02 <span class="cat">· 🛍️ Mua sắm</span></div></div><div class="rgt"><span class="ckb"></span><span class="amt num">−245.000 ₫</span></div></div>
+        <div class="card miss"><div class="cbody"><div class="t">NGUYEN THU TRANG chuyen tien</div><div class="m">MB Bank · 18:20 <span class="dupb">lặp lại?</span></div></div><div class="rgt"><span class="ckb"></span><span class="amt num">−200.000 ₫</span></div></div>
+        <div class="fade"></div>
+      </div>
+      <div class="actbar">
+        <span class="a"><span class="ic">🏷️</span>Danh mục</span>
+        <span class="a"><span class="ic">📥</span>Ghi vào</span>
+        <span class="a dgr"><span class="ic">🗑️</span>Xoá 12</span>
+      </div>
+    </div></div></div>
+    <div><div class="stlbl"><i>3</i> Đã ghi 12 khoản vào Cá nhân</div>
+    <div class="phone"><div class="scr">
+      <div class="grab"></div>
+      <div class="nav"><span class="side dim">Huỷ</span><b>Duyệt giao dịch</b><span class="side">Nhập 12</span></div>
+      <div class="body">
+        <div class="brief"><span class="num">23</span> giao dịch <span class="dot">·</span> ↓ <span class="num">2.140.000 ₫</span> <span class="dot">·</span> <span class="up">↑ <span class="num">0 ₫</span></span></div>
+        <div class="chips">
+          <span class="chip on">Nguồn · MB Bank <span class="car">▾</span></span>
+          <span class="chip on">Không trùng</span>
+          <span class="chip">Tuần này <span class="cnt">9</span></span>
+        </div>
+        <div class="datelbl">26 thg 8</div>
+        <div class="card hit"><div class="cbody"><div class="t">Highlands Coffee</div><div class="m">MB Bank · 09:41 <span class="cat">· ☕ Ăn uống</span> <span class="cat new">· 🔒 Cá nhân</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−81.900 ₫</span></div></div>
+        <div class="card miss"><div class="cbody"><div class="t">Shopee</div><div class="m">Ví MoMo · 14:02 <span class="cat">· 🛍️ Mua sắm</span></div></div><div class="rgt"><span class="ckb"></span><span class="amt num">−245.000 ₫</span></div></div>
+        <div class="card hit"><div class="cbody"><div class="t">Grab</div><div class="m">MB Bank · 08:12 <span class="cat">· 🚗 Di chuyển</span> <span class="cat new">· 🔒 Cá nhân</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−68.000 ₫</span></div></div>
+        <div class="fade"></div>
+      </div>
+      <div class="toast">Đã ghi 12 khoản vào 🔒 Cá nhân<b>Hoàn tác</b></div>
+      <div class="actbar">
+        <span class="a"><span class="ic">🏷️</span>Danh mục</span>
+        <span class="a"><span class="ic">📥</span>Ghi vào</span>
+        <span class="a dgr"><span class="ic">🗑️</span>Xoá 12</span>
+      </div>
+    </div></div></div>
+  </div>
+</div>
+
+<!-- ============================================================ B -->
+<div class="set">
+  <div class="sethead"><span class="tag">B</span><b>Hai nút, hai ngăn</b>
+    <p><i>①</i> “Chọn lọc” mở sheet điều kiện riêng — nút đeo số điều kiện đang bật. <i>②</i> “Chỉnh sửa N” mở sheet hành động: mỗi dòng một việc, tuyến theo nguồn có chỗ riêng.
+    <span class="ok">✓ Hai công cụ được gọi tên thẳng — không thể lẫn.</span> <span class="no">✕ Hai lần mở sheet cho một lượt chọn-rồi-sửa.</span></p></div>
+  <div class="states">
+    <div><div class="stlbl"><i>1</i> Vừa mở — hai nút chờ sẵn</div>
+    <div class="phone"><div class="scr">
+      <div class="grab"></div>
+      <div class="nav"><span class="side dim">Huỷ</span><b>Duyệt giao dịch</b><span class="side">Nhập 20</span></div>
+      <div class="body">
+        <div class="brief"><span class="num">23</span> giao dịch <span class="dot">·</span> ↓ <span class="num">2.140.000 ₫</span> <span class="dot">·</span> <span class="up">↑ <span class="num">0 ₫</span></span></div>
+        <div class="toolbtns">
+          <button class="tbtn">⛭ Chọn lọc</button>
+          <button class="tbtn">✏️ Chỉnh sửa <span class="n">20</span></button>
+        </div>
+        <div class="datelbl">26 thg 8</div>
+        <div class="card"><div class="cbody"><div class="t">Highlands Coffee</div><div class="m">MB Bank · 09:41 <span class="cat">· ☕ Ăn uống</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−81.900 ₫</span></div></div>
+        <div class="card"><div class="cbody"><div class="t">Shopee</div><div class="m">Ví MoMo · 14:02 <span class="cat">· 🛍️ Mua sắm</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−245.000 ₫</span></div></div>
+        <div class="card"><div class="cbody"><div class="t">NGUYEN THU TRANG chuyen tien</div><div class="m">MB Bank · 18:20 <span class="dupb">lặp lại?</span></div></div><div class="rgt"><span class="ckb"></span><span class="amt num">−200.000 ₫</span></div></div>
+        <div class="fade"></div>
+      </div>
+    </div></div></div>
+    <div><div class="stlbl"><i>2</i> Sheet “Chỉnh sửa” — sau khi đã chọn lọc 12</div>
+    <div class="phone"><div class="scr">
+      <div class="grab"></div>
+      <div class="nav"><span class="side dim">Huỷ</span><b>Duyệt giao dịch</b><span class="side">Nhập 12</span></div>
+      <div class="body">
+        <div class="brief"><span class="num">23</span> giao dịch <span class="dot">·</span> ↓ <span class="num">2.140.000 ₫</span> <span class="dot">·</span> <span class="up">↑ <span class="num">0 ₫</span></span></div>
+        <div class="toolbtns">
+          <button class="tbtn">⛭ Chọn lọc <span class="n">2</span></button>
+          <button class="tbtn">✏️ Chỉnh sửa <span class="n">12</span></button>
+        </div>
+        <div class="datelbl">26 thg 8</div>
+        <div class="card hit"><div class="cbody"><div class="t">Highlands Coffee</div><div class="m">MB Bank · 09:41 <span class="cat">· ☕ Ăn uống</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−81.900 ₫</span></div></div>
+        <div class="sheet-scrim"></div>
+        <div class="sheet">
+          <div class="grip"></div>
+          <h3>Chỉnh sửa <small>12 đã chọn · 940.000 ₫</small></h3>
+          <div class="edrow"><span class="ic">🏷️</span>Danh mục<span class="v">☕ Ăn uống <span class="chev">›</span></span></div>
+          <div class="edrow"><span class="ic">📥</span>Ghi vào<span class="v">🔒 Cá nhân <span class="chev">›</span></span></div>
+          <div class="edrow"><span class="ic">🏦</span>Tuyến theo nguồn<span class="v">MB Bank → 🔒 <span class="chev">›</span></span></div>
+          <div class="edrow dgr"><span class="ic">🗑️</span>Xoá 12 khỏi hàng chờ<span class="v"><span class="chev">›</span></span></div>
+        </div>
+      </div>
+    </div></div></div>
+    <div><div class="stlbl"><i>3</i> Sheet đóng — đã áp dụng</div>
+    <div class="phone"><div class="scr">
+      <div class="grab"></div>
+      <div class="nav"><span class="side dim">Huỷ</span><b>Duyệt giao dịch</b><span class="side">Nhập 12</span></div>
+      <div class="body">
+        <div class="brief"><span class="num">23</span> giao dịch <span class="dot">·</span> ↓ <span class="num">2.140.000 ₫</span> <span class="dot">·</span> <span class="up">↑ <span class="num">0 ₫</span></span></div>
+        <div class="toolbtns">
+          <button class="tbtn">⛭ Chọn lọc <span class="n">2</span></button>
+          <button class="tbtn">✏️ Chỉnh sửa <span class="n">12</span></button>
+        </div>
+        <div class="datelbl">26 thg 8</div>
+        <div class="card hit"><div class="cbody"><div class="t">Highlands Coffee</div><div class="m">MB Bank · 09:41 <span class="cat">· ☕ Ăn uống</span> <span class="cat new">· 🔒 Cá nhân</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−81.900 ₫</span></div></div>
+        <div class="card miss"><div class="cbody"><div class="t">Shopee</div><div class="m">Ví MoMo · 14:02 <span class="cat">· 🛍️ Mua sắm</span></div></div><div class="rgt"><span class="ckb"></span><span class="amt num">−245.000 ₫</span></div></div>
+        <div class="card hit"><div class="cbody"><div class="t">Grab</div><div class="m">MB Bank · 08:12 <span class="cat">· 🚗 Di chuyển</span> <span class="cat new">· 🔒 Cá nhân</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−68.000 ₫</span></div></div>
+        <div class="fade"></div>
+      </div>
+      <div class="toast lo">Đã ghi 12 khoản vào 🔒 Cá nhân<b>Hoàn tác</b></div>
+    </div></div></div>
+  </div>
+</div>
+
+<!-- ============================================================ C -->
+<div class="set">
+  <div class="sethead"><span class="tag">C</span><b>Một sheet, hai bước</b>
+    <p><i>①</i> bước 1: nhóm điều kiện xếp dọc — VÀ giữa dòng, HOẶC trong dòng, số khớp sống. <i>②</i> bước 2 (cùng sheet): các dòng hành động; “Chỉ chọn” thoát sớm.
+    <span class="ok">✓ Một bề mặt, trình tự ép đúng thứ tự chọn→sửa.</span> <span class="no">✕ Đã chọn tay rồi vẫn phải đi qua vỏ bước 1.</span></p></div>
+  <div class="states">
+    <div><div class="stlbl"><i>1</i> Vừa mở — một nút vào công cụ</div>
+    <div class="phone"><div class="scr">
+      <div class="grab"></div>
+      <div class="nav"><span class="side dim">Huỷ</span><b>Duyệt giao dịch</b><span class="side">Nhập 20</span></div>
+      <div class="body">
+        <div class="brief"><span class="num">23</span> giao dịch <span class="dot">·</span> ↓ <span class="num">2.140.000 ₫</span> <span class="dot">·</span> <span class="up">↑ <span class="num">0 ₫</span></span></div>
+        <div class="toolbtns"><button class="tbtn">⛭ Chọn &amp; chỉnh hàng loạt</button></div>
+        <div class="datelbl">26 thg 8</div>
+        <div class="card"><div class="cbody"><div class="t">Highlands Coffee</div><div class="m">MB Bank · 09:41 <span class="cat">· ☕ Ăn uống</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−81.900 ₫</span></div></div>
+        <div class="card"><div class="cbody"><div class="t">Shopee</div><div class="m">Ví MoMo · 14:02 <span class="cat">· 🛍️ Mua sắm</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−245.000 ₫</span></div></div>
+        <div class="card"><div class="cbody"><div class="t">NGUYEN THU TRANG chuyen tien</div><div class="m">MB Bank · 18:20 <span class="dupb">lặp lại?</span></div></div><div class="rgt"><span class="ckb"></span><span class="amt num">−200.000 ₫</span></div></div>
+        <div class="fade"></div>
+      </div>
+    </div></div></div>
+    <div><div class="stlbl"><i>2</i> Bước 2 — bước 1 đã chốt 12</div>
+    <div class="phone"><div class="scr">
+      <div class="grab"></div>
+      <div class="nav"><span class="side dim">Huỷ</span><b>Duyệt giao dịch</b><span class="side">Nhập 12</span></div>
+      <div class="body">
+        <div class="brief"><span class="num">23</span> giao dịch <span class="dot">·</span> ↓ <span class="num">2.140.000 ₫</span> <span class="dot">·</span> <span class="up">↑ <span class="num">0 ₫</span></span></div>
+        <div class="datelbl">26 thg 8</div>
+        <div class="card hit"><div class="cbody"><div class="t">Highlands Coffee</div><div class="m">MB Bank · 09:41 <span class="cat">· ☕ Ăn uống</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−81.900 ₫</span></div></div>
+        <div class="sheet-scrim"></div>
+        <div class="sheet">
+          <div class="grip"></div>
+          <div class="step"><span class="ok"><i>✓</i> Chọn 12</span><span class="ln"></span><span class="on"><i>2</i> Chỉnh sửa</span></div>
+          <div class="edrow"><span class="ic">🏷️</span>Danh mục<span class="v">Giữ nguyên <span class="chev">›</span></span></div>
+          <div class="edrow"><span class="ic">📥</span>Ghi vào<span class="v">🔒 Cá nhân <span class="chev">›</span></span></div>
+          <div class="edrow dgr"><span class="ic">🗑️</span>Xoá 12 khỏi hàng chờ<span class="v"><span class="chev">›</span></span></div>
+          <div style="display:flex;gap:8px;margin-top:13px">
+            <button class="vbtn ter" style="flex:1;padding:12px 0;border-radius:13px;text-align:center">‹ Bước 1</button>
+            <button class="vbtn pri" style="flex:2;padding:12px 0;border-radius:13px;text-align:center">Áp dụng cho 12</button>
+          </div>
+        </div>
+      </div>
+    </div></div></div>
+    <div><div class="stlbl"><i>3</i> Đóng sheet — đã áp dụng</div>
+    <div class="phone"><div class="scr">
+      <div class="grab"></div>
+      <div class="nav"><span class="side dim">Huỷ</span><b>Duyệt giao dịch</b><span class="side">Nhập 12</span></div>
+      <div class="body">
+        <div class="brief"><span class="num">23</span> giao dịch <span class="dot">·</span> ↓ <span class="num">2.140.000 ₫</span> <span class="dot">·</span> <span class="up">↑ <span class="num">0 ₫</span></span></div>
+        <div class="toolbtns"><button class="tbtn">⛭ Chọn &amp; chỉnh hàng loạt <span class="n">12 đã chọn</span></button></div>
+        <div class="datelbl">26 thg 8</div>
+        <div class="card hit"><div class="cbody"><div class="t">Highlands Coffee</div><div class="m">MB Bank · 09:41 <span class="cat">· ☕ Ăn uống</span> <span class="cat new">· 🔒 Cá nhân</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−81.900 ₫</span></div></div>
+        <div class="card miss"><div class="cbody"><div class="t">Shopee</div><div class="m">Ví MoMo · 14:02 <span class="cat">· 🛍️ Mua sắm</span></div></div><div class="rgt"><span class="ckb"></span><span class="amt num">−245.000 ₫</span></div></div>
+        <div class="card hit"><div class="cbody"><div class="t">Grab</div><div class="m">MB Bank · 08:12 <span class="cat">· 🚗 Di chuyển</span> <span class="cat new">· 🔒 Cá nhân</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−68.000 ₫</span></div></div>
+        <div class="fade"></div>
+      </div>
+      <div class="toast lo">Đã ghi 12 khoản vào 🔒 Cá nhân<b>Hoàn tác</b></div>
+    </div></div></div>
+  </div>
+</div>
+
+<!-- ============================================================ D -->
+<div class="set">
+  <div class="sethead"><span class="tag">D</span><b>Thẻ hai phòng — txh tiến hoá</b>
+    <p><i>①</i> phòng “Chọn”: chip điều kiện cộng dồn + động từ (thay bộ chip radio hiện tại). <i>②</i> phòng “Chỉnh sửa”: rail danh mục, dòng Ghi vào kèm tuyến nguồn, dòng Xoá — giỏ + Xong giữ nguyên.
+    <span class="ok">✓ Ít thay đổi mã nhất: giữ khung thẻ #txh, 4 phòng → 2 công cụ.</span> <span class="no">✕ Vẫn là một thẻ đa năng trên đầu màn.</span></p></div>
+  <div class="states">
+    <div><div class="stlbl"><i>1</i> Vừa mở — thẻ thu gọn</div>
+    <div class="phone"><div class="scr">
+      <div class="grab"></div>
+      <div class="nav"><span class="side dim">Huỷ</span><b>Duyệt giao dịch</b><span class="side">Nhập 20</span></div>
+      <div class="body">
+        <div class="brief"><span class="num">23</span> giao dịch <span class="dot">·</span> ↓ <span class="num">2.140.000 ₫</span> <span class="dot">·</span> <span class="up">↑ <span class="num">0 ₫</span></span></div>
+        <div class="tcard"><div class="thead"><b>Sẽ nhập 20 · <span class="num">1.610.000 ₫</span></b><span class="done">Công cụ</span></div></div>
+        <div class="datelbl">26 thg 8</div>
+        <div class="card"><div class="cbody"><div class="t">Highlands Coffee</div><div class="m">MB Bank · 09:41 <span class="cat">· ☕ Ăn uống</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−81.900 ₫</span></div></div>
+        <div class="card"><div class="cbody"><div class="t">BUN CHA HANG QUAT</div><div class="m">MB Bank · 12:30 <span class="cat none">· Chưa danh mục</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−45.000 ₫</span></div></div>
+        <div class="card"><div class="cbody"><div class="t">Shopee</div><div class="m">Ví MoMo · 14:02 <span class="cat">· 🛍️ Mua sắm</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−245.000 ₫</span></div></div>
+        <div class="fade"></div>
+      </div>
+    </div></div></div>
+    <div><div class="stlbl"><i>2</i> Phòng “Chỉnh sửa” mở — chọn ☕ cho 12</div>
+    <div class="phone"><div class="scr">
+      <div class="grab"></div>
+      <div class="nav"><span class="side dim">Huỷ</span><b>Duyệt giao dịch</b><span class="side">Nhập 12</span></div>
+      <div class="body">
+        <div class="brief"><span class="num">23</span> giao dịch <span class="dot">·</span> ↓ <span class="num">2.140.000 ₫</span> <span class="dot">·</span> <span class="up">↑ <span class="num">0 ₫</span></span></div>
+        <div class="tcard">
+          <div class="thead"><b>12 đã chọn · <span class="num">940.000 ₫</span></b><span class="done">Xong</span></div>
+          <div class="seg2"><span>① Chọn</span><span class="on">② Chỉnh sửa</span></div>
+          <div class="rail">
+            <span class="rc">🛒</span><span class="rc on">☕</span><span class="rc">🚗</span><span class="rc">🛍️</span><span class="rc">🏠</span><span class="rc">＋</span>
+          </div>
+          <div class="edline">📥 Ghi vào<span class="v">🔒 Cá nhân · MB Bank → 🔒</span></div>
+          <div class="edline dgr">🗑️ Xoá 12 khỏi hàng chờ<span class="v">giữ 2 chạm</span></div>
+        </div>
+        <div class="datelbl">26 thg 8</div>
+        <div class="card hit"><div class="cbody"><div class="t">Highlands Coffee</div><div class="m">MB Bank · 09:41 <span class="cat">· ☕ Ăn uống</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−81.900 ₫</span></div></div>
+        <div class="card hit"><div class="cbody"><div class="t">BUN CHA HANG QUAT</div><div class="m">MB Bank · 12:30 <span class="cat none">· Chưa danh mục</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−45.000 ₫</span></div></div>
+        <div class="fade"></div>
+      </div>
+    </div></div></div>
+    <div><div class="stlbl"><i>3</i> Xong — giỏ đã chạy, thẻ thu về</div>
+    <div class="phone"><div class="scr">
+      <div class="grab"></div>
+      <div class="nav"><span class="side dim">Huỷ</span><b>Duyệt giao dịch</b><span class="side">Nhập 12</span></div>
+      <div class="body">
+        <div class="brief"><span class="num">23</span> giao dịch <span class="dot">·</span> ↓ <span class="num">2.140.000 ₫</span> <span class="dot">·</span> <span class="up">↑ <span class="num">0 ₫</span></span></div>
+        <div class="tcard"><div class="thead"><b>Sẽ nhập 12 · <span class="num">940.000 ₫</span></b><span class="done">Công cụ</span></div></div>
+        <div class="datelbl">26 thg 8</div>
+        <div class="card hit"><div class="cbody"><div class="t">Highlands Coffee</div><div class="m">MB Bank · 09:41 <span class="cat">· ☕ Ăn uống</span> <span class="cat new">· 🔒</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−81.900 ₫</span></div></div>
+        <div class="card hit"><div class="cbody"><div class="t">BUN CHA HANG QUAT</div><div class="m">MB Bank · 12:30 <span class="cat new">· ☕ Ăn uống · 🔒</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−45.000 ₫</span></div></div>
+        <div class="card"><div class="cbody"><div class="t">Shopee</div><div class="m">Ví MoMo · 14:02 <span class="cat">· 🛍️ Mua sắm</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−245.000 ₫</span></div></div>
+        <div class="fade"></div>
+      </div>
+      <div class="toast lo">2 thao tác cho 12 khoản<b>Hoàn tác</b></div>
+    </div></div></div>
+  </div>
+</div>
+
+<!-- ============================================================ E -->
+<div class="set">
+  <div class="sethead"><span class="tag">E</span><b>Photos chuẩn — chế độ chọn</b>
+    <p><i>①</i> “Chọn nhiều” vào chế độ: nav thành bộ đếm, chip lọc + “Chọn khớp / Bỏ chọn khớp” chỉ hiện trong chế độ. <i>②</i> thanh đáy cố định suốt chế độ.
+    <span class="ok">✓ Văn phạm iOS thuộc lòng; ngoài chế độ đầu màn sạch tuyệt đối.</span> <span class="no">✕ Tick vốn có sẵn — “chế độ” thêm một bước cho ca thường.</span></p></div>
+  <div class="states">
+    <div><div class="stlbl"><i>1</i> Vừa mở — ngoài chế độ</div>
+    <div class="phone"><div class="scr">
+      <div class="grab"></div>
+      <div class="nav"><span class="side dim">Huỷ</span><b>Duyệt giao dịch</b><span class="side">Nhập 20</span></div>
+      <div class="body">
+        <div class="brief"><span class="num">23</span> giao dịch <span class="dot">·</span> ↓ <span class="num">2.140.000 ₫</span> <span class="dot">·</span> <span class="up">↑ <span class="num">0 ₫</span></span></div>
+        <div class="datelbl row">26 thg 8 <span class="grpsel">Chọn nhiều</span></div>
+        <div class="card"><div class="cbody"><div class="t">Highlands Coffee</div><div class="m">MB Bank · 09:41 <span class="cat">· ☕ Ăn uống</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−81.900 ₫</span></div></div>
+        <div class="card"><div class="cbody"><div class="t">Shopee</div><div class="m">Ví MoMo · 14:02 <span class="cat">· 🛍️ Mua sắm</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−245.000 ₫</span></div></div>
+        <div class="card"><div class="cbody"><div class="t">NGUYEN THU TRANG chuyen tien</div><div class="m">MB Bank · 18:20 <span class="dupb">lặp lại?</span></div></div><div class="rgt"><span class="ckb"></span><span class="amt num">−200.000 ₫</span></div></div>
+        <div class="fade"></div>
+      </div>
+    </div></div></div>
+    <div><div class="stlbl"><i>2</i> Trong chế độ — lọc &amp; chọn khớp</div>
+    <div class="phone"><div class="scr">
+      <div class="grab"></div>
+      <div class="nav"><span class="side dim">Bỏ chọn hết</span><b>Đã chọn 12</b><span class="side">Xong</span></div>
+      <div class="body">
+        <div class="chips" style="padding-top:6px">
+          <span class="chip on">MB Bank</span>
+          <span class="chip on">Không trùng</span>
+          <span class="chip">Tuần này</span>
+        </div>
+        <div style="display:flex;gap:8px;padding:9px 2px 0">
+          <button class="vbtn sec">Chọn 12 khớp</button>
+          <button class="vbtn ter">Bỏ chọn khớp</button>
+        </div>
+        <div class="datelbl">26 thg 8</div>
+        <div class="card hit"><div class="cbody"><div class="t">Highlands Coffee</div><div class="m">MB Bank · 09:41 <span class="cat">· ☕ Ăn uống</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−81.900 ₫</span></div></div>
+        <div class="card miss"><div class="cbody"><div class="t">Shopee</div><div class="m">Ví MoMo · 14:02 <span class="cat">· 🛍️ Mua sắm</span></div></div><div class="rgt"><span class="ckb"></span><span class="amt num">−245.000 ₫</span></div></div>
+        <div class="card hit"><div class="cbody"><div class="t">Grab</div><div class="m">MB Bank · 08:12 <span class="cat">· 🚗 Di chuyển</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−68.000 ₫</span></div></div>
+        <div class="fade"></div>
+      </div>
+      <div class="actbar">
+        <span class="a"><span class="ic">🏷️</span>Danh mục</span>
+        <span class="a"><span class="ic">📥</span>Ghi vào</span>
+        <span class="a dgr"><span class="ic">🗑️</span>Xoá 12</span>
+      </div>
+    </div></div></div>
+    <div><div class="stlbl"><i>3</i> Vẫn trong chế độ — đã áp dụng</div>
+    <div class="phone"><div class="scr">
+      <div class="grab"></div>
+      <div class="nav"><span class="side dim">Bỏ chọn hết</span><b>Đã chọn 12</b><span class="side">Xong</span></div>
+      <div class="body">
+        <div class="chips" style="padding-top:6px">
+          <span class="chip on">MB Bank</span>
+          <span class="chip on">Không trùng</span>
+          <span class="chip">Tuần này</span>
+        </div>
+        <div class="datelbl">26 thg 8</div>
+        <div class="card hit"><div class="cbody"><div class="t">Highlands Coffee</div><div class="m">MB Bank · 09:41 <span class="cat">· ☕ Ăn uống</span> <span class="cat new">· 🔒 Cá nhân</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−81.900 ₫</span></div></div>
+        <div class="card miss"><div class="cbody"><div class="t">Shopee</div><div class="m">Ví MoMo · 14:02 <span class="cat">· 🛍️ Mua sắm</span></div></div><div class="rgt"><span class="ckb"></span><span class="amt num">−245.000 ₫</span></div></div>
+        <div class="card hit"><div class="cbody"><div class="t">Grab</div><div class="m">MB Bank · 08:12 <span class="cat">· 🚗 Di chuyển</span> <span class="cat new">· 🔒 Cá nhân</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−68.000 ₫</span></div></div>
+        <div class="fade"></div>
+      </div>
+      <div class="toast">Đã ghi 12 khoản vào 🔒 Cá nhân<b>Hoàn tác</b></div>
+      <div class="actbar">
+        <span class="a"><span class="ic">🏷️</span>Danh mục</span>
+        <span class="a"><span class="ic">📥</span>Ghi vào</span>
+        <span class="a dgr"><span class="ic">🗑️</span>Xoá 12</span>
+      </div>
+    </div></div></div>
+  </div>
+</div>
+
+<!-- ============================================================ F -->
+<div class="set">
+  <div class="sethead"><span class="tag">F</span><b>Viên thuốc cầm tay</b>
+    <p><i>①</i> chip lọc + tick trong danh sách như A — không thêm gì khác trên đầu màn. <i>②</i> “N đã chọn” là viên thuốc nổi: chạm nở thành khay hành động, thu về khi cuộn.
+    <span class="ok">✓ Công cụ ② đi theo vùng chọn, không chiếm chỗ cố định.</span> <span class="no">✕ Khay nổi che thẻ; viên thuốc phải học một lần.</span></p></div>
+  <div class="states">
+    <div><div class="stlbl"><i>1</i> Vừa mở — viên thuốc thu gọn</div>
+    <div class="phone"><div class="scr">
+      <div class="grab"></div>
+      <div class="nav"><span class="side dim">Huỷ</span><b>Duyệt giao dịch</b><span class="side">Nhập 20</span></div>
+      <div class="body">
+        <div class="brief"><span class="num">23</span> giao dịch <span class="dot">·</span> ↓ <span class="num">2.140.000 ₫</span> <span class="dot">·</span> <span class="up">↑ <span class="num">0 ₫</span></span></div>
+        <div class="chips">
+          <span class="chip">Nguồn <span class="car">▾</span></span>
+          <span class="chip">Không trùng <span class="cnt">20</span></span>
+          <span class="chip">Tuần này <span class="cnt">9</span></span>
+        </div>
+        <div class="datelbl">26 thg 8</div>
+        <div class="card"><div class="cbody"><div class="t">Highlands Coffee</div><div class="m">MB Bank · 09:41 <span class="cat">· ☕ Ăn uống</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−81.900 ₫</span></div></div>
+        <div class="card"><div class="cbody"><div class="t">Shopee</div><div class="m">Ví MoMo · 14:02 <span class="cat">· 🛍️ Mua sắm</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−245.000 ₫</span></div></div>
+        <div class="fade"></div>
+      </div>
+      <div class="pillc"><span class="dotb"></span>20 đã chọn <small>· chạm để sửa</small></div>
+    </div></div></div>
+    <div><div class="stlbl"><i>2</i> Lọc 12 — khay nở</div>
+    <div class="phone"><div class="scr">
+      <div class="grab"></div>
+      <div class="nav"><span class="side dim">Huỷ</span><b>Duyệt giao dịch</b><span class="side">Nhập 12</span></div>
+      <div class="body">
+        <div class="brief"><span class="num">23</span> giao dịch <span class="dot">·</span> ↓ <span class="num">2.140.000 ₫</span> <span class="dot">·</span> <span class="up">↑ <span class="num">0 ₫</span></span></div>
+        <div class="chips">
+          <span class="chip on">MB Bank <span class="car">▾</span></span>
+          <span class="chip on">Không trùng</span>
+          <span class="chip">Tuần này <span class="cnt">9</span></span>
+        </div>
+        <div class="datelbl">26 thg 8</div>
+        <div class="card hit"><div class="cbody"><div class="t">Highlands Coffee</div><div class="m">MB Bank · 09:41 <span class="cat">· ☕ Ăn uống</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−81.900 ₫</span></div></div>
+        <div class="card miss"><div class="cbody"><div class="t">Shopee</div><div class="m">Ví MoMo · 14:02 <span class="cat">· 🛍️ Mua sắm</span></div></div><div class="rgt"><span class="ckb"></span><span class="amt num">−245.000 ₫</span></div></div>
+        <div class="tray">
+          <div class="trow"><b>12 đã chọn · <span class="num">940.000 ₫</span></b><small>chạm để thu gọn</small></div>
+          <div class="tacts">
+            <button class="vbtn sec">🏷️ Danh mục</button>
+            <button class="vbtn sec">📥 Ghi vào</button>
+            <button class="vbtn ter" style="color:var(--danger)">🗑️</button>
+          </div>
+        </div>
+      </div>
+    </div></div></div>
+    <div><div class="stlbl"><i>3</i> Đã áp dụng — khay thu về</div>
+    <div class="phone"><div class="scr">
+      <div class="grab"></div>
+      <div class="nav"><span class="side dim">Huỷ</span><b>Duyệt giao dịch</b><span class="side">Nhập 12</span></div>
+      <div class="body">
+        <div class="brief"><span class="num">23</span> giao dịch <span class="dot">·</span> ↓ <span class="num">2.140.000 ₫</span> <span class="dot">·</span> <span class="up">↑ <span class="num">0 ₫</span></span></div>
+        <div class="chips">
+          <span class="chip on">MB Bank <span class="car">▾</span></span>
+          <span class="chip on">Không trùng</span>
+          <span class="chip">Tuần này <span class="cnt">9</span></span>
+        </div>
+        <div class="datelbl">26 thg 8</div>
+        <div class="card hit"><div class="cbody"><div class="t">Highlands Coffee</div><div class="m">MB Bank · 09:41 <span class="cat">· ☕ Ăn uống</span> <span class="cat new">· 🔒 Cá nhân</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−81.900 ₫</span></div></div>
+        <div class="card miss"><div class="cbody"><div class="t">Shopee</div><div class="m">Ví MoMo · 14:02 <span class="cat">· 🛍️ Mua sắm</span></div></div><div class="rgt"><span class="ckb"></span><span class="amt num">−245.000 ₫</span></div></div>
+        <div class="card hit"><div class="cbody"><div class="t">Grab</div><div class="m">MB Bank · 08:12 <span class="cat">· 🚗 Di chuyển</span> <span class="cat new">· 🔒 Cá nhân</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−68.000 ₫</span></div></div>
+        <div class="fade"></div>
+      </div>
+      <div class="toast lo" style="bottom:64px">Đã ghi 12 khoản vào 🔒 Cá nhân<b>Hoàn tác</b></div>
+      <div class="pillc"><span class="dotb"></span>12 đã chọn <small>· chạm để sửa</small></div>
+    </div></div></div>
+  </div>
+</div>
+
+<!-- ============================================================ G -->
+<div class="set">
+  <div class="sethead"><span class="tag alt">G · NÂNG CAO</span><b>Nếu / Thì — hai khối kiểu Shortcuts</b>
+    <p><i>①</i> khối “Nếu”: điều kiện xếp dòng, khớp nối và/hoặc là công tắc thật. <i>②</i> khối “Thì”: hành động xếp dòng — một lần Chạy vừa chọn vừa áp dụng, Lưu thành quy tắc dùng lại.
+    <span class="ok">✓ Diễn đạt mọi tổ hợp; nghi thức hằng tuần thành một chạm.</span> <span class="no">✕ Nặng đô làm mặc định — hợp làm tầng nâng cao mở từ A/D.</span></p></div>
+  <div class="states">
+    <div><div class="stlbl"><i>1</i> Vừa mở — quy tắc đã lưu chờ chạy</div>
+    <div class="phone"><div class="scr">
+      <div class="grab"></div>
+      <div class="nav"><span class="side dim">Huỷ</span><b>Duyệt giao dịch</b><span class="side">Nhập 20</span></div>
+      <div class="body">
+        <div class="brief"><span class="num">23</span> giao dịch <span class="dot">·</span> ↓ <span class="num">2.140.000 ₫</span> <span class="dot">·</span> <span class="up">↑ <span class="num">0 ₫</span></span></div>
+        <div class="clus q"><span class="cb"><b>⚡ MB sạch → ☕ Ăn uống · 🔒 Cá nhân</b><small>quy tắc đã lưu · khớp 11 khoản mới</small></span><span class="go">Chạy</span></div>
+        <div class="datelbl">26 thg 8</div>
+        <div class="card"><div class="cbody"><div class="t">Highlands Coffee</div><div class="m">MB Bank · 09:41 <span class="cat">· ☕ Ăn uống</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−81.900 ₫</span></div></div>
+        <div class="card"><div class="cbody"><div class="t">VCB QR • BUN CHA HANG QUAT</div><div class="m">VCB · 24/8 <span class="cat none">· Chưa danh mục</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−45.000 ₫</span></div></div>
+        <div class="card"><div class="cbody"><div class="t">NGUYEN THU TRANG chuyen tien</div><div class="m">MB Bank · 18:20 <span class="dupb">lặp lại?</span></div></div><div class="rgt"><span class="ckb"></span><span class="amt num">−200.000 ₫</span></div></div>
+        <div class="fade"></div>
+      </div>
+    </div></div></div>
+    <div><div class="stlbl"><i>2</i> Trình dựng — Nếu / Thì</div>
+    <div class="phone"><div class="scr">
+      <div class="grab"></div>
+      <div class="nav"><span class="side dim">Huỷ</span><b>Bộ quy tắc</b><span class="side">Lưu</span></div>
+      <div class="body">
+        <div class="blk">
+          <div class="bh">Nếu — điều kiện chọn</div>
+          <div class="rule"><span class="ic">🏦</span><span><small>Nguồn</small>là MB Bank hoặc VCB</span><span class="rx">✕</span></div>
+          <div class="conn"><span class="seg"><span class="on">và</span><span>hoặc</span></span></div>
+          <div class="rule"><span class="ic">👯</span><span><small>Trùng lặp</small>không phải bản trùng</span><span class="rx">✕</span></div>
+        </div>
+        <div class="blk">
+          <div class="bh act">Thì — hành động</div>
+          <div class="rule"><span class="ic">🏷️</span><span><small>Danh mục</small>đặt ☕ Ăn uống</span><span class="rx">✕</span></div>
+          <div class="rule"><span class="ic">📥</span><span><small>Ghi vào</small>🔒 Cá nhân</span><span class="rx">✕</span></div>
+        </div>
+        <div class="verb">
+          <span class="who"><b>Khớp 11 · <span class="num">886.000 ₫</span></b><small>(MB ∪ VCB) ∩ ¬trùng</small></span>
+          <span class="btns"><button class="vbtn pri">Chạy: chọn &amp; áp dụng</button></span>
+        </div>
+        <div class="datelbl">Xem trước</div>
+        <div class="card hit"><div class="cbody"><div class="t">Highlands Coffee</div><div class="m">MB Bank · 26/8 <span class="cat">· ☕ Ăn uống</span></div></div><div class="rgt"><span class="amt num">−81.900 ₫</span></div></div>
+        <div class="card hit"><div class="cbody"><div class="t">VCB QR • BUN CHA HANG QUAT</div><div class="m">VCB · 24/8 <span class="cat none">· Chưa danh mục</span></div></div><div class="rgt"><span class="amt num">−45.000 ₫</span></div></div>
+        <div class="fade"></div>
+      </div>
+    </div></div></div>
+    <div><div class="stlbl"><i>3</i> Đã chạy — chọn 11 &amp; áp 2 hành động</div>
+    <div class="phone"><div class="scr">
+      <div class="grab"></div>
+      <div class="nav"><span class="side dim">Huỷ</span><b>Duyệt giao dịch</b><span class="side">Nhập 11</span></div>
+      <div class="body">
+        <div class="brief"><span class="num">23</span> giao dịch <span class="dot">·</span> ↓ <span class="num">2.140.000 ₫</span> <span class="dot">·</span> <span class="up">↑ <span class="num">0 ₫</span></span></div>
+        <div class="clus q"><span class="cb"><b>⚡ MB sạch → ☕ Ăn uống · 🔒 Cá nhân</b><small>vừa chạy · 11 khoản</small></span><span class="go" style="color:var(--good)">✓ Xong</span></div>
+        <div class="datelbl">26 thg 8</div>
+        <div class="card hit"><div class="cbody"><div class="t">Highlands Coffee</div><div class="m">MB Bank · 09:41 <span class="cat">· ☕ Ăn uống</span> <span class="cat new">· 🔒</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−81.900 ₫</span></div></div>
+        <div class="card hit"><div class="cbody"><div class="t">VCB QR • BUN CHA HANG QUAT</div><div class="m">VCB · 24/8 <span class="cat new">· ☕ Ăn uống · 🔒</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−45.000 ₫</span></div></div>
+        <div class="card miss"><div class="cbody"><div class="t">NGUYEN THU TRANG chuyen tien</div><div class="m">MB Bank · 18:20 <span class="dupb">lặp lại?</span></div></div><div class="rgt"><span class="ckb"></span><span class="amt num">−200.000 ₫</span></div></div>
+        <div class="fade"></div>
+      </div>
+      <div class="toast lo">Đã chọn 11 · đặt ☕ · ghi 🔒<b>Hoàn tác</b></div>
+    </div></div></div>
+  </div>
+</div>
+
+<!-- ============================================================ H -->
+<div class="set">
+  <div class="sethead"><span class="tag">H</span><b>Cụm gợi ý + khay sửa</b>
+    <p><i>①</i> máy đề xuất cụm giao nhau sẵn + “Chọn cả ngày” từng nhóm — VÀ máy tính hộ, HOẶC là chạm thêm cụm. <i>②</i> khay đáy neo khi có vùng chọn — bộ ba hành động, kèm Hoàn tác.
+    <span class="ok">✓ Không có bộ công cụ nào phải học; ca phổ biến một chạm.</span> <span class="no">✕ Tổ hợp ngoài gợi ý phải ghép tay từng cụm.</span></p></div>
+  <div class="states">
+    <div><div class="stlbl"><i>1</i> Vừa mở — cụm gợi ý chờ</div>
+    <div class="phone"><div class="scr">
+      <div class="grab"></div>
+      <div class="nav"><span class="side dim">Huỷ</span><b>Duyệt giao dịch</b><span class="side">Nhập 20</span></div>
+      <div class="body">
+        <div class="brief"><span class="num">23</span> giao dịch <span class="dot">·</span> ↓ <span class="num">2.140.000 ₫</span> <span class="dot">·</span> <span class="up">↑ <span class="num">0 ₫</span></span></div>
+        <div class="clus"><span class="cb"><b>15 khoản từ MB Bank không trùng lặp</b><small>gợi ý từ hàng chờ · 1.180.000 ₫</small></span><span class="go">Chọn cả cụm</span></div>
+        <div class="datelbl row">26 thg 8 <span class="grpsel">Chọn cả ngày</span></div>
+        <div class="card"><div class="cbody"><div class="t">Highlands Coffee</div><div class="m">MB Bank · 09:41 <span class="cat">· ☕ Ăn uống</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−81.900 ₫</span></div></div>
+        <div class="card"><div class="cbody"><div class="t">Shopee</div><div class="m">Ví MoMo · 14:02 <span class="cat">· 🛍️ Mua sắm</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−245.000 ₫</span></div></div>
+        <div class="card"><div class="cbody"><div class="t">Grab</div><div class="m">MB Bank · 08:12 <span class="cat">· 🚗 Di chuyển</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−68.000 ₫</span></div></div>
+        <div class="fade"></div>
+      </div>
+    </div></div></div>
+    <div><div class="stlbl"><i>2</i> Chọn cụm — khay hiện</div>
+    <div class="phone"><div class="scr">
+      <div class="grab"></div>
+      <div class="nav"><span class="side dim">Huỷ</span><b>Duyệt giao dịch</b><span class="side">Nhập 12</span></div>
+      <div class="body">
+        <div class="brief"><span class="num">23</span> giao dịch <span class="dot">·</span> ↓ <span class="num">2.140.000 ₫</span> <span class="dot">·</span> <span class="up">↑ <span class="num">0 ₫</span></span></div>
+        <div class="clus"><span class="cb"><b>✓ Đã chọn cụm MB Bank không trùng</b><small>12 khoản trong trang này</small></span><span class="go">Bỏ chọn</span></div>
+        <div class="datelbl row">26 thg 8 <span class="grpsel">Chọn cả ngày</span></div>
+        <div class="card hit"><div class="cbody"><div class="t">Highlands Coffee</div><div class="m">MB Bank · 09:41 <span class="cat">· ☕ Ăn uống</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−81.900 ₫</span></div></div>
+        <div class="card"><div class="cbody"><div class="t">Shopee</div><div class="m">Ví MoMo · 14:02 <span class="cat">· 🛍️ Mua sắm</span></div></div><div class="rgt"><span class="ckb"></span><span class="amt num">−245.000 ₫</span></div></div>
+        <div class="card hit"><div class="cbody"><div class="t">Grab</div><div class="m">MB Bank · 08:12 <span class="cat">· 🚗 Di chuyển</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−68.000 ₫</span></div></div>
+        <div class="tray">
+          <div class="trow"><b>12 đã chọn</b><small>Hoàn tác</small></div>
+          <div class="tacts">
+            <button class="vbtn sec">🏷️ Danh mục</button>
+            <button class="vbtn sec">📥 Ghi vào</button>
+            <button class="vbtn ter" style="color:var(--danger)">🗑️</button>
+          </div>
+        </div>
+      </div>
+    </div></div></div>
+    <div><div class="stlbl"><i>3</i> Đã áp dụng — khay còn đó</div>
+    <div class="phone"><div class="scr">
+      <div class="grab"></div>
+      <div class="nav"><span class="side dim">Huỷ</span><b>Duyệt giao dịch</b><span class="side">Nhập 12</span></div>
+      <div class="body">
+        <div class="brief"><span class="num">23</span> giao dịch <span class="dot">·</span> ↓ <span class="num">2.140.000 ₫</span> <span class="dot">·</span> <span class="up">↑ <span class="num">0 ₫</span></span></div>
+        <div class="datelbl row">26 thg 8 <span class="grpsel">Chọn cả ngày</span></div>
+        <div class="card hit"><div class="cbody"><div class="t">Highlands Coffee</div><div class="m">MB Bank · 09:41 <span class="cat">· ☕ Ăn uống</span> <span class="cat new">· 🔒 Cá nhân</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−81.900 ₫</span></div></div>
+        <div class="card"><div class="cbody"><div class="t">Shopee</div><div class="m">Ví MoMo · 14:02 <span class="cat">· 🛍️ Mua sắm</span></div></div><div class="rgt"><span class="ckb"></span><span class="amt num">−245.000 ₫</span></div></div>
+        <div class="card hit"><div class="cbody"><div class="t">Grab</div><div class="m">MB Bank · 08:12 <span class="cat">· 🚗 Di chuyển</span> <span class="cat new">· 🔒 Cá nhân</span></div></div><div class="rgt"><span class="ckb on">✓</span><span class="amt num">−68.000 ₫</span></div></div>
+        <div class="fade"></div>
+      </div>
+      <div class="toast lo" style="bottom:104px">Đã ghi 12 khoản vào 🔒 Cá nhân<b>Hoàn tác</b></div>
+      <div class="tray">
+        <div class="trow"><b>12 đã chọn</b><small>Hoàn tác</small></div>
+        <div class="tacts">
+          <button class="vbtn sec">🏷️ Danh mục</button>
+          <button class="vbtn sec">📥 Ghi vào</button>
+          <button class="vbtn ter" style="color:var(--danger)">🗑️</button>
+        </div>
+      </div>
+    </div></div></div>
+  </div>
+</div>
+
+</div>
+</body>
+</html>

@@ -388,3 +388,26 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
 .mv-fact{font-size:14px;color:var(--ink-2);padding:9px 2px;border-bottom:1px solid var(--divider)}
 .mv-fact:last-child{border-bottom:none}
 #sheet-move .cta{margin-top:6px}
+
+/* ── In-review summary (csvSumHTML) — brief + zoom + pannable Chi bar strip ──
+   Top of both review flows. Mirrors the finance widget's bar language
+   (.wcol/.wb in 40-spending-tabs.css) but as a horizontally-scrollable strip:
+   fixed-width columns, oldest→newest, opens pinned to the right end. The
+   amount label rides the tallest bar in view (csvSumLabelSync toggles
+   opacity), so .csum-strip carries top padding to give it headroom. */
+.csum{margin:2px 0 16px}
+.csum-brief{font-size:13px;font-weight:600;color:var(--ink);margin:0 2px 10px}
+.csum-dn{color:var(--ink)}
+.csum-up{color:var(--good)}
+.csum-zoom{display:inline-flex;gap:2px;background:var(--fill-neutral);border-radius:9px;padding:2px;margin:0 0 6px}
+.csum-z{font-size:12px;font-weight:600;color:var(--muted);padding:4px 12px;border-radius:7px}
+.csum-z.on{background:var(--white);color:var(--ink);font-weight:700;box-shadow:0 1px 3px rgba(25,16,34,.12)}
+.csum-strip{display:flex;align-items:flex-end;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:16px 2px 2px;scrollbar-width:none}
+.csum-strip::-webkit-scrollbar{display:none}
+.csum-col{flex:0 0 auto;width:46px;display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.csum-bars{position:relative;height:72px;width:100%;display:flex;align-items:flex-end;justify-content:center}
+.csum-bar{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:min(30px,62%);border-radius:8px 8px 0 0;background:var(--fill-neutral);transition:height .5s cubic-bezier(.3,1,.5,1)}
+.csum-bar.sel{background:var(--good)}   /* the ticked-for-import share, inside the grey queue total */
+.csum-col:active .csum-bar:not(.sel){background:var(--chev)}
+.csum-val{position:absolute;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;color:var(--ink);white-space:nowrap;opacity:0;transition:opacity .2s}
+.csum-lbl{font-size:9px;font-weight:600;color:var(--muted-soft);white-space:nowrap}

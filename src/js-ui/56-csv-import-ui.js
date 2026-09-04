@@ -538,6 +538,8 @@ function csvBuildReview(sources, opts){
   var buckets = bucketCsvCandidates(candidates, mixed);
   var rowsRead = sources.reduce(function(n, src){ return n + src.parsed.rows.length; }, 0);
 
+  csvSumZoom='week'; csvSumScroll=null;   // fresh batch → the summary opens at Week, pinned newest
+
   csvReview = {
     sources: sources,
     parsed: { headers:[], rows:new Array(rowsRead) },   // trust strip reads .rows.length
@@ -951,7 +953,7 @@ function csvCollapsedCard(c, opts){
     var tag = csvStagedSourceTag(c);
     var footBits = [whenTxt, tag].filter(Boolean).map(function(x){ return esc(x); });
     var footHtml = footBits.length ? '<span class="scv-foot">'+footBits.join('<span class="scv-sep">·</span>')+'</span>' : '';
-    return '<div class="bulk-card'+(opts.invalid?' invalid':(opts.attn?' attn':''))+'">' + ck
+    return '<div class="bulk-card'+(opts.invalid?' invalid':(opts.attn?' attn':''))+(opts.dim?' is-dim':'')+'">' + ck
       + '<button type="button" class="bulk-tap scv-tap" onclick="'+opts.tapFn+'" aria-label="'+L('Sửa khoản này','Edit this item')+'">'
       + topHtml
       + '<span class="scv-money">'+amtHtml+catHtml+dupHtml+'</span>'
@@ -960,7 +962,7 @@ function csvCollapsedCard(c, opts){
   }
 
   // File-import flow: unchanged — index label + date header, note, amount·category.
-  return '<div class="bulk-card'+(opts.invalid?' invalid':(opts.attn?' attn':''))+'">' + ck
+  return '<div class="bulk-card'+(opts.invalid?' invalid':(opts.attn?' attn':''))+(opts.dim?' is-dim':'')+'">' + ck
     + '<button type="button" class="bulk-tap" onclick="'+opts.tapFn+'" aria-label="'+L('Sửa khoản này','Edit this item')+'">'
     + csvCardHead(opts.label, opts.dateIso, null, opts.invalid || opts.attn, opts.invalid, opts.timeStr, csvStagedProvider(c), '', '', '')
     + (opts.noPick
@@ -1829,6 +1831,182 @@ window.csvDupSelectFlagged = function(on){
   renderCsvReview(); csvPersistDraft();
 };
 
+/* ── In-review summary — brief line + Ngày/Tuần/Tháng zoom + pannable Chi bars ──
+   A whole-batch overview at the top of BOTH review flows (staged bank-email and
+   file import): every readable row in the queue counts, no exception — ready,
+   folded-in duplicate suspects, held-back money-in, needs-category — because the
+   question it answers is "how big is what I'm looking at?", not "what's ticked?"
+   (the Import button already answers that). It deliberately ignores the dup
+   filter for the same reason.
+
+   Membership is the correctness spine:
+     · Thu  = isIncome rows.
+     · Chi  = plain expenses (!isIncome && !isTransfer && !_xfer).
+     · Transfers / card repayments / self-transfers count in the row total but
+       in NEITHER amount — money moving is not money spent or earned, and
+       adding a card repayment to Chi double-counts the month (the same reason
+       the review holds them back from import).
+     · Merged-away richer-copy twins are in no bucket, so they're excluded by
+       construction — counting both copies of one payment double-counts it.
+     · FX-unresolved rows count as rows but contribute 0đ until a real ₫
+       amount exists — a foreign number added raw would be wrong in any unit.
+   Bars are Chi-only (income in a review batch is a handful of held-back
+   credits; paired bars would be mostly-empty stubs). No-date rows are in the
+   brief's count but can't sit on a timeline.
+
+   TWO LAYERS per bar, same anatomy as the finance widget but a different
+   meaning: the grey back bar is the period's WHOLE queue (the honest total
+   above), the green front bar is the portion currently ticked for import —
+   "of what's here, this much is going into my ledger", live as ticks flip.
+   Green means accepted here, not compared: the widget's this-vs-last-period
+   baseline has no equivalent in a one-off batch. Held-out buckets and folded
+   dup suspects (unticked) are grey-only by construction; in the file flow
+   every ready row imports, so ready bars read fully green — also true. */
+var csvSumZoom = 'week';     // 'day' | 'week' | 'month' — reset per batch in csvBuildReview
+var csvSumScroll = null;     // strip scrollLeft; null = pin to newest (right end)
+var csvSumRaf = 0;
+
+function csvSumData(){
+  var r = csvReview; if(!r) return null;
+  var cands = [];
+  // _sel marks the green layer: a ready row going into the import — ticked in
+  // staged mode, every ready row in the file flow. Held-out buckets never are.
+  r.ready.forEach(function(c){ cands.push({ c:c, sel:(csvStagedMode ? !c._skipImport : true) }); });
+  r.groups.forEach(function(g){ g.items.forEach(function(c){ cands.push({ c:c }); }); });
+  r.dup.forEach(function(d){ if(d.resolved===null) cands.push({ c:d.c }); });   // resolved dups moved into ready/groups (keep) or out (skip)
+  r.deferred.forEach(function(c){ cands.push({ c:c }); });
+  var n=0, thu=0, chi=0, byDay={}, bySel={};
+  cands.forEach(function(e){
+    var c=e.c; n++;
+    var a = (typeof csvFxUnresolved==='function' && csvFxUnresolved(c)) ? 0 : csvBaseAmt(c.amount||0);
+    if(c.isIncome){ thu+=a; return; }
+    if(c.isTransfer || c._xfer) return;
+    chi+=a;
+    if(a>0 && c.dateDisplay){
+      byDay[c.dateDisplay]=(byDay[c.dateDisplay]||0)+a;
+      if(e.sel) bySel[c.dateDisplay]=(bySel[c.dateDisplay]||0)+a;
+    }
+  });
+  return { n:n, thu:thu, chi:chi, byDay:byDay, bySel:bySel };
+}
+/* byDay (ISO 'YYYY-MM-DD' → base đ) → chronological buckets for the zoom.
+   Day collapses to days that have spend (a 90-day backfill in day view is
+   otherwise mostly gaps); Week/Month keep empty periods as zero slots so the
+   time axis stays honest — a gap reads as "nothing that week". */
+function csvSumBuckets(byDay, bySel){
+  var days = Object.keys(byDay).sort();
+  if(!days.length) return [];
+  bySel = bySel || {};
+  var out=[];
+  var iso=function(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+  if(csvSumZoom==='day'){
+    days.forEach(function(k){
+      var d=new Date(k+'T00:00:00');
+      out.push({ s:k, e:k, lbl:d.getDate()+'/'+(d.getMonth()+1), amt:byDay[k], sel:bySel[k]||0 });
+    });
+    return out;
+  }
+  var d0=new Date(days[0]+'T00:00:00'), d1=new Date(days[days.length-1]+'T00:00:00');
+  if(csvSumZoom==='week'){
+    var mon=new Date(d0); mon.setDate(mon.getDate()-((mon.getDay()+6)%7));   // Monday of the first week
+    while(mon<=d1){
+      var end=new Date(mon); end.setDate(end.getDate()+6);
+      var ws=iso(mon), we=iso(end), wa=0, wsel=0;
+      days.forEach(function(k){ if(k>=ws&&k<=we){ wa+=byDay[k]; wsel+=bySel[k]||0; } });
+      out.push({ s:ws, e:we, lbl:mon.getDate()+'/'+(mon.getMonth()+1), amt:wa, sel:wsel });
+      mon.setDate(mon.getDate()+7);
+    }
+    return out;
+  }
+  var m=new Date(d0.getFullYear(), d0.getMonth(), 1);
+  while(m<=d1){
+    var mEnd=new Date(m.getFullYear(), m.getMonth()+1, 0);
+    var ms=iso(m), me=iso(mEnd), ma=0, msel=0;
+    days.forEach(function(k){ if(k>=ms&&k<=me){ ma+=byDay[k]; msel+=bySel[k]||0; } });
+    out.push({ s:ms, e:me, lbl:moAbbr(m.getMonth()), amt:ma, sel:msel });
+    m.setMonth(m.getMonth()+1);
+  }
+  return out;
+}
+function csvSumHTML(){
+  var d = csvSumData(); if(!d || !d.n) return '';
+  var html = '<div class="csum">'
+    + '<div class="csum-brief">'+d.n+' '+L('giao dịch','transactions')
+    + ' · <span class="csum-dn">↓ '+esc(fmt(d.chi))+'</span>'
+    + ' · <span class="csum-up">↑ '+esc(fmt(d.thu))+'</span></div>';
+  var buckets = csvSumBuckets(d.byDay, d.bySel);
+  if(buckets.length){
+    var Z=[['day',L('Ngày','Day')],['week',L('Tuần','Week')],['month',L('Tháng','Month')]];
+    html += '<div class="csum-zoom">'+Z.map(function(z){
+      return '<button type="button" class="csum-z'+(csvSumZoom===z[0]?' on':'')+'" onclick="csvSumZoomGo(\''+z[0]+'\')">'+z[1]+'</button>';
+    }).join('')+'</div>';
+    var max=1; buckets.forEach(function(b){ if(b.amt>max) max=b.amt; });
+    html += '<div class="csum-strip" id="csum-strip" onscroll="csvSumOnScroll(this)">';
+    buckets.forEach(function(b){
+      var h = b.amt>0 ? Math.max(Math.round(b.amt/max*100),4) : 0;
+      // green front bar = the ticked share, same overlay as the widget's
+      // .prev/.cur pair; sel ≤ amt always, so it sits inside the grey
+      var hs = b.sel>0 ? Math.max(Math.round(b.sel/max*100),4) : 0;
+      html += '<div class="csum-col" data-amt="'+b.amt+'" data-s="'+b.s+'" data-e="'+b.e+'" onclick="csvSumTap(this)">'
+        + '<span class="csum-bars">'
+        + (b.amt>0
+            ? '<span class="csum-val num" style="bottom:calc('+h+'% + 3px)">'+esc(fmtK(b.amt))+'</span><i class="csum-bar" style="height:'+h+'%"></i>'
+              + (hs ? '<i class="csum-bar sel" style="height:'+hs+'%"></i>' : '')
+            : '')
+        + '</span><span class="csum-lbl">'+esc(b.lbl)+'</span></div>';
+    });
+    html += '</div>';
+  }
+  return html + '</div>';
+}
+function csvSumZoomGo(z){ csvSumZoom=z; csvSumScroll=null; renderCsvReview(); }
+function csvSumOnScroll(el){
+  csvSumScroll = el.scrollLeft;   // survives the full innerHTML re-render every edit triggers
+  if(csvSumRaf) return;
+  csvSumRaf = requestAnimationFrame(function(){ csvSumRaf=0; csvSumLabelSync(); });
+}
+/* The amount label rides the tallest bar CURRENTLY IN VIEW, recomputed as the
+   strip pans — a label pinned to an off-screen global max helps nobody. */
+function csvSumLabelSync(){
+  var el=document.getElementById('csum-strip'); if(!el) return;
+  var x0=el.scrollLeft, x1=x0+el.clientWidth, best=null, bestAmt=0;
+  for(var i=0;i<el.children.length;i++){
+    var c=el.children[i], mid=c.offsetLeft + c.offsetWidth/2;
+    if(mid<x0 || mid>x1) continue;
+    var a=Number(c.getAttribute('data-amt'))||0;
+    if(a>bestAmt){ bestAmt=a; best=c; }
+  }
+  for(var j=0;j<el.children.length;j++){
+    var v=el.children[j].querySelector('.csum-val');
+    if(v) v.style.opacity = (el.children[j]===best)?'1':'0';
+  }
+}
+function csvSumAfterRender(){
+  var el=document.getElementById('csum-strip'); if(!el) return;
+  el.scrollLeft = (csvSumScroll==null) ? el.scrollWidth : csvSumScroll;   // newest sits at the right end
+  csvSumLabelSync();
+}
+/* Tap a bar → scroll the list to the earliest day-group inside that bar's
+   period. Day groups exist only in the dated ready list; a period whose rows
+   all sit in the held-out sections has no anchor and the tap is a gentle
+   no-op. The scroller is the MODAL body — _persScrollTo is hardcoded to the
+   main #scroll container and would scroll the wrong element here. */
+function csvSumTap(col){
+  var s=col.getAttribute('data-s'), e=col.getAttribute('data-e');
+  var anchors=document.querySelectorAll('#csv-result [id^="csvday-"]');
+  var bestIso=null;
+  for(var i=0;i<anchors.length;i++){
+    var dIso=anchors[i].id.slice(7);
+    if(dIso>=s && dIso<=e && (bestIso===null || dIso<bestIso)) bestIso=dIso;
+  }
+  if(!bestIso) return;
+  var body=document.querySelector('#csv-import-modal .modal-body');
+  var el=document.getElementById('csvday-'+bestIso);
+  if(!body || !el) return;
+  var y=el.getBoundingClientRect().top - body.getBoundingClientRect().top + body.scrollTop - 8;
+  body.scrollTo({ top:Math.max(0,y), behavior:'smooth' });
+}
+
 function renderCsvReview(){
   var out=document.getElementById('csv-result'); if(!out || !csvReview) return;
   var r = csvReview;
@@ -2016,6 +2194,12 @@ function renderCsvReview(){
     html += csvSpendPanel(r);   // the file breakdown panel is import-only
   }
 
+  // In-review summary — above the first bucket in both flows (top of the list
+  // in staged mode, after the file chrome in import mode). Non-sticky by
+  // design: tapping a bar scrolls the list DOWN to that period, so the chart
+  // naturally leaves the viewport, like the personal tab's own card.
+  html += csvSumHTML();
+
   if(attnHtml){
     html += '<div class="group-h attn">'+L('Cần bạn xem','Needs a look')+'</div><div class="csv-cards">'+attnHtml+'</div>';
   }
@@ -2105,12 +2289,17 @@ function renderCsvReview(){
       var k = c.dateDisplay || ''; (dateBuckets[k] = dateBuckets[k] || []).push({ c:c, i:i });
     });
     var keys = Object.keys(dateBuckets).sort().reverse();
+    // Chọn nhanh's conditions mark the list: matches keep full ink, the rest
+    // fade. A highlight, never a hide — every row stays on screen and tickable.
+    var pickOn = csvStagedMode && csvPickCount() > 0;
+    var pickWk = pickOn ? csvPickWeekMax() : 0;
     // The "Ready · N" banner is import-batch framing; staged review is already all
     // ready, so it just adds a count nobody needs. Keep the per-date headers only.
     if(!csvStagedMode) html += '<div class="group-h">'+L('Sẵn sàng','Ready')+' · '+readyCount+'</div>';
     keys.forEach(function(k){
       var label = k ? fmtDayMon(dateBuckets[k][0].c.date) : L('Không rõ ngày','No date');
-      html += '<div class="group-h" style="margin-top:10px">'+esc(label)+'</div><div class="csv-cards">';
+      // id anchors the summary's tap-a-bar scroll (csvSumTap); k is the ISO date
+      html += '<div class="group-h"'+(k?' id="csvday-'+k+'"':'')+' style="margin-top:10px">'+esc(label)+'</div><div class="csv-cards">';
       dateBuckets[k].forEach(function(e){
         var isRepeat = csvIsFlaggedDup(e.c);
         var o = { label:lowConfLabel[e.i] || (L('Khoản chi ','Item ')+(e.i+1)), dateIso:e.c.dateDisplay,
@@ -2118,7 +2307,8 @@ function renderCsvReview(){
                   attn:!!lowConfLabel[e.i], repeat:isRepeat,
                   tapFn:"csvToggleExpand('ready',"+e.i+")", removeFn:"csvReadyRemove("+e.i+")" };
         if(csvStagedMode){ o.checkFn = "csvStagedToggle("+e.i+")"; o.checked = !e.c._skipImport;
-                           o.armed = (csvArmedRemove === e.i); }
+                           o.armed = (csvArmedRemove === e.i);
+                           o.dim = pickOn && !csvPickMatch(e.c, pickWk); }
         /* Staged expanded card wears the settings-rows layout with its own CTA
            bar (delete / apply-to-similar / import-one) — the explicit Xong
            button belongs to the file workbench; here the header collapse and
@@ -2168,6 +2358,7 @@ function renderCsvReview(){
 
   out.classList.toggle('staged', !!csvStagedMode);   // scopes the calm-list CSS overrides (74-mailbox.css)
   out.innerHTML = html;
+  csvSumAfterRender();   // re-pin the summary strip (zoom + scroll survive the innerHTML rebuild)
   var pick=document.getElementById('csv-pick'); if(pick) pick.style.display='none';
 
   csvPersistDraft();
@@ -2183,6 +2374,7 @@ function renderCsvReview(){
   // Same contract for the row-picker overlay: repaint from state every render,
   // clear itself whenever its card is gone.
   csvRowSheetSync();
+  csvToolSheetSync();
 }
 
 /* ---- inline expansion handlers ------------------------------------------- */
@@ -2236,7 +2428,6 @@ function csvStagedSelected(){
 function csvStagedToggle(i){
   if(!csvReview) return;
   var c = csvReview.ready[i]; if(!c) return;
-  if(typeof csvTxrSmartKey !== 'undefined') csvTxrSmartKey = null;   // a hand-tick overrides the chip's claim
   csvDisarmRemove();                 // ticking is not confirming a delete
   /* A foreign-denominated row cannot be SELECTED until someone types its VND
      amount — selecting is asking to import, and there is no figure to import
@@ -2285,10 +2476,8 @@ var csvSelTouched = false;
 
 function csvBulkReset(){
   csvBulkArmed = false; csvSelTouched = false;
-  csvTxrOpen = null; csvTxrRoom = 'sel'; csvTxrDim = 'all';
-  csvTxrPendCat = null; csvTxrPendAll = null; csvTxrSrcStage = {};
-  csvTxrSmartKey = null;
-  csvTxrAuto = false; csvTxrKey = null;
+  csvToolSheet = null; csvEditRow = null;
+  csvPickF = { src:{}, dup:null, nocat:false, week:false };
 }
 
 function csvStagedSelectAll(on){
@@ -2324,14 +2513,15 @@ function csvBulkCat(name){
    move rows the person never selected. Explicit on the selection, untouched
    everywhere else. */
 function csvBulkScope(v){
-  if(!csvReview) return;
-  var sel = csvStagedSelected(); if(!sel.length) return;
+  if(!csvReview) return false;
+  var sel = csvStagedSelected(); if(!sel.length) return false;
   if(v==='personal' && !csvScopeReady()){
     toast(L('Mở khoá sổ cá nhân ở tab Cá nhân trước','Unlock your personal ledger first'));
-    return;
+    return false;
   }
   sel.forEach(function(c){ c._scope = v; });
   renderCsvReview();
+  return true;
 }
 
 /* Retire the selection. Arm-then-confirm (DESIGN: destructive is low-prominence
@@ -2355,46 +2545,35 @@ function csvBulkDelete(){
   toast(L('Đã xoá '+sel.length+' khoản','Removed '+sel.length));
 }
 
-/* ---- The staged-review tools header (#txh) --------------------------------
+/* ---- The staged toolbox (#txh): two tools, one handoff --------------------
 
-   One card between the nav and the scroller. The header row is the panel's
-   whole voice — count, instruction, or what Xong is about to do — beside one
-   text action (Thao tác hàng loạt ⇄ Xong). The panel below leads with its
-   room pill (mode before matter), then the room.
+   Redesigned from the four-room header (mockups/bulk-select-tools.html, B).
+   The old smart-set chips were radios: one claim owned the whole selection,
+   so "from MB Bank AND not a duplicate" was unsayable, and the duplicate flag
+   only ever filtered the view. Two named tools replace the rooms:
 
-   THE GRAMMAR, one verb per layer: a tap STAGES a draft (elevation, never a
-   stroke — selection rises, it is not outlined); drafts are MECE across rooms
-   and survive switching, and the header narrates the whole basket; XONG
-   commits everything staged and closes; the ledger's true write stays Nhập.
-   Delete is the one exception — its own room, arm-then-confirm with the
-   count, and Xong never touches it.
+   ① Chọn nhanh — condition chips. OR inside a group (tick MB and VCB),
+     AND between groups (Nguồn ∩ Không trùng). Three verbs act on the matched
+     set: Chọn (replace the ticks), Chọn thêm (add), Bỏ chọn (remove) — chained
+     verbs compose any combination without a query language. Conditions stay on
+     after the sheet closes: the button wears their count and non-matching
+     cards fade, so the cut stays visible in the list itself.
 
-   Rooms: Danh mục (the Telegram rail — rests as bare discs, blooms labels
-   under the finger, the container height animating so growth is caused only
-   by touch) · Ghi vào (dimension tabs: Tất cả = two-disc rail for the queue's
-   default; Theo nguồn = one row per bank with a tiny two-icon switcher that
-   LIFTS on press — haptic-touch lift: the control rises as an overlay, the
-   panel softens behind a blur, choices appear at full identity, release
-   stages) · Xoá (unchanged).
+   ② Chỉnh sửa — acts on the ticked rows: category, destination, standing
+     per-source routes, delete. Every action applies at once — the card marks,
+     the ticks and the Nhập label are the receipt; a toast names what happened.
+     The old basket-then-Xong step is gone: one tap staged, a second committed,
+     and nobody could tell which state they were in.
 
-   Per-source routes persist (FH_SRC_ROUTES) and feed csvRowScope as the
-   default for rows that arrive later — client-side "tự động từ giờ"; the
-   pipeline-level version (sealing to the right key at staging time) is a
-   planned follow-up, deliberately not smuggled in here.
-
-   Motion rules: FLIP the panel between rooms (hold old height, swap, ease);
-   in-place class updates for picks — a rebuild under the finger resets the
-   rail's bloom, which reads as a dead control. */
-var csvTxrOpen = null;        // null | 'bulk'
-var csvTxrRoom = 'sel';       // 'sel' | 'cat' | 'scope' | 'del' — Chọn first: select, then edit
-var csvTxrDim = 'all';        // Ghi vào dimension: 'all' | 'src'
-var csvTxrPendCat = null;     // staged category
-var csvTxrPendAll = null;     // staged default ledger ('personal'|'family')
-var csvTxrSrcStage = {};      // staged per-source routes: provider -> ledger
-var csvTxrAuto = false;       // auto-opened the panel once this build
-var csvTxrKey = null;         // panel content key — rebuild only when it changes
-
+   Both tools are sheets INSIDE the modal — the global .sheet layer (z 60)
+   sits under modals (z 62), the same reason #csv-rowsheet lives here.
+   csvTxrHeadSync keeps its name and call sites; it now paints two buttons. */
 var CSV_TXR_I_SEL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h9M4 12h9M4 18h9"/><path d="m15.5 11.5 2.5 2.5 5-5.5"/></svg>';
+var CSV_TXB_I_EDIT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+var CSV_TXB_I_TAG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8Z"/><path d="M7.5 7.5h.01"/></svg>';
+var CSV_TXB_I_BOOK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5h13l3.5 7v5a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-5Z"/></svg>';
+var CSV_TXB_I_BANK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 4l9 5.5"/><path d="M5 10v7M9.7 10v7M14.3 10v7M19 10v7"/><path d="M3 20h18"/></svg>';
+var CSV_TXB_I_TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6.5 7l1 13h9l1-13"/></svg>';
 
 function csvTxrEmo(v){ return v === 'personal' ? '🔒' : '🏡'; }
 function csvTxrLbl(v){ return v === 'personal' ? L('🔒 Cá nhân','🔒 Personal') : L('🏡 Gia đình','🏡 Family'); }
@@ -2418,7 +2597,7 @@ function csvTxrRouteSave(){
   try{ localStorage.setItem(FH_SRC_ROUTES, JSON.stringify(csvTxrRoutes)); }catch(e){}
 }
 
-/* The queue grouped by source bank — the unit the Theo nguồn tab routes. */
+/* The queue grouped by source bank — the unit ② routes and ① filters by. */
 function csvTxrGroups(){
   var groups = {};
   ((csvReview && csvReview.ready) || []).forEach(function(c, i){
@@ -2429,403 +2608,274 @@ function csvTxrGroups(){
   return groups;
 }
 
-/* ---- the header row: one narrator ---- */
-function csvTxrBasketHTML(){
-  var bits = [];
-  if(csvTxrPendCat){
-    var st = (window.catStyle && window.catStyle[csvTxrPendCat]) || ['🏷️'];
-    bits.push(st[0] + ' ' + csvTxrPendCat);
-  }
-  if(csvTxrPendAll) bits.push(csvTxrLbl(csvTxrPendAll));
-  var routes = Object.keys(csvTxrSrcStage).length;
-  if(routes) bits.push(routes + ' ' + L('tuyến nguồn','source routes'));
-  return bits.length ? bits.join(' · ') : null;
+/* ---- toolbox state ---- */
+var csvToolSheet = null;   // null | 'pick' | 'edit'
+var csvEditRow = null;     // ②'s open accordion row: null | 'cat' | 'scope' | 'src'
+/* ①'s conditions. src is a set (OR between its keys); dup is three-valued
+   (null = either, 'no' = only clean, 'yes' = only suspects); the rest are
+   plain toggles. AND between the groups is just every check having to pass. */
+var csvPickF = { src:{}, dup:null, nocat:false, week:false };
+
+function csvPickCount(){
+  return Object.keys(csvPickF.src).length + (csvPickF.dup ? 1 : 0)
+    + (csvPickF.nocat ? 1 : 0) + (csvPickF.week ? 1 : 0);
 }
-function csvTxrRowHTML(){
-  var sel = csvStagedSelected(), n = sel.length, sum = 0;
-  sel.forEach(function(c){ sum += csvBaseAmt(c.amount); });
-  var fig = n ? esc(fmt(sum)) : '<span class="dim">—</span>';
-  var open = csvTxrOpen === 'bulk';
-  if(!open){
-    var cap = n ? L('Sẽ nhập '+n+' khoản','Importing '+n) : L('Chưa chọn khoản nào','Nothing selected');
-    return '<span class="txh-sum"><small>'+esc(cap)+'</small><b>'+fig+'</b></span>'
-      + '<button type="button" class="txh-act" onclick="csvTxrTool(\'bulk\')">'
-      + esc(L('Chỉnh sửa hàng loạt','Bulk edit')) + '</button>';
+/* "Tuần này" is anchored to the QUEUE's newest row, not the wall clock — a
+   backfill reviewed on Monday is all last week, and a clock-anchored week
+   would match nothing while looking broken. */
+function csvPickWeekMax(){
+  var maxT = 0;
+  ((csvReview && csvReview.ready) || []).forEach(function(c){ if(c.date && +c.date > maxT) maxT = +c.date; });
+  return maxT;
+}
+function csvPickMatch(c, weekMax){
+  var srcs = Object.keys(csvPickF.src);
+  if(srcs.length){
+    var p = (typeof csvStagedProvider === 'function' && csvStagedProvider(c)) || L('Khác','Other');
+    if(!csvPickF.src[p]) return false;
   }
-  /* A FIXED SHAPE: the words never change, only the two numbers do (and they
-     are tabular, so even digits hold their ground). A caption that reshaped
-     per state — narration here, instruction there — flicked with every tap;
-     stability is the header keeping its word about where things live. The
-     edit-count turns brand when the basket has content: color signals, length
-     never does. Xong's toast still names the edits in full. */
-  var k = (csvTxrPendCat ? 1 : 0) + (csvTxrPendAll ? 1 : 0) + Object.keys(csvTxrSrcStage).length;
-  var allOn = n > 0 && n === csvReview.ready.length;
-  var mg = (csvReview && csvReview.mergedCount) || 0;
-  var small = '<span class="'+(k ? 'arm' : '')+'">'
-    + esc(L('Sẽ nhập ','Importing ')) + '<span class="num">'+n+'</span>' + esc(L(' khoản',''))
-    + ' · <span class="num">'+k+'</span> ' + esc(L('thao tác','edits'))
-    + '</span>'
-    /* Merged copies are counted out loud. They are gone from the list because
-       there is nothing to decide about them, but a row that disappears without
-       a word is the one failure this screen exists to prevent. */
-    + (mg ? '<span class="txh-merged"> · ' + esc(L('đã gộp ' + mg + ' bản trùng', mg + ' merged')) + '</span>' : '')
-    + ' <button type="button" class="txh-sublink" onclick="csvStagedSelectAll(' + (allOn ? 'false' : 'true') + ')">'
-    + esc(allOn ? L('Bỏ chọn','Clear') : L('Chọn tất cả','Select all')) + '</button>';
-  return '<span class="txh-sum"><small>'+small+'</small><b>'+fig+'</b></span>'
-    + '<button type="button" class="txh-act on" onclick="csvTxrTool(\'bulk\')">'+esc(L('Xong','Done'))+'</button>';
+  if(csvPickF.dup === 'no' && csvIsFlaggedDup(c)) return false;
+  if(csvPickF.dup === 'yes' && !csvIsFlaggedDup(c)) return false;
+  if(csvPickF.nocat && c.categoryName) return false;
+  if(csvPickF.week && !(c.date && (weekMax - +c.date) < 7 * 864e5)) return false;
+  return true;
+}
+function csvPickMatches(){
+  var wk = csvPickWeekMax();
+  return ((csvReview && csvReview.ready) || []).filter(function(c){ return csvPickMatch(c, wk); });
 }
 
-/* ---- room bodies ---- */
-function csvTxrCatRail(){
-  return '<div class="txh-rail" id="txh-rail">' + csvAllCats().map(function(name){
-    var st = (window.catStyle && window.catStyle[name]) || ['🏷️'];
-    return '<button type="button" class="txh-it'+(csvTxrPendCat===name?' on':'')+'" data-v="'+escAttr(name)+'" onclick="csvTxrPickCat(this)">'
-      + '<span class="e">'+st[0]+'</span><span class="l">'+esc(name)+'</span></button>';
-  }).join('') + '</div>';
-}
-function csvTxrAllRail(){
-  var it = function(v, vi, en){
-    var cls = csvTxrPendAll === v ? ' on' : (csvStagedScope() === v && !csvTxrPendAll ? ' setd' : '');
-    return '<button type="button" class="txh-it'+cls+'" data-v="'+v+'" onclick="csvTxrAllPick(\''+v+'\')">'
-      + '<span class="e">'+csvTxrEmo(v)+'</span><span class="l">'+L(vi,en)+'</span></button>';
-  };
-  return '<div class="txh-rail txh-allrail" id="txh-rail">'
-    + it('personal','Cá nhân','Personal') + it('family','Gia đình','Family') + '</div>';
-}
-function csvTxrSrcRows(){
-  var g = csvTxrGroups(), ps = Object.keys(g).sort();
-  return '<div class="txh-srcs">' + ps.map(function(p){
-    var staged = csvTxrSrcStage[p];
-    var cur = staged || csvTxrRoutes[p] || csvStagedScope();
-    var seg = function(v){ return '<span class="'+(cur===v?'cur':'')+'">'+csvTxrEmo(v)+'</span>'; };
-    return '<div class="txh-srcrow"><b>'+esc(p)+'</b>'
-      + '<span class="m">'+g[p].n+' · '+esc(fmt(g[p].sum))+'</span>'
-      + '<button type="button" class="txh-mini'+(staged?' on':(csvTxrRoutes[p]?'':' inh'))+'"'
-        + ' data-p="'+escAttr(p)+'" data-cur="'+cur+'">'
-        + seg('personal') + seg('family') + '</button>'
-      + '</div>';
-  }).join('') + '</div>';
-}
-/* ---- the Chọn room: select BEFORE you edit --------------------------------
-   Rows arrive all-ticked for Import, so "selection" never used to happen as an
-   intentional act — the panel now LANDS here. Chips name the sets that exist
-   in the queue, with live counts: one tap claims a set, the same tap releases
-   it, and a hand-tick anywhere releases the chip's claim (the person is
-   overriding). Foraging by kind — pick "all ripe berries", never berry by
-   berry. */
-var csvTxrSmartKey = null;
-function csvTxrSmartSets(){
-  var ready = (csvReview && csvReview.ready) || [], maxT = 0;
-  ready.forEach(function(c){ if(c.date && +c.date > maxT) maxT = +c.date; });
-  var sets = [
-    { k:'all',   label:L('Tất cả','All'),                   test:function(){ return true; } },
-    { k:'nocat', label:L('Chưa có danh mục','No category'),  test:function(c){ return !c.categoryName; } },
-    { k:'week',  label:L('Tuần này','This week'),            test:function(c){ return c.date && (maxT - +c.date) < 7 * 864e5; } },
-  ];
-  var banks = {};
-  ready.forEach(function(c){ var p = (typeof csvStagedProvider === 'function' && csvStagedProvider(c)) || ''; if(p) banks[p] = 1; });
-  Object.keys(banks).sort().forEach(function(p){
-    sets.push({ k:'bank:'+p, label:L('Từ '+p,'From '+p), test:function(c){ return csvStagedProvider(c) === p; } });
-  });
-  return sets.map(function(x){ x.n = ready.filter(function(c){ return x.test(c); }).length; return x; })
-             .filter(function(x){ return x.n > 0; });
-}
-function csvTxrSmartPick(k){
-  var hit = null; csvTxrSmartSets().forEach(function(x){ if(x.k === k) hit = x; });
-  if(!hit) return;
-  if(csvTxrSmartKey === k){
-    csvTxrSmartKey = null;
-    (csvReview.ready || []).forEach(function(c){ c._skipImport = true; });
-  } else {
-    csvTxrSmartKey = k;
-    // The chip's claim still never selects an unresolved foreign row (FX gate).
-    (csvReview.ready || []).forEach(function(c){ c._skipImport = !hit.test(c) || csvFxUnresolved(c); });
-  }
-  csvSelTouched = true; csvTxrKey = null;
+/* Condition toggles. Each one re-renders the whole review, so the sheet's
+   live count, the button badge and the card fading move together. */
+function csvPickSrcTgl(p){
+  if(csvPickF.src[p]) delete csvPickF.src[p]; else csvPickF.src[p] = 1;
   renderCsvReview();
 }
-function csvTxrSmartHTML(){
-  return '<div class="txh-smart">' + csvTxrSmartSets().map(function(x){
-    return '<button type="button" class="' + (csvTxrSmartKey === x.k ? 'on' : '') + '"'
-      + ' onclick="csvTxrSmartPick(\'' + escAttr(x.k) + '\')">' + esc(x.label) + ' <span>' + x.n + '</span></button>';
-  }).join('') + '</div>';
+function csvPickDupTgl(v){ csvPickF.dup = (csvPickF.dup === v) ? null : v; renderCsvReview(); }
+function csvPickNocatTgl(){ csvPickF.nocat = !csvPickF.nocat; renderCsvReview(); }
+function csvPickWeekTgl(){ csvPickF.week = !csvPickF.week; renderCsvReview(); }
+function csvPickClear(){ csvPickF = { src:{}, dup:null, nocat:false, week:false }; renderCsvReview(); }
+
+/* The three verbs. 'set' replaces the ticks with the matched set, 'add' unions
+   it in, 'sub' takes it out — run twice with different conditions they compose
+   any AND/OR/NOT combination. The FX gate holds everywhere: an unresolved
+   foreign row is never ticked by a verb, same as by hand (0112). */
+function csvPickApply(mode){
+  if(!csvReview) return;
+  var wk = csvPickWeekMax();
+  csvDisarmRemove(); csvFlushExpand(); csvExpand = null;
+  (csvReview.ready || []).forEach(function(c){
+    var m = csvPickMatch(c, wk);
+    if(mode === 'set') c._skipImport = !m || csvFxUnresolved(c);
+    else if(mode === 'add'){ if(m && !csvFxUnresolved(c)) c._skipImport = false; }
+    else if(m) c._skipImport = true;
+  });
+  csvSelTouched = true;
+  csvToolSheet = null;               // one gesture, one outcome: the verb closes the sheet
+  renderCsvReview();
 }
 
-function csvTxrDimTabs(){
-  var tab = function(d, label){
-    return '<button type="button" class="'+(csvTxrDim===d?'on':'')+'" onclick="csvTxrDimGo(\''+d+'\')">'+esc(label)+'</button>';
-  };
-  return '<div class="txh-tabs">'+tab('all',L('Tất cả','All'))+tab('src',L('Theo nguồn','By source'))+'</div>';
-}
-
-function csvTxrBulkHTML(){
-  var n = csvStagedSelected().length, dis = n ? '' : ' disabled';
-  var room = function(k, label){
-    return '<button type="button" class="'+(csvTxrRoom===k?'on ':'')+(k==='del'?'danger':'')+'" onclick="csvTxrRoomGo(\''+k+'\')">'+esc(label)+'</button>';
-  };
-  var h = '<div class="txh-bot"><span class="txh-rooms"><span>'
-    + room('sel', L('Chọn','Select'))
-    + room('cat', L('Danh mục','Category'))
-    + room('scope', L('Ghi vào','Where'))
-    + room('del', L('Xoá','Delete'))
-    + '</span></span></div>';
-  if(csvTxrRoom === 'sel'){
-    h += csvTxrSmartHTML();
-  } else if(csvTxrRoom === 'cat'){
-    h += csvTxrCatRail();
-  } else if(csvTxrRoom === 'scope'){
-    h += csvTxrDimTabs() + (csvTxrDim === 'src' ? csvTxrSrcRows() : csvTxrAllRail());
-  } else {
-    h += '<div class="txh-del">'
-      + '<span class="txh-del-txt'+(csvBulkArmed?' armed':'')+'">'
-        + '<b>'+esc(csvBulkArmed ? L('Chắc chưa? Không hoàn tác được.','Sure? This cannot be undone.')
-                                 : L('Gỡ '+n+' khoản đã chọn khỏi hàng chờ','Remove the '+n+' selected from the queue'))+'</b>'
-        + '<span>'+esc(csvBulkArmed ? L('Chạm nút lần nữa để xoá.','Tap the button again to delete.')
-                                    : L('Không hoàn tác được.','Cannot be undone.'))+'</span>'
-      + '</span>'
-      + '<button type="button" class="txh-delbtn'+(csvBulkArmed?' armed':'')+'"'+dis+' onclick="csvTxrDel()">'
-        + esc(csvBulkArmed ? L('Xoá '+n+' khoản?','Delete '+n+'?') : L('Xoá '+n,'Delete '+n))+'</button>'
-      + '</div>';
+/* ---- opening and closing ---- */
+function csvToolOpen(which){
+  if(which === 'edit' && !csvStagedSelected().length){
+    toast(L('Chưa chọn khoản nào. Chạm ô chọn trên thẻ trước nhé.','Nothing selected yet. Tap a checkbox on a card first.'));
+    return;
   }
+  csvDisarmRemove(); csvFlushExpand(); csvExpand = null; csvRowSheet = null;
+  csvToolSheet = which; csvEditRow = null;
+  renderCsvReview();
+}
+function csvToolClose(){ csvToolSheet = null; csvBulkArmed = false; renderCsvReview(); }
+
+/* ---- the header: two named buttons ---- */
+function csvTxrHeadSync(){
+  var head = document.getElementById('txh'); if(!head) return;
+  if(!csvStagedMode || !csvReview){ head.innerHTML = ''; csvToolSheet = null; return; }
+  var n = csvStagedSelected().length, f = csvPickCount();
+  head.innerHTML = '<div class="txb">'
+    + '<button type="button" class="txb-b'+(f ? ' on' : '')+'" onclick="csvToolOpen(\'pick\')">'
+      + '<span class="txb-ic">'+CSV_TXR_I_SEL+'</span>'+esc(L('Chọn nhanh','Quick select'))
+      + (f ? '<span class="txb-n">'+f+'</span>' : '')+'</button>'
+    + '<button type="button" class="txb-b" onclick="csvToolOpen(\'edit\')">'
+      + '<span class="txb-ic">'+CSV_TXB_I_EDIT+'</span>'+esc(L('Chỉnh sửa','Edit'))
+      + '<span class="txb-n">'+n+'</span></button>'
+    + '</div>';
+}
+
+/* ---- sheet ①: Chọn nhanh ---- */
+function csvPickChip(on, label, cnt, fn){
+  return '<button type="button" class="ctp-chip'+(on ? ' on' : '')+'" onclick="'+fn+'">'
+    + esc(label)+(cnt != null ? ' <span class="ctp-n">'+cnt+'</span>' : '')+'</button>';
+}
+function csvPickSheetHTML(){
+  var ready = (csvReview && csvReview.ready) || [];
+  var g = csvTxrGroups(), ps = Object.keys(g).sort();
+  var dupN = ready.filter(csvIsFlaggedDup).length;
+  var nocatN = ready.filter(function(c){ return !c.categoryName; }).length;
+  var wk = csvPickWeekMax();
+  var weekN = ready.filter(function(c){ return c.date && (wk - +c.date) < 7 * 864e5; }).length;
+  var f = csvPickCount();
+  var m = csvPickMatches(), sum = 0;
+  m.forEach(function(c){ if(!csvFxUnresolved(c)) sum += csvBaseAmt(c.amount); });
+
+  var h = '<div class="cts-h"><b>'+esc(L('Chọn nhanh','Quick select'))+'</b>'
+    + (f ? '<button type="button" class="cts-link" onclick="csvPickClear()">'+esc(L('Xoá lọc','Clear filters'))+'</button>' : '')
+    + '</div>';
+  h += '<div class="ctp-g"><div class="ctp-l">'+esc(L('Nguồn','Source'))+'</div><div class="ctp-r">'
+    + ps.map(function(p){ return csvPickChip(!!csvPickF.src[p], p, g[p].n, "csvPickSrcTgl('"+escAttr(p)+"')"); }).join('')
+    + '</div></div>';
+  if(dupN){
+    h += '<div class="ctp-g"><div class="ctp-l">'+esc(L('Trùng lặp','Duplicates'))+'</div><div class="ctp-r">'
+      + csvPickChip(csvPickF.dup === 'no', L('Không trùng','Not duplicates'), ready.length - dupN, "csvPickDupTgl('no')")
+      + csvPickChip(csvPickF.dup === 'yes', L('Có thể trùng','Possible duplicates'), dupN, "csvPickDupTgl('yes')")
+      + '</div></div>';
+  }
+  if(nocatN || weekN){
+    h += '<div class="ctp-g"><div class="ctp-l">'+esc(L('Thêm nữa','More'))+'</div><div class="ctp-r">'
+      + (nocatN ? csvPickChip(csvPickF.nocat, L('Chưa có danh mục','No category yet'), nocatN, 'csvPickNocatTgl()') : '')
+      + (weekN ? csvPickChip(csvPickF.week, L('Tuần này','This week'), weekN, 'csvPickWeekTgl()') : '')
+      + '</div></div>';
+  }
+  h += '<div class="ctp-m">'
+    + (m.length
+        ? '<b>'+esc(L('Khớp '+m.length+' khoản','Matches '+m.length))+'</b><span class="num">'+esc(fmt(sum))+'</span>'
+        : '<b>'+esc(L('Không khoản nào khớp. Nới bớt điều kiện nhé.','Nothing matches. Loosen a condition.'))+'</b>')
+    + '</div>';
+  var dis = m.length ? '' : ' disabled';
+  h += '<div class="cts-verbs">'
+    + '<button type="button" class="cts-btn ter"'+dis+' onclick="csvPickApply(\'sub\')">'+esc(L('Bỏ chọn','Unselect'))+'</button>'
+    + '<button type="button" class="cts-btn sec"'+dis+' onclick="csvPickApply(\'add\')">'+esc(L('Chọn thêm','Add'))+'</button>'
+    + '<button type="button" class="cts-btn pri"'+dis+' onclick="csvPickApply(\'set\')">'+esc(L('Chọn '+m.length,'Select '+m.length))+'</button>'
+    + '</div>';
   return h;
 }
 
-/* ---- sync: persistent skeleton, one key, FLIP between states ---- */
-function csvTxrHeadSync(){
-  var head = document.getElementById('txh'); if(!head) return;
-  if(!csvStagedMode || !csvReview){ head.innerHTML = ''; csvTxrKey = null; csvTxrLiftClose(); return; }
-  if(!head.firstChild){
-    head.innerHTML = '<div class="txh-card">'
-      + '<div class="txh-row" id="txh-row"></div>'
-      + '<div class="txh-fold" id="txh-fold"><div><div class="txh-panel" id="txh-panel"></div></div></div>'
-      + '</div>';
-    csvTxrKey = null;
-  }
-  if(csvSelTouched && !csvTxrAuto){ csvTxrAuto = true; if(!csvTxrOpen) csvTxrOpen = 'bulk'; }
+/* ---- sheet ②: Chỉnh sửa ---- */
+function csvEditRowGo(k){ csvEditRow = (csvEditRow === k) ? null : k; csvBulkArmed = false; renderCsvReview(); }
 
-  document.getElementById('txh-row').innerHTML = csvTxrRowHTML();
-
-  var n = csvStagedSelected().length;
-  var stageKey = Object.keys(csvTxrSrcStage).sort().map(function(k){ return k + '=' + csvTxrSrcStage[k]; }).join(',');
-  var key = [csvTxrOpen, csvTxrRoom, csvTxrDim, n, csvBulkArmed?1:0, LANG, csvReview.ready.length,
-             csvTxrPendCat||'', csvTxrPendAll||'', csvTxrSmartKey||'', stageKey].join('|');
-  var panel = document.getElementById('txh-panel');
-  if(key !== csvTxrKey){
-    /* FLIP: hold the height the eye already has, swap, ease to the new one.
-       A teleport between room heights reads as breakage. */
-    var before = panel.offsetHeight;
-    csvTxrKey = key;
-    panel.innerHTML = !csvTxrOpen ? '' : csvTxrBulkHTML();
-    if(csvTxrOpen === 'bulk'){ csvTxrRailWire(); csvTxrLiftWire(); }
-    var after = panel.scrollHeight;
-    if(before && Math.abs(after - before) >= 3){
-      panel.style.height = before + 'px';
-      panel.offsetHeight;                        // commit the starting frame
-      panel.style.height = after + 'px';
-      var done = function(){ panel.style.height = ''; panel.removeEventListener('transitionend', done); };
-      panel.addEventListener('transitionend', done);
-    }
+function csvEditCat(name){
+  csvToolSheet = null; csvEditRow = null;
+  csvBulkCat(name);                  // stamps, learns, re-renders, says so
+}
+function csvEditScope(v){
+  if(v === 'personal' && !csvScopeReady()){
+    toast(L('Mở khoá sổ cá nhân ở tab Cá nhân trước','Unlock your personal ledger first'));
+    return;
   }
-  var fold = document.getElementById('txh-fold');
-  if(csvTxrOpen && !fold.classList.contains('open')){
-    (window.requestAnimationFrame || function(f){ f(); })(function(){ fold.classList.add('open'); });
-  } else {
-    fold.classList.toggle('open', !!csvTxrOpen);
+  var n = csvStagedSelected().length; if(!n) return;
+  csvToolSheet = null; csvEditRow = null;
+  csvBulkScope(v);                   // stamps the selection only, re-renders
+  toast(esc(v === 'personal'
+    ? L(n + ' khoản sẽ vào sổ Cá nhân', n + ' will go to your personal book')
+    : L(n + ' khoản sẽ vào sổ Gia đình', n + ' will go to the family book')));
+}
+/* A route is a standing rule: this bank's rows go to that book, now and every
+   time after. Saved under the canonical bank name and applied to the bank's
+   rows in the queue right away, exactly what the old Theo nguồn commit did. */
+function csvEditRoute(p, v){
+  if(v === 'personal' && !csvScopeReady()){
+    toast(L('Mở khoá sổ cá nhân ở tab Cá nhân trước','Unlock your personal ledger first'));
+    return;
   }
+  if(csvTxrRoutes[p] === v) return;   // already routed there; nothing to say
+  csvTxrRoutes[p] = v;
+  csvTxrRouteSave();
+  var g = csvTxrGroups();
+  (g[p] ? g[p].idx : []).forEach(function(i){ var c = csvReview.ready[i]; if(c) c._scope = v; });
+  renderCsvReview();
+  toast(esc(v === 'personal'
+    ? L(p + ' sẽ vào sổ Cá nhân, cả các lần sau', p + ' goes to your personal book from now on')
+    : L(p + ' sẽ vào sổ Gia đình, cả các lần sau', p + ' goes to the family book from now on')));
+}
+function csvEditDel(){
+  var armed = csvBulkArmed;
+  if(armed) csvToolSheet = null;      // the confirm closes the sheet with the act
+  csvBulkDelete();                    // arms on the first call, deletes on the second
 }
 
-/* The rail grows under a touch and shrinks when it leaves — the container's
-   own height animates, so the growth is smooth and caused only by the finger.
-   Also grabbable with a mouse (drag → scrollLeft); a drag past 4px suppresses
-   the click it would otherwise spawn. */
-var csvTxrRailDragged = false;
-function csvTxrRailWire(){
-  var rail = document.getElementById('txh-rail'); if(!rail) return;
-  var t = null;
-  var big = function(){ clearTimeout(t); rail.classList.add('big'); };
-  var calm = function(ms){ clearTimeout(t); t = setTimeout(function(){ rail.classList.remove('big'); }, ms); };
-  rail.addEventListener('pointerenter', big);
-  rail.addEventListener('pointerleave', function(){ calm(250); });
-  rail.addEventListener('touchstart', big, { passive:true });
-  rail.addEventListener('touchend', function(){ calm(900); }, { passive:true });
-  rail.addEventListener('scroll', function(){ big(); calm(900); }, { passive:true });
+function csvEditSheetHTML(){
+  var sel = csvStagedSelected(), n = sel.length, sum = 0;
+  sel.forEach(function(c){ sum += csvBaseAmt(c.amount); });
 
-  var sx = 0, sl = 0, down = false;
-  rail.addEventListener('pointerdown', function(e){
-    if(e.pointerType === 'touch') return;
-    sx = e.clientX; sl = rail.scrollLeft; down = true;
-  });
-  rail.addEventListener('pointermove', function(e){
-    if(!down) return;
-    var dx = e.clientX - sx;
-    if(Math.abs(dx) > 4){
-      csvTxrRailDragged = true;
-      rail.classList.add('dragging');
-      try{ rail.setPointerCapture(e.pointerId); }catch(err){}
-    }
-    if(csvTxrRailDragged) rail.scrollLeft = sl - dx;
-  });
-  var end = function(){
-    down = false; rail.classList.remove('dragging');
-    setTimeout(function(){ csvTxrRailDragged = false; }, 0);
+  /* Row values tell the truth about a mixed selection: a shared value is
+     named, anything else reads "Chọn…" and the fold does the talking. */
+  var cat0 = n ? (sel[0].categoryName || null) : null;
+  var catAll = cat0 && sel.every(function(c){ return c.categoryName === cat0; });
+  var catV = catAll ? ((window.catStyle && catStyle[cat0] ? catStyle[cat0][0] + ' ' : '') + cat0) : L('Chọn…','Pick…');
+  var sc0 = n ? csvRowScope(sel[0]) : null;
+  var scAll = sc0 && sel.every(function(c){ return csvRowScope(c) === sc0; });
+  var scV = scAll ? csvTxrLbl(sc0) : L('Chọn…','Pick…');
+  var routeN = Object.keys(csvTxrRoutes).length;
+
+  var row = function(k, ic, label, value, danger){
+    return '<button type="button" class="cte-row'+(danger ? ' dgr' : '')+(csvEditRow === k ? ' open' : '')+'"'
+      + ' onclick="csvEditRowGo(\''+k+'\')">'
+      + '<span class="cte-ic">'+ic+'</span><span class="cte-t">'+esc(label)+'</span>'
+      + '<span class="cte-v">'+value+'<i>›</i></span></button>';
   };
-  rail.addEventListener('pointerup', end);
-  rail.addEventListener('pointercancel', end);
+
+  var h = '<div class="cts-h"><b>'+esc(L('Chỉnh sửa','Edit'))+'</b>'
+    + '<span class="cts-sub">'+esc(L(n+' khoản đã chọn',n+' selected'))+' · <span class="num">'+esc(fmt(sum))+'</span></span></div>';
+
+  h += row('cat', CSV_TXB_I_TAG, L('Danh mục','Category'), esc(catV));
+  if(csvEditRow === 'cat'){
+    h += '<div class="cte-fold"><div class="ctp-r">'
+      + csvAllCats().map(function(name){
+          var st = (window.catStyle && window.catStyle[name]) || ['🏷️'];
+          return '<button type="button" class="ctp-chip'+(catAll && cat0 === name ? ' on' : '')+'"'
+            + ' onclick="csvEditCat(\''+escAttr(name)+'\')">'+st[0]+' '+esc(name)+'</button>';
+        }).join('')
+      + '</div></div>';
+  }
+  h += row('scope', CSV_TXB_I_BOOK, L('Ghi vào','Goes to'), esc(scV));
+  if(csvEditRow === 'scope'){
+    h += '<div class="cte-fold">'
+      + '<div class="cte-note">'+esc(L('Chỉ đổi '+n+' khoản đã chọn, không đổi mặc định.','Changes only the '+n+' selected, the default stays.'))+'</div>'
+      + '<div class="ctp-r">'
+      + '<button type="button" class="ctp-chip'+(scAll && sc0 === 'personal' ? ' on' : '')+'" onclick="csvEditScope(\'personal\')">'+csvTxrLbl('personal')+'</button>'
+      + '<button type="button" class="ctp-chip'+(scAll && sc0 === 'family' ? ' on' : '')+'" onclick="csvEditScope(\'family\')">'+csvTxrLbl('family')+'</button>'
+      + '</div></div>';
+  }
+  h += row('src', CSV_TXB_I_BANK, L('Theo nguồn','By source'),
+    esc(routeN ? L(routeN+' tuyến',routeN+' route'+(routeN === 1 ? '' : 's')) : L('Chưa đặt','Not set')));
+  if(csvEditRow === 'src'){
+    var g = csvTxrGroups(), ps = Object.keys(g).sort();
+    h += '<div class="cte-fold">'
+      + '<div class="cte-note">'+esc(L('Đặt một lần, các lần sau tự vào đúng sổ.','Set once, later arrivals go to the right book on their own.'))+'</div>'
+      + ps.map(function(p){
+          var cur = csvTxrRoutes[p] || null;
+          var seg = function(v){
+            return '<button type="button" class="cte-seg'+(cur === v ? ' on' : '')+'"'
+              + ' onclick="csvEditRoute(\''+escAttr(p)+'\',\''+v+'\')">'+csvTxrEmo(v)+'</button>';
+          };
+          return '<div class="cte-src"><b>'+esc(p)+'</b><span class="m">'+g[p].n+' · '+esc(fmt(g[p].sum))+'</span>'
+            + '<span class="cte-segs">'+seg('personal')+seg('family')+'</span></div>';
+        }).join('')
+      + '</div>';
+  }
+  /* Delete has no fold: one tap arms it in place with the count spelled out,
+     a second carries it out. Any other tap disarms (csvDisarmRemove). */
+  h += csvBulkArmed
+    ? '<div class="cte-delrow"><span class="cte-deltxt">'+esc(L('Chắc chưa? Không hoàn tác được.','Sure? This cannot be undone.'))+'</span>'
+      + '<button type="button" class="cts-btn dgr" onclick="csvEditDel()">'+esc(L('Xoá '+n+' khoản?','Delete '+n+'?'))+'</button></div>'
+    : '<button type="button" class="cte-row dgr" onclick="csvEditDel()">'
+      + '<span class="cte-ic">'+CSV_TXB_I_TRASH+'</span><span class="cte-t">'+esc(L('Xoá khỏi hàng chờ','Remove from the queue'))+'</span>'
+      + '<span class="cte-v">'+esc(L(n+' khoản',String(n)))+'<i>›</i></span></button>';
+  return h;
 }
 
-/* ---- the haptic-touch lift (Theo nguồn's ledger switch) ----
-   Press the tiny two-icon switcher and it RISES out of the row as an overlay
-   (the row provably never moves), the panel softening behind a blur; the two
-   ledgers appear at full identity with a sliding thumb; swipe or tap; release
-   stages. Scrim-tap cancels without staging — forgiveness. */
-function csvTxrLiftClose(commitV, provider){
-  var wrap = document.getElementById('txh-lift'); if(!wrap) return;
-  wrap.classList.remove('show');
-  setTimeout(function(){ if(wrap.parentNode) wrap.parentNode.removeChild(wrap); }, 240);
-  if(commitV) csvTxrPickSrc(provider, commitV);
-}
-function csvTxrLiftOpen(btn){
-  csvTxrLiftClose();
-  var p = btn.getAttribute('data-p');
-  var cur = btn.getAttribute('data-cur');
-  var host = document.getElementById('csv-import-modal'); if(!host) return;
-  var r = btn.getBoundingClientRect(), hr = host.getBoundingClientRect();
-  var W = 188, H = 52;
-  var left = Math.max(8, Math.min(r.right - hr.left - W, hr.width - W - 8));
-  var top = r.top - hr.top + r.height / 2 - H / 2;
-  var wrap = document.createElement('div');
-  wrap.id = 'txh-lift'; wrap.className = 'txh-lift';
-  wrap.innerHTML = '<div class="txh-lift-s"></div>'
-    + '<div class="txh-lift-c" style="left:'+left+'px;top:'+top+'px;width:'+W+'px;height:'+H+'px">'
-      + '<span class="txh-lift-th'+(cur==='family'?' r':'')+'"></span>'
-      + '<button type="button" data-v="personal">🔒 '+L('Cá nhân','Personal')+'</button>'
-      + '<button type="button" data-v="family">🏡 '+L('Gia đình','Family')+'</button>'
+/* Paint (or clear) whichever tool sheet is open. Runs on every review render,
+   like #csv-rowsheet: counts stay live, and a sheet whose subject vanished
+   (selection emptied, mode left) closes itself instead of going stale. */
+function csvToolSheetSync(){
+  var m = document.getElementById('csv-toolsheet'); if(!m) return;
+  if(!csvToolSheet || !csvStagedMode || !csvReview){ if(m.innerHTML) m.innerHTML = ''; csvToolSheet = null; return; }
+  if(csvToolSheet === 'edit' && !csvStagedSelected().length){ m.innerHTML = ''; csvToolSheet = null; return; }
+  m.innerHTML = '<div class="cts-scrim" onclick="csvToolClose()"></div>'
+    + '<div class="cts">'
+    + (csvToolSheet === 'pick' ? csvPickSheetHTML() : csvEditSheetHTML())
     + '</div>';
-  host.appendChild(wrap);
-  (window.requestAnimationFrame || function(f){ f(); })(function(){ wrap.classList.add('show'); });
-
-  var card = wrap.querySelector('.txh-lift-c');
-  var th = wrap.querySelector('.txh-lift-th');
-  var side = cur;
-  var setSide = function(v){ side = v; th.classList.toggle('r', v === 'family'); };
-  wrap.querySelector('.txh-lift-s').addEventListener('pointerup', function(){ csvTxrLiftClose(); });
-  var opts = card.querySelectorAll('button');
-  for(var i = 0; i < opts.length; i++)(function(o){
-    o.addEventListener('pointerup', function(e){
-      e.stopPropagation();
-      var v = o.getAttribute('data-v');
-      setSide(v); setTimeout(function(){ csvTxrLiftClose(v, p); }, 140);
-    });
-  })(opts[i]);
-  var sx = null;
-  card.addEventListener('pointerdown', function(e){ sx = e.clientX; try{ card.setPointerCapture(e.pointerId); }catch(err){} });
-  card.addEventListener('pointermove', function(e){
-    if(sx == null) return;
-    var dx = e.clientX - sx;
-    if(dx > 24) setSide('family'); else if(dx < -24) setSide('personal');
-  });
-  card.addEventListener('pointerup', function(){
-    if(sx == null) return; sx = null;
-    var v = side;
-    setTimeout(function(){ csvTxrLiftClose(v, p); }, 120);
-  });
 }
-function csvTxrLiftWire(){
-  var els = document.querySelectorAll('#txh .txh-mini');
-  for(var k = 0; k < els.length; k++)(function(el){
-    el.addEventListener('pointerdown', function(e){ e.preventDefault(); csvTxrLiftOpen(el); });
-  })(els[k]);
-}
-
-/* ---- handlers: tap stages, rooms keep the basket, Xong commits ---- */
-function csvTxrTool(k){
-  csvDisarmRemove();
-  if(csvTxrOpen === 'bulk'){                         // Xong: commit the basket, then close
-    csvTxrCommitAll();
-    csvTxrOpen = null; csvTxrRoom = 'sel'; csvTxrDim = 'all'; csvBulkArmed = false;
-    csvTxrLiftClose();
-    csvTxrKey = null; csvTxrHeadSync();
-    return;
-  }
-  csvTxrOpen = 'bulk'; csvTxrRoom = 'sel'; csvBulkArmed = false;
-  csvTxrKey = null; csvTxrHeadSync();
-}
-function csvTxrRoomGo(a){
-  csvTxrRoom = a; csvBulkArmed = false;              // drafts SURVIVE the hop — rooms are MECE
-  csvTxrKey = null; csvTxrHeadSync();
-}
-function csvTxrDimGo(d){ csvTxrDim = d; csvTxrKey = null; csvTxrHeadSync(); }
-
-function csvTxrPickCat(btn){
-  if(csvTxrRailDragged) return;                      // that was a pull, not a pick
-  if(!csvStagedSelected().length) return;
-  var v = btn.getAttribute('data-v');
-  csvTxrPendCat = (csvTxrPendCat === v) ? null : v;  // toggle the stage
-  var rail = document.getElementById('txh-rail');
-  if(rail) for(var i = 0; i < rail.children.length; i++)
-    rail.children[i].classList.toggle('on', !!csvTxrPendCat && rail.children[i].getAttribute('data-v') === csvTxrPendCat);
-  var row = document.getElementById('txh-row'); if(row) row.innerHTML = csvTxrRowHTML();
-}
-function csvTxrAllPick(v){
-  if(v === 'personal' && !csvScopeReady()){
-    toast(L('Mở khoá sổ cá nhân ở tab Cá nhân trước','Unlock your personal ledger first'));
-    return;
-  }
-  csvTxrPendAll = (csvTxrPendAll === v) ? null : v;
-  /* in place — a rebuild here would swap the rail mid-touch and reset its
-     bloom, which reads as a dead control next to the category rail */
-  var rail = document.getElementById('txh-rail');
-  if(rail) for(var i = 0; i < rail.children.length; i++){
-    var el = rail.children[i], ev = el.getAttribute('data-v');
-    el.classList.toggle('on', csvTxrPendAll === ev);
-    el.classList.toggle('setd', csvStagedScope() === ev && !csvTxrPendAll);
-  }
-  var row = document.getElementById('txh-row'); if(row) row.innerHTML = csvTxrRowHTML();
-}
-function csvTxrPickSrc(p, v){
-  if(v === 'personal' && !csvScopeReady()){
-    toast(L('Mở khoá sổ cá nhân ở tab Cá nhân trước','Unlock your personal ledger first'));
-    return;
-  }
-  if(csvTxrSrcStage[p] === v) delete csvTxrSrcStage[p];   // toggle the stage
-  else csvTxrSrcStage[p] = v;
-  csvTxrKey = null; csvTxrHeadSync();
-}
-
-/* Xong's commit: everything staged, at once, then one toast naming it all.
-   Category goes through csvBulkCat (which learns); ledgers stamp _scope —
-   still only staging for Nhập, the ledger's true write. Per-source picks also
-   persist as standing routes, so later arrivals from that bank default right;
-   one more pick is the undo. */
-function csvTxrCommitAll(){
-  var bits = [], n = csvStagedSelected().length;
-  if(csvTxrPendCat){
-    var st = (window.catStyle && window.catStyle[csvTxrPendCat]) || ['🏷️'];
-    csvBulkCat(csvTxrPendCat);
-    bits.push(st[0] + ' ' + csvTxrPendCat);
-    csvTxrPendCat = null;
-  }
-  if(csvTxrPendAll){
-    var v0 = csvTxrPendAll;
-    csvSetScope(v0);
-    (csvReview.ready || []).forEach(function(c){ c._scope = v0; });
-    bits.push(csvTxrLbl(v0));
-    csvTxrPendAll = null;
-  }
-  var g = csvTxrGroups(), routes = 0;
-  Object.keys(csvTxrSrcStage).forEach(function(p){
-    var v = csvTxrSrcStage[p]; routes++;
-    csvTxrRoutes[p] = v;
-    (g[p] ? g[p].idx : []).forEach(function(i){ var c = csvReview.ready[i]; if(c) c._scope = v; });
-  });
-  if(routes){ csvTxrRouteSave(); bits.push(routes + ' ' + L('tuyến nguồn','source routes')); }
-  csvTxrSrcStage = {};
-  if(bits.length){
-    renderCsvReview();
-    toast(esc(L('Đã áp dụng cho ' + n + ' khoản: ', 'Applied to ' + n + ': ') + bits.join(' · ')));
-  }
-}
-function csvTxrDel(){ csvBulkDelete(); csvTxrHeadSync(); }
 
 /* Removing a staged row used to be in-memory only: the splice lived in
    csvReview, and nothing was retired until an Import. Close the sheet without

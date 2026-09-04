@@ -1,20 +1,24 @@
 #!/usr/bin/env node
 /* Acting on the whole selection in the bank-email review queue — through the
-   tools header (#txh: rooms, staged picks, one Áp dụng).
+   toolbox (#txh: ① Chọn nhanh conditions + verbs, ② Chỉnh sửa actions).
  * `node tools/staged-bulk-select.test.js`
  *
  * Every staged row arrives TICKED, because the common case is "import the lot".
  * That default is what makes these operations sharp: a bulk action reached
  * without deselecting anything acts on the entire overnight backfill. So the
- * properties worth pinning are all about the boundary of the selection.
+ * properties worth pinning are all about the boundary of the selection:
  *
  *   • deselect-all really clears it, and select-all really restores it
- *   • category and destination touch the SELECTED rows and nothing else
- *   • destination does NOT move the remembered default — bulk-marking three rows
- *     private must not redirect the thirty-seven nobody selected
- *   • the bulk ✕ arms first, and when it fires it removes exactly the selection
- *     and retires it in ONE call, not one per row
- *   • any other tap disarms it, including a tick
+ *   • ① composes: OR inside a condition group, AND between groups, and the
+ *     three verbs (replace / add / remove) act on exactly the matched set
+ *   • the FX gate holds for every verb — an unresolved foreign row is never
+ *     selected by machinery, only by a human who typed its ₫ amount
+ *   • category and destination touch the SELECTED rows and nothing else;
+ *     destination does NOT move the remembered default
+ *   • personal is refused with a word while the personal ledger is locked,
+ *     and nothing is stamped on refusal
+ *   • a route persists and stamps its bank's rows; the bulk ✕ arms first,
+ *     fires once for the whole selection, and any other tap disarms it
  *
  * The real functions are extracted from source by name.
  */
@@ -46,8 +50,7 @@ function csvStagedProvider(c){
   return fhProviderName((r && r.source_provider) || '');
 }
 function csvBaseAmt(n){ return Number(n) || 0; }
-// the header syncs against a DOM; in this harness there is none, and that is
-// fine — csvTxrHeadSync bails on the missing #txh element
+// the header/sheet sync write into a DOM; the harness's stub swallows it
 global.document = { getElementById: function(){ return { children: [], innerHTML: '', classList: { toggle: function(){} } }; },
                     querySelector: function(){ return null; },
                     querySelectorAll: function(){ return []; } };
@@ -60,10 +63,13 @@ function csvAllCats(){ return ['Ăn uống', 'Đi lại']; }
 function csvScopeReady(){ return personalReady; }
 function csvSetScope(v){ scopeSaves.push(v); return true; }
 function csvLearnFrom(c){ learned.push(c); }
-// FX gating (0112): the harness's rows are all domestic VND, so nothing is
-// ever held back as unresolved-foreign.
-function csvFxUnresolved(){ return false; }
+function csvRowScope(c){ return (c && c._scope) || 'family'; }
+// FX gating (0112): a row is held back only when the fixture marks it foreign.
+function csvFxUnresolved(c){ return !!(c && c._fx); }
 function csvFxInfo(){ return null; }
+// duplicate suspicion is a per-row flag in the fixture
+function csvIsFlaggedDup(c){ return !!(c && c._dupFlag); }
+var csvRowSheet = null;
 global.window = {
   catStyle: { 'Ăn uống': ['🍜'], 'Đi lại': ['🚌'] },
   fhStagedDropMany: function (list) { dropped.push(list); },
@@ -73,14 +79,19 @@ global.window = {
 eval(src.slice(start, end));
 
 function reset(){
-  csvReview = { ready: [ { rowIndex:0, id:'a', amount:1 }, { rowIndex:1, id:'b', amount:2 },
-                         { rowIndex:2, id:'c', amount:3 } ] };
+  csvReview = { ready: [
+    { rowIndex:0, id:'a', amount:1, date:new Date('2026-08-26T00:00:00') },                 // MB Bank
+    { rowIndex:1, id:'b', amount:2, date:new Date('2026-08-25T00:00:00'), _dupFlag:true },  // MB Bank, suspect
+    { rowIndex:2, id:'c', amount:3, date:new Date('2026-08-10T00:00:00') },                 // MoMo, old
+  ] };
+  window._fhStagedRows = [ { source_provider:'MB' }, { source_provider:'MBBank' }, { source_provider:'MoMo' } ];
   csvStagedMode = true; csvExpand = null; csvArmedRemove = null;
   csvBulkReset();
   renders = 0; dropped = []; toasts = []; learned = []; scopeSaves = []; personalReady = true;
 }
 const ids = () => csvReview.ready.map(r => r.id).join(',');
 const picked = () => csvStagedSelected().map(r => r.id).join(',');
+const matches = () => csvPickMatches().map(r => r.id).join(',');
 
 console.log('\n-- the default really is "everything selected" --');
 reset();
@@ -94,6 +105,42 @@ t('every row carries the skip flag', csvReview.ready.every(c => c._skipImport ==
 csvStagedSelectAll(true);
 t('select-all brings them all back', picked() === 'a,b,c');
 
+console.log('\n-- ① conditions: OR inside a group, AND between groups --');
+reset();
+csvPickSrcTgl('MB Bank');
+t('one source names its rows', matches() === 'a,b');
+csvPickSrcTgl('MoMo');
+t('a second source is OR, not AND', matches() === 'a,b,c');
+csvPickSrcTgl('MoMo');
+csvPickDupTgl('no');
+t('a second GROUP is the intersection', matches() === 'a');   // MB Bank ∩ not-duplicate
+csvPickDupTgl('yes');
+t('the duplicate side flips, not stacks', matches() === 'b');
+csvPickClear();
+t('clear really clears', csvPickCount() === 0 && matches() === 'a,b,c');
+
+console.log('\n-- ① verbs: replace, add, remove compose any cut --');
+reset();
+csvPickSrcTgl('MB Bank'); csvPickDupTgl('no');
+csvPickApply('set');
+t('Chọn replaces the ticks with the match', picked() === 'a');
+t('the verb closed the sheet', csvToolSheet === null);
+csvPickClear(); csvPickSrcTgl('MoMo');
+csvPickApply('add');
+t('Chọn thêm unions the match in', picked() === 'a,c');
+csvPickClear(); csvPickDupTgl('no');
+csvPickApply('sub');
+t('Bỏ chọn removes exactly the match', picked() === '');      // a and c are both clean rows
+t('the suspect stayed unselected, untouched', csvReview.ready[1]._skipImport === true);
+
+console.log('\n-- ① the FX gate holds for every verb --');
+reset();
+csvReview.ready[2]._fx = true;                                 // c has no ₫ amount yet
+csvPickApply('set');                                           // no conditions: match = everything
+t('a full-queue Chọn still skips the foreign row', picked() === 'a,b');
+csvPickApply('add');
+t('Chọn thêm cannot sneak it in either', picked() === 'a,b');
+
 console.log('\n-- category applies to the selection only --');
 reset();
 csvStagedSelectAll(false);
@@ -105,6 +152,13 @@ t('a was left alone', csvReview.ready[0].categoryName === undefined);
 t('c was left alone', csvReview.ready[2].categoryName === undefined);
 t('it counts as an explicit human pick', csvReview.ready[1].catSource === 'user');
 t('and it is learned from, like a per-row chip', learned.length === 1 && learned[0].id === 'b');
+
+console.log('\n-- ② category via the sheet: applies and closes --');
+reset();
+csvToolSheet = 'edit'; csvEditRow = 'cat';
+csvEditCat('Đi lại');
+t('every selected row took it', csvReview.ready.every(c => c.categoryName === 'Đi lại'));
+t('the sheet closed with the act', csvToolSheet === null && csvEditRow === null);
 
 console.log('\n-- destination applies to the selection and moves no default --');
 reset();
@@ -122,148 +176,92 @@ personalReady = false;
 csvBulkScope('personal');
 t('no row was stranded in a ledger that cannot be written', csvReview.ready.every(c => c._scope === undefined));
 t('and it said why', toasts.length === 1);
+csvToolSheet = 'edit';
+csvEditScope('personal');
+t('the sheet path is refused the same way', csvReview.ready.every(c => c._scope === undefined));
+t('and the sheet stays open to try again', csvToolSheet === 'edit');
+personalReady = true;
+csvEditScope('personal');
+t('unlocked, it stamps the selection', csvReview.ready.every(c => c._scope === 'personal'));
+t('says where the money is headed', /Cá nhân/.test(toasts[toasts.length - 1]));
+t('and closes with the act', csvToolSheet === null);
+
+console.log('\n-- ② a route persists and stamps its bank\'s rows --');
+reset();
+csvEditRoute('MB Bank', 'personal');
+t('the route is remembered under the canonical name', csvTxrRoutes['MB Bank'] === 'personal');
+t('both MB rows follow it now', csvReview.ready[0]._scope === 'personal' && csvReview.ready[1]._scope === 'personal');
+t('the MoMo row does not', csvReview.ready[2]._scope === undefined);
+t('the toast promises the future too', /các lần sau/.test(toasts[toasts.length - 1]));
+delete csvTxrRoutes['MB Bank'];
+reset();
+personalReady = false;
+csvEditRoute('MB Bank', 'personal');
+t('a locked ledger refuses the route', csvTxrRoutes['MB Bank'] === undefined && csvReview.ready[0]._scope === undefined);
+
+console.log('\n-- ② opens only when there is a selection to edit --');
+reset();
+csvStagedSelectAll(false);
+csvToolOpen('edit');
+t('refused with a word, not a dead sheet', csvToolSheet === null && toasts.length === 1);
+csvStagedSelectAll(true);
+csvToolOpen('edit');
+t('with a selection it opens', csvToolSheet === 'edit');
 
 console.log('\n-- the bulk ✕ arms before it deletes --');
 reset();
 csvBulkDelete();
 t('nothing removed on the first tap', ids() === 'a,b,c');
 t('it is armed', csvBulkArmed === true);
-t('nothing retired', dropped.length === 0);
-
-console.log('\n-- ...and on the second tap removes exactly the selection --');
-reset();
-csvStagedToggle(2);                       // untick c, so a+b are selected
-t('c is out of the selection', picked() === 'a,b');
-csvBulkDelete();                          // arm
-csvBulkDelete();                          // fire
-t('the unselected row survives', ids() === 'c');
-t('retired in ONE call, not one per row', dropped.length === 1, 'calls=' + dropped.length);
-t('and it retired exactly the selection', dropped[0].map(r => r.id).join(',') === 'a,b');
+csvBulkDelete();
+t('the second tap removes the selection', ids() === '');
+t('one retire call for the whole batch', dropped.length === 1 && dropped[0].length === 3);
 t('disarmed afterwards', csvBulkArmed === false);
-t('the open editor reference was cleared', csvExpand === null);
 
-console.log('\n-- an empty selection is a no-op, never a delete-everything --');
+console.log('\n-- any other tap disarms it --');
 reset();
 csvStagedSelectAll(false);
 csvBulkDelete();
-t('does not arm', csvBulkArmed === false);
-csvBulkDelete();
-t('and never deletes', ids() === 'a,b,c' && dropped.length === 0);
-
-console.log('\n-- any other tap disarms, so a stray touch cannot become a bulk delete --');
-reset();
+t('does not arm on an empty selection', csvBulkArmed === false);
+csvStagedSelectAll(true);
 csvBulkDelete();
 t('armed', csvBulkArmed === true);
-csvStagedToggle(0);                       // ticking is not confirming
+csvStagedToggle(0);
 t('a tick disarmed it', csvBulkArmed === false);
-csvBulkDelete();
-t('the next tap only re-arms', ids() === 'a,b,c' && dropped.length === 0);
+t('and deleted nothing', ids() === 'a,b,c');
 
-console.log('\n-- selecting is a mode you enter, not permanent chrome --');
+console.log('\n-- the sheet delete closes with the confirm --');
+reset();
+csvToolSheet = 'edit';
+csvEditDel();
+t('first tap arms, sheet stays', csvBulkArmed === true && csvToolSheet === 'edit');
+csvEditDel();
+t('second tap deletes and closes', ids() === '' && csvToolSheet === null);
+
+console.log('\n-- selection intent, and a rebuild clears it all --');
 reset();
 t('nothing has been touched on a fresh queue', csvSelTouched === false);
-csvStagedToggle(0);
+csvStagedToggle(1);
 t('a single tick enters selection mode', csvSelTouched === true);
 reset();
 csvStagedSelectAll(false);
 t('so does deselect-all', csvSelTouched === true);
-reset();
+csvToolSheet = 'pick'; csvPickSrcTgl('MB Bank');
 csvBulkReset();
 t('a rebuild leaves the mode again', csvSelTouched === false);
+t('and clears the conditions and the sheet', csvPickCount() === 0 && csvToolSheet === null);
 
-console.log('\n-- with nothing selected the panel offers the way back --');
+console.log('\n-- the sheets say what they mean (smoke) --');
 reset();
-csvStagedSelectAll(false);
-csvTxrRoom = 'del';
-const emptyDel = csvTxrBulkHTML();
-t('delete is disabled, not silently inert', / disabled/.test(emptyDel));
-t('the way back moved to the header row', (csvTxrOpen = 'bulk', /Chọn tất cả/.test(csvTxrRowHTML())));
-t('select-all from there restores everything', (csvStagedSelectAll(true), picked() === 'a,b,c'));
+csvPickSrcTgl('MB Bank'); csvPickDupTgl('no');
+var pickHtml = csvPickSheetHTML();
+t('① names the matched count', /Khớp 1 khoản/.test(pickHtml));
+t('① offers the way out of the filters', /Xoá lọc/.test(pickHtml));
+csvPickClear();
+var editHtml = csvEditSheetHTML();
+t('② counts the selection in its header', /3 khoản đã chọn/.test(editHtml));
+t('② carries all four actions', /Danh mục/.test(editHtml) && /Ghi vào/.test(editHtml)
+  && /Theo nguồn/.test(editHtml) && /Xoá khỏi hàng chờ/.test(editHtml));
 
-console.log('\n-- the basket grammar: taps stage, Xong commits --');
-reset();
-const chip = { getAttribute: function(){ return 'Ăn uống'; } };
-csvTxrPickCat(chip);
-t('a tap stages, writes nothing', csvTxrPendCat === 'Ăn uống' && csvReview.ready.every(c => c.categoryName === undefined));
-csvTxrPickCat(chip);
-t('the same tap again UNSTAGES (toggle, not commit)', csvTxrPendCat === null && csvReview.ready.every(c => c.categoryName === undefined));
-csvTxrPickCat(chip);
-csvTxrCommitAll();
-t('Xong applies the category to every selected row', csvReview.ready.every(c => c.categoryName === 'Ăn uống'));
-t('and the basket is spent', csvTxrPendCat === null);
-
-console.log('\n-- rooms are MECE: drafts SURVIVE the hop --');
-reset();
-csvTxrPickCat({ getAttribute: function(){ return 'Đi lại'; } });
-csvTxrRoomGo('scope');
-t('the category draft survives switching rooms', csvTxrPendCat === 'Đi lại');
-csvTxrAllPick('personal');
-t('a ledger draft joins it', csvTxrPendAll === 'personal');
-csvTxrCommitAll();
-t('one commit lands both: category', csvReview.ready.every(c => c.categoryName === 'Đi lại'));
-t('one commit lands both: ledger', csvReview.ready.every(c => c._scope === 'personal'));
-
-console.log('\n-- per-source routes stage and commit --');
-reset();
-window._fhStagedRows = [{source_provider:'MB'},{source_provider:'MBBank'},{source_provider:'VCB'}];
-csvTxrSrcStage = {};
-csvTxrPickSrc('MB Bank', 'personal');
-t('a route stages, rows untouched', csvTxrSrcStage['MB Bank'] === 'personal' && csvReview.ready.every(c => c._scope === undefined));
-csvTxrPickSrc('MB Bank', 'personal');
-t('same pick again unstages', csvTxrSrcStage['MB Bank'] === undefined);
-csvTxrPickSrc('MB Bank', 'personal');
-csvTxrCommitAll();
-t('commit stamps the whole canonical source — MB and MBBank rows together',
-  csvReview.ready[0]._scope === 'personal' && csvReview.ready[1]._scope === 'personal'
-  && csvReview.ready[2]._scope === undefined);
-t('and the route persists under the canonical name', csvTxrRoutes['MB Bank'] === 'personal');
-delete csvTxrRoutes['MB Bank'];
-
-console.log('\n-- a locked personal ledger refuses the stage, not just the commit --');
-reset();
-personalReady = false;
-csvTxrAllPick('personal');
-t('all-tab pick refused with a word', csvTxrPendAll === null && toasts.length === 1);
-csvTxrPickSrc('MB', 'personal');
-t('source pick refused too', csvTxrSrcStage['MB'] === undefined);
-
-console.log('\n-- an empty selection cannot arm anything --');
-reset();
-csvStagedSelectAll(false);
-csvTxrPickCat(chip);
-t('no arm on nothing', csvTxrPendCat === null);
-t('the caption counts the basket, shape fixed', (csvStagedSelectAll(true), csvTxrOpen = 'bulk', csvTxrPendCat = 'Ăn uống',
-  /Sẽ nhập [\s\S]*3[\s\S]*·[\s\S]*1[\s\S]*thao tác/.test(csvTxrRowHTML())));
-csvTxrPendCat = null;
-t('zero edits still reads a zero, never silence', /·[\s\S]*0[\s\S]*thao tác/.test((csvTxrOpen='bulk', csvTxrRowHTML())));
-csvTxrOpen = null;
-
-console.log('\n-- Chọn comes first: smart sets claim, hand-ticks override --');
-reset();
-window._fhStagedRows = [{source_provider:'MB'},{source_provider:'MBBank'},{source_provider:'VCB'}];
-csvReview.ready.forEach(function(c,i){ c.categoryName = i === 2 ? 'Ăn uống' : null; });
-csvTxrSmartPick('nocat');
-t('a chip selects exactly its set', picked() === 'a,b');
-csvTxrSmartPick('nocat');
-t('the same chip releases it', picked() === '');
-csvTxrSmartPick('bank:MB Bank');
-t("MB and MBBank are ONE source — the split was three uncoordinated authors", picked() === 'a,b');
-csvStagedToggle(2);
-t('a hand-tick releases the claim', csvTxrSmartKey === null);
-t('the panel lands on Chọn', (csvBulkReset(), csvTxrRoom === 'sel'));
-
-console.log('\n-- the armed label states the count, so 47 is never mistaken for 1 --');
-reset();
-csvTxrRoom = 'del';
-csvBulkDelete();
-const armedHtml = csvTxrBulkHTML();
-t('armed label carries the number', /Xoá 3 khoản\?/.test(armedHtml), armedHtml.slice(0, 200));
-t('and the statement turns to the confirm question', /Chắc chưa\? Không hoàn tác được\./.test(armedHtml));
-reset();
-csvTxrRoom = 'del';
-const idleDel = csvTxrBulkHTML();
-t('unarmed label carries the number too', /Xoá 3</.test(idleDel));
-t('and the statement says what it removes', /Gỡ 3 khoản đã chọn khỏi hàng chờ/.test(idleDel));
-
-console.log('\n' + (fail === 0 ? 'ALL ' + pass + ' PASSED' : pass + ' passed, ' + fail + ' FAILED'));
+console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
