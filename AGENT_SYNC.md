@@ -231,8 +231,25 @@ hand-merging `index.html`. Both replaced vigilance with structure.
   `pipeline/direct-templates.test.js` — run it first; if the slice drifted it
   will say so before you paste.
 
-- **2026-09-04 (Hien — bank-email retired aliases) — WRITTEN, NOT YET APPLIED OR
-  PASTED. Migrations `0117` + `0118` CLAIMED; next free is `0119`. Files: new
+- **2026-09-04 (Hien — bank-email retired aliases) — `0117` + `0118` APPLIED to
+  the live DB and verified. Next free is `0119`. ⚠️ `.gs` PASTE STILL NEEDED.
+  Applied with `supabase db query --linked -f <file>` (the CLI is authenticated
+  and the project is linked; there is still no `config.toml`, so `db push` must
+  NOT be used — it would replay migrations the remote has no ledger for).
+  Verified after: RLS on with zero policies, grants only `postgres`/
+  `service_role`, no member/email/family column on the table, withdrawal
+  retires BEFORE it deletes and reports `aliases_retired`, the minter clears the
+  tombstone with the beta gate intact, table starts empty.
+
+  **BACKFILL STILL OUTSTANDING.** `retired_aliases` is empty, and the one alias
+  we know is retired — `8xr4ed9vr8`, read off the `Delivered-To` header of the
+  held mail, absent from `mailbox_connections` (the only live connection is
+  `rxw7n4mavg`) — predates the table. Until it is inserted the trash-on-sight
+  path never fires for the person it was written for, and her mail takes the
+  14-day grace as before. One statement, guarded:
+  `insert into retired_aliases (forwarding_alias) select '8xr4ed9vr8' where not
+  exists (select 1 from mailbox_connections where forwarding_alias =
+  '8xr4ed9vr8') on conflict do nothing;` Files: new
   `supabase/migrations/0117_retired_aliases.sql`,
   `pipeline/bank-email-pipeline.gs` (`PIPELINE_VERSION` → `2026-09-04-retired`),
   `src/js-data/74-autotxn-ui.js` + rebuilt `index.html`, new
