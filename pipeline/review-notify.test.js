@@ -161,41 +161,47 @@ t('a user JWT does not', isServiceRole('eyJhbGciOi.some.jwt') === false);
 t('a prefix of the key does not', isServiceRole('srv') === false);
 t('an empty bearer does not', isServiceRole('') === false);
 
-/* The copy engine moved into _shared/mailbox/notify-copy.mjs (2026-09-04,
-   "notify voice"): body-only lines chosen from a pre-written matrix by the
-   tiny {c: concept, t: tier, p: pool} enum the worker distills while it still
-   holds the plaintext. push-send only assembles: digest when backfill, else
-   matrix line + queue suffix. The invariant this block guards is unchanged —
-   nothing that transits the push service may carry an amount or a merchant. */
+/* The copy engine lives in _shared/mailbox/notify-copy.mjs. reviewBody/digestBody
+   return { title, body }: title = one face emoji (the app's reaction), body =
+   text ending in "!" about THIS transaction (no queue, no count). A daypart line
+   (from occurred_at) is used for Dining/Groceries and the coffee/milk-tea pools
+   when a real time is known (2026-09-05 revamp). Invariants below. */
 const nc = require(path.join(__dirname, '..', 'supabase', 'functions', '_shared', 'mailbox', 'notify-copy.mjs'));
-global.reviewBody = nc.reviewBody; global.digestBody = nc.digestBody; global.queueSuffix = nc.queueSuffix;
+const reviewBody = nc.reviewBody;
+global.reviewBody = nc.reviewBody; global.digestBody = nc.digestBody;
 eval(esbuild.transformSync(grab('function buildReviewBody'), { loader: 'ts' }).code);
+const EMO = /\p{Extended_Pictographic}/u;
 
 const vi1 = buildReviewBody({ c: 'Dining', t: 2 }, false, 1, 'vi');
-const vi3 = buildReviewBody({ c: 'Dining', t: 2 }, false, 3, 'vi');
-const en3 = buildReviewBody({ c: 'Dining', t: 2 }, false, 3, 'en');
 const dg = buildReviewBody(null, true, 128, 'vi');
-t('a single fresh row reads as one clean line, no counters', !/\d/.test(vi1), vi1);
-t('a queue behind it rides as a suffix with the OTHERS count', vi3.indexOf('còn 2 khoản khác') > 0, vi3);
-t('EN follows the family language', en3.indexOf('2 more waiting') > 0, en3);
+t('the title is one face emoji, the body has none',
+  EMO.test(vi1.title) && !EMO.test(vi1.body), JSON.stringify(vi1));
+t('a per-transaction body carries no count or queue wording',
+  !/\d/.test(vi1.body) && !/khoản khác|more waiting|hàng chờ|in the queue/i.test(vi1.body), vi1.body);
 t('an unknown language falls back to Vietnamese',
-  buildReviewBody({ c: 'Dining', t: 2 }, false, 3, 'fr').indexOf('còn 2 khoản khác') > 0);
-t('backfill speaks as the digest, the one line allowed a queue size', dg.indexOf('128') >= 0, dg);
-t('a missing meta still yields a line (older sender / forwarding path)',
-  buildReviewBody(null, false, 1, 'vi').length > 0);
+  /[àâăêôơưạảấầẩ]/i.test(buildReviewBody({ c: 'Dining', t: 2 }, false, 1, 'fr').body));
+t('a daypart line differs from the tier line when a time is known',
+  reviewBody({ c: 'Dining', t: 2 }, 'vi', 0.1).body !== reviewBody({ c: 'Dining', t: 2, d: 'sang' }, 'vi', 0.1).body);
+t('backfill digest carries a face in the title and the batch size in the body',
+  EMO.test(dg.title) && !EMO.test(dg.body) && dg.body.indexOf('128') >= 0, JSON.stringify(dg));
+t('a missing meta still yields a line', buildReviewBody(null, false, 1, 'vi').body.length > 0);
 
-// Currency markers and bank/merchant names only — the digest count and the
-// queue suffix are the ONLY numbers allowed anywhere in this copy. Every cell
-// of the matrix and every keyword pool is swept, both languages.
+// Sweep every line: base tiers, dayparts, and pools, both languages.
 const money = /VND|₫|\bđ\b|\bmbbank\b|\bvietcombank\b|REVI PHU/i;
-const everyLine = [];
+const words = (s) => s.split(/\s+/).filter((w) => /\p{L}/u.test(w)).length;
+const all = [];
+const concepts = ['Housing', 'Groceries', 'Clothing', 'Shopping', 'Transport', 'Dining', 'Fun', 'Others', 'income', 'unknown'];
+const parts = [undefined, 'sang', 'trua', 'chieu', 'toi'];
 ['vi', 'en'].forEach((lg) => {
-  const concepts = ['Housing', 'Groceries', 'Clothing', 'Shopping', 'Transport', 'Dining', 'Fun', 'Others', 'income', 'unknown'];
-  concepts.forEach((c) => { for (let ti = 1; ti <= 4; ti++) for (let r = 0; r < 4; r++) everyLine.push(nc.reviewBody({ c, t: ti }, lg, r / 4 + 0.001)); });
-  ['coffee', 'milktea', 'ride', 'cinema'].forEach((p) => { for (let r = 0; r < 4; r++) everyLine.push(nc.reviewBody({ c: 'Dining', t: 2, p }, lg, r / 4 + 0.001)); });
+  concepts.forEach((c) => { for (let ti = 1; ti <= 4; ti++) for (const d of parts) for (let r = 0; r < 4; r++) all.push(reviewBody(d ? { c, t: ti, d } : { c, t: ti }, lg, r / 4 + 0.001)); });
+  ['coffee', 'milktea', 'ride', 'cinema'].forEach((p) => { for (const d of parts) for (let r = 0; r < 4; r++) all.push(reviewBody(d ? { c: 'Dining', t: 2, p, d } : { c: 'Dining', t: 2, p }, lg, r / 4 + 0.001)); });
 });
-t('no matrix or pool line can carry an amount, a merchant, or any digit',
-  everyLine.every((s) => !money.test(s) && !/\d/.test(s)));
+t('every line: a face in the title, none in the body',
+  all.every((x) => EMO.test(x.title) && !EMO.test(x.body)));
+t('no body carries an amount, a merchant, or any digit',
+  all.every((x) => !money.test(x.body) && !/\d/.test(x.body)));
+const longB = all.filter((x) => words(x.body) > 9);
+t('every body is at most 9 words', longB.length === 0, longB[0] ? longB[0].body : '');
 
 console.log('\n' + (fail === 0 ? 'ALL ' + pass + ' PASSED' : pass + ' passed, ' + fail + ' FAILED'));
 process.exit(fail ? 1 : 0);

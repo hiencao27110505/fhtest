@@ -1,27 +1,28 @@
 /* notify-copy — the voice of the txn_review notification.
  *
  * The push payload carries NO amount, NO merchant, NO category name. Context
- * (category concept × amount tier × an optional merchant-keyword pool) is
- * distilled HERE, at the only moment the pipeline holds the plaintext, into a
- * tiny enum meta {c, t, p}. push-send turns that meta into one pre-written
- * body line — so what actually transits Apple/Google/Mozilla is a sentence
- * that asserts nothing private. The rule for every line in the matrix:
- * a template may only say what its cell guarantees. Anything more specific
- * (coffee, a ride, a movie) exists only behind a deterministic keyword match
- * on the merchant/memo, with the generic cell as the fallback.
+ * (category concept × amount tier × daypart × an optional merchant-keyword
+ * pool) is distilled HERE, at the only moment the pipeline holds the plaintext,
+ * into a tiny enum meta {c, t, d, p}. push-send turns that meta into one
+ * pre-written line, so what transits Apple/Google/Mozilla asserts nothing
+ * private.
  *
- * Body-only by design: the title is left empty and the service worker's
- * `d.title || 'Earthy'` fallback names the app. One emoji per line is content,
- * not UI. Vietnamese carries full diacritics. No call to action — the copy
- * informs, the person decides. */
+ * SHAPE (2026-09-05): every line is a pair { e, b } —
+ *   • e = the TITLE: exactly one face emoji, the app's reaction,
+ *   • b = the BODY: plain text ending in "!", NO emoji, NO digits, ≤ 9 words.
+ * VOICE: a fond, slightly nosy friend reacting to THIS one transaction —
+ * playful judgment PLUS a smart nudge to spend/live wisely or healthily, never
+ * preachy, never about the queue.
+ *
+ * DAYPART: for the time-sensitive concepts (Dining, Groceries) and the coffee /
+ * milk-tea pools, a daypart line (sáng/trưa/chiều/tối, from occurred_at) is used
+ * when a real clock time is known; a date-only row falls back to the tier line. */
 
 const CONCEPTS = ['Housing', 'Groceries', 'Clothing', 'Shopping', 'Transport', 'Dining', 'Fun', 'Others'];
 
-/* VND tiers. Tier 1 (≤30k) matches the client's photo-nudge floor so "too
- * small to photograph" and "lặt vặt" stay the same idea. A non-VND amount has
- * no honest tier — it reads as tier 2 (the neutral everyday voice) rather
- * than guessing through a conversion. */
-const TIERS = [30000, 500000, 5000000];   // ≤ → t1, t2, t3; above the last → t4
+/* VND tiers. Tier 1 (≤30k) matches the client's photo-nudge floor. A non-VND
+ * amount has no honest tier — it reads as tier 2 rather than guessing. */
+const TIERS = [30000, 500000, 5000000];
 
 function tierOf(amount, currency) {
   if (currency && currency !== 'VND') return 2;
@@ -32,16 +33,34 @@ function tierOf(amount, currency) {
   return 4;
 }
 
-/* Merchant/memo → pool key. Deburred, padded word match — the same trick the
- * client's category guesser uses — so "CA PHE PHUC LONG" hits and "Nguyen
- * Caraphe" does not. Expenses only: a refund FROM Starbucks is still income. */
+/* Daypart from occurred_at, in VN wall-clock (+07:00). Four buckets, no khuya —
+ * tối absorbs the night. Null when there is no real time: a date-only row is
+ * stored at UTC-midnight, so H:M:S all zero → no daypart (falls back to tier). */
+function dayPartOf(occurredAt) {
+  const t = Date.parse(occurredAt || '');
+  if (!t) return null;
+  const d = new Date(t);
+  if (d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0) return null;
+  const h = (d.getUTCHours() + 7) % 24;
+  if (h >= 5 && h < 11) return 'sang';
+  if (h >= 11 && h < 14) return 'trua';
+  if (h >= 14 && h < 18) return 'chieu';
+  return 'toi';
+}
+
+/* Merchant/memo → pool key. Deburred, padded word match. Expenses only. */
 const POOLS = {
   coffee: ['ca phe', 'cafe', 'coffee', 'highlands', 'phuc long', 'katinat', 'starbucks',
-    'trung nguyen', 'cong ca phe', 'phe la', 'cheese coffee', 'guta', 'milano'],
-  milktea: ['tra sua', 'gong cha', 'gongcha', 'koi the', 'toco toco', 'tocotoco',
-    'bobapop', 'ding tea', 'mixue', 'phuc tea', 'boba'],
-  ride: ['grab', 'gojek', 'be group', 'xanh sm', 'vinasun', 'mai linh', 'taxi'],
-  cinema: ['cgv', 'lotte cinema', 'galaxy cinema', 'beta cinema', 'cinestar', 'mega gs'],
+    'trung nguyen', 'trung nguyen legend', 'cong ca phe', 'cong caphe', 'phe la', 'cheese coffee',
+    'guta', 'milano', 'the coffee house', 'tch', 'passio', 'aha cafe', 'ong bau', 'napoli',
+    'laha', 'la viet', 'phindeli'],
+  milktea: ['tra sua', 'gong cha', 'gongcha', 'koi the', 'koi', 'toco toco', 'tocotoco',
+    'bobapop', 'ding tea', 'mixue', 'phuc tea', 'boba', 'tiger sugar', 'the alley',
+    'royaltea', 'goky', 'maycha', 'tealive'],
+  ride: ['grab', 'grabbike', 'grabcar', 'grab bike', 'grab car', 'gojek', 'be group', 'be bike',
+    'xanh sm', 'vinasun', 'mai linh', 'g7 taxi', 'taxi', 'lado', 'emddi', 'vato', 'xe om'],
+  cinema: ['cgv', 'lotte cinema', 'bhd star', 'galaxy cinema', 'beta cinema', 'cinestar',
+    'mega gs', 'dcine', 'rap phim'],
 };
 
 function deburr(s) {
@@ -61,463 +80,266 @@ function poolOf(extraction) {
 }
 
 /* The whole plaintext → the tiny enum that leaves this process.
- * c: concept | 'income' | 'unknown' · t: 1..4 · p: pool key (expenses only). */
+ * c: concept | 'income' | 'unknown' · t: 1..4 · d: daypart | absent · p: pool. */
 export function copyMeta(extraction) {
   if (!extraction) return { c: 'unknown', t: 2 };
   const flow = extraction.flow
     || (extraction.direction === 'credit' ? 'income' : 'expense');
   const t = tierOf(extraction.amount, extraction.currency);
-  if (flow === 'income') return { c: 'income', t };
-  if (flow === 'transfer') return { c: 'unknown', t };
+  const d = dayPartOf(extraction.occurred_at);
+  if (flow === 'income') { const m = { c: 'income', t }; if (d) m.d = d; return m; }
+  if (flow === 'transfer') { const m = { c: 'unknown', t }; if (d) m.d = d; return m; }
   const c = CONCEPTS.indexOf(extraction.category) >= 0 ? extraction.category : 'unknown';
   const meta = { c, t };
+  if (d) meta.d = d;
   const p = poolOf(extraction);
   if (p) meta.p = p;
   return meta;
 }
 
-/* ── The matrix ──────────────────────────────────────────────────────────────
- * MATRIX[lang][concept][tier-1] = 4 variants, rotated at send time.
- * Voice: funny like a person, a light "tiêu khéo, sống khoẻ" undertone,
- * never preachy, never a call to action, no em-dashes, no slang the product
- * has banned ("chốt đơn"), nothing a wrong guess could contradict. */
+/* ── Base matrix ─────────────────────────────────────────────────────────────
+ * MATRIX[lang][concept][tier-1] = 4 variants of { e: face, b: text! }. Used when
+ * no daypart applies (date-only rows, or concepts without a daypart set). */
 const MATRIX = {
   vi: {
     Dining: [
-      ['Khoản nhỏ xíu mà vui cả buổi thì quá hời 🍡',
-        'Ăn vặt chút xíu, ngày dài cũng cần ngọt ngào mà 🍬',
-        'Nhỏ thôi mà ấm bụng là được giá rồi 🥟',
-        'Chút đồ ăn vặt đổi lấy tâm trạng tốt là lời rồi 🍢'],
-      ['Ăn ngon là khoản đầu tư ít khi lỗ 🍜',
-        'Bụng no thì đầu óc mới sáng suốt được 🍚',
-        'Bữa ngon đúng lúc đáng giá hơn con số của nó 🥘',
-        'Ăn uống tử tế cũng là một cách thương bản thân 🍲'],
-      ['Bữa này chắc ngon lắm đây, nhớ ăn chậm thôi 🍽️',
-        'Chắc là một bữa ra trò rồi. Ngon miệng nha 🥂',
-        'Bữa lớn thì niềm vui phải lớn theo mới đáng 🍱',
-        'Ăn sang một bữa, tuần sau cơm nhà bù lại là đẹp 🍛'],
-      ['Bữa này tầm cỡ đó nha. Kỷ niệm thì phải xứng đáng 🥢',
-        'Chắc là dịp đặc biệt rồi. Vui hết mình nha 🍾',
-        'Một bữa đáng nhớ. Nhớ lâu một chút cho bõ 🥂',
-        'Ăn lớn cỡ này thì niềm vui phải để dành kể lại 🍽️'],
+      [{ e: '😋', b: 'Ăn vặt cho vui miệng, đừng quá tay nha!' }, { e: '😌', b: 'Lai rai chút đỉnh, nhớ ăn thật ngon!' }, { e: '😏', b: 'Buồn miệng là tay lại nhấp liền à!' }, { e: '🙂', b: 'Nhỏ xíu thôi, tha cho lần này!' }],
+      [{ e: '😋', b: 'Ăn ngon nhớ ăn đủ chất nha!' }, { e: '😌', b: 'Bữa này ổn, mai nấu nhà đổi vị!' }, { e: '😏', b: 'Lại ăn ngoài nữa rồi đó nha!' }, { e: '😊', b: 'No rồi, uống thêm nước cho khoẻ!' }],
+      [{ e: '😳', b: 'Bữa này xịn dữ, thỉnh thoảng thôi nha!' }, { e: '😆', b: 'Chi cho miệng ghê, mai ăn nhẹ lại!' }, { e: '😍', b: 'Cỡ này là đại tiệc, tận hưởng đi!' }, { e: '😌', b: 'Sang một bữa, cân lại sau nha!' }],
+      [{ e: '😱', b: 'Ăn gì mà tốn dữ, mai tiết kiệm lại!' }, { e: '🫢', b: 'Ví khóc rồi, tuần sau cơm nhà nha!' }, { e: '🤑', b: 'Đại gia ẩm thực, nhớ giữ sức khoẻ!' }, { e: '😵‍💫', b: 'Tốn cỡ này, mai ăn nhẹ nhàng thôi!' }],
     ],
     Groceries: [
-      ['Ghé chợ chút xíu mà tủ đồ đỡ trống hẳn 🥬',
-        'Thêm miếng rau miếng thịt, cơm nhà lại đủ vị 🍅',
-        'Chút đồ lặt vặt cho căn bếp chạy êm 🧄',
-        'Bếp không bao giờ thiếu được mấy món nhỏ này 🥚'],
-      ['Tủ lạnh đầy là tuần này yên tâm một nửa rồi 🥬',
-        'Đi chợ về là căn bếp lại có chuyện để kể 🍳',
-        'Cơm nhà rẻ hơn cơm tiệm, mà thường còn ngon hơn 🥘',
-        'Chợ búa đầy đủ, cả tuần đỡ phải nghĩ ăn gì 🧺'],
-      ['Chuyến chợ lớn ha. Tuần này bếp đỏ lửa rồi 🍲',
-        'Trữ đồ kiểu này là tính chuyện dài lâu rồi đó 🧺',
-        'Đi chợ một lần cho cả tuần, tính vậy mà khôn 🥕',
-        'Bếp đầy thì nhà ấm, tiền này đáng từng đồng 🍚'],
-      ['Sắm sửa cỡ này chắc là chuẩn bị gì lớn lắm 🧺',
-        'Trữ đồ tầm này thì cả tháng khỏi lo bếp trống 🥩',
-        'Chuyến chợ hoành tráng đó. Nhớ xếp tủ lạnh cho khéo 🧊',
-        'Mua lớn cho bếp là khoản ít khi phải tiếc 🍱'],
+      [{ e: '😌', b: 'Ghé chợ tí mà đảm đang ghê!' }, { e: '🙂', b: 'Mua lặt vặt mà siêng thật đó!' }, { e: '😋', b: 'Chút rau chút thịt, ăn nhà cho lành!' }, { e: '😊', b: 'Tay xách nách mang, chăm nhà ghê!' }],
+      [{ e: '😌', b: 'Tủ lạnh đầy, tuần này ăn nhà cho khoẻ!' }, { e: '😊', b: 'Đi chợ về là bếp lại vui liền!' }, { e: '🥰', b: 'Nấu cơm nhà vừa rẻ vừa lành nha!' }, { e: '😍', b: 'Đảm đang quá, giữ nếp này nha!' }],
+      [{ e: '😆', b: 'Trữ đồ dữ vậy, nhớ ăn cho hết!' }, { e: '😳', b: 'Chợ một chuyến bằng người ta ba!' }, { e: '😅', b: 'Bếp sắp thành siêu thị rồi đó!' }, { e: '😌', b: 'Mua nhiều thì lên thực đơn cho gọn!' }],
+      [{ e: '😳', b: 'Chợ cỡ này là mở quán hả!' }, { e: '🫢', b: 'Ôm cả chợ về, nhớ đừng để phí!' }, { e: '😆', b: 'Tủ lạnh chắc không đủ chứa luôn!' }, { e: '🤩', b: 'Đảm đang cỡ này đáng nể thật!' }],
     ],
     Clothing: [
-      ['Món nhỏ thôi mà mặc lên thấy khác liền 🧦',
-        'Đồ nhỏ xinh, giá nhỏ xinh, vui cũng xinh 🎀',
-        'Thêm một món nhỏ cho tủ đồ đỡ buồn 👕',
-        'Chút xíu vậy mà tự nhiên thấy tươm tất hơn 🧢'],
-      ['Mặc đẹp một chút, ngày thường cũng thành dịp 👗',
-        'Đồ mới mặc lần đầu lúc nào cũng vui nhất 👕',
-        'Tủ đồ có món mới, gương nhà sắp bận rộn rồi 🪞',
-        'Mua đồ vừa vặn là tiết kiệm kiểu tinh tế đó 👖'],
-      ['Món này chắc ưng lắm mới rước về ha 👗',
-        'Đẹp thì đẹp thật, nhớ phối cho hết công suất nha 🧥',
-        'Đồ tốt mặc được lâu, tính kỹ ra là hời 👞',
-        'Một món đáng tiền còn hơn ba món để không 🧣'],
-      ['Đầu tư cho ngoại hình cỡ này là nghiêm túc rồi 🧥',
-        'Món lớn đó nha. Mặc thật nhiều vào cho xứng 👗',
-        'Đồ xịn thì phải có dịp xịn, tự tạo dịp luôn nha 👠',
-        'Sắm lớn rồi thì tủ đồ cũ chịu khó nhường chỗ 🧳'],
+      [{ e: '😌', b: 'Món nhỏ điệu chút, ai chê nào!' }, { e: '🙂', b: 'Sắm tí cho xinh, vừa phải thôi nha!' }, { e: '😊', b: 'Thêm món nhỏ cho tủ đỡ buồn!' }, { e: '😏', b: 'Điệu vừa vừa thôi nha bạn!' }],
+      [{ e: '😏', b: 'Lại sắm đồ mới nữa rồi hả!' }, { e: '😍', b: 'Diện lên chắc xinh, nhớ mặc nhiều nha!' }, { e: '😆', b: 'Tủ đồ chật thêm chút nữa rồi!' }, { e: '😌', b: 'Đẹp thì đẹp, chọn đồ bền mà mặc!' }],
+      [{ e: '😳', b: 'Đầu tư nhan sắc dữ ta nha!' }, { e: '😍', b: 'Món này ưng lắm mới rước ha!' }, { e: '😎', b: 'Sang lên hẳn, mặc cho đáng nha!' }, { e: '😌', b: 'Mua ít mà chất còn hơn nhiều!' }],
+      [{ e: '😱', b: 'Sắm đồ mà tốn cỡ này luôn!' }, { e: '🫢', b: 'Ví gầy vì đẹp, phanh lại chút nha!' }, { e: '😏', b: 'Tín đồ thời trang đây rồi nha!' }, { e: '😵‍💫', b: 'Đẹp thật nhưng tháng này nhẹ tay lại!' }],
     ],
     Shopping: [
-      ['Món nhỏ nhỏ vầy mua vui là chính ha 🎁',
-        'Lặt vặt chút xíu, thêm một niềm vui nhỏ 🧸',
-        'Mấy món nhỏ này hay ở chỗ không cần lý do 🎈',
-        'Chút quà nhỏ cho chính mình, hợp lệ nha 🎀'],
-      ['Đẹp thì đẹp thật, nhớ xài cho kỹ nha 🛍️',
-        'Món này chắc nằm trong danh sách lâu rồi ha 📦',
-        'Mua được món ưng ý là bớt lướt điện thoại cả tuần 🛒',
-        'Thứ mình thích mà còn dùng được hằng ngày là chuẩn rồi 🎯'],
-      ['Món đáng chú ý đó nha. Xài bền là hời 🛍️',
-        'Cân nhắc rồi mới mua thì cứ vui thôi 📦',
-        'Món lớn về nhà, nhớ cho nó được trọng dụng nha 🪑',
-        'Đồ tốt không rẻ, nhưng đồ rẻ hay phải mua hai lần 🧰'],
-      ['Khoản này ra tấm ra món rồi. Xài cho đã nha 📦',
-        'Món lớn cỡ này chắc nghĩ kỹ lắm rồi. Chúc mừng nha 🎉',
-        'Sắm lớn một lần, vui và xài được thật lâu 🛋️',
-        'Đầu tư cỡ này thì món đồ phải làm việc chăm vào 🧰'],
+      [{ e: '😌', b: 'Mua vui tí thôi, kệ đi nha!' }, { e: '🙂', b: 'Lặt vặt cho đời thêm chút vui!' }, { e: '😊', b: 'Món nhỏ này khỏi cần lý do!' }, { e: '😉', b: 'Tự thưởng tí, đừng thành thói quen nha!' }],
+      [{ e: '😏', b: 'Lại lướt sàn nữa rồi hả!' }, { e: '😌', b: 'Món ngắm lâu rồi, xài cho đáng nha!' }, { e: '😆', b: 'Giỏ hàng cười mà ví hơi mếu!' }, { e: '😎', b: 'Thích thì mua, nhớ dùng cho hết!' }],
+      [{ e: '😳', b: 'Chốt món to gớm ta ơi!' }, { e: '😏', b: 'Xuống tiền dứt khoát ghê chưa!' }, { e: '😌', b: 'Món lớn về, nhớ xài cho đáng nha!' }, { e: '🤩', b: 'Sộp thật, mà nhớ cân đối chút nha!' }],
+      [{ e: '😱', b: 'Mua gì mà dữ vậy trời!' }, { e: '🫢', b: 'Ví bay màu, tháng này phanh lại nha!' }, { e: '😎', b: 'Chi lớn không chớp mắt luôn á!' }, { e: '😵‍💫', b: 'Xót ví chưa, lần sau tính kỹ nha!' }],
     ],
     Transport: [
-      ['Xe an toàn, lòng thanh thản 🛵',
-        'Vài đồng gửi xe đổi lấy khỏi lo ngó chừng 🅿️',
-        'Đi tới nơi về tới chốn là đáng giá rồi 🚌',
-        'Chuyến ngắn thôi mà đỡ mỏi chân bao nhiêu 🚏'],
-      ['Về tới nơi êm ru, đáng từng đồng 🛵',
-        'Đường xa có người chở, mình ngồi thở cũng đáng 🚕',
-        'Đổ xăng đầy bình, đi đâu cũng tự tin 🏍️',
-        'Tiền đi lại là tiền mua thời gian đó nha ⛽'],
-      ['Chuyến này dài ha. Đi đứng cẩn thận nha 🚗',
-        'Đi xa một chuyến, về kể chuyện cho đã 🚄',
-        'Lo xe cộ đàng hoàng thì đường nào cũng êm 🔧',
-        'Chuyến đi đáng tiền nhất là chuyến về nhà an toàn 🛣️'],
-      ['Chuyến lớn rồi đây. Đi bình an, về đầy chuyện vui ✈️',
-        'Đi xa cỡ này là phải có ảnh đẹp mang về nha 🧳',
-        'Khoản đi lại lớn thường đổi lấy kỷ niệm lớn ✈️',
-        'Đường dài mới biết chuyến đi có đáng. Đi mạnh giỏi nha 🚄'],
+      [{ e: '😌', b: 'Gửi xe tí cho yên tâm nha!' }, { e: '🙂', b: 'Đi gần thôi mà cũng tính à!' }, { e: '😊', b: 'Chuyến ngắn, đi bộ được càng khoẻ!' }, { e: '😏', b: 'Tiết kiệm sức chân, khôn đó nha!' }],
+      [{ e: '😌', b: 'Lại đi xe nữa rồi nha!' }, { e: '😎', b: 'Có người chở, ngồi thảnh thơi ghê!' }, { e: '😏', b: 'Đổ xăng đầy, chạy đâu cũng tự tin!' }, { e: '😌', b: 'Tiền xe đổi lấy thời gian, đáng nha!' }],
+      [{ e: '😳', b: 'Đi xa dữ ta, chơi lớn ha!' }, { e: '😎', b: 'Chuyến này sang, đi cho đáng nha!' }, { e: '🤨', b: 'Xăng xe cỡ này đi đâu vậy!' }, { e: '😌', b: 'Đi lại nhiều nhớ giữ sức khoẻ nha!' }],
+      [{ e: '😱', b: 'Đi đâu mà tốn dữ vậy trời!' }, { e: '🫢', b: 'Chuyến này chắc đi xa lắm đây!' }, { e: '😵‍💫', b: 'Ví ngồi ghế VIP luôn rồi đó!' }, { e: '🤩', b: 'Sang thật, đi an toàn về kể nha!' }],
     ],
     Housing: [
-      ['Chút phí nhỏ cho căn nhà chạy êm 🔧',
-        'Nhà cửa là vậy, li ti hoài mà thiếu là biết liền 🧰',
-        'Khoản nhỏ thôi mà nhà đỡ trục trặc là vui 🏠',
-        'Chăm nhà là chăm từ mấy khoản nhỏ này 🪛'],
-      ['Nhà chạy êm là nhờ mấy khoản đều đặn này 💡',
-        'Đóng đủ hoá đơn, tối về ngủ ngon 🏠',
-        'Điện nước đủ đầy, nhà mới là tổ ấm 🔌',
-        'Khoản này không vui mấy, nhưng nhà thì ấm thiệt 🧾'],
-      ['Máy lạnh tháng này chạy hết mình rồi đó ⚡',
-        'Hoá đơn cao là dấu hiệu nhà mình sống hết công suất 💡',
-        'Nhà cửa tháng này tốn kha khá. Đáng, vì là nhà mình 🏠',
-        'Khoản lo cho nhà chưa bao giờ là phí 🧱'],
-      ['Khoản lớn cho căn nhà. Nhà bền thì mình an tâm 🏠',
-        'Đầu tư cho chỗ mình ngủ mỗi tối, xứng đáng mà 🛏️',
-        'Nhà được chăm lớn vậy chắc sắp đẹp lên trông thấy 🧱',
-        'Tiền cho tổ ấm ít khi nào uổng lắm 🏡'],
+      [{ e: '😌', b: 'Chút phí cho nhà chạy êm nha!' }, { e: '🙂', b: 'Lo nhà từ mấy khoản nhỏ nè!' }, { e: '😊', b: 'Chăm nhà sớm cho đỡ tốn lớn sau!' }, { e: '😌', b: 'Nhà đỡ trục trặc là vui rồi!' }],
+      [{ e: '😮‍💨', b: 'Hoá đơn tới, đóng đủ rồi thở phào!' }, { e: '😌', b: 'Đóng sớm cho nhẹ đầu, ngủ ngon nha!' }, { e: '🥰', b: 'Điện nước đủ, nhà mới thành tổ ấm!' }, { e: '😅', b: 'Khoản này chán mà nhà cần thật!' }],
+      [{ e: '😳', b: 'Tháng này nhà tốn dữ ta!' }, { e: '😅', b: 'Máy lạnh chạy hết ga rồi hả!' }, { e: '😮‍💨', b: 'Nuôi cái nhà cũng cực ghê nha!' }, { e: '😌', b: 'Xài điện nước khéo lại cho đỡ tốn!' }],
+      [{ e: '😱', b: 'Nhà cửa nuốt tiền dữ vậy trời!' }, { e: '🫢', b: 'Khoản lớn cho tổ ấm, đáng mà!' }, { e: '😵‍💫', b: 'Ví lo cho chỗ ngủ hết mình luôn!' }, { e: '🤩', b: 'Tốn thật nhưng nhà lên đời hẳn!' }],
     ],
     Fun: [
-      ['Vui nhỏ nhỏ vầy là gia vị của tuần đó 🎈',
-        'Chút niềm vui giá mềm, tinh thần lên liền 🎮',
-        'Giải trí nhẹ nhàng, đầu óc nhẹ theo 🎧',
-        'Khoản vui nhỏ mà đúng lúc thì quý lắm 🎪'],
-      ['Chơi hết mình rồi mai làm tiếp, công bằng mà 🎬',
-        'Niềm vui có giá cả rồi, khỏi thấy áy náy nha 🎡',
-        'Tinh thần cũng cần được đầu tư như ví vậy 🎶',
-        'Vui đúng chỗ thì đồng nào cũng đáng 🎳'],
-      ['Chơi lớn ha. Nhớ vui cho đủ vốn nha 🎢',
-        'Trải nghiệm là thứ xài hoài không cũ 🎭',
-        'Khoản vui này chắc để dành kể dài dài 🎤',
-        'Vui một trận ra trò, tuần sau lấy đà làm việc 🎉'],
-      ['Chơi tầm này là kỷ niệm để đời rồi 🎆',
-        'Khoản vui lớn nhất là khoản mình không hối hận 🎇',
-        'Trải nghiệm lớn đáng tiền hơn món đồ lớn, thiệt đó 🎢',
-        'Vui cỡ này thì phải vui cho hết mình mới hoà vốn 🎉'],
+      [{ e: '😌', b: 'Vui tí cho đời dễ thở nha!' }, { e: '🙂', b: 'Xả stress chút, ai trách gì đâu!' }, { e: '😊', b: 'Niềm vui nhỏ mà quý lắm đó!' }, { e: '😏', b: 'Chơi nhẹ thôi, mai còn cày nha!' }],
+      [{ e: '😎', b: 'Chơi hết mình rồi mai cày lại!' }, { e: '😌', b: 'Vui có chừng mực thì vui dài nha!' }, { e: '😊', b: 'Nạp tí vui cho tinh thần khoẻ!' }, { e: '😏', b: 'Đúng lúc thì tiêu cũng đáng nha!' }],
+      [{ e: '😆', b: 'Chơi lớn ha, vui cho đã nha!' }, { e: '😍', b: 'Trải nghiệm này đáng đồng tiền đó!' }, { e: '🤩', b: 'Xõa cỡ này nhớ giữ sức nha!' }, { e: '😎', b: 'Vui ra trò, mai lấy đà làm việc!' }],
+      [{ e: '😱', b: 'Chơi gì mà tốn dữ vậy trời!' }, { e: '🫢', b: 'Cuộc vui này ví trả giá đó!' }, { e: '😵‍💫', b: 'Xõa hết cỡ, tháng sau nhẹ tay nha!' }, { e: '🤩', b: 'Đáng đời một chuyến, nhớ nghỉ ngơi nha!' }],
     ],
     Others: [
-      ['Một khoản nhỏ vừa ghé qua, nhẹ nhàng thôi 🍃',
-        'Lặt vặt chút xíu, cuộc sống là vậy mà 🌿',
-        'Khoản nhỏ này chắc mình nhớ liền là gì ha 📎',
-        'Nhỏ thôi, ghi lại cho sổ sách gọn gàng 🗂️'],
-      ['Một khoản vừa ghé sổ, xem qua chút nha 📒',
-        'Tiền đi có việc của nó, mình chỉ cần nhớ là được 🧭',
-        'Khoản này chắc có câu chuyện riêng của nó 📌',
-        'Ghi chú rõ ràng hôm nay, đỡ đoán mò mai sau 🗒️'],
-      ['Khoản kha khá vừa ghé. Liếc qua một chút nha 📒',
-        'Tầm này thì nên biết nó là gì cho chắc 🧾',
-        'Khoản đáng chú ý đó, xem lại cho yên tâm 📋',
-        'Con số này xứng đáng được một cái ghi chú tử tế 🖊️'],
-      ['Khoản lớn đó nha. Hít thở sâu, vào xem lại cho chắc 💸',
-        'Tầm này là phải biết mặt biết tên rõ ràng nha 🧾',
-        'Số lớn vừa đi. Xem lại một chút cho chắc bụng 📒',
-        'Khoản này lớn thiệt. Xem qua rồi hẵng yên tâm 🗂️'],
+      [{ e: '🙂', b: 'Khoản nhỏ ghé qua, nhẹ nhàng thôi!' }, { e: '😌', b: 'Lặt vặt tí, đời là vậy mà!' }, { e: '😊', b: 'Cái này chắc nhớ liền là gì!' }, { e: '😉', b: 'Nhỏ xíu, ghi cho gọn sổ nha!' }],
+      [{ e: '🤨', b: 'Khoản này là gì thế ta!' }, { e: '😌', b: 'Tiền đi có việc của nó mà!' }, { e: '😅', b: 'Ghi rõ kẻo mai lại quên nha!' }, { e: '😏', b: 'Chuyện gì đây, khai thật đi nào!' }],
+      [{ e: '🤨', b: 'Khoản kha khá, khai báo đi nào!' }, { e: '😳', b: 'Cái này đáng để ý đó nha!' }, { e: '😌', b: 'Tiền đi đâu nhớ ghi rõ nha!' }, { e: '😬', b: 'Số này không nhỏ đâu nha!' }],
+      [{ e: '😳', b: 'Khoản lớn mà bí ẩn ghê ta!' }, { e: '😱', b: 'Tiền bay đi đâu vậy trời!' }, { e: '🫢', b: 'Khai thật đi, tốn gì lớn vậy!' }, { e: '😵‍💫', b: 'Số này phải xem cho kỹ nha!' }],
     ],
     income: [
-      ['Có đồng vô nè, nhỏ mà có còn hơn không 🪙',
-        'Tiền lẻ về ví, gom lại cũng thành chuyện lớn 🪙',
-        'Một khoản nhỏ vừa về, vui nhẹ cái đã 🌱',
-        'Tiền về là tin vui, cỡ nào cũng vậy 💌'],
-      ['Tiền về rồi. Để dành trước, tiêu sau, nhẹ đầu 🎉',
-        'Có khoản vừa hạ cánh. Chào mừng về nhà 🛬',
-        'Tiền vô đều đều là nhịp sống đang ổn đó 🌤️',
-        'Một khoản vừa về ví. Hôm nay dễ thương ghê 💚'],
-      ['Khoản kha khá vừa về. Tính trước một phần để dành nha 🌳',
-        'Tiền về đậm đà. Thưởng mình chút xíu cũng được 🎁',
-        'Khoản này về là kế hoạch tháng này dễ thở hẳn 🌿',
-        'Tin vui vừa hạ cánh, ví cười thấy rõ 😄'],
-      ['Khoản lớn vừa về. Chúc mừng, nhớ chia phần cho tương lai 🌳',
-        'Tiền về cỡ này là thành quả đó. Tự hào chút đi 🏆',
-        'Số đẹp vừa hạ cánh. Bình tĩnh phân bổ rồi hẵng vui tiếp 💚',
-        'Về đậm nha. Để dành một phần, phần còn lại sống cho đã 🌤️'],
+      [{ e: '😊', b: 'Có đồng vô, cười cái đã nha!' }, { e: '🙂', b: 'Tiền lẻ cũng quý, gom dần nha!' }, { e: '😌', b: 'Nhỏ mà có còn hơn không nha!' }, { e: '😄', b: 'Ting ting nhẹ, để dành luôn nha!' }],
+      [{ e: '🤑', b: 'Tiền về rồi, để dành trước nha!' }, { e: '😍', b: 'Có khoản vô, chia ra tiêu khéo nha!' }, { e: '😌', b: 'Ví ấm lại rồi, đừng tiêu vội nha!' }, { e: '😎', b: 'Tiền vô đều, nhớ tiết kiệm nha!' }],
+      [{ e: '🤩', b: 'Khoản bự về, để dành một phần nha!' }, { e: '😏', b: 'Tiền về đậm, thưởng nhẹ thôi nha!' }, { e: '😆', b: 'Ví cười tới mang tai luôn á!' }, { e: '😌', b: 'Vô mạnh vậy, lên kế hoạch giữ tiền!' }],
+      [{ e: '🤩', b: 'Tiền về khủng, chia phần tương lai nha!' }, { e: '🤑', b: 'Đại gia đây rồi, đầu tư khôn nha!' }, { e: '😎', b: 'Giàu rồi, để dành trước khi tiêu nha!' }, { e: '😌', b: 'Số đẹp về, bình tĩnh phân bổ nha!' }],
     ],
     unknown: [
-      ['Một khoản nhỏ vừa ghé sổ, xem qua chút nha 📥',
-        'Có giao dịch vừa cập bến, liếc một cái cho rõ 🛳️',
-        'Tiền vừa nhúc nhích nè, vào xem là chuyện gì ha 👀',
-        'Một dòng mới trong sổ đang chờ mình đặt tên 🏷️'],
-      ['Một khoản vừa ghé sổ, ghé xem cho rõ ngọn ngành 📒',
-        'Có giao dịch mới nè, vào đặt tên cho nó nha 🏷️',
-        'Tiền vừa di chuyển, mình là người hiểu nó nhất đó 👀',
-        'Sổ vừa có dòng mới, xem qua là gọn 📥'],
-      ['Khoản kha khá vừa ghé sổ, xem một chút cho chắc 🧾',
-        'Tầm này thì đáng một cái liếc mắt đó nha 👀',
-        'Một khoản đáng chú ý đang chờ mình gọi tên 📋',
-        'Số này không nhỏ đâu, ghé xem cho rõ nha 📒'],
-      ['Khoản lớn vừa ghé. Hít thở sâu rồi vào xem nha 💸',
-        'Số lớn đó. Biết mặt đặt tên xong mới yên tâm được 🧾',
-        'Tầm này là phải đích thân xem một cái rồi 📒',
-        'Khoản bự vừa xuất hiện, xem lại một chút cho chắc bụng 👀'],
+      [{ e: '🙂', b: 'Có khoản mới, ghé xem chút nha!' }, { e: '😌', b: 'Tiền vừa nhúc nhích tí đó nha!' }, { e: '😊', b: 'Dòng mới trong sổ, xem thử nha!' }, { e: '😉', b: 'Nhỏ thôi, liếc một cái cho rõ!' }],
+      [{ e: '🤨', b: 'Khoản này là gì thế ta!' }, { e: '😏', b: 'Có giao dịch mới, vào xem nha!' }, { e: '😌', b: 'Tiền vừa đi, xem chút cho rõ!' }, { e: '😊', b: 'Sổ có dòng mới rồi đó nha!' }],
+      [{ e: '😳', b: 'Khoản kha khá, ghé xem liền nha!' }, { e: '🤨', b: 'Cái này đáng liếc một cái đó!' }, { e: '😬', b: 'Số này không nhỏ đâu nha!' }, { e: '😌', b: 'Đáng chú ý đó, xem cho chắc nha!' }],
+      [{ e: '😱', b: 'Khoản lớn vừa xuất hiện kìa!' }, { e: '🫢', b: 'Tiền bự đi đâu vậy trời!' }, { e: '😵‍💫', b: 'Cái này phải xem tận nơi nha!' }, { e: '😬', b: 'Số lớn đó, xem cho chắc nha!' }],
     ],
   },
   en: {
     Dining: [
-      ['A tiny treat that carries the whole afternoon is a bargain 🍡',
-        'A little snack, because long days need sweet minutes 🍬',
-        'Small bite, warm belly, fair trade 🥟',
-        'Snack money for a better mood is a win 🍢'],
-      ['Good food is the one investment that rarely loses 🍜',
-        'A full stomach makes a much smarter brain 🍚',
-        'The right meal at the right time beats its own price 🥘',
-        'Eating well is a quiet way of being kind to yourself 🍲'],
-      ['That sounds like a proper meal. Eat it slowly 🍽️',
-        'A real feast, by the looks of it. Enjoy 🥂',
-        'A big meal deserves an equally big appetite 🍱',
-        'One fancy meal now, home cooking evens it out later 🍛'],
-      ['That was a serious meal. Occasions deserve it 🥢',
-        'Must be a special day. Enjoy every bit of it 🍾',
-        'A meal worth remembering. Remember it well 🥂',
-        'Dining this big earns a story to retell 🍽️'],
+      [{ e: '😋', b: 'Snacking for fun, just do not overdo it!' }, { e: '😌', b: 'A little nibble, savor it slowly!' }, { e: '😏', b: 'Bored mouth, busy hands again huh!' }, { e: '🙂', b: 'Tiny one, you are forgiven!' }],
+      [{ e: '😋', b: 'Eat well, but eat properly too!' }, { e: '😌', b: 'Decent meal, cook home next time!' }, { e: '😏', b: 'Eating out again, are we!' }, { e: '😊', b: 'Full now, drink some water too!' }],
+      [{ e: '😳', b: 'Posh meal, keep it occasional!' }, { e: '😆', b: 'Spoiling that mouth, eat light tomorrow!' }, { e: '😍', b: 'A feast this size, enjoy it!' }, { e: '😌', b: 'One fancy meal, balance it later!' }],
+      [{ e: '😱', b: 'What a bill, save up tomorrow!' }, { e: '🫢', b: 'Wallet cried, home cooking next week!' }, { e: '🤑', b: 'Food tycoon, mind your health too!' }, { e: '😵‍💫', b: 'Big spend, eat lighter tomorrow please!' }],
     ],
     Groceries: [
-      ['A quick market stop and the shelves feel alive again 🥬',
-        'A few greens and things, dinner is sorted 🍅',
-        'Little kitchen bits that keep everything running 🧄',
-        'The kitchen never stops needing these small things 🥚'],
-      ['A full fridge is half the week already handled 🥬',
-        'A market run always gives the kitchen a story 🍳',
-        'Home cooking costs less and usually tastes better 🥘',
-        'Pantry stocked, one less thing to think about all week 🧺'],
-      ['Big market run. The stove is busy this week 🍲',
-        'Stocking up like that is long-term thinking 🧺',
-        'One big shop for the whole week is clever math 🥕',
-        'A full kitchen makes a warm home, worth every bit 🍚'],
-      ['Stocking up this big, something must be coming 🧺',
-        'A haul like that covers the kitchen for weeks 🥩',
-        'Grand market trip. Pack that fridge wisely 🧊',
-        'Big kitchen spending is the kind you rarely regret 🍱'],
+      [{ e: '😌', b: 'Quick market run, so responsible!' }, { e: '🙂', b: 'Little errands, so diligent you!' }, { e: '😋', b: 'Greens and meat, home food is healthy!' }, { e: '😊', b: 'Hands full, caring for home!' }],
+      [{ e: '😌', b: 'Full fridge, eat home and stay healthy!' }, { e: '😊', b: 'Market run, the kitchen cheers!' }, { e: '🥰', b: 'Home cooking, cheap and wholesome!' }, { e: '😍', b: 'So domestic, keep this habit!' }],
+      [{ e: '😆', b: 'Stocking up, remember to eat it all!' }, { e: '😳', b: 'One trip, enough for many!' }, { e: '😅', b: 'Kitchen becoming a supermarket now!' }, { e: '😌', b: 'Bought lots, plan the meals well!' }],
+      [{ e: '😳', b: 'Opening a restaurant or what!' }, { e: '🫢', b: 'Whole market home, waste nothing please!' }, { e: '😆', b: 'Fridge cannot hold all this!' }, { e: '🤩', b: 'Domestic hero, truly impressive!' }],
     ],
     Clothing: [
-      ['Small piece, instantly sharper 🧦',
-        'Tiny thing, tiny price, real joy 🎀',
-        'One small piece to cheer the wardrobe up 👕',
-        'Little touch, suddenly more put together 🧢'],
-      ['Dress a little better and an ordinary day feels like one 👗',
-        'New clothes are never happier than the first wear 👕',
-        'New piece in the wardrobe, the mirror will be busy 🪞',
-        'Buying what truly fits is its own kind of saving 👖'],
-      ['Must have really liked that one to bring it home 👗',
-        'Lovely indeed, now style it to full capacity 🧥',
-        'Good clothes last, which makes them a quiet bargain 👞',
-        'One piece worth the money beats three that sit unworn 🧣'],
-      ['That is a serious wardrobe investment 🧥',
-        'A big one. Wear it often enough to earn it 👗',
-        'Fancy clothes need fancy occasions, so make some 👠',
-        'After a haul like that, the old clothes can step aside 🧳'],
+      [{ e: '😌', b: 'A small piece, why not!' }, { e: '🙂', b: 'Little treat to look cute, easy there!' }, { e: '😊', b: 'One more thing to wear!' }, { e: '😏', b: 'Stay cute, but keep it modest!' }],
+      [{ e: '😏', b: 'New clothes again, are we!' }, { e: '😍', b: 'Bet you look great, wear it often!' }, { e: '😆', b: 'Closet getting a bit tighter!' }, { e: '😌', b: 'Pretty, but pick pieces that last!' }],
+      [{ e: '😳', b: 'Investing in the looks, huh!' }, { e: '😍', b: 'Must have loved that one!' }, { e: '😎', b: 'Levelled up, wear it plenty!' }, { e: '😌', b: 'Fewer but better beats more!' }],
+      [{ e: '😱', b: 'That is a lot for clothes!' }, { e: '🫢', b: 'Wallet slimmed, ease off a bit!' }, { e: '😏', b: 'A certified fashionista right here!' }, { e: '😵‍💫', b: 'Gorgeous, but go gentle this month!' }],
     ],
     Shopping: [
-      ['A little something just for the fun of it 🎁',
-        'Small bits, one more small joy 🧸',
-        'The best small buys need no reason at all 🎈',
-        'A tiny gift to yourself is perfectly allowed 🎀'],
-      ['Lovely thing, use it well 🛍️',
-        'That one was probably on the list for a while 📦',
-        'Finding the right thing saves a week of scrolling 🛒',
-        'Something you love and use daily is the sweet spot 🎯'],
-      ['A notable one. Make it last and it pays off 🛍️',
-        'Thought it through first, so enjoy it fully 📦',
-        'A big item deserves to be properly used 🪑',
-        'Good things cost more, cheap things get bought twice 🧰'],
-      ['Now that is a proper purchase. Use it a lot 📦',
-        'A buy this size took real thought. Congrats 🎉',
-        'One big buy, years of use, fair deal 🛋️',
-        'An investment like that should work hard for you 🧰'],
+      [{ e: '😌', b: 'A little fun buy, fine!' }, { e: '🙂', b: 'Small stuff, a bit more joy!' }, { e: '😊', b: 'No reason needed for this!' }, { e: '😉', b: 'A treat, just not a habit!' }],
+      [{ e: '😏', b: 'Browsing the apps again, huh!' }, { e: '😌', b: 'Eyed it for ages, use it well!' }, { e: '😆', b: 'Cart smiles, wallet weeps!' }, { e: '😎', b: 'Like it, buy it, use it fully!' }],
+      [{ e: '😳', b: 'Big-ticket checkout, look at you!' }, { e: '😏', b: 'Checked out without a flinch!' }, { e: '😌', b: 'Big buy home, make it count!' }, { e: '🤩', b: 'Big spender, but stay balanced!' }],
+      [{ e: '😱', b: 'What did you even buy!' }, { e: '🫢', b: 'Wallet vanished, ease off this month!' }, { e: '😎', b: 'Spent big without a blink!' }, { e: '😵‍💫', b: 'Feel that ache, plan better next time!' }],
     ],
     Transport: [
-      ['Bike parked safe, mind at ease 🛵',
-        'Small parking money buys zero worrying 🅿️',
-        'Getting there and back is always worth it 🚌',
-        'A short hop that saved the legs plenty 🚏'],
-      ['Arrived smooth, worth every bit 🛵',
-        'Someone else drives, you just breathe. Fair 🚕',
-        'Full tank, full confidence 🏍️',
-        'Transport money is really time money ⛽'],
-      ['A long one. Travel safe out there 🚗',
-        'Go far, come back with stories 🚄',
-        'A well-kept vehicle makes every road smoother 🔧',
-        'The best trip money buys is a safe ride home 🛣️'],
-      ['A big journey. Go safely, return full of stories ✈️',
-        'Going that far calls for good photos to bring back 🧳',
-        'Big travel spending usually buys big memories ✈️',
-        'Long roads show a trip its worth. Safe travels 🚄'],
+      [{ e: '😌', b: 'Parking fee, playing it safe!' }, { e: '🙂', b: 'Charging even a short hop!' }, { e: '😊', b: 'Short ride, walking would be healthier!' }, { e: '😏', b: 'Saving your legs, smart move!' }],
+      [{ e: '😌', b: 'Booking a ride again, huh!' }, { e: '😎', b: 'Let someone else drive, nice!' }, { e: '😏', b: 'Full tank, go anywhere confident!' }, { e: '😌', b: 'Ride money buys time, fair!' }],
+      [{ e: '😳', b: 'Going far, big plans huh!' }, { e: '😎', b: 'A posh trip, make it worth it!' }, { e: '🤨', b: 'That much fuel, going where!' }, { e: '😌', b: 'Travelling lots, mind your rest!' }],
+      [{ e: '😱', b: 'Where are you even going!' }, { e: '🫢', b: 'Quite the journey this time!' }, { e: '😵‍💫', b: 'Wallet riding first class now!' }, { e: '🤩', b: 'So fancy, travel safe and tell us!' }],
     ],
     Housing: [
-      ['A small fee that keeps the house humming 🔧',
-        'Homes run on tiny costs you only notice when missing 🧰',
-        'Small fix, fewer squeaks, good trade 🏠',
-        'Caring for a home starts with the little bills 🪛'],
-      ['A home runs smoothly on these steady bills 💡',
-        'Bills paid, sleep earned 🏠',
-        'Power and water in order, now it is truly home 🔌',
-        'Not the fun kind of spending, but the warm kind 🧾'],
-      ['The air con clearly gave its all this month ⚡',
-        'A high bill means the house is fully lived in 💡',
-        'The home cost a fair bit this month. Worth it, it is home 🏠',
-        'Money spent on the house is rarely wasted 🧱'],
-      ['A big one for the house. A solid home is peace of mind 🏠',
-        'Investing in where you sleep every night makes sense 🛏️',
-        'Care that size means the place is about to look better 🧱',
-        'Money for the nest almost never goes to waste 🏡'],
+      [{ e: '😌', b: 'Small fee, house runs smooth!' }, { e: '🙂', b: 'Caring for home, bit by bit!' }, { e: '😊', b: 'Fix early to avoid big costs later!' }, { e: '😌', b: 'Fewer squeaks, a small win!' }],
+      [{ e: '😮‍💨', b: 'Bills came, paid and relieved!' }, { e: '😌', b: 'Paid early, lighter head, sleep well!' }, { e: '🥰', b: 'Power and water on, now it is home!' }, { e: '😅', b: 'Boring bill, but the home needs it!' }],
+      [{ e: '😳', b: 'The house ate a lot lately!' }, { e: '😅', b: 'The AC ran full blast, huh!' }, { e: '😮‍💨', b: 'Keeping a home is tiring!' }, { e: '😌', b: 'Use power wisely to trim it down!' }],
+      [{ e: '😱', b: 'The house is devouring cash!' }, { e: '🫢', b: 'A big one for the nest, fair!' }, { e: '😵‍💫', b: 'Wallet invested in your sleep!' }, { e: '🤩', b: 'Costly, but the home shines now!' }],
     ],
     Fun: [
-      ['Small joys are the seasoning of the week 🎈',
-        'Cheap fun, instant morale 🎮',
-        'Light entertainment, lighter head 🎧',
-        'A small joy at the right moment is precious 🎪'],
-      ['Play hard today, work resumes tomorrow. Fair 🎬',
-        'The fun is paid for, so no guilt allowed 🎡',
-        'Your spirit deserves investment too 🎶',
-        'Fun in the right place is worth every bit 🎳'],
-      ['Going big on fun. Enjoy it to full value 🎢',
-        'Experiences never wear out 🎭',
-        'This one sounds like a story for later 🎤',
-        'One proper blast, then momentum for the week 🎉'],
-      ['Fun at this scale becomes a lifetime memory 🎆',
-        'The best fun money is the kind you never regret 🎇',
-        'Big experiences outlast big things, truly 🎢',
-        'At this size, enjoy it completely to break even 🎉'],
+      [{ e: '😌', b: 'A little fun, breathe easier!' }, { e: '🙂', b: 'Blow off steam, no judgment!' }, { e: '😊', b: 'Small joys matter, you know!' }, { e: '😏', b: 'Play light, work waits tomorrow!' }],
+      [{ e: '😎', b: 'Play hard, grind tomorrow, fair!' }, { e: '😌', b: 'Fun in moderation lasts longer!' }, { e: '😊', b: 'Feeding the soul keeps you well!' }, { e: '😏', b: 'Right time, worth every bit!' }],
+      [{ e: '😆', b: 'Going big, enjoy it fully!' }, { e: '😍', b: 'This experience is worth it!' }, { e: '🤩', b: 'Party hard, but keep your energy!' }, { e: '😎', b: 'One proper blast, well earned!' }],
+      [{ e: '😱', b: 'What kind of fun costs this!' }, { e: '🫢', b: 'This good time cost plenty!' }, { e: '😵‍💫', b: 'Went all out, ease off next month!' }, { e: '🤩', b: 'Worth remembering, now get some rest!' }],
     ],
     Others: [
-      ['A small one just passed through, nothing heavy 🍃',
-        'Little bits and pieces, that is life 🌿',
-        'A small one you can probably name right away 📎',
-        'Tiny, but the ledger likes to be tidy 🗂️'],
-      ['A new entry just landed, worth a quick look 📒',
-        'Money left for a reason, you just need to remember it 🧭',
-        'This one probably has its own little story 📌',
-        'A clear note today saves guessing later 🗒️'],
-      ['A decent-sized one just landed. Take a peek 📒',
-        'At this size it is worth knowing what it was 🧾',
-        'A notable entry, a quick check buys peace of mind 📋',
-        'A number like this deserves a proper note 🖊️'],
-      ['A big one. Deep breath, then a proper look 💸',
-        'This size needs a name and a face 🧾',
-        'Big money just moved. A look settles the mind 📒',
-        'Genuinely large. Check it, then relax 🗂️'],
+      [{ e: '🙂', b: 'A small one dropped by!' }, { e: '😌', b: 'Little bits, that is life!' }, { e: '😊', b: 'Bet you recall this one!' }, { e: '😉', b: 'Tiny, just tidy the books!' }],
+      [{ e: '🤨', b: 'What even is this one!' }, { e: '😌', b: 'Money moved for a reason!' }, { e: '😅', b: 'Note it before you forget!' }, { e: '😏', b: 'What was this, confess now!' }],
+      [{ e: '🤨', b: 'A biggish one, please explain!' }, { e: '😳', b: 'This one deserves a look!' }, { e: '😌', b: 'Where did it go, note it!' }, { e: '😬', b: 'Not a small one, careful!' }],
+      [{ e: '😳', b: 'A big mystery charge, hmm!' }, { e: '😱', b: 'Where did all that go!' }, { e: '🫢', b: 'Confess, what cost this much!' }, { e: '😵‍💫', b: 'This one needs a close look!' }],
     ],
     income: [
-      ['Money in! Small, but in is in 🪙',
-        'Little drops fill the wallet too 🪙',
-        'A small arrival, a small smile 🌱',
-        'Incoming money is good news at any size 💌'],
-      ['Money is in. Save first, spend after, sleep easy 🎉',
-        'A fresh arrival just landed. Welcome home 🛬',
-        'Steady money in means life is on rhythm 🌤️',
-        'Something just arrived. Lovely day already 💚'],
-      ['A decent arrival. Set a slice aside first 🌳',
-        'A rich landing. A small treat for yourself is fine 🎁',
-        'With this in, the month just got easier to breathe 🌿',
-        'Good news landed, the wallet is visibly smiling 😄'],
-      ['A big arrival. Congrats, and save the future its share 🌳',
-        'Money at this scale is an achievement. Be proud 🏆',
-        'A beautiful number landed. Allocate calmly, then celebrate 💚',
-        'A rich one. Save a part, enjoy the rest properly 🌤️'],
+      [{ e: '😊', b: 'Money in, allow a smile!' }, { e: '🙂', b: 'Small change counts, save it up!' }, { e: '😌', b: 'Something beats nothing, right!' }, { e: '😄', b: 'Little ting, tuck it away!' }],
+      [{ e: '🤑', b: 'Money is in, save some first!' }, { e: '😍', b: 'Something landed, spend it wisely!' }, { e: '😌', b: 'Wallet warm again, no rush spending!' }, { e: '😎', b: 'Steady income, keep saving though!' }],
+      [{ e: '🤩', b: 'Big one landed, set some aside!' }, { e: '😏', b: 'Rich arrival, treat yourself lightly!' }, { e: '😆', b: 'Wallet grinning ear to ear!' }, { e: '😌', b: 'Nice haul, make a plan for it!' }],
+      [{ e: '🤩', b: 'Huge arrival, save the future first!' }, { e: '🤑', b: 'Big shot now, invest it smart!' }, { e: '😎', b: 'Rich now, save before you spend!' }, { e: '😌', b: 'Lovely number, allocate it calmly!' }],
     ],
     unknown: [
-      ['A small new entry just arrived, take a peek 📥',
-        'A transaction just docked, one glance makes it clear 🛳️',
-        'Money just moved, come see what it was 👀',
-        'A new line in the book is waiting for its name 🏷️'],
-      ['A new entry just landed, worth a proper look 📒',
-        'Something new arrived, come give it a name 🏷️',
-        'Money moved, and you know it best 👀',
-        'The book has a new line, a quick look settles it 📥'],
-      ['A decent-sized entry just landed, worth checking 🧾',
-        'At this size it deserves a glance 👀',
-        'A notable entry is waiting to be named 📋',
-        'Not a small number, come see it clearly 📒'],
-      ['A big one just landed. Deep breath, then a look 💸',
-        'A large number. Name it and rest easy 🧾',
-        'This size deserves a personal visit 📒',
-        'A hefty entry appeared. A quick check for peace of mind 👀'],
+      [{ e: '🙂', b: 'New entry, come take a peek!' }, { e: '😌', b: 'Money just twitched a little!' }, { e: '😊', b: 'A new line in the book!' }, { e: '😉', b: 'Tiny one, a quick glance!' }],
+      [{ e: '🤨', b: 'What even is this one!' }, { e: '😏', b: 'New transaction, come have a look!' }, { e: '😌', b: 'Money moved, take a look!' }, { e: '😊', b: 'A new line just landed!' }],
+      [{ e: '😳', b: 'A biggish one, come look!' }, { e: '🤨', b: 'This deserves a quick glance!' }, { e: '😬', b: 'Not a small one, careful!' }, { e: '😌', b: 'Worth noticing, take a look!' }],
+      [{ e: '😱', b: 'A big one just appeared!' }, { e: '🫢', b: 'Where did that money go!' }, { e: '😵‍💫', b: 'This needs an in-person look!' }, { e: '😬', b: 'Big number, check it carefully!' }],
     ],
   },
 };
 
-/* Keyword-gated pools — the only place the copy is allowed to be specific,
- * because the merchant string literally said so. */
-const POOL_LINES = {
+/* ── Daypart overrides ──────────────────────────────────────────────────────
+ * For Dining & Groceries: used (over the tier line) when a real clock time is
+ * known. 2 variants of { e, b } per part. */
+const DAYPART = {
   vi: {
-    coffee: ['Tỉnh táo rồi thì làm gì đó cho đáng ly cà phê nha ☕',
-      'Một ly đổi lấy một buổi tỉnh táo, tính ra vẫn hời ☕',
-      'Cà phê là chi phí vận hành của người lớn mà 😌',
-      'Nạp caffeine xong rồi, giờ tới lượt mình chạy nha ⚡'],
-    milktea: ['Trà sữa là liều động viên hợp pháp của ngày dài 🧋',
-      'Ngọt một chút cho đời bớt gắt, hợp lý mà 🧋',
-      'Topping hôm nay là tâm trạng tốt nha 🧋',
-      'Một ly đầy topping đổi lấy nguyên buổi chiều vui 🧋'],
-    ride: ['Có người chở đi, mình lo ngắm đường là được 🛵',
-      'Đặt xe một cái, tới nơi lẹ làng khỏi đội nắng 🚕',
-      'Tiền xe là tiền mua sự đúng giờ đó nha ⏱️',
-      'Ngồi sau xe người ta chở, thảnh thơi cũng đáng giá 🛵'],
-    cinema: ['Hai tiếng trong rạp là hai tiếng khỏi nhìn điện thoại 🎬',
-      'Vé phim là vé đi trốn hợp pháp ngắn hạn 🎬',
-      'Bắp nước cứ tự nhiên, vui là chính mà 🍿',
-      'Phim hay dở gì thì cũng là một buổi ra ngoài vui 🎟️'],
+    Dining: {
+      sang: [{ e: '😋', b: 'Ăn sáng đủ chất, ngày dài mới khoẻ!' }, { e: '😌', b: 'Sáng ăn ngon miệng, cả ngày hứng khởi!' }],
+      trua: [{ e: '😊', b: 'Cơm trưa xong, nghỉ chút rồi làm tiếp!' }, { e: '😌', b: 'Trưa ăn vừa đủ, chiều đỡ buồn ngủ!' }],
+      chieu: [{ e: '😏', b: 'Xế chiều buồn miệng, ăn nhẹ thôi nha!' }, { e: '😋', b: 'Ăn xế chút cho tỉnh, đừng quá tay!' }],
+      toi: [{ e: '😌', b: 'Bữa tối thong thả, ăn sớm dễ ngủ!' }, { e: '😊', b: 'Tối ăn nhẹ nhàng, bụng nhẹ ngủ ngon!' }],
+    },
+    Groceries: {
+      sang: [{ e: '😌', b: 'Đi chợ sáng đồ tươi, khéo ghê!' }, { e: '😋', b: 'Chợ sáng rau cá tươi, chuẩn bài!' }],
+      trua: [{ e: '🙂', b: 'Tranh thủ trưa đi chợ, siêng thật!' }, { e: '😌', b: 'Chợ trưa nhanh gọn, về nấu liền nha!' }],
+      chieu: [{ e: '😌', b: 'Chợ chiều lo bữa tối, nấu nhà cho lành!' }, { e: '😊', b: 'Tan làm ghé chợ, cơm nhà rẻ ngon!' }],
+      toi: [{ e: '😊', b: 'Đi siêu thị tối, tranh thủ ghê ta!' }, { e: '😌', b: 'Mua đồ tối xong nhớ nghỉ sớm nha!' }],
+    },
   },
   en: {
-    coffee: ['Caffeinated now, so make it count ☕',
-      'One cup for a whole alert morning is still a bargain ☕',
-      'Coffee is simply an adult operating cost 😌',
-      'Caffeine loaded, your turn to run ⚡'],
-    milktea: ['Milk tea is the legal kind of motivation 🧋',
-      'A little sweetness takes the edge off the day 🧋',
-      'Today’s topping is a better mood 🧋',
-      'One full-topping cup buys a whole happy afternoon 🧋'],
-    ride: ['Someone else drives, you enjoy the view 🛵',
-      'One booking, there in no time, zero sunburn 🚕',
-      'Ride money is punctuality money ⏱️',
-      'Sitting back while someone drives is worth it 🛵'],
-    cinema: ['Two hours in a cinema is two hours off the phone 🎬',
-      'A movie ticket is a short legal escape 🎬',
-      'Popcorn is allowed, joy is the point 🍿',
-      'Good or bad, a movie out is a happy evening 🎟️'],
+    Dining: {
+      sang: [{ e: '😋', b: 'Hearty breakfast, energy for the day!' }, { e: '😌', b: 'A good morning meal, off you go!' }],
+      trua: [{ e: '😊', b: 'Lunch done, rest a bit then back!' }, { e: '😌', b: 'Light lunch keeps the afternoon sharp!' }],
+      chieu: [{ e: '😏', b: 'Afternoon craving, keep the snack light!' }, { e: '😋', b: 'A little pick-me-up, do not overdo it!' }],
+      toi: [{ e: '😌', b: 'Easy dinner, eat early to sleep well!' }, { e: '😊', b: 'Light supper, lighter belly, better sleep!' }],
+    },
+    Groceries: {
+      sang: [{ e: '😌', b: 'Morning market, freshest picks, nicely done!' }, { e: '😋', b: 'Fresh greens and fish at dawn!' }],
+      trua: [{ e: '🙂', b: 'Squeezed in a noon run, diligent!' }, { e: '😌', b: 'Quick noon shop, cook it fresh!' }],
+      chieu: [{ e: '😌', b: 'Afternoon shop for dinner, cook home healthy!' }, { e: '😊', b: 'After-work run, home food beats takeout!' }],
+      toi: [{ e: '😊', b: 'Evening market run, squeezing it in!' }, { e: '😌', b: 'Late shop done, get some rest!' }],
+    },
   },
 };
 
-/* meta {c,t,p} → one body line. The pool wins when present (it matched a real
- * keyword); a meta from an older sender or a missing cell degrades to
- * unknown/t2 rather than throwing inside a notification path. */
+/* ── Keyword pools ──────────────────────────────────────────────────────────
+ * The only place copy is allowed to be specific (merchant said so). Base lines
+ * + daypart overrides for coffee & milk tea. */
+const POOL_LINES = {
+  vi: {
+    coffee: [{ e: '😌', b: 'Cà phê nạp năng lượng, nhớ uống nước nha!' }, { e: '😏', b: 'Lại cà phê nữa rồi hả bạn!' }, { e: '😎', b: 'Tỉnh rồi thì làm cho đáng ly nha!' }, { e: '😋', b: 'Cà phê là chân ái, vừa phải thôi!' }],
+    milktea: [{ e: '😋', b: 'Trà sữa là niềm vui hợp pháp mà!' }, { e: '😆', b: 'Topping đầy, đường ít lại nha!' }, { e: '😌', b: 'Một ly hạnh phúc, đừng nhiều quá nha!' }, { e: '😏', b: 'Ngọt miệng mà nhớ giữ dáng nha!' }],
+    ride: [{ e: '😎', b: 'Có người chở, ngồi thảnh thơi ghê!' }, { e: '😏', b: 'Lười đi bộ thì chịu chi thôi!' }, { e: '😌', b: 'Tiền xe mua sự đúng giờ, đáng nha!' }, { e: '😉', b: 'Đi xe an toàn là trên hết nha!' }],
+    cinema: [{ e: '😌', b: 'Xem phim thư giãn, xứng đáng mà!' }, { e: '😆', b: 'Bắp nước chắc mắc hơn vé luôn!' }, { e: '😎', b: 'Hai tiếng rời điện thoại, khoẻ đầu óc!' }, { e: '😏', b: 'Phim hay dở gì cũng vui mà!' }],
+  },
+  en: {
+    coffee: [{ e: '😌', b: 'Coffee for a boost, drink water too!' }, { e: '😏', b: 'Coffee again, are we!' }, { e: '😎', b: 'Awake now, make it count!' }, { e: '😋', b: 'Coffee is love, just not too much!' }],
+    milktea: [{ e: '😋', b: 'Milk tea, the legal little joy!' }, { e: '😆', b: 'Full toppings, go easy on sugar!' }, { e: '😌', b: 'One cup of happiness, not too many!' }, { e: '😏', b: 'Sweet treat, mind the waistline!' }],
+    ride: [{ e: '😎', b: 'Someone else drives, sit back nicely!' }, { e: '😏', b: 'Too lazy to walk, huh!' }, { e: '😌', b: 'Ride money buys punctuality, fair!' }, { e: '😉', b: 'Safe ride first, always!' }],
+    cinema: [{ e: '😌', b: 'A movie to unwind, worth it!' }, { e: '😆', b: 'Popcorn costs more than tickets!' }, { e: '😎', b: 'Two hours off the phone, refreshing!' }, { e: '😏', b: 'Good or bad, still fun!' }],
+  },
+};
+
+const POOL_DAYPART = {
+  vi: {
+    coffee: {
+      sang: [{ e: '😌', b: 'Cà phê sáng cho tỉnh, thêm ly nước nha!' }, { e: '😊', b: 'Sáng làm ly cà phê, sẵn sàng cày!' }],
+      trua: [{ e: '😏', b: 'Cà phê trưa chống buồn ngủ hả!' }, { e: '😌', b: 'Trưa một ly cho tỉnh, chiều đỡ gục!' }],
+      chieu: [{ e: '😪', b: 'Cà phê chiều tỉnh táo, tối ngủ sớm nha!' }, { e: '😌', b: 'Xế làm ly nữa, nhớ uống thêm nước!' }],
+      toi: [{ e: '😏', b: 'Cà phê giờ này, đêm nay khó ngủ đó!' }, { e: '😅', b: 'Tối còn cà phê, mai đừng than mệt!' }],
+    },
+    milktea: {
+      sang: [{ e: '😌', b: 'Sáng sớm trà sữa, ngọt ghê ta!' }, { e: '😋', b: 'Sáng ngọt tí, chiều nhớ bớt lại nha!' }],
+      trua: [{ e: '😊', b: 'Trà sữa trưa cho vui, ít đường nha!' }, { e: '😌', b: 'Trưa ngọt tí cũng được, đừng nhiều quá!' }],
+      chieu: [{ e: '😋', b: 'Chiều buồn ngủ làm ly trà sữa hả!' }, { e: '😏', b: 'Trà sữa xế chiều, topping vừa phải nha!' }],
+      toi: [{ e: '😌', b: 'Trà sữa tối, ít đường ngủ ngon nha!' }, { e: '😅', b: 'Ngọt buổi tối, nhớ đánh răng nha!' }],
+    },
+  },
+  en: {
+    coffee: {
+      sang: [{ e: '😌', b: 'Morning coffee to wake up, water too!' }, { e: '😊', b: 'A morning cup, ready to grind!' }],
+      trua: [{ e: '😏', b: 'Noon coffee fighting the slump huh!' }, { e: '😌', b: 'A midday cup keeps you sharp!' }],
+      chieu: [{ e: '😪', b: 'Afternoon coffee, sleep early tonight!' }, { e: '😌', b: 'Another cup, drink some water too!' }],
+      toi: [{ e: '😏', b: 'Coffee this late, sleep will suffer!' }, { e: '😅', b: 'Evening coffee, do not blame us tomorrow!' }],
+    },
+    milktea: {
+      sang: [{ e: '😌', b: 'Milk tea this early, so sweet!' }, { e: '😋', b: 'Sweet start, ease off later today!' }],
+      trua: [{ e: '😊', b: 'Noon milk tea, go easy on sugar!' }, { e: '😌', b: 'A little sweet is fine, not much!' }],
+      chieu: [{ e: '😋', b: 'Afternoon slump, milk tea to the rescue!' }, { e: '😏', b: 'Afternoon cup, keep toppings modest!' }],
+      toi: [{ e: '😌', b: 'Milk tea tonight, less sugar for sleep!' }, { e: '😅', b: 'Sweet at night, brush your teeth!' }],
+    },
+  },
+};
+
+function _pick(arr, r) {
+  const v = arr[Math.floor(r * arr.length) % arr.length];
+  return { title: v.e, body: v.b };
+}
+
+/* meta {c,t,d,p} → { title: emoji, body: text! } about THIS transaction. Pool
+ * wins (with a daypart variant if the pool has one), then a concept daypart
+ * override, then the tier line. A missing cell degrades to unknown/t2. */
 export function reviewBody(meta, lang, rnd) {
   const lg = lang === 'en' ? 'en' : 'vi';
   const r = typeof rnd === 'number' ? rnd : Math.random();
   const m = meta && typeof meta === 'object' ? meta : {};
-  const pool = m.p && POOL_LINES[lg][m.p];
-  if (pool) return pool[Math.floor(r * pool.length) % pool.length];
+  if (m.p) {
+    const pd = m.d && POOL_DAYPART[lg][m.p] && POOL_DAYPART[lg][m.p][m.d];
+    const pool = pd || POOL_LINES[lg][m.p];
+    if (pool) return _pick(pool, r);
+  }
+  const dc = m.d && DAYPART[lg][m.c] && DAYPART[lg][m.c][m.d];
+  if (dc) return _pick(dc, r);
   const rows = MATRIX[lg][m.c] || MATRIX[lg].unknown;
   const t = Math.min(4, Math.max(1, Number(m.t) || 2));
   const cell = rows[t - 1] || rows[1];
-  return cell[Math.floor(r * cell.length) % cell.length];
+  return _pick(cell, r);
 }
 
-/* The one-time backfill digest — the single line allowed to state a number,
- * because a queue size is not private. Also used for the stall notice. */
+/* The one-time backfill digest — the single line allowed a number (a batch
+ * size is not private). Same {title, body} shape; face in the title. */
 export function digestBody(count, lang) {
   const n = Math.max(1, Number(count) || 1);
   return lang === 'en'
-    ? `Your inbox is connected, ${n} past transaction${n > 1 ? 's are' : ' is'} in the queue 📬 Review at your own pace.`
-    : `Hộp thư kết nối xong, ${n} giao dịch cũ đã vào hàng chờ 📬 Từ từ duyệt, không vội.`;
-}
-
-/* Appended when more sit behind the one the copy is voicing. */
-export function queueSuffix(others, lang) {
-  const n = Number(others) || 0;
-  if (n <= 0) return '';
-  return lang === 'en'
-    ? ` · ${n} more waiting`
-    : ` · còn ${n} khoản khác chờ duyệt`;
+    ? { title: '🙂', body: `Found ${n} past transactions, review whenever you like!` }
+    : { title: '🙂', body: `Đã tìm thấy ${n} giao dịch cũ, xem lúc rảnh nha!` };
 }

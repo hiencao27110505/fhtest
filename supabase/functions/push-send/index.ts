@@ -19,7 +19,7 @@
    verify_jwt=true; the user's JWT is also parsed here to resolve family. */
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import * as webpush from "jsr:@negrel/webpush@0.3";
-import { reviewBody, digestBody, queueSuffix } from "../_shared/mailbox/notify-copy.mjs";
+import { reviewBody, digestBody } from "../_shared/mailbox/notify-copy.mjs";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -100,15 +100,16 @@ function isServiceRole(jwt: string): boolean {
  * p: pool} (notify-copy.mjs) and THIS function picks one pre-written line, so
  * the payload still carries no amount, no merchant, no category name — the
  * standing rule that E2EE plaintext must not transit a push service holds.
- * backfill:true → the one-time digest (a queue size is not private).
- * No copy meta at all (an older mailbox-sync, or the forwarding pipeline's
- * per-message notify) → the generic 'unknown' voice. */
+ * Returns { title, body }: title is one face emoji (the app's reaction), body
+ * is text ending in "!". backfill:true → the one-time digest (a batch size is
+ * not private). No copy meta → the generic 'unknown' voice. Always about THIS
+ * transaction — never the queue, never a count (revamp 2026-09-05). */
 function buildReviewBody(
-  meta: { c?: string; t?: number; p?: string } | null,
+  meta: { c?: string; t?: number; d?: string; p?: string } | null,
   backfill: boolean, count: number, lang: string,
-): string {
+): { title: string; body: string } {
   if (backfill) return digestBody(count, lang);
-  return reviewBody(meta, lang) + queueSuffix(count - 1, lang);
+  return reviewBody(meta, lang);
 }
 const ENTITY_TYPES = ["expense", "goal", "occasion"];
 
@@ -225,14 +226,14 @@ Deno.serve(async (req: Request) => {
       const backfill = b.backfill === true;
       const meta = (b.copy && typeof b.copy === "object") ? b.copy : null;
       const scope = b.scope === "personal" ? "personal" : null;
-      const body2 = buildReviewBody(meta, backfill, count, lg);
+      const c2 = buildReviewBody(meta, backfill, count, lg);
       // tag collapses a burst: three emails in one run replace each other in the
       // tray rather than stacking three identical rows (latest voice wins).
-      // No title on purpose — sw.js falls back to 'Earthy'. nav.s='personal'
-      // routes the tap to the personal quick-review sheet; family scope keeps
-      // the classic full-queue landing.
+      // title = one face emoji (the reaction), body = text; sw.js renders the
+      // title as-is. nav.s='personal' routes the tap to the personal quick-review
+      // sheet; family scope keeps the classic full-queue landing.
       const pl = JSON.stringify({
-        body: body2, tag: "fh-txn_review", url: "./",
+        title: c2.title, body: c2.body, tag: "fh-txn_review", url: "./",
         nav: { k: "txn_review", ...(scope ? { s: "personal" } : {}) },
       });
 
