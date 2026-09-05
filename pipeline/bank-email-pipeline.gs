@@ -1114,6 +1114,10 @@ function _amountCandidates(n) {
     out.push({ raw: usGroup, parse: 'us' });
     out.push({ raw: vnGroup, parse: 'vn' });
     out.push({ raw: intStr, parse: 'plain' });
+    // Space grouping — "1 234 567 đ" — printed by several VN banks and covered
+    // by no candidate until BVBank's 'amount' failures arrived (2026-09-05).
+    var spGroup = intStr.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+    if (spGroup !== intStr) out.push({ raw: spGroup, parse: 'sp' });
   } else {
     out.push({ raw: intStr + '.' + fr2, parse: 'us' });
   }
@@ -1123,7 +1127,8 @@ function _amountCandidates(n) {
 
 function _parseAmount(raw, mode) {
   var s = String(raw).trim();
-  if (mode === 'us') s = s.replace(/,/g, '');
+  if (mode === 'sp') s = s.replace(/ /g, '');
+  else if (mode === 'us') s = s.replace(/,/g, '');
   else if (mode === 'vn') s = s.replace(/\./g, '').replace(/,/g, '.');
   var n = parseFloat(s);
   return isNaN(n) ? null : n;
@@ -1247,6 +1252,9 @@ function _valuePatternsFor(rawValue, type) {
     // of the mail. Capturing it broke the verbatim check; anchoring it broke
     // every mail with the other sign.
     pats.push('(?:[-+][^\\S\\n]*)?([\\d.,]+)');
+    // Space-grouped: "1 234 567". Its own pattern rather than a space in the
+    // charset above, so an ordinary amount never greedily eats trailing spaces.
+    pats.push('(?:[-+][^\\S\\n]*)?(\\d{1,3}(?: \\d{3})+)');
     // A reading whose amount is ITSELF signed must capture the sign, or the
     // parse-back can never equal it. Tried second, so unsigned readings still
     // get the sign-tolerant anchor above.
@@ -1453,7 +1461,9 @@ function deriveExtractionTemplate(body, extraction, trace) {
          money moved was a real incident, and this loop's strictness is its
          scar. Degrading is per-field justified or it is silent data loss. */
       if (name === 'account_masked') { accountDegraded = true; continue; }
-      return fail('anchor:' + name);
+      /* Same split 'amount' needed: absent-from-body and unanchorable are
+         different diseases with different fixes. Still no values recorded. */
+      return fail((body.indexOf(String(val)) < 0 ? 'absent:' : 'anchor:') + name);
     }
     tpl.fields[name] = spec;
   }

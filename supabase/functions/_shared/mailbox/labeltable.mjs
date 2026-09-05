@@ -70,11 +70,11 @@ const LABELS = [
      account would drop the counterparty from the row entirely. If a bank ever
      prints a bare number there, counterparty becomes a number: visible in
      review and correctable, never silent. */
-  { field: 'beneficiary',  any: ['ten nguoi huong', 'nguoi thu huong', 'den tai khoan', 'beneficiary name'] },
+  { field: 'beneficiary',  any: ['ten nguoi huong', 'nguoi thu huong', 'den tai khoan', 'ngan hang huong', 'ten ngan hang', 'beneficiary name'] },
   { field: 'remitter',     any: ['ten nguoi chuyen', "remitter's name", 'remitter'] },
   { field: 'memo',         any: ['noi dung chuyen tien', 'noi dung', 'details of payment'] },
-  { field: 'account',      any: ['tai khoan trich no', 'tai khoan nguon', 'so tai khoan', 'debit account', 'tk cham'] },
-  { field: 'reference',    any: ['so lenh giao dich', 'so tham chieu', 'order number', 'ma giao dich', 'reference number'] },
+  { field: 'account',      any: ['tai khoan trich no', 'tai khoan ghi no', 'tai khoan nguon', 'so tai khoan', 'tu tai khoan', 'debit account', 'tk cham'] },
+  { field: 'reference',    any: ['so lenh giao dich', 'so tham chieu', 'so giao dich', 'order number', 'ma giao dich', 'reference number', 'transaction number'] },
   { field: 'status',       any: ['tinh trang', 'trang thai', 'status'] },
   { field: 'balance',      any: ['so du', 'balance'] },
   { field: 'txn_kind',     any: ['loai giao dich', 'transaction type'] },
@@ -156,7 +156,7 @@ const ENGLISH_TWINS = new Set([
   'at', 'amount', 'transaction amount', 'card', 'merchant', 'balance', 'status',
   'trans. date, time', 'date, time', 'trans date time', 'transaction date',
   'debit account', 'credit account', 'account', 'account number',
-  'status of transaction', 'beneficiary name', 'beneficiary bank name',
+  'status of transaction', 'beneficiary name', 'beneficiary bank name', 'transaction number',
   "remitter's name", 'remitters name', 'remitter', 'order number',
   'reference number', 'details of payment', 'content', 'transaction type',
   'charge code', 'charge amount', 'net income', 'vat', 'payment receipt',
