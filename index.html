@@ -4,7 +4,7 @@
 <meta charset="UTF-8"/>
 <!-- zoom stays ENABLED (WCAG 1.4.4): no maximum-scale / user-scalable=no. iOS may zoom
      a <16px input on focus; touch-action:manipulation (CSS) removes double-tap zoom. -->
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
 <title>Earthy</title>
 <meta name="description" content="One place for your family's money — a shared pool, bills, goals and allowances, private by design."/>
 <!-- Light-only design: declare it so the browser doesn't auto-darken form controls/colours. -->
@@ -96,8 +96,8 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
 html{height:100%;min-height:calc(100% + env(safe-area-inset-top));overflow:hidden;background:var(--canvas);-webkit-text-size-adjust:100%;text-size-adjust:100%}
 body{height:100%;overflow:hidden;font-family:var(--text);color:var(--ink);background:var(--canvas);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;touch-action:manipulation}
 /* touch-action:manipulation kills the double-tap-to-zoom gesture (and its 300ms tap
-   delay) now that zoom is re-enabled in the viewport — pinch-to-zoom still works, so
-   accessibility is preserved without stray zooms while tapping fast. */
+   delay). Pinch-to-zoom is also locked off in the viewport meta (maximum-scale=1,
+   user-scalable=no) — accidental zooms while tapping fast were breaking the layout. */
 button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;transition:transform .18s cubic-bezier(.4,0,.2,1)}
 button:active{transform:scale(.95)}
 input{font-family:inherit}
@@ -4907,6 +4907,16 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
 </div><!-- /phone -->
 
 <script>
+/* ---------- zoom lock ----------
+   Accidental pinch/double-tap zooms while tapping fast kept breaking the layout.
+   The viewport meta (maximum-scale=1, user-scalable=no) covers standalone PWA mode,
+   but iOS Safari in a browser tab ignores user-scalable=no — so also swallow the
+   proprietary iOS gesture events there. touch-action:manipulation (15-shell.css)
+   handles double-tap. */
+['gesturestart', 'gesturechange', 'gestureend'].forEach(function (evt) {
+  try { document.addEventListener(evt, function (e) { e.preventDefault(); }, { passive: false }); } catch (e) {}
+});
+
 /* ---------- global error visibility ----------
    The app is ~11k lines of inline JS across two scopes; an unexpected throw or
    promise rejection would otherwise vanish into a console the family never opens.
@@ -17878,7 +17888,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v480';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v481';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
