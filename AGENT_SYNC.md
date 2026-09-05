@@ -144,8 +144,12 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 ## Open
 
 - **2026-09-05 (Trang's session) — connect-time first read + live "Đã kết nối"
-  screen; NO migrations, ⚠️ TWO EDGE FUNCTION DEPLOYS PENDING
-  (`mailbox-connect`, `mailbox-sync`).** Diagnosed: after a Gmail connect the
+  screen; NO migrations. ✅ DEPLOYED (client `921d68c` via Vercel;
+  `mailbox-connect` + `mailbox-sync` via CLI, both `--no-verify-jwt`,
+  2026-09-05). ⚠️ That mailbox-sync deploy carries your notify-copy rework
+  from `_shared/` (6163b72) — live now; your `push-send` half is still
+  whatever was last deployed (the copy meta is designed to be ignored by an
+  older push-send, so it degrades gracefully until you ship it).** Diagnosed: after a Gmail connect the
   first read waited for the minute lane (exactly 60s) and nothing in-app said
   anything. Now: `/callback` fire-and-forget kicks `POST /mailbox-sync
   {grant: <id>}` → new `worker.runOne` via new `db.grantById` (additive only —
