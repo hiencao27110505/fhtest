@@ -433,6 +433,16 @@ button.csv-srow:active{background:var(--surface)}
    queue is ready is the contradiction this state exists to remove. */
 .atx-pg-fill.halt{background:var(--muted-soft)}
 .atx-pg-sub{font-size:12.5px;color:var(--muted);margin-top:9px;line-height:1.45}
+/* The count pops when it changes. Without it the number simply differed on the
+   next glance, which is indistinguishable from a screen that never updated --
+   the reported symptom. inline-block so transform applies to the digits. */
+.atx-pg-c{display:inline-block;font-weight:700;color:var(--ink-2)}
+.atx-pg.done .atx-pg-c{color:var(--good)}
+.atx-pg-n{transition:color .25s ease}
+@keyframes atxTick{0%{transform:scale(1)}38%{transform:scale(1.16);color:var(--brand-ink)}100%{transform:scale(1)}}
+.atx-pg.tick .atx-pg-c{animation:atxTick .55s cubic-bezier(.32,.72,0,1)}
+.atx-pg.tick .atx-pg-n{animation:atxTick .55s cubic-bezier(.32,.72,0,1) .06s}
+@media (prefers-reduced-motion:reduce){.atx-pg.tick .atx-pg-c,.atx-pg.tick .atx-pg-n{animation:none}}
 .atx-pg.done .atx-pg-sub{color:var(--good)}
 @media (prefers-reduced-motion:reduce){.atx-pg-fill{transition:none}}
 

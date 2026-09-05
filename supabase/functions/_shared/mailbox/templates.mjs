@@ -354,6 +354,38 @@ function deriveExtractionTemplate(body, extraction, trace) {
   var offM = extraction.occurred_at.match(/([+-]\d{2}:\d{2}|Z)$/);
   var offset = offM ? offM[1] : '+07:00';
   var found = null;
+  /* THE MODEL AS WITNESS (2026-09-05). When the reading carries a CITATION —
+     occurred_at_raw, the timestamp copied character-for-character from the
+     mail — derivation stops hunting. The scan below exists to answer "which
+     substring did this instant come from?", and most derive failures this
+     feature has had lived in that guess. The model already knows the answer;
+     it is asked to show its work, and the quote is trusted only after two
+     checks it cannot fake: the string must appear VERBATIM in the body, and
+     one of OUR OWN transform kinds must reproduce the reading from it.
+     Nothing executable ever comes from the model — same anchors, same kinds,
+     same final proof; only the search is replaced. A citation that fails
+     either check falls through to the scan unchanged, so this path can add a
+     template where the scan could not, and can never produce a worse one.
+     One documented drift repair: a date-only mail sometimes comes back as a
+     bare "YYYY-MM-DD" — no time, no offset, a shape the schema forbids but
+     models emit — and used to fail the byte-exact match against our midnight
+     canonical forever. With a verified citation the canonical form WINS: the
+     reading is upgraded in place, so the value staged today equals what the
+     template will read tomorrow. */
+  var citedAt = typeof extraction.occurred_at_raw === 'string' ? extraction.occurred_at_raw.trim() : '';
+  if (citedAt && body.indexOf(citedAt) >= 0) {
+    var bareDate = /^\d{4}-\d{2}-\d{2}$/.test(extraction.occurred_at);
+    for (var w = 0; w < _DATE_KINDS.length && !found; w++) {
+      var wIso = _tryDateTransform(citedAt, _DATE_KINDS[w], offset);
+      if (wIso === null) continue;
+      var wDrift = bareDate && wIso === extraction.occurred_at + 'T00:00:00' + offset;
+      if (wIso !== extraction.occurred_at && !wDrift) continue;
+      var wAnch = _deriveAnchor(body, citedAt, ['([\\d\\-\\/ T:]+?)(?=\\s*$|\\s*\\n)', '([\\d\\-\\/ T:]+)', '([\\d:]{4,8}\\s+(?:Thứ\\s+\\S+|Chủ\\s+Nhật)\\s+[\\d\\/]{8,10})']);
+      if (!wAnch) continue;
+      found = { re: wAnch.re, dt: _DATE_KINDS[w], off: offset };
+      if (wDrift) extraction.occurred_at = wIso;
+    }
+  }
   var rawDates = body.match(_DATE_RAW_RE) || [];
   for (var d = 0; d < rawDates.length && !found; d++) {
     for (var k = 0; k < _DATE_KINDS.length && !found; k++) {
@@ -375,6 +407,25 @@ function deriveExtractionTemplate(body, extraction, trace) {
 
   if (typeof extraction.amount !== 'number') return null;
   var amtSpec = null;
+  /* Same witness, for the other mandatory field. amount_raw is the printed
+     figure as the model quotes it; verified verbatim-in-body, then one of our
+     own parse modes must reproduce the reading's number exactly. This fixes
+     the 'amount:absent' class — a mail printing a grouping _amountCandidates
+     does not generate — without loosening anything: an uncited or
+     unverifiable quote falls through to the candidate loop untouched. A
+     trailing currency word is stripped before the checks, because models
+     append one despite instructions and the number pattern in the anchor
+     could never capture it anyway. */
+  var citedAmt = typeof extraction.amount_raw === 'string'
+    ? extraction.amount_raw.trim().replace(/\s*(?:VND|₫|đ)\s*$/i, '').trim() : '';
+  if (citedAmt && body.indexOf(citedAmt) >= 0) {
+    var wModes = ['us', 'vn', 'plain'];
+    for (var wm = 0; wm < wModes.length && !amtSpec; wm++) {
+      if (_parseAmount(citedAmt, wModes[wm]) !== extraction.amount) continue;
+      var wA = _deriveAnchor(body, citedAmt, _valuePatternsFor(citedAmt, 'number'));
+      if (wA) amtSpec = { re: wA.re, num: wModes[wm] };
+    }
+  }
   var cands = _amountCandidates(extraction.amount);
   for (var c = 0; c < cands.length && !amtSpec; c++) {
     if (body.indexOf(cands[c].raw) < 0) continue;

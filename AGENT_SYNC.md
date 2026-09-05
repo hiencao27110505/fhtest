@@ -143,6 +143,29 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-09-05 (Trang's session) — the model as witness: citation fields for the
+  two mandatory template anchors. Files: `templates.mjs`, `llm.mjs`,
+  `bank-email-pipeline.gs` (PIPELINE_VERSION → `2026-09-05-witness`, ⚠️ PASTE
+  OUTSTANDING), new `pipeline/witness-citation.test.js`. NO migration, NO
+  EXTRACTION_LOGIC_VERSION bump — the template FORMAT is unchanged (test E pins
+  this), so nothing re-derives and the b0d5fdd stall cannot recur.**
+
+  Trigger: `template_derive_failures` went non-empty (11 rows / ~40 fails —
+  BVBank `amount`/`anchor:*`, momo `absent:reference_number`; the
+  `foreign_currency` rows are policy refusals, not format failures, untouched).
+  The change: the schema asks Gemini for `occurred_at_raw` and `amount_raw` —
+  the VERBATIM substrings the two mandatory readings came from. Derivation
+  anchors on a quote only after two checks the model cannot fake (verbatim in
+  body; one of OUR transform kinds reproduces the reading from it), else falls
+  through to the scan byte-for-byte. One documented repair: a bare
+  `YYYY-MM-DD` reading with a verified citation upgrades in place to the
+  midnight canonical, so staged == what the template reads forever. Fields are
+  optional (not in `required`): an old .gs paste degrades to the scan, never
+  breaks. 17 assertions incl. .gs byte-parity; full pipeline+tools suite green.
+  NOT deployed, NOT committed — awaiting go-ahead. Note for whoever owns the
+  BVBank shapes: this fixes the `amount:*` class; the `anchor:counterparty`
+  class is label-context, not value-location, and stays yours.
+
 - **2026-09-05 (Hien's session) — the queue is HELD while a first read runs;
   progress on the row + both OAuth screens. ⚠️ CLAIMING migration `0121`
   (`grant_stall_read`) — WRITTEN AND PUSHED, *NOT YET APPLIED*.

@@ -44,6 +44,13 @@ export const EXTRACTION_SYSTEM_PROMPT =
   'doesn\'t (most Vietnamese bank/provider emails don\'t), assume the timestamp is already in the ' +
   'sender\'s local time and attach that offset — for Vietnamese banks and providers this is ' +
   '+07:00. Never output a bare timestamp with no offset.\n\n' +
+  'occurred_at_raw: the timestamp COPIED CHARACTER-FOR-CHARACTER from the email — the exact ' +
+  'substring occurred_at was read from, including any weekday words, exactly as printed ' +
+  '(e.g. "11:11 Chủ Nhật 23/08/2026", "26/08/2026 14:32:00", "26/08/2026"). Do not reformat, ' +
+  'translate or trim it. Null only when no printed timestamp exists.\n\n' +
+  'amount_raw: the transaction amount COPIED CHARACTER-FOR-CHARACTER as printed — digits and ' +
+  'separators only, without the currency word (e.g. "1.234.567", "15,000", "266,320"). This is ' +
+  'the exact substring amount was parsed from. Null only when no printed figure exists.\n\n' +
   'counterparty: copy the full counterparty string exactly as written in the email, including any ' +
   'account number, phone number, or identifier alongside the name — do not shorten or summarize it.\n\n' +
   'memo: the free-text note the payer attached to the transaction — the transfer message, payment ' +
@@ -106,6 +113,15 @@ export const EXTRACTION_SCHEMA = {
     source_provider: { type: ['string', 'null'] },
     occurred_at: { type: ['string', 'null'] },
     amount: { type: ['number', 'null'] },
+    /* WITNESS CITATIONS (2026-09-05): the verbatim substrings the two
+       MANDATORY template fields were read from, so derivation can anchor on
+       the model's own quote instead of re-guessing where in the body a value
+       came from (templates.mjs). Deliberately NOT in `required`: an older
+       .gs paste or a model that omits them degrades to the pre-citation
+       scan, never breaks. The quotes are mail text the pipeline already
+       holds — nothing new leaves the machine because of them. */
+    occurred_at_raw: { type: ['string', 'null'] },
+    amount_raw: { type: ['string', 'null'] },
     currency: { type: ['string', 'null'] },
     /* The ORIGINAL foreign figure, when the mail shows both it and the
        converted VND amount it billed (foreign-currency-emails-spec.md,

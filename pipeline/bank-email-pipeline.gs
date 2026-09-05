@@ -19,7 +19,7 @@
 // Bumped on every change that gets pasted into Apps Script. Logged on each run
 // so "which code is actually live" is never again something to infer from the
 // wording of an error — several hours went into that guess this session.
-var PIPELINE_VERSION = '2026-09-04-health';  // the run reports whether it is working, so a silent stall is visible (0119); paste only from origin/main
+var PIPELINE_VERSION = '2026-09-05-witness'; // the model quotes the substrings its two mandatory readings came from, and derivation anchors on the quote instead of guessing; paste only from origin/main
 
 var MAX_NEW_CLASSIFICATIONS_PER_RUN = 10;
 var MAX_NEW_CLASSIFICATIONS_PER_DAY = 50;
@@ -847,6 +847,13 @@ var EXTRACTION_SYSTEM_PROMPT =
   'doesn\'t (most Vietnamese bank/provider emails don\'t), assume the timestamp is already in the ' +
   'sender\'s local time and attach that offset — for Vietnamese banks and providers this is ' +
   '+07:00. Never output a bare timestamp with no offset.\n\n' +
+  'occurred_at_raw: the timestamp COPIED CHARACTER-FOR-CHARACTER from the email — the exact ' +
+  'substring occurred_at was read from, including any weekday words, exactly as printed ' +
+  '(e.g. "11:11 Chủ Nhật 23/08/2026", "26/08/2026 14:32:00", "26/08/2026"). Do not reformat, ' +
+  'translate or trim it. Null only when no printed timestamp exists.\n\n' +
+  'amount_raw: the transaction amount COPIED CHARACTER-FOR-CHARACTER as printed — digits and ' +
+  'separators only, without the currency word (e.g. "1.234.567", "15,000", "266,320"). This is ' +
+  'the exact substring amount was parsed from. Null only when no printed figure exists.\n\n' +
   'counterparty: copy the full counterparty string exactly as written in the email, including any ' +
   'account number, phone number, or identifier alongside the name — do not shorten or summarize it.\n\n' +
   'memo: the free-text note the payer attached to the transaction — the transfer message, payment ' +
@@ -886,6 +893,12 @@ var EXTRACTION_SCHEMA = {
     source_provider: { type: ['string', 'null'] },
     occurred_at: { type: ['string', 'null'] },
     amount: { type: ['number', 'null'] },
+    // WITNESS CITATIONS (2026-09-05): the verbatim substrings the two
+    // MANDATORY template fields were read from, so derivation anchors on the
+    // model's own quote instead of re-guessing where a value came from.
+    // NOT in `required`: a model that omits them degrades to the scan.
+    occurred_at_raw: { type: ['string', 'null'] },
+    amount_raw: { type: ['string', 'null'] },
     currency: { type: ['string', 'null'] },
     // The ORIGINAL foreign figure when the mail shows both it and the
     // converted VND amount it billed (foreign-currency-emails-spec.md,
@@ -1396,6 +1409,26 @@ function deriveExtractionTemplate(body, extraction, trace) {
   var offM = extraction.occurred_at.match(/([+-]\d{2}:\d{2}|Z)$/);
   var offset = offM ? offM[1] : '+07:00';
   var found = null;
+  /* THE MODEL AS WITNESS (2026-09-05) — mirror of templates.mjs, byte-parallel.
+     A verified occurred_at_raw citation replaces the body-wide search: the
+     quote must appear VERBATIM in the body and one of OUR OWN transform kinds
+     must reproduce the reading from it. Fails either check -> the scan below
+     runs unchanged. Bare "YYYY-MM-DD" drift: the midnight canonical wins and
+     the reading is upgraded in place. */
+  var citedAt = typeof extraction.occurred_at_raw === 'string' ? extraction.occurred_at_raw.trim() : '';
+  if (citedAt && body.indexOf(citedAt) >= 0) {
+    var bareDate = /^\d{4}-\d{2}-\d{2}$/.test(extraction.occurred_at);
+    for (var w = 0; w < _DATE_KINDS.length && !found; w++) {
+      var wIso = _tryDateTransform(citedAt, _DATE_KINDS[w], offset);
+      if (wIso === null) continue;
+      var wDrift = bareDate && wIso === extraction.occurred_at + 'T00:00:00' + offset;
+      if (wIso !== extraction.occurred_at && !wDrift) continue;
+      var wAnch = _deriveAnchor(body, citedAt, ['([\\d\\-\\/ T:]+?)(?=\\s*$|\\s*\\n)', '([\\d\\-\\/ T:]+)', '([\\d:]{4,8}\\s+(?:Thứ\\s+\\S+|Chủ\\s+Nhật)\\s+[\\d\\/]{8,10})']);
+      if (!wAnch) continue;
+      found = { re: wAnch.re, dt: _DATE_KINDS[w], off: offset };
+      if (wDrift) extraction.occurred_at = wIso;
+    }
+  }
   var rawDates = body.match(_DATE_RAW_RE) || [];
   for (var d = 0; d < rawDates.length && !found; d++) {
     for (var k = 0; k < _DATE_KINDS.length && !found; k++) {
@@ -1417,6 +1450,19 @@ function deriveExtractionTemplate(body, extraction, trace) {
 
   if (typeof extraction.amount !== 'number') return null;
   var amtSpec = null;
+  /* Same witness for the other mandatory field — mirror of templates.mjs.
+     Verified verbatim-in-body, then one of our parse modes must reproduce the
+     reading exactly; otherwise the candidate loop below runs untouched. */
+  var citedAmt = typeof extraction.amount_raw === 'string'
+    ? extraction.amount_raw.trim().replace(/\s*(?:VND|₫|đ)\s*$/i, '').trim() : '';
+  if (citedAmt && body.indexOf(citedAmt) >= 0) {
+    var wModes = ['us', 'vn', 'plain'];
+    for (var wm = 0; wm < wModes.length && !amtSpec; wm++) {
+      if (_parseAmount(citedAmt, wModes[wm]) !== extraction.amount) continue;
+      var wA = _deriveAnchor(body, citedAmt, _valuePatternsFor(citedAmt, 'number'));
+      if (wA) amtSpec = { re: wA.re, num: wModes[wm] };
+    }
+  }
   var cands = _amountCandidates(extraction.amount);
   for (var c = 0; c < cands.length && !amtSpec; c++) {
     if (body.indexOf(cands[c].raw) < 0) continue;

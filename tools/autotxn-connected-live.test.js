@@ -169,6 +169,13 @@ function harness(countAt) {
       h.rec.sealedFetches === 0, 'sealedFetches=' + h.rec.sealedFetches);
     t('the just-found feed ran, and only while reading', h.rec.feedAsks > 0,
       'feedAsks=' + h.rec.feedAsks);
+    /* REGRESSION GUARD (2026-09-05). The liveness probe used to be #atx-live,
+       which only the CONNECT sheet renders — so opening the STATUS sheet
+       mid-backfill demoted the watcher to badge-only on tick one and the card
+       never repainted. #atx-pg is on both sheets, and must stay the probe. */
+    t('the sheet-alive probe is #atx-pg, not a connect-sheet-only element',
+      /const pg = document\.getElementById\('atx-pg'\);\s*\n\s*const sheet/.test(src)
+      && /if \(!pg \|\| !sheet/.test(src));
     /* Source-level, because a mock can only prove what it was asked. The feed
        renders provider + date; the AMOUNT is the one field inside the sealed
        box and must never appear in this projection. */
@@ -178,6 +185,26 @@ function harness(countAt) {
     t('and once something is found the cadence relaxes to 4s',
       h.rec.timers.length === 1 && h.rec.timers[0].ms === 4000,
       JSON.stringify(h.rec.timers.map((x) => x.ms)));
+  }
+
+  console.log('\n-- 3b: the STATUS sheet repaints too (no #atx-live on it) --');
+  {
+    const h = harness((n) => (n < 2 ? 0 : 9));
+    h.scope.document.getElementById = (id) => {
+      if (id === 'atx-pg') return h.pgEl;              // status sheet has this
+      if (id === 'atx-live') return null;              // ...and not this
+      if (id === 'atx-live-cta') return h.ctaEl;
+      if (id === 'fh-sheet') return { classList: { contains: () => h.state.sheetOn } };
+      return null;
+    };
+    h.fn('connected');
+    await settle();
+    await h.fire();
+    t('a status-shaped sheet still gets its progress card painted',
+      h.pgEl.innerHTML.indexOf('9') >= 0, h.pgEl.innerHTML);
+    let n = 0; while (await h.fire()) { if (++n > 300) break; }
+    t('and the window still ends cleanly with no #atx-live to write to',
+      h.rec.fullRefresh === 1, 'fullRefresh=' + h.rec.fullRefresh);
   }
 
   console.log('\n-- 4: closing the sheet demotes to badge-only, never to silence --');

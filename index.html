@@ -3680,6 +3680,16 @@ button.csv-srow:active{background:var(--surface)}
    queue is ready is the contradiction this state exists to remove. */
 .atx-pg-fill.halt{background:var(--muted-soft)}
 .atx-pg-sub{font-size:12.5px;color:var(--muted);margin-top:9px;line-height:1.45}
+/* The count pops when it changes. Without it the number simply differed on the
+   next glance, which is indistinguishable from a screen that never updated --
+   the reported symptom. inline-block so transform applies to the digits. */
+.atx-pg-c{display:inline-block;font-weight:700;color:var(--ink-2)}
+.atx-pg.done .atx-pg-c{color:var(--good)}
+.atx-pg-n{transition:color .25s ease}
+@keyframes atxTick{0%{transform:scale(1)}38%{transform:scale(1.16);color:var(--brand-ink)}100%{transform:scale(1)}}
+.atx-pg.tick .atx-pg-c{animation:atxTick .55s cubic-bezier(.32,.72,0,1)}
+.atx-pg.tick .atx-pg-n{animation:atxTick .55s cubic-bezier(.32,.72,0,1) .06s}
+@media (prefers-reduced-motion:reduce){.atx-pg.tick .atx-pg-c,.atx-pg.tick .atx-pg-n{animation:none}}
 .atx-pg.done .atx-pg-sub{color:var(--good)}
 @media (prefers-reduced-motion:reduce){.atx-pg-fill{transition:none}}
 
@@ -30387,8 +30397,7 @@ window.classifyAmount = classifyAmount;
   async function _atxStatusProgress(conn) {
     try {
       const st = await _atxProgressState(conn);
-      const pg = document.getElementById('atx-pg');
-      if (pg) pg.innerHTML = _atxProgressHTML(st);
+      _atxProgressPaint(document.getElementById('atx-pg'), st, false);
       const fd = document.getElementById('atx-feed');
       if (fd) fd.innerHTML = _atxFeedHTML(st.finds);
       if (st.phase === 'reading') _atxLiveWatch();
@@ -30793,41 +30802,78 @@ window.classifyAmount = classifyAmount;
   /* The progress block, shared by the connect screen and the status screen so
      the two can never tell different stories. Rendered from a plain state
      object, and repainted in place by the live watcher. */
+  /* The count and the frontier date, as their own fragment: the in-place
+     painter below rewrites just this line, so the numbers can change without
+     the bar losing its transition. */
+  function _atxProgressSub(st) {
+    if (st.phase === 'done') {
+      return _esc(st.found > 0
+        ? L('<n> khoản đang chờ bạn duyệt.',
+            st.found === 1 ? '<n> transaction waiting for you.' : '<n> transactions waiting for you.')
+        : L('Không có khoản nào trong khoảng này.', 'Nothing to review in that stretch.'))
+        .replace('&lt;n&gt;', '<b class="atx-pg-c">' + st.found + '</b>');
+    }
+    const day = st.front ? fmtDayMon(new Date(st.front)) : '';
+    const cnt = '<b class="atx-pg-c">' + st.found + '</b>';
+    if (st.phase === 'slow') {
+      return st.front
+        ? _esc(L('Tới ' + day + ' · ', 'To ' + day + ' · ')) + cnt +
+          _esc(L(' khoản sẵn sàng để duyệt', ' ready to review'))
+        : cnt + _esc(L(' khoản sẵn sàng để duyệt', ' ready to review'));
+    }
+    return st.front
+      ? _esc(L('Đã đọc tới ' + day + ' · tìm được ', 'Back to ' + day + ' · ')) + cnt +
+        _esc(L(' khoản', ' found'))
+      : _esc(L('Đang dò hộp thư của bạn…', 'Looking through your mailbox…'));
+  }
+
   function _atxProgressHTML(st) {
     const w = st.windowDays, d = st.daysRead;
+    const pct = st.phase === 'done' ? 100 : (w > 0 ? Math.min(100, Math.round(d / w * 100)) : 0);
+    const title = st.phase === 'done' ? L('Đã đọc xong ' + w + ' ngày qua', 'All ' + w + ' days read')
+                : st.phase === 'slow' ? L('Đã đọc tới đây', 'Read this far')
+                : L('Đang đọc ' + w + ' ngày qua', 'Reading your last ' + w + ' days');
+    /* The bar STOPS and greys on a stall: a bar still creeping while the copy
+       says the queue is ready is the contradiction this state exists to remove. */
+    const fillCls = st.phase === 'done' ? ' done' : (st.phase === 'slow' ? ' halt' : '');
+    return '<div class="atx-pg' + (st.phase === 'done' ? ' done' : '') + '" data-phase="' + st.phase + '">' +
+      '<div class="atx-pg-top"><span class="atx-pg-t">' + _esc(title) + '</span>' +
+      (st.phase === 'done' ? '' :
+        '<span class="atx-pg-n">' + d + '/' + w + _esc(L(' ngày', ' days')) + '</span>') + '</div>' +
+      '<div class="atx-pg-track"><i class="atx-pg-fill' + fillCls + '" style="width:' + pct + '%"></i></div>' +
+      '<div class="atx-pg-sub">' + _atxProgressSub(st) + '</div></div>';
+  }
+
+  /* PATCHES IN PLACE, and that is the whole point. Replacing the card's
+     innerHTML gives the new <i> no from-state, so `transition: width` never
+     runs and the bar teleports — which is most of why the screen read as
+     frozen even while the numbers were correct. Same reason the count is
+     rewritten rather than re-created: an element that survives can be animated.
+
+     A phase change restructures the card (the fraction disappears on 'done'),
+     so that one case still rebuilds. */
+  function _atxProgressPaint(host, st, bump) {
+    if (!host) return;
+    const card = host.querySelector ? host.querySelector('.atx-pg') : null;
+    if (!card || card.getAttribute('data-phase') !== st.phase) {
+      host.innerHTML = _atxProgressHTML(st);
+      return;
+    }
+    const w = st.windowDays, d = st.daysRead;
     const pct = w > 0 ? Math.min(100, Math.round(d / w * 100)) : 0;
-    if (st.phase === 'done') {
-      return '<div class="atx-pg done">' +
-        '<div class="atx-pg-top"><span class="atx-pg-t">' +
-          _esc(L('Đã đọc xong ' + w + ' ngày qua', 'All ' + w + ' days read')) + '</span></div>' +
-        '<div class="atx-pg-track"><i class="atx-pg-fill done" style="width:100%"></i></div>' +
-        '<div class="atx-pg-sub">' + _esc(st.found > 0
-          ? L(st.found + ' khoản đang chờ bạn duyệt.',
-              st.found === 1 ? '1 transaction waiting for you.' : st.found + ' transactions waiting for you.')
-          : L('Không có khoản nào trong khoảng này.', 'Nothing to review in that stretch.')) + '</div></div>';
+    const fill = card.querySelector('.atx-pg-fill');
+    if (fill) fill.style.width = pct + '%';
+    const n = card.querySelector('.atx-pg-n');
+    if (n) n.textContent = d + '/' + w + L(' ngày', ' days');
+    const sub = card.querySelector('.atx-pg-sub');
+    if (sub) sub.innerHTML = _atxProgressSub(st);
+    /* Re-trigger the count's pop. Removing the class and forcing a reflow is
+       what lets the same animation replay on a second increment. */
+    if (bump) {
+      card.classList.remove('tick');
+      void card.offsetWidth;
+      card.classList.add('tick');
     }
-    if (st.phase === 'slow') {
-      /* Its own headline, and the bar STOPS and greys. A screen may not offer
-         the queue while still claiming to be mid-read — that contradiction is
-         what made the earlier version unshippable. */
-      return '<div class="atx-pg">' +
-        '<div class="atx-pg-top"><span class="atx-pg-t">' + _esc(L('Đã đọc tới đây', 'Read this far')) + '</span>' +
-        '<span class="atx-pg-n">' + d + '/' + w + _esc(L(' ngày', ' days')) + '</span></div>' +
-        '<div class="atx-pg-track"><i class="atx-pg-fill halt" style="width:' + pct + '%"></i></div>' +
-        '<div class="atx-pg-sub">' + _esc(st.front
-          ? L('Tới ' + fmtDayMon(new Date(st.front)) + ' · ' + st.found + ' khoản sẵn sàng để duyệt',
-              'To ' + fmtDayMon(new Date(st.front)) + ' · ' + st.found + ' ready to review')
-          : L(st.found + ' khoản sẵn sàng để duyệt', st.found + ' ready to review')) + '</div></div>';
-    }
-    return '<div class="atx-pg">' +
-      '<div class="atx-pg-top"><span class="atx-pg-t">' +
-        _esc(L('Đang đọc ' + w + ' ngày qua', 'Reading your last ' + w + ' days')) + '</span>' +
-      '<span class="atx-pg-n">' + d + '/' + w + _esc(L(' ngày', ' days')) + '</span></div>' +
-      '<div class="atx-pg-track"><i class="atx-pg-fill" style="width:' + pct + '%"></i></div>' +
-      '<div class="atx-pg-sub">' + _esc(st.front
-        ? L('Đã đọc tới ' + fmtDayMon(new Date(st.front)) + ' · tìm được ' + st.found + ' khoản',
-            'Back to ' + fmtDayMon(new Date(st.front)) + ' · ' + st.found + ' found')
-        : L('Đang dò hộp thư của bạn…', 'Looking through your mailbox…')) + '</div></div>';
   }
 
   const _atxConnFrontier = (conn) => (conn && conn.id) ? _atxFrontier(conn.id) : Promise.resolve(null);
@@ -30875,9 +30921,17 @@ window.classifyAmount = classifyAmount;
     let badgeOnly = false, lastPhase = 'reading', lastState = null;
     (async function tick() {
       if (seq !== _atxLiveSeq) return;
-      const el = document.getElementById('atx-live');
+      /* THE LIVENESS PROBE MUST BE AN ELEMENT BOTH SHEETS HAVE. This keyed on
+         `#atx-live` — which only fhAutoTxnDone renders — so opening the STATUS
+         sheet mid-backfill demoted the watcher to badge-only on its first tick
+         and the progress card never repainted. The count moved only on the
+         screen behind the sheet, which is exactly how it was reported: "I only
+         know there's an update when I dismiss the bottom sheet."
+         `#atx-pg` is on both. */
+      const el = document.getElementById('atx-live');       // connect sheet only; may be null
+      const pg = document.getElementById('atx-pg');
       const sheet = document.getElementById('fh-sheet');
-      if (!el || !sheet || !sheet.classList.contains('on')) badgeOnly = true;
+      if (!pg || !sheet || !sheet.classList.contains('on')) badgeOnly = true;
       if (!document.hidden) {
         try {
           /* The GRANT is asked every tick, the frontier only when the count
@@ -30903,8 +30957,7 @@ window.classifyAmount = classifyAmount;
             _atxProgressCache = lastState;         // the row paints from this
             last = n; lastPhase = phase;
             if (!badgeOnly) {
-              const pg = document.getElementById('atx-pg');
-              if (pg) pg.innerHTML = _atxProgressHTML(lastState);
+              _atxProgressPaint(document.getElementById('atx-pg'), lastState, true);
               /* Cleared on completion rather than frozen: "vừa tìm thấy" is a
                  liveness signal, and a stale one outliving the work it reported
                  is the kind of detail that quietly stops being believed. */
@@ -30945,7 +30998,7 @@ window.classifyAmount = classifyAmount;
          everything this watcher's head count cannot see (retire filtering, a
          promote from another device). */
       try { window.fhRefreshStagedCount && window.fhRefreshStagedCount(); } catch (e) {}
-      if (!badgeOnly && last <= 0) {
+      if (!badgeOnly && last <= 0 && el) {
         // Three quiet minutes is an answer too: say so instead of ellipsing forever.
         el.innerHTML = _mbxGlyph('mail') + '<span>' + _esc(L(
           'Chưa thấy khoản nào. Tụi mình vẫn tìm tiếp, bạn cứ đóng màn hình này.',
