@@ -1,0 +1,19 @@
+/* ═══ Đầu tư — the investment bento + position zoom-in (24-investment-ui.js) ═══
+   Reuses the debts vocabulary wholesale (.debt-bento, .dbt-tile, .dbt-hero2,
+   .dbt-li, .dbt-acts…, 41-debts.css) so the two bentos read as siblings.
+   Only the investment-specific accents live here. */
+
+/* lãi/lỗ deltas — green up, red down, muted "giá vốn" fallback */
+.inv-up{color:var(--good);font-weight:600}
+.inv-down{color:var(--danger);font-weight:600}
+.inv-cost{color:var(--muted)}
+.inv-stale{color:var(--muted);font-weight:400}
+.inv-qty{color:var(--ink-2);font-weight:500}
+
+/* hero tile: the portfolio headline sits a notch above the position tiles */
+.inv-hero .inv-total{font-size:26px;letter-spacing:-.02em}
+.inv-hero .dbt-ts{margin-top:2px}
+.inv-hero .inv-flow{color:var(--muted)}
+
+/* the zoom-in shares #debt-overlay's classes; only the price link needs a nudge */
+#invest-overlay .dbt-relink{white-space:nowrap}

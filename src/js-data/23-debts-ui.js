@@ -128,10 +128,12 @@
       t.d.people.forEach(function (p, i) {
         if (Math.abs(p.balance) < 0.5) return;
         const owedMe = p.balance > 0;
+        const dd = _personDue(p);
         tiles.push('<button class="dbt-tile" onclick="openDebtPerson(' + i + ')">'
           + '<div class="dbt-tk">' + _e(p.who) + '</div>'
           + '<div class="dbt-tv num ' + (owedMe ? 'owed' : 'owe') + '">' + (owedMe ? '+' : '−') + fmtK(Math.abs(p.balance)) + '</div>'
           + '<div class="dbt-ts">🔒 ' + (owedMe ? 'cho vay · riêng tư' : 'bạn mượn · riêng tư') + '</div>'
+          + (dd ? '<div class="dbt-tchip"><span class="dbt-due' + (dd.overdue ? ' over' : '') + '">' + dd.label + '</span></div>' : '')
           + '</button>');
       });
       // an odd trailing tile spans the full row so the grid never looks half-empty
@@ -197,6 +199,28 @@
     window.closeDebt = function () { const ov = document.getElementById('debt-overlay'); if (ov) ov.classList.remove('on'); };
 
     const _dmy = (iso) => iso ? iso.slice(8, 10) + '/' + iso.slice(5, 7) : '';
+    const _todayIso = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+    /* "Hẹn trả" state for a person (0122): only while they still owe (the nag
+       keys off balance > 0, never off which loan row got matched — a partial
+       repayment silences nothing until the balance clears). Overdue wins over
+       upcoming; among overdue the OLDEST due speaks. */
+    function _personDue(p) {
+      if (!p || !(p.balance > 0.5)) return null;
+      const today = _todayIso();
+      let over = null, next = null;
+      for (const r of (p.rows || [])) {
+        if (r.kind !== 'loan' || !r.due) continue;
+        if (r.due < today) { if (!over || r.due < over) over = r.due; }
+        else if (!next || r.due < next) next = r.due;
+      }
+      if (over) {
+        const days = Math.round((new Date(today + 'T00:00:00') - new Date(over + 'T00:00:00')) / 86400000);
+        return { overdue: true, due: over, days: days, label: 'quá hẹn ' + days + ' ngày' };
+      }
+      if (next) return { overdue: false, due: next, days: 0, label: next === today ? 'hẹn trả hôm nay' : 'hẹn trả ' + _dmy(next) };
+      return null;
+    }
+    window.persDebtDueInfo = _personDue;
     /* "đến hạn DD/MM" — the next occurrence of the card's due day, clamped to
        the real length of that month so a due_day of 31 never rolls to the 1st. */
     const _dueLabel = (acct) => {
@@ -274,27 +298,232 @@
       const d = _last || fhPersonalDebts();
       const p = d.people[idx]; if (!p) return;
       const owedMe = p.balance > 0;
+      const dd = _personDue(p);
       let h = '<div class="dbt-hero2"><div class="dbt-hk">' + (owedMe ? _e(p.who) + ' đang nợ bạn' : 'Bạn đang nợ ' + _e(p.who)) + '</div>'
         + '<div class="dbt-hv num ' + (owedMe ? 'owed' : 'owe') + '">' + fmt(Math.abs(p.balance)) + '</div>'
-        + '<div class="dbt-hs"><span class="dbt-chip">🔒 riêng tư — chỉ mình bạn thấy</span></div></div>';
+        + '<div class="dbt-hs"><span class="dbt-chip">🔒 riêng tư — chỉ mình bạn thấy</span>'
+        + (dd ? ' <span class="dbt-due' + (dd.overdue ? ' over' : '') + '">' + dd.label + '</span>' : '')
+        + '</div></div>';
       h += '<div class="dbt-acts">'
         + '<button class="dbt-btn primary" onclick="fhDebtRepaySheet(' + idx + ')">Ghi đã trả</button>'
+        + (owedMe ? '<button class="dbt-btn tinted" onclick="fhDebtRemindSheet(' + idx + ')">Nhắc trả</button>' : '')
         + '<button class="dbt-btn tinted" onclick="fhDebtLoanSheet(\'' + _e(p.who).replace(/'/g, '\\\'') + '\')">Ghi thêm khoản</button>'
         + '</div>';
       const rows = (p.rows || []).slice().sort((a, x) => (x.date || '').localeCompare(a.date || ''));
       h += '<div class="dbt-sec">Lịch sử</div><div class="dbt-card">';
+      const today = _todayIso();
       rows.forEach(function (r) {
         const loan = r.kind === 'loan';
         const lent = (r.amt || 0) > 0;
         const label = loan ? (lent ? 'Bạn cho mượn' : 'Bạn mượn') : (lent ? _e(p.who) + ' trả bạn' : 'Bạn trả');
-        h += '<div class="dbt-li"><span class="dbt-lic">' + (loan ? '💵' : '✅') + '</span>'
+        const dueTxt = (loan && r.due)
+          ? ' · <span class="' + (r.due < today && p.balance > 0.5 ? 'dbt-overtxt' : '') + '">hẹn trả ' + _dmy(r.due) + '</span>' : '';
+        h += '<div class="dbt-li tap" onclick="fhDebtRowSheet(\'' + r.id + '\',' + idx + ')"><span class="dbt-lic">' + (loan ? '💵' : '✅') + '</span>'
           + '<span class="dbt-lib"><span class="dbt-lin">' + label + (r.note ? ' · ' + _e(r.note) : '') + '</span>'
-          + '<span class="dbt-lis">' + _dmy(r.date) + '</span></span>'
+          + '<span class="dbt-lis">' + _dmy(r.date) + dueTxt + '</span></span>'
           + '<span class="dbt-liv num">' + fmt(Math.abs(r.amt || 0)) + '</span></div>';
       });
       h += '</div>';
       h += '<div class="dbt-foot">Khoản vay 1:1 nằm trong sổ cá nhân của bạn — người kia không cần dùng app.</div>';
       _ovOpen(p.who, h);
+    };
+
+    /* One debt row's own sheet (0122): amount / note / date (+ hẹn trả on a
+       loan), delete, and on a loan the way back — "chuyển thành chi tiêu" for
+       the row that was never a loan after all. Private rows only by
+       construction (everything in P.debts is). */
+    window.fhDebtRowSheet = function (rowId, personIdx) {
+      const P = _P(); if (!P) return;
+      const r = (P.debts || []).find((x) => x.id === rowId); if (!r) return;
+      const loan = r.kind === 'loan';
+      const sign = (r.amt || 0) < 0 ? -1 : 1;
+      _fhModal({
+        title: loan ? 'Khoản ' + ((r.amt || 0) > 0 ? 'cho mượn' : 'mượn') : 'Khoản trả nợ',
+        saveLabel: 'Lưu', reqMsg: 'Điền số tiền nhé',
+        body: '<div class="field"><label>Số tiền</label><input class="num" id="dbt-amt" inputmode="numeric" value="' + Math.round(Math.abs(r.amt || 0) * (window.curMult ? curMult() : 1000)).toLocaleString('vi-VN') + '" oninput="fhModalDirty()"></div>'
+          + '<div class="field"><label>Ngày</label><input type="date" id="dbt-date" value="' + (r.date || '') + '" oninput="fhModalDirty()"></div>'
+          + '<div class="field"><label>Ghi chú <span class="opt">· tuỳ chọn</span></label><input id="dbt-note" value="' + _e(r.note || '') + '" oninput="fhModalDirty()"></div>'
+          + (loan ? '<div class="field"><label>Hẹn trả <span class="opt">· tuỳ chọn</span></label><input type="date" id="dbt-due" value="' + (r.due || '') + '" oninput="fhModalDirty()"></div>' : '')
+          + (loan ? '<button class="dbt-btn tinted" style="width:100%;margin-bottom:8px" onclick="fhDebtRowToExpense(\'' + r.id + '\',this)">Không phải cho vay — chuyển thành chi tiêu</button>' : '')
+          + '<button class="dbt-btn danger" style="width:100%" onclick="fhDebtRowDelete(\'' + r.id + '\',this)">Xoá khoản này</button>',
+        required: function () { return [{ el: document.getElementById('dbt-amt'), ok: _amtOf('dbt-amt') > 0 }]; },
+        save: async function () {
+          const f = { amtK: sign * _amtOf('dbt-amt'),
+            note: ((document.getElementById('dbt-note') || {}).value || '').trim() || null,
+            dateIso: (document.getElementById('dbt-date') || {}).value || null };
+          if (loan) f.dueDate = (document.getElementById('dbt-due') || {}).value || null;
+          const ok = await fhPersonalDebtRowUpdate(r.id, f);
+          if (!ok) throw new Error('save_failed');
+          window.toast && toast('Đã lưu');
+          return function () { _reopenPerson(r.who); if (window.renderPersonal) renderPersonal(); };
+        },
+      });
+    };
+    function _reopenPerson(who) {
+      const d2 = fhPersonalDebts();
+      const i2 = d2.people.findIndex((x) => x.who === who);
+      if (i2 >= 0 && Math.abs(d2.people[i2].balance) > 0.5) openDebtPerson(i2); else closeDebt();
+    }
+    let _rowArm = null;
+    window.fhDebtRowDelete = async function (id, btn) {
+      if (_rowArm !== id) { _rowArm = id; if (btn) btn.textContent = 'Bấm lần nữa để xoá'; setTimeout(() => { if (_rowArm === id) { _rowArm = null; if (btn && btn.isConnected) btn.textContent = 'Xoá khoản này'; } }, 4000); return; }
+      _rowArm = null;
+      const P = _P(); const r = P && (P.debts || []).find((x) => x.id === id);
+      const ok = await fhPersonalDeleteExpense(id);   // same guard: private rows only
+      if (!ok) { window.toast && toast('Chưa xoá được, thử lại'); return; }
+      window.toast && toast('Đã xoá');
+      if (window.closeModals) closeModals();
+      _reopenPerson(r ? r.who : null); if (window.renderPersonal) renderPersonal();
+    };
+    /* Loan → expense (spec §4): the row keeps its id/amount/date; category
+       lands on the catch-all and is editable afterwards like any expense. */
+    let _toExpArm = null;
+    window.fhDebtRowToExpense = async function (id, btn) {
+      if (_toExpArm !== id) { _toExpArm = id; if (btn) btn.textContent = 'Bấm lần nữa để chuyển thành chi tiêu'; setTimeout(() => { if (_toExpArm === id) { _toExpArm = null; if (btn && btn.isConnected) btn.textContent = 'Không phải cho vay — chuyển thành chi tiêu'; } }, 4000); return; }
+      _toExpArm = null;
+      const P = _P(); const r = P && (P.debts || []).find((x) => x.id === id);
+      const ok = await fhPersonalConvertToExpense(id, 'Khác', '🗂️');
+      if (!ok) { window.toast && toast('Chưa chuyển được, thử lại'); return; }
+      window.toast && toast('Đã chuyển thành chi tiêu');
+      if (window.closeModals) closeModals();
+      _reopenPerson(r ? r.who : null); if (window.renderPersonal) renderPersonal();
+    };
+
+    /* ── Committed-row flip (0122, spec §4): "đây là khoản cho vay" ──────────
+       The retroactive correction: an expense already in the personal book that
+       was really a loan. Opened from the personal expense editor (55). The row
+       flips IN PLACE (same id/amount/date), the receivable appears, and the
+       flip teaches the same lesson a queue correction does. */
+    window.fhExpenseToLoanSheet = function (id) {
+      const P = _P(); if (!P || !P.key) return;
+      const t = (P.txns || []).find((x) => x.id === id);
+      if (!t || t.kind !== 'expense' || t.spaceId || t.linkId) return;
+      _fhModal({
+        title: 'Chuyển thành cho vay', saveLabel: 'Chuyển', reqMsg: 'Điền tên người mượn nhé',
+        body: '<div class="dbt-note">Khoản <b class="num">' + fmt(Math.abs(t.amt || 0)) + '</b>' + (t.note ? ' · ' + _e(t.note) : '') + ' sẽ rời khỏi chi tiêu tháng và trở thành một khoản cho vay — người mượn nợ bạn số này.</div>'
+          + '<div class="field"><label>Cho ai mượn?</label><input id="dbt-who" placeholder="vd. Thằng em" oninput="fhModalDirty()"></div>'
+          + '<div class="field"><label>Hẹn trả <span class="opt">· tuỳ chọn</span></label><input type="date" id="dbt-due" oninput="fhModalDirty()"></div>',
+        required: function () { return [{ el: document.getElementById('dbt-who'), ok: !!((document.getElementById('dbt-who') || {}).value || '').trim() }]; },
+        save: async function () {
+          const who = ((document.getElementById('dbt-who') || {}).value || '').trim();
+          const due = ((document.getElementById('dbt-due') || {}).value || '') || null;
+          const ok = await fhPersonalConvertToLoan(id, who, due);
+          if (!ok) throw new Error('save_failed');
+          if (window.fhKindLearnManual) { try { fhKindLearnManual(who, Math.abs(t.amt || 0) * (window.curMult ? curMult() : 1000)); } catch (e) {} }
+          window.toast && toast('Đã chuyển thành cho vay — xem ở Nợ & cho vay');
+          return function () { if (window.renderPersonal) renderPersonal(); if (typeof refreshPersonalTxnOverlay === 'function') refreshPersonalTxnOverlay(); };
+        },
+      });
+    };
+
+    /* ── Nhắc trả (0122, spec §5) — get PAID, not just reminded ──────────────
+       A pre-written, editable Vietnamese message + a VietQR the friend scans to
+       repay the exact amount. Needs the user's full receiving account number —
+       asked LAZILY here, once per account, stored sealed (account_number_enc).
+       The QR memo embeds a match token ("TRA NO MINH 0609") the person never
+       sees in the message — it makes the incoming repayment email a
+       near-certain Thu nợ match at review. Everything is built on-device. */
+    window.fhDebtRemindSheet = function (idx) {
+      const P = _P(); if (!P || !P.key) return;
+      const d = _last || fhPersonalDebts();
+      const p = d.people[idx]; if (!p || !(p.balance > 0.5)) return;
+      const accts = (P.accounts || []).filter((a) => a.kind === 'deposit' || a.kind === 'ewallet');
+      if (!accts.length) { window.toast && toast('Chưa có tài khoản ngân hàng nào — nhận qua email hoặc thêm ở Chuyển tiền'); return; }
+      const ready = accts.find((a) => a.accountNumber && window.fhVietQRBinFor && fhVietQRBinFor(a.provider));
+      const preId = (ready || accts[0]).id;
+      const chipsHtml = accts.map((a) =>
+        '<button class="choice' + (a.id === preId ? ' on' : '') + '" data-v="' + a.id + '" onclick="pick(\'dbt-rq-acct\',this);fhRemindSyncFields()">' + _e(a.name || 'Tài khoản') + '</button>').join('');
+      const bankOpts = (window.fhVietQRBanks ? fhVietQRBanks() : []).map((b) =>
+        '<option value="' + b.bin + '">' + _e(b.name) + '</option>').join('');
+      _fhModal({
+        title: 'Nhắc ' + _e(p.who) + ' trả nợ', saveLabel: 'Tạo lời nhắc', reqMsg: 'Kiểm tra tài khoản nhận và số tiền nhé',
+        body: '<div class="field"><label>Số tiền</label><input class="num" id="dbt-amt" inputmode="numeric" value="' + Math.round(p.balance * (window.curMult ? curMult() : 1000)).toLocaleString('vi-VN') + '" oninput="fhModalDirty()"></div>'
+          + '<div class="field"><label>Nhận vào tài khoản</label><div class="choices" id="dbt-rq-acct">' + chipsHtml + '</div></div>'
+          + '<div class="field" id="dbt-rq-bank-f" hidden><label>Ngân hàng</label><select id="dbt-rq-bank" class="dbt-in" onchange="fhModalDirty()"><option value="">— chọn ngân hàng —</option>' + bankOpts + '</select></div>'
+          + '<div class="field" id="dbt-rq-num-f" hidden><label>Số tài khoản nhận</label><input id="dbt-rq-num" inputmode="numeric" placeholder="vd. 0123456789" oninput="fhModalDirty()"><div class="dbt-note" style="margin-top:6px">Nhập một lần, được mã hoá trong sổ riêng — dùng để tạo mã QR nhận tiền.</div></div>',
+        required: function () {
+          const sel = (typeof chosen === 'function' && chosen('dbt-rq-acct')) || preId;
+          const a = accts.find((x) => x.id === sel) || accts[0];
+          const binKnown = a && window.fhVietQRBinFor && fhVietQRBinFor(a.provider);
+          const binPicked = ((document.getElementById('dbt-rq-bank') || {}).value || '');
+          const numOk = (a && a.accountNumber) || ((document.getElementById('dbt-rq-num') || {}).value || '').replace(/\D/g, '').length >= 4;
+          return [
+            { el: document.getElementById('dbt-amt'), ok: _amtOf('dbt-amt') > 0 },
+            { el: document.getElementById('dbt-rq-bank-f'), ok: !!(binKnown || binPicked) },
+            { el: document.getElementById('dbt-rq-num-f'), ok: !!numOk },
+          ];
+        },
+        save: async function () {
+          const sel = (typeof chosen === 'function' && chosen('dbt-rq-acct')) || preId;
+          const a = accts.find((x) => x.id === sel) || accts[0];
+          const bin = (window.fhVietQRBinFor && fhVietQRBinFor(a.provider)) || ((document.getElementById('dbt-rq-bank') || {}).value || '');
+          let num = a.accountNumber || ((document.getElementById('dbt-rq-num') || {}).value || '').replace(/\s/g, '');
+          if (!bin || !num) throw new Error('save_failed');
+          if (!a.accountNumber) { try { await fhPersonalAccountUpdate(a.id, { accountNumber: num }); } catch (e) {} }
+          const amtK = _amtOf('dbt-amt');
+          const bankName = ((window.fhVietQRBanks ? fhVietQRBanks() : []).find((b) => b.bin === bin) || {}).name || (a.provider || 'ngân hàng');
+          return function () { _remindResult(p, amtK, bin, num, bankName); };
+        },
+        after: function () { window.fhRemindSyncFields(); },
+      });
+    };
+    /* bank + number fields follow the picked account, live */
+    window.fhRemindSyncFields = function () {
+      const P = _P(); if (!P) return;
+      const sel = typeof chosen === 'function' ? chosen('dbt-rq-acct') : null;
+      const a = (P.accounts || []).find((x) => x.id === sel);
+      const bf = document.getElementById('dbt-rq-bank-f'), nf = document.getElementById('dbt-rq-num-f');
+      if (bf) bf.hidden = !!(a && window.fhVietQRBinFor && fhVietQRBinFor(a.provider));
+      if (nf) nf.hidden = !!(a && a.accountNumber);
+    };
+    function _remindResult(p, amtK, bin, num, bankName) {
+      const amtD = Math.round(amtK * (window.curMult ? curMult() : 1000));
+      const dd = new Date();
+      const ddmm = String(dd.getDate()).padStart(2, '0') + String(dd.getMonth() + 1).padStart(2, '0');
+      const whoTok = (typeof deburr === 'function' ? deburr(p.who) : p.who).toUpperCase().replace(/[^A-Z0-9 ]/g, '').trim().slice(0, 12);
+      const memo = ('TRA NO ' + whoTok + ' ' + ddmm).replace(/\s+/g, ' ');
+      const payload = window.fhVietQRPayload ? fhVietQRPayload({ bin: bin, account: num, amountD: amtD, memo: memo }) : null;
+      const firstName = String(p.who).trim().split(/\s+/).pop();
+      const msg = firstName + ' ơi, chuyển lại giúp mình ' + fmt(amtK) + ' nhé. Quét mã QR đính kèm là xong — hoặc chuyển vào STK ' + num + ' (' + bankName + ').';
+      _fhModal({
+        title: 'Gửi cho ' + _e(p.who), saveLabel: 'Xong',
+        body: '<div id="dbt-rq-qr" class="dbt-rq-qr"></div>'
+          + '<div class="field"><label>Lời nhắn <span class="opt">· sửa thoải mái</span></label><textarea id="dbt-rq-msg" rows="3" class="dbt-in">' + _e(msg) + '</textarea></div>'
+          + '<div class="dbt-acts">'
+          + '<button class="dbt-btn primary" onclick="fhRemindShare()">Chia sẻ</button>'
+          + '<button class="dbt-btn tinted" onclick="fhRemindCopy()">Sao chép lời nhắn</button>'
+          + '</div>'
+          + '<div class="dbt-note">Khi ' + _e(p.who) + ' chuyển theo mã này, khoản tiền vào sẽ tự được nhận ra là "Thu nợ" lúc bạn duyệt.</div>',
+        save: async function () {},
+        after: function () {
+          const box = document.getElementById('dbt-rq-qr');
+          if (!box) return;
+          if (payload && window.fhQrCanvas) {
+            try { const cv = fhQrCanvas(payload, 5, 3); cv.className = 'dbt-rq-cv'; box.appendChild(cv); window.__fhRemindQr = cv; }
+            catch (e) { box.innerHTML = '<div class="dbt-note">Chưa tạo được mã QR — gửi lời nhắn kèm số tài khoản vẫn đủ.</div>'; }
+          } else {
+            box.innerHTML = '<div class="dbt-note">Chưa tạo được mã QR — gửi lời nhắn kèm số tài khoản vẫn đủ.</div>';
+          }
+        },
+      });
+    }
+    window.fhRemindShare = async function () {
+      const msg = (document.getElementById('dbt-rq-msg') || {}).value || '';
+      const cv = window.__fhRemindQr;
+      try {
+        if (cv && navigator.canShare) {
+          const blob = await new Promise((res) => cv.toBlob(res, 'image/png'));
+          const file = blob && new File([blob], 'vietqr.png', { type: 'image/png' });
+          if (file && navigator.canShare({ files: [file] })) { await navigator.share({ text: msg, files: [file] }); return; }
+        }
+        if (navigator.share) { await navigator.share({ text: msg }); return; }
+      } catch (e) { if (e && e.name === 'AbortError') return; }
+      window.fhRemindCopy();
+    };
+    window.fhRemindCopy = function () {
+      const msg = (document.getElementById('dbt-rq-msg') || {}).value || '';
+      try { navigator.clipboard.writeText(msg); window.toast && toast('Đã sao chép lời nhắn'); }
+      catch (e) { window.toast && toast('Chưa sao chép được'); }
     };
 
     /* ③ space detail */
@@ -393,6 +622,7 @@
           + '<button class="choice" data-v="borrow" onclick="pick(\'dbt-dir\',this)">🤝 Tôi mượn</button></div></div>'
           + '<div class="field"><label>Ai?</label><input id="dbt-who" placeholder="vd. Thằng em" value="' + _e(presetWho || '') + '" oninput="fhModalDirty()"></div>'
           + _amtIn('dbt-amt')
+          + '<div class="field"><label>Hẹn trả <span class="opt">· tuỳ chọn</span></label><input type="date" id="dbt-due" oninput="fhModalDirty()"></div>'
           + '<div class="field"><label>Ghi chú <span class="opt">· tuỳ chọn</span></label><input id="dbt-note" placeholder="vd. mượn đóng học phí" oninput="fhModalDirty()"></div>',
         required: function () { return [
           { el: document.getElementById('dbt-who'), ok: !!((document.getElementById('dbt-who') || {}).value || '').trim() },
@@ -401,10 +631,17 @@
         save: async function () {
           const who = ((document.getElementById('dbt-who') || {}).value || '').trim();
           const lend = (typeof chosen === 'function' ? chosen('dbt-dir') : 'lend') !== 'borrow';
-          const amt = _amtOf('dbt-amt') * (lend ? 1 : -1);
+          const amtK = _amtOf('dbt-amt');
+          const amt = amtK * (lend ? 1 : -1);
           const note = ((document.getElementById('dbt-note') || {}).value || '').trim();
-          const ok = await fhPersonalAddLoan(amt, who, note, undefined, null);
+          const due = ((document.getElementById('dbt-due') || {}).value || '') || undefined;
+          const ok = await fhPersonalAddLoan(amt, who, note, undefined, null, due);
           if (!ok) throw new Error('save_failed');
+          /* A hand-typed loan teaches the same lesson a queue correction does
+             (spec Q10). If the typed name never matches a bank memo it simply
+             never fires. Lend direction only — borrowing teaches nothing about
+             MY outgoing transfers. */
+          if (lend && window.fhKindLearnManual) { try { fhKindLearnManual(who, amtK * (window.curMult ? curMult() : 1000)); } catch (e) {} }
           window.toast && toast('Đã ghi vào sổ riêng');
           return function () { if (window.renderPersonal) renderPersonal(); };
         },

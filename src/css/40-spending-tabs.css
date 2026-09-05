@@ -410,3 +410,9 @@
 .pst-val{position:absolute;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;color:var(--ink);white-space:nowrap;opacity:0;transition:opacity .2s}
 .pst-pin{position:absolute;left:50%;transform:translateX(-50%);font-size:10px;font-weight:800;color:var(--ink);background:var(--white);border:1px solid var(--divider);border-radius:99px;padding:3px 8px;white-space:nowrap;box-shadow:0 2px 8px rgba(25,16,34,.12);z-index:2}
 .pst-load{padding:22px 4px 8px;font-size:12.5px;font-weight:600;color:var(--muted)}
+
+/* ── Lending flow in the personal cash-flow card (0122) ─────────────────── */
+/* the loan's dent in Còn lại, said quietly under the Vào/Ra tiles */
+.cf-lend{margin-top:9px;font-size:12.5px;color:var(--muted);font-weight:600}
+/* "hẹn trả hôm nay / quá hẹn" — the due-day heads-up above the CTA list */
+.cf-duealert{margin-top:10px;font-size:13px;font-weight:600;color:var(--danger);background:var(--danger-tint);border-radius:12px;padding:9px 12px}

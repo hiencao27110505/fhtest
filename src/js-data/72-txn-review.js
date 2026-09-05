@@ -800,6 +800,10 @@
     } catch (e) { window._fhPersonalMatchSlice = null; }
 
     csvLearnLoad();
+    /* Synced lessons (0122): pull + merge the encrypted personal_lessons blob
+       before the lending pass reads it. Best-effort — a failed sync degrades
+       to whatever this device already knows, never blocks the queue. */
+    try { if (window.fhLessonsSync) await window.fhLessonsSync(); } catch (e) {}
     csvBuildReview([fhStagedAsCsvSource(readable)], {});
     renderCsvReview();
 
@@ -1057,7 +1061,7 @@
       /* A family-scoped INCOME row goes to the family income book — the family
          expense importer (csvPromote) writes expenses only, and money-in must
          never ride into it as spending (0109). */
-      else if (c.isIncome && !c._xfer && !c._repay) famInc.push(c);
+      else if (c.isIncome && !c._xfer && !c._repay && !c._invest) famInc.push(c);
       else theirs.push(c);
     });
     if (!picked.length) return;
@@ -1086,9 +1090,21 @@
        common path. One candidate can span TWO specs (a transfer pair); ranges
        records the span so progress and retirement speak in candidates. */
     var pd = (window.fhPersonalData && window.fhPersonalData()) || { accounts: [] };
-    var specs = [], ranges = [], extBals = {};
+    var specs = [], ranges = [], extBals = {}, lessonOps = [], invMemOps = [];
     for (var i = 0; i < mine.length; i++) {
       var c = mine[i];
+      /* Lesson bookkeeping (0122, spec Q20c) — resolved AFTER the write lands:
+         a confirmed loan (picked or a pre-select left standing) strengthens its
+         lesson; a fired lesson the person flipped away weakens it by one. */
+      if (window.fhKindLearn && typeof csvLearnKey === 'function') {
+        if (c._loan) {
+          var _lw = (c._loanWho || '').trim() || (c.counterparty || '').trim();
+          var _lk = c._lessonKey || csvLearnKey(c);
+          if (_lk && _lw) lessonOps.push({ op: 'learn', key: _lk, who: _lw });
+        } else if (c._lessonKey && c._lessonWhy === 'learned') {
+          lessonOps.push({ op: 'weaken', key: c._lessonKey });
+        }
+      }
       /* c.amount is DISPLAY currency (a bank email's "45.000" is 45000 here),
          exactly like the CSV review. The personal writes store BASE units
          (÷curMult, 1000 for VND) — the same conversion the family write does
@@ -1149,15 +1165,66 @@
         }
         if (ownId) _recBal(ownId);
       } else if (c._repay) {
-        /* Repayment received (0109): draws the counterparty's balance down —
-           the review-side entry the borrowing-lending spec §5 wanted. +X =
-           they repaid me (credit rows are the only ones offered this kind). */
-        specs.push({ kind: 'repayment', amt: base,
-          who: (c._repayWho || '').trim() || (c.counterparty || '').trim() || '—',
-          note: c.description || null, dateIso: c.dateDisplay || undefined, source: src });
+        /* Repayment (0109 credit-side, 0122 both directions): draws the
+           counterparty's balance toward zero. Sign follows the money — +X =
+           they repaid me (credit row), −X = I repaid them (debit row). Tagged
+           to the receiving/sending instrument so the account's derived balance
+           moves with it (0122 extended fhPersonalBalance to loan/repayment). */
+        var repAcct = null;
         if (ai && ai.kind !== 'credit_card' && window.fhPersonalAccountEnsure) {
-          try { _recBal(await window.fhPersonalAccountEnsure(ai)); } catch (eR) {}
+          try { repAcct = await window.fhPersonalAccountEnsure(ai); } catch (eR) {}
         }
+        specs.push({ kind: 'repayment', amt: c.isIncome ? base : -base,
+          who: (c._repayWho || '').trim() || (c.counterparty || '').trim() || '—',
+          note: c.description || null, dateIso: c.dateDisplay || undefined,
+          accountId: repAcct, source: src });
+        if (repAcct) _recBal(repAcct);
+      } else if (c._loan) {
+        /* Loan out (0122): opens a receivable — NOT an expense (no consumption;
+           the money changed shape, not owner). +X = I lent X, per the 0105 sign
+           convention. Wears the counterparty the review confirmed, the optional
+           "hẹn trả" date, and the sending instrument. */
+        var loanAcct = null;
+        if (ai && ai.kind !== 'credit_card' && window.fhPersonalAccountEnsure) {
+          try { loanAcct = await window.fhPersonalAccountEnsure(ai); } catch (eLn) {}
+        }
+        specs.push({ kind: 'loan', amt: base,
+          who: (c._loanWho || '').trim() || (c.counterparty || '').trim() || '—',
+          note: c.description || null, dateIso: c.dateDisplay || undefined,
+          dueDate: c._loanDue || undefined, accountId: loanAcct, source: src });
+        if (loanAcct) _recBal(loanAcct);
+      } else if (c._invest) {
+        /* Investment (0123, investment-spec §3): ONE leg, one real event — the
+           card-payment shape, not a pair. A buy is money OUT (amount −X,
+           quantity +q) accruing to the position; a sell is money IN (+X, −q)
+           drawing it down. The seller stays in the note — a memo, never a
+           counterparty. NOT an expense, NOT income: the money changed shape,
+           not owner. No position picked → falls back to a plain row the
+           person can convert later, rather than inventing a position. */
+        var invAcct = null;
+        if (ai && ai.kind !== 'credit_card' && window.fhPersonalAccountEnsure) {
+          try { invAcct = await window.fhPersonalAccountEnsure(ai); } catch (eIv) {}
+        }
+        var invSell = !!c.isIncome;
+        if (c._investPosId) {
+          specs.push({ kind: 'investment', amt: invSell ? base : -base,
+            positionId: c._investPosId,
+            qty: (c._investQty > 0) ? (invSell ? -c._investQty : c._investQty) : undefined,
+            note: c.description || null, dateIso: c.dateDisplay || undefined,
+            accountId: invAcct, source: src });
+          /* remember the seller → position mapping once the write lands (I9) */
+          var _ik = (c.counterparty || c.description || '').trim();
+          if (_ik) invMemOps.push({ key: _ik, posId: c._investPosId });
+        } else if (invSell) {
+          specs.push({ kind: 'income', amt: base, note: c.description || '',
+            catName: 'Khác', catEmoji: '💰',
+            dateIso: c.dateDisplay || undefined, time: _t, accountId: invAcct, source: src });
+        } else {
+          specs.push({ kind: 'expense', amt: base, note: c.description || '',
+            catName: null, catEmoji: '🗂️',
+            dateIso: c.dateDisplay || undefined, time: _t, accountId: invAcct, source: src });
+        }
+        if (invAcct) _recBal(invAcct);
       } else if (c.isIncome) {
         /* Income is first-class on the spine since 0109: category (the
            income-side set), the receiving account (what makes a deposit
@@ -1254,6 +1321,23 @@
         return;
       }
     }
+
+    /* Lessons commit only once the rows they describe are really in the ledger
+       — learning from a write that failed would teach a phantom. */
+    try {
+      lessonOps.forEach(function (o) {
+        if (o.op === 'learn') window.fhKindLearn(o.key, o.who);
+        else window.fhKindWeaken(o.key);
+      });
+    } catch (eLo) {}
+
+    /* Seller → position memory (0123, I9) — same posture as the lessons:
+       remember only what actually landed in the ledger. Fire-and-forget. */
+    try {
+      invMemOps.forEach(function (o) {
+        if (window.fhInvMemorySave) window.fhInvMemorySave(o.key, o.posId);
+      });
+    } catch (eIm) {}
 
     /* The freshest captured "Số dư" per account — a handful of UPDATEs for the
        whole batch, after the rows they describe. Best-effort side-signal. */

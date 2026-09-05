@@ -437,8 +437,18 @@ function csvLearnLoad(){
   csvLearned = (d && d.map) || {};
 }
 
+/* Synced-lessons bridge (0122): the encrypted personal_lessons blob mirrors
+   these category lessons so they survive a device change. localStorage stays
+   the fast cache + the offline/locked fallback; the blob is the durable copy. */
+window.csvLearnedExport = function(){ return csvLearned; };
+window.csvLearnedMergeIn = function(map){
+  var changed = false;
+  for (var k in (map||{})) if (csvLearned[k] === undefined) { csvLearned[k] = map[k]; changed = true; }
+  if (changed) csvLearnSave();
+};
 function csvLearnSave(){
   try{
+    if (window.fhLessonsCatChanged) { try{ fhLessonsCatChanged(csvLearned); }catch(e){} }
     if(window.fhEncState && window.fhEncState()==='enc'){
       if(!(window.fhKeyReady && window.fhKeyReady()) || !window.fhEncStr) return;
       var seq = ++_learnSeq;
@@ -516,6 +526,98 @@ function csvLearnFrom(c){
 function csvLearnForget(){
   csvLearned = {};
   try{ localStorage.removeItem(FH_CSV_LEARNED); }catch(e){}
+  if (window.fhLessonsCatChanged) { try{ fhLessonsCatChanged({}); }catch(e){} }
+}
+
+/* ═══ The lending pass (0122, lending-capture-spec §2) ═══════════════════════
+   Runs over the FULL candidate set after categories resolve, staged mode only,
+   and only while the personal ledger is unlocked (a loan can only ever land in
+   the personal book, so with it locked there is nothing safe to pre-select).
+
+   Strict precedence, most-certain first (spec Q15):
+     1. already classified (transfer pair / card payment / internal move) — the
+        pass never touches those rows;
+     2. beneficiary matches a person YOU OWE → pre-select 🤝 Trả nợ. This
+        doubles as the veto: a loan lesson must never fire on a transfer to a
+        creditor — that would GROW a fake receivable while the real payable
+        sits untouched, the worst possible misread;
+     3. an opposite-direction candidate with the same amount within ±1.5 days
+        exists in this batch → likely an own-account transfer pair the matcher
+        will propose — the loan lesson stands down;
+     4. the banded kind lesson (fhKindLesson) → pre-select 🤝 Cho vay;
+   and on the money-IN side: sender matches a person who OWES YOU → pre-select
+   🤝 Thu nợ + the person (the matcher the borrowing-lending spec promised).
+   Everything here is a PRE-SELECT — rows still pass the human gate; nothing
+   auto-imports. */
+function _debtNorm(s){
+  return (typeof deburr==='function' ? deburr(String(s||'').toLowerCase()) : String(s||'').toLowerCase())
+    .replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim();
+}
+/* Whole-phrase containment with word boundaries: "nguyen van minh" inside
+   "nguyen van minh chuyen tien" hits; "minh" inside "minh chau store" also
+   hits — accepted, because the people list is tiny (only open balances) and
+   this only ever pre-selects. Names under 4 letters never match. */
+function _debtNameHit(list, text){
+  var nt = ' ' + _debtNorm(text) + ' ';
+  for (var i=0;i<list.length;i++){
+    var nw = _debtNorm(list[i].who);
+    if (nw.length >= 4 && nt.indexOf(' ' + nw + ' ') >= 0) return list[i];
+  }
+  return null;
+}
+function _lendClearCat(c){
+  c.categoryName = null; c.catSource = null;
+  var i = c.flags ? c.flags.indexOf('needs_category') : -1;
+  if (i >= 0) c.flags.splice(i, 1);
+}
+function csvLendingPass(candidates){
+  if (!window.csvStagedMode) return;
+  if (typeof csvScopeReady === 'function' && !csvScopeReady()) return;
+  var pd = window.fhPersonalDebts ? fhPersonalDebts() : null;
+  var people = (pd && pd.people) || [];
+  var iOwe = people.filter(function(p){ return p.balance < -0.5; });
+  var oweMe = people.filter(function(p){ return p.balance > 0.5; });
+  var haveLessons = !!window.fhKindLesson;
+  if (!iOwe.length && !oweMe.length && !haveLessons) return;
+  candidates.forEach(function(c){
+    if (c.isTransfer || c._xfer || c._repay || c._loan || c._invest || c.amount == null) return;
+    var text = (c.counterparty || '') + ' ' + (c.description || '');
+    if (c.isIncome){
+      var owed = _debtNameHit(oweMe, text);
+      if (owed){ c._repay = true; c._repayWho = owed.who; c._scope = 'personal'; c._lessonWhy = 'owed'; return; }
+      /* remembered OTC counterparty sending money back → Bán đầu tư
+         (0123, investment-spec I9). Pre-select only, human gate stands. */
+      var vpos = window.fhInvMemoryMatch ? fhInvMemoryMatch(c.counterparty || c.description) : null;
+      if (vpos){ c._invest = true; c._investPosId = vpos; c._scope = 'personal'; c._lessonWhy = 'invest'; }
+      return;
+    }
+    var owe = _debtNameHit(iOwe, text);
+    if (owe){ c._repay = true; c._repayWho = owe.who; c._scope = 'personal'; c._lessonWhy = 'owe'; _lendClearCat(c); return; }
+    /* pair-shaped? both legs of an own-account move in the same batch — the
+       transfer matcher's territory, not a loan (spec Q15 precedence) */
+    var paired = candidates.some(function(o){
+      return o !== c && o.isIncome && o.amount === c.amount && o.date && c.date
+        && Math.abs(o.date.getTime() - c.date.getTime()) <= 1.5 * 86400000;
+    });
+    if (paired) return;
+    /* remembered OTC seller → Đầu tư + the position, ahead of the loan
+       lesson: an explicit seller→position mapping the person committed once
+       is more specific than a banded kind lesson (investment-spec I9). */
+    var ipos = window.fhInvMemoryMatch ? fhInvMemoryMatch(c.counterparty || c.description) : null;
+    if (ipos){
+      c._invest = true; c._investPosId = ipos; c._scope = 'personal';
+      c._lessonWhy = 'invest';
+      _lendClearCat(c);
+      return;
+    }
+    var key = (typeof csvLearnKey === 'function') ? csvLearnKey(c) : '';
+    var lesson = (key && haveLessons) ? fhKindLesson(key) : null;
+    if (lesson){
+      c._loan = true; c._loanWho = lesson.who; c._scope = 'personal';
+      c._lessonWhy = 'learned'; c._lessonKey = key;
+      _lendClearCat(c);
+    }
+  });
 }
 
 /* One candidate per data row. Never throws on a bad row -- flags it and
@@ -1175,7 +1277,7 @@ function bucketCsvCandidates(candidates, mixedSigns) {
        queue; its card marks itself "Trả nợ thẻ" instead. Income likewise: its
        category set is the income one (_incomeCat, defaulted at build), never
        the family expense picker. */
-    if (!c.categoryName && !c.isTransfer && !c.isIncome) {
+    if (!c.categoryName && !c.isTransfer && !c.isIncome && !c._loan && !c._repay && !c._xfer) {
       var gkey = normDescForDedup(c.description);
       (needsCategoryGroups[gkey] = needsCategoryGroups[gkey] || []).push(c);
       return;

@@ -167,7 +167,33 @@ function renderPersonal(){
     out = txM.reduce(function(s,t){ return s+(t.amt||0); },0);
     inc = slRows.reduce(function(s,r){ return s+(r.kind==='income'?r.amt:0); },0);
   }
-  var left = inc-out;
+  /* Lending flow (0122, spec Q5): a loan out is NOT consumption — it stays out
+     of "Ra" and every category stat — but it IS cash gone. "Còn lại" claims to
+     be money you can still spend this month, so it must feel the loan leave
+     (and a repayment received come back). Current-window months only: the
+     all-time stats slice deliberately carries expense/income alone. */
+  var lendCash = 0;
+  if(inWin){
+    P.txns.forEach(function(t){
+      if((t.date||'').slice(0,7)!==mon || t._unreadable) return;
+      if(t.kind==='loan') lendCash -= (t.amt||0);
+      else if(t.kind==='repayment') lendCash += (t.amt||0);
+    });
+  }
+  /* Investment flow (0123, spec I6/I8): a buy is NOT consumption — it stays
+     out of "Ra" and every category stat — but the cash genuinely left the
+     spendable pool, so "Còn lại" must feel it (and a sell's proceeds come
+     back). Same shape as the lending dent above; amounts carry their sign
+     inside the row (buy −X, sell +X). Current-window months only. */
+  var invOut = 0, invIn = 0;
+  if(inWin){
+    P.txns.forEach(function(t){
+      if((t.date||'').slice(0,7)!==mon || t._unreadable || t.kind!=='investment') return;
+      if((t.amt||0) < 0) invOut += -(t.amt||0); else invIn += (t.amt||0);
+    });
+  }
+  var invCash = invIn - invOut;
+  var left = inc-out+lendCash+invCash;
   /* Active family's real name comes from FAM (hydrate); P.fams was never
      populated, so without this the card said a faceless "Nhóm". */
   var famName = function(fid){
@@ -189,6 +215,17 @@ function renderPersonal(){
      +   '<button class="cf-tile" onclick="fhIncome(\'personal\')"><span class="cf-tl"><span class="cf-ar up">↑</span> Vào</span><span class="cf-tv num">'+(slReady?fmt(inc):'…')+'</span></button>'
      +   '<button class="cf-tile" onclick="persScrollTx()"><span class="cf-tl"><span class="cf-ar dn">↓</span> Ra</span><span class="cf-tv num">'+(slReady?fmt(out):'…')+'</span></button>'
      + '</div>'
+     /* the loan's dent in Còn lại, said out loud — the tiles above don't carry
+        it (Ra is consumption only), so without this line the math looks off */
+     + (slReady && Math.round(Math.abs(lendCash))>=1
+         ? '<div class="cf-lend num">🤝 Cho vay & trả nợ riêng: '+(lendCash>0?'+':'')+fmt(lendCash)+'</div>' : '')
+     /* the buy's dent, said out loud the same way — not spent, not available */
+     + (slReady && (Math.round(invOut)>=1 || Math.round(invIn)>=1)
+         ? '<div class="cf-lend num">📈 '
+           + (Math.round(invOut)>=1 ? 'Đầu tư tháng này: −'+fmt(invOut) : '')
+           + (Math.round(invOut)>=1 && Math.round(invIn)>=1 ? ' · ' : '')
+           + (Math.round(invIn)>=1 ? 'Rút đầu tư: +'+fmt(invIn) : '')
+           + '</div>' : '')
      /* One chart for every scope: the pannable stacked Thu/Chi strip with its
         zoom row. The note + guide stay current-month only — the guide's whole
         job is today, and an old month (or all of history) has none. */
@@ -196,6 +233,21 @@ function renderPersonal(){
      + persStripHTML(P, SL, mon, isAll, inWin)
      + (isCur ? ('<div class="cf-note" id="pcf-note"></div>'
                + '<div class="cf-daily" id="pcf-daily" style="display:none"></div>') : '')
+     /* "Hẹn trả" heads-up (0122, spec Q19ii): fires on the due day and stays
+        while overdue, gone the moment the balance clears. Today only — an old
+        month has no "today" (same rule as the guide above). */
+     + (isCur ? (function(){
+         if(!window.fhPersonalDebts || !window.persDebtDueInfo) return '';
+         var _n=new Date(), _tiso=_n.getFullYear()+'-'+String(_n.getMonth()+1).padStart(2,'0')+'-'+String(_n.getDate()).padStart(2,'0');
+         var lines='';
+         (fhPersonalDebts().people||[]).forEach(function(p){
+           var dd=persDebtDueInfo(p);
+           if(!dd || !(dd.overdue || dd.due===_tiso)) return;
+           lines+='<div class="cf-duealert">⏰ '+esc(p.who)+' hẹn trả <b class="num">'+fmt(p.balance)+'</b>'
+             +(dd.overdue?' — quá hẹn '+dd.days+' ngày':' — hôm nay')+'</div>';
+         });
+         return lines;
+       })() : '')
      + '<div class="cf-cta">'
      +   '<button class="cc-row" onclick="openPersonalBudget()"><span class="cc-ic">'+PIC.chart+'</span><span class="cc-t">'+(P.budget>0?'Ngân sách cá nhân':'Lập ngân sách cá nhân')+'</span>'+_ccChev+'</button>'
      +   '<button class="cc-row" onclick="openTxns(\'personal\')"><span class="cc-ic">'+PIC.list+'</span><span class="cc-t">Xem chi tiêu</span>'+_ccChev+'</button>'
@@ -245,6 +297,10 @@ function _persEmailRow(){
      the month's cash-flow card and the month's spending cards. Built by
      23-debts-ui.js (js-data) so it can share the modal helper + space keys. ── */
   h += (window.persDebtSection ? persDebtSection() : '');
+
+  /* ── Đầu tư — the asset dimension, the debts bento's sibling (0123). Built
+     by 26-investment-ui.js (js-data) for the same modal-helper reason. ── */
+  h += (window.persInvestSection ? persInvestSection() : '');
 
   /* ── Tiền đi đâu tháng này — one card per space, that space's categories
      nested inside (the old "Các nhóm của tôi" roll-up and the separate
@@ -402,6 +458,7 @@ function _persEmailRow(){
   host.innerHTML = h;
   persChartAfterRender(isCur);   // strip scroll + auto label + (current month) guide & sync note
   if(window.persDebtAfterRender) persDebtAfterRender();   // async space balances → section refreshes in place
+  if(window.persInvestAfterRender) persInvestAfterRender();   // throttled price refresh → bento redraws in place
 }
 function persScrollTx(){ _persScrollTo('pers-tx'); }
 function persScrollCats(){ _persScrollTo('pers-cats'); }

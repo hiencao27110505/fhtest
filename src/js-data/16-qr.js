@@ -9,7 +9,11 @@
   const _qrMul = (a, b) => (a === 0 || b === 0) ? 0 : _QR_EXP[_QR_LOG[a] + _QR_LOG[b]];
   function _qrGen(n) { let g = [1]; for (let i = 0; i < n; i++) { const ng = new Array(g.length + 1).fill(0); for (let j = 0; j < g.length; j++) { ng[j] ^= g[j]; ng[j + 1] ^= _qrMul(g[j], _QR_EXP[i]); } g = ng; } return g; }
   function _qrRs(data, n) { const g = _qrGen(n); const res = new Array(n).fill(0); for (const d of data) { const f = d ^ res[0]; res.shift(); res.push(0); if (f !== 0) for (let j = 0; j < n; j++) res[j] ^= _qrMul(g[j + 1], f); } return res; }
-  const _QR_DATACW = [0, 19, 34, 55, 80, 108], _QR_ECCW = [0, 7, 10, 15, 20, 26], _QR_ALIGN = [0, 0, 18, 22, 26, 30];
+  /* v6 (EC-L) added for the VietQR payload (~126 bytes > v5's 106-byte cap):
+     136 data codewords in TWO RS blocks of (86, 68) with 18 EC each, which is
+     the first version needing block interleaving — see _qrEncodeData. Still a
+     single alignment pattern (34, 34), and no version-info bits until v7. */
+  const _QR_DATACW = [0, 19, 34, 55, 80, 108, 136], _QR_ECCW = [0, 7, 10, 15, 20, 26, 36], _QR_ALIGN = [0, 0, 18, 22, 26, 30, 34];
   function _qrEncodeData(bytes, v) {
     const cap = _QR_DATACW[v] * 8, bits = [];
     const push = (val, len) => { for (let i = len - 1; i >= 0; i--) bits.push((val >> i) & 1); };
@@ -18,7 +22,15 @@
     while (bits.length % 8) bits.push(0);
     let pad = 0xEC; while (bits.length < cap) { push(pad, 8); pad = pad === 0xEC ? 0x11 : 0xEC; }
     const cw = []; for (let i = 0; i < bits.length; i += 8) { let x = 0; for (let j = 0; j < 8; j++) x = (x << 1) | bits[i + j]; cw.push(x); }
-    return cw.concat(_qrRs(cw, _QR_ECCW[v]));
+    if (v < 6) return cw.concat(_qrRs(cw, _QR_ECCW[v]));
+    /* v6-L: 2 × (86, 68, EC 18), codewords interleaved block-by-block (ISO
+       18004 §8.6): d1[0] d2[0] d1[1] d2[1] … then e1[0] e2[0] … */
+    const b1 = cw.slice(0, 68), b2 = cw.slice(68);
+    const e1 = _qrRs(b1, 18), e2 = _qrRs(b2, 18);
+    const out = [];
+    for (let i = 0; i < 68; i++) { out.push(b1[i], b2[i]); }
+    for (let i = 0; i < 18; i++) { out.push(e1[i], e2[i]); }
+    return out;
   }
   function _qrFmt(mask) {
     const data5 = (1 << 3) | mask;   // EC L = 01, then 3-bit mask
@@ -28,7 +40,7 @@
   }
   // text → { matrix (0/1 grid), size }
   function _qrBuild(bytes) {
-    let v = 1; while (v < 5 && _QR_DATACW[v] < Math.ceil((4 + 8 + bytes.length * 8) / 8)) v++;
+    let v = 1; while (v < 6 && _QR_DATACW[v] < Math.ceil((4 + 8 + bytes.length * 8) / 8)) v++;
     const size = 17 + 4 * v, cw = _qrEncodeData(bytes, v);
     const m = Array.from({ length: size }, () => new Array(size).fill(null));
     const fn = Array.from({ length: size }, () => new Array(size).fill(false));

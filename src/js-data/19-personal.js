@@ -299,10 +299,10 @@
            and PostgREST's own 1000-row default would have clipped it as
            silently as the old limit(2000). */
         const [tr, bd, ac, dr] = await Promise.all([
-          _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,occurred_time_enc,txn_date,kind,space_id,link_id,version,updated_at,created_at,account_id,transfer_group_id').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }).order('id')),
+          _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,occurred_time_enc,txn_date,kind,space_id,link_id,version,updated_at,created_at,account_id,transfer_group_id,position_account_id,quantity_enc').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }).order('id')),
           _sb().from('personal_budgets').select('total_enc,cats_enc').eq('owner_user_id', P.uid).eq('month', _monISO()).maybeSingle(),
-          _sb().from('personal_accounts').select('id,kind,name_enc,tail,provider,credit_limit_enc,human_verified,statement_day,due_day,anchor_balance_enc,anchor_at,ext_balance_enc,ext_balance_date').eq('owner_user_id', P.uid).is('archived_at', null),
-          _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,counterparty_enc,cat_name_enc,cat_emoji,txn_date,kind,account_id,transfer_group_id,created_at').eq('owner_user_id', P.uid).or('kind.neq.expense,account_id.not.is.null').order('txn_date', { ascending: false }).order('id')),
+          _sb().from('personal_accounts').select('id,kind,name_enc,tail,provider,credit_limit_enc,human_verified,statement_day,due_day,anchor_balance_enc,anchor_at,ext_balance_enc,ext_balance_date,account_number_enc,asset_symbol_enc,asset_unit_enc,asset_class_enc,manual_price_enc,manual_price_at').eq('owner_user_id', P.uid).is('archived_at', null),
+          _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,counterparty_enc,cat_name_enc,cat_emoji,txn_date,kind,account_id,transfer_group_id,position_account_id,quantity_enc,due_date,created_at').eq('owner_user_id', P.uid).or('kind.neq.expense,account_id.not.is.null').order('txn_date', { ascending: false }).order('id')),
         ]);
         /* Ceiling honesty, same stance as the stats slice's `truncated`: a
            short debt read understates balances, so it is counted and declared,
@@ -329,9 +329,12 @@
         for (const t of tr.rows) {
           const a = await _decP(t.amount_enc), bad = (a === _DEC_FAILED);
           if (bad) P.unreadable++;
+          const qRaw = t.quantity_enc ? await _decP(t.quantity_enc) : null;
           P.txns.push({ id: t.id, date: t.txn_date, kind: t.kind, spaceId: t.space_id, linkId: t.link_id,
             version: t.version || 1, updatedAt: t.updated_at, ts: t.created_at,
             accountId: t.account_id, transferGroupId: t.transfer_group_id,
+            positionId: t.position_account_id || null,
+            qty: (qRaw == null || qRaw === _DEC_FAILED) ? null : (Number(qRaw) || null),
             amt: bad ? null : Number(a), _unreadable: bad,
             note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc), emoji: t.cat_emoji,
             time: await _decTxt(t.occurred_time_enc) });   // local "HH:MM" if the time was known, else null (day-only)
@@ -357,6 +360,7 @@
           const lim = a.credit_limit_enc ? await _decP(a.credit_limit_enc) : null;
           const anch = a.anchor_balance_enc ? await _decP(a.anchor_balance_enc) : null;
           const ext = a.ext_balance_enc ? await _decP(a.ext_balance_enc) : null;
+          const mpx = a.manual_price_enc ? await _decP(a.manual_price_enc) : null;
           P.accounts.push({ id: a.id, kind: a.kind, tail: a.tail, provider: a.provider,
             humanVerified: a.human_verified,
             statementDay: a.statement_day || null, dueDay: a.due_day || null,
@@ -367,18 +371,41 @@
             anchorK: (anch == null || anch === _DEC_FAILED) ? null : Number(anch),
             anchorAt: a.anchor_at || null,
             extK: (ext == null || ext === _DEC_FAILED) ? null : Number(ext),
-            extDate: a.ext_balance_date || null });
+            extDate: a.ext_balance_date || null,
+            /* position identity (0122): only kind='investment' rows carry these.
+               An unreadable manual price is null — the value falls back to
+               giá vốn, never to a wrong number (same stance as the anchor). */
+            assetSymbol: await _decTxt(a.asset_symbol_enc),
+            assetUnit: await _decTxt(a.asset_unit_enc),
+            assetClass: await _decTxt(a.asset_class_enc),
+            manualPriceK: (mpx == null || mpx === _DEC_FAILED) ? null : (Number(mpx) || null),
+            manualPriceAt: a.manual_price_at || null,
+            accountNumber: a.account_number_enc ? await _decTxt(a.account_number_enc) : null });
         }
         P.debts = [];
         for (const t of dr.rows) {
           const a = await _decP(t.amount_enc), bad = (a === _DEC_FAILED);
           if (bad) P.unreadable++;
+          const qRaw = t.quantity_enc ? await _decP(t.quantity_enc) : null;
           P.debts.push({ id: t.id, date: t.txn_date, kind: t.kind, accountId: t.account_id,
-            transferGroupId: t.transfer_group_id, ts: t.created_at,
+            transferGroupId: t.transfer_group_id, ts: t.created_at, due: t.due_date || null,
+            positionId: t.position_account_id || null,
+            qty: (qRaw == null || qRaw === _DEC_FAILED) ? null : (Number(qRaw) || null),
             amt: bad ? null : Number(a), _unreadable: bad,
             note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc), emoji: t.cat_emoji,
             who: await _decTxt(t.counterparty_enc) });
         }
+        /* Review memory (0122): counterparty → position pre-selection for the
+           review screen. Fire-and-forget shape — an unreadable memory row is
+           dropped (it only costs a pre-selection, never money). */
+        P.memory = [];
+        try {
+          const mm = await _sb().from('personal_review_memory').select('id,key_enc,position_account_id').eq('owner_user_id', P.uid).limit(500);
+          for (const m of (mm.data || [])) {
+            const k = await _decTxt(m.key_enc);
+            if (k) P.memory.push({ id: m.id, key: k, positionId: m.position_account_id });
+          }
+        } catch (e) {}
         _setState('ready');
       } catch (e) { console.warn('personal hydrate failed', e); _setState('error'); }
     };
@@ -650,19 +677,91 @@
         counterparty_enc: extra.who ? await _encP(extra.who) : null,
         account_id: extra.accountId || null,
         transfer_group_id: extra.transferGroupId || null,
+        due_date: extra.dueDate || null,
         source: extra.source || null });
       const r = await _sb().from('personal_transactions').insert(row);
       if (r.error) { console.warn('personal ' + kind + ' failed', r.error); return false; }
       await window.fhPersonalHydrate(); return true;
     }
-    // amtK signed (see convention above); who = tên người, required for loans
-    window.fhPersonalAddLoan = function (amtK, who, note, dateIso, source) {
+    // amtK signed (see convention above); who = tên người, required for loans.
+    // dueDate (0122) = "hẹn trả", optional, loans only.
+    window.fhPersonalAddLoan = function (amtK, who, note, dateIso, source, dueDate) {
       if (!who) return Promise.resolve(false);
-      return _debtInsert('loan', amtK, { who: who, note: note, dateIso: dateIso, source: source });
+      return _debtInsert('loan', amtK, { who: who, note: note, dateIso: dateIso, source: source, dueDate: dueDate });
     };
     window.fhPersonalAddRepayment = function (amtK, who, note, dateIso, source) {
       if (!who) return Promise.resolve(false);
       return _debtInsert('repayment', amtK, { who: who, note: note, dateIso: dateIso, source: source });
+    };
+    /* ═══ Kind flips (0122, lending-capture-spec §4) ═══════════════════════════
+       A committed expense that was really a loan: flip the row IN PLACE — same
+       id, same amount, same date — so history and photos survive. The category
+       is dropped (a loan is not consumption), the counterparty becomes the
+       receivable's name. Private rows only (link_id null): a mirror master is
+       owned by the family reconciliation and must be moved before flipping. */
+    window.fhPersonalConvertToLoan = async function (id, who, dueDate) {
+      if (!P.uid || !P.key || !id || !who) return false;
+      const r = await _sb().from('personal_transactions').update({
+        kind: 'loan', counterparty_enc: await _encP(who),
+        cat_name_enc: null, cat_emoji: null,
+        due_date: dueDate || null,
+      }).eq('id', id).eq('owner_user_id', P.uid).eq('kind', 'expense').is('link_id', null);
+      if (r.error) { console.warn('convert to loan failed', r.error); return false; }
+      await window.fhPersonalHydrate(); return true;
+    };
+    /* The way back — a loan that was a plain expense after all. */
+    window.fhPersonalConvertToExpense = async function (id, catName, catEmoji) {
+      if (!P.uid || !P.key || !id) return false;
+      const r = await _sb().from('personal_transactions').update({
+        kind: 'expense', counterparty_enc: null, due_date: null,
+        cat_name_enc: catName ? await _encP(catName) : null, cat_emoji: catEmoji || null,
+      }).eq('id', id).eq('owner_user_id', P.uid).eq('kind', 'loan').is('link_id', null);
+      if (r.error) { console.warn('convert to expense failed', r.error); return false; }
+      await window.fhPersonalHydrate(); return true;
+    };
+    /* The same flip one shelf over (0123, investment-spec §8): a committed
+       expense that was really an investment buy — the miscounted OTC transfer.
+       In-place: same id, date, account, note, photos. The category drops (a
+       buy is not consumption) and the amount RE-SIGNS to the investment
+       convention (buy = −X): expenses store +X, so the readable amount is
+       looked up in the hydrated cache and re-encrypted negative. */
+    window.fhPersonalConvertToInvestment = async function (id, positionId, qty) {
+      if (!P.uid || !P.key || !id || !positionId) return false;
+      const cur = P.txns.find((t) => t.id === id) || P.debts.find((d) => d.id === id);
+      if (!cur || cur.amt == null || cur._unreadable) return false;
+      const r = await _sb().from('personal_transactions').update({
+        kind: 'investment', position_account_id: positionId,
+        amount_enc: await _encP(-Math.abs(Number(cur.amt))),
+        quantity_enc: (qty > 0) ? await _encP(Number(qty)) : null,
+        cat_name_enc: null, cat_emoji: null,
+      }).eq('id', id).eq('owner_user_id', P.uid).eq('kind', 'expense').is('link_id', null);
+      if (r.error) { console.warn('convert to investment failed', r.error); return false; }
+      await window.fhPersonalHydrate(); return true;
+    };
+    /* And back — an investment row that was a plain expense after all. */
+    window.fhPersonalConvertInvestmentToExpense = async function (id, catName, catEmoji) {
+      if (!P.uid || !P.key || !id) return false;
+      const cur = P.txns.find((t) => t.id === id) || P.debts.find((d) => d.id === id);
+      if (!cur || cur.amt == null || cur._unreadable) return false;
+      const r = await _sb().from('personal_transactions').update({
+        kind: 'expense', position_account_id: null, quantity_enc: null,
+        amount_enc: await _encP(Math.abs(Number(cur.amt))),
+        cat_name_enc: catName ? await _encP(catName) : null, cat_emoji: catEmoji || null,
+      }).eq('id', id).eq('owner_user_id', P.uid).eq('kind', 'investment').is('link_id', null);
+      if (r.error) { console.warn('convert investment→expense failed', r.error); return false; }
+      await window.fhPersonalHydrate(); return true;
+    };
+    /* Edit a loan/repayment row's own fields (the person zoom-in's row sheet). */
+    window.fhPersonalDebtRowUpdate = async function (id, fields) {
+      if (!P.uid || !P.key || !id) return false;
+      const row = {};
+      if (fields.amtK != null && isFinite(fields.amtK)) row.amount_enc = await _encP(Number(fields.amtK));
+      if (fields.hasOwnProperty('note')) row.note_enc = fields.note ? await _encP(fields.note) : null;
+      if (fields.dateIso) row.txn_date = fields.dateIso;
+      if (fields.hasOwnProperty('dueDate')) row.due_date = fields.dueDate || null;
+      const r = await _sb().from('personal_transactions').update(row).eq('id', id).eq('owner_user_id', P.uid).is('link_id', null);
+      if (r.error) { console.warn('debt row update failed', r.error); return false; }
+      await window.fhPersonalHydrate(); return true;
     };
     // A transfer tagged to an account (card payment, wallet top-up). amtK > 0.
     window.fhPersonalAddTransfer = function (amtK, accountId, note, dateIso, source, transferGroupId) {
@@ -717,6 +816,9 @@
           counterparty_enc: s.who ? await _encP(s.who) : null,
           account_id: s.accountId || null,
           transfer_group_id: s.transferGroupId || null,
+          due_date: s.dueDate || null,
+          position_account_id: s.positionId || null,
+          quantity_enc: (s.qty != null && isFinite(s.qty)) ? await _encP(Number(s.qty)) : null,
           source: s.source || null });
       }
       const CHUNK = 50;
@@ -812,6 +914,8 @@
       if (fields.humanVerified != null) row.human_verified = !!fields.humanVerified;
       if (fields.hasOwnProperty('statementDay')) row.statement_day = fields.statementDay || null;
       if (fields.hasOwnProperty('dueDay')) row.due_day = fields.dueDay || null;
+      /* Full receiving account number (0122) — typed once for VietQR, sealed. */
+      if (fields.hasOwnProperty('accountNumber')) row.account_number_enc = fields.accountNumber ? await _encP(String(fields.accountNumber)) : null;
       if (fields.archived) row.archived_at = new Date().toISOString();
       const r = await _sb().from('personal_accounts').update(row).eq('id', id).eq('owner_user_id', P.uid);
       if (r.error) { console.warn('account update failed', r.error); return false; }
@@ -858,7 +962,12 @@
        move the balance, because the anchor already contained it.
        Contribution: expense −amt · income +amt · transfer +amt (pair legs carry
        their sign inside the ciphertext; a legacy top-up is +amt by the same
-       0105 convention). Loans/repayments carry no account today and are skipped.
+       0105 convention). Since 0122 an account-tagged loan/repayment moves the
+       balance too — the money really left/entered the account: loan −amt
+       (+X lent drains X; −X borrowed adds X), repayment +amt (+X received
+       adds; −X paid drains). Untagged (manual) debt rows still skip.
+       Since 0123 an investment leg moves it like a signed transfer leg:
+       buy −X drains the funding account, sell +X fills the receiving one.
        Cards keep their outstanding derivation in fhPersonalDebts, untouched. */
     window.fhPersonalBalance = function (acctId) {
       const a = P.accounts.find((x) => x.id === acctId);
@@ -867,12 +976,13 @@
       let bal = a.anchorK;
       for (const d of P.debts) {
         if (d.accountId !== acctId || d._unreadable || d.amt == null) continue;
-        if (d.kind !== 'expense' && d.kind !== 'income' && d.kind !== 'transfer') continue;
+        if (d.kind !== 'expense' && d.kind !== 'income' && d.kind !== 'transfer'
+            && d.kind !== 'loan' && d.kind !== 'repayment' && d.kind !== 'investment') continue;
         if (anchorDay) {
           if (d.date < anchorDay) continue;
           if (d.date === anchorDay && (!d.ts || d.ts <= a.anchorAt)) continue;
         }
-        bal += (d.kind === 'expense') ? -d.amt : d.amt;
+        bal += (d.kind === 'expense' || d.kind === 'loan') ? -d.amt : d.amt;
       }
       return bal;
     };
@@ -999,21 +1109,31 @@
            limits, the 0109 anchor + bank-stated balance) and the budgets. A
            rotation that misses a field makes that field unreadable forever, so
            the list here must grow with every _enc column the schema gains. */
-        const tr = await _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,counterparty_enc,occurred_time_enc').eq('owner_user_id', P.uid);
-        const ac = await _sb().from('personal_accounts').select('id,name_enc,credit_limit_enc,anchor_balance_enc,ext_balance_enc').eq('owner_user_id', P.uid);
+        const tr = await _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,counterparty_enc,occurred_time_enc,quantity_enc').eq('owner_user_id', P.uid);
+        const ac = await _sb().from('personal_accounts').select('id,name_enc,credit_limit_enc,anchor_balance_enc,ext_balance_enc,account_number_enc,asset_symbol_enc,asset_unit_enc,asset_class_enc,manual_price_enc').eq('owner_user_id', P.uid);
         const bg = await _sb().from('personal_budgets').select('owner_user_id,month,total_enc,cats_enc').eq('owner_user_id', P.uid);
+        const ls = await _sb().from('personal_lessons').select('owner_user_id,lessons_enc').eq('owner_user_id', P.uid);
+        const rm = await _sb().from('personal_review_memory').select('id,key_enc').eq('owner_user_id', P.uid);
         const ph = await _sb().from('personal_transaction_photos').select('id,photo_url').eq('owner_user_id', P.uid);
-        const tot = (tr.data || []).length + (ac.data || []).length + (bg.data || []).length + (ph.data || []).length; let n = 0;
+        const tot = (tr.data || []).length + (ac.data || []).length + (bg.data || []).length + (ls.data || []).length + (rm.data || []).length + (ph.data || []).length; let n = 0;
         for (const r of (tr.data || [])) {
-          const u = await _sb().from('personal_transactions').update({ amount_enc: await reEnc(r.amount_enc), note_enc: await reEnc(r.note_enc), cat_name_enc: await reEnc(r.cat_name_enc), counterparty_enc: await reEnc(r.counterparty_enc), occurred_time_enc: await reEnc(r.occurred_time_enc) }).eq('id', r.id);
+          const u = await _sb().from('personal_transactions').update({ amount_enc: await reEnc(r.amount_enc), note_enc: await reEnc(r.note_enc), cat_name_enc: await reEnc(r.cat_name_enc), counterparty_enc: await reEnc(r.counterparty_enc), occurred_time_enc: await reEnc(r.occurred_time_enc), quantity_enc: await reEnc(r.quantity_enc) }).eq('id', r.id);
           if (u.error) throw u.error; n++; if (onProgress) onProgress(n, tot);
         }
         for (const r of (ac.data || [])) {
-          const u = await _sb().from('personal_accounts').update({ name_enc: await reEnc(r.name_enc), credit_limit_enc: await reEnc(r.credit_limit_enc), anchor_balance_enc: await reEnc(r.anchor_balance_enc), ext_balance_enc: await reEnc(r.ext_balance_enc) }).eq('id', r.id);
+          const u = await _sb().from('personal_accounts').update({ name_enc: await reEnc(r.name_enc), credit_limit_enc: await reEnc(r.credit_limit_enc), anchor_balance_enc: await reEnc(r.anchor_balance_enc), ext_balance_enc: await reEnc(r.ext_balance_enc), account_number_enc: await reEnc(r.account_number_enc), asset_symbol_enc: await reEnc(r.asset_symbol_enc), asset_unit_enc: await reEnc(r.asset_unit_enc), asset_class_enc: await reEnc(r.asset_class_enc), manual_price_enc: await reEnc(r.manual_price_enc) }).eq('id', r.id);
+          if (u.error) throw u.error; n++; if (onProgress) onProgress(n, tot);
+        }
+        for (const r of (rm.data || [])) {
+          const u = await _sb().from('personal_review_memory').update({ key_enc: await reEnc(r.key_enc) }).eq('id', r.id);
           if (u.error) throw u.error; n++; if (onProgress) onProgress(n, tot);
         }
         for (const r of (bg.data || [])) {
           const u = await _sb().from('personal_budgets').update({ total_enc: await reEnc(r.total_enc), cats_enc: await reEnc(r.cats_enc) }).eq('owner_user_id', P.uid).eq('month', r.month);
+          if (u.error) throw u.error; n++; if (onProgress) onProgress(n, tot);
+        }
+        for (const r of (ls.data || [])) {
+          const u = await _sb().from('personal_lessons').update({ lessons_enc: await reEnc(r.lessons_enc) }).eq('owner_user_id', P.uid);
           if (u.error) throw u.error; n++; if (onProgress) onProgress(n, tot);
         }
         /* Photo OBJECTS (0114) are ciphertext under the personal DEK too — a

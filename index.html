@@ -1567,6 +1567,12 @@ input{font-family:inherit}
 .pst-pin{position:absolute;left:50%;transform:translateX(-50%);font-size:10px;font-weight:800;color:var(--ink);background:var(--white);border:1px solid var(--divider);border-radius:99px;padding:3px 8px;white-space:nowrap;box-shadow:0 2px 8px rgba(25,16,34,.12);z-index:2}
 .pst-load{padding:22px 4px 8px;font-size:12.5px;font-weight:600;color:var(--muted)}
 
+/* ── Lending flow in the personal cash-flow card (0122) ─────────────────── */
+/* the loan's dent in Còn lại, said quietly under the Vào/Ra tiles */
+.cf-lend{margin-top:9px;font-size:12.5px;color:var(--muted);font-weight:600}
+/* "hẹn trả hôm nay / quá hẹn" — the due-day heads-up above the CTA list */
+.cf-duealert{margin-top:10px;font-size:13px;font-weight:600;color:var(--danger);background:var(--danger-tint);border-radius:12px;padding:9px 12px}
+
 /* ── Nợ & cho vay — bento + zoom-in overlay (23-debts-ui.js) ─────────────────
    Design: mockups/borrowing-lending-ring.html variant 01 (Concentric), on the
    cf-card recipe: white / 22px / --shadow-focal / 16px gutter. Owe = --danger,
@@ -1711,6 +1717,34 @@ input{font-family:inherit}
 /* a history row that opens something (a transfer pair) — visible press feedback */
 .dbt-li.tap{cursor:pointer;transition:background .12s ease}
 .dbt-li.tap:active{background:var(--surface)}
+
+/* ── Lending capture (0122) ─────────────────────────────────────────────── */
+/* overdue wears the danger tint — an amber "đến hạn" that already passed */
+.dbt-due.over{background:var(--danger-tint);color:var(--danger)}
+.dbt-overtxt{color:var(--danger);font-weight:700}
+/* the nhắc-trả QR — centered card above the editable message */
+.dbt-rq-qr{display:flex;justify-content:center;margin:2px 0 12px}
+.dbt-rq-cv{width:200px;height:200px;border-radius:14px;border:1px solid var(--hairline)}
+
+/* ═══ Đầu tư — the investment bento + position zoom-in (24-investment-ui.js) ═══
+   Reuses the debts vocabulary wholesale (.debt-bento, .dbt-tile, .dbt-hero2,
+   .dbt-li, .dbt-acts…, 41-debts.css) so the two bentos read as siblings.
+   Only the investment-specific accents live here. */
+
+/* lãi/lỗ deltas — green up, red down, muted "giá vốn" fallback */
+.inv-up{color:var(--good);font-weight:600}
+.inv-down{color:var(--danger);font-weight:600}
+.inv-cost{color:var(--muted)}
+.inv-stale{color:var(--muted);font-weight:400}
+.inv-qty{color:var(--ink-2);font-weight:500}
+
+/* hero tile: the portfolio headline sits a notch above the position tiles */
+.inv-hero .inv-total{font-size:26px;letter-spacing:-.02em}
+.inv-hero .dbt-ts{margin-top:2px}
+.inv-hero .inv-flow{color:var(--muted)}
+
+/* the zoom-in shares #debt-overlay's classes; only the price link needs a nudge */
+#invest-overlay .dbt-relink{white-space:nowrap}
 
 /* Savings goals — ONE grouped card: the brief (goal-gradient framing) is the header,
    the goal list its body. A single border + shadow makes the whole thing read as one object. */
@@ -2703,6 +2737,10 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
 .cat-del-off{opacity:.45;cursor:default}
 .cat-del-off:active{color:var(--muted-soft);background:none}
 .cat-row-lock .cat-name{color:var(--muted);cursor:default}
+
+/* "Đây là khoản cho vay" — the kind flip, sibling of .ex-del (0122) */
+.ex-toloan{display:none;width:fit-content;margin:18px auto 0;background:none;color:var(--brand);font-size:14px;font-weight:600;letter-spacing:-.01em;padding:8px 16px}
+.ex-toloan:active{opacity:.55}
 
 /* ---------- memories ---------- */
 .mscroll{display:flex;gap:12px;overflow-x:auto;padding:0 16px 4px;scroll-snap-type:x mandatory}
@@ -6486,7 +6524,33 @@ function renderPersonal(){
     out = txM.reduce(function(s,t){ return s+(t.amt||0); },0);
     inc = slRows.reduce(function(s,r){ return s+(r.kind==='income'?r.amt:0); },0);
   }
-  var left = inc-out;
+  /* Lending flow (0122, spec Q5): a loan out is NOT consumption — it stays out
+     of "Ra" and every category stat — but it IS cash gone. "Còn lại" claims to
+     be money you can still spend this month, so it must feel the loan leave
+     (and a repayment received come back). Current-window months only: the
+     all-time stats slice deliberately carries expense/income alone. */
+  var lendCash = 0;
+  if(inWin){
+    P.txns.forEach(function(t){
+      if((t.date||'').slice(0,7)!==mon || t._unreadable) return;
+      if(t.kind==='loan') lendCash -= (t.amt||0);
+      else if(t.kind==='repayment') lendCash += (t.amt||0);
+    });
+  }
+  /* Investment flow (0123, spec I6/I8): a buy is NOT consumption — it stays
+     out of "Ra" and every category stat — but the cash genuinely left the
+     spendable pool, so "Còn lại" must feel it (and a sell's proceeds come
+     back). Same shape as the lending dent above; amounts carry their sign
+     inside the row (buy −X, sell +X). Current-window months only. */
+  var invOut = 0, invIn = 0;
+  if(inWin){
+    P.txns.forEach(function(t){
+      if((t.date||'').slice(0,7)!==mon || t._unreadable || t.kind!=='investment') return;
+      if((t.amt||0) < 0) invOut += -(t.amt||0); else invIn += (t.amt||0);
+    });
+  }
+  var invCash = invIn - invOut;
+  var left = inc-out+lendCash+invCash;
   /* Active family's real name comes from FAM (hydrate); P.fams was never
      populated, so without this the card said a faceless "Nhóm". */
   var famName = function(fid){
@@ -6508,6 +6572,17 @@ function renderPersonal(){
      +   '<button class="cf-tile" onclick="fhIncome(\'personal\')"><span class="cf-tl"><span class="cf-ar up">↑</span> Vào</span><span class="cf-tv num">'+(slReady?fmt(inc):'…')+'</span></button>'
      +   '<button class="cf-tile" onclick="persScrollTx()"><span class="cf-tl"><span class="cf-ar dn">↓</span> Ra</span><span class="cf-tv num">'+(slReady?fmt(out):'…')+'</span></button>'
      + '</div>'
+     /* the loan's dent in Còn lại, said out loud — the tiles above don't carry
+        it (Ra is consumption only), so without this line the math looks off */
+     + (slReady && Math.round(Math.abs(lendCash))>=1
+         ? '<div class="cf-lend num">🤝 Cho vay & trả nợ riêng: '+(lendCash>0?'+':'')+fmt(lendCash)+'</div>' : '')
+     /* the buy's dent, said out loud the same way — not spent, not available */
+     + (slReady && (Math.round(invOut)>=1 || Math.round(invIn)>=1)
+         ? '<div class="cf-lend num">📈 '
+           + (Math.round(invOut)>=1 ? 'Đầu tư tháng này: −'+fmt(invOut) : '')
+           + (Math.round(invOut)>=1 && Math.round(invIn)>=1 ? ' · ' : '')
+           + (Math.round(invIn)>=1 ? 'Rút đầu tư: +'+fmt(invIn) : '')
+           + '</div>' : '')
      /* One chart for every scope: the pannable stacked Thu/Chi strip with its
         zoom row. The note + guide stay current-month only — the guide's whole
         job is today, and an old month (or all of history) has none. */
@@ -6515,6 +6590,21 @@ function renderPersonal(){
      + persStripHTML(P, SL, mon, isAll, inWin)
      + (isCur ? ('<div class="cf-note" id="pcf-note"></div>'
                + '<div class="cf-daily" id="pcf-daily" style="display:none"></div>') : '')
+     /* "Hẹn trả" heads-up (0122, spec Q19ii): fires on the due day and stays
+        while overdue, gone the moment the balance clears. Today only — an old
+        month has no "today" (same rule as the guide above). */
+     + (isCur ? (function(){
+         if(!window.fhPersonalDebts || !window.persDebtDueInfo) return '';
+         var _n=new Date(), _tiso=_n.getFullYear()+'-'+String(_n.getMonth()+1).padStart(2,'0')+'-'+String(_n.getDate()).padStart(2,'0');
+         var lines='';
+         (fhPersonalDebts().people||[]).forEach(function(p){
+           var dd=persDebtDueInfo(p);
+           if(!dd || !(dd.overdue || dd.due===_tiso)) return;
+           lines+='<div class="cf-duealert">⏰ '+esc(p.who)+' hẹn trả <b class="num">'+fmt(p.balance)+'</b>'
+             +(dd.overdue?' — quá hẹn '+dd.days+' ngày':' — hôm nay')+'</div>';
+         });
+         return lines;
+       })() : '')
      + '<div class="cf-cta">'
      +   '<button class="cc-row" onclick="openPersonalBudget()"><span class="cc-ic">'+PIC.chart+'</span><span class="cc-t">'+(P.budget>0?'Ngân sách cá nhân':'Lập ngân sách cá nhân')+'</span>'+_ccChev+'</button>'
      +   '<button class="cc-row" onclick="openTxns(\'personal\')"><span class="cc-ic">'+PIC.list+'</span><span class="cc-t">Xem chi tiêu</span>'+_ccChev+'</button>'
@@ -6564,6 +6654,10 @@ function _persEmailRow(){
      the month's cash-flow card and the month's spending cards. Built by
      23-debts-ui.js (js-data) so it can share the modal helper + space keys. ── */
   h += (window.persDebtSection ? persDebtSection() : '');
+
+  /* ── Đầu tư — the asset dimension, the debts bento's sibling (0123). Built
+     by 26-investment-ui.js (js-data) for the same modal-helper reason. ── */
+  h += (window.persInvestSection ? persInvestSection() : '');
 
   /* ── Tiền đi đâu tháng này — one card per space, that space's categories
      nested inside (the old "Các nhóm của tôi" roll-up and the separate
@@ -6721,6 +6815,7 @@ function _persEmailRow(){
   host.innerHTML = h;
   persChartAfterRender(isCur);   // strip scroll + auto label + (current month) guide & sync note
   if(window.persDebtAfterRender) persDebtAfterRender();   // async space balances → section refreshes in place
+  if(window.persInvestAfterRender) persInvestAfterRender();   // throttled price refresh → bento redraws in place
 }
 function persScrollTx(){ _persScrollTo('pers-tx'); }
 function persScrollCats(){ _persScrollTo('pers-cats'); }
@@ -9462,7 +9557,7 @@ function closeModals(){
   });
   if(!keepPa) document.getElementById('scrim').classList.remove('on');
   editingTx=null; editingPTx=null; editSnap=null; exPhotos=[]; evPhotos=[]; memPick=null; memPickMulti=null;
-  setTxt('ex-title',L('Khoản chi','Expense')); var del=document.getElementById('ex-del'); if(del)del.style.display='none';
+  setTxt('ex-title',L('Khoản chi','Expense')); var del=document.getElementById('ex-del'); if(del)del.style.display='none'; var tl9=document.getElementById('ex-toloan'); if(tl9)tl9.style.display='none'; var ti9=document.getElementById('ex-toinvest'); if(ti9)ti9.style.display='none';
   resetDelArm();
 }
 /* new-event modal */
@@ -9844,7 +9939,7 @@ function prefillExpense(){
   exPhotos = (exPreset && exPreset.photos) ? exPreset.photos.slice() : [];
   renderExPhoto();
   setTxt('ex-title',L('Khoản chi','Expense'));
-  var del=document.getElementById('ex-del'); if(del)del.style.display='none';
+  var del=document.getElementById('ex-del'); if(del)del.style.display='none'; var tl9=document.getElementById('ex-toloan'); if(tl9)tl9.style.display='none'; var ti9=document.getElementById('ex-toinvest'); if(ti9)ti9.style.display='none';
   renderBulk();
   if(bulkActive>=0 && bulkRows[bulkActive]) loadRow(bulkActive);
   updateExWhen(); refreshExCta();
@@ -10962,6 +11057,25 @@ function fillPersonalExpenseFromTx(){
   var _af=document.getElementById('ex-acctfield'); if(_af){ _af.style.display=''; buildExAcctChips(t.accountId||null); }
   setTxt('ex-title',L('Sửa khoản chi','Edit expense'));
   var del=document.getElementById('ex-del'); if(del)del.style.display='block';
+  /* "Đây là khoản cho vay" (0122) — the retroactive kind flip, private personal
+     rows only. Injected as a sibling of the delete button so it lives where the
+     row-level verbs already are. */
+  var tl=document.getElementById('ex-toloan');
+  if(!tl && del && del.parentNode){
+    tl=document.createElement('button'); tl.id='ex-toloan'; tl.type='button'; tl.className='ex-toloan';
+    tl.onclick=function(){ var id=editingPTx; if(typeof closeExpense==='function') closeExpense(); if(window.fhExpenseToLoanSheet) fhExpenseToLoanSheet(id); };
+    del.parentNode.insertBefore(tl, del);
+  }
+  if(tl){ tl.textContent=L('🤝 Đây là khoản cho vay','🤝 This was a loan'); tl.style.display='block'; }
+  /* "Đây là khoản đầu tư" (0123) — the same retroactive flip one shelf over:
+     the miscounted OTC transfer heals here, row by row (investment-spec §8). */
+  var ti=document.getElementById('ex-toinvest');
+  if(!ti && del && del.parentNode){
+    ti=document.createElement('button'); ti.id='ex-toinvest'; ti.type='button'; ti.className='ex-toloan';
+    ti.onclick=function(){ var id=editingPTx; if(typeof closeExpense==='function') closeExpense(); if(window.fhExpenseToInvestSheet) fhExpenseToInvestSheet(id); };
+    del.parentNode.insertBefore(ti, del);
+  }
+  if(ti){ ti.textContent=L('📈 Đây là khoản đầu tư','📈 This was an investment'); ti.style.display='block'; }
   resetDelArm();
   editSnap=exFormState();
   refreshExCta();
@@ -10983,6 +11097,8 @@ function fillExpenseFromTx(){
   updateExWhen();
   setTxt('ex-title',L('Sửa khoản chi','Edit expense'));
   var del=document.getElementById('ex-del'); if(del)del.style.display='block';
+  var tl9=document.getElementById('ex-toloan'); if(tl9)tl9.style.display='none';   // family rows never flip to a loan (liabilities are personal)
+  var ti9=document.getElementById('ex-toinvest'); if(ti9)ti9.style.display='none'; // …nor to an investment (a portfolio is personal too)
   resetDelArm();
   editSnap=exFormState();                                  // baseline: no changes yet
   refreshExCta();                                          // Save stays disabled until the first edit
@@ -11798,6 +11914,7 @@ function csvBuildReview(sources, opts){
 
   csvMarkSummaryRows(candidates);      // a trailing total is not a transaction
   csvPatternPass(candidates);          // habits the dictionary can't name
+  csvLendingPass(candidates);          // loans & repayments the balances + lessons can name (0122)
   var signMode = csvResolveSignMode(candidates);
   /* Sign-majority guessing is for FILES, whose one amount column hides the
      direction. A staged bank-email row carries `direction` from the pipeline —
@@ -12070,7 +12187,7 @@ function csvSpendPanel(r){
 function csvRowShape(c, isDup){
   var fx = csvFxInfo(c);
   return { note: c.description || '', amt: c.amount != null ? String(Math.round(c.amount)) : '',
-           cat: (c.isIncome && !c._xfer && !c._repay) ? (c._incomeCat || '') : (c.categoryName || ''),
+           cat: (c.isIncome && !c._xfer && !c._repay && !c._invest) ? (c._incomeCat || '') : (c.categoryName || ''),
            /* Foreign currency (foreign-currency-emails-spec.md): _fxAmt is the
               card's WHOLE amount only in the no-rate fallback ("$111", asks for
               a ₫ figure); _fxRef is a quiet "≈ $111" beside the VND amount
@@ -12079,8 +12196,9 @@ function csvRowShape(c, isDup){
            _fxRef: (fx && !csvFxUnresolved(c)) ? csvFxOrigStr(fx) : '',
            _fxEst: csvFxIsEstimate(c),
            _dup: !!isDup, _transfer: !!(c && c.isTransfer),
-           _xfer: !!(c && c._xfer), _repay: !!(c && c._repay),
-           _income: !!(c && c.isIncome && !c._xfer && !c._repay) };
+           _xfer: !!(c && c._xfer), _repay: !!(c && c._repay), _loan: !!(c && c._loan),
+           _invest: !!(c && c._invest),
+           _income: !!(c && c.isIncome && !c._xfer && !c._repay && !c._invest) };
 }
 
 /* isError separates "this can't go in" (red) from "worth a glance" (amber).
@@ -12186,9 +12304,12 @@ function csvCollapsedCard(c, opts){
     var r = csvRowShape(c, opts.isDup || opts.repeat);
     var scope = !opts.isDup ? (csvRowScope(c)==='personal' ? L('🔒 Riêng tư','🔒 Private') : L('🏡 Gia đình','🏡 Family')) : '';
     var catTxt;
-    if(r._transfer)      catTxt = '💳 '+L('Trả nợ thẻ','Card payment');
+    if(r._loan)          catTxt = '🤝 '+L('Cho vay','Loan out')+(c._loanWho?' · '+esc(c._loanWho):'');
+    else if(r._invest)   catTxt = '📈 '+(c.isIncome?L('Bán đầu tư','Sold investment'):L('Đầu tư','Investment'))
+                                  +(function(){ var n=''; csvInvPositions().forEach(function(a){ if(a.id===c._investPosId) n=a.name||''; }); return n?' · '+esc(n):''; })();
+    else if(r._transfer) catTxt = '💳 '+L('Trả nợ thẻ','Card payment');
     else if(r._xfer)     catTxt = '🔁 '+L('Chuyển khoản nội bộ','Internal transfer');
-    else if(r._repay)    catTxt = '🤝 '+L('Thu nợ','Repayment in');
+    else if(r._repay)    catTxt = '🤝 '+(c.isIncome?L('Thu nợ','Repayment in'):L('Trả nợ','Repay'))+(c._repayWho?' · '+esc(c._repayWho):'');
     else if(r._income)   catTxt = esc(r.cat||L('Thu nhập','Income'));
     else if(r.cat && (typeof catValid!=='function' || catValid(r.cat))){
       var s=(window.catStyle&&catStyle[r.cat])||['🏷️']; catTxt = s[0]+' '+esc(r.cat);
@@ -12196,6 +12317,11 @@ function csvCollapsedCard(c, opts){
     var catHtml = catTxt
       ? '<span class="scv-cat">'+catTxt+'</span>'
       : '<span class="scv-cat unset">'+L('Chọn danh mục','Pick a category')+'</span>';
+    /* The pre-select's provenance chip — with lesson hits going straight to the
+       ready list (spec Q9a), this chip carries the entire "you can catch a
+       wrong firing at a glance" story. */
+    var learnHtml = c._lessonWhy==='learned' ? '<span class="scv-dup soft">'+L('đã học từ bạn','learned from you')+'</span>'
+      : (c._lessonWhy==='owe'||c._lessonWhy==='owed') ? '<span class="scv-dup soft">'+L('khớp sổ nợ','matches your ledger')+'</span>' : '';
     /* Three chips, three degrees of belief: message-id equality is a FACT and
        wears the strong chip; a rounded-amount neighbour is the weakest guess
        and says so; everything between keeps the familiar "lặp lại". */
@@ -12225,7 +12351,7 @@ function csvCollapsedCard(c, opts){
     return '<div class="bulk-card'+(opts.invalid?' invalid':(opts.attn?' attn':''))+(opts.dim?' is-dim':'')+'">' + ck
       + '<button type="button" class="bulk-tap scv-tap" onclick="'+opts.tapFn+'" aria-label="'+L('Sửa khoản này','Edit this item')+'">'
       + topHtml
-      + '<span class="scv-money">'+amtHtml+catHtml+dupHtml+'</span>'
+      + '<span class="scv-money">'+amtHtml+catHtml+learnHtml+dupHtml+'</span>'
       + memoHtml + footHtml
       + '</button>' + rm + '</div>';
   }
@@ -12283,8 +12409,8 @@ function csvActiveCard(c, opts){
 
     // Which face this row wears right now (0109): income keeps its own category
     // set; a transfer leg / repayment / card payment has no category at all.
-    var isIncomeNow = !!(c.isIncome && !c._xfer && !c._repay);
-    var noCat = c.isTransfer || c._xfer || c._repay;
+    var isIncomeNow = !!(c.isIncome && !c._xfer && !c._repay && !c._invest);
+    var noCat = c.isTransfer || c._xfer || c._repay || c._loan || c._invest;
     var incChips = FH_INCOME_CATS.map(function(name){
       return '<button type="button" class="choice'+(name===(c._incomeCat||'Khác')?' on':'')+'" data-v="'+escAttr(name)+'" onclick="pick(\'csvedit-inccats\',this)">'+esc(name)+'</button>';
     }).join('');
@@ -12371,11 +12497,11 @@ var csvRowSheet = null;   // which field's picker sheet is open ('scope'|'kind'|
 var csvRowHot = null;     // last field changed — its row wears the brand tint
 
 function csvRowKindCur(c){
-  return c._xfer ? 'xfer' : (c._repay ? 'repay' : (c.isTransfer ? 'cardpay' : (c.isIncome ? 'income' : 'expense')));
+  return c._loan ? 'loan' : (c._invest ? 'invest' : (c._xfer ? 'xfer' : (c._repay ? 'repay' : (c.isTransfer ? 'cardpay' : (c.isIncome ? 'income' : 'expense')))));
 }
 function csvStagedRowsCard(c, opts){
-  var isIncomeNow = !!(c.isIncome && !c._xfer && !c._repay);
-  var noCat = c.isTransfer || c._xfer || c._repay;
+  var isIncomeNow = !!(c.isIncome && !c._xfer && !c._repay && !c._invest);
+  var noCat = c.isTransfer || c._xfer || c._repay || c._loan || c._invest;
   var noteLbl = noCat ? L('Ghi chú','Note') : (isIncomeNow ? L('Tiền gì vậy?','What money is this?') : L('Chi cho gì?','What for?'));
   /* Amount leads as a top input field — the number people most want to see and
      change — above the description. csvReadEditor(#csvedit-amt) reads it back with
@@ -12415,8 +12541,25 @@ function csvStagedRowsCard(c, opts){
     var cur = csvRowKindCur(c);
     var kindLbls = { expense:L('Chi tiêu','Spending'), cardpay:L('💳 Trả nợ thẻ','💳 Card payment'),
                      xfer:L('🔁 Chuyển khoản nội bộ','🔁 Internal transfer'),
-                     income:L('Thu nhập','Income'), repay:L('🤝 Thu nợ','🤝 Repayment in') };
+                     income:L('Thu nhập','Income'), loan:L('🤝 Cho vay','🤝 Loan out'),
+                     invest: c.isIncome ? L('📈 Bán đầu tư','📈 Sold investment') : L('📈 Đầu tư','📈 Investment'),
+                     repay: c.isIncome ? L('🤝 Thu nợ','🤝 Repayment in') : L('🤝 Trả nợ','🤝 Repay someone') };
     rows += row('kind', L('Loại khoản','Kind'), kindLbls[cur] || '');
+    if(cur==='loan'){
+      rows += row('loanwho', L('Cho ai mượn','Lent to'),
+        c._loanWho ? esc(c._loanWho) : L('Chọn','Pick'), { soft: !c._loanWho });
+      rows += row('loandue', L('Hẹn trả','Due back'),
+        c._loanDue ? '<span class="num">'+esc(bulkDate(c._loanDue))+'</span>' : L('Chưa hẹn','Not set'), { soft: !c._loanDue });
+    }
+    if(cur==='invest'){
+      /* which position this buy/sell accrues to (0123, investment-spec §7) */
+      var ipos = csvInvPositions(), ipn = '';
+      ipos.forEach(function(a){ if(a.id===c._investPosId) ipn = a.name || L('Vị thế','Position'); });
+      rows += row('invpos', L('Vị thế','Position'),
+        ipn ? esc(ipn) : L('Chọn','Pick'), { soft: !ipn });
+      rows += row('invqty', L('Số lượng','Quantity'),
+        (c._investQty > 0) ? '<span class="num">'+esc(String(c._investQty))+'</span>' : L('Tuỳ chọn','Optional'), { soft: !(c._investQty > 0) });
+    }
     if(cur==='cardpay'){
       var cards = csvCreditCards();
       var pc = c._payCardId || (cards.length===1 ? cards[0].id : '');
@@ -12434,7 +12577,7 @@ function csvStagedRowsCard(c, opts){
         an ? esc(an) : L('Chọn tài khoản','Pick one'), { soft: !an });
     }
     if(cur==='repay'){
-      rows += row('repay', L('Ai trả bạn','Who repaid'),
+      rows += row('repay', c.isIncome ? L('Ai trả bạn','Who repaid') : L('Trả nợ cho ai','Repaying whom'),
         c._repayWho ? esc(c._repayWho) : L('Chọn','Pick'), { soft: !c._repayWho });
     }
   }
@@ -12502,6 +12645,8 @@ function csvSheetPick(f, v){
   if(f==='paycard'){ csvPickPayCard(v); return; }
   if(f==='xferacct'){ csvPickXferAcct(v); return; }
   if(f==='repay'){ csvPickRepayWho(v); return; }
+  if(f==='loanwho'){ csvPickLoanWho(v); return; }
+  if(f==='invpos'){ csvPickInvPos(v); return; }
   var c = csvExpandedCandidate(); if(!c){ renderCsvReview(); return; }
   if(f==='cat'){ c.categoryName = v; c.catSource = 'user'; if(typeof csvLearnFrom === 'function') csvLearnFrom(c); }
   else if(f==='inccat'){ c._incomeCat = v; }
@@ -12530,6 +12675,15 @@ window.csvSheetValDone = function(){
   } else if(c && f==='repay'){
     var r = document.getElementById('csvsheet-repwho');
     if(r && r.value.trim()) c._repayWho = r.value.trim();
+  } else if(c && f==='loanwho'){
+    var lw = document.getElementById('csvsheet-loanwho');
+    if(lw && lw.value.trim()) c._loanWho = lw.value.trim();
+  } else if(c && f==='loandue'){
+    var ld = document.getElementById('csvsheet-loandue');
+    if(ld) c._loanDue = ld.value || null;
+  } else if(c && f==='invqty'){
+    var iq = document.getElementById('csvsheet-invqty');
+    if(iq){ var qn = Number(String(iq.value).replace(',', '.').trim()); c._investQty = (isFinite(qn) && qn > 0) ? qn : null; }
   }
   csvRowHot = f; csvRowSheet = null;
   renderCsvReview();
@@ -12576,10 +12730,50 @@ function csvRowSheetHTML(c){
       ? chip(cur==='income', "csvSheetPick('kind','income')", esc(L('Thu nhập','Income')))
         + chip(cur==='xfer', "csvSheetPick('kind','xfer')", esc(L('🔁 Chuyển khoản nội bộ','🔁 Internal transfer')))
         + chip(cur==='repay', "csvSheetPick('kind','repay')", esc(L('🤝 Thu nợ','🤝 Repayment in')))
+        + chip(cur==='invest', "csvSheetPick('kind','invest')", esc(L('📈 Bán đầu tư','📈 Sold investment')))
       : chip(cur==='expense', "csvSheetPick('kind','expense')", esc(L('Chi tiêu','Spending')))
         + chip(cur==='cardpay', "csvSheetPick('kind','transfer')", esc(L('💳 Trả nợ thẻ','💳 Card payment')))
         + chip(cur==='xfer', "csvSheetPick('kind','xfer')", esc(L('🔁 Chuyển đi nội bộ','🔁 Internal transfer')))
-    ) + '</div>';
+        + chip(cur==='loan', "csvSheetPick('kind','loan')", esc(L('🤝 Cho vay','🤝 Loan out')))
+        + chip(cur==='repay', "csvSheetPick('kind','repay')", esc(L('🤝 Trả nợ','🤝 Repay someone')))
+        + chip(cur==='invest', "csvSheetPick('kind','invest')", esc(L('📈 Đầu tư','📈 Investment')))
+    ) + '</div>'
+      /* the kill switch (spec Q20): a mis-firing loan lesson must be stoppable
+         right where it mis-fires, not in a buried setting */
+      + (c._lessonKey ? '<button type="button" class="btn-line" style="margin-top:10px" onclick="csvLessonKill()">'
+          + esc(L('Đừng gợi ý Cho vay cho người này nữa','Stop suggesting Loan for this payee')) + '</button>' : '');
+  } else if(f==='loanwho'){
+    var pd2 = (window.fhPersonalDebts && fhPersonalDebts()) || { people: [] };
+    var lnames = pd2.people.map(function(p){ return p.who; });
+    var capName = (c.counterparty || '').trim();
+    if (capName && lnames.indexOf(capName) < 0) lnames.unshift(capName);
+    title = L('Cho ai mượn?','Lent to whom?');
+    body = (lnames.length ? '<div class="choices" style="margin-bottom:10px">'
+        + lnames.map(function(n){ return chip(c._loanWho===n, "csvSheetPick('loanwho','"+escAttr(n)+"')", esc(n)); }).join('')+'</div>' : '')
+      + '<input id="csvsheet-loanwho" class="crs-in" placeholder="'+escAttr(L('vd. Thằng em','e.g. a name'))+'" value="'+escAttr(c._loanWho||'')+'"/>'
+      + '<div class="csv-scope-note">'+esc(L('Ghi vào sổ nợ riêng của bạn — không tính là chi tiêu.','Goes to your private receivables — never spending.'))+'</div>'
+      + '<button type="button" class="crs-done" onclick="csvSheetValDone()">'+esc(L('Xong','Done'))+'</button>';
+  } else if(f==='loandue'){
+    title = L('Hẹn trả','Due back');
+    body = '<input type="date" id="csvsheet-loandue" class="crs-in" value="'+escAttr(c._loanDue||'')+'"/>'
+      + '<div class="csv-scope-note">'+esc(L('Tuỳ chọn — để nhắc bạn khi đến hẹn. Xoá ngày để bỏ hẹn.','Optional — reminds you when it falls due. Clear the date to remove.'))+'</div>'
+      + '<button type="button" class="crs-done" onclick="csvSheetValDone()">'+esc(L('Xong','Done'))+'</button>';
+  } else if(f==='invpos'){
+    /* which position — existing ones as chips; a new one materializes right
+       here (the xfer "+ Tài khoản khác" pattern) so the memory + promote have
+       a real id to hold onto. Class defaults to 'other'; Sửa vị thế fixes it. */
+    var ips = csvInvPositions();
+    title = L('Vị thế nào?','Which position?');
+    body = (ips.length ? '<div class="choices" style="margin-bottom:10px">'
+        + ips.map(function(a){ return chip(c._investPosId===a.id, "csvSheetPick('invpos','"+a.id+"')", esc(a.name||L('Vị thế','Position'))); }).join('')+'</div>' : '')
+      + '<div class="csv-newacct"><input id="csvsheet-invnew" class="crs-in" placeholder="'+escAttr(L('Vị thế mới, vd. Bitcoin','New position, e.g. Bitcoin'))+'"/>'
+      + '<button type="button" class="btn-line" onclick="csvSheetInvCreate()">'+esc(L('Tạo','Create'))+'</button></div>'
+      + '<div class="csv-scope-note">'+esc(L('Tiền mua không tính là chi tiêu — cộng vào vốn của vị thế này.','A buy is never spending — it accrues to this position.'))+'</div>';
+  } else if(f==='invqty'){
+    title = L('Số lượng','Quantity');
+    body = '<input id="csvsheet-invqty" class="crs-in" inputmode="decimal" placeholder="'+escAttr(L('vd. 0.0025','e.g. 0.0025'))+'" value="'+escAttr(c._investQty>0?String(c._investQty):'')+'"/>'
+      + '<div class="csv-scope-note">'+esc(L('Tuỳ chọn — email không biết bạn nhận bao nhiêu coin/chỉ/CP; nhập để tính lãi/lỗ.','Optional — the email never knows the asset amount; enter it to enable P&L.'))+'</div>'
+      + '<button type="button" class="crs-done" onclick="csvSheetValDone()">'+esc(L('Xong','Done'))+'</button>';
   } else if(f==='paycard'){
     var cards = csvCreditCards();
     var pc = c._payCardId || (cards.length===1 ? cards[0].id : '');
@@ -12603,13 +12797,18 @@ function csvRowSheetHTML(c){
           : '')
       + '<div class="csv-scope-note">'+esc(L('Ghi thành một cặp chuyển khoản — không tính là chi tiêu hay thu nhập.','Recorded as a transfer pair — never spending, never income.'))+'</div>';
   } else if(f==='repay'){
+    /* Direction decides the question: money IN = someone repaying you (people
+       who owe you); money OUT = you repaying a debt (people you owe). */
+    var rCredit = !!c.isIncome || c._xferDir === 'in';
     var pd = (window.fhPersonalDebts && fhPersonalDebts()) || { people: [] };
-    var names = pd.people.filter(function(p){ return p.balance > 0.5; }).map(function(p){ return p.who; });
-    title = L('Ai trả bạn?','Who repaid you?');
+    var names = pd.people.filter(function(p){ return rCredit ? p.balance > 0.5 : p.balance < -0.5; }).map(function(p){ return p.who; });
+    title = rCredit ? L('Ai trả bạn?','Who repaid you?') : L('Trả nợ cho ai?','Repaying whom?');
     body = (names.length ? '<div class="choices" style="margin-bottom:10px">'
         + names.map(function(n){ return chip(c._repayWho===n, "csvSheetPick('repay','"+escAttr(n)+"')", esc(n)); }).join('')+'</div>' : '')
       + '<input id="csvsheet-repwho" class="crs-in" placeholder="'+escAttr(L('vd. Thằng em','e.g. a name'))+'" value="'+escAttr(c._repayWho||'')+'"/>'
-      + '<div class="csv-scope-note">'+esc(L('Trừ vào số họ đang nợ bạn — không tính là thu nhập.','Draws down what they owe you — never income.'))+'</div>'
+      + '<div class="csv-scope-note">'+esc(rCredit
+          ? L('Trừ vào số họ đang nợ bạn — không tính là thu nhập.','Draws down what they owe you — never income.')
+          : L('Trừ vào số bạn đang nợ họ — không tính là chi tiêu.','Draws down what you owe them — never spending.'))+'</div>'
       + '<button type="button" class="crs-done" onclick="csvSheetValDone()">'+esc(L('Xong','Done'))+'</button>';
   } else if(f==='cat'){
     title = L('Danh mục','Category');
@@ -12691,8 +12890,9 @@ function csvApplySimilar(i){
   var sims = csvSimilarRows(c); if(!sims.length) return;
   sims.forEach(function(r){
     r._scope = csvRowScope(c);
-    r.isTransfer = c.isTransfer; r._xfer = c._xfer; r._repay = c._repay; r.isIncome = c.isIncome;
-    r._payCardId = c._payCardId; r._xferOtherId = c._xferOtherId; r._repayWho = c._repayWho;
+    r.isTransfer = c.isTransfer; r._xfer = c._xfer; r._repay = c._repay; r._loan = c._loan; r._invest = c._invest; r.isIncome = c.isIncome;
+    r._payCardId = c._payCardId; r._xferOtherId = c._xferOtherId; r._repayWho = c._repayWho; r._loanWho = c._loanWho;
+    r._investPosId = c._investPosId; r._investQty = c._investQty;
     if(c.categoryName){ r.categoryName = c.categoryName; r.catSource = 'user';
       if(typeof csvLearnFrom === 'function') csvLearnFrom(r); }
     if(c._incomeCat) r._incomeCat = c._incomeCat;
@@ -12792,7 +12992,8 @@ function csvPickRowScope(v){
   c._scope = v;
   // A card payment is personal — a shared row can never be one, so leaving it
   // family-scoped would import "trả nợ thẻ" as a family expense and double-count.
-  if(v!=='personal'){ c.isTransfer = false; c._payCardId = null; c._xfer = false; c._xferOtherId = null; c._repay = false; c._repayWho = null; }
+  // Same for a loan/repayment: liabilities are personal, always (0122).
+  if(v!=='personal'){ c.isTransfer = false; c._payCardId = null; c._xfer = false; c._xferOtherId = null; c._repay = false; c._repayWho = null; c._loan = false; c._loanWho = null; c._loanDue = null; c._lessonWhy = null; }
   csvSetScope(v);              // and it becomes the default for rows not yet decided
   renderCsvReview();
 }
@@ -12875,17 +13076,79 @@ function csvRowKindField(c){
 function csvPickRowKind(v){
   var c = csvExpandedCandidate(); if(!c) return;
   csvReadEditor(c);
+  /* A loan or a person-repayment is a PERSONAL fact — the family can never be
+     the lender (borrowing-lending locked decision #3). Picking either forces
+     the row to the personal ledger; with it locked, the pick is refused rather
+     than silently landing a receivable in the family book (spec Q7ii). */
+  if((v==='loan' || v==='repay' || v==='invest') && csvRowScope(c)!=='personal'){
+    if(!csvScopeReady()){
+      window.toast && toast(L('Mở khoá sổ cá nhân ở tab Cá nhân trước','Unlock your personal ledger first'));
+      return;
+    }
+    c._scope = 'personal';
+  }
   c.isTransfer = (v==='transfer');
   c._xfer = (v==='xfer');
   c._repay = (v==='repay');
+  c._loan = (v==='loan');
+  c._invest = (v==='invest');
   if(v==='income'){ c.isIncome = true; }
   else if(v==='expense'){ c.isIncome = false; }
   if(!c.isTransfer){ c._payCardId = null; }
   else if(!c._payCardId){ var cards = csvCreditCards(); if(cards.length===1) c._payCardId = cards[0].id; }
   if(!c._xfer){ c._xferOtherId = null; }
   if(!c._repay){ c._repayWho = null; }
+  if(!c._loan){ c._loanWho = null; c._loanDue = null; }
+  /* the captured beneficiary is the one-tap default for "cho ai mượn" */
+  else if(!c._loanWho && (c.counterparty||'').trim()){ c._loanWho = c.counterparty.trim(); }
+  if(!c._invest){ c._investPosId = null; c._investQty = null; }
+  /* the remembered seller pre-fills the position (0123 memory — one tap) */
+  else if(!c._investPosId && window.fhInvMemoryMatch){ c._investPosId = fhInvMemoryMatch(c.counterparty || c.description) || null; }
   renderCsvReview();          // stays expanded (csvExpand unchanged); shows/hides the pickers + category
 }
+function csvPickLoanWho(name){
+  var c = csvExpandedCandidate(); if(!c) return;
+  csvReadEditor(c);
+  c._loanWho = name || null;
+  renderCsvReview();
+}
+/* Positions the invest picker offers — non-archived kind='investment' accounts. */
+function csvInvPositions(){
+  var pd = (window.fhPersonalData && fhPersonalData()) || {};
+  return (pd.accounts || []).filter(function(a){ return a.kind === 'investment'; });
+}
+function csvPickInvPos(id){
+  var c = csvExpandedCandidate(); if(!c) return;
+  csvReadEditor(c);
+  c._investPosId = id || null;
+  csvRowSheet = null; csvRowHot = 'invpos';
+  renderCsvReview();
+}
+/* "Tạo" inside the position sheet — materializes the position immediately
+   (the csvSheetXferCreate pattern) so promote and the memory hold a real id. */
+window.csvSheetInvCreate = async function(){
+  var c = csvExpandedCandidate(); if(!c) return;
+  var el = document.getElementById('csvsheet-invnew');
+  var name = ((el && el.value) || '').trim();
+  if(!name){ window.toast && toast(L('Đặt tên vị thế nhé','Name the position first')); return; }
+  var id = window.fhInvPositionCreate ? await fhInvPositionCreate(name, null, null, 'other') : null;
+  if(!id){ window.toast && toast(L('Chưa tạo được, thử lại','Couldn\'t create, try again')); return; }
+  c._investPosId = id;
+  csvRowSheet = null; csvRowHot = 'invpos';
+  window.toast && toast(L('Đã tạo vị thế '+name,'Created '+name));
+  renderCsvReview();
+};
+/* "Đừng gợi ý nữa" — kills the lesson that pre-selected this row (tombstoned
+   so an old device's blob can't resurrect it) and flips the row back to a
+   plain expense. */
+window.csvLessonKill = function(){
+  var c = csvExpandedCandidate(); if(!c) return;
+  if(c._lessonKey && window.fhKindKill) fhKindKill(c._lessonKey);
+  c._loan = false; c._loanWho = null; c._loanDue = null; c._lessonWhy = null; c._lessonKey = null;
+  csvRowSheet = null;
+  window.toast && toast(L('Đã bỏ gợi ý cho người này','Suggestion removed for this payee'));
+  renderCsvReview();
+};
 function csvPickXferAcct(id){
   var c = csvExpandedCandidate(); if(!c) return;
   csvReadEditor(c);
@@ -12936,7 +13199,7 @@ function csvXferProposals(){
   if(!csvStagedMode || !csvReview) return [];
   var credits = [], debits = [];
   (csvReview.ready||[]).forEach(function(c){
-    if(c._xfer || c.isTransfer || c._repay || c._skipImport) return;
+    if(c._xfer || c.isTransfer || c._repay || c._loan || c._skipImport) return;
     if(!(c.amount > 0) || !c.date) return;
     var ai = window.fhStagedAcct ? fhStagedAcct(c) : null;
     if(!ai || ai.kind === 'credit_card') return;
@@ -14811,8 +15074,18 @@ function csvLearnLoad(){
   csvLearned = (d && d.map) || {};
 }
 
+/* Synced-lessons bridge (0122): the encrypted personal_lessons blob mirrors
+   these category lessons so they survive a device change. localStorage stays
+   the fast cache + the offline/locked fallback; the blob is the durable copy. */
+window.csvLearnedExport = function(){ return csvLearned; };
+window.csvLearnedMergeIn = function(map){
+  var changed = false;
+  for (var k in (map||{})) if (csvLearned[k] === undefined) { csvLearned[k] = map[k]; changed = true; }
+  if (changed) csvLearnSave();
+};
 function csvLearnSave(){
   try{
+    if (window.fhLessonsCatChanged) { try{ fhLessonsCatChanged(csvLearned); }catch(e){} }
     if(window.fhEncState && window.fhEncState()==='enc'){
       if(!(window.fhKeyReady && window.fhKeyReady()) || !window.fhEncStr) return;
       var seq = ++_learnSeq;
@@ -14890,6 +15163,98 @@ function csvLearnFrom(c){
 function csvLearnForget(){
   csvLearned = {};
   try{ localStorage.removeItem(FH_CSV_LEARNED); }catch(e){}
+  if (window.fhLessonsCatChanged) { try{ fhLessonsCatChanged({}); }catch(e){} }
+}
+
+/* ═══ The lending pass (0122, lending-capture-spec §2) ═══════════════════════
+   Runs over the FULL candidate set after categories resolve, staged mode only,
+   and only while the personal ledger is unlocked (a loan can only ever land in
+   the personal book, so with it locked there is nothing safe to pre-select).
+
+   Strict precedence, most-certain first (spec Q15):
+     1. already classified (transfer pair / card payment / internal move) — the
+        pass never touches those rows;
+     2. beneficiary matches a person YOU OWE → pre-select 🤝 Trả nợ. This
+        doubles as the veto: a loan lesson must never fire on a transfer to a
+        creditor — that would GROW a fake receivable while the real payable
+        sits untouched, the worst possible misread;
+     3. an opposite-direction candidate with the same amount within ±1.5 days
+        exists in this batch → likely an own-account transfer pair the matcher
+        will propose — the loan lesson stands down;
+     4. the banded kind lesson (fhKindLesson) → pre-select 🤝 Cho vay;
+   and on the money-IN side: sender matches a person who OWES YOU → pre-select
+   🤝 Thu nợ + the person (the matcher the borrowing-lending spec promised).
+   Everything here is a PRE-SELECT — rows still pass the human gate; nothing
+   auto-imports. */
+function _debtNorm(s){
+  return (typeof deburr==='function' ? deburr(String(s||'').toLowerCase()) : String(s||'').toLowerCase())
+    .replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim();
+}
+/* Whole-phrase containment with word boundaries: "nguyen van minh" inside
+   "nguyen van minh chuyen tien" hits; "minh" inside "minh chau store" also
+   hits — accepted, because the people list is tiny (only open balances) and
+   this only ever pre-selects. Names under 4 letters never match. */
+function _debtNameHit(list, text){
+  var nt = ' ' + _debtNorm(text) + ' ';
+  for (var i=0;i<list.length;i++){
+    var nw = _debtNorm(list[i].who);
+    if (nw.length >= 4 && nt.indexOf(' ' + nw + ' ') >= 0) return list[i];
+  }
+  return null;
+}
+function _lendClearCat(c){
+  c.categoryName = null; c.catSource = null;
+  var i = c.flags ? c.flags.indexOf('needs_category') : -1;
+  if (i >= 0) c.flags.splice(i, 1);
+}
+function csvLendingPass(candidates){
+  if (!window.csvStagedMode) return;
+  if (typeof csvScopeReady === 'function' && !csvScopeReady()) return;
+  var pd = window.fhPersonalDebts ? fhPersonalDebts() : null;
+  var people = (pd && pd.people) || [];
+  var iOwe = people.filter(function(p){ return p.balance < -0.5; });
+  var oweMe = people.filter(function(p){ return p.balance > 0.5; });
+  var haveLessons = !!window.fhKindLesson;
+  if (!iOwe.length && !oweMe.length && !haveLessons) return;
+  candidates.forEach(function(c){
+    if (c.isTransfer || c._xfer || c._repay || c._loan || c._invest || c.amount == null) return;
+    var text = (c.counterparty || '') + ' ' + (c.description || '');
+    if (c.isIncome){
+      var owed = _debtNameHit(oweMe, text);
+      if (owed){ c._repay = true; c._repayWho = owed.who; c._scope = 'personal'; c._lessonWhy = 'owed'; return; }
+      /* remembered OTC counterparty sending money back → Bán đầu tư
+         (0123, investment-spec I9). Pre-select only, human gate stands. */
+      var vpos = window.fhInvMemoryMatch ? fhInvMemoryMatch(c.counterparty || c.description) : null;
+      if (vpos){ c._invest = true; c._investPosId = vpos; c._scope = 'personal'; c._lessonWhy = 'invest'; }
+      return;
+    }
+    var owe = _debtNameHit(iOwe, text);
+    if (owe){ c._repay = true; c._repayWho = owe.who; c._scope = 'personal'; c._lessonWhy = 'owe'; _lendClearCat(c); return; }
+    /* pair-shaped? both legs of an own-account move in the same batch — the
+       transfer matcher's territory, not a loan (spec Q15 precedence) */
+    var paired = candidates.some(function(o){
+      return o !== c && o.isIncome && o.amount === c.amount && o.date && c.date
+        && Math.abs(o.date.getTime() - c.date.getTime()) <= 1.5 * 86400000;
+    });
+    if (paired) return;
+    /* remembered OTC seller → Đầu tư + the position, ahead of the loan
+       lesson: an explicit seller→position mapping the person committed once
+       is more specific than a banded kind lesson (investment-spec I9). */
+    var ipos = window.fhInvMemoryMatch ? fhInvMemoryMatch(c.counterparty || c.description) : null;
+    if (ipos){
+      c._invest = true; c._investPosId = ipos; c._scope = 'personal';
+      c._lessonWhy = 'invest';
+      _lendClearCat(c);
+      return;
+    }
+    var key = (typeof csvLearnKey === 'function') ? csvLearnKey(c) : '';
+    var lesson = (key && haveLessons) ? fhKindLesson(key) : null;
+    if (lesson){
+      c._loan = true; c._loanWho = lesson.who; c._scope = 'personal';
+      c._lessonWhy = 'learned'; c._lessonKey = key;
+      _lendClearCat(c);
+    }
+  });
 }
 
 /* One candidate per data row. Never throws on a bad row -- flags it and
@@ -15549,7 +15914,7 @@ function bucketCsvCandidates(candidates, mixedSigns) {
        queue; its card marks itself "Trả nợ thẻ" instead. Income likewise: its
        category set is the income one (_incomeCat, defaulted at build), never
        the family expense picker. */
-    if (!c.categoryName && !c.isTransfer && !c.isIncome) {
+    if (!c.categoryName && !c.isTransfer && !c.isIncome && !c._loan && !c._repay && !c._xfer) {
       var gkey = normDescForDedup(c.description);
       (needsCategoryGroups[gkey] = needsCategoryGroups[gkey] || []).push(c);
       return;
@@ -18325,7 +18690,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v485';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v486';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -19394,7 +19759,11 @@ window.obGoogle = async function () {
   const _qrMul = (a, b) => (a === 0 || b === 0) ? 0 : _QR_EXP[_QR_LOG[a] + _QR_LOG[b]];
   function _qrGen(n) { let g = [1]; for (let i = 0; i < n; i++) { const ng = new Array(g.length + 1).fill(0); for (let j = 0; j < g.length; j++) { ng[j] ^= g[j]; ng[j + 1] ^= _qrMul(g[j], _QR_EXP[i]); } g = ng; } return g; }
   function _qrRs(data, n) { const g = _qrGen(n); const res = new Array(n).fill(0); for (const d of data) { const f = d ^ res[0]; res.shift(); res.push(0); if (f !== 0) for (let j = 0; j < n; j++) res[j] ^= _qrMul(g[j + 1], f); } return res; }
-  const _QR_DATACW = [0, 19, 34, 55, 80, 108], _QR_ECCW = [0, 7, 10, 15, 20, 26], _QR_ALIGN = [0, 0, 18, 22, 26, 30];
+  /* v6 (EC-L) added for the VietQR payload (~126 bytes > v5's 106-byte cap):
+     136 data codewords in TWO RS blocks of (86, 68) with 18 EC each, which is
+     the first version needing block interleaving — see _qrEncodeData. Still a
+     single alignment pattern (34, 34), and no version-info bits until v7. */
+  const _QR_DATACW = [0, 19, 34, 55, 80, 108, 136], _QR_ECCW = [0, 7, 10, 15, 20, 26, 36], _QR_ALIGN = [0, 0, 18, 22, 26, 30, 34];
   function _qrEncodeData(bytes, v) {
     const cap = _QR_DATACW[v] * 8, bits = [];
     const push = (val, len) => { for (let i = len - 1; i >= 0; i--) bits.push((val >> i) & 1); };
@@ -19403,7 +19772,15 @@ window.obGoogle = async function () {
     while (bits.length % 8) bits.push(0);
     let pad = 0xEC; while (bits.length < cap) { push(pad, 8); pad = pad === 0xEC ? 0x11 : 0xEC; }
     const cw = []; for (let i = 0; i < bits.length; i += 8) { let x = 0; for (let j = 0; j < 8; j++) x = (x << 1) | bits[i + j]; cw.push(x); }
-    return cw.concat(_qrRs(cw, _QR_ECCW[v]));
+    if (v < 6) return cw.concat(_qrRs(cw, _QR_ECCW[v]));
+    /* v6-L: 2 × (86, 68, EC 18), codewords interleaved block-by-block (ISO
+       18004 §8.6): d1[0] d2[0] d1[1] d2[1] … then e1[0] e2[0] … */
+    const b1 = cw.slice(0, 68), b2 = cw.slice(68);
+    const e1 = _qrRs(b1, 18), e2 = _qrRs(b2, 18);
+    const out = [];
+    for (let i = 0; i < 68; i++) { out.push(b1[i], b2[i]); }
+    for (let i = 0; i < 18; i++) { out.push(e1[i], e2[i]); }
+    return out;
   }
   function _qrFmt(mask) {
     const data5 = (1 << 3) | mask;   // EC L = 01, then 3-bit mask
@@ -19413,7 +19790,7 @@ window.obGoogle = async function () {
   }
   // text → { matrix (0/1 grid), size }
   function _qrBuild(bytes) {
-    let v = 1; while (v < 5 && _QR_DATACW[v] < Math.ceil((4 + 8 + bytes.length * 8) / 8)) v++;
+    let v = 1; while (v < 6 && _QR_DATACW[v] < Math.ceil((4 + 8 + bytes.length * 8) / 8)) v++;
     const size = 17 + 4 * v, cw = _qrEncodeData(bytes, v);
     const m = Array.from({ length: size }, () => new Array(size).fill(null));
     const fn = Array.from({ length: size }, () => new Array(size).fill(false));
@@ -20087,10 +20464,10 @@ window.obGoogle = async function () {
            and PostgREST's own 1000-row default would have clipped it as
            silently as the old limit(2000). */
         const [tr, bd, ac, dr] = await Promise.all([
-          _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,occurred_time_enc,txn_date,kind,space_id,link_id,version,updated_at,created_at,account_id,transfer_group_id').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }).order('id')),
+          _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,occurred_time_enc,txn_date,kind,space_id,link_id,version,updated_at,created_at,account_id,transfer_group_id,position_account_id,quantity_enc').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }).order('id')),
           _sb().from('personal_budgets').select('total_enc,cats_enc').eq('owner_user_id', P.uid).eq('month', _monISO()).maybeSingle(),
-          _sb().from('personal_accounts').select('id,kind,name_enc,tail,provider,credit_limit_enc,human_verified,statement_day,due_day,anchor_balance_enc,anchor_at,ext_balance_enc,ext_balance_date').eq('owner_user_id', P.uid).is('archived_at', null),
-          _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,counterparty_enc,cat_name_enc,cat_emoji,txn_date,kind,account_id,transfer_group_id,created_at').eq('owner_user_id', P.uid).or('kind.neq.expense,account_id.not.is.null').order('txn_date', { ascending: false }).order('id')),
+          _sb().from('personal_accounts').select('id,kind,name_enc,tail,provider,credit_limit_enc,human_verified,statement_day,due_day,anchor_balance_enc,anchor_at,ext_balance_enc,ext_balance_date,account_number_enc,asset_symbol_enc,asset_unit_enc,asset_class_enc,manual_price_enc,manual_price_at').eq('owner_user_id', P.uid).is('archived_at', null),
+          _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,counterparty_enc,cat_name_enc,cat_emoji,txn_date,kind,account_id,transfer_group_id,position_account_id,quantity_enc,due_date,created_at').eq('owner_user_id', P.uid).or('kind.neq.expense,account_id.not.is.null').order('txn_date', { ascending: false }).order('id')),
         ]);
         /* Ceiling honesty, same stance as the stats slice's `truncated`: a
            short debt read understates balances, so it is counted and declared,
@@ -20117,9 +20494,12 @@ window.obGoogle = async function () {
         for (const t of tr.rows) {
           const a = await _decP(t.amount_enc), bad = (a === _DEC_FAILED);
           if (bad) P.unreadable++;
+          const qRaw = t.quantity_enc ? await _decP(t.quantity_enc) : null;
           P.txns.push({ id: t.id, date: t.txn_date, kind: t.kind, spaceId: t.space_id, linkId: t.link_id,
             version: t.version || 1, updatedAt: t.updated_at, ts: t.created_at,
             accountId: t.account_id, transferGroupId: t.transfer_group_id,
+            positionId: t.position_account_id || null,
+            qty: (qRaw == null || qRaw === _DEC_FAILED) ? null : (Number(qRaw) || null),
             amt: bad ? null : Number(a), _unreadable: bad,
             note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc), emoji: t.cat_emoji,
             time: await _decTxt(t.occurred_time_enc) });   // local "HH:MM" if the time was known, else null (day-only)
@@ -20145,6 +20525,7 @@ window.obGoogle = async function () {
           const lim = a.credit_limit_enc ? await _decP(a.credit_limit_enc) : null;
           const anch = a.anchor_balance_enc ? await _decP(a.anchor_balance_enc) : null;
           const ext = a.ext_balance_enc ? await _decP(a.ext_balance_enc) : null;
+          const mpx = a.manual_price_enc ? await _decP(a.manual_price_enc) : null;
           P.accounts.push({ id: a.id, kind: a.kind, tail: a.tail, provider: a.provider,
             humanVerified: a.human_verified,
             statementDay: a.statement_day || null, dueDay: a.due_day || null,
@@ -20155,18 +20536,41 @@ window.obGoogle = async function () {
             anchorK: (anch == null || anch === _DEC_FAILED) ? null : Number(anch),
             anchorAt: a.anchor_at || null,
             extK: (ext == null || ext === _DEC_FAILED) ? null : Number(ext),
-            extDate: a.ext_balance_date || null });
+            extDate: a.ext_balance_date || null,
+            /* position identity (0122): only kind='investment' rows carry these.
+               An unreadable manual price is null — the value falls back to
+               giá vốn, never to a wrong number (same stance as the anchor). */
+            assetSymbol: await _decTxt(a.asset_symbol_enc),
+            assetUnit: await _decTxt(a.asset_unit_enc),
+            assetClass: await _decTxt(a.asset_class_enc),
+            manualPriceK: (mpx == null || mpx === _DEC_FAILED) ? null : (Number(mpx) || null),
+            manualPriceAt: a.manual_price_at || null,
+            accountNumber: a.account_number_enc ? await _decTxt(a.account_number_enc) : null });
         }
         P.debts = [];
         for (const t of dr.rows) {
           const a = await _decP(t.amount_enc), bad = (a === _DEC_FAILED);
           if (bad) P.unreadable++;
+          const qRaw = t.quantity_enc ? await _decP(t.quantity_enc) : null;
           P.debts.push({ id: t.id, date: t.txn_date, kind: t.kind, accountId: t.account_id,
-            transferGroupId: t.transfer_group_id, ts: t.created_at,
+            transferGroupId: t.transfer_group_id, ts: t.created_at, due: t.due_date || null,
+            positionId: t.position_account_id || null,
+            qty: (qRaw == null || qRaw === _DEC_FAILED) ? null : (Number(qRaw) || null),
             amt: bad ? null : Number(a), _unreadable: bad,
             note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc), emoji: t.cat_emoji,
             who: await _decTxt(t.counterparty_enc) });
         }
+        /* Review memory (0122): counterparty → position pre-selection for the
+           review screen. Fire-and-forget shape — an unreadable memory row is
+           dropped (it only costs a pre-selection, never money). */
+        P.memory = [];
+        try {
+          const mm = await _sb().from('personal_review_memory').select('id,key_enc,position_account_id').eq('owner_user_id', P.uid).limit(500);
+          for (const m of (mm.data || [])) {
+            const k = await _decTxt(m.key_enc);
+            if (k) P.memory.push({ id: m.id, key: k, positionId: m.position_account_id });
+          }
+        } catch (e) {}
         _setState('ready');
       } catch (e) { console.warn('personal hydrate failed', e); _setState('error'); }
     };
@@ -20438,19 +20842,91 @@ window.obGoogle = async function () {
         counterparty_enc: extra.who ? await _encP(extra.who) : null,
         account_id: extra.accountId || null,
         transfer_group_id: extra.transferGroupId || null,
+        due_date: extra.dueDate || null,
         source: extra.source || null });
       const r = await _sb().from('personal_transactions').insert(row);
       if (r.error) { console.warn('personal ' + kind + ' failed', r.error); return false; }
       await window.fhPersonalHydrate(); return true;
     }
-    // amtK signed (see convention above); who = tên người, required for loans
-    window.fhPersonalAddLoan = function (amtK, who, note, dateIso, source) {
+    // amtK signed (see convention above); who = tên người, required for loans.
+    // dueDate (0122) = "hẹn trả", optional, loans only.
+    window.fhPersonalAddLoan = function (amtK, who, note, dateIso, source, dueDate) {
       if (!who) return Promise.resolve(false);
-      return _debtInsert('loan', amtK, { who: who, note: note, dateIso: dateIso, source: source });
+      return _debtInsert('loan', amtK, { who: who, note: note, dateIso: dateIso, source: source, dueDate: dueDate });
     };
     window.fhPersonalAddRepayment = function (amtK, who, note, dateIso, source) {
       if (!who) return Promise.resolve(false);
       return _debtInsert('repayment', amtK, { who: who, note: note, dateIso: dateIso, source: source });
+    };
+    /* ═══ Kind flips (0122, lending-capture-spec §4) ═══════════════════════════
+       A committed expense that was really a loan: flip the row IN PLACE — same
+       id, same amount, same date — so history and photos survive. The category
+       is dropped (a loan is not consumption), the counterparty becomes the
+       receivable's name. Private rows only (link_id null): a mirror master is
+       owned by the family reconciliation and must be moved before flipping. */
+    window.fhPersonalConvertToLoan = async function (id, who, dueDate) {
+      if (!P.uid || !P.key || !id || !who) return false;
+      const r = await _sb().from('personal_transactions').update({
+        kind: 'loan', counterparty_enc: await _encP(who),
+        cat_name_enc: null, cat_emoji: null,
+        due_date: dueDate || null,
+      }).eq('id', id).eq('owner_user_id', P.uid).eq('kind', 'expense').is('link_id', null);
+      if (r.error) { console.warn('convert to loan failed', r.error); return false; }
+      await window.fhPersonalHydrate(); return true;
+    };
+    /* The way back — a loan that was a plain expense after all. */
+    window.fhPersonalConvertToExpense = async function (id, catName, catEmoji) {
+      if (!P.uid || !P.key || !id) return false;
+      const r = await _sb().from('personal_transactions').update({
+        kind: 'expense', counterparty_enc: null, due_date: null,
+        cat_name_enc: catName ? await _encP(catName) : null, cat_emoji: catEmoji || null,
+      }).eq('id', id).eq('owner_user_id', P.uid).eq('kind', 'loan').is('link_id', null);
+      if (r.error) { console.warn('convert to expense failed', r.error); return false; }
+      await window.fhPersonalHydrate(); return true;
+    };
+    /* The same flip one shelf over (0123, investment-spec §8): a committed
+       expense that was really an investment buy — the miscounted OTC transfer.
+       In-place: same id, date, account, note, photos. The category drops (a
+       buy is not consumption) and the amount RE-SIGNS to the investment
+       convention (buy = −X): expenses store +X, so the readable amount is
+       looked up in the hydrated cache and re-encrypted negative. */
+    window.fhPersonalConvertToInvestment = async function (id, positionId, qty) {
+      if (!P.uid || !P.key || !id || !positionId) return false;
+      const cur = P.txns.find((t) => t.id === id) || P.debts.find((d) => d.id === id);
+      if (!cur || cur.amt == null || cur._unreadable) return false;
+      const r = await _sb().from('personal_transactions').update({
+        kind: 'investment', position_account_id: positionId,
+        amount_enc: await _encP(-Math.abs(Number(cur.amt))),
+        quantity_enc: (qty > 0) ? await _encP(Number(qty)) : null,
+        cat_name_enc: null, cat_emoji: null,
+      }).eq('id', id).eq('owner_user_id', P.uid).eq('kind', 'expense').is('link_id', null);
+      if (r.error) { console.warn('convert to investment failed', r.error); return false; }
+      await window.fhPersonalHydrate(); return true;
+    };
+    /* And back — an investment row that was a plain expense after all. */
+    window.fhPersonalConvertInvestmentToExpense = async function (id, catName, catEmoji) {
+      if (!P.uid || !P.key || !id) return false;
+      const cur = P.txns.find((t) => t.id === id) || P.debts.find((d) => d.id === id);
+      if (!cur || cur.amt == null || cur._unreadable) return false;
+      const r = await _sb().from('personal_transactions').update({
+        kind: 'expense', position_account_id: null, quantity_enc: null,
+        amount_enc: await _encP(Math.abs(Number(cur.amt))),
+        cat_name_enc: catName ? await _encP(catName) : null, cat_emoji: catEmoji || null,
+      }).eq('id', id).eq('owner_user_id', P.uid).eq('kind', 'investment').is('link_id', null);
+      if (r.error) { console.warn('convert investment→expense failed', r.error); return false; }
+      await window.fhPersonalHydrate(); return true;
+    };
+    /* Edit a loan/repayment row's own fields (the person zoom-in's row sheet). */
+    window.fhPersonalDebtRowUpdate = async function (id, fields) {
+      if (!P.uid || !P.key || !id) return false;
+      const row = {};
+      if (fields.amtK != null && isFinite(fields.amtK)) row.amount_enc = await _encP(Number(fields.amtK));
+      if (fields.hasOwnProperty('note')) row.note_enc = fields.note ? await _encP(fields.note) : null;
+      if (fields.dateIso) row.txn_date = fields.dateIso;
+      if (fields.hasOwnProperty('dueDate')) row.due_date = fields.dueDate || null;
+      const r = await _sb().from('personal_transactions').update(row).eq('id', id).eq('owner_user_id', P.uid).is('link_id', null);
+      if (r.error) { console.warn('debt row update failed', r.error); return false; }
+      await window.fhPersonalHydrate(); return true;
     };
     // A transfer tagged to an account (card payment, wallet top-up). amtK > 0.
     window.fhPersonalAddTransfer = function (amtK, accountId, note, dateIso, source, transferGroupId) {
@@ -20505,6 +20981,9 @@ window.obGoogle = async function () {
           counterparty_enc: s.who ? await _encP(s.who) : null,
           account_id: s.accountId || null,
           transfer_group_id: s.transferGroupId || null,
+          due_date: s.dueDate || null,
+          position_account_id: s.positionId || null,
+          quantity_enc: (s.qty != null && isFinite(s.qty)) ? await _encP(Number(s.qty)) : null,
           source: s.source || null });
       }
       const CHUNK = 50;
@@ -20600,6 +21079,8 @@ window.obGoogle = async function () {
       if (fields.humanVerified != null) row.human_verified = !!fields.humanVerified;
       if (fields.hasOwnProperty('statementDay')) row.statement_day = fields.statementDay || null;
       if (fields.hasOwnProperty('dueDay')) row.due_day = fields.dueDay || null;
+      /* Full receiving account number (0122) — typed once for VietQR, sealed. */
+      if (fields.hasOwnProperty('accountNumber')) row.account_number_enc = fields.accountNumber ? await _encP(String(fields.accountNumber)) : null;
       if (fields.archived) row.archived_at = new Date().toISOString();
       const r = await _sb().from('personal_accounts').update(row).eq('id', id).eq('owner_user_id', P.uid);
       if (r.error) { console.warn('account update failed', r.error); return false; }
@@ -20646,7 +21127,12 @@ window.obGoogle = async function () {
        move the balance, because the anchor already contained it.
        Contribution: expense −amt · income +amt · transfer +amt (pair legs carry
        their sign inside the ciphertext; a legacy top-up is +amt by the same
-       0105 convention). Loans/repayments carry no account today and are skipped.
+       0105 convention). Since 0122 an account-tagged loan/repayment moves the
+       balance too — the money really left/entered the account: loan −amt
+       (+X lent drains X; −X borrowed adds X), repayment +amt (+X received
+       adds; −X paid drains). Untagged (manual) debt rows still skip.
+       Since 0123 an investment leg moves it like a signed transfer leg:
+       buy −X drains the funding account, sell +X fills the receiving one.
        Cards keep their outstanding derivation in fhPersonalDebts, untouched. */
     window.fhPersonalBalance = function (acctId) {
       const a = P.accounts.find((x) => x.id === acctId);
@@ -20655,12 +21141,13 @@ window.obGoogle = async function () {
       let bal = a.anchorK;
       for (const d of P.debts) {
         if (d.accountId !== acctId || d._unreadable || d.amt == null) continue;
-        if (d.kind !== 'expense' && d.kind !== 'income' && d.kind !== 'transfer') continue;
+        if (d.kind !== 'expense' && d.kind !== 'income' && d.kind !== 'transfer'
+            && d.kind !== 'loan' && d.kind !== 'repayment' && d.kind !== 'investment') continue;
         if (anchorDay) {
           if (d.date < anchorDay) continue;
           if (d.date === anchorDay && (!d.ts || d.ts <= a.anchorAt)) continue;
         }
-        bal += (d.kind === 'expense') ? -d.amt : d.amt;
+        bal += (d.kind === 'expense' || d.kind === 'loan') ? -d.amt : d.amt;
       }
       return bal;
     };
@@ -20787,21 +21274,31 @@ window.obGoogle = async function () {
            limits, the 0109 anchor + bank-stated balance) and the budgets. A
            rotation that misses a field makes that field unreadable forever, so
            the list here must grow with every _enc column the schema gains. */
-        const tr = await _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,counterparty_enc,occurred_time_enc').eq('owner_user_id', P.uid);
-        const ac = await _sb().from('personal_accounts').select('id,name_enc,credit_limit_enc,anchor_balance_enc,ext_balance_enc').eq('owner_user_id', P.uid);
+        const tr = await _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,counterparty_enc,occurred_time_enc,quantity_enc').eq('owner_user_id', P.uid);
+        const ac = await _sb().from('personal_accounts').select('id,name_enc,credit_limit_enc,anchor_balance_enc,ext_balance_enc,account_number_enc,asset_symbol_enc,asset_unit_enc,asset_class_enc,manual_price_enc').eq('owner_user_id', P.uid);
         const bg = await _sb().from('personal_budgets').select('owner_user_id,month,total_enc,cats_enc').eq('owner_user_id', P.uid);
+        const ls = await _sb().from('personal_lessons').select('owner_user_id,lessons_enc').eq('owner_user_id', P.uid);
+        const rm = await _sb().from('personal_review_memory').select('id,key_enc').eq('owner_user_id', P.uid);
         const ph = await _sb().from('personal_transaction_photos').select('id,photo_url').eq('owner_user_id', P.uid);
-        const tot = (tr.data || []).length + (ac.data || []).length + (bg.data || []).length + (ph.data || []).length; let n = 0;
+        const tot = (tr.data || []).length + (ac.data || []).length + (bg.data || []).length + (ls.data || []).length + (rm.data || []).length + (ph.data || []).length; let n = 0;
         for (const r of (tr.data || [])) {
-          const u = await _sb().from('personal_transactions').update({ amount_enc: await reEnc(r.amount_enc), note_enc: await reEnc(r.note_enc), cat_name_enc: await reEnc(r.cat_name_enc), counterparty_enc: await reEnc(r.counterparty_enc), occurred_time_enc: await reEnc(r.occurred_time_enc) }).eq('id', r.id);
+          const u = await _sb().from('personal_transactions').update({ amount_enc: await reEnc(r.amount_enc), note_enc: await reEnc(r.note_enc), cat_name_enc: await reEnc(r.cat_name_enc), counterparty_enc: await reEnc(r.counterparty_enc), occurred_time_enc: await reEnc(r.occurred_time_enc), quantity_enc: await reEnc(r.quantity_enc) }).eq('id', r.id);
           if (u.error) throw u.error; n++; if (onProgress) onProgress(n, tot);
         }
         for (const r of (ac.data || [])) {
-          const u = await _sb().from('personal_accounts').update({ name_enc: await reEnc(r.name_enc), credit_limit_enc: await reEnc(r.credit_limit_enc), anchor_balance_enc: await reEnc(r.anchor_balance_enc), ext_balance_enc: await reEnc(r.ext_balance_enc) }).eq('id', r.id);
+          const u = await _sb().from('personal_accounts').update({ name_enc: await reEnc(r.name_enc), credit_limit_enc: await reEnc(r.credit_limit_enc), anchor_balance_enc: await reEnc(r.anchor_balance_enc), ext_balance_enc: await reEnc(r.ext_balance_enc), account_number_enc: await reEnc(r.account_number_enc), asset_symbol_enc: await reEnc(r.asset_symbol_enc), asset_unit_enc: await reEnc(r.asset_unit_enc), asset_class_enc: await reEnc(r.asset_class_enc), manual_price_enc: await reEnc(r.manual_price_enc) }).eq('id', r.id);
+          if (u.error) throw u.error; n++; if (onProgress) onProgress(n, tot);
+        }
+        for (const r of (rm.data || [])) {
+          const u = await _sb().from('personal_review_memory').update({ key_enc: await reEnc(r.key_enc) }).eq('id', r.id);
           if (u.error) throw u.error; n++; if (onProgress) onProgress(n, tot);
         }
         for (const r of (bg.data || [])) {
           const u = await _sb().from('personal_budgets').update({ total_enc: await reEnc(r.total_enc), cats_enc: await reEnc(r.cats_enc) }).eq('owner_user_id', P.uid).eq('month', r.month);
+          if (u.error) throw u.error; n++; if (onProgress) onProgress(n, tot);
+        }
+        for (const r of (ls.data || [])) {
+          const u = await _sb().from('personal_lessons').update({ lessons_enc: await reEnc(r.lessons_enc) }).eq('owner_user_id', P.uid);
           if (u.error) throw u.error; n++; if (onProgress) onProgress(n, tot);
         }
         /* Photo OBJECTS (0114) are ciphertext under the personal DEK too — a
@@ -21610,10 +22107,12 @@ window.obGoogle = async function () {
       t.d.people.forEach(function (p, i) {
         if (Math.abs(p.balance) < 0.5) return;
         const owedMe = p.balance > 0;
+        const dd = _personDue(p);
         tiles.push('<button class="dbt-tile" onclick="openDebtPerson(' + i + ')">'
           + '<div class="dbt-tk">' + _e(p.who) + '</div>'
           + '<div class="dbt-tv num ' + (owedMe ? 'owed' : 'owe') + '">' + (owedMe ? '+' : '−') + fmtK(Math.abs(p.balance)) + '</div>'
           + '<div class="dbt-ts">🔒 ' + (owedMe ? 'cho vay · riêng tư' : 'bạn mượn · riêng tư') + '</div>'
+          + (dd ? '<div class="dbt-tchip"><span class="dbt-due' + (dd.overdue ? ' over' : '') + '">' + dd.label + '</span></div>' : '')
           + '</button>');
       });
       // an odd trailing tile spans the full row so the grid never looks half-empty
@@ -21679,6 +22178,28 @@ window.obGoogle = async function () {
     window.closeDebt = function () { const ov = document.getElementById('debt-overlay'); if (ov) ov.classList.remove('on'); };
 
     const _dmy = (iso) => iso ? iso.slice(8, 10) + '/' + iso.slice(5, 7) : '';
+    const _todayIso = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+    /* "Hẹn trả" state for a person (0122): only while they still owe (the nag
+       keys off balance > 0, never off which loan row got matched — a partial
+       repayment silences nothing until the balance clears). Overdue wins over
+       upcoming; among overdue the OLDEST due speaks. */
+    function _personDue(p) {
+      if (!p || !(p.balance > 0.5)) return null;
+      const today = _todayIso();
+      let over = null, next = null;
+      for (const r of (p.rows || [])) {
+        if (r.kind !== 'loan' || !r.due) continue;
+        if (r.due < today) { if (!over || r.due < over) over = r.due; }
+        else if (!next || r.due < next) next = r.due;
+      }
+      if (over) {
+        const days = Math.round((new Date(today + 'T00:00:00') - new Date(over + 'T00:00:00')) / 86400000);
+        return { overdue: true, due: over, days: days, label: 'quá hẹn ' + days + ' ngày' };
+      }
+      if (next) return { overdue: false, due: next, days: 0, label: next === today ? 'hẹn trả hôm nay' : 'hẹn trả ' + _dmy(next) };
+      return null;
+    }
+    window.persDebtDueInfo = _personDue;
     /* "đến hạn DD/MM" — the next occurrence of the card's due day, clamped to
        the real length of that month so a due_day of 31 never rolls to the 1st. */
     const _dueLabel = (acct) => {
@@ -21756,27 +22277,232 @@ window.obGoogle = async function () {
       const d = _last || fhPersonalDebts();
       const p = d.people[idx]; if (!p) return;
       const owedMe = p.balance > 0;
+      const dd = _personDue(p);
       let h = '<div class="dbt-hero2"><div class="dbt-hk">' + (owedMe ? _e(p.who) + ' đang nợ bạn' : 'Bạn đang nợ ' + _e(p.who)) + '</div>'
         + '<div class="dbt-hv num ' + (owedMe ? 'owed' : 'owe') + '">' + fmt(Math.abs(p.balance)) + '</div>'
-        + '<div class="dbt-hs"><span class="dbt-chip">🔒 riêng tư — chỉ mình bạn thấy</span></div></div>';
+        + '<div class="dbt-hs"><span class="dbt-chip">🔒 riêng tư — chỉ mình bạn thấy</span>'
+        + (dd ? ' <span class="dbt-due' + (dd.overdue ? ' over' : '') + '">' + dd.label + '</span>' : '')
+        + '</div></div>';
       h += '<div class="dbt-acts">'
         + '<button class="dbt-btn primary" onclick="fhDebtRepaySheet(' + idx + ')">Ghi đã trả</button>'
+        + (owedMe ? '<button class="dbt-btn tinted" onclick="fhDebtRemindSheet(' + idx + ')">Nhắc trả</button>' : '')
         + '<button class="dbt-btn tinted" onclick="fhDebtLoanSheet(\'' + _e(p.who).replace(/'/g, '\\\'') + '\')">Ghi thêm khoản</button>'
         + '</div>';
       const rows = (p.rows || []).slice().sort((a, x) => (x.date || '').localeCompare(a.date || ''));
       h += '<div class="dbt-sec">Lịch sử</div><div class="dbt-card">';
+      const today = _todayIso();
       rows.forEach(function (r) {
         const loan = r.kind === 'loan';
         const lent = (r.amt || 0) > 0;
         const label = loan ? (lent ? 'Bạn cho mượn' : 'Bạn mượn') : (lent ? _e(p.who) + ' trả bạn' : 'Bạn trả');
-        h += '<div class="dbt-li"><span class="dbt-lic">' + (loan ? '💵' : '✅') + '</span>'
+        const dueTxt = (loan && r.due)
+          ? ' · <span class="' + (r.due < today && p.balance > 0.5 ? 'dbt-overtxt' : '') + '">hẹn trả ' + _dmy(r.due) + '</span>' : '';
+        h += '<div class="dbt-li tap" onclick="fhDebtRowSheet(\'' + r.id + '\',' + idx + ')"><span class="dbt-lic">' + (loan ? '💵' : '✅') + '</span>'
           + '<span class="dbt-lib"><span class="dbt-lin">' + label + (r.note ? ' · ' + _e(r.note) : '') + '</span>'
-          + '<span class="dbt-lis">' + _dmy(r.date) + '</span></span>'
+          + '<span class="dbt-lis">' + _dmy(r.date) + dueTxt + '</span></span>'
           + '<span class="dbt-liv num">' + fmt(Math.abs(r.amt || 0)) + '</span></div>';
       });
       h += '</div>';
       h += '<div class="dbt-foot">Khoản vay 1:1 nằm trong sổ cá nhân của bạn — người kia không cần dùng app.</div>';
       _ovOpen(p.who, h);
+    };
+
+    /* One debt row's own sheet (0122): amount / note / date (+ hẹn trả on a
+       loan), delete, and on a loan the way back — "chuyển thành chi tiêu" for
+       the row that was never a loan after all. Private rows only by
+       construction (everything in P.debts is). */
+    window.fhDebtRowSheet = function (rowId, personIdx) {
+      const P = _P(); if (!P) return;
+      const r = (P.debts || []).find((x) => x.id === rowId); if (!r) return;
+      const loan = r.kind === 'loan';
+      const sign = (r.amt || 0) < 0 ? -1 : 1;
+      _fhModal({
+        title: loan ? 'Khoản ' + ((r.amt || 0) > 0 ? 'cho mượn' : 'mượn') : 'Khoản trả nợ',
+        saveLabel: 'Lưu', reqMsg: 'Điền số tiền nhé',
+        body: '<div class="field"><label>Số tiền</label><input class="num" id="dbt-amt" inputmode="numeric" value="' + Math.round(Math.abs(r.amt || 0) * (window.curMult ? curMult() : 1000)).toLocaleString('vi-VN') + '" oninput="fhModalDirty()"></div>'
+          + '<div class="field"><label>Ngày</label><input type="date" id="dbt-date" value="' + (r.date || '') + '" oninput="fhModalDirty()"></div>'
+          + '<div class="field"><label>Ghi chú <span class="opt">· tuỳ chọn</span></label><input id="dbt-note" value="' + _e(r.note || '') + '" oninput="fhModalDirty()"></div>'
+          + (loan ? '<div class="field"><label>Hẹn trả <span class="opt">· tuỳ chọn</span></label><input type="date" id="dbt-due" value="' + (r.due || '') + '" oninput="fhModalDirty()"></div>' : '')
+          + (loan ? '<button class="dbt-btn tinted" style="width:100%;margin-bottom:8px" onclick="fhDebtRowToExpense(\'' + r.id + '\',this)">Không phải cho vay — chuyển thành chi tiêu</button>' : '')
+          + '<button class="dbt-btn danger" style="width:100%" onclick="fhDebtRowDelete(\'' + r.id + '\',this)">Xoá khoản này</button>',
+        required: function () { return [{ el: document.getElementById('dbt-amt'), ok: _amtOf('dbt-amt') > 0 }]; },
+        save: async function () {
+          const f = { amtK: sign * _amtOf('dbt-amt'),
+            note: ((document.getElementById('dbt-note') || {}).value || '').trim() || null,
+            dateIso: (document.getElementById('dbt-date') || {}).value || null };
+          if (loan) f.dueDate = (document.getElementById('dbt-due') || {}).value || null;
+          const ok = await fhPersonalDebtRowUpdate(r.id, f);
+          if (!ok) throw new Error('save_failed');
+          window.toast && toast('Đã lưu');
+          return function () { _reopenPerson(r.who); if (window.renderPersonal) renderPersonal(); };
+        },
+      });
+    };
+    function _reopenPerson(who) {
+      const d2 = fhPersonalDebts();
+      const i2 = d2.people.findIndex((x) => x.who === who);
+      if (i2 >= 0 && Math.abs(d2.people[i2].balance) > 0.5) openDebtPerson(i2); else closeDebt();
+    }
+    let _rowArm = null;
+    window.fhDebtRowDelete = async function (id, btn) {
+      if (_rowArm !== id) { _rowArm = id; if (btn) btn.textContent = 'Bấm lần nữa để xoá'; setTimeout(() => { if (_rowArm === id) { _rowArm = null; if (btn && btn.isConnected) btn.textContent = 'Xoá khoản này'; } }, 4000); return; }
+      _rowArm = null;
+      const P = _P(); const r = P && (P.debts || []).find((x) => x.id === id);
+      const ok = await fhPersonalDeleteExpense(id);   // same guard: private rows only
+      if (!ok) { window.toast && toast('Chưa xoá được, thử lại'); return; }
+      window.toast && toast('Đã xoá');
+      if (window.closeModals) closeModals();
+      _reopenPerson(r ? r.who : null); if (window.renderPersonal) renderPersonal();
+    };
+    /* Loan → expense (spec §4): the row keeps its id/amount/date; category
+       lands on the catch-all and is editable afterwards like any expense. */
+    let _toExpArm = null;
+    window.fhDebtRowToExpense = async function (id, btn) {
+      if (_toExpArm !== id) { _toExpArm = id; if (btn) btn.textContent = 'Bấm lần nữa để chuyển thành chi tiêu'; setTimeout(() => { if (_toExpArm === id) { _toExpArm = null; if (btn && btn.isConnected) btn.textContent = 'Không phải cho vay — chuyển thành chi tiêu'; } }, 4000); return; }
+      _toExpArm = null;
+      const P = _P(); const r = P && (P.debts || []).find((x) => x.id === id);
+      const ok = await fhPersonalConvertToExpense(id, 'Khác', '🗂️');
+      if (!ok) { window.toast && toast('Chưa chuyển được, thử lại'); return; }
+      window.toast && toast('Đã chuyển thành chi tiêu');
+      if (window.closeModals) closeModals();
+      _reopenPerson(r ? r.who : null); if (window.renderPersonal) renderPersonal();
+    };
+
+    /* ── Committed-row flip (0122, spec §4): "đây là khoản cho vay" ──────────
+       The retroactive correction: an expense already in the personal book that
+       was really a loan. Opened from the personal expense editor (55). The row
+       flips IN PLACE (same id/amount/date), the receivable appears, and the
+       flip teaches the same lesson a queue correction does. */
+    window.fhExpenseToLoanSheet = function (id) {
+      const P = _P(); if (!P || !P.key) return;
+      const t = (P.txns || []).find((x) => x.id === id);
+      if (!t || t.kind !== 'expense' || t.spaceId || t.linkId) return;
+      _fhModal({
+        title: 'Chuyển thành cho vay', saveLabel: 'Chuyển', reqMsg: 'Điền tên người mượn nhé',
+        body: '<div class="dbt-note">Khoản <b class="num">' + fmt(Math.abs(t.amt || 0)) + '</b>' + (t.note ? ' · ' + _e(t.note) : '') + ' sẽ rời khỏi chi tiêu tháng và trở thành một khoản cho vay — người mượn nợ bạn số này.</div>'
+          + '<div class="field"><label>Cho ai mượn?</label><input id="dbt-who" placeholder="vd. Thằng em" oninput="fhModalDirty()"></div>'
+          + '<div class="field"><label>Hẹn trả <span class="opt">· tuỳ chọn</span></label><input type="date" id="dbt-due" oninput="fhModalDirty()"></div>',
+        required: function () { return [{ el: document.getElementById('dbt-who'), ok: !!((document.getElementById('dbt-who') || {}).value || '').trim() }]; },
+        save: async function () {
+          const who = ((document.getElementById('dbt-who') || {}).value || '').trim();
+          const due = ((document.getElementById('dbt-due') || {}).value || '') || null;
+          const ok = await fhPersonalConvertToLoan(id, who, due);
+          if (!ok) throw new Error('save_failed');
+          if (window.fhKindLearnManual) { try { fhKindLearnManual(who, Math.abs(t.amt || 0) * (window.curMult ? curMult() : 1000)); } catch (e) {} }
+          window.toast && toast('Đã chuyển thành cho vay — xem ở Nợ & cho vay');
+          return function () { if (window.renderPersonal) renderPersonal(); if (typeof refreshPersonalTxnOverlay === 'function') refreshPersonalTxnOverlay(); };
+        },
+      });
+    };
+
+    /* ── Nhắc trả (0122, spec §5) — get PAID, not just reminded ──────────────
+       A pre-written, editable Vietnamese message + a VietQR the friend scans to
+       repay the exact amount. Needs the user's full receiving account number —
+       asked LAZILY here, once per account, stored sealed (account_number_enc).
+       The QR memo embeds a match token ("TRA NO MINH 0609") the person never
+       sees in the message — it makes the incoming repayment email a
+       near-certain Thu nợ match at review. Everything is built on-device. */
+    window.fhDebtRemindSheet = function (idx) {
+      const P = _P(); if (!P || !P.key) return;
+      const d = _last || fhPersonalDebts();
+      const p = d.people[idx]; if (!p || !(p.balance > 0.5)) return;
+      const accts = (P.accounts || []).filter((a) => a.kind === 'deposit' || a.kind === 'ewallet');
+      if (!accts.length) { window.toast && toast('Chưa có tài khoản ngân hàng nào — nhận qua email hoặc thêm ở Chuyển tiền'); return; }
+      const ready = accts.find((a) => a.accountNumber && window.fhVietQRBinFor && fhVietQRBinFor(a.provider));
+      const preId = (ready || accts[0]).id;
+      const chipsHtml = accts.map((a) =>
+        '<button class="choice' + (a.id === preId ? ' on' : '') + '" data-v="' + a.id + '" onclick="pick(\'dbt-rq-acct\',this);fhRemindSyncFields()">' + _e(a.name || 'Tài khoản') + '</button>').join('');
+      const bankOpts = (window.fhVietQRBanks ? fhVietQRBanks() : []).map((b) =>
+        '<option value="' + b.bin + '">' + _e(b.name) + '</option>').join('');
+      _fhModal({
+        title: 'Nhắc ' + _e(p.who) + ' trả nợ', saveLabel: 'Tạo lời nhắc', reqMsg: 'Kiểm tra tài khoản nhận và số tiền nhé',
+        body: '<div class="field"><label>Số tiền</label><input class="num" id="dbt-amt" inputmode="numeric" value="' + Math.round(p.balance * (window.curMult ? curMult() : 1000)).toLocaleString('vi-VN') + '" oninput="fhModalDirty()"></div>'
+          + '<div class="field"><label>Nhận vào tài khoản</label><div class="choices" id="dbt-rq-acct">' + chipsHtml + '</div></div>'
+          + '<div class="field" id="dbt-rq-bank-f" hidden><label>Ngân hàng</label><select id="dbt-rq-bank" class="dbt-in" onchange="fhModalDirty()"><option value="">— chọn ngân hàng —</option>' + bankOpts + '</select></div>'
+          + '<div class="field" id="dbt-rq-num-f" hidden><label>Số tài khoản nhận</label><input id="dbt-rq-num" inputmode="numeric" placeholder="vd. 0123456789" oninput="fhModalDirty()"><div class="dbt-note" style="margin-top:6px">Nhập một lần, được mã hoá trong sổ riêng — dùng để tạo mã QR nhận tiền.</div></div>',
+        required: function () {
+          const sel = (typeof chosen === 'function' && chosen('dbt-rq-acct')) || preId;
+          const a = accts.find((x) => x.id === sel) || accts[0];
+          const binKnown = a && window.fhVietQRBinFor && fhVietQRBinFor(a.provider);
+          const binPicked = ((document.getElementById('dbt-rq-bank') || {}).value || '');
+          const numOk = (a && a.accountNumber) || ((document.getElementById('dbt-rq-num') || {}).value || '').replace(/\D/g, '').length >= 4;
+          return [
+            { el: document.getElementById('dbt-amt'), ok: _amtOf('dbt-amt') > 0 },
+            { el: document.getElementById('dbt-rq-bank-f'), ok: !!(binKnown || binPicked) },
+            { el: document.getElementById('dbt-rq-num-f'), ok: !!numOk },
+          ];
+        },
+        save: async function () {
+          const sel = (typeof chosen === 'function' && chosen('dbt-rq-acct')) || preId;
+          const a = accts.find((x) => x.id === sel) || accts[0];
+          const bin = (window.fhVietQRBinFor && fhVietQRBinFor(a.provider)) || ((document.getElementById('dbt-rq-bank') || {}).value || '');
+          let num = a.accountNumber || ((document.getElementById('dbt-rq-num') || {}).value || '').replace(/\s/g, '');
+          if (!bin || !num) throw new Error('save_failed');
+          if (!a.accountNumber) { try { await fhPersonalAccountUpdate(a.id, { accountNumber: num }); } catch (e) {} }
+          const amtK = _amtOf('dbt-amt');
+          const bankName = ((window.fhVietQRBanks ? fhVietQRBanks() : []).find((b) => b.bin === bin) || {}).name || (a.provider || 'ngân hàng');
+          return function () { _remindResult(p, amtK, bin, num, bankName); };
+        },
+        after: function () { window.fhRemindSyncFields(); },
+      });
+    };
+    /* bank + number fields follow the picked account, live */
+    window.fhRemindSyncFields = function () {
+      const P = _P(); if (!P) return;
+      const sel = typeof chosen === 'function' ? chosen('dbt-rq-acct') : null;
+      const a = (P.accounts || []).find((x) => x.id === sel);
+      const bf = document.getElementById('dbt-rq-bank-f'), nf = document.getElementById('dbt-rq-num-f');
+      if (bf) bf.hidden = !!(a && window.fhVietQRBinFor && fhVietQRBinFor(a.provider));
+      if (nf) nf.hidden = !!(a && a.accountNumber);
+    };
+    function _remindResult(p, amtK, bin, num, bankName) {
+      const amtD = Math.round(amtK * (window.curMult ? curMult() : 1000));
+      const dd = new Date();
+      const ddmm = String(dd.getDate()).padStart(2, '0') + String(dd.getMonth() + 1).padStart(2, '0');
+      const whoTok = (typeof deburr === 'function' ? deburr(p.who) : p.who).toUpperCase().replace(/[^A-Z0-9 ]/g, '').trim().slice(0, 12);
+      const memo = ('TRA NO ' + whoTok + ' ' + ddmm).replace(/\s+/g, ' ');
+      const payload = window.fhVietQRPayload ? fhVietQRPayload({ bin: bin, account: num, amountD: amtD, memo: memo }) : null;
+      const firstName = String(p.who).trim().split(/\s+/).pop();
+      const msg = firstName + ' ơi, chuyển lại giúp mình ' + fmt(amtK) + ' nhé. Quét mã QR đính kèm là xong — hoặc chuyển vào STK ' + num + ' (' + bankName + ').';
+      _fhModal({
+        title: 'Gửi cho ' + _e(p.who), saveLabel: 'Xong',
+        body: '<div id="dbt-rq-qr" class="dbt-rq-qr"></div>'
+          + '<div class="field"><label>Lời nhắn <span class="opt">· sửa thoải mái</span></label><textarea id="dbt-rq-msg" rows="3" class="dbt-in">' + _e(msg) + '</textarea></div>'
+          + '<div class="dbt-acts">'
+          + '<button class="dbt-btn primary" onclick="fhRemindShare()">Chia sẻ</button>'
+          + '<button class="dbt-btn tinted" onclick="fhRemindCopy()">Sao chép lời nhắn</button>'
+          + '</div>'
+          + '<div class="dbt-note">Khi ' + _e(p.who) + ' chuyển theo mã này, khoản tiền vào sẽ tự được nhận ra là "Thu nợ" lúc bạn duyệt.</div>',
+        save: async function () {},
+        after: function () {
+          const box = document.getElementById('dbt-rq-qr');
+          if (!box) return;
+          if (payload && window.fhQrCanvas) {
+            try { const cv = fhQrCanvas(payload, 5, 3); cv.className = 'dbt-rq-cv'; box.appendChild(cv); window.__fhRemindQr = cv; }
+            catch (e) { box.innerHTML = '<div class="dbt-note">Chưa tạo được mã QR — gửi lời nhắn kèm số tài khoản vẫn đủ.</div>'; }
+          } else {
+            box.innerHTML = '<div class="dbt-note">Chưa tạo được mã QR — gửi lời nhắn kèm số tài khoản vẫn đủ.</div>';
+          }
+        },
+      });
+    }
+    window.fhRemindShare = async function () {
+      const msg = (document.getElementById('dbt-rq-msg') || {}).value || '';
+      const cv = window.__fhRemindQr;
+      try {
+        if (cv && navigator.canShare) {
+          const blob = await new Promise((res) => cv.toBlob(res, 'image/png'));
+          const file = blob && new File([blob], 'vietqr.png', { type: 'image/png' });
+          if (file && navigator.canShare({ files: [file] })) { await navigator.share({ text: msg, files: [file] }); return; }
+        }
+        if (navigator.share) { await navigator.share({ text: msg }); return; }
+      } catch (e) { if (e && e.name === 'AbortError') return; }
+      window.fhRemindCopy();
+    };
+    window.fhRemindCopy = function () {
+      const msg = (document.getElementById('dbt-rq-msg') || {}).value || '';
+      try { navigator.clipboard.writeText(msg); window.toast && toast('Đã sao chép lời nhắn'); }
+      catch (e) { window.toast && toast('Chưa sao chép được'); }
     };
 
     /* ③ space detail */
@@ -21875,6 +22601,7 @@ window.obGoogle = async function () {
           + '<button class="choice" data-v="borrow" onclick="pick(\'dbt-dir\',this)">🤝 Tôi mượn</button></div></div>'
           + '<div class="field"><label>Ai?</label><input id="dbt-who" placeholder="vd. Thằng em" value="' + _e(presetWho || '') + '" oninput="fhModalDirty()"></div>'
           + _amtIn('dbt-amt')
+          + '<div class="field"><label>Hẹn trả <span class="opt">· tuỳ chọn</span></label><input type="date" id="dbt-due" oninput="fhModalDirty()"></div>'
           + '<div class="field"><label>Ghi chú <span class="opt">· tuỳ chọn</span></label><input id="dbt-note" placeholder="vd. mượn đóng học phí" oninput="fhModalDirty()"></div>',
         required: function () { return [
           { el: document.getElementById('dbt-who'), ok: !!((document.getElementById('dbt-who') || {}).value || '').trim() },
@@ -21883,10 +22610,17 @@ window.obGoogle = async function () {
         save: async function () {
           const who = ((document.getElementById('dbt-who') || {}).value || '').trim();
           const lend = (typeof chosen === 'function' ? chosen('dbt-dir') : 'lend') !== 'borrow';
-          const amt = _amtOf('dbt-amt') * (lend ? 1 : -1);
+          const amtK = _amtOf('dbt-amt');
+          const amt = amtK * (lend ? 1 : -1);
           const note = ((document.getElementById('dbt-note') || {}).value || '').trim();
-          const ok = await fhPersonalAddLoan(amt, who, note, undefined, null);
+          const due = ((document.getElementById('dbt-due') || {}).value || '') || undefined;
+          const ok = await fhPersonalAddLoan(amt, who, note, undefined, null, due);
           if (!ok) throw new Error('save_failed');
+          /* A hand-typed loan teaches the same lesson a queue correction does
+             (spec Q10). If the typed name never matches a bank memo it simply
+             never fires. Lend direction only — borrowing teaches nothing about
+             MY outgoing transfers. */
+          if (lend && window.fhKindLearnManual) { try { fhKindLearnManual(who, amtK * (window.curMult ? curMult() : 1000)); } catch (e) {} }
           window.toast && toast('Đã ghi vào sổ riêng');
           return function () { if (window.renderPersonal) renderPersonal(); };
         },
@@ -22376,6 +23110,760 @@ window.obGoogle = async function () {
           return function () { openDebtSpace(fid); _redraw(); };
         },
       });
+    };
+  })();
+
+  /* ═══ Personal lessons — synced, encrypted (0122) ═══════════════════════════
+     docs/specs/lending-capture-spec.md §3.
+
+     What the review screen learns from THIS person's corrections, kept in ONE
+     JSON blob encrypted under the personal DEK and synced through
+     personal_lessons — the personal_budgets pattern: server stores ciphertext,
+     every unlocked device decrypts. Two namespaces:
+
+       kind — "transfers to <payee> at <this size> are loans": key =
+              normalized-payee|amount-band (BANDED ONLY, no bare-key fallback —
+              a wrong category is cosmetic, a wrong loan INVENTS a receivable,
+              so precision beats recall everywhere a debt can be minted).
+              Value { who, n, t }: the counterparty name the balance uses, a
+              confirmation count, and the last-confirmed timestamp.
+       cat  — the category lessons 57-csv-import-review already keeps in
+              localStorage (fh-csv-learned), mirrored here so a phone upgrade
+              stops erasing them. localStorage stays the fast local cache and
+              the offline fallback; this blob is what survives the device.
+
+     tomb — "quên đi" tombstones. A deletion must not be resurrected by an old
+     device's blob, so forgetting writes an explicit { t } marker; a lesson
+     re-learned AFTER its tombstone (t newer) revives. Without this, forget is
+     unreliable in a two-device life — worse than no sync.
+
+     Merge (two devices diverge): union by key; for kind lessons the higher
+     confirmation count wins (tie → newer t); tombstones apply after. Category
+     lessons are plain strings — local wins, missing keys adopt the server's.
+
+     Weaken/kill (spec Q20c): flipping a fired lesson back to Chi tiêu drops
+     its count by one (at zero it dies + tombstones); the explicit "đừng gợi ý
+     nữa" kills immediately. One genuine dinner-split must not erase five
+     confirmed loans; a repeating mis-fire must be killable on the spot. */
+  (function () {
+    const _sb = () => window.sb;
+    const _P = () => (window.fhPersonalData ? fhPersonalData() : null);
+    let L = { kind: {}, cat: {}, tomb: {} };
+    let _loaded = false, _saveSeq = 0, _saveTimer = null;
+
+    const _now = () => Date.now();
+    const _key = (s) => String(s || '');
+
+    /* ── read side ── */
+    window.fhKindLesson = function (key) {
+      key = _key(key); if (!key) return null;
+      const l = L.kind[key]; if (!l || !(l.n > 0)) return null;
+      const tomb = L.tomb['kind|' + key];
+      if (tomb && !(l.t > tomb.t)) return null;          // killed, not re-learned since
+      return { who: l.who, n: l.n };
+    };
+
+    /* ── write side ── */
+    window.fhKindLearn = function (key, who) {
+      key = _key(key); who = String(who || '').trim();
+      if (key.length < 6 || !who) return;
+      const l = L.kind[key];
+      if (l && l.who === who) { l.n = (l.n || 0) + 1; l.t = _now(); }
+      else L.kind[key] = { who: who, n: 1, t: _now() };   // new person at this key replaces, back to n=1
+      delete L.tomb['kind|' + key];                        // an explicit re-teach revives a killed lesson
+      _saveSoon();
+    };
+    window.fhKindWeaken = function (key) {
+      key = _key(key); const l = L.kind[key]; if (!l) return;
+      l.n = (l.n || 1) - 1;
+      if (l.n <= 0) { delete L.kind[key]; L.tomb['kind|' + key] = { t: _now() }; }
+      _saveSoon();
+    };
+    window.fhKindKill = function (key) {
+      key = _key(key); if (!key) return;
+      delete L.kind[key];
+      L.tomb['kind|' + key] = { t: _now() };
+      _saveSoon();
+    };
+    /* Manual entries teach too (spec Q10): the loan sheet and the committed-row
+       flip only know a NAME + display amount, so the key is built from those.
+       If the typed name never matches a bank memo, the lesson simply never
+       fires — harmless. Needs the js-ui key helpers (classic scripts, loaded
+       before this module). */
+    window.fhKindLearnManual = function (who, amountDisp) {
+      if (typeof csvPatternKey !== 'function' || typeof csvAmountBand !== 'function') return;
+      const k = csvPatternKey({ counterparty: who, description: '' });
+      if (!k || k.length < 6) return;
+      window.fhKindLearn(k + '|' + csvAmountBand(amountDisp), who);
+    };
+
+    /* ── sync ── */
+    async function _pull() {
+      const P = _P(); if (!P || !P.uid || !P.key) return null;
+      const r = await _sb().from('personal_lessons').select('lessons_enc').eq('owner_user_id', P.uid).maybeSingle();
+      if (r.error || !r.data || !r.data.lessons_enc) return r.error ? null : { kind: {}, cat: {}, tomb: {} };
+      try {
+        const pt = await FHCrypto.decVal(P.key, r.data.lessons_enc);
+        const d = JSON.parse(pt);
+        return { kind: d.kind || {}, cat: d.cat || {}, tomb: d.tomb || {} };
+      } catch (e) { return null; }                        // unreadable blob: leave the server copy alone
+    }
+    function _mergeIn(remote) {
+      let changed = false;
+      for (const k in remote.tomb) {
+        const mine = L.tomb[k];
+        if (!mine || remote.tomb[k].t > mine.t) { L.tomb[k] = remote.tomb[k]; changed = true; }
+      }
+      for (const k in remote.kind) {
+        const r = remote.kind[k], mine = L.kind[k];
+        if (!mine || r.n > mine.n || (r.n === mine.n && r.t > mine.t)) { L.kind[k] = r; changed = true; }
+      }
+      for (const k in remote.cat) {
+        if (L.cat[k] === undefined) { L.cat[k] = remote.cat[k]; changed = true; }
+      }
+      return changed;
+    }
+    async function _push() {
+      const P = _P(); if (!P || !P.uid || !P.key) return;
+      const seq = ++_saveSeq;
+      const ct = await FHCrypto.encVal(P.key, JSON.stringify(L));
+      if (!ct || seq !== _saveSeq) return;                // a newer save superseded this one
+      const r = await _sb().from('personal_lessons').upsert(
+        { owner_user_id: P.uid, lessons_enc: ct, updated_at: new Date().toISOString() },
+        { onConflict: 'owner_user_id' });
+      if (r.error) console.warn('personal lessons save failed', r.error);
+    }
+    function _saveSoon() {
+      if (_saveTimer) clearTimeout(_saveTimer);
+      _saveTimer = setTimeout(() => { _saveTimer = null; _push(); }, 800);
+    }
+
+    /* Pull + merge, then adopt the merged category map into 57's local store
+       (and push if this device knew things the server didn't). Called before
+       the review screen builds its candidates; cheap after the first time. */
+    window.fhLessonsSync = async function () {
+      const P = _P(); if (!P || !P.uid || !P.key) return false;
+      /* Mirror the local category lessons in before comparing. */
+      if (typeof window.csvLearnedExport === 'function') {
+        const local = window.csvLearnedExport() || {};
+        for (const k in local) if (L.cat[k] !== local[k]) L.cat[k] = local[k];
+      }
+      const remote = _loaded ? null : await _pull();
+      let changed = false;
+      if (remote) { changed = _mergeIn(remote); _loaded = true; }
+      if (changed && typeof window.csvLearnedMergeIn === 'function') window.csvLearnedMergeIn(L.cat);
+      _saveSoon();
+      return true;
+    };
+    /* A category lesson just changed locally — mirror + schedule a push. */
+    window.fhLessonsCatChanged = function (map) {
+      L.cat = Object.assign({}, map || {});
+      _saveSoon();
+    };
+  })();
+
+  /* ═══ VietQR — client-side, offline (0122) ═══════════════════════════════════
+     docs/specs/lending-capture-spec.md §5. Builds the NAPAS IBFT-to-account
+     EMVCo payload (bank BIN + account + amount + memo) entirely on-device —
+     no external service, no CDN — and renders it through the existing QR
+     encoder (16-qr.js, extended to v6 for this payload size). Every VN banking
+     app scans this format.
+
+     The BIN table is static NAPAS data (public routing codes, not secrets).
+     Keyed by the canonical provider slugs the pipeline already writes into
+     personal_accounts.provider, plus common aliases for hand-picked banks. */
+  (function () {
+    const BINS = [
+      { bin: '970436', name: 'Vietcombank', m: ['vietcombank', 'vcb'] },
+      { bin: '970407', name: 'Techcombank', m: ['techcombank', 'tcb'] },
+      { bin: '970422', name: 'MB Bank', m: ['mbbank', 'mb bank', 'mb'] },
+      { bin: '970416', name: 'ACB', m: ['acb'] },
+      { bin: '970415', name: 'VietinBank', m: ['vietinbank', 'ctg'] },
+      { bin: '970418', name: 'BIDV', m: ['bidv'] },
+      { bin: '970405', name: 'Agribank', m: ['agribank'] },
+      { bin: '970432', name: 'VPBank', m: ['vpbank', 'vpb'] },
+      { bin: '970423', name: 'TPBank', m: ['tpbank', 'tpb'] },
+      { bin: '970403', name: 'Sacombank', m: ['sacombank', 'stb'] },
+      { bin: '970441', name: 'VIB', m: ['vib'] },
+      { bin: '970443', name: 'SHB', m: ['shb'] },
+      { bin: '970437', name: 'HDBank', m: ['hdbank', 'hdb'] },
+      { bin: '970448', name: 'OCB', m: ['ocb'] },
+      { bin: '970426', name: 'MSB', m: ['msb', 'maritime'] },
+      { bin: '970440', name: 'SeABank', m: ['seabank'] },
+      { bin: '970431', name: 'Eximbank', m: ['eximbank', 'eib'] },
+      { bin: '970449', name: 'LPBank', m: ['lpbank', 'lienviet', 'lienvietpostbank'] },
+      { bin: '970428', name: 'Nam Á Bank', m: ['namabank', 'nam a'] },
+      { bin: '970409', name: 'Bắc Á Bank', m: ['bacabank', 'bac a'] },
+      { bin: '970454', name: 'BVBank', m: ['bvbank', 'vietcapital', 'viet capital'] },
+      { bin: '970425', name: 'ABBank', m: ['abbank'] },
+      { bin: '970412', name: 'PVcomBank', m: ['pvcombank'] },
+      { bin: '970452', name: 'KienlongBank', m: ['kienlongbank', 'kienlong'] },
+      { bin: '970419', name: 'NCB', m: ['ncb'] },
+      { bin: '970427', name: 'VietABank', m: ['vietabank', 'viet a'] },
+      { bin: '970406', name: 'DongA Bank', m: ['donga', 'dong a'] },
+      { bin: '963388', name: 'Timo', m: ['timo'] },
+      { bin: '546034', name: 'CAKE', m: ['cake'] },
+    ];
+    window.fhVietQRBanks = function () { return BINS.map((b) => ({ bin: b.bin, name: b.name })); };
+    /* provider slug / free-text name → BIN, or null when unknown (the sheet
+       then asks the person to pick their bank once). */
+    window.fhVietQRBinFor = function (provider) {
+      const p = String(provider || '').toLowerCase().trim();
+      if (!p) return null;
+      for (const b of BINS) if (b.m.some((m) => p === m || p.indexOf(m) === 0 || m.indexOf(p) === 0)) return b.bin;
+      return null;
+    };
+
+    /* CRC-16/CCITT-FALSE (poly 0x1021, init 0xFFFF) — the EMVCo checksum. */
+    function _crc16(str) {
+      let crc = 0xFFFF;
+      for (let i = 0; i < str.length; i++) {
+        crc ^= str.charCodeAt(i) << 8;
+        for (let j = 0; j < 8; j++) crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) & 0xFFFF : (crc << 1) & 0xFFFF;
+      }
+      return crc.toString(16).toUpperCase().padStart(4, '0');
+    }
+    const _tlv = (id, v) => id + String(v.length).padStart(2, '0') + v;
+
+    /* amountD = VND đồng (display units, integer). memo: A–Z 0–9 space only —
+       normalized here so no bank app chokes on diacritics. */
+    window.fhVietQRPayload = function (opts) {
+      const bin = String(opts.bin || ''), acct = String(opts.account || '').replace(/\s/g, '');
+      if (!/^\d{6}$/.test(bin) || !/^[A-Za-z0-9]{4,19}$/.test(acct)) return null;
+      const consumer = _tlv('00', bin) + _tlv('01', acct);
+      const merchant = _tlv('00', 'A000000727') + _tlv('01', consumer) + _tlv('02', 'QRIBFTTA');
+      let p = _tlv('00', '01') + _tlv('01', opts.amountD > 0 ? '12' : '11') + _tlv('38', merchant) + _tlv('53', '704');
+      if (opts.amountD > 0) p += _tlv('54', String(Math.round(opts.amountD)));
+      p += _tlv('58', 'VN');
+      let memo = String(opts.memo || '');
+      if (memo) {
+        memo = (typeof deburr === 'function' ? deburr(memo) : memo).toUpperCase().replace(/[^A-Z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 25);
+        if (memo) p += _tlv('62', _tlv('08', memo));
+      }
+      p += '6304';
+      return p + _crc16(p);
+    };
+  })();
+
+  /* ═══ Đầu tư — UI + data (docs/specs/investment-spec.md) ═══════════════════
+     The asset side of the personal ledger. One primitive: a POSITION — a
+     personal_accounts row with kind='investment' — whose VND balance is
+     DERIVED (net-invested = Σ buys − Σ sells), the card-outstanding pattern
+     one shelf over. A buy/sell is ONE kind='investment' row: it debits or
+     credits the cash account it touched and accrues to the position via
+     position_account_id. No pair, no counterparty — the OTC seller is a memo.
+
+     Sign convention, inside the ciphertext, from MY point of view:
+       buy:  amount −X (money left the funding account) · quantity +q
+       sell: amount +X (money landed)                   · quantity −q
+     so position net-invested = Σ(−amount) and holding = Σ quantity.
+     Negative net-invested is "đã rút hơn vốn" (house money), not an error.
+
+     Prices are CLIENT-SIDE ONLY (spec I4): a public API for crypto, fetched
+     on this device and cached in localStorage; a manual price is stored
+     encrypted on the position row (the ext_balance_enc pattern) so it syncs
+     between the owner's devices. Whichever is fresher wins. No server
+     component ever sees a price.
+
+     Lives in js-data (module scope) like 23-debts-ui so it can use _fhModal;
+     renderPersonal reaches it via window.persInvest* exports. Amounts are
+     base units (thousands); parseAmtBase / fmt are classic-script globals. */
+  (function () {
+    const _e = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const _P = () => window.fhPersonalData && fhPersonalData();
+    const _enc = (v) => window.FHCrypto.encVal(_P().key, v);
+    const _sbi = () => window.sb;
+    const _todayIso = function () {
+      const n = new Date();
+      return n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0') + '-' + String(n.getDate()).padStart(2, '0');
+    };
+    const _dmy = (iso) => { if (!iso) return ''; const p = String(iso).slice(0, 10).split('-'); return p[2] + '/' + p[1]; };
+    const _fmtQty = function (q) {
+      if (q == null || !isFinite(q)) return '';
+      const s = String(Math.round(Math.abs(q) * 1e8) / 1e8);
+      return (q < 0 ? '−' : '') + s;
+    };
+    /* asset classes — drive the unit hint, the price route, and grouping */
+    const CLS = { crypto: 'Crypto', gold: 'Vàng', stock: 'Chứng khoán', fund: 'Chứng chỉ quỹ', other: 'Khác' };
+    const _ago = function (iso) {
+      if (!iso) return null;
+      const ms = Date.now() - new Date(iso).getTime();
+      if (ms < 90 * 60000) return 'vừa cập nhật';
+      if (ms < 26 * 3600000) return Math.round(ms / 3600000) + ' giờ trước';
+      return Math.round(ms / 86400000) + ' ngày trước';
+    };
+
+    /* ── price cache — device-local, per uid, fetched prices only ──────────── */
+    const _PK = () => 'fh-invprice:' + (((_P() || {}).uid) || '');
+    const _cacheAll = function () { try { return JSON.parse(localStorage.getItem(_PK()) || '{}'); } catch (e) { return {}; } };
+    const _cacheGet = (sym) => sym ? (_cacheAll()[String(sym).toLowerCase()] || null) : null;
+    const _cacheSet = function (sym, priceK) {
+      if (!sym) return;
+      const all = _cacheAll();
+      all[String(sym).toLowerCase()] = { k: priceK, at: new Date().toISOString() };
+      try { localStorage.setItem(_PK(), JSON.stringify(all)); } catch (e) {}
+    };
+    /* CoinGecko ids for the common symbols; anything else tries the lowercase
+       symbol as an id and quietly gives up. Manual price is always available. */
+    const CG = { btc: 'bitcoin', eth: 'ethereum', usdt: 'tether', usdc: 'usd-coin', bnb: 'binancecoin',
+      sol: 'solana', xrp: 'ripple', ada: 'cardano', doge: 'dogecoin', trx: 'tron', ton: 'the-open-network',
+      ltc: 'litecoin', dot: 'polkadot', avax: 'avalanche-2', link: 'chainlink', near: 'near', vndc: 'vndc' };
+    let _fetchedAt = 0, _fetching = false;
+    /* Fetch is fail-quiet and throttled: a flaky API can never block the bento
+       (spec I11) — the worst case is a staleness label. */
+    window.fhInvPriceRefresh = async function (force) {
+      const P = _P(); if (!P || !P.key) return false;
+      if (_fetching) return false;
+      if (!force && Date.now() - _fetchedAt < 2 * 60000) return false;
+      const syms = (P.accounts || []).filter((a) => a.kind === 'investment' && (a.assetClass || 'other') === 'crypto' && a.assetSymbol)
+        .map((a) => String(a.assetSymbol).toLowerCase());
+      if (!syms.length) return false;
+      const ids = {}; syms.forEach((s) => { ids[CG[s] || s] = s; });
+      _fetching = true;
+      try {
+        const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=' + encodeURIComponent(Object.keys(ids).join(',')) + '&vs_currencies=vnd');
+        if (!r.ok) throw new Error('price http ' + r.status);
+        const j = await r.json();
+        let got = 0;
+        for (const id in j) if (j[id] && j[id].vnd > 0 && ids[id]) { _cacheSet(ids[id], j[id].vnd / 1000); got++; }
+        _fetchedAt = Date.now();
+        if (got) { _redraw(); _reopen(); }
+        return got > 0;
+      } catch (e) { console.warn('inv price fetch failed', e); return false; }
+      finally { _fetching = false; }
+    };
+
+    /* ── the derivation — spec §5.1's ladder, computed not stored ──────────── */
+    window.fhInvPositions = function () {
+      const P = _P(); if (!P || !P.key) return null;
+      const accts = (P.accounts || []).filter((a) => a.kind === 'investment');
+      const rows = (P.debts || []).filter((d) => d.kind === 'investment' && d.positionId);
+      const by = {};
+      for (const a of accts) by[a.id] = { acct: a, netK: 0, qty: 0, qtyPartial: false, unreadable: 0, rows: [] };
+      for (const r of rows) {
+        const b = by[r.positionId]; if (!b) continue;   // archived position's rows stay out of view
+        b.rows.push(r);
+        if (r._unreadable || r.amt == null) { b.unreadable++; continue; }
+        b.netK += -r.amt;                               // buy −X → +X invested
+        if (r.qty != null) b.qty += r.qty; else b.qtyPartial = true;
+      }
+      const out = [];
+      for (const id in by) {
+        const b = by[id], a = b.acct;
+        /* freshest of (manual on the row, fetched in the device cache) wins —
+           "manual is authoritative until refreshed deliberately" (I4) */
+        const c = _cacheGet(a.assetSymbol);
+        let priceK = null, priceAt = null, priceSrc = null;
+        if (a.manualPriceK != null) { priceK = a.manualPriceK; priceAt = a.manualPriceAt; priceSrc = 'manual'; }
+        if (c && (!priceAt || new Date(c.at) > new Date(priceAt))) { priceK = c.k; priceAt = c.at; priceSrc = 'api'; }
+        const holding = (b.qty > 0 && !b.qtyPartial) ? b.qty : (b.qty > 0 ? b.qty : null);
+        const valueK = (holding != null && priceK != null) ? holding * priceK : null;
+        /* the ladder: value → cost basis → house money; displayK is the rung */
+        const displayK = valueK != null ? valueK : b.netK;
+        const plK = (valueK != null) ? valueK - b.netK : null;
+        out.push({ id: id, name: a.name || 'Vị thế', symbol: a.assetSymbol, unit: a.assetUnit,
+          klass: a.assetClass || 'other', netK: b.netK, qty: b.qty, qtyPartial: b.qtyPartial,
+          holding: holding, priceK: priceK, priceAt: priceAt, priceSrc: priceSrc,
+          valueK: valueK, displayK: displayK, plK: plK,
+          pctPl: (valueK != null && b.netK > 0) ? (valueK - b.netK) / b.netK * 100 : null,
+          unreadable: b.unreadable, rows: b.rows });
+      }
+      out.sort((x, y) => (y.displayK || 0) - (x.displayK || 0));
+      const priced = out.filter((p) => p.valueK != null);
+      return { positions: out,
+        totalK: out.reduce((s, p) => s + (p.displayK > 0 ? p.displayK : 0), 0),
+        mixed: priced.length > 0 && priced.length < out.filter((p) => p.netK > 0).length,
+        plK: priced.length ? priced.reduce((s, p) => s + p.plK, 0) : null,
+        plBaseK: priced.reduce((s, p) => s + (p.netK > 0 ? p.netK : 0), 0) };
+    };
+    /* Month flows for the cash-flow card: visible-but-not-expense (I6/I8). */
+    window.fhInvMonthFlows = function (monKey) {
+      const P = _P(); if (!P || !P.key) return { out: 0, inn: 0 };
+      let out = 0, inn = 0;
+      for (const t of (P.txns || [])) {
+        if (t.kind !== 'investment' || t._unreadable || t.amt == null) continue;
+        if (monKey && String(t.date).slice(0, 7) !== monKey) continue;
+        if (t.amt < 0) out += -t.amt; else inn += t.amt;
+      }
+      return { out: out, inn: inn };
+    };
+
+    /* ── writers — self-contained; every path funnels through re-hydrate ───── */
+    window.fhInvPositionCreate = async function (name, symbol, unit, klass) {
+      const P = _P(); if (!P || !P.key || !name) return null;
+      const row = { owner_user_id: P.uid, kind: 'investment', human_verified: true,
+        name_enc: await _enc(name),
+        asset_symbol_enc: symbol ? await _enc(symbol) : null,
+        asset_unit_enc: unit ? await _enc(unit) : null,
+        asset_class_enc: await _enc(klass || 'other') };
+      const r = await _sbi().from('personal_accounts').insert(row).select('id').single();
+      if (r.error) { console.warn('position create failed', r.error); return null; }
+      await window.fhPersonalHydrate();
+      return r.data.id;
+    };
+    window.fhInvPositionUpdate = async function (id, fields) {
+      const P = _P(); if (!P || !P.key || !id) return false;
+      const row = {};
+      if (fields.name) row.name_enc = await _enc(fields.name);
+      if (fields.hasOwnProperty('symbol')) row.asset_symbol_enc = fields.symbol ? await _enc(fields.symbol) : null;
+      if (fields.hasOwnProperty('unit')) row.asset_unit_enc = fields.unit ? await _enc(fields.unit) : null;
+      if (fields.klass) row.asset_class_enc = await _enc(fields.klass);
+      if (fields.archive) row.archived_at = new Date().toISOString();
+      const r = await _sbi().from('personal_accounts').update(row).eq('id', id).eq('owner_user_id', P.uid).eq('kind', 'investment');
+      if (r.error) { console.warn('position update failed', r.error); return false; }
+      await window.fhPersonalHydrate(); return true;
+    };
+    window.fhInvManualPriceSet = async function (id, priceK) {
+      const P = _P(); if (!P || !P.key || !id || !(priceK > 0)) return false;
+      const r = await _sbi().from('personal_accounts').update({
+        manual_price_enc: await _enc(Number(priceK)), manual_price_at: new Date().toISOString(),
+      }).eq('id', id).eq('owner_user_id', P.uid).eq('kind', 'investment');
+      if (r.error) { console.warn('manual price failed', r.error); return false; }
+      await window.fhPersonalHydrate(); return true;
+    };
+    /* One leg, one real event. dir 'buy'|'sell'; amtK > 0; qty optional (>0). */
+    window.fhInvAdd = async function (o) {
+      const P = _P(); if (!P || !P.key || !(o && o.amtK > 0) || !o.positionId) return false;
+      const sign = o.dir === 'sell' ? 1 : -1;
+      const row = { owner_user_id: P.uid, txn_date: o.dateIso || _todayIso(),
+        kind: 'investment', space_id: null, link_id: null,
+        amount_enc: await _enc(sign * Number(o.amtK)),
+        quantity_enc: (o.qty > 0) ? await _enc(-sign * Number(o.qty)) : null,
+        note_enc: o.note ? await _enc(o.note) : null,
+        account_id: o.accountId || null,
+        position_account_id: o.positionId,
+        source: o.source || null };
+      const r = await _sbi().from('personal_transactions').insert(row);
+      if (r.error) { console.warn('investment row failed', r.error); return false; }
+      await window.fhPersonalHydrate(); return true;
+    };
+    /* Edit keeps the row's direction — the sheet takes positives and re-signs. */
+    window.fhInvRowUpdate = async function (id, fields) {
+      const P = _P(); if (!P || !P.key || !id) return false;
+      const cur = (P.debts || []).find((d) => d.id === id); if (!cur) return false;
+      const sell = cur.amt != null ? cur.amt > 0 : false;
+      const row = {};
+      if (fields.amtK > 0) row.amount_enc = await _enc((sell ? 1 : -1) * Number(fields.amtK));
+      if (fields.hasOwnProperty('qty')) row.quantity_enc = (fields.qty > 0) ? await _enc((sell ? -1 : 1) * Number(fields.qty)) : null;
+      if (fields.hasOwnProperty('note')) row.note_enc = fields.note ? await _enc(fields.note) : null;
+      if (fields.dateIso) row.txn_date = fields.dateIso;
+      const r = await _sbi().from('personal_transactions').update(row).eq('id', id).eq('owner_user_id', P.uid).eq('kind', 'investment').is('link_id', null);
+      if (r.error) { console.warn('investment row update failed', r.error); return false; }
+      await window.fhPersonalHydrate(); return true;
+    };
+
+    /* ── counterparty → position memory (spec I9) — pre-select, never commit ─ */
+    /* Same normalization shape as csvPatternKey (57-csv-import-review): deburr,
+       lowercase, letters-only. Digits are stripped on purpose — the same OTC
+       seller arrives with a different transfer ref every time. */
+    const _memKey = function (raw) {
+      if (!raw) return null;
+      const d = window.deburr ? deburr(String(raw).toLowerCase()) : String(raw).toLowerCase();
+      const k = d.replace(/[^a-z\s]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 40);
+      return k || null;
+    };
+    window.fhInvMemoryMatch = function (raw) {
+      const P = _P(); if (!P || !P.key) return null;
+      const k = _memKey(raw); if (!k) return null;
+      const hit = (P.memory || []).find((m) => m.key === k);
+      if (!hit) return null;
+      const pos = (P.accounts || []).find((a) => a.id === hit.positionId && a.kind === 'investment');
+      return pos ? hit.positionId : null;
+    };
+    window.fhInvMemorySave = async function (raw, positionId) {
+      const P = _P(); if (!P || !P.key || !positionId) return false;
+      const k = _memKey(raw); if (!k) return false;
+      const hit = (P.memory || []).find((m) => m.key === k);
+      try {
+        if (hit) {
+          if (hit.positionId === positionId) return true;
+          await _sbi().from('personal_review_memory').update({ position_account_id: positionId }).eq('id', hit.id).eq('owner_user_id', P.uid);
+          hit.positionId = positionId;
+        } else {
+          const r = await _sbi().from('personal_review_memory').insert({ owner_user_id: P.uid, key_enc: await _enc(k), position_account_id: positionId }).select('id').single();
+          if (!r.error) (P.memory = P.memory || []).push({ id: r.data.id, key: k, positionId: positionId });
+        }
+      } catch (e) { console.warn('inv memory save failed', e); }
+      return true;
+    };
+
+    /* ── the bento (zoom out) ──────────────────────────────────────────────── */
+    const _delta = function (p) {
+      if (p.netK < -0.5 && p.valueK == null) return '<span class="inv-up">đã rút hơn vốn ' + fmt(-p.netK) + '</span>';
+      if (p.plK == null) return '<span class="inv-cost">· giá vốn</span>';
+      const up = p.plK >= 0, pct = p.pctPl != null ? Math.abs(p.pctPl).toFixed(1).replace(/\.0$/, '') + '%' : fmt(Math.abs(p.plK));
+      return '<span class="' + (up ? 'inv-up' : 'inv-down') + '">' + (up ? '▲ +' : '▼ −') + pct + '</span>';
+    };
+    window.persInvestSection = function () {
+      const P = _P(); if (!P || !P.key) return '';
+      const v = fhInvPositions(); if (!v) return '';
+      const fl = fhInvMonthFlows((new Date()).getFullYear() + '-' + String((new Date()).getMonth() + 1).padStart(2, '0'));
+      let h = '<div id="pers-invest-wrap">';
+      h += '<div class="section-h" id="pers-invest-h"><span class="t">Đầu tư</span>'
+        + '<span class="acts"><a onclick="fhInvPriceRefresh(true);toast&&toast(\'Đang cập nhật giá…\')">Cập nhật giá</a>'
+        + '<a onclick="fhInvNewPositionSheet()">＋ Vị thế</a></span></div>';
+      if (!v.positions.length) {
+        h += '<section class="dbt-empty"><div class="dbt-empty-t">Theo dõi crypto, vàng, chứng khoán — tiền mua không tính là chi tiêu.</div>'
+          + '<button class="dbt-empty-cta" onclick="fhInvNewPositionSheet()">＋ Vị thế đầu tư</button></section></div>';
+        return h;
+      }
+      const tiles = [];
+      /* hero: best-effort total + lãi/lỗ over priced positions only (I12) */
+      const pl = v.plK != null ? ('<span class="' + (v.plK >= 0 ? 'inv-up' : 'inv-down') + '">' + (v.plK >= 0 ? '▲ +' : '▼ −') + fmt(Math.abs(v.plK))
+        + (v.plBaseK > 0 ? ' (' + (v.plK >= 0 ? '+' : '−') + Math.abs(v.plK / v.plBaseK * 100).toFixed(1).replace(/\.0$/, '') + '%)' : '') + '</span>') : '';
+      tiles.push('<section class="dbt-tile wide inv-hero">'
+        + '<div class="dbt-tk">Giá trị hiện tại' + (v.mixed ? ' <span class="inv-stale">· một phần theo giá vốn</span>' : '') + '</div>'
+        + '<div class="dbt-tv inv-total">' + fmt(v.totalK) + '</div>'
+        + (pl ? '<div class="dbt-ts">' + pl + '</div>' : '')
+        + ((fl.out > 0.5 || fl.inn > 0.5) ? '<div class="dbt-ts inv-flow">' + (fl.out > 0.5 ? 'Đầu tư tháng này ' + fmt(fl.out) : '')
+          + (fl.out > 0.5 && fl.inn > 0.5 ? ' · ' : '') + (fl.inn > 0.5 ? 'Rút ' + fmt(fl.inn) : '') + '</div>' : '')
+        + '</section>');
+      for (const p of v.positions) {
+        const hold = p.qty > 0 ? ('<span class="inv-qty">' + (p.qtyPartial ? '≈' : '') + _fmtQty(p.qty) + (p.unit ? ' ' + _e(p.unit) : '') + '</span>') : '';
+        const stale = (p.valueK != null && p.priceAt) ? ('<span class="inv-stale">giá ' + _ago(p.priceAt) + '</span>') : '';
+        tiles.push('<section class="dbt-tile" onclick="openInvPosition(\'' + p.id + '\')">'
+          + '<div class="dbt-tk">' + _e(p.name) + '</div>'
+          + '<div class="dbt-tv">' + fmt(p.displayK) + '</div>'
+          + '<div class="dbt-ts">' + hold + (hold ? ' · ' : '') + _delta(p) + (stale ? ' · ' + stale : '') + '</div>'
+          + '</section>');
+      }
+      if (tiles.length % 2 === 1) tiles[tiles.length - 1] = tiles[tiles.length - 1].replace('class="dbt-tile', 'class="dbt-tile wide');
+      h += '<div class="debt-bento">' + tiles.join('') + '</div></div>';
+      return h;
+    };
+    window.persInvestAfterRender = function () { fhInvPriceRefresh(false); };
+    function _redraw() {
+      const el = document.getElementById('pers-invest-wrap');
+      if (el) { const h = persInvestSection(); if (h) el.outerHTML = h; }
+    }
+
+    /* ── the zoom-in overlay — DOM built lazily so index.html stays untouched ─ */
+    let _openPosId = null;
+    function _ensureOv() {
+      if (document.getElementById('invest-overlay')) return;
+      const d = document.createElement('div');
+      d.className = 'overlay'; d.id = 'invest-overlay';
+      d.innerHTML = '<div class="safe"></div><div class="cd-nav">'
+        + '<button class="cd-back" onclick="closeInvest()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg><span>Tài Chính</span></button></div>'
+        + '<h1 class="txn-title" id="inv-title">Đầu tư</h1>'
+        + '<div class="cd-scroll" id="inv-scroll"><div id="inv-body"></div><div class="spacer"></div></div>';
+      document.body.appendChild(d);
+    }
+    window.closeInvest = function () {
+      _openPosId = null;
+      const d = document.getElementById('invest-overlay'); if (d) d.classList.remove('on');
+    };
+    function _reopen() { if (_openPosId && document.getElementById('invest-overlay') && document.getElementById('invest-overlay').classList.contains('on')) openInvPosition(_openPosId); }
+
+    window.openInvPosition = function (posId) {
+      const P = _P(); const v = fhInvPositions(); if (!v) return;
+      const p = v.positions.find((x) => x.id === posId); if (!p) return;
+      _ensureOv(); _openPosId = posId;
+      const acctName = (id) => { const a = (P.accounts || []).find((x) => x.id === id); return a ? (a.name || '') : ''; };
+      let b = '<div class="dbt-hero2"><div class="dbt-hk">' + (p.valueK != null ? 'Giá trị hiện tại' : (p.netK < -0.5 ? 'Đã rút hơn vốn' : 'Đã đầu tư (giá vốn)')) + '</div>'
+        + '<div class="dbt-hv">' + fmt(Math.abs(p.displayK)) + '</div>'
+        + '<div class="dbt-hs">' + (p.qty > 0 ? (p.qtyPartial ? '≈' : '') + _fmtQty(p.qty) + (p.unit ? ' ' + _e(p.unit) : '') + ' · ' : '') + _delta(p) + '</div>'
+        + (p.valueK != null ? '<div class="dbt-hs">Vốn ròng ' + fmt(p.netK) + (p.qty > 0 && p.netK > 0 ? ' · vốn TB ' + fmt(p.netK / p.qty) + '/' + _e(p.unit || 'đv') : '') + '</div>' : '')
+        + '<div class="dbt-hs">' + (p.priceK != null
+          ? 'Giá ' + fmt(p.priceK) + '/' + _e(p.unit || 'đv') + ' · ' + (_ago(p.priceAt) || '') + (p.priceSrc === 'manual' ? ' · tự nhập' : '')
+          : 'Chưa có giá — hiển thị theo giá vốn')
+        + ' · <a class="dbt-relink" onclick="fhInvPriceSheet(\'' + p.id + '\')">cập nhật giá</a></div>'
+        + (p.unreadable ? '<div class="dbt-hs">Có ' + p.unreadable + ' khoản chưa đọc được — chưa tính vào vốn.</div>' : '')
+        + '</div>';
+      b += '<div class="dbt-acts">'
+        + '<button class="dbt-btn primary" onclick="fhInvTradeSheet(\'' + p.id + '\',\'buy\')">Mua thêm</button>'
+        + '<button class="dbt-btn tinted" onclick="fhInvTradeSheet(\'' + p.id + '\',\'sell\')">Bán bớt</button></div>';
+      b += '<div class="dbt-acts2"><a onclick="fhInvEditSheet(\'' + p.id + '\')">Sửa vị thế</a></div>';
+      if (p.rows.length) {
+        b += '<div class="dbt-sec">Lịch sử</div><div class="dbt-card">';
+        const rows = p.rows.slice().sort((a, c) => (c.date + (c.ts || '')).localeCompare(a.date + (a.ts || '')));
+        for (const r of rows) {
+          const sell = r.amt != null && r.amt > 0;
+          b += '<div class="dbt-li tap" onclick="fhInvRowSheet(\'' + r.id + '\')">'
+            + '<div class="dbt-lib"><div class="dbt-lin">' + (sell ? 'Bán' : 'Mua') + (r.qty != null ? ' · ' + _fmtQty(Math.abs(r.qty)) + (p.unit ? ' ' + _e(p.unit) : '') : '') + '</div>'
+            + '<div class="dbt-lis">' + _dmy(r.date) + (r.accountId ? ' · ' + _e(acctName(r.accountId)) : '') + (r.note ? ' · ' + _e(r.note) : '') + '</div></div>'
+            + '<div class="dbt-liv ' + (sell ? 'owed' : '') + '">' + (r.amt == null ? '—' : (sell ? '+' : '−') + fmt(Math.abs(r.amt))) + '</div></div>';
+        }
+        b += '</div>';
+      }
+      document.getElementById('inv-title').textContent = p.name;
+      document.getElementById('inv-body').innerHTML = b;
+      document.getElementById('invest-overlay').classList.add('on');
+      const sc = document.getElementById('inv-scroll'); if (sc) sc.scrollTop = 0;
+    };
+
+    /* ── sheets — all via _fhModal, no bespoke DOM ──────────────────────────── */
+    const _amtIn2 = (id, label, ph) => '<div class="field"><label>' + label + '</label><input class="num" id="' + id + '" inputmode="numeric" placeholder="' + (ph || '0 ₫') + '" oninput="fhModalDirty()"></div>';
+    const _amtOf2 = (id) => { const el = document.getElementById(id); return el ? (window.parseAmtBase ? parseAmtBase(el.value) : 0) : 0; };
+    const _qtyIn = (id, unit) => '<div class="field"><label>Số lượng <span class="opt">· tuỳ chọn' + (unit ? ' · ' + _e(unit) : '') + '</span></label><input id="' + id + '" inputmode="decimal" placeholder="vd. 0.0025" oninput="fhModalDirty()"></div>';
+    const _qtyOf = (id) => { const el = document.getElementById(id); if (!el) return null; const n = Number(String(el.value).replace(',', '.').trim()); return (isFinite(n) && n > 0) ? n : null; };
+    const _valOf = (id) => ((document.getElementById(id) || {}).value || '').trim();
+
+    window.fhInvNewPositionSheet = function (onDone) {
+      const P = _P(); if (!P || !P.key) { window.toast && toast('Mở khoá sổ cá nhân trước'); return; }
+      const kchip = (k, on) => '<button class="choice' + (on ? ' on' : '') + '" data-v="' + k + '" onclick="pick(\'inv-klass\',this)">' + CLS[k] + '</button>';
+      _fhModal({
+        title: 'Vị thế đầu tư mới', saveLabel: 'Tạo', reqMsg: 'Đặt tên cho vị thế nhé',
+        body: '<div class="field"><label>Tên</label><input id="inv-pname" placeholder="vd. Bitcoin, Vàng nhẫn, CP FPT" oninput="fhModalDirty()"></div>'
+          + '<div class="field"><label>Loại</label><div class="choices" id="inv-klass">' + Object.keys(CLS).map((k) => kchip(k, k === 'crypto')).join('') + '</div></div>'
+          + '<div class="field"><label>Mã <span class="opt">· tuỳ chọn — crypto tự cập nhật giá theo mã</span></label><input id="inv-psym" placeholder="vd. BTC" oninput="fhModalDirty()"></div>'
+          + '<div class="field"><label>Đơn vị <span class="opt">· tuỳ chọn</span></label><input id="inv-punit" placeholder="vd. BTC, chỉ, CP, CCQ" oninput="fhModalDirty()"></div>'
+          + '<div class="dbt-note">Tiền mua vào không tính là chi tiêu — nó hiện thành dòng "Đầu tư tháng này" riêng.</div>',
+        required: function () { return [{ el: document.getElementById('inv-pname'), ok: !!_valOf('inv-pname') }]; },
+        save: async function () {
+          const id = await fhInvPositionCreate(_valOf('inv-pname'), _valOf('inv-psym') || null, _valOf('inv-punit') || null, (typeof chosen === 'function' && chosen('inv-klass')) || 'other');
+          if (!id) throw new Error('save_failed');
+          window.toast && toast('Đã tạo vị thế');
+          return function () {
+            if (typeof onDone === 'function') onDone(id);
+            else { if (window.renderPersonal) renderPersonal(); openInvPosition(id); }
+          };
+        },
+      });
+    };
+    window.fhInvTradeSheet = function (posId, dir) {
+      const P = _P(); const v = fhInvPositions(); const p = v && v.positions.find((x) => x.id === posId); if (!p) return;
+      const sell = dir === 'sell';
+      const accts = (P.accounts || []).filter((a) => a.kind !== 'credit_card' && a.kind !== 'investment');
+      const chip = (a, on) => '<button class="choice' + (on ? ' on' : '') + '" data-v="' + a.id + '" onclick="pick(\'inv-acct\',this)">' + _e(a.name || 'Tài khoản') + '</button>';
+      _fhModal({
+        title: (sell ? 'Bán bớt — ' : 'Mua thêm — ') + _e(p.name), saveLabel: 'Ghi lại', reqMsg: 'Nhập số tiền nhé',
+        body: _amtIn2('inv-amt', sell ? 'Tiền nhận về' : 'Tiền mua')
+          + _qtyIn('inv-qty', p.unit)
+          + '<div class="field"><label>' + (sell ? 'Tiền về đâu?' : 'Trả từ đâu?') + ' <span class="opt">· tuỳ chọn</span></label><div class="choices" id="inv-acct">'
+          + '<button class="choice on" data-v="" onclick="pick(\'inv-acct\',this)">Không gắn</button>' + accts.map((a) => chip(a, false)).join('') + '</div></div>'
+          + '<div class="field"><label>Ngày</label><input type="date" id="inv-date" value="' + _todayIso() + '" oninput="fhModalDirty()"></div>'
+          + '<div class="field"><label>Ghi chú <span class="opt">· tuỳ chọn</span></label><input id="inv-note" placeholder="' + (sell ? 'vd. chốt lời một phần' : 'vd. mua OTC qua anh X') + '" oninput="fhModalDirty()"></div>'
+          + '<div class="dbt-note">' + (sell ? 'Không tính là thu nhập — hiện thành dòng "Rút đầu tư" riêng.' : 'Không tính là chi tiêu — hiện thành dòng "Đầu tư tháng này" riêng.') + '</div>',
+        required: function () { return [{ el: document.getElementById('inv-amt'), ok: _amtOf2('inv-amt') > 0 }]; },
+        save: async function () {
+          const ok = await fhInvAdd({ dir: dir, amtK: _amtOf2('inv-amt'), positionId: posId,
+            accountId: (typeof chosen === 'function' && chosen('inv-acct')) || null,
+            qty: _qtyOf('inv-qty'), note: _valOf('inv-note') || null,
+            dateIso: _valOf('inv-date') || undefined, source: 'manual' });
+          if (!ok) throw new Error('save_failed');
+          window.toast && toast(sell ? 'Đã ghi bán — không tính thu nhập' : 'Đã ghi mua — không tính chi tiêu');
+          return function () { if (window.renderPersonal) renderPersonal(); openInvPosition(posId); };
+        },
+      });
+    };
+    window.fhInvPriceSheet = function (posId) {
+      const v = fhInvPositions(); const p = v && v.positions.find((x) => x.id === posId); if (!p) return;
+      _fhModal({
+        title: 'Giá hiện tại — ' + _e(p.name), saveLabel: 'Lưu giá', reqMsg: 'Nhập giá mỗi ' + (p.unit || 'đơn vị'),
+        body: _amtIn2('inv-price', 'Giá mỗi ' + _e(p.unit || 'đơn vị'), p.priceK != null ? fmt(p.priceK) : '0 ₫')
+          + '<div class="dbt-note">' + (p.priceK != null ? 'Đang dùng: ' + fmt(p.priceK) + ' · ' + (_ago(p.priceAt) || '') + (p.priceSrc === 'manual' ? ' · tự nhập' : ' · tự động') + '. ' : '')
+          + 'Giá chỉ để tính lãi/lỗ trên máy bạn — không gửi đi đâu.</div>',
+        required: function () { return [{ el: document.getElementById('inv-price'), ok: _amtOf2('inv-price') > 0 }]; },
+        save: async function () {
+          const ok = await fhInvManualPriceSet(posId, _amtOf2('inv-price'));
+          if (!ok) throw new Error('save_failed');
+          window.toast && toast('Đã lưu giá');
+          return function () { _redraw(); openInvPosition(posId); };
+        },
+      });
+    };
+    window.fhInvEditSheet = function (posId) {
+      const v = fhInvPositions(); const p = v && v.positions.find((x) => x.id === posId); if (!p) return;
+      const kchip = (k) => '<button class="choice' + (k === p.klass ? ' on' : '') + '" data-v="' + k + '" onclick="pick(\'inv-klass\',this)">' + CLS[k] + '</button>';
+      _fhModal({
+        title: 'Sửa vị thế', saveLabel: 'Lưu', reqMsg: 'Tên không được trống',
+        body: '<div class="field"><label>Tên</label><input id="inv-pname" value="' + _e(p.name) + '" oninput="fhModalDirty()"></div>'
+          + '<div class="field"><label>Loại</label><div class="choices" id="inv-klass">' + Object.keys(CLS).map(kchip).join('') + '</div></div>'
+          + '<div class="field"><label>Mã <span class="opt">· tuỳ chọn</span></label><input id="inv-psym" value="' + _e(p.symbol || '') + '" oninput="fhModalDirty()"></div>'
+          + '<div class="field"><label>Đơn vị <span class="opt">· tuỳ chọn</span></label><input id="inv-punit" value="' + _e(p.unit || '') + '" oninput="fhModalDirty()"></div>'
+          + '<button class="dbt-btn danger" id="inv-arch" onclick="fhInvArchTap(\'' + p.id + '\',this)">Lưu trữ vị thế</button>'
+          + '<div class="dbt-note">Lưu trữ ẩn vị thế khỏi bento; các khoản mua/bán đã ghi vẫn nằm trong sổ.</div>',
+        required: function () { return [{ el: document.getElementById('inv-pname'), ok: !!_valOf('inv-pname') }]; },
+        save: async function () {
+          const ok = await fhInvPositionUpdate(posId, { name: _valOf('inv-pname'), symbol: _valOf('inv-psym') || null,
+            unit: _valOf('inv-punit') || null, klass: (typeof chosen === 'function' && chosen('inv-klass')) || p.klass });
+          if (!ok) throw new Error('save_failed');
+          window.toast && toast('Đã lưu');
+          return function () { if (window.renderPersonal) renderPersonal(); openInvPosition(posId); };
+        },
+      });
+    };
+    /* archive is arm-then-confirm, like the transfer-pair delete */
+    window.fhInvArchTap = async function (posId, btn) {
+      if (!btn.dataset.armed) { btn.dataset.armed = '1'; btn.textContent = 'Bấm lần nữa để lưu trữ'; return; }
+      const ok = await fhInvPositionUpdate(posId, { archive: true });
+      if (!ok) { window.toast && toast('Chưa lưu trữ được, thử lại'); return; }
+      window.toast && toast('Đã lưu trữ vị thế');
+      if (window.fhModalClose) fhModalClose();
+      closeInvest(); if (window.renderPersonal) renderPersonal();
+    };
+    window.fhInvRowSheet = function (rowId) {
+      const P = _P(); const r = (P.debts || []).find((d) => d.id === rowId); if (!r) return;
+      const v = fhInvPositions(); const p = v && v.positions.find((x) => x.id === r.positionId);
+      const sell = r.amt != null && r.amt > 0;
+      _fhModal({
+        title: (sell ? 'Khoản bán' : 'Khoản mua') + (p ? ' — ' + _e(p.name) : ''), saveLabel: 'Lưu', reqMsg: 'Số tiền phải lớn hơn 0',
+        body: _amtIn2('inv-amt', sell ? 'Tiền nhận về' : 'Tiền mua', r.amt == null ? '0 ₫' : fmt(Math.abs(r.amt)))
+          + _qtyIn('inv-qty', p && p.unit)
+          + '<div class="field"><label>Ngày</label><input type="date" id="inv-date" value="' + _e(r.date) + '" oninput="fhModalDirty()"></div>'
+          + '<div class="field"><label>Ghi chú <span class="opt">· tuỳ chọn</span></label><input id="inv-note" value="' + _e(r.note || '') + '" oninput="fhModalDirty()"></div>'
+          + '<button class="dbt-btn danger" id="inv-del" onclick="fhInvRowDelTap(\'' + r.id + '\',this)">Xoá khoản này</button>',
+        after: function () { const q = document.getElementById('inv-qty'); if (q && r.qty != null) q.value = _fmtQty(Math.abs(r.qty)); const a = document.getElementById('inv-amt'); if (a && r.amt != null) a.value = (window.amtToInput ? amtToInput(Math.abs(r.amt)) : String(Math.abs(r.amt))); },
+        required: function () { return [{ el: document.getElementById('inv-amt'), ok: _amtOf2('inv-amt') > 0 }]; },
+        save: async function () {
+          const ok = await fhInvRowUpdate(rowId, { amtK: _amtOf2('inv-amt'), qty: _qtyOf('inv-qty'),
+            note: _valOf('inv-note') || null, dateIso: _valOf('inv-date') || undefined });
+          if (!ok) throw new Error('save_failed');
+          window.toast && toast('Đã lưu');
+          return function () { if (window.renderPersonal) renderPersonal(); if (r.positionId) openInvPosition(r.positionId); };
+        },
+      });
+    };
+    /* ── Committed-row flip (spec §8): "đây là khoản đầu tư" ─────────────────
+       The retroactive correction for the original itch — an OTC transfer that
+       landed as an expense. Opened from the personal expense editor (55), the
+       fhExpenseToLoanSheet pattern one shelf over. In-place flip: same id,
+       date, account, note, photos; category drops; amount re-signs to buy. */
+    window.fhExpenseToInvestSheet = function (id) {
+      const P = _P(); if (!P || !P.key) return;
+      const t = (P.txns || []).find((x) => x.id === id);
+      if (!t || t.kind !== 'expense' || t.spaceId || t.linkId) return;
+      const poss = (P.accounts || []).filter((a) => a.kind === 'investment');
+      const chip = (a) => '<button class="choice" data-v="' + a.id + '" onclick="pick(\'inv-cvpos\',this)">' + _e(a.name || 'Vị thế') + '</button>';
+      _fhModal({
+        title: 'Chuyển thành khoản đầu tư', saveLabel: 'Chuyển', reqMsg: 'Chọn hoặc tạo vị thế nhé',
+        body: '<div class="dbt-note">Khoản <b class="num">' + fmt(Math.abs(t.amt || 0)) + '</b>' + (t.note ? ' · ' + _e(t.note) : '')
+          + ' sẽ rời khỏi chi tiêu tháng và cộng vào vốn của vị thế — không tính là chi tiêu nữa.</div>'
+          + (poss.length ? '<div class="field"><label>Vị thế</label><div class="choices" id="inv-cvpos">' + poss.map(chip).join('') + '</div></div>' : '')
+          + '<div class="field"><label>' + (poss.length ? 'Hoặc tạo vị thế mới' : 'Vị thế mới') + '</label><input id="inv-cvnew" placeholder="vd. Bitcoin" oninput="fhModalDirty()"></div>'
+          + _qtyIn('inv-cvqty', null),
+        required: function () {
+          const picked = (typeof chosen === 'function' && chosen('inv-cvpos')) || null;
+          return [{ el: document.getElementById('inv-cvnew'), ok: !!(picked || _valOf('inv-cvnew')) }];
+        },
+        save: async function () {
+          let posId = (typeof chosen === 'function' && chosen('inv-cvpos')) || null;
+          if (!posId) {
+            posId = await fhInvPositionCreate(_valOf('inv-cvnew'), null, null, 'other');
+            if (!posId) throw new Error('save_failed');
+          }
+          const ok = await window.fhPersonalConvertToInvestment(id, posId, _qtyOf('inv-cvqty'));
+          if (!ok) throw new Error('save_failed');
+          /* the seller in the note becomes the remembered mapping too (I9) */
+          if (t.note) { try { fhInvMemorySave(t.note, posId); } catch (e) {} }
+          window.toast && toast('Đã chuyển thành đầu tư — xem ở bento Đầu tư');
+          return function () {
+            if (window.renderPersonal) renderPersonal();
+            if (typeof refreshPersonalTxnOverlay === 'function') refreshPersonalTxnOverlay();
+          };
+        },
+      });
+    };
+    window.fhInvRowDelTap = async function (rowId, btn) {
+      if (!btn.dataset.armed) { btn.dataset.armed = '1'; btn.textContent = 'Bấm lần nữa để xoá'; return; }
+      const P = _P(); const r = (P.debts || []).find((d) => d.id === rowId);
+      const ok = await window.fhPersonalDeleteExpense(rowId);   // any private row: photos swept, link_id-null guarded
+      if (!ok) { window.toast && toast('Chưa xoá được, thử lại'); return; }
+      window.toast && toast('Đã xoá');
+      if (window.fhModalClose) fhModalClose();
+      if (window.renderPersonal) renderPersonal();
+      if (r && r.positionId) openInvPosition(r.positionId); else closeInvest();
     };
   })();
 
@@ -28974,6 +30462,10 @@ window.classifyAmount = classifyAmount;
     } catch (e) { window._fhPersonalMatchSlice = null; }
 
     csvLearnLoad();
+    /* Synced lessons (0122): pull + merge the encrypted personal_lessons blob
+       before the lending pass reads it. Best-effort — a failed sync degrades
+       to whatever this device already knows, never blocks the queue. */
+    try { if (window.fhLessonsSync) await window.fhLessonsSync(); } catch (e) {}
     csvBuildReview([fhStagedAsCsvSource(readable)], {});
     renderCsvReview();
 
@@ -29231,7 +30723,7 @@ window.classifyAmount = classifyAmount;
       /* A family-scoped INCOME row goes to the family income book — the family
          expense importer (csvPromote) writes expenses only, and money-in must
          never ride into it as spending (0109). */
-      else if (c.isIncome && !c._xfer && !c._repay) famInc.push(c);
+      else if (c.isIncome && !c._xfer && !c._repay && !c._invest) famInc.push(c);
       else theirs.push(c);
     });
     if (!picked.length) return;
@@ -29260,9 +30752,21 @@ window.classifyAmount = classifyAmount;
        common path. One candidate can span TWO specs (a transfer pair); ranges
        records the span so progress and retirement speak in candidates. */
     var pd = (window.fhPersonalData && window.fhPersonalData()) || { accounts: [] };
-    var specs = [], ranges = [], extBals = {};
+    var specs = [], ranges = [], extBals = {}, lessonOps = [], invMemOps = [];
     for (var i = 0; i < mine.length; i++) {
       var c = mine[i];
+      /* Lesson bookkeeping (0122, spec Q20c) — resolved AFTER the write lands:
+         a confirmed loan (picked or a pre-select left standing) strengthens its
+         lesson; a fired lesson the person flipped away weakens it by one. */
+      if (window.fhKindLearn && typeof csvLearnKey === 'function') {
+        if (c._loan) {
+          var _lw = (c._loanWho || '').trim() || (c.counterparty || '').trim();
+          var _lk = c._lessonKey || csvLearnKey(c);
+          if (_lk && _lw) lessonOps.push({ op: 'learn', key: _lk, who: _lw });
+        } else if (c._lessonKey && c._lessonWhy === 'learned') {
+          lessonOps.push({ op: 'weaken', key: c._lessonKey });
+        }
+      }
       /* c.amount is DISPLAY currency (a bank email's "45.000" is 45000 here),
          exactly like the CSV review. The personal writes store BASE units
          (÷curMult, 1000 for VND) — the same conversion the family write does
@@ -29323,15 +30827,66 @@ window.classifyAmount = classifyAmount;
         }
         if (ownId) _recBal(ownId);
       } else if (c._repay) {
-        /* Repayment received (0109): draws the counterparty's balance down —
-           the review-side entry the borrowing-lending spec §5 wanted. +X =
-           they repaid me (credit rows are the only ones offered this kind). */
-        specs.push({ kind: 'repayment', amt: base,
-          who: (c._repayWho || '').trim() || (c.counterparty || '').trim() || '—',
-          note: c.description || null, dateIso: c.dateDisplay || undefined, source: src });
+        /* Repayment (0109 credit-side, 0122 both directions): draws the
+           counterparty's balance toward zero. Sign follows the money — +X =
+           they repaid me (credit row), −X = I repaid them (debit row). Tagged
+           to the receiving/sending instrument so the account's derived balance
+           moves with it (0122 extended fhPersonalBalance to loan/repayment). */
+        var repAcct = null;
         if (ai && ai.kind !== 'credit_card' && window.fhPersonalAccountEnsure) {
-          try { _recBal(await window.fhPersonalAccountEnsure(ai)); } catch (eR) {}
+          try { repAcct = await window.fhPersonalAccountEnsure(ai); } catch (eR) {}
         }
+        specs.push({ kind: 'repayment', amt: c.isIncome ? base : -base,
+          who: (c._repayWho || '').trim() || (c.counterparty || '').trim() || '—',
+          note: c.description || null, dateIso: c.dateDisplay || undefined,
+          accountId: repAcct, source: src });
+        if (repAcct) _recBal(repAcct);
+      } else if (c._loan) {
+        /* Loan out (0122): opens a receivable — NOT an expense (no consumption;
+           the money changed shape, not owner). +X = I lent X, per the 0105 sign
+           convention. Wears the counterparty the review confirmed, the optional
+           "hẹn trả" date, and the sending instrument. */
+        var loanAcct = null;
+        if (ai && ai.kind !== 'credit_card' && window.fhPersonalAccountEnsure) {
+          try { loanAcct = await window.fhPersonalAccountEnsure(ai); } catch (eLn) {}
+        }
+        specs.push({ kind: 'loan', amt: base,
+          who: (c._loanWho || '').trim() || (c.counterparty || '').trim() || '—',
+          note: c.description || null, dateIso: c.dateDisplay || undefined,
+          dueDate: c._loanDue || undefined, accountId: loanAcct, source: src });
+        if (loanAcct) _recBal(loanAcct);
+      } else if (c._invest) {
+        /* Investment (0123, investment-spec §3): ONE leg, one real event — the
+           card-payment shape, not a pair. A buy is money OUT (amount −X,
+           quantity +q) accruing to the position; a sell is money IN (+X, −q)
+           drawing it down. The seller stays in the note — a memo, never a
+           counterparty. NOT an expense, NOT income: the money changed shape,
+           not owner. No position picked → falls back to a plain row the
+           person can convert later, rather than inventing a position. */
+        var invAcct = null;
+        if (ai && ai.kind !== 'credit_card' && window.fhPersonalAccountEnsure) {
+          try { invAcct = await window.fhPersonalAccountEnsure(ai); } catch (eIv) {}
+        }
+        var invSell = !!c.isIncome;
+        if (c._investPosId) {
+          specs.push({ kind: 'investment', amt: invSell ? base : -base,
+            positionId: c._investPosId,
+            qty: (c._investQty > 0) ? (invSell ? -c._investQty : c._investQty) : undefined,
+            note: c.description || null, dateIso: c.dateDisplay || undefined,
+            accountId: invAcct, source: src });
+          /* remember the seller → position mapping once the write lands (I9) */
+          var _ik = (c.counterparty || c.description || '').trim();
+          if (_ik) invMemOps.push({ key: _ik, posId: c._investPosId });
+        } else if (invSell) {
+          specs.push({ kind: 'income', amt: base, note: c.description || '',
+            catName: 'Khác', catEmoji: '💰',
+            dateIso: c.dateDisplay || undefined, time: _t, accountId: invAcct, source: src });
+        } else {
+          specs.push({ kind: 'expense', amt: base, note: c.description || '',
+            catName: null, catEmoji: '🗂️',
+            dateIso: c.dateDisplay || undefined, time: _t, accountId: invAcct, source: src });
+        }
+        if (invAcct) _recBal(invAcct);
       } else if (c.isIncome) {
         /* Income is first-class on the spine since 0109: category (the
            income-side set), the receiving account (what makes a deposit
@@ -29428,6 +30983,23 @@ window.classifyAmount = classifyAmount;
         return;
       }
     }
+
+    /* Lessons commit only once the rows they describe are really in the ledger
+       — learning from a write that failed would teach a phantom. */
+    try {
+      lessonOps.forEach(function (o) {
+        if (o.op === 'learn') window.fhKindLearn(o.key, o.who);
+        else window.fhKindWeaken(o.key);
+      });
+    } catch (eLo) {}
+
+    /* Seller → position memory (0123, I9) — same posture as the lessons:
+       remember only what actually landed in the ledger. Fire-and-forget. */
+    try {
+      invMemOps.forEach(function (o) {
+        if (window.fhInvMemorySave) window.fhInvMemorySave(o.key, o.posId);
+      });
+    } catch (eIm) {}
 
     /* The freshest captured "Số dư" per account — a handful of UPDATEs for the
        whole batch, after the rows they describe. Best-effort side-signal. */

@@ -30,7 +30,7 @@ function closeModals(){
   });
   if(!keepPa) document.getElementById('scrim').classList.remove('on');
   editingTx=null; editingPTx=null; editSnap=null; exPhotos=[]; evPhotos=[]; memPick=null; memPickMulti=null;
-  setTxt('ex-title',L('Khoản chi','Expense')); var del=document.getElementById('ex-del'); if(del)del.style.display='none';
+  setTxt('ex-title',L('Khoản chi','Expense')); var del=document.getElementById('ex-del'); if(del)del.style.display='none'; var tl9=document.getElementById('ex-toloan'); if(tl9)tl9.style.display='none'; var ti9=document.getElementById('ex-toinvest'); if(ti9)ti9.style.display='none';
   resetDelArm();
 }
 /* new-event modal */
@@ -412,7 +412,7 @@ function prefillExpense(){
   exPhotos = (exPreset && exPreset.photos) ? exPreset.photos.slice() : [];
   renderExPhoto();
   setTxt('ex-title',L('Khoản chi','Expense'));
-  var del=document.getElementById('ex-del'); if(del)del.style.display='none';
+  var del=document.getElementById('ex-del'); if(del)del.style.display='none'; var tl9=document.getElementById('ex-toloan'); if(tl9)tl9.style.display='none'; var ti9=document.getElementById('ex-toinvest'); if(ti9)ti9.style.display='none';
   renderBulk();
   if(bulkActive>=0 && bulkRows[bulkActive]) loadRow(bulkActive);
   updateExWhen(); refreshExCta();

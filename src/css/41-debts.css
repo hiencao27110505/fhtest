@@ -142,3 +142,11 @@
 /* a history row that opens something (a transfer pair) — visible press feedback */
 .dbt-li.tap{cursor:pointer;transition:background .12s ease}
 .dbt-li.tap:active{background:var(--surface)}
+
+/* ── Lending capture (0122) ─────────────────────────────────────────────── */
+/* overdue wears the danger tint — an amber "đến hạn" that already passed */
+.dbt-due.over{background:var(--danger-tint);color:var(--danger)}
+.dbt-overtxt{color:var(--danger);font-weight:700}
+/* the nhắc-trả QR — centered card above the editable message */
+.dbt-rq-qr{display:flex;justify-content:center;margin:2px 0 12px}
+.dbt-rq-cv{width:200px;height:200px;border-radius:14px;border:1px solid var(--hairline)}

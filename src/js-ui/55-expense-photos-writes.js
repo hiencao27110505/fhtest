@@ -291,6 +291,25 @@ function fillPersonalExpenseFromTx(){
   var _af=document.getElementById('ex-acctfield'); if(_af){ _af.style.display=''; buildExAcctChips(t.accountId||null); }
   setTxt('ex-title',L('Sửa khoản chi','Edit expense'));
   var del=document.getElementById('ex-del'); if(del)del.style.display='block';
+  /* "Đây là khoản cho vay" (0122) — the retroactive kind flip, private personal
+     rows only. Injected as a sibling of the delete button so it lives where the
+     row-level verbs already are. */
+  var tl=document.getElementById('ex-toloan');
+  if(!tl && del && del.parentNode){
+    tl=document.createElement('button'); tl.id='ex-toloan'; tl.type='button'; tl.className='ex-toloan';
+    tl.onclick=function(){ var id=editingPTx; if(typeof closeExpense==='function') closeExpense(); if(window.fhExpenseToLoanSheet) fhExpenseToLoanSheet(id); };
+    del.parentNode.insertBefore(tl, del);
+  }
+  if(tl){ tl.textContent=L('🤝 Đây là khoản cho vay','🤝 This was a loan'); tl.style.display='block'; }
+  /* "Đây là khoản đầu tư" (0123) — the same retroactive flip one shelf over:
+     the miscounted OTC transfer heals here, row by row (investment-spec §8). */
+  var ti=document.getElementById('ex-toinvest');
+  if(!ti && del && del.parentNode){
+    ti=document.createElement('button'); ti.id='ex-toinvest'; ti.type='button'; ti.className='ex-toloan';
+    ti.onclick=function(){ var id=editingPTx; if(typeof closeExpense==='function') closeExpense(); if(window.fhExpenseToInvestSheet) fhExpenseToInvestSheet(id); };
+    del.parentNode.insertBefore(ti, del);
+  }
+  if(ti){ ti.textContent=L('📈 Đây là khoản đầu tư','📈 This was an investment'); ti.style.display='block'; }
   resetDelArm();
   editSnap=exFormState();
   refreshExCta();
@@ -312,6 +331,8 @@ function fillExpenseFromTx(){
   updateExWhen();
   setTxt('ex-title',L('Sửa khoản chi','Edit expense'));
   var del=document.getElementById('ex-del'); if(del)del.style.display='block';
+  var tl9=document.getElementById('ex-toloan'); if(tl9)tl9.style.display='none';   // family rows never flip to a loan (liabilities are personal)
+  var ti9=document.getElementById('ex-toinvest'); if(ti9)ti9.style.display='none'; // …nor to an investment (a portfolio is personal too)
   resetDelArm();
   editSnap=exFormState();                                  // baseline: no changes yet
   refreshExCta();                                          // Save stays disabled until the first edit

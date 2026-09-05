@@ -86,3 +86,7 @@
 .cat-del-off{opacity:.45;cursor:default}
 .cat-del-off:active{color:var(--muted-soft);background:none}
 .cat-row-lock .cat-name{color:var(--muted);cursor:default}
+
+/* "Đây là khoản cho vay" — the kind flip, sibling of .ex-del (0122) */
+.ex-toloan{display:none;width:fit-content;margin:18px auto 0;background:none;color:var(--brand);font-size:14px;font-weight:600;letter-spacing:-.01em;padding:8px 16px}
+.ex-toloan:active{opacity:.55}
