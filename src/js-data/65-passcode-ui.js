@@ -134,7 +134,7 @@
         : '';
       if (!sel.card_only) { if (window.renderCodeBoxes) window.renderCodeBoxes(''); setTimeout(function () { const c = _g('ob-code'); if (c) c.focus(); }, 80); }
     }
-    const back = _g('ob-start-back'); if (back) back.style.visibility = window.__obFromPicker ? 'visible' : 'hidden';
+    const back = _g('ob-start-back'); if (back) back.style.visibility = (window.__obFromPicker || window.__obFromApp) ? 'visible' : 'hidden';
   };
 
   window.obSelInvite = function (i) {

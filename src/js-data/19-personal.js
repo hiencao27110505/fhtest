@@ -50,9 +50,26 @@
        cannot be opened is exactly the case a person needs told (72-txn-review).
        This brings the personal ledger in line with it. */
     const _DEC_FAILED = '\u0000fh-dec-failed';
+    /* Decrypt cache, keyed by the CIPHERTEXT itself. Correct by construction:
+       a sealed value decrypts to exactly one plaintext, and any edit
+       re-encrypts under a fresh nonce — which is a brand-new key in this map,
+       so staleness cannot exist. What it buys: every hydrate re-decrypts the
+       WHOLE ledger, and that cost now grows with history (the paged debt
+       read); with the cache only rows never seen this session pay WebCrypto,
+       so hydrate №2 onward is network + JSON. Failures are never cached — a
+       locked→unlocked transition must retry, not remember the lock. Bounded so
+       a pathological session cannot grow without limit; cleared on boot, the
+       one place identity can change. */
+    const _decCache = new Map();
     const _decP = async (b64) => {
       if (!b64) return null;
-      try { return await FHCrypto.decVal(P.key, b64); } catch (e) { return _DEC_FAILED; }
+      const hit = _decCache.get(b64);
+      if (hit !== undefined) return hit;
+      try {
+        const v = await FHCrypto.decVal(P.key, b64);
+        if (_decCache.size < 30000) _decCache.set(b64, v);
+        return v;
+      } catch (e) { return _DEC_FAILED; }
     };
     const _decTxt = async (b64) => { const v = await _decP(b64); return v === _DEC_FAILED ? null : v; };
     /* The bank-email review screen offers "Ghi vào đâu? — Cá nhân", and that chip
@@ -76,6 +93,7 @@
     let _booting = false;
     window.fhPersonalBoot = async function () {
       if (_booting || !_sb()) return; _booting = true;
+      _decCache.clear();   // boot is the one place identity can change
       try {
         P.uid = await _uid(); if (!P.uid) { _setState('error'); return; }
         const kc = await _kGet('p:' + P.uid);
@@ -238,6 +256,29 @@
       if (!_hydHold && _hydWanted) { _hydWanted = false; await window.fhPersonalHydrate(); }
     };
 
+    /* Fetch EVERY row of a query that can outgrow one page. PostgREST caps any
+       single select at 1000 rows server-side, and the debt read below wore an
+       explicit limit(2000) — sized when account-tagged rows were genuinely
+       rare. Bank-email import changed that: it tags EVERY expense with an
+       account_id, so a year of backfill walks straight through the cap. Past
+       it, rows silently fell out of every balance derivation — card
+       outstandings and account balances quietly wrong, the drift badge arguing
+       against the bank with an incomplete sum, no error anywhere.
+       Offset pages over a stable (txn_date, id) order; `complete:false` only
+       at the hard safety ceiling, which callers must DECLARE, never absorb —
+       30 pages is 30k rows, decades at the busiest observed rate. */
+    async function _pageAll(build, hardPages) {
+      const SIZE = 1000, out = [];
+      for (let p = 0; p < (hardPages || 30); p++) {
+        const r = await build().range(p * SIZE, p * SIZE + SIZE - 1);
+        if (r.error) throw r.error;
+        const rows = r.data || [];
+        for (const x of rows) out.push(x);
+        if (rows.length < SIZE) return { rows: out, complete: true };
+      }
+      return { rows: out, complete: false };
+    }
+
     window.fhPersonalHydrate = async function () {
       if (!P.uid || !P.key) return;
       if (_hydHold) { _hydWanted = true; return; }
@@ -251,14 +292,24 @@
         /* Debt rows (loans / repayments / transfers, plus any expense tagged to
            an account) are fetched ALL-TIME, unlike the month-windowed expense
            reads: a balance is a stock, not a flow — truncating it to two months
-           would understate every card and IOU. They are rare rows and carried by
-           the partial indexes from 0105. */
+           would understate every card and IOU. Paged without a working cap
+           (_pageAll) because bank import made them common, not rare; the
+           partial indexes from 0105 still carry the scan. The month window is
+           paged too — a heavy import month can clear 1000 rows on its own,
+           and PostgREST's own 1000-row default would have clipped it as
+           silently as the old limit(2000). */
         const [tr, bd, ac, dr] = await Promise.all([
-          _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,occurred_time_enc,txn_date,kind,space_id,link_id,version,updated_at,created_at,account_id,transfer_group_id').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }),
+          _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,occurred_time_enc,txn_date,kind,space_id,link_id,version,updated_at,created_at,account_id,transfer_group_id').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }).order('id')),
           _sb().from('personal_budgets').select('total_enc,cats_enc').eq('owner_user_id', P.uid).eq('month', _monISO()).maybeSingle(),
           _sb().from('personal_accounts').select('id,kind,name_enc,tail,provider,credit_limit_enc,human_verified,statement_day,due_day,anchor_balance_enc,anchor_at,ext_balance_enc,ext_balance_date').eq('owner_user_id', P.uid).is('archived_at', null),
-          _sb().from('personal_transactions').select('id,amount_enc,note_enc,counterparty_enc,cat_name_enc,cat_emoji,txn_date,kind,account_id,transfer_group_id,created_at').eq('owner_user_id', P.uid).or('kind.neq.expense,account_id.not.is.null').order('txn_date', { ascending: false }).limit(2000),
+          _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,counterparty_enc,cat_name_enc,cat_emoji,txn_date,kind,account_id,transfer_group_id,created_at').eq('owner_user_id', P.uid).or('kind.neq.expense,account_id.not.is.null').order('txn_date', { ascending: false }).order('id')),
         ]);
+        /* Ceiling honesty, same stance as the stats slice's `truncated`: a
+           short debt read understates balances, so it is counted and declared,
+           never silent. Nothing renders differently yet; the flag exists so a
+           view CAN say so the day anyone reaches it. */
+        P.debtsComplete = !!(tr.complete && dr.complete);
+        if (!P.debtsComplete) console.warn('personal hydrate hit the page ceiling', { tr: tr.complete, dr: dr.complete });
         /* Their budget read goes through _decP too, so an unreadable budget must
            not become a number either — the sentinel is a string and Number() of
            it is NaN. Explicit rather than relying on `|| 0` to absorb it. */
@@ -275,7 +326,7 @@
            will not open costs a label; an amount that will not open corrupts
            money, so only that one takes the row out of every total. */
         P.txns = []; P.unreadable = 0;
-        for (const t of (tr.data || [])) {
+        for (const t of tr.rows) {
           const a = await _decP(t.amount_enc), bad = (a === _DEC_FAILED);
           if (bad) P.unreadable++;
           P.txns.push({ id: t.id, date: t.txn_date, kind: t.kind, spaceId: t.space_id, linkId: t.link_id,
@@ -319,7 +370,7 @@
             extDate: a.ext_balance_date || null });
         }
         P.debts = [];
-        for (const t of (dr.data || [])) {
+        for (const t of dr.rows) {
           const a = await _decP(t.amount_enc), bad = (a === _DEC_FAILED);
           if (bad) P.unreadable++;
           P.debts.push({ id: t.id, date: t.txn_date, kind: t.kind, accountId: t.account_id,
@@ -348,16 +399,14 @@
       try {
         const d = new Date(); d.setDate(d.getDate() - 365);
         const from = _localDate(d);
-        const r = await _sb().from('personal_transactions')
+        const r = await _pageAll(() => _sb().from('personal_transactions')
           .select('id,amount_enc,note_enc,cat_name_enc,txn_date,kind')
           .eq('owner_user_id', P.uid)
           .in('kind', ['expense', 'income'])
           .gte('txn_date', from)
-          .order('txn_date', { ascending: false })
-          .limit(4000);
-        if (r.error) { console.warn('personal match slice failed', r.error); return []; }
+          .order('txn_date', { ascending: false }).order('id'));
         const out = [];
-        for (const t of (r.data || [])) {
+        for (const t of r.rows) {
           const a = await _decP(t.amount_enc);
           if (a == null || a === _DEC_FAILED) continue;   // unreadable amount → cannot match, skip (fail closed)
           out.push({ id: t.id, date: t.txn_date, kind: t.kind, amt: Number(a),
@@ -383,24 +432,23 @@
       if (!P.uid || !P.key) return null;
       if (_statsSlice) return _statsSlice;
       try {
-        const r = await _sb().from('personal_transactions')
+        const r = await _pageAll(() => _sb().from('personal_transactions')
           .select('amount_enc,cat_name_enc,cat_emoji,txn_date,kind,space_id')
           .eq('owner_user_id', P.uid)
           .in('kind', ['expense', 'income'])
-          .order('txn_date', { ascending: false })
-          .limit(10000);
-        if (r.error) { console.warn('personal stats slice failed', r.error); return null; }
+          .order('txn_date', { ascending: false }).order('id'));
         const rows = []; let unreadable = 0;
-        for (const t of (r.data || [])) {
+        for (const t of r.rows) {
           const a = await _decP(t.amount_enc);
           if (a === _DEC_FAILED) { unreadable++; continue; }
           if (a == null) continue;
           rows.push({ date: t.txn_date, kind: t.kind, amt: Number(a),
             cat: await _decTxt(t.cat_name_enc), emoji: t.cat_emoji, spaceId: t.space_id });
         }
-        // 10k rows is years of history; if a page ever fills, the OLDEST months
-        // are the ones missing — flagged so the view can disclose, not guess.
-        _statsSlice = { rows: rows, unreadable: unreadable, truncated: (r.data || []).length >= 10000 };
+        // Paged to the _pageAll hard ceiling (30k rows — decades). If that ever
+        // fills, the OLDEST months are the ones missing — flagged so the view
+        // can disclose, not guess.
+        _statsSlice = { rows: rows, unreadable: unreadable, truncated: !r.complete };
         return _statsSlice;
       } catch (e) { console.warn('personal stats slice failed', e); return null; }
     };

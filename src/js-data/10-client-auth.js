@@ -32,8 +32,8 @@ function fhWarmAbandon() {
   // before any session check) — leaving them behind after sign-out let a
   // previous account's family name/members render on the next cold start,
   // on a device where two accounts actually sign in and out of the same app.
-  try { if (window.fhSnapClear) window.fhSnapClear(); else localStorage.removeItem('fh-snap'); localStorage.removeItem('fh-fam'); localStorage.removeItem('fh-onboarded'); } catch (e) { }
-  document.documentElement.classList.remove('fh-warm', 'fh-stale', 'fh-warm-boot');
+  try { if (window.fhSnapClear) window.fhSnapClear(); else localStorage.removeItem('fh-snap'); localStorage.removeItem('fh-fam'); localStorage.removeItem('fh-onboarded'); localStorage.removeItem('fh-nofam'); } catch (e) { }
+  document.documentElement.classList.remove('fh-warm', 'fh-stale', 'fh-warm-boot', 'fh-nofam');
   const onb = g('onboarding'); if (onb) onb.classList.remove('done');
 }
 // The session was NOT there after all (expired / signed out elsewhere) — drop the
@@ -91,19 +91,49 @@ async function afterLogin(session) {
     // someone switched family on another device — still lands on the right one.
     if (window.DB) window.DB.fid = active.family_id;
     fhResumeArm();                             // next cold start can skip straight to the splash
+    // the landing tab is Cá nhân now — boot it in parallel with the family hydrate
+    // (idempotent: the hydrate's own fhPersonalBoot call no-ops while this runs)
+    try { if (window.fhPersonalBoot) window.fhPersonalBoot(); } catch (e) { }
     // finally: a failed load must still hand the screen over, never strand us on the splash
     try { await window.loadFamilyData(); }     // auto-enter the active family → real data + DB.fid set
     finally { fhResumeDone(); }                // (no go('home') here — it would stomp on deep links)
   } else if (fams.length) {
     fhResumeFail(); fhWarmAbandon();           // no active family → the picker owns the screen
     showFamilyPicker(fams);                    // in families but none active → pick one
-  } else if (onb && typeof window.obGo === 'function') {
-    fhResumeFail(); fhWarmAbandon();
-    window.__obFromPicker = false;
-    onb.classList.remove('done'); window.obGo('start');   // brand-new → name a family / take the waiting invite
   } else {
-    fhResumeFail(); fhWarmAbandon();
+    /* Personal-first (2026-09): a brand-new account is NOT pushed into creating a
+       family. Only a waiting family invite opens the family door; otherwise the
+       app opens on the personal ledger, and the family tab holds the create
+       trigger — the family row + its key are born only when the user takes it. */
+    let invs = [];
+    try { invs = (await _rpc('find_my_invites')) || []; }
+    catch (e) { try { const one = await _rpc('find_my_invite'); invs = one ? [one] : []; } catch (e2) { } }
+    if (!Array.isArray(invs)) invs = invs ? [invs] : [];
+    invs = invs.filter((i) => i && (i.family_type || 'family') === 'family');   // friend/trip spaces never open this door
+    if (invs.length && onb && typeof window.obGo === 'function') {
+      fhResumeFail(); fhWarmAbandon();
+      window.__obFromPicker = false;
+      onb.classList.remove('done'); window.obGo('start');   // take the waiting invite (create is still offered there)
+    } else {
+      fhEnterPersonalOnly();
+    }
   }
+}
+
+/* Personal-first entry: signed in, no family anywhere. Abandon any stale family
+   warm cache, mark the shell "no family" (fh-nofam: family tabs collapse, Home
+   becomes the create trigger), retire onboarding + splash, and boot the personal
+   ledger — its own Key Card provisions on first open. No family row and no
+   family key exist until the user takes the create/invite trigger. */
+function fhEnterPersonalOnly() {
+  fhWarmAbandon();                            // a stale family snapshot (left/removed family) must not replay
+  document.documentElement.classList.add('fh-nofam');
+  try { localStorage.setItem('fh-nofam', '1'); localStorage.setItem('fh-onboarded', '1'); } catch (e) { }
+  const onb = g('onboarding'); if (onb) onb.classList.add('done');
+  fhResumeArm(); fhResumeDone();
+  try { if (typeof window.go === 'function') window.go('personal'); } catch (e) { }
+  try { if (window.fhPersonalBoot) window.fhPersonalBoot(); } catch (e) { }
+  try { if (typeof window.renderHome === 'function') window.renderHome(); } catch (e) { }
 }
 
 // Full-screen "Your families" picker (shown on login, and from Settings → Switch family)
@@ -156,14 +186,14 @@ function showFamilyPicker(fams, opts) {
     ov.remove();
     if (onb) onb.classList.remove('done');
     if (window.FAM) { window.FAM.mode = 'create'; window.FAM.familyName = ''; window.FAM.members = []; window.FAM.budget = 0; window.FAM.catBudget = null; }
-    window.__obFromPicker = true;                        // back arrow on "Your family" reopens this picker
+    window.__obFromPicker = true; window.__obFromApp = false;   // back arrow on "Your family" reopens this picker
     if (typeof window.obChoose === 'function') window.obChoose('create');
   };
   document.getElementById('fh-fam-join').onclick = () => {
     ov.remove();
     if (onb) onb.classList.remove('done');
     if (window.FAM) window.FAM.mode = 'join';
-    window.__obFromPicker = true;
+    window.__obFromPicker = true; window.__obFromApp = false;
     if (typeof window.obGo === 'function') window.obGo('start');
   };
 }

@@ -26,6 +26,17 @@ var csvExpand = null;   // { kind:'ready'|'group'|'dup'|'defer', idx } -- the on
    Every file entry point (openCsvImport / csvPickAnother) clears it. */
 var csvStagedMode = false;
 
+/* Reveal window for the ready list. A 365-day backfill can put 1000 cards in
+   one review; laying them all out is seconds of layout on a low-end phone,
+   paid again on every re-render. Whole day-buckets render up to this count,
+   then one "Hiện thêm N khoản" button (never a silent cut — the count is the
+   honesty). Persists across re-renders so a tick can't snap the list back;
+   csvBuildReview resets it per review. */
+var CSV_REVEAL_STEP = 150;
+var csvRevealCount = CSV_REVEAL_STEP;
+var csvRevealLeft = 0;      // cards currently past the window (0 = all shown)
+function csvRevealMore(){ csvRevealCount += 2 * CSV_REVEAL_STEP; renderCsvReview(); }
+
 /* One Save button, two flows: the file import (csvPromote) and the bank-email
    staged review (fhPromoteStaged). The button's onclick is FIXED to this
    dispatcher — never rewired per entry — so a stale handler can't bleed from one
@@ -526,6 +537,7 @@ function csvBuildReview(sources, opts){
   csvInflowOpen = false;   // a fresh review starts with the money-in line folded
   csvInflowDetail = null;
   csvBulkReset();          // ...and with no pane open and no delete left armed
+  csvRevealCount = CSV_REVEAL_STEP;   // a fresh review starts at the first window
 
   opts = opts || {};
   csvCatMerges = {}; csvCatAmbiguous = {};   // recomputed every build
@@ -2025,7 +2037,13 @@ function csvSumTap(col){
     var dIso=anchors[i].id.slice(7);
     if(dIso>=s && dIso<=e && (bestIso===null || dIso<bestIso)) bestIso=dIso;
   }
-  if(!bestIso) return;
+  if(!bestIso){
+    // The tapped period may sit past the reveal window — show everything,
+    // then retry once (csvRevealLeft is 0 after a full reveal, so this
+    // cannot recurse further).
+    if(csvRevealLeft > 0){ csvRevealCount = 1e9; renderCsvReview(); return csvSumTap(col); }
+    return;
+  }
   var body=document.querySelector('#csv-import-modal .modal-body');
   var el=document.getElementById('csvday-'+bestIso);
   if(!body || !el) return;
@@ -2322,7 +2340,21 @@ function renderCsvReview(){
     // The "Ready · N" banner is import-batch framing; staged review is already all
     // ready, so it just adds a count nobody needs. Keep the per-date headers only.
     if(!csvStagedMode) html += '<div class="group-h">'+L('Sẵn sàng','Ready')+' · '+readyCount+'</div>';
+    /* Reveal window: a 365-day backfill can put 1000 cards in this list, and
+       laying them ALL out is what makes the first paint (and every re-render)
+       cost seconds on a low-end phone. So the list renders whole DAY buckets
+       up to the reveal count, then one honest "Hiện thêm N khoản" button —
+       never a silent cut. The count persists across re-renders (a tick or an
+       expanded card must not snap the list back) and resets per review build.
+       A day holding the OPEN editor is always included, so an editor can never
+       be flushed into an unrendered bucket. Import is unaffected: it reads
+       csvReview.ready, not the DOM. */
+    var openIdx = (csvExpand && csvExpand.kind === 'ready') ? csvExpand.idx : -1;
+    var revealShown = 0, revealLeft = 0;
     keys.forEach(function(k){
+      var hasOpen = openIdx >= 0 && dateBuckets[k].some(function(e){ return e.i === openIdx; });
+      if(revealShown >= csvRevealCount && !hasOpen){ revealLeft += dateBuckets[k].length; return; }
+      revealShown += dateBuckets[k].length;
       var label = k ? fmtDayMon(dateBuckets[k][0].c.date) : L('Không rõ ngày','No date');
       // id anchors the summary's tap-a-bar scroll (csvSumTap); k is the ISO date
       html += '<div class="group-h"'+(k?' id="csvday-'+k+'"':'')+' style="margin-top:10px">'+esc(label)+'</div><div class="csv-cards">';
@@ -2351,6 +2383,13 @@ function renderCsvReview(){
       });
       html += '</div>';
     });
+    csvRevealLeft = revealLeft;
+    if(revealLeft > 0){
+      html += '<div class="csv-cards" style="margin-top:12px"><button type="button" class="btn-line" onclick="csvRevealMore()">'
+        + esc(L('Hiện thêm '+revealLeft+' khoản','Show '+revealLeft+' more'))+'</button></div>';
+    }
+  } else {
+    csvRevealLeft = 0;
   }
 
   /* Trust strip -- the "am I safe to press Import?" answer, right before the
@@ -2466,6 +2505,29 @@ function csvStagedToggle(i){
   }
   c._skipImport = !c._skipImport;
   csvSelTouched = true;              // a tick is the person saying "I am picking"
+  /* In-place fast path. A tick used to rebuild the entire list's innerHTML —
+     invisible at 40 cards, and the difference between "instant" and "broken"
+     at a 365-day backfill's 1000. Only three things on screen depend on one
+     tick: this card's checkbox, the header's selection count, and the Import
+     label — so patch exactly those. Taken only when no editor is open: an
+     open editor must flush its fields back first, and the full render below
+     owns that. Falls through when the card is not in the DOM (dup-filtered
+     view, not yet revealed) — the full render is always correct, just slower. */
+  if(!csvExpand){
+    var btn = document.querySelector('#csv-import-modal .bulk-check[onclick="csvStagedToggle('+i+')"]');
+    if(btn){
+      btn.classList.toggle('on', !c._skipImport);
+      btn.setAttribute('aria-checked', c._skipImport ? 'false' : 'true');
+      csvTxrHeadSync();              // the small header strip, not the list
+      var save = document.getElementById('csv-save');
+      if(save){
+        var n = csvStagedSelected().length;
+        save.disabled = (n===0);
+        save.textContent = n>0 ? L('Nhập '+n,'Import '+n) : L('Nhập','Import');
+      }
+      return;
+    }
+  }
   /* Close whatever row was open, like every other row action here does. Flush
      FIRST: csvFlushExpand reads the open editor's fields back onto its candidate,
      and re-rendering without it throws away a description or amount someone was

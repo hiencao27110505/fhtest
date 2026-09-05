@@ -66,6 +66,39 @@ first hand-review only).
   been claiming one notice per backfill run and 150-row chunks; the code
   notifies once on completion and chunks at 400.
 
+### The ledger stops having a size (09-05, follow-up)
+
+The bulk-import fix below made a 365-day connect *writable*; this makes it
+*correct and livable* at that size, on a low-end phone.
+
+- **The silent balance ceiling is gone.** The hydrate's debt read wore
+  `limit(2000)` from when account-tagged rows were rare — bank import tags
+  every expense, so a year of backfill walked straight through it, and rows
+  past the cap silently fell out of every balance derivation (cards, accounts,
+  the drift badge arguing with an incomplete sum). New `_pageAll` fetches
+  every row in 1000-row pages over a stable order; the month window, the
+  duplicate-match slice (silent 4000 cap) and the stats slice (10k cap) ride
+  the same helper. The 30-page hard ceiling is *declared*
+  (`P.debtsComplete`, `truncated`), never absorbed (`src/js-data/19-personal.js`).
+- **Decrypt cache, keyed by ciphertext.** Every hydrate re-decrypts the whole
+  ledger, and that now grows with history. A given sealed value decrypts to
+  exactly one plaintext, and edits re-encrypt under a fresh nonce — so a
+  ciphertext-keyed Map is correct by construction, never stale. Hydrate №2
+  onward is network + JSON; failures are never cached; cleared on boot.
+- **The review list stops paying for 1000 cards.** A tick used to rebuild the
+  entire list's innerHTML; now it patches exactly what one tick changes (the
+  card's checkbox, the header count, the Import label) and only falls back to
+  a full render when an editor is open. The initial render shows whole
+  day-buckets up to a 150-card window plus an honest "Hiện thêm N khoản"
+  button — never a silent cut; the window persists across re-renders, always
+  includes the open editor's day, and the summary chart's tap-to-scroll
+  reveals the rest before jumping (`src/js-ui/56-csv-import-ui.js`).
+
+Also in this commit: the personal-first onboarding shell from the parallel
+session (no-family boot lands on Cá nhân; family tabs funnel to the create
+trigger until a real family exists) — see that work's own files for the
+rationale comments.
+
 ### Bulk import survives a 200-row queue on a low-end phone (09-05)
 
 Field report: a first connect with a 90-day lookback staged ~200 rows; pressing

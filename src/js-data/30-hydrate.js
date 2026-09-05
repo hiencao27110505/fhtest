@@ -25,6 +25,11 @@
       // raises the wall. _rawFid still holds the prior fid at this point.
       if (window.DB._rawFid && window.DB._rawFid !== fid) window.__fhLockBrowsed = 0;
       window.DB.fid = fid;
+      // a real family is active → the personal-first "no family" shell retires
+      if (document.documentElement.classList.contains('fh-nofam')) {
+        document.documentElement.classList.remove('fh-nofam');
+        try { localStorage.removeItem('fh-nofam'); } catch (e) { }
+      }
       const now = new Date(window.TODAY ? window.TODAY.getTime() : Date.now()); now.setHours(0, 0, 0, 0);
       const monthDate = _isoMonth(now); window.DB.month = monthDate; window.DB.monthKey = MO[now.getMonth()];
 

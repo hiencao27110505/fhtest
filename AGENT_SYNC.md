@@ -167,6 +167,22 @@ hand-merging `index.html`. Both replaced vigilance with structure.
   both asserting against the 09-05 bulk-import change's files — left untouched
   so we don't collide; they look like yours to reconcile.
 
+- **2026-09-05 (Hien's session, later) — ledger de-sized; UI + client only, NO
+  db / migration / edge / .gs.** Follow-up to the bulk-import hardening below,
+  for the 365-day / 2000-row case: (1) `_pageAll` replaces every capped
+  personal read — the hydrate debt query's silent `limit(2000)` was
+  understating balances once bank import tagged every expense with an
+  account_id; month window, match slice and stats slice paged too, hard
+  ceiling declared via `P.debtsComplete` / `truncated`. (2) ciphertext-keyed
+  decrypt cache in `19-personal.js` (safe: fresh nonce per edit ⇒ new key;
+  failures uncached; cleared on boot). (3) review list: in-place tick patch +
+  150-card reveal window with an honest "Hiện thêm N" button. ⚠️ This commit
+  also carries the OTHER session's personal-first onboarding WIP from the
+  shared checkout (22-home, 80-onboard-boot, 10-client-auth, 10-nav-model,
+  30-hydrate, 65-passcode-ui, 57-csv-import-review, 21-home-today.css,
+  src/index.html, docs/notify-copy-matrix.html) — committed together on
+  Hien's explicit call; if that work was not ready, revert those paths, not
+  19-personal / 56-csv-import-ui.
 - **2026-09-05 (Hien's session) — bulk import hardened for a 200-row queue; UI +
   client only, NO db / migration / edge / .gs changes.** Field report: ~200
   staged rows from a 90-day first connect; multi-tapping "Nhập 200" ran

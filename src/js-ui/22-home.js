@@ -389,6 +389,23 @@ function upCardHTML(it){      // {kind:occ|goal|exp,d,name,src?,target?,saved?,a
 
 function renderHome(){
   var box = document.getElementById('home-body'); if(!box) return;
+  /* Personal-first: no family yet (fh-nofam). The tab holds ONLY the trigger to
+     create a family & invite — never the scene/stats scaffolding with empty data.
+     The family row and its Key Card are created only if the user takes this. */
+  if(document.documentElement.classList.contains('fh-nofam')){
+    setTxt('greet-sub', L('Không gian chung của cả nhà sẽ ở đây 🌿', 'Your family’s shared space will live here 🌿'));
+    var sky0 = document.getElementById('home-sky'); if(sky0) sky0.className = 'home-sky sky-' + _skyPhase();
+    var sc0 = document.getElementById('home-scene'); if(sc0){ sc0.className = 'home-scene'; sc0.innerHTML = ''; }
+    setHTMLIf(box,
+      '<div class="card nofam-card">'
+      + '<div class="nofam-ic">🏡</div>'
+      + '<div class="nofam-t">' + L('Tạo tổ ấm của bạn', 'Start your family space') + '</div>'
+      + '<div class="nofam-s">' + L('Mời người thân để cùng ghi chi tiêu, lưu khoảnh khắc và tiết kiệm chung. Sổ cá nhân của bạn vẫn luôn riêng tư.', 'Invite your people to track spending, keep moments and save together. Your personal ledger stays private to you.') + '</div>'
+      + '<button class="cta nofam-cta" onclick="fhFamilyStart()">' + L('Tạo gia đình & mời thành viên', 'Create a family & invite') + '</button>'
+      + '<div class="nofam-hint">' + L('Được người thân mời? Lời mời sẽ hiện ở bước tiếp theo.', 'Already invited? Your invite shows up on the next step.') + '</div>'
+      + '</div>');
+    return;
+  }
   buildMemRecords();
   var evs = window.events || {}, ord = window.order || [];
   var isMirrorK = function(k){ var e = evs[k]; return !!(e && (e._srcTxn || e.fromExpense)); };

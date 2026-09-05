@@ -23,11 +23,29 @@ function obGo(name){
   if(name==='start'){
     obAcctLine();
     var bk=document.getElementById('ob-start-back');
-    if(bk) bk.style.visibility = window.__obFromPicker ? 'visible' : 'hidden';   // back only leads somewhere when the picker opened us
+    if(bk) bk.style.visibility = (window.__obFromPicker || window.__obFromApp) ? 'visible' : 'hidden';   // back only leads somewhere when the picker or the app opened us
   }
 }
-/* back from "Your family" → the family picker that opened it (multi-family only) */
-function obStartBack(){ if(window.fhSwitchFamily) window.fhSwitchFamily(); }
+/* back from "Your family" → wherever opened it: the in-app create trigger
+   (personal-first family tab) or the family picker (multi-family) */
+function obStartBack(){
+  if(window.__obFromApp){
+    window.__obFromApp=false;
+    var onb=document.getElementById('onboarding'); if(onb) onb.classList.add('done');
+    return;
+  }
+  if(window.fhSwitchFamily) window.fhSwitchFamily();
+}
+/* Personal-first: the family tab's "create a family & invite" trigger. Opens the
+   family door (name a family / take a waiting invite) from inside the app; the
+   family row + its Key Card are only created if the user finishes this flow. */
+function fhFamilyStart(){
+  if(window.FAM){ FAM.mode='create'; FAM.familyName=''; FAM.members=[]; FAM.budget=0; FAM.catBudget=null; }
+  window.__obFromPicker=false; window.__obFromApp=true;
+  var onb=document.getElementById('onboarding'); if(onb) onb.classList.remove('done');
+  obGo('start');
+}
+window.fhFamilyStart=fhFamilyStart;
 function renderCodeBoxes(val){
   val=val||''; var box=document.getElementById('ob-code-boxes'); if(!box)return;
   var html=''; for(var i=0;i<6;i++){ var ch=val[i]||''; html+='<div class="ob-code-box'+(ch?' filled':(i===val.length?' cursor':''))+'">'+ch+'</div>'; }
@@ -245,6 +263,7 @@ function finishOnboarding(){
   try{ if(window.fhMarkReleasesSeen) fhMarkReleasesSeen(); }catch(e){}   // fresh user starts clean — no past-release backlog
   obBuzz([10,40,16]);                                                    // the "you're in" moment
   document.getElementById('onboarding').classList.add('done');
+  window.__obFromApp=false;                                              // the in-app trigger's back intent is spent
   go('home');
   try{ if(window.fhInstallNudge) window.fhInstallNudge(); }catch(e){}   // earned-moment install nudge (once, dismissible, only if installable)
 }
@@ -263,6 +282,9 @@ function restartOnboarding(){
   document.getElementById('onboarding').classList.remove('done'); obGo('welcome');
 }
 function obInit(){
+  // personal-first: a user known to have no family paints the no-family shell
+  // (family tabs hidden, Home = create trigger) before the session even resolves
+  try{ if(localStorage.getItem('fh-nofam')==='1') document.documentElement.classList.add('fh-nofam'); }catch(e){}
   var done=false; try{ done=localStorage.getItem('fh-onboarded')==='1'; }catch(e){}
   if(done){
     try{ var saved=localStorage.getItem('fh-fam'); if(saved) FAM=JSON.parse(saved); }catch(e){}
@@ -375,6 +397,7 @@ if(fhWarm){                                              // cached state is on s
 try{ setGreeting(); }catch(e){}
 try{ renderEvents(); renderAll(); renderTxns(); applyCurrency(); }
 catch(e){ if(typeof console!=='undefined') console.error('initial render failed', e); }
+try{ renderPersonal(); }catch(e){}   // the landing tab — paints its preparing note until the ledger boots
 document.querySelectorAll('.sheet').forEach(function(s){ initSheetDrag(s, closeSheet); });   // drag-down-to-dismiss on every bottom sheet
 document.querySelectorAll('.modal').forEach(function(m){ initSheetDrag(m, closeModals); });  // …and every full-screen modal
 
@@ -410,7 +433,7 @@ document.querySelectorAll('.modal').forEach(function(m){ initSheetDrag(m, closeM
   if(['activity','tx'].indexOf(h)>=0){ go('spending'); segTo('activity'); return; }
   if(h==='memories'){ goMoments('album'); return; }
   if(h==='events'){ goMoments('plans'); return; }
-  if(['home','spending'].indexOf(h)>=0) go(h);
+  if(['home','spending','personal'].indexOf(h)>=0) go(h);
 })();
 
 /* ---------- connectivity ----------
