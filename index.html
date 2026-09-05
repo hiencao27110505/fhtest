@@ -3639,6 +3639,29 @@ button.csv-srow:active{background:var(--surface)}
 
 /* Locked-rows notice on the review queue (72-txn-review). Border + left accent
    per DESIGN — no colored fill; it states a condition, it is not an alert. */
+/* The "vừa tìm thấy" list under the progress card. Provider + date only: the
+   amount is the one field inside the sealed box, and liveness does not need it.
+   Bordered, never tinted (DESIGN §7) -- the progress card above already carries
+   this view's single accent. */
+.atx-fd{border:1px solid var(--hairline);border-radius:15px;overflow:hidden;margin-bottom:16px;background:var(--white)}
+.atx-fd-h{display:flex;align-items:center;gap:8px;padding:9px 13px;background:var(--surface);
+  font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.atx-fd-dot{width:7px;height:7px;border-radius:50%;background:var(--brand);flex-shrink:0;
+  animation:atxFdPulse 1.6s ease-in-out infinite}
+@keyframes atxFdPulse{0%,100%{opacity:.3}50%{opacity:1}}
+@media (prefers-reduced-motion:reduce){.atx-fd-dot{animation:none;opacity:.7}}
+.atx-fd-row{display:flex;align-items:center;gap:11px;padding:11px 13px;border-top:1px solid var(--divider);
+  animation:atxFdIn .45s cubic-bezier(.32,.72,0,1) both}
+@keyframes atxFdIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.atx-fd-row{animation:none}}
+.atx-fd-ic{width:30px;height:30px;border-radius:9px;background:var(--fill-neutral);color:var(--muted);
+  flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:800}
+.atx-fd-t{flex:1;min-width:0;font-size:13.5px;font-weight:650;color:var(--ink);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.atx-fd-d{font-size:11.5px;color:var(--muted);flex-shrink:0;font-variant-numeric:tabular-nums}
+.atx-fd-f{display:flex;align-items:center;gap:8px;padding:9px 13px;background:var(--surface);
+  font-size:11.5px;color:var(--muted);font-weight:600}
+
 /* ---------- bank-email: first-read progress (74-autotxn-ui) ---------- */
 /* Shared by the connect screen and the status screen so the two can never tell
    different stories. Neutral surface, never a tint, until it is genuinely done
@@ -30296,6 +30319,7 @@ window.classifyAmount = classifyAmount;
          _atxStatusProgress once the counts come back; a slot that starts empty
          and fills is honest, a number that starts wrong is not. */
       '<div id="atx-pg"></div>' +
+      '<div id="atx-feed"></div>' +
 
       /* ONE MAILBOX AT A TIME, said here because this is the screen someone is
          on when they think about adding another. `mailbox_grants` is unique on
@@ -30338,6 +30362,8 @@ window.classifyAmount = classifyAmount;
       const st = await _atxProgressState(conn);
       const pg = document.getElementById('atx-pg');
       if (pg) pg.innerHTML = _atxProgressHTML(st);
+      const fd = document.getElementById('atx-feed');
+      if (fd) fd.innerHTML = _atxFeedHTML(st.finds);
       if (st.phase === 'reading') _atxLiveWatch();
     } catch (e) {}
   }
@@ -30688,6 +30714,55 @@ window.classifyAmount = classifyAmount;
     return Math.max(0, Math.min(windowDays, d));
   }
 
+  /* ── what just landed ──────────────────────────────────────────────────────
+     Liveness, not content. The progress card answers "how much longer"; this
+     answers "is it actually working", which a bar alone never quite does.
+
+     COSTS NO DECRYPTION, and that is not luck. `source_provider` deliberately
+     stays CLEAR because dedup compares bank names fuzzily and a hash matches
+     only exactly; `occurred_at` stays clear because dedup queries a range; and
+     `created_at` is workflow metadata. The AMOUNT is the one thing inside the
+     sealed box, so it is the one thing this list does not show — which is fine,
+     because "we just found a Highlands charge from 9 thg 8" already proves the
+     pipeline is alive.
+
+     ORDERED BY created_at, NOT occurred_at. During a backfill those disagree by
+     design: the read marches backwards, so the most recently STAGED row is the
+     OLDEST transaction. created_at is what "vừa tìm thấy" actually means, and
+     it stays correct in steady state too, where new mail really is newest. */
+  async function _atxRecentFinds() {
+    try {
+      const res = await sb.from('email_transactions')
+        .select('id,source_provider,occurred_at')
+        .eq('review_status', 'pending')
+        .order('created_at', { ascending: false })
+        .limit(3);
+      if (res.error) return [];
+      return res.data || [];
+    } catch (e) { return []; }
+  }
+
+  const _atxInitials = (name) => String(name || '?')
+    .replace(/[^\p{L}\p{N} ]/gu, '').trim().slice(0, 2).toUpperCase() || '?';
+
+  function _atxFeedHTML(rows) {
+    if (!rows || !rows.length) return '';
+    return '<div class="atx-fd"><div class="atx-fd-h"><span class="atx-fd-dot"></span>' +
+      _esc(L('Vừa tìm thấy', 'Just found')) + '</div>' +
+      rows.map(function (r) {
+        /* fhProviderName folds "vib"/"MBBank" into the household spelling the
+           rest of the app uses; falls through to the raw string when absent. */
+        const name = (window.fhProviderName ? window.fhProviderName(r.source_provider || '') : '')
+          || r.source_provider || L('Giao dịch', 'Transaction');
+        const when = r.occurred_at ? fmtDayMon(new Date(r.occurred_at)) : '';
+        return '<div class="atx-fd-row"><span class="atx-fd-ic">' + _esc(_atxInitials(name)) + '</span>' +
+          '<span class="atx-fd-t">' + _esc(name) + '</span>' +
+          '<span class="atx-fd-d">' + _esc(when) + '</span></div>';
+      }).join('') +
+      '<div class="atx-fd-f"><span class="atx-fd-dot"></span>' +
+      _esc(L('Đang đọc ngược về trước…', 'Reading further back…')) + '</div></div>';
+  }
+
   /* The progress block, shared by the connect screen and the status screen so
      the two can never tell different stories. Rendered from a plain state
      object, and repainted in place by the live watcher. */
@@ -30733,11 +30808,12 @@ window.classifyAmount = classifyAmount;
   /* One read of everything the two screens need. */
   async function _atxProgressState(conn) {
     const windowDays = (conn && conn.backfillDays) || ATX_DEFAULT_DAYS;
-    let found = 0, front = null;
+    let found = 0, front = null, finds = [];
     try { found = await _atxPendingCount(); } catch (e) {}
     if (conn && conn.id) { try { front = await _atxFrontier(conn.id); } catch (e) {} }
+    if (found > 0 && (!conn || conn.phase === 'reading')) finds = await _atxRecentFinds();
     _atxProgressCache = { phase: (conn && conn.phase) || 'reading', windowDays: windowDays,
-             found: found, front: front,
+             found: found, front: front, finds: finds,
              daysRead: _atxDaysRead(front, windowDays) };
     return _atxProgressCache;
   }
@@ -30790,15 +30866,23 @@ window.classifyAmount = classifyAmount;
           if (changed) {
             const front = (n !== last || !lastState)
               ? await _atxConnFrontier(conn) : lastState.front;
+            const finds = (phase === 'reading' && n > 0 && (n !== last || !lastState))
+              ? await _atxRecentFinds()
+              : (phase === 'reading' && lastState ? lastState.finds : []);
             if (seq !== _atxLiveSeq) return;
             const w = (conn && conn.backfillDays) || ATX_DEFAULT_DAYS;
-            lastState = { phase: phase, windowDays: w, found: n, front: front,
+            lastState = { phase: phase, windowDays: w, found: n, front: front, finds: finds,
                           daysRead: _atxDaysRead(front, w) };
             _atxProgressCache = lastState;         // the row paints from this
             last = n; lastPhase = phase;
             if (!badgeOnly) {
               const pg = document.getElementById('atx-pg');
               if (pg) pg.innerHTML = _atxProgressHTML(lastState);
+              /* Cleared on completion rather than frozen: "vừa tìm thấy" is a
+                 liveness signal, and a stale one outliving the work it reported
+                 is the kind of detail that quietly stops being believed. */
+              const fd = document.getElementById('atx-feed');
+              if (fd) fd.innerHTML = _atxFeedHTML(lastState.finds);
               /* The CTA is BORN here, never merely relabelled: it does not
                  exist while the phase is 'reading', so there is nothing to tap
                  by accident during the one stretch when tapping is wrong. */
@@ -30874,6 +30958,7 @@ window.classifyAmount = classifyAmount;
           'We’ve started looking for transaction email. Anything we find waits for you in Review transactions, and never enters the ledger on its own.')) + '</div>' +
         '<div id="atx-pg">' + _atxProgressHTML(
           { phase: 'reading', windowDays: ATX_DEFAULT_DAYS, found: 0, front: null, daysRead: 0 }) + '</div>' +
+        '<div id="atx-feed"></div>' +
         /* NO primary CTA while the first read is running, and the slot stays
            EMPTY rather than disabled (DESIGN §4.4 — never a dead button). The
            queue is not merely unhelpful mid-backfill, it is wrong: the review

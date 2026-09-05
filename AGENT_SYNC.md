@@ -188,6 +188,14 @@ hand-merging `index.html`. Both replaced vigilance with structure.
   `ATX_STALL_OPENS_AT = 12` is **coupled** to `STALL_NOTIFY_AFTER` in
   `worker.mjs`; commented on both sides, no shared config.
 
+  - **A "Vừa tìm thấy" feed** on both OAuth screens (provider + date, newest
+    STAGED first via `created_at` — during a backfill that is the OLDEST
+    transaction, which is the whole point). Costs **no decryption**:
+    `source_provider` stays clear because dedup compares bank names fuzzily,
+    `occurred_at` because dedup queries a range. The amount is the one sealed
+    field and is deliberately absent. Cleared on completion — a stale liveness
+    signal outliving its work is how a signal stops being believed.
+
   No worker, function, `.gs` or `sw.js` change. `tools/staged-scope.test.js` was
   already failing at `8d5e55e` and is untouched.
 

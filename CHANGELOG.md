@@ -53,6 +53,12 @@ So `backfilled_at` now gates every door, and the screens say where the read has 
   message. Past the worker's own threshold the screen stops claiming to be mid-read,
   states what it did get, and opens. Needs `0121`.
 
+Both screens also carry a **"Vừa tìm thấy"** list — the last three staged rows, provider
+and date. It orders by `created_at`, not `occurred_at`: during a backfill those disagree by
+design, because the read marches backwards and the most recently *staged* row is the
+*oldest* transaction. Provider and date are clear columns, so the list costs one small
+select and no decryption; the amount is the one sealed field and stays absent.
+
 `0121_grant_stall_read.sql` grants `stalled_runs` / `first_stalled_at` to `authenticated`;
 `0101` added the columns and never granted them. The client ships ahead of it through a
 three-tier select ladder, each tier dropping only what the tier above added — so an

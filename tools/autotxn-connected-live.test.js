@@ -56,11 +56,12 @@ const RealDate = Date;
    record. `counts` returns the pending total for the Nth ask, so a scenario is
    just a function of time. */
 function harness(countAt) {
-  const rec = { asks: 0, grantAsks: 0, sheets: [], fullRefresh: 0, renders: 0, sealedFetches: 0, timers: [], pushRowAsked: 0 };
+  const rec = { asks: 0, grantAsks: 0, feedAsks: 0, sheets: [], fullRefresh: 0, renders: 0, sealedFetches: 0, timers: [], pushRowAsked: 0 };
   const liveEl = { innerHTML: '' };
   const pgEl = { innerHTML: '' };
   const ctaEl = { textContent: '', innerHTML: '' };
-  const state = { sheetOn: true, staged: 0, phase: 'reading', front: '2026-08-01T00:00:00Z' };
+  const state = { sheetOn: true, staged: 0, phase: 'reading', front: '2026-08-01T00:00:00Z',
+    finds: [{ id: 'r1', source_provider: 'Techcombank', occurred_at: '2026-08-02T00:00:00Z' }] };
   const scope = {
     sb: { from: (table) => ({
       select: (cols, opts) => {
@@ -68,6 +69,12 @@ function harness(countAt) {
            for exactly one clear column; it must never pull a sealed row. */
         if (cols === 'occurred_at') {
           return { eq: () => ({ order: () => ({ limit: () => Promise.resolve({ data: [{ occurred_at: state.front }], error: null }) }) }) };
+        }
+        /* The "vừa tìm thấy" feed. Its projection is asserted at source level
+           below; here it just must not be mistaken for a sealed-row fetch. */
+        if (cols === 'id,source_provider,occurred_at') {
+          rec.feedAsks++;
+          return { eq: () => ({ order: () => ({ limit: () => Promise.resolve({ data: state.finds, error: null }) }) }) };
         }
         if (!opts || !opts.head) rec.sealedFetches++;      // promise 3
         return { eq: () => { rec.asks++; return Promise.resolve({ count: countAt(rec.asks), error: null }); } };
@@ -160,6 +167,14 @@ function harness(countAt) {
       h.ctaEl.innerHTML);
     t('every ask was head-only — the sealed-row fetch is never on this path',
       h.rec.sealedFetches === 0, 'sealedFetches=' + h.rec.sealedFetches);
+    t('the just-found feed ran, and only while reading', h.rec.feedAsks > 0,
+      'feedAsks=' + h.rec.feedAsks);
+    /* Source-level, because a mock can only prove what it was asked. The feed
+       renders provider + date; the AMOUNT is the one field inside the sealed
+       box and must never appear in this projection. */
+    t('...asking for clear columns only, never a sealed one',
+      /\.select\('id,source_provider,occurred_at'\)/.test(src)
+      && !/select\('id,source_provider,occurred_at,[^']*(amount|sealed|nonce|counterparty)/.test(src));
     t('and once something is found the cadence relaxes to 4s',
       h.rec.timers.length === 1 && h.rec.timers[0].ms === 4000,
       JSON.stringify(h.rec.timers.map((x) => x.ms)));
