@@ -159,7 +159,8 @@
      and the field costs one line to support. Typing is clamped rather than
      rejected: someone who types 800 gets a year, not an error. */
   const ATX_MAX_DAYS = 365;
-  let _atxDays = 90;
+  const ATX_DEFAULT_DAYS = 90;   // also the server default (0093); the status screens read it back
+  let _atxDays = ATX_DEFAULT_DAYS;
 
   window.fhAutoTxnPickDays = function (v) {
     _atxDays = _atxClampDays(v);
@@ -562,14 +563,24 @@
          columns 0087 itself granted. A connection reported without its scope
          is still a connection, and knowing one exists is what the entry point
          actually needs. */
-      const CORE = 'id,provider,email,needs_reauth,connected_at,last_synced_at';
-      let res = await sb.from('mailbox_grants')
-        .select(CORE + ',default_scope')
-        .eq('provider', 'google')
-        .limit(1);
-      if (res.error) {
-        res = await sb.from('mailbox_grants').select(CORE).eq('provider', 'google').limit(1);
-      }
+      /* THREE TIERS, NOT TWO, and the order is the point. Each later migration
+         granted its own columns, so asking for all of them at once fails
+         wholesale on any deployment where the newest migration has not run yet.
+         A single fallback to CORE would then also drop `default_scope`, and the
+         status screen would name the wrong ledger — a worse lie than a missing
+         stall flag. So each tier drops only what the tier above it added:
+           1. CORE + backfilled_at          0087's own grant
+           2. + default_scope, backfill_days 0102
+           3. + stalled_runs, first_stalled_at 0121
+         Client ships before the migration is applied, and degrades to "no
+         stalled state" rather than "no connection". */
+      const CORE = 'id,provider,email,needs_reauth,connected_at,last_synced_at,backfilled_at';
+      const T2 = CORE + ',default_scope,backfill_days';
+      const T3 = T2 + ',stalled_runs,first_stalled_at';
+      const ask = (cols) => sb.from('mailbox_grants').select(cols).eq('provider', 'google').limit(1);
+      let res = await ask(T3);
+      if (res.error) res = await ask(T2);
+      if (res.error) res = await ask(CORE);
       if (res.error) return null;
       const row = (res.data || [])[0] || null;
       if (!row) return null;
@@ -577,14 +588,81 @@
          cosmetic: a refresh token dies every 7 days while the OAuth app is in
          Testing publishing status, so a stale grant is the most common state
          this screen has to render after "healthy". */
-      return { id: row.id, provider: row.provider, email: row.email,
+      const conn = { id: row.id, provider: row.provider, email: row.email,
                needsReauth: !!row.needs_reauth, connectedAt: row.connected_at,
                lastSyncedAt: row.last_synced_at,
+               backfilledAt: row.backfilled_at || null,
+               backfillDays: Number(row.backfill_days) || ATX_DEFAULT_DAYS,
+               stalledRuns: Number(row.stalled_runs) || 0,
                /* Older grants predate the column; they are family by history,
                   which is what the null means rather than "unknown". */
                scope: row.default_scope === 'personal' ? 'personal' : 'family' };
+      conn.phase = _atxPhase(conn);
+      _atxPhaseCache = conn.phase;            // the row renderer reads this synchronously
+      return conn;
     } catch (e) { return null; }
   }
+
+  /* ── the one derived fact three screens agree on ───────────────────────────
+     'reading'  first pass unfinished — the queue is HELD (see fhEmailTxnCta)
+     'slow'     unfinished, but stalled long enough that holding is now the
+                bigger harm; the queue opens and the copy stops claiming to
+                still be reading
+     'done'     backfilled_at set: every bank email in the window has been read
+     'reauth'   Google rejected the token; its own screen already exists
+
+     WHY 'slow' EXISTS AT ALL. 0101 never sets backfilled_at on a stall, on
+     purpose — marking one complete would abandon unread mail. So a hold keyed
+     only on that flag locks someone out permanently the moment one message in
+     their mailbox is unreadable. This threshold is the release valve.
+
+     ⚠️ COUPLED CONSTANT: STALL_NOTIFY_AFTER in
+     supabase/functions/_shared/mailbox/worker.mjs. The worker sends its "here
+     is what we got" notice on the same crossing this opens the queue on, so the
+     two must move together. There is no shared config to read it from. */
+  const ATX_STALL_OPENS_AT = 12;
+
+  function _atxPhase(conn) {
+    if (!conn) return null;
+    if (conn.needsReauth) return 'reauth';
+    if (conn.backfilledAt) return 'done';
+    if (conn.stalledRuns >= ATX_STALL_OPENS_AT) return 'slow';
+    return 'reading';
+  }
+
+  /* Last known phase, so the CTA row can render synchronously on every paint
+     without a round trip. Null until the first _atxConnection resolves, which
+     is the honest answer then: "not known yet" must not read as "held", or a
+     slow network would gate the queue for someone with no mailbox at all. */
+  let _atxPhaseCache = null;
+  window.fhBackfillPhase = () => _atxPhaseCache;
+  /* The queue is reachable unless we positively know a first read is running. */
+  window.fhBackfillHolds = () => _atxPhaseCache === 'reading';
+
+  /* What the Widget A / Cá nhân row paints from. It renders on every hydrate
+     and every badge change, so it cannot await anything — this is the last
+     answer the async side computed, or null before there is one. Null renders
+     as the ordinary row. */
+  let _atxProgressCache = null;
+  window.fhBackfillProgress = () => _atxProgressCache;
+
+  /* ── how far back the read has actually got ────────────────────────────────
+     Gmail lists newest-first and the worker eats the next unprocessed slice
+     each run (worker.mjs), so a backfill marches BACKWARDS in time: every
+     transaction it stages is older than the last. The oldest staged row is
+     therefore the frontier, and "we have read back to <date>" is a true,
+     monotonic statement rather than a guessed percentage.
+
+     `occurred_at` is one of the few columns that stays CLEAR (dedup queries a
+     range over it), so this costs one tiny select and no decryption.
+
+     THE FLOOR, and why it is not optional. Promoting a row DELETES it
+     (resolve_email_transactions), so if someone reviews the oldest cards the
+     min jumps toward today and the bar would run backwards — the one behaviour
+     that would read as broken. So the frontier is remembered per grant and may
+     only ever move further back. Losing the cache (new device, cleared
+     storage) re-derives from what is pending and UNDER-states progress, which
+     is the safe direction: it never claims to have read further than it has. */
 
   /* ── the status screen, and turning it off ─────────────────────────────────
      WHAT DISCONNECT ACTUALLY DOES, and why the copy has to say two things. The
@@ -667,6 +745,14 @@
               'Transactions go to your personal wallet, where only you can open them. You can still move any of them to the family ledger when you review.')) +
         '</span></div>' +
 
+      /* THE SAME PROGRESS BLOCK AS THE CONNECT SCREEN, because this is the
+         screen someone reopens to ask "is it done yet?" — and until now it
+         answered "Đang tự động ghi" whether the first pass finished an hour ago
+         or is still running. Rendered from the cached phase and filled in by
+         _atxStatusProgress once the counts come back; a slot that starts empty
+         and fills is honest, a number that starts wrong is not. */
+      '<div id="atx-pg"></div>' +
+
       /* ONE MAILBOX AT A TIME, said here because this is the screen someone is
          on when they think about adding another. `mailbox_grants` is unique on
          (user_id, provider), so connecting a second Google account REPLACES
@@ -679,7 +765,12 @@
 
       pushRow +
 
-      (window.fhTxnReviewSheet
+      /* HELD WHILE THE FIRST READ RUNS. Same rule as the connect screen and the
+         Widget A row: the queue is not just unhelpful mid-backfill, it is
+         wrong, because the review screen's duplicate bucketing only sees the
+         rows it fetched. The progress block above already says why, so this
+         slot simply stays empty rather than offering a dead control. */
+      ((window.fhTxnReviewSheet && conn && conn.phase !== 'reading')
         ? '<button class="btn-line" onclick="fhTxnReviewSheet()">' + _esc(L('Xem mục duyệt', 'Open Review transactions')) + '</button>'
         : '') +
 
@@ -689,8 +780,23 @@
         _esc(L('Ngừng đọc email', 'Stop reading my email')) + '</button>' +
       '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Đóng', 'Close')) + '</button>'
     );
+    // guarded so fhAutoTxnStatus stays extractable on its own (tools/autotxn-connected-live.test.js)
+    if (typeof _atxStatusProgress === 'function') _atxStatusProgress(conn);
   }
   window.fhAutoTxnStatus = fhAutoTxnStatus;
+
+  /* Fills #atx-pg on the status screen, and keeps it live while a first read is
+     still running so someone who opens Settings mid-backfill watches the same
+     numbers the connect screen shows. Fire-and-forget: a slow count must never
+     hold the sheet, and a throw here must never cost the screen. */
+  async function _atxStatusProgress(conn) {
+    try {
+      const st = await _atxProgressState(conn);
+      const pg = document.getElementById('atx-pg');
+      if (pg) pg.innerHTML = _atxProgressHTML(st);
+      if (st.phase === 'reading') _atxLiveWatch();
+    } catch (e) {}
+  }
 
   /* Arm-then-confirm (DESIGN §3): the first tap only relabels, and it disarms
      itself after ~3s so a button left armed cannot be fired by a stray touch
@@ -1008,6 +1114,90 @@
      once-a-minute backfill lane to have landed whatever a first run finds.
      On the way out it runs the real refresh once, so the badge the person
      lands on agrees with what this screen just told them. */
+  const _atxFrontKey = (gid) => 'fh-atx-frontier:' + gid;
+
+  async function _atxFrontier(gid) {
+    let floor = null;
+    try { floor = localStorage.getItem(_atxFrontKey(gid)) || null; } catch (e) {}
+    try {
+      const res = await sb.from('email_transactions')
+        .select('occurred_at')
+        .eq('review_status', 'pending')
+        .order('occurred_at', { ascending: true })
+        .limit(1);
+      const oldest = !res.error && res.data && res.data[0] && res.data[0].occurred_at;
+      if (oldest && (!floor || String(oldest) < String(floor))) {
+        floor = oldest;
+        try { localStorage.setItem(_atxFrontKey(gid), floor); } catch (e) {}
+      }
+    } catch (e) { /* keep the floor; a missed poll must not rewind the screen */ }
+    return floor;
+  }
+
+  /* Days between the frontier and today, clamped into the window. Never
+     negative, never past the window, so the bar cannot overrun its track. */
+  function _atxDaysRead(frontIso, windowDays) {
+    if (!frontIso) return 0;
+    const t = Date.parse(frontIso);
+    if (!t) return 0;
+    const d = Math.round((Date.now() - t) / 86400000);
+    return Math.max(0, Math.min(windowDays, d));
+  }
+
+  /* The progress block, shared by the connect screen and the status screen so
+     the two can never tell different stories. Rendered from a plain state
+     object, and repainted in place by the live watcher. */
+  function _atxProgressHTML(st) {
+    const w = st.windowDays, d = st.daysRead;
+    const pct = w > 0 ? Math.min(100, Math.round(d / w * 100)) : 0;
+    if (st.phase === 'done') {
+      return '<div class="atx-pg done">' +
+        '<div class="atx-pg-top"><span class="atx-pg-t">' +
+          _esc(L('Đã đọc xong ' + w + ' ngày qua', 'All ' + w + ' days read')) + '</span></div>' +
+        '<div class="atx-pg-track"><i class="atx-pg-fill done" style="width:100%"></i></div>' +
+        '<div class="atx-pg-sub">' + _esc(st.found > 0
+          ? L(st.found + ' khoản đang chờ bạn duyệt.',
+              st.found === 1 ? '1 transaction waiting for you.' : st.found + ' transactions waiting for you.')
+          : L('Không có khoản nào trong khoảng này.', 'Nothing to review in that stretch.')) + '</div></div>';
+    }
+    if (st.phase === 'slow') {
+      /* Its own headline, and the bar STOPS and greys. A screen may not offer
+         the queue while still claiming to be mid-read — that contradiction is
+         what made the earlier version unshippable. */
+      return '<div class="atx-pg">' +
+        '<div class="atx-pg-top"><span class="atx-pg-t">' + _esc(L('Đã đọc tới đây', 'Read this far')) + '</span>' +
+        '<span class="atx-pg-n">' + d + '/' + w + _esc(L(' ngày', ' days')) + '</span></div>' +
+        '<div class="atx-pg-track"><i class="atx-pg-fill halt" style="width:' + pct + '%"></i></div>' +
+        '<div class="atx-pg-sub">' + _esc(st.front
+          ? L('Tới ' + fmtDayMon(new Date(st.front)) + ' · ' + st.found + ' khoản sẵn sàng để duyệt',
+              'To ' + fmtDayMon(new Date(st.front)) + ' · ' + st.found + ' ready to review')
+          : L(st.found + ' khoản sẵn sàng để duyệt', st.found + ' ready to review')) + '</div></div>';
+    }
+    return '<div class="atx-pg">' +
+      '<div class="atx-pg-top"><span class="atx-pg-t">' +
+        _esc(L('Đang đọc ' + w + ' ngày qua', 'Reading your last ' + w + ' days')) + '</span>' +
+      '<span class="atx-pg-n">' + d + '/' + w + _esc(L(' ngày', ' days')) + '</span></div>' +
+      '<div class="atx-pg-track"><i class="atx-pg-fill" style="width:' + pct + '%"></i></div>' +
+      '<div class="atx-pg-sub">' + _esc(st.front
+        ? L('Đã đọc tới ' + fmtDayMon(new Date(st.front)) + ' · tìm được ' + st.found + ' khoản',
+            'Back to ' + fmtDayMon(new Date(st.front)) + ' · ' + st.found + ' found')
+        : L('Đang dò hộp thư của bạn…', 'Looking through your mailbox…')) + '</div></div>';
+  }
+
+  const _atxConnFrontier = (conn) => (conn && conn.id) ? _atxFrontier(conn.id) : Promise.resolve(null);
+
+  /* One read of everything the two screens need. */
+  async function _atxProgressState(conn) {
+    const windowDays = (conn && conn.backfillDays) || ATX_DEFAULT_DAYS;
+    let found = 0, front = null;
+    try { found = await _atxPendingCount(); } catch (e) {}
+    if (conn && conn.id) { try { front = await _atxFrontier(conn.id); } catch (e) {} }
+    _atxProgressCache = { phase: (conn && conn.phase) || 'reading', windowDays: windowDays,
+             found: found, front: front,
+             daysRead: _atxDaysRead(front, windowDays) };
+    return _atxProgressCache;
+  }
+
   let _atxLiveSeq = 0;
 
   async function _atxPendingCount() {
@@ -1026,7 +1216,7 @@
   function _atxLiveWatch() {
     const seq = ++_atxLiveSeq;
     const t0 = Date.now();
-    let last = -1;
+    let last = 0;
     /* Closing the sheet DEMOTES the watcher instead of killing it (2026-09-05
        v2): the person who connects and closes at five seconds is exactly the
        one whose rows land at ten, and stopping cold meant their badge stayed
@@ -1035,7 +1225,7 @@
        surfaces, never the sheet's DOM, and dies with the same 3-minute window.
        A demotion is one-way: a sheet that reopens starts its own watcher, and
        the seq bump retires this one. */
-    let badgeOnly = false;
+    let badgeOnly = false, lastPhase = 'reading', lastState = null;
     (async function tick() {
       if (seq !== _atxLiveSeq) return;
       const el = document.getElementById('atx-live');
@@ -1043,15 +1233,40 @@
       if (!el || !sheet || !sheet.classList.contains('on')) badgeOnly = true;
       if (!document.hidden) {
         try {
+          /* The GRANT is asked every tick, the frontier only when the count
+             moved. backfilled_at can flip on a run that stages nothing — the
+             last chunk of a window often does — so waiting for a count change
+             to notice completion would leave the screen reading forever. The
+             frontier, by contrast, only moves when a row lands. */
+          const conn = await _atxConnection();
           const n = await _atxPendingCount();
           if (seq !== _atxLiveSeq) return;
-          if (n > 0 && n !== last) {
-            last = n;
+          const phase = (conn && conn.phase) || 'reading';
+          const changed = (n !== last) || (phase !== lastPhase);
+          if (changed) {
+            const front = (n !== last || !lastState)
+              ? await _atxConnFrontier(conn) : lastState.front;
+            if (seq !== _atxLiveSeq) return;
+            const w = (conn && conn.backfillDays) || ATX_DEFAULT_DAYS;
+            lastState = { phase: phase, windowDays: w, found: n, front: front,
+                          daysRead: _atxDaysRead(front, w) };
+            _atxProgressCache = lastState;         // the row paints from this
+            last = n; lastPhase = phase;
             if (!badgeOnly) {
-              el.innerHTML = _mbxGlyph('check') + '<span>' + _esc(_atxLiveLine(n)) + '</span>';
+              const pg = document.getElementById('atx-pg');
+              if (pg) pg.innerHTML = _atxProgressHTML(lastState);
+              /* The CTA is BORN here, never merely relabelled: it does not
+                 exist while the phase is 'reading', so there is nothing to tap
+                 by accident during the one stretch when tapping is wrong. */
               const cta = document.getElementById('atx-live-cta');
-              if (cta) cta.textContent = L('Xem ' + n + ' khoản',
-                n === 1 ? 'Review 1 transaction' : 'Review ' + n + ' transactions');
+              if (cta) {
+                const open = (phase === 'done' || phase === 'slow') && n > 0 && window.fhTxnReviewSheet;
+                const want = open
+                  ? '<button class="cta" onclick="fhTxnReviewSheet()">' + _esc(L('Xem ' + n + ' khoản',
+                      n === 1 ? 'Review 1 transaction' : 'Review ' + n + ' transactions')) + '</button>'
+                  : '';
+                if (cta.innerHTML !== want) cta.innerHTML = want;
+              }
             }
             /* The two badge surfaces read window.fhStagedCount; set it directly
                rather than through fhRefreshStagedCount for the reason above. */
@@ -1113,12 +1328,19 @@
         '<div class="sheet-sub">' + _esc(L(
           'Tụi mình bắt đầu tìm email giao dịch. Khoản nào tìm được sẽ nằm chờ bạn trong mục Duyệt giao dịch, không tự vào sổ.',
           'We’ve started looking for transaction email. Anything we find waits for you in Review transactions, and never enters the ledger on its own.')) + '</div>' +
-        '<div class="mbx-note" id="atx-live">' + _mbxGlyph('mail') + '<span>' + _esc(L(
-          'Đang dò hộp thư của bạn…',
-          'Looking through your mailbox…')) + '</span></div>' +
-        (window.fhTxnReviewSheet
-          ? '<button class="cta" id="atx-live-cta" onclick="fhTxnReviewSheet()">' + _esc(L('Xem mục duyệt', 'Open Review transactions')) + '</button>'
-          : '') +
+        '<div id="atx-pg">' + _atxProgressHTML(
+          { phase: 'reading', windowDays: ATX_DEFAULT_DAYS, found: 0, front: null, daysRead: 0 }) + '</div>' +
+        /* NO primary CTA while the first read is running, and the slot stays
+           EMPTY rather than disabled (DESIGN §4.4 — never a dead button). The
+           queue is not merely unhelpful mid-backfill, it is wrong: the review
+           screen's duplicate bucketing compares the rows it fetched, so a row
+           whose twin has not been staged yet is never flagged and both halves
+           of one purchase get imported. _atxLiveWatch fills this in the moment
+           the phase leaves 'reading'. */
+        '<div id="atx-live-cta"></div>' +
+        '<div class="mbx-note" id="atx-live">' + _mbxGlyph('check') + '<span>' + _esc(L(
+          'Cứ đóng lại dùng app bình thường nhé, tụi mình vẫn đọc tiếp và báo bạn khi xong.',
+          'Feel free to close this and carry on. We keep reading, and we’ll tell you when it’s done.')) + '</span></div>' +
         pushRow +
         '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Đóng', 'Close')) + '</button>'
       );
@@ -1146,6 +1368,39 @@
      this file owns its own timing and touches no other module's boot path, so
      getting it wrong cannot break onboarding. The sheet needs a hydrated app
      behind it — opening it over a loading screen would be worse than waiting. */
+  /* ── the phase has to be known on a cold open, not only after a connect ────
+     Someone who closes the app mid-backfill and comes back two minutes later
+     gets a fresh page: nothing has called _atxConnection, so the row would
+     paint its ordinary badge and route straight into a queue that is still
+     filling — the hold would hold only for the person who never left. So one
+     grant read at boot, and if a first pass is still running, the same live
+     watcher the connect screen uses (it demotes to badge-only on its own when
+     no sheet is open).
+
+     Deliberately after hydrate and wrapped: this owns its own timing and must
+     never be able to cost anyone their boot. A user with no mailbox pays one
+     tiny select that returns no rows. */
+  (function _atxBootPhase() {
+    const t0 = Date.now();
+    (function wait() {
+      if (window.DB && window.DB._hydrated && window.fhUser) {
+        (async function () {
+          try {
+            const conn = await _atxConnection();
+            if (!conn || conn.phase !== 'reading') return;
+            await _atxProgressState(conn);
+            try { if (typeof window.renderCashflowEmailCta === 'function') window.renderCashflowEmailCta(); } catch (e) {}
+            try { if (typeof window.renderPersonal === 'function') window.renderPersonal(); } catch (e) {}
+            _atxLiveWatch();
+          } catch (e) {}
+        })();
+        return;
+      }
+      if (Date.now() - t0 > 20000) return;
+      setTimeout(wait, 400);
+    })();
+  })();
+
   (function _atxBootReturn() {
     const state = _atxReturnState();          // read + eat immediately, before any await
     if (!state) return;

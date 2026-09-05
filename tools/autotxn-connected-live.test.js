@@ -36,7 +36,7 @@ const path = require('path');
 const SRC_FILE = path.join(__dirname, '..', 'src', 'js-data', '74-autotxn-ui.js');
 const src = fs.readFileSync(SRC_FILE, 'utf8');
 
-const start = src.indexOf('let _atxLiveSeq = 0;');
+const start = src.indexOf("const _atxFrontKey = (gid) =>");
 const end = src.indexOf('window.fhAutoTxnDone = fhAutoTxnDone;');
 if (start < 0 || end < 0) {
   console.error('FAIL: could not find the live-watch block in ' + SRC_FILE + ' — renamed?');
@@ -50,22 +50,33 @@ const t = (n, ok, d) => {
   ok ? pass++ : fail++;
 };
 const settle = () => new Promise((r) => setImmediate(r));
+const RealDate = Date;
 
 /* Every collaborator records what it was asked to do; the assertions read the
    record. `counts` returns the pending total for the Nth ask, so a scenario is
    just a function of time. */
 function harness(countAt) {
-  const rec = { asks: 0, sheets: [], fullRefresh: 0, renders: 0, sealedFetches: 0, timers: [], pushRowAsked: 0 };
+  const rec = { asks: 0, grantAsks: 0, sheets: [], fullRefresh: 0, renders: 0, sealedFetches: 0, timers: [], pushRowAsked: 0 };
   const liveEl = { innerHTML: '' };
-  const ctaEl = { textContent: '' };
-  const state = { sheetOn: true, staged: 0 };
+  const pgEl = { innerHTML: '' };
+  const ctaEl = { textContent: '', innerHTML: '' };
+  const state = { sheetOn: true, staged: 0, phase: 'reading', front: '2026-08-01T00:00:00Z' };
   const scope = {
     sb: { from: (table) => ({
       select: (cols, opts) => {
+        /* The frontier read is the one non-head select on this path and it asks
+           for exactly one clear column; it must never pull a sealed row. */
+        if (cols === 'occurred_at') {
+          return { eq: () => ({ order: () => ({ limit: () => Promise.resolve({ data: [{ occurred_at: state.front }], error: null }) }) }) };
+        }
         if (!opts || !opts.head) rec.sealedFetches++;      // promise 3
         return { eq: () => { rec.asks++; return Promise.resolve({ count: countAt(rec.asks), error: null }); } };
       },
     }) },
+    localStorage: { getItem: () => null, setItem: () => {} },
+    ATX_DEFAULT_DAYS: 90,
+    fmtDayMon: (d) => 'D' + d.getUTCDate(),
+    _atxConnection: async () => { rec.grantAsks++; return { id: 'g1', phase: state.phase, backfillDays: 90 }; },
     L: (vi) => vi,
     _esc: (s) => String(s),
     _mbxGlyph: () => '',
@@ -83,12 +94,13 @@ function harness(countAt) {
       hidden: false,
       getElementById: (id) => {
         if (id === 'atx-live') return liveEl;
+        if (id === 'atx-pg') return pgEl;
         if (id === 'atx-live-cta') return ctaEl;
         if (id === 'fh-sheet') return { classList: { contains: () => state.sheetOn } };
         return null;
       },
     },
-    Date: { now: () => scope._now },
+    Date: class extends RealDate { static now() { return scope._now; } },
     setTimeout: (fn, ms) => { rec.timers.push({ fn, ms }); },
     _now: 0,
   };
@@ -107,7 +119,7 @@ function harness(countAt) {
     await settle();
     return true;
   }
-  return { fn, rec, liveEl, ctaEl, state, scope, fire };
+  return { fn, rec, liveEl, pgEl, ctaEl, state, scope, fire };
 }
 
 (async () => {
@@ -122,16 +134,30 @@ function harness(countAt) {
       h.rec.timers.length === 1 && h.rec.timers[0].ms === 1500,
       'timers=' + JSON.stringify(h.rec.timers.map((x) => x.ms)));
     await h.fire();                                   // ask 2 → 12
-    t('a found count reaches the live line', h.liveEl.innerHTML.indexOf('12') >= 0, h.liveEl.innerHTML);
-    t('...the CTA', h.ctaEl.textContent.indexOf('12') >= 0, h.ctaEl.textContent);
+    t('a found count reaches the progress block', h.pgEl.innerHTML.indexOf('12') >= 0, h.pgEl.innerHTML);
+    /* CHANGED 2026-09-05 (was: the CTA is relabelled with the count). While the
+       first read runs the queue is HELD, so the CTA does not exist to relabel:
+       csvBuildReview's duplicate bucketing only compares the rows it fetched,
+       and mid-backfill a row whose twin is not staged yet is never flagged, so
+       both halves of one purchase would import. The CTA is BORN when the phase
+       leaves 'reading' — asserted below. */
+    t('...but no CTA into the queue while the read is still running',
+      h.ctaEl.innerHTML === '', h.ctaEl.innerHTML);
     t('...and the global badge, with the badge surfaces re-rendered',
       h.state.staged === 12 && h.rec.renders === 1,
       'fhStagedCount=' + h.state.staged + ' renders=' + h.rec.renders);
     await h.fire();                                   // ask 3 → still 12
     t('an unchanged count repaints nothing', h.rec.renders === 1, 'renders=' + h.rec.renders);
     await h.fire();                                   // ask 4 → 15
-    t('a climbing count keeps climbing on screen', h.liveEl.innerHTML.indexOf('15') >= 0
-      && h.state.staged === 15, h.liveEl.innerHTML);
+    t('a climbing count keeps climbing on screen', h.pgEl.innerHTML.indexOf('15') >= 0
+      && h.state.staged === 15, h.pgEl.innerHTML);
+    t('the grant is re-read every tick, so a finish that stages nothing is still seen',
+      h.rec.grantAsks === h.rec.asks, 'grantAsks=' + h.rec.grantAsks + ' asks=' + h.rec.asks);
+    h.state.phase = 'done';                           // backfilled_at lands
+    await h.fire();
+    t('and the moment the read finishes the CTA appears, carrying the count',
+      h.ctaEl.innerHTML.indexOf('15') >= 0 && h.ctaEl.innerHTML.indexOf('fhTxnReviewSheet') >= 0,
+      h.ctaEl.innerHTML);
     t('every ask was head-only — the sealed-row fetch is never on this path',
       h.rec.sealedFetches === 0, 'sealedFetches=' + h.rec.sealedFetches);
     t('and once something is found the cadence relaxes to 4s',
@@ -150,8 +176,8 @@ function harness(countAt) {
     t('the badge still learns the count', h.state.staged === 7 && h.rec.renders === 1,
       'fhStagedCount=' + h.state.staged + ' renders=' + h.rec.renders);
     t('but the dead sheet\'s DOM is left alone',
-      h.liveEl.innerHTML === '' && h.ctaEl.textContent === '',
-      JSON.stringify({ el: h.liveEl.innerHTML, cta: h.ctaEl.textContent }));
+      h.pgEl.innerHTML === '' && h.ctaEl.innerHTML === '',
+      JSON.stringify({ pg: h.pgEl.innerHTML, cta: h.ctaEl.innerHTML }));
     t('no full refresh yet — that waits for the window end', h.rec.fullRefresh === 0,
       'fullRefresh=' + h.rec.fullRefresh);
     let fired = 0;
@@ -207,7 +233,7 @@ function harness(countAt) {
     const html = h.rec.sheets[0] || '';
     t('the success sheet resolves the push row before rendering',
       h.rec.pushRowAsked === 1 && html.indexOf('push-offer-row') >= 0, 'asked=' + h.rec.pushRowAsked);
-    t('and keeps the primary CTA above the offer',
+    t('and keeps the (initially empty) CTA slot above the offer',
       html.indexOf('atx-live-cta') >= 0 && html.indexOf('atx-live-cta') < html.indexOf('push-offer-row'),
       'cta@' + html.indexOf('atx-live-cta') + ' offer@' + html.indexOf('push-offer-row'));
   }

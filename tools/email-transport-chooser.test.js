@@ -98,8 +98,13 @@ console.log('\n-- the connect flow is two steps, not one wall --');
     /fhAutoTxnSheet\(\)/.test(step2));
 
   // Every answer pre-filled, so the screen is legible without being touched.
+  /* The window default moved behind ATX_DEFAULT_DAYS (2026-09-05) so the status
+     screens can read the same number back when a grant predates backfill_days.
+     Same intent, asserted through the constant instead of the literal. */
   t('every choice has a working default',
-    /_atxScope = 'personal'/.test(autotxn) && /_atxDays = 90/.test(autotxn));
+    /_atxScope = 'personal'/.test(autotxn)
+    && /ATX_DEFAULT_DAYS = 90/.test(autotxn)
+    && /_atxDays = ATX_DEFAULT_DAYS/.test(autotxn));
 }
 
 console.log('\n-- the styling the chooser depends on exists --');

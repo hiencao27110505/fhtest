@@ -392,6 +392,27 @@ button.csv-srow:active{background:var(--surface)}
 
 /* Locked-rows notice on the review queue (72-txn-review). Border + left accent
    per DESIGN — no colored fill; it states a condition, it is not an alert. */
+/* ---------- bank-email: first-read progress (74-autotxn-ui) ---------- */
+/* Shared by the connect screen and the status screen so the two can never tell
+   different stories. Neutral surface, never a tint, until it is genuinely done
+   (DESIGN §7: no colored fills to carry meaning that a border can carry). */
+.atx-pg{background:var(--surface);border-radius:15px;padding:15px 16px;margin-bottom:14px}
+.atx-pg.done{background:var(--good-tint)}
+.atx-pg-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:10px}
+.atx-pg-t{font-size:14.5px;font-weight:700;letter-spacing:-.01em;color:var(--ink)}
+.atx-pg.done .atx-pg-t{color:var(--good)}
+.atx-pg-n{font-size:12.5px;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums;flex-shrink:0}
+.atx-pg-track{height:7px;border-radius:99px;background:var(--fill-neutral);overflow:hidden}
+.atx-pg-fill{display:block;height:100%;border-radius:99px;background:var(--grad-brand);
+  transition:width .8s cubic-bezier(.32,.72,0,1)}
+.atx-pg-fill.done{background:var(--good)}
+/* A stalled read STOPS and greys: a bar still creeping while the copy says the
+   queue is ready is the contradiction this state exists to remove. */
+.atx-pg-fill.halt{background:var(--muted-soft)}
+.atx-pg-sub{font-size:12.5px;color:var(--muted);margin-top:9px;line-height:1.45}
+.atx-pg.done .atx-pg-sub{color:var(--good)}
+@media (prefers-reduced-motion:reduce){.atx-pg-fill{transition:none}}
+
 .mbx-locked-note{margin:10px 16px 0;padding:10px 12px;border:1px solid var(--hairline);
   border-left:3px solid var(--brand);border-radius:10px;
   font-size:13.5px;line-height:1.45;color:var(--ink-2)}

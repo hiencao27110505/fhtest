@@ -143,6 +143,54 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-09-05 (Hien's session) — the queue is HELD while a first read runs;
+  progress on the row + both OAuth screens. ⚠️ CLAIMING migration `0121`
+  (`grant_stall_read`) — WRITTEN AND PUSHED, *NOT YET APPLIED*.
+  ⚠️ THIS DELIBERATELY REVERSES PART OF `921d68c` (Trang's, same day) — read
+  the next entry first.**
+
+  **What changed, and why it overrides the connect-kick screen's CTA.** `921d68c`
+  made the "Đã kết nối" sheet relabel a primary CTA (`Xem N khoản`) as soon as
+  rows landed. That CTA is now WITHHELD until the first read finishes. Not a
+  taste call: `csvBuildReview`'s duplicate bucketing compares the rows it
+  *fetched*, and one purchase often produces two emails (bank debit + wallet
+  receipt) sharing no identifier but an amount. Mid-backfill the twin may not be
+  staged yet, so neither is flagged and both import. The quick-select counts are
+  wrong against a partial set for the same reason. Product call from the founder
+  after reviewing four prototypes.
+
+  - `_atxConnection` now reads `backfilled_at`, `backfill_days`, `stalled_runs`
+    through a **three-tier select ladder** — each tier drops only what the tier
+    above added, so an unapplied `0121` costs the stalled state and *not*
+    `default_scope` (the 0102 failure mode, one level up).
+  - Derived `conn.phase` ∈ reading | slow | done | reauth. `window.fhBackfillHolds()`
+    gates `fhEmailTxnCta` (Widget A **and** Cá nhân), the status sheet's
+    "Xem mục duyệt", and the connect sheet's CTA — the sheet alone was useless
+    while the Finance-tab row routed straight in.
+  - Progress is the **frontier date**, not a percentage: Gmail lists newest-first
+    and the worker eats the next slice each run, so the read marches BACKWARDS
+    and the oldest staged `occurred_at` (a clear column — no decryption) is a
+    true monotonic "read back to <date>". Held to a localStorage floor per grant
+    because promoting deletes rows and the min would otherwise run forwards.
+  - The Widget A badge stops being a count while reading and becomes `● 34/90`.
+    That swap is the actual mechanism: a count is a summons at the moment acting
+    on it is unsafe; a fraction is a status.
+  - `tools/autotxn-connected-live.test.js` (yours) UPDATED, not deleted: the
+    CTA assertions now pin "no CTA while reading, born on the phase flip", plus
+    a new one that the grant is re-read every tick (`backfilled_at` can flip on
+    a run that stages nothing, so a count-change trigger would read forever).
+    `tools/email-transport-chooser.test.js` restated through `ATX_DEFAULT_DAYS`.
+
+  **`0121` still needs applying** — one `grant select (stalled_runs,
+  first_stalled_at) ... to authenticated`. Until it runs there is no `slow`
+  state, and a mailbox with one permanently unreadable message stays held
+  forever (0101 never sets `backfilled_at` on a stall, by design). Threshold
+  `ATX_STALL_OPENS_AT = 12` is **coupled** to `STALL_NOTIFY_AFTER` in
+  `worker.mjs`; commented on both sides, no shared config.
+
+  No worker, function, `.gs` or `sw.js` change. `tools/staged-scope.test.js` was
+  already failing at `8d5e55e` and is untouched.
+
 - **2026-09-05 (Trang's session) — connect-time first read + live "Đã kết nối"
   screen; NO migrations. ✅ DEPLOYED (client `921d68c` via Vercel;
   `mailbox-connect` + `mailbox-sync` via CLI, both `--no-verify-jwt`,

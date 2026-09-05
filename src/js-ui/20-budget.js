@@ -499,13 +499,45 @@ window.renderRequestsCta=renderRequestsCta;
    only when the staged bank-email queue is non-empty. Tapping routes by setup state
    (fhEmailTxnCta): setup intro when no email is linked, else the review sheet (which shows
    its own empty modal when there's nothing). fhStagedCount refreshes on hydrate + promote. */
+/* WHILE A FIRST READ IS RUNNING THE BADGE STOPS BEING A COUNT, and that swap is
+   the actual mechanism, not the routing. A badge reading "23" is a SUMMONS — it
+   tells someone 23 things are waiting for them, at the exact moment acting on
+   them is unsafe, because the review screen's duplicate bucketing only compares
+   the rows it fetched and a row whose twin has not been staged yet is never
+   flagged. "34/90" is a STATUS: nothing is being asked, so nothing gets tapped,
+   and the number that IS a summons arrives on completion when acting on it is
+   finally correct. Routing the tap to the progress sheet is only the backstop.
+
+   fhBackfillProgress lives in js-data (74-autotxn-ui.js) and answers null until
+   the first grant read resolves — which is the honest answer then. Unknown must
+   render as the ordinary row, never as held, or a slow network would gate the
+   queue for someone who has no mailbox at all. */
 function renderCashflowEmailCta(){
   var slot=document.getElementById('cf-email-cta'); if(!slot) return;
   var n=window.fhStagedCount||0;
-  var badge=n>0 ? '<span class="cc-badge num">'+n+'</span>' : '';
+  var p=(typeof window.fhBackfillProgress==='function') ? window.fhBackfillProgress() : null;
+  var reading=!!(p && p.phase==='reading');
+  var badge, sub='', prog='', icCls='cc-ic';
+  if(reading){
+    icCls='cc-ic run';                       // subordinate: this row is not a destination yet
+    badge='<span class="cc-badge run"><span class="cc-dot"></span>'+p.daysRead+'/'+p.windowDays+'</span>';
+    sub='<span class="cc-sub">'+esc(p.front
+      ? L('Đang đọc… đã tới '+fmtDayMon(new Date(p.front))+' · '+n+' khoản',
+          'Reading… back to '+fmtDayMon(new Date(p.front))+' · '+n+' found')
+      : L('Đang dò hộp thư của bạn…','Looking through your mailbox…'))+'</span>';
+    var pct=p.windowDays>0 ? Math.min(100,Math.round(p.daysRead/p.windowDays*100)) : 0;
+    /* Inside .cc-t, under the subtitle — NOT absolutely positioned across the
+       row. This row is the last in .cf-cta, which sits flush to the card's
+       bottom edge, and the card is border-radius:22px with no overflow clip: a
+       full-bleed bar there draws a square line straight through the rounded
+       corners and reads as a mis-coloured card border, not as progress. */
+    prog='<span class="cc-prog"><i style="width:'+pct+'%"></i></span>';
+  } else {
+    badge = n>0 ? '<span class="cc-badge num">'+n+'</span>' : '';
+  }
   var html='<button class="cc-row" onclick="fhEmailTxnCta()">'
-    +'<span class="cc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18v14H3z"/><path d="M3 6l9 7 9-7"/></svg></span>'
-    +'<span class="cc-t">'+L('Khoản thu chi từ email','Income & expenses from email')+'</span>'
+    +'<span class="'+icCls+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18v14H3z"/><path d="M3 6l9 7 9-7"/></svg></span>'
+    +'<span class="cc-t">'+L('Khoản thu chi từ email','Income & expenses from email')+sub+prog+'</span>'
     +badge
     +'<svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>';
   if(slot.innerHTML!==html) slot.innerHTML=html;

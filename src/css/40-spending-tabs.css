@@ -94,6 +94,22 @@
 .cc-sub{display:block;margin-top:3px;font-size:12px;font-weight:400;line-height:1.45;color:var(--muted);white-space:normal}
 .cc-badge{flex:0 0 auto;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--brand);color:#fff;font-size:11px;font-weight:800;line-height:20px;text-align:center;font-variant-numeric:tabular-nums}
 .cc-chev{width:18px;height:18px;flex-shrink:0;color:var(--chev)}
+/* Bank-email row while a first read is running (74-autotxn-ui). The row keeps
+   its shape; only the badge changes meaning and a hairline appears under the
+   subtitle. Semantic tokens only, so all five themes follow.
+   The bar lives INSIDE .cc-t rather than across the row: this row is the last
+   in .cf-cta, flush to the card's bottom edge, and the card is 22px-rounded
+   with no overflow clip -- a full-bleed bar there cuts straight through the
+   rounded corners and reads as a mis-coloured card border. */
+.cc-prog{display:block;height:3px;border-radius:99px;background:var(--fill-neutral);margin-top:8px;overflow:hidden}
+.cc-prog i{display:block;height:100%;border-radius:99px;background:var(--brand);transition:width .8s cubic-bezier(.32,.72,0,1)}
+/* A count is a summons; a fraction is a status. Neutral fill, never the brand
+   pill, so the row does not ask to be tapped while tapping it is wrong. */
+.cc-badge.run{background:var(--fill-neutral);color:var(--ink-2);display:inline-flex;align-items:center;gap:5px;padding:0 8px;min-width:0}
+.cc-badge.run .cc-dot{width:6px;height:6px;border-radius:50%;background:var(--brand);flex-shrink:0;animation:ccPulse 1.6s ease-in-out infinite}
+.cc-ic.run{background:var(--surface);color:var(--muted)}
+@keyframes ccPulse{0%,100%{opacity:.3}50%{opacity:1}}
+@media (prefers-reduced-motion:reduce){.cc-badge.run .cc-dot{animation:none;opacity:.7}.cc-prog i{transition:none}}
 /* ── Widget B — Tích lũy header: the savings pot total + this-month momentum spark ── */
 /* Tích lũy header (finance-final): eyebrow + add on one row, big pot total below */
 .til-head{padding:14px 16px 12px}

@@ -20,6 +20,46 @@ Going forward, add an entry here when a feature area changes meaningfully — se
 
 ## 2026-09-05
 
+### The queue stays shut while the first read is still running
+
+Connecting a mailbox starts a backfill that lands over several runs. Until now every
+surface invited you into the review queue the moment the first rows arrived — the
+Finance-tab row's count badge, the Cá nhân row, the status sheet, and (since the
+connect-kick change earlier the same day) a primary CTA on the success sheet itself.
+
+Reviewing a half-filled queue is not merely early, it is **wrong**. `csvBuildReview`'s
+duplicate bucketing compares the rows it fetched. One purchase often produces two emails
+— a bank debit and a wallet receipt — that share no identifier, only an amount; while the
+backfill is still running the twin may not be staged yet, so neither is flagged and both
+get imported. The quick-select counts ("Tuần này · 8") are wrong against a partial set for
+the same reason.
+
+So `backfilled_at` now gates every door, and the screens say where the read has got to:
+
+- **Progress is a date, not a percentage.** Gmail lists newest-first and the worker eats
+  the next unprocessed slice each run, so a backfill marches *backwards in time*: every
+  transaction it stages is older than the last. The oldest staged `occurred_at` — one of
+  the few columns that stays clear, so no decryption — is therefore a true, monotonic
+  "đã đọc tới 13 thg 7". A date is also the only progress unit someone can check against
+  their own memory. Held to a per-grant `localStorage` floor, because promoting a row
+  deletes it and the raw minimum would otherwise run *forwards*.
+- **The badge stops being a count.** While reading, Widget A's row shows `● 34/90` instead
+  of `23`, with a hairline under the subtitle. A count is a summons at the exact moment
+  acting on it is unsafe; a fraction is a status. The summons arrives on completion, when
+  acting on it is finally correct.
+- **A stalled backfill still releases the queue.** `0101` deliberately never sets
+  `backfilled_at` on a stall — marking one complete would abandon unread mail — so a gate
+  keyed only on that flag would lock someone out permanently over a single unreadable
+  message. Past the worker's own threshold the screen stops claiming to be mid-read,
+  states what it did get, and opens. Needs `0121`.
+
+`0121_grant_stall_read.sql` grants `stalled_runs` / `first_stalled_at` to `authenticated`;
+`0101` added the columns and never granted them. The client ships ahead of it through a
+three-tier select ladder, each tier dropping only what the tier above added — so an
+unapplied migration costs the stalled state and not the connection status, which is the
+failure `0102` was written for one level up.
+
+
 ### The first minute after connecting Gmail stops being silent (09-05)
 
 Field report: after tapping Allow, the first transactions took "a minute or

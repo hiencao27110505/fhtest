@@ -1,0 +1,39 @@
+-- ============================================================================
+-- FamilyHub / Earthy — 0121: let a browser see that a backfill has stalled
+--
+-- WHY. The client now HOLDS someone out of the review queue while the first
+-- read is still running: opening a half-filled queue means the duplicate
+-- bucketing compares against rows whose twin has not been staged yet, so both
+-- halves of one purchase get imported. The gate is `backfilled_at is null`.
+--
+-- That gate has one failure mode, and it is total. 0101 deliberately NEVER sets
+-- `backfilled_at` on a stall — marking a stalled backfill complete would
+-- abandon unread mail, which is the one loss this pipeline exists to prevent.
+-- So a mailbox carrying a single permanently unreadable message never finishes,
+-- and a hold keyed only on that flag locks its owner out of their own
+-- transactions FOREVER.
+--
+-- `stalled_runs` is what releases them. Past the worker's own threshold
+-- (STALL_NOTIFY_AFTER = 12, worker.mjs) the client stops saying "still reading",
+-- says what it did get, and opens the queue. The worker already sends its
+-- completion notice on exactly the same crossing, so the two agree without
+-- either one reading the other's constant — the coupling is commented on both
+-- sides.
+--
+-- WHY A GRANT AND NOTHING ELSE. 0087 pairs an RLS select policy (own rows) with
+-- a COLUMN-LEVEL grant, which is what keeps `refresh_token_enc` unreachable
+-- from a browser. Columns added by later migrations are not in that grant, and
+-- PostgREST rejects the WHOLE select rather than omitting one column — 0102 was
+-- written after exactly that took the connection status down. 0101 added these
+-- two columns and did not grant them. This is that follow-up.
+--
+-- Neither column is a credential: how many consecutive runs found nothing new,
+-- and when the streak started. No policy changes, no new objects.
+--
+-- Next free migration number after this one: 0122. Verify against
+-- `git ls-tree origin/main supabase/migrations/` IMMEDIATELY BEFORE YOU PUSH,
+-- not only before you write — two sessions share this range daily.
+-- ============================================================================
+
+grant select (stalled_runs, first_stalled_at)
+  on public.mailbox_grants to authenticated;

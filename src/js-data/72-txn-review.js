@@ -185,6 +185,28 @@
       })(),
     ]);
 
+    /* HELD WHILE A FIRST READ IS STILL RUNNING. This is the door that matters:
+       holding someone on the connect sheet does nothing while this row sits on
+       the Finance tab (and on Cá nhân) routing straight into the queue.
+
+       The reason is correctness, not tidiness. csvBuildReview's duplicate
+       bucketing compares the rows it FETCHED. One purchase often produces two
+       emails — a bank debit and a wallet receipt — sharing no identifier but an
+       amount; mid-backfill the twin may not be staged yet, so neither is
+       flagged and both get imported. The quick-select counts are wrong against
+       a partial set for the same reason.
+
+       Sends them to the progress screen instead of refusing: it says how far
+       back the read has got and opens the queue itself the moment it finishes.
+       `oauth` is re-used rather than re-fetched — _atxConnection already ran
+       above and caches the phase. Forwarding has no first pass, so a
+       forwarding-only member is never held. */
+    if (oauth && window.fhBackfillHolds && window.fhBackfillHolds()) {
+      return window.fhAutoTxnStatus
+        ? window.fhAutoTxnStatus(await window.fhAutoTxnConnection())
+        : (window.fhTxnReviewSheet && window.fhTxnReviewSheet(ctx));
+    }
+
     if (fwd || oauth) return window.fhTxnReviewSheet && window.fhTxnReviewSheet(ctx);
     return window.fhEmailSetupChooser
       ? window.fhEmailSetupChooser(preset)
