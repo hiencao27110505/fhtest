@@ -374,3 +374,23 @@
    column (an em dash), so the eye reads down the numbers without a gap. */
 .rows .row.is-locked .r-t{color:var(--muted)}
 .rows .row.is-locked .r-amt{color:var(--chev)}
+
+/* ── personal unified cash-flow strip (21-personal.js) ───────────────────────
+   One pannable chart for every scope. Bars are spending only, in the green
+   the old chart wore; income shows in the tiles and in a bar's tap label.
+   The zoom row replaced the period dots; the strip owns horizontal drag (the
+   card-wide swipe is gone). Top padding gives the amount label headroom. */
+.pz{display:inline-flex;background:var(--fill-neutral);border-radius:10px;padding:2px;margin-top:14px}
+.pz button{font-size:11.5px;font-weight:700;color:var(--muted);padding:5px 13px;border-radius:8px;border:0;background:none}
+.pz button.on{background:var(--white);color:var(--ink);box-shadow:0 1px 3px rgba(25,16,34,.12)}
+.pst{display:flex;align-items:flex-end;gap:7px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:20px 2px 2px;margin-top:4px;scrollbar-width:none}
+.pst::-webkit-scrollbar{display:none}
+.pst-c{flex:0 0 auto;width:40px;display:flex;flex-direction:column;align-items:center;gap:5px;-webkit-tap-highlight-color:transparent;cursor:pointer}
+.pst-bars{position:relative;height:72px;width:100%}
+.pst-b{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:min(26px,62%);border-radius:7px 7px 0 0;background:var(--good)}
+.pst-l{font-size:9px;font-weight:600;color:var(--muted-soft);white-space:nowrap}
+.pst-l.on{color:var(--ink);font-weight:700}
+.pst-l.sel{color:var(--brand-ink);font-weight:800}
+.pst-val{position:absolute;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;color:var(--ink);white-space:nowrap;opacity:0;transition:opacity .2s}
+.pst-pin{position:absolute;left:50%;transform:translateX(-50%);font-size:10px;font-weight:800;color:var(--ink);background:var(--white);border:1px solid var(--divider);border-radius:99px;padding:3px 8px;white-space:nowrap;box-shadow:0 2px 8px rgba(25,16,34,.12);z-index:2}
+.pst-load{padding:22px 4px 8px;font-size:12.5px;font-weight:600;color:var(--muted)}

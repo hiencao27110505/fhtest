@@ -46,12 +46,12 @@ t('the per-space roll-up derives from the FILTERED set, so it is covered',
   ui.indexOf('txM.forEach(function(t){ var k=t.spaceId') > ui.indexOf("!t._unreadable"));
 
 console.log('\n-- and the person is told --');
-t('a notice is rendered when any row is unreadable', /if\(P\.unreadable\)\{/.test(ui));
+t('a notice is rendered when any row is unreadable', /if\(monUnread\)\{/.test(ui));
 t('it says the rows are not in the total',
   /chưa tính vào tổng/.test(ui));
 t('it says what to do about it', /mở khoá lại bằng thẻ cá nhân/i.test(ui));
 t('singular and plural both read correctly',
-  /P\.unreadable===1 \?/.test(ui));
+  /monUnread===1 \?/.test(ui));
 // The locked row must show a DASH, never a formatted amount: fmt(null) would
 // print 0đ and re-create the exact lie this fixes, one row at a time.
 const lockedRow = ui.slice(ui.indexOf("if(t._unreadable){"), ui.indexOf("if(t._unreadable){") + 400);

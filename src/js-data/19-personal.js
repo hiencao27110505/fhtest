@@ -244,6 +244,7 @@
       // Every write path funnels through a re-hydrate, so this is the one spot
       // that keeps the review screen's duplicate-match slice from going stale.
       try { window.fhPersonalMatchSliceInvalidate && window.fhPersonalMatchSliceInvalidate(); } catch (e) {}
+      try { window.fhPersonalStatsSliceInvalidate && window.fhPersonalStatsSliceInvalidate(); } catch (e) {}
       _setState('loading');
       try {
         const from = _winFrom();
@@ -368,6 +369,43 @@
     };
     /* A write through this module makes the cached slice stale by definition. */
     window.fhPersonalMatchSliceInvalidate = function () { _matchSlice = null; };
+
+    /* ── Full-history stats slice — "Toàn thời gian" and the months timeline ──
+       The tab cache reaches back one month (a flow view); lifetime totals and
+       a bar-per-month chart need every year, and the server cannot sum
+       ciphertext. So the whole history is fetched THIN (amount, kind, date,
+       category, space — no notes, no times) and decrypted once per session.
+       Same contract as the match slice: cached until a write invalidates it,
+       null rather than a throw, and an unreadable amount is excluded from
+       every figure but counted, so the view can say so instead of lying. */
+    let _statsSlice = null;
+    window.fhPersonalStatsSlice = async function () {
+      if (!P.uid || !P.key) return null;
+      if (_statsSlice) return _statsSlice;
+      try {
+        const r = await _sb().from('personal_transactions')
+          .select('amount_enc,cat_name_enc,cat_emoji,txn_date,kind,space_id')
+          .eq('owner_user_id', P.uid)
+          .in('kind', ['expense', 'income'])
+          .order('txn_date', { ascending: false })
+          .limit(10000);
+        if (r.error) { console.warn('personal stats slice failed', r.error); return null; }
+        const rows = []; let unreadable = 0;
+        for (const t of (r.data || [])) {
+          const a = await _decP(t.amount_enc);
+          if (a === _DEC_FAILED) { unreadable++; continue; }
+          if (a == null) continue;
+          rows.push({ date: t.txn_date, kind: t.kind, amt: Number(a),
+            cat: await _decTxt(t.cat_name_enc), emoji: t.cat_emoji, spaceId: t.space_id });
+        }
+        // 10k rows is years of history; if a page ever fills, the OLDEST months
+        // are the ones missing — flagged so the view can disclose, not guess.
+        _statsSlice = { rows: rows, unreadable: unreadable, truncated: (r.data || []).length >= 10000 };
+        return _statsSlice;
+      } catch (e) { console.warn('personal stats slice failed', e); return null; }
+    };
+    window.fhPersonalStatsSliceCached = function () { return _statsSlice; };
+    window.fhPersonalStatsSliceInvalidate = function () { _statsSlice = null; };
 
     /* ═══ Personal photos (0114) — capture parity with the family book ═══════
        Bytes are ALWAYS ciphertext under the personal DEK ('.enc' objects in the

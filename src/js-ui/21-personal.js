@@ -19,14 +19,15 @@ var _ccChev='<svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="curren
    in UTC+7, which silently broke the last-month key → daily guide hidden). */
 function _pMonKey(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
 
-/* Selected month for the personal view ('YYYY-MM'); defaults to the live month.
-   The picker only ever offers months the user actually has data for
-   (persAvailableMonths), so with no history it collapses to just this month. */
+/* Selected scope for the personal view: a 'YYYY-MM' month, or 'all' for the
+   whole history. Defaults to the live month — a month is home, "Toàn thời
+   gian" is a pick in the month sheet, never the landing. */
 try{ window.persSelMon = window.persSelMon || _pMonKey(new Date()); }catch(e){ window.persSelMon = _pMonKey(new Date()); }
 
 /* Distinct months (newest first) carrying any personal txn or income, always
-   including the live month even when still empty. Bounded by the ~2-month
-   hydrate window (19-personal.js), so today this yields at most this + last. */
+   including the live month even when still empty. The 2-month hydrate cache
+   seeds it instantly; once the full-history slice has loaded
+   (fhPersonalStatsSlice, 19-personal.js) every month ever logged joins in. */
 function persAvailableMonths(){
   var P=window.fhPersonalData?fhPersonalData():null, set={};
   set[_pMonKey(new Date())]=1;
@@ -34,10 +35,13 @@ function persAvailableMonths(){
     (P.txns||[]).forEach(function(t){ var k=(t.date||'').slice(0,7); if(k) set[k]=1; });
     (P.incomes||[]).forEach(function(i){ var k=(i.date||'').slice(0,7); if(k) set[k]=1; });
   }
+  var SL=window.fhPersonalStatsSliceCached && fhPersonalStatsSliceCached();
+  if(SL) SL.rows.forEach(function(r){ var k=(r.date||'').slice(0,7); if(k) set[k]=1; });
   return Object.keys(set).sort().reverse();
 }
-/* 'YYYY-MM' → "Thg 8"/"Aug" (short, for the caret) or "Tháng 8, 2026" (long, sheet). */
+/* 'YYYY-MM'/'all' → "Thg 8"/"Tất cả" (short, caret) or "Tháng 8, 2026"/"Toàn thời gian" (long, sheet). */
 function persMonLabel(key, long){
+  if(key==='all') return long ? L('Toàn thời gian','All time') : L('Tất cả','All');
   var p=(key||'').split('-'), mo=(parseInt(p[1],10)||1)-1, yr=p[0]||'';
   return long ? ((isVi()?('Tháng '+(mo+1)):MONA[mo])+', '+yr) : moAbbr(mo);
 }
@@ -56,48 +60,37 @@ function persRenderAvatar(){
   el.setAttribute('style', window.fhAvStyle(mm));
   el.textContent = window.fhAvIni(mm);
 }
-/* Month-picker sheet body (only opened when >1 month exists). */
+/* Month-picker sheet body: "Toàn thời gian" on top, then every month with
+   data. Sums come from the full-history slice once it has loaded; until then
+   the 2-month cache answers for the months it holds. */
 window.buildPMonthChoices = function(){
   var box=document.getElementById('pmonth-list'); if(!box) return;
   var P=window.fhPersonalData?fhPersonalData():null, cur=_pMonKey(new Date()), html='';
-  persAvailableMonths().forEach(function(k){
-    var sel=k===window.persSelMon, out=0, inc=0;
-    if(P){
+  var SL=window.fhPersonalStatsSliceCached && fhPersonalStatsSliceCached();
+  persEnsureSlice();                       // history not here yet → fetch; this sheet repaints when it lands
+  var monSum=function(k){
+    var inc=0,out=0;
+    if(SL){ SL.rows.forEach(function(r){ if((r.date||'').slice(0,7)!==k) return; if(r.kind==='income') inc+=r.amt; else out+=r.amt; }); }
+    else if(P){
       (P.txns||[]).forEach(function(t){ if(t.kind==='expense' && !t._unreadable && (t.date||'').slice(0,7)===k) out+=(t.amt||0); });
       (P.incomes||[]).forEach(function(i){ if(!i._unreadable && (i.date||'').slice(0,7)===k) inc+=(i.amt||0); });
     }
-    var sub = k===cur ? L('Đang diễn ra','In progress') : (fmt(inc-out)+L(' còn lại',' left'));
+    return {inc:inc,out:out};
+  };
+  var allSub = SL
+    ? (function(){ var i=0,o=0; SL.rows.forEach(function(r){ if(r.kind==='income') i+=r.amt; else o+=r.amt; }); return fmt(i-o)+L(' còn lại',' left'); })()
+    : L('Đang tải…','Loading…');
+  html+='<button class="qa" onclick="persSelectMonth(\'all\')"><div><div class="qt">'+persMonLabel('all',true)+(window.persSelMon==='all'?'  ✓':'')+'</div>'
+    +'<div class="qs">'+allSub+'</div></div></button>';
+  persAvailableMonths().forEach(function(k){
+    var sel=k===window.persSelMon, sums=monSum(k);
+    var sub = k===cur ? L('Đang diễn ra','In progress') : (fmt(sums.inc-sums.out)+L(' còn lại',' left'));
     html+='<button class="qa" onclick="persSelectMonth(\''+k+'\')"><div><div class="qt">'+persMonLabel(k,true)+(sel?'  ✓':'')+'</div>'
       +'<div class="qs">'+sub+'</div></div></button>';
   });
   box.innerHTML=html;
 };
-window.persSelectMonth = function(k){ window.persSelMon=k; closeSheet(); renderPersonal(); };
-
-/* personal per-day spend for the live month → daily[], dim, dom */
-function persDaily(){
-  var P=fhPersonalData(), now=new Date(), y=now.getFullYear(), mo=now.getMonth();
-  var dim=new Date(y,mo+1,0).getDate(), dom=now.getDate(), daily=[];
-  for(var i=0;i<=dim;i++) daily[i]=0;
-  (P.txns||[]).forEach(function(t){
-    if(t.kind!=='expense' || !t.date) return;
-    var d=new Date(t.date+'T00:00:00'); if(d.getFullYear()!==y || d.getMonth()!==mo) return;
-    var dd=d.getDate(); if(dd>=1 && dd<=dim) daily[dd]+=(t.amt||0);
-  });
-  return {daily:daily, dim:dim, dom:dom};
-}
-/* this week (Mon→Sun containing today) vs last week — shape cfWeekChartHTML expects */
-function persWeekData(daily, dom, dim){
-  var base=new Date(); base.setDate(dom); var wd=(base.getDay()+6)%7, monThis=dom-wd;
-  var cur=[], prev=[], maxV=1;
-  for(var k=0;k<7;k++){
-    var dc=monThis+k, dp=monThis-7+k;
-    var vc=(dc>=1&&dc<=dim&&dc<=dom)?daily[dc]:null, vp=(dp>=1&&dp<=dim)?daily[dp]:0;
-    cur.push(vc); prev.push(vp);
-    if(vc!=null&&vc>maxV)maxV=vc; if(vp>maxV)maxV=vp;
-  }
-  return {cur:cur, prev:prev, monThis:monThis, today:dom, maxV:maxV};
-}
+window.persSelectMonth = function(k){ window.persSelMon=k; persStripScroll=null; persPinKey=null; closeSheet(); renderPersonal(); };
 
 /* Recent photos of the ACTIVE family, newest first — same unified source the
    Memories tab renders from (buildMemRecords: event memories + expense photos).
@@ -120,7 +113,9 @@ function renderPersonal(){
   var host = document.getElementById('pers-body'); if(!host) return;
   persRenderAvatar();     // header disc — independent of personal-ledger state
   var P = window.fhPersonalData ? fhPersonalData() : null;
-  if(!P){ host.innerHTML=''; return; }
+  // The data module hasn't loaded yet (this is now the landing tab, painted at
+  // parse-time boot) — show the same preparing note the boot states use, never a blank.
+  if(!P){ host.innerHTML = '<div class="empty-note">Đang chuẩn bị sổ cá nhân của bạn…</div>'; return; }
 
   if(P.state==='provisioning' || P.state==='boot' || P.state==='loading'){
     host.innerHTML = '<div class="empty-note">Đang chuẩn bị sổ cá nhân của bạn…</div>'; return;
@@ -144,16 +139,34 @@ function renderPersonal(){
   /* ready — amounts are base units (thousands of VND); fmt() applies curMult(). */
   var curMon = _pMonKey(new Date());
   var avail = persAvailableMonths();
-  if(avail.indexOf(window.persSelMon)<0) window.persSelMon = curMon;   // stale pick (data changed) → snap to live
-  var mon = window.persSelMon, isCur = (mon===curMon);
+  if(window.persSelMon!=='all' && avail.indexOf(window.persSelMon)<0) window.persSelMon = curMon;   // stale pick (data changed) → snap to live
+  var mon = window.persSelMon, isAll = (mon==='all'), isCur = (mon===curMon);
+  var lastMon = (function(){ var d=new Date(); d.setDate(1); d.setMonth(d.getMonth()-1); return _pMonKey(d); })();
+  var inWin = !isAll && (mon===curMon || mon===lastMon);   // the 2-month hydrate cache covers it
+  var SL = window.fhPersonalStatsSliceCached && fhPersonalStatsSliceCached();
+  /* Anything past the cache needs the full-history slice: all-time, an older
+     month, or the months timeline (Tháng zoom). Kick the fetch; everything
+     below degrades to a quiet loading note until it lands. */
+  if(isAll || !inWin || persZoom()==='month') persEnsureSlice();
+  var slReady = inWin || !!SL;
   /* _unreadable rows are EXCLUDED from every total rather than counted as 0.
      `t.amt||0` used to fold a row we could not decrypt into the month at zero,
      so a wrong key understated spending instead of saying so (19-personal).
      Everything downstream derives from txM — the category card and the space
      roll-up included — so they are covered by this one filter. */
-  var txM = P.txns.filter(function(t){ return (t.date||'').slice(0,7)===mon && t.kind==='expense' && !t._unreadable; });
-  var out = txM.reduce(function(s,t){ return s+(t.amt||0); },0);
-  var inc = P.incomes.filter(function(i){ return (i.date||'').slice(0,7)===mon && !i._unreadable; }).reduce(function(s,i){ return s+(i.amt||0); },0);
+  var txM, out, inc;
+  if(inWin){
+    txM = P.txns.filter(function(t){ return (t.date||'').slice(0,7)===mon && t.kind==='expense' && !t._unreadable; });
+    out = txM.reduce(function(s,t){ return s+(t.amt||0); },0);
+    inc = P.incomes.filter(function(i){ return (i.date||'').slice(0,7)===mon && !i._unreadable; }).reduce(function(s,i){ return s+(i.amt||0); },0);
+  } else {
+    /* All-time or an older month: the slice is the book. Unreadable amounts
+       were excluded at decrypt and counted — the banner by the list says so. */
+    var slRows = SL ? SL.rows.filter(function(r){ return isAll || (r.date||'').slice(0,7)===mon; }) : [];
+    txM = slRows.filter(function(r){ return r.kind==='expense'; });
+    out = txM.reduce(function(s,t){ return s+(t.amt||0); },0);
+    inc = slRows.reduce(function(s,r){ return s+(r.kind==='income'?r.amt:0); },0);
+  }
   var left = inc-out;
   /* Active family's real name comes from FAM (hydrate); P.fams was never
      populated, so without this the card said a faceless "Nhóm". */
@@ -162,30 +175,27 @@ function renderPersonal(){
     var f=(P.fams||[]).find(function(x){return x.family_id===fid;}); return f? f.name : 'Nhóm';
   };
 
-  /* Month caret (minimal, #8): shown only when >1 month of data exists; otherwise
-     the label carries the live month on its own. */
-  var moCaret = (avail.length>1)
-    ? '<button class="pers-mp" onclick="openSheet(\'sheet-pmonth\')">'+persMonLabel(mon,false)
-      + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M6 9l6 6 6-6"/></svg></button>'
-    : '';
-  var cfLbl = moCaret ? 'Còn lại · cá nhân' : 'Còn lại tháng này · cá nhân';
+  /* Scope caret — always shown: "Toàn thời gian" exists from day one, so
+     there are always at least two choices in the sheet. */
+  var moCaret = '<button class="pers-mp" onclick="openSheet(\'sheet-pmonth\')">'+persMonLabel(mon,false)
+      + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M6 9l6 6 6-6"/></svg></button>';
+  var cfLbl = 'Còn lại · cá nhân';
 
   var h = '';
   h += '<section class="cf-card">'
      + '<div class="cf-lblrow"><div class="cf-lbl">'+cfLbl+'</div>'+moCaret+'</div>'
-     + '<div class="cf-big num'+(left<0?' neg':'')+'">'+fmt(left)+'</div>'
+     + '<div class="cf-big num'+(left<0&&slReady?' neg':'')+'">'+(slReady?fmt(left):'…')+'</div>'
      + '<div class="cf-tiles">'
-     +   '<button class="cf-tile" onclick="fhIncome(\'personal\')"><span class="cf-tl"><span class="cf-ar up">↑</span> Vào</span><span class="cf-tv num">'+fmt(inc)+'</span></button>'
-     +   '<button class="cf-tile" onclick="persScrollTx()"><span class="cf-tl"><span class="cf-ar dn">↓</span> Ra</span><span class="cf-tv num">'+fmt(out)+'</span></button>'
+     +   '<button class="cf-tile" onclick="fhIncome(\'personal\')"><span class="cf-tl"><span class="cf-ar up">↑</span> Vào</span><span class="cf-tv num">'+(slReady?fmt(inc):'…')+'</span></button>'
+     +   '<button class="cf-tile" onclick="persScrollTx()"><span class="cf-tl"><span class="cf-ar dn">↓</span> Ra</span><span class="cf-tv num">'+(slReady?fmt(out):'…')+'</span></button>'
      + '</div>'
-     /* The swipeable period chart + daily guide are live, to-date comparisons —
-        they only make sense for the current month; a past month shows totals only. */
-     + (isCur ? (
-         '<div class="wow" id="pcf-wow" aria-hidden="true"></div>'
-       + '<div class="cf-note" id="pcf-note"></div>'
-       + '<div class="cf-daily" id="pcf-daily" style="display:none"></div>'
-       + '<div class="cf-dots" id="pcf-dots" aria-hidden="true"></div>'
-       ) : '')
+     /* One chart for every scope: the pannable stacked Thu/Chi strip with its
+        zoom row. The note + guide stay current-month only — the guide's whole
+        job is today, and an old month (or all of history) has none. */
+     + '<div class="pz" id="pcf-zoom">'+persZoomRowHTML()+'</div>'
+     + persStripHTML(P, SL, mon, isAll, inWin)
+     + (isCur ? ('<div class="cf-note" id="pcf-note"></div>'
+               + '<div class="cf-daily" id="pcf-daily" style="display:none"></div>') : '')
      + '<div class="cf-cta">'
      +   '<button class="cc-row" onclick="openPersonalBudget()"><span class="cc-ic">'+PIC.chart+'</span><span class="cc-t">'+(P.budget>0?'Ngân sách cá nhân':'Lập ngân sách cá nhân')+'</span>'+_ccChev+'</button>'
      +   '<button class="cc-row" onclick="openTxns(\'personal\')"><span class="cc-ic">'+PIC.list+'</span><span class="cc-t">Xem chi tiêu</span>'+_ccChev+'</button>'
@@ -216,8 +226,7 @@ function renderPersonal(){
      lives inside it). Photos are the active family's recent moments — that
      state is already hydrated and decrypted when this tab is usable. ── */
   var bySpace = {}, catBySpace = {};
-  txM.forEach(function(t){
-    var k=t.spaceId||'_p'; bySpace[k]=(bySpace[k]||0)+(t.amt||0);
+  txM.forEach(function(t){ var k=t.spaceId||'_p'; bySpace[k]=(bySpace[k]||0)+(t.amt||0);
     var cats=catBySpace[k]||(catBySpace[k]={}), ck=(t.cat||'Khác');
     if(!cats[ck]) cats[ck]={name:ck, emoji:t.emoji||'🗂️', v:0};
     cats[ck].v+=(t.amt||0);
@@ -245,10 +254,12 @@ function renderPersonal(){
       + (amt!=null ? '<div class="psp-pass-r"><div class="psp-pass-amt num">'+fmt(amt)+'</div><div class="psp-pass-al">bạn đã góp</div></div>' : '')
       + '</div>'+(strip||'')+'</div>';
   }
-  h += '<div class="section-h" id="pers-cats"><span class="t">Tiền đi đâu tháng này</span>'
+  h += '<div class="section-h" id="pers-cats"><span class="t">'+(isAll?'Tiền đi đâu':'Tiền đi đâu tháng này')+'</span>'
      + '<a onclick="openPersonalBudget()">'+(P.budget>0?'Ngân sách':'Lập ngân sách')+'</a></div>';
-  if(!spKeys.length && !bySpace['_p']){
-    h += '<section class="psp-card"><div class="empty-note">Chưa có chi tiêu tháng này.</div></section>';
+  if(!slReady){
+    h += '<section class="psp-card"><div class="empty-note">Đang tải lịch sử chi tiêu…</div></section>';
+  } else if(!spKeys.length && !bySpace['_p']){
+    h += '<section class="psp-card"><div class="empty-note">'+(isAll?'Chưa có chi tiêu.':'Chưa có chi tiêu tháng này.')+'</div></section>';
   }
   spKeys.forEach(function(k){
     var isActive = !!(window.DB && DB.fid===k);
@@ -279,7 +290,10 @@ function renderPersonal(){
      (a full ledger hides nothing), each styled by what it is. A transfer PAIR
      renders once, not twice: the out-leg carries the row, the in-leg is folded
      into it (same group id), so "VIB → VCB" reads as one event. */
-  var txAll = P.txns.filter(function(t){ return (t.date||'').slice(0,7)===mon; });
+  /* All-time shows the newest rows the cache holds (full detail only exists
+     for the 2-month window); an older month has no detail rows at all, and
+     the empty note below says so instead of pretending an empty month. */
+  var txAll = isAll ? P.txns.slice() : P.txns.filter(function(t){ return (t.date||'').slice(0,7)===mon; });
   var seenXfer = {}, txList = [];
   txAll.forEach(function(t){
     if(t.kind==='transfer' && t.transferGroupId){
@@ -299,8 +313,8 @@ function renderPersonal(){
     legs.forEach(function(l){ if((l.amt||0)<0) from=l.accountId; else to=l.accountId; });
     return { from: acctName(from), to: acctName(to) };
   };
-  var monUnread = txList.filter(function(t){ return t._unreadable; }).length;
-  h += '<div class="section-h" id="pers-tx"><span class="t">Giao dịch của bạn</span></div><div class="rows">';
+  var monUnread = (!inWin && SL) ? SL.unreadable : txList.filter(function(t){ return t._unreadable; }).length;
+  h += '<div class="section-h" id="pers-tx"><span class="t">'+(isAll?'Giao dịch gần đây':'Giao dịch của bạn')+'</span></div><div class="rows">';
   /* Say it before the list, not inside it. A count kept out of the totals has to
      be visible or the totals are quietly wrong -- which is the whole reason this
      stopped being a 0đ row. */
@@ -353,12 +367,13 @@ function renderPersonal(){
       }
     });
   } else {
-    h += '<div class="empty-note">'+(isCur?'Chưa có giao dịch nào trong sổ cá nhân.':'Không có giao dịch nào trong tháng này.')+'</div>';
+    h += '<div class="empty-note">'+(isCur||isAll ? 'Chưa có giao dịch nào trong sổ cá nhân.'
+        : (inWin ? 'Không có giao dịch nào trong tháng này.'
+                 : 'Chi tiết từng giao dịch chỉ lưu sẵn cho tháng này và tháng trước. Tổng và biểu đồ phía trên vẫn tính đủ tháng đã chọn.'))+'</div>';
   }
   h += '</div>';
   host.innerHTML = h;
-  persRenderPeriod();          // fills the swipeable Day/Week/Month chart + guide + dots
-  persBindSwipe();
+  persChartAfterRender(isCur);   // strip scroll + auto label + (current month) guide & sync note
   if(window.persDebtAfterRender) persDebtAfterRender();   // async space balances → section refreshes in place
 }
 function persScrollTx(){ _persScrollTo('pers-tx'); }
@@ -368,22 +383,46 @@ function _persScrollTo(id){ var el=document.getElementById(id), sc=document.getE
    (openPersonalBudget → #sheet-budget, scope 'personal'). The old single-amount
    sheet-pbudget + persBudget* helpers are retired. */
 
-/* ── swipeable Day / Week / Month cash-flow — clone of the finance widget,
-   contextualised to the personal ledger (income/spend, last-month pace). ── */
-try{ window.persPeriod=parseInt(localStorage.getItem('fh-pcfperiod')||'1',10); if(!(window.persPeriod>=0&&window.persPeriod<=2)) window.persPeriod=1; }catch(e){ window.persPeriod=1; }
-function persSetPeriod(i){ i=Math.max(0,Math.min(2,i|0)); window.persPeriod=i; try{localStorage.setItem('fh-pcfperiod',String(i));}catch(e){} persRenderPeriod(); }
-function persBindSwipe(){
-  var card=document.querySelector('#v-personal .cf-card'); if(!card || card._pbound) return; card._pbound=1;
-  var x0=0,y0=0;
-  card.addEventListener('touchstart',function(e){ var t=e.changedTouches[0]; x0=t.clientX; y0=t.clientY; },{passive:true});
-  card.addEventListener('touchend',function(e){ var t=e.changedTouches[0], dx=t.clientX-x0, dy=t.clientY-y0; if(Math.abs(dx)<40||Math.abs(dx)<Math.abs(dy)*1.4) return; persSetPeriod((window.persPeriod|0)+(dx<0?1:-1)); },{passive:true});
+/* ── the unified cash-flow chart: one pannable strip of stacked Thu/Chi bars ──
+   Replaces the three-chart swipe deck (buổi day view, week-vs-last,
+   month-vs-last). One component, three zooms, every scope:
+     · Ngày / Tuần bars span the SELECTED scope — a month, or everything;
+     · Tháng bars always span the whole history, so zooming out of a month
+       shows the months around it, the selected one highlighted.
+   Bars are spending only, in the same green the old chart wore; income keeps
+   its place in the tiles and in a bar's tap label. Tap a bar to pin its ↑↓
+   figures; the auto label rides the tallest bar in view. The strip owns
+   horizontal drag, so the old card-wide swipe-to-switch-period is retired —
+   zoom is a tap. The this-vs-last comparison left the bars and lives on in
+   the guide's words ("so với tuần trước"), current month only. */
+try{ window.persZoomM = localStorage.getItem('fh-pzoom-m') || 'week'; }catch(e){ window.persZoomM = 'week'; }
+try{ window.persZoomA = localStorage.getItem('fh-pzoom-all') || 'month'; }catch(e){ window.persZoomA = 'month'; }
+if(['day','week','month'].indexOf(window.persZoomM)<0) window.persZoomM='week';
+if(['day','week','month'].indexOf(window.persZoomA)<0) window.persZoomA='month';
+var persStripScroll = null;   // strip scrollLeft; null = pin to the scope's "now"
+var persPinKey = null;        // tapped bar key ('YYYY-MM-DD' | week Monday | 'YYYY-MM')
+function persZoom(){ return window.persSelMon==='all' ? window.persZoomA : window.persZoomM; }
+function persSetZoom(z){
+  if(window.persSelMon==='all'){ window.persZoomA=z; try{localStorage.setItem('fh-pzoom-all',z);}catch(e){} }
+  else { window.persZoomM=z; try{localStorage.setItem('fh-pzoom-m',z);}catch(e){} }
+  persStripScroll=null; persPinKey=null;
+  renderPersonal();
 }
-function persLastMonthDaily(){
-  var P=fhPersonalData(), now=new Date(), pd=new Date(now.getFullYear(),now.getMonth()-1,1);
-  var key=_pMonKey(pd), dim=new Date(now.getFullYear(),now.getMonth(),0).getDate(), arr=[];
-  for(var i=0;i<=dim;i++) arr[i]=0;
-  (P.txns||[]).forEach(function(t){ if(t.kind==='expense'&&(t.date||'').slice(0,7)===key){ var dd=+t.date.slice(8,10); if(dd>=1&&dd<=dim) arr[dd]+=(t.amt||0); } });
-  return {arr:arr, dim:dim};
+/* The full-history slice, fetched at most once per session. Anything that
+   needs it before it lands renders a quiet loading note; this re-render (and
+   a repaint of the month sheet, if it is open) delivers the real thing. */
+var _persSliceReq = false;
+function persEnsureSlice(){
+  var SL = window.fhPersonalStatsSliceCached && fhPersonalStatsSliceCached();
+  if(SL || _persSliceReq || !window.fhPersonalStatsSlice) return !!SL;
+  _persSliceReq = true;
+  fhPersonalStatsSlice().then(function(){
+    _persSliceReq = false;
+    renderPersonal();
+    var sh = document.getElementById('sheet-pmonth');
+    if(sh && sh.classList.contains('on') && window.buildPMonthChoices) buildPMonthChoices();
+  });
+  return false;
 }
 /* Local YYYY-MM-DD (avoids the UTC date-shift in UTC+7). */
 function _pDate(dt){ return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0'); }
@@ -413,49 +452,147 @@ function persGuideParts(periodKey){
     prevPTD=persSpendRange(_pDate(pm), _pDate(new Date(pm.getFullYear(),pm.getMonth(),Math.min(dom,pdim)))); }
   return {spentToday:spentToday, budgetAllow:budgetAllow, spentPTD:spentPTD, prevPTD:prevPTD};
 }
-/* Day period: today vs yesterday, bucketed by buổi (Sáng·Trưa·Chiều·Tối) via logged time. */
-function persDayChartHTML(pd){
-  var P=fhPersonalData(), now=new Date(), y=now.getFullYear(), mo=now.getMonth(), dom=pd.dom;
-  var curB=(typeof cfBuoiIdx==='function')?cfBuoiIdx(now.getHours()):3, cur=[0,0,0,0], prev=[0,0,0,0];
-  (P.txns||[]).forEach(function(t){
-    if(t.kind!=='expense'||!t.date) return;
-    var d=new Date(t.date+'T00:00:00'); if(d.getFullYear()!==y||d.getMonth()!==mo) return;
-    var dd=d.getDate(); if(dd!==dom && dd!==dom-1) return;
-    var h=t.ts?new Date(t.ts).getHours():null, b=(h==null?curB:((typeof cfBuoiIdx==='function')?cfBuoiIdx(h):3));
-    if(dd===dom) cur[b]+=(t.amt||0); else prev[b]+=(t.amt||0);
+
+/* Day-keyed {chi,thu} over the best source for the job: the 2-month cache for
+   an in-window month at Ngày/Tuần zoom (free), the slice everywhere else.
+   Unreadable amounts never reach here — the cache filters them, the slice
+   excluded them at decrypt; the banner by the list carries the count. */
+function persFlowByDay(P, SL, useSlice){
+  var map={};
+  var add=function(date,kind,amt){ if(!date) return; var e=map[date]||(map[date]={chi:0,thu:0}); if(kind==='income') e.thu+=amt; else e.chi+=amt; };
+  if(useSlice && SL) SL.rows.forEach(function(r){ add(r.date, r.kind, r.amt); });
+  else (P.txns||[]).forEach(function(t){ if(t._unreadable) return; if(t.kind==='expense'||t.kind==='income') add(t.date,t.kind,t.amt||0); });
+  return map;
+}
+/* → [{k,label,chi,thu,on,sel}] for the active zoom+scope, zero slots kept so
+   the axis stays honest; null while the needed slice is still loading. */
+function persSeries(P, SL, mon, isAll, inWin){
+  var z=persZoom(), curMonK=_pMonKey(new Date()), today=_pDate(new Date());
+  var useSlice = isAll || !inWin || z==='month';
+  if(useSlice && !SL) return null;
+  var byDay=persFlowByDay(P, SL, useSlice), keys=Object.keys(byDay).sort();
+  var bars=[];
+  if(z==='month'){
+    var firstK = keys.length ? keys[0].slice(0,7) : curMonK;
+    var d=new Date(+firstK.slice(0,4), +firstK.slice(5,7)-1, 1);
+    var end=new Date(); end.setDate(1);
+    var curY=new Date().getFullYear();
+    while(d<=end){
+      var mk=_pMonKey(d), chi=0, thu=0;
+      keys.forEach(function(dk){ if(dk.slice(0,7)===mk){ chi+=byDay[dk].chi; thu+=byDay[dk].thu; } });
+      bars.push({ k:mk, chi:chi, thu:thu, on:mk===curMonK, sel:!isAll && mk===mon,
+        label: d.getFullYear()===curY ? moAbbr(d.getMonth()) : moAbbr(d.getMonth())+' '+String(d.getFullYear()).slice(2) });
+      d.setMonth(d.getMonth()+1);
+    }
+  } else {
+    var a, b;
+    if(isAll){ a = keys.length ? new Date(keys[0]+'T00:00:00') : new Date(); b=new Date(); }
+    else {
+      a = new Date(+mon.slice(0,4), +mon.slice(5,7)-1, 1);
+      b = (mon===curMonK) ? new Date() : new Date(+mon.slice(0,4), +mon.slice(5,7), 0);
+    }
+    if(z==='day'){
+      var d2=new Date(a);
+      while(d2<=b){
+        var dk2=_pDate(d2), e=byDay[dk2]||{chi:0,thu:0};
+        bars.push({ k:dk2, label:d2.getDate()+'/'+(d2.getMonth()+1), chi:e.chi, thu:e.thu, on:dk2===today, sel:false });
+        d2.setDate(d2.getDate()+1);
+      }
+    } else {
+      var wm=new Date(a); wm.setDate(wm.getDate()-((wm.getDay()+6)%7));   // Monday of the first week
+      var tw=new Date(); tw.setDate(tw.getDate()-((tw.getDay()+6)%7));
+      var thisWeekK=_pDate(tw);
+      while(wm<=b){
+        var ws=_pDate(wm), weD=new Date(wm); weD.setDate(weD.getDate()+6);
+        var we=_pDate(weD), c2=0, t2=0;
+        keys.forEach(function(dk){ if(dk>=ws && dk<=we){ c2+=byDay[dk].chi; t2+=byDay[dk].thu; } });
+        bars.push({ k:ws, label:wm.getDate()+'/'+(wm.getMonth()+1), chi:c2, thu:t2, on:ws===thisWeekK, sel:false });
+        wm.setDate(wm.getDate()+7);
+      }
+    }
+  }
+  return bars;
+}
+function persZoomRowHTML(){
+  var z=persZoom();
+  var b=function(k,vi,en){ return '<button class="'+(z===k?'on':'')+'" onclick="persSetZoom(\''+k+'\')">'+L(vi,en)+'</button>'; };
+  return b('day','Ngày','Day')+b('week','Tuần','Week')+b('month','Tháng','Month');
+}
+function persStripHTML(P, SL, mon, isAll, inWin){
+  var bars = persSeries(P, SL, mon, isAll, inWin);
+  if(!bars) return '<div class="pst-load">Đang tải lịch sử…</div>';
+  if(!bars.length) return '';
+  var max=1; bars.forEach(function(b){ if(b.chi>max) max=b.chi; });
+  var h='<div class="pst" id="pcf-strip" onscroll="persStripOnScroll(this)">';
+  bars.forEach(function(b){
+    var hc=b.chi>0?Math.max(Math.round(b.chi/max*100),4):0;
+    var top='bottom:calc('+hc+'% + 3px)';
+    h+='<div class="pst-c" data-k="'+b.k+'" data-chi="'+b.chi+'" onclick="persBarTap(\''+b.k+'\')">'
+      +'<span class="pst-bars">'
+      +(persPinKey===b.k
+          ? '<span class="pst-pin num" style="'+top+'">↓'+fmtK(b.chi)+(b.thu>0?' ↑'+fmtK(b.thu):'')+'</span>'
+          : (b.chi>0 ? '<span class="pst-val num" style="'+top+'">'+fmtK(b.chi)+'</span>' : ''))
+      +(hc?'<i class="pst-b" style="height:'+hc+'%"></i>':'')
+      +'</span><span class="pst-l'+(b.on?' on':'')+(b.sel?' sel':'')+'">'+b.label+'</span></div>';
   });
-  var LB=['Sáng','Trưa','Chiều','Tối'], maxV=1; for(var i=0;i<4;i++){ if(cur[i]>maxV)maxV=cur[i]; if(prev[i]>maxV)maxV=prev[i]; }
-  var cols='';
-  for(var j=0;j<4;j++){ var ph=Math.round(prev[j]/maxV*100), fut=j>curB, over=!fut&&prev[j]>0&&cur[j]>prev[j], ch=fut?0:(cur[j]>0?Math.max(Math.round(cur[j]/maxV*100),4):0);
-    cols+='<div class="wcol"><span class="wbars"><i class="wb prev" style="height:'+ph+'%"></i>'+(fut?'':'<i class="wb cur'+(over?' over':'')+'" style="height:'+ch+'%"></i>')+'</span><span class="wd'+(j===curB?' on':'')+'">'+LB[j]+'</span></div>'; }
-  return {html:cols, spent:pd.daily[dom]||0};
+  return h+'</div>';
 }
-/* Month period: 4 weeks this month vs last. */
-function persMonthChartHTML(pd, lm){
-  var buckets=function(arr,dim){ var b=[0,0,0,0], hi=[7,14,21,dim]; for(var i=0;i<4;i++){ var lo=[1,8,15,22][i]; for(var d=lo;d<=hi[i];d++){ if(arr[d])b[i]+=arr[d]; } } return b; };
-  var cur=buckets(pd.daily,pd.dim), prev=buckets(lm.arr,lm.dim);
-  var curW=pd.dom<=7?0:pd.dom<=14?1:pd.dom<=21?2:3, LB=['Tuần 1','Tuần 2','Tuần 3','Tuần 4'];
-  var maxV=1; for(var i=0;i<4;i++){ if(cur[i]>maxV)maxV=cur[i]; if(prev[i]>maxV)maxV=prev[i]; }
-  var cols='';
-  for(var j=0;j<4;j++){ var ph=Math.round(prev[j]/maxV*100), fut=j>curW, over=!fut&&prev[j]>0&&cur[j]>prev[j], ch=fut?0:(cur[j]>0?Math.max(Math.round(cur[j]/maxV*100),4):0);
-    cols+='<div class="wcol"><span class="wbars"><i class="wb prev" style="height:'+ph+'%"></i>'+(fut?'':'<i class="wb cur'+(over?' over':'')+'" style="height:'+ch+'%"></i>')+'</span><span class="wd'+(j===curW?' on':'')+'">'+LB[j]+'</span></div>'; }
-  var spent=0; for(var k=0;k<4;k++) spent+=cur[k];
-  return {html:cols, spent:spent};
+/* Tap pins a bar's ↑↓ figures; the same tap lets go. The strip keeps its
+   place through the re-render this triggers. */
+function persBarTap(k){
+  persPinKey = (persPinKey===k)?null:k;
+  var el=document.getElementById('pcf-strip');
+  if(el) persStripScroll = el.scrollLeft;
+  renderPersonal();
 }
-function persRenderPeriod(){
+var _pstRaf=0;
+function persStripOnScroll(el){
+  persStripScroll = el.scrollLeft;   // survives every re-render
+  if(_pstRaf) return;
+  _pstRaf=requestAnimationFrame(function(){ _pstRaf=0; persStripLabelSync(); });
+}
+/* The auto amount label rides the tallest CHI bar currently in view. A pinned
+   bar keeps its own label regardless — that one the person asked for. */
+function persStripLabelSync(){
+  var el=document.getElementById('pcf-strip'); if(!el) return;
+  var x0=el.scrollLeft, x1=x0+el.clientWidth, best=null, bestV=0;
+  for(var i=0;i<el.children.length;i++){
+    var c=el.children[i], mid=c.offsetLeft+c.offsetWidth/2;
+    if(mid<x0||mid>x1) continue;
+    var v=Number(c.getAttribute('data-chi'))||0;
+    if(v>bestV){ bestV=v; best=c; }
+  }
+  for(var j=0;j<el.children.length;j++){
+    var s=el.children[j].querySelector('.pst-val');
+    if(s) s.style.opacity=(el.children[j]===best)?'1':'0';
+  }
+}
+function persChartAfterRender(isCur){
   var P=fhPersonalData(); if(!P||P.state!=='ready') return;
-  var wowEl=document.getElementById('pcf-wow'); if(!wowEl) return;
-  var pd=persDaily(), lm=persLastMonthDaily(), p=window.persPeriod|0;
-  var pk = p===0?'day':(p===2?'month':'week');
-  if(p===0){ var d=persDayChartHTML(pd); wowEl.innerHTML=d.html; }
-  else if(p===2){ var mo=persMonthChartHTML(pd, lm); wowEl.innerHTML=mo.html; }
-  else { var wk=persWeekData(pd.daily, pd.dom, pd.dim); wowEl.innerHTML=(typeof cfWeekChartHTML==='function')?cfWeekChartHTML(wk,false):''; }
-  var blockWin=false;
-  if(pk!=='month' && typeof fhGuideCompute==='function'){ var gm=fhGuideCompute(persGuideParts('month'), 1); blockWin=!!(gm && gm.state==='worse' && gm.hasBudget); }   // MoM gate: month failing ⇒ no day/week win
-  if(typeof fhGuideRender==='function') fhGuideRender('pcf-daily', pk, persGuideParts(pk), 1, blockWin);
-  var dots=document.getElementById('pcf-dots'); if(dots){ var dh=''; for(var k=0;k<3;k++) dh+='<i class="'+(k===p?'on':'')+'" onclick="persSetPeriod('+k+')"></i>'; dots.innerHTML=dh; }
-  var note=document.getElementById('pcf-note');
-  if(note){ if(!P.mirrorRan){ note.className='cf-note flat'; note.innerHTML='Đang đồng bộ các khoản bạn đã ghi cho gia đình…'; } else { note.className='cf-note'; note.innerHTML=''; } }
+  var el=document.getElementById('pcf-strip');
+  if(el){
+    if(persStripScroll!=null) el.scrollLeft=persStripScroll;
+    else{
+      /* pin to "now": the right end — except month zoom in a month scope,
+         which centers the selected month in the timeline */
+      var target=el.scrollWidth;
+      if(persZoom()==='month' && window.persSelMon!=='all'){
+        var selL=el.querySelector('.pst-l.sel');
+        if(selL && selL.parentNode) target=selL.parentNode.offsetLeft - el.clientWidth/2 + 20;
+      }
+      el.scrollLeft=Math.max(0,target);
+    }
+    persStripLabelSync();
+  }
+  /* today's guide — the current month only: an old month has no "today", and
+     all-time is a history view (the guide's whole job is now) */
+  if(isCur){
+    var pk=persZoom(), blockWin=false;
+    if(pk!=='month' && typeof fhGuideCompute==='function'){ var gm=fhGuideCompute(persGuideParts('month'), 1); blockWin=!!(gm && gm.state==='worse' && gm.hasBudget); }   // MoM gate: month failing ⇒ no day/week win
+    if(typeof fhGuideRender==='function') fhGuideRender('pcf-daily', pk, persGuideParts(pk), 1, blockWin);
+    var note=document.getElementById('pcf-note');
+    if(note){ if(!P.mirrorRan){ note.className='cf-note flat'; note.innerHTML='Đang đồng bộ các khoản bạn đã ghi cho gia đình…'; } else { note.className='cf-note'; note.innerHTML=''; } }
+  }
 }
 
 function persUnlock(){

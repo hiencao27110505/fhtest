@@ -1,5 +1,5 @@
 /* FamilyHub — offline-first service worker */
-const CACHE_NAME = 'familyhub-v482';
+const CACHE_NAME = 'familyhub-v484';
 /* Photos live in their own cache, deliberately NOT tied to CACHE_NAME. Folding
    them together would throw every photo away on each app release, which is the
    exact re-download this cache exists to prevent. Nothing here ever goes stale:
@@ -177,7 +177,11 @@ self.addEventListener('fetch', (e) => {
 self.addEventListener('push', (e) => {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch (err) {}
-  e.waitUntil(self.registration.showNotification(d.title || 'Earthy', {
+  // An EXPLICIT empty title (txn_review sends title:"") shows the body alone —
+  // no redundant "Earthy" line, since the OS already labels the app. Only a
+  // MISSING title falls back to the app name.
+  const title = (typeof d.title === 'string') ? d.title : 'Earthy';
+  e.waitUntil(self.registration.showNotification(title, {
     body: d.body || '',
     icon: './icon.png',
     badge: './icon.png',
