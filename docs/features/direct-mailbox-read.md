@@ -64,7 +64,14 @@ yields an opaque response whose headers the Fetch Standard strips.
 `mailbox-connect/callback` runs `--no-verify-jwt` — a browser returning from Google
 carries no session — so it authenticates itself by verifying that signed state. It then
 exchanges the code, encrypts the refresh token (AES-256-GCM, `MAILBOX_TOKEN_KEY`,
-`v1:<iv>:<ct>`) and calls `grant_mailbox_access()`.
+`v1:<iv>:<ct>`) and calls `grant_mailbox_access()`. With the grant stored it fires the
+**connect kick** — a fire-and-forget `POST /mailbox-sync` `{grant: <id>}` under the
+shared secret — and registers the Gmail watch, BOTH via `EdgeRuntime.waitUntil` so the
+redirect returns at once (2026-09-05; the watch used to be awaited, and the kick is why
+the first read starts in seconds instead of waiting for the minute lane — measured
+first-row latency on a real connect: 4.4s). Neither failing costs transactions: the
+minute lane reads the mailbox regardless, and a lost watch is due-on-null for the
+renewal sweep.
 
 **That RPC is where ownership is decided**, and it is the highest-consequence query in
 the feature:
@@ -85,14 +92,19 @@ not a fault.
 Finally the callback registers `users.watch()` if `GMAIL_PUSH_TOPIC` is set. Best effort:
 failure costs latency, not transactions.
 
-### 1. Two triggers, one pipeline
+### 1. Three triggers, one pipeline
 
 | Trigger | Path | Latency | Role |
 |---|---|---|---|
+| Connect kick | `/callback` → `POST /mailbox-sync` `{grant: <id>}` → `runOne` | seconds, once | the first impression |
 | Gmail push | Gmail → Pub/Sub → `POST /mailbox-sync/push?secret=` | seconds | the optimisation |
 | pg_cron | `_mailbox_sync_tick()` → `POST /mailbox-sync` | ≤ 5 min | the guarantee |
 
-They do identical work; only the trigger differs. Both are needed because they fail
+They do identical per-mailbox work; only the trigger differs. The kick fires exactly
+once, at the one moment neither of the others can be soon enough — a fresh grant's
+first read otherwise waits for the minute lane while its owner watches — and runs one
+named grant through `grantById`, which carries `dueGrants`' own `needs_reauth` filter,
+so it can never run a mailbox the poll would refuse. Both are needed because they fail
 differently: **a watch lapses after 7 days and Gmail then stops publishing silently** —
 no error, no final notification, nothing in any log — so a push-only pipeline looks idle
 rather than broken. The poll is what makes that a latency problem instead of missing

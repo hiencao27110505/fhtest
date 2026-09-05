@@ -118,11 +118,18 @@ answer pre-filled with a working default.
 callback returns you to the app immediately (nothing on the redirect path
 waits for Google any more) and a targeted first read starts within seconds.
 The "Đã kết nối" sheet is live: it polls a head-only pending count — every
-1.5s until the first find, then every 4s — and turns "Đang dò hộp thư của
-bạn…" into "Tìm được N khoản…" with a "Xem N khoản" button as history lands.
-Closing it early only demotes the watcher to badge-keeping; it never goes
-silent inside its 3-minute window. The same sheet offers to turn
-notifications on, because this is the moment the feature has earned the ask.
+1.5s until the first find, then every 4s — turns "Đang dò hộp thư của bạn…"
+into "Tìm được N khoản…", and shows a small "Vừa tìm thấy" feed (bank + date
+only; the amount is the one sealed field and is deliberately absent). The
+"Xem N khoản" review button is deliberately WITHHELD until the first read
+finishes: duplicate bucketing compares the rows it fetched, and one purchase
+often produces two emails (bank debit + wallet receipt) sharing nothing but
+an amount — reviewed against a half-staged set, the twin is invisible and
+both import. Closing the sheet early only demotes the watcher to
+badge-keeping; it never goes silent inside its 3-minute window, and the
+Cá nhân email row carries the same progress meanwhile. The sheet also offers
+to turn notifications on, because this is the moment the feature has earned
+the ask.
 Measured on the first real connect after deploy: first staged row **4.4
 seconds** after the grant was stored.
 
@@ -1930,6 +1937,16 @@ as — or the same day as — the deploy. A deploy announced only in
   live screen covers the interim, and the notify decision block was left
   untouched on purpose (it is the code the 2026-08-30 sixty-notices incident
   lives next to).
+- **Same-day follow-up (Hien's session, 3baf624 · 037318e · d2972ad):** the
+  review CTA on the connect screen is now WITHHELD until the first read
+  completes — reviewing against a half-staged set blinds duplicate bucketing
+  to a twin email that has not staged yet (product call from the founder) —
+  with a "Vừa tìm thấy" feed (provider + date, never the sealed amount) on
+  both OAuth screens and the same progress on the Cá nhân email row.
+  ⚠️ Migration `0121` (`grant_stall_read`) written and pushed, NOT yet
+  applied at the time of that entry — the client's three-tier select ladder
+  degrades gracefully until it is. Details in AGENT_SYNC (2026-09-05,
+  Hien's session).
 
 ### 2026-09-03 — mailbox-sync (pending deploy) · migrations 0110–0111 — selection looks before it lifts, and two more surfaces learn
 

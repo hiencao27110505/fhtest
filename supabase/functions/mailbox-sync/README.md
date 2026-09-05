@@ -21,6 +21,7 @@ Settings → Tự động ghi giao dịch
                                                      │
    the bank sends mail ─▶ Gmail ─▶ [topic] ─▶ POST mailbox-sync/push   seconds
    pg_cron */5 ─▶ _mailbox_sync_tick() ─▶ POST mailbox-sync            the net
+   connect ─▶ mailbox-connect/callback ─▶ POST {grant:<id>} ─▶ runOne  first read, in seconds
                                                      │
         ┌────────────────────────────────────────────┘
         ├─ due grants, oldest poll first

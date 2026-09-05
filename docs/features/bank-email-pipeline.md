@@ -3,10 +3,13 @@
 Passive transaction capture: a bank emails you about a purchase, and the transaction
 appears in the family ledger without anyone typing it.
 
-> **Status, 2026-08-24.** Live end to end for allowlisted members. Pipeline
-> `v2026-08-17-d`, sealed staging ON, review UI shipped, notifications delivering.
-> Not live: consent screen, sender-auth enforcement, OAuth direct read, bank-domain
-> seed. See [Current State](#current-state).
+> **Status, 2026-09-05.** Live end to end for allowlisted members — BOTH
+> transports: this forwarding pipeline and OAuth direct read (live since
+> 2026-08-25; see `direct-mailbox-read.md`, which since 2026-09-05 starts a
+> connected mailbox's first read within seconds of consent). Consent screen
+> live (v4). Still not live: sender-auth enforcement, bank-domain seed. The
+> end-to-end source of truth is `docs/specs/effortless-transaction-logging-spec.md`;
+> the [Current State](#current-state) below reflects 2026-08-24.
 
 ---
 
