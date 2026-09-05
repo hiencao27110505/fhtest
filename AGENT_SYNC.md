@@ -143,6 +143,24 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-09-05 (Hien's session) — bulk import hardened for a 200-row queue; UI +
+  client only, NO db / migration / edge / .gs changes.** Field report: ~200
+  staged rows from a 90-day first connect; multi-tapping "Nhập 200" ran
+  concurrent duplicate imports and left the screen flashing for minutes (every
+  personal write = full re-hydrate + two repaints of the Cá nhân tab AND the
+  review modal); a single press showed nothing for the whole batch. Now: press
+  latch (button + module level), "Đang nhập k/N…" overlay, ONE chunked bulk
+  write (new `fhPersonalAddMany`, 50-row chunks, transfer pairs never split),
+  ONE hydrate per batch (new `fhPersonalHydrateHold`/`Release`), retire-as-
+  chunks-land so an interrupted batch cannot duplicate on retry, and a failed
+  chunk retires exactly the written candidates and re-offers the rest. Files:
+  `src/js-data/19-personal.js`, `src/js-data/72-txn-review.js`,
+  `src/js-ui/56-csv-import-ui.js`, `tools/staged-scope.test.js` (assertions
+  updated to the bulk-writer shape + 3 new), `sw.js` v482, CHANGELOG. Note for
+  the other session: personal writes still funnel through `fhPersonalHydrate`;
+  if you add a bulk path anywhere, use the hold/release pair rather than
+  calling writes in a loop.
+
 - **2026-09-04 (Hien — bank-email monitoring) — `0119` + `0120` APPLIED and
   verified end to end. Next free is `0121`. ⚠️ `.gs` PASTE NEEDED
   (`2026-09-04-health`). Files: new `supabase/migrations/0119_pipeline_health.sql`,

@@ -135,13 +135,20 @@ const rv = fs.readFileSync(path.join(__dirname, '..', 'src', 'js-data', '72-txn-
 const promote = rv.slice(rv.indexOf('window.fhPromoteStaged'));
 t('rows are partitioned by their own scope, not one batch flag',
   /csvRowScope\(c\) === 'personal'/.test(promote));
-t('personal rows go to fhPersonalAddExpense', /fhPersonalAddExpense\(/.test(promote));
+t('personal rows go through the bulk writer (one chunked write, not N round trips)',
+  /fhPersonalAddMany\(/.test(promote));
 t('family rows still go to csvPromote', /await csvPromote\(theirs\)/.test(promote));
 t('personal writes happen BEFORE csvPromote, which empties csvReview.ready',
-  promote.indexOf('fhPersonalAddExpense') < promote.indexOf('await csvPromote(theirs)'));
-t('a failed personal row throws before ANY family write or retirement',
-  promote.indexOf('personal write failed') < promote.indexOf('await csvPromote(theirs)') &&
-  promote.indexOf('personal write failed') < promote.indexOf('_stagedRetiredAdd('));
+  promote.indexOf('fhPersonalAddMany') < promote.indexOf('await csvPromote(theirs)'));
+t('a failed chunk returns before ANY family write',
+  promote.indexOf('!res.ok') > -1 &&
+  promote.indexOf('!res.ok') < promote.indexOf('await csvPromote(theirs)'));
+t('and retires exactly the written candidates, never the whole batch',
+  /doneCands\.map\(stagedIdOf\)/.test(promote));
+t('a second press while one runs is a no-op (the double-import latch)',
+  /if \(_txrPromoting\) return;/.test(promote));
+t('the per-write re-hydrate is held for the batch (one hydrate, not 200)',
+  /fhPersonalHydrateHold\(\)/.test(promote) && /fhPersonalHydrateRelease\(\)/.test(promote));
 t('space_id is never set on a bank-sourced personal row (private, no un-share)',
   !/space_id\s*:/.test(promote));
 

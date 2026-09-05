@@ -223,8 +223,24 @@
       try { await window.fhPersonalStagingEnsure(); } catch (e) { window.fhLogErr && window.fhLogErr('personal_staging_ensure', e); }
     }
 
+    /* Bulk-import hold. Every write funnels through a full re-hydrate — four
+       queries, a whole-ledger decrypt, and two _setState repaints (loading →
+       ready) of the Cá nhân tab AND the staged review modal. Right for the one
+       row a person hand-types; quadratic for a 200-row email backfill, where it
+       was the "screen flashing continuously for minutes" bug. While held,
+       hydrate defers to a single flag; release runs the ONE hydrate the whole
+       batch needs. A counter, not a boolean, so nested holds cannot release
+       early. */
+    let _hydHold = 0, _hydWanted = false;
+    window.fhPersonalHydrateHold = function () { _hydHold++; };
+    window.fhPersonalHydrateRelease = async function () {
+      if (_hydHold > 0) _hydHold--;
+      if (!_hydHold && _hydWanted) { _hydWanted = false; await window.fhPersonalHydrate(); }
+    };
+
     window.fhPersonalHydrate = async function () {
       if (!P.uid || !P.key) return;
+      if (_hydHold) { _hydWanted = true; return; }
       // Every write path funnels through a re-hydrate, so this is the one spot
       // that keeps the review screen's duplicate-match slice from going stale.
       try { window.fhPersonalMatchSliceInvalidate && window.fhPersonalMatchSliceInvalidate(); } catch (e) {}
@@ -584,6 +600,52 @@
       const r = await _sb().from('personal_transactions').insert([await mk(-amtK, fromAccountId), await mk(amtK, toAccountId)]);
       if (r.error) { console.warn('personal transfer pair failed', r.error); return false; }
       await window.fhPersonalHydrate(); return true;
+    };
+    /* Bulk write — the bank-email import's fast path. One row per spec
+       ({kind, amt, note, catName, catEmoji, dateIso, time, who, accountId,
+       transferGroupId, source}), encrypted locally and inserted in CHUNKS
+       rather than one awaited round trip per row: 200 reviewed emails used to
+       mean 200 inserts × a full re-hydrate each — minutes of silent work on a
+       low-end phone. Encryption is cheap and local; the network is the cost,
+       so the network is what gets batched.
+
+       A chunk is one INSERT, so it fully lands or fully fails — `written` is
+       therefore exact, and the caller retires precisely the staged rows whose
+       ledger copies exist and re-offers the rest. A transfer PAIR is never
+       split across a chunk boundary: a failure there would strand one leg
+       written and one not, which retire-by-range cannot express.
+       onChunk(written, total) is awaited between chunks — progress UI and a
+       paint yield live there, not here. */
+    window.fhPersonalAddMany = async function (specs, onChunk) {
+      if (!P.uid || !P.key || !specs || !specs.length) return { ok: false, written: 0 };
+      const rows = [];
+      for (const s of specs) {
+        const t = _okTime(s.time);
+        rows.push({ owner_user_id: P.uid, txn_date: s.dateIso || _localDate(new Date()),
+          kind: s.kind, space_id: null, link_id: null,
+          amount_enc: await _encP(Number(s.amt)),
+          note_enc: s.note ? await _encP(s.note) : null,
+          cat_name_enc: s.catName ? await _encP(s.catName) : null,
+          cat_emoji: s.catEmoji || null,
+          occurred_time_enc: t ? await _encP(t) : null,
+          counterparty_enc: s.who ? await _encP(s.who) : null,
+          account_id: s.accountId || null,
+          transfer_group_id: s.transferGroupId || null,
+          source: s.source || null });
+      }
+      const CHUNK = 50;
+      let written = 0;
+      while (written < rows.length) {
+        let end = Math.min(rows.length, written + CHUNK);
+        while (end < rows.length && rows[end].transfer_group_id
+               && rows[end].transfer_group_id === rows[end - 1].transfer_group_id) end++;
+        const r = await _sb().from('personal_transactions').insert(rows.slice(written, end));
+        if (r.error) { console.warn('personal bulk insert failed after ' + written, r.error); return { ok: false, written: written }; }
+        written = end;
+        if (onChunk) { try { await onChunk(written, rows.length); } catch (e) {} }
+      }
+      await window.fhPersonalHydrate();
+      return { ok: true, written: written };
     };
     /* Pair integrity (T10): the two legs can never diverge, so editing goes
        through the group and deleting takes both. Editing only amount/note/date —

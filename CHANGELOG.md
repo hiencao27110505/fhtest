@@ -18,7 +18,43 @@ Going forward, add an entry here when a feature area changes meaningfully — se
 
 ---
 
-## 2026-09-03
+## 2026-09-05
+
+### Bulk import survives a 200-row queue on a low-end phone (09-05)
+
+Field report: a first connect with a 90-day lookback staged ~200 rows; pressing
+"Nhập 200" several times closed the sheet and left the Cá nhân screen flashing
+for minutes; pressing it once the next time did nothing visible at all. Both
+symptoms were the same design gap — the promote path had no latch, no progress,
+and paid a full re-hydrate per row.
+
+- **One press = one import.** `csvSaveDispatch` latches and relabels the button
+  ("Đang nhập…"); `fhPromoteStaged` latches at module level too, so a second
+  invocation from anywhere is a no-op instead of a concurrent duplicate import
+  of the same selection (`src/js-ui/56-csv-import-ui.js`,
+  `src/js-data/72-txn-review.js`).
+- **One hydrate, not 200.** Every personal write funnels through
+  `fhPersonalHydrate` — four queries, a whole-ledger decrypt, and two
+  `_setState` repaints of the Cá nhân tab *and* the review modal. New
+  `fhPersonalHydrateHold`/`Release` defers that to a single hydrate after the
+  batch (`src/js-data/19-personal.js`). This was the "flashing continuously":
+  ~800 full repaints for one 200-row import.
+- **One chunked write, not N round trips.** New `fhPersonalAddMany` encrypts
+  locally and inserts in 50-row chunks (never splitting a transfer pair across
+  a chunk). The promote loop now resolves candidates to row specs in memory,
+  then writes once — minutes of sequential inserts become a few round trips.
+- **Progress + crash-safety.** The import shows "Đang nhập k/N…" (the decrypt
+  loop's own not-frozen rule, finally applied to the write half). As each chunk
+  lands its staged rows are retired locally, so a batch killed mid-way can no
+  longer resurrect rows whose ledger copies exist — previously retirement was
+  all-at-the-end, so any interruption meant duplicates on the next press. A
+  failed chunk retires exactly the written candidates and re-offers the rest.
+- The captured "Số dư" side-signal is now written once per account
+  (newest day wins) instead of one UPDATE per row.
+- Guarded in `tools/staged-scope.test.js` (bulk writer, latch, hold, exact
+  partial retirement). The pre-existing double-press incident can have written
+  duplicates — those rows carry `source` = the email transport, equal amounts
+  and dates, so they are findable by hand.
 
 ### Selection looks before it lifts, and two more surfaces learn (09-03)
 

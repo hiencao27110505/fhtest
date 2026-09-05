@@ -31,7 +31,33 @@ var csvStagedMode = false;
    dispatcher — never rewired per entry — so a stale handler can't bleed from one
    flow into the other (a file import must never run the staged-promote path,
    which would delete un-reviewed email rows). The mode is the single source. */
-function csvSaveDispatch(){ return csvStagedMode ? fhPromoteStaged() : csvPromote(); }
+/* And one press = one import. A staged promote is a real multi-second batch
+   (200 backfilled emails on a low-end phone), and this button used to stay
+   live the whole time — every extra tap launched ANOTHER import of the same
+   selection, each writing the same transactions again. Latched for both
+   flows, relabelled so the press visibly took, and recomputed from state in
+   finally: after a successful import the modal re-rendered or closed (label
+   already right), so the recompute really exists for the failure path, where
+   nothing re-renders and a stuck "Đang nhập…" would be the same silent button
+   this latch replaces. */
+var csvSaving = false;
+function csvSaveDispatch(){
+  if(csvSaving) return;
+  csvSaving = true;
+  var save = document.getElementById('csv-save');
+  if(save){ save.disabled = true; save.textContent = L('Đang nhập…','Importing…'); }
+  return Promise.resolve(csvStagedMode ? fhPromoteStaged() : csvPromote())
+    .catch(function(e){ console.warn('import dispatch failed', e); window.toast && toast(L('Chưa lưu được','Could not save')); })
+    .finally(function(){
+      csvSaving = false;
+      var s = document.getElementById('csv-save');
+      if(s && window.csvReview){
+        var n = csvStagedMode ? csvStagedSelected().length : ((csvReview.ready||[]).length);
+        s.disabled = (n===0);
+        s.textContent = n>0 ? L('Nhập '+n,'Import '+n) : L('Nhập','Import');
+      }
+    });
+}
 
 /* WHERE a reviewed bank transaction lands. Two destinations, and the difference
    is who ELSE can see it:

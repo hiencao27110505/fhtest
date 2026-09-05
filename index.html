@@ -10941,7 +10941,33 @@ var csvStagedMode = false;
    dispatcher — never rewired per entry — so a stale handler can't bleed from one
    flow into the other (a file import must never run the staged-promote path,
    which would delete un-reviewed email rows). The mode is the single source. */
-function csvSaveDispatch(){ return csvStagedMode ? fhPromoteStaged() : csvPromote(); }
+/* And one press = one import. A staged promote is a real multi-second batch
+   (200 backfilled emails on a low-end phone), and this button used to stay
+   live the whole time — every extra tap launched ANOTHER import of the same
+   selection, each writing the same transactions again. Latched for both
+   flows, relabelled so the press visibly took, and recomputed from state in
+   finally: after a successful import the modal re-rendered or closed (label
+   already right), so the recompute really exists for the failure path, where
+   nothing re-renders and a stuck "Đang nhập…" would be the same silent button
+   this latch replaces. */
+var csvSaving = false;
+function csvSaveDispatch(){
+  if(csvSaving) return;
+  csvSaving = true;
+  var save = document.getElementById('csv-save');
+  if(save){ save.disabled = true; save.textContent = L('Đang nhập…','Importing…'); }
+  return Promise.resolve(csvStagedMode ? fhPromoteStaged() : csvPromote())
+    .catch(function(e){ console.warn('import dispatch failed', e); window.toast && toast(L('Chưa lưu được','Could not save')); })
+    .finally(function(){
+      csvSaving = false;
+      var s = document.getElementById('csv-save');
+      if(s && window.csvReview){
+        var n = csvStagedMode ? csvStagedSelected().length : ((csvReview.ready||[]).length);
+        s.disabled = (n===0);
+        s.textContent = n>0 ? L('Nhập '+n,'Import '+n) : L('Nhập','Import');
+      }
+    });
+}
 
 /* WHERE a reviewed bank transaction lands. Two destinations, and the difference
    is who ELSE can see it:
@@ -17888,7 +17914,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v481';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v482';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -19544,8 +19570,24 @@ window.obGoogle = async function () {
       try { await window.fhPersonalStagingEnsure(); } catch (e) { window.fhLogErr && window.fhLogErr('personal_staging_ensure', e); }
     }
 
+    /* Bulk-import hold. Every write funnels through a full re-hydrate — four
+       queries, a whole-ledger decrypt, and two _setState repaints (loading →
+       ready) of the Cá nhân tab AND the staged review modal. Right for the one
+       row a person hand-types; quadratic for a 200-row email backfill, where it
+       was the "screen flashing continuously for minutes" bug. While held,
+       hydrate defers to a single flag; release runs the ONE hydrate the whole
+       batch needs. A counter, not a boolean, so nested holds cannot release
+       early. */
+    let _hydHold = 0, _hydWanted = false;
+    window.fhPersonalHydrateHold = function () { _hydHold++; };
+    window.fhPersonalHydrateRelease = async function () {
+      if (_hydHold > 0) _hydHold--;
+      if (!_hydHold && _hydWanted) { _hydWanted = false; await window.fhPersonalHydrate(); }
+    };
+
     window.fhPersonalHydrate = async function () {
       if (!P.uid || !P.key) return;
+      if (_hydHold) { _hydWanted = true; return; }
       // Every write path funnels through a re-hydrate, so this is the one spot
       // that keeps the review screen's duplicate-match slice from going stale.
       try { window.fhPersonalMatchSliceInvalidate && window.fhPersonalMatchSliceInvalidate(); } catch (e) {}
@@ -19905,6 +19947,52 @@ window.obGoogle = async function () {
       const r = await _sb().from('personal_transactions').insert([await mk(-amtK, fromAccountId), await mk(amtK, toAccountId)]);
       if (r.error) { console.warn('personal transfer pair failed', r.error); return false; }
       await window.fhPersonalHydrate(); return true;
+    };
+    /* Bulk write — the bank-email import's fast path. One row per spec
+       ({kind, amt, note, catName, catEmoji, dateIso, time, who, accountId,
+       transferGroupId, source}), encrypted locally and inserted in CHUNKS
+       rather than one awaited round trip per row: 200 reviewed emails used to
+       mean 200 inserts × a full re-hydrate each — minutes of silent work on a
+       low-end phone. Encryption is cheap and local; the network is the cost,
+       so the network is what gets batched.
+
+       A chunk is one INSERT, so it fully lands or fully fails — `written` is
+       therefore exact, and the caller retires precisely the staged rows whose
+       ledger copies exist and re-offers the rest. A transfer PAIR is never
+       split across a chunk boundary: a failure there would strand one leg
+       written and one not, which retire-by-range cannot express.
+       onChunk(written, total) is awaited between chunks — progress UI and a
+       paint yield live there, not here. */
+    window.fhPersonalAddMany = async function (specs, onChunk) {
+      if (!P.uid || !P.key || !specs || !specs.length) return { ok: false, written: 0 };
+      const rows = [];
+      for (const s of specs) {
+        const t = _okTime(s.time);
+        rows.push({ owner_user_id: P.uid, txn_date: s.dateIso || _localDate(new Date()),
+          kind: s.kind, space_id: null, link_id: null,
+          amount_enc: await _encP(Number(s.amt)),
+          note_enc: s.note ? await _encP(s.note) : null,
+          cat_name_enc: s.catName ? await _encP(s.catName) : null,
+          cat_emoji: s.catEmoji || null,
+          occurred_time_enc: t ? await _encP(t) : null,
+          counterparty_enc: s.who ? await _encP(s.who) : null,
+          account_id: s.accountId || null,
+          transfer_group_id: s.transferGroupId || null,
+          source: s.source || null });
+      }
+      const CHUNK = 50;
+      let written = 0;
+      while (written < rows.length) {
+        let end = Math.min(rows.length, written + CHUNK);
+        while (end < rows.length && rows[end].transfer_group_id
+               && rows[end].transfer_group_id === rows[end - 1].transfer_group_id) end++;
+        const r = await _sb().from('personal_transactions').insert(rows.slice(written, end));
+        if (r.error) { console.warn('personal bulk insert failed after ' + written, r.error); return { ok: false, written: written }; }
+        written = end;
+        if (onChunk) { try { await onChunk(written, rows.length); } catch (e) {} }
+      }
+      await window.fhPersonalHydrate();
+      return { ok: true, written: written };
     };
     /* Pair integrity (T10): the two legs can never diverge, so editing goes
        through the group and deleting takes both. Editing only amount/note/date —
@@ -28504,7 +28592,28 @@ window.classifyAmount = classifyAmount;
      Deleting only AFTER the ledger write succeeds — the reverse order would lose
      a transaction outright if the write failed. Duplicating one is recoverable;
      losing one is not. */
+  /* ONE press = ONE import. The button used to stay live while a 200-row batch
+     ran, so every extra tap launched a full second import of the SAME selection,
+     concurrent with the first — each writing the same transactions again. The
+     sheet closing on its own while the screen kept flashing was exactly that:
+     the first run finishing (closeModals) while its siblings were still
+     writing. Latched here at module level, not just at the button, so a
+     direct invocation is guarded too. The finally owns the overlay and the
+     hydrate hold, so every early return inside the run drops both. */
+  var _txrPromoting = false, _txrHeld = false;
   window.fhPromoteStaged = async function () {
+    if (_txrPromoting) return;
+    _txrPromoting = true; _txrHeld = false;
+    try { return await _fhPromoteStagedRun(); }
+    finally {
+      _txrPromoting = false;
+      _txrLoadHide();
+      /* The one hydrate the whole batch paid for: after it, the Cá nhân tab
+         and (if still open) the review modal repaint once, with everything. */
+      if (_txrHeld) { _txrHeld = false; try { await window.fhPersonalHydrateRelease(); } catch (eH) {} }
+    }
+  };
+  async function _fhPromoteStagedRun() {
     // Same freeze as fhTxnReviewSheet — belt and braces in case the alarm
     // latched between opening the sheet and pressing import.
     if (window.fhStagingAlarmActive && window.fhStagingAlarmActive()) {
@@ -28573,123 +28682,207 @@ window.classifyAmount = classifyAmount;
     });
     if (!picked.length) return;
 
-    try {
-      /* Model Y (0079): personal rows are their own owner-scoped table under a
-         per-user key, so this is a different write, not a flag on the same one.
-         space_id stays null — a bank transaction sent here is private and there
-         is no un-share.
+    /* From here the press is COMMITTED: overlay up (the same design rule the
+       decrypt loop follows — a real round trip must not look frozen), and the
+       per-write re-hydrate HELD so 200 rows cost ONE hydrate at the end, not
+       200 × (four queries + a whole-ledger decrypt + two repaints of this very
+       modal). The wrapper's finally owns both, so every return below drops the
+       overlay and releases the hold. */
+    _txrLoadShow(L('Đang nhập 0/' + picked.length + '…', 'Importing 0/' + picked.length + '…'));
+    if (mine.length && window.fhPersonalHydrateHold) { window.fhPersonalHydrateHold(); _txrHeld = true; }
 
-         If ANY personal row fails we stop before the family write and before
-         retiring anything: a partly-done batch that has already deleted its
-         staged rows has nothing left to retry from. */
-      for (var i = 0; i < mine.length; i++) {
-        var c = mine[i];
-        /* c.amount is DISPLAY currency (a bank email's "45.000" is 45000 here),
-           exactly like the CSV review. The personal writes store BASE units
-           (÷curMult, 1000 for VND) — the same conversion the family write does
-           via parseAmtBase. Passing c.amount raw stored 1000× too much (the
-           ".000đ" inflation), so run it through csvBaseAmt first, identical to
-           what the review already showed. */
-        var base = window.csvBaseAmt ? window.csvBaseAmt(c.amount)
-          : Math.round(Number(c.amount || 0) / (window.curMult ? window.curMult() : 1));
-        var _t = window.csvRowTime ? window.csvRowTime(c) : undefined;   // reviewed time (edited value wins, else derived from occurred_at)
-        var src = window.fhStagedSource ? window.fhStagedSource(c) : null;  // 'direct-email' | 'forwarding-email' (0100 provenance)
-        /* Instrument (0105): the classifier's verdict rides in raw_extracted.
-           Never lets a resolution error block the import — the row just lands
-           untagged. */
-        var ai = null;
-        try { ai = window.fhStagedAcct ? window.fhStagedAcct(c) : null; } catch (eAcct) { ai = null; }
-        var pd = (window.fhPersonalData && window.fhPersonalData()) || { accounts: [] };
-        /* The captured "Số dư" (balance_after) rides along at commit: stored on
-           the resolved NON-card account so the drift badge argues against the
-           bank's own number (0109 §5.2). Base units, newest-wins. */
-        var _sx2 = null;
-        try { _sx2 = window.fhStagedRawX ? window.fhStagedRawX(c.rowIndex) : null; } catch (eSx) {}
-        var _extBal = function (acctId) {
-          try {
-            var b = _sx2 && Number(_sx2.balance);
-            if (!acctId || !(b > 0) || !window.fhPersonalExtBalanceSet) return;
-            var acct = (pd.accounts || []).find(function (a) { return a.id === acctId; });
-            if (acct && acct.kind === 'credit_card') return;
-            var bb = window.csvBaseAmt ? window.csvBaseAmt(b) : b;
-            window.fhPersonalExtBalanceSet(acctId, bb, c.dateDisplay || undefined);
-          } catch (eB) {}
-        };
-        var ok;
-        if (c._xfer) {
-          /* An own-account transfer leg (0109 spec T4): ALWAYS a pair. The
-             captured side resolves from the classifier; the counterpart is the
-             account picked on the card ('_cash' = the Tiền mặt account,
-             auto-materialized). Both legs share one transfer_group_id; the sign
-             lives inside the ciphertext. If only one side resolves, the leg
-             books one-legged (legacy shape), signed by direction, so the money
-             is at least recorded rather than lost. */
-          var ownId = null, otherId = null;
-          if (ai && window.fhPersonalAccountEnsure) { try { ownId = await window.fhPersonalAccountEnsure(ai); } catch (eO) {} }
-          if (c._xferOtherId === '_cash' && window.fhPersonalCashAccount) { try { otherId = await window.fhPersonalCashAccount(); } catch (eC) {} }
-          else if (c._xferOtherId) otherId = c._xferOtherId;
-          var credit = !!c.isIncome;
-          if (ownId && otherId && ownId !== otherId) {
-            ok = await window.fhPersonalAddTransferPair(base,
-              credit ? otherId : ownId, credit ? ownId : otherId,
-              c.description || 'Chuyển khoản nội bộ', c.dateDisplay || undefined, src);
-          } else {
-            var legAcct = ownId || otherId;
-            var legAmt = legAcct === ownId ? (credit ? base : -base) : (credit ? -base : base);
-            ok = await window.fhPersonalAddTransfer(legAmt, legAcct, c.description || 'Chuyển khoản nội bộ', c.dateDisplay || undefined, src);
-          }
-          if (ok && ownId) _extBal(ownId);
-        } else if (c._repay) {
-          /* Repayment received (0109): draws the counterparty's balance down —
-             the review-side entry the borrowing-lending spec §5 wanted. +X =
-             they repaid me (credit rows are the only ones offered this kind). */
-          var who = (c._repayWho || '').trim() || (c.counterparty || '').trim() || '—';
-          ok = await window.fhPersonalAddRepayment(base, who, c.description || null, c.dateDisplay || undefined, src);
-          if (ok && ai && ai.kind !== 'credit_card' && window.fhPersonalAccountEnsure) {
-            try { _extBal(await window.fhPersonalAccountEnsure(ai)); } catch (eR) {}
-          }
-        } else if (c.isIncome) {
-          /* Income is first-class on the spine since 0109: category (the
-             income-side set), the receiving account (what makes a deposit
-             balance computable), and the bank's real time all ride along. */
-          var incAcct = null;
-          if (ai && ai.kind !== 'credit_card' && window.fhPersonalAccountEnsure) {
-            try { incAcct = await window.fhPersonalAccountEnsure(ai); } catch (e3) {}
-          }
-          var incEmoji = ({ 'Lương': '💼', 'Thưởng': '🎁', 'Hoàn tiền': '💸' })[c._incomeCat] || '💰';
-          ok = await window.fhPersonalAddIncome(base, c.description || '', c.dateDisplay || undefined, src,
-            { catName: c._incomeCat || 'Khác', catEmoji: incEmoji, accountId: incAcct, time: _t });
-          if (ok) _extBal(incAcct);
-        } else if (c.isTransfer) {
-          /* A card payment pays off a CARD — drawing its balance down — not the
-             bank account the money left. So it is tagged to the card, never to
-             the sending instrument. The card is known when the mail is the
-             card's own "payment received" alert (ai.kind === 'credit_card');
-             otherwise a one-card wallet has only one answer. Ambiguous (several
-             cards) → untagged, and assignable later from the card's own detail
-             screen. Either way it is a transfer, out of every spend total. */
-          var payCard = c._payCardId || null;   // an explicit pick in the expanded review card wins
-          if (!payCard) {
-            if (ai && ai.kind === 'credit_card' && window.fhPersonalAccountEnsure) {
-              try { payCard = await window.fhPersonalAccountEnsure(ai); } catch (e1) {}
-            } else {
-              var _cards = (pd.accounts || []).filter(function (a) { return a.kind === 'credit_card'; });
-              if (_cards.length === 1) payCard = _cards[0].id;
-            }
-          }
-          ok = await window.fhPersonalAddTransfer(base, payCard, c.description || 'Thanh toán thẻ', c.dateDisplay || undefined, src);
-        } else {
-          /* An expense tags its instrument (a credit-card purchase is what
-             BUILDS that card's balance). Auto-materializes the account (Q15). */
-          var acctId = null;
-          if (ai && window.fhPersonalAccountEnsure) { try { acctId = await window.fhPersonalAccountEnsure(ai); } catch (e2) {} }
-          var emoji = (window.catStyle && window.catStyle[c.categoryName] && window.catStyle[c.categoryName][0]) || '🗂️';
-          ok = await window.fhPersonalAddExpense(base, c.description || '', c.categoryName || null, emoji, c.dateDisplay || undefined, _t, src, { accountId: acctId });
-          if (ok) _extBal(acctId);
+    var srows = window._fhStagedRows || [];
+    var stagedIdOf = function (cc) {
+      var r = (cc && typeof cc.rowIndex === 'number') ? srows[cc.rowIndex] : null;
+      return (r && r.id) || null;
+    };
+
+    /* Phase 1 — resolve every personal candidate to row spec(s), in memory.
+       Model Y (0079): personal rows are their own owner-scoped table under a
+       per-user key, so these are different writes, not a flag on the family
+       ones. space_id stays null — a bank transaction sent here is private and
+       there is no un-share. Account ensure() is a P.accounts lookup after the
+       queue's eager materialization, so this phase costs no round trips on the
+       common path. One candidate can span TWO specs (a transfer pair); ranges
+       records the span so progress and retirement speak in candidates. */
+    var pd = (window.fhPersonalData && window.fhPersonalData()) || { accounts: [] };
+    var specs = [], ranges = [], extBals = {};
+    for (var i = 0; i < mine.length; i++) {
+      var c = mine[i];
+      /* c.amount is DISPLAY currency (a bank email's "45.000" is 45000 here),
+         exactly like the CSV review. The personal writes store BASE units
+         (÷curMult, 1000 for VND) — the same conversion the family write does
+         via parseAmtBase. Passing c.amount raw stored 1000× too much (the
+         ".000đ" inflation), so run it through csvBaseAmt first, identical to
+         what the review already showed. */
+      var base = window.csvBaseAmt ? window.csvBaseAmt(c.amount)
+        : Math.round(Number(c.amount || 0) / (window.curMult ? window.curMult() : 1));
+      var _t = window.csvRowTime ? window.csvRowTime(c) : undefined;   // reviewed time (edited value wins, else derived from occurred_at)
+      var src = window.fhStagedSource ? window.fhStagedSource(c) : null;  // 'direct-email' | 'forwarding-email' (0100 provenance)
+      /* Instrument (0105): the classifier's verdict rides in raw_extracted.
+         Never lets a resolution error block the import — the row just lands
+         untagged. */
+      var ai = null;
+      try { ai = window.fhStagedAcct ? window.fhStagedAcct(c) : null; } catch (eAcct) { ai = null; }
+      var _sx2 = null;
+      try { _sx2 = window.fhStagedRawX ? window.fhStagedRawX(c.rowIndex) : null; } catch (eSx) {}
+      /* The captured "Số dư" (balance_after): stored on the resolved NON-card
+         account so the drift badge argues against the bank's own number (0109
+         §5.2). Recorded per ACCOUNT here, newest day wins, and written ONCE
+         per account after the batch — the per-row version was one UPDATE round
+         trip per row for a value only the newest row decides. */
+      var _recBal = function (acctId) {
+        var b = _sx2 && Number(_sx2.balance);
+        if (!acctId || !(b > 0)) return;
+        var acct = (pd.accounts || []).find(function (a) { return a.id === acctId; });
+        if (acct && acct.kind === 'credit_card') return;
+        var day = c.dateDisplay || '';
+        if (!extBals[acctId] || day >= extBals[acctId].day) {
+          extBals[acctId] = { day: day, amtK: window.csvBaseAmt ? window.csvBaseAmt(b) : b };
         }
-        if (!ok) throw new Error('personal write failed at row ' + i);
+      };
+      if (c._xfer) {
+        /* An own-account transfer leg (0109 spec T4): ALWAYS a pair. The
+           captured side resolves from the classifier; the counterpart is the
+           account picked on the card ('_cash' = the Tiền mặt account,
+           auto-materialized). Both legs share one transfer_group_id; the sign
+           lives inside the ciphertext. If only one side resolves, the leg
+           books one-legged (legacy shape), signed by direction, so the money
+           is at least recorded rather than lost. */
+        var ownId = null, otherId = null;
+        if (ai && window.fhPersonalAccountEnsure) { try { ownId = await window.fhPersonalAccountEnsure(ai); } catch (eO) {} }
+        if (c._xferOtherId === '_cash' && window.fhPersonalCashAccount) { try { otherId = await window.fhPersonalCashAccount(); } catch (eC) {} }
+        else if (c._xferOtherId) otherId = c._xferOtherId;
+        var credit = !!c.isIncome;
+        var xNote = c.description || 'Chuyển khoản nội bộ';
+        if (ownId && otherId && ownId !== otherId) {
+          var gid = crypto.randomUUID();
+          specs.push({ kind: 'transfer', amt: -base, note: xNote, dateIso: c.dateDisplay || undefined,
+            accountId: credit ? otherId : ownId, transferGroupId: gid, source: src });
+          specs.push({ kind: 'transfer', amt: base, note: xNote, dateIso: c.dateDisplay || undefined,
+            accountId: credit ? ownId : otherId, transferGroupId: gid, source: src });
+        } else {
+          var legAcct = ownId || otherId;
+          specs.push({ kind: 'transfer',
+            amt: legAcct === ownId ? (credit ? base : -base) : (credit ? -base : base),
+            note: xNote, dateIso: c.dateDisplay || undefined, accountId: legAcct, source: src });
+        }
+        if (ownId) _recBal(ownId);
+      } else if (c._repay) {
+        /* Repayment received (0109): draws the counterparty's balance down —
+           the review-side entry the borrowing-lending spec §5 wanted. +X =
+           they repaid me (credit rows are the only ones offered this kind). */
+        specs.push({ kind: 'repayment', amt: base,
+          who: (c._repayWho || '').trim() || (c.counterparty || '').trim() || '—',
+          note: c.description || null, dateIso: c.dateDisplay || undefined, source: src });
+        if (ai && ai.kind !== 'credit_card' && window.fhPersonalAccountEnsure) {
+          try { _recBal(await window.fhPersonalAccountEnsure(ai)); } catch (eR) {}
+        }
+      } else if (c.isIncome) {
+        /* Income is first-class on the spine since 0109: category (the
+           income-side set), the receiving account (what makes a deposit
+           balance computable), and the bank's real time all ride along. */
+        var incAcct = null;
+        if (ai && ai.kind !== 'credit_card' && window.fhPersonalAccountEnsure) {
+          try { incAcct = await window.fhPersonalAccountEnsure(ai); } catch (e3) {}
+        }
+        specs.push({ kind: 'income', amt: base, note: c.description || '',
+          catName: c._incomeCat || 'Khác',
+          catEmoji: ({ 'Lương': '💼', 'Thưởng': '🎁', 'Hoàn tiền': '💸' })[c._incomeCat] || '💰',
+          dateIso: c.dateDisplay || undefined, time: _t, accountId: incAcct, source: src });
+        _recBal(incAcct);
+      } else if (c.isTransfer) {
+        /* A card payment pays off a CARD — drawing its balance down — not the
+           bank account the money left. So it is tagged to the card, never to
+           the sending instrument. The card is known when the mail is the
+           card's own "payment received" alert (ai.kind === 'credit_card');
+           otherwise a one-card wallet has only one answer. Ambiguous (several
+           cards) → untagged, and assignable later from the card's own detail
+           screen. Either way it is a transfer, out of every spend total. */
+        var payCard = c._payCardId || null;   // an explicit pick in the expanded review card wins
+        if (!payCard) {
+          if (ai && ai.kind === 'credit_card' && window.fhPersonalAccountEnsure) {
+            try { payCard = await window.fhPersonalAccountEnsure(ai); } catch (e1) {}
+          } else {
+            var _cards = (pd.accounts || []).filter(function (a) { return a.kind === 'credit_card'; });
+            if (_cards.length === 1) payCard = _cards[0].id;
+          }
+        }
+        specs.push({ kind: 'transfer', amt: base, note: c.description || 'Thanh toán thẻ',
+          dateIso: c.dateDisplay || undefined, accountId: payCard, source: src });
+      } else {
+        /* An expense tags its instrument (a credit-card purchase is what
+           BUILDS that card's balance). Auto-materializes the account (Q15). */
+        var acctId = null;
+        if (ai && window.fhPersonalAccountEnsure) { try { acctId = await window.fhPersonalAccountEnsure(ai); } catch (e2) {} }
+        specs.push({ kind: 'expense', amt: base, note: c.description || '',
+          catName: c.categoryName || null,
+          catEmoji: (window.catStyle && window.catStyle[c.categoryName] && window.catStyle[c.categoryName][0]) || '🗂️',
+          dateIso: c.dateDisplay || undefined, time: _t, accountId: acctId, source: src });
+        _recBal(acctId);
       }
+      ranges.push({ c: c, to: specs.length });
+    }
 
+    /* Phase 2 — ONE bulk write, in chunks. As each chunk lands, its candidates
+       are remembered as retired LOCALLY, so a batch killed mid-way (tab
+       closed, app backgrounded, network gone) cannot resurrect rows whose
+       ledger copies already exist — the previous shape retired nothing until
+       every row was written, which turned any interruption into duplicates on
+       the next press. */
+    var doneCands = [];
+    var res = { ok: true, written: 0 };
+    if (specs.length) {
+      if (!window.fhPersonalAddMany) { window.toast && window.toast(L('Chưa lưu được', 'Could not save')); return; }
+      res = await window.fhPersonalAddMany(specs, async function (written) {
+        var landed = [];
+        for (var ri = 0; ri < ranges.length; ri++) {
+          if (ranges[ri].to <= written && doneCands.indexOf(ranges[ri].c) === -1) {
+            doneCands.push(ranges[ri].c);
+            var sid = stagedIdOf(ranges[ri].c);
+            if (sid) landed.push(sid);
+          }
+        }
+        if (landed.length) _stagedRetiredAdd(landed);
+        _txrLoadMsg(L('Đang nhập ' + doneCands.length + '/' + picked.length + '…',
+                      'Importing ' + doneCands.length + '/' + picked.length + '…'));
+        await _txrYield();
+      });
+      if (!res.ok) {
+        /* A chunk failed. Everything before it IS in the ledger — retire those
+           staged rows server-side too, then hand the review back with only the
+           unwritten remainder so the next press retries just the rest.
+           Retiring more than was written is silent data loss; retiring less is
+           the duplicate. Exactness is why chunks never split a candidate. */
+        var doneIds = doneCands.map(stagedIdOf).filter(Boolean);
+        if (doneIds.length) {
+          try { await _rpc('resolve_email_transactions', { p_ids: doneIds }); }
+          catch (eRp) { console.warn('partial retire failed', eRp, { ids: doneIds }); }
+        }
+        // Zero written is not a partial save — it is a plain failure (locked
+        // ledger, no network), and "Đã lưu 0/200" would read as progress.
+        window.toast && window.toast(doneCands.length
+          ? L('Đã lưu ' + doneCands.length + '/' + picked.length + ' khoản — bấm Nhập để tiếp tục phần còn lại.',
+              'Saved ' + doneCands.length + ' of ' + picked.length + ' — press Import again for the rest.')
+          : L('Chưa lưu được', 'Could not save'));
+        try {
+          window.csvReview.ready = ((window.csvReview && csvReview.ready) || [])
+            .filter(function (cc) { return doneCands.indexOf(cc) === -1; });
+          window.renderCsvReview && window.renderCsvReview();
+        } catch (eV) {}
+        try { window.fhRefreshStagedCount && window.fhRefreshStagedCount(); } catch (eN) {}
+        return;
+      }
+    }
+
+    /* The freshest captured "Số dư" per account — a handful of UPDATEs for the
+       whole batch, after the rows they describe. Best-effort side-signal. */
+    for (var ab in extBals) {
+      if (!window.fhPersonalExtBalanceSet) break;
+      try { await window.fhPersonalExtBalanceSet(ab, extBals[ab].amtK, extBals[ab].day || undefined); } catch (eEb) {}
+    }
+
+    try {
       /* Family-scoped income → the family income book (never the expense
          importer). Same base-unit conversion as the personal writes. */
       for (var fi2 = 0; fi2 < famInc.length; fi2++) {
@@ -28710,9 +28903,14 @@ window.classifyAmount = classifyAmount;
         window.toast && window.toast(theirs.length
           ? L('Đã lưu — ' + mine.length + ' khoản vào sổ cá nhân', 'Saved — ' + mine.length + ' to your personal ledger')
           : L('Đã ghi vào sổ cá nhân', 'Saved to your personal ledger'));
-        if (typeof window.renderPersonal === 'function') window.renderPersonal();
+        // No renderPersonal here: the held hydrate's release repaints once,
+        // with the data actually on the server.
       }
     } catch (e) {
+      /* A family-side failure AFTER the personal rows landed: those are
+         written and already retired above, so nothing duplicates — but the
+         press did not finish, and saying nothing would repeat the silent-
+         button bug this rewrite exists to kill. */
       window.toast && window.toast(L('Chưa lưu được', 'Could not save'));
       return;
     }
@@ -28778,7 +28976,7 @@ window.classifyAmount = classifyAmount;
         window.closeModals && window.closeModals();
       }
     } catch (e) { /* the ledger write already landed; the view is cosmetics */ }
-  };
+  }
 
   // ═══ bank-email onboarding: show the entries only to people who can use them ═══
   /* All three Settings rows of the bank-email feature — "Automatic transaction
