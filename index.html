@@ -29846,9 +29846,15 @@ window.classifyAmount = classifyAmount;
      Google still lists the app. Saying only the second sends them to Google
      while our copy of their token sits in a database. Both, in that order, is
      the only version that is true. */
-  function fhAutoTxnStatus(conn) {
-    _atxSheetSeq++;
+  async function fhAutoTxnStatus(conn) {
+    const seq = ++_atxSheetSeq;
     const email = (conn && (conn.email || conn.accountEmail || conn.account_email)) || '';
+
+    /* Resolved before EITHER branch renders (71's rule: no control appearing a
+       beat late). Costs a local permission check, no network. The reauth branch
+       does not use it — that screen has one job and it is the reconnect. */
+    const pushRow = await _atxPushRowSafe();
+    if (seq !== _atxSheetSeq) return;        // another screen took over meanwhile
 
     /* A GRANT THAT NEEDS RE-CONSENT IS NOT A HEALTHY CONNECTION, and saying so
        is the difference between a feature that looks fine and one that works.
@@ -29915,6 +29921,8 @@ window.classifyAmount = classifyAmount;
       '<div class="mbx-note">' + _mbxGlyph('mail') + '<span>' + _esc(L(
         'Hiện mỗi người kết nối được một hộp thư. Kết nối hộp thư khác sẽ thay cho hộp thư này. Tụi mình đang làm phần nhiều hộp thư cùng lúc.',
         'For now you can connect one mailbox. Connecting a different one replaces this. Support for several at once is on the way.')) + '</span></div>' +
+
+      pushRow +
 
       (window.fhTxnReviewSheet
         ? '<button class="btn-line" onclick="fhTxnReviewSheet()">' + _esc(L('Xem mục duyệt', 'Open Review transactions')) + '</button>'
@@ -30226,22 +30234,141 @@ window.classifyAmount = classifyAmount;
     } catch (e) { return null; }
   }
 
-  function fhAutoTxnDone(state) {
+  /* ── the live half of the success screen ───────────────────────────────────
+     "Đã kết nối" used to be a static sheet: it said the first pass could take a
+     while and then sat there, while the first rows landed sixty seconds later
+     with nothing on screen moving. The person's read of that minute was "it
+     didn't work" — measured on a real connect, and the reason this screen now
+     watches the queue while it is open.
+
+     WHY A POLL AND NOT fhRefreshStagedCount ON A TIMER: that helper answers by
+     fetching every pending row's sealed payload — right after a promote, wrong
+     on a four-second cadence. This asks for a HEAD-only count: one round trip,
+     no ciphertext. 0058/0092's RLS scopes it to the caller's own rows, so it is
+     safe for any signed-in user and [] is a real answer.
+
+     WHEN IT STOPS, because a poll that cannot stop is a leak: a newer watcher
+     (seq), the sheet closing or another sheet replacing this one, or the
+     3-minute window passing — enough for the connect-time kick plus the
+     once-a-minute backfill lane to have landed whatever a first run finds.
+     On the way out it runs the real refresh once, so the badge the person
+     lands on agrees with what this screen just told them. */
+  let _atxLiveSeq = 0;
+
+  async function _atxPendingCount() {
+    const res = await sb.from('email_transactions')
+      .select('id', { count: 'exact', head: true })
+      .eq('review_status', 'pending');
+    if (res.error) throw res.error;
+    return (typeof res.count === 'number') ? res.count : 0;
+  }
+
+  const _atxLiveLine = (n) => L(
+    'Tìm được ' + n + ' khoản, đang chờ bạn duyệt.',
+    n === 1 ? 'Found 1 transaction, waiting for your review.'
+            : 'Found ' + n + ' transactions, waiting for your review.');
+
+  function _atxLiveWatch() {
+    const seq = ++_atxLiveSeq;
+    const t0 = Date.now();
+    let last = -1;
+    /* Closing the sheet DEMOTES the watcher instead of killing it (2026-09-05
+       v2): the person who connects and closes at five seconds is exactly the
+       one whose rows land at ten, and stopping cold meant their badge stayed
+       blank until the next refocus — the original complaint, back in a smaller
+       coat. Badge mode keeps the same cheap head count, touches only the badge
+       surfaces, never the sheet's DOM, and dies with the same 3-minute window.
+       A demotion is one-way: a sheet that reopens starts its own watcher, and
+       the seq bump retires this one. */
+    let badgeOnly = false;
+    (async function tick() {
+      if (seq !== _atxLiveSeq) return;
+      const el = document.getElementById('atx-live');
+      const sheet = document.getElementById('fh-sheet');
+      if (!el || !sheet || !sheet.classList.contains('on')) badgeOnly = true;
+      if (!document.hidden) {
+        try {
+          const n = await _atxPendingCount();
+          if (seq !== _atxLiveSeq) return;
+          if (n > 0 && n !== last) {
+            last = n;
+            if (!badgeOnly) {
+              el.innerHTML = _mbxGlyph('check') + '<span>' + _esc(_atxLiveLine(n)) + '</span>';
+              const cta = document.getElementById('atx-live-cta');
+              if (cta) cta.textContent = L('Xem ' + n + ' khoản',
+                n === 1 ? 'Review 1 transaction' : 'Review ' + n + ' transactions');
+            }
+            /* The two badge surfaces read window.fhStagedCount; set it directly
+               rather than through fhRefreshStagedCount for the reason above. */
+            window.fhStagedCount = n;
+            try { if (typeof window.renderCashflowEmailCta === 'function') window.renderCashflowEmailCta(); } catch (e) {}
+            try { if (typeof window.renderPersonal === 'function') window.renderPersonal(); } catch (e) {}
+          }
+        } catch (e) { /* one missed tick; the next asks again */ }
+      }
+      const elapsed = Date.now() - t0;
+      if (elapsed < 3 * 60 * 1000) {
+        /* Eager while the first find is still owed and the kick is landing —
+           rows arrive 0–8s in, and at a flat 4s the person could stare at
+           "đang dò" for four extra beats. Once something is found (or the
+           eager window passes) the number only moves as backfill chunks land,
+           and 4s is plenty. */
+        setTimeout(tick, (last <= 0 && elapsed < 20 * 1000) ? 1500 : 4000);
+        return;
+      }
+      /* Window over. One REAL refresh either way, so the badge reconciles with
+         everything this watcher's head count cannot see (retire filtering, a
+         promote from another device). */
+      try { window.fhRefreshStagedCount && window.fhRefreshStagedCount(); } catch (e) {}
+      if (!badgeOnly && last <= 0) {
+        // Three quiet minutes is an answer too: say so instead of ellipsing forever.
+        el.innerHTML = _mbxGlyph('mail') + '<span>' + _esc(L(
+          'Chưa thấy khoản nào. Tụi mình vẫn tìm tiếp, bạn cứ đóng màn hình này.',
+          'Nothing yet. We’re still looking, and it’s fine to close this screen.')) + '</span>';
+      }
+    })();
+  }
+
+  /* The push offer, resolved BEFORE the sheet renders — 71's rule, same reason:
+     a control that appears a beat late reads as a glitch. _mbxPushRow lives in
+     71-mailbox-ui.js (this module, earlier file); it answers '' for every state
+     where there is nothing to offer, and so does this wrapper when the row
+     builder is missing or throws — a missing offer must never cost the screen. */
+  async function _atxPushRowSafe() {
+    try {
+      return (typeof _mbxPushRow === 'function') ? ((await _mbxPushRow()) || '') : '';
+    } catch (e) { return ''; }
+  }
+
+  async function fhAutoTxnDone(state) {
     if (state === 'connected') {
-      return _fhSheet(
+      /* WHY THE OFFER IS ON THIS SCREEN AT ALL: push used to be offered only on
+         the FORWARDING status sheet and after a first hand-review — so a person
+         who connected by OAuth had no subscription, and the "something is
+         waiting" push the worker sends for every later arrival landed nowhere.
+         The nudge meant to save them from checking by hand was gated behind
+         having already checked by hand. This is the moment the feature earns
+         the right to ask. Offer only — the tap is theirs (iOS gesture rule). */
+      const seq = ++_atxSheetSeq;
+      const pushRow = await _atxPushRowSafe();
+      if (seq !== _atxSheetSeq) return;      // another screen took over meanwhile
+      _fhSheet(
         '<div class="mbx-hero">' + _mbxGlyph('done') + '</div>' +
         '<div class="sheet-h">' + _esc(L('Đã kết nối', 'Connected')) + '</div>' +
         '<div class="sheet-sub">' + _esc(L(
           'Tụi mình bắt đầu tìm email giao dịch. Khoản nào tìm được sẽ nằm chờ bạn trong mục Duyệt giao dịch, không tự vào sổ.',
           'We’ve started looking for transaction email. Anything we find waits for you in Review transactions, and never enters the ledger on its own.')) + '</div>' +
-        '<div class="mbx-note">' + _mbxGlyph('check') + '<span>' + _esc(L(
-          'Lần đầu có thể mất một lúc. Bạn cứ dùng app bình thường, có gì tụi mình báo.',
-          'The first pass can take a while. Carry on as normal, we’ll let you know.')) + '</span></div>' +
+        '<div class="mbx-note" id="atx-live">' + _mbxGlyph('mail') + '<span>' + _esc(L(
+          'Đang dò hộp thư của bạn…',
+          'Looking through your mailbox…')) + '</span></div>' +
         (window.fhTxnReviewSheet
-          ? '<button class="cta" onclick="fhTxnReviewSheet()">' + _esc(L('Xem mục duyệt', 'Open Review transactions')) + '</button>'
+          ? '<button class="cta" id="atx-live-cta" onclick="fhTxnReviewSheet()">' + _esc(L('Xem mục duyệt', 'Open Review transactions')) + '</button>'
           : '') +
+        pushRow +
         '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Đóng', 'Close')) + '</button>'
       );
+      _atxLiveWatch();
+      return;
     }
     // Declining is a normal answer, not an error — no alarm colour, no blame,
     // and the way back is one tap rather than a hunt through Settings.
@@ -30270,7 +30397,9 @@ window.classifyAmount = classifyAmount;
     const t0 = Date.now();
     (function _wait() {
       if (window.DB && window.DB._hydrated && window.fhUser) {
-        try { fhAutoTxnDone(state); } catch (e) {}
+        // fhAutoTxnDone is async now (it resolves the push offer pre-render), so
+        // the guard has to cover the rejection too, not just a synchronous throw.
+        try { const p = fhAutoTxnDone(state); if (p && p.catch) p.catch(function () {}); } catch (e) {}
         return;
       }
       if (Date.now() - t0 > 20000) return;

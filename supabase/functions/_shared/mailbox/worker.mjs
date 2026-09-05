@@ -279,6 +279,45 @@ export async function runAll(ctx) {
 }
 
 /**
+ * One NAMED mailbox, right now — the connect-time kick.
+ *
+ * mailbox-connect fires this (through the /grant body on mailbox-sync) the
+ * moment a grant lands, because the alternative was measured on a real
+ * connect: the first read waited for the once-a-minute backfill lane, so the
+ * person's first minute with the feature was an empty screen. This is the
+ * same lane body runAll runs — same budget minting, same catch-into-result —
+ * scoped to the one grant whose owner is watching.
+ *
+ * It does NOT renew watches (the tick owns that), and it deliberately reuses
+ * dueGrants' own filters via grantById: a grant that needs reauth is not run
+ * here either. Overlap with a cron run on the same grant is the already-
+ * sanctioned 0097 shape — stagedState pre-filters, insertStaged swallows the
+ * unique violation, and the cursor only moves on a finished window.
+ *
+ * An unknown or ineligible id is a result, not a throw: the callback that
+ * kicks this is fire-and-forget and has nobody to show an error to; the
+ * minute lane covers whatever this run declined to do.
+ */
+export async function runOne(grantId, ctx) {
+  if (!ctx.learnedLabels && ctx.db.loadLearnedLabels) {
+    try { ctx = { ...ctx, learnedLabels: await ctx.db.loadLearnedLabels() }; } catch { /* hand-authored it is */ }
+  }
+  const grant = ctx.db.grantById ? await ctx.db.grantById(grantId) : null;
+  if (!grant) return { polled: 0, modelCalls: 0, results: [], build: BUILD_ID, reason: 'no_grant' };
+  const budget = _budget(ctx.maxModelCalls ?? MAX_MODEL_CALLS_PER_GRANT);
+  let result;
+  try {
+    result = await runGrant(grant, { ...ctx, budget });
+  } catch (e) {
+    result = {
+      grantId: grant.id, email: grant.email,
+      status: 'error', detail: String(e && e.message || e),
+    };
+  }
+  return { polled: 1, modelCalls: budget.used(), results: [result], build: BUILD_ID };
+}
+
+/**
  * One mailbox.
  *
  * Returns a summary rather than throwing for the ordinary outcomes, because

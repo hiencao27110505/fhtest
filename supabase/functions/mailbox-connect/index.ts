@@ -171,6 +171,47 @@ async function callback(url: URL): Promise<Response> {
     return bounce("store_failed", returnTo);
   }
 
+  /* ── start reading NOW, not at the next minute boundary ───────────────────
+
+     Without this, the first read waits for the backfill lane's cron — measured
+     at exactly 60 seconds of scheduling delay on every connect, spent by a new
+     person staring at a screen that says "đang tìm" while nothing moves. One
+     targeted kick ({grant} body, worker.runOne) starts the read in seconds.
+
+     FIRE-AND-FORGET, NEVER AWAITED: the run behind this can take a minute on a
+     real 90-day history, and the person is mid-redirect. EdgeRuntime.waitUntil
+     keeps the instance alive for the request where the runtime supports it;
+     everywhere else the request has already left. And BEST EFFORT, same trade
+     as the watch below: a kick that fails costs sixty seconds of latency, not
+     transactions — the minute lane reads the mailbox regardless, and staging
+     is idempotent, so a kick that overlaps a cron run is the already-sanctioned
+     0097 shape. Bouncing someone to an error screen over it would be the wrong
+     trade, hence the catch-everything.
+
+     Gated on MAILBOX_SYNC_SECRET being set for this function (secrets are
+     project-scoped, so it normally is): absent, this degrades to exactly the
+     pre-kick behaviour rather than logging a scary failure every connect. */
+  if (grantId && env("MAILBOX_SYNC_SECRET")) {
+    try {
+      const kick = fetch(
+        env("SUPABASE_URL").replace(/\/$/, "") + "/functions/v1/mailbox-sync",
+        {
+          method: "POST",
+          headers: {
+            "x-sync-secret": env("MAILBOX_SYNC_SECRET"),
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ grant: grantId }),
+        },
+      ).catch((e) => console.warn("connect kick failed; the minute lane covers it:", e));
+      // deno-lint-ignore no-explicit-any
+      const rt = (globalThis as any).EdgeRuntime;
+      if (rt && typeof rt.waitUntil === "function") rt.waitUntil(kick);
+    } catch (e) {
+      console.warn("connect kick not sent; the minute lane covers it:", e);
+    }
+  }
+
   /* Ring the doorbell from the very first minute.
 
      Registered HERE rather than left to the renewal sweep because this is the
@@ -199,32 +240,51 @@ async function callback(url: URL): Promise<Response> {
      misconfiguration.
 
      Leaving it unset costs us nothing. The poll below does not need a watch. */
+  /* OFF THE REDIRECT PATH (2026-09-05): this used to be awaited here, which
+     held the person's browser on a blank callback page for the two Google
+     round trips plus a PATCH — half a second to a full one — for work whose
+     failure was already declared survivable. The redirect now returns at once
+     and the registration rides the same waitUntil as the kick. If the isolate
+     dies before it lands, watch_expires_at stays null, and watchesDue treats
+     null as due (nullsfirst, even) — the next tick's renewal sweep registers
+     it. The cost of that worst case is minutes of poll-path latency on a
+     mailbox connected seconds ago; the cost of awaiting was paid by every
+     single connect. */
   if (grantId && env("GMAIL_PUSH_TOPIC")) {
+    const watching = registerWatchBestEffort(grant.refreshToken, grantId)
+      .catch((e) => console.warn("watch registration failed; the poll still covers this mailbox:", e));
     try {
-      const access = await accessToken(grant.refreshToken, googleCfg());
-      const registered = await watch(env("GMAIL_PUSH_TOPIC"), access);
-      await fetch(
-        env("SUPABASE_URL").replace(/\/$/, "") + "/rest/v1/mailbox_grants?id=eq." + grantId,
-        {
-          method: "PATCH",
-          headers: {
-            apikey: env("SUPABASE_SERVICE_ROLE_KEY"),
-            Authorization: "Bearer " + env("SUPABASE_SERVICE_ROLE_KEY"),
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            watch_expires_at: registered.expiration
-              ? new Date(registered.expiration).toISOString()
-              : null,
-          }),
-        },
-      );
-    } catch (e) {
-      console.warn("watch registration failed; the poll still covers this mailbox:", e);
-    }
+      // deno-lint-ignore no-explicit-any
+      const rt = (globalThis as any).EdgeRuntime;
+      if (rt && typeof rt.waitUntil === "function") rt.waitUntil(watching);
+    } catch { /* best effort */ }
   }
 
   return bounce(null, returnTo);
+}
+
+/* The watch registration itself, exactly the work the callback used to await.
+   Kept as one named function so "what registers a watch at connect" has a
+   single answer, and so the test can pin that the callback never awaits it. */
+async function registerWatchBestEffort(refreshToken: string, grantId: string): Promise<void> {
+  const access = await accessToken(refreshToken, googleCfg());
+  const registered = await watch(env("GMAIL_PUSH_TOPIC"), access);
+  await fetch(
+    env("SUPABASE_URL").replace(/\/$/, "") + "/rest/v1/mailbox_grants?id=eq." + grantId,
+    {
+      method: "PATCH",
+      headers: {
+        apikey: env("SUPABASE_SERVICE_ROLE_KEY"),
+        Authorization: "Bearer " + env("SUPABASE_SERVICE_ROLE_KEY"),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        watch_expires_at: registered.expiration
+          ? new Date(registered.expiration).toISOString()
+          : null,
+      }),
+    },
+  );
 }
 
 /* Back into the app, with one word about how it went.

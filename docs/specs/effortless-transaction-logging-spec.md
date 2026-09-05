@@ -512,9 +512,17 @@ select m.id, m.family_id from members m join families f on f.id = m.family_id
 has more than one `members` row, and an unordered `limit 1` is a coin flip
 that binds a mailbox to the wrong container. Since `0092` only a
 *family-scoped* grant requires a member row at all — a personal-only user's
-grant carries `owner_user_id` instead. The callback finally registers
-`users.watch()` if `GMAIL_PUSH_TOPIC` is set; best effort — failure costs
-latency, not transactions.
+grant carries `owner_user_id` instead. The callback then **kicks a targeted
+first read** — fire-and-forget `POST /mailbox-sync` with `{grant: <id>}`,
+authenticated by the shared secret (2026-09-05; without it the first read
+waited for the minute lane, 60 seconds of pure scheduling a new person spent
+deciding the feature was broken) — and registers `users.watch()` if
+`GMAIL_PUSH_TOPIC` is set. Both are best effort — failure costs latency, not
+transactions — and NEITHER blocks the redirect: both ride
+`EdgeRuntime.waitUntil`, so the browser is back in the app the moment the
+grant row lands (the watch used to be awaited, half a second to a second of
+Google round trips paid by every connect; a registration lost to isolate
+teardown self-heals because `watchesDue` treats a null expiry as due).
 
 History note: connect lived on a separate Cloud Run API until 2026-08-25.
 That API links a Google account to an `auth.users` row and stages nothing;
@@ -523,20 +531,25 @@ sealed to. The erasure path still calls the old API's DELETE so a withdrawn
 consent also stops the serverless watcher (`_atxStopHeadless`,
 `74-autotxn-ui.js`).
 
-### 14.2 Two triggers, one pipeline
+### 14.2 Three triggers, one pipeline
 
 | Trigger | Path | Latency | Role |
 |---|---|---|---|
+| Connect kick | `/callback` → `POST /mailbox-sync` `{grant: <id>}` → `runOne` | seconds, once | the first impression |
 | Gmail push | Gmail → Pub/Sub → `POST /mailbox-sync/push?secret=` | seconds | the optimisation |
 | pg_cron | `_mailbox_sync_tick()` → `POST /mailbox-sync` | ≤ 5 min | the guarantee |
 
-They do identical work and are both needed because they fail differently: a
-watch lapses after 7 days and **Gmail then stops publishing silently** — a
-push-only pipeline looks idle rather than broken. Overlap is harmless
-(idempotent on `gmail_message_id`). `/push` acks anything a retry cannot fix,
-because Pub/Sub redelivers whatever is not acked and fighting a permanent
-failure that way is how a topic backs up. The tick also renews watches due
-within 2 days.
+They do identical per-mailbox work and are all needed because they fail
+differently: a watch lapses after 7 days and **Gmail then stops publishing
+silently** — a push-only pipeline looks idle rather than broken — and the kick
+fires exactly once, at the one moment neither of the others can be soon enough
+(a new grant's first read used to wait a full minute for the backfill lane
+while its owner watched). Overlap is harmless (idempotent on
+`gmail_message_id`). `/push` acks anything a retry cannot fix, because Pub/Sub
+redelivers whatever is not acked and fighting a permanent failure that way is
+how a topic backs up. The tick also renews watches due within 2 days. The kick
+runs one named grant through `grantById`, which carries `dueGrants`' own
+`needs_reauth` filter, so it can never run a mailbox the poll would refuse.
 
 ### 14.3 The run, per mailbox
 
@@ -1490,8 +1503,8 @@ A failed notification never fails a run.
 | Direct read, poll only | ≤ 5 min | end of that run | the guarantee; also the ceiling while a lapsed watch waits for renewal |
 | Forwarding | ≈ 1–2 min | end of that run | 1-min trigger + Gmail forwarding delay |
 | `/ingest` (transport C, future) | seconds | per row | push-driven end to end |
-| First connect (90-day backfill) | minutes | per completed run | `more`-chunked at 150 rows per tick; **backfilled history is deliberately not push-notified as a flood** — each run sends one notice |
-| Badge (`fhStagedCount`) | on app open / CTA render | — | global count, not per-scope |
+| First connect (90-day backfill) | first rows in seconds (connect kick); `more`-chunked at 400 rows per run, minute lane between runs | ONE digest, when the backfill completes (or the stall edge, §above) | **a running backfill is deliberately push-silent** — corrected 2026-09-05: this row used to claim one notice per run, which the code never did (proven by the connect-timeline loop: 3 runs, 1 notice). While it runs, the "Đã kết nối" screen polls a head-only count (1.5s until the first find, then 4s; closing it demotes the poll to badge-only), so the person watching sees the number climb |
+| Badge (`fhStagedCount`) | on app open / CTA render / live while the connect success screen is open | — | global count, not per-scope |
 
 ## 21. Operations and runbook
 
@@ -1839,6 +1852,52 @@ as — or the same day as — the deploy. A deploy announced only in
 `AGENT_SYNC.md` is coordination; this is the record.
 
 ## 28. Releases (newest first)
+
+### 2026-09-05 — mailbox-connect + mailbox-sync + client (pending deploy) — the first minute after connect stops being silent
+
+- **For product:** connecting Gmail now shows results while you watch. The
+  first read starts within seconds of tapping Allow instead of waiting up to a
+  minute for the cron lane, and the "Đã kết nối" screen is live: it counts the
+  transactions as they land ("Tìm được 12 khoản…"), turns its button into "Xem
+  12 khoản", and keeps the badge in step — before, the screen was static, the
+  badge only moved on app-open or refocus, and a person's first minute with the
+  feature was an empty screen they read as "it didn't work". Both OAuth screens
+  (success and status) now also offer to turn notifications on; that offer used
+  to exist only on the forwarding screen and after a first hand-review, so an
+  OAuth user had no push subscription and every "something is waiting" push
+  landed nowhere.
+- **Under the hood:** `mailbox-connect` `/callback` fires a fire-and-forget
+  `POST /mailbox-sync` `{grant: <id>}` (shared secret, `EdgeRuntime.waitUntil`,
+  before watch registration; best effort), and the watch registration itself
+  moved off the redirect path (`registerWatchBestEffort`, same `waitUntil`;
+  a lost registration is due-on-null for the renewal sweep) — the redirect
+  returns ~0.5–1s sooner. `mailbox-sync` routes the `{grant}` body to new
+  `worker.runOne(grantId, ctx)` — the same lane body `runAll` runs, scoped
+  to one grant via new `db.grantById` (same columns and `needs_reauth` filter
+  as `dueGrants`). Purely additive: `runAll`/`runGrant`/notify logic untouched;
+  overlap with a cron run is the sanctioned 0097 shape. Client:
+  `74-autotxn-ui.js` gains `_atxLiveWatch` — head-only pending count, eager
+  1.5s cadence until the first find (max 20s) then 4s, and closing the sheet
+  DEMOTES it to badge-only polling (badge keeps moving, dead sheet DOM
+  untouched) rather than stopping; the 3-minute window ends with one
+  reconciling `fhRefreshStagedCount` — and `_atxPushRowSafe` (reuses 71's
+  `_mbxPushRow`, resolved pre-render); `fhAutoTxnDone` and `fhAutoTxnStatus`
+  are async + seq-guarded. Tests: `pipeline/connect-kick.test.js` (19),
+  `tools/autotxn-connected-live.test.js` (27); `tools/autotxn-return.test.js`
+  extraction marker repaired.
+- **Spec sections updated:** §14.1 (callback kicks a targeted read), §14.2
+  (two triggers → three), §20 (latency table: the "First connect" row had been
+  claiming one notice per backfill run and 150-row chunks — the code notifies
+  once on completion and chunks at 400; corrected, with the live screen and
+  badge rows brought up to date).
+- **Watch for:** the kick assumes `MAILBOX_SYNC_SECRET` is visible to
+  `mailbox-connect` (secrets are project-scoped; verify on deploy — absent, it
+  silently degrades to the old minute-lane latency, visible as
+  "connect kick" lines missing from mailbox-connect logs). Deliberately NOT
+  changed: a multi-run backfill still push-notifies only on completion — the
+  live screen covers the interim, and the notify decision block was left
+  untouched on purpose (it is the code the 2026-08-30 sixty-notices incident
+  lives next to).
 
 ### 2026-09-03 — mailbox-sync (pending deploy) · migrations 0110–0111 — selection looks before it lifts, and two more surfaces learn
 

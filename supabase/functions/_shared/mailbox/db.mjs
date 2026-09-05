@@ -102,6 +102,24 @@ export function createDb(url, serviceKey, fetchImpl) {
     },
 
     /**
+     * One grant by id, for the connect-time kick (worker.runOne).
+     *
+     * Same columns and the same needs_reauth filter as dueGrants, so a grant
+     * this returns is exactly one dueGrants would have offered — the kick can
+     * never run a mailbox the poll would refuse.
+     */
+    async grantById(id) {
+      const qs = new URLSearchParams({
+        select: 'id,user_id,member_id,family_id,provider,email,refresh_token_enc,scopes,needs_reauth,history_id,last_synced_at,backfilled_at,connected_at,default_scope,backfill_days,stalled_runs,first_stalled_at',
+        id: 'eq.' + id,
+        needs_reauth: 'eq.false',
+        limit: '1',
+      });
+      const rows = await rest('/mailbox_grants?' + qs.toString());
+      return (rows && rows[0]) || null;
+    },
+
+    /**
      * The grant for one mailbox address, for a push notification to resolve.
      *
      * Two lookups, not one: the exact address first, then the Gmail-folded

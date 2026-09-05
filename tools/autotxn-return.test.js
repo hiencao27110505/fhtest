@@ -23,8 +23,14 @@ const SRC_FILE = path.join(__dirname, '..', 'src', 'js-data', '74-autotxn-ui.js'
 const src = fs.readFileSync(SRC_FILE, 'utf8');
 
 const start = src.indexOf('function _atxReturnState()');
-const end = src.indexOf('function fhAutoTxnDone(');
-if (start < 0 || end < 0) {
+/* The end is whatever comes next in the file: the live-watch block (2026-09-05)
+   or fhAutoTxnDone itself (which is async now, so a naive 'function fhAutoTxnDone('
+   marker would cut mid-token through 'async function' and leave a dangling
+   keyword in the eval). Earliest match wins so removing either block later
+   cannot silently widen the slice. */
+const end = Math.min(...['let _atxLiveSeq', 'async function fhAutoTxnDone(', 'function fhAutoTxnDone(']
+  .map((m) => src.indexOf(m)).filter((i) => i > start));
+if (start < 0 || !Number.isFinite(end)) {
   console.error('FAIL: could not find _atxReturnState in ' + SRC_FILE + ' — did it get renamed?');
   process.exit(1);
 }

@@ -143,6 +143,30 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-09-05 (Trang's session) — connect-time first read + live "Đã kết nối"
+  screen; NO migrations, ⚠️ TWO EDGE FUNCTION DEPLOYS PENDING
+  (`mailbox-connect`, `mailbox-sync`).** Diagnosed: after a Gmail connect the
+  first read waited for the minute lane (exactly 60s) and nothing in-app said
+  anything. Now: `/callback` fire-and-forget kicks `POST /mailbox-sync
+  {grant: <id>}` → new `worker.runOne` via new `db.grantById` (additive only —
+  `runAll`/`runGrant`/notify logic untouched); the success sheet live-polls a
+  head-only pending count and offers push on both OAuth screens. Files:
+  `supabase/functions/mailbox-connect/index.ts`, `mailbox-sync/index.ts`,
+  `_shared/mailbox/worker.mjs` + `db.mjs`, `src/js-data/74-autotxn-ui.js`, new
+  `pipeline/connect-kick.test.js` + `tools/autotxn-connected-live.test.js`,
+  (v2 same day: watch registration off the redirect path in mailbox-connect —
+  `registerWatchBestEffort` + `waitUntil`, self-heals via watchesDue null-is-due
+  — and the client poll is eager-then-4s with badge-only demotion on close),
+  `tools/autotxn-return.test.js` (extraction marker only), spec
+  §14.1/§14.2/§20 + Part 3 entry, CHANGELOG. When deploying, deploy BOTH
+  functions together (the kick body is ignored by an old mailbox-sync — safe,
+  but pointless) and verify `MAILBOX_SYNC_SECRET` is visible to
+  mailbox-connect (project-scoped secrets, so it should be). Note for your
+  session: `npm test` had 2 files failing BEFORE my changes —
+  `tools/personal-unreadable.test.js` (3) and `tools/staged-scope.test.js` (3),
+  both asserting against the 09-05 bulk-import change's files — left untouched
+  so we don't collide; they look like yours to reconcile.
+
 - **2026-09-05 (Hien's session) — bulk import hardened for a 200-row queue; UI +
   client only, NO db / migration / edge / .gs changes.** Field report: ~200
   staged rows from a 90-day first connect; multi-tapping "Nhập 200" ran

@@ -20,6 +20,52 @@ Going forward, add an entry here when a feature area changes meaningfully — se
 
 ## 2026-09-05
 
+### The first minute after connecting Gmail stops being silent (09-05)
+
+Field report: after tapping Allow, the first transactions took "a minute or
+two" to exist and nothing in the app said anything meanwhile — no count, no
+notification. Diagnosed with a virtual-clock loop driving the real worker on
+the real cron cadences: the connect callback never started a read (first row
+always at exactly 60s, the backfill lane's boundary), the success sheet was
+static, the badge only woke on app-open/refocus/promote, and an OAuth user was
+never offered push (the offer lived on the forwarding screen and behind a
+first hand-review only).
+
+- **The connect callback kicks a targeted first read, and stops making the
+  redirect wait.** Fire-and-forget
+  `POST /mailbox-sync {grant: <id>}` (shared secret, `EdgeRuntime.waitUntil`)
+  → new `worker.runOne(grantId, ctx)` via new `db.grantById` (same columns and
+  `needs_reauth` fence as `dueGrants`). Purely additive — `runAll`/`runGrant`/
+  notify logic untouched; overlap with a cron run is the sanctioned 0097 shape
+  (`supabase/functions/mailbox-connect/index.ts`, `mailbox-sync/index.ts`,
+  `_shared/mailbox/worker.mjs`, `db.mjs`). The watch registration also moved
+  off the redirect path (`registerWatchBestEffort` under the same `waitUntil`;
+  `watchesDue` treats a null expiry as due, so a lost registration self-heals
+  next tick) — the browser is back in the app ~0.5–1s sooner. First row lands
+  in seconds.
+- **"Đã kết nối" is live.** The sheet polls a head-only pending count — eager
+  at 1.5s until the first find (max 20s), then 4s — showing "Tìm được 12
+  khoản…", turning the CTA into "Xem 12 khoản" and keeping the badge in step.
+  Closing it early DEMOTES the poll to badge-only for the rest of the 3-minute
+  window (the impatient closer's rows land ten seconds later; their badge
+  still moves) rather than stopping; the window ends with one reconciling
+  `fhRefreshStagedCount`, and an open sheet admits "Chưa thấy khoản nào" after
+  three quiet minutes instead of ellipsing forever
+  (`src/js-data/74-autotxn-ui.js`).
+- **Both OAuth screens offer notifications** (reusing 71's `_mbxPushRow`,
+  resolved pre-render per 71's own no-late-controls rule; the reauth branch
+  stays single-purpose). `fhAutoTxnDone`/`fhAutoTxnStatus` are async +
+  seq-guarded now; the boot-return caller guards the rejection.
+- **Deliberately not changed:** a multi-run backfill still push-notifies once,
+  on completion — the live screen covers the interim, and the notify decision
+  block next to the 08-30 sixty-notices incident was left untouched on purpose.
+- Tests: `pipeline/connect-kick.test.js` (19),
+  `tools/autotxn-connected-live.test.js` (27); `tools/autotxn-return.test.js`
+  extraction marker repaired (it sliced mid-token through the now-async
+  `fhAutoTxnDone`). Spec §14.1/§14.2/§20 updated — §20's latency table had
+  been claiming one notice per backfill run and 150-row chunks; the code
+  notifies once on completion and chunks at 400.
+
 ### Bulk import survives a 200-row queue on a low-end phone (09-05)
 
 Field report: a first connect with a 90-day lookback staged ~200 rows; pressing

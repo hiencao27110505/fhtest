@@ -12,7 +12,7 @@
    runner. This file is transport: read the environment, build the context,
    report what happened. */
 import nacl from "npm:tweetnacl@1.0.3";
-import { runAll, runPush, renewWatches, runCoverageProbe } from "../_shared/mailbox/worker.mjs";
+import { runAll, runOne, runPush, renewWatches, runCoverageProbe } from "../_shared/mailbox/worker.mjs";
 import { runIngest } from "../_shared/mailbox/ingest.mjs";
 import { createDb } from "../_shared/mailbox/db.mjs";
 import { fromBytea } from "../_shared/mailbox/token-crypto.mjs";
@@ -129,6 +129,25 @@ Deno.serve(async (req: Request) => {
         return json(out, 200);
       } catch (e) {
         console.error("mailbox-sync coverage probe failed:", e);
+        return json({ error: String((e as Error)?.message || e) }, 500);
+      }
+    }
+
+    /* ── the connect-time kick: one named grant, right now ──────────────────
+       mailbox-connect fires this the moment a grant is stored, so the first
+       read starts in seconds instead of waiting up to a minute for the
+       backfill lane — the minute a new person spends deciding whether the
+       feature works. Same secret gate as everything above; a caller holding
+       the secret can already run every mailbox, so naming one adds no
+       capability. An unknown id is a 200 with polled:0 — the caller is
+       fire-and-forget and the minute lane covers anything declined here. */
+    if (body && typeof body.grant === "string" && body.grant) {
+      try {
+        const out = await runOne(body.grant, ctx);
+        console.log("mailbox-sync targeted run", JSON.stringify(out));
+        return json(out, 200);
+      } catch (e) {
+        console.error("mailbox-sync targeted run failed:", e);
         return json({ error: String((e as Error)?.message || e) }, 500);
       }
     }
