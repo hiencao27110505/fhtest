@@ -114,6 +114,18 @@ not. The connect flow itself is two steps — step 1 only earns the tap and
 holds no controls; step 2 is the three decisions as one grouped list, every
 answer pre-filled with a working default.
 
+**Right after Allow, the screen works for its keep** (2026-09-05). The
+callback returns you to the app immediately (nothing on the redirect path
+waits for Google any more) and a targeted first read starts within seconds.
+The "Đã kết nối" sheet is live: it polls a head-only pending count — every
+1.5s until the first find, then every 4s — and turns "Đang dò hộp thư của
+bạn…" into "Tìm được N khoản…" with a "Xem N khoản" button as history lands.
+Closing it early only demotes the watcher to badge-keeping; it never goes
+silent inside its 3-minute window. The same sheet offers to turn
+notifications on, because this is the moment the feature has earned the ask.
+Measured on the first real connect after deploy: first staged row **4.4
+seconds** after the grant was stored.
+
 **One mailbox per person, for now.** Connecting a second Google account
 replaces the first — stated on the status screen, because "Đổi" replacing a
 mailbox is not something anyone would guess.
@@ -590,12 +602,18 @@ tick continues. A 300-message backfill arrives over a few minutes rather than
 being truncated and marked done.
 
 **Worked timeline.** You connect Tuesday 09:00 with the default 90-day
-backfill: the first run lists `newer_than:90d` (up to 2000 ids), stages up to
-400, reports `more` if anything remains; runs continue (a dedicated
-once-a-minute cron, `familyhub-mailbox-backfill`, fast-lanes unfinished
-backfills between the 5-minute ticks) until the window is clean, and only
-then are `backfilled_at` **and** `last_synced_at` written — a real 90-day
-history (228 messages) lands in ~76 seconds.
+backfill: the connect kick (§14.2) starts the first run within seconds — it
+lists `newer_than:90d` (up to 2000 ids), stages up to 400, reports `more` if
+anything remains; runs continue (a dedicated once-a-minute cron,
+`familyhub-mailbox-backfill`, fast-lanes unfinished backfills between the
+5-minute ticks) until the window is clean, and only then are `backfilled_at`
+**and** `last_synced_at` written — a real 90-day history (228 messages)
+lands in ~76 seconds.
+Measured on the first post-deploy connect (2026-09-05, 210 rows): grant
+stored 08:51:43.25, watch registered +0.45s, **first row staged +4.4s**,
+rows streaming ~3/s; completion at 08:55:16 on the tick — the tail was
+model-needing mail dripping through the per-run budget (§16), which delays
+the completion digest, never the first rows.
 From then on each tick reads `max(2, ceil(days_since_last_sync)+1)` days —
 normally 2. If the worker is down from Friday to Monday, Monday's first tick
 computes `ceil(3)+1 = 4` days: the outage widened the window, nothing was
@@ -1569,7 +1587,14 @@ Properties outlive code changes — version the cache key.
 ### 21.4 Reading a run
 
 Smoke test: `curl -X POST …/functions/v1/mailbox-sync -H "x-sync-secret: …"`
-→ `{"polled":1,"modelCalls":1,"results":[…]}`. Per-mailbox statuses:
+→ `{"polled":1,"modelCalls":1,"results":[…]}`. Add `-d '{"grant":"<uuid>"}'`
+to run ONE named mailbox (the connect kick's path; logged as
+`mailbox-sync targeted run`, and `mailbox-connect` logs
+`connect kick failed`/`not sent` when the fire-and-forget could not go —
+those lines missing after a fresh connect means `MAILBOX_SYNC_SECRET` is not
+visible to mailbox-connect, and first reads are back on the minute lane).
+An unknown or ineligible grant id answers `{"polled":0,"reason":"no_grant"}`.
+Per-mailbox statuses:
 
 | status | means | do |
 |---|---|---|
@@ -1853,7 +1878,7 @@ as — or the same day as — the deploy. A deploy announced only in
 
 ## 28. Releases (newest first)
 
-### 2026-09-05 — mailbox-connect + mailbox-sync + client (pending deploy) — the first minute after connect stops being silent
+### 2026-09-05 — mailbox-connect + mailbox-sync + client (DEPLOYED 2026-09-05) — the first minute after connect stops being silent
 
 - **For product:** connecting Gmail now shows results while you watch. The
   first read starts within seconds of tapping Allow instead of waiting up to a
@@ -1890,6 +1915,13 @@ as — or the same day as — the deploy. A deploy announced only in
   claiming one notice per backfill run and 150-row chunks — the code notifies
   once on completion and chunks at 400; corrected, with the live screen and
   badge rows brought up to date).
+- **Measured in production, first connect after deploy** (2026-09-05
+  08:51, trang.nguyen.wh@, 90-day backfill, 210 rows): watch registered
+  +0.45s after the grant (off-redirect path working), first row staged
+  **+4.4s** (previous floor: 60s), completion 08:55:16 with the tail being
+  model-budget stragglers on the minute lane — by design. The other
+  connected mailbox polled normally on the same tick; the kick disturbed
+  nothing.
 - **Watch for:** the kick assumes `MAILBOX_SYNC_SECRET` is visible to
   `mailbox-connect` (secrets are project-scoped; verify on deploy — absent, it
   silently degrades to the old minute-lane latency, visible as

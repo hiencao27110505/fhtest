@@ -6517,13 +6517,40 @@ function renderPersonal(){
         Opening from this tab presets the review screen's destination to
         personal, exactly as openPersonalExpense() above presets the expense
         modal. Badge off the same window.fhStagedCount Widget A reads. */
-     +   '<button class="cc-row" onclick="fhEmailTxnCta({scope:\'personal\'})"><span class="cc-ic">'+PIC.mail+'</span><span class="cc-t">Khoản thu chi từ email</span>'
-     +     ((window.fhStagedCount||0)>0 ? '<span class="cc-badge num">'+(window.fhStagedCount||0)+'</span>' : '')
-     +     _ccChev+'</button>'
+     +   _persEmailRow()
      + '</div>'
      + '</section>';
 
-  /* ── Nợ & cho vay — the balance-sheet dimension (stocks, not flows), between
+  /* The Cá nhân copy of Widget A's email row. It was a hardcoded duplicate, which
+   is how it missed the first-read progress entirely: renderCashflowEmailCta
+   grew a held state and this one kept printing a bare count. Same three states,
+   same reasons (see renderCashflowEmailCta in 20-budget.js) — while a first
+   read is running the badge is a FRACTION, not a count, because a count is a
+   summons at the moment acting on it is unsafe. Kept as its own function rather
+   than shared markup because this row carries the personal entry scope. */
+function _persEmailRow(){
+  var n=window.fhStagedCount||0;
+  var p=(typeof window.fhBackfillProgress==='function') ? window.fhBackfillProgress() : null;
+  var reading=!!(p && p.phase==='reading');
+  var ic=PIC.mail, badge, sub='', prog='';
+  if(reading){
+    badge='<span class="cc-badge run"><span class="cc-dot"></span>'+p.daysRead+'/'+p.windowDays+'</span>';
+    sub='<span class="cc-sub">'+esc(p.front
+      ? L('Đang đọc… đã tới '+fmtDayMon(new Date(p.front))+' · '+n+' khoản',
+          'Reading… back to '+fmtDayMon(new Date(p.front))+' · '+n+' found')
+      : L('Đang dò hộp thư của bạn…','Looking through your mailbox…'))+'</span>';
+    var pct=p.windowDays>0 ? Math.min(100,Math.round(p.daysRead/p.windowDays*100)) : 0;
+    prog='<span class="cc-prog"><i style="width:'+pct+'%"></i></span>';
+  } else {
+    badge = n>0 ? '<span class="cc-badge num">'+n+'</span>' : '';
+  }
+  return '<button class="cc-row" onclick="fhEmailTxnCta({scope:\'personal\'})">'
+    +'<span class="'+(reading?'cc-ic run':'cc-ic')+'">'+ic+'</span>'
+    +'<span class="cc-t">'+L('Khoản thu chi từ email','Income & expenses from email')+sub+prog+'</span>'
+    +badge+_ccChev+'</button>';
+}
+
+/* ── Nợ & cho vay — the balance-sheet dimension (stocks, not flows), between
      the month's cash-flow card and the month's spending cards. Built by
      23-debts-ui.js (js-data) so it can share the modal helper + space keys. ── */
   h += (window.persDebtSection ? persDebtSection() : '');
