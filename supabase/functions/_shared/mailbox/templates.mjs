@@ -355,7 +355,14 @@ function deriveExtractionTemplate(body, extraction, trace) {
       }
     }
   }
-  if (!found) return fail('date');
+  if (!found) {
+    /* Three different diseases hid under one word. 'date:no_candidate' — the
+       scanner saw nothing date-shaped at all (a format we do not recognise);
+       'date:format' — candidates existed but no known kind reproduces the
+       reading's instant (new ordering, or the model read a different row).
+       Sub-steps carry NO values — self-diagnosis without anyone's mail. */
+    return fail(rawDates.length === 0 ? 'date:no_candidate' : 'date:format');
+  }
   tpl.fields.occurred_at = found;
 
   if (typeof extraction.amount !== 'number') return null;
@@ -368,7 +375,15 @@ function deriveExtractionTemplate(body, extraction, trace) {
       amtSpec = { re: a.re, num: cands[c].parse };
     }
   }
-  if (!amtSpec) return fail('amount');
+  if (!amtSpec) {
+    /* 'amount:absent' — no printable form of the reading's amount appears in
+       the body verbatim (grouping mismatch: the mail says 1.234.567, the
+       candidates spell 1,234,567 — or the model read a different number).
+       'amount:anchor' — the number is there but nothing stable precedes it. */
+    var sawAmount = false;
+    for (var sc = 0; sc < cands.length; sc++) { if (body.indexOf(cands[sc].raw) >= 0) { sawAmount = true; break; } }
+    return fail(sawAmount ? 'amount:anchor' : 'amount:absent');
+  }
   tpl.fields.amount = amtSpec;
 
   // varying string fields — anchored if present; a present-but-unanchorable

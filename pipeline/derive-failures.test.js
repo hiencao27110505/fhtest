@@ -44,6 +44,25 @@ const READING = {
 t('derivation fails', T.deriveExtractionTemplate(BODY, READING, (s) => seen.push(s)) === null);
 t('and names the step', seen.length === 1 && seen[0] === 'anchor:memo', JSON.stringify(seen));
 
+console.log('\n-- sub-steps: the failure names its sub-cause, still no values --');
+{
+  const vnGrouped = ['So tien | 1.234.567 VND', 'Ngay, gio giao dich | 2026-08-25 18:52:04', 'X | y'].join('\n');
+  const r1 = { is_transaction: true, transaction_type: 'bank_txn', source_provider: 'X',
+    occurred_at: '2026-08-25T18:52:04+07:00', amount: 7654321, currency: 'VND', direction: 'debit',
+    counterparty: null, reference_number: null, status: null, account_masked: null, memo: null };
+  let s1 = null; T.deriveExtractionTemplate(vnGrouped, r1, (x) => s1 = x);
+  t('a number the body never prints -> amount:absent', s1 === 'amount:absent', s1);
+
+  const noDate = ['So tien | 37,000 VND', 'Khi nao | hom qua luc chieu', 'X | y'].join('\n');
+  const r2 = { ...r1, amount: 37000 };
+  let s2 = null; T.deriveExtractionTemplate(noDate, r2, (x) => s2 = x);
+  t('no date-shaped text at all -> date:no_candidate', s2 === 'date:no_candidate', s2);
+
+  const oddFormat = ['So tien | 37,000 VND', 'Ngay | 2026/08/25 18:52', 'X | y'].join('\n');
+  let s3 = null; T.deriveExtractionTemplate(oddFormat, r2, (x) => s3 = x);
+  t('a date the kinds cannot reproduce -> date:format', s3 === 'date:format', s3);
+}
+
 console.log('\n-- a success records nothing --');
 const ok = [];
 const good = { ...READING, memo: null };
