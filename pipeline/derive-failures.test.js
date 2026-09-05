@@ -42,7 +42,7 @@ const READING = {
   account_masked: null, memo: 'typed by a human, never printed in this mail',
 };
 t('derivation fails', T.deriveExtractionTemplate(BODY, READING, (s) => seen.push(s)) === null);
-t('and names the step', seen.length === 1 && seen[0] === 'anchor:memo', JSON.stringify(seen));
+t('and names the step — absent, not merely unanchorable', seen.length === 1 && seen[0] === 'absent:memo', JSON.stringify(seen));
 
 console.log('\n-- sub-steps: the failure names its sub-cause, still no values --');
 {

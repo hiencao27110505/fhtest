@@ -58,8 +58,12 @@ t('banned: the account label is NOT learned', !('tu tai khoan' in byLabel));
 t('banned: the amount label is NOT learned', !('so tien' in byLabel));
 t('bank_txn does not disambiguate who the counterparty is -> no vote',
   !('ngan hang huong' in byLabel));
-t('reference IS learned — "so giao dich" was never in the vocabulary',
-  byLabel['so giao dich'] === 'reference');
+/* OVERTAKEN BY THE VOCABULARY (2026-09-05): 'so giao dich' was hand-added to
+   the hardcoded reference labels after BVBank's failure logs named it, so the
+   learner now correctly holds NO vote on a label the reader already knows —
+   hardcoded-first is the rule this very file pins. */
+t('reference label is now HARDCODED, so the learner holds no vote on it',
+  !('so giao dich' in byLabel), JSON.stringify(byLabel));
 t('no VALUE leaves the learner — labels only',
   !/136|2609|609704|Master Card|CAO THAI/.test(JSON.stringify(votes)), JSON.stringify(votes));
 
@@ -90,7 +94,13 @@ const learned = new Map([['ngay giao dich', 'memo'],        // hostile: tries to
 /* A body the hand-authored reader cannot fully read (VIB) — with learned
    mappings for memo + beneficiary, `who` and the gate change. */
 const before = LT.readLabelTable('x', VIB);
-t('without learning, VIB still returns null (date label unknown)', before === null);
+/* And the date label was hand-added too (labeltable.mjs:64, from the VIB
+   failure logs), plus 'ngan hang huong' joined beneficiary from BVBank's — so
+   the hand-authored reader now opens this shape ON ITS OWN. What learning
+   still adds here is the memo: 'dien giai' remains vocabulary-unknown. */
+t('the hand-authored reader now opens VIB2 by itself',
+  !!before && before.occurred_at === '2026-09-02T11:57:00+07:00' && before.memo === null,
+  JSON.stringify(before && { at: before.occurred_at, memo: before.memo }));
 /* THE HAND-ADD LANDED (2026-09-03), so this now asserts the opposite of what it
    used to. Until today the gate had no timestamp: VIB's date label ("Ngày giao
    dịch") was absent from the vocabulary, and occurred_at is on the BANNED list

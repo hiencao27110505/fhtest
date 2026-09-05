@@ -172,8 +172,8 @@ t('an unanchorable account degrades instead of killing the template',
   !!naTpl && !JSON.parse(naTpl).fields.account_masked, 'failed at: ' + naStep);
 const noMemo = { ...VIB_READING, memo: 'typed by a human, not in body' };
 let nmStep = null;
-t('an unanchorable memo still kills it — that strictness is a scar, not a bug',
-  T.deriveExtractionTemplate(VIB, noMemo, (s) => { nmStep = s; }) === null && nmStep === 'anchor:memo',
+t('a memo the body never printed still kills it — that strictness is a scar, not a bug',
+  T.deriveExtractionTemplate(VIB, noMemo, (s) => { nmStep = s; }) === null && nmStep === 'absent:memo',
   'step: ' + nmStep);
 
 /* ── 5. hygiene: the shared cache never holds an account number ──────────── */
