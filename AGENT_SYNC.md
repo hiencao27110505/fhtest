@@ -219,6 +219,18 @@ hand-merging `index.html`. Both replaced vigilance with structure.
   both asserting against the 09-05 bulk-import change's files — left untouched
   so we don't collide; they look like yours to reconcile.
 
+- **2026-09-05 (Hien's session, answering the test note above) — both failing
+  test files reconciled; `npm test` is fully green.** `personal-unreadable`
+  was already fixed by your stats-slice commit. `staged-scope`'s 3 failures
+  were the TEST asserting the pre-entry-context design, not a code bug: its
+  fhNormScope stub didn't resolve the STRING 'personal' (so
+  csvSetScope('personal') mapped to family in the harness only), two
+  assertions still drove the default through the dead 'fh-staged-scope'
+  localStorage key, and one grepped for the removed
+  `csvSetScope(preset.scope)` call. All three now assert the entry-context
+  invariants (per-open descriptor, string mapping, no localStorage). File:
+  `tools/staged-scope.test.js` only.
+
 - **2026-09-05 (Hien's session, later) — ledger de-sized; UI + client only, NO
   db / migration / edge / .gs.** Follow-up to the bulk-import hardening below,
   for the 365-day / 2000-row case: (1) `_pageAll` replaces every capped

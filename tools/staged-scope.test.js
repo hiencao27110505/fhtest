@@ -40,10 +40,15 @@ function L(vi) { return vi; }
 
 /* csvEntryScopeDesc reads the per-open entry descriptor (window.csvEntryScope)
    and falls back to the normalised default. Grabbed from source like the rest,
-   with fhNormScope stubbed to the family default — the harness only needs a
-   shape here, and stubbing the DESCRIPTOR rather than the reader keeps the
-   real fallback path under test. */
-window.fhNormScope = function(d){ return d && d.kind ? d : { kind: 'space' }; };
+   with fhNormScope stubbed to the real mapping's SHAPE: csvSetScope hands it
+   the STRING 'personal'/'family', so the stub must resolve strings the way
+   the real one does — an earlier stub that only knew descriptors sent
+   csvSetScope('personal') to the family default and failed the unlocked
+   assertions for a reason that lived in the harness, not the code. */
+window.fhNormScope = function(d){
+  if(d === 'personal' || (d && d.kind === 'personal')) return { kind: 'personal' };
+  return (d && d.kind) ? d : { kind: 'space' };
+};
 eval(grab('csvEntryScopeDesc'));
 eval(grab('csvScopeReady'));
 eval(grab('csvStagedScope'));
@@ -67,13 +72,16 @@ console.log('\n-- but the DESTINATION belongs to the row, not the batch --');
 t('a row can be personal while the default is family',
   csvRowScope({ _scope: 'personal' }) === 'personal');
 t('and family while the default is personal',
-  (function(){ store={'fh-staged-scope':'personal'}; var r=csvRowScope({_scope:'family'}); store={}; return r==='family'; })());
+  (function(){ csvSetScope('personal'); var r=csvRowScope({_scope:'family'}); window.csvEntryScope=null; return r==='family'; })());
 t('a row with no opinion still follows the default',
-  (function(){ store={'fh-staged-scope':'personal'}; var r=csvRowScope({}); store={}; return r==='personal'; })());
+  (function(){ csvSetScope('personal'); var r=csvRowScope({}); window.csvEntryScope=null; return r==='personal'; })());
 
 console.log('\n-- a locked personal ledger can never strand a row --');
-store = { 'fh-staged-scope': 'personal' }; locked();
-t('a remembered personal default falls back to family', csvStagedScope() === 'family');
+// The default is the per-open ENTRY CONTEXT now (a Personal-tab open), never a
+// persisted key — the sticky 'fh-staged-scope' global is exactly the cross-tab
+// leak the entry-context redesign removed.
+window.csvEntryScope = { kind: 'personal' }; locked();
+t('a personal entry context falls back to family', csvStagedScope() === 'family');
 t('AND a row explicitly marked personal falls back too — it must still import',
   csvRowScope({ _scope: 'personal' }) === 'family');
 toasts = []; rendered = 0;
@@ -82,8 +90,9 @@ t('setting the default to personal while locked is refused', csvStagedScope() ==
 t('and says why rather than failing silently', toasts.length === 1, JSON.stringify(toasts));
 
 console.log('\n-- no personal ledger at all is the same as locked --');
-absent(); store = { 'fh-staged-scope': 'personal' };
+absent(); window.csvEntryScope = { kind: 'personal' };
 t('falls back to family', csvStagedScope() === 'family');
+window.csvEntryScope = null;
 
 console.log('\n-- the control explains itself --');
 store = {}; locked();
@@ -110,17 +119,23 @@ t('with the same badge off the same count', /window\.fhStagedCount/.test(ptab));
 
 const rv2 = fs.readFileSync(path.join(__dirname, '..', 'src', 'js-data', '72-txn-review.js'), 'utf8');
 t('the router accepts a preset', /fhEmailTxnCta = async function \(preset\)/.test(rv2));
-t('and applies it through the guarded setter, not localStorage directly',
-  /window\.csvSetScope\(preset\.scope\)/.test(rv2));
+/* The preset rides the per-open ENTRY CONTEXT (normalised, assigned fresh at
+   every sheet open), never a persisted key — csvSetScope(preset.scope) was the
+   OLD design, whose sticky global is the cross-tab leak this replaced. */
+t('and routes it through the per-open entry context, never localStorage',
+  /fhNormScope\(preset && preset\.scope\)/.test(rv2) &&
+  /window\.csvEntryScope = window\.fhNormScope/.test(rv2) &&
+  rv2.indexOf("localStorage.setItem('fh-staged-scope'") < 0);
 t('a promote refreshes BOTH badges, so neither goes stale',
   /renderCashflowEmailCta[\s\S]{0,260}renderPersonal\(\)/.test(rv2));
 
 console.log('\n-- pre-scoping cannot force a locked ledger --');
-store = {}; locked();
+store = {}; window.csvEntryScope = null; locked();
 t('csvSetScope refuses personal while locked', csvSetScope('personal') === false);
 t('and persists nothing', store[CSV_SCOPE_KEY] === undefined);
 unlocked();
 t('but takes it when unlocked', csvSetScope('personal') === true && csvStagedScope() === 'personal');
+window.csvEntryScope = null;
 
 console.log('\n-- the chip un-disables itself when the ledger becomes ready --');
 const pers = fs.readFileSync(path.join(__dirname, '..', 'src', 'js-data', '19-personal.js'), 'utf8');
