@@ -143,6 +143,23 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-09-06 (Hien's session) — FYI, no answer needed: landing-tab
+  slow/freeze fix touches TWO things your session inherits.** (1) **Every**
+  supabase request now runs through a 60s AbortController deadline
+  (`10-client-auth.js` `createClient(..., {global:{fetch:_fetchDeadline}})`) —
+  a request that used to hang forever now rejects with an AbortError after
+  60s; callers passing their own `signal` are untouched. If you have a
+  long-running client-side call (>60s), pass your own signal. (2) `sw.js`
+  `CACHE_NAME` bumped **v499 → v500** (now on origin/main — pushed the same
+  evening with the in-flight batch). Also: `fhPersonalBoot` now
+  fires at the top of `afterLogin` (not after `my_families`), boot has a 12s
+  watchdog + `fhPersonalRetry` (force-unlatch), hydrate decodes into locals
+  (don't add code that mutates `P.txns`/`P.debts` mid-hydrate), and the
+  personal ledger caches an encrypted warm snapshot in the `fh-keys` IDB under
+  `psnap:<uid>` — if you add fields the tab renders from `P`, add them to
+  `_snapSave`/`_snapRestore` in `19-personal.js` or they'll be missing on warm
+  paints. Details: CHANGELOG 2026-09-06 + `personal-ledger-spec.md` §13/§17.
+
 - **2026-09-05 (Trang's session) — the model as witness: citation fields for the
   two mandatory template anchors. Files: `templates.mjs`, `llm.mjs`,
   `bank-email-pipeline.gs` (PIPELINE_VERSION → `2026-09-05-witness`, ⚠️ PASTE
