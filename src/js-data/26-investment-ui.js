@@ -275,9 +275,10 @@
       const P = _P(); if (!P || !P.key) return '';
       const v = fhInvPositions(); if (!v) return '';
       const fl = fhInvMonthFlows((new Date()).getFullYear() + '-' + String((new Date()).getMonth() + 1).padStart(2, '0'));
-      let h = '<div id="pers-invest-wrap">';
+      let h = '<div id="pers-invest-wrap"' + (window.persMaskIs && persMaskIs('invest') ? ' class="sec-masked"' : '') + '>';
       h += '<div class="section-h" id="pers-invest-h"><span class="t">Đầu tư</span>'
-        + '<span class="acts"><a onclick="fhInvPriceRefresh(true);toast&&toast(\'Đang cập nhật giá…\')">Cập nhật giá</a>'
+        + '<span class="acts">' + (window.persEyeHTML ? persEyeHTML('invest') : '')
+        + '<a onclick="fhInvPriceRefresh(true);toast&&toast(\'Đang cập nhật giá…\')">Cập nhật giá</a>'
         + '<a onclick="fhInvNewPositionSheet()">＋ Vị thế</a></span></div>';
       if (!v.positions.length) {
         h += '<section class="dbt-empty"><div class="dbt-empty-t">Theo dõi crypto, vàng, chứng khoán — tiền mua không tính là chi tiêu.</div>'

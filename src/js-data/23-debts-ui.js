@@ -38,9 +38,10 @@
       const t = _totals();
       const balAccts = (P.accounts || []).filter((a) => a.kind !== 'credit_card');
       const hasAny = t.d.cards.length || t.d.people.length || t.spaces.length || _spaceInvites.length || balAccts.length;
-      let h = '<div id="pers-debts-wrap">'
+      let h = '<div id="pers-debts-wrap"' + (window.persMaskIs && persMaskIs('debts') ? ' class="sec-masked"' : '') + '>'
         + '<div class="section-h" id="pers-debts-h"><span class="t">Nợ &amp; cho vay</span>'
-        + '<span class="acts"><a onclick="fhXferSheet()">Chuyển tiền</a>'
+        + '<span class="acts">' + (window.persEyeHTML ? persEyeHTML('debts') : '')
+        + '<a onclick="fhXferSheet()">Chuyển tiền</a>'
         + '<a onclick="fhDebtLoanSheet()">Ghi khoản vay</a></span></div>';
       /* pending space invites — above everything, they need a decision */
       _spaceInvites.forEach(function (inv) {

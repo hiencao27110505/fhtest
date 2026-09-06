@@ -15,6 +15,23 @@ var PIC = {
   list:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>'
 };
 var _ccChev='<svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg>';
+/* ── The eye: per-section stat masking (shoulder-surf guard). Device-local
+   like the period choice — which sections a person hides is their business,
+   not synced state. Masked = the section's VALUES blur (CSS .sec-masked);
+   layout, labels and taps stay, so the tab never reflows. ── */
+var PERS_EYE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+var PERS_EYE_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 6.1A9.7 9.7 0 0 1 12 5.5c6 0 9.5 6.5 9.5 6.5a17.6 17.6 0 0 1-3 3.9M6.4 6.9A17.4 17.4 0 0 0 2.5 12S6 18.5 12 18.5c1.3 0 2.5-.3 3.6-.8"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
+function _persMask(){ try{ return JSON.parse(localStorage.getItem('fh-pers-mask')||'{}'); }catch(e){ return {}; } }
+window.persMaskIs = function(k){ return !!_persMask()[k]; };
+window.persMaskToggle = function(k){
+  var m=_persMask(); m[k]=!m[k];
+  try{ localStorage.setItem('fh-pers-mask', JSON.stringify(m)); }catch(e){}
+  renderPersonal();
+};
+window.persEyeHTML = function(k){
+  var on = persMaskIs(k);
+  return '<a class="sec-eye'+(on?' on':'')+'" onclick="persMaskToggle(\''+k+'\')" aria-label="'+(on?'Hiện số':'Ẩn số')+'">'+(on?PERS_EYE_OFF:PERS_EYE)+'</a>';
+};
 /* LOCAL 'YYYY-MM' — never toISOString() (UTC shifts midnight into the prev month
    in UTC+7, which silently broke the last-month key → daily guide hidden). */
 function _pMonKey(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
@@ -208,8 +225,8 @@ function renderPersonal(){
   var cfLbl = 'Còn lại · cá nhân';
 
   var h = '';
-  h += '<section class="cf-card">'
-     + '<div class="cf-lblrow"><div class="cf-lbl">'+cfLbl+'</div>'+moCaret+'</div>'
+  h += '<section class="cf-card'+(persMaskIs('cf')?' sec-masked':'')+'">'
+     + '<div class="cf-lblrow"><div class="cf-lbl">'+cfLbl+'</div>'+persEyeHTML('cf')+moCaret+'</div>'
      + '<div class="cf-big num'+(left<0&&slReady?' neg':'')+'">'+(slReady?fmt(left):'…')+'</div>'
      + '<div class="cf-tiles">'
      +   '<button class="cf-tile" onclick="fhIncome(\'personal\')"><span class="cf-tl"><span class="cf-ar up">↑</span> Vào</span><span class="cf-tv num">'+(slReady?fmt(inc):'…')+'</span></button>'
@@ -338,7 +355,8 @@ function _persEmailRow(){
       + '</div>'+(strip||'')+'</div>';
   }
   h += '<div class="section-h" id="pers-cats"><span class="t">'+(isAll?'Tiền đi đâu':'Tiền đi đâu tháng này')+'</span>'
-     + '<a onclick="openPersonalBudget()">'+(P.budget>0?'Ngân sách':'Lập ngân sách')+'</a></div>';
+     + '<span class="acts">'+persEyeHTML('cats')+'<a onclick="openPersonalBudget()">'+(P.budget>0?'Ngân sách':'Lập ngân sách')+'</a></span></div>';
+  h += '<div id="pers-cats-wrap"'+(persMaskIs('cats')?' class="sec-masked"':'')+'>';
   if(!slReady){
     h += '<section class="psp-card"><div class="empty-note">Đang tải lịch sử chi tiêu…</div></section>';
   } else if(!spKeys.length && !bySpace['_p']){
@@ -397,7 +415,10 @@ function _persEmailRow(){
     return { from: acctName(from), to: acctName(to) };
   };
   var monUnread = (!inWin && SL) ? SL.unreadable : txList.filter(function(t){ return t._unreadable; }).length;
-  h += '<div class="section-h" id="pers-tx"><span class="t">'+(isAll?'Giao dịch gần đây':'Giao dịch của bạn')+'</span></div><div class="rows">';
+  h += '</div>';   // /#pers-cats-wrap
+  h += '<div class="section-h" id="pers-tx"><span class="t">'+(isAll?'Giao dịch gần đây':'Giao dịch của bạn')+'</span>'
+     + '<span class="acts">'+persEyeHTML('txns')+'</span></div>'
+     + '<div class="rows'+(persMaskIs('txns')?' sec-masked':'')+'">';
   /* Say it before the list, not inside it. A count kept out of the totals has to
      be visible or the totals are quietly wrong -- which is the whole reason this
      stopped being a 0đ row. */
@@ -428,6 +449,17 @@ function _persEmailRow(){
            + '<div class="r-body"><div class="r-t">'+xt+'</div>'
            + '<div class="r-s">'+meta+' · chuyển khoản — không tính thu chi</div></div>'
            + '<div class="r-amt num xfer">'+fmt(Math.abs(t.amt||0))+'</div></div>';
+      } else if(t.kind==='investment'){
+        /* One leg, signed inside the ciphertext: buy −X, sell +X (0123). The
+           plain-expense branch below would have printed the raw negative as
+           "−-12.000.000" — abs + its own label instead. Taps into the same
+           row sheet the position zoom-in uses. */
+        var _iP = (P.accounts||[]).find(function(a){ return a.id===t.positionId; });
+        var _sell = (t.amt||0) > 0;
+        h += '<div class="row tap" onclick="fhInvRowSheet(\''+t.id+'\')"><div class="r-ico personal-ico">📈</div>'
+           + '<div class="r-body"><div class="r-t">'+((_sell?'Bán':'Mua')+(_iP&&_iP.name?' '+_iP.name:' đầu tư')).replace(/</g,'&lt;')+'</div>'
+           + '<div class="r-s">'+meta+' · đầu tư — không tính thu chi</div></div>'
+           + '<div class="r-amt num xfer">'+(_sell?'+':'−')+fmt(Math.abs(t.amt||0))+'</div></div>';
       } else if(t.kind==='loan' || t.kind==='repayment'){
         /* Counterparty + hẹn trả live on the all-time debt read (P.debts), not
            the month-window row — join by id. Tapping opens the same row sheet
