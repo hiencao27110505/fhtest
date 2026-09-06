@@ -363,9 +363,16 @@
       b += '<div class="dbt-acts">'
         + '<button class="dbt-btn primary" onclick="fhInvTradeSheet(\'' + p.id + '\',\'buy\')">Mua thêm</button>'
         + '<button class="dbt-btn tinted" onclick="fhInvTradeSheet(\'' + p.id + '\',\'sell\')">Bán bớt</button></div>';
-      b += '<div class="dbt-acts2"><a onclick="fhInvEditSheet(\'' + p.id + '\')">Sửa vị thế</a></div>';
+      /* .dbt-acts2 styles BUTTONS (41-debts.css) — an <a> here rendered as bare
+         text. An empty position also offers real deletion: archiving a
+         just-created mistake is the wrong verb when nothing references it. */
+      b += '<div class="dbt-acts2"><button onclick="fhInvEditSheet(\'' + p.id + '\')">Sửa vị thế</button>'
+        + (p.rows.length ? '' : '<button class="danger" onclick="fhInvPosDelTap(\'' + p.id + '\',this)">Xoá vị thế</button>')
+        + '</div>';
       if (p.rows.length) {
-        b += '<div class="dbt-sec">Lịch sử</div><div class="dbt-card">';
+        b += '<div class="dbt-sec">Lịch sử</div>'
+          + '<div class="dbt-note">Chạm vào một dòng để sửa hoặc xoá khoản mua/bán.</div>'
+          + '<div class="dbt-card">';
         const rows = p.rows.slice().sort((a, c) => (c.date + (c.ts || '')).localeCompare(a.date + (a.ts || '')));
         for (const r of rows) {
           const sell = r.amt != null && r.amt > 0;
@@ -495,6 +502,22 @@
           return function () { if (window.renderPersonal) renderPersonal(); openInvPosition(posId); };
         },
       });
+    };
+    /* Hard delete — EMPTY positions only (nothing references them; the memory
+       rows cascade away in the DB). A position with history archives instead:
+       its rows are real money history and deletion would orphan them. */
+    window.fhInvPosDelTap = async function (posId, btn) {
+      if (!btn.dataset.armed) { btn.dataset.armed = '1'; btn.textContent = 'Bấm lần nữa để xoá'; return; }
+      const P = _P(); if (!P || !P.key) return;
+      if ((P.debts || []).some((d) => d.kind === 'investment' && d.positionId === posId)) {
+        window.toast && toast('Vị thế đã có giao dịch — dùng Lưu trữ trong Sửa vị thế');
+        return;
+      }
+      const r = await _sbi().from('personal_accounts').delete().eq('id', posId).eq('owner_user_id', P.uid).eq('kind', 'investment');
+      if (r.error) { console.warn('position delete failed', r.error); window.toast && toast('Chưa xoá được, thử lại'); return; }
+      await window.fhPersonalHydrate();
+      window.toast && toast('Đã xoá vị thế');
+      closeInvest(); if (window.renderPersonal) renderPersonal();
     };
     /* archive is arm-then-confirm, like the transfer-pair delete */
     window.fhInvArchTap = async function (posId, btn) {
