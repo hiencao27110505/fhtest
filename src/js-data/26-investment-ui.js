@@ -284,28 +284,36 @@
           + '<button class="dbt-empty-cta" onclick="fhInvNewPositionSheet()">＋ Vị thế đầu tư</button></section></div>';
         return h;
       }
-      const tiles = [];
-      /* hero: best-effort total + lãi/lỗ over priced positions only (I12) */
+      /* hero: best-effort total + lãi/lỗ over priced positions only (I12).
+         ALWAYS wide, always its own row — it is the headline, not a tile,
+         so it stays out of the pairing math below. */
       const pl = v.plK != null ? ('<span class="' + (v.plK >= 0 ? 'inv-up' : 'inv-down') + '">' + (v.plK >= 0 ? '▲ +' : '▼ −') + fmt(Math.abs(v.plK))
         + (v.plBaseK > 0 ? ' (' + (v.plK >= 0 ? '+' : '−') + Math.abs(v.plK / v.plBaseK * 100).toFixed(1).replace(/\.0$/, '') + '%)' : '') + '</span>') : '';
-      tiles.push('<section class="dbt-tile wide inv-hero">'
+      const hero = '<section class="dbt-tile wide inv-hero">'
         + '<div class="dbt-tk">Giá trị hiện tại' + (v.mixed ? ' <span class="inv-stale">· một phần theo giá vốn</span>' : '') + '</div>'
         + '<div class="dbt-tv inv-total">' + fmt(v.totalK) + '</div>'
         + (pl ? '<div class="dbt-ts">' + pl + '</div>' : '')
         + ((fl.out > 0.5 || fl.inn > 0.5) ? '<div class="dbt-ts inv-flow">' + (fl.out > 0.5 ? 'Đầu tư tháng này ' + fmt(fl.out) : '')
           + (fl.out > 0.5 && fl.inn > 0.5 ? ' · ' : '') + (fl.inn > 0.5 ? 'Rút ' + fmt(fl.inn) : '') + '</div>' : '')
-        + '</section>');
+        + '</section>';
+      /* position tiles pair 2-up; an odd trailing one spans wide (the debts
+         rule, applied to POSITIONS only — including the hero in the count is
+         what once left one tile half-empty next to a full-width one). The
+         sub-line stays one short line: holding · delta, and staleness only
+         when the price is actually old — "vừa cập nhật" is not information. */
+      const tiles = [];
       for (const p of v.positions) {
         const hold = p.qty > 0 ? ('<span class="inv-qty">' + (p.qtyPartial ? '≈' : '') + _fmtQty(p.qty) + (p.unit ? ' ' + _e(p.unit) : '') + '</span>') : '';
-        const stale = (p.valueK != null && p.priceAt) ? ('<span class="inv-stale">giá ' + _ago(p.priceAt) + '</span>') : '';
+        const ageMs = (p.valueK != null && p.priceAt) ? (Date.now() - new Date(p.priceAt).getTime()) : 0;
+        const stale = ageMs > 26 * 3600000 ? ('<span class="inv-stale">giá ' + _ago(p.priceAt) + '</span>') : '';
         tiles.push('<section class="dbt-tile" onclick="openInvPosition(\'' + p.id + '\')">'
           + '<div class="dbt-tk">' + _e(p.name) + '</div>'
           + '<div class="dbt-tv">' + fmt(p.displayK) + '</div>'
-          + '<div class="dbt-ts">' + hold + (hold ? ' · ' : '') + _delta(p) + (stale ? ' · ' + stale : '') + '</div>'
+          + '<div class="dbt-ts inv-sub">' + hold + (hold ? ' · ' : '') + _delta(p) + (stale ? ' · ' + stale : '') + '</div>'
           + '</section>');
       }
       if (tiles.length % 2 === 1) tiles[tiles.length - 1] = tiles[tiles.length - 1].replace('class="dbt-tile', 'class="dbt-tile wide');
-      h += '<div class="debt-bento">' + tiles.join('') + '</div></div>';
+      h += '<div class="debt-bento">' + hero + tiles.join('') + '</div></div>';
       return h;
     };
     window.persInvestAfterRender = function () { fhInvPriceRefresh(false); };
@@ -324,7 +332,12 @@
         + '<button class="cd-back" onclick="closeInvest()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg><span>Tài Chính</span></button></div>'
         + '<h1 class="txn-title" id="inv-title">Đầu tư</h1>'
         + '<div class="cd-scroll" id="inv-scroll"><div id="inv-body"></div><div class="spacer"></div></div>';
-      document.body.appendChild(d);
+      /* .overlay is position:absolute against the APP SHELL — it must live
+         beside #debt-overlay, not on document.body, or it sizes/stacks against
+         the wrong box and renders tangled with the modal (seen 2026-09-06). */
+      const sib = document.getElementById('debt-overlay');
+      if (sib && sib.parentNode) sib.parentNode.insertBefore(d, sib.nextSibling);
+      else document.body.appendChild(d);
     }
     window.closeInvest = function () {
       _openPosId = null;
@@ -390,10 +403,12 @@
         save: async function () {
           const id = await fhInvPositionCreate(_valOf('inv-pname'), _valOf('inv-psym') || null, _valOf('inv-punit') || null, (typeof chosen === 'function' && chosen('inv-klass')) || 'other');
           if (!id) throw new Error('save_failed');
-          window.toast && toast('Đã tạo vị thế');
+          window.toast && toast('Đã tạo vị thế — chạm vào ô của nó để mua');
           return function () {
+            /* land back on the bento — one modal in, one modal out. Auto-opening
+               the position overlay mid-close read as sheets piling up. */
             if (typeof onDone === 'function') onDone(id);
-            else { if (window.renderPersonal) renderPersonal(); openInvPosition(id); }
+            else if (window.renderPersonal) renderPersonal();
           };
         },
       });

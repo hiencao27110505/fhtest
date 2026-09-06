@@ -1544,7 +1544,7 @@ function csvApplySimilar(i){
   sims.forEach(function(r){
     r._scope = csvRowScope(c);
     r.isTransfer = c.isTransfer; r._xfer = c._xfer; r._repay = c._repay; r._loan = c._loan; r._invest = c._invest; r.isIncome = c.isIncome;
-    r._payCardId = c._payCardId; r._xferOtherId = c._xferOtherId; r._repayWho = c._repayWho; r._loanWho = c._loanWho;
+    r._payCardId = c._payCardId; r._xferOtherId = c._xferOtherId; r._repayWho = c._repayWho; r._loanWho = c._loanWho; r._investPosId = c._investPosId;
     r._investPosId = c._investPosId; r._investQty = c._investQty;
     if(c.categoryName){ r.categoryName = c.categoryName; r.catSource = 'user';
       if(typeof csvLearnFrom === 'function') csvLearnFrom(r); }

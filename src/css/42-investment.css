@@ -15,5 +15,9 @@
 .inv-hero .dbt-ts{margin-top:2px}
 .inv-hero .inv-flow{color:var(--muted)}
 
+/* position tile sub-line stays ONE line — a wrapped "giá vừa cập nhật" made
+   siblings uneven heights and the whole grid read as broken */
+.inv-sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
 /* the zoom-in shares #debt-overlay's classes; only the price link needs a nudge */
 #invest-overlay .dbt-relink{white-space:nowrap}
