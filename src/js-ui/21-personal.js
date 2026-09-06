@@ -429,9 +429,17 @@ function _persEmailRow(){
            + '<div class="r-s">'+meta+' · chuyển khoản — không tính thu chi</div></div>'
            + '<div class="r-amt num xfer">'+fmt(Math.abs(t.amt||0))+'</div></div>';
       } else if(t.kind==='loan' || t.kind==='repayment'){
-        h += '<div class="row"><div class="r-ico personal-ico">'+(t.kind==='loan'?'💵':'✅')+'</div>'
-           + '<div class="r-body"><div class="r-t">'+((t.note||(t.kind==='loan'?'Cho vay / mượn':'Trả nợ')).replace(/</g,'&lt;'))+'</div>'
-           + '<div class="r-s">'+meta+' · '+(t.kind==='loan'?'khoản vay':'trả nợ')+'</div></div>'
+        /* Counterparty + hẹn trả live on the all-time debt read (P.debts), not
+           the month-window row — join by id. Tapping opens the same row sheet
+           the person zoom-in uses (edit · hẹn trả · convert-back · delete), so
+           a loan is correctable wherever it is seen (0122). */
+        var _dR = (P.debts||[]).filter(function(d){ return d.id===t.id; })[0];
+        var _who = (_dR && _dR.who) ? ' · '+_dR.who.replace(/</g,'&lt;') : '';
+        var _due = (_dR && t.kind==='loan' && _dR.due) ? ' · hẹn trả '+_dR.due.slice(8,10)+'/'+_dR.due.slice(5,7) : '';
+        var _lbl = t.kind==='loan' ? ((t.amt||0)>0?'cho vay':'đi mượn') : 'trả nợ';
+        h += '<div class="row tap" onclick="fhDebtRowSheet(\''+t.id+'\')"><div class="r-ico personal-ico">'+(t.kind==='loan'?'💵':'✅')+'</div>'
+           + '<div class="r-body"><div class="r-t">'+((t.note||(t.kind==='loan'?'Cho vay / mượn':'Trả nợ')).replace(/</g,'&lt;'))+_who+'</div>'
+           + '<div class="r-s">'+meta+' · '+_lbl+_due+'</div></div>'
            + '<div class="r-amt num xfer">'+fmt(Math.abs(t.amt||0))+'</div></div>';
       } else {
         /* 0114: private rows tap into their edit sheet; mirror rows tap through

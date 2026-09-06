@@ -326,11 +326,14 @@ amounts are counted per position and excluded — never 0đ.
 
 - Cache: `localStorage['fh-invprice:<uid>']` = `{sym: {k, at}}` — fetched
   prices never leave the device, never touch the server (I4).
-- Fetch: CoinGecko `simple/price?vs_currencies=vnd` for crypto positions'
-  symbols (small id map + lowercase-symbol fallback), throttled to one call
-  per 2 min unless forced, fail-quiet (`console.warn`), re-renders bento +
-  open overlay on success. No CSP blocks it; the SW passes cross-origin
-  fetches straight through untouched.
+- Fetch: CoinGecko `coins/markets?vs_currency=vnd` — the top 250 coins by
+  market cap, symbol-matched first-wins (no hand-kept symbol→id map; the
+  original map is how ADA once silently failed to price — fixed 2026-09-06).
+  Throttled to one call per 2 min unless forced; the automatic path stays
+  fail-quiet, the explicit "Cập nhật giá" tap toasts its outcome (incl.
+  "ngoài top 250 — nhập giá tay"). Re-renders bento + open overlay on
+  success. No CSP blocks it; the SW passes cross-origin fetches straight
+  through untouched.
 - Manual price: `fhInvManualPriceSet` stores `manual_price_enc` +
   `manual_price_at` on the position row (the `ext_balance_enc` pattern —
   encrypted, syncs across the owner's devices). Freshest-timestamp-wins

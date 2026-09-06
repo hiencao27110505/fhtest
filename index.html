@@ -6786,9 +6786,17 @@ function _persEmailRow(){
            + '<div class="r-s">'+meta+' · chuyển khoản — không tính thu chi</div></div>'
            + '<div class="r-amt num xfer">'+fmt(Math.abs(t.amt||0))+'</div></div>';
       } else if(t.kind==='loan' || t.kind==='repayment'){
-        h += '<div class="row"><div class="r-ico personal-ico">'+(t.kind==='loan'?'💵':'✅')+'</div>'
-           + '<div class="r-body"><div class="r-t">'+((t.note||(t.kind==='loan'?'Cho vay / mượn':'Trả nợ')).replace(/</g,'&lt;'))+'</div>'
-           + '<div class="r-s">'+meta+' · '+(t.kind==='loan'?'khoản vay':'trả nợ')+'</div></div>'
+        /* Counterparty + hẹn trả live on the all-time debt read (P.debts), not
+           the month-window row — join by id. Tapping opens the same row sheet
+           the person zoom-in uses (edit · hẹn trả · convert-back · delete), so
+           a loan is correctable wherever it is seen (0122). */
+        var _dR = (P.debts||[]).filter(function(d){ return d.id===t.id; })[0];
+        var _who = (_dR && _dR.who) ? ' · '+_dR.who.replace(/</g,'&lt;') : '';
+        var _due = (_dR && t.kind==='loan' && _dR.due) ? ' · hẹn trả '+_dR.due.slice(8,10)+'/'+_dR.due.slice(5,7) : '';
+        var _lbl = t.kind==='loan' ? ((t.amt||0)>0?'cho vay':'đi mượn') : 'trả nợ';
+        h += '<div class="row tap" onclick="fhDebtRowSheet(\''+t.id+'\')"><div class="r-ico personal-ico">'+(t.kind==='loan'?'💵':'✅')+'</div>'
+           + '<div class="r-body"><div class="r-t">'+((t.note||(t.kind==='loan'?'Cho vay / mượn':'Trả nợ')).replace(/</g,'&lt;'))+_who+'</div>'
+           + '<div class="r-s">'+meta+' · '+_lbl+_due+'</div></div>'
            + '<div class="r-amt num xfer">'+fmt(Math.abs(t.amt||0))+'</div></div>';
       } else {
         /* 0114: private rows tap into their edit sheet; mirror rows tap through
@@ -11031,6 +11039,13 @@ function openEditExpense(id){
 function _pTxById(id){ var P=window.fhPersonalData&&fhPersonalData(); return P? (P.txns||[]).filter(function(t){ return t.id===id; })[0] : null; }
 function openPersonalTxEdit(id){
   var t=_pTxById(id); if(!t || t._unreadable || t.spaceId || t.linkId) return;   // private, readable rows only
+  /* Kind routing (0122): the expense editor is for EXPENSES. A loan/repayment
+     opens its own row sheet (edit · hẹn trả · convert-back), a transfer pair
+     its pair sheet — saving a loan through the expense form would silently
+     write a category onto a receivable. */
+  if(t.kind==='loan'||t.kind==='repayment'){ if(window.fhDebtRowSheet) fhDebtRowSheet(id); return; }
+  if(t.kind==='transfer'){ if(t.transferGroupId && window.fhXferPairSheet) fhXferPairSheet(t.transferGroupId); return; }
+  if(t.kind && t.kind!=='expense') return;
   editingPTx=id; editingTx=null;
   openExpense();                                           // fillPersonalExpenseFromTx() runs inside
 }
@@ -12993,7 +13008,7 @@ function csvPickRowScope(v){
   // A card payment is personal — a shared row can never be one, so leaving it
   // family-scoped would import "trả nợ thẻ" as a family expense and double-count.
   // Same for a loan/repayment: liabilities are personal, always (0122).
-  if(v!=='personal'){ c.isTransfer = false; c._payCardId = null; c._xfer = false; c._xferOtherId = null; c._repay = false; c._repayWho = null; c._loan = false; c._loanWho = null; c._loanDue = null; c._lessonWhy = null; }
+  if(v!=='personal') csvScopeClearKinds(c);
   csvSetScope(v);              // and it becomes the default for rows not yet decided
   renderCsvReview();
 }
@@ -13199,7 +13214,7 @@ function csvXferProposals(){
   if(!csvStagedMode || !csvReview) return [];
   var credits = [], debits = [];
   (csvReview.ready||[]).forEach(function(c){
-    if(c._xfer || c.isTransfer || c._repay || c._loan || c._skipImport) return;
+    if(c._xfer || c.isTransfer || c._repay || c._loan || c._invest || c._skipImport) return;
     if(!(c.amount > 0) || !c.date) return;
     var ai = window.fhStagedAcct ? fhStagedAcct(c) : null;
     if(!ai || ai.kind === 'credit_card') return;
@@ -14080,11 +14095,11 @@ function csvBulkCat(name){
   var sel = csvStagedSelected(); if(!sel.length) return;
   var skipped = 0;
   sel.forEach(function(c){
-    /* Kinds without a category (card payment, transfer leg, loan, repayment)
-       stay out of a bulk filing — writing a category onto them would both
-       confuse the card and teach a payee→category lesson for a payee whose
-       rows aren't spending (0122). */
-    if(c.isTransfer || c._xfer || c._repay || c._loan){ skipped++; return; }
+    /* Kinds without a category (card payment, transfer leg, loan, repayment,
+       investment) stay out of a bulk filing — writing a category onto them
+       would both confuse the card and teach a payee→category lesson for a
+       payee whose rows aren't spending (0122/0123). */
+    if(c.isTransfer || c._xfer || c._repay || c._loan || c._invest){ skipped++; return; }
     c.categoryName = name; c.catSource = 'user';
     if(typeof csvLearnFrom === 'function') csvLearnFrom(c);
   });
@@ -14102,6 +14117,17 @@ function csvBulkCat(name){
    those have no _scope, so they follow the default, and changing it here would
    move rows the person never selected. Explicit on the selection, untouched
    everywhere else. */
+/* The same clearing the per-row picker does (csvPickRowScope), applied wherever
+   scope is set in BULK: the family book can never hold a card payment, transfer
+   leg, loan or repayment — leaving the flags on would import a receivable into
+   the shared ledger as spending (0122). */
+function csvScopeClearKinds(c){
+  c.isTransfer = false; c._payCardId = null;
+  c._xfer = false; c._xferOtherId = null;
+  c._repay = false; c._repayWho = null;
+  c._loan = false; c._loanWho = null; c._loanDue = null; c._lessonWhy = null;
+  c._invest = false; c._investPosId = null;   // an investment leg is personal too (0123)
+}
 function csvBulkScope(v){
   if(!csvReview) return false;
   var sel = csvStagedSelected(); if(!sel.length) return false;
@@ -14109,7 +14135,7 @@ function csvBulkScope(v){
     toast(L('Mở khoá sổ cá nhân ở tab Cá nhân trước','Unlock your personal ledger first'));
     return false;
   }
-  sel.forEach(function(c){ c._scope = v; });
+  sel.forEach(function(c){ c._scope = v; if(v!=='personal') csvScopeClearKinds(c); });
   renderCsvReview();
   return true;
 }
@@ -14371,7 +14397,7 @@ function csvEditRoute(p, v){
   csvTxrRoutes[p] = v;
   csvTxrRouteSave();
   var g = csvTxrGroups();
-  (g[p] ? g[p].idx : []).forEach(function(i){ var c = csvReview.ready[i]; if(c) c._scope = v; });
+  (g[p] ? g[p].idx : []).forEach(function(i){ var c = csvReview.ready[i]; if(c){ c._scope = v; if(v!=='personal') csvScopeClearKinds(c); } });
   renderCsvReview();
   toast(esc(v === 'personal'
     ? L(p + ' sẽ vào sổ Cá nhân, cả các lần sau', p + ' goes to your personal book from now on')
@@ -18698,7 +18724,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v488';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v489';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -23411,14 +23437,16 @@ window.obGoogle = async function () {
       all[String(sym).toLowerCase()] = { k: priceK, at: new Date().toISOString() };
       try { localStorage.setItem(_PK(), JSON.stringify(all)); } catch (e) {}
     };
-    /* CoinGecko ids for the common symbols; anything else tries the lowercase
-       symbol as an id and quietly gives up. Manual price is always available. */
-    const CG = { btc: 'bitcoin', eth: 'ethereum', usdt: 'tether', usdc: 'usd-coin', bnb: 'binancecoin',
-      sol: 'solana', xrp: 'ripple', ada: 'cardano', doge: 'dogecoin', trx: 'tron', ton: 'the-open-network',
-      ltc: 'litecoin', dot: 'polkadot', avax: 'avalanche-2', link: 'chainlink', near: 'near', vndc: 'vndc' };
     let _fetchedAt = 0, _fetching = false;
-    /* Fetch is fail-quiet and throttled: a flaky API can never block the bento
-       (spec I11) — the worst case is a staleness label. */
+    /* ONE markets call covers the top 250 coins by market cap — id, symbol and
+       VND price together, so there is NO hand-kept symbol→id map to fall out
+       of date (the map is how ADA once silently failed to price). Symbols are
+       matched first-wins: the list is market-cap ordered, so a shared ticker
+       resolves to the biggest coin — the answer a person means. Throttled and
+       fail-quiet on the automatic path (spec I11: a flaky API never blocks the
+       bento); the EXPLICIT "Cập nhật giá" tap toasts its outcome instead —
+       silence on a deliberate tap reads as broken. Below top-250 → manual
+       price, the designed fallback. */
     window.fhInvPriceRefresh = async function (force) {
       const P = _P(); if (!P || !P.key) return false;
       if (_fetching) return false;
@@ -23430,18 +23458,33 @@ window.obGoogle = async function () {
          sheet's "giá theo USDT" input converts through, VN crypto's lingua
          franca. Costs nothing: same one API call. */
       if (syms.indexOf('usdt') < 0) syms.push('usdt');
-      const ids = {}; syms.forEach((s) => { ids[CG[s] || s] = s; });
       _fetching = true;
       try {
-        const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=' + encodeURIComponent(Object.keys(ids).join(',')) + '&vs_currencies=vnd');
+        const r = await fetch('https://api.coingecko.com/api/v3/coins/markets?vs_currency=vnd&order=market_cap_desc&per_page=250&page=1&sparkline=false');
         if (!r.ok) throw new Error('price http ' + r.status);
-        const j = await r.json();
-        let got = 0;
-        for (const id in j) if (j[id] && j[id].vnd > 0 && ids[id]) { _cacheSet(ids[id], j[id].vnd / 1000); got++; }
+        const list = await r.json();
+        const bySym = {};   // first occurrence wins = highest market cap
+        for (const row of (Array.isArray(list) ? list : [])) {
+          const s = String(row.symbol || '').toLowerCase();
+          if (s && !(s in bySym) && row.current_price > 0) bySym[s] = row.current_price;
+        }
+        let got = 0, missed = [];
+        for (const s of syms) {
+          if (bySym[s]) { _cacheSet(s, bySym[s] / 1000); got++; }
+          else missed.push(s.toUpperCase());
+        }
         _fetchedAt = Date.now();
         if (got) { _redraw(); _reopen(); }
+        if (force && window.toast) {
+          toast(got ? 'Đã cập nhật giá' + (missed.length ? ' — ' + missed.join(', ') + ' ngoài top 250, nhập giá tay nhé' : '')
+                    : (missed.length ? missed.join(', ') + ' ngoài top 250 — nhập giá tay nhé' : 'Không lấy được giá — thử lại sau'));
+        }
         return got > 0;
-      } catch (e) { console.warn('inv price fetch failed', e); return false; }
+      } catch (e) {
+        console.warn('inv price fetch failed', e);
+        if (force && window.toast) toast('Không lấy được giá — kiểm tra mạng rồi thử lại');
+        return false;
+      }
       finally { _fetching = false; }
     };
 
@@ -33401,6 +33444,34 @@ window.classifyAmount = classifyAmount;
     var QR = null;          // state of the currently shown sheet, null when closed
     var _qrInFlight = false;
 
+    /* Lending-shaped? (0122, lending-capture-spec §2) — the full screen's
+       csvLendingPass would pre-select Cho vay / Trả nợ / Thu nợ on this row, so
+       quick review must not offer it as a plain one-tap expense/income. Uses
+       the same globals the pass uses (57-csv-import-review: _debtNameHit,
+       csvLearnKey), all guarded — a helper missing just means "not shaped". */
+    function _qrLendingShaped(flow, re) {
+      try {
+        if (typeof _debtNameHit !== 'function') return false;
+        var pd = window.fhPersonalDebts ? fhPersonalDebts() : { people: [] };
+        var people = pd.people || [];
+        var text = (re.counterparty || '') + ' ' + (re.memo_display != null ? re.memo_display : (re.memo || ''));
+        if (flow === 'income') {
+          if (_debtNameHit(people.filter(function (p) { return p.balance > 0.5; }), text)) return true;
+          return !!(window.fhInvMemoryMatch && fhInvMemoryMatch(re.counterparty || text));
+        }
+        if (_debtNameHit(people.filter(function (p) { return p.balance < -0.5; }), text)) return true;
+        if (window.fhKindLesson && typeof csvLearnKey === 'function') {
+          var key = csvLearnKey({ counterparty: re.counterparty || '', description: text, amount: Number(re.amount) || 0 });
+          if (key && fhKindLesson(key)) return true;
+        }
+        /* Same rule for the investment memory (0123): a remembered OTC
+           counterparty would pre-select Đầu tư / Bán đầu tư on the full
+           screen — one-tap "Duyệt" here would file it as plain spending. */
+        if (window.fhInvMemoryMatch && fhInvMemoryMatch(re.counterparty || text)) return true;
+      } catch (e) {}
+      return false;
+    }
+
     /* Two-tier suppression, so "remind me next time" and "stop reminding me"
        are different answers:
          • SESSION set (in-memory, below) — cleared only when the app is
@@ -33583,6 +33654,10 @@ window.classifyAmount = classifyAmount;
            kick it BEFORE the fetch/unseal awaits so an enc family's async
            decrypt has landed by the time _qrSuggestCat consults it. */
         try { if (typeof csvLearnLoad === 'function') csvLearnLoad(); } catch (e) {}
+        /* Synced lessons (0122): quick review can pop before the full queue was
+           ever opened this session, so pull the blob here too — the
+           lending-shaped check below reads the kind lessons. Best-effort. */
+        try { if (window.fhLessonsSync) await window.fhLessonsSync(); } catch (e) {}
 
         var rows;
         try { rows = await _qrFetch(); } catch (e) { return; }
@@ -33597,8 +33672,12 @@ window.classifyAmount = classifyAmount;
 
         var flow = re.flow || (re.direction === 'credit' ? 'income' : 'expense');
         var foreign = re.currency && re.currency !== 'VND';
-        if (flow === 'transfer' || foreign) {
-          // a judgment-call row belongs to the full review screen
+        if (flow === 'transfer' || foreign || _qrLendingShaped(flow, re)) {
+          /* A judgment-call row belongs to the full review screen. Since 0122
+             that includes LENDING-shaped rows: a payee matching an open debt
+             balance or a learned loan lesson — quick review's one-tap "Duyệt ·
+             <category>" would file exactly the loan-as-expense miscount the
+             lending pass exists to catch, with no Kind control in sight. */
           if (opts.force && window.fhTxnReviewSheet) window.fhTxnReviewSheet();
           return;
         }

@@ -56,14 +56,16 @@
       all[String(sym).toLowerCase()] = { k: priceK, at: new Date().toISOString() };
       try { localStorage.setItem(_PK(), JSON.stringify(all)); } catch (e) {}
     };
-    /* CoinGecko ids for the common symbols; anything else tries the lowercase
-       symbol as an id and quietly gives up. Manual price is always available. */
-    const CG = { btc: 'bitcoin', eth: 'ethereum', usdt: 'tether', usdc: 'usd-coin', bnb: 'binancecoin',
-      sol: 'solana', xrp: 'ripple', ada: 'cardano', doge: 'dogecoin', trx: 'tron', ton: 'the-open-network',
-      ltc: 'litecoin', dot: 'polkadot', avax: 'avalanche-2', link: 'chainlink', near: 'near', vndc: 'vndc' };
     let _fetchedAt = 0, _fetching = false;
-    /* Fetch is fail-quiet and throttled: a flaky API can never block the bento
-       (spec I11) — the worst case is a staleness label. */
+    /* ONE markets call covers the top 250 coins by market cap — id, symbol and
+       VND price together, so there is NO hand-kept symbol→id map to fall out
+       of date (the map is how ADA once silently failed to price). Symbols are
+       matched first-wins: the list is market-cap ordered, so a shared ticker
+       resolves to the biggest coin — the answer a person means. Throttled and
+       fail-quiet on the automatic path (spec I11: a flaky API never blocks the
+       bento); the EXPLICIT "Cập nhật giá" tap toasts its outcome instead —
+       silence on a deliberate tap reads as broken. Below top-250 → manual
+       price, the designed fallback. */
     window.fhInvPriceRefresh = async function (force) {
       const P = _P(); if (!P || !P.key) return false;
       if (_fetching) return false;
@@ -75,18 +77,33 @@
          sheet's "giá theo USDT" input converts through, VN crypto's lingua
          franca. Costs nothing: same one API call. */
       if (syms.indexOf('usdt') < 0) syms.push('usdt');
-      const ids = {}; syms.forEach((s) => { ids[CG[s] || s] = s; });
       _fetching = true;
       try {
-        const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=' + encodeURIComponent(Object.keys(ids).join(',')) + '&vs_currencies=vnd');
+        const r = await fetch('https://api.coingecko.com/api/v3/coins/markets?vs_currency=vnd&order=market_cap_desc&per_page=250&page=1&sparkline=false');
         if (!r.ok) throw new Error('price http ' + r.status);
-        const j = await r.json();
-        let got = 0;
-        for (const id in j) if (j[id] && j[id].vnd > 0 && ids[id]) { _cacheSet(ids[id], j[id].vnd / 1000); got++; }
+        const list = await r.json();
+        const bySym = {};   // first occurrence wins = highest market cap
+        for (const row of (Array.isArray(list) ? list : [])) {
+          const s = String(row.symbol || '').toLowerCase();
+          if (s && !(s in bySym) && row.current_price > 0) bySym[s] = row.current_price;
+        }
+        let got = 0, missed = [];
+        for (const s of syms) {
+          if (bySym[s]) { _cacheSet(s, bySym[s] / 1000); got++; }
+          else missed.push(s.toUpperCase());
+        }
         _fetchedAt = Date.now();
         if (got) { _redraw(); _reopen(); }
+        if (force && window.toast) {
+          toast(got ? 'Đã cập nhật giá' + (missed.length ? ' — ' + missed.join(', ') + ' ngoài top 250, nhập giá tay nhé' : '')
+                    : (missed.length ? missed.join(', ') + ' ngoài top 250 — nhập giá tay nhé' : 'Không lấy được giá — thử lại sau'));
+        }
         return got > 0;
-      } catch (e) { console.warn('inv price fetch failed', e); return false; }
+      } catch (e) {
+        console.warn('inv price fetch failed', e);
+        if (force && window.toast) toast('Không lấy được giá — kiểm tra mạng rồi thử lại');
+        return false;
+      }
       finally { _fetching = false; }
     };
 

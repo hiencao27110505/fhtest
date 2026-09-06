@@ -36,6 +36,7 @@ DELETE FROM personal_transaction_photos WHERE owner_user_id IN (SELECT uid FROM 
 DELETE FROM personal_transactions       WHERE owner_user_id IN (SELECT uid FROM _u);
 DELETE FROM personal_accounts           WHERE owner_user_id IN (SELECT uid FROM _u);
 DELETE FROM personal_budgets            WHERE owner_user_id IN (SELECT uid FROM _u);
+DELETE FROM personal_lessons            WHERE owner_user_id IN (SELECT uid FROM _u);  -- 0122: learned loan/category lessons
 DELETE FROM personal_keys               WHERE user_id       IN (SELECT uid FROM _u);
 
 -- NOTE: personal photo blobs in the `personal-media` bucket are NOT deleted here

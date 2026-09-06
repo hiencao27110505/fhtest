@@ -265,6 +265,13 @@ function openEditExpense(id){
 function _pTxById(id){ var P=window.fhPersonalData&&fhPersonalData(); return P? (P.txns||[]).filter(function(t){ return t.id===id; })[0] : null; }
 function openPersonalTxEdit(id){
   var t=_pTxById(id); if(!t || t._unreadable || t.spaceId || t.linkId) return;   // private, readable rows only
+  /* Kind routing (0122): the expense editor is for EXPENSES. A loan/repayment
+     opens its own row sheet (edit · hẹn trả · convert-back), a transfer pair
+     its pair sheet — saving a loan through the expense form would silently
+     write a category onto a receivable. */
+  if(t.kind==='loan'||t.kind==='repayment'){ if(window.fhDebtRowSheet) fhDebtRowSheet(id); return; }
+  if(t.kind==='transfer'){ if(t.transferGroupId && window.fhXferPairSheet) fhXferPairSheet(t.transferGroupId); return; }
+  if(t.kind && t.kind!=='expense') return;
   editingPTx=id; editingTx=null;
   openExpense();                                           // fillPersonalExpenseFromTx() runs inside
 }

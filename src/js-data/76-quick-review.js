@@ -28,6 +28,34 @@
     var QR = null;          // state of the currently shown sheet, null when closed
     var _qrInFlight = false;
 
+    /* Lending-shaped? (0122, lending-capture-spec §2) — the full screen's
+       csvLendingPass would pre-select Cho vay / Trả nợ / Thu nợ on this row, so
+       quick review must not offer it as a plain one-tap expense/income. Uses
+       the same globals the pass uses (57-csv-import-review: _debtNameHit,
+       csvLearnKey), all guarded — a helper missing just means "not shaped". */
+    function _qrLendingShaped(flow, re) {
+      try {
+        if (typeof _debtNameHit !== 'function') return false;
+        var pd = window.fhPersonalDebts ? fhPersonalDebts() : { people: [] };
+        var people = pd.people || [];
+        var text = (re.counterparty || '') + ' ' + (re.memo_display != null ? re.memo_display : (re.memo || ''));
+        if (flow === 'income') {
+          if (_debtNameHit(people.filter(function (p) { return p.balance > 0.5; }), text)) return true;
+          return !!(window.fhInvMemoryMatch && fhInvMemoryMatch(re.counterparty || text));
+        }
+        if (_debtNameHit(people.filter(function (p) { return p.balance < -0.5; }), text)) return true;
+        if (window.fhKindLesson && typeof csvLearnKey === 'function') {
+          var key = csvLearnKey({ counterparty: re.counterparty || '', description: text, amount: Number(re.amount) || 0 });
+          if (key && fhKindLesson(key)) return true;
+        }
+        /* Same rule for the investment memory (0123): a remembered OTC
+           counterparty would pre-select Đầu tư / Bán đầu tư on the full
+           screen — one-tap "Duyệt" here would file it as plain spending. */
+        if (window.fhInvMemoryMatch && fhInvMemoryMatch(re.counterparty || text)) return true;
+      } catch (e) {}
+      return false;
+    }
+
     /* Two-tier suppression, so "remind me next time" and "stop reminding me"
        are different answers:
          • SESSION set (in-memory, below) — cleared only when the app is
@@ -210,6 +238,10 @@
            kick it BEFORE the fetch/unseal awaits so an enc family's async
            decrypt has landed by the time _qrSuggestCat consults it. */
         try { if (typeof csvLearnLoad === 'function') csvLearnLoad(); } catch (e) {}
+        /* Synced lessons (0122): quick review can pop before the full queue was
+           ever opened this session, so pull the blob here too — the
+           lending-shaped check below reads the kind lessons. Best-effort. */
+        try { if (window.fhLessonsSync) await window.fhLessonsSync(); } catch (e) {}
 
         var rows;
         try { rows = await _qrFetch(); } catch (e) { return; }
@@ -224,8 +256,12 @@
 
         var flow = re.flow || (re.direction === 'credit' ? 'income' : 'expense');
         var foreign = re.currency && re.currency !== 'VND';
-        if (flow === 'transfer' || foreign) {
-          // a judgment-call row belongs to the full review screen
+        if (flow === 'transfer' || foreign || _qrLendingShaped(flow, re)) {
+          /* A judgment-call row belongs to the full review screen. Since 0122
+             that includes LENDING-shaped rows: a payee matching an open debt
+             balance or a learned loan lesson — quick review's one-tap "Duyệt ·
+             <category>" would file exactly the loan-as-expense miscount the
+             lending pass exists to catch, with no Kind control in sight. */
           if (opts.force && window.fhTxnReviewSheet) window.fhTxnReviewSheet();
           return;
         }

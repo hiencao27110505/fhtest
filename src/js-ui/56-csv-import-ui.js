@@ -1646,7 +1646,7 @@ function csvPickRowScope(v){
   // A card payment is personal — a shared row can never be one, so leaving it
   // family-scoped would import "trả nợ thẻ" as a family expense and double-count.
   // Same for a loan/repayment: liabilities are personal, always (0122).
-  if(v!=='personal'){ c.isTransfer = false; c._payCardId = null; c._xfer = false; c._xferOtherId = null; c._repay = false; c._repayWho = null; c._loan = false; c._loanWho = null; c._loanDue = null; c._lessonWhy = null; }
+  if(v!=='personal') csvScopeClearKinds(c);
   csvSetScope(v);              // and it becomes the default for rows not yet decided
   renderCsvReview();
 }
@@ -1852,7 +1852,7 @@ function csvXferProposals(){
   if(!csvStagedMode || !csvReview) return [];
   var credits = [], debits = [];
   (csvReview.ready||[]).forEach(function(c){
-    if(c._xfer || c.isTransfer || c._repay || c._loan || c._skipImport) return;
+    if(c._xfer || c.isTransfer || c._repay || c._loan || c._invest || c._skipImport) return;
     if(!(c.amount > 0) || !c.date) return;
     var ai = window.fhStagedAcct ? fhStagedAcct(c) : null;
     if(!ai || ai.kind === 'credit_card') return;
@@ -2733,11 +2733,11 @@ function csvBulkCat(name){
   var sel = csvStagedSelected(); if(!sel.length) return;
   var skipped = 0;
   sel.forEach(function(c){
-    /* Kinds without a category (card payment, transfer leg, loan, repayment)
-       stay out of a bulk filing — writing a category onto them would both
-       confuse the card and teach a payee→category lesson for a payee whose
-       rows aren't spending (0122). */
-    if(c.isTransfer || c._xfer || c._repay || c._loan){ skipped++; return; }
+    /* Kinds without a category (card payment, transfer leg, loan, repayment,
+       investment) stay out of a bulk filing — writing a category onto them
+       would both confuse the card and teach a payee→category lesson for a
+       payee whose rows aren't spending (0122/0123). */
+    if(c.isTransfer || c._xfer || c._repay || c._loan || c._invest){ skipped++; return; }
     c.categoryName = name; c.catSource = 'user';
     if(typeof csvLearnFrom === 'function') csvLearnFrom(c);
   });
@@ -2764,6 +2764,7 @@ function csvScopeClearKinds(c){
   c._xfer = false; c._xferOtherId = null;
   c._repay = false; c._repayWho = null;
   c._loan = false; c._loanWho = null; c._loanDue = null; c._lessonWhy = null;
+  c._invest = false; c._investPosId = null;   // an investment leg is personal too (0123)
 }
 function csvBulkScope(v){
   if(!csvReview) return false;

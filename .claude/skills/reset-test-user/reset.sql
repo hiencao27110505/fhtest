@@ -102,6 +102,7 @@ DELETE FROM personal_transaction_photos WHERE owner_user_id IN (SELECT uid FROM 
 DELETE FROM personal_transactions       WHERE owner_user_id IN (SELECT uid FROM _target);
 DELETE FROM personal_accounts           WHERE owner_user_id IN (SELECT uid FROM _target);
 DELETE FROM personal_budgets            WHERE owner_user_id IN (SELECT uid FROM _target);
+DELETE FROM personal_lessons            WHERE owner_user_id IN (SELECT uid FROM _target);  -- 0122: learned loan/category lessons
 DELETE FROM personal_keys               WHERE user_id       IN (SELECT uid FROM _target);
 -- (Personal photo blobs live in the `personal-media` bucket and are NOT deleted
 --  here — same storage.protect_delete() constraint as family-media; purge out-of-band.)
