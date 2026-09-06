@@ -188,6 +188,11 @@ optional on manual entry, prompted at review.
   this epic ships the category data + a simple list, not a full income
   analytics screen.
 - Every income row tagged to an account feeds that account's balance.
+- *Since 2026-09-06* the two **manual** income doors tag accounts too: the "Vào"
+  income sheet and the capture sheet's Thu mode both carry an optional
+  "Vào tài khoản nào?" chip row (deposit/ewallet + Tiền mặt — cards stay out;
+  money into your own card is a card payment, not income). Until then only
+  review/quick-review income carried `account_id`.
 
 ## 5. Balances
 

@@ -358,11 +358,17 @@
           const ok = await fhPersonalDebtRowUpdate(r.id, f);
           if (!ok) throw new Error('save_failed');
           window.toast && toast('Đã lưu');
-          return function () { _reopenPerson(r.who); if (window.renderPersonal) renderPersonal(); };
+          return function () { _reopenPerson(r.who); if (window.renderPersonal) renderPersonal(); if (typeof refreshPersonalTxnOverlay === 'function') refreshPersonalTxnOverlay(); };
         },
       });
     };
     function _reopenPerson(who) {
+      /* Only bounce back into the person zoom-in when the debt overlay was the
+         door we came through. fhDebtRowSheet is also reachable from the
+         transaction lists (personal tab + Giao dịch cá nhân drill-in) — from
+         there, reopening the debt overlay on top would be a surprise. */
+      const ov = document.getElementById('debt-overlay');
+      if (!ov || !ov.classList.contains('on')) return;
       const d2 = fhPersonalDebts();
       const i2 = d2.people.findIndex((x) => x.who === who);
       if (i2 >= 0 && Math.abs(d2.people[i2].balance) > 0.5) openDebtPerson(i2); else closeDebt();
@@ -377,6 +383,7 @@
       window.toast && toast('Đã xoá');
       if (window.closeModals) closeModals();
       _reopenPerson(r ? r.who : null); if (window.renderPersonal) renderPersonal();
+      if (typeof refreshPersonalTxnOverlay === 'function') refreshPersonalTxnOverlay();
     };
     /* Loan → expense (spec §4): the row keeps its id/amount/date; category
        lands on the catch-all and is editable afterwards like any expense. */
@@ -390,6 +397,7 @@
       window.toast && toast('Đã chuyển thành chi tiêu');
       if (window.closeModals) closeModals();
       _reopenPerson(r ? r.who : null); if (window.renderPersonal) renderPersonal();
+      if (typeof refreshPersonalTxnOverlay === 'function') refreshPersonalTxnOverlay();
     };
 
     /* ── Committed-row flip (0122, spec §4): "đây là khoản cho vay" ──────────
@@ -996,7 +1004,7 @@
           });
           if (!ok) throw new Error('save_failed');
           window.toast && toast('Đã cập nhật cả hai đầu');
-          return function () { if (window.renderPersonal) renderPersonal(); closeDebt(); };
+          return function () { if (window.renderPersonal) renderPersonal(); closeDebt(); if (typeof refreshPersonalTxnOverlay === 'function') refreshPersonalTxnOverlay(); };
         },
       });
     };
@@ -1014,6 +1022,7 @@
       window.toast && toast('Đã xoá cả hai đầu');
       if (window.closeModals) closeModals();
       closeDebt(); if (window.renderPersonal) renderPersonal();
+      if (typeof refreshPersonalTxnOverlay === 'function') refreshPersonalTxnOverlay();
     };
 
     /* space create → card intro → invite */

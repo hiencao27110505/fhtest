@@ -240,20 +240,27 @@ function pickExScope(btn){
 }
 /* Instrument chips (0105): built from the personal ledger's accounts + Tiền mặt.
    Optional — no chip selected means "don't tag". Last pick remembered; a
-   credit-card pick is what feeds that card's derived balance. */
+   credit-card pick is what feeds that card's derived balance.
+   Income (Thu) reuses the same field as "Vào tài khoản nào?" — deposit/ewallet/
+   cash only (money INTO your own card is a card payment, not income — one kind =
+   one meaning), with its own remembered pick: salary lands somewhere different
+   from where daily spending leaves. */
 /* selId (optional, 0114): an explicit selection for edit mode — an account id,
    or null for "no tag". Omitted = the remembered last pick (capture mode). */
+function _exAcctMemKey(){ return exType==='income' ? 'fh-last-inc-acct' : 'fh-last-acct'; }
 function buildExAcctChips(selId){
   var box=document.getElementById('ex-acct'); if(!box) return;
   var pd=window.fhPersonalData&&fhPersonalData(); var accts=(pd&&pd.accounts)||[];
+  var income=(exType==='income'&&!editingTx&&!editingPTx);
   var sel;
   if(typeof selId!=='undefined'){
     var cashA=accts.filter(function(a){ return a.kind==='cash'; })[0];
     sel = selId ? ((cashA && selId===cashA.id) ? 'cash' : selId) : null;
-  } else { try{ sel=localStorage.getItem('fh-last-acct'); }catch(e){ sel=null; } }
+  } else { try{ sel=localStorage.getItem(_exAcctMemKey()); }catch(e){ sel=null; } }
   var ico={credit_card:'💳',deposit:'🏦',ewallet:'📱',cash:'💵'};
   var h='<button class="choice'+(sel==='cash'?' on':'')+'" data-v="cash" onclick="pickExAcct(this)">💵 Tiền mặt</button>';
   accts.forEach(function(a){ if(a.kind==='cash') return;
+    if(income && a.kind!=='deposit' && a.kind!=='ewallet') return;
     h+='<button class="choice'+(sel===a.id?' on':'')+'" data-v="'+a.id+'" onclick="pickExAcct(this)">'+(ico[a.kind]||'💳')+' '+String(a.name||'Tài khoản').replace(/</g,'&lt;')+'</button>'; });
   box.innerHTML=h;
 }
@@ -261,8 +268,8 @@ function pickExAcct(btn){
   // toggle: tapping the selected chip clears it (the field is optional)
   var was=btn.classList.contains('on');
   var box=document.getElementById('ex-acct'); if(box) box.querySelectorAll('.choice').forEach(function(b){ b.classList.remove('on'); });
-  if(!was){ btn.classList.add('on'); try{ localStorage.setItem('fh-last-acct',btn.dataset.v); }catch(e){} }
-  else { try{ localStorage.removeItem('fh-last-acct'); }catch(e){} }
+  if(!was){ btn.classList.add('on'); try{ localStorage.setItem(_exAcctMemKey(),btn.dataset.v); }catch(e){} }
+  else { try{ localStorage.removeItem(_exAcctMemKey()); }catch(e){} }
   // account changes count as edits on a private row (M9) — enable Save
   if(editingPTx && typeof refreshExCta==='function') refreshExCta();
 }
@@ -278,9 +285,13 @@ function _applyExScope(v){ selectChipByVal('ex-scope', v); _applyExLayout(); }
    restores per scope, exactly as before. */
 function _applyExLayout(){
   var personal=(chosen('ex-scope')==='personal'), income=(exType==='income');
-  // Instrument chips: personal expenses only (family rows have no account concept).
+  // Instrument chips: personal rows only (family rows have no account concept).
+  // Expense asks "Trả bằng gì?"; income asks which account the money landed in —
+  // the tag is what makes a deposit balance computable at all (full-ledger §4.3).
   var af=document.getElementById('ex-acctfield');
-  if(af){ var show=(personal&&!income&&!editingTx&&!editingPTx); af.style.display=show?'':'none'; if(show) buildExAcctChips(); }
+  if(af){ var show=(personal&&!editingTx&&!editingPTx); af.style.display=show?'':'none';
+    var al=document.getElementById('ex-acct-lbl'); if(al) al.textContent = income ? L('Vào tài khoản nào?','Into which account?') : L('Trả bằng gì?','Paid with?');
+    if(show) buildExAcctChips(); }
   var who=document.getElementById('ex-whofield'); if(who) who.style.display=(personal||income)?'none':'';   // no member-split in a private ledger / for income
   var ph=document.getElementById('ex-photofield'); if(ph) ph.style.display=income?'none':'';                 // photos on any expense — personal included since 0114; income has none
   var bulk=document.getElementById('bulk-add'); if(bulk) bulk.style.display=(personal||income)?'none':'';     // keep personal + income single

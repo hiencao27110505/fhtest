@@ -176,7 +176,10 @@ rows either.
 
 The *Vào* tile opens the shared income sheet in personal scope — "Tiền vào của
 riêng bạn, chỉ mình bạn thấy." Incomes are day-dated amounts with an optional
-note; add and delete, encrypted like everything else.
+note and an optional receiving account ("Vào tài khoản nào?" — deposit/ewallet
++ Tiền mặt; the tag feeds that account's anchored balance). Add, tap-to-edit
+(`fhIncomeRowSheet`: amount · date · note · account) and delete, encrypted like
+everything else.
 
 **Not a door yet:** file import (CSV/XLSX) currently writes to the family
 ledger only. The per-row personal destination exists only for bank-email
@@ -508,8 +511,12 @@ sheets:
 - **Transactions list** — `openTxns('personal')` snapshots the ledger into
   the shared list (`_pBuildTxnCtx`); title "Chi tiêu cá nhân". No avatars,
   reactions, or detail screen; private rows tap-to-edit, mirror rows inert.
-- **Income** — `fhIncome('personal')` lists/adds/deletes against
-  `personal_incomes`, guarded on `state === 'ready'`.
+- **Income** — `fhIncome('personal')` lists/adds/deletes (spine rows,
+  `kind='income'`, since 0109), guarded on `state === 'ready'`; rows tap into
+  `fhIncomeRowSheet` → `fhPersonalUpdateIncome` for edits.
+- **Transactions drill-in** — `openTxns('personal')` ("Giao dịch cá nhân")
+  lists **every kind** since 2026-09-06 (pairs folded to one row, kind filter
+  chips), each row opening its kind's edit sheet.
 
 ## 17. Failure modes
 

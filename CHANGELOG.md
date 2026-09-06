@@ -18,6 +18,62 @@ Going forward, add an entry here when a feature area changes meaningfully — se
 
 ---
 
+## 2026-09-06
+
+### The personal drill-in becomes a full-ledger list, and income becomes editable
+
+Two gaps closed in one pass. First, the "Xem chi tiêu" drill-in (`openTxns('personal')`)
+only showed expenses — the spine has carried every kind since 0109, and the tab's
+inline list already showed them all, so the full-screen list was the one surface
+still hiding half the ledger. `_pBuildTxnCtx` now normalises **all kinds**: transfer
+pairs fold into one "VIB → VCB" row, income wears +green, and non-expense kinds
+group under pseudo-categories (Thu nhập · Chuyển khoản · Cho vay & nợ · Đầu tư)
+that join the filter chips via `kindOrder` — chips only; the hero stays
+chi-by-category (`catOrder`/`catSpent` remain expense-only). Every row carries its
+own edit door (`t._open`): private expense → edit sheet, mirror → family detail,
+income → the new income sheet, pair → `fhXferPairSheet`, loan/repayment →
+`fhDebtRowSheet`, investment → `fhInvRowSheet`. Retitled **"Giao dịch cá nhân"**
+(entry row: "Xem giao dịch").
+
+Second, income rows were the one kind with **no edit surface at all** — in
+"Thu nhập của bạn" you could add and delete but never fix an amount, a date, or
+the receiving account. New `fhIncomeRowSheet` (70-goals) + `fhPersonalUpdateIncome`
+writer (19-personal, same accountId contract as the expense updater; category and
+time survive untouched): amount · date · note · "Vào tài khoản nào?" chips ·
+arm-then-confirm delete. Reachable by tapping income rows in all three places —
+the income sheet's recent list (reopens the list after save, since `_fhModal` is
+one shared surface), the personal tab's inline list, and the drill-in.
+
+Supporting fixes: `_reopenPerson` (23-debts) now only bounces back into the debt
+overlay when it was actually open — editing a loan from a transaction list no
+longer pops Nợ & cho vay on top; and all debt/transfer sheet save/delete paths
+call `refreshPersonalTxnOverlay()` so the open drill-in re-pulls after an edit.
+
+### Manual income can finally say which account it landed in
+
+Real income lands *in* an account — but only captured (email/quick-review) income
+rows could carry `account_id`; the two **manual** doors couldn't. The "Vào" income
+sheet (`fhIncome('personal')`) took amount + note only, and the unified capture
+sheet's Thu mode explicitly hid the instrument field (`_applyExLayout` had
+`!income` in the show condition). So a manually logged salary never moved any
+account's anchored balance, even though `fhPersonalAddIncome` had accepted
+`opts.accountId` since 0109 and `fhPersonalBalance` already counts `income +amt`.
+
+Both doors now offer an optional **"Vào tài khoản nào?"** chip row:
+
+- **Capture sheet (Thu)** reuses `#ex-acctfield` — the label switches between
+  "Trả bằng gì?" (Chi) and "Vào tài khoản nào?" (Thu), and in income mode the
+  chips are **deposit/ewallet + Tiền mặt only**: money into your own card is a
+  card payment, not income (one kind = one meaning, full-ledger T11). The income
+  pick is remembered under its own key (`fh-last-inc-acct`) — salary lands
+  somewhere different from where daily spending leaves (`fh-last-acct`).
+- **The Vào income sheet** gets the same chip row (`#fh-inc-acct`,
+  `window.fhIncPickAcct` — window-bridged, js-data is module scope), and its
+  recent list now shows the account name in the row meta.
+- Both save paths materialize Tiền mặt on first use via `fhPersonalCashAccount()`
+  and pass `{accountId}` to `fhPersonalAddIncome`. No schema change; no change to
+  family income (family rows have no account concept).
+
 ## 2026-09-05
 
 ### The queue stays shut while the first read is still running

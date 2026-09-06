@@ -41,24 +41,75 @@ function _txList(){ return _txnPersonal() ? (_pTxnCtx?_pTxnCtx.rows:[]) : (windo
 function _txCatOrder(){ return _txnPersonal() ? (_pTxnCtx?_pTxnCtx.catOrder:[]) : (window.catOrder||[]); }
 /* Normalise the personal ledger into the row shape txRow/renderTxnScreen expect.
    Unreadable rows are skipped here (their amount is null and would misstate every
-   total); they stay visible with their lock note on the personal tab itself. */
+   total); they stay visible with their lock note on the personal tab itself.
+   Since the full ledger (0109) the spine carries every kind and this list shows
+   them all — a full ledger hides nothing. Expense categories keep feeding the
+   hero (catOrder/catSpent stay expense-only: the hero is CHI theo danh mục);
+   the other kinds group under pseudo-categories (kindOrder) that only join the
+   filter chips. A transfer PAIR renders once — "VIB → VCB" is one event.
+   Every row carries its own edit door (t._open): expense → edit sheet / mirror
+   detail, income → fhIncomeRowSheet, pair → fhXferPairSheet, loan/repayment →
+   fhDebtRowSheet, investment → fhInvRowSheet. */
 function _pBuildTxnCtx(){
   var P = window.fhPersonalData ? fhPersonalData() : null;
   var PAL=['#f2eef6','#eef4fb','#eefaf3','#fdf4e8','#f6eefb','#eef9fb'];
   var rows=[], style={}, order=[], spent={}, other=L('Khác','Others');
   var now=new Date(), ym=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
-  (P&&P.txns||[]).forEach(function(t){
-    if(t.kind!=='expense' || t._unreadable) return;
-    var cat=t.cat||other, _d=t.date?new Date(t.date+'T00:00:00'):null;
-    if(!style[cat]){ style[cat]=[t.emoji||'🗂️', PAL[order.length%PAL.length], 'var(--cat-other)']; order.push(cat); }
-    // Only PRIVATE rows are editable here; mirror rows (spaceId/linkId set) are a
-    // family expense shown in the personal book — write-inert, but tappable
-    // since 0114 (fhMirrorRowTap → the family expense detail, M10).
-    rows.push({ id:t.id, cat:cat, note:t.note||cat, amt:t.amt||0, _d:_d, ico:t.emoji||'🗂️', who:null, _style:style[cat], _edit:!t.spaceId&&!t.linkId, _mirror:!!(t.spaceId||t.linkId), photos:t.photos||undefined, time:t.time||null });
-    if((t.date||'').slice(0,7)===ym) spent[cat]=(spent[cat]||0)+(t.amt||0);   // hero = this month only (parity with family M())
+  var txs=(P&&P.txns)||[];
+  var acctName=function(id){ var a=id&&(P&&P.accounts||[]).find(function(x){ return x.id===id; }); return a?(a.name||L('Tài khoản','Account')):null; };
+  var K_INC=L('Thu nhập','Income'), K_XFER=L('Chuyển khoản','Transfers'), K_DEBT=L('Cho vay & nợ','Loans & debts'), K_INV=L('Đầu tư','Investments');
+  var kstyle={}; kstyle[K_INC]=['💰','#eefaf3','var(--good)']; kstyle[K_XFER]=['🔁','#eef4fb','var(--cat-other)']; kstyle[K_DEBT]=['💵','#fdf4e8','var(--cat-other)']; kstyle[K_INV]=['📈','#f6eefb','var(--cat-other)'];
+  var kindOrder=[], kseen={}, seenXfer={};
+  txs.forEach(function(t){
+    if(t._unreadable) return;
+    var _d=t.date?new Date(t.date+'T00:00:00'):null;
+    if(t.kind==='expense'){
+      var cat=t.cat||other;
+      if(!style[cat]){ style[cat]=[t.emoji||'🗂️', PAL[order.length%PAL.length], 'var(--cat-other)']; order.push(cat); }
+      // Only PRIVATE rows are editable here; mirror rows (spaceId/linkId set) are a
+      // family expense shown in the personal book — write-inert, but tappable
+      // since 0114 (fhMirrorRowTap → the family expense detail, M10).
+      var eOpen=(t.spaceId||t.linkId)?(t.spaceId?"fhMirrorRowTap('"+t.id+"')":''):"openPersonalTxEdit('"+t.id+"')";
+      rows.push({ id:t.id, cat:cat, note:t.note||cat, amt:t.amt||0, _d:_d, ico:t.emoji||'🗂️', who:null, _style:style[cat], _open:eOpen, photos:t.photos||undefined, time:t.time||null });
+      if((t.date||'').slice(0,7)===ym) spent[cat]=(spent[cat]||0)+(t.amt||0);   // hero = this month only (parity with family M())
+      return;
+    }
+    var kcat, note, sign='', cls='xfer', open='', ico=null;
+    if(t.kind==='income'){
+      kcat=K_INC; note=t.note||t.cat||K_INC; sign='+'; cls='pos'; ico=t.emoji||'💰';
+      open="fhIncomeRowSheet('"+t.id+"')";
+    } else if(t.kind==='transfer'){
+      kcat=K_XFER;
+      if(t.transferGroupId){
+        if(seenXfer[t.transferGroupId]) return;             // second leg of a pair already listed
+        seenXfer[t.transferGroupId]=1;
+        var from=null,to=null;
+        txs.forEach(function(x){ if(x.kind==='transfer'&&x.transferGroupId===t.transferGroupId){ if((x.amt||0)<0) from=x.accountId; else to=x.accountId; } });
+        var fn=acctName(from), tn=acctName(to);
+        note=(fn&&tn)?(fn+' → '+tn):(t.note||K_XFER);
+        open="fhXferPairSheet('"+t.transferGroupId+"')";
+      } else {
+        // legacy one-leg transfer = a card payment tagged to the card (0105) — no pair sheet
+        var cn=acctName(t.accountId);
+        note=t.note||(cn?L('Trả nợ thẻ ','Card payment ')+cn:L('Chuyển khoản','Transfer'));
+      }
+    } else if(t.kind==='loan'||t.kind==='repayment'){
+      kcat=K_DEBT; ico=(t.kind==='loan')?'💵':'✅';
+      var dR=(P&&P.debts||[]).filter(function(d){ return d.id===t.id; })[0];
+      var who=(dR&&dR.who)?(' · '+dR.who):'';
+      note=(t.note||(t.kind==='loan'?((t.amt||0)>0?L('Cho vay','Lent'):L('Đi mượn','Borrowed')):L('Trả nợ','Repayment')))+who;
+      open="fhDebtRowSheet('"+t.id+"')";
+    } else if(t.kind==='investment'){
+      kcat=K_INV;
+      var pos=(P&&P.accounts||[]).find(function(a){ return a.id===t.positionId; });
+      note=((t.amt||0)>0?L('Bán','Sell'):L('Mua','Buy'))+(pos&&pos.name?' '+pos.name:L(' đầu tư',' investment'));
+      open="fhInvRowSheet('"+t.id+"')";
+    } else return;
+    if(!kseen[kcat]){ kseen[kcat]=1; kindOrder.push(kcat); }
+    rows.push({ id:t.id, cat:kcat, note:note, amt:Math.abs(t.amt||0), _d:_d, ico:ico||kstyle[kcat][0], who:null, _style:kstyle[kcat], _open:open, _sign:sign, _amtCls:cls, time:t.time||null });
   });
   order.sort(function(a,b){ return (spent[b]||0)-(spent[a]||0); });
-  _pTxnCtx={ rows:rows, catOrder:order, catStyle:style, catSpent:spent, catBudget:(P&&P.catBudget)||{} };
+  _pTxnCtx={ rows:rows, catOrder:order, catStyle:style, catSpent:spent, catBudget:(P&&P.catBudget)||{}, kindOrder:kindOrder };
 }
 function txRow(t){
   // personal rows carry their own style + no member/reactions/detail screen;
@@ -78,16 +129,18 @@ function txRow(t){
   var tile=ph?'<div class="r-ico ph" style="background-image:url('+escAttr(ph)+')"></div>'
             :'<div class="r-ico" style="background:'+s[1]+';color:'+s[2]+'">'+esc(t.ico)+'</div>';
   var av=personal?'':spAv(t.who);                                 // personal ledger has no members
-  // Family rows open the detail screen; private personal rows open the edit sheet;
-  // mirror personal rows (a family expense) are view-only but tap through to
-  // the family expense detail (0114, M10).
-  var open=personal?(t._edit?(' onclick="openPersonalTxEdit(\''+t.id+'\')"')
-                            :(t._mirror?(' onclick="fhMirrorRowTap(\''+t.id+'\')"'):''))
+  // Family rows open the detail screen; personal rows carry their own door
+  // (t._open, set per kind in _pBuildTxnCtx): edit sheet for private expenses,
+  // mirror detail (0114, M10), income sheet, pair sheet, debt/investment sheets.
+  var open=personal?(t._open?(' onclick="'+t._open+'"'):'')
                     :(' onclick="openExpenseDetail(\''+t.id+'\')"');
-  var tapCls=(personal? ((t._edit||t._mirror)?' tap':'') : ' tap');
+  var tapCls=(personal? (t._open?' tap':'') : ' tap');
+  // _sign/_amtCls (personal, non-expense kinds): income wears +green; transfer,
+  // debt and investment rows show the magnitude in the muted transfer style.
+  var amtHtml='<div class="r-amt num'+(t._amtCls?' '+t._amtCls:'')+'">'+(t._sign||'')+fmt(t.amt)+'</div>';
   return '<div class="row'+tapCls+(chip?' has-rx':'')+'"'+rxid+open+'><div class="r-ico-wrap">'+tile+av+'</div>'
     +'<div class="r-body"><div class="r-t">'+esc(t.note)+'</div><div class="r-s">'+dstr+(t.time?' · '+esc(t.time):'')+'</div></div>'
-    +'<div class="r-right"><div class="r-amt num">'+fmt(t.amt)+'</div><div class="r-cat">'+esc(t.cat)+'</div></div>'+chip+'</div>';
+    +'<div class="r-right">'+amtHtml+'<div class="r-cat">'+esc(t.cat)+'</div></div>'+chip+'</div>';
 }
 var txFilter=null; // {type:'cat'|'mem', val:'Fun'|'Emma'}
 function txMatch(t){
@@ -189,7 +242,7 @@ function openTxns(scope){
   window.__txnScope=(scope==='personal')?'personal':'family';
   if(_txnPersonal()) _pBuildTxnCtx();                             // snapshot the personal ledger into row shape
   // Title + back-label track the scope (personal vs the family Finance tab).
-  var titleEl=document.querySelector('#txn-overlay .txn-title'); if(titleEl) titleEl.textContent=_txnPersonal()?L('Chi tiêu cá nhân','Your spending'):L('Giao dịch','Transactions');
+  var titleEl=document.querySelector('#txn-overlay .txn-title'); if(titleEl) titleEl.textContent=_txnPersonal()?L('Giao dịch cá nhân','Your transactions'):L('Giao dịch','Transactions');
   var backEl=document.querySelector('#txn-overlay .cd-back span'); if(backEl) backEl.textContent=_txnPersonal()?L('Cá nhân','Personal'):L('Gia đình','Family');
   txnCat=null; txnSort='date';
   var q=document.getElementById('txn-q'); if(q)q.value='';
@@ -208,12 +261,19 @@ function refreshPersonalTxnOverlay(){
   var o=document.getElementById('txn-overlay');
   if(!o || !o.classList.contains('on') || !_txnPersonal()) return;
   _pBuildTxnCtx();
-  if(txnCat && (_pTxnCtx.catOrder||[]).indexOf(txnCat)<0) txnCat=null;   // filtered category may be gone
+  if(txnCat && (_pTxnCtx.catOrder||[]).indexOf(txnCat)<0
+            && (_pTxnCtx.kindOrder||[]).indexOf(txnCat)<0) txnCat=null;   // filtered category/kind may be gone
   buildTxnChips(); renderTxnScreen(); if(typeof renderFinanceHero==='function') renderFinanceHero();
 }
 function buildTxnChips(){
   var html='<button class="txn-chip'+(!txnCat?' on':'')+'" onclick="setTxnCat(null)">'+L('Tất cả','All')+'</button>';
   (_txCatOrder()||[]).forEach(function(c){
+    html+='<button class="txn-chip'+(txnCat===c?' on':'')+'" onclick="setTxnCat(&#39;'+escAttr(c)+'&#39;)">'+esc(c)+'</button>';
+  });
+  // Personal scope: the non-expense kinds present in the ledger (Thu nhập,
+  // Chuyển khoản, …) join the chips after the spend categories — chips only;
+  // the hero above stays chi-by-category.
+  if(_txnPersonal() && _pTxnCtx && _pTxnCtx.kindOrder) _pTxnCtx.kindOrder.forEach(function(c){
     html+='<button class="txn-chip'+(txnCat===c?' on':'')+'" onclick="setTxnCat(&#39;'+escAttr(c)+'&#39;)">'+esc(c)+'</button>';
   });
   setHTML('txn-chips', html);

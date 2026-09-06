@@ -182,7 +182,7 @@
       // personal rows are already decrypted in the hydrated ledger; unreadable
       // ones are skipped (their amount is null and would misstate the total).
       inc = (window.fhPersonalData().incomes || []).filter((r) => !r._unreadable)
-        .map((r) => ({ id: r.id, amount: Number(r.amt) || 0, note: r.note, income_date: r.date }))
+        .map((r) => ({ id: r.id, amount: Number(r.amt) || 0, note: r.note, income_date: r.date, account_id: r.accountId || null }))
         .sort((a, b) => String(b.income_date).localeCompare(String(a.income_date))).slice(0, 20);
     }
     const now0 = new Date(window.TODAY ? window.TODAY.getTime() : Date.now());
@@ -190,12 +190,26 @@
     const monthTotal = inc.filter((r) => String(r.income_date).slice(0, 7) === mk).reduce((s, r) => s + Number(r.amount), 0);
     const f = (n) => (window.fmt ? window.fmt(n) : n);
     const delFn = personal ? 'fhPersonalDelIncomeUI' : 'fhDelIncome';
-    const list = inc.map((r) =>
-      '<div class="fh-s-row">'
-      + '<div class="fh-s-grow"><div class="fh-s-name">' + _esc(r.note || L('Thu nhập','Income')) + '</div><div class="fh-s-meta">' + _esc(r.income_date) + '</div></div>'
+    /* Account chips (personal only) — "Vào tài khoản nào?". In real life income
+       lands IN an account; the tag is what moves that account's anchored balance
+       (full-ledger §4.3). Deposit/ewallet + Tiền mặt only: money into your own
+       card is a card payment, not income (one kind = one meaning, T11). Optional,
+       toggle-to-clear, last pick remembered separately from the spend instrument. */
+    const pAccts = personal ? (window.fhPersonalData().accounts || []) : [];
+    const acctName = (id) => { const a = pAccts.find((x) => x.id === id); return a ? (a.name || L('Tài khoản','Account')) : null; };
+    const acctChips = personal ? _fhIncAcctChipsHTML() : '';
+    /* Personal rows tap into the income edit sheet (amount · date · note ·
+       account); the trash keeps its arm-then-confirm and must not also open
+       the sheet, hence the stopPropagation prefix. Family rows stay tap-inert
+       (family income has no edit surface). */
+    const list = inc.map((r) => {
+      const an = personal && r.account_id ? acctName(r.account_id) : null;
+      const tap = personal ? ' tap" onclick="fhIncomeRowSheet(\'' + r.id + '\',\'sheet\')"' : '"';
+      return '<div class="fh-s-row' + tap + '>'
+      + '<div class="fh-s-grow"><div class="fh-s-name">' + _esc(r.note || L('Thu nhập','Income')) + '</div><div class="fh-s-meta">' + _esc(r.income_date) + (an ? ' · ' + _esc(an) : '') + '</div></div>'
       + '<span class="num" style="color:var(--good);font-weight:700;flex:none">+' + f(Number(r.amount)) + '</span>'
-      + _btn(_ICO.trash, delFn + "('" + r.id + "',this)", 'fh-s-act danger')
-      + '</div>').join('');
+      + _btn(_ICO.trash, 'event.stopPropagation();' + delFn + "('" + r.id + "',this)", 'fh-s-act danger')
+      + '</div>'; }).join('');
     _fhModal({
       title: personal ? L('Thu nhập của bạn','Your income') : L('Thu nhập','Income'),
       saveLabel: L('Thêm','Add'),
@@ -205,6 +219,7 @@
         + '<input id="fh-inc-amt" inputmode="numeric" placeholder="' + _esc(window.amtPlaceholder ? window.amtPlaceholder() : '') + '" oninput="fhModalDirty()"></div>'
         + '<div class="field"><label>' + L('Ghi chú','Note') + ' <span class="opt">' + L('tuỳ chọn','optional') + '</span></label>'
         + '<input id="fh-inc-note" placeholder="' + _esc(L('vd. Lương','e.g. Salary')) + '" oninput="fhModalDirty()"></div>'
+        + acctChips
         + '<div class="fh-s-lab" style="margin-top:26px">' + L('Gần đây','Recent') + '</div>'
         + (list || '<div class="fh-s-empty">' + L('Chưa ghi khoản thu nào. Thêm khoản đầu tiên ở trên nhé.','No income logged yet. Add your first above.') + '</div>'),
       required: () => [{ el: 'fh-inc-amt', ok: (window.parseAmtBase ? window.parseAmtBase(document.getElementById('fh-inc-amt').value) : 0) > 0 }],
@@ -213,7 +228,11 @@
         const base = window.parseAmtBase(document.getElementById('fh-inc-amt').value);
         const note = (document.getElementById('fh-inc-note').value || '').trim() || L('Thu nhập','Income');
         if (personal) {
-          const ok = await window.fhPersonalAddIncome(base, note);
+          const pickBtn = document.querySelector('#fh-inc-acct .choice.on');
+          const pick = pickBtn ? pickBtn.dataset.v : null;
+          // 'cash' materializes the Tiền mặt account on first use (same as the expense sheet)
+          const acctId = pick ? ((pick === 'cash' && window.fhPersonalCashAccount) ? await window.fhPersonalCashAccount() : pick) : null;
+          const ok = await window.fhPersonalAddIncome(base, note, undefined, undefined, { accountId: acctId });
           if (!ok) throw new Error('personal income save failed');
           if (window.renderPersonal) window.renderPersonal();
         } else {
@@ -224,6 +243,105 @@
         return () => window.fhIncome(scope);               // reopen with the new row in place
       }
     });
+  };
+  /* "Vào tài khoản nào?" chip row, shared by the add form (fhIncome) and the
+     edit sheet (fhIncomeRowSheet). Deposit/ewallet + Tiền mặt only — money into
+     your own card is a card payment, not income (one kind = one meaning, T11).
+     `selId` = explicit selection for edit mode (an account id, or null for "no
+     tag"); omitted = the remembered last pick. Edit-mode taps don't overwrite
+     the remembered default for NEW income (noPersist). */
+  function _fhIncAcctChipsHTML(selId) {
+    const pd = window.fhPersonalData ? window.fhPersonalData() : null;
+    const accts = (pd && pd.accounts) || [];
+    const edit = typeof selId !== 'undefined';
+    let sel;
+    if (edit) {
+      const cashA = accts.find((a) => a.kind === 'cash');
+      sel = selId ? ((cashA && selId === cashA.id) ? 'cash' : selId) : null;
+    } else { try { sel = localStorage.getItem('fh-last-inc-acct'); } catch (e) { sel = null; } }
+    const ico = { deposit: '🏦', ewallet: '📱' };
+    const pick = edit ? 'fhIncPickAcct(this,1)' : 'fhIncPickAcct(this)';
+    return '<div class="field"><label>' + L('Vào tài khoản nào?','Into which account?') + ' <span class="opt">' + L('tuỳ chọn','optional') + '</span></label><div class="choices" id="fh-inc-acct">'
+      + '<button type="button" class="choice' + (sel === 'cash' ? ' on' : '') + '" data-v="cash" onclick="' + pick + '">💵 Tiền mặt</button>'
+      + accts.filter((a) => a.kind === 'deposit' || a.kind === 'ewallet')
+        .map((a) => '<button type="button" class="choice' + (sel === a.id ? ' on' : '') + '" data-v="' + a.id + '" onclick="' + pick + '">' + (ico[a.kind] || '🏦') + ' ' + _esc(a.name || L('Tài khoản','Account')) + '</button>').join('')
+      + '</div></div>';
+  }
+  /* Chip toggle — tapping the selected chip clears it (the field is optional).
+     window-bridged: js-data is module scope and the inline onclick needs a
+     global. `noPersist` (edit mode) keeps the add-form default untouched. */
+  window.fhIncPickAcct = function (btn, noPersist) {
+    const was = btn.classList.contains('on');
+    const box = document.getElementById('fh-inc-acct');
+    if (box) box.querySelectorAll('.choice').forEach((b) => b.classList.remove('on'));
+    if (!was) btn.classList.add('on');
+    if (!noPersist) {
+      try {
+        if (!was) localStorage.setItem('fh-last-inc-acct', btn.dataset.v);
+        else localStorage.removeItem('fh-last-inc-acct');
+      } catch (e) {}
+    }
+    if (window.fhModalDirty) window.fhModalDirty();
+  };
+  /* ── Income edit sheet — tap a row in "Thu nhập của bạn", the personal tab's
+     transaction list, or the Giao dịch cá nhân drill-in. Amount · date · note ·
+     receiving account, plus arm-then-confirm delete. `origin==='sheet'` reopens
+     the income list after save/delete (the edit replaced it — one shared modal). */
+  window.fhIncomeRowSheet = function (id, origin) {
+    const pd = window.fhPersonalData ? window.fhPersonalData() : null;
+    if (!pd || pd.state !== 'ready' || !pd.key) { window.toast && window.toast(L('Sổ cá nhân chưa sẵn sàng','Your personal ledger isn’t ready')); return; }
+    const t = (pd.txns || []).find((x) => x.id === id && x.kind === 'income');
+    if (!t || t._unreadable) return;
+    const shown = window.amtToInput ? window.amtToInput(Number(t.amt) || 0) : String(t.amt || 0);
+    _fhModal({
+      title: L('Khoản thu','Income'),
+      saveLabel: L('Lưu','Save'),
+      reqMsg: L('Hãy nhập số tiền','Add an amount'),
+      body: '<div class="field"><label>' + L('Số tiền','Amount') + '</label>'
+        + '<input id="fh-inc-e-amt" class="num" inputmode="numeric" value="' + _esc(shown) + '" oninput="fhModalDirty()"></div>'
+        + '<div class="field"><label>' + L('Ngày','Date') + '</label>'
+        + '<input id="fh-inc-e-date" type="date" value="' + _esc(t.date || '') + '" oninput="fhModalDirty()"></div>'
+        + '<div class="field"><label>' + L('Ghi chú','Note') + ' <span class="opt">' + L('tuỳ chọn','optional') + '</span></label>'
+        + '<input id="fh-inc-e-note" value="' + _esc(t.note || '') + '" oninput="fhModalDirty()"></div>'
+        + _fhIncAcctChipsHTML(t.accountId || null)
+        + _btn(L('Xoá khoản thu này','Delete this income'), "fhIncomeRowDelete('" + id + "','" + (origin || '') + "',this)", 'dbt-btn danger', 'width:100%;margin-top:18px'),
+      required: () => [{ el: 'fh-inc-e-amt', ok: (window.parseAmtBase ? window.parseAmtBase(document.getElementById('fh-inc-e-amt').value) : 0) > 0 }],
+      save: async () => {
+        const base = window.parseAmtBase(document.getElementById('fh-inc-e-amt').value);
+        const note = (document.getElementById('fh-inc-e-note').value || '').trim() || null;
+        const date = (document.getElementById('fh-inc-e-date').value || '') || null;
+        const pickBtn = document.querySelector('#fh-inc-acct .choice.on');
+        const pick = pickBtn ? pickBtn.dataset.v : null;
+        const acctId = pick ? ((pick === 'cash' && window.fhPersonalCashAccount) ? await window.fhPersonalCashAccount() : pick) : null;
+        const ok = await window.fhPersonalUpdateIncome(id, { amt: base, note: note, dateIso: date, accountId: acctId });
+        if (!ok) throw new Error('personal income update failed');
+        window.toast && window.toast(L('Đã lưu','Saved'));
+        return () => {
+          if (window.renderPersonal) window.renderPersonal();
+          if (typeof window.refreshPersonalTxnOverlay === 'function') window.refreshPersonalTxnOverlay();
+          if (origin === 'sheet') window.fhIncome('personal');
+        };
+      }
+    });
+  };
+  window.fhIncomeRowDelete = async function (id, origin, btn) {
+    if (btn && !btn.classList.contains('armed')) {
+      btn.classList.add('armed'); btn.textContent = L('Bấm lần nữa để xoá','Tap again to delete');
+      clearTimeout(window._fhIncArmT);
+      window._fhIncArmT = setTimeout(() => {
+        if (!btn.isConnected) return;
+        btn.classList.remove('armed'); btn.textContent = L('Xoá khoản thu này','Delete this income');
+      }, 4000);
+      return;
+    }
+    clearTimeout(window._fhIncArmT);
+    const ok = window.fhPersonalDelIncome ? await window.fhPersonalDelIncome(id) : false;
+    if (!ok) { window.toast && window.toast(L('Chưa xoá được, thử lại','Couldn’t delete, try again')); return; }
+    window._closeOv();
+    window.toast && window.toast(L('Đã xoá thu nhập','Income deleted'));
+    if (window.renderPersonal) window.renderPersonal();
+    if (typeof window.refreshPersonalTxnOverlay === 'function') window.refreshPersonalTxnOverlay();
+    if (origin === 'sheet') window.fhIncome('personal');
   };
   /* Single family income write — extracted so the unified capture sheet (Thu type)
      and the fhIncome list can share ONE income path. `base` is base units (÷curMult

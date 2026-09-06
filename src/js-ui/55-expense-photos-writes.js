@@ -424,7 +424,12 @@ async function _submitIncomeCapture(){
   if(personal){
     var pd=window.fhPersonalData&&fhPersonalData();
     if(!pd||!pd.key){ window.toast&&toast(L('Mở khoá sổ cá nhân ở tab Cá nhân trước','Unlock your personal ledger first')); return; }
-    ok=await window.fhPersonalAddIncome(base, note, date);
+    // "Vào tài khoản nào?" chip (optional): the tag is what lets the account's
+    // anchored balance move when money comes in. Cash materializes on first use.
+    var acctPick=(typeof chosen==='function')? chosen('ex-acct') : null;
+    var acctId=null;
+    if(acctPick){ acctId=(acctPick==='cash'&&window.fhPersonalCashAccount)? await fhPersonalCashAccount() : acctPick; }
+    ok=await window.fhPersonalAddIncome(base, note, date, undefined, {accountId:acctId});
     if(ok && typeof renderPersonal==='function') renderPersonal();
   } else {
     ok=await window.fhAddFamilyIncome(base, note, date);

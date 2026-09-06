@@ -4,7 +4,24 @@ const { createClient } = window.supabase;   // vendored UMD global (see preload 
 const SUPABASE_URL = 'https://iizyukzfsbdkbrgfupwq.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_KQnm-h0bn3gCa1i_dlkapw_7b8kPRDD';
 const GOOGLE_CLIENT_ID = '860668973723-ud2mbr4kj9nb41elbkvlp3lt5fibpf8v.apps.googleusercontent.com';
-const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+/* Every REST/storage call goes through fetch with NO deadline by default — a
+   socket that dies mid-flight (mobile network handoff, iOS killing connections
+   while the PWA is backgrounded, laptop sleep) leaves the await pending FOREVER.
+   The landing tab froze exactly this way: one stalled hydrate query and the
+   Cá nhân tab sat on its loading note until the app was killed. Cap every
+   request so a zombie connection becomes a catchable error that the existing
+   error/retry paths already know how to handle. 60s is deliberately generous —
+   the UX watchdog (19-personal.js) reacts long before this; this cap only
+   guarantees no promise is immortal. Callers that manage their own AbortSignal
+   keep it. */
+const _fetchDeadline = (url, opts) => {
+  opts = opts || {};
+  if (opts.signal) return fetch(url, opts);
+  const c = new AbortController();
+  const t = setTimeout(() => { try { c.abort(); } catch (e) { } }, 60000);
+  return fetch(url, Object.assign({}, opts, { signal: c.signal })).finally(() => clearTimeout(t));
+};
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY, { global: { fetch: _fetchDeadline } });
 window.sb = sb;
 
 // supabase-js resolves { data, error } on HTTP 4xx (it does NOT throw), so a bare
@@ -49,6 +66,12 @@ function fhResumeFail() {
 async function afterLogin(session) {
   if (!session) return;
   window.fhUser = session.user;
+  /* Cá nhân is the landing tab, and its ledger depends on NOTHING below —
+     not the device gate (fail-open by design), not the profile language, not
+     my_families. Booting it here, first, takes 2-3 sequential round trips off
+     the time the landing tab spends on "Đang chuẩn bị…"; every later
+     fhPersonalBoot call (family hydrate tail, tab open) no-ops or refreshes. */
+  try { if (window.fhPersonalBoot) window.fhPersonalBoot(); } catch (e) { }
   // Device gate (trust rec #6): a remotely-revoked device signs itself out right
   // here, before any family data loads. Fail-open on any error so a transient
   // check failure never strands a legitimate user. Registers this device + arms
@@ -91,9 +114,8 @@ async function afterLogin(session) {
     // someone switched family on another device — still lands on the right one.
     if (window.DB) window.DB.fid = active.family_id;
     fhResumeArm();                             // next cold start can skip straight to the splash
-    // the landing tab is Cá nhân now — boot it in parallel with the family hydrate
-    // (idempotent: the hydrate's own fhPersonalBoot call no-ops while this runs)
-    try { if (window.fhPersonalBoot) window.fhPersonalBoot(); } catch (e) { }
+    // (the personal ledger already booted at the top of afterLogin — before the
+    // device gate and my_families, which it never needed)
     // finally: a failed load must still hand the screen over, never strand us on the splash
     try { await window.loadFamilyData(); }     // auto-enter the active family → real data + DB.fid set
     finally { fhResumeDone(); }                // (no go('home') here — it would stomp on deep links)

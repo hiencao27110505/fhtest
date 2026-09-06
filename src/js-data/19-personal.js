@@ -90,14 +90,97 @@
     }
     function _winFrom() { const d = new Date(); d.setMonth(d.getMonth() - 1); d.setDate(1); return _localDate(d); }
 
-    let _booting = false;
-    window.fhPersonalBoot = async function () {
-      if (_booting || !_sb()) return; _booting = true;
-      _decCache.clear();   // boot is the one place identity can change
+    /* ── warm snapshot — the landing tab's instant paint ─────────────────────
+       Cá nhân is the landing tab, yet every open used to be a cold boot: nothing
+       painted until auth + hydrate + a whole-ledger decrypt finished. The family
+       tab solved this years ago with fh-snap; this is the personal twin. The
+       last hydrated display slice is serialized, encrypted under the personal
+       DEK (plaintext never hits disk — same stance as 17-snap-restore's enc
+       tier), and stored in the fh-keys IDB — which the sign-out wipe already
+       deletes wholesale, so it can never outlive the account on this device.
+       Restore paints 'ready' before the first network round trip; the real
+       hydrate then refreshes quietly (the ready view is kept through 'loading').
+       Trust model: the snapshot sits beside the cached DEK itself, so it adds
+       zero exposure an unlocked device didn't already have. */
+    const _SNAP_TTL = 14 * 86400000;
+    let _snapSavedAt = 0;
+    const _incomesView = (txns) => txns.filter((t) => t.kind === 'income')
+      .map((t) => ({ id: t.id, date: t.date, amt: t.amt, _unreadable: t._unreadable, note: t.note, cat: t.cat, accountId: t.accountId }));
+    async function _snapRestore() {
       try {
-        P.uid = await _uid(); if (!P.uid) { _setState('error'); return; }
+        const rec = await _kGet('psnap:' + P.uid);
+        if (!rec || !rec.key || (rec.at && Date.now() - rec.at > _SNAP_TTL)) return false;
+        const s = JSON.parse(await FHCrypto.decVal(P.key, rec.key));
+        if (!s || s.v !== 1 || s.uid !== P.uid || !Array.isArray(s.txns)) return false;
+        P.txns = s.txns; P.debts = s.debts || []; P.accounts = s.accounts || []; P.memory = s.memory || [];
+        P.budget = s.budget || 0; P.catBudget = s.catBudget || {};
+        P.unreadable = s.unreadable || 0; P.debtsComplete = s.debtsComplete !== false;
+        P.incomes = _incomesView(P.txns);
+        P.fromSnapshot = true;                     // cleared by the first fresh hydrate
+        _setState('ready');
+        return true;
+      } catch (e) { return false; }                // undecryptable/corrupt → cold boot, never an error
+    }
+    function _snapSave() {
+      if (!P.key || !P.uid || P.fromSnapshot) return;          // only persist FRESH data
+      if (Date.now() - _snapSavedAt < 2500) return;            // coalesce write bursts
+      _snapSavedAt = Date.now();
+      (async () => {
+        try {
+          const s = { v: 1, uid: P.uid, unreadable: P.unreadable || 0, debtsComplete: P.debtsComplete !== false,
+            budget: P.budget || 0, catBudget: P.catBudget || {},
+            txns: (P.txns || []).slice(0, 4000), accounts: P.accounts || [],
+            debts: (P.debts || []).slice(0, 8000), memory: P.memory || [] };
+          const ct = await FHCrypto.encVal(P.key, JSON.stringify(s));
+          if (ct) await _kPut('psnap:' + P.uid, ct);
+        } catch (e) {}                                          // a failed save only costs the next warm start
+      })();
+    }
+
+    /* ── boot resilience ──────────────────────────────────────────────────────
+       _booting is a re-entrancy latch, and it used to be a trap: if any await in
+       the chain stalled (no fetch had a deadline), the finally never ran, the
+       latch stayed true forever, and every later fhPersonalBoot call — tab tap,
+       hydrate tail, even the error screen's own "Thử lại" — was a silent no-op.
+       The only way out was killing the app. Three guards now:
+       - a WATCHDOG that, after 12s of a boot that hasn't reached ready/locked,
+         unlatches and shows the error state (which carries the retry link);
+       - a GENERATION counter so a hung attempt that eventually resolves cannot
+         clobber the state a newer attempt owns;
+       - fhPersonalRetry, a hard retry that force-unlatches — wired to every
+         retry affordance, so recovery never depends on the latch being honest.
+       A completed boot also debounces 2.5s so the cold-open double-fire
+       (afterLogin + the family hydrate's refresh call) costs one hydrate. */
+    let _booting = false, _bootGen = 0, _bootDoneAt = 0;
+    window.fhPersonalRetry = function () { _booting = false; _bootGen++; _bootDoneAt = 0; return window.fhPersonalBoot(); };
+    window.fhPersonalBoot = async function () {
+      if (_booting || !_sb()) return;
+      if (P.state === 'ready' && Date.now() - _bootDoneAt < 2500) return;   // just refreshed — collapse the double-fire
+      _booting = true;
+      const gen = ++_bootGen;
+      const watch = setTimeout(() => {
+        if (gen !== _bootGen || !_booting) return;
+        _booting = false;                                   // unlatch no matter what
+        if (P.state === 'ready' || P.state === 'locked') return;
+        /* A snapshot-painted tab sits in 'loading' while the background refresh
+           hangs — that view is GOOD data. Settle it back to ready (stale, quiet)
+           rather than tearing it down; only a tab with nothing gets the error. */
+        if (window._persHadReady) _setState('ready'); else _setState('error');
+      }, 12000);
+      _decCache.clear();   // boot is the one place identity can change
+      const setS = (s) => { if (gen === _bootGen) _setState(s); };   // stale attempts may not write state
+      try {
+        P.uid = await _uid(); if (!P.uid) { setS('error'); return; }
         const kc = await _kGet('p:' + P.uid);
-        if (kc && kc.key) { P.key = kc.key; await _afterKey(); return; }
+        if (kc && kc.key) {
+          P.key = kc.key;
+          /* Warm start for the landing tab: paint the last-known ledger from the
+             encrypted device snapshot BEFORE any network round trip, then let
+             the hydrate refresh it quietly (same posture as the family tab's
+             fh-snap). A missing/stale/undecryptable snapshot just stays cold. */
+          if (P.state !== 'ready') await _snapRestore();
+          await _afterKey(); return;
+        }
         const wr = await _sb().from('personal_keys').select('kdf_salt,kdf_iters,kdf_version,wrapped_dek').eq('user_id', P.uid).maybeSingle();
         // NEVER provision on a read failure. A transient error (auth token not yet
         // refreshed on cold open, network blip, a 401 racing session restore) sets
@@ -106,11 +189,16 @@
         // so the server wrap survives, but the user is shown a fresh (mismatched)
         // card each time and the real key scrolls away. Only provision when the read
         // DEFINITIVELY succeeded and returned no row.
-        if (wr.error) { console.warn('personal_keys read failed', wr.error); _setState('error'); return; }
-        if (wr.data) { P.wrap = wr.data; _setState('locked'); }
+        if (wr.error) { console.warn('personal_keys read failed', wr.error); setS('error'); return; }
+        if (wr.data) { P.wrap = wr.data; setS('locked'); }
         else { await _provision(); }
-      } catch (e) { console.warn('fhPersonalBoot failed', e); _setState('error'); }
-      finally { _booting = false; }
+      } catch (e) { console.warn('fhPersonalBoot failed', e); if (gen === _bootGen) _setState('error'); }
+      finally {
+        clearTimeout(watch);
+        // Only this attempt's own latch: a hung attempt resolving late must not
+        // release (or time-stamp) the boot a newer generation is running.
+        if (gen === _bootGen) { _booting = false; _bootDoneAt = Date.now(); }
+      }
     };
 
     async function _provision() {
@@ -286,6 +374,7 @@
       // that keeps the review screen's duplicate-match slice from going stale.
       try { window.fhPersonalMatchSliceInvalidate && window.fhPersonalMatchSliceInvalidate(); } catch (e) {}
       try { window.fhPersonalStatsSliceInvalidate && window.fhPersonalStatsSliceInvalidate(); } catch (e) {}
+      const gen = _bootGen;   // a retry-triggered newer boot orphans this pass: it must not write P
       _setState('loading');
       try {
         const from = _winFrom();
@@ -298,39 +387,51 @@
            paged too — a heavy import month can clear 1000 rows on its own,
            and PostgREST's own 1000-row default would have clipped it as
            silently as the old limit(2000). */
-        const [tr, bd, ac, dr] = await Promise.all([
+        /* Photos + review memory ride the SAME barrier now. They used to run
+           serially after the decrypt loop — two extra round trips the landing
+           tab waited on before 'ready', for data that is decorative. Both are
+           failure-tolerant (a lost photo strip or pre-selection never costs the
+           ledger), so they resolve to empty on error instead of failing the all. */
+        const [tr, bd, ac, dr, pp, mm] = await Promise.all([
           _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,occurred_time_enc,txn_date,kind,space_id,link_id,version,updated_at,created_at,account_id,transfer_group_id,position_account_id,quantity_enc').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }).order('id')),
           _sb().from('personal_budgets').select('total_enc,cats_enc').eq('owner_user_id', P.uid).eq('month', _monISO()).maybeSingle(),
           _sb().from('personal_accounts').select('id,kind,name_enc,tail,provider,credit_limit_enc,human_verified,statement_day,due_day,anchor_balance_enc,anchor_at,ext_balance_enc,ext_balance_date,account_number_enc,asset_symbol_enc,asset_unit_enc,asset_class_enc,manual_price_enc,manual_price_at').eq('owner_user_id', P.uid).is('archived_at', null),
           _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,counterparty_enc,cat_name_enc,cat_emoji,txn_date,kind,account_id,transfer_group_id,position_account_id,quantity_enc,due_date,created_at').eq('owner_user_id', P.uid).or('kind.neq.expense,account_id.not.is.null').order('txn_date', { ascending: false }).order('id')),
+          _sb().from('personal_transaction_photos').select('transaction_id,photo_url,sort_order').eq('owner_user_id', P.uid).order('sort_order').limit(800).then((r) => r, () => ({ data: null })),
+          _sb().from('personal_review_memory').select('id,key_enc,position_account_id').eq('owner_user_id', P.uid).limit(500).then((r) => r, () => ({ data: null })),
         ]);
+        if (gen !== _bootGen) return;   // a newer boot owns P now — abandon before touching anything
         /* Ceiling honesty, same stance as the stats slice's `truncated`: a
            short debt read understates balances, so it is counted and declared,
            never silent. Nothing renders differently yet; the flag exists so a
            view CAN say so the day anyone reaches it. */
-        P.debtsComplete = !!(tr.complete && dr.complete);
-        if (!P.debtsComplete) console.warn('personal hydrate hit the page ceiling', { tr: tr.complete, dr: dr.complete });
+        /* Decode into LOCALS, assign to P in one block at the end. Two hydrates
+           can overlap now (a hard retry racing a slow first pass); interleaved
+           pushes into shared arrays once meant a merged, doubled ledger. Locals
+           make each pass atomic; the generation guard decides who may land. */
+        const debtsComplete = !!(tr.complete && dr.complete);
+        if (!debtsComplete) console.warn('personal hydrate hit the page ceiling', { tr: tr.complete, dr: dr.complete });
         /* Their budget read goes through _decP too, so an unreadable budget must
            not become a number either — the sentinel is a string and Number() of
            it is NaN. Explicit rather than relying on `|| 0` to absorb it. */
         const _bRaw = (bd && bd.data) ? await _decP(bd.data.total_enc) : null;
-        P.budget = (_bRaw == null || _bRaw === _DEC_FAILED) ? 0 : (Number(_bRaw) || 0);
+        const budget = (_bRaw == null || _bRaw === _DEC_FAILED) ? 0 : (Number(_bRaw) || 0);
         /* Per-category budgets (0090): an encrypted JSON map { name: amount }.
            Same fail-closed stance — an unreadable map becomes {}, never a partial. */
         const _cRaw = (bd && bd.data && bd.data.cats_enc) ? await _decP(bd.data.cats_enc) : null;
-        P.catBudget = {};
+        const catBudget = {};
         if (_cRaw != null && _cRaw !== _DEC_FAILED) {
-          try { const m = JSON.parse(_cRaw); if (m && typeof m === 'object') for (const k in m) P.catBudget[k] = Number(m[k]) || 0; } catch (e) {}
+          try { const m = JSON.parse(_cRaw); if (m && typeof m === 'object') for (const k in m) catBudget[k] = Number(m[k]) || 0; } catch (e) {}
         }
         /* Unreadable is a property of the AMOUNT only. A note or category that
            will not open costs a label; an amount that will not open corrupts
            money, so only that one takes the row out of every total. */
-        P.txns = []; P.unreadable = 0;
+        const txns = []; let unreadable = 0;
         for (const t of tr.rows) {
           const a = await _decP(t.amount_enc), bad = (a === _DEC_FAILED);
-          if (bad) P.unreadable++;
+          if (bad) unreadable++;
           const qRaw = t.quantity_enc ? await _decP(t.quantity_enc) : null;
-          P.txns.push({ id: t.id, date: t.txn_date, kind: t.kind, spaceId: t.space_id, linkId: t.link_id,
+          txns.push({ id: t.id, date: t.txn_date, kind: t.kind, spaceId: t.space_id, linkId: t.link_id,
             version: t.version || 1, updatedAt: t.updated_at, ts: t.created_at,
             accountId: t.account_id, transferGroupId: t.transfer_group_id,
             positionId: t.position_account_id || null,
@@ -342,26 +443,18 @@
         /* Photos (0114): attach public URLs to the window's rows; the photo
            observer decrypts /personal-media/ bytes in place. One owner-scoped
            query (never an id-list URL — the 891-id Cloudflare refusal scar). */
-        try {
-          const pp = await _sb().from('personal_transaction_photos').select('transaction_id,photo_url,sort_order').eq('owner_user_id', P.uid).order('sort_order').limit(800);
-          const byTx = {};
-          for (const p of (pp.data || [])) (byTx[p.transaction_id] = byTx[p.transaction_id] || []).push(_pPhotoUrl(p.photo_url));
-          for (const t of P.txns) if (byTx[t.id]) t.photos = byTx[t.id];
-        } catch (e) {}
-        /* Income lives on the spine since 0109 (kind='income'); P.incomes stays
-           as a derived view so every existing reader (the income sheet, the
-           month totals, the month picker) keeps its shape without knowing. */
-        P.incomes = P.txns.filter((t) => t.kind === 'income')
-          .map((t) => ({ id: t.id, date: t.date, amt: t.amt, _unreadable: t._unreadable, note: t.note, cat: t.cat, accountId: t.accountId }));
+        const byTx = {};
+        for (const p of (pp.data || [])) (byTx[p.transaction_id] = byTx[p.transaction_id] || []).push(_pPhotoUrl(p.photo_url));
+        for (const t of txns) if (byTx[t.id]) t.photos = byTx[t.id];
         /* Instruments + debt rows. Same fail-closed stance: an unreadable amount
            takes the row out of every balance, counted and declared, never 0đ. */
-        P.accounts = [];
+        const accounts = [];
         for (const a of (ac.data || [])) {
           const lim = a.credit_limit_enc ? await _decP(a.credit_limit_enc) : null;
           const anch = a.anchor_balance_enc ? await _decP(a.anchor_balance_enc) : null;
           const ext = a.ext_balance_enc ? await _decP(a.ext_balance_enc) : null;
           const mpx = a.manual_price_enc ? await _decP(a.manual_price_enc) : null;
-          P.accounts.push({ id: a.id, kind: a.kind, tail: a.tail, provider: a.provider,
+          accounts.push({ id: a.id, kind: a.kind, tail: a.tail, provider: a.provider,
             humanVerified: a.human_verified,
             statementDay: a.statement_day || null, dueDay: a.due_day || null,
             name: await _decTxt(a.name_enc),
@@ -382,12 +475,12 @@
             manualPriceAt: a.manual_price_at || null,
             accountNumber: a.account_number_enc ? await _decTxt(a.account_number_enc) : null });
         }
-        P.debts = [];
+        const debts = [];
         for (const t of dr.rows) {
           const a = await _decP(t.amount_enc), bad = (a === _DEC_FAILED);
-          if (bad) P.unreadable++;
+          if (bad) unreadable++;
           const qRaw = t.quantity_enc ? await _decP(t.quantity_enc) : null;
-          P.debts.push({ id: t.id, date: t.txn_date, kind: t.kind, accountId: t.account_id,
+          debts.push({ id: t.id, date: t.txn_date, kind: t.kind, accountId: t.account_id,
             transferGroupId: t.transfer_group_id, ts: t.created_at, due: t.due_date || null,
             positionId: t.position_account_id || null,
             qty: (qRaw == null || qRaw === _DEC_FAILED) ? null : (Number(qRaw) || null),
@@ -396,18 +489,32 @@
             who: await _decTxt(t.counterparty_enc) });
         }
         /* Review memory (0122): counterparty → position pre-selection for the
-           review screen. Fire-and-forget shape — an unreadable memory row is
-           dropped (it only costs a pre-selection, never money). */
-        P.memory = [];
-        try {
-          const mm = await _sb().from('personal_review_memory').select('id,key_enc,position_account_id').eq('owner_user_id', P.uid).limit(500);
-          for (const m of (mm.data || [])) {
-            const k = await _decTxt(m.key_enc);
-            if (k) P.memory.push({ id: m.id, key: k, positionId: m.position_account_id });
-          }
-        } catch (e) {}
+           review screen. An unreadable memory row is dropped (it only costs a
+           pre-selection, never money). */
+        const memory = [];
+        for (const m of (mm.data || [])) {
+          const k = await _decTxt(m.key_enc);
+          if (k) memory.push({ id: m.id, key: k, positionId: m.position_account_id });
+        }
+        if (gen !== _bootGen) return;   // orphaned by a newer boot while decrypting
+        P.debtsComplete = debtsComplete; P.budget = budget; P.catBudget = catBudget;
+        P.txns = txns; P.unreadable = unreadable;
+        /* Income lives on the spine since 0109 (kind='income'); P.incomes stays
+           as a derived view so every existing reader (the income sheet, the
+           month totals, the month picker) keeps its shape without knowing. */
+        P.incomes = _incomesView(txns);
+        P.accounts = accounts; P.debts = debts; P.memory = memory;
+        P.fromSnapshot = false;                    // this is fresh data —
+        _snapSave();                               // — worth caching for the next cold open
         _setState('ready');
-      } catch (e) { console.warn('personal hydrate failed', e); _setState('error'); }
+      } catch (e) {
+        console.warn('personal hydrate failed', e);
+        if (gen !== _bootGen) return;              // an orphaned pass may not flip state either
+        /* A background refresh failing must not tear down a tab that is already
+           showing good data (snapshot or a previous hydrate) — keep it, stale
+           and quiet; only a tab with nothing on it gets the error screen. */
+        if (window._persHadReady) _setState('ready'); else _setState('error');
+      }
     };
 
     /* Duplicate-match slice for the staged review screen. The tab cache above
@@ -655,6 +762,19 @@
       if (!P.uid || !id) return false;
       const r = await _sb().from('personal_transactions').delete().eq('id', id).eq('owner_user_id', P.uid).eq('kind', 'income').is('link_id', null);
       if (r.error) { console.warn('personal income delete failed', r.error); return false; }
+      await window.fhPersonalHydrate(); return true;
+    };
+    /* Income edit (same accountId contract as fhPersonalUpdateExpense: undefined =
+       leave untouched, null = clear, id = set). Category and time are not touched —
+       a review-committed income keeps its Lương/Thưởng tag through an edit. */
+    window.fhPersonalUpdateIncome = async function (id, fields) {
+      if (!P.uid || !P.key || !id) return false;
+      const row = { amount_enc: await _encP(Number(fields.amt)),
+        note_enc: fields.note ? await _encP(fields.note) : null };
+      if (fields.dateIso) row.txn_date = fields.dateIso;
+      if (fields.hasOwnProperty('accountId')) row.account_id = fields.accountId || null;
+      const r = await _sb().from('personal_transactions').update(row).eq('id', id).eq('owner_user_id', P.uid).eq('kind', 'income').is('link_id', null);
+      if (r.error) { console.warn('personal income update failed', r.error); return false; }
       await window.fhPersonalHydrate(); return true;
     };
 

@@ -593,7 +593,7 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
     </div></div>
     <!-- Instrument (0105): personal expenses only; chips built from personal_accounts.
          A credit-card pick is what feeds that card's derived balance (Nợ & cho vay). -->
-    <div class="field ex-arow" id="ex-acctfield" style="display:none"><label>Trả bằng gì? <span class="opt">· tuỳ chọn</span></label><div class="choices" id="ex-acct"></div></div>
+    <div class="field ex-arow" id="ex-acctfield" style="display:none"><label><span id="ex-acct-lbl">Trả bằng gì?</span> <span class="opt">· tuỳ chọn</span></label><div class="choices" id="ex-acct"></div></div>
     <div class="field" id="ex-notefield">
       <label id="ex-note-lbl" data-t="exWhatFor">What for?</label>
       <input id="ex-note" data-tp="phExNote" placeholder="e.g. Grocery run" oninput="onExNoteInput()" onblur="onExNoteBlur()"/>

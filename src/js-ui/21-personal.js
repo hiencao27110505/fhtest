@@ -138,6 +138,17 @@ function persFamPhotos(){
   }catch(e){ return {srcs:[], fresh:0, more:0}; }
 }
 
+/* Loading-state watch: stamps when the loading note first painted, clears when
+   any real state lands. The retry goes through fhPersonalRetry — the hard,
+   force-unlatching path — because the soft fhPersonalBoot() no-ops while a hung
+   attempt still holds the re-entrancy latch (the exact freeze being escaped). */
+function persLoadWatchClear(){ window._persLoadT=null; clearTimeout(window._persLoadTimer); }
+window.persRetryBoot = function(){
+  window._persLoadT = Date.now();
+  try{ if(window.fhPersonalRetry) fhPersonalRetry(); else if(window.fhPersonalBoot) fhPersonalBoot(); }catch(e){}
+  try{ renderPersonal(); }catch(e){}
+};
+
 function renderPersonal(){
   var host = document.getElementById('pers-body'); if(!host) return;
   persRenderAvatar();     // header disc — independent of personal-ledger state
@@ -150,13 +161,25 @@ function renderPersonal(){
     /* Every write and mirror pass re-hydrates through 'loading'. With a ready
        view already on screen, keep it — the fresh numbers repaint quietly in a
        moment; flashing a note over good data reads as the tab breaking. */
-    if(P.state==='loading' && window._persHadReady) return;
+    if(P.state==='loading' && window._persHadReady){ persLoadWatchClear(); return; }
     window._persLastHTML='';
-    host.innerHTML = '<div class="empty-note">Đang chuẩn bị sổ cá nhân của bạn…</div>'; return;
+    /* A loading note with no exit was the freeze: if a request stalls, this
+       screen used to be terminal. After 8s the note grows a "Thử lại" that goes
+       through the hard retry (fhPersonalRetry force-unlatches the boot guard). */
+    if(!window._persLoadT) window._persLoadT = Date.now();
+    var _waited = (Date.now() - window._persLoadT) > 8000;
+    host.innerHTML = '<div class="empty-note">Đang chuẩn bị sổ cá nhân của bạn…'
+      + (_waited ? '<br><a class="pers-link" onclick="persRetryBoot()">Mạng chậm? Thử lại</a>' : '') + '</div>';
+    if(!_waited){
+      clearTimeout(window._persLoadTimer);
+      window._persLoadTimer = setTimeout(function(){ try{ renderPersonal(); }catch(e){} }, 8200);
+    }
+    return;
   }
+  persLoadWatchClear();
   if(P.state==='error'){
     window._persHadReady=false; window._persLastHTML='';
-    host.innerHTML = '<div class="empty-note">Chưa tải được sổ cá nhân. <a class="pers-link" onclick="fhPersonalBoot()">Thử lại</a></div>'; return;
+    host.innerHTML = '<div class="empty-note">Chưa tải được sổ cá nhân. <a class="pers-link" onclick="persRetryBoot()">Thử lại</a></div>'; return;
   }
   if(P.state==='locked'){
     window._persHadReady=false; window._persLastHTML='';
@@ -286,7 +309,7 @@ function renderPersonal(){
        })() : '')
      + '<div class="cf-cta">'
      +   '<button class="cc-row" onclick="openPersonalBudget()"><span class="cc-ic">'+PIC.chart+'</span><span class="cc-t">'+(P.budget>0?'Ngân sách cá nhân':'Lập ngân sách cá nhân')+'</span>'+_ccChev+'</button>'
-     +   '<button class="cc-row" onclick="openTxns(\'personal\')"><span class="cc-ic">'+PIC.list+'</span><span class="cc-t">Xem chi tiêu</span>'+_ccChev+'</button>'
+     +   '<button class="cc-row" onclick="openTxns(\'personal\')"><span class="cc-ic">'+PIC.list+'</span><span class="cc-t">Xem giao dịch</span>'+_ccChev+'</button>'
      +   '<button class="cc-row" onclick="openPersonalExpense()"><span class="cc-ic">'+PIC.plus+'</span><span class="cc-t">Ghi giao dịch</span>'+_ccChev+'</button>'
      /* Fourth row of the SAME list, not a card of its own — it is one of the
         things you can do from here, and floating it outside the card made it
@@ -457,14 +480,18 @@ function _persEmailRow(){
       }
       var meta = t.date.slice(8,10)+'/'+t.date.slice(5,7)+(t.time?' · '+t.time:'');
       if(t.kind==='income'){
-        h += '<div class="row"><div class="r-ico personal-ico">'+(t.emoji||'💰')+'</div>'
+        // taps into the income edit sheet — amount · date · note · receiving account
+        h += '<div class="row tap" onclick="fhIncomeRowSheet(\''+t.id+'\')"><div class="r-ico personal-ico">'+(t.emoji||'💰')+'</div>'
            + '<div class="r-body"><div class="r-t">'+((t.note||t.cat||'Thu nhập').replace(/</g,'&lt;'))+'</div>'
            + '<div class="r-s">'+meta+' · thu nhập</div></div>'
            + '<div class="r-amt num pos">+'+fmt(t.amt||0)+'</div></div>';
       } else if(t.kind==='transfer'){
         var ends = t.transferGroupId ? pairEnds(t) : null;
         var xt = ends && ends.from && ends.to ? (ends.from+' → '+ends.to) : ((t.note||'Chuyển khoản').replace(/</g,'&lt;'));
-        h += '<div class="row"><div class="r-ico personal-ico">🔁</div>'
+        // a pair taps into its edit sheet (both legs in lockstep); a legacy
+        // one-leg card payment has no pair sheet and stays inert
+        var xTap = t.transferGroupId ? ' tap" onclick="fhXferPairSheet(\''+t.transferGroupId+'\')"' : '"';
+        h += '<div class="row'+xTap+'><div class="r-ico personal-ico">🔁</div>'
            + '<div class="r-body"><div class="r-t">'+xt+'</div>'
            + '<div class="r-s">'+meta+' · chuyển khoản — không tính thu chi</div></div>'
            + '<div class="r-amt num xfer">'+fmt(Math.abs(t.amt||0))+'</div></div>';
