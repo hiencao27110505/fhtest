@@ -36,7 +36,9 @@
     window.persDebtSection = function () {
       const P = _P(); if (!P || !P.key) return '';
       const t = _totals();
-      const balAccts = (P.accounts || []).filter((a) => a.kind !== 'credit_card');
+      /* positions (kind='investment') belong to the Đầu tư bento, never here —
+         a position is an asset with a derived value, not an anchored account */
+      const balAccts = (P.accounts || []).filter((a) => a.kind !== 'credit_card' && a.kind !== 'investment');
       const hasAny = t.d.cards.length || t.d.people.length || t.spaces.length || _spaceInvites.length || balAccts.length;
       let h = '<div id="pers-debts-wrap"' + (window.persMaskIs && persMaskIs('debts') ? ' class="sec-masked"' : '') + '>'
         + '<div class="section-h" id="pers-debts-h"><span class="t">Nợ &amp; cho vay</span>'
@@ -900,7 +902,10 @@
     /* "Chuyển giữa tài khoản" — the manual transfer PAIR (spec §3.1). */
     window.fhXferSheet = function (presetFromId) {
       const P = _P(); if (!P || !P.key) { window.toast && toast('Mở khoá sổ cá nhân trước'); return; }
-      const accts = (P.accounts || []).filter((a) => a.kind !== 'credit_card');
+      /* positions stay OUT of the transfer picker — one kind = one meaning
+         (T11/T12, investment-spec I1): money into a position is a BUY, logged
+         from the Đầu tư bento, never an internal transfer */
+      const accts = (P.accounts || []).filter((a) => a.kind !== 'credit_card' && a.kind !== 'investment');
       const hasCash = accts.some((a) => a.kind === 'cash');
       /* every chip re-syncs the "new account" name fields — picking "+ Tài
          khoản mới" reveals the one for its side, picking anything else hides it */

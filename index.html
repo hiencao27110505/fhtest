@@ -13099,6 +13099,7 @@ function csvXferAccounts(c){
   var mine = (window.fhStagedAcct && c) ? fhStagedAcct(c) : null;
   return ((window.fhPersonalData && fhPersonalData().accounts) || []).filter(function(a){
     if(a.kind === 'credit_card') return false;
+    if(a.kind === 'investment') return false;   // a position is a BUY's target ("Đầu tư" kind), never a transfer counterpart
     if(mine && mine.tail && a.tail && a.tail === mine.tail && (a.provider||'') === (mine.provider||'').toLowerCase()) return false;
     return true;
   });
@@ -18796,7 +18797,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v493';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v494';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -22121,7 +22122,9 @@ window.obGoogle = async function () {
     window.persDebtSection = function () {
       const P = _P(); if (!P || !P.key) return '';
       const t = _totals();
-      const balAccts = (P.accounts || []).filter((a) => a.kind !== 'credit_card');
+      /* positions (kind='investment') belong to the Đầu tư bento, never here —
+         a position is an asset with a derived value, not an anchored account */
+      const balAccts = (P.accounts || []).filter((a) => a.kind !== 'credit_card' && a.kind !== 'investment');
       const hasAny = t.d.cards.length || t.d.people.length || t.spaces.length || _spaceInvites.length || balAccts.length;
       let h = '<div id="pers-debts-wrap"' + (window.persMaskIs && persMaskIs('debts') ? ' class="sec-masked"' : '') + '>'
         + '<div class="section-h" id="pers-debts-h"><span class="t">Nợ &amp; cho vay</span>'
@@ -22985,7 +22988,10 @@ window.obGoogle = async function () {
     /* "Chuyển giữa tài khoản" — the manual transfer PAIR (spec §3.1). */
     window.fhXferSheet = function (presetFromId) {
       const P = _P(); if (!P || !P.key) { window.toast && toast('Mở khoá sổ cá nhân trước'); return; }
-      const accts = (P.accounts || []).filter((a) => a.kind !== 'credit_card');
+      /* positions stay OUT of the transfer picker — one kind = one meaning
+         (T11/T12, investment-spec I1): money into a position is a BUY, logged
+         from the Đầu tư bento, never an internal transfer */
+      const accts = (P.accounts || []).filter((a) => a.kind !== 'credit_card' && a.kind !== 'investment');
       const hasCash = accts.some((a) => a.kind === 'cash');
       /* every chip re-syncs the "new account" name fields — picking "+ Tài
          khoản mới" reveals the one for its side, picking anything else hides it */

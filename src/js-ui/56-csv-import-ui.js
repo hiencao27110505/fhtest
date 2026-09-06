@@ -1665,6 +1665,7 @@ function csvXferAccounts(c){
   var mine = (window.fhStagedAcct && c) ? fhStagedAcct(c) : null;
   return ((window.fhPersonalData && fhPersonalData().accounts) || []).filter(function(a){
     if(a.kind === 'credit_card') return false;
+    if(a.kind === 'investment') return false;   // a position is a BUY's target ("Đầu tư" kind), never a transfer counterpart
     if(mine && mine.tail && a.tail && a.tail === mine.tail && (a.provider||'') === (mine.provider||'').toLowerCase()) return false;
     return true;
   });
