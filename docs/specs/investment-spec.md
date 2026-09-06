@@ -258,10 +258,12 @@ forward-only, per the full-ledger precedent.
   fail-quiet, never proxied through the backend (I4). **Zero-leak by
   construction** (hardened 2026-09-06): the markets call fetches the generic
   top-250 list (no holdings sent), and coin logos are bulk-fetched as the
-  SAME fixed top-30 set on every device, cached as local data-URIs — a
-  per-held-coin image request would have told the CDN which coins the
-  person owns; selective requests are the leak. A held coin outside the
-  top 30 wears a class mark rather than cost a revealing request.
+  SAME fixed top-250 /thumb/ set on every device (50 missing per pass,
+  market-cap order — the request sequence is a pure function of the public
+  list), cached as local data-URIs — a per-held-coin image request would
+  have told the CDN which coins the person owns; selective requests are
+  the leak. Any coin that can price can wear its logo; below top-250 (no
+  price either) wears a class mark.
 - **Nothing auto-imports and nothing auto-classifies.** Every captured row
   still passes the human gate; memory pre-selects, the person commits.
 

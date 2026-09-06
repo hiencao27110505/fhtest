@@ -56,22 +56,29 @@
       all[String(sym).toLowerCase()] = { k: priceK, at: new Date().toISOString() };
       try { localStorage.setItem(_PK(), JSON.stringify(all)); } catch (e) {}
     };
-    /* ── logos, ZERO-LEAK: every device fetches the SAME top-30 logo set,
+    /* ── logos, ZERO-LEAK: every device fetches the SAME top-250 thumb set,
        holdings-blind, and renders from local data-URIs afterwards. A per-held-
        coin <img> would tell the CDN which coins this person owns — selective
-       requests ARE the leak. A held coin outside the top 30 wears the class
-       mark rather than cost a revealing request. Logos are public artwork,
-       not user data → one global cache key, no uid. ── */
+       requests ARE the leak. Any coin that can price can wear its logo; below
+       top-250 (no price either) wears the class mark. Logos are public
+       artwork, not user data → one global cache key, no uid. ── */
     const _LK = 'fh-invlogos';
     const _logoAll = function () { try { return JSON.parse(localStorage.getItem(_LK) || '{}'); } catch (e) { return {}; } };
+    /* Sweeps the WHOLE top-250 as ~1-2KB /thumb/ images, first 50 missing per
+       pass (a few refreshes fill the set), always in market-cap order — the
+       sequence is a pure function of the public list, so two users with
+       different portfolios make byte-identical request patterns. */
     async function _logoSweep(rows) {
-      const all = _logoAll(); let dirty = false;
+      const all = _logoAll(); let dirty = false, done = 0;
       for (const r of rows) {
+        if (done >= 50) break;
         const s = String(r.symbol || '').toLowerCase();
         if (!s || all[s] || !r.image) continue;
+        done++;
         try {
-          const resp = await fetch(r.image); if (!resp.ok) continue;
-          const b = await resp.blob(); if (b.size > 30000) continue;
+          const url = String(r.image).replace('/large/', '/thumb/').replace('/small/', '/thumb/');
+          const resp = await fetch(url); if (!resp.ok) continue;
+          const b = await resp.blob(); if (b.size > 20000) continue;
           all[s] = await new Promise(function (res, rej) {
             const fr = new FileReader(); fr.onload = function () { res(fr.result); }; fr.onerror = rej; fr.readAsDataURL(b);
           });
@@ -124,9 +131,9 @@
           if (bySym[s]) { _cacheSet(s, bySym[s] / 1000); got++; }
           else missed.push(s.toUpperCase());
         }
-        /* fire-and-forget: the fixed top-30 logo sweep — identical for every
+        /* fire-and-forget: the fixed top-250 logo sweep — identical for every
            user by construction, so it says nothing about this one */
-        try { _logoSweep((Array.isArray(list) ? list : []).slice(0, 30)); } catch (eLg) {}
+        try { _logoSweep(Array.isArray(list) ? list : []); } catch (eLg) {}
         _fetchedAt = Date.now();
         if (got) { _redraw(); _reopen(); }
         if (force && window.toast) {
