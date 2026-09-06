@@ -403,10 +403,27 @@ button.csv-srow:active{background:var(--surface)}
   animation:atxFdPulse 1.6s ease-in-out infinite}
 @keyframes atxFdPulse{0%,100%{opacity:.3}50%{opacity:1}}
 @media (prefers-reduced-motion:reduce){.atx-fd-dot{animation:none;opacity:.7}}
-.atx-fd-row{display:flex;align-items:center;gap:11px;padding:11px 13px;border-top:1px solid var(--divider);
-  animation:atxFdIn .45s cubic-bezier(.32,.72,0,1) both}
-@keyframes atxFdIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}
-@media (prefers-reduced-motion:reduce){.atx-fd-row{animation:none}}
+/* Law 1: the body RESERVES its height, so nothing below the feed moves on a
+   timer nobody touched. Rows roll inside a fixed window. */
+.atx-fd-body{position:relative;overflow:hidden;transition:height .42s cubic-bezier(.32,.72,0,1)}
+.atx-fd-wrap{position:absolute;left:0;right:0;transition:transform .5s cubic-bezier(.32,.72,0,1);
+  will-change:transform,opacity,filter}
+.atx-fd-row{display:flex;align-items:center;gap:11px;padding:11px 13px;height:52px;
+  border-top:1px solid var(--divider)}
+.atx-fd-wrap:first-child .atx-fd-row{border-top:0}
+/* D1 — the row MATERIALISES: blur out of nothing, settling into place. It is
+   the only element on this screen with a real entrance, because it is the only
+   one carrying content a person recognises. */
+.atx-fd-enter{animation:atxFdIn .58s cubic-bezier(.32,.72,0,1) both}
+@keyframes atxFdIn{
+  0%{opacity:0;filter:blur(9px);transform:scale(.97)}
+  55%{opacity:1}
+  100%{opacity:1;filter:blur(0);transform:scale(1)}}
+.atx-fd-leave{animation:atxFdOut .38s ease both;pointer-events:none}
+@keyframes atxFdOut{to{opacity:0}}
+@media (prefers-reduced-motion:reduce){
+  .atx-fd-enter,.atx-fd-leave{animation:none}
+  .atx-fd-wrap,.atx-fd-body{transition:none}}
 .atx-fd-ic{width:30px;height:30px;border-radius:9px;background:var(--fill-neutral);color:var(--muted);
   flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:800}
 .atx-fd-t{flex:1;min-width:0;font-size:13.5px;font-weight:650;color:var(--ink);
@@ -433,16 +450,18 @@ button.csv-srow:active{background:var(--surface)}
    queue is ready is the contradiction this state exists to remove. */
 .atx-pg-fill.halt{background:var(--muted-soft)}
 .atx-pg-sub{font-size:12.5px;color:var(--muted);margin-top:9px;line-height:1.45}
-/* The count pops when it changes. Without it the number simply differed on the
-   next glance, which is indistinguishable from a screen that never updated --
-   the reported symptom. inline-block so transform applies to the digits. */
-.atx-pg-c{display:inline-block;font-weight:700;color:var(--ink-2)}
-.atx-pg.done .atx-pg-c{color:var(--good)}
-.atx-pg-n{transition:color .25s ease}
-@keyframes atxTick{0%{transform:scale(1)}38%{transform:scale(1.16);color:var(--brand-ink)}100%{transform:scale(1)}}
-.atx-pg.tick .atx-pg-c{animation:atxTick .55s cubic-bezier(.32,.72,0,1)}
-.atx-pg.tick .atx-pg-n{animation:atxTick .55s cubic-bezier(.32,.72,0,1) .06s}
-@media (prefers-reduced-motion:reduce){.atx-pg.tick .atx-pg-c,.atx-pg.tick .atx-pg-n{animation:none}}
+/* N1 — the numbers do not animate at all. A fade-to-zero-and-back was a BLINK:
+   for ~170ms the value was absent, and vision catches disappearance above
+   almost everything, so "subtle and fast" read louder than nothing. A digit
+   changing in place is how every clock works and nobody calls it a flash.
+   Tabular figures + a reserved min-width fix the other half: "6 thg 9" ->
+   "31 thg 8" changes character count, and without a fixed slot the sentence
+   shoves sideways, which twitches with no animation at all. */
+.atx-pg-c,.atx-pg-day,.atx-pg-n{font-variant-numeric:tabular-nums}
+.atx-pg-c{display:inline-block;min-width:1.7em;font-weight:700;color:var(--ink-2)}
+.atx-pg-day{display:inline-block;min-width:5.1em;font-weight:700;color:var(--ink-2)}
+.atx-pg-n{display:inline-block;min-width:5.9em;text-align:right}
+.atx-pg.done .atx-pg-c,.atx-pg.done .atx-pg-day{color:var(--good)}
 .atx-pg.done .atx-pg-sub{color:var(--good)}
 @media (prefers-reduced-motion:reduce){.atx-pg-fill{transition:none}}
 

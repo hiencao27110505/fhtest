@@ -86,6 +86,7 @@ function harness(countAt) {
     _atxConnection: async () => { rec.grantAsks++; return { id: 'g1', phase: state.phase, backfillDays: 90 }; },
     L: (vi) => vi,
     _esc: (s) => String(s),
+    _escAttr: (s) => String(s),
     _mbxGlyph: () => '',
     _fhSheet: (html) => { rec.sheets.push(html); },
     _mbxPushRow: async () => { rec.pushRowAsked++; return '<div id="push-offer-row"></div>'; },

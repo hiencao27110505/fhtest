@@ -793,9 +793,9 @@
   async function _atxStatusProgress(conn) {
     try {
       const st = await _atxProgressState(conn);
-      _atxProgressPaint(document.getElementById('atx-pg'), st, false);
+      _atxProgressPaint(document.getElementById('atx-pg'), st);
       const fd = document.getElementById('atx-feed');
-      if (fd) fd.innerHTML = _atxFeedHTML(st.finds);
+      _atxFeedPaint(fd, st.finds);
       if (st.phase === 'reading') _atxLiveWatch();
     } catch (e) {}
   }
@@ -1177,22 +1177,75 @@
   const _atxInitials = (name) => String(name || '?')
     .replace(/[^\p{L}\p{N} ]/gu, '').trim().slice(0, 2).toUpperCase() || '?';
 
-  function _atxFeedHTML(rows) {
-    if (!rows || !rows.length) return '';
-    return '<div class="atx-fd"><div class="atx-fd-h"><span class="atx-fd-dot"></span>' +
-      _esc(L('Vừa tìm thấy', 'Just found')) + '</div>' +
-      rows.map(function (r) {
-        /* fhProviderName folds "vib"/"MBBank" into the household spelling the
-           rest of the app uses; falls through to the raw string when absent. */
-        const name = (window.fhProviderName ? window.fhProviderName(r.source_provider || '') : '')
-          || r.source_provider || L('Giao dịch', 'Transaction');
-        const when = r.occurred_at ? fmtDayMon(new Date(r.occurred_at)) : '';
-        return '<div class="atx-fd-row"><span class="atx-fd-ic">' + _esc(_atxInitials(name)) + '</span>' +
-          '<span class="atx-fd-t">' + _esc(name) + '</span>' +
-          '<span class="atx-fd-d">' + _esc(when) + '</span></div>';
-      }).join('') +
-      '<div class="atx-fd-f"><span class="atx-fd-dot"></span>' +
-      _esc(L('Đang đọc ngược về trước…', 'Reading further back…')) + '</div></div>';
+  const ATX_FEED_ROWS = 3;
+  const ATX_FEED_ROWH = 52;          // must match .atx-fd-row height in CSS
+
+  function _atxFeedRowHTML(r) {
+    /* fhProviderName folds "vib"/"MBBank" into the household spelling the rest
+       of the app uses; falls through to the raw string when absent. */
+    const name = (window.fhProviderName ? window.fhProviderName(r.source_provider || '') : '')
+      || r.source_provider || L('Giao dịch', 'Transaction');
+    const when = r.occurred_at ? fmtDayMon(new Date(r.occurred_at)) : '';
+    return '<div class="atx-fd-row"><span class="atx-fd-ic">' + _esc(_atxInitials(name)) + '</span>' +
+      '<span class="atx-fd-t">' + _esc(name) + '</span>' +
+      '<span class="atx-fd-d">' + _esc(when) + '</span></div>';
+  }
+
+  /* ── D1, the blur dissolve ─────────────────────────────────────────────────
+     THE ROWS CARRY THE LIVENESS, so they get the whole motion budget: a row
+     materialises out of nothing (blur 9px -> 0, opacity, 0.97 -> 1) while the
+     rows beneath it translate down on the same curve, subordinate. Two things
+     animating at once compete for one glance, which is exactly why the numbers
+     above spend nothing — the rows carry CONTENT a person recognises, so their
+     motion is informative; a count going 14 -> 15 carries one bit.
+
+     RECONCILING, NOT REBUILDING. Nodes are matched by row id and survive the
+     paint, because an element that survives can be animated — replacing
+     innerHTML gives every row a fresh identity and nothing can transition.
+     The body reserves its height (Law 1: nothing below the feed ever moves on
+     a timer nobody touched), so rows roll inside a fixed window. */
+  function _atxFeedPaint(host, rows) {
+    if (!host) return;
+    rows = (rows || []).slice(0, ATX_FEED_ROWS);
+    if (!rows.length) { host.innerHTML = ''; return; }
+
+    let body = host.querySelector('.atx-fd-body');
+    if (!body) {
+      host.innerHTML = '<div class="atx-fd">' +
+        '<div class="atx-fd-h"><span class="atx-fd-dot"></span>' +
+          _esc(L('Vừa tìm thấy', 'Just found')) + '</div>' +
+        '<div class="atx-fd-body"></div>' +
+        '<div class="atx-fd-f"><span class="atx-fd-dot"></span>' +
+          _esc(L('Đang đọc ngược về trước…', 'Reading further back…')) + '</div></div>';
+      body = host.querySelector('.atx-fd-body');
+    }
+    body.style.height = (rows.length * ATX_FEED_ROWH) + 'px';
+
+    const have = {};
+    Array.prototype.forEach.call(body.children, function (el) { have[el.getAttribute('data-id')] = el; });
+
+    rows.forEach(function (r, i) {
+      let el = have[r.id];
+      if (el) { delete have[r.id]; }
+      else {
+        el = document.createElement('div');
+        el.className = 'atx-fd-wrap atx-fd-enter';
+        el.setAttribute('data-id', r.id);
+        el.innerHTML = _atxFeedRowHTML(r);
+        body.appendChild(el);
+        /* Let the entering frame paint before the class comes off, or the
+           animation is cancelled before it is seen. */
+        setTimeout(function () { el.classList.remove('atx-fd-enter'); }, 700);
+      }
+      el.style.transform = 'translateY(' + (i * ATX_FEED_ROWH) + 'px)';
+    });
+
+    // Rows that fell out of the window fade rather than vanish.
+    Object.keys(have).forEach(function (id) {
+      const el = have[id];
+      el.classList.add('atx-fd-leave');
+      setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 400);
+    });
   }
 
   /* The progress block, shared by the connect screen and the status screen so
@@ -1202,25 +1255,19 @@
      painter below rewrites just this line, so the numbers can change without
      the bar losing its transition. */
   function _atxProgressSub(st) {
+    const cnt = '<b class="atx-pg-c" data-v="' + st.found + '">' + st.found + '</b>';
     if (st.phase === 'done') {
-      return _esc(st.found > 0
-        ? L('<n> khoản đang chờ bạn duyệt.',
-            st.found === 1 ? '<n> transaction waiting for you.' : '<n> transactions waiting for you.')
-        : L('Không có khoản nào trong khoảng này.', 'Nothing to review in that stretch.'))
-        .replace('&lt;n&gt;', '<b class="atx-pg-c">' + st.found + '</b>');
+      return st.found > 0
+        ? cnt + _esc(L(' khoản đang chờ bạn duyệt.',
+            st.found === 1 ? ' transaction waiting for you.' : ' transactions waiting for you.'))
+        : _esc(L('Không có khoản nào trong khoảng này.', 'Nothing to review in that stretch.'));
     }
-    const day = st.front ? fmtDayMon(new Date(st.front)) : '';
-    const cnt = '<b class="atx-pg-c">' + st.found + '</b>';
-    if (st.phase === 'slow') {
-      return st.front
-        ? _esc(L('Tới ' + day + ' · ', 'To ' + day + ' · ')) + cnt +
-          _esc(L(' khoản sẵn sàng để duyệt', ' ready to review'))
-        : cnt + _esc(L(' khoản sẵn sàng để duyệt', ' ready to review'));
-    }
-    return st.front
-      ? _esc(L('Đã đọc tới ' + day + ' · tìm được ', 'Back to ' + day + ' · ')) + cnt +
-        _esc(L(' khoản', ' found'))
-      : _esc(L('Đang dò hộp thư của bạn…', 'Looking through your mailbox…'));
+    if (!st.front) return _esc(L('Đang dò hộp thư của bạn…', 'Looking through your mailbox…'));
+    const day = fmtDayMon(new Date(st.front));
+    const dayEl = '<b class="atx-pg-day" data-v="' + _escAttr(day) + '">' + _esc(day) + '</b>';
+    return st.phase === 'slow'
+      ? _esc(L('Tới ', 'To ')) + dayEl + _esc(L(' · ', ' · ')) + cnt + _esc(L(' khoản sẵn sàng để duyệt', ' ready to review'))
+      : _esc(L('Đã đọc tới ', 'Back to ')) + dayEl + _esc(L(' · tìm được ', ' · ')) + cnt + _esc(L(' khoản', ' found'));
   }
 
   function _atxProgressHTML(st) {
@@ -1248,7 +1295,25 @@
 
      A phase change restructures the card (the fraction disappears on 'done'),
      so that one case still rebuilds. */
-  function _atxProgressPaint(host, st, bump) {
+  /* N1 — a number is a RECORD OF THE LATEST STATE, not an event.
+     It swaps its text and nothing else: no fade, no scale, no colour.
+     The previous version dimmed to opacity 0 and back, which is a blink — for
+     ~170ms the number was absent, and vision prioritises disappearance over
+     almost everything, so "subtle and fast" was louder than no animation at
+     all. There is no amplitude lower than gone.
+     Each slot carries tabular figures and a reserved min-width in CSS, because
+     the OTHER half of the flash was width: "6 thg 9" -> "31 thg 8" changes
+     character count and shoves the sentence sideways. */
+  function _atxSetNum(el, val) {
+    if (!el) return false;
+    const v = String(val);
+    if (el.getAttribute('data-v') === v) return false;   // unchanged: touch nothing
+    el.setAttribute('data-v', v);
+    el.textContent = v;
+    return true;
+  }
+
+  function _atxProgressPaint(host, st) {
     if (!host) return;
     const card = host.querySelector ? host.querySelector('.atx-pg') : null;
     if (!card || card.getAttribute('data-phase') !== st.phase) {
@@ -1256,20 +1321,14 @@
       return;
     }
     const w = st.windowDays, d = st.daysRead;
-    const pct = w > 0 ? Math.min(100, Math.round(d / w * 100)) : 0;
+    /* The bar is the one thing that DOES move, and it keeps its transition
+       because the element survives the paint (a replaced node has no
+       from-state and would teleport). */
     const fill = card.querySelector('.atx-pg-fill');
-    if (fill) fill.style.width = pct + '%';
-    const n = card.querySelector('.atx-pg-n');
-    if (n) n.textContent = d + '/' + w + L(' ngày', ' days');
-    const sub = card.querySelector('.atx-pg-sub');
-    if (sub) sub.innerHTML = _atxProgressSub(st);
-    /* Re-trigger the count's pop. Removing the class and forcing a reflow is
-       what lets the same animation replay on a second increment. */
-    if (bump) {
-      card.classList.remove('tick');
-      void card.offsetWidth;
-      card.classList.add('tick');
-    }
+    if (fill) fill.style.width = (w > 0 ? Math.min(100, Math.round(d / w * 100)) : 0) + '%';
+    _atxSetNum(card.querySelector('.atx-pg-n'), d + '/' + w + L(' ngày', ' days'));
+    _atxSetNum(card.querySelector('.atx-pg-c'), st.found);
+    _atxSetNum(card.querySelector('.atx-pg-day'), st.front ? fmtDayMon(new Date(st.front)) : '');
   }
 
   const _atxConnFrontier = (conn) => (conn && conn.id) ? _atxFrontier(conn.id) : Promise.resolve(null);
@@ -1353,12 +1412,11 @@
             _atxProgressCache = lastState;         // the row paints from this
             last = n; lastPhase = phase;
             if (!badgeOnly) {
-              _atxProgressPaint(document.getElementById('atx-pg'), lastState, true);
+              _atxProgressPaint(document.getElementById('atx-pg'), lastState);
               /* Cleared on completion rather than frozen: "vừa tìm thấy" is a
                  liveness signal, and a stale one outliving the work it reported
                  is the kind of detail that quietly stops being believed. */
-              const fd = document.getElementById('atx-feed');
-              if (fd) fd.innerHTML = _atxFeedHTML(lastState.finds);
+              _atxFeedPaint(document.getElementById('atx-feed'), lastState.finds);
               /* The CTA is BORN here, never merely relabelled: it does not
                  exist while the phase is 'reading', so there is nothing to tap
                  by accident during the one stretch when tapping is wrong. */
