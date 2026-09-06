@@ -1756,19 +1756,27 @@ input{font-family:inherit}
 .inv-stale{color:var(--muted);font-weight:400}
 .inv-qty{color:var(--ink-2);font-weight:500}
 
-/* hero tile: the portfolio headline sits a notch above the position tiles */
-.inv-hero .inv-total{font-size:26px;letter-spacing:-.02em}
+/* hero tile: the portfolio headline sits a notch above the position tiles —
+   28px enters the DESIGN.md "big number / stat" band (§2.2) */
+.inv-hero{position:relative}
+.inv-hero .inv-total{font-size:28px;letter-spacing:-.6px}
 .inv-hero .dbt-ts{margin-top:2px}
 .inv-hero .inv-flow{color:var(--muted)}
+/* refresh — an SVG icon button on the hero (§2.6: UI icons are SVG, never a
+   third header link); visual 30px, hit area ≥44 via padding */
+.inv-refresh{position:absolute;top:4px;right:4px;border:0;background:none;color:var(--muted);padding:12px;cursor:pointer;border-radius:50%}
+.inv-refresh svg{width:17px;height:17px;display:block}
+.inv-refresh:active{transform:scale(.92);color:var(--brand-ink)}
 
 /* position tile sub-line stays ONE line — a wrapped "giá vừa cập nhật" made
    siblings uneven heights and the whole grid read as broken */
 .inv-sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-/* the coin's face — CoinGecko logo beside the name (class mark as fallback) */
-.inv-logo{width:18px;height:18px;border-radius:50%;vertical-align:-4px;margin-right:6px;background:var(--fill-neutral)}
+/* the coin's face — local logo bytes beside the name (class mark as fallback).
+   16px against the 13px .dbt-tk label (icon ≈ cap height + a hair, §2.6) */
+.inv-logo{width:16px;height:16px;border-radius:50%;vertical-align:-3px;margin-right:6px;background:var(--fill-neutral)}
 .inv-mark{margin-right:5px}
-#inv-title .inv-logo{width:24px;height:24px;vertical-align:-3px;margin-right:8px}
+#inv-title .inv-logo{width:24px;height:24px;vertical-align:-2px;margin-right:8px}
 
 /* the zoom-in shares #debt-overlay's classes; only the price link needs a nudge */
 #invest-overlay .dbt-relink{white-space:nowrap}
@@ -23814,11 +23822,15 @@ window.obGoogle = async function () {
       return n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0') + '-' + String(n.getDate()).padStart(2, '0');
     };
     const _dmy = (iso) => { if (!iso) return ''; const p = String(iso).slice(0, 10).split('-'); return p[2] + '/' + p[1]; };
+    /* vi-VN number language everywhere the user READS a figure (DESIGN.md
+       §2.2): comma decimals — "0,0025", "−94,2%". Inputs still accept both
+       separators (_qtyOf normalizes), only display localizes. */
     const _fmtQty = function (q) {
       if (q == null || !isFinite(q)) return '';
-      const s = String(Math.round(Math.abs(q) * 1e8) / 1e8);
+      const s = (Math.round(Math.abs(q) * 1e8) / 1e8).toLocaleString('vi-VN', { maximumFractionDigits: 8 });
       return (q < 0 ? '−' : '') + s;
     };
+    const _pctTxt = (n) => Math.abs(n).toFixed(1).replace(/\.0$/, '').replace('.', ',') + '%';
     /* asset classes — drive the unit hint, the price route, and grouping */
     const CLS = { crypto: 'Crypto', gold: 'Vàng', stock: 'Chứng khoán', fund: 'Chứng chỉ quỹ', other: 'Khác' };
     const _ago = function (iso) {
@@ -24093,7 +24105,7 @@ window.obGoogle = async function () {
     const _delta = function (p) {
       if (p.netK < -0.5 && p.valueK == null) return '<span class="inv-up">đã rút hơn vốn ' + fmt(-p.netK) + '</span>';
       if (p.plK == null) return '<span class="inv-cost">· giá vốn</span>';
-      const up = p.plK >= 0, pct = p.pctPl != null ? Math.abs(p.pctPl).toFixed(1).replace(/\.0$/, '') + '%' : fmt(Math.abs(p.plK));
+      const up = p.plK >= 0, pct = p.pctPl != null ? _pctTxt(p.pctPl) : fmt(Math.abs(p.plK));
       return '<span class="' + (up ? 'inv-up' : 'inv-down') + '">' + (up ? '▲ +' : '▼ −') + pct + '</span>';
     };
     window.persInvestSection = function () {
@@ -24103,7 +24115,6 @@ window.obGoogle = async function () {
       let h = '<div id="pers-invest-wrap"' + (window.persMaskIs && persMaskIs('invest') ? ' class="sec-masked"' : '') + '>';
       h += '<div class="section-h" id="pers-invest-h"><span class="t">Đầu tư</span>'
         + '<span class="acts">' + (window.persEyeHTML ? persEyeHTML('invest') : '')
-        + '<a onclick="fhInvPriceRefresh(true);toast&&toast(\'Đang cập nhật giá…\')">Cập nhật giá</a>'
         + '<a onclick="fhInvNewPositionSheet()">＋ Vị thế</a></span></div>';
       if (!v.positions.length) {
         h += '<section class="dbt-empty"><div class="dbt-empty-t">Theo dõi crypto, vàng, chứng khoán — tiền mua không tính là chi tiêu.</div>'
@@ -24114,8 +24125,13 @@ window.obGoogle = async function () {
          ALWAYS wide, always its own row — it is the headline, not a tile,
          so it stays out of the pairing math below. */
       const pl = v.plK != null ? ('<span class="' + (v.plK >= 0 ? 'inv-up' : 'inv-down') + '">' + (v.plK >= 0 ? '▲ +' : '▼ −') + fmt(Math.abs(v.plK))
-        + (v.plBaseK > 0 ? ' (' + (v.plK >= 0 ? '+' : '−') + Math.abs(v.plK / v.plBaseK * 100).toFixed(1).replace(/\.0$/, '') + '%)' : '') + '</span>') : '';
+        + (v.plBaseK > 0 ? ' (' + (v.plK >= 0 ? '+' : '−') + _pctTxt(v.plK / v.plBaseK * 100) + ')' : '') + '</span>') : '';
+      /* refresh lives ON the hero (an SVG icon button, 44px hit) — §2.3 allows
+         the section header ONE right-side link, and the eye + ＋ Vị thế
+         already fill it */
       const hero = '<section class="dbt-tile wide inv-hero">'
+        + '<button class="inv-refresh" onclick="event.stopPropagation();fhInvPriceRefresh(true);toast&&toast(\'Đang cập nhật giá…\')" aria-label="Cập nhật giá">'
+        + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg></button>'
         + '<div class="dbt-tk">Giá trị hiện tại' + (v.mixed ? ' <span class="inv-stale">· một phần theo giá vốn</span>' : '') + '</div>'
         + '<div class="dbt-tv inv-total">' + fmt(v.totalK) + '</div>'
         + (pl ? '<div class="dbt-ts">' + pl + '</div>' : '')

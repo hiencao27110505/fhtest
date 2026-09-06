@@ -10,19 +10,27 @@
 .inv-stale{color:var(--muted);font-weight:400}
 .inv-qty{color:var(--ink-2);font-weight:500}
 
-/* hero tile: the portfolio headline sits a notch above the position tiles */
-.inv-hero .inv-total{font-size:26px;letter-spacing:-.02em}
+/* hero tile: the portfolio headline sits a notch above the position tiles —
+   28px enters the DESIGN.md "big number / stat" band (§2.2) */
+.inv-hero{position:relative}
+.inv-hero .inv-total{font-size:28px;letter-spacing:-.6px}
 .inv-hero .dbt-ts{margin-top:2px}
 .inv-hero .inv-flow{color:var(--muted)}
+/* refresh — an SVG icon button on the hero (§2.6: UI icons are SVG, never a
+   third header link); visual 30px, hit area ≥44 via padding */
+.inv-refresh{position:absolute;top:4px;right:4px;border:0;background:none;color:var(--muted);padding:12px;cursor:pointer;border-radius:50%}
+.inv-refresh svg{width:17px;height:17px;display:block}
+.inv-refresh:active{transform:scale(.92);color:var(--brand-ink)}
 
 /* position tile sub-line stays ONE line — a wrapped "giá vừa cập nhật" made
    siblings uneven heights and the whole grid read as broken */
 .inv-sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-/* the coin's face — CoinGecko logo beside the name (class mark as fallback) */
-.inv-logo{width:18px;height:18px;border-radius:50%;vertical-align:-4px;margin-right:6px;background:var(--fill-neutral)}
+/* the coin's face — local logo bytes beside the name (class mark as fallback).
+   16px against the 13px .dbt-tk label (icon ≈ cap height + a hair, §2.6) */
+.inv-logo{width:16px;height:16px;border-radius:50%;vertical-align:-3px;margin-right:6px;background:var(--fill-neutral)}
 .inv-mark{margin-right:5px}
-#inv-title .inv-logo{width:24px;height:24px;vertical-align:-3px;margin-right:8px}
+#inv-title .inv-logo{width:24px;height:24px;vertical-align:-2px;margin-right:8px}
 
 /* the zoom-in shares #debt-overlay's classes; only the price link needs a nudge */
 #invest-overlay .dbt-relink{white-space:nowrap}

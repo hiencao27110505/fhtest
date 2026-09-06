@@ -31,11 +31,15 @@
       return n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0') + '-' + String(n.getDate()).padStart(2, '0');
     };
     const _dmy = (iso) => { if (!iso) return ''; const p = String(iso).slice(0, 10).split('-'); return p[2] + '/' + p[1]; };
+    /* vi-VN number language everywhere the user READS a figure (DESIGN.md
+       §2.2): comma decimals — "0,0025", "−94,2%". Inputs still accept both
+       separators (_qtyOf normalizes), only display localizes. */
     const _fmtQty = function (q) {
       if (q == null || !isFinite(q)) return '';
-      const s = String(Math.round(Math.abs(q) * 1e8) / 1e8);
+      const s = (Math.round(Math.abs(q) * 1e8) / 1e8).toLocaleString('vi-VN', { maximumFractionDigits: 8 });
       return (q < 0 ? '−' : '') + s;
     };
+    const _pctTxt = (n) => Math.abs(n).toFixed(1).replace(/\.0$/, '').replace('.', ',') + '%';
     /* asset classes — drive the unit hint, the price route, and grouping */
     const CLS = { crypto: 'Crypto', gold: 'Vàng', stock: 'Chứng khoán', fund: 'Chứng chỉ quỹ', other: 'Khác' };
     const _ago = function (iso) {
@@ -310,7 +314,7 @@
     const _delta = function (p) {
       if (p.netK < -0.5 && p.valueK == null) return '<span class="inv-up">đã rút hơn vốn ' + fmt(-p.netK) + '</span>';
       if (p.plK == null) return '<span class="inv-cost">· giá vốn</span>';
-      const up = p.plK >= 0, pct = p.pctPl != null ? Math.abs(p.pctPl).toFixed(1).replace(/\.0$/, '') + '%' : fmt(Math.abs(p.plK));
+      const up = p.plK >= 0, pct = p.pctPl != null ? _pctTxt(p.pctPl) : fmt(Math.abs(p.plK));
       return '<span class="' + (up ? 'inv-up' : 'inv-down') + '">' + (up ? '▲ +' : '▼ −') + pct + '</span>';
     };
     window.persInvestSection = function () {
@@ -320,7 +324,6 @@
       let h = '<div id="pers-invest-wrap"' + (window.persMaskIs && persMaskIs('invest') ? ' class="sec-masked"' : '') + '>';
       h += '<div class="section-h" id="pers-invest-h"><span class="t">Đầu tư</span>'
         + '<span class="acts">' + (window.persEyeHTML ? persEyeHTML('invest') : '')
-        + '<a onclick="fhInvPriceRefresh(true);toast&&toast(\'Đang cập nhật giá…\')">Cập nhật giá</a>'
         + '<a onclick="fhInvNewPositionSheet()">＋ Vị thế</a></span></div>';
       if (!v.positions.length) {
         h += '<section class="dbt-empty"><div class="dbt-empty-t">Theo dõi crypto, vàng, chứng khoán — tiền mua không tính là chi tiêu.</div>'
@@ -331,8 +334,13 @@
          ALWAYS wide, always its own row — it is the headline, not a tile,
          so it stays out of the pairing math below. */
       const pl = v.plK != null ? ('<span class="' + (v.plK >= 0 ? 'inv-up' : 'inv-down') + '">' + (v.plK >= 0 ? '▲ +' : '▼ −') + fmt(Math.abs(v.plK))
-        + (v.plBaseK > 0 ? ' (' + (v.plK >= 0 ? '+' : '−') + Math.abs(v.plK / v.plBaseK * 100).toFixed(1).replace(/\.0$/, '') + '%)' : '') + '</span>') : '';
+        + (v.plBaseK > 0 ? ' (' + (v.plK >= 0 ? '+' : '−') + _pctTxt(v.plK / v.plBaseK * 100) + ')' : '') + '</span>') : '';
+      /* refresh lives ON the hero (an SVG icon button, 44px hit) — §2.3 allows
+         the section header ONE right-side link, and the eye + ＋ Vị thế
+         already fill it */
       const hero = '<section class="dbt-tile wide inv-hero">'
+        + '<button class="inv-refresh" onclick="event.stopPropagation();fhInvPriceRefresh(true);toast&&toast(\'Đang cập nhật giá…\')" aria-label="Cập nhật giá">'
+        + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg></button>'
         + '<div class="dbt-tk">Giá trị hiện tại' + (v.mixed ? ' <span class="inv-stale">· một phần theo giá vốn</span>' : '') + '</div>'
         + '<div class="dbt-tv inv-total">' + fmt(v.totalK) + '</div>'
         + (pl ? '<div class="dbt-ts">' + pl + '</div>' : '')
