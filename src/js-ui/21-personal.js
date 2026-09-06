@@ -66,13 +66,25 @@ function persMonLabel(key, long){
    the FAMILY membersMeta (own member), so it shows regardless of personal-ledger
    lock state; the photo observer decrypts an '.enc' face in place, initials are
    the fallback. */
+var _persAvTries = 0, _persAvTimer = null;
 function persRenderAvatar(){
   var el=document.getElementById('pers-av'); if(!el) return;
   var mid=window.DB && window.DB.ownerMemberId;
   var m=mid && window.DB.memberById && window.DB.memberById[mid];
   var key=m?(m.is_shared?'Shared':m.name):null;
   var mm=(key && window.membersMeta)?window.membersMeta[key]:null;
-  if(!mm){ el.className='av av-40 av-shared'; el.removeAttribute('style'); el.textContent=''; return; }
+  if(!mm){
+    /* Family state hasn't hydrated yet — this tab often paints first. Never
+       blank a disc that already shows a face; when nothing is showing yet,
+       hold the neutral disc and retry briefly so it fills the moment the
+       member data lands (nothing else re-renders this tab for it). */
+    if(!el.textContent){ el.className='av av-40 av-shared'; el.removeAttribute('style'); }
+    if(_persAvTries < 12 && !_persAvTimer){
+      _persAvTimer = setTimeout(function(){ _persAvTimer=null; _persAvTries++; persRenderAvatar(); }, 500);
+    }
+    return;
+  }
+  _persAvTries = 0;
   el.className='av av-40';
   el.setAttribute('style', window.fhAvStyle(mm));
   el.textContent = window.fhAvIni(mm);
@@ -135,12 +147,19 @@ function renderPersonal(){
   if(!P){ host.innerHTML = '<div class="empty-note">Đang chuẩn bị sổ cá nhân của bạn…</div>'; return; }
 
   if(P.state==='provisioning' || P.state==='boot' || P.state==='loading'){
+    /* Every write and mirror pass re-hydrates through 'loading'. With a ready
+       view already on screen, keep it — the fresh numbers repaint quietly in a
+       moment; flashing a note over good data reads as the tab breaking. */
+    if(P.state==='loading' && window._persHadReady) return;
+    window._persLastHTML='';
     host.innerHTML = '<div class="empty-note">Đang chuẩn bị sổ cá nhân của bạn…</div>'; return;
   }
   if(P.state==='error'){
+    window._persHadReady=false; window._persLastHTML='';
     host.innerHTML = '<div class="empty-note">Chưa tải được sổ cá nhân. <a class="pers-link" onclick="fhPersonalBoot()">Thử lại</a></div>'; return;
   }
   if(P.state==='locked'){
+    window._persHadReady=false; window._persLastHTML='';
     host.innerHTML =
       '<div class="card pers-lock">'+
       '<div class="pers-lock-ic">'+PIC.lock+'</div>'+
@@ -495,6 +514,17 @@ function _persEmailRow(){
                  : 'Chi tiết từng giao dịch chỉ lưu sẵn cho tháng này và tháng trước. Tổng và biểu đồ phía trên vẫn tính đủ tháng đã chọn.'))+'</div>';
   }
   h += '</div>';
+  /* Re-renders arrive in bursts around boot (hydrate, mirror, slice, staged
+     count). When nothing in the template changed, skip the innerHTML swap —
+     a rebuild of identical markup is pure flicker, and it would also wipe the
+     debt section's in-place async updates. */
+  if(h === window._persLastHTML){
+    persChartAfterRender(isCur);
+    if(window.persDebtAfterRender) persDebtAfterRender();
+    return;
+  }
+  window._persLastHTML = h;
+  window._persHadReady = true;
   host.innerHTML = h;
   persChartAfterRender(isCur);   // strip scroll + auto label + (current month) guide & sync note
   if(window.persDebtAfterRender) persDebtAfterRender();   // async space balances → section refreshes in place
@@ -675,20 +705,38 @@ function persStripOnScroll(el){
   if(_pstRaf) return;
   _pstRaf=requestAnimationFrame(function(){ _pstRaf=0; persStripLabelSync(); });
 }
-/* The auto amount label rides the tallest CHI bar currently in view. A pinned
-   bar keeps its own label regardless — that one the person asked for. */
+/* The strip rescales to the tallest bar IN VIEW, not the whole timeline's —
+   one 40tr outlier months back must not squash this week to unreadable nubs.
+   Every scroll frame recomputes the visible max and re-heights every bar (the
+   CSS height transition turns that into a smooth breathe as giants enter and
+   leave). Visibility counts any overlap, so an outlier starts driving the
+   scale at the edge instead of popping at its midpoint. The auto amount label
+   rides the tallest visible bar — and yields the stage entirely while a
+   tapped bar holds a pinned label, so the two never talk over each other. */
 function persStripLabelSync(){
   var el=document.getElementById('pcf-strip'); if(!el) return;
-  var x0=el.scrollLeft, x1=x0+el.clientWidth, best=null, bestV=0;
-  for(var i=0;i<el.children.length;i++){
-    var c=el.children[i], mid=c.offsetLeft+c.offsetWidth/2;
-    if(mid<x0||mid>x1) continue;
+  var x0=el.scrollLeft, x1=x0+el.clientWidth, kids=el.children, i, c;
+  var visMax=0;
+  for(i=0;i<kids.length;i++){
+    c=kids[i];
+    if(c.offsetLeft+c.offsetWidth<x0 || c.offsetLeft>x1) continue;
     var v=Number(c.getAttribute('data-chi'))||0;
-    if(v>bestV){ bestV=v; best=c; }
+    if(v>visMax) visMax=v;
   }
-  for(var j=0;j<el.children.length;j++){
-    var s=el.children[j].querySelector('.pst-val');
-    if(s) s.style.opacity=(el.children[j]===best)?'1':'0';
+  if(!(visMax>0)) visMax=1;
+  var best=null, bestV=0;
+  for(i=0;i<kids.length;i++){
+    c=kids[i];
+    var chi=Number(c.getAttribute('data-chi'))||0;
+    var hp=chi>0?Math.min(100,Math.max(4,Math.round(chi/visMax*100))):0;
+    var bar=c.querySelector('.pst-b'); if(bar) bar.style.height=hp+'%';
+    var lab=c.querySelector('.pst-val, .pst-pin'); if(lab) lab.style.bottom='calc('+hp+'% + 3px)';
+    var vis=!(c.offsetLeft+c.offsetWidth<x0 || c.offsetLeft>x1);
+    if(vis && chi>bestV){ bestV=chi; best=c; }
+  }
+  for(i=0;i<kids.length;i++){
+    var s=kids[i].querySelector('.pst-val');
+    if(s) s.style.opacity=(!persPinKey && kids[i]===best)?'1':'0';
   }
 }
 function persChartAfterRender(isCur){

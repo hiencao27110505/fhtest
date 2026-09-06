@@ -403,7 +403,8 @@
 .pst::-webkit-scrollbar{display:none}
 .pst-c{flex:0 0 auto;width:40px;display:flex;flex-direction:column;align-items:center;gap:5px;-webkit-tap-highlight-color:transparent;cursor:pointer}
 .pst-bars{position:relative;height:72px;width:100%}
-.pst-b{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:min(26px,62%);border-radius:7px 7px 0 0;background:var(--good)}
+.pst-b{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:min(26px,62%);border-radius:7px 7px 0 0;background:var(--good);transition:height .25s ease}
+@media (prefers-reduced-motion:reduce){ .pst-b{transition:none} }
 .pst-l{font-size:9px;font-weight:600;color:var(--muted-soft);white-space:nowrap}
 .pst-l.on{color:var(--ink);font-weight:700}
 .pst-l.sel{color:var(--brand-ink);font-weight:800}
