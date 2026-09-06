@@ -553,6 +553,10 @@ sheets:
 | Duplicate masters (historic race) | Self-healed: first kept, rest deleted |
 | Review queue opened before the personal key resolves | Destination chip disabled; `_setState` re-renders the staged review on unlock so the chip corrects itself without closing the sheet |
 | Staged personal write fails during promotion | Abort before family writes and before deleting staged rows — nothing is lost |
+| A boot/hydrate request stalls forever (dead socket, backgrounded PWA resume) | 60s fetch deadline turns it into an error; the 12s boot watchdog acts first — unlatch + error screen, or settle back to a snapshot-painted `ready`. The loading note offers "Thử lại" after 8s. It can never require killing the app again |
+| Background refresh fails behind a painted view (snapshot or previous hydrate) | View kept, stale and quiet (`ready`); only a tab with nothing on it shows the error screen |
+| Hung boot attempt resolves minutes later | Orphaned by the generation counter — it may not write `P` or flip state over a newer attempt |
+| Snapshot undecryptable / stale / another uid | Silently discarded → cold boot. After card regen the old-key snapshot fails decrypt once, and the regen's own hydrate re-caches under the new key |
 
 ## 18. Security invariants
 
