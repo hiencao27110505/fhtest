@@ -176,6 +176,13 @@ when a price is old ("giá 2 ngày trước").
 - **Manual always wins**: a hand-entered price overrides the fetched one
   until refreshed deliberately. Offline shows the cached price + staleness
   label; a position never renders a value it cannot date.
+- **USDT is the quy-đổi bridge** (added 2026-09-06, post-ship): VN crypto
+  quotes in USDT, so USDT/VND rides along on every price fetch, "USDT" is a
+  first-class unit (a stack tracked as X USDT works end-to-end — symbol
+  `USDT`, quantity in USDT), and the manual price sheet accepts a price
+  **in USDT** that converts to ₫ through the cached rate at entry time.
+  The ledger stays VND-only — the conversion happens before storage,
+  consistent with the multi-currency epic remaining future work.
 
 ## 6. The surface — the "Đầu tư" bento
 

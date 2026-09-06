@@ -71,6 +71,10 @@
       const syms = (P.accounts || []).filter((a) => a.kind === 'investment' && (a.assetClass || 'other') === 'crypto' && a.assetSymbol)
         .map((a) => String(a.assetSymbol).toLowerCase());
       if (!syms.length) return false;
+      /* USDT/VND rides along on every fetch — it is the quy-đổi rate the price
+         sheet's "giá theo USDT" input converts through, VN crypto's lingua
+         franca. Costs nothing: same one API call. */
+      if (syms.indexOf('usdt') < 0) syms.push('usdt');
       const ids = {}; syms.forEach((s) => { ids[CG[s] || s] = s; });
       _fetching = true;
       try {
@@ -363,7 +367,7 @@
         body: '<div class="field"><label>Tên</label><input id="inv-pname" placeholder="vd. Bitcoin, Vàng nhẫn, CP FPT" oninput="fhModalDirty()"></div>'
           + '<div class="field"><label>Loại</label><div class="choices" id="inv-klass">' + Object.keys(CLS).map((k) => kchip(k, k === 'crypto')).join('') + '</div></div>'
           + '<div class="field"><label>Mã <span class="opt">· tuỳ chọn — crypto tự cập nhật giá theo mã</span></label><input id="inv-psym" placeholder="vd. BTC" oninput="fhModalDirty()"></div>'
-          + '<div class="field"><label>Số lượng tính bằng gì? <span class="opt">· tuỳ chọn</span></label><input id="inv-punit" placeholder="vd. chỉ (vàng), CP (cổ phiếu) — crypto tự lấy theo mã" oninput="fhModalDirty()"></div>'
+          + '<div class="field"><label>Số lượng tính bằng gì? <span class="opt">· tuỳ chọn</span></label><input id="inv-punit" placeholder="vd. USDT, chỉ (vàng), CP — crypto tự lấy theo mã" oninput="fhModalDirty()"></div>'
           + '<div class="dbt-note">Tiền mua vào không tính là chi tiêu — nó hiện thành dòng "Đầu tư tháng này" riêng.</div>',
         required: function () { return [{ el: document.getElementById('inv-pname'), ok: !!_valOf('inv-pname') }]; },
         save: async function () {
@@ -405,14 +409,34 @@
     };
     window.fhInvPriceSheet = function (posId) {
       const v = fhInvPositions(); const p = v && v.positions.find((x) => x.id === posId); if (!p) return;
+      /* the quy-đổi rate: fetched tether price if we have one (VN crypto quotes
+         everything in USDT — the person knows "0.85 USDT", not "22.400 ₫") */
+      const rate = _cacheGet('usdt');
+      const usdtIn = rate
+        ? '<div class="field"><label>Hoặc giá theo USDT <span class="opt">· tự quy đổi ra ₫</span></label>'
+          + '<input id="inv-price-usdt" inputmode="decimal" placeholder="vd. 0.85" oninput="fhModalDirty()"></div>'
+          + '<div class="dbt-note">1 USDT ≈ ' + fmt(rate.k) + ' · ' + (_ago(rate.at) || '') + ' — nhập một trong hai ô là đủ.</div>'
+        : '<div class="dbt-note">Bấm "Cập nhật giá" ở bento để lấy tỷ giá USDT → nhập giá theo USDT được luôn.</div>';
       _fhModal({
         title: 'Giá hiện tại — ' + _e(p.name), saveLabel: 'Lưu giá', reqMsg: 'Nhập giá mỗi ' + (p.unit || 'đơn vị'),
-        body: _amtIn2('inv-price', 'Giá mỗi ' + _e(p.unit || 'đơn vị'), p.priceK != null ? fmt(p.priceK) : '0 ₫')
+        body: _amtIn2('inv-price', 'Giá mỗi ' + _e(p.unit || 'đơn vị') + ' (₫)', p.priceK != null ? fmt(p.priceK) : '0 ₫')
+          + usdtIn
           + '<div class="dbt-note">' + (p.priceK != null ? 'Đang dùng: ' + fmt(p.priceK) + ' · ' + (_ago(p.priceAt) || '') + (p.priceSrc === 'manual' ? ' · tự nhập' : ' · tự động') + '. ' : '')
           + 'Giá chỉ để tính lãi/lỗ trên máy bạn — không gửi đi đâu.</div>',
-        required: function () { return [{ el: document.getElementById('inv-price'), ok: _amtOf2('inv-price') > 0 }]; },
+        required: function () {
+          const u = document.getElementById('inv-price-usdt');
+          const un = u ? Number(String(u.value).replace(',', '.').trim()) : 0;
+          return [{ el: document.getElementById('inv-price'), ok: _amtOf2('inv-price') > 0 || (isFinite(un) && un > 0) }];
+        },
         save: async function () {
-          const ok = await fhInvManualPriceSet(posId, _amtOf2('inv-price'));
+          let priceK = _amtOf2('inv-price');
+          if (!(priceK > 0) && rate) {
+            const u = document.getElementById('inv-price-usdt');
+            const un = u ? Number(String(u.value).replace(',', '.').trim()) : 0;
+            if (isFinite(un) && un > 0) priceK = un * rate.k;   // USDT → VND-thousands through the cached rate
+          }
+          if (!(priceK > 0)) throw new Error('save_failed');
+          const ok = await fhInvManualPriceSet(posId, priceK);
           if (!ok) throw new Error('save_failed');
           window.toast && toast('Đã lưu giá');
           return function () { _redraw(); openInvPosition(posId); };

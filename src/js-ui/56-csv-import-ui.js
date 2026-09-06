@@ -2731,12 +2731,20 @@ function csvStagedSelectAll(on){
 function csvBulkCat(name){
   if(!csvReview) return;
   var sel = csvStagedSelected(); if(!sel.length) return;
+  var skipped = 0;
   sel.forEach(function(c){
+    /* Kinds without a category (card payment, transfer leg, loan, repayment)
+       stay out of a bulk filing — writing a category onto them would both
+       confuse the card and teach a payee→category lesson for a payee whose
+       rows aren't spending (0122). */
+    if(c.isTransfer || c._xfer || c._repay || c._loan){ skipped++; return; }
     c.categoryName = name; c.catSource = 'user';
     if(typeof csvLearnFrom === 'function') csvLearnFrom(c);
   });
   renderCsvReview();
-  toast(esc(L('Đã xếp '+sel.length+' khoản vào '+name, 'Filed '+sel.length+' under '+name)));
+  var n = sel.length - skipped;
+  toast(esc(L('Đã xếp '+n+' khoản vào '+name, 'Filed '+n+' under '+name)
+    + (skipped ? L(' · '+skipped+' khoản vay/chuyển khoản giữ nguyên', ' · '+skipped+' loan/transfer rows untouched') : '')));
 }
 
 /* One destination across the selection.
@@ -2747,6 +2755,16 @@ function csvBulkCat(name){
    those have no _scope, so they follow the default, and changing it here would
    move rows the person never selected. Explicit on the selection, untouched
    everywhere else. */
+/* The same clearing the per-row picker does (csvPickRowScope), applied wherever
+   scope is set in BULK: the family book can never hold a card payment, transfer
+   leg, loan or repayment — leaving the flags on would import a receivable into
+   the shared ledger as spending (0122). */
+function csvScopeClearKinds(c){
+  c.isTransfer = false; c._payCardId = null;
+  c._xfer = false; c._xferOtherId = null;
+  c._repay = false; c._repayWho = null;
+  c._loan = false; c._loanWho = null; c._loanDue = null; c._lessonWhy = null;
+}
 function csvBulkScope(v){
   if(!csvReview) return false;
   var sel = csvStagedSelected(); if(!sel.length) return false;
@@ -2754,7 +2772,7 @@ function csvBulkScope(v){
     toast(L('Mở khoá sổ cá nhân ở tab Cá nhân trước','Unlock your personal ledger first'));
     return false;
   }
-  sel.forEach(function(c){ c._scope = v; });
+  sel.forEach(function(c){ c._scope = v; if(v!=='personal') csvScopeClearKinds(c); });
   renderCsvReview();
   return true;
 }
@@ -3016,7 +3034,7 @@ function csvEditRoute(p, v){
   csvTxrRoutes[p] = v;
   csvTxrRouteSave();
   var g = csvTxrGroups();
-  (g[p] ? g[p].idx : []).forEach(function(i){ var c = csvReview.ready[i]; if(c) c._scope = v; });
+  (g[p] ? g[p].idx : []).forEach(function(i){ var c = csvReview.ready[i]; if(c){ c._scope = v; if(v!=='personal') csvScopeClearKinds(c); } });
   renderCsvReview();
   toast(esc(v === 'personal'
     ? L(p + ' sẽ vào sổ Cá nhân, cả các lần sau', p + ' goes to your personal book from now on')
