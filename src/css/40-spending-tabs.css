@@ -418,17 +418,18 @@
 .cf-duealert{margin-top:10px;font-size:13px;font-weight:600;color:var(--danger);background:var(--danger-tint);border-radius:12px;padding:9px 12px}
 
 /* ── The eye: per-section stat masking on the Cá nhân tab (fh-pers-mask,
-   21-personal.js). Masked = values BLUR — layout, labels and taps stay, so
-   toggling never reflows the tab and a glance-over-the-shoulder sees shapes,
-   not numbers. Device-local preference. ── */
+   21-personal.js). Masked = values turn to DOTS (••••, the password-field
+   treatment) — layout, labels and taps stay, so toggling never reflows the
+   tab. Graphics that can't be dotted (chart bars, debt rings, usage meters)
+   blur instead. Device-local preference. ── */
 .sec-eye{display:inline-flex;align-items:center;min-height:44px;margin:-13px -2px;padding:0 5px;cursor:pointer;color:var(--muted)}
 .sec-eye svg{width:19px;height:19px}
 .sec-eye.on{color:var(--brand-ink)}
 .cf-lblrow .cf-lbl{flex:1}                       /* label left, eye + caret right */
 .cf-lblrow .sec-eye{min-height:0;margin:0}
-.sec-masked .cf-big,.sec-masked .cf-tv,.sec-masked .cf-lend,.sec-masked .pst,
+.sec-masked .cf-big,.sec-masked .cf-tv,.sec-masked .cf-lend,
 .sec-masked .cf-note,.sec-masked .cf-daily,.sec-masked .cf-duealert,
-.sec-masked .dbt-tv,.sec-masked .dbt-ts,.sec-masked .dbt-lv,.sec-masked .dbt-hero svg,
-.sec-masked .dbt-ms,
+.sec-masked .dbt-tv,.sec-masked .dbt-ts,.sec-masked .dbt-lv,
 .sec-masked .psp-mval,.sec-masked .psp-amt,.sec-masked .psp-pass-amt,
-.sec-masked .r-amt{filter:blur(7px);user-select:none;-webkit-user-select:none}
+.sec-masked .r-amt{-webkit-text-security:disc;text-security:disc;user-select:none;-webkit-user-select:none}
+.sec-masked .pst,.sec-masked .dbt-hero svg,.sec-masked .dbt-ms{filter:blur(7px)}
