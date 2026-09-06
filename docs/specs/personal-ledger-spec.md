@@ -402,9 +402,11 @@ private half and compares it to the server's copy.
 
 ![Tab state machine](personal-state-machine.png)
 
-`fhPersonalBoot()` runs from hydrate (not awaited) and lazily on first tab
-open. Order: session uid → IndexedDB key cache hit? → else read
-`personal_keys`:
+`fhPersonalBoot()` fires at the **top of `afterLogin`** — before the device
+gate, the profile read and `my_families`, none of which the ledger depends on —
+and again (idempotent, debounced 2.5s after a completed boot) from the family
+hydrate's tail and lazily on first tab open. Order: session uid → IndexedDB
+key cache hit? → **warm snapshot restore** → else read `personal_keys`:
 
 - **Read error → `error`.** Never treated as "no key" — provisioning on a
   transient failure would mint a fresh (mismatched) card every reopen while
@@ -416,6 +418,25 @@ open. Order: session uid → IndexedDB key cache hit? → else read
 State changes re-render the tab **and** the staged-review screen if it is on
 screen — the review's "Cá nhân" destination chip is disabled while the ledger
 has no key, and nothing else would re-enable it (`19-personal.js:56-71`).
+
+**Warm snapshot (2026-09-06).** The landing tab paints before its first network
+round trip: each fresh hydrate serializes the decoded display slice, encrypts
+it under the personal DEK, and stores it beside the cached key in the `fh-keys`
+IDB (`psnap:<uid>` — wiped wholesale by sign-out, TTL 14 days). Boot restores
+it straight to `ready`; the real hydrate then refreshes quietly behind the kept
+view. Only fresh data is ever cached (`P.fromSnapshot` guards the save), and a
+wrong-uid/undecryptable/expired snapshot just means a cold boot, never an error.
+
+**Boot resilience (2026-09-06).** Every supabase request carries a 60s abort
+deadline (10-client-auth.js), so a dead socket is an error, not an immortal
+await. On top of that, boot runs a 12s watchdog: still not ready/locked → the
+re-entrancy latch is force-released and the tab lands on the error screen
+(retry) — or settles back to `ready` if a snapshot view is already painted. A
+generation counter orphans hung attempts (they may not write `P` or state
+late), and hydrate decodes into locals assigned atomically so a retry racing a
+slow pass cannot interleave a doubled ledger. The loading note itself grows a
+"Mạng chậm? Thử lại" link after 8s, wired to the force-unlatching
+`fhPersonalRetry`.
 
 `fhPersonalHydrate()` decrypts a **window from the 1st of last month** —
 transactions, incomes, and this month's budget row — into `P.txns` /

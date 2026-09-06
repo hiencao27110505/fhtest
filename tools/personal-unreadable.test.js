@@ -32,9 +32,13 @@ t('text fields degrade to null so a bad NOTE never marks the row unreadable',
 console.log('\n-- the row is marked, and counted --');
 t('rows carry _unreadable', /_unreadable: bad/.test(data));
 t('an unreadable amount becomes null, never 0', /amt: bad \? null : Number\(a\)/.test(data));
-t('a running count is kept for the UI', /P\.unreadable\+\+/.test(data));
+/* The hydrate refactor builds into locals and assigns once at the end (so a
+   stale boot can be orphaned atomically) — the invariants are unchanged: a
+   fresh counter every hydrate, incremented per unreadable amount, published
+   to P.unreadable in one shot. */
+t('a running count is kept for the UI', /unreadable\+\+/.test(data));
 t('the counter resets each hydrate, so it cannot drift',
-  /P\.txns = \[\]; P\.unreadable = 0;/.test(data));
+  /let unreadable = 0/.test(data) && /P\.unreadable = unreadable/.test(data));
 t('incomes are covered too, not just expenses',
   (data.match(/_unreadable: bad/g) || []).length >= 2);
 

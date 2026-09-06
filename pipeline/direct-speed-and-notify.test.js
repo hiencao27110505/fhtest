@@ -237,7 +237,9 @@ const GRANT = (over = {}) => ({
   const guards = (sw.match(/res\.ok && res\.type === 'basic'/g) || []).length;
   t('both cache paths are guarded (navigate + cache-first)', guards === 2, 'found ' + guards);
   t('the cache name was bumped so poisoned entries are evicted',
-    /familyhub-v43[5-9]|familyhub-v4[4-9]\d/.test(sw), (sw.match(/familyhub-v\d+/) || [])[0]);
+    // any version from v435 on — the old regex topped out at v499 and failed the day v500 shipped
+    (function(){ var m = sw.match(/familyhub-v(\d+)/); return !!m && Number(m[1]) >= 435; })(),
+    (sw.match(/familyhub-v\d+/) || [])[0]);
   t('the media cache is still NOT tied to CACHE_NAME', /familyhub-media-v2/.test(sw));
 
 
