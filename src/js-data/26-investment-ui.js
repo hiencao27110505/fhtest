@@ -144,6 +144,9 @@
     /* ── writers — self-contained; every path funnels through re-hydrate ───── */
     window.fhInvPositionCreate = async function (name, symbol, unit, klass) {
       const P = _P(); if (!P || !P.key || !name) return null;
+      /* crypto's unit IS its symbol (0.0025 BTC) — filling it twice is busywork,
+         so an empty unit inherits the Mã. Vàng/CK keep their own units (chỉ, CP). */
+      if (!unit && symbol && (klass || 'other') === 'crypto') unit = String(symbol).toUpperCase();
       const row = { owner_user_id: P.uid, kind: 'investment', human_verified: true,
         name_enc: await _enc(name),
         asset_symbol_enc: symbol ? await _enc(symbol) : null,
@@ -360,7 +363,7 @@
         body: '<div class="field"><label>Tên</label><input id="inv-pname" placeholder="vd. Bitcoin, Vàng nhẫn, CP FPT" oninput="fhModalDirty()"></div>'
           + '<div class="field"><label>Loại</label><div class="choices" id="inv-klass">' + Object.keys(CLS).map((k) => kchip(k, k === 'crypto')).join('') + '</div></div>'
           + '<div class="field"><label>Mã <span class="opt">· tuỳ chọn — crypto tự cập nhật giá theo mã</span></label><input id="inv-psym" placeholder="vd. BTC" oninput="fhModalDirty()"></div>'
-          + '<div class="field"><label>Đơn vị <span class="opt">· tuỳ chọn</span></label><input id="inv-punit" placeholder="vd. BTC, chỉ, CP, CCQ" oninput="fhModalDirty()"></div>'
+          + '<div class="field"><label>Số lượng tính bằng gì? <span class="opt">· tuỳ chọn</span></label><input id="inv-punit" placeholder="vd. chỉ (vàng), CP (cổ phiếu) — crypto tự lấy theo mã" oninput="fhModalDirty()"></div>'
           + '<div class="dbt-note">Tiền mua vào không tính là chi tiêu — nó hiện thành dòng "Đầu tư tháng này" riêng.</div>',
         required: function () { return [{ el: document.getElementById('inv-pname'), ok: !!_valOf('inv-pname') }]; },
         save: async function () {
