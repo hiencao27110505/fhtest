@@ -19,5 +19,10 @@
    siblings uneven heights and the whole grid read as broken */
 .inv-sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
+/* the coin's face — CoinGecko logo beside the name (class mark as fallback) */
+.inv-logo{width:18px;height:18px;border-radius:50%;vertical-align:-4px;margin-right:6px;background:var(--fill-neutral)}
+.inv-mark{margin-right:5px}
+#inv-title .inv-logo{width:24px;height:24px;vertical-align:-3px;margin-right:8px}
+
 /* the zoom-in shares #debt-overlay's classes; only the price link needs a nudge */
 #invest-overlay .dbt-relink{white-space:nowrap}

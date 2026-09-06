@@ -50,11 +50,20 @@
     const _PK = () => 'fh-invprice:' + (((_P() || {}).uid) || '');
     const _cacheAll = function () { try { return JSON.parse(localStorage.getItem(_PK()) || '{}'); } catch (e) { return {}; } };
     const _cacheGet = (sym) => sym ? (_cacheAll()[String(sym).toLowerCase()] || null) : null;
-    const _cacheSet = function (sym, priceK) {
+    const _cacheSet = function (sym, priceK, img) {
       if (!sym) return;
       const all = _cacheAll();
-      all[String(sym).toLowerCase()] = { k: priceK, at: new Date().toISOString() };
+      all[String(sym).toLowerCase()] = { k: priceK, at: new Date().toISOString(), img: img || (all[String(sym).toLowerCase()] || {}).img || null };
       try { localStorage.setItem(_PK(), JSON.stringify(all)); } catch (e) {}
+    };
+    /* the position's face: the coin's own logo (rides the same markets call,
+       cached beside its price; onerror hides itself offline) — else a class
+       mark, so vàng/CK/CCQ read at a glance too */
+    const CLS_MARK = { crypto: '🪙', gold: '🥇', stock: '📊', fund: '🧺', other: '💼' };
+    const _logoHtml = function (p) {
+      const c = (p.klass === 'crypto' && p.symbol) ? _cacheGet(p.symbol) : null;
+      if (c && c.img) return '<img class="inv-logo" src="' + _e(c.img) + '" alt="" onerror="this.style.display=\'none\'">';
+      return '<span class="inv-mark">' + (CLS_MARK[p.klass] || CLS_MARK.other) + '</span>';
     };
     let _fetchedAt = 0, _fetching = false;
     /* ONE markets call covers the top 250 coins by market cap — id, symbol and
@@ -85,11 +94,11 @@
         const bySym = {};   // first occurrence wins = highest market cap
         for (const row of (Array.isArray(list) ? list : [])) {
           const s = String(row.symbol || '').toLowerCase();
-          if (s && !(s in bySym) && row.current_price > 0) bySym[s] = row.current_price;
+          if (s && !(s in bySym) && row.current_price > 0) bySym[s] = { k: row.current_price, img: row.image || null };
         }
         let got = 0, missed = [];
         for (const s of syms) {
-          if (bySym[s]) { _cacheSet(s, bySym[s] / 1000); got++; }
+          if (bySym[s]) { _cacheSet(s, bySym[s].k / 1000, bySym[s].img); got++; }
           else missed.push(s.toUpperCase());
         }
         _fetchedAt = Date.now();
@@ -308,7 +317,7 @@
         const ageMs = (p.valueK != null && p.priceAt) ? (Date.now() - new Date(p.priceAt).getTime()) : 0;
         const stale = ageMs > 26 * 3600000 ? ('<span class="inv-stale">giá ' + _ago(p.priceAt) + '</span>') : '';
         tiles.push('<section class="dbt-tile" onclick="openInvPosition(\'' + p.id + '\')">'
-          + '<div class="dbt-tk">' + _e(p.name) + '</div>'
+          + '<div class="dbt-tk">' + _logoHtml(p) + _e(p.name) + '</div>'
           + '<div class="dbt-tv">' + fmt(p.displayK) + '</div>'
           + '<div class="dbt-ts inv-sub">' + hold + (hold ? ' · ' : '') + _delta(p) + (stale ? ' · ' + stale : '') + '</div>'
           + '</section>');
@@ -384,7 +393,7 @@
         }
         b += '</div>';
       }
-      document.getElementById('inv-title').textContent = p.name;
+      document.getElementById('inv-title').innerHTML = _logoHtml(p) + _e(p.name);
       document.getElementById('inv-body').innerHTML = b;
       document.getElementById('invest-overlay').classList.add('on');
       const sc = document.getElementById('inv-scroll'); if (sc) sc.scrollTop = 0;

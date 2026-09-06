@@ -1764,6 +1764,11 @@ input{font-family:inherit}
    siblings uneven heights and the whole grid read as broken */
 .inv-sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
+/* the coin's face — CoinGecko logo beside the name (class mark as fallback) */
+.inv-logo{width:18px;height:18px;border-radius:50%;vertical-align:-4px;margin-right:6px;background:var(--fill-neutral)}
+.inv-mark{margin-right:5px}
+#inv-title .inv-logo{width:24px;height:24px;vertical-align:-3px;margin-right:8px}
+
 /* the zoom-in shares #debt-overlay's classes; only the price link needs a nudge */
 #invest-overlay .dbt-relink{white-space:nowrap}
 
@@ -18797,7 +18802,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v494';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v495';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -23510,11 +23515,20 @@ window.obGoogle = async function () {
     const _PK = () => 'fh-invprice:' + (((_P() || {}).uid) || '');
     const _cacheAll = function () { try { return JSON.parse(localStorage.getItem(_PK()) || '{}'); } catch (e) { return {}; } };
     const _cacheGet = (sym) => sym ? (_cacheAll()[String(sym).toLowerCase()] || null) : null;
-    const _cacheSet = function (sym, priceK) {
+    const _cacheSet = function (sym, priceK, img) {
       if (!sym) return;
       const all = _cacheAll();
-      all[String(sym).toLowerCase()] = { k: priceK, at: new Date().toISOString() };
+      all[String(sym).toLowerCase()] = { k: priceK, at: new Date().toISOString(), img: img || (all[String(sym).toLowerCase()] || {}).img || null };
       try { localStorage.setItem(_PK(), JSON.stringify(all)); } catch (e) {}
+    };
+    /* the position's face: the coin's own logo (rides the same markets call,
+       cached beside its price; onerror hides itself offline) — else a class
+       mark, so vàng/CK/CCQ read at a glance too */
+    const CLS_MARK = { crypto: '🪙', gold: '🥇', stock: '📊', fund: '🧺', other: '💼' };
+    const _logoHtml = function (p) {
+      const c = (p.klass === 'crypto' && p.symbol) ? _cacheGet(p.symbol) : null;
+      if (c && c.img) return '<img class="inv-logo" src="' + _e(c.img) + '" alt="" onerror="this.style.display=\'none\'">';
+      return '<span class="inv-mark">' + (CLS_MARK[p.klass] || CLS_MARK.other) + '</span>';
     };
     let _fetchedAt = 0, _fetching = false;
     /* ONE markets call covers the top 250 coins by market cap — id, symbol and
@@ -23545,11 +23559,11 @@ window.obGoogle = async function () {
         const bySym = {};   // first occurrence wins = highest market cap
         for (const row of (Array.isArray(list) ? list : [])) {
           const s = String(row.symbol || '').toLowerCase();
-          if (s && !(s in bySym) && row.current_price > 0) bySym[s] = row.current_price;
+          if (s && !(s in bySym) && row.current_price > 0) bySym[s] = { k: row.current_price, img: row.image || null };
         }
         let got = 0, missed = [];
         for (const s of syms) {
-          if (bySym[s]) { _cacheSet(s, bySym[s] / 1000); got++; }
+          if (bySym[s]) { _cacheSet(s, bySym[s].k / 1000, bySym[s].img); got++; }
           else missed.push(s.toUpperCase());
         }
         _fetchedAt = Date.now();
@@ -23768,7 +23782,7 @@ window.obGoogle = async function () {
         const ageMs = (p.valueK != null && p.priceAt) ? (Date.now() - new Date(p.priceAt).getTime()) : 0;
         const stale = ageMs > 26 * 3600000 ? ('<span class="inv-stale">giá ' + _ago(p.priceAt) + '</span>') : '';
         tiles.push('<section class="dbt-tile" onclick="openInvPosition(\'' + p.id + '\')">'
-          + '<div class="dbt-tk">' + _e(p.name) + '</div>'
+          + '<div class="dbt-tk">' + _logoHtml(p) + _e(p.name) + '</div>'
           + '<div class="dbt-tv">' + fmt(p.displayK) + '</div>'
           + '<div class="dbt-ts inv-sub">' + hold + (hold ? ' · ' : '') + _delta(p) + (stale ? ' · ' + stale : '') + '</div>'
           + '</section>');
@@ -23844,7 +23858,7 @@ window.obGoogle = async function () {
         }
         b += '</div>';
       }
-      document.getElementById('inv-title').textContent = p.name;
+      document.getElementById('inv-title').innerHTML = _logoHtml(p) + _e(p.name);
       document.getElementById('inv-body').innerHTML = b;
       document.getElementById('invest-overlay').classList.add('on');
       const sc = document.getElementById('inv-scroll'); if (sc) sc.scrollTop = 0;
