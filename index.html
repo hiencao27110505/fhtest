@@ -23564,19 +23564,42 @@ window.obGoogle = async function () {
     const _PK = () => 'fh-invprice:' + (((_P() || {}).uid) || '');
     const _cacheAll = function () { try { return JSON.parse(localStorage.getItem(_PK()) || '{}'); } catch (e) { return {}; } };
     const _cacheGet = (sym) => sym ? (_cacheAll()[String(sym).toLowerCase()] || null) : null;
-    const _cacheSet = function (sym, priceK, img) {
+    const _cacheSet = function (sym, priceK) {
       if (!sym) return;
       const all = _cacheAll();
-      all[String(sym).toLowerCase()] = { k: priceK, at: new Date().toISOString(), img: img || (all[String(sym).toLowerCase()] || {}).img || null };
+      all[String(sym).toLowerCase()] = { k: priceK, at: new Date().toISOString() };
       try { localStorage.setItem(_PK(), JSON.stringify(all)); } catch (e) {}
     };
-    /* the position's face: the coin's own logo (rides the same markets call,
-       cached beside its price; onerror hides itself offline) — else a class
-       mark, so vàng/CK/CCQ read at a glance too */
+    /* ── logos, ZERO-LEAK: every device fetches the SAME top-30 logo set,
+       holdings-blind, and renders from local data-URIs afterwards. A per-held-
+       coin <img> would tell the CDN which coins this person owns — selective
+       requests ARE the leak. A held coin outside the top 30 wears the class
+       mark rather than cost a revealing request. Logos are public artwork,
+       not user data → one global cache key, no uid. ── */
+    const _LK = 'fh-invlogos';
+    const _logoAll = function () { try { return JSON.parse(localStorage.getItem(_LK) || '{}'); } catch (e) { return {}; } };
+    async function _logoSweep(rows) {
+      const all = _logoAll(); let dirty = false;
+      for (const r of rows) {
+        const s = String(r.symbol || '').toLowerCase();
+        if (!s || all[s] || !r.image) continue;
+        try {
+          const resp = await fetch(r.image); if (!resp.ok) continue;
+          const b = await resp.blob(); if (b.size > 30000) continue;
+          all[s] = await new Promise(function (res, rej) {
+            const fr = new FileReader(); fr.onload = function () { res(fr.result); }; fr.onerror = rej; fr.readAsDataURL(b);
+          });
+          dirty = true;
+        } catch (e) {}
+      }
+      if (dirty) { try { localStorage.setItem(_LK, JSON.stringify(all)); } catch (e) {} _redraw(); _reopen(); }
+    }
+    /* the position's face: local logo bytes if the coin is top-30, else a
+       class mark, so vàng/CK/CCQ read at a glance too */
     const CLS_MARK = { crypto: '🪙', gold: '🥇', stock: '📊', fund: '🧺', other: '💼' };
     const _logoHtml = function (p) {
-      const c = (p.klass === 'crypto' && p.symbol) ? _cacheGet(p.symbol) : null;
-      if (c && c.img) return '<img class="inv-logo" src="' + _e(c.img) + '" alt="" onerror="this.style.display=\'none\'">';
+      const uri = (p.klass === 'crypto' && p.symbol) ? _logoAll()[String(p.symbol).toLowerCase()] : null;
+      if (uri) return '<img class="inv-logo" src="' + uri + '" alt="">';
       return '<span class="inv-mark">' + (CLS_MARK[p.klass] || CLS_MARK.other) + '</span>';
     };
     let _fetchedAt = 0, _fetching = false;
@@ -23608,13 +23631,16 @@ window.obGoogle = async function () {
         const bySym = {};   // first occurrence wins = highest market cap
         for (const row of (Array.isArray(list) ? list : [])) {
           const s = String(row.symbol || '').toLowerCase();
-          if (s && !(s in bySym) && row.current_price > 0) bySym[s] = { k: row.current_price, img: row.image || null };
+          if (s && !(s in bySym) && row.current_price > 0) bySym[s] = row.current_price;
         }
         let got = 0, missed = [];
         for (const s of syms) {
-          if (bySym[s]) { _cacheSet(s, bySym[s].k / 1000, bySym[s].img); got++; }
+          if (bySym[s]) { _cacheSet(s, bySym[s] / 1000); got++; }
           else missed.push(s.toUpperCase());
         }
+        /* fire-and-forget: the fixed top-30 logo sweep — identical for every
+           user by construction, so it says nothing about this one */
+        try { _logoSweep((Array.isArray(list) ? list : []).slice(0, 30)); } catch (eLg) {}
         _fetchedAt = Date.now();
         if (got) { _redraw(); _reopen(); }
         if (force && window.toast) {

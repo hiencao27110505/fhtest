@@ -255,7 +255,13 @@ forward-only, per the full-ledger precedent.
   like every personal value; only routing/timing keys stay plaintext, per
   the 0105 rule.
 - Price fetches are the one outbound call — device-side, public data,
-  fail-quiet, never proxied through the backend (I4).
+  fail-quiet, never proxied through the backend (I4). **Zero-leak by
+  construction** (hardened 2026-09-06): the markets call fetches the generic
+  top-250 list (no holdings sent), and coin logos are bulk-fetched as the
+  SAME fixed top-30 set on every device, cached as local data-URIs — a
+  per-held-coin image request would have told the CDN which coins the
+  person owns; selective requests are the leak. A held coin outside the
+  top 30 wears a class mark rather than cost a revealing request.
 - **Nothing auto-imports and nothing auto-classifies.** Every captured row
   still passes the human gate; memory pre-selects, the person commits.
 
