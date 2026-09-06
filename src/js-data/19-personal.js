@@ -995,7 +995,16 @@
       const _match = (a) => tail
         ? ((a.provider || '') === (prov || '') && (a.tail || '') === tail)
         : (a.kind === info.kind && (a.provider || '') === (prov || '') && !a.tail);
-      const hit = P.accounts.find(_match);
+      let hit = P.accounts.find(_match);
+      /* A caller with a tail but NO provider still means one specific
+         instrument. If exactly one active account carries that tail, adopt it
+         rather than minting a provider-null twin (the "Tài khoản ••4751"
+         duplicate, 2026-09-06). Two accounts sharing a tail is ambiguous —
+         fall through to the exact match's verdict. */
+      if (!hit && tail && !prov) {
+        const byTail = P.accounts.filter((a) => (a.tail || '') === tail);
+        if (byTail.length === 1) hit = byTail[0];
+      }
       if (hit) return hit.id;
       const name = info.name || ((prov ? prov.charAt(0).toUpperCase() + prov.slice(1) : 'Tài khoản') + (tail ? ' ••' + tail : ''));
       const r = await _sb().from('personal_accounts').insert({ owner_user_id: P.uid, kind: info.kind,

@@ -74,6 +74,41 @@ Both doors now offer an optional **"Vào tài khoản nào?"** chip row:
   and pass `{accountId}` to `fhPersonalAddIncome`. No schema change; no change to
   family income (family rows have no account concept).
 
+### The landing tab stops being slow-then-sometimes-frozen
+
+The Cá nhân tab — the landing tab — opened cold every time and could freeze on
+"Đang chuẩn bị sổ cá nhân…" until the app was killed. Diagnosed with a Puppeteer
+harness (stubbed supabase vendor, per-call latency + stall injection): the tab
+waited on **6–7 sequential round trips** (device gate → profiles → my_families →
+hydrate → photos → review memory), and a single stalled fetch hung it forever —
+no request deadline, the loading state had no retry, and the `_booting` latch
+made every later `fhPersonalBoot()` a silent no-op. Server was innocent (5ms).
+Four structural fixes, verified red→green in the same harness:
+
+- **Warm snapshot** (`19-personal.js`): the last hydrated display slice is
+  serialized, encrypted under the personal DEK, and stored beside it in the
+  `fh-keys` IDB (wiped by sign-out wholesale). Boot restores it before the first
+  network round trip — the tab paints real data in ~0.4s even with a fully hung
+  network — then the real hydrate refreshes quietly. Stale-guarded: only fresh
+  hydrates are cached (`P.fromSnapshot`), TTL 14d, wrong-uid/undecryptable →
+  cold boot, never an error.
+- **De-serialized boot**: `fhPersonalBoot()` fires at the TOP of `afterLogin`
+  (the ledger needs a session, not the device gate / profiles / my_families);
+  photos + review-memory joined the hydrate's `Promise.all` instead of trailing
+  it. Cold-boot time-to-ready in the harness: 2229ms → ~650ms at 300ms RTT.
+- **Watchdog + unlatch** (`19-personal.js`): a 12s watchdog on boot force-releases
+  `_booting` and lands on the error screen (retry) — or settles a
+  snapshot-painted tab back to ready instead of tearing it down. A generation
+  counter orphans hung attempts (they may not write `P` or state late);
+  hydrate decodes into locals and assigns atomically so a retry racing a slow
+  pass can't interleave a doubled ledger. The loading note itself grows a
+  "Mạng chậm? Thử lại" link after 8s (`21-personal.js`), wired to the new
+  force-unlatching `fhPersonalRetry`.
+- **Global fetch deadline** (`10-client-auth.js`): every supabase request now
+  carries a 60s AbortController cap (callers with their own signal keep it) —
+  a zombie socket becomes a catchable error instead of an immortal await,
+  app-wide.
+
 ## 2026-09-05
 
 ### The queue stays shut while the first read is still running

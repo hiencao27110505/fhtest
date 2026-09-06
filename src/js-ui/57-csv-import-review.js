@@ -713,6 +713,12 @@ function buildCsvCandidates(parsed, result) {
       if (_sx) {
         if (_sx.flow === 'transfer') { isTransfer = true; isIncome = false; }
         else if (_sa && _sa.kind === 'credit_card' && _sx.direction === 'credit') { isTransfer = true; isIncome = false; }
+        /* A bank's own payment-confirmation mail can carry NO memo at all (VIB
+           "Thanh toán thẻ tín dụng thành công" templates memo:null), so the
+           regex above never sees it. fhCardPayShaped reads the sealed shape
+           instead: classifier-says-card while the number is a non-card account
+           the user owns = a card payment leaving that account. */
+        else if (window.fhCardPayShaped && window.fhCardPayShaped(_sx)) { isTransfer = true; isIncome = false; }
         /* Money INTO a deposit/wallet is a first-class candidate now (0109 full
            ledger): a checkable card with a 3-way Kind control — Thu nhập /
            Chuyển khoản nội bộ / Thu nợ — not a row parked in the inflow strip. */

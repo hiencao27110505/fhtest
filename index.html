@@ -4561,7 +4561,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     </div></div>
     <!-- Instrument (0105): personal expenses only; chips built from personal_accounts.
          A credit-card pick is what feeds that card's derived balance (Nợ & cho vay). -->
-    <div class="field ex-arow" id="ex-acctfield" style="display:none"><label>Trả bằng gì? <span class="opt">· tuỳ chọn</span></label><div class="choices" id="ex-acct"></div></div>
+    <div class="field ex-arow" id="ex-acctfield" style="display:none"><label><span id="ex-acct-lbl">Trả bằng gì?</span> <span class="opt">· tuỳ chọn</span></label><div class="choices" id="ex-acct"></div></div>
     <div class="field" id="ex-notefield">
       <label id="ex-note-lbl" data-t="exWhatFor">What for?</label>
       <input id="ex-note" data-tp="phExNote" placeholder="e.g. Grocery run" oninput="onExNoteInput()" onblur="onExNoteBlur()"/>
@@ -6541,6 +6541,17 @@ function persFamPhotos(){
   }catch(e){ return {srcs:[], fresh:0, more:0}; }
 }
 
+/* Loading-state watch: stamps when the loading note first painted, clears when
+   any real state lands. The retry goes through fhPersonalRetry — the hard,
+   force-unlatching path — because the soft fhPersonalBoot() no-ops while a hung
+   attempt still holds the re-entrancy latch (the exact freeze being escaped). */
+function persLoadWatchClear(){ window._persLoadT=null; clearTimeout(window._persLoadTimer); }
+window.persRetryBoot = function(){
+  window._persLoadT = Date.now();
+  try{ if(window.fhPersonalRetry) fhPersonalRetry(); else if(window.fhPersonalBoot) fhPersonalBoot(); }catch(e){}
+  try{ renderPersonal(); }catch(e){}
+};
+
 function renderPersonal(){
   var host = document.getElementById('pers-body'); if(!host) return;
   persRenderAvatar();     // header disc — independent of personal-ledger state
@@ -6553,13 +6564,25 @@ function renderPersonal(){
     /* Every write and mirror pass re-hydrates through 'loading'. With a ready
        view already on screen, keep it — the fresh numbers repaint quietly in a
        moment; flashing a note over good data reads as the tab breaking. */
-    if(P.state==='loading' && window._persHadReady) return;
+    if(P.state==='loading' && window._persHadReady){ persLoadWatchClear(); return; }
     window._persLastHTML='';
-    host.innerHTML = '<div class="empty-note">Đang chuẩn bị sổ cá nhân của bạn…</div>'; return;
+    /* A loading note with no exit was the freeze: if a request stalls, this
+       screen used to be terminal. After 8s the note grows a "Thử lại" that goes
+       through the hard retry (fhPersonalRetry force-unlatches the boot guard). */
+    if(!window._persLoadT) window._persLoadT = Date.now();
+    var _waited = (Date.now() - window._persLoadT) > 8000;
+    host.innerHTML = '<div class="empty-note">Đang chuẩn bị sổ cá nhân của bạn…'
+      + (_waited ? '<br><a class="pers-link" onclick="persRetryBoot()">Mạng chậm? Thử lại</a>' : '') + '</div>';
+    if(!_waited){
+      clearTimeout(window._persLoadTimer);
+      window._persLoadTimer = setTimeout(function(){ try{ renderPersonal(); }catch(e){} }, 8200);
+    }
+    return;
   }
+  persLoadWatchClear();
   if(P.state==='error'){
     window._persHadReady=false; window._persLastHTML='';
-    host.innerHTML = '<div class="empty-note">Chưa tải được sổ cá nhân. <a class="pers-link" onclick="fhPersonalBoot()">Thử lại</a></div>'; return;
+    host.innerHTML = '<div class="empty-note">Chưa tải được sổ cá nhân. <a class="pers-link" onclick="persRetryBoot()">Thử lại</a></div>'; return;
   }
   if(P.state==='locked'){
     window._persHadReady=false; window._persLastHTML='';
@@ -6689,7 +6712,7 @@ function renderPersonal(){
        })() : '')
      + '<div class="cf-cta">'
      +   '<button class="cc-row" onclick="openPersonalBudget()"><span class="cc-ic">'+PIC.chart+'</span><span class="cc-t">'+(P.budget>0?'Ngân sách cá nhân':'Lập ngân sách cá nhân')+'</span>'+_ccChev+'</button>'
-     +   '<button class="cc-row" onclick="openTxns(\'personal\')"><span class="cc-ic">'+PIC.list+'</span><span class="cc-t">Xem chi tiêu</span>'+_ccChev+'</button>'
+     +   '<button class="cc-row" onclick="openTxns(\'personal\')"><span class="cc-ic">'+PIC.list+'</span><span class="cc-t">Xem giao dịch</span>'+_ccChev+'</button>'
      +   '<button class="cc-row" onclick="openPersonalExpense()"><span class="cc-ic">'+PIC.plus+'</span><span class="cc-t">Ghi giao dịch</span>'+_ccChev+'</button>'
      /* Fourth row of the SAME list, not a card of its own — it is one of the
         things you can do from here, and floating it outside the card made it
@@ -6860,14 +6883,18 @@ function _persEmailRow(){
       }
       var meta = t.date.slice(8,10)+'/'+t.date.slice(5,7)+(t.time?' · '+t.time:'');
       if(t.kind==='income'){
-        h += '<div class="row"><div class="r-ico personal-ico">'+(t.emoji||'💰')+'</div>'
+        // taps into the income edit sheet — amount · date · note · receiving account
+        h += '<div class="row tap" onclick="fhIncomeRowSheet(\''+t.id+'\')"><div class="r-ico personal-ico">'+(t.emoji||'💰')+'</div>'
            + '<div class="r-body"><div class="r-t">'+((t.note||t.cat||'Thu nhập').replace(/</g,'&lt;'))+'</div>'
            + '<div class="r-s">'+meta+' · thu nhập</div></div>'
            + '<div class="r-amt num pos">+'+fmt(t.amt||0)+'</div></div>';
       } else if(t.kind==='transfer'){
         var ends = t.transferGroupId ? pairEnds(t) : null;
         var xt = ends && ends.from && ends.to ? (ends.from+' → '+ends.to) : ((t.note||'Chuyển khoản').replace(/</g,'&lt;'));
-        h += '<div class="row"><div class="r-ico personal-ico">🔁</div>'
+        // a pair taps into its edit sheet (both legs in lockstep); a legacy
+        // one-leg card payment has no pair sheet and stays inert
+        var xTap = t.transferGroupId ? ' tap" onclick="fhXferPairSheet(\''+t.transferGroupId+'\')"' : '"';
+        h += '<div class="row'+xTap+'><div class="r-ico personal-ico">🔁</div>'
            + '<div class="r-body"><div class="r-t">'+xt+'</div>'
            + '<div class="r-s">'+meta+' · chuyển khoản — không tính thu chi</div></div>'
            + '<div class="r-amt num xfer">'+fmt(Math.abs(t.amt||0))+'</div></div>';
@@ -9901,20 +9928,27 @@ function pickExScope(btn){
 }
 /* Instrument chips (0105): built from the personal ledger's accounts + Tiền mặt.
    Optional — no chip selected means "don't tag". Last pick remembered; a
-   credit-card pick is what feeds that card's derived balance. */
+   credit-card pick is what feeds that card's derived balance.
+   Income (Thu) reuses the same field as "Vào tài khoản nào?" — deposit/ewallet/
+   cash only (money INTO your own card is a card payment, not income — one kind =
+   one meaning), with its own remembered pick: salary lands somewhere different
+   from where daily spending leaves. */
 /* selId (optional, 0114): an explicit selection for edit mode — an account id,
    or null for "no tag". Omitted = the remembered last pick (capture mode). */
+function _exAcctMemKey(){ return exType==='income' ? 'fh-last-inc-acct' : 'fh-last-acct'; }
 function buildExAcctChips(selId){
   var box=document.getElementById('ex-acct'); if(!box) return;
   var pd=window.fhPersonalData&&fhPersonalData(); var accts=(pd&&pd.accounts)||[];
+  var income=(exType==='income'&&!editingTx&&!editingPTx);
   var sel;
   if(typeof selId!=='undefined'){
     var cashA=accts.filter(function(a){ return a.kind==='cash'; })[0];
     sel = selId ? ((cashA && selId===cashA.id) ? 'cash' : selId) : null;
-  } else { try{ sel=localStorage.getItem('fh-last-acct'); }catch(e){ sel=null; } }
+  } else { try{ sel=localStorage.getItem(_exAcctMemKey()); }catch(e){ sel=null; } }
   var ico={credit_card:'💳',deposit:'🏦',ewallet:'📱',cash:'💵'};
   var h='<button class="choice'+(sel==='cash'?' on':'')+'" data-v="cash" onclick="pickExAcct(this)">💵 Tiền mặt</button>';
   accts.forEach(function(a){ if(a.kind==='cash') return;
+    if(income && a.kind!=='deposit' && a.kind!=='ewallet') return;
     h+='<button class="choice'+(sel===a.id?' on':'')+'" data-v="'+a.id+'" onclick="pickExAcct(this)">'+(ico[a.kind]||'💳')+' '+String(a.name||'Tài khoản').replace(/</g,'&lt;')+'</button>'; });
   box.innerHTML=h;
 }
@@ -9922,8 +9956,8 @@ function pickExAcct(btn){
   // toggle: tapping the selected chip clears it (the field is optional)
   var was=btn.classList.contains('on');
   var box=document.getElementById('ex-acct'); if(box) box.querySelectorAll('.choice').forEach(function(b){ b.classList.remove('on'); });
-  if(!was){ btn.classList.add('on'); try{ localStorage.setItem('fh-last-acct',btn.dataset.v); }catch(e){} }
-  else { try{ localStorage.removeItem('fh-last-acct'); }catch(e){} }
+  if(!was){ btn.classList.add('on'); try{ localStorage.setItem(_exAcctMemKey(),btn.dataset.v); }catch(e){} }
+  else { try{ localStorage.removeItem(_exAcctMemKey()); }catch(e){} }
   // account changes count as edits on a private row (M9) — enable Save
   if(editingPTx && typeof refreshExCta==='function') refreshExCta();
 }
@@ -9939,9 +9973,13 @@ function _applyExScope(v){ selectChipByVal('ex-scope', v); _applyExLayout(); }
    restores per scope, exactly as before. */
 function _applyExLayout(){
   var personal=(chosen('ex-scope')==='personal'), income=(exType==='income');
-  // Instrument chips: personal expenses only (family rows have no account concept).
+  // Instrument chips: personal rows only (family rows have no account concept).
+  // Expense asks "Trả bằng gì?"; income asks which account the money landed in —
+  // the tag is what makes a deposit balance computable at all (full-ledger §4.3).
   var af=document.getElementById('ex-acctfield');
-  if(af){ var show=(personal&&!income&&!editingTx&&!editingPTx); af.style.display=show?'':'none'; if(show) buildExAcctChips(); }
+  if(af){ var show=(personal&&!editingTx&&!editingPTx); af.style.display=show?'':'none';
+    var al=document.getElementById('ex-acct-lbl'); if(al) al.textContent = income ? L('Vào tài khoản nào?','Into which account?') : L('Trả bằng gì?','Paid with?');
+    if(show) buildExAcctChips(); }
   var who=document.getElementById('ex-whofield'); if(who) who.style.display=(personal||income)?'none':'';   // no member-split in a private ledger / for income
   var ph=document.getElementById('ex-photofield'); if(ph) ph.style.display=income?'none':'';                 // photos on any expense — personal included since 0114; income has none
   var bulk=document.getElementById('bulk-add'); if(bulk) bulk.style.display=(personal||income)?'none':'';     // keep personal + income single
@@ -11324,7 +11362,12 @@ async function _submitIncomeCapture(){
   if(personal){
     var pd=window.fhPersonalData&&fhPersonalData();
     if(!pd||!pd.key){ window.toast&&toast(L('Mở khoá sổ cá nhân ở tab Cá nhân trước','Unlock your personal ledger first')); return; }
-    ok=await window.fhPersonalAddIncome(base, note, date);
+    // "Vào tài khoản nào?" chip (optional): the tag is what lets the account's
+    // anchored balance move when money comes in. Cash materializes on first use.
+    var acctPick=(typeof chosen==='function')? chosen('ex-acct') : null;
+    var acctId=null;
+    if(acctPick){ acctId=(acctPick==='cash'&&window.fhPersonalCashAccount)? await fhPersonalCashAccount() : acctPick; }
+    ok=await window.fhPersonalAddIncome(base, note, date, undefined, {accountId:acctId});
     if(ok && typeof renderPersonal==='function') renderPersonal();
   } else {
     ok=await window.fhAddFamilyIncome(base, note, date);
@@ -15511,6 +15554,12 @@ function buildCsvCandidates(parsed, result) {
       if (_sx) {
         if (_sx.flow === 'transfer') { isTransfer = true; isIncome = false; }
         else if (_sa && _sa.kind === 'credit_card' && _sx.direction === 'credit') { isTransfer = true; isIncome = false; }
+        /* A bank's own payment-confirmation mail can carry NO memo at all (VIB
+           "Thanh toán thẻ tín dụng thành công" templates memo:null), so the
+           regex above never sees it. fhCardPayShaped reads the sealed shape
+           instead: classifier-says-card while the number is a non-card account
+           the user owns = a card payment leaving that account. */
+        else if (window.fhCardPayShaped && window.fhCardPayShaped(_sx)) { isTransfer = true; isIncome = false; }
         /* Money INTO a deposit/wallet is a first-class candidate now (0109 full
            ledger): a checkable card with a 3-way Kind control — Thu nhập /
            Chuyển khoản nội bộ / Thu nợ — not a row parked in the inflow strip. */
@@ -16408,24 +16457,75 @@ function _txList(){ return _txnPersonal() ? (_pTxnCtx?_pTxnCtx.rows:[]) : (windo
 function _txCatOrder(){ return _txnPersonal() ? (_pTxnCtx?_pTxnCtx.catOrder:[]) : (window.catOrder||[]); }
 /* Normalise the personal ledger into the row shape txRow/renderTxnScreen expect.
    Unreadable rows are skipped here (their amount is null and would misstate every
-   total); they stay visible with their lock note on the personal tab itself. */
+   total); they stay visible with their lock note on the personal tab itself.
+   Since the full ledger (0109) the spine carries every kind and this list shows
+   them all — a full ledger hides nothing. Expense categories keep feeding the
+   hero (catOrder/catSpent stay expense-only: the hero is CHI theo danh mục);
+   the other kinds group under pseudo-categories (kindOrder) that only join the
+   filter chips. A transfer PAIR renders once — "VIB → VCB" is one event.
+   Every row carries its own edit door (t._open): expense → edit sheet / mirror
+   detail, income → fhIncomeRowSheet, pair → fhXferPairSheet, loan/repayment →
+   fhDebtRowSheet, investment → fhInvRowSheet. */
 function _pBuildTxnCtx(){
   var P = window.fhPersonalData ? fhPersonalData() : null;
   var PAL=['#f2eef6','#eef4fb','#eefaf3','#fdf4e8','#f6eefb','#eef9fb'];
   var rows=[], style={}, order=[], spent={}, other=L('Khác','Others');
   var now=new Date(), ym=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
-  (P&&P.txns||[]).forEach(function(t){
-    if(t.kind!=='expense' || t._unreadable) return;
-    var cat=t.cat||other, _d=t.date?new Date(t.date+'T00:00:00'):null;
-    if(!style[cat]){ style[cat]=[t.emoji||'🗂️', PAL[order.length%PAL.length], 'var(--cat-other)']; order.push(cat); }
-    // Only PRIVATE rows are editable here; mirror rows (spaceId/linkId set) are a
-    // family expense shown in the personal book — write-inert, but tappable
-    // since 0114 (fhMirrorRowTap → the family expense detail, M10).
-    rows.push({ id:t.id, cat:cat, note:t.note||cat, amt:t.amt||0, _d:_d, ico:t.emoji||'🗂️', who:null, _style:style[cat], _edit:!t.spaceId&&!t.linkId, _mirror:!!(t.spaceId||t.linkId), photos:t.photos||undefined, time:t.time||null });
-    if((t.date||'').slice(0,7)===ym) spent[cat]=(spent[cat]||0)+(t.amt||0);   // hero = this month only (parity with family M())
+  var txs=(P&&P.txns)||[];
+  var acctName=function(id){ var a=id&&(P&&P.accounts||[]).find(function(x){ return x.id===id; }); return a?(a.name||L('Tài khoản','Account')):null; };
+  var K_INC=L('Thu nhập','Income'), K_XFER=L('Chuyển khoản','Transfers'), K_DEBT=L('Cho vay & nợ','Loans & debts'), K_INV=L('Đầu tư','Investments');
+  var kstyle={}; kstyle[K_INC]=['💰','#eefaf3','var(--good)']; kstyle[K_XFER]=['🔁','#eef4fb','var(--cat-other)']; kstyle[K_DEBT]=['💵','#fdf4e8','var(--cat-other)']; kstyle[K_INV]=['📈','#f6eefb','var(--cat-other)'];
+  var kindOrder=[], kseen={}, seenXfer={};
+  txs.forEach(function(t){
+    if(t._unreadable) return;
+    var _d=t.date?new Date(t.date+'T00:00:00'):null;
+    if(t.kind==='expense'){
+      var cat=t.cat||other;
+      if(!style[cat]){ style[cat]=[t.emoji||'🗂️', PAL[order.length%PAL.length], 'var(--cat-other)']; order.push(cat); }
+      // Only PRIVATE rows are editable here; mirror rows (spaceId/linkId set) are a
+      // family expense shown in the personal book — write-inert, but tappable
+      // since 0114 (fhMirrorRowTap → the family expense detail, M10).
+      var eOpen=(t.spaceId||t.linkId)?(t.spaceId?"fhMirrorRowTap('"+t.id+"')":''):"openPersonalTxEdit('"+t.id+"')";
+      rows.push({ id:t.id, cat:cat, note:t.note||cat, amt:t.amt||0, _d:_d, ico:t.emoji||'🗂️', who:null, _style:style[cat], _open:eOpen, photos:t.photos||undefined, time:t.time||null });
+      if((t.date||'').slice(0,7)===ym) spent[cat]=(spent[cat]||0)+(t.amt||0);   // hero = this month only (parity with family M())
+      return;
+    }
+    var kcat, note, sign='', cls='xfer', open='', ico=null;
+    if(t.kind==='income'){
+      kcat=K_INC; note=t.note||t.cat||K_INC; sign='+'; cls='pos'; ico=t.emoji||'💰';
+      open="fhIncomeRowSheet('"+t.id+"')";
+    } else if(t.kind==='transfer'){
+      kcat=K_XFER;
+      if(t.transferGroupId){
+        if(seenXfer[t.transferGroupId]) return;             // second leg of a pair already listed
+        seenXfer[t.transferGroupId]=1;
+        var from=null,to=null;
+        txs.forEach(function(x){ if(x.kind==='transfer'&&x.transferGroupId===t.transferGroupId){ if((x.amt||0)<0) from=x.accountId; else to=x.accountId; } });
+        var fn=acctName(from), tn=acctName(to);
+        note=(fn&&tn)?(fn+' → '+tn):(t.note||K_XFER);
+        open="fhXferPairSheet('"+t.transferGroupId+"')";
+      } else {
+        // legacy one-leg transfer = a card payment tagged to the card (0105) — no pair sheet
+        var cn=acctName(t.accountId);
+        note=t.note||(cn?L('Trả nợ thẻ ','Card payment ')+cn:L('Chuyển khoản','Transfer'));
+      }
+    } else if(t.kind==='loan'||t.kind==='repayment'){
+      kcat=K_DEBT; ico=(t.kind==='loan')?'💵':'✅';
+      var dR=(P&&P.debts||[]).filter(function(d){ return d.id===t.id; })[0];
+      var who=(dR&&dR.who)?(' · '+dR.who):'';
+      note=(t.note||(t.kind==='loan'?((t.amt||0)>0?L('Cho vay','Lent'):L('Đi mượn','Borrowed')):L('Trả nợ','Repayment')))+who;
+      open="fhDebtRowSheet('"+t.id+"')";
+    } else if(t.kind==='investment'){
+      kcat=K_INV;
+      var pos=(P&&P.accounts||[]).find(function(a){ return a.id===t.positionId; });
+      note=((t.amt||0)>0?L('Bán','Sell'):L('Mua','Buy'))+(pos&&pos.name?' '+pos.name:L(' đầu tư',' investment'));
+      open="fhInvRowSheet('"+t.id+"')";
+    } else return;
+    if(!kseen[kcat]){ kseen[kcat]=1; kindOrder.push(kcat); }
+    rows.push({ id:t.id, cat:kcat, note:note, amt:Math.abs(t.amt||0), _d:_d, ico:ico||kstyle[kcat][0], who:null, _style:kstyle[kcat], _open:open, _sign:sign, _amtCls:cls, time:t.time||null });
   });
   order.sort(function(a,b){ return (spent[b]||0)-(spent[a]||0); });
-  _pTxnCtx={ rows:rows, catOrder:order, catStyle:style, catSpent:spent, catBudget:(P&&P.catBudget)||{} };
+  _pTxnCtx={ rows:rows, catOrder:order, catStyle:style, catSpent:spent, catBudget:(P&&P.catBudget)||{}, kindOrder:kindOrder };
 }
 function txRow(t){
   // personal rows carry their own style + no member/reactions/detail screen;
@@ -16445,16 +16545,18 @@ function txRow(t){
   var tile=ph?'<div class="r-ico ph" style="background-image:url('+escAttr(ph)+')"></div>'
             :'<div class="r-ico" style="background:'+s[1]+';color:'+s[2]+'">'+esc(t.ico)+'</div>';
   var av=personal?'':spAv(t.who);                                 // personal ledger has no members
-  // Family rows open the detail screen; private personal rows open the edit sheet;
-  // mirror personal rows (a family expense) are view-only but tap through to
-  // the family expense detail (0114, M10).
-  var open=personal?(t._edit?(' onclick="openPersonalTxEdit(\''+t.id+'\')"')
-                            :(t._mirror?(' onclick="fhMirrorRowTap(\''+t.id+'\')"'):''))
+  // Family rows open the detail screen; personal rows carry their own door
+  // (t._open, set per kind in _pBuildTxnCtx): edit sheet for private expenses,
+  // mirror detail (0114, M10), income sheet, pair sheet, debt/investment sheets.
+  var open=personal?(t._open?(' onclick="'+t._open+'"'):'')
                     :(' onclick="openExpenseDetail(\''+t.id+'\')"');
-  var tapCls=(personal? ((t._edit||t._mirror)?' tap':'') : ' tap');
+  var tapCls=(personal? (t._open?' tap':'') : ' tap');
+  // _sign/_amtCls (personal, non-expense kinds): income wears +green; transfer,
+  // debt and investment rows show the magnitude in the muted transfer style.
+  var amtHtml='<div class="r-amt num'+(t._amtCls?' '+t._amtCls:'')+'">'+(t._sign||'')+fmt(t.amt)+'</div>';
   return '<div class="row'+tapCls+(chip?' has-rx':'')+'"'+rxid+open+'><div class="r-ico-wrap">'+tile+av+'</div>'
     +'<div class="r-body"><div class="r-t">'+esc(t.note)+'</div><div class="r-s">'+dstr+(t.time?' · '+esc(t.time):'')+'</div></div>'
-    +'<div class="r-right"><div class="r-amt num">'+fmt(t.amt)+'</div><div class="r-cat">'+esc(t.cat)+'</div></div>'+chip+'</div>';
+    +'<div class="r-right">'+amtHtml+'<div class="r-cat">'+esc(t.cat)+'</div></div>'+chip+'</div>';
 }
 var txFilter=null; // {type:'cat'|'mem', val:'Fun'|'Emma'}
 function txMatch(t){
@@ -16556,7 +16658,7 @@ function openTxns(scope){
   window.__txnScope=(scope==='personal')?'personal':'family';
   if(_txnPersonal()) _pBuildTxnCtx();                             // snapshot the personal ledger into row shape
   // Title + back-label track the scope (personal vs the family Finance tab).
-  var titleEl=document.querySelector('#txn-overlay .txn-title'); if(titleEl) titleEl.textContent=_txnPersonal()?L('Chi tiêu cá nhân','Your spending'):L('Giao dịch','Transactions');
+  var titleEl=document.querySelector('#txn-overlay .txn-title'); if(titleEl) titleEl.textContent=_txnPersonal()?L('Giao dịch cá nhân','Your transactions'):L('Giao dịch','Transactions');
   var backEl=document.querySelector('#txn-overlay .cd-back span'); if(backEl) backEl.textContent=_txnPersonal()?L('Cá nhân','Personal'):L('Gia đình','Family');
   txnCat=null; txnSort='date';
   var q=document.getElementById('txn-q'); if(q)q.value='';
@@ -16575,12 +16677,19 @@ function refreshPersonalTxnOverlay(){
   var o=document.getElementById('txn-overlay');
   if(!o || !o.classList.contains('on') || !_txnPersonal()) return;
   _pBuildTxnCtx();
-  if(txnCat && (_pTxnCtx.catOrder||[]).indexOf(txnCat)<0) txnCat=null;   // filtered category may be gone
+  if(txnCat && (_pTxnCtx.catOrder||[]).indexOf(txnCat)<0
+            && (_pTxnCtx.kindOrder||[]).indexOf(txnCat)<0) txnCat=null;   // filtered category/kind may be gone
   buildTxnChips(); renderTxnScreen(); if(typeof renderFinanceHero==='function') renderFinanceHero();
 }
 function buildTxnChips(){
   var html='<button class="txn-chip'+(!txnCat?' on':'')+'" onclick="setTxnCat(null)">'+L('Tất cả','All')+'</button>';
   (_txCatOrder()||[]).forEach(function(c){
+    html+='<button class="txn-chip'+(txnCat===c?' on':'')+'" onclick="setTxnCat(&#39;'+escAttr(c)+'&#39;)">'+esc(c)+'</button>';
+  });
+  // Personal scope: the non-expense kinds present in the ledger (Thu nhập,
+  // Chuyển khoản, …) join the chips after the spend categories — chips only;
+  // the hero above stays chi-by-category.
+  if(_txnPersonal() && _pTxnCtx && _pTxnCtx.kindOrder) _pTxnCtx.kindOrder.forEach(function(c){
     html+='<button class="txn-chip'+(txnCat===c?' on':'')+'" onclick="setTxnCat(&#39;'+escAttr(c)+'&#39;)">'+esc(c)+'</button>';
   });
   setHTML('txn-chips', html);
@@ -18851,7 +18960,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v497';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v500';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -19159,7 +19268,24 @@ const { createClient } = window.supabase;   // vendored UMD global (see preload 
 const SUPABASE_URL = 'https://iizyukzfsbdkbrgfupwq.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_KQnm-h0bn3gCa1i_dlkapw_7b8kPRDD';
 const GOOGLE_CLIENT_ID = '860668973723-ud2mbr4kj9nb41elbkvlp3lt5fibpf8v.apps.googleusercontent.com';
-const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+/* Every REST/storage call goes through fetch with NO deadline by default — a
+   socket that dies mid-flight (mobile network handoff, iOS killing connections
+   while the PWA is backgrounded, laptop sleep) leaves the await pending FOREVER.
+   The landing tab froze exactly this way: one stalled hydrate query and the
+   Cá nhân tab sat on its loading note until the app was killed. Cap every
+   request so a zombie connection becomes a catchable error that the existing
+   error/retry paths already know how to handle. 60s is deliberately generous —
+   the UX watchdog (19-personal.js) reacts long before this; this cap only
+   guarantees no promise is immortal. Callers that manage their own AbortSignal
+   keep it. */
+const _fetchDeadline = (url, opts) => {
+  opts = opts || {};
+  if (opts.signal) return fetch(url, opts);
+  const c = new AbortController();
+  const t = setTimeout(() => { try { c.abort(); } catch (e) { } }, 60000);
+  return fetch(url, Object.assign({}, opts, { signal: c.signal })).finally(() => clearTimeout(t));
+};
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY, { global: { fetch: _fetchDeadline } });
 window.sb = sb;
 
 // supabase-js resolves { data, error } on HTTP 4xx (it does NOT throw), so a bare
@@ -19204,6 +19330,12 @@ function fhResumeFail() {
 async function afterLogin(session) {
   if (!session) return;
   window.fhUser = session.user;
+  /* Cá nhân is the landing tab, and its ledger depends on NOTHING below —
+     not the device gate (fail-open by design), not the profile language, not
+     my_families. Booting it here, first, takes 2-3 sequential round trips off
+     the time the landing tab spends on "Đang chuẩn bị…"; every later
+     fhPersonalBoot call (family hydrate tail, tab open) no-ops or refreshes. */
+  try { if (window.fhPersonalBoot) window.fhPersonalBoot(); } catch (e) { }
   // Device gate (trust rec #6): a remotely-revoked device signs itself out right
   // here, before any family data loads. Fail-open on any error so a transient
   // check failure never strands a legitimate user. Registers this device + arms
@@ -19246,9 +19378,8 @@ async function afterLogin(session) {
     // someone switched family on another device — still lands on the right one.
     if (window.DB) window.DB.fid = active.family_id;
     fhResumeArm();                             // next cold start can skip straight to the splash
-    // the landing tab is Cá nhân now — boot it in parallel with the family hydrate
-    // (idempotent: the hydrate's own fhPersonalBoot call no-ops while this runs)
-    try { if (window.fhPersonalBoot) window.fhPersonalBoot(); } catch (e) { }
+    // (the personal ledger already booted at the top of afterLogin — before the
+    // device gate and my_families, which it never needed)
     // finally: a failed load must still hand the screen over, never strand us on the splash
     try { await window.loadFamilyData(); }     // auto-enter the active family → real data + DB.fid set
     finally { fhResumeDone(); }                // (no go('home') here — it would stomp on deep links)
@@ -20416,14 +20547,97 @@ window.obGoogle = async function () {
     }
     function _winFrom() { const d = new Date(); d.setMonth(d.getMonth() - 1); d.setDate(1); return _localDate(d); }
 
-    let _booting = false;
-    window.fhPersonalBoot = async function () {
-      if (_booting || !_sb()) return; _booting = true;
-      _decCache.clear();   // boot is the one place identity can change
+    /* ── warm snapshot — the landing tab's instant paint ─────────────────────
+       Cá nhân is the landing tab, yet every open used to be a cold boot: nothing
+       painted until auth + hydrate + a whole-ledger decrypt finished. The family
+       tab solved this years ago with fh-snap; this is the personal twin. The
+       last hydrated display slice is serialized, encrypted under the personal
+       DEK (plaintext never hits disk — same stance as 17-snap-restore's enc
+       tier), and stored in the fh-keys IDB — which the sign-out wipe already
+       deletes wholesale, so it can never outlive the account on this device.
+       Restore paints 'ready' before the first network round trip; the real
+       hydrate then refreshes quietly (the ready view is kept through 'loading').
+       Trust model: the snapshot sits beside the cached DEK itself, so it adds
+       zero exposure an unlocked device didn't already have. */
+    const _SNAP_TTL = 14 * 86400000;
+    let _snapSavedAt = 0;
+    const _incomesView = (txns) => txns.filter((t) => t.kind === 'income')
+      .map((t) => ({ id: t.id, date: t.date, amt: t.amt, _unreadable: t._unreadable, note: t.note, cat: t.cat, accountId: t.accountId }));
+    async function _snapRestore() {
       try {
-        P.uid = await _uid(); if (!P.uid) { _setState('error'); return; }
+        const rec = await _kGet('psnap:' + P.uid);
+        if (!rec || !rec.key || (rec.at && Date.now() - rec.at > _SNAP_TTL)) return false;
+        const s = JSON.parse(await FHCrypto.decVal(P.key, rec.key));
+        if (!s || s.v !== 1 || s.uid !== P.uid || !Array.isArray(s.txns)) return false;
+        P.txns = s.txns; P.debts = s.debts || []; P.accounts = s.accounts || []; P.memory = s.memory || [];
+        P.budget = s.budget || 0; P.catBudget = s.catBudget || {};
+        P.unreadable = s.unreadable || 0; P.debtsComplete = s.debtsComplete !== false;
+        P.incomes = _incomesView(P.txns);
+        P.fromSnapshot = true;                     // cleared by the first fresh hydrate
+        _setState('ready');
+        return true;
+      } catch (e) { return false; }                // undecryptable/corrupt → cold boot, never an error
+    }
+    function _snapSave() {
+      if (!P.key || !P.uid || P.fromSnapshot) return;          // only persist FRESH data
+      if (Date.now() - _snapSavedAt < 2500) return;            // coalesce write bursts
+      _snapSavedAt = Date.now();
+      (async () => {
+        try {
+          const s = { v: 1, uid: P.uid, unreadable: P.unreadable || 0, debtsComplete: P.debtsComplete !== false,
+            budget: P.budget || 0, catBudget: P.catBudget || {},
+            txns: (P.txns || []).slice(0, 4000), accounts: P.accounts || [],
+            debts: (P.debts || []).slice(0, 8000), memory: P.memory || [] };
+          const ct = await FHCrypto.encVal(P.key, JSON.stringify(s));
+          if (ct) await _kPut('psnap:' + P.uid, ct);
+        } catch (e) {}                                          // a failed save only costs the next warm start
+      })();
+    }
+
+    /* ── boot resilience ──────────────────────────────────────────────────────
+       _booting is a re-entrancy latch, and it used to be a trap: if any await in
+       the chain stalled (no fetch had a deadline), the finally never ran, the
+       latch stayed true forever, and every later fhPersonalBoot call — tab tap,
+       hydrate tail, even the error screen's own "Thử lại" — was a silent no-op.
+       The only way out was killing the app. Three guards now:
+       - a WATCHDOG that, after 12s of a boot that hasn't reached ready/locked,
+         unlatches and shows the error state (which carries the retry link);
+       - a GENERATION counter so a hung attempt that eventually resolves cannot
+         clobber the state a newer attempt owns;
+       - fhPersonalRetry, a hard retry that force-unlatches — wired to every
+         retry affordance, so recovery never depends on the latch being honest.
+       A completed boot also debounces 2.5s so the cold-open double-fire
+       (afterLogin + the family hydrate's refresh call) costs one hydrate. */
+    let _booting = false, _bootGen = 0, _bootDoneAt = 0;
+    window.fhPersonalRetry = function () { _booting = false; _bootGen++; _bootDoneAt = 0; return window.fhPersonalBoot(); };
+    window.fhPersonalBoot = async function () {
+      if (_booting || !_sb()) return;
+      if (P.state === 'ready' && Date.now() - _bootDoneAt < 2500) return;   // just refreshed — collapse the double-fire
+      _booting = true;
+      const gen = ++_bootGen;
+      const watch = setTimeout(() => {
+        if (gen !== _bootGen || !_booting) return;
+        _booting = false;                                   // unlatch no matter what
+        if (P.state === 'ready' || P.state === 'locked') return;
+        /* A snapshot-painted tab sits in 'loading' while the background refresh
+           hangs — that view is GOOD data. Settle it back to ready (stale, quiet)
+           rather than tearing it down; only a tab with nothing gets the error. */
+        if (window._persHadReady) _setState('ready'); else _setState('error');
+      }, 12000);
+      _decCache.clear();   // boot is the one place identity can change
+      const setS = (s) => { if (gen === _bootGen) _setState(s); };   // stale attempts may not write state
+      try {
+        P.uid = await _uid(); if (!P.uid) { setS('error'); return; }
         const kc = await _kGet('p:' + P.uid);
-        if (kc && kc.key) { P.key = kc.key; await _afterKey(); return; }
+        if (kc && kc.key) {
+          P.key = kc.key;
+          /* Warm start for the landing tab: paint the last-known ledger from the
+             encrypted device snapshot BEFORE any network round trip, then let
+             the hydrate refresh it quietly (same posture as the family tab's
+             fh-snap). A missing/stale/undecryptable snapshot just stays cold. */
+          if (P.state !== 'ready') await _snapRestore();
+          await _afterKey(); return;
+        }
         const wr = await _sb().from('personal_keys').select('kdf_salt,kdf_iters,kdf_version,wrapped_dek').eq('user_id', P.uid).maybeSingle();
         // NEVER provision on a read failure. A transient error (auth token not yet
         // refreshed on cold open, network blip, a 401 racing session restore) sets
@@ -20432,11 +20646,16 @@ window.obGoogle = async function () {
         // so the server wrap survives, but the user is shown a fresh (mismatched)
         // card each time and the real key scrolls away. Only provision when the read
         // DEFINITIVELY succeeded and returned no row.
-        if (wr.error) { console.warn('personal_keys read failed', wr.error); _setState('error'); return; }
-        if (wr.data) { P.wrap = wr.data; _setState('locked'); }
+        if (wr.error) { console.warn('personal_keys read failed', wr.error); setS('error'); return; }
+        if (wr.data) { P.wrap = wr.data; setS('locked'); }
         else { await _provision(); }
-      } catch (e) { console.warn('fhPersonalBoot failed', e); _setState('error'); }
-      finally { _booting = false; }
+      } catch (e) { console.warn('fhPersonalBoot failed', e); if (gen === _bootGen) _setState('error'); }
+      finally {
+        clearTimeout(watch);
+        // Only this attempt's own latch: a hung attempt resolving late must not
+        // release (or time-stamp) the boot a newer generation is running.
+        if (gen === _bootGen) { _booting = false; _bootDoneAt = Date.now(); }
+      }
     };
 
     async function _provision() {
@@ -20612,6 +20831,7 @@ window.obGoogle = async function () {
       // that keeps the review screen's duplicate-match slice from going stale.
       try { window.fhPersonalMatchSliceInvalidate && window.fhPersonalMatchSliceInvalidate(); } catch (e) {}
       try { window.fhPersonalStatsSliceInvalidate && window.fhPersonalStatsSliceInvalidate(); } catch (e) {}
+      const gen = _bootGen;   // a retry-triggered newer boot orphans this pass: it must not write P
       _setState('loading');
       try {
         const from = _winFrom();
@@ -20624,39 +20844,51 @@ window.obGoogle = async function () {
            paged too — a heavy import month can clear 1000 rows on its own,
            and PostgREST's own 1000-row default would have clipped it as
            silently as the old limit(2000). */
-        const [tr, bd, ac, dr] = await Promise.all([
+        /* Photos + review memory ride the SAME barrier now. They used to run
+           serially after the decrypt loop — two extra round trips the landing
+           tab waited on before 'ready', for data that is decorative. Both are
+           failure-tolerant (a lost photo strip or pre-selection never costs the
+           ledger), so they resolve to empty on error instead of failing the all. */
+        const [tr, bd, ac, dr, pp, mm] = await Promise.all([
           _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,occurred_time_enc,txn_date,kind,space_id,link_id,version,updated_at,created_at,account_id,transfer_group_id,position_account_id,quantity_enc').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }).order('id')),
           _sb().from('personal_budgets').select('total_enc,cats_enc').eq('owner_user_id', P.uid).eq('month', _monISO()).maybeSingle(),
           _sb().from('personal_accounts').select('id,kind,name_enc,tail,provider,credit_limit_enc,human_verified,statement_day,due_day,anchor_balance_enc,anchor_at,ext_balance_enc,ext_balance_date,account_number_enc,asset_symbol_enc,asset_unit_enc,asset_class_enc,manual_price_enc,manual_price_at').eq('owner_user_id', P.uid).is('archived_at', null),
           _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,counterparty_enc,cat_name_enc,cat_emoji,txn_date,kind,account_id,transfer_group_id,position_account_id,quantity_enc,due_date,created_at').eq('owner_user_id', P.uid).or('kind.neq.expense,account_id.not.is.null').order('txn_date', { ascending: false }).order('id')),
+          _sb().from('personal_transaction_photos').select('transaction_id,photo_url,sort_order').eq('owner_user_id', P.uid).order('sort_order').limit(800).then((r) => r, () => ({ data: null })),
+          _sb().from('personal_review_memory').select('id,key_enc,position_account_id').eq('owner_user_id', P.uid).limit(500).then((r) => r, () => ({ data: null })),
         ]);
+        if (gen !== _bootGen) return;   // a newer boot owns P now — abandon before touching anything
         /* Ceiling honesty, same stance as the stats slice's `truncated`: a
            short debt read understates balances, so it is counted and declared,
            never silent. Nothing renders differently yet; the flag exists so a
            view CAN say so the day anyone reaches it. */
-        P.debtsComplete = !!(tr.complete && dr.complete);
-        if (!P.debtsComplete) console.warn('personal hydrate hit the page ceiling', { tr: tr.complete, dr: dr.complete });
+        /* Decode into LOCALS, assign to P in one block at the end. Two hydrates
+           can overlap now (a hard retry racing a slow first pass); interleaved
+           pushes into shared arrays once meant a merged, doubled ledger. Locals
+           make each pass atomic; the generation guard decides who may land. */
+        const debtsComplete = !!(tr.complete && dr.complete);
+        if (!debtsComplete) console.warn('personal hydrate hit the page ceiling', { tr: tr.complete, dr: dr.complete });
         /* Their budget read goes through _decP too, so an unreadable budget must
            not become a number either — the sentinel is a string and Number() of
            it is NaN. Explicit rather than relying on `|| 0` to absorb it. */
         const _bRaw = (bd && bd.data) ? await _decP(bd.data.total_enc) : null;
-        P.budget = (_bRaw == null || _bRaw === _DEC_FAILED) ? 0 : (Number(_bRaw) || 0);
+        const budget = (_bRaw == null || _bRaw === _DEC_FAILED) ? 0 : (Number(_bRaw) || 0);
         /* Per-category budgets (0090): an encrypted JSON map { name: amount }.
            Same fail-closed stance — an unreadable map becomes {}, never a partial. */
         const _cRaw = (bd && bd.data && bd.data.cats_enc) ? await _decP(bd.data.cats_enc) : null;
-        P.catBudget = {};
+        const catBudget = {};
         if (_cRaw != null && _cRaw !== _DEC_FAILED) {
-          try { const m = JSON.parse(_cRaw); if (m && typeof m === 'object') for (const k in m) P.catBudget[k] = Number(m[k]) || 0; } catch (e) {}
+          try { const m = JSON.parse(_cRaw); if (m && typeof m === 'object') for (const k in m) catBudget[k] = Number(m[k]) || 0; } catch (e) {}
         }
         /* Unreadable is a property of the AMOUNT only. A note or category that
            will not open costs a label; an amount that will not open corrupts
            money, so only that one takes the row out of every total. */
-        P.txns = []; P.unreadable = 0;
+        const txns = []; let unreadable = 0;
         for (const t of tr.rows) {
           const a = await _decP(t.amount_enc), bad = (a === _DEC_FAILED);
-          if (bad) P.unreadable++;
+          if (bad) unreadable++;
           const qRaw = t.quantity_enc ? await _decP(t.quantity_enc) : null;
-          P.txns.push({ id: t.id, date: t.txn_date, kind: t.kind, spaceId: t.space_id, linkId: t.link_id,
+          txns.push({ id: t.id, date: t.txn_date, kind: t.kind, spaceId: t.space_id, linkId: t.link_id,
             version: t.version || 1, updatedAt: t.updated_at, ts: t.created_at,
             accountId: t.account_id, transferGroupId: t.transfer_group_id,
             positionId: t.position_account_id || null,
@@ -20668,26 +20900,18 @@ window.obGoogle = async function () {
         /* Photos (0114): attach public URLs to the window's rows; the photo
            observer decrypts /personal-media/ bytes in place. One owner-scoped
            query (never an id-list URL — the 891-id Cloudflare refusal scar). */
-        try {
-          const pp = await _sb().from('personal_transaction_photos').select('transaction_id,photo_url,sort_order').eq('owner_user_id', P.uid).order('sort_order').limit(800);
-          const byTx = {};
-          for (const p of (pp.data || [])) (byTx[p.transaction_id] = byTx[p.transaction_id] || []).push(_pPhotoUrl(p.photo_url));
-          for (const t of P.txns) if (byTx[t.id]) t.photos = byTx[t.id];
-        } catch (e) {}
-        /* Income lives on the spine since 0109 (kind='income'); P.incomes stays
-           as a derived view so every existing reader (the income sheet, the
-           month totals, the month picker) keeps its shape without knowing. */
-        P.incomes = P.txns.filter((t) => t.kind === 'income')
-          .map((t) => ({ id: t.id, date: t.date, amt: t.amt, _unreadable: t._unreadable, note: t.note, cat: t.cat, accountId: t.accountId }));
+        const byTx = {};
+        for (const p of (pp.data || [])) (byTx[p.transaction_id] = byTx[p.transaction_id] || []).push(_pPhotoUrl(p.photo_url));
+        for (const t of txns) if (byTx[t.id]) t.photos = byTx[t.id];
         /* Instruments + debt rows. Same fail-closed stance: an unreadable amount
            takes the row out of every balance, counted and declared, never 0đ. */
-        P.accounts = [];
+        const accounts = [];
         for (const a of (ac.data || [])) {
           const lim = a.credit_limit_enc ? await _decP(a.credit_limit_enc) : null;
           const anch = a.anchor_balance_enc ? await _decP(a.anchor_balance_enc) : null;
           const ext = a.ext_balance_enc ? await _decP(a.ext_balance_enc) : null;
           const mpx = a.manual_price_enc ? await _decP(a.manual_price_enc) : null;
-          P.accounts.push({ id: a.id, kind: a.kind, tail: a.tail, provider: a.provider,
+          accounts.push({ id: a.id, kind: a.kind, tail: a.tail, provider: a.provider,
             humanVerified: a.human_verified,
             statementDay: a.statement_day || null, dueDay: a.due_day || null,
             name: await _decTxt(a.name_enc),
@@ -20708,12 +20932,12 @@ window.obGoogle = async function () {
             manualPriceAt: a.manual_price_at || null,
             accountNumber: a.account_number_enc ? await _decTxt(a.account_number_enc) : null });
         }
-        P.debts = [];
+        const debts = [];
         for (const t of dr.rows) {
           const a = await _decP(t.amount_enc), bad = (a === _DEC_FAILED);
-          if (bad) P.unreadable++;
+          if (bad) unreadable++;
           const qRaw = t.quantity_enc ? await _decP(t.quantity_enc) : null;
-          P.debts.push({ id: t.id, date: t.txn_date, kind: t.kind, accountId: t.account_id,
+          debts.push({ id: t.id, date: t.txn_date, kind: t.kind, accountId: t.account_id,
             transferGroupId: t.transfer_group_id, ts: t.created_at, due: t.due_date || null,
             positionId: t.position_account_id || null,
             qty: (qRaw == null || qRaw === _DEC_FAILED) ? null : (Number(qRaw) || null),
@@ -20722,18 +20946,32 @@ window.obGoogle = async function () {
             who: await _decTxt(t.counterparty_enc) });
         }
         /* Review memory (0122): counterparty → position pre-selection for the
-           review screen. Fire-and-forget shape — an unreadable memory row is
-           dropped (it only costs a pre-selection, never money). */
-        P.memory = [];
-        try {
-          const mm = await _sb().from('personal_review_memory').select('id,key_enc,position_account_id').eq('owner_user_id', P.uid).limit(500);
-          for (const m of (mm.data || [])) {
-            const k = await _decTxt(m.key_enc);
-            if (k) P.memory.push({ id: m.id, key: k, positionId: m.position_account_id });
-          }
-        } catch (e) {}
+           review screen. An unreadable memory row is dropped (it only costs a
+           pre-selection, never money). */
+        const memory = [];
+        for (const m of (mm.data || [])) {
+          const k = await _decTxt(m.key_enc);
+          if (k) memory.push({ id: m.id, key: k, positionId: m.position_account_id });
+        }
+        if (gen !== _bootGen) return;   // orphaned by a newer boot while decrypting
+        P.debtsComplete = debtsComplete; P.budget = budget; P.catBudget = catBudget;
+        P.txns = txns; P.unreadable = unreadable;
+        /* Income lives on the spine since 0109 (kind='income'); P.incomes stays
+           as a derived view so every existing reader (the income sheet, the
+           month totals, the month picker) keeps its shape without knowing. */
+        P.incomes = _incomesView(txns);
+        P.accounts = accounts; P.debts = debts; P.memory = memory;
+        P.fromSnapshot = false;                    // this is fresh data —
+        _snapSave();                               // — worth caching for the next cold open
         _setState('ready');
-      } catch (e) { console.warn('personal hydrate failed', e); _setState('error'); }
+      } catch (e) {
+        console.warn('personal hydrate failed', e);
+        if (gen !== _bootGen) return;              // an orphaned pass may not flip state either
+        /* A background refresh failing must not tear down a tab that is already
+           showing good data (snapshot or a previous hydrate) — keep it, stale
+           and quiet; only a tab with nothing on it gets the error screen. */
+        if (window._persHadReady) _setState('ready'); else _setState('error');
+      }
     };
 
     /* Duplicate-match slice for the staged review screen. The tab cache above
@@ -20983,6 +21221,19 @@ window.obGoogle = async function () {
       if (r.error) { console.warn('personal income delete failed', r.error); return false; }
       await window.fhPersonalHydrate(); return true;
     };
+    /* Income edit (same accountId contract as fhPersonalUpdateExpense: undefined =
+       leave untouched, null = clear, id = set). Category and time are not touched —
+       a review-committed income keeps its Lương/Thưởng tag through an edit. */
+    window.fhPersonalUpdateIncome = async function (id, fields) {
+      if (!P.uid || !P.key || !id) return false;
+      const row = { amount_enc: await _encP(Number(fields.amt)),
+        note_enc: fields.note ? await _encP(fields.note) : null };
+      if (fields.dateIso) row.txn_date = fields.dateIso;
+      if (fields.hasOwnProperty('accountId')) row.account_id = fields.accountId || null;
+      const r = await _sb().from('personal_transactions').update(row).eq('id', id).eq('owner_user_id', P.uid).eq('kind', 'income').is('link_id', null);
+      if (r.error) { console.warn('personal income update failed', r.error); return false; }
+      await window.fhPersonalHydrate(); return true;
+    };
 
     /* ═══ Borrowing & Lending (0105) — docs/specs/borrowing-lending-spec.md ═══
        One primitive: a counterparty balance, DERIVED from rows (Q5).
@@ -21201,7 +21452,16 @@ window.obGoogle = async function () {
       const _match = (a) => tail
         ? ((a.provider || '') === (prov || '') && (a.tail || '') === tail)
         : (a.kind === info.kind && (a.provider || '') === (prov || '') && !a.tail);
-      const hit = P.accounts.find(_match);
+      let hit = P.accounts.find(_match);
+      /* A caller with a tail but NO provider still means one specific
+         instrument. If exactly one active account carries that tail, adopt it
+         rather than minting a provider-null twin (the "Tài khoản ••4751"
+         duplicate, 2026-09-06). Two accounts sharing a tail is ambiguous —
+         fall through to the exact match's verdict. */
+      if (!hit && tail && !prov) {
+        const byTail = P.accounts.filter((a) => (a.tail || '') === tail);
+        if (byTail.length === 1) hit = byTail[0];
+      }
       if (hit) return hit.id;
       const name = info.name || ((prov ? prov.charAt(0).toUpperCase() + prov.slice(1) : 'Tài khoản') + (tail ? ' ••' + tail : ''));
       const r = await _sb().from('personal_accounts').insert({ owner_user_id: P.uid, kind: info.kind,
@@ -22498,11 +22758,17 @@ window.obGoogle = async function () {
           const ok = await fhPersonalDebtRowUpdate(r.id, f);
           if (!ok) throw new Error('save_failed');
           window.toast && toast('Đã lưu');
-          return function () { _reopenPerson(r.who); if (window.renderPersonal) renderPersonal(); };
+          return function () { _reopenPerson(r.who); if (window.renderPersonal) renderPersonal(); if (typeof refreshPersonalTxnOverlay === 'function') refreshPersonalTxnOverlay(); };
         },
       });
     };
     function _reopenPerson(who) {
+      /* Only bounce back into the person zoom-in when the debt overlay was the
+         door we came through. fhDebtRowSheet is also reachable from the
+         transaction lists (personal tab + Giao dịch cá nhân drill-in) — from
+         there, reopening the debt overlay on top would be a surprise. */
+      const ov = document.getElementById('debt-overlay');
+      if (!ov || !ov.classList.contains('on')) return;
       const d2 = fhPersonalDebts();
       const i2 = d2.people.findIndex((x) => x.who === who);
       if (i2 >= 0 && Math.abs(d2.people[i2].balance) > 0.5) openDebtPerson(i2); else closeDebt();
@@ -22517,6 +22783,7 @@ window.obGoogle = async function () {
       window.toast && toast('Đã xoá');
       if (window.closeModals) closeModals();
       _reopenPerson(r ? r.who : null); if (window.renderPersonal) renderPersonal();
+      if (typeof refreshPersonalTxnOverlay === 'function') refreshPersonalTxnOverlay();
     };
     /* Loan → expense (spec §4): the row keeps its id/amount/date; category
        lands on the catch-all and is editable afterwards like any expense. */
@@ -22530,6 +22797,7 @@ window.obGoogle = async function () {
       window.toast && toast('Đã chuyển thành chi tiêu');
       if (window.closeModals) closeModals();
       _reopenPerson(r ? r.who : null); if (window.renderPersonal) renderPersonal();
+      if (typeof refreshPersonalTxnOverlay === 'function') refreshPersonalTxnOverlay();
     };
 
     /* ── Committed-row flip (0122, spec §4): "đây là khoản cho vay" ──────────
@@ -23136,7 +23404,7 @@ window.obGoogle = async function () {
           });
           if (!ok) throw new Error('save_failed');
           window.toast && toast('Đã cập nhật cả hai đầu');
-          return function () { if (window.renderPersonal) renderPersonal(); closeDebt(); };
+          return function () { if (window.renderPersonal) renderPersonal(); closeDebt(); if (typeof refreshPersonalTxnOverlay === 'function') refreshPersonalTxnOverlay(); };
         },
       });
     };
@@ -23154,6 +23422,7 @@ window.obGoogle = async function () {
       window.toast && toast('Đã xoá cả hai đầu');
       if (window.closeModals) closeModals();
       closeDebt(); if (window.renderPersonal) renderPersonal();
+      if (typeof refreshPersonalTxnOverlay === 'function') refreshPersonalTxnOverlay();
     };
 
     /* space create → card intro → invite */
@@ -29247,7 +29516,7 @@ window.classifyAmount = classifyAmount;
       // personal rows are already decrypted in the hydrated ledger; unreadable
       // ones are skipped (their amount is null and would misstate the total).
       inc = (window.fhPersonalData().incomes || []).filter((r) => !r._unreadable)
-        .map((r) => ({ id: r.id, amount: Number(r.amt) || 0, note: r.note, income_date: r.date }))
+        .map((r) => ({ id: r.id, amount: Number(r.amt) || 0, note: r.note, income_date: r.date, account_id: r.accountId || null }))
         .sort((a, b) => String(b.income_date).localeCompare(String(a.income_date))).slice(0, 20);
     }
     const now0 = new Date(window.TODAY ? window.TODAY.getTime() : Date.now());
@@ -29255,12 +29524,26 @@ window.classifyAmount = classifyAmount;
     const monthTotal = inc.filter((r) => String(r.income_date).slice(0, 7) === mk).reduce((s, r) => s + Number(r.amount), 0);
     const f = (n) => (window.fmt ? window.fmt(n) : n);
     const delFn = personal ? 'fhPersonalDelIncomeUI' : 'fhDelIncome';
-    const list = inc.map((r) =>
-      '<div class="fh-s-row">'
-      + '<div class="fh-s-grow"><div class="fh-s-name">' + _esc(r.note || L('Thu nhập','Income')) + '</div><div class="fh-s-meta">' + _esc(r.income_date) + '</div></div>'
+    /* Account chips (personal only) — "Vào tài khoản nào?". In real life income
+       lands IN an account; the tag is what moves that account's anchored balance
+       (full-ledger §4.3). Deposit/ewallet + Tiền mặt only: money into your own
+       card is a card payment, not income (one kind = one meaning, T11). Optional,
+       toggle-to-clear, last pick remembered separately from the spend instrument. */
+    const pAccts = personal ? (window.fhPersonalData().accounts || []) : [];
+    const acctName = (id) => { const a = pAccts.find((x) => x.id === id); return a ? (a.name || L('Tài khoản','Account')) : null; };
+    const acctChips = personal ? _fhIncAcctChipsHTML() : '';
+    /* Personal rows tap into the income edit sheet (amount · date · note ·
+       account); the trash keeps its arm-then-confirm and must not also open
+       the sheet, hence the stopPropagation prefix. Family rows stay tap-inert
+       (family income has no edit surface). */
+    const list = inc.map((r) => {
+      const an = personal && r.account_id ? acctName(r.account_id) : null;
+      const tap = personal ? ' tap" onclick="fhIncomeRowSheet(\'' + r.id + '\',\'sheet\')"' : '"';
+      return '<div class="fh-s-row' + tap + '>'
+      + '<div class="fh-s-grow"><div class="fh-s-name">' + _esc(r.note || L('Thu nhập','Income')) + '</div><div class="fh-s-meta">' + _esc(r.income_date) + (an ? ' · ' + _esc(an) : '') + '</div></div>'
       + '<span class="num" style="color:var(--good);font-weight:700;flex:none">+' + f(Number(r.amount)) + '</span>'
-      + _btn(_ICO.trash, delFn + "('" + r.id + "',this)", 'fh-s-act danger')
-      + '</div>').join('');
+      + _btn(_ICO.trash, 'event.stopPropagation();' + delFn + "('" + r.id + "',this)", 'fh-s-act danger')
+      + '</div>'; }).join('');
     _fhModal({
       title: personal ? L('Thu nhập của bạn','Your income') : L('Thu nhập','Income'),
       saveLabel: L('Thêm','Add'),
@@ -29270,6 +29553,7 @@ window.classifyAmount = classifyAmount;
         + '<input id="fh-inc-amt" inputmode="numeric" placeholder="' + _esc(window.amtPlaceholder ? window.amtPlaceholder() : '') + '" oninput="fhModalDirty()"></div>'
         + '<div class="field"><label>' + L('Ghi chú','Note') + ' <span class="opt">' + L('tuỳ chọn','optional') + '</span></label>'
         + '<input id="fh-inc-note" placeholder="' + _esc(L('vd. Lương','e.g. Salary')) + '" oninput="fhModalDirty()"></div>'
+        + acctChips
         + '<div class="fh-s-lab" style="margin-top:26px">' + L('Gần đây','Recent') + '</div>'
         + (list || '<div class="fh-s-empty">' + L('Chưa ghi khoản thu nào. Thêm khoản đầu tiên ở trên nhé.','No income logged yet. Add your first above.') + '</div>'),
       required: () => [{ el: 'fh-inc-amt', ok: (window.parseAmtBase ? window.parseAmtBase(document.getElementById('fh-inc-amt').value) : 0) > 0 }],
@@ -29278,7 +29562,11 @@ window.classifyAmount = classifyAmount;
         const base = window.parseAmtBase(document.getElementById('fh-inc-amt').value);
         const note = (document.getElementById('fh-inc-note').value || '').trim() || L('Thu nhập','Income');
         if (personal) {
-          const ok = await window.fhPersonalAddIncome(base, note);
+          const pickBtn = document.querySelector('#fh-inc-acct .choice.on');
+          const pick = pickBtn ? pickBtn.dataset.v : null;
+          // 'cash' materializes the Tiền mặt account on first use (same as the expense sheet)
+          const acctId = pick ? ((pick === 'cash' && window.fhPersonalCashAccount) ? await window.fhPersonalCashAccount() : pick) : null;
+          const ok = await window.fhPersonalAddIncome(base, note, undefined, undefined, { accountId: acctId });
           if (!ok) throw new Error('personal income save failed');
           if (window.renderPersonal) window.renderPersonal();
         } else {
@@ -29289,6 +29577,105 @@ window.classifyAmount = classifyAmount;
         return () => window.fhIncome(scope);               // reopen with the new row in place
       }
     });
+  };
+  /* "Vào tài khoản nào?" chip row, shared by the add form (fhIncome) and the
+     edit sheet (fhIncomeRowSheet). Deposit/ewallet + Tiền mặt only — money into
+     your own card is a card payment, not income (one kind = one meaning, T11).
+     `selId` = explicit selection for edit mode (an account id, or null for "no
+     tag"); omitted = the remembered last pick. Edit-mode taps don't overwrite
+     the remembered default for NEW income (noPersist). */
+  function _fhIncAcctChipsHTML(selId) {
+    const pd = window.fhPersonalData ? window.fhPersonalData() : null;
+    const accts = (pd && pd.accounts) || [];
+    const edit = typeof selId !== 'undefined';
+    let sel;
+    if (edit) {
+      const cashA = accts.find((a) => a.kind === 'cash');
+      sel = selId ? ((cashA && selId === cashA.id) ? 'cash' : selId) : null;
+    } else { try { sel = localStorage.getItem('fh-last-inc-acct'); } catch (e) { sel = null; } }
+    const ico = { deposit: '🏦', ewallet: '📱' };
+    const pick = edit ? 'fhIncPickAcct(this,1)' : 'fhIncPickAcct(this)';
+    return '<div class="field"><label>' + L('Vào tài khoản nào?','Into which account?') + ' <span class="opt">' + L('tuỳ chọn','optional') + '</span></label><div class="choices" id="fh-inc-acct">'
+      + '<button type="button" class="choice' + (sel === 'cash' ? ' on' : '') + '" data-v="cash" onclick="' + pick + '">💵 Tiền mặt</button>'
+      + accts.filter((a) => a.kind === 'deposit' || a.kind === 'ewallet')
+        .map((a) => '<button type="button" class="choice' + (sel === a.id ? ' on' : '') + '" data-v="' + a.id + '" onclick="' + pick + '">' + (ico[a.kind] || '🏦') + ' ' + _esc(a.name || L('Tài khoản','Account')) + '</button>').join('')
+      + '</div></div>';
+  }
+  /* Chip toggle — tapping the selected chip clears it (the field is optional).
+     window-bridged: js-data is module scope and the inline onclick needs a
+     global. `noPersist` (edit mode) keeps the add-form default untouched. */
+  window.fhIncPickAcct = function (btn, noPersist) {
+    const was = btn.classList.contains('on');
+    const box = document.getElementById('fh-inc-acct');
+    if (box) box.querySelectorAll('.choice').forEach((b) => b.classList.remove('on'));
+    if (!was) btn.classList.add('on');
+    if (!noPersist) {
+      try {
+        if (!was) localStorage.setItem('fh-last-inc-acct', btn.dataset.v);
+        else localStorage.removeItem('fh-last-inc-acct');
+      } catch (e) {}
+    }
+    if (window.fhModalDirty) window.fhModalDirty();
+  };
+  /* ── Income edit sheet — tap a row in "Thu nhập của bạn", the personal tab's
+     transaction list, or the Giao dịch cá nhân drill-in. Amount · date · note ·
+     receiving account, plus arm-then-confirm delete. `origin==='sheet'` reopens
+     the income list after save/delete (the edit replaced it — one shared modal). */
+  window.fhIncomeRowSheet = function (id, origin) {
+    const pd = window.fhPersonalData ? window.fhPersonalData() : null;
+    if (!pd || pd.state !== 'ready' || !pd.key) { window.toast && window.toast(L('Sổ cá nhân chưa sẵn sàng','Your personal ledger isn’t ready')); return; }
+    const t = (pd.txns || []).find((x) => x.id === id && x.kind === 'income');
+    if (!t || t._unreadable) return;
+    const shown = window.amtToInput ? window.amtToInput(Number(t.amt) || 0) : String(t.amt || 0);
+    _fhModal({
+      title: L('Khoản thu','Income'),
+      saveLabel: L('Lưu','Save'),
+      reqMsg: L('Hãy nhập số tiền','Add an amount'),
+      body: '<div class="field"><label>' + L('Số tiền','Amount') + '</label>'
+        + '<input id="fh-inc-e-amt" class="num" inputmode="numeric" value="' + _esc(shown) + '" oninput="fhModalDirty()"></div>'
+        + '<div class="field"><label>' + L('Ngày','Date') + '</label>'
+        + '<input id="fh-inc-e-date" type="date" value="' + _esc(t.date || '') + '" oninput="fhModalDirty()"></div>'
+        + '<div class="field"><label>' + L('Ghi chú','Note') + ' <span class="opt">' + L('tuỳ chọn','optional') + '</span></label>'
+        + '<input id="fh-inc-e-note" value="' + _esc(t.note || '') + '" oninput="fhModalDirty()"></div>'
+        + _fhIncAcctChipsHTML(t.accountId || null)
+        + _btn(L('Xoá khoản thu này','Delete this income'), "fhIncomeRowDelete('" + id + "','" + (origin || '') + "',this)", 'dbt-btn danger', 'width:100%;margin-top:18px'),
+      required: () => [{ el: 'fh-inc-e-amt', ok: (window.parseAmtBase ? window.parseAmtBase(document.getElementById('fh-inc-e-amt').value) : 0) > 0 }],
+      save: async () => {
+        const base = window.parseAmtBase(document.getElementById('fh-inc-e-amt').value);
+        const note = (document.getElementById('fh-inc-e-note').value || '').trim() || null;
+        const date = (document.getElementById('fh-inc-e-date').value || '') || null;
+        const pickBtn = document.querySelector('#fh-inc-acct .choice.on');
+        const pick = pickBtn ? pickBtn.dataset.v : null;
+        const acctId = pick ? ((pick === 'cash' && window.fhPersonalCashAccount) ? await window.fhPersonalCashAccount() : pick) : null;
+        const ok = await window.fhPersonalUpdateIncome(id, { amt: base, note: note, dateIso: date, accountId: acctId });
+        if (!ok) throw new Error('personal income update failed');
+        window.toast && window.toast(L('Đã lưu','Saved'));
+        return () => {
+          if (window.renderPersonal) window.renderPersonal();
+          if (typeof window.refreshPersonalTxnOverlay === 'function') window.refreshPersonalTxnOverlay();
+          if (origin === 'sheet') window.fhIncome('personal');
+        };
+      }
+    });
+  };
+  window.fhIncomeRowDelete = async function (id, origin, btn) {
+    if (btn && !btn.classList.contains('armed')) {
+      btn.classList.add('armed'); btn.textContent = L('Bấm lần nữa để xoá','Tap again to delete');
+      clearTimeout(window._fhIncArmT);
+      window._fhIncArmT = setTimeout(() => {
+        if (!btn.isConnected) return;
+        btn.classList.remove('armed'); btn.textContent = L('Xoá khoản thu này','Delete this income');
+      }, 4000);
+      return;
+    }
+    clearTimeout(window._fhIncArmT);
+    const ok = window.fhPersonalDelIncome ? await window.fhPersonalDelIncome(id) : false;
+    if (!ok) { window.toast && window.toast(L('Chưa xoá được, thử lại','Couldn’t delete, try again')); return; }
+    window._closeOv();
+    window.toast && window.toast(L('Đã xoá thu nhập','Income deleted'));
+    if (window.renderPersonal) window.renderPersonal();
+    if (typeof window.refreshPersonalTxnOverlay === 'function') window.refreshPersonalTxnOverlay();
+    if (origin === 'sheet') window.fhIncome('personal');
   };
   /* Single family income write — extracted so the unified capture sheet (Thu type)
      and the fhIncome list can share ONE income path. `base` is base units (÷curMult
@@ -30550,6 +30937,28 @@ window.classifyAmount = classifyAmount;
      credit-card "payment received" (credit into a card), or when its memo says
      so. Returns display-currency amounts, like the review's candidates. */
   var _CARD_PAY_RX = /thanh toan (sao ke |du no )?the|tt the tin dung|tra no the|thanh toan the (visa|master|jcb)|tra tien the tin dung/;
+  /* Card-payment SHAPE of an unsealed payload — shared with the quick sheet and
+     the staged parse. Two signals, either suffices:
+     1. the memo says so ("thanh toan sao ke the…");
+     2. the classifier called the instrument a credit card while the NUMBER
+        belongs to a non-card account the user owns. That disagreement is not
+        noise — it is exactly what a bank's payment-confirmation mail produces
+        (VIB "Thanh toán thẻ tín dụng thành công": account_kind=credit_card,
+        account_masked = "Từ tài khoản", i.e. the SENDING deposit). Trusting
+        the kind while matching accounts by number filed the payment as a row
+        on the deposit (2026-09-06). */
+  window.fhCardPayShaped = function (re) {
+    if (!re) return false;
+    var memo = String(re.memo_display != null ? re.memo_display : (re.memo || re.counterparty || '')).toLowerCase();
+    var flat = memo.normalize ? memo.normalize('NFD').replace(/[̀-ͯ]/g, '') : memo;
+    if (_CARD_PAY_RX.test(flat)) return true;
+    var tail = String(re.account_masked || '').replace(/\D/g, '').slice(-4);
+    if (re.account_kind === 'credit_card' && tail && window.fhPersonalData) {
+      var accs = (fhPersonalData().accounts || []);
+      if (accs.some(function (a) { return (a.tail || '') === tail && a.kind !== 'credit_card'; })) return true;
+    }
+    return false;
+  };
   window.fhStagedCardPayments = async function () {
     var raw;
     try { raw = await fhFetchStagedTxns(); } catch (e) { return []; }
@@ -31201,16 +31610,47 @@ window.classifyAmount = classifyAmount;
            cards) → untagged, and assignable later from the card's own detail
            screen. Either way it is a transfer, out of every spend total. */
         var payCard = c._payCardId || null;   // an explicit pick in the expanded review card wins
-        if (!payCard) {
-          if (ai && ai.kind === 'credit_card' && window.fhPersonalAccountEnsure) {
-            try { payCard = await window.fhPersonalAccountEnsure(ai); } catch (e1) {}
-          } else {
-            var _cards = (pd.accounts || []).filter(function (a) { return a.kind === 'credit_card'; });
-            if (_cards.length === 1) payCard = _cards[0].id;
-          }
+        var payFrom = null;                   // the SENDING account, when the mail named it
+        /* The classifier's kind is a claim; the resolved account's kind is a
+           fact. VIB's payment mail says account_kind=credit_card while its
+           account_masked is the sending DEPOSIT — and ensure() matches by
+           number (T12), so trusting ai.kind here tagged the payment to the
+           deposit and the card's outstanding never moved (2026-09-06). Resolve
+           first, then let what came back decide which side of the payment it
+           is. */
+        if (ai && window.fhPersonalAccountEnsure) {
+          var _ownId = null;
+          try { _ownId = await window.fhPersonalAccountEnsure(ai); } catch (e1) {}
+          var _ownRec = _ownId && (pd.accounts || []).find(function (a) { return a.id === _ownId; });
+          if (_ownRec && _ownRec.kind === 'credit_card') { if (!payCard) payCard = _ownId; }
+          else if (_ownRec) payFrom = _ownId;
         }
-        specs.push({ kind: 'transfer', amt: base, note: c.description || 'Thanh toán thẻ',
-          dateIso: c.dateDisplay || undefined, accountId: payCard, source: src });
+        if (!payCard) {
+          /* The memo usually names the card's own tail ("…THE MASTER 4751") —
+             a digit-exact match against owned cards beats the one-card guess. */
+          var _cards = (pd.accounts || []).filter(function (a) { return a.kind === 'credit_card'; });
+          var _memoDigits = String(c.description || '').replace(/\D+/g, ' ');
+          var _byTail = _cards.filter(function (a) {
+            return a.tail && (' ' + _memoDigits + ' ').indexOf(' ' + a.tail + ' ') >= 0;
+          });
+          if (_byTail.length === 1) payCard = _byTail[0].id;
+          else if (_cards.length === 1) payCard = _cards[0].id;
+        }
+        var _payNote = c.description || 'Thanh toán thẻ';
+        if (payCard && payFrom && payCard !== payFrom) {
+          /* Both sides known → the pair the full-ledger spec §7.3 allows: the
+             deposit's leg (−) keeps its balance honest, the card's leg (+)
+             draws the outstanding down, one group id keeps them one event. */
+          var _pgid = crypto.randomUUID();
+          specs.push({ kind: 'transfer', amt: -base, note: _payNote,
+            dateIso: c.dateDisplay || undefined, accountId: payFrom, transferGroupId: _pgid, source: src });
+          specs.push({ kind: 'transfer', amt: base, note: _payNote,
+            dateIso: c.dateDisplay || undefined, accountId: payCard, transferGroupId: _pgid, source: src });
+        } else {
+          specs.push({ kind: 'transfer', amt: base, note: _payNote,
+            dateIso: c.dateDisplay || undefined, accountId: payCard, source: src });
+        }
+        if (payFrom) _recBal(payFrom);   // the mail's "Số dư" is the sending account's
       } else {
         /* An expense tags its instrument (a credit-card purchase is what
            BUILDS that card's balance). Auto-materializes the account (Q15). */
@@ -33840,8 +34280,14 @@ window.classifyAmount = classifyAmount;
         var priv = await window.fhPersonalStagingPrivKey();
         var payload = window.fhStagingOpenRow(row, priv);
         // direct-read nests detail under raw_extracted; forwarding spreads it flat (72)
-        return (payload && payload.raw_extracted && typeof payload.raw_extracted === 'object')
+        var re = (payload && payload.raw_extracted && typeof payload.raw_extracted === 'object')
           ? Object.assign({}, payload, payload.raw_extracted) : payload;
+        /* source_provider is a CLEAR COLUMN on the staged row, never inside the
+           sealed box — reading it off the payload always found undefined, so
+           fhPersonalAccountEnsure got provider:null and minted a provider-less
+           twin ("Tài khoản ••4751") of an account that already existed. */
+        if (re && re.source_provider == null) re.source_provider = row.source_provider || null;
+        return re;
       } catch (e) { return null; }                             // locked / mismatch → stay quiet
     }
 
@@ -33944,12 +34390,16 @@ window.classifyAmount = classifyAmount;
 
         var flow = re.flow || (re.direction === 'credit' ? 'income' : 'expense');
         var foreign = re.currency && re.currency !== 'VND';
-        if (flow === 'transfer' || foreign || _qrLendingShaped(flow, re)) {
+        if (flow === 'transfer' || foreign || _qrLendingShaped(flow, re)
+            || (window.fhCardPayShaped && window.fhCardPayShaped(re))) {
           /* A judgment-call row belongs to the full review screen. Since 0122
              that includes LENDING-shaped rows: a payee matching an open debt
              balance or a learned loan lesson — quick review's one-tap "Duyệt ·
              <category>" would file exactly the loan-as-expense miscount the
-             lending pass exists to catch, with no Kind control in sight. */
+             lending pass exists to catch, with no Kind control in sight. And
+             since 2026-09-06, CARD-PAYMENT-shaped rows (fhCardPayShaped): a
+             one-tap "Duyệt" here would file the payment as an expense on the
+             sending account — the double-count the cardpay kind exists for. */
           if (opts.force && window.fhTxnReviewSheet) window.fhTxnReviewSheet();
           return;
         }

@@ -596,6 +596,28 @@
      credit-card "payment received" (credit into a card), or when its memo says
      so. Returns display-currency amounts, like the review's candidates. */
   var _CARD_PAY_RX = /thanh toan (sao ke |du no )?the|tt the tin dung|tra no the|thanh toan the (visa|master|jcb)|tra tien the tin dung/;
+  /* Card-payment SHAPE of an unsealed payload — shared with the quick sheet and
+     the staged parse. Two signals, either suffices:
+     1. the memo says so ("thanh toan sao ke the…");
+     2. the classifier called the instrument a credit card while the NUMBER
+        belongs to a non-card account the user owns. That disagreement is not
+        noise — it is exactly what a bank's payment-confirmation mail produces
+        (VIB "Thanh toán thẻ tín dụng thành công": account_kind=credit_card,
+        account_masked = "Từ tài khoản", i.e. the SENDING deposit). Trusting
+        the kind while matching accounts by number filed the payment as a row
+        on the deposit (2026-09-06). */
+  window.fhCardPayShaped = function (re) {
+    if (!re) return false;
+    var memo = String(re.memo_display != null ? re.memo_display : (re.memo || re.counterparty || '')).toLowerCase();
+    var flat = memo.normalize ? memo.normalize('NFD').replace(/[̀-ͯ]/g, '') : memo;
+    if (_CARD_PAY_RX.test(flat)) return true;
+    var tail = String(re.account_masked || '').replace(/\D/g, '').slice(-4);
+    if (re.account_kind === 'credit_card' && tail && window.fhPersonalData) {
+      var accs = (fhPersonalData().accounts || []);
+      if (accs.some(function (a) { return (a.tail || '') === tail && a.kind !== 'credit_card'; })) return true;
+    }
+    return false;
+  };
   window.fhStagedCardPayments = async function () {
     var raw;
     try { raw = await fhFetchStagedTxns(); } catch (e) { return []; }
@@ -1247,16 +1269,47 @@
            cards) → untagged, and assignable later from the card's own detail
            screen. Either way it is a transfer, out of every spend total. */
         var payCard = c._payCardId || null;   // an explicit pick in the expanded review card wins
-        if (!payCard) {
-          if (ai && ai.kind === 'credit_card' && window.fhPersonalAccountEnsure) {
-            try { payCard = await window.fhPersonalAccountEnsure(ai); } catch (e1) {}
-          } else {
-            var _cards = (pd.accounts || []).filter(function (a) { return a.kind === 'credit_card'; });
-            if (_cards.length === 1) payCard = _cards[0].id;
-          }
+        var payFrom = null;                   // the SENDING account, when the mail named it
+        /* The classifier's kind is a claim; the resolved account's kind is a
+           fact. VIB's payment mail says account_kind=credit_card while its
+           account_masked is the sending DEPOSIT — and ensure() matches by
+           number (T12), so trusting ai.kind here tagged the payment to the
+           deposit and the card's outstanding never moved (2026-09-06). Resolve
+           first, then let what came back decide which side of the payment it
+           is. */
+        if (ai && window.fhPersonalAccountEnsure) {
+          var _ownId = null;
+          try { _ownId = await window.fhPersonalAccountEnsure(ai); } catch (e1) {}
+          var _ownRec = _ownId && (pd.accounts || []).find(function (a) { return a.id === _ownId; });
+          if (_ownRec && _ownRec.kind === 'credit_card') { if (!payCard) payCard = _ownId; }
+          else if (_ownRec) payFrom = _ownId;
         }
-        specs.push({ kind: 'transfer', amt: base, note: c.description || 'Thanh toán thẻ',
-          dateIso: c.dateDisplay || undefined, accountId: payCard, source: src });
+        if (!payCard) {
+          /* The memo usually names the card's own tail ("…THE MASTER 4751") —
+             a digit-exact match against owned cards beats the one-card guess. */
+          var _cards = (pd.accounts || []).filter(function (a) { return a.kind === 'credit_card'; });
+          var _memoDigits = String(c.description || '').replace(/\D+/g, ' ');
+          var _byTail = _cards.filter(function (a) {
+            return a.tail && (' ' + _memoDigits + ' ').indexOf(' ' + a.tail + ' ') >= 0;
+          });
+          if (_byTail.length === 1) payCard = _byTail[0].id;
+          else if (_cards.length === 1) payCard = _cards[0].id;
+        }
+        var _payNote = c.description || 'Thanh toán thẻ';
+        if (payCard && payFrom && payCard !== payFrom) {
+          /* Both sides known → the pair the full-ledger spec §7.3 allows: the
+             deposit's leg (−) keeps its balance honest, the card's leg (+)
+             draws the outstanding down, one group id keeps them one event. */
+          var _pgid = crypto.randomUUID();
+          specs.push({ kind: 'transfer', amt: -base, note: _payNote,
+            dateIso: c.dateDisplay || undefined, accountId: payFrom, transferGroupId: _pgid, source: src });
+          specs.push({ kind: 'transfer', amt: base, note: _payNote,
+            dateIso: c.dateDisplay || undefined, accountId: payCard, transferGroupId: _pgid, source: src });
+        } else {
+          specs.push({ kind: 'transfer', amt: base, note: _payNote,
+            dateIso: c.dateDisplay || undefined, accountId: payCard, source: src });
+        }
+        if (payFrom) _recBal(payFrom);   // the mail's "Số dư" is the sending account's
       } else {
         /* An expense tags its instrument (a credit-card purchase is what
            BUILDS that card's balance). Auto-materializes the account (Q15). */

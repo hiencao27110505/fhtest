@@ -152,8 +152,14 @@
         var priv = await window.fhPersonalStagingPrivKey();
         var payload = window.fhStagingOpenRow(row, priv);
         // direct-read nests detail under raw_extracted; forwarding spreads it flat (72)
-        return (payload && payload.raw_extracted && typeof payload.raw_extracted === 'object')
+        var re = (payload && payload.raw_extracted && typeof payload.raw_extracted === 'object')
           ? Object.assign({}, payload, payload.raw_extracted) : payload;
+        /* source_provider is a CLEAR COLUMN on the staged row, never inside the
+           sealed box — reading it off the payload always found undefined, so
+           fhPersonalAccountEnsure got provider:null and minted a provider-less
+           twin ("Tài khoản ••4751") of an account that already existed. */
+        if (re && re.source_provider == null) re.source_provider = row.source_provider || null;
+        return re;
       } catch (e) { return null; }                             // locked / mismatch → stay quiet
     }
 
@@ -256,12 +262,16 @@
 
         var flow = re.flow || (re.direction === 'credit' ? 'income' : 'expense');
         var foreign = re.currency && re.currency !== 'VND';
-        if (flow === 'transfer' || foreign || _qrLendingShaped(flow, re)) {
+        if (flow === 'transfer' || foreign || _qrLendingShaped(flow, re)
+            || (window.fhCardPayShaped && window.fhCardPayShaped(re))) {
           /* A judgment-call row belongs to the full review screen. Since 0122
              that includes LENDING-shaped rows: a payee matching an open debt
              balance or a learned loan lesson — quick review's one-tap "Duyệt ·
              <category>" would file exactly the loan-as-expense miscount the
-             lending pass exists to catch, with no Kind control in sight. */
+             lending pass exists to catch, with no Kind control in sight. And
+             since 2026-09-06, CARD-PAYMENT-shaped rows (fhCardPayShaped): a
+             one-tap "Duyệt" here would file the payment as an expense on the
+             sending account — the double-count the cardpay kind exists for. */
           if (opts.force && window.fhTxnReviewSheet) window.fhTxnReviewSheet();
           return;
         }
