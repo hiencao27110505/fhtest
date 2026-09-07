@@ -298,6 +298,18 @@ const POOL_DAYPART = {
       chieu: [{ e: '😋', b: 'Chiều buồn ngủ làm ly trà sữa hả!' }, { e: '😏', b: 'Trà sữa xế chiều, topping vừa phải nha!' }],
       toi: [{ e: '😌', b: 'Trà sữa tối, ít đường ngủ ngon nha!' }, { e: '😅', b: 'Ngọt buổi tối, nhớ đánh răng nha!' }],
     },
+    ride: {
+      sang: [{ e: '😌', b: 'Sáng bắt xe đi làm, kịp giờ nha!' }, { e: '😊', b: 'Sáng gọi xe cho nhanh, đúng giờ ghê!' }],
+      trua: [{ e: '😏', b: 'Trưa nắng ngại đi bộ, gọi xe hả!' }, { e: '😌', b: 'Trưa gọi xe cho mát, tiện ghê ta!' }],
+      chieu: [{ e: '😌', b: 'Chiều bắt xe về, tránh kẹt đường nha!' }, { e: '😊', b: 'Tan làm gọi xe, về nhà nghỉ nha!' }],
+      toi: [{ e: '😌', b: 'Tối gọi xe về cho an toàn nha!' }, { e: '😉', b: 'Về khuya đi xe, an toàn hơn nha!' }],
+    },
+    cinema: {
+      sang: [{ e: '😎', b: 'Sáng sớm xem phim, sang thật đó!' }, { e: '😌', b: 'Xem phim sáng, vé rẻ hơn nha!' }],
+      trua: [{ e: '😏', b: 'Trưa trốn nắng vào rạp, khôn ghê!' }, { e: '😌', b: 'Xem phim trưa, nhớ ăn gì nha!' }],
+      chieu: [{ e: '😌', b: 'Chiều xem phim thư giãn, đáng mà!' }, { e: '😆', b: 'Xế chiều vào rạp, tránh nắng ghê!' }],
+      toi: [{ e: '😌', b: 'Tối xem phim thư giãn, xứng đáng!' }, { e: '😏', b: 'Phim tối hay nha, đừng thức khuya!' }],
+    },
   },
   en: {
     coffee: {
@@ -311,6 +323,18 @@ const POOL_DAYPART = {
       trua: [{ e: '😊', b: 'Noon milk tea, go easy on sugar!' }, { e: '😌', b: 'A little sweet is fine, not much!' }],
       chieu: [{ e: '😋', b: 'Afternoon slump, milk tea to the rescue!' }, { e: '😏', b: 'Afternoon cup, keep toppings modest!' }],
       toi: [{ e: '😌', b: 'Milk tea tonight, less sugar for sleep!' }, { e: '😅', b: 'Sweet at night, brush your teeth!' }],
+    },
+    ride: {
+      sang: [{ e: '😌', b: 'Morning ride to work, be on time!' }, { e: '😊', b: 'Booked a ride, beating the morning rush!' }],
+      trua: [{ e: '😏', b: 'Too hot to walk at noon, huh!' }, { e: '😌', b: 'Midday ride, quick and comfy!' }],
+      chieu: [{ e: '😌', b: 'Afternoon ride home, skip the traffic!' }, { e: '😊', b: 'Off work, ride home and rest!' }],
+      toi: [{ e: '😌', b: 'Night ride home, stay safe please!' }, { e: '😉', b: 'Late ride, get home safe!' }],
+    },
+    cinema: {
+      sang: [{ e: '😎', b: 'A morning movie, fancy indeed!' }, { e: '😌', b: 'Morning show, cheaper tickets, smart!' }],
+      trua: [{ e: '😏', b: 'Hiding from noon heat in cinema, clever!' }, { e: '😌', b: 'Noon movie, grab a bite too!' }],
+      chieu: [{ e: '😌', b: 'Afternoon film to unwind, worth it!' }, { e: '😆', b: 'Beat the afternoon heat indoors, nice!' }],
+      toi: [{ e: '😌', b: 'Evening movie to relax, well earned!' }, { e: '😏', b: 'Great night film, do not stay up late!' }],
     },
   },
 };
