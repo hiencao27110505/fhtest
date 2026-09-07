@@ -165,7 +165,11 @@ hand-merging `index.html`. Both replaced vigilance with structure.
   `bank-email-pipeline.gs` (PIPELINE_VERSION → `2026-09-05-witness`, ⚠️ PASTE
   OUTSTANDING), new `pipeline/witness-citation.test.js`. NO migration, NO
   EXTRACTION_LOGIC_VERSION bump — the template FORMAT is unchanged (test E pins
-  this), so nothing re-derives and the b0d5fdd stall cannot recur.**
+  this), so nothing re-derives and the b0d5fdd stall cannot recur.
+  DEPLOYED 2026-09-07 as mailbox-sync v40 (verified by re-download: v39 carried
+  ZERO witness markers despite the 05-09 23:00 deploy postdating the edits, so
+  that deploy ran from a tree without them; v40's only delta vs v39 is the
+  witness itself, nothing rolled back). The .gs paste is STILL outstanding.**
 
   Trigger: `template_derive_failures` went non-empty (11 rows / ~40 fails —
   BVBank `amount`/`anchor:*`, momo `absent:reference_number`; the
