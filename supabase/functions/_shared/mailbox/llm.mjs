@@ -78,6 +78,11 @@ export const EXTRACTION_SYSTEM_PROMPT =
   'notice ("biến động số dư") on a bank account. ewallet when the sender is an e-wallet — MoMo, ' +
   'ZaloPay, ShopeePay, or the mail says "ví điện tử". When the mail carries none of these signals, ' +
   'answer null — never guess, because a wrongly claimed credit card invents a debt.\n\n' +
+  'card_masked: on a credit-card payment or repayment mail ("thanh toán thẻ tín dụng", ' +
+  '"trả nợ thẻ", a statement payment), the credit card whose balance is being paid down — the ' +
+  'card the money goes TO, distinct from the funding account in account_masked. Copy the card ' +
+  'number as printed (masked to its last digits is fine). Null on every mail that is not a card ' +
+  'repayment, and never guess — a wrong card moves the wrong balance.\n\n' +
   'flow: what KIND of movement this is, as one of exactly these words.\n' +
   '  income   — money that is genuinely the person\'s to spend: salary, a refund, ' +
   'interest, a p2p transfer someone sent them.\n' +
@@ -137,6 +142,10 @@ export const EXTRACTION_SCHEMA = {
     reference_number: { type: ['string', 'null'] },
     status: { type: ['string', 'null'] },
     account_masked: { type: ['string', 'null'] },
+    /* The repaid credit card on a card-payment mail, distinct from the funding
+       account_masked (card-repayment-routing-spec.md). Optional — not in the
+       required list — so Gemini's pinned schema stays valid; null on non-repayments. */
+    card_masked: { type: ['string', 'null'] },
     /* WHICH INSTRUMENT moved the money (borrowing-lending-spec §8): a card
        debit is spending that also grows a debt, a deposit debit is just
        spending, a wallet debit is spending from the ví. NOT in `required`:

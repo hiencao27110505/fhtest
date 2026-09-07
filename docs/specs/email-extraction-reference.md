@@ -128,7 +128,7 @@ thing. Matching is by substring, which is why the guards in §5 exist.
 | status | tình trạng · trạng thái · status | `status` + the failed-transaction gate |
 | balance | số dư · balance | `balance` — captured, not yet used |
 | kind | loại giao dịch · transaction type | transfer vs receipt |
-| card | thẻ · the card | context only |
+| card | số thẻ · thẻ · the card · số thẻ tín dụng · thẻ được thanh toán | `card_masked` — the repaid card, last four only ([card-repayment-routing-spec.md](card-repayment-routing-spec.md)) |
 
 ### Derived, not read
 

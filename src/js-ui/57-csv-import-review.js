@@ -740,6 +740,18 @@ function buildCsvCandidates(parsed, result) {
       if (_isSelfTransfer(_selfMemo || desc)) { _xfer = true; isTransfer = false; }
     }
 
+    /* Which owned credit card this card payment pays off, matched from the
+       mail's own evidence (card_masked → card-side account_masked → memo tail →
+       one card). Set here so "Trả cho thẻ" pre-selects the card instead of
+       "Chưa rõ" (card-repayment-routing-spec.md §8.2). One shared resolver with
+       the promote path, so the shown card and the imported card agree. Only for
+       real card payments; an internal transfer or plain expense carries none,
+       and an unnameable card stays null → "Chưa rõ" (never guessed). */
+    var _payCardId = null;
+    if (isTransfer && !_xfer && window.fhResolveRepaidCard) {
+      try { _payCardId = window.fhResolveRepaidCard(_sx, _sa, desc) || null; } catch (e) { _payCardId = null; }
+    }
+
     var party = colFor.counterparty !== undefined ? (row[colFor.counterparty] || '').trim() : '';
 
     /* The file often records who paid, and the ledger has that field too --
@@ -843,6 +855,7 @@ function buildCsvCandidates(parsed, result) {
       _hasDesc: !!(desc || catGuess),
       categoryGuess: catGuess, categoryName: catName, catSource: catSource,
       counterparty: party, who: who, isIncome: isIncome, isTransfer: isTransfer, _xfer: _xfer,
+      _payCardId: _payCardId,
     };
   });
 }

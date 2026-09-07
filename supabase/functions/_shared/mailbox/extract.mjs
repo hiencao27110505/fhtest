@@ -348,6 +348,10 @@ function _tidy(extraction, body) {
   // printed, which for MB is the FULL account number sitting one row below the
   // masked one.
   out.account_masked = maskAccount(out.account_masked);
+  // The repaid card (card-repayment-routing-spec.md) gets the same last-4-only
+  // treatment as account_masked, whichever tier filled it. maskAccount(null)
+  // returns null, so the no-card case is untouched.
+  out.card_masked = maskAccount(out.card_masked);
   // every tier's provider leaves canonical — template statics included, which
   // is what heals the names already frozen at derivation without touching them
   out.source_provider = canonProviderName(out.source_provider);

@@ -618,6 +618,57 @@
     }
     return false;
   };
+  /* Which OWNED credit card a card-payment row pays off → its account id, or
+     null when it can't be named with confidence (card-repayment-routing-spec
+     §8.1). One resolver, called by both the review candidate builder (to
+     pre-select "Trả cho thẻ") and the promote path (to tag the card's leg).
+     Matches an owned credit_card by last-4 tail, most-specific evidence first;
+     a card it cannot confidently name stays "Chưa rõ" — a WRONG card moves the
+     wrong balance, so ambiguity fails to null, never to a guess.
+       rawX  — the staged row's raw_extracted (fhStagedRawX)
+       sa    — the instrument chip (fhStagedAcct): {kind, tail, provider}
+       desc  — the reviewed description (memo digits are mined as a fallback) */
+  window.fhResolveRepaidCard = function (rawX, sa, desc) {
+    var pd = window.fhPersonalData ? fhPersonalData() : null;
+    var cards = ((pd && pd.accounts) || []).filter(function (a) { return a.kind === 'credit_card'; });
+    if (!cards.length) return null;
+    var last4 = function (s) { return String(s == null ? '' : s).replace(/\D/g, '').slice(-4); };
+    var prov = function (s) { return String(s || '').toLowerCase(); };
+    // Match owned cards by tail; a tail shared by several cards is broken only
+    // by an explicit provider hint, else it stays ambiguous (→ null).
+    var byTail = function (tail, provHint) {
+      if (!tail) return null;
+      var hits = cards.filter(function (a) { return (a.tail || '') === tail; });
+      if (hits.length === 1) return hits[0].id;
+      if (hits.length > 1 && provHint) {
+        var p = hits.filter(function (a) { return prov(a.provider) === prov(provHint); });
+        if (p.length === 1) return p[0].id;
+      }
+      return null;
+    };
+    var x = rawX || {};
+    // 1. card_masked — the card the mail explicitly named as the repayment
+    //    target (Layer 2). The card's own bank need not be the email's sender
+    //    (cross-bank repayment), so match by tail; sa.provider only tie-breaks.
+    var id = byTail(last4(x.card_masked), sa && sa.provider);
+    if (id) return id;
+    // 2. account_masked when the classifier called the instrument a credit card
+    //    (the card-side alert — the ··5140 in the screenshot). Matches only
+    //    against owned CARDS, so a deposit number here finds none and falls
+    //    through — the 2026-09-06 VIB deposit hazard cannot re-tag a card.
+    if (sa && sa.kind === 'credit_card') { id = byTail(last4(sa.tail), sa.provider); if (id) return id; }
+    // 3. a card's tail printed in the memo/counterparty/reference/description
+    //    ("…THE MASTER 4751"): a digit-exact token match against owned cards.
+    var digits = ' ' + String(
+      (x.memo_display != null ? x.memo_display : (x.memo || '')) + ' '
+      + (x.counterparty || '') + ' ' + (x.reference_number || '') + ' ' + (desc || '')
+    ).replace(/\D+/g, ' ').trim() + ' ';
+    var mHits = cards.filter(function (a) { return a.tail && digits.indexOf(' ' + a.tail + ' ') >= 0; });
+    if (mHits.length === 1) return mHits[0].id;
+    // 4. one owned card → the only possible answer. 5. else null → "Chưa rõ".
+    if (cards.length === 1) return cards[0].id;
+    return null;
+  };
   window.fhStagedCardPayments = async function () {
     var raw;
     try { raw = await fhFetchStagedTxns(); } catch (e) { return []; }
@@ -1270,30 +1321,30 @@
            screen. Either way it is a transfer, out of every spend total. */
         var payCard = c._payCardId || null;   // an explicit pick in the expanded review card wins
         var payFrom = null;                   // the SENDING account, when the mail named it
+        /* Which card this pays off, from the mail's own evidence: card_masked
+           (Layer 2) → the card-side account_masked → a card tail in the memo →
+           one-card default. One shared resolver with the review candidate
+           builder, so the pre-selected "Trả cho thẻ" and the imported card can
+           never disagree (card-repayment-routing-spec.md §8). Owned cards only;
+           an unnamed card stays untagged, never guessed. */
+        if (!payCard && window.fhResolveRepaidCard) {
+          payCard = window.fhResolveRepaidCard(_sx2, ai, c.description) || null;
+        }
         /* The classifier's kind is a claim; the resolved account's kind is a
            fact. VIB's payment mail says account_kind=credit_card while its
            account_masked is the sending DEPOSIT — and ensure() matches by
            number (T12), so trusting ai.kind here tagged the payment to the
-           deposit and the card's outstanding never moved (2026-09-06). Resolve
-           first, then let what came back decide which side of the payment it
-           is. */
+           deposit and the card's outstanding never moved (2026-09-06). ensure()
+           still runs: it names the SENDING account (payFrom) for the two-leg
+           pair, and materializes a card-side alert's card when it isn't owned
+           yet (the one case the resolver above, which matches owned cards only,
+           can't cover). */
         if (ai && window.fhPersonalAccountEnsure) {
           var _ownId = null;
           try { _ownId = await window.fhPersonalAccountEnsure(ai); } catch (e1) {}
           var _ownRec = _ownId && (pd.accounts || []).find(function (a) { return a.id === _ownId; });
           if (_ownRec && _ownRec.kind === 'credit_card') { if (!payCard) payCard = _ownId; }
           else if (_ownRec) payFrom = _ownId;
-        }
-        if (!payCard) {
-          /* The memo usually names the card's own tail ("…THE MASTER 4751") —
-             a digit-exact match against owned cards beats the one-card guess. */
-          var _cards = (pd.accounts || []).filter(function (a) { return a.kind === 'credit_card'; });
-          var _memoDigits = String(c.description || '').replace(/\D+/g, ' ');
-          var _byTail = _cards.filter(function (a) {
-            return a.tail && (' ' + _memoDigits + ' ').indexOf(' ' + a.tail + ' ') >= 0;
-          });
-          if (_byTail.length === 1) payCard = _byTail[0].id;
-          else if (_cards.length === 1) payCard = _cards[0].id;
         }
         var _payNote = c.description || 'Thanh toán thẻ';
         if (payCard && payFrom && payCard !== payFrom) {

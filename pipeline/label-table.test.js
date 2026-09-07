@@ -331,5 +331,34 @@ t('VND cells still name their currency', (parseAmountCell('-37,000 VND') || {}).
 t('a bare VND number stays currency-null for the caller to default',
   (parseAmountCell('37,000') || {}).currency === null);
 
+/* ── fixture: a credit-card repayment naming the repaid card ───────────────
+   card-repayment-routing-spec.md §7.1. The account-side alert: the money
+   leaves a deposit ("Từ tài khoản") while a separate "Số thẻ" row names the
+   card being paid down. The reader must emit BOTH — account_masked = the
+   deposit, card_masked = the card — so the review screen can pre-select which
+   card the payment settles instead of showing "Chưa rõ". */
+const VIB_CARD_REPAY = `| |
+| Ngân hàng TMCP Quốc tế Việt Nam (VIB) thông báo giao dịch: |
+
+| |
+| Loại giao dịch | Thanh toán thẻ tín dụng |
+| Số tiền | -2,000,000 VND |
+| Ngày, giờ giao dịch | 26-08-2026 14:32:00 |
+| Từ tài khoản | 1234567890123 |
+| Số thẻ | 4111********5140 |
+| Nội dung | Thanh toan the tin dung |
+| Số dư | 11,800,000 VND |`;
+
+console.log('\n-- card repayment: account_masked = deposit, card_masked = the paid card --');
+const cp = readLabelTable('Thanh toán thẻ tín dụng thành công', VIB_CARD_REPAY);
+t('parses', !!cp);
+t('amount 2000000', cp && cp.amount === 2000000, cp && String(cp.amount));
+t('account_masked is the FUNDING deposit (masks to last four)', cp && maskAccount(cp.account_masked) === '…0123', cp && cp.account_masked);
+t('card_masked is the REPAID card (last four)', cp && maskAccount(cp.card_masked) === '…5140', cp && cp.card_masked);
+t('the two are different instruments', cp && maskAccount(cp.account_masked) !== maskAccount(cp.card_masked));
+
+console.log('\n-- a plain mail names no card → card_masked null --');
+t('MB tap card purchase carries no card_masked', a && (a.card_masked == null), a && String(a.card_masked));
+
 console.log('\n' + (fail === 0 ? 'ALL ' + pass + ' PASSED' : pass + ' passed, ' + fail + ' FAILED'));
 process.exit(fail ? 1 : 0);

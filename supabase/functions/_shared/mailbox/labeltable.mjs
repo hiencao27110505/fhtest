@@ -78,7 +78,14 @@ const LABELS = [
   { field: 'status',       any: ['tinh trang', 'trang thai', 'status'] },
   { field: 'balance',      any: ['so du', 'balance'] },
   { field: 'txn_kind',     any: ['loai giao dich', 'transaction type'] },
-  { field: 'card',         any: ['so the', 'the card', 'the'] },
+  /* The credit card a payment/repayment mail names — emitted as `card_masked`
+     (card-repayment-routing-spec.md), so the review screen can pre-select which
+     card a "Trả nợ thẻ" pays off. Repayment phrasings first; the bare 'the'
+     stays start-anchored (see _lookup) so it can't eat a merchant name. This
+     row sits LAST, so a value already claimed by account/beneficiary/amount is
+     never re-read as a card. */
+  { field: 'card',         any: ['so the tin dung', 'the tin dung so', 'the duoc thanh toan',
+                                 'the thanh toan', 'so the', 'the card', 'the'] },
 ];
 
 function _strip(s) {
@@ -619,6 +626,12 @@ export function readLabelTable(subject, body, learned) {
        whether. Nothing reads this tier's output except extract.mjs, which
        tidies, and the learner, which needs the raw. */
     account_masked: got.account || null,
+    /* The credit card the mail named, if any (card-repayment-routing-spec.md).
+       Raw as printed here; `_tidy` masks it to last-4 like account_masked, and
+       the learner needs the verbatim value to anchor it. Role-neutral: the
+       client uses it as the repaid card only on rows it classifies as a card
+       payment. Null on every mail that named no card. */
+    card_masked: got.card || null,
     category: null,                              // the client's learning owns this
     flow: self ? 'transfer' : null,              // anything else is stage.mjs's judgement
     balance: got.balance ? (parseAmountCell(got.balance) || {}).value ?? null : null,

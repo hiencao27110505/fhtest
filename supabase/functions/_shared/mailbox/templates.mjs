@@ -452,8 +452,9 @@ function deriveExtractionTemplate(body, extraction, trace) {
   // writes at review. Leaving it out meant the FIRST email from a sender kept its
   // memo (LLM path) and every email after it lost one (template path) — silently,
   // and on the path that carries most volume permanently.
-  var strFields = ['counterparty', 'reference_number', 'account_masked', 'memo'];
+  var strFields = ['counterparty', 'reference_number', 'account_masked', 'card_masked', 'memo'];
   var accountDegraded = false;
+  var cardDegraded = false;
   for (var f = 0; f < strFields.length; f++) {
     var name = strFields[f], val = extraction[name];
     if (val === null || val === undefined || val === '') { tpl.static[name] = null; continue; }
@@ -470,6 +471,12 @@ function deriveExtractionTemplate(body, extraction, trace) {
          money moved was a real incident, and this loop's strictness is its
          scar. Degrading is per-field justified or it is silent data loss. */
       if (name === 'account_masked') { accountDegraded = true; continue; }
+      /* card_masked degrades on the same argument (card-repayment-routing-spec
+         §7.3): a card the anchor can't reproduce costs the reviewer one "Chưa
+         rõ" they can still recover from account_masked/memo — not a model call
+         per mail forever. A model-returned masked value ("…5140") that never
+         appears verbatim in the body lands here and degrades cleanly. */
+      if (name === 'card_masked') { cardDegraded = true; continue; }
       /* Same split 'amount' needed: absent-from-body and unanchorable are
          different diseases with different fixes. Still no values recorded. */
       return fail((body.indexOf(String(val)) < 0 ? 'absent:' : 'anchor:') + name);
@@ -486,11 +493,12 @@ function deriveExtractionTemplate(body, extraction, trace) {
   // `status` is absent on purpose, and has to be: the template no longer carries
   // one, so checking it here would compare undefined against the reading's own
   // status and fail EVERY derivation off a mail that states an outcome.
-  var keys = ['transaction_type', 'source_provider', 'occurred_at', 'amount', 'currency', 'direction', 'account_kind', 'counterparty', 'reference_number', 'account_masked', 'memo'];
+  var keys = ['transaction_type', 'source_provider', 'occurred_at', 'amount', 'currency', 'direction', 'account_kind', 'counterparty', 'reference_number', 'account_masked', 'card_masked', 'memo'];
   // A degraded account is ABSENT from the template on purpose, so the proof
   // must not demand the template reproduce it — that would re-kill exactly the
-  // derivations the degrade exists to save.
+  // derivations the degrade exists to save. Same for a degraded card_masked.
   if (accountDegraded) keys = keys.filter(function (k) { return k !== 'account_masked'; });
+  if (cardDegraded) keys = keys.filter(function (k) { return k !== 'card_masked'; });
   for (var i = 0; i < keys.length; i++) {
     var a2 = check[keys[i]], b2 = extraction[keys[i]];
     if (String(a2 === undefined ? null : a2) !== String(b2 === undefined ? null : b2)) return fail('proof:' + keys[i]);

@@ -1750,7 +1750,10 @@ the bridge branch).
 - **`account_masked` is the strongest routing signal not yet used.** Most
   households split by account, not merchant — "anything on the …4412 card is
   mine" is one rule where merchant rules would be dozens. Staged on every
-  row already.
+  row already. First real use shipped 2026-09-07: a card repayment now matches
+  its `card_masked`/`account_masked` tail to the owned card and pre-selects it
+  (`card-repayment-routing-spec.md`) — the same tail-matching a per-account
+  routing rule would extend.
 - **Auto-routing one mailbox to both ledgers** is a rule engine away, not a
   crypto change: destination is already per-row at review, and
   personal-by-default sealing makes any automation survivable.
@@ -1884,6 +1887,27 @@ as — or the same day as — the deploy. A deploy announced only in
 `AGENT_SYNC.md` is coordination; this is the record.
 
 ## 28. Releases (newest first)
+
+### 2026-09-07 — extraction + review + template learner — a card repayment names the card it pays off
+
+- **For product:** a "Trả nợ thẻ" row now pre-selects **which** credit card is
+  being paid, instead of showing "Chưa rõ", whenever the bank's email names a
+  card you own — so the repayment draws the right card's balance down without
+  you assigning it by hand. Ambiguous rows still show "Chưa rõ" (editable).
+- **Under the hood:** new `card_masked` content field (the repaid card, last-4,
+  inside the sealed box — no new column). `labeltable.mjs` emits its already-
+  matched `card` row and broadens the repayment vocabulary; `llm.mjs` gains an
+  optional `card_masked` property + prompt rule; `templates.mjs` graduates it
+  (strFields + proof, degradable like `account_masked`); `_tidy` masks it;
+  `stage.mjs` carries it. Client: one shared `fhResolveRepaidCard`
+  (`72-txn-review.js`) — card_masked → credit-card `account_masked` → memo/ref
+  digits → one-card default → null — set as `_payCardId` at candidate build
+  (`57-csv-import-review.js`) and preferred in promote. Layer 1 (client) fixes
+  the card-side-alert case with no deploy; Layer 2 (pipeline) fixes account-side
+  alerts where the card number was previously dropped.
+- **Spec sections updated:** new [card-repayment-routing-spec.md](card-repayment-routing-spec.md);
+  §24 (account_masked routing) cross-linked; extraction reference §3 field map
+  (`card` → `card_masked`).
 
 ### 2026-09-05 — mailbox-connect + mailbox-sync + client (DEPLOYED 2026-09-05) — the first minute after connect stops being silent
 

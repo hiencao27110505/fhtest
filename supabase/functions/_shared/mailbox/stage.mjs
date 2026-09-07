@@ -170,6 +170,12 @@ export async function buildStagedRow(args) {
          the client defaults to deposit-expense behaviour with an editable
          chip, never inventing a debt. */
       account_kind: reading.accountKind ?? reading.account_kind ?? null,
+      /* The repaid credit card on a card-payment mail, distinct from
+         account_masked (the funding side). Last-4, inside the box like every
+         cash-flow field. The review screen matches it to an owned card and
+         pre-selects "Trả cho thẻ" (card-repayment-routing-spec.md). Null means
+         the mail named no card. */
+      card_masked: reading.cardMasked ?? reading.card_masked ?? null,
       reference_number: reading.reference || null,
       transaction_type: transactionType,
       occurred_at: occurredAt,
