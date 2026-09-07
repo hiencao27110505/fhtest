@@ -342,6 +342,30 @@ export function createDb(url, serviceKey, fetchImpl) {
       });
     },
 
+    /* Category cascade (classify.mjs). Three thin reads/writes keyed by a hashed,
+       gateway-normalized merchant key — no merchant name or amount lives in
+       either table. All best-effort: the caller treats any throw as "no answer"
+       and falls to generic copy, so a cache blip never blocks staging. */
+    async merchantCorrectionGet(userId, hash) {
+      const rows = await rest('/merchant_corrections?owner_user_id=eq.' + encodeURIComponent(userId) +
+        '&merchant_hash=eq.' + encodeURIComponent(hash) + '&select=concept&limit=1');
+      return rows && rows[0] ? rows[0].concept : null;
+    },
+    async merchantConceptGet(hash) {
+      // Returns the ROW (or null) so the caller can tell "no row = never tried"
+      // apart from "row with null concept = tried and unknowable".
+      const rows = await rest('/merchant_concepts?merchant_hash=eq.' + encodeURIComponent(hash) +
+        '&select=concept&limit=1');
+      return rows && rows.length ? rows[0] : null;
+    },
+    async merchantConceptPut(hash, concept) {
+      await rest('/merchant_concepts?on_conflict=merchant_hash', {
+        method: 'POST',
+        headers: { Prefer: 'resolution=merge-duplicates' },
+        body: JSON.stringify({ merchant_hash: hash, concept: concept, source: 'llm', updated_at: new Date().toISOString() }),
+      });
+    },
+
     /* Best-effort telemetry — never awaited into a failure. bump_read_tally is
        one upsert per read naming the tier that answered; extract_miss_labels
        records the label vocabulary of a transaction the table tier could not

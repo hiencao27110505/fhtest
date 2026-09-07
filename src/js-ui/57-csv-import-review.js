@@ -367,7 +367,7 @@ function csvMarkSummaryRows(candidates) {
    TOWER" one week and "PAYOO REVICOFFEEHCM" the next. Stripping the gateway
    name keeps the merchant recognisable across both, so a lesson taught once
    isn't asked again the next month. */
-var CSV_GATEWAYS = /\b(payoo|mpos|vnpay|onepay|napas|ecpay|appota|zalopay|shopeepay|viettelpay|smartpay|nganluong|baokim)\b/g;
+var CSV_GATEWAYS = /\b(payoo|mpos|vnpay|onepay|napas|ecpay|appota|zalopay|shopeepay|viettelpay|smartpay|nganluong|baokim|revi)\b/g;
 
 function csvPatternKey(c) {
   var base = (c.counterparty || c.description || '');
@@ -376,6 +376,49 @@ function csvPatternKey(c) {
     .replace(CSV_GATEWAYS, ' ')
     .replace(/[^a-z\s]/g, ' ')
     .replace(/\s+/g, ' ').trim().slice(0, 40);
+}
+
+/* The correction sync key (#3). This is NOT csvPatternKey — it must reproduce the
+   server's merchantKey() in classify.mjs byte-for-byte, because the sha256 of this
+   string is the only thing the mailbox worker can match a taught merchant on. KEEP
+   THE TWO IN LOCKSTEP: the deburr → lowercase → strip-punct → gateways → bank-noise
+   → drop-4+-digits → slice(40) sequence, and the two word lists, are shared law. */
+var FH_GATEWAYS = /\b(payoo|mpos|vnpay|onepay|napas|ecpay|appota|zalopay|shopeepay|viettelpay|smartpay|nganluong|baokim|revi)\b/g;
+var FH_BANK_NOISE = /\b(customer|khach hang|thanh toan|chuyen tien|thanh toan qr|qr|pos|atm|ck|tt|nd|gd|ref|trace|mbvcb|mbct|vcb|tcb|acb|bidv|vietinbank|agribank|ib|ibft|ft)\b/g;
+function fhMerchantKey(counterparty, memo) {
+  var t = deburr(String(counterparty || '') + ' ' + String(memo || ''))
+    .toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+  t = t.replace(FH_GATEWAYS, ' ').replace(FH_BANK_NOISE, ' ').replace(/[0-9]{4,}/g, ' ').replace(/\s+/g, ' ').trim();
+  return t.slice(0, 40).trim();
+}
+function fhSha256Hex(s) {
+  return crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)).then(function (buf) {
+    return Array.prototype.map.call(new Uint8Array(buf), function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+  });
+}
+
+/* Push a taught merchant→concept up so the NOTIFICATION side can voice it too
+   (the in-app category already learns locally via csvLearned). Privacy: only the
+   hashed key and one of the 8 concept labels leave the device — never the merchant
+   name. Fire-and-forget: a failed sync just means the lesson stays device-local,
+   exactly as before this existed. */
+function fhSyncMerchantCorrection(c) {
+  try {
+    if (typeof sb === 'undefined' || !sb || !window.fhUser || !window.fhUser.id) return;
+    if (!crypto || !crypto.subtle) return;
+    var concept = (typeof conceptFromNote === 'function') ? conceptFromNote(c.categoryName || '') : '';
+    if (!concept || CONCEPT_ORDER.indexOf(concept) < 0) return;   // only the shared 8 concepts sync
+    var key = fhMerchantKey(c.counterparty || c.description, c.description);
+    if (!key || key.length < 2) return;
+    fhSha256Hex(key).then(function (hash) {
+      sb.from('merchant_corrections').upsert({
+        owner_user_id: window.fhUser.id,
+        merchant_hash: hash,
+        concept: concept,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'owner_user_id,merchant_hash' }).then(function () {}, function () {});
+    }, function () {});
+  } catch (e) { /* the correction still lives locally; the sync is a bonus */ }
 }
 
 function csvPatternPass(candidates) {
@@ -519,7 +562,7 @@ function csvLearnFrom(c){
   var changed = false;
   if(csvLearned[k] !== c.categoryName){ csvLearned[k] = c.categoryName; changed = true; }
   if(base && base.length >= 6 && csvLearned[base] !== c.categoryName){ csvLearned[base] = c.categoryName; changed = true; }
-  if(changed) csvLearnSave();
+  if(changed){ csvLearnSave(); if(typeof fhSyncMerchantCorrection === 'function') fhSyncMerchantCorrection(c); }
 }
 
 // Wipes what this device has learned -- a bad lesson shouldn't be permanent.

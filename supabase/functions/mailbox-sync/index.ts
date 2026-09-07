@@ -197,6 +197,17 @@ function baseCtx(
       clientSecret: env("GOOGLE_OAUTH_CLIENT_SECRET"),
     },
     llm: { apiKey: env("GEMINI_API_KEY"), model: env("GEMINI_MODEL") || undefined },
+    /* Per-RUN ceiling on the category cascade's one-shot classify calls (#2), so
+       a backfill that meets hundreds of new merchants at once cannot burst past
+       the free-tier Gemini per-minute wall — the rest stay generic and get
+       classified on later runs, once each because the answer is cached. Each
+       distinct merchant costs at most one call ever. GEMINI_CLASSIFY=off (left:0)
+       is a hard kill switch. */
+    classifyBudget: {
+      left: env("GEMINI_CLASSIFY") === "off"
+        ? 0
+        : (Number(env("GEMINI_CLASSIFY_MAX_PER_RUN")) || 3),
+    },
     notify: (
       grant: { user_id: string; member_id: string },
       count: number,

@@ -27,6 +27,7 @@ import { resolveDestination, MailboxHold } from './identity.mjs';
 import { buildStagedRow } from './stage.mjs';
 import { copyMeta } from './notify-copy.mjs';
 import { readTransaction, normalizeSubjectTemplate, SENDER_SENTINEL } from './extract.mjs';
+import { enrichCategory } from './classify.mjs';
 import * as senders from './senders.mjs';
 import * as gmail from './gmail.mjs';
 import * as mailtext from './mailtext.mjs';
@@ -647,6 +648,13 @@ export async function runGrant(grant, ctx) {
       });
       continue;
     }
+
+    /* Decide the concept BEFORE the row is sealed and before the notification's
+       voice is chosen — one seam feeds both `category_hint` (via _toReading →
+       stage.mjs) and copyMeta. Only fills what the extractor left null; a miss is
+       silent and staging proceeds unchanged. */
+    try { await enrichCategory(read.extraction, grant, ctx); }
+    catch (_e) { /* the concept is a garnish; never let it fail a real row */ }
 
     const row = await buildStagedRow({
       gmailMessageId: id,
