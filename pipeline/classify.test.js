@@ -17,6 +17,7 @@
  */
 const C = await import('../supabase/functions/_shared/mailbox/classify.mjs');
 const { merchantKey, dictionaryConcept, enrichCategory, CLASSIFY_CONCEPTS } = C;
+const { copyMeta } = await import('../supabase/functions/_shared/mailbox/notify-copy.mjs');
 
 let pass = 0, fail = 0;
 const t = (n, ok, d) => { console.log((ok ? '  PASS  ' : '  FAIL  ') + n + (!ok && d ? '  -> ' + d : '')); ok ? pass++ : fail++; };
@@ -38,7 +39,7 @@ function fakeFetch(conceptOrNull, opts) {
   return async () => {
     if (opts.notOk) return { ok: false, status: opts.status || 500, text: async () => '{"error":"boom"}' };
     const bodyObj = {
-      candidates: [{ content: { parts: [{ text: JSON.stringify({ concept: conceptOrNull }) }] } }],
+      candidates: [{ content: { parts: [{ text: JSON.stringify({ concept: conceptOrNull, pool: opts.pool ?? null }) }] } }],
       usageMetadata: { promptTokenCount: 12, candidatesTokenCount: 3, totalTokenCount: 15 },
     };
     return { ok: true, status: 200, text: async () => JSON.stringify(bodyObj) };
@@ -143,6 +144,36 @@ async function run() {
       db, subtle, llm: { apiKey: 'x' }, classifyBudget: { left: 1 }, fetch: fakeFetch(null),
     });
     t('unknowable merchant is negatively cached', put === null, String(put));
+  }
+
+  // ── pool (B): the classifier's finer sub-kind reaches the notification ────
+  {
+    let putC = null, putP = 'unset';
+    const ex = { counterparty: 'REVI TOWER', category: null };
+    const db = stubDb({ merchantConceptPut: async (h, c, p) => { putC = c; putP = p; } });
+    await enrichCategory(ex, { user_id: 'u1' }, {
+      db, subtle, llm: { apiKey: 'x' }, classifyBudget: { left: 1 }, fetch: fakeFetch('Dining', { pool: 'coffee' }),
+    });
+    t('classify sets extraction.pool', ex.pool === 'coffee', String(ex.pool));
+    t('classify caches concept AND pool', putC === 'Dining' && putP === 'coffee', putC + '/' + putP);
+  }
+  {
+    const ex = { counterparty: 'REVI TOWER', category: null };
+    const db = stubDb({ merchantConceptGet: async () => ({ concept: 'Dining', pool: 'coffee' }) });
+    await enrichCategory(ex, { user_id: 'u1' }, { db, subtle });
+    t('cache hit restores concept AND pool', ex.category === 'Dining' && ex.pool === 'coffee', ex.category + '/' + ex.pool);
+  }
+  {
+    const base = { amount: 25000, currency: 'VND', direction: 'debit', category: 'Dining' };
+    // keyword gate misses on REVI, but the cached pool carries the coffee voice
+    t('copyMeta uses the cached pool when keywords miss',
+      copyMeta({ ...base, counterparty: 'REVI PHU MY HUNG TOWER', pool: 'coffee' }).p === 'coffee');
+    // a stale/unknown hint names no real pool → ignored, never a broken banner
+    t('copyMeta ignores an unknown pool hint',
+      copyMeta({ ...base, counterparty: 'REVI TOWER', pool: 'bogus' }).p === undefined);
+    // the fast keyword gate still wins on its own when it matches
+    t('copyMeta keyword gate still wins',
+      copyMeta({ ...base, counterparty: 'HIGHLANDS COFFEE' }).p === 'coffee');
   }
 
   // ── usage logging: every model call records ONE content-free row ──────────

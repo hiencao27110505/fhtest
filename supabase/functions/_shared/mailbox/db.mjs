@@ -353,16 +353,17 @@ export function createDb(url, serviceKey, fetchImpl) {
     },
     async merchantConceptGet(hash) {
       // Returns the ROW (or null) so the caller can tell "no row = never tried"
-      // apart from "row with null concept = tried and unknowable".
+      // apart from "row with null concept = tried and unknowable". `pool` is the
+      // finer sub-kind (coffee/milktea/ride/cinema) or null.
       const rows = await rest('/merchant_concepts?merchant_hash=eq.' + encodeURIComponent(hash) +
-        '&select=concept&limit=1');
+        '&select=concept,pool&limit=1');
       return rows && rows.length ? rows[0] : null;
     },
-    async merchantConceptPut(hash, concept) {
+    async merchantConceptPut(hash, concept, pool) {
       await rest('/merchant_concepts?on_conflict=merchant_hash', {
         method: 'POST',
         headers: { Prefer: 'resolution=merge-duplicates' },
-        body: JSON.stringify({ merchant_hash: hash, concept: concept, source: 'llm', updated_at: new Date().toISOString() }),
+        body: JSON.stringify({ merchant_hash: hash, concept: concept, pool: pool ?? null, source: 'llm', updated_at: new Date().toISOString() }),
       });
     },
 

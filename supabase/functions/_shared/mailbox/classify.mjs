@@ -75,13 +75,25 @@ export function dictionaryConcept(text) {
   return null;
 }
 
-const CLASSIFY_SYSTEM = 'You label a Vietnamese bank-transaction merchant/counterparty string with ONE spending concept. ' +
-  'Reply as JSON {"concept": ...}. concept is EXACTLY one of: Housing, Groceries, Clothing, Shopping, Transport, Dining, Fun, Others — ' +
-  'or null when you genuinely cannot tell (an opaque gateway or bank code, initials, a bare reference number). Do not guess wildly; null is the right answer for the unknowable.';
+/* The four finer sub-kinds the notification has a dedicated voice for. The model
+   emits one when it clearly recognises the merchant as such — this is how a café
+   whose NAME carries no coffee keyword (REVI) still earns the coffee voice. Kept
+   in sync with the POOLS keys in notify-copy.mjs. */
+export const CLASSIFY_POOLS = ['coffee', 'milktea', 'ride', 'cinema'];
+
+const CLASSIFY_SYSTEM = 'You label a Vietnamese bank-transaction merchant/counterparty string. ' +
+  'Reply as JSON {"concept": ..., "pool": ...}. ' +
+  'concept is EXACTLY one of: Housing, Groceries, Clothing, Shopping, Transport, Dining, Fun, Others — ' +
+  'or null when you genuinely cannot tell (an opaque gateway or bank code, initials, a bare reference number). Do not guess wildly; null is the right answer for the unknowable. ' +
+  'pool is a FINER label, EXACTLY one of: coffee (a coffee shop / quán cà phê), milktea (bubble or milk tea), ride (ride-hailing or taxi), cinema (a movie theatre) — ' +
+  'or null when the merchant is none of those four specific kinds. Most merchants are pool null; set it only when you clearly recognise the brand or words as one of the four.';
 
 const CLASSIFY_SCHEMA = {
   type: 'object',
-  properties: { concept: { type: ['string', 'null'], enum: [...CLASSIFY_CONCEPTS, null] } },
+  properties: {
+    concept: { type: ['string', 'null'], enum: [...CLASSIFY_CONCEPTS, null] },
+    pool: { type: ['string', 'null'], enum: [...CLASSIFY_POOLS, null] },
+  },
 };
 
 /* One-shot merchant classify. Never throws, never retries: any transport failure
@@ -99,11 +111,16 @@ export async function classifyMerchant(text, cfg, fetchImpl) {
   const answer = r.data && r.data.candidates && r.data.candidates[0] &&
     r.data.candidates[0].content && r.data.candidates[0].content.parts &&
     r.data.candidates[0].content.parts[0] && r.data.candidates[0].content.parts[0].text;
-  if (!answer) return { ok: true, concept: null };
+  if (!answer) return { ok: true, concept: null, pool: null };
   let parsed;
-  try { parsed = JSON.parse(answer); } catch { return { ok: true, concept: null }; }
+  try { parsed = JSON.parse(answer); } catch { return { ok: true, concept: null, pool: null }; }
   const c = parsed && parsed.concept;
-  return { ok: true, concept: CLASSIFY_CONCEPTS.indexOf(c) >= 0 ? c : null };
+  const p = parsed && parsed.pool;
+  return {
+    ok: true,
+    concept: CLASSIFY_CONCEPTS.indexOf(c) >= 0 ? c : null,
+    pool: CLASSIFY_POOLS.indexOf(p) >= 0 ? p : null,
+  };
 }
 
 function merchantText(extraction) {
@@ -142,6 +159,7 @@ export async function enrichCategory(extraction, grant, ctx) {
       const row = await ctx.db.merchantConceptGet(hash);
       if (row) {   // a row that EXISTS means we've already spent a call on this merchant
         if (CLASSIFY_CONCEPTS.indexOf(row.concept) >= 0) extraction.category = row.concept;
+        if (CLASSIFY_POOLS.indexOf(row.pool) >= 0) extraction.pool = row.pool;
         return;    // negative (null concept) → stay generic, never re-call
       }
     } catch { /* fall through to a fresh classify */ }
@@ -154,8 +172,10 @@ export async function enrichCategory(extraction, grant, ctx) {
   const out = await classifyMerchant(text, ctx.llm, ctx.fetch);
   if (!out || !out.ok) return;                     // transport error → leave uncached, retry-eligible
   const concept = CLASSIFY_CONCEPTS.indexOf(out.concept) >= 0 ? out.concept : null;
+  const pool = CLASSIFY_POOLS.indexOf(out.pool) >= 0 ? out.pool : null;
   if (hash && ctx.db && ctx.db.merchantConceptPut) {
-    try { await ctx.db.merchantConceptPut(hash, concept); } catch { /* cache is a bonus */ }
+    try { await ctx.db.merchantConceptPut(hash, concept, pool); } catch { /* cache is a bonus */ }
   }
   if (concept) extraction.category = concept;
+  if (pool) extraction.pool = pool;
 }

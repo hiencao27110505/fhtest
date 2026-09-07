@@ -92,7 +92,12 @@ export function copyMeta(extraction) {
   const c = CONCEPTS.indexOf(extraction.category) >= 0 ? extraction.category : 'unknown';
   const meta = { c, t };
   if (d) meta.d = d;
-  const p = poolOf(extraction);
+  // The fast keyword gate first (free, deterministic); then, only if it found
+  // nothing, the finer pool the merchant classifier recognised and cached
+  // (classify.mjs → extraction.pool) — this is how a café whose NAME carries no
+  // coffee keyword still earns the coffee voice. Validated against POOLS so a
+  // stale or unknown hint can never name a pool that has no lines.
+  const p = poolOf(extraction) || (extraction.pool && POOLS[extraction.pool] ? extraction.pool : undefined);
   if (p) meta.p = p;
   return meta;
 }
