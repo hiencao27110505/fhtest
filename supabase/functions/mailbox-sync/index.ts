@@ -196,7 +196,14 @@ function baseCtx(
       clientId: env("GOOGLE_OAUTH_CLIENT_ID"),
       clientSecret: env("GOOGLE_OAUTH_CLIENT_SECRET"),
     },
-    llm: { apiKey: env("GEMINI_API_KEY"), model: env("GEMINI_MODEL") || undefined },
+    llm: {
+      apiKey: env("GEMINI_API_KEY"),
+      model: env("GEMINI_MODEL") || undefined,
+      // The usage sink for callGemini (llm.mjs): one content-free row per model
+      // call, best-effort. Threaded through the llm cfg because both callers
+      // (extract, classifyMerchant) already receive it.
+      logLlm: (rec: Record<string, unknown>) => db.recordLlmCall(rec),
+    },
     /* Per-RUN ceiling on the category cascade's one-shot classify calls (#2), so
        a backfill that meets hundreds of new merchants at once cannot burst past
        the free-tier Gemini per-minute wall — the rest stay generic and get

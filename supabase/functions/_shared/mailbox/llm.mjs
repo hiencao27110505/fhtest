@@ -321,39 +321,87 @@ export function nextPacificReset(nowMs) {
  * every call site to reach that same outcome. A rate-limited free tier makes
  * this a routine occurrence, not an incident — the mail is read on the next run.
  */
+/**
+ * The ONE place the app talks to Gemini. Every feature's request goes through
+ * here so usage is logged in exactly one spot and can never diverge per caller.
+ *
+ * It does NOT interpret the answer — callers keep their own success/error/parse
+ * rules — it only performs the request, records ONE usage row (best-effort,
+ * whatever the outcome), and hands back the raw pieces:
+ *   { status, ok, text, data, transportError }
+ * `data` is the parsed JSON body (null if it did not parse), `transportError` is
+ * true only when the fetch itself threw (network), where `status` is null.
+ *
+ * The usage row carries no content — feature, model, outcome, the API's own
+ * token counts, latency. `cfg.logLlm` is the sink (wired in mailbox-sync); when
+ * it is absent (tests, or a caller that opted out) nothing is logged.
+ */
+export async function callGemini(feature, requestBody, cfg, fetchImpl) {
+  const doFetch = fetchImpl || globalThis.fetch;
+  const model = (cfg && cfg.model) || DEFAULT_MODEL;
+  const url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
+    encodeURIComponent(model) + ':generateContent?key=' + encodeURIComponent((cfg && cfg.apiKey) || '');
+
+  const startedMs = Date.now();
+  let status = null, ok = false, text = '', data = null, transportError = false;
+  try {
+    const res = await doFetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestBody),
+    });
+    status = res.status;
+    ok = res.ok;
+    text = await res.text();
+    try { data = JSON.parse(text); } catch { data = null; }
+  } catch {
+    transportError = true;
+  }
+
+  if (cfg && typeof cfg.logLlm === 'function') {
+    const usage = (data && data.usageMetadata) || null;
+    const outcome = transportError ? 'error' : (status === 429 ? 'rate_limited' : (ok ? 'ok' : 'error'));
+    try {
+      await cfg.logLlm({
+        feature,
+        model,
+        outcome,
+        status_code: status,
+        prompt_tokens: usage ? (usage.promptTokenCount ?? null) : null,
+        output_tokens: usage ? (usage.candidatesTokenCount ?? null) : null,
+        total_tokens: usage ? (usage.totalTokenCount ?? null) : null,
+        latency_ms: Date.now() - startedMs,
+      });
+    } catch { /* monitoring is a bystander — it must never fail a capture */ }
+  }
+
+  return { status, ok, text, data, transportError };
+}
+
 export async function extract(sender, subject, body, cfg, fetchImpl) {
   if (!cfg || !cfg.apiKey) throw new LlmUnavailable('no api key configured');
-  const doFetch = fetchImpl || globalThis.fetch;
-  const model = cfg.model || DEFAULT_MODEL;
-  const url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
-    encodeURIComponent(model) + ':generateContent?key=' + encodeURIComponent(cfg.apiKey);
 
   // The sender line is named separately from the mail so the model can classify
   // on it. The mail itself follows, as written.
   const mailText = 'Subject: ' + subject + '\n\n' + body;
 
-  const res = await doFetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: EXTRACTION_SYSTEM_PROMPT }] },
-      contents: [{ role: 'user', parts: [{ text: 'Sender: ' + sender + '\n' + mailText }] }],
-      generationConfig: {
-        responseMimeType: 'application/json',
-        responseSchema: toGeminiSchema(EXTRACTION_SCHEMA),
-      },
-    }),
-  });
+  const r = await callGemini('extract', {
+    systemInstruction: { parts: [{ text: EXTRACTION_SYSTEM_PROMPT }] },
+    contents: [{ role: 'user', parts: [{ text: 'Sender: ' + sender + '\n' + mailText }] }],
+    generationConfig: {
+      responseMimeType: 'application/json',
+      responseSchema: toGeminiSchema(EXTRACTION_SCHEMA),
+    },
+  }, cfg, fetchImpl);
 
-  const text = await res.text();
+  if (r.transportError) throw new LlmUnavailable('fetch failed');
   // Classified BEFORE the generic branch: a 429 is the one non-2xx whose right
   // response is not "hold and retry next run".
-  if (res.status === 429) throw rateLimitFrom(text);
-  if (!res.ok) throw new LlmUnavailable('http ' + res.status + ': ' + text.slice(0, 200));
+  if (r.status === 429) throw rateLimitFrom(r.text);
+  if (!r.ok) throw new LlmUnavailable('http ' + r.status + ': ' + r.text.slice(0, 200));
 
-  let data;
-  try { data = JSON.parse(text); } catch { throw new LlmUnavailable('response not JSON'); }
-  const answer = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!r.data) throw new LlmUnavailable('response not JSON');
+  const answer = r.data?.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!answer) throw new LlmUnavailable('no candidates');
 
   let parsed;

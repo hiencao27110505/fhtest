@@ -366,6 +366,25 @@ export function createDb(url, serviceKey, fetchImpl) {
       });
     },
 
+    /* One usage row per LLM call (llm_calls, migration 0128). Content-free —
+       feature, model, outcome, the API's own token counts, latency. Best-effort:
+       callGemini awaits this inside a try/catch, so a throw here is invisible. */
+    async recordLlmCall(rec) {
+      await rest('/llm_calls', {
+        method: 'POST',
+        body: JSON.stringify({
+          feature: rec.feature,
+          model: rec.model || null,
+          outcome: rec.outcome,
+          status_code: rec.status_code ?? null,
+          prompt_tokens: rec.prompt_tokens ?? null,
+          output_tokens: rec.output_tokens ?? null,
+          total_tokens: rec.total_tokens ?? null,
+          latency_ms: rec.latency_ms ?? null,
+        }),
+      });
+    },
+
     /* Best-effort telemetry — never awaited into a failure. bump_read_tally is
        one upsert per read naming the tier that answered; extract_miss_labels
        records the label vocabulary of a transaction the table tier could not

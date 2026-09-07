@@ -17,7 +17,7 @@
    Nothing here ever retries or holds the message — a miss is a garnish miss, and
    the transaction stages exactly as before. */
 
-import { toGeminiSchema } from './llm.mjs';
+import { toGeminiSchema, callGemini } from './llm.mjs';
 
 export const CLASSIFY_CONCEPTS = ['Housing', 'Groceries', 'Clothing', 'Shopping', 'Transport', 'Dining', 'Fun', 'Others'];
 
@@ -90,33 +90,20 @@ const CLASSIFY_SCHEMA = {
    null concept is a legitimate "unknowable" that DOES get negatively cached. */
 export async function classifyMerchant(text, cfg, fetchImpl) {
   if (!cfg || !cfg.apiKey) return { ok: false };
-  const doFetch = fetchImpl || globalThis.fetch;
-  const model = cfg.model || 'gemini-3.5-flash-lite';
-  const url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
-    encodeURIComponent(model) + ':generateContent?key=' + encodeURIComponent(cfg.apiKey);
-  try {
-    const res = await doFetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: CLASSIFY_SYSTEM }] },
-        contents: [{ role: 'user', parts: [{ text: 'Merchant: ' + String(text).slice(0, 200) }] }],
-        generationConfig: { responseMimeType: 'application/json', responseSchema: toGeminiSchema(CLASSIFY_SCHEMA) },
-      }),
-    });
-    if (!res.ok) return { ok: false };            // 429/5xx → one-shot, no retry, no cache
-    const data = await res.json();
-    const answer = data && data.candidates && data.candidates[0] &&
-      data.candidates[0].content && data.candidates[0].content.parts &&
-      data.candidates[0].content.parts[0] && data.candidates[0].content.parts[0].text;
-    if (!answer) return { ok: true, concept: null };
-    let parsed;
-    try { parsed = JSON.parse(answer); } catch { return { ok: true, concept: null }; }
-    const c = parsed && parsed.concept;
-    return { ok: true, concept: CLASSIFY_CONCEPTS.indexOf(c) >= 0 ? c : null };
-  } catch {
-    return { ok: false };                          // network — leave it uncached
-  }
+  const r = await callGemini('classify_merchant', {
+    systemInstruction: { parts: [{ text: CLASSIFY_SYSTEM }] },
+    contents: [{ role: 'user', parts: [{ text: 'Merchant: ' + String(text).slice(0, 200) }] }],
+    generationConfig: { responseMimeType: 'application/json', responseSchema: toGeminiSchema(CLASSIFY_SCHEMA) },
+  }, cfg, fetchImpl);
+  if (r.transportError || !r.ok) return { ok: false };   // 429/5xx/network → one-shot, no retry, no cache
+  const answer = r.data && r.data.candidates && r.data.candidates[0] &&
+    r.data.candidates[0].content && r.data.candidates[0].content.parts &&
+    r.data.candidates[0].content.parts[0] && r.data.candidates[0].content.parts[0].text;
+  if (!answer) return { ok: true, concept: null };
+  let parsed;
+  try { parsed = JSON.parse(answer); } catch { return { ok: true, concept: null }; }
+  const c = parsed && parsed.concept;
+  return { ok: true, concept: CLASSIFY_CONCEPTS.indexOf(c) >= 0 ? c : null };
 }
 
 function merchantText(extraction) {

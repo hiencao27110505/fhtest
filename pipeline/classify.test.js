@@ -30,15 +30,18 @@ function stubDb(over) {
     merchantConceptPut: async () => {},
   }, over || {});
 }
-// A fake Gemini response for the one-shot classify.
+// A fake Gemini response for the one-shot classify. callGemini reads res.text()
+// then JSON.parses it (same path as extract), so the stub returns text(), and a
+// usageMetadata block so the logging assertions have token counts to check.
 function fakeFetch(conceptOrNull, opts) {
   opts = opts || {};
   return async () => {
-    if (opts.notOk) return { ok: false, json: async () => ({}) };   // 429/5xx
-    return {
-      ok: true,
-      json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify({ concept: conceptOrNull }) }] } }] }),
+    if (opts.notOk) return { ok: false, status: opts.status || 500, text: async () => '{"error":"boom"}' };
+    const bodyObj = {
+      candidates: [{ content: { parts: [{ text: JSON.stringify({ concept: conceptOrNull }) }] } }],
+      usageMetadata: { promptTokenCount: 12, candidatesTokenCount: 3, totalTokenCount: 15 },
     };
+    return { ok: true, status: 200, text: async () => JSON.stringify(bodyObj) };
   };
 }
 
@@ -126,7 +129,7 @@ async function run() {
     const ex = { counterparty: 'QOPAQUE SHOP', category: null };
     const db = stubDb({ merchantConceptPut: async (h, c) => { put = c; } });
     await enrichCategory(ex, { user_id: 'u1' }, {
-      db, subtle, llm: { apiKey: 'x' }, classifyBudget: { left: 1 }, fetch: fakeFetch(null, { notOk: true }),
+      db, subtle, llm: { apiKey: 'x' }, classifyBudget: { left: 1 }, fetch: fakeFetch(null, { notOk: true, status: 429 }),
     });
     t('a 429 stays generic', ex.category == null, String(ex.category));
     t('a 429 does not write the cache', put === 'untouched', String(put));
@@ -140,6 +143,32 @@ async function run() {
       db, subtle, llm: { apiKey: 'x' }, classifyBudget: { left: 1 }, fetch: fakeFetch(null),
     });
     t('unknowable merchant is negatively cached', put === null, String(put));
+  }
+
+  // ── usage logging: every model call records ONE content-free row ──────────
+  {
+    const rows = [];
+    const llm = { apiKey: 'x', logLlm: async (r) => { rows.push(r); } };
+    const ex = { counterparty: 'QOPAQUE SHOP', category: null };
+    await enrichCategory(ex, { user_id: 'u1' }, {
+      db: stubDb(), subtle, llm, classifyBudget: { left: 1 }, fetch: fakeFetch('Dining'),
+    });
+    t('an ok classify logs exactly one row', rows.length === 1, String(rows.length));
+    t('logs the feature', rows[0] && rows[0].feature === 'classify_merchant', rows[0] && rows[0].feature);
+    t('logs outcome ok', rows[0] && rows[0].outcome === 'ok', rows[0] && rows[0].outcome);
+    t('logs the API token counts', rows[0] && rows[0].total_tokens === 15 && rows[0].prompt_tokens === 12,
+      rows[0] && String(rows[0].total_tokens));
+    t('logs no content field', rows[0] && !('counterparty' in rows[0]) && !('merchant' in rows[0]) && !('text' in rows[0]));
+  }
+  {
+    const rows = [];
+    const llm = { apiKey: 'x', logLlm: async (r) => { rows.push(r); } };
+    const ex = { counterparty: 'QOPAQUE SHOP', category: null };
+    await enrichCategory(ex, { user_id: 'u1' }, {
+      db: stubDb(), subtle, llm, classifyBudget: { left: 1 }, fetch: fakeFetch(null, { notOk: true, status: 429 }),
+    });
+    t('a 429 is logged as rate_limited', rows.length === 1 && rows[0].outcome === 'rate_limited',
+      rows[0] && rows[0].outcome);
   }
 
   console.log('\n' + pass + ' passed, ' + fail + ' failed');
