@@ -27,3 +27,9 @@ earthy/serverless/functions/transaction-parser/tests/fixtures/bodies/
 # Supabase CLI state (project-ref, pooler url)
 supabase/.temp/
 __pycache__/
+
+# Personal Claude Code permission rules for this checkout. Local-only on
+# purpose: it allows `supabase db query` without a prompt, and that reaches the
+# LIVE family database. Every session on this machine shares one checkout, so
+# committing it would hand unprompted write access to the live DB to everyone.
+.claude/settings.local.json

@@ -19,7 +19,7 @@
 // Bumped on every change that gets pasted into Apps Script. Logged on each run
 // so "which code is actually live" is never again something to infer from the
 // wording of an error — several hours went into that guess this session.
-var PIPELINE_VERSION = '2026-09-05-witness'; // the model quotes the substrings its two mandatory readings came from, and derivation anchors on the quote instead of guessing; paste only from origin/main
+var PIPELINE_VERSION = '2026-09-07-heartbeat'; // the model quotes the substrings its two mandatory readings came from, and derivation anchors on the quote instead of guessing; paste only from origin/main
 
 var MAX_NEW_CLASSIFICATIONS_PER_RUN = 10;
 var MAX_NEW_CLASSIFICATIONS_PER_DAY = 50;
@@ -107,13 +107,17 @@ function _processEmailsLocked() {
   // message being reprocessed, so the state machine still works — it just no
   // longer depends on anything being labelled on arrival.
   var q = buildInboxQuery();
-  if (!q) { Logger.log('v' + PIPELINE_VERSION + ' | no mailboxes connected'); return; }
+  if (!q) {
+    Logger.log('v' + PIPELINE_VERSION + ' | no mailboxes connected');
+    reportIdleHealth();
+    return;
+  }
   var threads = GmailApp.search(q);
   // Always logged: this one line answers "is my paste live", "what did it ask
   // Gmail", and "did Gmail return anything" — the three questions that cost the
   // most time when this was silent on success.
   Logger.log('v' + PIPELINE_VERSION + ' | ' + threads.length + ' thread(s) | q=' + q);
-  if (threads.length === 0) return;
+  if (threads.length === 0) { reportIdleHealth(); return; }
 
   var txnThreads = [];
   for (var i = 0; i < threads.length; i++) {
@@ -132,7 +136,7 @@ function _processEmailsLocked() {
   }
 
   threads = txnThreads;
-  if (threads.length === 0) return;
+  if (threads.length === 0) { reportIdleHealth(); return; }
 
   var runCallCount = 0;
   // What this run SAW, for 0119. Costs no API call: every number here comes
@@ -653,9 +657,13 @@ var HEALTH_LAST_PROP = 'PIPELINE_HEALTH_LAST_AT';
  
    NOT throttled when the queue is stuck. A run that finds held mail reports
    immediately: the interval exists to save quota on the boring case, and the
-   interesting case is exactly when you want the number fresh. A clear queue
-   reports on the interval, which is what keeps `ran_at` moving and proves the
-   pipeline is alive. */
+   interesting case is exactly when you want the number fresh.
+
+   A clear queue reports on the interval too, which is what keeps `ran_at`
+   moving and proves the pipeline is alive — but ONLY via reportIdleHealth()
+   below. This function sits at the bottom of the run, behind three early
+   returns, so until 2026-09-07 that second half was a comment describing
+   something the control flow never did. See reportIdleHealth. */
 function reportPipelineHealth(walked, held, oldestHeld, truncated) {
   var props = PropertiesService.getScriptProperties();
   var last = parseInt(props.getProperty(HEALTH_LAST_PROP), 10);
@@ -681,6 +689,28 @@ function reportPipelineHealth(walked, held, oldestHeld, truncated) {
   Logger.log('v' + PIPELINE_VERSION + ' | health: walked=' + walked + ' held=' + held +
     ' oldest=' + (oldestHeld ? oldestHeld.toISOString() : 'none') +
     (truncated ? ' TRUNCATED' : ''));
+}
+
+/* The heartbeat for an idle tick, and the other half of the promise above.
+
+   reportPipelineHealth is reachable only at the BOTTOM of _processEmailsLocked,
+   behind three early returns: no query at all, no search results, no
+   transaction threads. So a run that found nothing reported nothing, `ran_at`
+   froze, and 0119's silent check read a healthy idle pipeline as a dead one
+   after 30 minutes. Observed live 2026-09-07: the queue was about to be drained
+   by a retired-alias tombstone, which would have converted a true stuck alert
+   into a permanent false silent one.
+
+   Reporting zeros here is what makes silence mean exactly ONE thing: the
+   trigger is not firing. That is worth knowing even with zero connections — a
+   dead script serves nobody who onboards tomorrow, which is why this reports on
+   the `!q` path too rather than treating "no users" as "nothing to say".
+
+   Costs nothing on the common path: held is 0, so reportPipelineHealth's own
+   15-minute throttle applies and an idle minute spends no UrlFetch call. */
+function reportIdleHealth() {
+  try { reportPipelineHealth(0, 0, null, false); }
+  catch (e) { Logger.log('idle health report failed: ' + e); }
 }
 
 // ---------- Inbox retention ----------

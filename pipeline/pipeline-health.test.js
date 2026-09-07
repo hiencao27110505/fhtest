@@ -142,5 +142,74 @@ t('and unschedules itself first, so re-applying does not double-schedule',
 const _ver = (gs.match(/var PIPELINE_VERSION = '(\d{4}-\d{2}-\d{2})/) || [])[1];
 t('PIPELINE_VERSION has reached 2026-09-04 or later', !!_ver && _ver >= '2026-09-04', _ver);
 
+// ── 6. the idle heartbeat (2026-09-07) ───────────────────────────────────
+// reportPipelineHealth is reachable only at the BOTTOM of the run, behind three
+// early returns. So a run that found nothing reported nothing, ran_at froze, and
+// the SILENT check above read a healthy idle pipeline as a dead one after 30
+// minutes. Section 3's comment in the .gs asserted the opposite ("a clear queue
+// reports on the interval") and was believed for three days.
+const idle = codeOnly(topLevelFn(gs, 'reportIdleHealth') || '');
+t('reportIdleHealth exists', !!idle);
+t('it reports zeros, so an idle tick still moves ran_at',
+  /reportPipelineHealth\(0, 0, null, false\)/.test(idle));
+t('and is wrapped, so telemetry never fails an idle run', /try \{[\s\S]{0,100}catch/.test(idle));
+
+// The invariant, not the line: EVERY early exit before the main loop must leave
+// a heartbeat behind. Pinning the three call sites by text would pass a fourth
+// return added later that reports nothing, which is the original bug returning.
+const preLoop = proc.slice(0, proc.indexOf('threadLoop:'));
+// Line-scoped on purpose. A character lookback wide enough to span a formatted
+// `if` block is also wide enough to see the PREVIOUS branch's heartbeat, so it
+// passes a genuinely bare return sitting a few lines below one that reports.
+// Verified 2026-09-07 by removing a call site: the loose form stayed green.
+const preLines = preLoop.split('\n');
+const bareReturns = [];
+preLines.forEach((ln, i) => {
+  if (!/\breturn;/.test(ln)) return;
+  const prev = preLines[i - 1] || '';
+  if (!/reportIdleHealth\(\)/.test(ln) && !/reportIdleHealth\(\)/.test(prev)) bareReturns.push(i + 1);
+});
+t('every early return before the loop reports a heartbeat first',
+  bareReturns.length === 0, 'bare return(s) at line ' + bareReturns.join(', '));
+t('all three known early exits are covered',
+  (preLoop.match(/reportIdleHealth\(\)/g) || []).length >= 3);
+
+// ── 7. alert copy + audible recovery (0125) ──────────────────────────────
+const sql125 = fs.readFileSync(
+  path.join(__dirname, '..', 'supabase', 'migrations',
+            '0125_pipeline_alert_copy_recovery.sql'), 'utf8');
+
+t('0125 names the machine state, not the queue',
+  /🔴 Pipeline dead/.test(sql125) && /🟠 Queue not cleared/.test(sql125));
+t('recovery is announced rather than silent', /✅ Pipeline revived/.test(sql125));
+t('a cleared queue closes audibly too', /✅ Queue cleared/.test(sql125));
+t('the transport is still named in both alerts, so a second one stays legible',
+  (sql125.match(/luồng ' \|\| r\.transport/g) || []).length >= 2);
+
+const chk125 = sql125.slice(sql125.indexOf('_tg_pipeline_health_check'));
+t('silent is still checked FIRST', 
+  chk125.indexOf("v_kind := 'silent'") < chk125.indexOf("v_kind := 'stuck'"));
+// `found` is the whole guard: without it every healthy tick would send a ✅.
+t('recovery only speaks when an incident was actually open',
+  /returning kind, stale_since into v_prev_kind, v_prev_stale;[\s\S]{0,120}if found then/.test(chk125));
+t('and it sends on the existing channel', /if found then[\s\S]{0,900}perform public\._tg_send/.test(chk125));
+
+// The outage length has to be true, or the ✅ is worse than no ✅.
+t('0125 records the last good report so the duration is exact',
+  /add column if not exists stale_since timestamptz/.test(sql125));
+t('stale_since is set on INSERT only, so a 6h re-alert does not reset it',
+  /on conflict \(transport, kind\) do update set last_sent_at = excluded\.last_sent_at;/.test(chk125) &&
+  !/do update set[^;]*stale_since/.test(chk125));
+t('a null stale_since degrades to a ✅ without a duration',
+  /v_prev_kind = 'silent' and v_prev_stale is not null/.test(chk125) &&
+  /elsif v_prev_kind = 'silent' then/.test(chk125));
+t('the backfill cannot overwrite a real value',
+  /set stale_since = h\.ran_at[\s\S]{0,200}and s\.stale_since is null/.test(sql125));
+t('the function stays locked to service-role callers',
+  /revoke all on function public\._tg_pipeline_health_check\(\) from public, anon, authenticated/.test(sql125));
+// Considered and rejected 2026-09-07: it would have suppressed a true positive.
+t('the alerts are NOT gated on there being connected users',
+  !/mailbox_connections/.test(chk125));
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
