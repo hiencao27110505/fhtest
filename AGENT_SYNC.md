@@ -225,12 +225,23 @@ hand-merging `index.html`. Both replaced vigilance with structure.
     a run that stages nothing, so a count-change trigger would read forever).
     `tools/email-transport-chooser.test.js` restated through `ATX_DEFAULT_DAYS`.
 
-  **`0121` still needs applying** — one `grant select (stalled_runs,
-  first_stalled_at) ... to authenticated`. Until it runs there is no `slow`
-  state, and a mailbox with one permanently unreadable message stays held
-  forever (0101 never sets `backfilled_at` on a stall, by design). Threshold
-  `ATX_STALL_OPENS_AT = 12` is **coupled** to `STALL_NOTIFY_AFTER` in
-  `worker.mjs`; commented on both sides, no shared config.
+  **`0121` is APPLIED and VERIFIED** (checked 2026-09-07, Trang's session):
+  `information_schema.column_privileges` shows `authenticated` holding SELECT
+  on `stalled_runs` and `first_stalled_at`, and nothing beyond it. So the
+  `slow` state is live — a mailbox with one permanently unreadable message is
+  no longer held forever (0101 never sets `backfilled_at` on a stall, by
+  design). Threshold `ATX_STALL_OPENS_AT = 12` is **coupled** to
+  `STALL_NOTIFY_AFTER` in `worker.mjs`; commented on both sides, no shared
+  config.
+
+  ⚠️ **Do NOT reach for `supabase db push` to apply anything in this project.**
+  `supabase migration list` reports **114 of the repo's numbered migrations as
+  un-applied** while the DB's own history holds ~96 timestamp-style entries
+  that exist nowhere in the repo — the numbered files have never been the
+  thing Postgres tracks. A `db push` would try to replay almost the entire
+  history against the live database. Apply single statements with
+  `supabase db query --linked "<sql>"` (read-only checks the same way), or the
+  dashboard SQL editor.
 
   - **A "Vừa tìm thấy" feed** on both OAuth screens (provider + date, newest
     STAGED first via `created_at` — during a backfill that is the OLDEST
