@@ -151,6 +151,36 @@ export async function readTransaction(message, db, deps) {
       return { ok: false, reason: 'not_a_transaction' };
     }
     if (applied && applied.amount != null) {
+      /* Upgrade-on-hit (card-repayment-routing-spec follow-up, 2026-09-07): a
+         template derived before card_masked existed carries no such key, and a
+         template hit returns before the label-table tier that now reads the
+         repaid card — so every pre-448ee22 card-payment shape served "Chưa rõ"
+         forever. When THIS mail's own label table reads a card for the SAME
+         amount, adopt it and re-derive the template so the upgrade is one-time
+         per shape. Strictly local — no model call on any path; a failed
+         re-derivation just repeats the (cheap) table walk next mail. */
+      if (applied.card_masked == null && stored.indexOf('card_masked') < 0) {
+        try {
+          const learned0 = deps && deps.learnedLabels
+            ? deps.learnedLabels.get(sender.slice(sender.lastIndexOf('@') + 1)) : undefined;
+          const t2 = readLabelTable(message.subject, message.body, learned0);
+          if (t2 && t2.card_masked && t2.amount === applied.amount) {
+            applied.card_masked = t2.card_masked;
+            let d2 = null;
+            try { d2 = deriveExtractionTemplate(message.body, applied, () => {}); } catch { d2 = null; }
+            if (d2) {
+              await db.saveFingerprint({
+                sender_address: sender,
+                subject_template: template,
+                is_transaction_source: true,
+                transaction_type: (fp && fp.transaction_type) || applied.transaction_type || null,
+                extraction_regex: d2,
+              });
+              await db.bumpReadTally?.('template_upgraded');
+            }
+          }
+        } catch (e) { /* an upgrade must never cost the read itself */ }
+      }
       await db.bumpReadTally?.('template');
       _fillAccountKind(applied, message, sender);
       return {

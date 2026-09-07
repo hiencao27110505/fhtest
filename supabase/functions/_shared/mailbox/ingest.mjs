@@ -119,6 +119,7 @@ export function normaliseReading(raw, body) {
     channel: r.channel ?? null,
     accountTail: r.account_tail ?? r.accountTail ?? null,
     accountKind: r.account_kind ?? r.accountKind ?? null,
+    cardMasked: r.card_masked ?? r.cardMasked ?? null,
     reference: r.reference ?? r.reference_number ?? null,
     category: r.category ?? null,
     occurredAt: r.occurred_at ?? r.occurredAt ?? null,

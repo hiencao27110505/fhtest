@@ -18,6 +18,57 @@ Going forward, add an entry here when a feature area changes meaningfully — se
 
 ---
 
+## 2026-09-07
+
+### Old templates learn the repaid card instead of blocking it
+
+Card-repayment pre-select ("Trả cho thẻ") stayed "Chưa rõ" even AFTER 448ee22 +
+mailbox-sync v42 shipped, on a mail that prints "Số thẻ … •••• 4751" in plain
+sight. TWO stacked root causes, found by walking the field hop by hop:
+
+**The decisive one: the field died in the worker's translation layer.**
+`stage.mjs` reads `reading.cardMasked` — but `worker.mjs _toReading`, the
+extractor→stage remap, never mapped `card_masked` across. So even a perfect
+extraction sealed a card-less row, on every mail, always. Proven live: the VIB
+shape's template re-derived itself WITH the field at 15:31, and the row staged
+one second later still showed "Chưa rõ" — extraction right, seal empty. One
+line in `_toReading` (plus the same gap in `ingest.mjs` for transport C); the
+.gs transport was immune, it seals the whole extraction object rather than
+remapping fields. Deployed as mailbox-sync **v43**. The moral is in the
+comment: when a field crosses a rename boundary, the mapping IS the wire — and
+nothing failed loudly when it was missing. Rows sealed before v43 are
+card-less forever (boxes are never amended); the client's memo/one-card
+fallbacks or a hand pick cover them.
+
+**The structural one: stage-1 template hits block new fields forever.** The
+stored template for VIB's "Thanh toán thẻ tín dụng VIB thành công" shape was
+derived 2026-08-26 — twelve days before `card_masked` existed — so the field
+could never appear for that shape, ever.
+Nothing invalidates old templates when the extractor learns a new field, and a
+global `EXTRACTION_LOGIC_VERSION` bump is the known-bad sledgehammer (the
+2026-09-02 mass re-derivation blew the model-call budget and stalled backfills).
+
+Fix: **upgrade-on-hit** in `extract.mjs` stage 1. On a template hit whose
+stored JSON lacks the `card_masked` key and whose applied read carries no card,
+run the (local, free) label table on that same mail; a card read at the same
+amount is adopted into the extraction, and the template is re-derived and
+re-saved so the upgrade is one-time per shape (`template_upgraded` tally).
+No model call on any path — a failed re-derivation just repeats the cheap
+table walk on the next mail. Verified end-to-end in a scratch harness (gate
+fires, template upgrades, second pass is terminal, card-less mail untouched)
+plus the 84 pipeline suites. The `.gs` twin is untouched: transport A has no
+label-table tier, and benefits through the shared `sender_fingerprints` cache.
+Ships with the next `mailbox-sync` deploy; the two live stale card-pay
+templates (VIB + BVBank) can be nulled in `sender_fingerprints` to re-derive
+immediately. Spec: `card-repayment-routing-spec.md` §7.3.
+
+Client-side footnote from the same investigation: the resolver was already
+right to show "Chưa rõ" for this user — they own a second, zero-transaction
+`credit_card` account (Vietcombank, no tail, never verified; a relic of the
+dead PAN heuristic), which defeats the only-one-card fallback. Archiving that
+phantom is the user-side half of the fix for rows staged before the field
+existed.
+
 ## 2026-09-06
 
 ### The personal drill-in becomes a full-ledger list, and income becomes editable

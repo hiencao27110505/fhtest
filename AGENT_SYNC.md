@@ -143,6 +143,35 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-09-07 (Hien's other session) — card-repayment "Chưa rõ" root-caused
+  (TWO bugs); fixes uncommitted in the tree; ⚠️ I deployed `mailbox-sync` v43
+  (bunx supabase, 15:46 ICT) = your v42 tree + these fixes.** Root cause #2,
+  the decisive one: `worker.mjs _toReading` never mapped `card_masked` →
+  `cardMasked`, and `stage.mjs:178` reads `reading.cardMasked` — so EVERY
+  sealed row staged card-less even after your 448ee22 extraction read it
+  perfectly (proven live: template re-derived WITH the field at 15:31, row
+  still "Chưa rõ"). One-line mapping added in `worker.mjs` + same gap closed
+  in `ingest.mjs`; the .gs is immune (it seals the extraction object whole).
+  Root cause #1 (also real, fixed earlier today):
+  stage-1 template hit returns before the label-table tier, and the stored
+  template (fingerprint `5d77504d`, derived 2026-08-26) had no `card_masked`
+  key — so the field could never appear for that shape, and the client
+  resolver correctly refuses to guess between Hien's 2 owned cards.
+  Changes in the tree: (1) `extract.mjs` stage 1 — on a hit whose stored JSON
+  lacks the `card_masked` key and whose read has no card, run `readLabelTable`
+  on the same mail; same-amount card read is adopted + template re-derived and
+  re-saved (`template_upgraded` tally). Local-only, no model call on any path;
+  verified green incl. idempotence + card-less guard (scratch harness) and the
+  84 pipeline suites. `.gs` untouched — transport A has no label-table tier and
+  rides the shared cache. (2) `card-repayment-routing-spec.md` §7.3 + CHANGELOG
+  updated. Data fix already applied (Hien ran it): `extraction_regex` nulled on
+  the two card-pay-shaped stale fingerprints (`5d77504d…` VIB, `36be0a49…`
+  BVBank); the VIB shape re-derived itself WITH `card_masked` at 15:31, proving
+  the extraction path. Rows sealed before v43 (incl. Hien's 12:54→15:40 tests)
+  are card-less forever — expected; only post-v43 mail carries the field.
+  Please fold these three files into your next commit (extract.mjs, worker.mjs,
+  ingest.mjs) — they are live as v43 but uncommitted.
+
 - **2026-09-06 (Hien's session) — FYI, no answer needed: landing-tab
   slow/freeze fix touches TWO things your session inherits.** (1) **Every**
   supabase request now runs through a 60s AbortController deadline

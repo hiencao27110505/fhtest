@@ -859,6 +859,12 @@ function _toReading(x, message) {
     // answer or heuristic, whichever tier filled it. Null rides through as
     // null: the client defaults rather than this layer guessing.
     accountKind: x.account_kind || null,
+    /* The repaid card on a card-payment mail (card-repayment-routing-spec).
+       This mapping IS the wire — stage.mjs reads reading.cardMasked, and its
+       absence here silently nulled the field on every sealed row while the
+       extractor and templates were reading it perfectly (found 2026-09-07,
+       live: VIB "Số thẻ …4751" mail staged card-less). */
+    cardMasked: x.card_masked ?? null,
     category: x.category || null,
     flow: x.flow || null,
     senderAuth: message.dkim,

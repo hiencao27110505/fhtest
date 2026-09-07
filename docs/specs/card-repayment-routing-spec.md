@@ -165,6 +165,19 @@ model/label tier.
   forever — the same trade `account_masked` already makes.
 - It is **optional**: absent from the derivation mail ⇒ not anchored, no
   degradation, no proof entry.
+- **Upgrade-on-hit** (2026-09-07, `extract.mjs` stage 1): templates derived
+  BEFORE this spec carry no `card_masked` key at all, and a template hit
+  returns before the label-table tier — so every pre-existing card-payment
+  shape served "Chưa rõ" forever (found live: the VIB "Thanh toán thẻ tín
+  dụng… thành công" template of 2026-08-26). On a hit whose stored JSON lacks
+  the key and whose applied read has no card, the reader runs the (local,
+  free) label table on that same mail; a card read at the **same amount** is
+  adopted into the extraction and the template is re-derived and re-saved, so
+  the upgrade is one-time per shape. No model call on any path; a failed
+  re-derivation just repeats the cheap table walk next mail. Stale templates
+  can also simply have `extraction_regex` nulled — the shape re-derives fresh
+  on its next mail. (Transport A's .gs has no label-table tier and no gate;
+  it benefits through the shared `sender_fingerprints` cache.)
 
 ### 7.4 Seal (`stage.mjs`)
 
@@ -177,6 +190,15 @@ card_masked: reading.cardMasked ?? reading.card_masked ?? null,
 `_tidy` (extract.mjs) applies `maskAccount(out.card_masked)` so every tier's
 output is last-4 only, exactly as `account_masked` is handled (`maskAccount(null)`
 returns null, so the no-card case is unaffected).
+
+> **The mapping IS the wire (2026-09-07, mailbox-sync v43).** `reading` is not
+> the extraction — it is `worker.mjs _toReading`'s remap of it, and the line
+> above reads `reading.cardMasked`. The original build added the field to every
+> tier EXCEPT that remap, so every sealed row staged card-less while extraction
+> and templates worked perfectly. Any future field added to this payload must
+> also be added to `_toReading` (worker.mjs) and `normaliseReading`
+> (ingest.mjs); the .gs transport is immune (it seals the extraction whole).
+> Rows sealed before v43 are card-less forever — boxes are never amended.
 
 ### 7.5 Transport C (`/ingest`, pre-live)
 
