@@ -180,6 +180,7 @@ export async function buildStagedRow(args) {
       transaction_type: transactionType,
       occurred_at: occurredAt,
       category_hint: reading.category || null,
+      status: reading.status || null,
 
       /* WHERE THE MONEY LANDS. The client routes on this now — a credit files
          to the income book, a transfer should file to neither — so a wrong value

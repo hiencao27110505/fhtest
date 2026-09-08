@@ -36,6 +36,10 @@ secrets = [
     # reads mail, but relearns each template once per instance instead of once
     # ever, so every cold start costs LLM calls again.
     "DATABASE_URL=database-url",
+    # Both must be present to enable encrypted staging. The Python function
+    # sends plaintext only over HTTPS; mailbox-sync owns sealing and insert.
+    "MAILBOX_INGEST_URL=mailbox-ingest-url",
+    "MAILBOX_SYNC_SECRET=mailbox-sync-secret",
 ]
 
 [tool.uv]

@@ -8,6 +8,8 @@ trivially spoofable. A real deployment should also verify SPF/DKIM before
 trusting anything parsed out of the body.
 """
 
+from dataclasses import dataclass
+
 # Exact addresses treated as a transaction source, so the pipeline can be
 # exercised end to end without waiting for a real bank email.
 #
@@ -234,6 +236,17 @@ KNOWN_SENDERS: dict[str, str] = {
     "zalopay.com.vn": "zalopay",
 }
 
+# Labels whose notifications describe a bank account/card rather than a wallet
+# or merchant receipt. Kept on labels so domain aliases cannot disagree.
+WALLET_LABELS = frozenset(
+    {
+        "momo", "zalopay", "vnpay", "shopeepay", "viettelmoney",
+        "vnptmoney", "payoo", "napas", "9pay", "gpay", "onepay",
+        "nganluong", "baokim", "alepay", "smartpay", "moca",
+        "appotapay", "finviet",
+    }
+)
+
 
 
 def sender_domain(from_header: str) -> str:
@@ -250,6 +263,20 @@ def address(from_header: str) -> str:
     """The bare address out of a From header, lowercased."""
     addr = from_header.rsplit("<", 1)[-1].rstrip(">").strip()
     return addr.lower()
+
+
+@dataclass(frozen=True)
+class Source:
+    provider: str
+    kind: str
+
+
+def identify(from_header: str) -> Source | None:
+    """Return canonical provider and the bank/wallet staging kind."""
+    label = match(from_header)
+    if label is None:
+        return None
+    return Source(label, "wallet" if label in WALLET_LABELS else "bank")
 
 
 def match(from_header: str) -> str | None:

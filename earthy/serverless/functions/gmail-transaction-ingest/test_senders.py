@@ -1,6 +1,11 @@
 import senders
 
 
+def test_identify_returns_provider_and_kind() -> None:
+    assert senders.identify("MB <notice@mbbank.com.vn>") == senders.Source("mbbank", "bank")
+    assert senders.identify("MoMo <notice@momo.vn>") == senders.Source("momo", "wallet")
+
+
 def test_matches_plain_address():
     assert senders.match("no-reply@techcombank.com.vn") == "techcombank"
 

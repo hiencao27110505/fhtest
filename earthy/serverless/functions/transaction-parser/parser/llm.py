@@ -12,15 +12,13 @@ Two calls, deliberately not one:
   anchors which field. Its answer is what gets stored and reused.
 
 Merging them makes the model generalise and read at the same time, and both
-answers get worse. Splitting them also means `induce` runs on a redacted copy
-— it only needs to know where the fields sit, never what they say.
+answers get worse.
 
-Neither call is sent a figure. `extract` gets a body whose amounts have been
-replaced by `[MONEY_n]` names (see `masking`) and answers in those names,
-which are exchanged for numbers here; `induce` gets a copy with every digit
-blanked. So a family's balances and transaction amounts stay on the machine
-that received the mail, and the model still gets the labels, the layout and
-the signs that are what it is actually being asked about.
+Both calls temporarily receive the normalized email text as written. This is
+an explicit accuracy trade-off: amount magnitude, currency notation, account
+shape and surrounding values help distinguish a transaction amount from a
+balance, fee, cashback or reference. Callers must obtain consent before
+enabling this fallback and must never log either prompt or response.
 
 Nothing here raises. A model that is slow, rate-limited, misconfigured or
 simply wrong must degrade to "could not read this mail", which the pipeline
@@ -33,8 +31,6 @@ import os
 import re
 
 from pydantic import BaseModel, Field
-
-from . import masking
 
 log = logging.getLogger(__name__)
 
@@ -56,23 +52,18 @@ _DIGIT = re.compile(r"\d")
 
 
 class Answer(BaseModel):
-    """What the model reported, in the terms it was given.
+    """Structured extraction returned by Gemini."""
 
-    Figures come back as the `[MONEY_n]` names the body carried, never as
-    numbers: the model was never shown a number to report. `to_reading`
-    exchanges the names for the figures, on this side of the network.
-    """
-
-    amount: str | None = Field(
+    amount: int | None = Field(
         default=None,
-        description="The [MONEY_n] placeholder marking the amount of THIS "
-        "transaction. Copy the placeholder exactly, e.g. '[MONEY_1]'. Never "
-        "the account balance, and never a number of your own.",
+        description="Exact transaction amount in base units, without grouping "
+        "separators or sign. Never a balance, fee, limit, cashback, reward, "
+        "exchange rate, reference or account number.",
     )
-    balance: str | None = Field(
+    balance: int | None = Field(
         default=None,
-        description="The [MONEY_n] placeholder marking the account balance "
-        "after the transaction, if the mail states one.",
+        description="Exact account balance after the transaction in base units, "
+        "or null when the email does not state one.",
     )
     direction: str | None = Field(
         default=None,
@@ -112,17 +103,28 @@ class Answer(BaseModel):
         description="How it was paid, if stated: 'QR', 'POS', 'ATM', "
         "'chuyển khoản', 'internet banking'. Null if the email does not say.",
     )
+    currency: str | None = Field(default=None, description="ISO 4217 currency of amount.")
+    fx_amount: int | None = Field(
+        default=None, description="Original foreign amount when amount is a converted VND value."
+    )
+    fx_currency: str | None = Field(default=None, description="ISO currency of fx_amount.")
+    transaction_type: str | None = Field(
+        default=None, description="Explicit kind such as transfer, purchase, withdrawal, or refund."
+    )
+    status: str | None = Field(
+        default=None, description="completed, failed, declined, cancelled, or pending."
+    )
+    account_kind: str | None = Field(
+        default=None, description="credit_card, deposit, ewallet, or null; never infer debt."
+    )
+    flow: str | None = Field(
+        default=None, description="transfer only when explicitly a transfer; otherwise null."
+    )
 
-    def to_reading(self, table: dict[str, object]) -> "Reading":
-        """Exchange the placeholders for the figures they stand for.
-
-        A placeholder this masker never issued reads as None rather than
-        raising: a model that invented one has said nothing, and the pipeline
-        already handles a reading with no amount.
-        """
+    def to_reading(self) -> "Reading":
         return Reading(
-            amount=masking.restore_int(self.amount, table),
-            balance=masking.restore_int(self.balance, table),
+            amount=self.amount,
+            balance=self.balance,
             direction=self.direction,
             merchant=self.merchant,
             occurred_at=self.occurred_at,
@@ -130,16 +132,18 @@ class Answer(BaseModel):
             account_tail=self.account_tail,
             description=self.description,
             channel=self.channel,
+            currency=self.currency,
+            fx_amount=self.fx_amount,
+            fx_currency=self.fx_currency,
+            transaction_type=self.transaction_type,
+            status=self.status,
+            account_kind=self.account_kind,
+            flow=self.flow,
         )
 
 
 class Reading(BaseModel):
-    """What the model read off one mail, in figures.
-
-    Built only by `Answer.to_reading`, so an amount here is always one that
-    was in the mail: the model cannot put a number into this type, because it
-    never answers in this type.
-    """
+    """What the model read off one mail, normalized for the parser."""
 
     amount: int | None = None
     balance: int | None = None
@@ -150,6 +154,13 @@ class Reading(BaseModel):
     account_tail: str | None = None
     description: str | None = None
     channel: str | None = None
+    currency: str | None = None
+    fx_amount: int | None = None
+    fx_currency: str | None = None
+    transaction_type: str | None = None
+    status: str | None = None
+    account_kind: str | None = None
+    flow: str | None = None
 
 
 class ProposedRule(BaseModel):
@@ -215,40 +226,61 @@ right.
 it as a Vietnamese reader would."""
 
 
-_EXTRACT_PROMPT = """You are reading one transaction notification email from a \
-Vietnamese bank or e-wallet.
+_EXTRACT_PROMPT = """Extract one completed financial transaction from this email.
+The sender is a Vietnamese bank or e-wallet. Return only facts explicitly stated
+by the transaction notice. Use null for every absent or ambiguous field.
 
-Sensitive values have been replaced by placeholders: every monetary figure by \
-one like [MONEY_1], every email address by one like [EMAIL_1]. They are \
-withheld deliberately; you are being asked which placeholder is which, not \
-what any of them is.
-
-Report what it says. Rules:
-- For amount and balance, answer with the placeholder exactly as printed, \
-e.g. '[MONEY_1]'. Never answer with a number: you have not been shown one, so \
-any number would be a guess.
-- The transaction amount and the account balance are different figures and are \
-often in the same table. They carry different placeholders. Never report the \
-balance's placeholder as the amount.
-- direction is 'credit' when money entered the account (ghi có, nhận tiền, \
-tiền vào, +) and 'debit' when it left (ghi nợ, thanh toán, chuyển tiền, \
-trừ tiền, -). A + or - printed next to a placeholder still tells you this.
-- occurred_at is the time the TRANSACTION happened, which the email states; it \
-is not the time the email was sent. Dates are day-first: 21/08/2026 is the \
-21st of August.
-- account_tail is four digits. If the email prints the whole account number, \
-report only its last four.
-- merchant is WHO, description is WHAT FOR. If the email prints only one of \
-them, report that one and leave the other null rather than copying it twice.
-- If the mail does not state something, report null for it. Do not guess.
+Accuracy rules, in priority order:
+- amount is the money moved by THIS transaction. Prefer a value beside labels
+  such as "Số tiền giao dịch", "Transaction Amount", "Tổng tiền" or "Giá trị".
+  Never use account balance, available balance, credit limit, outstanding debt,
+  fee, promotion, cashback, reward points, exchange rate, account number,
+  reference number, OTP, phone number or a total from footer prose.
+- Return amount and balance as non-negative integers in the currency's base
+  unit, without punctuation or sign. Vietnamese grouping examples:
+  "750.000 VND" = 750000; "2.000,00 VND" = 2000. For VND, decimals after a
+  grouped amount are formatting, not extra hundreds. Do not convert currencies.
+- balance is only the account balance AFTER the transaction, usually beside
+  "Số dư" or "Available balance". If uncertain whether a figure is amount or
+  balance, leave the uncertain field null rather than copying the same figure.
+- direction is 'credit' when money entered the account (ghi có, nhận tiền,
+  tiền vào, +) and 'debit' when it left (ghi nợ, thanh toán, chuyển tiền,
+  trừ tiền, -). The sign belongs to direction; amount remains non-negative.
+- A failed, declined, cancelled or pending attempt is not a completed
+  transaction. Set status to the explicit state and do not present it as completed.
+- currency is the ISO code printed beside amount. Default to VND only when no
+  other currency is stated. Never silently label USD/EUR/another currency VND.
+- If the notice prints both an original foreign amount and its converted VND
+  amount, amount/currency are the VND pair and fx_amount/fx_currency are the
+  original pair. For a foreign-only notice, put it in amount/currency and leave
+  both fx fields null. Never calculate a conversion.
+- transaction_type is a short explicit semantic kind such as transfer,
+  purchase, withdrawal, fee or refund. account_kind may only be credit_card,
+  deposit, ewallet or null. Do not infer debt from a debit direction.
+- Set flow to transfer only when the notice explicitly describes a transfer.
+  Otherwise leave it null; code reconciles income/expense from direction.
+- occurred_at is the time the TRANSACTION happened, not the email time. Dates
+  are day-first: 21/08/2026 is 21 August. Return `YYYY-MM-DD HH:MM:SS`; use
+  00:00:00 only when the email states a date but no time. Never use card expiry,
+  booking time or a date from footer prose.
+- account_tail is exactly the final four digits of the account or card that
+  moved. Return null when fewer than four digits are visible.
+- merchant is WHO; description is WHAT FOR. If only one is printed, populate
+  only that field instead of copying it into both.
+- Copy merchant, description and reference exactly. Do not translate,
+  paraphrase, shorten names or remove Vietnamese diacritics.
+- channel is only a rail explicitly stated by the email, such as QR, POS, ATM,
+  card, transfer or internet banking.
+- Do not infer facts from general banking knowledge or calculate missing
+  values. When two candidates remain plausible, return null.
 
 EMAIL:
 {body}"""
 
 _INDUCE_PROMPT = """This email is one instance of a recurring template from a \
-Vietnamese bank. Its amounts and email addresses have been replaced with \
-placeholders like [MONEY_1] — you are not being asked to read values, only to \
-say where they sit.
+Vietnamese bank. Do not extract it again. Identify stable labels and template
+signals that can locate the already-confirmed fields on a future email of the
+same shape.
 
 For each field, give the exact label text printed immediately before that \
 field's value. A later email off this same template will be parsed by finding \
@@ -257,6 +289,8 @@ every time, not text that varies per transaction.
 
 Rules:
 - Copy labels verbatim, with Vietnamese diacritics, without the trailing colon.
+- A label must contain no customer name, account number, amount, date, time,
+  reference, merchant or any other value that changes between transactions.
 - Use type 'money' for amount and balance, 'date' for occurred_at, 'token' for \
 reference and account_tail, 'text' for merchant and description.
 - Give a label only for the fields this email actually prints. Most emails \
@@ -291,15 +325,13 @@ def extract(text: str) -> Reading | None:
     """Read one mail. None when the model could not be reached or answered
     unusably — the caller treats that as an unreadable mail.
 
-    The figures never leave: the body is masked first, the model answers in
-    placeholders, and the exchange back to numbers happens here against a
-    table that was never sent.
+    The normalized body is sent as written. This fallback is consent-gated by
+    deployment policy; this module never logs the prompt or model response.
     """
-    masked, table = masking.mask(_clip(text))
-    answer = _ask(_EXTRACT_PROMPT.format(body=masked), Answer)
+    answer = _ask(_EXTRACT_PROMPT.format(body=_clip(text)), Answer)
     if answer is None:
         return None
-    return answer.to_reading(table)
+    return answer.to_reading()
 
 
 def induce(text: str, reading: Reading) -> dict | None:
@@ -307,20 +339,12 @@ def induce(text: str, reading: Reading) -> dict | None:
 
     Returns None when nothing usable came back.
 
-    Sent the same masked copy `extract` gets, not a copy with every digit
-    blanked. Blanking them was the original design and it cost more than it
-    saved: a body reading `luc ##:##:## ##/##/####` gives the model no way to
-    tell a timestamp from a reference, so it proposed labels for neither and
-    the learned spec silently dropped `occurred_at` and `reference` on every
-    mail after the first.
-
-    Masking still withholds what matters. The figures and addresses are
-    placeholders; a date and a transaction id are neither, and they are what
-    this call has to recognise to do its job.
+    Raw normalized text lets the model distinguish stable labels from dynamic
+    values and lets the replay gate test the proposal against exactly the same
+    representation from which it was learned.
     """
-    masked, _ = masking.mask(_clip(text))
     prompt = _INDUCE_PROMPT.format(
-        body=masked,
+        body=_clip(text),
         reading=_shape_of(reading),
     )
     proposed = _ask(prompt, ProposedSpec)
@@ -333,10 +357,8 @@ def induce(text: str, reading: Reading) -> dict | None:
         if label:
             spec[rule.field] = {"label": label, "type": rule.type}
 
-    # Dropped rather than kept: `induce` reads a body whose digits are all `#`,
-    # so a phrase containing one was copied from the redaction and would never
-    # match a real mail. Silently storing it would make the spec inert.
-    phrases = [p.strip() for p in proposed.match if p and p.strip() and "#" not in p]
+    # Dynamic values make a match phrase inert on the next mail.
+    phrases = [p.strip() for p in proposed.match if p and p.strip() and not _DIGIT.search(p)]
     if phrases:
         # Only when the model offered something. An empty list would load as
         # an invalid spec, and a spec with no phrases is the pre-existing
@@ -372,19 +394,11 @@ def categorise(merchant: str, direction: str | None) -> str | None:
     return chosen if chosen in category.CATEGORIES else None
 
 
-def redact(text: str) -> str:
-    """Every digit replaced by #, so a body can be sent for its shape without
-    its values. Labels and layout survive; amounts, account numbers, dates and
-    reference numbers do not."""
-    return _DIGIT.sub("#", text)
-
-
 def _shape_of(reading: Reading) -> str:
     """Which fields were found, without what they were found to be.
 
-    `induce` is told what `extract` read so it can tell the rows apart. Which
-    rows exist is all it needs: sending the figures would put back what
-    masking the body just took out.
+    `induce` is told which fields `extract` confirmed so it can identify their
+    labels without copying the values into its reusable rule.
 
     Derived from the model's own fields rather than a written-out list. The
     list version was written when a reading had four fields, and silently kept
@@ -428,16 +442,14 @@ def _ask[Schema: BaseModel](prompt: str, schema: type[Schema]) -> Schema | None:
         # this code has no answer for.
         answer = getattr(interaction, "output_text", None)
         if not isinstance(answer, str):
-            log.warning("%s call returned no text: %r",
-                        schema.__name__, type(interaction))
+            log.warning("%s call returned no text: %r", schema.__name__, type(interaction))
             return None
         return schema.model_validate_json(answer)
     except Exception as exc:  # noqa: BLE001 - see module docstring
         # Broad on purpose: transport errors, quota, schema drift and malformed
         # JSON all mean the same thing here, and none of them may take down a
         # delivery that the rest of the pipeline can still report on.
-        log.warning("%s call failed: %s: %s",
-                    schema.__name__, type(exc).__name__, exc)
+        log.warning("%s call failed: %s: %s", schema.__name__, type(exc).__name__, exc)
         return None
 
 

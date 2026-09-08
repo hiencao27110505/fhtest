@@ -108,7 +108,7 @@ def _recorder(sent: list[str]):
     return send
 
 
-def test_a_parse_announces_the_amount(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_parse_announcement_contains_no_financial_values(monkeypatch: pytest.MonkeyPatch) -> None:
     sent: list[str] = []
     monkeypatch.setattr(main.notify, "enabled", lambda: True)
     monkeypatch.setattr(main.notify, "send", _recorder(sent))
@@ -116,7 +116,8 @@ def test_a_parse_announces_the_amount(monkeypatch: pytest.MonkeyPatch) -> None:
     main.main(_event(PARSEABLE))
 
     assert len(sent) == 1
-    assert "150.000 VND" in sent[0]
+    assert "150.000" not in sent[0]
+    assert "Đã đọc một giao dịch" in sent[0]
     assert "momo" in sent[0]
 
 
@@ -132,16 +133,15 @@ def test_an_unreadable_email_announces_too(monkeypatch: pytest.MonkeyPatch) -> N
     assert "Chưa đọc được" in sent[0]
 
 
-def test_subject_markup_is_escaped(monkeypatch: pytest.MonkeyPatch) -> None:
-    # Subjects come from email and are attacker-controlled.
+def test_subject_is_not_sent_to_telegram(monkeypatch: pytest.MonkeyPatch) -> None:
     sent: list[str] = []
     monkeypatch.setattr(main.notify, "enabled", lambda: True)
     monkeypatch.setattr(main.notify, "send", _recorder(sent))
 
     main.main(_event({**PARSEABLE, "subject": "<b>bold</b> & co"}))
 
-    assert "&lt;b&gt;" in sent[0]
-    assert "<b>bold</b>" not in sent[0]
+    assert "bold" not in sent[0]
+    assert "& co" not in sent[0]
 
 
 def test_amount_formatting() -> None:

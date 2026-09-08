@@ -44,7 +44,27 @@ result with `ok=False`, because Pub/Sub redelivers on exceptions and a mail
 that fails once will fail identically every time.
 """
 
+from .models import (
+    Detection,
+    EmailInput,
+    MatchStatus,
+    NormalizedEmail,
+    ParsedTransaction,
+    ParseFailureCode,
+    RawExtraction,
+)
 from .pipeline import Result, parse
 from .templates import create_store
 
-__all__ = ["Result", "create_store", "parse"]
+__all__ = [
+    "Detection",
+    "EmailInput",
+    "MatchStatus",
+    "NormalizedEmail",
+    "ParseFailureCode",
+    "ParsedTransaction",
+    "RawExtraction",
+    "Result",
+    "create_store",
+    "parse",
+]

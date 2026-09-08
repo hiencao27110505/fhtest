@@ -16,6 +16,7 @@ to the balance is a misread, and that a "+" next to the figure contradicts a
 "debit" reading.
 """
 
+import math
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -76,9 +77,11 @@ def check(extracted, text: str = "") -> Verdict:
     if amount is None:
         reasons.append("amount missing")
     else:
-        if amount < MIN_AMOUNT:
+        if not isinstance(amount, int) or isinstance(amount, bool) or not math.isfinite(amount):
+            reasons.append("amount is not a finite integer")
+        elif amount < MIN_AMOUNT:
             reasons.append(f"amount {amount} below {MIN_AMOUNT}")
-        if amount > MAX_AMOUNT:
+        elif amount > MAX_AMOUNT:
             reasons.append(f"amount {amount} above {MAX_AMOUNT}")
         if balance is not None and amount == balance:
             # The classic misread: both figures sit in the same table and the
@@ -92,6 +95,23 @@ def check(extracted, text: str = "") -> Verdict:
 
     if balance is not None and balance < 0:
         reasons.append("balance negative")
+
+    status = str(getattr(extracted, "status", "") or "").casefold()
+    if status in {"failed", "declined", "cancelled", "canceled", "pending"}:
+        reasons.append("transaction status is not completed")
+
+    account_kind = getattr(extracted, "account_kind", None)
+    if account_kind not in (None, "credit_card", "deposit", "ewallet"):
+        reasons.append("account_kind invalid")
+
+    flow = getattr(extracted, "flow", None)
+    if flow not in (None, "transfer", "income", "expense"):
+        reasons.append("flow invalid")
+
+    for field in ("currency", "fx_currency"):
+        code = getattr(extracted, field, None)
+        if code is not None and (not isinstance(code, str) or len(code) != 3 or not code.isalpha()):
+            reasons.append(f"{field} invalid")
 
     occurred_at = getattr(extracted, "occurred_at", None)
     if occurred_at is not None:

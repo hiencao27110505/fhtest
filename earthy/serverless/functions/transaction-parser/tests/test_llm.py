@@ -31,55 +31,31 @@ def test_enabled_follows_the_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
     assert llm.enabled()
 
 
-def test_redaction_removes_every_digit():
-    redacted = llm.redact(TCB_CREDIT)
-    assert not any(char.isdigit() for char in redacted)
-
-
-def test_redaction_keeps_the_labels():
-    # The whole point: the induce call needs the shape, never the values.
-    redacted = llm.redact(TCB_CREDIT)
-    for label in ("Số tiền giao dịch", "Số dư khả dụng", "Nội dung"):
-        assert label in redacted
-
-
-def test_induce_is_never_sent_the_real_figures(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_induce_receives_the_original_normalized_values(monkeypatch: pytest.MonkeyPatch) -> None:
     stub = _Stub(llm.ProposedSpec(rules=[]))
     monkeypatch.setattr(llm, "_ask", stub)
 
     llm.induce(TCB_CREDIT, llm.Reading(amount=500000, direction="credit"))
 
     sent = stub.prompts[0]
-    assert "500.000" not in sent
-    assert "12.345.678" not in sent
-    assert "[MONEY_1]" in sent
-    # The account number is NOT masked — it carries no currency marker, and
-    # masking it would blind the parser to a field it reads. Recorded here
-    # rather than left to be discovered.
+    assert "500.000" in sent
+    assert "12.345.678" in sent
     assert "19001234567" in sent
 
 
-def test_extract_is_never_sent_the_real_figures(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The reading call is not an exception to the rule.
-
-    It used to be: reading the amount seemed to require sending it. Naming the
-    figures instead lets the model say which row is the amount without being
-    told what any row is worth.
-    """
-    stub = _Stub(llm.Answer(amount="[MONEY_1]", direction="credit"))
+def test_extract_receives_original_values(monkeypatch: pytest.MonkeyPatch) -> None:
+    stub = _Stub(llm.Answer(amount=500000, direction="credit"))
     monkeypatch.setattr(llm, "_ask", stub)
 
     llm.extract(TCB_CREDIT)
 
     sent = stub.prompts[0]
-    assert "500.000" not in sent
-    assert "12.345.678" not in sent
-    assert "[MONEY_1]" in sent
+    assert "500.000" in sent
+    assert "12.345.678" in sent
 
 
-def test_extract_exchanges_the_placeholders_back(monkeypatch: pytest.MonkeyPatch) -> None:
-    # [MONEY_1] is the amount and [MONEY_2] the balance, in TCB_CREDIT's order.
-    stub = _Stub(llm.Answer(amount="[MONEY_1]", balance="[MONEY_2]", direction="credit"))
+def test_extract_returns_structured_numbers(monkeypatch: pytest.MonkeyPatch) -> None:
+    stub = _Stub(llm.Answer(amount=500000, balance=12345678, direction="credit"))
     monkeypatch.setattr(llm, "_ask", stub)
 
     reading = llm.extract(TCB_CREDIT)
@@ -90,29 +66,14 @@ def test_extract_exchanges_the_placeholders_back(monkeypatch: pytest.MonkeyPatch
     assert reading.direction == "credit"
 
 
-def test_a_figure_the_model_invented_is_dropped(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A model that answers with a number has not read one — every figure was
-    masked before it saw the body — so the number is invention and must not
-    reach a ledger."""
+def test_a_numeric_string_is_normalized_by_the_schema(monkeypatch: pytest.MonkeyPatch) -> None:
     stub = _Stub(llm.Answer(amount="750000", direction="credit"))
     monkeypatch.setattr(llm, "_ask", stub)
 
     reading = llm.extract(TCB_CREDIT)
 
     assert reading is not None
-    assert reading.amount is None
-
-
-def test_a_placeholder_that_was_never_issued_is_dropped(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    stub = _Stub(llm.Answer(amount="[MONEY_99]", direction="credit"))
-    monkeypatch.setattr(llm, "_ask", stub)
-
-    reading = llm.extract(TCB_CREDIT)
-
-    assert reading is not None
-    assert reading.amount is None
+    assert reading.amount == 750000
 
 
 def test_induce_returns_a_spec_shaped_dict(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -290,20 +251,14 @@ def test_induce_carries_match_phrases_through(monkeypatch: pytest.MonkeyPatch) -
     assert proposed["match"] == ["Phiếu nhận tiền"]
 
 
-def test_a_match_phrase_from_the_redaction_is_dropped(monkeypatch: pytest.MonkeyPatch) -> None:
-    """induce reads a body whose digits are all '#'.
-
-    A phrase copied from it that carries one would never appear in a real
-    mail, so the spec would be stored and then never match — inert, and
-    invisibly so.
-    """
+def test_a_match_phrase_with_dynamic_digits_is_dropped(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         llm,
         "_ask",
         _Stub(
             llm.ProposedSpec(
                 rules=[llm.ProposedRule(field="amount", label="Tổng tiền", type="money")],
-                match=["Mã GD ###", "Phiếu nhận tiền"],
+                match=["Mã GD 123456", "Phiếu nhận tiền"],
             )
         ),
     )
@@ -425,9 +380,16 @@ def test_the_shape_covers_every_field_a_reading_can_carry() -> None:
         occurred_at="2026-08-21 13:15:00",
         reference="FT2412345678",
         account_tail="4567",
-        description="Ca phe sang",
-        channel="QR",
-    )
+            description="Ca phe sang",
+            channel="QR",
+            currency="VND",
+            fx_amount=10,
+            fx_currency="USD",
+            transaction_type="purchase",
+            status="completed",
+            account_kind="credit_card",
+            flow="expense",
+        )
 
     shape = llm._shape_of(everything)
 

@@ -63,10 +63,10 @@ FIELDS = (
     "merchant",
     # What a cash-flow report needs beyond the figures themselves.
     "occurred_at",  # when the transaction happened, not when the mail arrived
-    "reference",    # the bank's own id for it, so one transaction counts once
-    "account_tail", # which of the household's wallets it moved through
+    "reference",  # the bank's own id for it, so one transaction counts once
+    "account_tail",  # which of the household's wallets it moved through
     "description",  # the transfer note, which is not always the merchant
-    "channel",      # QR / POS / ATM / chuyển khoản
+    "channel",  # QR / POS / ATM / chuyển khoản
 )
 
 # Not a field: a key alongside them, holding the phrases that identify the
@@ -139,7 +139,11 @@ _DATE = r"(?P<d>\d{1,2})[/\-.](?P<mo>\d{1,2})[/\-.](?P<y>\d{4})"
 _TIME = r"(?P<h>\d{1,2}):(?P<mi>\d{2})(?::(?P<sec>\d{2}))?"
 
 _DATE_THEN_TIME = re.compile(rf"^[\s:.·|]{{0,4}}{_DATE}(?:[\s,]+{_TIME})?")
-_TIME_THEN_DATE = re.compile(rf"^[\s:.·|]{{0,4}}{_TIME}[\s,]+(?:-\s*)?{_DATE}")
+_TIME_THEN_DATE = re.compile(
+    rf"^[\s:.·|]{{0,4}}{_TIME}[\s,]+(?:-\s*)?"
+    rf"(?:(?:thứ\s+\S+|chủ\s+nhật)\s+)?{_DATE}",
+    re.IGNORECASE,
+)
 
 # One unbroken run: letters, digits, and the punctuation that appears inside a
 # reference ("FT24123456789", "INV-2026-00125", "0123.4567"). Stops at the
@@ -235,8 +239,7 @@ class Spec:
         every existing row look like a new spec.
         """
         out: dict = {
-            field: {"label": rule.label, "type": rule.type}
-            for field, rule in self.rules.items()
+            field: {"label": rule.label, "type": rule.type} for field, rule in self.rules.items()
         }
         if self.match:
             out[MATCH] = list(self.match)
@@ -261,6 +264,13 @@ class Extracted:
     account_tail: str | None = None
     description: str | None = None
     channel: str | None = None
+    currency: str | None = None
+    fx_amount: int | None = None
+    fx_currency: str | None = None
+    transaction_type: str | None = None
+    status: str | None = None
+    account_kind: str | None = None
+    flow: str | None = None
 
 
 def _load_match(raw: object) -> tuple[str, ...]:
@@ -378,6 +388,13 @@ def _money(window: str) -> int | None:
     return _to_int(match.group("digits"))
 
 
+def money(value: object) -> int | None:
+    """Parse a displayed VND amount without searching beyond its own field."""
+    if not isinstance(value, str):
+        return None
+    return _money(value.strip())
+
+
 def _datetime(window: str) -> datetime | None:
     """The timestamp printed just past a label.
 
@@ -399,7 +416,20 @@ def _datetime(window: str) -> datetime | None:
             second=int(parts.get("sec") or 0),
         )
     except ValueError:
-        # 31/02, hour 25, and anything else the calendar rejects.
+        return None
+
+
+def parse_datetime(value: object) -> datetime | None:
+    """Parse one date field in every shape supported by learned specs."""
+    if not isinstance(value, str):
+        return None
+    raw = value.strip()
+    parsed = _datetime(raw)
+    if parsed is not None:
+        return parsed
+    try:
+        return datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
         return None
 
 
@@ -458,8 +488,14 @@ def _text(window: str, others: tuple[str, ...] = ()) -> str | None:
 
 
 def _to_int(raw: str) -> int | None:
-    """'1.234.567' -> 1234567. Separators are grouping only."""
-    digits = raw.replace(".", "").replace(",", "").replace(" ", "")
+    """Read grouped VND forms, including ``2.000,00`` bank formatting."""
+    value = raw.replace(" ", "")
+    if "." in value and "," in value:
+        decimal = "." if value.rfind(".") > value.rfind(",") else ","
+        whole, fraction = value.rsplit(decimal, 1)
+        if len(fraction) == 2:
+            value = whole
+    digits = value.replace(".", "").replace(",", "")
     return int(digits) if digits.isdigit() else None
 
 

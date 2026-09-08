@@ -713,8 +713,8 @@ One row in `mailbox_grants` per person, from birth to death:
 The backend team's reimplementation, in `earthy/serverless/` (a uv workspace,
 one function per directory, deployed to GCP project `fhtest-502915` with
 `make deploy`). It reads real mailboxes and parses real Vietnamese bank mail
-correctly. **What it does not do is persist**: the parser ends at
-`# TODO: persist`.
+correctly. The implemented bridge now hands valid readings to
+`POST /mailbox-sync/ingest`; it remains **not deployed**.
 
 **Shape.** The split is drawn where the unit of work changes, mailbox →
 transaction:
@@ -727,8 +727,10 @@ Gmail watch() → [topic: gmail-events]
                      ↓
    [topic: transaction-detected] once per transaction (body travels with it)
                      ↓
-   transaction-parser            strip html → amount/direction/balance
+   transaction-parser            normalize → detect → stored spec / label table / Gemini
                                  (Gemini `gemini-3.5-flash` for unknown layouts)
+                     ↓ HTTPS + x-sync-secret (when configured)
+   /mailbox-sync/ingest          validate → tidy → dedup → seal → insert
 ```
 
 - Gmail push carries no content — only `{emailAddress, historyId}` — so
@@ -755,16 +757,14 @@ Gmail watch() → [topic: gmail-events]
 
 | Thing | Status |
 |---|---|
-| `persist.py` bridge → `POST /mailbox-sync/ingest` | Built; 445 of their tests green; **unmerged** on `claude/email-reading-integration-ddwqd2` pending backend review. Contract pinned by `direct-persist-contract.test.js` (real Python `build_payload` → real sealer → real client opener) |
+| `persist.py` bridge → `POST /mailbox-sync/ingest` | Implemented locally; parse-only when both settings are absent, retry on transport/auth/server faults, ack all five HTTP-200 decisions. **Not deployed** |
 | Cloud Scheduler for watch renewal | Not created — today `make renew` by hand; a lapsed watch fails silently |
 | `TEST_SENDERS` removal | Anything those accounts send is currently read as a transaction |
 | OAuth verification / CASA assessment | Required past 100 test users for a restricted scope |
 
-**The `/ingest` contract — the seam the bridge will cross.** When
-`persist.py` merges, transport C stops at parsing and hands over; transport
-B's worker does the half C deliberately does not. The contract
-(`ingest.mjs`), pinned by `direct-persist-contract.test.js` (real Python
-`build_payload` → real sealer → real client opener):
+**The `/ingest` contract — the seam the bridge crosses when configured.**
+Transport C stops at validated parsing and hands over; transport B's worker
+does the half C deliberately does not. The contract lives in `ingest.mjs`:
 
 - **Auth:** the shared `MAILBOX_SYNC_SECRET`. Authenticated means *trusted,
   not correct* — everything is re-validated, because a sealed row is one
@@ -774,8 +774,9 @@ B's worker does the half C deliberately does not. The contract
   a negative is refused**, because `direction` carries the sign and encoding
   one fact twice means one encoding is about to be wrong), `direction`
   (exactly `debit`/`credit`), and optionally currency (default VND),
-  merchant/counterparty, description/memo, balance, type_code, channel,
-  account_tail, reference, category, occurred_at, sender_auth. Field-name
+  merchant/counterparty, description/memo, balance, FX pair, transaction type,
+  status, account kind, flow, type_code, channel, account_tail, reference,
+  category, occurred_at, sender_auth. Field-name
   translation lives in `normaliseReading` — neither side's shape is free to
   move (theirs is pinned by their parser tests, ours by the client opener),
   so the mapping is one file to look at.
@@ -793,7 +794,7 @@ B's worker does the half C deliberately does not. The contract
   ciphertext.
 - **Responses are ack decisions** (the same contract `/push` answers):
   `rejected` (malformed / no_message_id / no_email / no_amount /
-  bad_direction), `ignored` (no grant — ordinary, a reader can outlive a
+  bad_direction / incomplete_status), `ignored` (no grant — ordinary, a reader can outlive a
   disconnect), `skipped` (already staged or raced the UNIQUE), `held`,
   `staged` (+ `duplicate`, + `senderUnknownToUs`). Everything that would
   fail identically on retry is **acked** — fighting a permanent failure
@@ -1679,8 +1680,8 @@ source by name, so a rename breaks loudly. Highlights:
 | `review-notify` | no notification copy variant can carry money |
 | client suites | dup-advisory, review-bucketing, staged-retire, bulk-promote, merchant-memory, mailbox-gate, autotxn-connect/return |
 
-Transport C: `test_*.py` per function plus the parser suites (445 green on
-the bridge branch).
+Transport C: `test_*.py` per function plus the parser suites (453 green
+locally); the real Edge sealing/opening regressions remain green.
 
 ## 23. Security invariants
 
@@ -1971,6 +1972,38 @@ as — or the same day as — the deploy. A deploy announced only in
   applied at the time of that entry — the client's three-tier select ladder
   degrades gracefully until it is. Details in AGENT_SYNC (2026-09-05,
   Hien's session).
+
+### 2026-09-04 — transaction-parser deterministic-first revamp (not deployed)
+
+- Added a typed email interface while retaining the legacy call form during
+  rollout, plus normalized email, detection, match-state and structured failure
+  models.
+- Inserted a deterministic bilingual label-table reader between stored specs
+  and Gemini. It covers anonymized MB, Vietcombank, VIB, Techcombank and MoMo
+  shapes and rejects declined or foreign-currency rows it cannot represent.
+- Ported the proven safety heuristics for time-first dates, dynamic signs,
+  amount absorbers, footer merchants, account-tail masking and full-field
+  learned-template replay.
+- Removed financial and mail-authored values from Cloud Logging and Telegram.
+- Temporarily removed PII/amount masking from the Python Gemini fallback and
+  replaced placeholder extraction with a numeric response schema. The prompt
+  now explicitly separates transaction amount from balance, fees, cashback,
+  limits, references and account numbers, and rejects incomplete statuses.
+  No migration, deployment, Apps Script paste or production state change was
+  made.
+
+### 2026-09-04 — Python parse → encrypted staging bridge (not deployed)
+
+- Gmail ingest now carries mailbox email, original sender and authoritative
+  bank/wallet kind through Pub/Sub. The parser's typed reading now includes
+  currency/FX, transaction meaning, status, account kind and reconciled flow.
+- Added the optional HTTPS persistence adapter. It sends only validated reads
+  to `/mailbox-sync/ingest`; missing configuration preserves parse-only mode,
+  while partial configuration and transient HTTP failures trigger redelivery.
+- Kept encryption, key handling, dedup HMAC and database inserts exclusively
+  in the existing Edge seam. Explicit failed, declined, cancelled and pending
+  statuses are rejected before staging. No migration, deployment or production
+  state change was made.
 
 ### 2026-09-03 — mailbox-sync (pending deploy) · migrations 0110–0111 — selection looks before it lifts, and two more surfaces learn
 

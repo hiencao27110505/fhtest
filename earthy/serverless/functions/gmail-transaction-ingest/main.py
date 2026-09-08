@@ -56,14 +56,14 @@ def main(cloud_event: CloudEvent) -> None:
             "notification missing emailAddress/historyId: %s", notification)
         return
 
-    log.info("gmail change for %s at historyId=%s", email, history_id)
+    log.info("gmail change at historyId=%s", history_id)
 
     try:
         account = STORE.get(email)
     except accounts.UnknownMailbox:
         # Permanent: the mailbox is not connected (or was disconnected while
         # its watch was still live). Retrying cannot help, so ack and drop.
-        log.warning("no account on file for %s; dropping notification", email)
+        log.warning("no account on file; dropping notification")
         return
 
     try:
@@ -72,8 +72,7 @@ def main(cloud_event: CloudEvent) -> None:
         # Permanent until the user reconnects — revoked, password changed, or
         # the 7-day expiry that applies to every token while the app is in
         # Testing status. Retrying cannot fix it, so record it and ack.
-        log.warning(
-            "refresh token rejected for %s; marking for re-consent", email)
+        log.warning("refresh token rejected; marking mailbox for re-consent")
         STORE.mark_needs_reauth(email)
         return
 
@@ -89,33 +88,27 @@ def main(cloud_event: CloudEvent) -> None:
         message = _message(service, message_id)
         if message is None:
             continue
-        label = senders.match(message["from"])
-        if label is None:
-            # INFO, not debug: the function runs at INFO, so a debug line is
-            # invisible in production — and "0/1 matched a known sender" with
-            # no way to see WHICH sender was turned away is a dead end every
-            # time someone asks why a mail did not arrive. The From header is
-            # the one fact needed to answer that, and it is not a secret.
-            log.info(
-                "SKIP %s from %r subject=%r: no known sender",
-                message_id,
-                message["from"],
-                message["subject"],
-            )
+        sender = senders.identify(message["from"])
+        if sender is None:
+            # Metadata only: sender and subject may contain mail-authored data.
+            log.info("SKIP message_id=%s reason=unknown_sender", message_id)
             continue
+        label = sender.provider
         hits += 1
         log.info(
-            "TRANSACTION source=%s message_id=%s subject=%r date=%s",
+            "TRANSACTION source=%s message_id=%s date=%s",
             label,
             message_id,
-            message["subject"],
             message["date"],
         )
         _publish(
             DOWNSTREAM_TOPIC,
             {
                 "message_id": message_id,  # idempotency key for the parser
+                "email": email,
                 "source": label,
+                "sender_kind": sender.kind,
+                "from": message["from"],
                 "subject": message["subject"],
                 "date": message["date"],
                 "body": message["body"],

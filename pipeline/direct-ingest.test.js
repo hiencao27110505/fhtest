@@ -225,6 +225,8 @@ for (const [name, p, reason] of [
   ['amount negative', payload({}, { amount: -5 }), I.REJECT.NO_AMOUNT],
   ['direction missing', payload({}, { direction: undefined }), I.REJECT.BAD_DIRECTION],
   ['direction invented', payload({}, { direction: 'outgoing' }), I.REJECT.BAD_DIRECTION],
+  ['failed transaction', payload({}, { status: 'failed' }), I.REJECT.INCOMPLETE_STATUS],
+  ['pending transaction', payload({}, { status: 'pending' }), I.REJECT.INCOMPLETE_STATUS],
 ]) {
   const db = makeDb();
   const out = await I.runIngest(p, ctxFor(db));
@@ -232,6 +234,12 @@ for (const [name, p, reason] of [
     out.status === 'rejected' && out.reason === reason && db.state.staged.length === 0,
     JSON.stringify(out));
   t(name + ' -> acked (a retry cannot fix a malformed payload)', out.ack === true);
+}
+
+{
+  const normalized = I.normaliseReading(payload({}, { flow: 'transfer', status: 'completed' }).reading, '');
+  t('flow and completed status cross the transport normalization seam',
+    normalized.flow === 'transfer' && normalized.status === 'completed');
 }
 
 /* ── a mailbox we do not hold ─────────────────────────────────────────────── */
