@@ -48,29 +48,28 @@ def test_the_subject_is_not_in_a_parsed_message() -> None:
     assert "Tiêu đề" not in text
 
 
-def test_the_memo_and_counterparty_are_shown() -> None:
-    """The two things a person asks about a transaction: who, and what for."""
+def test_the_memo_and_counterparty_are_not_sent() -> None:
+    """PII from the reading does not transit the notification provider."""
     text = main._parsed_message(
         Reading(merchant="NGUYEN THU TRANG", description="tra tien com"),
         Result(),
         "mbbank",
     )
-    assert "Tới: NGUYEN THU TRANG" in text
-    assert "Nội dung: tra tien com" in text
+    assert "NGUYEN THU TRANG" not in text
+    assert "tra tien com" not in text
 
 
 def test_credit_reads_as_incoming() -> None:
     text = main._parsed_message(
         Reading(direction="credit", merchant="CONG TY ABC"), Result(), "vcb"
     )
-    assert "· vào" in text
-    assert "Từ: CONG TY ABC" in text
+    assert "CONG TY ABC" not in text
 
 
 def test_absent_fields_are_omitted_not_padded() -> None:
     """A thin reading says little rather than listing em-dashes."""
     text = main._parsed_message(Reading(), Result(), "vcb")
-    assert text == "💸 <b>20.000 VND</b> · ra\nvcb"
+    assert text == "💸 <b>Đã đọc một giao dịch</b>\nNguồn: vcb\nCách đọc: unknown"
 
 
 def test_mail_authored_text_is_escaped() -> None:
@@ -81,5 +80,5 @@ def test_mail_authored_text_is_escaped() -> None:
         "acb",
     )
     assert "<b>A&B</b>" not in text
-    assert "&lt;b&gt;A&amp;B&lt;/b&gt;" in text
+    assert "A&amp;B" not in text
     assert "<script>" not in text

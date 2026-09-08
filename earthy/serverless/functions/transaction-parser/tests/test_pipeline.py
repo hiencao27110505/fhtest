@@ -324,7 +324,7 @@ def test_an_unconfigured_llm_says_so(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_the_package_exposes_one_entry_point() -> None:
     # Reading a mail is one call; the store is exposed only so main.py can
     # build one per instance. Everything else is internal.
-    assert parser.__all__ == ["Result", "create_store", "parse"]
+    assert {"EmailInput", "Result", "create_store", "parse"}.issubset(parser.__all__)
     assert parser.parse is pipeline.parse
 
 

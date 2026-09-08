@@ -64,6 +64,7 @@ export const REJECT = {
   NO_EMAIL: 'no_email',
   NO_AMOUNT: 'no_amount',
   BAD_DIRECTION: 'bad_direction',
+  INCOMPLETE_STATUS: 'incomplete_status',
 };
 
 /**
@@ -124,6 +125,8 @@ export function normaliseReading(raw, body) {
     category: r.category ?? null,
     occurredAt: r.occurred_at ?? r.occurredAt ?? null,
     senderAuth: r.sender_auth ?? r.senderAuth ?? null,
+    status: r.status ?? null,
+    flow: r.flow ?? null,
   };
 }
 
@@ -142,6 +145,10 @@ export function validate(payload) {
   if (!r || typeof r !== 'object') return REJECT.MALFORMED;
   if (!usableAmount(r.amount)) return REJECT.NO_AMOUNT;
   if (DIRECTIONS.indexOf(r.direction) < 0) return REJECT.BAD_DIRECTION;
+  const status = String(r.status || '').toLowerCase();
+  if (['failed', 'declined', 'cancelled', 'canceled', 'pending'].includes(status)) {
+    return REJECT.INCOMPLETE_STATUS;
+  }
   return null;
 }
 

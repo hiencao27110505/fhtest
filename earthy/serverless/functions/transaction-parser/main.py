@@ -13,7 +13,8 @@ Reading a mail is `parser.parse`, one call: how it does it — a stored rule, or
 a model that then learns one — is the parser package's business and
 deliberately not this file's. See `parser/__init__.py`.
 
-For now it only logs what it read. Persisting is deliberately not wired up.
+When persistence is configured, a valid reading is handed to the existing
+mailbox-sync boundary, which owns tidy, deduplication, encryption and insert.
 """
 
 import base64
@@ -23,6 +24,7 @@ import logging
 import functions_framework
 import notify
 import parser
+import persist
 from cloudevents.http import CloudEvent
 
 # basicConfig is a no-op on Cloud Functions: the runtime configures the root
@@ -37,6 +39,7 @@ STORE = parser.create_store()
 
 # What separates one field from the next once the tags are gone. Bank mail lays
 # its fields out in a table, so a cell boundary is the ONLY thing between a
+
 
 @functions_framework.cloud_event
 def main(cloud_event: CloudEvent) -> None:
@@ -54,19 +57,22 @@ def main(cloud_event: CloudEvent) -> None:
         log.warning("payload missing message_id/body: keys=%s", sorted(payload))
         return
 
-    result = parser.parse(str(source), body, STORE)
     subject = str(payload.get("subject", ""))
+    result = parser.parse(
+        parser.EmailInput(source=str(source or ""), subject=subject, body=str(body)),
+        STORE,
+    )
 
     reading = result.reading
     if reading is None:
         # Not an error: an unrecognised template is normal until the pipeline
         # has learned one. Logged at warning so the gaps are easy to find.
         log.warning(
-            "UNREAD source=%s message_id=%s subject=%r reasons=%s",
+            "UNREAD source=%s message_id=%s code=%s stage=%s",
             source,
             message_id,
-            subject,
-            "; ".join(result.reasons),
+            result.failure_code or "unknown",
+            result.stage or "none",
         )
         # The subject EARNS its place here, unlike on the success path: when
         # nothing could be read, the mail's own title is the only handle a
@@ -74,33 +80,40 @@ def main(cloud_event: CloudEvent) -> None:
         # missing, so a gap is actionable instead of just disappointing.
         _announce(
             f"⚠️ <b>Chưa đọc được</b>\n"
-            f"Tiêu đề: {notify.escape(subject)}\n"
-            f"Thiếu: {notify.escape('; '.join(result.reasons))}\n"
+            f"Mã lỗi: {notify.escape(str(result.failure_code or 'unknown'))}\n"
             f"Nguồn: {notify.escape(str(source))}"
         )
         return
 
     log.info(
-        "PARSED source=%s message_id=%s stage=%s learned=%s amount=%s direction=%s "
-        "balance=%s at=%s ref=%s tail=%s category=%s/%s subject=%r",
+        "PARSED source=%s message_id=%s stage=%s learned=%s category_source=%s",
         source,
         message_id,
         result.stage,
         result.learned,
-        reading.amount,
-        reading.direction,
-        reading.balance,
-        reading.occurred_at or "-",
-        reading.reference or "-",
-        reading.account_tail or "-",
-        result.category or "-",
         result.category_source or "-",
-        subject,
     )
+    if persist.configured():
+        outcome = persist.send(
+            persist.build_payload(
+                email=str(payload.get("email") or ""),
+                message_id=str(message_id),
+                source=str(source or ""),
+                sender_kind=str(payload.get("sender_kind") or "bank"),
+                from_header=str(payload.get("from") or ""),
+                body=str(body),
+                reading=reading,
+                category=result.category,
+            )
+        )
+        log.info(
+            "STAGING source=%s message_id=%s outcome=%s reason=%s",
+            source,
+            message_id,
+            outcome.status,
+            outcome.reason or "-",
+        )
     _announce(_parsed_message(reading, result, source))
-
-    # TODO: persist. Use message_id as the idempotency key — the same
-    # notification can arrive more than once.
 
 
 def _parsed_message(reading, result, source: object) -> str:
@@ -117,39 +130,12 @@ def _parsed_message(reading, result, source: object) -> str:
     Fields appear only when present. A mail that yielded little says little,
     rather than padding the message with em-dashes for everything missing.
     """
-    direction = "vào" if reading.direction == "credit" else "ra"
-    lines = [f"💸 <b>{_vnd(reading.amount)}</b> · {direction}"]
-
-    # The counterparty, which is the single most useful thing after the amount.
-    if reading.merchant:
-        lines.append(f"{'Từ' if reading.direction == 'credit' else 'Tới'}: "
-                     f"{notify.escape(reading.merchant)}")
-
-    # The transfer memo — the human sentence the sender typed. This is the
-    # "nội dung" a person means when they ask what a transaction was about, and
-    # it is what the subject was standing in for.
-    if reading.description:
-        lines.append(f"Nội dung: {notify.escape(reading.description)}")
-
-    if result.category:
-        lines.append(f"Danh mục: {notify.escape(result.category)}")
-    if reading.occurred_at:
-        lines.append(f"Lúc: {_when(reading.occurred_at)}")
-    if reading.channel:
-        lines.append(f"Hình thức: {notify.escape(reading.channel)}")
-    if reading.account_tail:
-        lines.append(f"Tài khoản: ...{notify.escape(reading.account_tail)}")
-    if reading.balance:
-        lines.append(f"Số dư: {_vnd(reading.balance)}")
-
-    # Provenance last, and quietly: useful when a reading looks wrong, noise
-    # when it does not. `source` is the sender key, not the mail's title.
-    tail = notify.escape(str(source))
-    if reading.reference:
-        tail += f" · {notify.escape(reading.reference)}"
-    lines.append(tail)
-
-    return "\n".join(lines)
+    del reading
+    return (
+        "💸 <b>Đã đọc một giao dịch</b>\n"
+        f"Nguồn: {notify.escape(str(source))}\n"
+        f"Cách đọc: {notify.escape(getattr(result, 'stage', '') or 'unknown')}"
+    )
 
 
 def _announce(text: str) -> None:
@@ -173,7 +159,6 @@ def _vnd(amount: int | None) -> str:
     if amount is None:
         return "—"
     return f"{amount:,}".replace(",", ".") + " VND"
-
 
 
 def _decode(cloud_event: CloudEvent) -> dict | None:

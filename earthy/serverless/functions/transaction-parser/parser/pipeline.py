@@ -10,7 +10,10 @@ from datetime import datetime
 from typing import Protocol, cast
 
 from . import category as category_mod
-from . import llm, spec, validate
+from . import label_table, llm, spec, validate
+from .detection import detect
+from .models import Detection, EmailInput, MatchStatus, ParseFailureCode
+from .normalization import normalize_email
 
 log = logging.getLogger(__name__)
 
@@ -43,6 +46,9 @@ class Result:
     # Which stored spec produced this, when one did. Lets the store credit the
     # spec that worked, so it can try the busiest one first next time.
     spec: dict | None = None
+    failure_code: ParseFailureCode | None = None
+    match_status: MatchStatus = MatchStatus.NOT_MATCHED
+    detection: Detection | None = None
 
     @property
     def ok(self) -> bool:
@@ -67,21 +73,74 @@ class Templates(Protocol):
         ...
 
 
-def parse(source: str, body: str, templates: Templates | None = None) -> Result:
+def parse(
+    email: EmailInput | str,
+    body_or_templates: str | Templates | None = None,
+    templates: Templates | None = None,
+) -> Result:
     """Read one mail. Never raises.
 
-    `body` is the flattened text; `source` is the sender label the ingest
-    function assigned. `templates` is optional so the deterministic stages can
-    run with no database at all.
+    New callers pass EmailInput. The legacy (source, body, store) form remains
+    accepted during deployment so queued events and downstream tests do not
+    need a flag day.
     """
-    stored = _stored(templates, source)
+    value, store = _input(email, body_or_templates, templates)
+    normalized = normalize_email(value)
+    if not normalized.source or not normalized.body:
+        return Result(
+            reasons=("email is missing source or body",),
+            failure_code=ParseFailureCode.INVALID_EMAIL,
+            match_status=MatchStatus.INVALID,
+        )
 
-    result = _try_stored(stored, body)
+    detection = detect(normalized)
+    stored = _stored(store, normalized.source)
+
+    result = _try_stored(stored, normalized.body)
     if result is not None:
-        _record_hit(templates, source, result.spec)
-        return _categorised(result, templates)
+        _record_hit(store, normalized.source, result.spec)
+        return _categorised(replace(result, detection=detection), store)
 
-    return _categorised(_try_llm(source, body, templates), templates)
+    deterministic = label_table.parse(normalized)
+    if deterministic.status == MatchStatus.INVALID:
+        return Result(
+            reasons=(deterministic.reason,),
+            failure_code=ParseFailureCode.VALIDATION_FAILED,
+            match_status=MatchStatus.INVALID,
+            detection=detection,
+        )
+    if deterministic.extraction is not None:
+        verdict = validate.check(deterministic.extraction, normalized.body)
+        if verdict:
+            return _categorised(
+                Result(
+                    reading=deterministic.extraction,
+                    stage="label_table",
+                    match_status=MatchStatus.MATCHED,
+                    detection=detection,
+                ),
+                store,
+            )
+
+    result = _try_llm(normalized.source, normalized.body, store)
+    if result.reading is None and result.failure_code is None:
+        result = replace(result, failure_code=ParseFailureCode.UNSUPPORTED_TEMPLATE)
+    return _categorised(replace(result, detection=detection), store)
+
+
+def _input(
+    email: EmailInput | str,
+    body_or_templates: str | Templates | None,
+    templates: Templates | None,
+) -> tuple[EmailInput, Templates | None]:
+    if isinstance(email, EmailInput):
+        store = (
+            body_or_templates
+            if body_or_templates is not None and not isinstance(body_or_templates, str)
+            else templates
+        )
+        return email, cast("Templates | None", store)
+    return EmailInput(source=email, subject="", body=str(body_or_templates or "")), templates
 
 
 def _categorised(result: Result, templates: "Templates | None") -> Result:
@@ -95,10 +154,18 @@ def _categorised(result: Result, templates: "Templates | None") -> Result:
     if result.reading is None:
         return result
 
+    reading = result.reading
+    enriched = replace(
+        reading,
+        currency=reading.currency or "VND",
+        flow=_flow(reading.flow, reading.direction),
+    )
+    result = replace(result, reading=enriched)
+
     store = templates if _can_store_categories(templates) else None
     guess = category_mod.of(
-        result.reading.merchant,
-        result.reading.direction,
+        enriched.merchant,
+        enriched.direction,
         cast("category_mod.Store | None", store),
     )
     return replace(result, category=guess.category, category_source=guess.source)
@@ -140,18 +207,26 @@ def _try_stored(stored: list[dict], body: str) -> Result | None:
 
         extracted = spec.apply(loaded, body)
         if validate.check(extracted, body):
-            return Result(reading=extracted, stage="spec", spec=raw)
+            return Result(
+                reading=extracted, stage="spec", spec=raw, match_status=MatchStatus.MATCHED
+            )
     return None
 
 
 def _try_llm(source: str, body: str, templates: Templates | None) -> Result:
     """Read the mail with a model, and try to learn a rule from it."""
     if not llm.enabled():
-        return Result(reasons=("no stored spec matched; LLM is not configured",))
+        return Result(
+            reasons=("no deterministic strategy matched; LLM is not configured",),
+            failure_code=ParseFailureCode.LLM_UNAVAILABLE,
+        )
 
     reading = llm.extract(body)
     if reading is None:
-        return Result(reasons=("no stored spec matched; LLM returned nothing",))
+        return Result(
+            reasons=("no deterministic strategy matched; LLM returned nothing",),
+            failure_code=ParseFailureCode.UNSUPPORTED_TEMPLATE,
+        )
 
     extracted = spec.Extracted(
         amount=reading.amount,
@@ -163,16 +238,37 @@ def _try_llm(source: str, body: str, templates: Templates | None) -> Result:
         account_tail=spec.account_tail(reading.account_tail),
         description=spec.free_text(reading.description),
         channel=spec.free_text(reading.channel),
+        currency=_currency(reading.currency),
+        fx_amount=reading.fx_amount,
+        fx_currency=_currency(reading.fx_currency),
+        transaction_type=spec.free_text(reading.transaction_type),
+        status=spec.free_text(reading.status),
+        account_kind=_account_kind(reading.account_kind),
+        flow=_flow(reading.flow, reading.direction),
     )
 
     verdict = validate.check(extracted, body)
     if not verdict:
         # The model's answer is judged exactly like a spec's. Sounding
         # confident is not evidence.
-        return Result(reasons=verdict.reasons)
+        return Result(
+            reasons=verdict.reasons,
+            failure_code=_failure_for(verdict.reasons),
+            match_status=MatchStatus.INVALID,
+        )
 
     learned = _learn(source, body, reading, extracted, templates)
-    return Result(reading=extracted, stage="llm", learned=learned)
+    return Result(reading=extracted, stage="llm", learned=learned, match_status=MatchStatus.MATCHED)
+
+
+def _failure_for(reasons: tuple[str, ...]) -> ParseFailureCode:
+    if any("amount missing" in reason for reason in reasons):
+        return ParseFailureCode.MISSING_REQUIRED_FIELD
+    if any("amount" in reason for reason in reasons):
+        return ParseFailureCode.INVALID_AMOUNT
+    if any("occurred_at" in reason for reason in reasons):
+        return ParseFailureCode.INVALID_DATE
+    return ParseFailureCode.VALIDATION_FAILED
 
 
 def _learn(
@@ -266,6 +362,23 @@ def _parsed_datetime(value: str | None) -> datetime | None:
         return None
 
 
+def _currency(value: str | None) -> str | None:
+    if not value:
+        return None
+    code = value.strip().upper()
+    return code if len(code) == 3 and code.isalpha() else None
+
+
+def _account_kind(value: str | None) -> str | None:
+    return value if value in ("credit_card", "deposit", "ewallet") else None
+
+
+def _flow(value: str | None, direction: str | None) -> str | None:
+    if value == "transfer":
+        return value
+    return "income" if direction == "credit" else "expense" if direction == "debit" else None
+
+
 def _agrees(replay: spec.Extracted, reading: spec.Extracted) -> bool:
     """Whether a replayed spec read the same transaction as the model did.
 
@@ -274,11 +387,11 @@ def _agrees(replay: spec.Extracted, reading: spec.Extracted) -> bool:
     sign-off the model left out — a cosmetic difference that says nothing
     about whether the spec found the right row.
     """
-    return (
-        replay.amount == reading.amount
-        and replay.direction == reading.direction
-        and replay.balance == reading.balance
+    reusable = (
+        "amount", "balance", "direction", "merchant", "occurred_at", "reference",
+        "account_tail", "description", "channel",
     )
+    return all(getattr(replay, field) == getattr(reading, field) for field in reusable)
 
 
 def _record_hit(templates: Templates | None, source: str, used: dict | None) -> None:

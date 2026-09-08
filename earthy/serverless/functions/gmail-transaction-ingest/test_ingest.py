@@ -152,3 +152,28 @@ def test_dead_token_leaves_the_cursor_alone(
     main.main(_event({"emailAddress": "alice@x.com", "historyId": "900"}))
 
     assert store.get("alice@x.com").history_id == "100"
+
+
+def test_publish_carries_mailbox_sender_identity(
+    store: accounts.InMemoryStore, no_gmail: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(main, "_added_message_ids", lambda *_: ["msg-1"])
+    monkeypatch.setattr(
+        main,
+        "_message",
+        lambda *_: {
+            "from": "MoMo <notice@momo.vn>",
+            "subject": "Giao dịch",
+            "date": "Fri, 21 Aug 2026 06:15:00 +0700",
+            "body": "Số tiền · 250.000 VND",
+        },
+    )
+    published = []
+    monkeypatch.setattr(main, "_publish", lambda topic, payload: published.append(payload))
+
+    main.main(_event({"emailAddress": "alice@x.com", "historyId": "900"}))
+
+    assert published[0]["email"] == "alice@x.com"
+    assert published[0]["from"] == "MoMo <notice@momo.vn>"
+    assert published[0]["source"] == "momo"
+    assert published[0]["sender_kind"] == "wallet"

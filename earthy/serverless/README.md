@@ -192,7 +192,9 @@ Gmail watch() → [topic: gmail-events]
           [topic: transaction-detected]     once per transaction
                       ↓
           transaction-parser                once per transaction
-          strip html → read amount/direction/balance
+          normalize → deterministic parse / Gemini fallback
+                      ↓ (when configured)
+          mailbox-sync /ingest              tidy → dedup → seal → insert
 ```
 
 Gmail push carries **no mail content** — only `{emailAddress, historyId}` —
@@ -208,7 +210,11 @@ Ingest fetches each message with `format="full"` and publishes the body along
 with the event, so `transaction-parser` needs no Gmail credentials and no
 Gmail scope. It can be exercised with a static payload.
 
-Both stages stop at logging; nothing is persisted yet.
+Without `MAILBOX_INGEST_URL` and `MAILBOX_SYNC_SECRET`, the parser remains in
+parse-only mode. With both configured, successful readings are posted over
+HTTPS to the canonical mailbox-sync boundary. That Edge function owns all
+encryption and database writes; Python never handles staging keys or dedup
+HMAC material. Setting only one variable is a deployment error.
 
 The volatile logic lives in one file per stage, and neither `main.py` should
 need to change to support a new bank:

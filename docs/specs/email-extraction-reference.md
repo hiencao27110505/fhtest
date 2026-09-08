@@ -130,6 +130,11 @@ thing. Matching is by substring, which is why the guards in §5 exist.
 | kind | loại giao dịch · transaction type | transfer vs receipt |
 | card | số thẻ · thẻ · the card · số thẻ tín dụng · thẻ được thanh toán | `card_masked` — the repaid card, last four only ([card-repayment-routing-spec.md](card-repayment-routing-spec.md)) |
 
+The Python transport emits the same semantic envelope: `currency`, optional
+`fx_amount/fx_currency`, `transaction_type`, `status`, `account_kind` and
+`flow` accompany the shared amount, identity, memo and timing fields. Its
+sender registry, not Gemini, remains authoritative for `source_provider`.
+
 ### Derived, not read
 
 - **`direction`** — the sign when the bank prints one, otherwise the document kind. Refund or *ghi có*
@@ -141,6 +146,11 @@ thing. Matching is by substring, which is why the guards in §5 exist.
 - **`source_provider`** — from the sender registry, then canonicalised, so MB / MBank / MBBank are one
   bank.
 - **`category`** — never guessed here. The client owns it and learns from corrections.
+
+For Transport C, an explicit transfer is preserved; otherwise the parser
+reconciles `credit → income` and `debit → expense`. `account_kind` is limited
+to `credit_card`, `deposit`, `ewallet` or null and is never inferred from a
+debit direction.
 
 ## 4. Number and date handling
 
@@ -254,6 +264,40 @@ diverged, may be the honest thing to accept.
 | `pipeline/direct-templates.test.js` | — | template derivation and self-proof |
 
 ## Related documents
+
+## 9. Python transaction parser (2026-09-04)
+
+The pre-live GCP parser now follows the same deterministic-first lesson without
+copying the Apps Script implementation. Its single interface accepts an email
+input (`source`, `subject`, normalized `body`) and hides this cascade:
+
+1. stored declarative spec;
+2. generic bilingual label-table reader;
+3. Gemini extraction over the normalized email as written, followed by
+   self-proved spec induction.
+
+The label-table reader carries the production guards described above: fee,
+promotion, cashback and reward rows cannot become the amount; declined status
+invalidates the reading; footer prose cannot become the merchant; time-first
+and date-only timestamps are accepted; account identifiers are reduced to four
+digits. Foreign-currency rows deliberately decline the VND-only deterministic
+path until the Python output contract carries currency, preventing `USD 111.00`
+from becoming `11,100 VND`.
+
+Normalization remains split intentionally. Gmail MIME and HTML flattening stays
+in `gmail-transaction-ingest` to keep large HTML off Pub/Sub. The parser applies
+an idempotent text normalization pass so alternate producers still present a
+stable representation.
+
+Operational output contains only source, message ID, parser stage, learned flag
+and structured failure code. Amounts, balances, references, account tails,
+subjects, bodies and counterparties are absent from logs and Telegram.
+
+As of 2026-09-04, the Python fallback temporarily sends normalized email
+content to Gemini without PII or amount masking to improve extraction accuracy.
+The response schema now returns canonical numeric amounts directly. This does
+not change the local deterministic tiers, and neither prompts nor responses may
+enter logs or notifications.
 
 - `effortless-transaction-logging-spec.md` — the end-to-end journey; owns the pipeline as a whole
 - `bank-email-feature-review.md` — dated findings against the live project (30 Aug)
