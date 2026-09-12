@@ -29,7 +29,7 @@
     const _L = (vi, en) => (typeof L === 'function' ? L(vi, en) : vi);
     const MAX_ACTIVE = 3, MILESTONES = [7, 14, 30, 100];
 
-    const S = { defs: null, res: null, computing: false, sig: '', pendingQ: 0 };
+    const S = { defs: null, res: null, computing: false, sig: '', pendingQ: 0, arch: null, archOpen: false };
     window.fhStreakState = () => S;
 
     /* ── local-date helpers (never toISOString — the UTC month-shift scar) ── */
@@ -88,7 +88,7 @@
     window.fhStreakArchive = async function (id) {
       const r = await _sb().from('personal_streaks').update({ archived_at: new Date().toISOString() }).eq('id', id);
       if (r.error) return false;
-      S.defs = null; S.sig = ''; return true;
+      S.defs = null; S.sig = ''; S.arch = null; return true;
     };
     window.fhStreakSetMilestone = async function (id, m) {
       const P = _P(); const d = (S.defs || []).find((x) => x.id === id);
@@ -294,11 +294,10 @@
       h += '</div>';
       if (S.defs === null) return h + '<div class="card stk-empty"><div class="stk-empty-s">' + _L('Đang tính chuỗi…', 'Computing…') + '</div></div>';
       if (!S.defs.length) {
-        return h + '<div class="card stk-empty" onclick="fhStreakNewSheet()"><div class="stk-empty-e">🎯</div>'
+        h += '<div class="card stk-empty" onclick="fhStreakNewSheet()"><div class="stk-empty-e">🎯</div>'
           + '<div class="stk-empty-t">' + _L('Thử nhịn một thói quen?', 'Try quitting a habit?') + '</div>'
           + '<div class="stk-empty-s">' + _L('Ví dụ: 7 ngày không Grab. App tự đếm từ sổ của bạn.', 'e.g. 7 days without Grab. Counted from your ledger.') + '</div></div>';
-      }
-      for (const d of S.defs) {
+      } else for (const d of S.defs) {
         const r = (S.res || {})[d.id];
         h += '<div class="card stk-card" onclick="fhStreakDetail(\'' + d.id + '\')">'
           + '<div class="stk-head"><span class="stk-emo">' + _esc(d.rule.emoji) + '</span>'
@@ -310,7 +309,7 @@
                : '<div class="stk-foot">' + _L('Đang tính…', 'Computing…') + '</div>';
         h += '</div>';
       }
-      return h;
+      return h + _archSection(false);
     };
 
     /* ═══ Family streaks (0132 §6) — the social variant ═══════════════════════
@@ -324,7 +323,7 @@
        "who broke it" headline. Governance v1: any member creates; archive is
        arm-then-confirm and open to any member (the roster carries no role the
        client can check — revisit if it's ever abused). */
-    const F = { defs: null, res: null, computing: false, sig: '' };
+    const F = { defs: null, res: null, computing: false, sig: '', arch: null, archOpen: false };
     const _famOk = () => !!(window.DB && DB.fid && window.fhKeyReady && fhKeyReady());
 
     async function _famLoadDefs() {
@@ -358,7 +357,7 @@
     window.fhFamStreakArchive = async function (id) {
       const r = await _sb().from('family_streaks').update({ archived_at: new Date().toISOString() }).eq('id', id);
       if (r.error) return false;
-      F.defs = null; F.sig = ''; return true;
+      F.defs = null; F.sig = ''; F.arch = null; return true;
     };
     window.fhFamStreakSetMilestone = async function (id, m) {
       const d = (F.defs || []).find((x) => x.id === id); if (!d || !_famOk()) return false;
@@ -439,12 +438,10 @@
       h += '</div>';
       if (F.defs === null) { host.innerHTML = ''; return; }   // quiet until first load — no placeholder card on the family tab
       if (!F.defs.length) {
-        host.innerHTML = h + '<div class="card stk-empty" onclick="fhStreakNewSheet(\'family\')"><div class="stk-empty-e">🤝</div>'
+        h += '<div class="card stk-empty" onclick="fhStreakNewSheet(\'family\')"><div class="stk-empty-e">🤝</div>'
           + '<div class="stk-empty-t">' + _L('Cả nhà cùng nhịn một thứ?', 'Quit something together?') + '</div>'
           + '<div class="stk-empty-s">' + _L('Ví dụ: 7 ngày không trà sữa, tính từ sổ chung, cả nhà cùng giữ.', 'e.g. 7 days without bubble tea, counted from the shared ledger.') + '</div></div>';
-        return;
-      }
-      for (const d of F.defs) {
+      } else for (const d of F.defs) {
         const r = (F.res || {})[d.id];
         h += '<div class="card stk-card" onclick="fhStreakDetail(\'' + d.id + '\',1)">'
           + '<div class="stk-head"><span class="stk-emo">' + _esc(d.rule.emoji) + '</span>'
@@ -454,7 +451,110 @@
                : '<div class="stk-foot">' + _L('Đang tính…', 'Computing…') + '</div>';
         h += '</div>';
       }
-      host.innerHTML = h;
+      host.innerHTML = h + _archSection(true);
+    };
+
+    /* ═══ Archived streaks — the "Đã lưu trữ" drawer + restore/delete ═════════
+       Archiving soft-deletes (archived_at set); this is the only door back.
+       Loaded lazily (one query per tab session), a collapsed bar that expands
+       to the archived list; each row opens a light detail with Khôi phục
+       (restore, cap-guarded, fresh start keeping the record) and Xoá hẳn
+       (permanent delete, arm-then-confirm). */
+    async function _loadArch(fam) {
+      if (fam) {
+        if (!_famOk()) { F.arch = []; return; }
+        const r = await _sb().from('family_streaks').select('id,rule,rule_enc,record,record_enc,started_on,archived_at')
+          .eq('family_id', DB.fid).not('archived_at', 'is', null).order('archived_at', { ascending: false });
+        if (r.error) { F.arch = []; return; }
+        const out = [];
+        for (const row of (r.data || [])) {
+          try { const rs = await fhRead(row, 'rule'); if (!rs) continue;
+            out.push({ id: row.id, rule: JSON.parse(rs), startedOn: row.started_on, record: Number(await fhRead(row, 'record')) || 0, archivedAt: row.archived_at });
+          } catch (e) {}
+        }
+        F.arch = out;
+        const host = document.getElementById('fam-streaks'); if (host && window.famStreakFill) famStreakFill(host);
+      } else {
+        const P = _P(); if (!P || !P.uid || !P.key) { S.arch = []; return; }
+        const r = await _sb().from('personal_streaks').select('id,rule_enc,record_enc,started_on,archived_at')
+          .eq('owner_user_id', P.uid).not('archived_at', 'is', null).order('archived_at', { ascending: false });
+        if (r.error) { S.arch = []; return; }
+        const out = [];
+        for (const row of (r.data || [])) {
+          try { const rule = JSON.parse(await FHCrypto.decVal(P.key, row.rule_enc));
+            let rec = 0; if (row.record_enc) rec = Number(await FHCrypto.decVal(P.key, row.record_enc)) || 0;
+            out.push({ id: row.id, rule: rule, startedOn: row.started_on, record: rec, archivedAt: row.archived_at });
+          } catch (e) {}
+        }
+        S.arch = out;
+        if (typeof renderPersonal === 'function') renderPersonal();
+      }
+    }
+    function _archSection(fam) {
+      const st = fam ? F : S;
+      if (st.arch === null) { _loadArch(fam); return ''; }   // lazy; re-renders when loaded
+      if (!st.arch.length) return '';
+      const tog = fam ? 'fhStreakArchToggle(1)' : 'fhStreakArchToggle()';
+      let h = '<div class="stk-arch"><div class="stk-arch-bar" onclick="' + tog + '">'
+        + '<span>' + _L('Đã lưu trữ', 'Archived') + ' (' + st.arch.length + ')</span>'
+        + '<span class="stk-arch-cv' + (st.archOpen ? ' open' : '') + '">⌄</span></div>';
+      if (st.archOpen) for (const a of st.arch) {
+        const op = fam ? 'fhStreakArchivedOpen(\'' + a.id + '\',1)' : 'fhStreakArchivedOpen(\'' + a.id + '\')';
+        h += '<div class="stk-arch-row" onclick="' + op + '"><span class="stk-emo">' + _esc(a.rule.emoji || '🎯') + '</span>'
+          + '<span class="stk-arch-name">' + _L(fam ? 'Cả nhà không ' : 'Không ', 'No ') + _esc(a.rule.label) + '</span>'
+          + '<span class="stk-arch-rec">' + (a.record > 0 ? _L('kỷ lục ' + a.record, 'best ' + a.record) : _L('chưa có kỷ lục', 'no record')) + '</span></div>';
+      }
+      return h + '</div>';
+    }
+    window.fhStreakArchToggle = function (fam) { const st = fam ? F : S; st.archOpen = !st.archOpen; _afterChange(!!fam); };
+
+    let _archArm = null;
+    window.fhStreakArchivedOpen = function (id, fam) {
+      const st = fam ? F : S; const a = (st.arch || []).find((x) => x.id === id); if (!a) return;
+      const box = document.getElementById('stk-detail-body'); if (!box) return;
+      _archArm = null;
+      const fa = fam ? ',1' : '';
+      let h = '<div class="stk-dh"><div class="stk-dh-big"><span>' + _L(fam ? 'Cả nhà không ' : 'Không ', 'No ') + '<b>' + _esc(a.rule.label) + '</b></span></div>'
+        + '<div class="stk-arch-badge">' + _L('ĐÃ LƯU TRỮ', 'ARCHIVED') + '</div></div>';
+      const meta = [];
+      meta.push(a.record > 0 ? _L('Kỷ lục ', 'Best ') + '<b class="num">' + a.record + '</b> ' + _L('ngày', 'days') : _L('Chưa lập kỷ lục', 'No record set'));
+      meta.push(_L('Bắt đầu ', 'Since ') + a.startedOn.slice(8, 10) + '/' + a.startedOn.slice(5, 7));
+      if (a.archivedAt) meta.push(_L('Lưu trữ ', 'Archived ') + a.archivedAt.slice(8, 10) + '/' + a.archivedAt.slice(5, 7));
+      h += '<div class="stk-d-meta">' + meta.join(' · ') + '</div>';
+      h += '<button class="cta stk-restore" onclick="fhStreakRestore(\'' + id + '\'' + fa + ')">' + _L('Khôi phục chuỗi', 'Restore streak') + '</button>';
+      h += '<div class="stk-d-del" id="stk-del2" onclick="fhStreakDeleteForever(\'' + id + '\'' + fa + ')">' + _L('Xoá hẳn', 'Delete permanently') + '</div>';
+      box.innerHTML = h;
+      if (typeof openSheet === 'function') openSheet('sheet-streak-detail');
+    };
+    window.fhStreakRestore = async function (id, fam) {
+      const active = ((fam ? F.defs : S.defs) || []).length;
+      if (active >= MAX_ACTIVE) { window.toast && toast(_L('Đang có 3 chuỗi chạy — lưu trữ bớt một cái trước nhé', '3 active already — archive one first')); return; }
+      const tbl = fam ? 'family_streaks' : 'personal_streaks';
+      // Fresh start on restore: run recomputes from today; record_enc is left
+      // untouched so the personal best carries over.
+      const r = await _sb().from(tbl).update({ archived_at: null, started_on: _today(), updated_at: new Date().toISOString() }).eq('id', id);
+      if (r.error) { window.toast && toast(_L('Chưa khôi phục được', 'Could not restore')); return; }
+      if (fam) { F.defs = null; F.sig = ''; F.arch = null; } else { S.defs = null; S.sig = ''; S.arch = null; }
+      if (typeof closeSheet === 'function') closeSheet();
+      window.toast && toast(_L('Đã khôi phục — bắt đầu lại từ hôm nay', 'Restored — starting fresh today'));
+      _afterChange(!!fam);
+    };
+    window.fhStreakDeleteForever = async function (id, fam) {
+      const el = document.getElementById('stk-del2');
+      if (_archArm !== id) {
+        _archArm = id;
+        if (el) el.textContent = _L('Bấm lần nữa để xoá hẳn', 'Tap again to delete');
+        setTimeout(() => { if (_archArm === id) { _archArm = null; if (el) el.textContent = _L('Xoá hẳn', 'Delete permanently'); } }, 3000);
+        return;
+      }
+      _archArm = null;
+      const tbl = fam ? 'family_streaks' : 'personal_streaks';
+      const r = await _sb().from(tbl).delete().eq('id', id);
+      if (r.error) { window.toast && toast(_L('Chưa xoá được', 'Could not delete')); return; }
+      if (fam) { F.arch = null; } else { S.arch = null; }
+      if (typeof closeSheet === 'function') closeSheet();
+      window.toast && toast(_L('Đã xoá', 'Deleted'));
+      _afterChange(!!fam);
     };
 
     /* ── creation sheet — consolidated picker ── */
