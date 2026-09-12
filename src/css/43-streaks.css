@@ -33,29 +33,23 @@
 .stk-pick-e{font-size:18px;flex:none}
 .stk-pick-t{font-size:15px;font-weight:500;color:var(--ink);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .stk-pick-k{font-size:11px;color:var(--muted)}
-.stk-free{display:flex;gap:8px;margin-bottom:6px;align-items:stretch}
-/* min-width:0 lets the input shrink so the button never overflows the sheet */
-.stk-free input{flex:1;min-width:0;border:1px solid var(--hairline);border-radius:13px;padding:12px 14px;font-size:16px;background:var(--white)}
+/* Stacked, not side-by-side: a full-width input then a full-width CTA below,
+   so neither can ever overflow the sheet (the flex row used to clip the CTA). */
+.stk-free{display:block;margin-bottom:6px}
+.stk-free input{display:block;width:100%;border:1px solid var(--hairline);border-radius:13px;padding:13px 14px;font-size:16px;background:var(--white);color:var(--ink)}
 .stk-free input:focus{outline:none;border-color:var(--brand)}
-.stk-free-go{flex:none;white-space:nowrap;padding:10px 16px}
+.stk-free-go{display:block;width:100%;margin-top:10px;padding:13px;text-align:center;border-radius:9999px;font-size:15px;font-weight:600}
 /* family avatar strip */
 .stk-avs{margin-left:auto;display:flex}
 .stk-av{width:24px;height:24px;border-radius:50%;border:2px solid var(--white);color:#fff;font-family:var(--disp);font-weight:700;font-size:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;flex:none}
 .stk-av+.stk-av{margin-left:-7px}
 .stk-av img{width:100%;height:100%;object-fit:cover}
 .stk-head .stk-avs+.stk-tag{margin-left:8px}
-/* detail sheet — hero */
-.stk-dh{text-align:center;padding:4px 0 2px}
-.stk-dh-emo{font-size:26px;line-height:1}
-.stk-dh-eyb{font-size:10.5px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);margin-top:8px}
-.stk-dh-big{font-size:17px;color:var(--ink-2);margin-top:2px;display:flex;align-items:baseline;justify-content:center;gap:8px;flex-wrap:wrap}
+/* detail sheet — bare header: just "N ngày không <label>" */
+.stk-dh{text-align:center;padding:6px 0 2px}
+.stk-dh-big{font-size:17px;color:var(--ink-2);display:flex;align-items:baseline;justify-content:center;gap:8px;flex-wrap:wrap}
 .stk-dh-big .num{font-family:var(--disp);font-size:44px;font-weight:800;letter-spacing:-1.4px;color:var(--ink);line-height:1}
 .stk-dh-big b{color:var(--ink);font-weight:700}
-.stk-dh-live{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--brand-ink);margin-top:8px}
-.stk-livedot{width:8px;height:8px;border-radius:50%;background:var(--brand);animation:stkPulse 1.6s ease-in-out infinite;flex:none}
-/* reduced-prominence stats — a quiet inline line, no boxes */
-.stk-d-meta{font-size:13px;color:var(--muted);margin:10px 2px 0;text-align:center}
-.stk-d-meta b{color:var(--ink-2);font-weight:700}
 /* calendar */
 .stk-cal-wrap{margin-top:20px;border:1px solid var(--hairline);border-radius:16px;padding:14px 14px 12px}
 .stk-cal-h{display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:700;color:var(--ink);margin-bottom:10px}
@@ -66,13 +60,16 @@
 .stk-legend i.x{background:var(--danger)}
 .stk-dows,.stk-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;text-align:center}
 .stk-dow{font-size:10px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;color:var(--muted-soft);padding-bottom:4px}
-.stk-cc{height:32px;display:flex;align-items:center;justify-content:center;border-radius:9px;font-size:12.5px;font-weight:600;color:var(--muted-soft)}
+.stk-cc{position:relative;height:32px;display:flex;align-items:center;justify-content:center;border-radius:9px;font-size:12.5px;font-weight:600;color:var(--muted-soft)}
 .stk-cc.empty{background:none}
 .stk-cc.pre{color:var(--muted-soft);opacity:.5}
 .stk-cc.fut{color:var(--muted-soft)}
 .stk-cc.ok{background:var(--brand);color:#fff;font-weight:700}
 .stk-cc.x{background:var(--danger);color:#fff;font-weight:700}
 .stk-cc.today{border:2px solid var(--brand);color:var(--brand-ink);font-weight:800;animation:stkPulse 2s ease-in-out infinite}
+/* a milestone lands on this day — dashed brand ring on the (still-future) target + a tiny medal */
+.stk-cc.ms.fut{border:1.5px dashed var(--brand);color:var(--brand-ink)}
+.stk-cc-flag{position:absolute;top:-3px;right:-2px;font-size:11px;line-height:1;font-style:normal;text-shadow:0 0 2px var(--white),0 0 2px var(--white)}
 /* milestone medal shelf — also the picker */
 .stk-medals{display:flex;gap:8px}
 .stk-medal{flex:1;text-align:center;border:1px solid var(--hairline);border-radius:14px;padding:11px 0 9px;cursor:pointer;background:#fff}

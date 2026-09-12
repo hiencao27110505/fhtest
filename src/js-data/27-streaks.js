@@ -543,6 +543,9 @@
       const dim = new Date(y, mo + 1, 0).getDate();
       const brk = {}; (r.breaks || []).forEach((b) => { brk[b] = 1; });
       const started = r.startedOn || today, pfx = y + '-' + _d2(mo + 1) + '-';
+      // Milestone days of the CURRENT run: milestone m lands on today+(m−current).
+      const msIso = {};
+      if (r.current > 0) for (const m of MILESTONES) msIso[_shift(today, m - r.current)] = _MEDAL[m];
       const dows = _L('T2 T3 T4 T5 T6 T7 CN', 'Mo Tu We Th Fr Sa Su').split(' ');
       let head = '';
       for (const w of dows) head += '<span class="stk-dow">' + w + '</span>';
@@ -551,7 +554,8 @@
       for (let day = 1; day <= dim; day++) {
         const iso = pfx + _d2(day);
         let cls = iso > today ? 'fut' : (iso < started ? 'pre' : (brk[iso] ? 'x' : (iso === today ? 'today' : 'ok')));
-        cells += '<span class="stk-cc ' + cls + ' num">' + day + '</span>';
+        const flag = msIso[iso] ? '<i class="stk-cc-flag">' + msIso[iso] + '</i>' : '';
+        cells += '<span class="stk-cc ' + cls + (flag ? ' ms' : '') + ' num">' + day + flag + '</span>';
       }
       return '<div class="stk-cal-h"><span>' + _L('Tháng ' + (mo + 1), _MON_EN[mo] + ' ' + y) + '</span>'
         + '<span class="stk-legend"><i class="ok"></i>' + _L('sạch', 'clean') + '<i class="today"></i>' + _L('hôm nay', 'today') + '<i class="x"></i>' + _L('lỡ', 'slip') + '</span></div>'
@@ -584,23 +588,11 @@
       const fa = fam ? ',1' : '';
       const ms = (d.rule.milestone || 7);
       const cur = (r.current != null ? r.current : 0);
-      const brokeToday = r.brokeOn === _today();
-      // Hero — honest about today: "đang giữ", never "đã đạt"; today stays open.
-      let h = '<div class="stk-dh"><span class="stk-dh-emo">' + _esc(d.rule.emoji || '🎯') + '</span>'
-        + '<div class="stk-dh-eyb">' + (brokeToday ? _L('ĐỨT HÔM NAY', 'BROKE TODAY') : _L('ĐANG GIỮ', 'HOLDING')) + '</div>'
-        + '<div class="stk-dh-big"><span class="num">' + cur + '</span> <span>' + _L(fam ? 'ngày cả nhà không' : 'ngày không', 'days without') + ' <b>' + _esc(d.rule.label) + '</b></span></div>';
-      if (!brokeToday && r.current != null) {
-        const toGo = ms - cur;
-        h += '<div class="stk-dh-live"><span class="stk-livedot"></span>' + _L('hôm nay đang tính', 'today is still counting')
-          + (toGo > 0 ? _L(' · còn ' + toGo + ' ngày tới mốc ' + ms, ' · ' + toGo + ' to milestone ' + ms) : '') + '</div>';
-      }
-      h += '</div>';
-      // Reduced-prominence stats: a quiet inline line, no boxes.
-      const meta = [];
-      if ((r.record || 0) > cur) meta.push(_L('Kỷ lục ', 'Best ') + '<b class="num">' + r.record + '</b> ' + _L('ngày', 'days'));
-      if (r.saved != null && r.saved > 0 && typeof fmt === 'function') meta.push('~' + fmt(r.saved) + _L(' ở lại ví', ' kept'));
-      meta.push(_L('Bắt đầu ', 'Since ') + d.startedOn.slice(8, 10) + '/' + d.startedOn.slice(5, 7));
-      h += '<div class="stk-d-meta">' + meta.join(' · ') + '</div>';
+      // Header, kept deliberately bare: just "N ngày không <label>". Everything
+      // else (holding state, days-to-milestone, start date) is carried by the
+      // calendar + medal shelf below, so the top stays clean.
+      let h = '<div class="stk-dh"><div class="stk-dh-big"><span class="num">' + cur + '</span> <span>'
+        + _L(fam ? 'ngày cả nhà không' : 'ngày không', 'days without') + ' <b>' + _esc(d.rule.label) + '</b></span></div></div>';
       // Calendar + milestone medals
       h += '<div class="stk-cal-wrap">' + _calHtml(r) + '</div>';
       h += '<div class="stk-pick-lbl">' + _L('Mốc ăn mừng', 'Milestone') + '</div>' + _medalHtml(id, r, ms, fa);
