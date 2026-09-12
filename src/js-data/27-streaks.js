@@ -173,7 +173,8 @@
           brokeRecent: lastBreak ? (_days(lastBreak, today) <= 6) : false,
           saved: avgDay != null ? Math.round(avgDay * current) : null,
           queued: queued, unreadable: unreadableOverlap,
-          milestone: d.rule.milestone || 7
+          milestone: d.rule.milestone || 7,
+          breaks: matchDates.slice(), startedOn: d.startedOn   // per-day calendar in the detail sheet
         };
       }
       return res;   // record caches are persisted by each caller (personal vs family)
@@ -529,6 +530,51 @@
     };
 
     /* ── detail sheet ── */
+    /* Month calendar (option-5 blend): this month's days, one glance at which
+       were held vs lost. Clean day green, break red, today a live ring, days
+       before the streak started or in the future stay faded. Today is NEVER a
+       finished ✓ — it is an open ring until the day concludes. */
+    const _MON_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    function _calHtml(r) {
+      const today = _today();
+      const now = new Date(today + 'T00:00:00');
+      const y = now.getFullYear(), mo = now.getMonth();
+      const lead = (new Date(y, mo, 1).getDay() + 6) % 7;   // Monday-first
+      const dim = new Date(y, mo + 1, 0).getDate();
+      const brk = {}; (r.breaks || []).forEach((b) => { brk[b] = 1; });
+      const started = r.startedOn || today, pfx = y + '-' + _d2(mo + 1) + '-';
+      const dows = _L('T2 T3 T4 T5 T6 T7 CN', 'Mo Tu We Th Fr Sa Su').split(' ');
+      let head = '';
+      for (const w of dows) head += '<span class="stk-dow">' + w + '</span>';
+      let cells = '';
+      for (let i = 0; i < lead; i++) cells += '<span class="stk-cc empty"></span>';
+      for (let day = 1; day <= dim; day++) {
+        const iso = pfx + _d2(day);
+        let cls = iso > today ? 'fut' : (iso < started ? 'pre' : (brk[iso] ? 'x' : (iso === today ? 'today' : 'ok')));
+        cells += '<span class="stk-cc ' + cls + ' num">' + day + '</span>';
+      }
+      return '<div class="stk-cal-h"><span>' + _L('Tháng ' + (mo + 1), _MON_EN[mo] + ' ' + y) + '</span>'
+        + '<span class="stk-legend"><i class="ok"></i>' + _L('sạch', 'clean') + '<i class="today"></i>' + _L('hôm nay', 'today') + '<i class="x"></i>' + _L('lỡ', 'slip') + '</span></div>'
+        + '<div class="stk-dows">' + head + '</div><div class="stk-cal">' + cells + '</div>';
+    }
+
+    /* Milestone medal shelf (option-8 blend) — and the milestone PICKER in one:
+       tapping a medal sets it as the celebrate target. Earned (best run reached
+       it) shows in colour; the aimed-at one glows; the rest wait, locked. */
+    const _MEDAL = { 7: '🥉', 14: '🥈', 30: '🥇', 100: '🏆' };
+    function _medalHtml(id, r, ms, fa) {
+      let h = '<div class="stk-medals">';
+      for (const m of MILESTONES) {
+        const earned = Math.max(r.record || 0, r.current || 0) >= m;
+        const cls = earned ? 'earned' : (m === ms ? 'target' : 'lock');
+        const sub = earned ? _L('đã đạt', 'done') : (m === ms ? _L('đang nhắm', 'aiming') : _L('ngày', 'days'));
+        h += '<div class="stk-medal ' + cls + '" onclick="fhStreakMs(\'' + id + '\',' + m + fa + ')">'
+          + '<div class="stk-medal-e">' + _MEDAL[m] + '</div>'
+          + '<div class="stk-medal-n num">' + m + '</div><div class="stk-medal-s">' + sub + '</div></div>';
+      }
+      return h + '</div>';
+    }
+
     let _detailArm = null;
     window.fhStreakDetail = function (id, fam) {
       const d = ((fam ? F.defs : S.defs) || []).find((x) => x.id === id); if (!d) return;
@@ -537,17 +583,27 @@
       _detailArm = null;
       const fa = fam ? ',1' : '';
       const ms = (d.rule.milestone || 7);
-      let h = '<div class="stk-d-big"><span class="num">' + (r.current != null ? r.current : '…') + '</span> ' + _L(fam ? 'ngày cả nhà không' : 'ngày không', 'days without') + ' <b>' + _esc(d.rule.label) + '</b></div>';
-      const meta = [];
-      meta.push(_L('Kỷ lục: ', 'Best: ') + '<b class="num">' + (r.record != null ? r.record : d.record) + '</b> ' + _L('ngày', 'days'));
-      meta.push(_L('Bắt đầu: ', 'Since: ') + d.startedOn.slice(8, 10) + '/' + d.startedOn.slice(5, 7));
-      if (r.saved != null && r.saved > 0 && typeof fmt === 'function') meta.push('~' + fmt(r.saved) + _L(' ở lại ví', ' kept'));
-      h += '<div class="stk-d-meta">' + meta.join(' · ') + '</div>';
-      if (r.brokeOn) h += '<div class="stk-broke">' + _L('Lần đứt gần nhất: ', 'Last break: ') + r.brokeOn.slice(8, 10) + '/' + r.brokeOn.slice(5, 7)
-        + (r.brokeAmt != null && typeof fmt === 'function' ? ' · ' + fmt(r.brokeAmt) : '') + '</div>';
-      h += '<div class="stk-pick-lbl">' + _L('Mốc ăn mừng', 'Milestone') + '</div><div class="choices">';
-      for (const m of MILESTONES) h += '<div class="choice' + (m === ms ? ' sel' : '') + '" onclick="fhStreakMs(\'' + id + '\',' + m + fa + ')">' + m + ' ' + _L('ngày', 'days') + '</div>';
+      const cur = (r.current != null ? r.current : 0);
+      const brokeToday = r.brokeOn === _today();
+      // Hero — honest about today: "đang giữ", never "đã đạt"; today stays open.
+      let h = '<div class="stk-dh"><span class="stk-dh-emo">' + _esc(d.rule.emoji || '🎯') + '</span>'
+        + '<div class="stk-dh-eyb">' + (brokeToday ? _L('ĐỨT HÔM NAY', 'BROKE TODAY') : _L('ĐANG GIỮ', 'HOLDING')) + '</div>'
+        + '<div class="stk-dh-big"><span class="num">' + cur + '</span> <span>' + _L(fam ? 'ngày cả nhà không' : 'ngày không', 'days without') + ' <b>' + _esc(d.rule.label) + '</b></span></div>';
+      if (!brokeToday && r.current != null) {
+        const toGo = ms - cur;
+        h += '<div class="stk-dh-live"><span class="stk-livedot"></span>' + _L('hôm nay đang tính', 'today is still counting')
+          + (toGo > 0 ? _L(' · còn ' + toGo + ' ngày tới mốc ' + ms, ' · ' + toGo + ' to milestone ' + ms) : '') + '</div>';
+      }
       h += '</div>';
+      // Reduced-prominence stats: a quiet inline line, no boxes.
+      const meta = [];
+      if ((r.record || 0) > cur) meta.push(_L('Kỷ lục ', 'Best ') + '<b class="num">' + r.record + '</b> ' + _L('ngày', 'days'));
+      if (r.saved != null && r.saved > 0 && typeof fmt === 'function') meta.push('~' + fmt(r.saved) + _L(' ở lại ví', ' kept'));
+      meta.push(_L('Bắt đầu ', 'Since ') + d.startedOn.slice(8, 10) + '/' + d.startedOn.slice(5, 7));
+      h += '<div class="stk-d-meta">' + meta.join(' · ') + '</div>';
+      // Calendar + milestone medals
+      h += '<div class="stk-cal-wrap">' + _calHtml(r) + '</div>';
+      h += '<div class="stk-pick-lbl">' + _L('Mốc ăn mừng', 'Milestone') + '</div>' + _medalHtml(id, r, ms, fa);
       h += '<div class="stk-d-del" id="stk-del" onclick="fhStreakDel(\'' + id + '\'' + fa + ')">' + _L('Lưu trữ chuỗi này', 'Archive this streak') + '</div>';
       box.innerHTML = h;
       if (typeof openSheet === 'function') openSheet('sheet-streak-detail');

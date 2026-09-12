@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chi tiết chuỗi · 8 hướng revamp</title>
+<style>
+:root{
+  --bg:#f6f4f1; --surface:#ffffff; --doc-ink:#1b241f; --doc-ink2:#3b463f; --doc-muted:#67736c;
+  --doc-line:#e7e3dc; --doc-brand:#2E9E6B; --doc-brand-ink:#1F7E52; --doc-tint:#eaf6ef;
+  --doc-shadow:0 1px 2px rgba(20,30,25,.04),0 6px 20px rgba(20,30,25,.05);
+  --mono:"SF Mono",ui-monospace,Menlo,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Inter",system-ui,sans-serif;
+  --dispf:-apple-system,BlinkMacSystemFont,"SF Pro Display","Inter",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0f130e; --surface:#161b14; --doc-ink:#e8ebe4; --doc-ink2:#c3cabf; --doc-muted:#8f998f;
+  --doc-line:#262c22; --doc-brand:#5FD3A0; --doc-brand-ink:#7fe0b3; --doc-tint:rgba(95,211,160,.11);
+  --doc-shadow:0 1px 2px rgba(0,0,0,.3),0 8px 26px rgba(0,0,0,.34);
+}}
+:root[data-theme="light"]{--bg:#f6f4f1;--surface:#ffffff;--doc-ink:#1b241f;--doc-ink2:#3b463f;--doc-muted:#67736c;--doc-line:#e7e3dc;--doc-brand:#2E9E6B;--doc-brand-ink:#1F7E52;--doc-tint:#eaf6ef;--doc-shadow:0 1px 2px rgba(20,30,25,.04),0 6px 20px rgba(20,30,25,.05)}
+:root[data-theme="dark"]{--bg:#0f130e;--surface:#161b14;--doc-ink:#e8ebe4;--doc-ink2:#c3cabf;--doc-muted:#8f998f;--doc-line:#262c22;--doc-brand:#5FD3A0;--doc-brand-ink:#7fe0b3;--doc-tint:rgba(95,211,160,.11);--doc-shadow:0 1px 2px rgba(0,0,0,.3),0 8px 26px rgba(0,0,0,.34)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--doc-ink);font-family:var(--sans);line-height:1.5;font-size:15px;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding:34px 22px 96px}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--doc-brand-ink);font-weight:600}
+h1{font-family:var(--dispf);font-size:30px;font-weight:800;letter-spacing:-.6px;margin:.35rem 0 0;text-wrap:balance}
+.lede{color:var(--doc-ink2);max-width:72ch;margin:.6rem 0 0;font-size:15.5px}
+.note{margin-top:16px;background:var(--surface);border:1px solid var(--doc-line);border-left:3px solid var(--doc-brand);border-radius:12px;padding:14px 16px;box-shadow:var(--doc-shadow);max-width:860px}
+.note p{margin:.2rem 0;color:var(--doc-ink2);font-size:14px}
+.note b{color:var(--doc-ink)}
+.toggle{position:sticky;top:14px;float:right;font-family:var(--mono);font-size:12px;background:var(--surface);border:1px solid var(--doc-line);border-radius:999px;padding:6px 13px;color:var(--doc-ink2);cursor:pointer;z-index:5}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(430px,1fr));gap:26px;margin-top:30px}
+.opt{background:var(--surface);border:1px solid var(--doc-line);border-radius:18px;box-shadow:var(--doc-shadow);overflow:hidden;display:flex;flex-direction:column}
+.opt-h{padding:16px 18px 12px;border-bottom:1px solid var(--doc-line)}
+.opt-n{font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--doc-brand-ink);font-weight:600;text-transform:uppercase}
+.opt-t{font-family:var(--dispf);font-size:19px;font-weight:750;letter-spacing:-.3px;margin:.15rem 0 0}
+.opt-s{color:var(--doc-muted);font-size:13.5px;margin:.2rem 0 0}
+.opt-b{padding:20px;display:flex;justify-content:center;background:repeating-linear-gradient(45deg,transparent 0 14px,rgba(120,120,120,.025) 14px 15px)}
+.opt-f{padding:13px 18px 15px;border-top:1px solid var(--doc-line);font-size:13px;color:var(--doc-ink2)}
+.opt-f b{color:var(--doc-ink)}
+.opt-f .con{color:var(--doc-muted)}
+footer{margin-top:44px;color:var(--doc-muted);font-size:12.5px;font-family:var(--mono);border-top:1px solid var(--doc-line);padding-top:16px}
+
+/* ===== phone sheet — app tokens (Sage, light) ===== */
+.sheet{width:100%;max-width:360px;background:#fff;border-radius:24px 24px 20px 20px;padding:12px 20px 22px;
+  --brand:#2E9E6B;--brand-ink:#1F7E52;--brand-2:#5FD3A0;--brand-tint:#e9f7f0;
+  --grad-brand:linear-gradient(135deg,#34B87A,#5FC98D);
+  --ink:#191022;--ink-2:#3a2f45;--muted:#8a8494;--muted-soft:#a29caa;
+  --canvas:#f4f1f6;--hairline:#e9e4ee;--divider:#f1edf4;--fill-neutral:rgba(138,132,148,.14);
+  --good:#1a9d5f;--good-tint:#e7f5ee;--danger:#E0322F;--danger-tint:#fdecef;--amber:#B8730B;--amber-tint:#fbefda;
+  color:var(--ink);font-family:var(--sans);box-shadow:0 -1px 0 var(--hairline),0 20px 50px rgba(25,16,34,.14)}
+.sheet *{box-sizing:border-box}
+.grab{width:38px;height:5px;border-radius:9999px;background:var(--fill-neutral);margin:0 auto 14px}
+.sh-title{font-family:var(--dispf);font-size:16px;font-weight:700;letter-spacing:-.2px;color:var(--ink-2);display:flex;align-items:center;gap:8px;margin-bottom:14px}
+.sh-title .e{font-size:18px}
+.num{font-family:var(--dispf);font-variant-numeric:tabular-nums}
+.eyb{font-size:10.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+/* stat trio */
+.stats{display:flex;gap:8px;margin-top:16px}
+.stat{flex:1;background:var(--surface,#f9f7f8);border:1px solid var(--hairline);border-radius:13px;padding:11px 12px;text-align:center}
+.stat .v{font-family:var(--dispf);font-weight:700;font-size:17px;letter-spacing:-.4px;color:var(--ink)}
+.stat .l{font-size:11px;color:var(--muted);margin-top:2px}
+/* milestone chips */
+.mlabel{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:18px 0 8px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1px solid var(--hairline);border-radius:9999px;padding:8px 13px;font-size:13px;font-weight:500;color:var(--ink-2);background:#fff}
+.chip.sel{border:2px solid var(--brand);background:var(--brand-tint);color:var(--brand-ink);font-weight:700}
+.archive{text-align:center;font-size:14px;color:var(--muted);padding:15px 0 2px;margin-top:16px;cursor:pointer}
+.livecap{font-size:12.5px;color:var(--brand-ink);font-weight:600;margin-top:3px;display:flex;align-items:center;gap:6px;justify-content:center}
+.livedot{width:8px;height:8px;border-radius:50%;background:var(--brand);animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.35;transform:scale(.8)}50%{opacity:1;transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){.livedot,.pulsehead,.leaf-bud{animation:none}}
+/* stamps */
+.stamprow{display:flex;gap:7px}
+.st{width:34px;height:34px;border-radius:11px;border:1.5px dashed var(--hairline);display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--muted-soft);flex:none;position:relative}
+.st.on{border:none;background:var(--brand-tint);color:var(--brand-ink);font-weight:700}
+.st.live{border:2px solid var(--brand);background:var(--brand-tint)}
+.st.live::after{content:"";width:8px;height:8px;border-radius:50%;background:var(--brand);animation:pulse 1.6s ease-in-out infinite}
+.st.star{border:none;background:var(--grad-brand);color:#fff;font-weight:700}
+.st.goal{border:1.5px dashed var(--brand);color:var(--brand-ink)}
+.st .d{position:absolute;top:-16px;left:0;right:0;text-align:center;font-size:9px;color:var(--muted);font-weight:600}
+svg{display:block}
+@media (max-width:520px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<button class="toggle" onclick="var r=document.documentElement,d=(r.getAttribute('data-theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'))==='dark';r.setAttribute('data-theme',d?'light':'dark')">◐ Sáng / Tối</button>
+<header>
+  <div class="eyebrow">FamilyHub · Earthy</div>
+  <h1>Chi tiết chuỗi — 8 hướng revamp</h1>
+  <p class="lede">Màn chi tiết hiện tại chỉ toàn chữ. Tám hướng dưới đây kể cùng một chuỗi bằng hình: vòng, tem, bản đồ mốc, lịch, mầm cây… đồng ngôn ngữ với thẻ tem bên ngoài. Chọn 1 hướng để dựng.</p>
+  <div class="note">
+    <p><b>Dữ liệu mẫu:</b> "không Grab" · bắt đầu 08/09 · <b>đang giữ ngày 5</b> (4 ngày đã xong, <b>hôm nay 12/09 còn đang tính</b>) · kỷ lục 9 · ~350k ở lại ví · mốc 7.</p>
+    <p><b>Sửa quan trọng (áp cho mọi hướng):</b> hôm nay <b>chưa kết thúc</b> nên không tô "đã đạt" — ngày hôm nay luôn là ô <i>đang tính</i> (vòng nhấp nháy / tem viền sáng), số ngày ghi "đang giữ" chứ không phải "đã đạt". Khi mới ngày 1, kỷ lục hiện "chưa có", không phải "1 ngày".</p>
+  </div>
+</header>
+
+<div class="grid">
+
+<!-- ══ OPTION 1 — RING TO MILESTONE ══ -->
+<div class="opt">
+  <div class="opt-h"><div class="opt-n">Option 1</div><div class="opt-t">Vòng tới mốc</div>
+    <div class="opt-s">Vòng tiến độ như hero tài chính: tô tới mốc kế, đầu vòng có chấm nhấp nháy = hôm nay đang tính.</div></div>
+  <div class="opt-b"><div class="sheet">
+    <div class="grab"></div>
+    <div class="sh-title"><span class="e">🛵</span>không Grab</div>
+    <div style="display:flex;justify-content:center;margin-top:6px;position:relative">
+      <svg width="150" height="150" viewBox="0 0 150 150">
+        <circle cx="75" cy="75" r="60" fill="none" stroke="rgba(138,132,148,.14)" stroke-width="12"/>
+        <circle cx="75" cy="75" r="60" fill="none" stroke="#2E9E6B" stroke-width="12" stroke-linecap="round"
+          stroke-dasharray="377" stroke-dashoffset="161" transform="rotate(-90 75 75)"/>
+        <circle class="pulsehead" cx="132.5" cy="103" r="7" fill="#2E9E6B"/>
+      </svg>
+      <div style="position:absolute;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
+        <span class="eyb">Đang giữ</span>
+        <span class="num" style="font-size:44px;font-weight:800;letter-spacing:-1.5px;line-height:1">5</span>
+        <span style="font-size:13px;color:var(--muted)">ngày không Grab</span>
+      </div>
+    </div>
+    <div class="livecap"><span class="livedot"></span>Hôm nay đang tính · còn 2 ngày tới mốc 7</div>
+    <div class="stats">
+      <div class="stat"><div class="v num">9</div><div class="l">Kỷ lục</div></div>
+      <div class="stat"><div class="v num">~350k</div><div class="l">Ở lại ví</div></div>
+      <div class="stat"><div class="v num">08/09</div><div class="l">Bắt đầu</div></div>
+    </div>
+    <div class="mlabel">Mốc ăn mừng</div>
+    <div class="chips"><span class="chip sel">7</span><span class="chip">14</span><span class="chip">30</span><span class="chip">100</span></div>
+    <div class="archive">Lưu trữ chuỗi này</div>
+  </div></div>
+  <div class="opt-f"><b>Hợp khi:</b> muốn một khoảnh khắc "tự hào" tức thì, đồng bộ tuyệt đối với vòng ring của app. <span class="con">Đánh đổi: vòng "tới mốc" mất nghĩa khi chuỗi vượt xa mốc lớn nhất.</span></div>
+</div>
+
+<!-- ══ OPTION 2 — PUNCH-CARD (dates) ══ -->
+<div class="opt">
+  <div class="opt-h"><div class="opt-n">Option 2</div><div class="opt-t">Thẻ tem có ngày</div>
+    <div class="opt-s">Phóng to đúng thẻ tem bên ngoài: mỗi ô một ngày kèm ngày tháng, hôm nay là ô viền sáng đang tính, ★ là mốc.</div></div>
+  <div class="opt-b"><div class="sheet">
+    <div class="grab"></div>
+    <div class="sh-title"><span class="e">🛵</span>không Grab</div>
+    <div style="display:flex;align-items:baseline;gap:8px;margin:2px 0 2px"><span class="num" style="font-size:30px;font-weight:800;letter-spacing:-1px">5</span><span style="color:var(--ink-2)">ngày đang giữ</span></div>
+    <div class="livecap" style="justify-content:flex-start"><span class="livedot"></span>Hôm nay chưa kết — cứ giữ tới tối nhé</div>
+    <div class="stamprow" style="margin-top:26px">
+      <div class="st on"><span class="d">T5</span>✓</div>
+      <div class="st on"><span class="d">T6</span>✓</div>
+      <div class="st on"><span class="d">T7</span>✓</div>
+      <div class="st on"><span class="d">T8</span>✓</div>
+      <div class="st live"><span class="d">Nay</span></div>
+      <div class="st"><span class="d">T10</span></div>
+      <div class="st goal"><span class="d">Mốc</span>★</div>
+    </div>
+    <div style="font-size:12.5px;color:var(--muted);margin-top:14px">Đã xong 4 ngày sạch · còn 2 ngày nữa là tròn tuần đầu ★</div>
+    <div class="stats">
+      <div class="stat"><div class="v num">9</div><div class="l">Kỷ lục</div></div>
+      <div class="stat"><div class="v num">~350k</div><div class="l">Ở lại ví</div></div>
+      <div class="stat"><div class="v num">08/09</div><div class="l">Bắt đầu</div></div>
+    </div>
+    <div class="mlabel">Mốc ăn mừng</div>
+    <div class="chips"><span class="chip sel">7</span><span class="chip">14</span><span class="chip">30</span><span class="chip">100</span></div>
+    <div class="archive">Lưu trữ chuỗi này</div>
+  </div></div>
+  <div class="opt-f"><b>Hợp khi:</b> muốn detail nối liền mạch với thẻ tem ngoài — thấy rõ "ngày nào sạch, hôm nay tới đâu". <span class="con">Đánh đổi: một hàng chỉ 7 ô; chuỗi dài phải cuộn hoặc gộp tuần.</span></div>
+</div>
+
+<!-- ══ OPTION 3 — MILESTONE ROADMAP ══ -->
+<div class="opt">
+  <div class="opt-h"><div class="opt-n">Option 3</div><div class="opt-t">Bản đồ mốc</div>
+    <div class="opt-s">Chặng đường 7·14·30·100 như màn chơi: đường tô tới vị trí hiện tại, "bạn ở đây", mốc sau khoá mờ.</div></div>
+  <div class="opt-b"><div class="sheet">
+    <div class="grab"></div>
+    <div class="sh-title"><span class="e">🛵</span>không Grab</div>
+    <div style="display:flex;align-items:baseline;gap:8px;margin:2px 0 16px"><span class="num" style="font-size:30px;font-weight:800;letter-spacing:-1px">5</span><span style="color:var(--ink-2)">ngày đang giữ</span><span style="margin-left:auto;font-size:12px;color:var(--brand-ink);font-weight:600">● đang tính</span></div>
+    <div style="display:flex;gap:12px">
+      <div style="width:24px;display:flex;flex-direction:column;align-items:center;padding-top:4px">
+        <div style="width:12px;height:12px;border-radius:50%;background:#2E9E6B"></div>
+        <div style="width:3px;flex:1;background:linear-gradient(#2E9E6B 40%,var(--fill-neutral) 40%)"></div>
+      </div>
+      <div style="flex:1">
+        <div style="padding-bottom:16px"><div style="font-weight:700;color:var(--brand-ink);font-size:14px">Bạn đang ở đây · ngày 5</div><div style="font-size:12.5px;color:var(--muted)">còn 2 ngày tới mốc kế</div></div>
+        <div class="mstone"><div style="display:flex;align-items:center;gap:9px;padding:9px 0"><span style="width:26px;height:26px;border-radius:50%;border:2px solid var(--brand);color:var(--brand-ink);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px" class="num">7</span><b style="font-size:14px">Tròn tuần</b><span style="margin-left:auto;font-size:11px;font-weight:700;color:var(--brand-ink);background:var(--brand-tint);border-radius:9999px;padding:3px 9px">ĐANG NHẮM</span></div></div>
+        <div style="display:flex;align-items:center;gap:9px;padding:9px 0;opacity:.5"><span style="width:26px;height:26px;border-radius:50%;background:var(--fill-neutral);color:var(--muted);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px" class="num">14</span><span style="font-size:14px">Hai tuần</span><span style="margin-left:auto">🔒</span></div>
+        <div style="display:flex;align-items:center;gap:9px;padding:9px 0;opacity:.5"><span style="width:26px;height:26px;border-radius:50%;background:var(--fill-neutral);color:var(--muted);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px" class="num">30</span><span style="font-size:14px">Một tháng</span><span style="margin-left:auto">🔒</span></div>
+        <div style="display:flex;align-items:center;gap:9px;padding:9px 0;opacity:.5"><span style="width:26px;height:26px;border-radius:50%;background:var(--fill-neutral);color:var(--muted);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px" class="num">100</span><span style="font-size:14px">Trăm ngày</span><span style="margin-left:auto">🔒</span></div>
+      </div>
+    </div>
+    <div class="stats"><div class="stat"><div class="v num">9</div><div class="l">Kỷ lục</div></div><div class="stat"><div class="v num">~350k</div><div class="l">Ở lại ví</div></div><div class="stat"><div class="v num">08/09</div><div class="l">Bắt đầu</div></div></div>
+    <div class="archive">Lưu trữ chuỗi này</div>
+  </div></div>
+  <div class="opt-f"><b>Hợp khi:</b> muốn cảm giác "leo mốc" có mục tiêu xa, mốc là các chặng tap để nhắm. <span class="con">Đánh đổi: cao, và mốc 100 ngày trông rất xa với người mới — có thể nản.</span></div>
+</div>
+
+<!-- ══ OPTION 4 — TWO TILES + TIMELINE ══ -->
+<div class="opt">
+  <div class="opt-h"><div class="opt-n">Option 4</div><div class="opt-t">Hai ô + dòng thời gian</div>
+    <div class="opt-s">Ngôn ngữ bento của Home: ô ngày + ô tiền dành, dưới là dải ngày và thanh tiến tới mốc.</div></div>
+  <div class="opt-b"><div class="sheet">
+    <div class="grab"></div>
+    <div class="sh-title"><span class="e">🛵</span>không Grab</div>
+    <div style="display:flex;gap:12px;margin-top:4px">
+      <div style="flex:1;border:1px solid var(--hairline);border-radius:16px;padding:14px 15px">
+        <div class="eyb">Đang giữ</div>
+        <div style="display:flex;align-items:baseline;gap:5px;margin-top:6px"><span class="num" style="font-size:32px;font-weight:800;letter-spacing:-1px">5</span><span style="font-size:13px;color:var(--muted)">ngày</span></div>
+        <div style="font-size:11.5px;color:var(--brand-ink);font-weight:600;margin-top:4px">● hôm nay đang tính</div>
+      </div>
+      <div style="flex:1;border:1px solid var(--hairline);border-radius:16px;padding:14px 15px">
+        <div class="eyb">Ở lại ví</div>
+        <div style="display:flex;align-items:baseline;gap:5px;margin-top:6px"><span class="num" style="font-size:32px;font-weight:800;letter-spacing:-1px">350k</span></div>
+        <div style="font-size:11.5px;color:var(--muted);margin-top:4px">nhờ không Grab</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:5px;margin-top:16px;align-items:center">
+      <span style="width:20px;height:20px;border-radius:6px;background:var(--brand-tint);color:var(--brand-ink);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">✓</span>
+      <span style="width:20px;height:20px;border-radius:6px;background:var(--brand-tint);color:var(--brand-ink);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">✓</span>
+      <span style="width:20px;height:20px;border-radius:6px;background:var(--brand-tint);color:var(--brand-ink);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">✓</span>
+      <span style="width:20px;height:20px;border-radius:6px;background:var(--brand-tint);color:var(--brand-ink);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">✓</span>
+      <span class="livedot" style="width:20px;height:20px;border-radius:6px;border:2px solid var(--brand);background:var(--brand-tint);animation:none;position:relative"></span>
+      <span style="font-size:11.5px;color:var(--muted);margin-left:6px">5 ngày qua</span>
+    </div>
+    <div style="margin-top:16px"><div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:6px"><span>Tới mốc 7</span><span class="num">5/7</span></div>
+      <div style="height:9px;border-radius:9999px;background:var(--fill-neutral);overflow:hidden"><div style="width:71%;height:100%;background:var(--grad-brand);border-radius:9999px"></div></div></div>
+    <div class="mlabel">Mốc ăn mừng</div>
+    <div class="chips"><span class="chip sel">7</span><span class="chip">14</span><span class="chip">30</span><span class="chip">100</span></div>
+    <div class="archive">Lưu trữ chuỗi này</div>
+  </div></div>
+  <div class="opt-f"><b>Hợp khi:</b> muốn tiền-tiết-kiệm ngang hàng với số ngày (khớp "tiết kiệm trá hình"), rất data-forward. <span class="con">Đánh đổi: hai số lớn cạnh nhau có thể loãng tiêu điểm.</span></div>
+</div>
+
+<!-- ══ OPTION 5 — MONTH CALENDAR ══ -->
+<div class="opt">
+  <div class="opt-h"><div class="opt-n">Option 5</div><div class="opt-t">Lịch tháng</div>
+    <div class="opt-s">Lịch tháng này: ngày sạch tô xanh, ngày lỡ đỏ, hôm nay là vòng nhấp nháy. Nhìn phát hiểu ngay.</div></div>
+  <div class="opt-b"><div class="sheet">
+    <div class="grab"></div>
+    <div class="sh-title"><span class="e">🛵</span>không Grab</div>
+    <div style="display:flex;align-items:baseline;gap:8px;margin:2px 0 14px"><span class="num" style="font-size:30px;font-weight:800;letter-spacing:-1px">5</span><span style="color:var(--ink-2)">ngày đang giữ</span><span style="margin-left:auto;font-size:12.5px;color:var(--muted)">Tháng 9</span></div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;text-align:center">
+      <div class="eyb" style="padding-bottom:2px">T2</div><div class="eyb">T3</div><div class="eyb">T4</div><div class="eyb">T5</div><div class="eyb">T6</div><div class="eyb">T7</div><div class="eyb">CN</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;text-align:center;margin-top:6px" id="cal">
+      <!-- Sep 2026: 1st = Tue. row1: (mon empty) 1..6 -->
+      <span></span>
+      <c class="c pre">1</c><c class="c pre">2</c><c class="c pre">3</c><c class="c pre">4</c><c class="c pre">5</c><c class="c pre">6</c>
+      <c class="c pre">7</c><c class="c ok">8</c><c class="c ok">9</c><c class="c ok">10</c><c class="c ok">11</c><c class="c today">12</c><c class="c fut">13</c>
+      <c class="c fut">14</c><c class="c fut">15</c><c class="c fut">16</c><c class="c fut">17</c><c class="c fut">18</c><c class="c fut">19</c><c class="c fut">20</c>
+    </div>
+    <div style="display:flex;gap:14px;margin-top:14px;font-size:11.5px;color:var(--muted)">
+      <span style="display:flex;align-items:center;gap:5px"><i style="width:12px;height:12px;border-radius:4px;background:var(--brand);display:inline-block"></i>sạch</span>
+      <span style="display:flex;align-items:center;gap:5px"><i style="width:12px;height:12px;border-radius:4px;border:2px solid var(--brand);display:inline-block"></i>hôm nay</span>
+      <span style="display:flex;align-items:center;gap:5px"><i style="width:12px;height:12px;border-radius:4px;background:var(--danger);display:inline-block"></i>lỡ</span>
+    </div>
+    <div class="stats"><div class="stat"><div class="v num">9</div><div class="l">Kỷ lục</div></div><div class="stat"><div class="v num">~350k</div><div class="l">Ở lại ví</div></div><div class="stat"><div class="v num">08/09</div><div class="l">Bắt đầu</div></div></div>
+    <div class="mlabel">Mốc ăn mừng</div>
+    <div class="chips"><span class="chip sel">7</span><span class="chip">14</span><span class="chip">30</span><span class="chip">100</span></div>
+    <div class="archive">Lưu trữ chuỗi này</div>
+  </div></div>
+  <div class="opt-f"><b>Hợp khi:</b> muốn trực giác nhất — "ngày nào giữ được" hiện trên lịch quen thuộc, khớp tinh thần đứt-theo-ngày. <span class="con">Đánh đổi: chỉ gọn cho 1 tháng; chuỗi dài nhiều tháng cần cuộn/đổi tháng.</span></div>
+</div>
+
+<!-- ══ OPTION 6 — FUEL GAUGE ══ -->
+<div class="opt">
+  <div class="opt-h"><div class="opt-n">Option 6</div><div class="opt-t">Thanh tới mốc + kỷ lục</div>
+    <div class="opt-s">Một thanh lớn 0 → mốc, tô tới hôm nay (đoạn cuối nhấp nháy), có vạch mờ đánh dấu kỷ lục cũ.</div></div>
+  <div class="opt-b"><div class="sheet">
+    <div class="grab"></div>
+    <div class="sh-title"><span class="e">🛵</span>không Grab</div>
+    <div style="text-align:center;margin:10px 0 4px"><span class="eyb">Đang giữ</span>
+      <div style="display:flex;align-items:baseline;gap:7px;justify-content:center"><span class="num" style="font-size:46px;font-weight:800;letter-spacing:-1.6px;line-height:1.05">5</span><span style="font-size:15px;color:var(--ink-2)">ngày không Grab</span></div></div>
+    <div class="livecap"><span class="livedot"></span>hôm nay đang tính</div>
+    <div style="margin-top:20px;position:relative">
+      <div style="height:16px;border-radius:9999px;background:var(--fill-neutral);overflow:hidden;position:relative">
+        <div style="width:57%;height:100%;background:var(--grad-brand)"></div>
+        <div style="position:absolute;left:57%;top:0;bottom:0;width:14%;background:repeating-linear-gradient(45deg,rgba(46,158,107,.5) 0 5px,transparent 5px 10px)"></div>
+      </div>
+      <div style="position:absolute;left:71%;top:-4px;bottom:-4px;width:2px;background:var(--amber)"></div>
+      <div style="position:absolute;left:71%;top:-20px;transform:translateX(-50%);font-size:10px;font-weight:700;color:var(--amber);white-space:nowrap">kỷ lục 9</div>
+      <div style="position:absolute;right:0;top:22px;font-size:11px;font-weight:700;color:var(--brand-ink)">★ mốc 7</div>
+      <div style="position:absolute;left:0;top:22px;font-size:11px;color:var(--muted)">bắt đầu</div>
+    </div>
+    <div style="text-align:center;font-size:13px;color:var(--muted);margin-top:34px">Còn <b style="color:var(--ink)">2 ngày</b> nữa là tròn tuần đầu tiên</div>
+    <div class="stats"><div class="stat"><div class="v num">9</div><div class="l">Kỷ lục</div></div><div class="stat"><div class="v num">~350k</div><div class="l">Ở lại ví</div></div><div class="stat"><div class="v num">08/09</div><div class="l">Bắt đầu</div></div></div>
+    <div class="mlabel">Mốc ăn mừng</div>
+    <div class="chips"><span class="chip sel">7</span><span class="chip">14</span><span class="chip">30</span><span class="chip">100</span></div>
+    <div class="archive">Lưu trữ chuỗi này</div>
+  </div></div>
+  <div class="opt-f"><b>Hợp khi:</b> muốn thấy rõ "còn bao xa tới mốc" và "sắp phá kỷ lục chưa" trên một thước đo. <span class="con">Đánh đổi: vạch kỷ lục lệch khỏi thanh khi kỷ lục vượt mốc đang nhắm.</span></div>
+</div>
+
+<!-- ══ OPTION 7 — GROWING SPROUT ══ -->
+<div class="opt">
+  <div class="opt-h"><div class="opt-n">Option 7</div><div class="opt-t">Mầm cây lớn dần</div>
+    <div class="opt-s">Ngôn ngữ minh hoạ Ngôi nhà: cây lớn theo ngày, lá non nhú = hôm nay đang tính; băng tranh trên, số liệu dưới.</div></div>
+  <div class="opt-b"><div class="sheet">
+    <div class="grab"></div>
+    <div class="sh-title"><span class="e">🛵</span>không Grab</div>
+    <div style="border-radius:18px;overflow:hidden;margin-top:4px;border:1px solid var(--hairline)">
+      <div style="height:150px;background:linear-gradient(#EAF4FF 60%,#DFF0E4 60%);position:relative">
+        <div style="position:absolute;left:0;right:0;bottom:0;height:44px;background:#CBE6CF"></div>
+        <div style="position:absolute;top:16px;right:22px;width:26px;height:26px;border-radius:50%;background:#FFD98A"></div>
+        <!-- plant: stem + 4 leaves + 1 budding -->
+        <svg style="position:absolute;left:50%;bottom:30px;transform:translateX(-50%)" width="90" height="110" viewBox="0 0 90 110">
+          <rect x="43" y="30" width="4" height="72" rx="2" fill="#8a6b4f"/>
+          <path d="M45 92 C30 88 22 76 26 64 C40 66 48 78 45 92Z" fill="#2E9E6B"/>
+          <path d="M45 78 C60 74 68 62 64 50 C50 52 42 64 45 78Z" fill="#34B87A"/>
+          <path d="M45 64 C30 60 24 49 28 38 C42 40 48 52 45 64Z" fill="#2E9E6B"/>
+          <path d="M45 52 C60 48 67 37 63 27 C50 29 42 40 45 52Z" fill="#5FC98D"/>
+          <path class="leaf-bud" d="M45 40 C39 34 39 27 44 24 C48 28 48 35 45 40Z" fill="#5FD3A0" opacity=".9" style="transform-origin:45px 40px;animation:pulse 1.8s ease-in-out infinite"/>
+        </svg>
+        <div style="position:absolute;left:0;right:0;bottom:8px;text-align:center;font-size:11px;font-weight:700;color:#1F7E52">NGÀY 5 · LÁ NON HÔM NAY ĐANG NHÚ</div>
+      </div>
+    </div>
+    <div style="font-size:13px;color:var(--muted);margin-top:12px">Mỗi ngày không Grab, cây lớn thêm một lá. Tới mốc 7 cây sẽ ra hoa 🌸</div>
+    <div class="stats"><div class="stat"><div class="v num">9</div><div class="l">Kỷ lục</div></div><div class="stat"><div class="v num">~350k</div><div class="l">Ở lại ví</div></div><div class="stat"><div class="v num">08/09</div><div class="l">Bắt đầu</div></div></div>
+    <div class="mlabel">Mốc ăn mừng</div>
+    <div class="chips"><span class="chip sel">7</span><span class="chip">14</span><span class="chip">30</span><span class="chip">100</span></div>
+    <div class="archive">Lưu trữ chuỗi này</div>
+  </div></div>
+  <div class="opt-f"><b>Hợp khi:</b> muốn delight đúng chất FamilyHub (nhà–cây–vườn), cảm giác "nuôi" thay vì "đếm". <span class="con">Đánh đổi: tốn công minh hoạ + trạng thái; phải theo luật cover tĩnh của app.</span></div>
+</div>
+
+<!-- ══ OPTION 8 — MEDALLION + BADGE SHELF ══ -->
+<div class="opt">
+  <div class="opt-h"><div class="opt-n">Option 8</div><div class="opt-t">Huy hiệu + kệ mốc</div>
+    <div class="opt-s">Mề đay tròn có vòng cung tiến độ (đầu nhấp nháy = hôm nay), dưới là kệ huy chương mốc chờ mở khoá.</div></div>
+  <div class="opt-b"><div class="sheet">
+    <div class="grab"></div>
+    <div class="sh-title"><span class="e">🛵</span>không Grab</div>
+    <div style="display:flex;justify-content:center;margin-top:8px;position:relative">
+      <svg width="128" height="128" viewBox="0 0 128 128">
+        <circle cx="64" cy="64" r="54" fill="none" stroke="rgba(138,132,148,.14)" stroke-width="8"/>
+        <circle cx="64" cy="64" r="54" fill="none" stroke="#2E9E6B" stroke-width="8" stroke-linecap="round" stroke-dasharray="339" stroke-dashoffset="145" transform="rotate(-90 64 64)"/>
+        <circle class="pulsehead" cx="115" cy="88" r="6" fill="#2E9E6B"/>
+      </svg>
+      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><span style="font-size:44px">🛵</span></div>
+    </div>
+    <div style="text-align:center;margin-top:8px"><span class="eyb">Đang giữ</span><div style="font-family:var(--dispf);font-size:20px;font-weight:800;letter-spacing:-.5px">ngày 5<span style="font-weight:500;color:var(--muted);font-size:14px;letter-spacing:0"> · đang tính</span></div></div>
+    <div class="mlabel" style="text-align:center">Huy chương mốc</div>
+    <div style="display:flex;justify-content:space-between;gap:8px">
+      <div style="flex:1;text-align:center;border:2px solid var(--brand);border-radius:14px;padding:10px 0;background:var(--brand-tint)"><div style="font-size:22px">🥉</div><div style="font-size:11px;font-weight:700;color:var(--brand-ink);margin-top:2px">7 · sắp đạt</div></div>
+      <div style="flex:1;text-align:center;border:1px solid var(--hairline);border-radius:14px;padding:10px 0;opacity:.55"><div style="font-size:22px;filter:grayscale(1)">🥈</div><div style="font-size:11px;font-weight:600;color:var(--muted);margin-top:2px">14</div></div>
+      <div style="flex:1;text-align:center;border:1px solid var(--hairline);border-radius:14px;padding:10px 0;opacity:.55"><div style="font-size:22px;filter:grayscale(1)">🥇</div><div style="font-size:11px;font-weight:600;color:var(--muted);margin-top:2px">30</div></div>
+      <div style="flex:1;text-align:center;border:1px solid var(--hairline);border-radius:14px;padding:10px 0;opacity:.55"><div style="font-size:22px;filter:grayscale(1)">🏆</div><div style="font-size:11px;font-weight:600;color:var(--muted);margin-top:2px">100</div></div>
+    </div>
+    <div class="stats"><div class="stat"><div class="v num">9</div><div class="l">Kỷ lục</div></div><div class="stat"><div class="v num">~350k</div><div class="l">Ở lại ví</div></div><div class="stat"><div class="v num">08/09</div><div class="l">Bắt đầu</div></div></div>
+    <div class="archive">Lưu trữ chuỗi này</div>
+  </div></div>
+  <div class="opt-f"><b>Hợp khi:</b> muốn cảm giác "sưu tầm huy chương" — kệ mốc chờ mở khoá kéo người quay lại. <span class="con">Đánh đổi: emoji huy chương hơi game-y so với tông tài chính điềm đạm của app.</span></div>
+</div>
+
+</div><!-- /grid -->
+
+<footer>mockups/streak-detail-options.html · Chi tiết chuỗi — 8 hướng · dữ liệu mẫu, không phải màn thật · token theo DESIGN.md (Sage) · hôm nay luôn là ô "đang tính", không tô "đã đạt"</footer>
+</div>
+<style>
+c.c{display:flex;align-items:center;justify-content:center;height:34px;border-radius:9px;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--muted-soft)}
+c.c.pre{color:#c9c3d0}
+c.c.ok{background:#2E9E6B;color:#fff}
+c.c.today{border:2px solid #2E9E6B;color:#1F7E52;font-weight:800;animation:pulse 1.8s ease-in-out infinite}
+c.c.fut{color:#b8b2c0}
+</style>
+</body>
+</html>
