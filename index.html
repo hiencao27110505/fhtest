@@ -7227,9 +7227,10 @@ function _persEmailRow(){
         return;
       }
       var meta = t.date.slice(8,10)+'/'+t.date.slice(5,7)+(t.time?' · '+t.time:'');
+      /* closes BOTH .r-right and the .row itself — every branch ends with it */
       var right = function(amtHtml, catTxt){
         return '<div class="r-right"><div class="r-amt num'+(amtHtml.cls?' '+amtHtml.cls:'')+'">'+amtHtml.v+'</div>'
-             + (catTxt?'<div class="r-cat">'+catTxt+'</div>':'')+'</div>';
+             + (catTxt?'<div class="r-cat">'+catTxt+'</div>':'')+'</div></div>';
       };
       if(t.kind==='income'){
         // taps into the income edit sheet — amount · date · note · receiving account
