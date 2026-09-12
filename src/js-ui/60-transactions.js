@@ -70,7 +70,7 @@ function _pBuildTxnCtx(){
       // Only PRIVATE rows are editable here; mirror rows (spaceId/linkId set) are a
       // family expense shown in the personal book — write-inert, but tappable
       // since 0114 (fhMirrorRowTap → the family expense detail, M10).
-      var eOpen=(t.spaceId||t.linkId)?(t.spaceId?"fhMirrorRowTap('"+t.id+"')":''):"openPersonalTxEdit('"+t.id+"')";
+      var eOpen=(t.spaceId||t.linkId)?(t.spaceId?"fhMirrorRowTap('"+t.id+"')":''):"openPersonalTxDetail('"+t.id+"')";
       /* _kg/_net/_src/_acct feed the Giao dịch screen's filters + net heads:
          expense = money out (0109 stores it positive), so its cash flow is −amt. */
       rows.push({ id:t.id, cat:cat, note:t.note||cat, amt:t.amt||0, _d:_d, ico:t.emoji||'🗂️', who:null, _style:style[cat], _open:eOpen, photos:t.photos||undefined, time:t.time||null,

@@ -1,5 +1,5 @@
 /* FamilyHub — offline-first service worker */
-const CACHE_NAME = 'familyhub-v505';
+const CACHE_NAME = 'familyhub-v506';
 /* Photos live in their own cache, deliberately NOT tied to CACHE_NAME. Folding
    them together would throw every photo away on each app release, which is the
    exact re-download this cache exists to prevent. Nothing here ever goes stale:
@@ -233,19 +233,19 @@ function _streakCompose(snap, fallback) {
   const pick = (arr) => arr[now.getDate() % arr.length];
   const broke = items.find((i) => i.brokeOn === yest);
   if (broke) return pick([
-    'Chuỗi ' + vn(broke) + ' đứt hôm qua — chạy lại từ hôm nay nha!' + tail,
-    'Hôm qua ' + broke.label + ' thắng một hiệp. Hiệp mới bắt đầu sáng nay!' + tail
+    'Chuỗi ' + vn(broke) + ' đứt hôm qua. Bắt đầu lại từ hôm nay nha.' + tail,
+    'Hôm qua có một khoản ' + broke.label + '. Chuỗi mới bắt đầu sáng nay.' + tail
   ]);
   const hit = items.find((i) => i.adj === i.milestone);
   if (hit) return pick([
-    'TRÒN ' + hit.adj + ' NGÀY ' + vn(hit) + '! Xứng đáng một lời khen to.' + tail,
-    'Chạm mốc ' + hit.adj + ' ngày ' + vn(hit) + ' — mở app nhận pháo giấy nè!' + tail
+    'Tròn ' + hit.adj + ' ngày ' + vn(hit) + '. Giỏi quá đi.' + tail,
+    'Chạm mốc ' + hit.adj + ' ngày ' + vn(hit) + '. Mở app nhận pháo giấy nè.' + tail
   ]);
   const top = items.slice().sort((a, b) => b.adj - a.adj)[0];
   return pick([
-    'Ngày ' + top.adj + ' ' + vn(top) + ' — vẫn giữ vững!' + tail,
-    'Hôm qua sạch bóng ' + top.label + '. Ngày ' + top.adj + '!' + tail,
-    'Chuỗi ' + vn(top) + ' sang ngày ' + top.adj + '. Cứ thế mà tiến!' + tail
+    'Ngày ' + top.adj + ' ' + vn(top) + '. Vẫn giữ vững nha.' + tail,
+    'Hôm qua sạch bóng ' + top.label + '. Ngày thứ ' + top.adj + ' rồi.' + tail,
+    'Chuỗi ' + vn(top) + ' sang ngày ' + top.adj + '. Cứ thế nha.' + tail
   ]);
 }
 

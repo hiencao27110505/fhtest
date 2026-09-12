@@ -434,6 +434,21 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   <div class="cd-cta-bar" id="exd-cta"></div>
 </div>
 
+<!-- PERSONAL EXPENSE DETAIL — the private row's own receipt screen (restyle #5,
+     61-expense-detail.js). Same push-overlay grammar as exp-overlay; rows are
+     the review card's settings-rows, edits stage until Cập nhật. -->
+<div class="overlay" id="pexd-overlay">
+  <div class="safe"></div>
+  <div class="cd-nav">
+    <button class="cd-back" onclick="closePersonalTxDetail()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg><span>Cá nhân</span></button>
+  </div>
+  <div class="cd-scroll">
+    <div id="pexd-body"></div>
+    <div class="spacer"></div>
+  </div>
+  <div class="cd-cta-bar" id="pexd-cta"></div>
+</div>
+
 <!-- NỢ & CHO VAY DETAIL — account · person · space zoom-ins (23-debts-ui.js) -->
 <div class="overlay" id="debt-overlay">
   <div class="safe"></div>
@@ -878,7 +893,7 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
 <div class="sheet" id="sheet-streak-new">
   <div class="grab"></div>
   <div class="sheet-h">Chuỗi mới</div>
-  <div class="sheet-sub">Chọn thứ muốn nhịn — app tự đếm ngày từ sổ của bạn.</div>
+  <div class="sheet-sub">Chọn thứ bạn muốn nhịn. Ngày sẽ tự đếm từ sổ của bạn.</div>
   <div id="stk-new-list"></div>
 </div>
 <div class="sheet" id="sheet-streak-detail">
@@ -940,6 +955,40 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   <div class="sheet-h" id="txnbulk-h">…</div>
   <div class="sheet-sub" id="txnbulk-sub">…</div>
   <div class="choices" id="txnbulk-list"></div>
+</div>
+
+<!-- Detail-screen row pickers (restyle #5) — shared by the family detail and
+     the personal detail; 61-expense-detail.js builds every body per open and
+     stages the pick until Cập nhật. -->
+<div class="sheet" id="sheet-exd-cat">
+  <div class="grab"></div>
+  <div class="sheet-h" id="exdcat-h">Danh mục</div>
+  <div class="sheet-sub" id="exdcat-sub"></div>
+  <div class="choices" id="exdcat-list"></div>
+</div>
+<div class="sheet" id="sheet-exd-who">
+  <div class="grab"></div>
+  <div class="sheet-h" id="exdwho-h">Ai trả</div>
+  <div class="sheet-sub" id="exdwho-sub"></div>
+  <div class="choices" id="exdwho-list"></div>
+</div>
+<div class="sheet" id="sheet-exd-amt">
+  <div class="grab"></div>
+  <div class="sheet-h" id="exdamt-h">Số tiền &amp; ghi chú</div>
+  <div class="sheet-sub" id="exdamt-sub"></div>
+  <div id="exdamt-body"></div>
+</div>
+<div class="sheet" id="sheet-exd-when">
+  <div class="grab"></div>
+  <div class="sheet-h" id="exdwhen-h">Khi nào</div>
+  <div class="sheet-sub" id="exdwhen-sub"></div>
+  <div id="exdwhen-body"></div>
+</div>
+<div class="sheet" id="sheet-exd-acct">
+  <div class="grab"></div>
+  <div class="sheet-h" id="exdacct-h">Nguồn tiền</div>
+  <div class="sheet-sub" id="exdacct-sub"></div>
+  <div class="choices" id="exdacct-list"></div>
 </div>
 
 <div class="modal" id="sheet-budget">

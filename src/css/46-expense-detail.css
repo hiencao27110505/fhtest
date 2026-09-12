@@ -19,6 +19,43 @@
 
 /* meta list — one grouped white card, one fact per row (no colored fills) */
 .exd-meta{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-card);margin:24px 16px 0;overflow:hidden}
+/* restyle #5: the meta card holds the review card's settings-rows (csv-srow,
+   74-mailbox.css) — inset padding so the rows' own hairlines read grouped. */
+.exd-meta.srows{padding:2px 16px}
+/* a STAGED change (Q8b): brand value + a dot on the label until Cập nhật */
+.exd-meta .csv-srow.chg .csv-sval b{color:var(--brand-ink)}
+.exd-meta .csv-srow.chg small::after{content:"•";color:var(--brand);margin-left:5px;font-size:14px;line-height:0}
+.exd-meta .csv-srow .exd-av{margin-right:2px}
+/* provenance under the focal amount — the listing's subline voice */
+.exd-prov{font-size:11.5px;font-weight:500;color:var(--muted-soft);margin-top:8px}
+.exd-prov .sep{margin:0 5px;color:var(--chev)}
+/* incoming proposal badge — amber: a decision is waiting on YOU */
+.exd-plan.wait{background:var(--amber-tint);color:var(--amber)}
+/* add-photo tile */
+.exd-photo.add{background:var(--white);display:flex;align-items:center;justify-content:center;
+  font-size:26px;color:var(--muted-soft);border:0;font-family:inherit;cursor:pointer}
+.exd-photo.add:active{background:var(--surface)}
+/* CTA bar: small arm-then-confirm trash + the staged Cập nhật (quiet until
+   something is pending — progress feedback, not a validity gate) */
+.exd-cta-del{flex:0 0 auto;min-width:44px;height:48px;display:flex;align-items:center;justify-content:center;
+  border:1.5px solid var(--hairline);border-radius:13px;background:var(--white);color:var(--muted);
+  padding:0 12px;font:inherit;cursor:pointer}
+.exd-cta-del svg{width:18px;height:18px}
+.exd-cta-del.armed{color:var(--danger);border-color:var(--danger);font-size:13.5px;font-weight:700}
+.exd-go{flex:1;min-height:48px;border:0;border-radius:9999px;background:var(--grad-brand);color:#fff;
+  font:inherit;font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 5px 14px var(--brand-glow);cursor:pointer;transition:background .2s,box-shadow .2s,color .2s}
+.exd-go:active{opacity:.75}
+.exd-go.quiet{background:var(--brand-tint);color:var(--brand-ink);box-shadow:none}
+.exd-go:disabled{opacity:.6}
+@media (prefers-reduced-motion:reduce){ .exd-go{transition:none} }
+/* the detail CTA bars hold two controls now (trash + Cập nhật) — flex them;
+   the single Review .cta in the incoming state stretches to fill */
+#exd-cta,#pexd-cta{display:flex;align-items:center;gap:8px}
+#exd-cta .cta,#pexd-cta .cta{flex:1}
+/* the personal detail rides the same push-overlay band */
+#pexd-overlay{z-index:49}
+#pexd-overlay .safe{height:max(env(safe-area-inset-top),16px)}
 .exd-mrow{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 16px;border-bottom:1px solid var(--divider)}
 .exd-mrow:last-child{border-bottom:none}
 .exd-ml{font-size:13px;font-weight:600;color:var(--muted);letter-spacing:-.01em;flex:0 0 auto}

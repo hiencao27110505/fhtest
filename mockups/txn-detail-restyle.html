@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chi tiết giao dịch · restyle #5 · 4 trạng thái</title>
+<style>
+/* ═══ FamilyHub tokens (Sage) ═══ */
+:root{
+  --brand:#2E9E6B; --brand-ink:#1F7E52; --brand-2:#5FD3A0;
+  --grad-brand:linear-gradient(135deg,#34B87A,#5FC98D);
+  --brand-glow:rgba(46,158,107,.32); --brand-tint:#e9f7f0;
+  --danger:#E0322F; --danger-tint:#fdecef;
+  --good:#1a9d5f; --good-tint:#e7f5ee; --amber:#B8730B; --amber-tint:#fbefda;
+  --ink:#191022; --ink-2:#3a2f45; --muted:#6b6576; --muted-soft:#78727f;
+  --white:#ffffff; --canvas:#f4f1f6; --pearl:#fbfafc;
+  --hairline:#e9e4ee; --divider:#f1edf4;
+  --surface:#f9f7f8; --fill-neutral:rgba(138,132,148,.14); --chev:#cfc8d6;
+  --shadow-card:0 1px 3px rgba(25,16,34,.05),0 8px 24px rgba(25,16,34,.04);
+  --r-card-lg:22px;
+  --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;text-align:left}
+.num{font-family:var(--disp);font-variant-numeric:tabular-nums}
+
+/* ═══ Gallery ═══ */
+body{font-family:var(--text);background:#efeaf1;color:var(--ink);padding:48px 28px 90px;-webkit-font-smoothing:antialiased}
+.g-head{max-width:1180px;margin:0 auto 14px}
+.g-eyebrow{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--brand-ink)}
+.g-title{font-family:var(--disp);font-size:34px;font-weight:700;letter-spacing:-1px;margin-top:6px}
+.g-sub{font-size:15px;line-height:1.6;color:var(--ink-2);max-width:780px;margin-top:10px}
+.g-sub b{font-weight:700}
+.g-grid{max-width:1180px;margin:34px auto 0;display:grid;grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:42px 34px}
+.mock{min-width:0}
+.m-tag{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--brand-ink)}
+.m-tag i{font-style:normal;background:var(--brand-tint);border-radius:7px;padding:3px 8px}
+.m-title{font-family:var(--disp);font-size:19px;font-weight:700;letter-spacing:-.3px;margin-top:7px}
+.m-note{font-size:13px;line-height:1.55;color:var(--muted);margin:6px 0 16px;max-width:400px}
+
+/* ═══ Phone ═══ */
+.phone{width:100%;max-width:400px;background:#0d0a11;border-radius:44px;padding:9px;
+  box-shadow:0 2px 6px rgba(25,16,34,.12),0 30px 60px rgba(25,16,34,.22)}
+.screen{position:relative;overflow:hidden;border-radius:36px;background:var(--canvas);height:780px;display:flex;flex-direction:column}
+.sbar{flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:16px 26px 6px;font-family:var(--disp);font-size:14px;font-weight:600}
+.sbar .ic{display:flex;gap:5px;align-items:center}
+.sbar svg{height:11px;display:block}
+.scroll{flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;overscroll-behavior:contain}
+.scroll::-webkit-scrollbar{display:none}
+.homebar{flex-shrink:0;height:22px;display:flex;align-items:center;justify-content:center}
+.homebar i{width:130px;height:5px;border-radius:3px;background:rgba(25,16,34,.24)}
+.cd-back{display:inline-flex;align-items:center;gap:1px;color:var(--ink);font-size:17px;font-weight:600;letter-spacing:-.02em;padding:6px 16px 8px 12px}
+.cd-back svg{width:22px;height:22px}
+
+/* ═══ Receipt focal (exd-*) ═══ */
+.exd-focal{display:flex;flex-direction:column;align-items:center;text-align:center;padding:10px 24px 2px}
+.exd-ico{width:64px;height:64px;border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:32px;line-height:1;position:relative}
+.exd-ico .r-scope{position:absolute;bottom:-4px;right:-6px;width:24px;height:24px;border-radius:50%;border:2px solid var(--canvas);background:var(--brand-tint);display:flex;align-items:center;justify-content:center;font-size:12px}
+.exd-amt{font-family:var(--disp);font-variant-numeric:tabular-nums;font-weight:700;font-size:34px;letter-spacing:-1.2px;color:var(--ink);margin-top:16px;line-height:1}
+.exd-note{font-size:17px;font-weight:600;letter-spacing:-.02em;color:var(--ink-2);margin-top:9px;overflow-wrap:anywhere}
+.exd-prov{font-size:11.5px;font-weight:500;color:var(--muted-soft);margin-top:8px}
+.exd-prov .sep{margin:0 5px;color:var(--chev)}
+/* proposal badge — brand-tint pill, the app's exd-plan grammar */
+.exd-plan{display:inline-flex;align-items:center;gap:5px;margin-top:12px;background:var(--amber-tint);color:var(--amber);border-radius:9999px;padding:5px 12px;font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase}
+
+/* ═══ Meta = settings-rows card (csv-srow, review-card DNA) ═══ */
+.exd-meta{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-card);margin:24px 16px 0;overflow:hidden;padding:2px 16px}
+.csv-srows{margin-top:2px}
+.csv-srow{display:flex;width:100%;align-items:center;justify-content:space-between;gap:10px;padding:12px 2px;min-height:46px;border-bottom:1px solid var(--divider)}
+.csv-srows .csv-srow:last-child{border-bottom:0}
+.csv-srow small{font-size:13px;font-weight:600;color:var(--muted);flex:none}
+.csv-sval{display:flex;align-items:center;gap:6px;min-width:0}
+.csv-sval b{font-size:14px;font-weight:650;color:var(--ink);letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.csv-schev{width:15px;height:15px;color:var(--chev);flex:none}
+button.csv-srow:active{background:var(--surface)}
+.csv-srow.ro .csv-sval b{color:var(--muted);font-weight:600}
+.csv-srow.soft .csv-sval b{color:var(--muted-soft);font-weight:600}
+.csv-srow.hot{background:var(--brand-tint);margin:0 -6px;padding:12px 8px;border-radius:11px;border-bottom-color:transparent}
+.csv-srow.hot small,.csv-srow.hot .csv-sval b{color:var(--brand-ink)}
+.csv-srow.hot .csv-schev{color:var(--brand-ink)}
+/* STAGED change (Q8b): brand value + dot on the label until Cập nhật lands */
+.csv-srow.chg .csv-sval b{color:var(--brand-ink)}
+.csv-srow.chg small::after{content:"•";color:var(--brand);margin-left:5px;font-size:14px;line-height:0}
+.csv-av{width:22px;height:22px;border-radius:50%;font-family:var(--disp);font-size:9.5px;font-weight:700;color:#fff;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}
+
+/* sections, photos, reactions */
+.exd-sec-h{display:flex;align-items:baseline;justify-content:space-between;margin:28px 20px 12px}
+.exd-sec-h .t{font-family:var(--disp);font-weight:700;font-size:20px;letter-spacing:-.4px;color:var(--ink)}
+.exd-sec-h .c{font-size:14px;font-weight:600;color:var(--muted)}
+.exd-photos{display:flex;gap:10px;overflow-x:auto;padding:2px 16px 6px;scrollbar-width:none}
+.exd-photos::-webkit-scrollbar{display:none}
+.exd-photo{flex:0 0 auto;width:122px;height:122px;border-radius:16px;box-shadow:var(--shadow-card);background-size:cover;background-position:center}
+.exd-photo.add{background:var(--white);display:flex;align-items:center;justify-content:center;font-size:26px;color:var(--muted-soft)}
+.exd-rx{display:flex;align-items:center;gap:11px;background:var(--white);border-radius:14px;box-shadow:var(--shadow-card);padding:12px 14px;margin:0 16px 8px}
+.exd-rx-e{font-size:22px;line-height:1;flex:0 0 auto}
+.exd-rx-msg{flex:1;min-width:0;font-size:14px;font-weight:500;font-style:italic;color:var(--ink-2);line-height:1.3}
+.exd-rx-bar{display:flex;gap:6px;margin:12px 16px 0}
+.exd-rx-bk{flex:1;height:52px;border:1px solid var(--hairline);background:var(--white);border-radius:14px;font-size:24px;display:flex;align-items:center;justify-content:center;transition:transform .12s ease,background .15s ease}
+.exd-rx-bk:active{transform:scale(1.12)}
+.exd-rx-bk.on{background:var(--brand-tint);border-color:var(--brand);box-shadow:inset 0 0 0 1px var(--brand)}
+.mbx-locked-note{margin:14px 16px 0;padding:10px 12px;border:1px solid var(--hairline);border-left:3px solid var(--brand);border-radius:10px;font-size:13.5px;line-height:1.45;color:var(--ink-2)}
+.mbx-locked-note b{font-weight:700}
+
+/* pinned CTA bar */
+.cd-cta-bar{flex-shrink:0;display:flex;align-items:center;gap:8px;padding:12px 16px 14px;
+  background:rgba(251,250,252,.92);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);border-top:1px solid var(--hairline)}
+.csv-cta-del{flex:none;min-width:40px;height:46px;display:flex;align-items:center;justify-content:center;border:1.5px solid var(--hairline);border-radius:12px;background:var(--white);color:var(--muted);padding:0 12px}
+.csv-cta-del svg{width:17px;height:17px}
+.csv-cta-del.armed{color:var(--danger);border-color:var(--danger);font-size:13.5px;font-weight:700}
+.csv-cta-go{flex:1;min-height:46px;border:0;border-radius:9999px;background:var(--grad-brand);color:#fff;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 5px 14px var(--brand-glow)}
+.csv-cta-go:active{opacity:.7}
+.csv-cta-go.quiet{background:var(--brand-tint);color:var(--brand-ink);box-shadow:none}
+/* proposal verbs (Review state) */
+.cts-btn{display:flex;align-items:center;justify-content:center;flex:1;text-align:center;font-size:14px;font-weight:700;border-radius:13px;padding:12px 0;min-height:46px}
+.cts-btn.pri{flex:1.6;color:#fff;background:var(--grad-brand);box-shadow:0 3px 8px var(--brand-glow)}
+.cts-btn.ter{color:var(--muted);background:var(--fill-neutral)}
+
+/* ═══ Sheets ═══ */
+.p-sheet{position:absolute;inset:0;z-index:20;visibility:hidden}
+.p-sheet.on{visibility:visible}
+.crs-scrim{position:absolute;inset:0;background:rgba(25,16,34,.42);opacity:0;transition:opacity .22s ease}
+.p-sheet.on .crs-scrim{opacity:1}
+.crs-sheet{position:absolute;left:0;right:0;bottom:0;background:var(--white);border-radius:22px 22px 0 0;box-shadow:0 -14px 44px rgba(25,16,34,.24);padding:8px 18px 24px;max-height:80%;overflow-y:auto;transform:translateY(102%);transition:transform .32s cubic-bezier(.32,.72,0,1)}
+.p-sheet.on .crs-sheet{transform:none}
+.crs-grab{width:36px;height:5px;border-radius:3px;background:var(--hairline);margin:4px auto 8px}
+.crs-t{font-family:var(--disp);font-size:16px;font-weight:700;text-align:center;padding:6px 0 2px;color:var(--ink)}
+.crs-sub{text-align:center;font-size:12.5px;color:var(--muted)}
+.crs-body{margin-top:14px}
+.crs-done{display:flex;align-items:center;justify-content:center;width:100%;margin-top:16px;min-height:46px;border:0;border-radius:9999px;background:var(--grad-brand);color:#fff;font-size:15px;font-weight:700;box-shadow:0 5px 14px var(--brand-glow)}
+.cts-verbs{display:flex;gap:8px;margin-top:16px}
+.cte-note{font-size:12.5px;font-weight:600;color:var(--muted);margin:9px 0 3px;line-height:1.5}
+.choices{display:flex;flex-wrap:wrap;gap:8px}
+.choice{display:inline-flex;align-items:center;gap:5px;font-size:13.5px;font-weight:600;color:var(--ink-2);background:var(--white);border:1px solid var(--hairline);border-radius:9999px;padding:9px 14px;min-height:40px}
+.choice.on{border:2px solid var(--brand);background:var(--brand-tint);color:var(--brand-ink);font-weight:700;padding:8px 13px}
+/* amount + note fields inside the edit sheets (review-card inputs) */
+.crs-lbl{display:block;font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:2px 0 6px}
+.crs-in{width:100%;background:var(--canvas);border:2px solid transparent;border-radius:13px;padding:13px 14px;font:inherit;font-size:15px;color:var(--ink)}
+.crs-in:focus{outline:none;border-color:var(--brand);background:var(--white)}
+.crs-in.num{font-family:var(--disp);font-weight:700;font-size:16px}
+
+/* toast */
+.toast{position:absolute;left:50%;bottom:34px;transform:translate(-50%,14px);z-index:40;display:flex;align-items:center;gap:8px;background:#241b2e;color:#fff;border-radius:9999px;padding:11px 18px;font-size:13.5px;font-weight:600;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .25s ease,transform .25s cubic-bezier(.32,.72,0,1);max-width:90%}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+.toast svg{width:15px;height:15px;flex:none;color:var(--brand-2)}
+
+@media (prefers-reduced-motion:reduce){ .crs-sheet,.crs-scrim,.toast,.exd-rx-bk{transition:none} }
+@media (max-width:460px){ body{padding:32px 14px 70px} .g-grid{gap:34px} }
+</style>
+</head>
+<body>
+
+<header class="g-head">
+  <div class="g-eyebrow">FamilyHub · Chi tiết giao dịch · restyle #5</div>
+  <h1 class="g-title">Hoá đơn đọc trước, sửa từng hàng, lưu dồn</h1>
+  <p class="g-sub">Màn chi tiết giữ khối hoá đơn Wallet, phần meta đổi sang <b>chồng hàng label/value của thẻ
+  duyệt</b>: hàng sửa được mang chevron và mở sheet; giá trị vừa đổi mang <b>chấm xanh</b> chờ tới khi bấm
+  Cập nhật (Q8b — không lưu lẻ từng field). Dòng nguồn gốc dưới số tiền nói giọng danh sách: ngày · giờ ·
+  nguồn tiền. Bốn phone = bốn trạng thái màn hình này phải gánh ngoài đời. Mọi thứ bấm được.</p>
+</header>
+
+<main class="g-grid">
+
+<!-- ═══ 01 · family expense ═══ -->
+<section class="mock">
+  <div class="m-tag"><i>01</i> Khoản chi gia đình</div>
+  <h2 class="m-title">Meta thành hàng label/value, lưu dồn bằng Cập nhật</h2>
+  <p class="m-note">Đổi danh mục hoặc người trả trong sheet: giá trị đổi ngay trên hàng kèm chấm xanh —
+  chưa ghi gì cho tới khi bấm Cập nhật (nút chỉ đậm khi có thay đổi chờ). Nguồn tiền từ email là hàng
+  chỉ đọc. Xoá vẫn là nút nhỏ chờ xác nhận.</p>
+  <div class="phone"><div class="screen" id="p1">
+    <div class="sbar"><span>9:41</span><span></span></div>
+    <button class="cd-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6-6 6 6 6"/></svg><span>Giao dịch</span></button>
+    <div class="scroll">
+      <div class="exd-focal">
+        <div class="exd-ico" style="background:#fdf4e8">🍕</div>
+        <div class="exd-amt num">450.000 ₫</div>
+        <div class="exd-note">Pizza tối cuối tuần</div>
+        <div class="exd-prov">Th 6, 11/09<span class="sep">·</span>19:10<span class="sep">·</span>VIB · tín dụng ••4512</div>
+      </div>
+      <div class="exd-meta"><div class="csv-srows">
+        <button class="csv-srow" id="r1cat" onclick="sheet('p1','s1cat')"><small>Danh mục</small><span class="csv-sval"><b id="v1cat">🍜 Ăn uống</b><svg class="csv-schev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></span></button>
+        <button class="csv-srow" id="r1who" onclick="sheet('p1','s1who')"><small>Ai trả</small><span class="csv-sval"><span class="csv-av" id="v1whoav" style="background:linear-gradient(135deg,#25b3a3,#0e8478)">B</span><b id="v1who">Bảo</b><svg class="csv-schev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></span></button>
+        <button class="csv-srow" id="r1amt" onclick="sheet('p1','s1amt')"><small>Số tiền & ghi chú</small><span class="csv-sval"><b id="v1amt" class="num">450.000 ₫</b><svg class="csv-schev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></span></button>
+        <button class="csv-srow" onclick="toast('p1','Sheet ngày giờ')"><small>Khi nào</small><span class="csv-sval"><b class="num">Th 6, 11/09 · 19:10</b><svg class="csv-schev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></span></button>
+        <div class="csv-srow ro"><small>Nguồn tiền</small><span class="csv-sval"><b>VIB · tín dụng ••4512</b></span></div>
+        <div class="csv-srow ro"><small>Sổ</small><span class="csv-sval"><b>🏡 Nhà Bơ</b></span></div>
+      </div></div>
+      <div class="exd-sec-h"><span class="t">Ảnh</span><span class="c">2</span></div>
+      <div class="exd-photos">
+        <div class="exd-photo" style="background-image:linear-gradient(135deg,#c9dcc0,#8fb996)"></div>
+        <div class="exd-photo" style="background-image:linear-gradient(160deg,#d8cfc0,#a9998a)"></div>
+        <div class="exd-photo add" onclick="toast('p1','Thêm ảnh')">＋</div>
+      </div>
+      <div class="exd-sec-h"><span class="t">Cả nhà nói gì</span><span class="c">1</span></div>
+      <div class="exd-rx"><span class="exd-rx-e">😋</span><span class="exd-rx-msg">Cuối tuần xứng đáng mà</span><span class="csv-av" style="background:linear-gradient(135deg,#a074e0,#6f3fc0)">H</span></div>
+      <div class="exd-rx-bar">
+        <button class="exd-rx-bk" onclick="rx(this)">❤️</button>
+        <button class="exd-rx-bk" onclick="rx(this)">😋</button>
+        <button class="exd-rx-bk" onclick="rx(this)">👏</button>
+        <button class="exd-rx-bk" onclick="rx(this)">😮</button>
+      </div>
+      <div style="height:24px"></div>
+    </div>
+    <div class="cd-cta-bar">
+      <button class="csv-cta-del" id="d1" onclick="arm('p1','d1')" aria-label="Xoá khoản chi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6"/></svg></button>
+      <button class="csv-cta-go quiet" id="go1" onclick="save1()">Cập nhật</button>
+    </div>
+    <div class="homebar"><i></i></div>
+
+    <div class="p-sheet" id="s1cat"><div class="crs-scrim" onclick="unsheet('p1')"></div>
+      <div class="crs-sheet"><div class="crs-grab"></div>
+        <div class="crs-t">Danh mục</div><div class="crs-sub">Thay đổi chờ tới khi bấm Cập nhật</div>
+        <div class="crs-body"><div class="choices" id="c1cat">
+          <button class="choice on" onclick="pick1cat(this,'🍜 Ăn uống')">🍜 Ăn uống</button>
+          <button class="choice" onclick="pick1cat(this,'🛒 Mua sắm')">🛒 Mua sắm</button>
+          <button class="choice" onclick="pick1cat(this,'🏠 Nhà cửa')">🏠 Nhà cửa</button>
+          <button class="choice" onclick="pick1cat(this,'🎉 Vui chơi')">🎉 Vui chơi</button>
+          <button class="choice" onclick="pick1cat(this,'🧸 Con cái')">🧸 Con cái</button>
+        </div></div>
+      </div>
+    </div>
+    <div class="p-sheet" id="s1who"><div class="crs-scrim" onclick="unsheet('p1')"></div>
+      <div class="crs-sheet"><div class="crs-grab"></div>
+        <div class="crs-t">Ai trả</div><div class="crs-sub">Thay đổi chờ tới khi bấm Cập nhật</div>
+        <div class="crs-body"><div class="choices">
+          <button class="choice" onclick="pick1who(this,'Hân','linear-gradient(135deg,#a074e0,#6f3fc0)','H')"><span class="csv-av" style="background:linear-gradient(135deg,#a074e0,#6f3fc0)">H</span> Hân</button>
+          <button class="choice on" onclick="pick1who(this,'Bảo','linear-gradient(135deg,#25b3a3,#0e8478)','B')"><span class="csv-av" style="background:linear-gradient(135deg,#25b3a3,#0e8478)">B</span> Bảo</button>
+          <button class="choice" onclick="pick1who(this,'Chung','linear-gradient(135deg,#8a8499,#6b6576)','👥')">Chung</button>
+        </div></div>
+      </div>
+    </div>
+    <div class="p-sheet" id="s1amt"><div class="crs-scrim" onclick="unsheet('p1')"></div>
+      <div class="crs-sheet"><div class="crs-grab"></div>
+        <div class="crs-t">Số tiền & ghi chú</div><div class="crs-sub">Gõ thì cần Xong — chọn thì không</div>
+        <div class="crs-body">
+          <span class="crs-lbl">Số tiền</span><input class="crs-in num" id="in1amt" inputmode="numeric" value="450.000">
+          <span class="crs-lbl" style="margin-top:14px">Chi cho gì?</span><input class="crs-in" id="in1note" value="Pizza tối cuối tuần">
+        </div>
+        <button class="crs-done" onclick="amt1done()">Xong</button>
+      </div>
+    </div>
+    <div class="toast" id="t-p1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg><span></span></div>
+  </div></div>
+</section>
+
+<!-- ═══ 02 · personal private expense ═══ -->
+<section class="mock">
+  <div class="m-tag"><i>02</i> Khoản riêng tư</div>
+  <h2 class="m-title">Sổ riêng lên màn hình đầy đủ, thêm cửa đổi sổ</h2>
+  <p class="m-note">Hôm nay khoản riêng tư chỉ có sheet sửa — restyle cho nó màn hoá đơn ngang hàng khoản
+  gia đình (Q2a). Không có Ai trả; hàng "Ghi vào" là cửa chuyển sổ, bấm sẽ hỏi lại và nêu hệ quả. Nguồn
+  tiền chưa gắn hiện xám nhạt: thiếu thì thiếu, không chặn gì.</p>
+  <div class="phone"><div class="screen" id="p2">
+    <div class="sbar"><span>9:41</span><span></span></div>
+    <button class="cd-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6-6 6 6 6"/></svg><span>Cá nhân</span></button>
+    <div class="scroll">
+      <div class="exd-focal">
+        <div class="exd-ico" style="background:#fdf4e8">☕</div>
+        <div class="exd-amt num">65.000 ₫</div>
+        <div class="exd-note">Cà phê với Vy</div>
+        <div class="exd-prov">Th 5, 10/09<span class="sep">·</span>21:14</div>
+      </div>
+      <div class="exd-meta"><div class="csv-srows">
+        <button class="csv-srow" onclick="sheet('p2','s2scope')"><small>Ghi vào</small><span class="csv-sval"><b>🔒 Cá nhân</b><svg class="csv-schev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></span></button>
+        <button class="csv-srow" id="r2cat" onclick="sheet('p2','s2cat')"><small>Danh mục</small><span class="csv-sval"><b id="v2cat">☕ Ăn uống</b><svg class="csv-schev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></span></button>
+        <button class="csv-srow" onclick="toast('p2','Sheet số tiền & ghi chú')"><small>Số tiền & ghi chú</small><span class="csv-sval"><b class="num">65.000 ₫</b><svg class="csv-schev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></span></button>
+        <button class="csv-srow" onclick="toast('p2','Sheet ngày giờ')"><small>Khi nào</small><span class="csv-sval"><b class="num">Th 5, 10/09 · 21:14</b><svg class="csv-schev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></span></button>
+        <button class="csv-srow soft" id="r2acct" onclick="sheet('p2','s2acct')"><small>Nguồn tiền</small><span class="csv-sval"><b id="v2acct">Chưa rõ</b><svg class="csv-schev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></span></button>
+      </div></div>
+      <div class="exd-sec-h"><span class="t">Ảnh</span><span class="c">Thêm</span></div>
+      <div class="exd-photos"><div class="exd-photo add" style="width:96px;height:96px" onclick="toast('p2','Thêm ảnh (mã hoá khoá cá nhân)')">＋</div></div>
+      <div style="height:24px"></div>
+    </div>
+    <div class="cd-cta-bar">
+      <button class="csv-cta-del" id="d2" onclick="arm('p2','d2')" aria-label="Xoá khoản này"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6"/></svg></button>
+      <button class="csv-cta-go quiet" id="go2" onclick="save2()">Cập nhật</button>
+    </div>
+    <div class="homebar"><i></i></div>
+
+    <div class="p-sheet" id="s2scope"><div class="crs-scrim" onclick="unsheet('p2')"></div>
+      <div class="crs-sheet"><div class="crs-grab"></div>
+        <div class="crs-t">Chuyển sang sổ gia đình?</div>
+        <div class="crs-sub num">Cà phê với Vy · 65.000 ₫</div>
+        <div class="crs-body">
+          <div class="cte-note">Cả nhà sẽ thấy khoản này và nó tính vào ngân sách chung. Chuyển rồi thì bên sổ riêng chỉ còn bản sao.</div>
+          <div class="cts-verbs">
+            <button class="cts-btn ter" onclick="unsheet('p2')">Để ở sổ riêng</button>
+            <button class="cts-btn pri" onclick="unsheet('p2');toast('p2','Đã chuyển sang sổ gia đình')">Chuyển sang 🏡</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="p-sheet" id="s2cat"><div class="crs-scrim" onclick="unsheet('p2')"></div>
+      <div class="crs-sheet"><div class="crs-grab"></div>
+        <div class="crs-t">Danh mục</div><div class="crs-sub">Thay đổi chờ tới khi bấm Cập nhật</div>
+        <div class="crs-body"><div class="choices">
+          <button class="choice on" onclick="pick2(this,'v2cat','r2cat','☕ Ăn uống')">☕ Ăn uống</button>
+          <button class="choice" onclick="pick2(this,'v2cat','r2cat','🎁 Gia đình')">🎁 Gia đình</button>
+          <button class="choice" onclick="pick2(this,'v2cat','r2cat','🎬 Vui chơi')">🎬 Vui chơi</button>
+        </div></div>
+      </div>
+    </div>
+    <div class="p-sheet" id="s2acct"><div class="crs-scrim" onclick="unsheet('p2')"></div>
+      <div class="crs-sheet"><div class="crs-grab"></div>
+        <div class="crs-t">Nguồn tiền</div><div class="crs-sub">Gắn để số dư tài khoản tính được</div>
+        <div class="crs-body"><div class="choices">
+          <button class="choice" onclick="pick2(this,'v2acct','r2acct','VIB · thẻ …4512')">VIB · thẻ …4512</button>
+          <button class="choice" onclick="pick2(this,'v2acct','r2acct','VCB')">VCB</button>
+          <button class="choice" onclick="pick2(this,'v2acct','r2acct','Tiền mặt')">Tiền mặt</button>
+        </div></div>
+      </div>
+    </div>
+    <div class="toast" id="t-p2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg><span></span></div>
+  </div></div>
+</section>
+
+<!-- ═══ 03 · mirror row ═══ -->
+<section class="mock">
+  <div class="m-tag"><i>03</i> Khoản gương</div>
+  <h2 class="m-title">Bản sao chỉ đọc, một cửa về sổ gốc</h2>
+  <p class="m-note">Khoản gia đình bạn ghi, xem từ sổ riêng: huy hiệu 🏡 ngay trên icon, mọi hàng chỉ đọc,
+  ghi chú viền + vạch trái nói rõ vì sao, và hàng nổi bật duy nhất dẫn về sổ gốc. Không thanh CTA, không
+  nút xoá — màn hình càng ít việc càng thật thà.</p>
+  <div class="phone"><div class="screen" id="p3">
+    <div class="sbar"><span>9:41</span><span></span></div>
+    <button class="cd-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6-6 6 6 6"/></svg><span>Cá nhân</span></button>
+    <div class="scroll">
+      <div class="exd-focal">
+        <div class="exd-ico" style="background:#eef4fb">🛒<span class="r-scope">🏡</span></div>
+        <div class="exd-amt num">1.250.000 ₫</div>
+        <div class="exd-note">Đi siêu thị cuối tuần</div>
+        <div class="exd-prov">CN, 07/09<span class="sep">·</span>10:20<span class="sep">·</span>🏡 Nhà Bơ</div>
+      </div>
+      <div class="mbx-locked-note">Khoản này bạn đã ghi cho <b>Nhà Bơ</b>. Sổ riêng giữ một bản sao để tháng của bạn đủ đầy, còn sửa thì sửa ở sổ gia đình.</div>
+      <div class="exd-meta"><div class="csv-srows">
+        <div class="csv-srow ro"><small>Danh mục</small><span class="csv-sval"><b>🛒 Mua sắm</b></span></div>
+        <div class="csv-srow ro"><small>Ai trả</small><span class="csv-sval"><span class="csv-av" style="background:linear-gradient(135deg,#a074e0,#6f3fc0)">H</span><b>Hân</b></span></div>
+        <div class="csv-srow ro"><small>Khi nào</small><span class="csv-sval"><b class="num">CN, 07/09 · 10:20</b></span></div>
+        <div class="csv-srow ro"><small>Sổ</small><span class="csv-sval"><b>🏡 Nhà Bơ</b></span></div>
+        <button class="csv-srow hot" onclick="toast('p3','Mở chi tiết bên sổ gia đình…')"><small>Sửa khoản này</small><span class="csv-sval"><b>Mở bên sổ gia đình</b><svg class="csv-schev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></span></button>
+      </div></div>
+      <div style="height:24px"></div>
+    </div>
+    <div class="homebar"><i></i></div>
+    <div class="toast" id="t-p3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg><span></span></div>
+  </div></div>
+</section>
+
+<!-- ═══ 04 · incoming proposal ═══ -->
+<section class="mock">
+  <div class="m-tag"><i>04</i> Đề xuất của người khác</div>
+  <h2 class="m-title">Khoản tương lai chờ duyệt: đọc hết, sửa không</h2>
+  <p class="m-note">Trạng thái "incoming" của màn hình hiện tại, mặc bộ đồ mới: badge chờ duyệt trên hoá
+  đơn, mọi hàng chỉ đọc (đề xuất của người khác không sửa lén được), CTA là cặp verb duyệt. Đồng ý xong
+  hàng badge đổi xanh — đúng ngữ pháp "sếp duyệt rồi".</p>
+  <div class="phone"><div class="screen" id="p4">
+    <div class="sbar"><span>9:41</span><span></span></div>
+    <button class="cd-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6-6 6 6 6"/></svg><span>Tài chính</span></button>
+    <div class="scroll">
+      <div class="exd-focal">
+        <div class="exd-ico" style="background:#f6eefb">🎈</div>
+        <div class="exd-amt num">2.500.000 ₫</div>
+        <div class="exd-note">Sinh nhật Bin ở Aeon</div>
+        <div class="exd-prov">Th 7, 20/09<span class="sep">·</span>dự kiến</div>
+        <div class="exd-plan" id="p4badge">chờ sếp duyệt</div>
+      </div>
+      <div class="exd-meta"><div class="csv-srows">
+        <div class="csv-srow ro"><small>Danh mục</small><span class="csv-sval"><b>🧸 Con cái</b></span></div>
+        <div class="csv-srow ro"><small>Đề xuất bởi</small><span class="csv-sval"><span class="csv-av" style="background:linear-gradient(135deg,#25b3a3,#0e8478)">B</span><b>Bảo</b></span></div>
+        <div class="csv-srow ro"><small>Khi nào</small><span class="csv-sval"><b class="num">Th 7, 20/09</b></span></div>
+        <div class="csv-srow ro"><small>Sổ</small><span class="csv-sval"><b>🏡 Nhà Bơ</b></span></div>
+      </div></div>
+      <div class="exd-sec-h"><span class="t">Cả nhà nói gì</span><span class="c">—</span></div>
+      <div class="exd-rx" style="justify-content:center;color:var(--muted);font-size:13.5px;font-weight:500">Chưa ai lên tiếng — bạn duyệt trước nhé.</div>
+      <div style="height:24px"></div>
+    </div>
+    <div class="cd-cta-bar" id="p4bar">
+      <button class="cts-btn ter" onclick="toast('p4','Đã gửi góp ý cho Bảo')">Góp ý</button>
+      <button class="cts-btn pri" onclick="approve4()">Đồng ý để dành</button>
+    </div>
+    <div class="homebar"><i></i></div>
+    <div class="toast" id="t-p4"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg><span></span></div>
+  </div></div>
+</section>
+
+</main>
+
+<script>
+function sheet(pid,sid){ document.querySelectorAll('#'+pid+' .p-sheet').forEach(function(s){s.classList.remove('on');}); document.getElementById(sid).classList.add('on'); }
+function unsheet(pid){ document.querySelectorAll('#'+pid+' .p-sheet').forEach(function(s){s.classList.remove('on');}); }
+var toastT={};
+function toast(pid,msg){ var t=document.getElementById('t-'+pid); t.querySelector('span').textContent=msg; t.classList.add('on'); clearTimeout(toastT[pid]); toastT[pid]=setTimeout(function(){t.classList.remove('on');},2400); }
+function rx(el){ el.classList.toggle('on'); }
+var armT={};
+function trashSVG(){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6"/></svg>'; }
+function arm(pid,bid){
+  var b=document.getElementById(bid);
+  if(b.classList.contains('armed')){ b.classList.remove('armed'); b.innerHTML=trashSVG(); toast(pid,'Đã xoá (mô phỏng)'); return; }
+  b.classList.add('armed'); b.textContent='Xoá?';
+  clearTimeout(armT[bid]);
+  armT[bid]=setTimeout(function(){ b.classList.remove('armed'); b.innerHTML=trashSVG(); },3000);
+}
+/* staged-commit model (Q8b): picks mark the row .chg + wake Cập nhật; nothing
+   saves until it's tapped, then dots clear and the button goes quiet again */
+function wake(goId){ document.getElementById(goId).classList.remove('quiet'); }
+function settle(pid, goId){
+  document.querySelectorAll('#'+pid+' .csv-srow.chg').forEach(function(r){ r.classList.remove('chg'); });
+  document.getElementById(goId).classList.add('quiet');
+  toast(pid,'Đã cập nhật');
+}
+function pick1cat(el,val){
+  el.parentElement.querySelectorAll('.choice').forEach(function(c){c.classList.remove('on');}); el.classList.add('on');
+  document.getElementById('v1cat').textContent=val;
+  document.getElementById('r1cat').classList.add('chg'); wake('go1'); unsheet('p1');
+}
+function pick1who(el,name,grad,initial){
+  el.parentElement.querySelectorAll('.choice').forEach(function(c){c.classList.remove('on');}); el.classList.add('on');
+  document.getElementById('v1who').textContent=name;
+  var av=document.getElementById('v1whoav'); av.style.background=grad; av.textContent=initial;
+  document.getElementById('r1who').classList.add('chg'); wake('go1'); unsheet('p1');
+}
+function amt1done(){
+  var v=(document.getElementById('in1amt').value||'450.000').trim();
+  document.getElementById('v1amt').textContent=v+' ₫';
+  document.querySelector('#p1 .exd-amt').textContent=v+' ₫';
+  var note=(document.getElementById('in1note').value||'').trim();
+  if(note) document.querySelector('#p1 .exd-note').textContent=note;
+  document.getElementById('r1amt').classList.add('chg'); wake('go1'); unsheet('p1');
+}
+function save1(){ settle('p1','go1'); }
+function pick2(el,valId,rowId,val){
+  el.parentElement.querySelectorAll('.choice').forEach(function(c){c.classList.remove('on');}); el.classList.add('on');
+  var v=document.getElementById(valId); v.textContent=val;
+  var r=document.getElementById(rowId); r.classList.add('chg'); r.classList.remove('soft');
+  wake('go2'); unsheet('p2');
+}
+function save2(){ settle('p2','go2'); }
+function approve4(){
+  var b=document.getElementById('p4badge');
+  b.textContent='sếp duyệt rồi'; b.style.background='var(--good-tint)'; b.style.color='var(--good)';
+  document.getElementById('p4bar').innerHTML='<button class="cts-btn ter" style="flex:1" onclick="toast(\'p4\',\'Đã bỏ duyệt\')">Bỏ duyệt</button>';
+  toast('p4','Đã để dành 2.500.000 ₫ cho kế hoạch này');
+}
+</script>
+</body>
+</html>

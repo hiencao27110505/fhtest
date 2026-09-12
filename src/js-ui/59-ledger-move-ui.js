@@ -117,6 +117,7 @@ async function fhMoveConfirm(){
     var dir=_mvCtx.dir; _mvCtx=null;
     closeSheet(); closeModals();
     if(typeof closeExpenseDetail==='function') closeExpenseDetail();
+    if(typeof closePersonalTxDetail==='function') closePersonalTxDetail();   // move may have started from the personal detail screen
     if(typeof renderPersonal==='function') renderPersonal();
     if(typeof refreshPersonalTxnOverlay==='function') refreshPersonalTxnOverlay();
     toast(dir==='p2f'?'Đã chuyển sang sổ gia đình':'Đã chuyển về sổ riêng');
@@ -139,8 +140,10 @@ async function fhMoveConfirm(){
 }
 function fhMoveCancel(){
   var el=fhMoveEligibleEdit(); _mvCtx=null; closeSheet();
-  // the edit modal is still open underneath — keep its scrim up
-  var sc=document.getElementById('scrim'); if(sc) sc.classList.add('on');
+  // if the edit MODAL launched this, keep its scrim up; from the detail screen
+  // (pexdMove) there is no modal underneath — a forced scrim would stick
+  var sc=document.getElementById('scrim');
+  if(sc && document.querySelector('.modal.on')) sc.classList.add('on');
   if(el) selectChipByVal('ex-scope', el.cur);   // chip back to the row's real book
 }
 /* Mirror rows in the personal book become tappable (M10): resolve the family

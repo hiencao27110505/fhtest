@@ -1798,6 +1798,11 @@ input{font-family:inherit}
 .stk-stamp.star{border:none;background:var(--grad-brand);color:#fff;font-weight:700}
 .stk-stamp.star i{position:absolute;right:-3px;bottom:-3px;font-style:normal;font-size:9px;font-weight:800;background:var(--white);color:var(--brand-ink);border:1px solid var(--hairline);border-radius:9999px;padding:0 4px;line-height:1.5}
 .stk-stamp.x{border:none;background:var(--danger-tint);color:var(--danger);font-weight:700}
+/* today, still open — a live ring with a soft pulse, not a finished ✓ */
+.stk-stamp.live{border:2px solid var(--brand);background:var(--brand-tint)}
+.stk-stamp.live::after{content:"";width:8px;height:8px;border-radius:50%;background:var(--brand);animation:stkPulse 1.6s ease-in-out infinite}
+@keyframes stkPulse{0%,100%{opacity:.4;transform:scale(.8)}50%{opacity:1;transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){.stk-stamp.live::after{animation:none}}
 .stk-foot{font-size:13px;color:var(--muted);margin-top:10px}
 .stk-foot b{color:var(--ink);font-weight:700;font-size:14px}
 .stk-broke{font-size:13px;color:var(--danger);margin-top:5px}
@@ -1813,10 +1818,11 @@ input{font-family:inherit}
 .stk-pick-e{font-size:18px;flex:none}
 .stk-pick-t{font-size:15px;font-weight:500;color:var(--ink);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .stk-pick-k{font-size:11px;color:var(--muted)}
-.stk-free{display:flex;gap:8px;margin-bottom:6px}
-.stk-free input{flex:1;border:1px solid var(--hairline);border-radius:13px;padding:12px 14px;font-size:16px;background:var(--white)}
+.stk-free{display:flex;gap:8px;margin-bottom:6px;align-items:stretch}
+/* min-width:0 lets the input shrink so the button never overflows the sheet */
+.stk-free input{flex:1;min-width:0;border:1px solid var(--hairline);border-radius:13px;padding:12px 14px;font-size:16px;background:var(--white)}
 .stk-free input:focus{outline:none;border-color:var(--brand)}
-.stk-free-go{flex:none;padding:10px 16px}
+.stk-free-go{flex:none;white-space:nowrap;padding:10px 16px}
 /* family avatar strip */
 .stk-avs{margin-left:auto;display:flex}
 .stk-av{width:24px;height:24px;border-radius:50%;border:2px solid var(--white);color:#fff;font-family:var(--disp);font-weight:700;font-size:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;flex:none}
@@ -2052,6 +2058,43 @@ input{font-family:inherit}
 
 /* meta list — one grouped white card, one fact per row (no colored fills) */
 .exd-meta{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-card);margin:24px 16px 0;overflow:hidden}
+/* restyle #5: the meta card holds the review card's settings-rows (csv-srow,
+   74-mailbox.css) — inset padding so the rows' own hairlines read grouped. */
+.exd-meta.srows{padding:2px 16px}
+/* a STAGED change (Q8b): brand value + a dot on the label until Cập nhật */
+.exd-meta .csv-srow.chg .csv-sval b{color:var(--brand-ink)}
+.exd-meta .csv-srow.chg small::after{content:"•";color:var(--brand);margin-left:5px;font-size:14px;line-height:0}
+.exd-meta .csv-srow .exd-av{margin-right:2px}
+/* provenance under the focal amount — the listing's subline voice */
+.exd-prov{font-size:11.5px;font-weight:500;color:var(--muted-soft);margin-top:8px}
+.exd-prov .sep{margin:0 5px;color:var(--chev)}
+/* incoming proposal badge — amber: a decision is waiting on YOU */
+.exd-plan.wait{background:var(--amber-tint);color:var(--amber)}
+/* add-photo tile */
+.exd-photo.add{background:var(--white);display:flex;align-items:center;justify-content:center;
+  font-size:26px;color:var(--muted-soft);border:0;font-family:inherit;cursor:pointer}
+.exd-photo.add:active{background:var(--surface)}
+/* CTA bar: small arm-then-confirm trash + the staged Cập nhật (quiet until
+   something is pending — progress feedback, not a validity gate) */
+.exd-cta-del{flex:0 0 auto;min-width:44px;height:48px;display:flex;align-items:center;justify-content:center;
+  border:1.5px solid var(--hairline);border-radius:13px;background:var(--white);color:var(--muted);
+  padding:0 12px;font:inherit;cursor:pointer}
+.exd-cta-del svg{width:18px;height:18px}
+.exd-cta-del.armed{color:var(--danger);border-color:var(--danger);font-size:13.5px;font-weight:700}
+.exd-go{flex:1;min-height:48px;border:0;border-radius:9999px;background:var(--grad-brand);color:#fff;
+  font:inherit;font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 5px 14px var(--brand-glow);cursor:pointer;transition:background .2s,box-shadow .2s,color .2s}
+.exd-go:active{opacity:.75}
+.exd-go.quiet{background:var(--brand-tint);color:var(--brand-ink);box-shadow:none}
+.exd-go:disabled{opacity:.6}
+@media (prefers-reduced-motion:reduce){ .exd-go{transition:none} }
+/* the detail CTA bars hold two controls now (trash + Cập nhật) — flex them;
+   the single Review .cta in the incoming state stretches to fill */
+#exd-cta,#pexd-cta{display:flex;align-items:center;gap:8px}
+#exd-cta .cta,#pexd-cta .cta{flex:1}
+/* the personal detail rides the same push-overlay band */
+#pexd-overlay{z-index:49}
+#pexd-overlay .safe{height:max(env(safe-area-inset-top),16px)}
 .exd-mrow{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 16px;border-bottom:1px solid var(--divider)}
 .exd-mrow:last-child{border-bottom:none}
 .exd-ml{font-size:13px;font-weight:600;color:var(--muted);letter-spacing:-.01em;flex:0 0 auto}
@@ -4535,6 +4578,21 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   <div class="cd-cta-bar" id="exd-cta"></div>
 </div>
 
+<!-- PERSONAL EXPENSE DETAIL — the private row's own receipt screen (restyle #5,
+     61-expense-detail.js). Same push-overlay grammar as exp-overlay; rows are
+     the review card's settings-rows, edits stage until Cập nhật. -->
+<div class="overlay" id="pexd-overlay">
+  <div class="safe"></div>
+  <div class="cd-nav">
+    <button class="cd-back" onclick="closePersonalTxDetail()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg><span>Cá nhân</span></button>
+  </div>
+  <div class="cd-scroll">
+    <div id="pexd-body"></div>
+    <div class="spacer"></div>
+  </div>
+  <div class="cd-cta-bar" id="pexd-cta"></div>
+</div>
+
 <!-- NỢ & CHO VAY DETAIL — account · person · space zoom-ins (23-debts-ui.js) -->
 <div class="overlay" id="debt-overlay">
   <div class="safe"></div>
@@ -4979,7 +5037,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
 <div class="sheet" id="sheet-streak-new">
   <div class="grab"></div>
   <div class="sheet-h">Chuỗi mới</div>
-  <div class="sheet-sub">Chọn thứ muốn nhịn — app tự đếm ngày từ sổ của bạn.</div>
+  <div class="sheet-sub">Chọn thứ bạn muốn nhịn. Ngày sẽ tự đếm từ sổ của bạn.</div>
   <div id="stk-new-list"></div>
 </div>
 <div class="sheet" id="sheet-streak-detail">
@@ -5041,6 +5099,40 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   <div class="sheet-h" id="txnbulk-h">…</div>
   <div class="sheet-sub" id="txnbulk-sub">…</div>
   <div class="choices" id="txnbulk-list"></div>
+</div>
+
+<!-- Detail-screen row pickers (restyle #5) — shared by the family detail and
+     the personal detail; 61-expense-detail.js builds every body per open and
+     stages the pick until Cập nhật. -->
+<div class="sheet" id="sheet-exd-cat">
+  <div class="grab"></div>
+  <div class="sheet-h" id="exdcat-h">Danh mục</div>
+  <div class="sheet-sub" id="exdcat-sub"></div>
+  <div class="choices" id="exdcat-list"></div>
+</div>
+<div class="sheet" id="sheet-exd-who">
+  <div class="grab"></div>
+  <div class="sheet-h" id="exdwho-h">Ai trả</div>
+  <div class="sheet-sub" id="exdwho-sub"></div>
+  <div class="choices" id="exdwho-list"></div>
+</div>
+<div class="sheet" id="sheet-exd-amt">
+  <div class="grab"></div>
+  <div class="sheet-h" id="exdamt-h">Số tiền &amp; ghi chú</div>
+  <div class="sheet-sub" id="exdamt-sub"></div>
+  <div id="exdamt-body"></div>
+</div>
+<div class="sheet" id="sheet-exd-when">
+  <div class="grab"></div>
+  <div class="sheet-h" id="exdwhen-h">Khi nào</div>
+  <div class="sheet-sub" id="exdwhen-sub"></div>
+  <div id="exdwhen-body"></div>
+</div>
+<div class="sheet" id="sheet-exd-acct">
+  <div class="grab"></div>
+  <div class="sheet-h" id="exdacct-h">Nguồn tiền</div>
+  <div class="sheet-sub" id="exdacct-sub"></div>
+  <div class="choices" id="exdacct-list"></div>
 </div>
 
 <div class="modal" id="sheet-budget">
@@ -7147,7 +7239,7 @@ function _persEmailRow(){
            corner — the family name sits under the amount where the category
            would; a private row shows its own category there. */
         var _tap = t.spaceId ? ' onclick="fhMirrorRowTap(\''+t.id+'\')"'
-                 : (!t.linkId ? ' onclick="openPersonalTxEdit(\''+t.id+'\')"' : '');
+                 : (!t.linkId ? ' onclick="openPersonalTxDetail(\''+t.id+'\')"' : '');
         var _tile = (t.photos&&t.photos.length)
           ? '<div class="r-ico ph" style="background-image:url('+escAttr(t.photos[0])+')"></div>'
           : '<div class="r-ico personal-ico">'+(t.emoji||'🗂️')+'</div>';
@@ -16654,6 +16746,7 @@ async function fhMoveConfirm(){
     var dir=_mvCtx.dir; _mvCtx=null;
     closeSheet(); closeModals();
     if(typeof closeExpenseDetail==='function') closeExpenseDetail();
+    if(typeof closePersonalTxDetail==='function') closePersonalTxDetail();   // move may have started from the personal detail screen
     if(typeof renderPersonal==='function') renderPersonal();
     if(typeof refreshPersonalTxnOverlay==='function') refreshPersonalTxnOverlay();
     toast(dir==='p2f'?'Đã chuyển sang sổ gia đình':'Đã chuyển về sổ riêng');
@@ -16676,8 +16769,10 @@ async function fhMoveConfirm(){
 }
 function fhMoveCancel(){
   var el=fhMoveEligibleEdit(); _mvCtx=null; closeSheet();
-  // the edit modal is still open underneath — keep its scrim up
-  var sc=document.getElementById('scrim'); if(sc) sc.classList.add('on');
+  // if the edit MODAL launched this, keep its scrim up; from the detail screen
+  // (pexdMove) there is no modal underneath — a forced scrim would stick
+  var sc=document.getElementById('scrim');
+  if(sc && document.querySelector('.modal.on')) sc.classList.add('on');
   if(el) selectChipByVal('ex-scope', el.cur);   // chip back to the row's real book
 }
 /* Mirror rows in the personal book become tappable (M10): resolve the family
@@ -16769,7 +16864,7 @@ function _pBuildTxnCtx(){
       // Only PRIVATE rows are editable here; mirror rows (spaceId/linkId set) are a
       // family expense shown in the personal book — write-inert, but tappable
       // since 0114 (fhMirrorRowTap → the family expense detail, M10).
-      var eOpen=(t.spaceId||t.linkId)?(t.spaceId?"fhMirrorRowTap('"+t.id+"')":''):"openPersonalTxEdit('"+t.id+"')";
+      var eOpen=(t.spaceId||t.linkId)?(t.spaceId?"fhMirrorRowTap('"+t.id+"')":''):"openPersonalTxDetail('"+t.id+"')";
       /* _kg/_net/_src/_acct feed the Giao dịch screen's filters + net heads:
          expense = money out (0109 stores it positive), so its cash flow is −amt. */
       rows.push({ id:t.id, cat:cat, note:t.note||cat, amt:t.amt||0, _d:_d, ico:t.emoji||'🗂️', who:null, _style:style[cat], _open:eOpen, photos:t.photos||undefined, time:t.time||null,
@@ -17832,6 +17927,20 @@ function _exdDate(t){
 function _exdMetaRow(label, val){
   return '<div class="exd-mrow"><span class="exd-ml">'+label+'</span><span class="exd-mv">'+val+'</span></div>';
 }
+/* ── restyle #5: the meta is the review card's settings-rows stack ──────────
+   One row per fact; editable rows carry a chevron and open a picker sheet;
+   a value someone changed wears the brand dot (.chg) until Cập nhật lands —
+   staged commit (Q8b), nothing saves per-field. */
+var EXD={};   // pending family-detail changes: {cat, who, amtDisp, note, dateIso, timeStr}
+function _exdDirty(){ return Object.keys(EXD).length>0; }
+function _exdRow(opts){   // {label, val, chg, ro, soft, hot, fn}
+  var chev=opts.ro?'':'<svg class="csv-schev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>';
+  var cls='csv-srow'+(opts.ro?' ro':'')+(opts.soft?' soft':'')+(opts.hot?' hot':'')+(opts.chg?' chg':'');
+  var inner='<small>'+opts.label+'</small><span class="csv-sval">'+opts.val+chev+'</span>';
+  return opts.ro
+    ? '<div class="'+cls+'">'+inner+'</div>'
+    : '<button type="button" class="'+cls+'" onclick="'+opts.fn+'">'+inner+'</button>';
+}
 function _exdSecH(title, count){
   return '<div class="exd-sec-h"><span class="t">'+title+'</span>'+(count?'<span class="c">'+count+'</span>':'')+'</div>';
 }
@@ -17862,29 +17971,47 @@ function renderExpenseDetail(){
   var t=(typeof txById==='function')?txById(_expDetailId):null;
   if(!t){ closeExpenseDetail(); return; }
   var body=document.getElementById('exd-body'); if(!body) return;
-  var s=catStyle[t.cat]||['🧾','#f2eef6','var(--cat-other)'], wd=_whoDisp(t.who);
-  var html='<div class="exd-focal">'
-    +'<div class="exd-ico" style="background:'+s[1]+';color:'+s[2]+'">'+esc(t.ico)+'</div>'
-    +'<div class="exd-amt num">'+fmt(t.amt)+'</div>'
-    +'<div class="exd-note">'+esc(t.note||L('Khoản chi','Expense'))+'</div>'
-    +(t.future?('<div class="exd-plan">📅 '+L('Chi tiêu dự kiến','Planned')+'</div>'):'')
-    +'</div>';
-  html+='<div class="exd-meta">'
-    + _exdMetaRow(L('Danh mục','Category'), '<span class="exd-catico">'+s[0]+'</span>'+esc(t.cat))
-    + _exdMetaRow(L('Người trả','Paid by'), '<span class="exd-av" style="'+window.fhAvStyle(wd)+'">'+esc(window.fhAvIni(wd))+'</span>'+esc(wd.name))
-    + _exdMetaRow(L('Ngày','Date'), esc(_exdDate(t)) + (t.time ? ' · '+esc(t.time) : ''))
-    +'</div>';
-  var ph=t.photos||(t.photo?[t.photo]:[]);
-  if(ph.length){
-    html+=_exdSecH(L('Ảnh','Photos'), ph.length)
-      +'<div class="exd-photos">'+ph.map(function(src){ return '<div class="exd-photo" style="background-image:url('+src+')"></div>'; }).join('')+'</div>';
-  }
-  // A future expense is a proposal: show the family's REVIEW state (distinct from the
-  // ledger reactions a realized expense carries). incoming = someone else's proposal →
-  // Review is the only action; mine/planned → Update + Delete like a realized row.
+  // pending values paint over the row's own — with the .chg dot — until Cập nhật
+  var vCat=EXD.cat!=null?EXD.cat:t.cat;
+  var vWho=EXD.who!=null?EXD.who:((/^(both|shared)$/i.test(String(t.who||'')))?'Both':t.who);
+  var vAmtDisp=EXD.amtDisp!=null?EXD.amtDisp:(typeof amtToInput==='function'?amtToInput(t.amt):String(t.amt));
+  var vNote=EXD.note!=null?EXD.note:(t.note||'');
+  var vTime=EXD.timeStr!==undefined?EXD.timeStr:(t.time||'');
+  var s=catStyle[vCat]||catStyle[t.cat]||['🧾','#f2eef6','var(--cat-other)'];
+  var wd=_whoDisp(vWho);
   var isFuture=!!t.future;
   var item=(isFuture && typeof _entNorm==='function')?_entNorm('expense',t,t.id):null;
   var incoming=!!(item && typeof _entPending==='function' && _entPending(item) && typeof _isMine==='function' && !_isMine(item));
+  var canEdit=!incoming;
+  var html='<div class="exd-focal">'
+    +'<div class="exd-ico" style="background:'+s[1]+';color:'+s[2]+'">'+esc(EXD.cat!=null?s[0]:t.ico)+'</div>'
+    +'<div class="exd-amt num">'+esc(vAmtDisp)+(CUR==='VND'?' ₫':'')+'</div>'
+    +'<div class="exd-note">'+esc(vNote||L('Khoản chi','Expense'))+'</div>'
+    +'<div class="exd-prov">'+esc(_exdDate(t))+(vTime?'<span class="sep">·</span>'+esc(vTime):'')
+      +(t.inst?'<span class="sep">·</span>'+esc(t.inst):'')+'</div>'
+    +(isFuture?('<div class="exd-plan'+(incoming?' wait':'')+'">'+(incoming?L('chờ bạn duyệt','awaiting your review'):('📅 '+L('Chi tiêu dự kiến','Planned')))+'</div>'):'')
+    +'</div>';
+  // meta = settings-rows: editable rows open their sheet; provenance stays read-only
+  var rows='';
+  rows+=_exdRow({label:L('Danh mục','Category'), chg:EXD.cat!=null, ro:!canEdit,
+    val:'<b>'+s[0]+' '+esc(vCat)+'</b>', fn:"exdSheetCat('fam')"});
+  rows+=_exdRow({label:isFuture?L('Đề xuất bởi','Proposed by'):L('Ai trả','Who paid'), chg:EXD.who!=null, ro:!canEdit||isFuture,
+    val:'<span class="exd-av" style="'+window.fhAvStyle(wd)+'">'+esc(window.fhAvIni(wd))+'</span><b>'+esc(wd.name)+'</b>', fn:"exdSheetWho()"});
+  rows+=_exdRow({label:L('Số tiền & ghi chú','Amount & note'), chg:(EXD.amtDisp!=null||EXD.note!=null), ro:!canEdit,
+    val:'<b class="num">'+esc(vAmtDisp)+(CUR==='VND'?' ₫':'')+'</b>', fn:"exdSheetAmt('fam')"});
+  rows+=_exdRow({label:L('Khi nào','When'), chg:(EXD.dateIso!=null||EXD.timeStr!==undefined), ro:!canEdit,
+    val:'<b class="num">'+esc(_exdDate(t))+(vTime?' · '+esc(vTime):'')+'</b>', fn:"exdSheetWhen('fam')"});
+  if(t.inst) rows+=_exdRow({label:L('Nguồn tiền','Money source'), ro:true, val:'<b>'+esc(t.inst)+'</b>'});
+  rows+=_exdRow({label:L('Sổ','Book'), ro:true, val:'<b>🏡 '+esc((window.FAM&&FAM.familyName)||L('Gia đình','Family'))+'</b>'});
+  html+='<div class="exd-meta srows"><div class="csv-srows">'+rows+'</div></div>';
+  var ph=t.photos||(t.photo?[t.photo]:[]);
+  html+=_exdSecH(L('Ảnh','Photos'), ph.length||L('Thêm','Add'))
+    +'<div class="exd-photos">'+ph.map(function(src){ return '<div class="exd-photo" style="background-image:url('+src+')"></div>'; }).join('')
+    +(canEdit?'<button type="button" class="exd-photo add" onclick="expDetailEdit()" aria-label="'+escAttr(L('Thêm ảnh','Add a photo'))+'">＋</button>':'')
+    +'</div>';
+  // A future expense is a proposal: show the family's REVIEW state (distinct from the
+  // ledger reactions a realized expense carries). incoming = someone else's proposal →
+  // Review is the only action; mine/planned → edit + delete like a realized row.
   if(isFuture){
     if(item && item.creatorId && typeof _gldReviewBlock==='function'){
       html+='<div class="exd-sec-h"><span class="t">'+L('Cả nhà cùng duyệt','Review')+'</span></div>'
@@ -17893,21 +18020,19 @@ function renderExpenseDetail(){
   } else {
     html+=_exdReactions(t);
   }
-  // Delete lives at the foot of the scroll as low-prominence text (arm-then-confirm),
-  // per the destructive-button rule — never a red button in the CTA bar. Someone else's
-  // pending proposal isn't yours to delete, so hide it there (Review only).
-  if(!incoming){
-    html+='<button class="exd-del" id="exd-del" onclick="expDetailDelete()">'+L('Xoá khoản chi','Delete expense')+'</button>';
-  }
   body.innerHTML=html;
   var cta=document.getElementById('exd-cta');
   if(cta){
     cta.innerHTML=incoming
-      ? '<button class="cta" onclick="expDetailReview()">'+L('Duyệt','Review')+'</button>'                    // decide someone else's proposal
-      : '<button class="cta" onclick="expDetailEdit()">'+L('Cập nhật','Update')+'</button>';                  // single bottom-anchored primary
+      ? '<button class="cta" onclick="expDetailReview()">'+L('Duyệt','Review')+'</button>'   // decide someone else's proposal
+      // trash (arm-then-confirm, the review card's small square) + staged Cập nhật —
+      // quiet until something is pending, then it fills and commits everything at once
+      : '<button type="button" class="exd-cta-del" id="exd-del" onclick="expDetailDelete()" aria-label="'+escAttr(L('Xoá khoản chi','Delete expense'))+'">'+_exdTrash()+'</button>'
+       +'<button type="button" class="exd-go'+(_exdDirty()?'':' quiet')+'" onclick="exdSave()">'+L('Cập nhật','Update')+'</button>';
   }
   _resetExdDel();
 }
+function _exdTrash(){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6"/></svg>'; }
 /* Review → the existing react-to-align picker (64-requests.js), opened over the detail. */
 function expDetailReview(){ if(_expDetailId!=null && typeof openReview==='function') openReview('expense', _expDetailId); }
 window.expDetailReview=expDetailReview;
@@ -17915,6 +18040,7 @@ window.renderExpenseDetail=renderExpenseDetail;
 function openExpenseDetail(id){
   var t=(typeof txById==='function')?txById(id):null; if(!t) return;
   _expDetailId=id;
+  EXD={};                                   // fresh open, no pending edits
   renderExpenseDetail();
   document.getElementById('exp-overlay').classList.add('on');
   var sc=document.querySelector('#exp-overlay .cd-scroll'); if(sc) sc.scrollTop=0;
@@ -17923,7 +18049,7 @@ window.openExpenseDetail=openExpenseDetail;
 function closeExpenseDetail(){
   _resetExdDel();
   var o=document.getElementById('exp-overlay'); if(o) o.classList.remove('on');
-  _expDetailId=null;
+  _expDetailId=null; EXD={};
 }
 window.closeExpenseDetail=closeExpenseDetail;
 /* re-render if the detail is on screen (after an edit, a delete, or a reaction —
@@ -17950,12 +18076,12 @@ window.expDetailReact=expDetailReact;
    lets that one call execute instead of re-arming the modal's hidden button. */
 function _resetExdDel(){
   _exdDelArmed=false; clearTimeout(_exdDelT);
-  var b=document.getElementById('exd-del'); if(b){ b.classList.remove('armed'); b.textContent=L('Xoá','Delete'); }
+  var b=document.getElementById('exd-del'); if(b){ b.classList.remove('armed'); b.innerHTML=_exdTrash(); }
 }
 function expDetailDelete(){
   var b=document.getElementById('exd-del');
   if(!_exdDelArmed){
-    _exdDelArmed=true; if(b){ b.classList.add('armed'); b.textContent=L('Chạm lần nữa để xoá','Tap again to delete'); }
+    _exdDelArmed=true; if(b){ b.classList.add('armed'); b.textContent=L('Xoá?','Delete?'); }
     clearTimeout(_exdDelT); _exdDelT=setTimeout(_resetExdDel,3000); return;
   }
   _resetExdDel();
@@ -17965,6 +18091,270 @@ function expDetailDelete(){
   closeExpenseDetail();
 }
 window.expDetailDelete=expDetailDelete;
+
+/* ═══ restyle #5 — the row-picker sheets (shared: family 'fam' / personal 'pers')
+   and the staged saves. A pick stages into EXD/PXD and re-renders its detail;
+   nothing is written until Cập nhật. ═══ */
+var _exdMode='fam';
+function _exdCur(field, fallback){   // pending value else the row's own
+  var P=(_exdMode==='fam')?EXD:PXD;
+  return (P[field]!==undefined)?P[field]:fallback;
+}
+function _exdStage(field, val){
+  var P=(_exdMode==='fam')?EXD:PXD;
+  P[field]=val;
+  if(_exdMode==='fam') renderExpenseDetail(); else renderPersonalTxDetail();
+}
+function _exdRowOf(){
+  return _exdMode==='fam'
+    ? ((typeof txById==='function')?txById(_expDetailId):null)
+    : ((typeof _pTxById==='function')?_pTxById(_pexdId):null);
+}
+function exdSheetCat(mode){
+  _exdMode=mode; var t=_exdRowOf(); if(!t) return;
+  var cur=_exdCur('cat', t.cat);
+  var cats=(window.catOrder||[]).slice();
+  if(cur && cats.indexOf(cur)<0) cats.unshift(cur);       // a personal-only name stays pickable
+  setTxt('exdcat-h', L('Danh mục','Category'));
+  setTxt('exdcat-sub', L('Thay đổi chờ tới khi bấm Cập nhật','Waits for Update to save'));
+  setHTML('exdcat-list', cats.map(function(c){
+    var em=(catStyle[c]||['🏷️'])[0];
+    return '<button type="button" class="choice'+(c===cur?' on':'')+'" onclick="exdPickCat(&#39;'+escAttr(c)+'&#39;)">'+em+' '+esc(c)+'</button>';
+  }).join(''));
+  openSheet('sheet-exd-cat');
+}
+function exdPickCat(c){ closeSheet(); _exdStage('cat', c); }
+function exdSheetWho(){
+  _exdMode='fam'; var t=_exdRowOf(); if(!t) return;
+  var cur=_exdCur('who', (/^(both|shared)$/i.test(String(t.who||''))?'Both':t.who));
+  setTxt('exdwho-h', L('Ai trả','Who paid'));
+  setTxt('exdwho-sub', L('Thay đổi chờ tới khi bấm Cập nhật','Waits for Update to save'));
+  var names=Object.keys(window.membersMeta||{}).filter(function(n){ return n!=='Shared'; });
+  setHTML('exdwho-list', names.map(function(n){
+    var wd=_whoDisp(n);
+    return '<button type="button" class="choice'+(n===cur?' on':'')+'" onclick="exdPickWho(&#39;'+escAttr(n)+'&#39;)">'
+      +'<span class="exd-av" style="'+window.fhAvStyle(wd)+'">'+esc(window.fhAvIni(wd))+'</span> '+esc(n)+'</button>';
+  }).join('')+'<button type="button" class="choice'+(cur==='Both'?' on':'')+'" onclick="exdPickWho(&#39;Both&#39;)">'+L('Chung','Both')+'</button>');
+  openSheet('sheet-exd-who');
+}
+function exdPickWho(w){ closeSheet(); _exdStage('who', w); }
+function exdSheetAmt(mode){
+  _exdMode=mode; var t=_exdRowOf(); if(!t) return;
+  var amt=_exdCur('amtDisp', (typeof amtToInput==='function')?amtToInput(t.amt):String(t.amt||''));
+  var note=_exdCur('note', t.note||'');
+  setTxt('exdamt-h', L('Số tiền & ghi chú','Amount & note'));
+  setTxt('exdamt-sub', L('Gõ thì cần Xong · thay đổi chờ Cập nhật','Type, then Done · saves with Update'));
+  setHTML('exdamt-body',
+    '<span class="crs-lbl">'+L('Số tiền','Amount')+'</span>'
+    +'<input class="crs-in num" id="exd-in-amt" inputmode="numeric" onblur="snapAmtInput(this)" value="'+escAttr(amt)+'">'
+    +'<span class="crs-lbl" style="margin-top:14px">'+L('Chi cho gì?','What for?')+'</span>'
+    +'<input class="crs-in" id="exd-in-note" value="'+escAttr(note)+'">'
+    +'<button type="button" class="crs-done" onclick="exdAmtDone()">'+L('Xong','Done')+'</button>');
+  openSheet('sheet-exd-amt');
+}
+function exdAmtDone(){
+  var a=(document.getElementById('exd-in-amt')||{}).value||'';
+  var n=(document.getElementById('exd-in-note')||{}).value||'';
+  if(!(parseAmtBase(a)>0)){ var el=document.getElementById('exd-in-amt'); if(el) el.focus(); return; }
+  closeSheet();
+  var P=(_exdMode==='fam')?EXD:PXD;
+  P.amtDisp=a.trim(); P.note=n.trim();
+  if(_exdMode==='fam') renderExpenseDetail(); else renderPersonalTxDetail();
+}
+function exdSheetWhen(mode){
+  _exdMode=mode; var t=_exdRowOf(); if(!t) return;
+  var dIso=_exdCur('dateIso', (_exdMode==='fam')?((typeof txDateInput==='function')?txDateInput(t):'') : (t.date||''));
+  var tm=_exdCur('timeStr', t.time||'');
+  setTxt('exdwhen-h', L('Khi nào','When'));
+  setTxt('exdwhen-sub', L('Giờ để trống là chỉ tính theo ngày','Leave the time empty for day-only'));
+  setHTML('exdwhen-body',
+    '<span class="crs-lbl">'+L('Ngày','Date')+'</span>'
+    +'<input class="crs-in num" type="date" id="exd-in-date" value="'+escAttr(dIso)+'">'
+    +'<span class="crs-lbl" style="margin-top:14px">'+L('Giờ','Time')+' <span style="text-transform:none;font-weight:600">· '+L('tuỳ chọn','optional')+'</span></span>'
+    +'<input class="crs-in num" type="time" id="exd-in-time" value="'+escAttr(tm)+'">'
+    +'<button type="button" class="crs-done" onclick="exdWhenDone()">'+L('Xong','Done')+'</button>');
+  openSheet('sheet-exd-when');
+}
+function exdWhenDone(){
+  var d=(document.getElementById('exd-in-date')||{}).value||'';
+  var tm=(document.getElementById('exd-in-time')||{}).value||'';
+  if(!d){ var el=document.getElementById('exd-in-date'); if(el) el.focus(); return; }
+  closeSheet();
+  var P=(_exdMode==='fam')?EXD:PXD;
+  P.dateIso=d; P.timeStr=tm;
+  if(_exdMode==='fam') renderExpenseDetail(); else renderPersonalTxDetail();
+}
+/* Cập nhật (family): apply the staged set through the composer's own persisting
+   path — fill the editor fields invisibly, overlay the pendings, then call the
+   WRAPPED saveExpenseEdit(), which does the aggregates, the enc-correct write
+   and the re-render. One write, all fields, same code path as a manual edit. */
+function exdSave(){
+  if(!_exdDirty()) return;
+  var t=(typeof txById==='function')?txById(_expDetailId):null; if(!t) return;
+  var p=EXD; EXD={};
+  editingTx=_expDetailId;
+  if(typeof buildExCatChips==='function') buildExCatChips();   // chips must exist before chosen('ex-cat') reads them
+  if(typeof fillExpenseFromTx==='function') fillExpenseFromTx();
+  if(p.note!=null) document.getElementById('ex-note').value=p.note;
+  if(p.amtDisp!=null) document.getElementById('ex-amt').value=p.amtDisp;
+  if(p.cat!=null && typeof selectChipByVal==='function') selectChipByVal('ex-cat', p.cat);
+  if(p.who!=null && typeof selectChipByVal==='function') selectChipByVal('ex-who', p.who);
+  if(p.dateIso!=null) document.getElementById('ex-date').value=p.dateIso;
+  if(p.timeStr!==undefined){ var te=document.getElementById('ex-time'); if(te){ te.value=p.timeStr; if(typeof onExTimeTouched==='function') onExTimeTouched(); } }
+  saveExpenseEdit();                                       // wrapped → persists + renderExpenseDetailIfOpen
+}
+window.exdSave=exdSave;
+
+/* ═══ the PERSONAL expense detail — a private row's own receipt screen ═══
+   Entry for list taps (replaces the straight-to-editor door); the composer
+   remains reachable through the photo tile for photo work. Staged commit:
+   Cập nhật fires ONE fhPersonalUpdateExpense with the merged row. */
+var _pexdId=null, PXD={}, _pexdDelArmed=false, _pexdDelT=null;
+function _pxdDirty(){ return Object.keys(PXD).length>0; }
+function openPersonalTxDetail(id){
+  var t=(typeof _pTxById==='function')?_pTxById(id):null;
+  if(!t || t._unreadable || t.spaceId || t.linkId) return;         // private, readable rows only
+  if(t.kind && t.kind!=='expense'){ if(typeof openPersonalTxEdit==='function') openPersonalTxEdit(id); return; }   // kinds keep their own sheets
+  _pexdId=id; PXD={};
+  renderPersonalTxDetail();
+  document.getElementById('pexd-overlay').classList.add('on');
+  var sc=document.querySelector('#pexd-overlay .cd-scroll'); if(sc) sc.scrollTop=0;
+}
+window.openPersonalTxDetail=openPersonalTxDetail;
+function closePersonalTxDetail(){
+  _pxdResetDel();
+  var o=document.getElementById('pexd-overlay'); if(o) o.classList.remove('on');
+  _pexdId=null; PXD={};
+}
+window.closePersonalTxDetail=closePersonalTxDetail;
+function _pexdDateLong(iso){
+  if(!iso) return '';
+  var d=new Date(iso+'T00:00:00');
+  return (typeof fmtDateLong==='function')?fmtDateLong(d):iso;
+}
+function renderPersonalTxDetail(){
+  var t=(typeof _pTxById==='function')?_pTxById(_pexdId):null;
+  if(!t){ closePersonalTxDetail(); return; }
+  var body=document.getElementById('pexd-body'); if(!body) return;
+  var vCat=PXD.cat!=null?PXD.cat:(t.cat||'');
+  var vAmtDisp=PXD.amtDisp!=null?PXD.amtDisp:((typeof amtToInput==='function')?amtToInput(t.amt):String(t.amt||''));
+  var vNote=PXD.note!=null?PXD.note:(t.note||'');
+  var vTime=PXD.timeStr!==undefined?PXD.timeStr:(t.time||'');
+  var vDate=PXD.dateIso!=null?PXD.dateIso:(t.date||'');
+  var em=PXD.cat!=null?((catStyle[vCat]||['🏷️'])[0]):(t.emoji||'🗂️');
+  var pd=window.fhPersonalData?fhPersonalData():null;
+  var acctId=PXD.hasOwnProperty('accountId')?PXD.accountId:(t.accountId||null);
+  var acct=acctId&&pd?((pd.accounts||[]).find(function(a){ return a.id===acctId; })||null):null;
+  var html='<div class="exd-focal">'
+    +'<div class="exd-ico" style="background:var(--fill-neutral)">'+esc(em)+'</div>'
+    +'<div class="exd-amt num">'+esc(vAmtDisp)+(CUR==='VND'?' ₫':'')+'</div>'
+    +'<div class="exd-note">'+esc(vNote||vCat||'Khoản chi')+'</div>'
+    +'<div class="exd-prov">'+esc(_pexdDateLong(vDate))+(vTime?'<span class="sep">·</span>'+esc(vTime):'')+'</div>'
+    +'</div>';
+  var rows='';
+  // Ghi vào — the cross-ledger door: never a silent re-scope, the confirm sheet
+  // names every consequence (M4) before the one tap that commits.
+  rows+=_exdRow({label:'Ghi vào', val:'<b>🔒 Cá nhân</b>', fn:'pexdMove()'});
+  rows+=_exdRow({label:'Danh mục', chg:PXD.cat!=null,
+    val:'<b>'+esc(em)+' '+esc(vCat||'Chưa rõ')+'</b>', soft:!vCat, fn:"exdSheetCat('pers')"});
+  rows+=_exdRow({label:'Số tiền & ghi chú', chg:(PXD.amtDisp!=null||PXD.note!=null),
+    val:'<b class="num">'+esc(vAmtDisp)+(CUR==='VND'?' ₫':'')+'</b>', fn:"exdSheetAmt('pers')"});
+  rows+=_exdRow({label:'Khi nào', chg:(PXD.dateIso!=null||PXD.timeStr!==undefined),
+    val:'<b class="num">'+esc(vDate?vDate.slice(8,10)+'/'+vDate.slice(5,7):'')+(vTime?' · '+esc(vTime):'')+'</b>', fn:"exdSheetWhen('pers')"});
+  rows+=_exdRow({label:'Nguồn tiền', chg:PXD.hasOwnProperty('accountId'), soft:!acctId,
+    val:'<b>'+(acct?esc(acct.name||'Tài khoản'):(acctId?'Tài khoản':'Chưa rõ'))+'</b>', fn:'pexdSheetAcct()'});
+  html+='<div class="exd-meta srows"><div class="csv-srows">'+rows+'</div></div>';
+  var ph=t.photos||[];
+  html+=_exdSecH('Ảnh', ph.length||'Thêm')
+    +'<div class="exd-photos">'+ph.map(function(src){ return '<div class="exd-photo" style="background-image:url('+src+')"></div>'; }).join('')
+    +'<button type="button" class="exd-photo add" onclick="pexdPhotoDoor()" aria-label="Thêm ảnh">＋</button></div>';
+  body.innerHTML=html;
+  var cta=document.getElementById('pexd-cta');
+  if(cta){
+    cta.innerHTML='<button type="button" class="exd-cta-del" id="pexd-del" onclick="pexdDelete()" aria-label="Xoá khoản này">'+_exdTrash()+'</button>'
+      +'<button type="button" class="exd-go'+(_pxdDirty()?'':' quiet')+'" id="pexd-go" onclick="pexdSave()">Cập nhật</button>';
+  }
+  _pxdResetDel();
+}
+window.renderPersonalTxDetail=renderPersonalTxDetail;
+function pexdSheetAcct(){
+  var t=(typeof _pTxById==='function')?_pTxById(_pexdId):null; if(!t) return;
+  var pd=window.fhPersonalData?fhPersonalData():null;
+  var cur=PXD.hasOwnProperty('accountId')?PXD.accountId:(t.accountId||null);
+  setTxt('exdacct-h', 'Nguồn tiền');
+  setTxt('exdacct-sub', 'Gắn để số dư tài khoản tính được · thay đổi chờ Cập nhật');
+  var ico={deposit:'🏦',ewallet:'📱',credit_card:'💳',cash:'💵'};
+  var h='<button type="button" class="choice'+(cur?'':' on')+'" onclick="pexdPickAcct(&#39;&#39;)">Chưa gắn</button>';
+  ((pd&&pd.accounts)||[]).forEach(function(a){
+    h+='<button type="button" class="choice'+(a.id===cur?' on':'')+'" onclick="pexdPickAcct(&#39;'+escAttr(a.id)+'&#39;)">'+(ico[a.kind]||'🏦')+' '+esc(a.name||'Tài khoản')+'</button>';
+  });
+  setHTML('exdacct-list', h);
+  openSheet('sheet-exd-acct');
+}
+function pexdPickAcct(id){ closeSheet(); PXD.accountId=id||null; renderPersonalTxDetail(); }
+/* Ghi vào → the existing move confirm (59-ledger-move-ui): same sheet, same
+   consequences, same engine — only the entrance moved from the chip flip. */
+function pexdMove(){
+  if(_pexdId==null) return;
+  if(navigator.onLine===false){ toast('Cần mạng để chuyển sổ'); return; }
+  if(!(window.DB&&DB.fid)){ toast('Vào một nhóm gia đình trước đã'); return; }
+  _mvCtx={dir:'p2f', pid:_pexdId, cur:'personal'};
+  fhMoveSheetOpen();
+}
+function pexdPhotoDoor(){   // photos keep riding the composer (EXIF/encrypt pipeline lives there)
+  if(_pexdId==null) return;
+  var id=_pexdId;
+  if(typeof openPersonalTxEdit==='function') openPersonalTxEdit(id);
+}
+async function pexdSave(){
+  if(!_pxdDirty()) return;
+  var t=(typeof _pTxById==='function')?_pTxById(_pexdId):null; if(!t) return;
+  var p=PXD;
+  var amtBase=p.amtDisp!=null?parseAmtBase(p.amtDisp):t.amt;
+  if(!(amtBase>0)){ toast('Nhập số tiền trước đã'); return; }
+  var go=document.getElementById('pexd-go');
+  if(go){ if(go.disabled) return; go.disabled=true; go.textContent='Đang lưu…'; }
+  var fields={ amt:amtBase,
+    note:(p.note!=null?p.note:(t.note||'')),
+    cat:(p.cat!=null?p.cat:(t.cat||'')),
+    emoji:(p.cat!=null?((catStyle[p.cat]||['🏷️'])[0]):(t.emoji||null)),
+    time:(p.timeStr!==undefined?p.timeStr:(t.time||'')),
+    dateIso:(p.dateIso!=null?p.dateIso:t.date) };
+  if(p.hasOwnProperty('accountId')) fields.accountId=p.accountId;
+  var ok=false;
+  try{ ok=await window.fhPersonalUpdateExpense(_pexdId, fields); }catch(e){}
+  if(go){ go.disabled=false; go.textContent='Cập nhật'; }
+  if(!ok){ toast('Chưa lưu được, thử lại nhé'); return; }
+  PXD={};
+  if(typeof renderPersonal==='function'){ try{ renderPersonal(); }catch(e){} }
+  if(typeof refreshPersonalTxnOverlay==='function') refreshPersonalTxnOverlay();
+  renderPersonalTxDetail();
+  toast('Đã cập nhật');
+}
+window.pexdSave=pexdSave;
+function _pxdResetDel(){
+  _pexdDelArmed=false; clearTimeout(_pexdDelT);
+  var b=document.getElementById('pexd-del'); if(b){ b.classList.remove('armed'); b.innerHTML=_exdTrash(); }
+}
+async function pexdDelete(){
+  var b=document.getElementById('pexd-del');
+  if(!_pexdDelArmed){
+    _pexdDelArmed=true; if(b){ b.classList.add('armed'); b.textContent='Xoá?'; }
+    clearTimeout(_pexdDelT); _pexdDelT=setTimeout(_pxdResetDel,3000); return;
+  }
+  _pxdResetDel();
+  var id=_pexdId; if(id==null){ closePersonalTxDetail(); return; }
+  if(b){ b.disabled=true; }
+  var ok=false;
+  try{ ok=await window.fhPersonalDeleteExpense(id); }catch(e){}
+  if(b){ b.disabled=false; }
+  if(!ok){ toast('Chưa xoá được, thử lại nhé'); return; }
+  closePersonalTxDetail();
+  if(typeof renderPersonal==='function'){ try{ renderPersonal(); }catch(e){} }
+  if(typeof refreshPersonalTxnOverlay==='function') refreshPersonalTxnOverlay();
+  toast('Đã xoá');
+}
+window.pexdDelete=pexdDelete;
 
 /* ---------- collaborative reactions ----------
    A family member holds a transaction row, throws ONE emotional reaction, and it
@@ -19916,7 +20306,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v505';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v506';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -25692,7 +26082,13 @@ window.obGoogle = async function () {
       if (r.brokeRecent && r.current < 7) h += '<span class="stk-stamp x">×</span>';
       if (r.weeks > 0) h += '<span class="stk-stamp star">★' + (r.weeks > 1 ? '<i>×' + r.weeks + '</i>' : '') + '</span>';
       const shown = Math.min(r.rem, 7);
-      for (let i = 0; i < shown; i++) h += '<span class="stk-stamp on">✓</span>';
+      // Today is still open: its stamp shows as in-progress, not a finished ✓.
+      // The live day is the LAST shown slot, unless the streak already broke
+      // today (current === 0 → shown 0, the × above carries it).
+      const liveIdx = (r.current > 0 && r.brokeOn !== _today()) ? shown - 1 : -1;
+      for (let i = 0; i < shown; i++)
+        h += (i === liveIdx) ? '<span class="stk-stamp live"></span>'
+                             : '<span class="stk-stamp on">✓</span>';
       const used = (r.brokeRecent && r.current < 7 ? 1 : 0) + (r.weeks > 0 ? 1 : 0) + shown;
       for (let i = used; i < 7; i++) h += '<span class="stk-stamp"></span>';
       return h + '</div>';
@@ -25709,8 +26105,8 @@ window.obGoogle = async function () {
         const when = r.brokeOn === _today() ? _L('hôm nay', 'today')
           : r.brokeOn === _shift(_today(), -1) ? _L('hôm qua', 'yesterday') : r.brokeOn.slice(8, 10) + '/' + r.brokeOn.slice(5, 7);
         const amtS = (r.brokeAmt != null && typeof fmt === 'function') ? fmt(r.brokeAmt) + ' ' : '';
-        h += '<div class="stk-broke">' + _L('Khoản ' + amtS + when + (r.brokeStaged ? ' (chưa duyệt)' : '') + ' xé thẻ — thẻ mới đã bắt đầu.',
-          'A ' + amtS + 'charge ' + when + ' tore the card — a new one has begun.') + '</div>';
+        h += '<div class="stk-broke">' + _L('Khoản ' + amtS + when + (r.brokeStaged ? ' (chưa duyệt)' : '') + ' làm đứt chuỗi. Bắt đầu lại từ hôm nay.',
+          'A ' + amtS + 'charge ' + when + ' broke the streak. Starting over today.') + '</div>';
       }
       if (r.queued > 0 && !r.brokeRecent) h += '<div class="stk-warn">' + _L('Còn ' + r.queued + ' khoản email chưa duyệt trùng chuỗi', r.queued + ' unreviewed email item(s) overlap') + '</div>';
       if (r.unreadable) h += '<div class="stk-warn">' + _L('Có khoản chưa đọc được trong khoảng này', 'Some rows in range are unreadable') + '</div>';
@@ -25872,7 +26268,7 @@ window.obGoogle = async function () {
       if (!F.defs.length) {
         host.innerHTML = h + '<div class="card stk-empty" onclick="fhStreakNewSheet(\'family\')"><div class="stk-empty-e">🤝</div>'
           + '<div class="stk-empty-t">' + _L('Cả nhà cùng nhịn một thứ?', 'Quit something together?') + '</div>'
-          + '<div class="stk-empty-s">' + _L('Ví dụ: 7 ngày không trà sữa — tính từ sổ chung, cả nhà cùng giữ.', 'e.g. 7 days no bubble tea — counted from the shared ledger.') + '</div></div>';
+          + '<div class="stk-empty-s">' + _L('Ví dụ: 7 ngày không trà sữa, tính từ sổ chung, cả nhà cùng giữ.', 'e.g. 7 days without bubble tea, counted from the shared ledger.') + '</div></div>';
         return;
       }
       for (const d of F.defs) {
@@ -25910,7 +26306,7 @@ window.obGoogle = async function () {
     window.fhStreakNewSheet = async function (scope) {
       _newScope = scope === 'family' ? 'family' : 'personal';
       const defs = _newScope === 'family' ? F.defs : S.defs;
-      if ((defs || []).length >= MAX_ACTIVE) { window.toast && toast(_L('Tối đa 3 chuỗi — lưu trữ bớt một chuỗi trước nhé', 'Max 3 streaks — archive one first')); return; }
+      if ((defs || []).length >= MAX_ACTIVE) { window.toast && toast(_L('Tối đa 3 chuỗi. Lưu trữ bớt một chuỗi trước nhé', 'Max 3 streaks. Archive one first')); return; }
       const box = document.getElementById('stk-new-list'); if (!box) return;
       box.innerHTML = '<div class="stk-empty-s">' + _L('Đang gom gợi ý…', 'Mining…') + '</div>';
       if (typeof openSheet === 'function') openSheet('sheet-streak-new');
@@ -25923,7 +26319,7 @@ window.obGoogle = async function () {
       if (m.cats.length) { h += '<div class="stk-pick-lbl">' + _L('Theo danh mục', 'By category') + '</div>'; m.cats.forEach((o) => h += row(o)); }
       h += '<div class="stk-pick-lbl">' + _L('Hoặc từ khoá khác', 'Or another keyword') + '</div>'
         + '<div class="stk-free"><input id="stk-free-in" placeholder="' + _L('vd: grab, aeon, trà sữa…', 'e.g. grab, aeon…') + '">'
-        + '<button class="btn-line stk-free-go" onclick="fhStreakPickFree()">' + _L('Theo dõi', 'Track') + '</button></div>';
+        + '<button class="btn-line stk-free-go" onclick="fhStreakPickFree()">' + _L('Tạo chuỗi', 'Create') + '</button></div>';
       box.innerHTML = h;
     };
     /* Family mining: categories only — family rows carry no structured
@@ -25945,7 +26341,7 @@ window.obGoogle = async function () {
       const rule = { type: o.type, key: o.key, label: o.label, emoji: o.emoji || (o.type === 'merchant' ? '🏷️' : '🗂️'), milestone: 7 };
       const ok = _newScope === 'family' ? await window.fhFamStreakCreate(rule) : await window.fhStreakCreate(rule);
       if (ok === 'cap') { window.toast && toast(_L('Tối đa 3 chuỗi', 'Max 3 streaks')); return; }
-      if (!ok) { window.toast && toast(_L('Chưa tạo được — thử lại', 'Could not create — retry')); return; }
+      if (!ok) { window.toast && toast(_L('Chưa tạo được, thử lại nhé', 'Could not create, please retry')); return; }
       if (typeof closeSheet === 'function') closeSheet();
       window.toast && toast(_L('Bắt đầu! Hôm nay là ngày 1', 'Started! Today is day 1'));
       if (_newScope === 'family') {

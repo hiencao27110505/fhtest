@@ -68,7 +68,7 @@ Deno.serve(async (req: Request) => {
   const payload = JSON.stringify({
     k: "streak_digest",
     title: "",
-    body: "Chuỗi thói quen của bạn có tin sáng nay — mở app xem nha!",
+    body: "Chuỗi thói quen của bạn có tin sáng nay. Mở app xem nha.",
     tag: "fh-streak",
     url: "./",
   });

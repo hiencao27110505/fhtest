@@ -254,7 +254,13 @@
       if (r.brokeRecent && r.current < 7) h += '<span class="stk-stamp x">×</span>';
       if (r.weeks > 0) h += '<span class="stk-stamp star">★' + (r.weeks > 1 ? '<i>×' + r.weeks + '</i>' : '') + '</span>';
       const shown = Math.min(r.rem, 7);
-      for (let i = 0; i < shown; i++) h += '<span class="stk-stamp on">✓</span>';
+      // Today is still open: its stamp shows as in-progress, not a finished ✓.
+      // The live day is the LAST shown slot, unless the streak already broke
+      // today (current === 0 → shown 0, the × above carries it).
+      const liveIdx = (r.current > 0 && r.brokeOn !== _today()) ? shown - 1 : -1;
+      for (let i = 0; i < shown; i++)
+        h += (i === liveIdx) ? '<span class="stk-stamp live"></span>'
+                             : '<span class="stk-stamp on">✓</span>';
       const used = (r.brokeRecent && r.current < 7 ? 1 : 0) + (r.weeks > 0 ? 1 : 0) + shown;
       for (let i = used; i < 7; i++) h += '<span class="stk-stamp"></span>';
       return h + '</div>';
@@ -271,8 +277,8 @@
         const when = r.brokeOn === _today() ? _L('hôm nay', 'today')
           : r.brokeOn === _shift(_today(), -1) ? _L('hôm qua', 'yesterday') : r.brokeOn.slice(8, 10) + '/' + r.brokeOn.slice(5, 7);
         const amtS = (r.brokeAmt != null && typeof fmt === 'function') ? fmt(r.brokeAmt) + ' ' : '';
-        h += '<div class="stk-broke">' + _L('Khoản ' + amtS + when + (r.brokeStaged ? ' (chưa duyệt)' : '') + ' xé thẻ — thẻ mới đã bắt đầu.',
-          'A ' + amtS + 'charge ' + when + ' tore the card — a new one has begun.') + '</div>';
+        h += '<div class="stk-broke">' + _L('Khoản ' + amtS + when + (r.brokeStaged ? ' (chưa duyệt)' : '') + ' làm đứt chuỗi. Bắt đầu lại từ hôm nay.',
+          'A ' + amtS + 'charge ' + when + ' broke the streak. Starting over today.') + '</div>';
       }
       if (r.queued > 0 && !r.brokeRecent) h += '<div class="stk-warn">' + _L('Còn ' + r.queued + ' khoản email chưa duyệt trùng chuỗi', r.queued + ' unreviewed email item(s) overlap') + '</div>';
       if (r.unreadable) h += '<div class="stk-warn">' + _L('Có khoản chưa đọc được trong khoảng này', 'Some rows in range are unreadable') + '</div>';
@@ -434,7 +440,7 @@
       if (!F.defs.length) {
         host.innerHTML = h + '<div class="card stk-empty" onclick="fhStreakNewSheet(\'family\')"><div class="stk-empty-e">🤝</div>'
           + '<div class="stk-empty-t">' + _L('Cả nhà cùng nhịn một thứ?', 'Quit something together?') + '</div>'
-          + '<div class="stk-empty-s">' + _L('Ví dụ: 7 ngày không trà sữa — tính từ sổ chung, cả nhà cùng giữ.', 'e.g. 7 days no bubble tea — counted from the shared ledger.') + '</div></div>';
+          + '<div class="stk-empty-s">' + _L('Ví dụ: 7 ngày không trà sữa, tính từ sổ chung, cả nhà cùng giữ.', 'e.g. 7 days without bubble tea, counted from the shared ledger.') + '</div></div>';
         return;
       }
       for (const d of F.defs) {
@@ -472,7 +478,7 @@
     window.fhStreakNewSheet = async function (scope) {
       _newScope = scope === 'family' ? 'family' : 'personal';
       const defs = _newScope === 'family' ? F.defs : S.defs;
-      if ((defs || []).length >= MAX_ACTIVE) { window.toast && toast(_L('Tối đa 3 chuỗi — lưu trữ bớt một chuỗi trước nhé', 'Max 3 streaks — archive one first')); return; }
+      if ((defs || []).length >= MAX_ACTIVE) { window.toast && toast(_L('Tối đa 3 chuỗi. Lưu trữ bớt một chuỗi trước nhé', 'Max 3 streaks. Archive one first')); return; }
       const box = document.getElementById('stk-new-list'); if (!box) return;
       box.innerHTML = '<div class="stk-empty-s">' + _L('Đang gom gợi ý…', 'Mining…') + '</div>';
       if (typeof openSheet === 'function') openSheet('sheet-streak-new');
@@ -485,7 +491,7 @@
       if (m.cats.length) { h += '<div class="stk-pick-lbl">' + _L('Theo danh mục', 'By category') + '</div>'; m.cats.forEach((o) => h += row(o)); }
       h += '<div class="stk-pick-lbl">' + _L('Hoặc từ khoá khác', 'Or another keyword') + '</div>'
         + '<div class="stk-free"><input id="stk-free-in" placeholder="' + _L('vd: grab, aeon, trà sữa…', 'e.g. grab, aeon…') + '">'
-        + '<button class="btn-line stk-free-go" onclick="fhStreakPickFree()">' + _L('Theo dõi', 'Track') + '</button></div>';
+        + '<button class="btn-line stk-free-go" onclick="fhStreakPickFree()">' + _L('Tạo chuỗi', 'Create') + '</button></div>';
       box.innerHTML = h;
     };
     /* Family mining: categories only — family rows carry no structured
@@ -507,7 +513,7 @@
       const rule = { type: o.type, key: o.key, label: o.label, emoji: o.emoji || (o.type === 'merchant' ? '🏷️' : '🗂️'), milestone: 7 };
       const ok = _newScope === 'family' ? await window.fhFamStreakCreate(rule) : await window.fhStreakCreate(rule);
       if (ok === 'cap') { window.toast && toast(_L('Tối đa 3 chuỗi', 'Max 3 streaks')); return; }
-      if (!ok) { window.toast && toast(_L('Chưa tạo được — thử lại', 'Could not create — retry')); return; }
+      if (!ok) { window.toast && toast(_L('Chưa tạo được, thử lại nhé', 'Could not create, please retry')); return; }
       if (typeof closeSheet === 'function') closeSheet();
       window.toast && toast(_L('Bắt đầu! Hôm nay là ngày 1', 'Started! Today is day 1'));
       if (_newScope === 'family') {

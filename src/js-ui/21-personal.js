@@ -539,7 +539,7 @@ function _persEmailRow(){
            corner — the family name sits under the amount where the category
            would; a private row shows its own category there. */
         var _tap = t.spaceId ? ' onclick="fhMirrorRowTap(\''+t.id+'\')"'
-                 : (!t.linkId ? ' onclick="openPersonalTxEdit(\''+t.id+'\')"' : '');
+                 : (!t.linkId ? ' onclick="openPersonalTxDetail(\''+t.id+'\')"' : '');
         var _tile = (t.photos&&t.photos.length)
           ? '<div class="r-ico ph" style="background-image:url('+escAttr(t.photos[0])+')"></div>'
           : '<div class="r-ico personal-ico">'+(t.emoji||'🗂️')+'</div>';
