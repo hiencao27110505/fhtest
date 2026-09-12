@@ -17112,7 +17112,7 @@ function clearFilter(){ txFilter=null; renderTxns(); }
    chart zoom (independent of the list grouping). Grouping/sort/zoom persist
    per scope; filters reset each open. */
 var txnSort='date';                                 // 'date' | 'amount' — order INSIDE a group
-var TXV={ grp:'day', cgrp:'day', pin:null, kinds:null, srcs:null, accts:null, cats:null, _jump:null, _stReset:false };
+var TXV={ grp:'day', cgrp:'day', pin:null, kinds:null, srcs:null, accts:null, cats:null, _stReset:false };
 function _txScopeKey(){ return _txnPersonal()?'personal':'family'; }
 function _txSavePrefs(){
   try{ localStorage.setItem('fh-txnview:'+_txScopeKey(), JSON.stringify({grp:TXV.grp,cgrp:TXV.cgrp,sort:txnSort})); }catch(_e){}
@@ -17330,22 +17330,23 @@ function renderTxnStats(list){
   var vao=0, ra=0, n=0;
   list.forEach(function(t){ if(t.future) return; n++; var v=_txNet(t); if(v>0) vao+=v; else ra+=-v; });
   var net=vao-ra;
-  var outs={}, keys=[], jump={};
+  var outs={}, keys=[];
   list.forEach(function(t){
     if(t.future) return;
     var k=_txGKey(t,TXV.cgrp);
     if(outs[k]===undefined){ outs[k]=0; keys.push(k); }
     var v=_txNet(t); if(v<0) outs[k]+=-v;
-    var d=t._d?t._d.getTime():0;
-    if(!jump[k]||d>jump[k].d) jump[k]={ d:d, head:_txGKey(t,TXV.grp) };
   });
   keys.sort();
   var maxOut=0; keys.forEach(function(k){ if(outs[k]>maxOut) maxOut=outs[k]; });
-  TXV._jump=jump;
+  /* Bars are scaled to the tallest bar IN VIEW, not the whole range — the
+     initial global-max heights are only a first paint; txnStripScale() takes
+     over immediately and again on every scroll, so what you're looking at
+     always uses the full height. data-out carries each bucket's value. */
   var cols=keys.map(function(k){
     var h=maxOut?Math.max(outs[k]?5:0, Math.round(outs[k]/maxOut*100)):0;
     var pin=(TXV.pin===k)?'<span class="pst-pin" style="top:-20px">'+L('Ra ','Out ')+fmtK(outs[k])+'</span>':'';
-    return '<button type="button" class="pst-c" onclick="txnBarTap(&#39;'+k+'&#39;)" aria-label="'+escAttr(_txStripLbl(k))+'">'
+    return '<button type="button" class="pst-c" data-out="'+(outs[k]||0)+'" onclick="txnBarTap(&#39;'+k+'&#39;)" aria-label="'+escAttr(_txStripLbl(k))+'">'
       +'<span class="pst-bars">'+pin+'<i class="pst-b" style="height:'+h+'%"></i></span>'
       +'<span class="pst-l'+(_txStripOn(k)?' on':'')+(TXV.pin===k?' sel':'')+'">'+_txStripLbl(k)+'</span></button>';
   }).join('');
@@ -17359,17 +17360,38 @@ function renderTxnStats(list){
     +'<div class="st-tile"><div class="cf-tl">'+L('Ra','Out')+'</div><div class="cf-tv num">'+fmtK(ra)+'</div></div>'
     +'<div class="st-tile"><div class="cf-tl">'+L('Ròng','Net')+'</div><div class="cf-tv num'+(net>0?' pos':'')+'">'+(net>0?'+':(net<0?'−':''))+fmtK(Math.abs(net))+'</div></div>'
     +'</div>'
-    +'<div class="pst">'+cols+'</div>';
-  var sp=box.querySelector('.pst'); if(sp) sp.scrollLeft=(keep!=null)?keep:sp.scrollWidth;
+    +'<div class="pst" onscroll="txnStripScale(this)">'+cols+'</div>';
+  var sp=box.querySelector('.pst');
+  if(sp){ sp.scrollLeft=(keep!=null)?keep:sp.scrollWidth; txnStripScale(sp); }
+}
+/* Rescale the strip's bars to the tallest bar currently VISIBLE (rAF-throttled;
+   the .pst-b height transition makes the re-normalisation read as a settle).
+   Off-view bars clamp at 100% until they scroll in and become the new max. */
+function txnStripScale(sp){
+  if(!sp || sp._raf) return;
+  sp._raf=requestAnimationFrame(function(){
+    sp._raf=null;
+    var sr=sp.getBoundingClientRect(), max=0;
+    var cols=sp.querySelectorAll('.pst-c');
+    cols.forEach(function(c){
+      var r=c.getBoundingClientRect();
+      c._vis=(r.right>sr.left+4 && r.left<sr.right-4);
+      var o=Number(c.dataset.out)||0;
+      if(c._vis && o>max) max=o;
+    });
+    cols.forEach(function(c){
+      var o=Number(c.dataset.out)||0;
+      var h=max?Math.min(100, Math.max(o?5:0, Math.round(o/max*100))):0;
+      var b=c.querySelector('.pst-b'); if(b) b.style.height=h+'%';
+    });
+  });
 }
 function txnPz(g){ if(TXV.cgrp===g) return; TXV.cgrp=g; TXV.pin=null; TXV._stReset=true; _txSavePrefs(); renderTxnScreen(); }
+/* A bar tap only PINS its value now — it never scrolls the list. Repaint just
+   the stat card so the list (and the strip's scroll position) stay put. */
 function txnBarTap(k){
   TXV.pin=(TXV.pin===k)?null:k;
-  renderTxnScreen();
-  if(!TXV.pin) return;
-  var j=(TXV._jump||{})[k]; if(!j) return;
-  var head=document.getElementById('txnh-'+j.head), sc=document.getElementById('txn-scroll');
-  if(head && sc) sc.scrollTo({ top:Math.max(0, head.getBoundingClientRect().top-sc.getBoundingClientRect().top+sc.scrollTop), behavior:'smooth' });
+  renderTxnStats(TXV._list||[]);
 }
 
 /* ── dropdown chips + their mini sheets (header direction 04) ─────────────── */
@@ -20341,7 +20363,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v508';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v509';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
