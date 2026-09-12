@@ -393,7 +393,7 @@
            failure-tolerant (a lost photo strip or pre-selection never costs the
            ledger), so they resolve to empty on error instead of failing the all. */
         const [tr, bd, ac, dr, pp, mm] = await Promise.all([
-          _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,occurred_time_enc,txn_date,kind,space_id,link_id,version,updated_at,created_at,account_id,transfer_group_id,position_account_id,quantity_enc').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }).order('id')),
+          _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,occurred_time_enc,txn_date,kind,space_id,link_id,version,updated_at,created_at,account_id,transfer_group_id,position_account_id,quantity_enc,source').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }).order('id')),
           _sb().from('personal_budgets').select('total_enc,cats_enc').eq('owner_user_id', P.uid).eq('month', _monISO()).maybeSingle(),
           _sb().from('personal_accounts').select('id,kind,name_enc,tail,provider,credit_limit_enc,human_verified,statement_day,due_day,anchor_balance_enc,anchor_at,ext_balance_enc,ext_balance_date,account_number_enc,asset_symbol_enc,asset_unit_enc,asset_class_enc,manual_price_enc,manual_price_at').eq('owner_user_id', P.uid).is('archived_at', null),
           _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,counterparty_enc,cat_name_enc,cat_emoji,txn_date,kind,account_id,transfer_group_id,position_account_id,quantity_enc,due_date,created_at').eq('owner_user_id', P.uid).or('kind.neq.expense,account_id.not.is.null').order('txn_date', { ascending: false }).order('id')),
@@ -433,6 +433,7 @@
           const qRaw = t.quantity_enc ? await _decP(t.quantity_enc) : null;
           txns.push({ id: t.id, date: t.txn_date, kind: t.kind, spaceId: t.space_id, linkId: t.link_id,
             version: t.version || 1, updatedAt: t.updated_at, ts: t.created_at,
+            src: t.source || null,
             accountId: t.account_id, transferGroupId: t.transfer_group_id,
             positionId: t.position_account_id || null,
             qty: (qRaw == null || qRaw === _DEC_FAILED) ? null : (Number(qRaw) || null),
@@ -515,6 +516,43 @@
            and quiet; only a tab with nothing on it gets the error screen. */
         if (window._persHadReady) _setState('ready'); else _setState('error');
       }
+    };
+
+    /* ── older history, on demand (txn-listing revamp Q17/Q20) ───────────────
+       The tab hydrate stays 2 months — boot is sacred — so the Giao dịch
+       screen, whose whole job is history, pays for its own depth: one fetch of
+       months 3–6 back, decrypted into P.txnsOld. Never into P.txns: the
+       mirror engine, budgets and tab math all key off the 2-month window and
+       must not widen silently. Session-cached; sign-out drops P wholesale. */
+    window.fhPersonalOlder = { state: 'idle' };            // idle | loading | done | error
+    window.fhPersonalFetchOlder = async function () {
+      const O = window.fhPersonalOlder;
+      if (O.state === 'done') return true;
+      if (O.state === 'loading') return false;
+      if (!P.uid || !P.key) return false;
+      O.state = 'loading';
+      try {
+        const to = _winFrom();
+        const d = new Date(); d.setMonth(d.getMonth() - 5); d.setDate(1);
+        const from = _localDate(d);
+        const tr = await _pageAll(() => _sb().from('personal_transactions')
+          .select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,occurred_time_enc,txn_date,kind,space_id,link_id,account_id,transfer_group_id,position_account_id,source')
+          .eq('owner_user_id', P.uid).gte('txn_date', from).lt('txn_date', to)
+          .order('txn_date', { ascending: false }).order('id'));
+        const old = [];
+        for (const t of tr.rows) {
+          const a = await _decP(t.amount_enc), bad = (a === _DEC_FAILED);
+          old.push({ id: t.id, date: t.txn_date, kind: t.kind, spaceId: t.space_id, linkId: t.link_id,
+            src: t.source || null, accountId: t.account_id, transferGroupId: t.transfer_group_id,
+            positionId: t.position_account_id || null, qty: null,
+            amt: bad ? null : Number(a), _unreadable: bad,
+            note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc), emoji: t.cat_emoji,
+            time: await _decTxt(t.occurred_time_enc) });
+        }
+        P.txnsOld = old;
+        O.state = 'done';
+        return true;
+      } catch (e) { console.warn('older history fetch failed', e); O.state = 'error'; return false; }
     };
 
     /* Duplicate-match slice for the staged review screen. The tab cache above
@@ -700,7 +738,10 @@
        would just be undone on the next mirror pass, so both writes are guarded on
        `link_id is null` server-side as well as being offered only for private rows
        in the UI. */
-    window.fhPersonalUpdateExpense = async function (id, fields) {
+    /* `quiet` (bulk edit, txn-listing revamp): skip the per-call re-hydrate so a
+       batch of N edits costs one hydrate at the end, not N — the caller MUST
+       await fhPersonalHydrate() itself after the batch. */
+    window.fhPersonalUpdateExpense = async function (id, fields, quiet) {
       if (!P.uid || !P.key || !id) return false;
       fields = fields || {};
       const t = _okTime(fields.time);
@@ -715,15 +756,17 @@
       if (fields.hasOwnProperty('accountId')) row.account_id = fields.accountId || null;
       const r = await _sb().from('personal_transactions').update(row).eq('id', id).eq('owner_user_id', P.uid).is('link_id', null);
       if (r.error) { console.warn('personal expense update failed', r.error); return false; }
-      await window.fhPersonalHydrate(); return true;
+      if (!quiet) await window.fhPersonalHydrate();
+      return true;
     };
-    window.fhPersonalDeleteExpense = async function (id) {
+    window.fhPersonalDeleteExpense = async function (id, quiet) {
       if (!P.uid || !id) return false;
       // storage objects don't cascade — remove the photo files (and rows) first
       try { await window.fhPersonalRemovePhotoRows(id); } catch (e) {}
       const r = await _sb().from('personal_transactions').delete().eq('id', id).eq('owner_user_id', P.uid).is('link_id', null);
       if (r.error) { console.warn('personal expense delete failed', r.error); return false; }
-      await window.fhPersonalHydrate(); return true;
+      if (!quiet) await window.fhPersonalHydrate();
+      return true;
     };
     /* Monthly budget. `cats` (optional) is a per-category map { name: amount };
        when present it is stored encrypted in cats_enc, giving the personal ledger

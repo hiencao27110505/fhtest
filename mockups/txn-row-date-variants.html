@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Row UI · ngày trong nhóm Tuần/Tháng · 3 biến thể</title>
+<style>
+:root{
+  --brand:#2E9E6B; --brand-ink:#1F7E52; --brand-tint:#e9f7f0;
+  --good:#1a9d5f; --good-tint:#e7f5ee; --danger:#E0322F;
+  --ink:#191022; --ink-2:#3a2f45; --muted:#6b6576; --muted-soft:#78727f;
+  --white:#ffffff; --canvas:#f4f1f6; --hairline:#e9e4ee; --divider:#f1edf4;
+  --surface:#f9f7f8; --fill-neutral:rgba(138,132,148,.14); --chev:#cfc8d6;
+  --shadow-card:0 1px 3px rgba(25,16,34,.05),0 8px 24px rgba(25,16,34,.04);
+  --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+.num{font-family:var(--disp);font-variant-numeric:tabular-nums}
+body{font-family:var(--text);background:#efeaf1;color:var(--ink);padding:48px 28px 90px;-webkit-font-smoothing:antialiased}
+.g-head{max-width:1180px;margin:0 auto 14px}
+.g-eyebrow{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--brand-ink)}
+.g-title{font-family:var(--disp);font-size:34px;font-weight:700;letter-spacing:-1px;margin-top:6px}
+.g-sub{font-size:15px;line-height:1.6;color:var(--ink-2);max-width:760px;margin-top:10px}
+.g-grid{max-width:1180px;margin:34px auto 0;display:grid;grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:42px 34px}
+.mock{min-width:0}
+.m-tag{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--brand-ink)}
+.m-tag i{font-style:normal;background:var(--brand-tint);border-radius:7px;padding:3px 8px}
+.m-title{font-family:var(--disp);font-size:19px;font-weight:700;letter-spacing:-.3px;margin-top:7px}
+.m-note{font-size:13px;line-height:1.55;color:var(--muted);margin:6px 0 16px;max-width:400px}
+
+.phone{width:100%;max-width:400px;background:#0d0a11;border-radius:44px;padding:9px;
+  box-shadow:0 2px 6px rgba(25,16,34,.12),0 30px 60px rgba(25,16,34,.22)}
+.screen{position:relative;overflow:hidden;border-radius:36px;background:var(--canvas);height:660px;display:flex;flex-direction:column}
+.sbar{flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:16px 26px 6px;font-family:var(--disp);font-size:14px;font-weight:600}
+.scroll{flex:1;overflow-y:auto;scrollbar-width:none}
+.scroll::-webkit-scrollbar{display:none}
+.homebar{flex-shrink:0;height:22px;display:flex;align-items:center;justify-content:center}
+.homebar i{width:130px;height:5px;border-radius:3px;background:rgba(25,16,34,.24)}
+
+.txn-mhead{position:sticky;top:0;z-index:6;display:flex;align-items:baseline;justify-content:space-between;
+  font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);
+  background:var(--canvas);padding:14px 18px 8px}
+.txn-mhead .num{font-weight:700;letter-spacing:0;text-transform:none;font-size:12px;color:var(--muted-soft)}
+.rows{background:var(--white);border-radius:20px;margin:0 16px 6px;overflow:hidden;box-shadow:var(--shadow-card)}
+.row{display:flex;align-items:center;gap:14px;padding:14px 18px;border-bottom:1px solid var(--divider)}
+.row:last-child{border-bottom:none}
+.r-ico{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0;background:var(--fill-neutral)}
+.r-body{flex:1;min-width:0}
+.r-t{font-size:16px;font-weight:500;letter-spacing:-.02em;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r-s{font-size:12.5px;letter-spacing:-.01em;color:var(--muted-soft);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r-s .sep{margin:0 4px;color:var(--chev)}
+.r-s .d{color:var(--muted);font-weight:600}
+.r-right{flex-shrink:0;text-align:right}
+.r-amt{font-family:var(--disp);font-variant-numeric:tabular-nums;font-weight:700;font-size:16.5px;letter-spacing:-.4px;color:var(--ink)}
+.r-amt.pos{color:var(--good)}
+.r-cat{font-size:12px;color:var(--muted);margin-top:2px}
+
+/* V3 · day sub-dividers inside the group card */
+.dsub{display:flex;align-items:baseline;justify-content:space-between;padding:10px 18px 5px;
+  font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted-soft);
+  background:var(--white)}
+.dsub:not(:first-child){border-top:1px solid var(--divider);margin-top:2px}
+.dsub .num{font-size:11px;letter-spacing:0;text-transform:none;font-weight:600;color:var(--chev)}
+.rows .row.und{border-bottom:0}
+.rows .row.und + .row.und{padding-top:4px}
+
+@media (max-width:460px){ body{padding:32px 14px 70px} .g-grid{gap:34px} }
+</style>
+</head>
+<body>
+
+<header class="g-head">
+  <div class="g-eyebrow">FamilyHub · Giao dịch · row UI</div>
+  <h1 class="g-title">Ngày ở đâu khi nhóm theo Tuần/Tháng?</h1>
+  <p class="g-sub">Cả 3 biến thể đã <b>bỏ nguồn nhập</b> ("từ email / ghi tay") khỏi dòng phụ — nguồn tiền
+  (thẻ …4512) vẫn giữ vì nó là thông tin tiền, không phải cách nhập. Khác nhau duy nhất: cách một hàng
+  nói nó thuộc ngày nào khi đầu nhóm chỉ còn nói "Tuần này" hay "Tháng 8". Nhóm theo Ngày thì cả ba giống
+  hệt nhau: dòng phụ chỉ còn giờ.</p>
+</header>
+
+<main class="g-grid">
+
+<!-- ═══ V1 · thứ + ngày trong dòng phụ ═══ -->
+<section class="mock">
+  <div class="m-tag"><i>A</i> Thứ + ngày trong dòng phụ</div>
+  <h2 class="m-title">"Th 6, 11/09 · 21:30"</h2>
+  <p class="m-note">Ngày đứng đầu dòng phụ, đậm hơn phần còn lại một bậc, kèm thứ để đọc nhanh bằng mắt.
+  Đầy đủ nhất, mỗi hàng tự đứng được một mình; đổi lại dòng phụ dài hơn.</p>
+  <div class="phone"><div class="screen">
+    <div class="sbar"><span>9:41</span><span></span></div>
+    <div class="scroll">
+      <div class="txn-mhead"><span>Tuần này</span><span class="num">−567.000 ₫</span></div>
+      <div class="rows">
+        <div class="row"><div class="r-ico" style="background:#fdf4e8">🍜</div>
+          <div class="r-body"><div class="r-t">Bún chả trưa với Vy</div>
+            <div class="r-s"><span class="d">Th 7, 12/09</span><span class="sep">·</span>12:20</div></div>
+          <div class="r-right"><div class="r-amt num">45.000 ₫</div><div class="r-cat">Ăn uống</div></div></div>
+        <div class="row"><div class="r-ico" style="background:#fdf4e8">☕</div>
+          <div class="r-body"><div class="r-t">Highlands Coffee</div>
+            <div class="r-s"><span class="d">Th 7, 12/09</span><span class="sep">·</span>08:45<span class="sep">·</span>thẻ …4512</div></div>
+          <div class="r-right"><div class="r-amt num">85.000 ₫</div><div class="r-cat">Ăn uống</div></div></div>
+        <div class="row"><div class="r-ico" style="background:#eef4fb">🛍️</div>
+          <div class="r-body"><div class="r-t">Đặt Shopee</div>
+            <div class="r-s"><span class="d">Th 6, 11/09</span><span class="sep">·</span>21:30</div></div>
+          <div class="r-right"><div class="r-amt num">320.000 ₫</div><div class="r-cat">Mua sắm</div></div></div>
+        <div class="row"><div class="r-ico" style="background:#eef4fb">🚕</div>
+          <div class="r-body"><div class="r-t">Grab về nhà</div>
+            <div class="r-s"><span class="d">Th 6, 11/09</span><span class="sep">·</span>18:05<span class="sep">·</span>thẻ …4512</div></div>
+          <div class="r-right"><div class="r-amt num">62.000 ₫</div><div class="r-cat">Di chuyển</div></div></div>
+        <div class="row"><div class="r-ico" style="background:#fdf4e8">🍱</div>
+          <div class="r-body"><div class="r-t">Cơm văn phòng</div>
+            <div class="r-s"><span class="d">Th 5, 10/09</span><span class="sep">·</span>12:05</div></div>
+          <div class="r-right"><div class="r-amt num">55.000 ₫</div><div class="r-cat">Ăn uống</div></div></div>
+      </div>
+      <div class="txn-mhead"><span>Tháng 8</span><span class="num">−7.180.000 ₫</span></div>
+      <div class="rows">
+        <div class="row"><div class="r-ico" style="background:#eef4fb">🏠</div>
+          <div class="r-body"><div class="r-t">Tiền nhà tháng 9</div>
+            <div class="r-s"><span class="d">Th 7, 30/08</span><span class="sep">·</span>09:00</div></div>
+          <div class="r-right"><div class="r-amt num">5.500.000 ₫</div><div class="r-cat">Nhà cửa</div></div></div>
+        <div class="row"><div class="r-ico" style="background:#eef4fb">💡</div>
+          <div class="r-body"><div class="r-t">Điện nước</div>
+            <div class="r-s"><span class="d">Th 5, 28/08</span><span class="sep">·</span>20:15</div></div>
+          <div class="r-right"><div class="r-amt num">1.200.000 ₫</div><div class="r-cat">Nhà cửa</div></div></div>
+        <div class="row"><div class="r-ico" style="background:#fdf4e8">🍲</div>
+          <div class="r-body"><div class="r-t">Ăn cuối tuần</div>
+            <div class="r-s"><span class="d">CN, 24/08</span><span class="sep">·</span>19:00</div></div>
+          <div class="r-right"><div class="r-amt num">480.000 ₫</div><div class="r-cat">Ăn uống</div></div></div>
+      </div>
+      <div style="height:30px"></div>
+    </div>
+    <div class="homebar"><i></i></div>
+  </div></div>
+</section>
+
+<!-- ═══ V2 · ngày gọn dưới số tiền ═══ -->
+<section class="mock">
+  <div class="m-tag"><i>B</i> Ngày dưới số tiền</div>
+  <h2 class="m-title">Cột phải: số tiền · "Mua sắm · 11/09"</h2>
+  <p class="m-note">Dòng phụ trái giữ nguyên sự yên tĩnh (giờ + nguồn tiền); ngày ghép vào dòng danh mục
+  bên phải, nơi mắt đã dừng khi quét số tiền. Hàng ngắn nhất; đổi lại cột phải mang hai thông tin.</p>
+  <div class="phone"><div class="screen">
+    <div class="sbar"><span>9:41</span><span></span></div>
+    <div class="scroll">
+      <div class="txn-mhead"><span>Tuần này</span><span class="num">−567.000 ₫</span></div>
+      <div class="rows">
+        <div class="row"><div class="r-ico" style="background:#fdf4e8">🍜</div>
+          <div class="r-body"><div class="r-t">Bún chả trưa với Vy</div>
+            <div class="r-s">12:20</div></div>
+          <div class="r-right"><div class="r-amt num">45.000 ₫</div><div class="r-cat">Ăn uống · 12/09</div></div></div>
+        <div class="row"><div class="r-ico" style="background:#fdf4e8">☕</div>
+          <div class="r-body"><div class="r-t">Highlands Coffee</div>
+            <div class="r-s">08:45<span class="sep">·</span>thẻ …4512</div></div>
+          <div class="r-right"><div class="r-amt num">85.000 ₫</div><div class="r-cat">Ăn uống · 12/09</div></div></div>
+        <div class="row"><div class="r-ico" style="background:#eef4fb">🛍️</div>
+          <div class="r-body"><div class="r-t">Đặt Shopee</div>
+            <div class="r-s">21:30</div></div>
+          <div class="r-right"><div class="r-amt num">320.000 ₫</div><div class="r-cat">Mua sắm · 11/09</div></div></div>
+        <div class="row"><div class="r-ico" style="background:#eef4fb">🚕</div>
+          <div class="r-body"><div class="r-t">Grab về nhà</div>
+            <div class="r-s">18:05<span class="sep">·</span>thẻ …4512</div></div>
+          <div class="r-right"><div class="r-amt num">62.000 ₫</div><div class="r-cat">Di chuyển · 11/09</div></div></div>
+        <div class="row"><div class="r-ico" style="background:#fdf4e8">🍱</div>
+          <div class="r-body"><div class="r-t">Cơm văn phòng</div>
+            <div class="r-s">12:05</div></div>
+          <div class="r-right"><div class="r-amt num">55.000 ₫</div><div class="r-cat">Ăn uống · 10/09</div></div></div>
+      </div>
+      <div class="txn-mhead"><span>Tháng 8</span><span class="num">−7.180.000 ₫</span></div>
+      <div class="rows">
+        <div class="row"><div class="r-ico" style="background:#eef4fb">🏠</div>
+          <div class="r-body"><div class="r-t">Tiền nhà tháng 9</div>
+            <div class="r-s">09:00</div></div>
+          <div class="r-right"><div class="r-amt num">5.500.000 ₫</div><div class="r-cat">Nhà cửa · 30/08</div></div></div>
+        <div class="row"><div class="r-ico" style="background:#eef4fb">💡</div>
+          <div class="r-body"><div class="r-t">Điện nước</div>
+            <div class="r-s">20:15</div></div>
+          <div class="r-right"><div class="r-amt num">1.200.000 ₫</div><div class="r-cat">Nhà cửa · 28/08</div></div></div>
+        <div class="row"><div class="r-ico" style="background:#fdf4e8">🍲</div>
+          <div class="r-body"><div class="r-t">Ăn cuối tuần</div>
+            <div class="r-s">19:00</div></div>
+          <div class="r-right"><div class="r-amt num">480.000 ₫</div><div class="r-cat">Ăn uống · 24/08</div></div></div>
+      </div>
+      <div style="height:30px"></div>
+    </div>
+    <div class="homebar"><i></i></div>
+  </div></div>
+</section>
+
+<!-- ═══ V3 · vạch ngày trong nhóm ═══ -->
+<section class="mock">
+  <div class="m-tag"><i>C</i> Vạch ngày trong nhóm</div>
+  <h2 class="m-title">Ngày là vạch chia nhỏ bên trong thẻ</h2>
+  <p class="m-note">Hàng giữ dòng phụ tối giản (giờ + nguồn tiền); ngày trở thành vạch chia nhỏ NGAY TRONG
+  thẻ nhóm, kiểu Photos chia theo ngày trong một album. Hàng sạch nhất, ngày đọc theo cụm; đổi lại thẻ có
+  thêm một cấp cấu trúc.</p>
+  <div class="phone"><div class="screen">
+    <div class="sbar"><span>9:41</span><span></span></div>
+    <div class="scroll">
+      <div class="txn-mhead"><span>Tuần này</span><span class="num">−567.000 ₫</span></div>
+      <div class="rows">
+        <div class="dsub"><span>Th 7, 12/09</span><span class="num">130.000 ₫</span></div>
+        <div class="row und"><div class="r-ico" style="background:#fdf4e8">🍜</div>
+          <div class="r-body"><div class="r-t">Bún chả trưa với Vy</div>
+            <div class="r-s">12:20</div></div>
+          <div class="r-right"><div class="r-amt num">45.000 ₫</div><div class="r-cat">Ăn uống</div></div></div>
+        <div class="row und"><div class="r-ico" style="background:#fdf4e8">☕</div>
+          <div class="r-body"><div class="r-t">Highlands Coffee</div>
+            <div class="r-s">08:45<span class="sep">·</span>thẻ …4512</div></div>
+          <div class="r-right"><div class="r-amt num">85.000 ₫</div><div class="r-cat">Ăn uống</div></div></div>
+        <div class="dsub"><span>Th 6, 11/09</span><span class="num">382.000 ₫</span></div>
+        <div class="row und"><div class="r-ico" style="background:#eef4fb">🛍️</div>
+          <div class="r-body"><div class="r-t">Đặt Shopee</div>
+            <div class="r-s">21:30</div></div>
+          <div class="r-right"><div class="r-amt num">320.000 ₫</div><div class="r-cat">Mua sắm</div></div></div>
+        <div class="row und"><div class="r-ico" style="background:#eef4fb">🚕</div>
+          <div class="r-body"><div class="r-t">Grab về nhà</div>
+            <div class="r-s">18:05<span class="sep">·</span>thẻ …4512</div></div>
+          <div class="r-right"><div class="r-amt num">62.000 ₫</div><div class="r-cat">Di chuyển</div></div></div>
+        <div class="dsub"><span>Th 5, 10/09</span><span class="num">55.000 ₫</span></div>
+        <div class="row und"><div class="r-ico" style="background:#fdf4e8">🍱</div>
+          <div class="r-body"><div class="r-t">Cơm văn phòng</div>
+            <div class="r-s">12:05</div></div>
+          <div class="r-right"><div class="r-amt num">55.000 ₫</div><div class="r-cat">Ăn uống</div></div></div>
+      </div>
+      <div class="txn-mhead"><span>Tháng 8</span><span class="num">−7.180.000 ₫</span></div>
+      <div class="rows">
+        <div class="dsub"><span>Th 7, 30/08</span><span class="num">5.500.000 ₫</span></div>
+        <div class="row und"><div class="r-ico" style="background:#eef4fb">🏠</div>
+          <div class="r-body"><div class="r-t">Tiền nhà tháng 9</div>
+            <div class="r-s">09:00</div></div>
+          <div class="r-right"><div class="r-amt num">5.500.000 ₫</div><div class="r-cat">Nhà cửa</div></div></div>
+        <div class="dsub"><span>Th 5, 28/08</span><span class="num">1.200.000 ₫</span></div>
+        <div class="row und"><div class="r-ico" style="background:#eef4fb">💡</div>
+          <div class="r-body"><div class="r-t">Điện nước</div>
+            <div class="r-s">20:15</div></div>
+          <div class="r-right"><div class="r-amt num">1.200.000 ₫</div><div class="r-cat">Nhà cửa</div></div></div>
+        <div class="dsub"><span>CN, 24/08</span><span class="num">480.000 ₫</span></div>
+        <div class="row und"><div class="r-ico" style="background:#fdf4e8">🍲</div>
+          <div class="r-body"><div class="r-t">Ăn cuối tuần</div>
+            <div class="r-s">19:00</div></div>
+          <div class="r-right"><div class="r-amt num">480.000 ₫</div><div class="r-cat">Ăn uống</div></div></div>
+      </div>
+      <div style="height:30px"></div>
+    </div>
+    <div class="homebar"><i></i></div>
+  </div></div>
+</section>
+
+</main>
+</body>
+</html>

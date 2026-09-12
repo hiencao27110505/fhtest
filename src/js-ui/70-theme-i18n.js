@@ -227,7 +227,12 @@ var EN_DEFAULT={
   /* celebrate */
   celTitle:'Fully funded!', celSub:'You saved it all together.', celBtn:'Woohoo! 🙌',
   /* transactions overlay */
-  txnTitle:'Transactions', phTxnSearch:'Search by name, category, person…', txnSortNewest:'Newest', txnHistory:'History', txActivity:'Activity',
+  txnTitle:'Transactions', phTxnSearch:'Search transactions', txnSortNewest:'Newest', txnHistory:'History', txActivity:'Activity',
+  txnSelect:'Select', txnBulkDelAria:'Delete selected',
+  txnSortH:'Arrange', txnSortSub:'Group, and the order inside a group.',
+  txnKindH:'Kinds', txnKindSub:'What shows is what the totals count.',
+  txnSrcH:'Source', txnSrcSub:'Where it came from, what paid for it.',
+  txnCatH:'Categories', txnCatSub:'Narrowing shows only those expenses.',
   /* category detail */
   cdSpentThisMonth:'Spent this month', cdTransactions:'Transactions', logExpenseBtn:'Log expense',
   /* status & misc */
@@ -333,7 +338,12 @@ var I18N={
     /* celebrate */
     celTitle:'Đủ tiền rồi!', celSub:'Cả nhà để dành đủ rồi đó.', celBtn:'Tuyệt vời! 🙌',
     /* transactions overlay */
-    txnTitle:'Giao dịch', phTxnSearch:'Tìm theo tên, danh mục, người…', txnSortNewest:'Mới nhất', txnHistory:'Lịch sử', txActivity:'Hoạt động',
+    txnTitle:'Giao dịch', phTxnSearch:'Tìm giao dịch', txnSortNewest:'Mới nhất', txnHistory:'Lịch sử', txActivity:'Hoạt động',
+    txnSelect:'Chọn', txnBulkDelAria:'Xoá các khoản đã chọn',
+    txnSortH:'Sắp xếp', txnSortSub:'Nhóm, và thứ tự trong nhóm.',
+    txnKindH:'Loại khoản', txnKindSub:'Hiện loại nào, tổng tính đúng loại đó.',
+    txnSrcH:'Nguồn', txnSrcSub:'Khoản đến từ đâu, trả bằng gì.',
+    txnCatH:'Danh mục', txnCatSub:'Thu hẹp là chỉ còn khoản chi của danh mục đó.',
     /* category detail */
     cdSpentThisMonth:'Đã chi tháng này', cdTransactions:'Giao dịch', logExpenseBtn:'Ghi khoản chi',
     /* status & misc */

@@ -1,5 +1,5 @@
 /* FamilyHub — offline-first service worker */
-const CACHE_NAME = 'familyhub-v502';
+const CACHE_NAME = 'familyhub-v504';
 /* Photos live in their own cache, deliberately NOT tied to CACHE_NAME. Folding
    them together would throw every photo away on each app release, which is the
    exact re-download this cache exists to prevent. Nothing here ever goes stale:
@@ -181,14 +181,73 @@ self.addEventListener('push', (e) => {
   // no redundant "Earthy" line, since the OS already labels the app. Only a
   // MISSING title falls back to the app name.
   const title = (typeof d.title === 'string') ? d.title : 'Earthy';
-  e.waitUntil(self.registration.showNotification(title, {
-    body: d.body || '',
+  const show = (body) => self.registration.showNotification(title, {
+    body: body || '',
     icon: './icon.png',
     badge: './icon.png',
     tag: d.tag || 'familyhub',   // same-kind pushes collapse instead of stacking
     data: { url: d.url || './', nav: d.nav || null }   // nav = where the tap should land (55-push.js routes it)
-  }));
+  });
+  // 6AM streak digest (0133): the payload is content-free by rule; the real
+  // verdict is composed HERE from the on-device snapshot the app drops at
+  // every streak compute. Anything missing/stale → the payload's fallback.
+  if (d.k === 'streak_digest') { e.waitUntil(_streakBody(d.body || '').then(show)); return; }
+  e.waitUntil(show(d.body));
 });
+
+function _streakBody(fallback) {
+  return new Promise((res) => {
+    try {
+      const rq = indexedDB.open('fh-streaks', 1);
+      rq.onupgradeneeded = () => { rq.result.createObjectStore('kv'); };
+      rq.onerror = () => res(fallback);
+      rq.onsuccess = () => {
+        try {
+          const g = rq.result.transaction('kv').objectStore('kv').get('digest');
+          g.onerror = () => res(fallback);
+          g.onsuccess = () => { try { res(_streakCompose(g.result, fallback)); } catch (e) { res(fallback); } };
+        } catch (e) { res(fallback); }
+      };
+    } catch (e) { res(fallback); }
+  });
+}
+/* Verdict about YESTERDAY, composed from a snapshot the app wrote at its last
+   streak compute. Stale (before yesterday) → fallback: never guess, never
+   praise a dead streak. Priority: đứt hôm qua → chạm mốc → ngày sạch (copy
+   from docs/streak-copy-matrix.html, variant rotated by day-of-month). */
+function _streakCompose(snap, fallback) {
+  if (!snap || !snap.items || !snap.items.length || !snap.day) return fallback;
+  const d2 = (n) => String(n).padStart(2, '0');
+  const iso = (dt) => dt.getFullYear() + '-' + d2(dt.getMonth() + 1) + '-' + d2(dt.getDate());
+  const now = new Date(), today = iso(now);
+  const yd = new Date(now); yd.setDate(yd.getDate() - 1);
+  const yest = iso(yd);
+  if (snap.day < yest) return fallback;
+  const lag = snap.day === today ? 0 : 1;   // snapshot from yesterday → counts are one clean day behind
+  const items = snap.items.map((i) => {
+    const adj = (i.cur || 0) + (i.brokeOn === yest || i.brokeOn === today ? 0 : lag);
+    return { label: i.label, fam: i.fam, brokeOn: i.brokeOn, milestone: i.milestone || 7, adj: adj };
+  });
+  const tail = items.length > 1 ? ' · ' + (items.length - 1) + ' chuỗi khác vẫn sống' : '';
+  const vn = (i) => (i.fam ? 'cả nhà không ' : 'không ') + i.label;
+  const pick = (arr) => arr[now.getDate() % arr.length];
+  const broke = items.find((i) => i.brokeOn === yest);
+  if (broke) return pick([
+    'Chuỗi ' + vn(broke) + ' đứt hôm qua — chạy lại từ hôm nay nha!' + tail,
+    'Hôm qua ' + broke.label + ' thắng một hiệp. Hiệp mới bắt đầu sáng nay!' + tail
+  ]);
+  const hit = items.find((i) => i.adj === i.milestone);
+  if (hit) return pick([
+    'TRÒN ' + hit.adj + ' NGÀY ' + vn(hit) + '! Xứng đáng một lời khen to.' + tail,
+    'Chạm mốc ' + hit.adj + ' ngày ' + vn(hit) + ' — mở app nhận pháo giấy nè!' + tail
+  ]);
+  const top = items.slice().sort((a, b) => b.adj - a.adj)[0];
+  return pick([
+    'Ngày ' + top.adj + ' ' + vn(top) + ' — vẫn giữ vững!' + tail,
+    'Hôm qua sạch bóng ' + top.label + '. Ngày ' + top.adj + '!' + tail,
+    'Chuỗi ' + vn(top) + ' sang ngày ' + top.adj + '. Cứ thế mà tiến!' + tail
+  ]);
+}
 
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();

@@ -3294,6 +3294,9 @@ function csvPromote(subset, opts){
                // 0100 provenance: a staged row's transport ('direct-email'/'forwarding-email'),
                // or 'csv-import' for a file. submitBulk hands this to the writethrough.
                source: csvStagedMode ? (window.fhStagedSource ? window.fhStagedSource(c) : 'forwarding-email') : 'csv-import',
+               // 0131 money source, display-grade: "VIB · tín dụng ••4512" as one
+               // string. Only email-staged rows know it; a CSV row carries none.
+               inst: csvStagedMode ? ([csvStagedProvider(c), csvStagedAcctChip(c)].filter(Boolean).join(' · ') || null) : null,
                time: csvRowTime(c), _timeAuto: false };   // reviewed time (edited value wins, else derived); '' = day-only
     });
     bulkActive = 0;

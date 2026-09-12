@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Header Giao dịch · 8 biến thể</title>
+<style>
+/* ═══ FamilyHub tokens (Sage) ═══ */
+:root{
+  --brand:#2E9E6B; --brand-ink:#1F7E52; --brand-2:#5FD3A0;
+  --grad-brand:linear-gradient(135deg,#34B87A,#5FC98D);
+  --brand-glow:rgba(46,158,107,.32); --brand-tint:#e9f7f0;
+  --danger:#E0322F; --danger-tint:#fdecef;
+  --good:#1a9d5f; --good-tint:#e7f5ee; --amber:#B8730B; --amber-tint:#fbefda;
+  --ink:#191022; --ink-2:#3a2f45; --muted:#6b6576; --muted-soft:#78727f;
+  --white:#ffffff; --canvas:#f4f1f6; --pearl:#fbfafc;
+  --hairline:#e9e4ee; --divider:#f1edf4;
+  --surface:#f9f7f8; --fill-neutral:rgba(138,132,148,.14); --chev:#cfc8d6;
+  --shadow-card:0 1px 3px rgba(25,16,34,.05),0 8px 24px rgba(25,16,34,.04);
+  --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;text-align:left}
+input{font:inherit}
+.num{font-family:var(--disp);font-variant-numeric:tabular-nums}
+
+/* ═══ Gallery ═══ */
+body{font-family:var(--text);background:#efeaf1;color:var(--ink);padding:48px 28px 90px;-webkit-font-smoothing:antialiased}
+.g-head{max-width:1180px;margin:0 auto 14px}
+.g-eyebrow{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--brand-ink)}
+.g-title{font-family:var(--disp);font-size:34px;font-weight:700;letter-spacing:-1px;margin-top:6px}
+.g-sub{font-size:15px;line-height:1.6;color:var(--ink-2);max-width:780px;margin-top:10px}
+.g-sub b{font-weight:700}
+.g-grid{max-width:1180px;margin:34px auto 0;display:grid;grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:42px 34px}
+.mock{min-width:0}
+.m-tag{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--brand-ink)}
+.m-tag i{font-style:normal;background:var(--brand-tint);border-radius:7px;padding:3px 8px}
+.m-title{font-family:var(--disp);font-size:19px;font-weight:700;letter-spacing:-.3px;margin-top:7px}
+.m-note{font-size:13px;line-height:1.55;color:var(--muted);margin:6px 0 16px;max-width:400px}
+
+/* ═══ Phone ═══ */
+.phone{width:100%;max-width:400px;background:#0d0a11;border-radius:44px;padding:9px;
+  box-shadow:0 2px 6px rgba(25,16,34,.12),0 30px 60px rgba(25,16,34,.22)}
+.screen{position:relative;overflow:hidden;border-radius:36px;background:var(--canvas);height:640px;display:flex;flex-direction:column}
+.sbar{flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:16px 26px 6px;font-family:var(--disp);font-size:14px;font-weight:600}
+.sbar .ic{display:flex;gap:5px;align-items:center}
+.sbar svg{height:11px;display:block}
+.scroll{flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;overscroll-behavior:contain}
+.scroll::-webkit-scrollbar{display:none}
+.homebar{flex-shrink:0;height:22px;display:flex;align-items:center;justify-content:center}
+.homebar i{width:130px;height:5px;border-radius:3px;background:rgba(25,16,34,.24)}
+
+/* ═══ Shared header vocabulary ═══ */
+.cd-back{display:inline-flex;align-items:center;gap:1px;color:var(--ink);font-size:17px;font-weight:600;letter-spacing:-.02em;padding:6px 16px 4px 12px}
+.cd-back svg{width:22px;height:22px}
+.title-row{display:flex;align-items:center;justify-content:space-between;margin:0 16px;gap:10px}
+.txn-title{font-family:var(--disp);font-weight:700;font-size:30px;letter-spacing:-.7px;color:var(--ink)}
+.txn-select{font-size:15px;font-weight:600;color:var(--brand-ink);padding:6px 2px;letter-spacing:-.01em;flex:none}
+.hdrwrap{background:var(--canvas);border-bottom:1px solid var(--hairline);position:relative;z-index:8}
+/* full-width search — SHORT placeholder, never wraps */
+.srch{display:flex;align-items:center;gap:9px;background:var(--white);border:1px solid var(--hairline);border-radius:12px;padding:0 13px;min-height:42px;margin:10px 16px 0}
+.srch svg{width:17px;height:17px;color:var(--muted);flex:0 0 auto}
+.srch input{flex:1;min-width:0;border:0;background:none;font-size:15px;color:var(--ink);outline:none}
+.srch input::placeholder{color:var(--muted-soft)}
+/* icon circles (App Store nav cluster) */
+.icirc{width:34px;height:34px;border-radius:50%;background:var(--fill-neutral);color:var(--ink-2);display:flex;align-items:center;justify-content:center;flex:none;position:relative}
+.icirc svg{width:16px;height:16px}
+.icirc .fdot{position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;border-radius:99px;background:var(--brand);color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px;border:2px solid var(--canvas)}
+.icirc:active{opacity:.6}
+/* chips */
+.chips{display:flex;gap:8px;overflow-x:auto;padding:10px 16px 12px;scrollbar-width:none;align-items:center}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:0 0 auto;display:inline-flex;align-items:center;gap:5px;min-height:36px;border:1px solid var(--hairline);background:var(--white);border-radius:999px;padding:7px 14px;font-size:13px;font-weight:600;color:var(--ink-2);white-space:nowrap}
+.chip.on{border-color:var(--brand);background:var(--brand-tint);color:var(--brand-ink)}
+.chip svg{width:13px;height:13px}
+.chip .cv{color:var(--brand-ink);font-weight:700}
+.chip.tool{background:var(--surface)}
+.chip.tool.live{border-color:var(--brand);background:var(--brand-tint);color:var(--brand-ink)}
+.chipdiv{flex:0 0 auto;width:1px;height:22px;background:var(--hairline);margin:0 2px}
+.chip .n{font-size:11px;font-weight:700;color:var(--muted-soft)}
+/* list sample */
+.csv-dupstrip{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin:12px 18px 2px;font-size:12.5px;color:var(--muted);line-height:1.4}
+.csv-dupstrip b{color:var(--ink);font-weight:700}
+.txn-mhead{position:sticky;top:0;z-index:6;display:flex;align-items:baseline;justify-content:space-between;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--canvas);margin:0;padding:14px 18px 8px}
+.txn-mhead .num{font-weight:700;letter-spacing:0;text-transform:none;font-size:12px;color:var(--muted-soft)}
+.rows{background:var(--white);border-radius:20px;margin:0 16px 6px;overflow:hidden;box-shadow:var(--shadow-card)}
+.row{display:flex;align-items:center;gap:14px;padding:14px 18px;border-bottom:1px solid var(--divider);width:100%}
+.row:last-child{border-bottom:none}
+.row:active{background:var(--canvas)}
+.r-ico{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0;background:var(--fill-neutral)}
+.r-body{flex:1;min-width:0}
+.r-t{font-size:16px;font-weight:500;letter-spacing:-.02em;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r-s{font-size:12.5px;color:var(--muted-soft);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r-s .sep{margin:0 4px;color:var(--chev)}
+.r-right{flex-shrink:0;text-align:right}
+.r-amt{font-family:var(--disp);font-variant-numeric:tabular-nums;font-weight:700;font-size:16.5px;letter-spacing:-.4px;color:var(--ink)}
+.r-cat{font-size:12px;color:var(--muted);margin-top:2px}
+
+/* ═══ Sheets + toast ═══ */
+.p-sheet{position:absolute;inset:0;z-index:20;visibility:hidden}
+.p-sheet.on{visibility:visible}
+.crs-scrim{position:absolute;inset:0;background:rgba(25,16,34,.42);opacity:0;transition:opacity .22s ease}
+.p-sheet.on .crs-scrim{opacity:1}
+.crs-sheet{position:absolute;left:0;right:0;bottom:0;background:var(--white);border-radius:22px 22px 0 0;box-shadow:0 -14px 44px rgba(25,16,34,.24);padding:8px 18px 24px;max-height:80%;overflow-y:auto;transform:translateY(102%);transition:transform .32s cubic-bezier(.32,.72,0,1)}
+.p-sheet.on .crs-sheet{transform:none}
+.crs-grab{width:36px;height:5px;border-radius:3px;background:var(--hairline);margin:4px auto 8px}
+.crs-t{font-family:var(--disp);font-size:16px;font-weight:700;text-align:center;padding:6px 0 2px;color:var(--ink)}
+.crs-sub{text-align:center;font-size:12.5px;color:var(--muted)}
+.crs-body{margin-top:14px}
+.crs-done{display:flex;align-items:center;justify-content:center;width:100%;margin-top:16px;min-height:46px;border:0;border-radius:9999px;background:var(--grad-brand);color:#fff;font-size:15px;font-weight:700;box-shadow:0 5px 14px var(--brand-glow)}
+.ctp-l{font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted-soft);margin:15px 0 7px}
+.ctp-l:first-child{margin-top:2px}
+.choices{display:flex;flex-wrap:wrap;gap:8px}
+.choice{display:inline-flex;align-items:center;gap:5px;font-size:13.5px;font-weight:600;color:var(--ink-2);background:var(--white);border:1px solid var(--hairline);border-radius:9999px;padding:9px 14px;min-height:40px}
+.choice.on{border:2px solid var(--brand);background:var(--brand-tint);color:var(--brand-ink);font-weight:700;padding:8px 13px}
+.atx-segs{display:flex;gap:4px;padding:3px;background:var(--surface);border-radius:11px}
+.atx-seg{flex:1;min-height:38px;border:0;border-radius:9px;font-size:13.5px;font-weight:600;color:var(--muted);display:flex;align-items:center;justify-content:center;transition:background .15s,color .15s}
+.atx-seg.on{background:var(--white);color:var(--brand-ink);box-shadow:0 1px 3px rgba(25,16,34,.14);font-weight:700}
+/* menu sheet rows (Files-style ⋯) */
+.csv-srow{display:flex;width:100%;align-items:center;justify-content:space-between;gap:10px;padding:12px 2px;min-height:46px;border-bottom:1px solid var(--divider)}
+.csv-srow:last-child{border-bottom:0}
+.csv-srow small{font-size:13.5px;font-weight:600;color:var(--ink);flex:none}
+.csv-sval{display:flex;align-items:center;gap:6px;min-width:0}
+.csv-sval b{font-size:14px;font-weight:600;color:var(--muted);white-space:nowrap}
+.csv-schev{width:15px;height:15px;color:var(--chev);flex:none}
+button.csv-srow:active{background:var(--surface)}
+.mi{display:inline-flex;width:28px;height:28px;border-radius:9px;background:var(--fill-neutral);color:var(--brand-ink);align-items:center;justify-content:center;margin-right:10px;flex:none}
+.mi svg{width:15px;height:15px}
+.toast{position:absolute;left:50%;bottom:30px;transform:translate(-50%,14px);z-index:40;display:flex;align-items:center;gap:8px;background:#241b2e;color:#fff;border-radius:9999px;padding:11px 18px;font-size:13.5px;font-weight:600;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .25s ease,transform .25s cubic-bezier(.32,.72,0,1);max-width:90%}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+.toast svg{width:15px;height:15px;flex:none;color:var(--brand-2)}
+
+/* ═══ V3 · hidden search overlay ═══ */
+.srchov{position:absolute;left:0;right:0;top:0;padding:14px 16px 12px;background:var(--canvas);z-index:12;display:flex;gap:10px;align-items:center;transform:translateY(-110%);transition:transform .3s cubic-bezier(.32,.72,0,1);border-bottom:1px solid var(--hairline)}
+.srchov.on{transform:none}
+.srchov .srch{flex:1;margin:0}
+.srchov .cancel{flex:none;font-size:15px;font-weight:600;color:var(--brand-ink)}
+
+/* ═══ V5 · icons inside the field ═══ */
+.srch .infield{display:flex;align-items:center;gap:2px;flex:none;margin-right:-6px}
+.srch .infield button{width:34px;height:38px;display:flex;align-items:center;justify-content:center;color:var(--ink-2);position:relative}
+.srch .infield svg{width:16px;height:16px}
+.srch .infield .sep{width:1px;height:18px;background:var(--hairline)}
+.srch .infield .fdot{position:absolute;top:2px;right:1px;min-width:15px;height:15px;border-radius:99px;background:var(--brand);color:#fff;font-size:9.5px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px}
+
+/* ═══ V7 · collapse-on-scroll ═══ */
+.v7full{transition:opacity .22s ease, max-height .3s cubic-bezier(.32,.72,0,1);max-height:220px;overflow:hidden}
+.v7hdr.compact .v7full{opacity:0;max-height:0;pointer-events:none}
+.v7mini{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:2px 16px 9px;opacity:0;max-height:0;overflow:hidden;transition:opacity .22s ease,max-height .3s cubic-bezier(.32,.72,0,1)}
+.v7hdr.compact .v7mini{opacity:1;max-height:60px}
+.v7mini .t{font-family:var(--disp);font-size:17px;font-weight:700;letter-spacing:-.3px}
+.v7mini .s{font-size:11.5px;color:var(--muted);margin-top:1px}
+.v7mini .cl{display:flex;gap:8px;align-items:center}
+
+/* ═══ V8 · stat hero header ═══ */
+.v8hero{padding:2px 20px 0}
+.v8eyebrow{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.v8row{display:flex;align-items:center;gap:10px;margin-top:4px}
+.v8num{font-family:var(--disp);font-variant-numeric:tabular-nums;font-weight:700;font-size:32px;letter-spacing:-1.2px;color:var(--ink);flex:1;min-width:0}
+.v8step{width:32px;height:32px;border-radius:50%;background:var(--fill-neutral);color:var(--ink-2);display:flex;align-items:center;justify-content:center;flex:none}
+.v8step svg{width:15px;height:15px}
+.v8step:active{opacity:.6}
+.v8sub{font-size:12.5px;color:var(--muted);margin-top:3px}
+
+@media (prefers-reduced-motion:reduce){
+  .crs-sheet,.crs-scrim,.toast,.srchov,.v7full,.v7mini,.atx-seg{transition:none}
+}
+@media (max-width:460px){ body{padding:32px 14px 70px} .g-grid{gap:34px} }
+</style>
+</head>
+<body>
+
+<header class="g-head">
+  <div class="g-eyebrow">FamilyHub · Giao dịch · header</div>
+  <h1 class="g-title">8 cách dọn cái nóc</h1>
+  <p class="g-sub">Bản hiện tại xếp <b>ba tầng điều khiển ngang quyền nhau</b>: ô tìm bị bóp tới gãy dòng
+  placeholder, hai nút to giành chỗ, rồi thêm một hàng chips — gần 200px chrome trước hàng đầu tiên.
+  8 biến thể dưới đây đều giữ các quyết định đã chốt (Chọn góc phải, sheet Sắp xếp, sheet Bộ lọc,
+  chips nhảy danh mục) nhưng dọn lại lối vào theo đúng ngữ pháp iOS. Mọi thứ bấm được.</p>
+</header>
+
+<main class="g-grid" id="grid"></main>
+
+<script>
+/* ═══ shared bits ═══ */
+function sbarHTML(){
+  return '<div class="sbar"><span>9:41</span><span class="ic">'
+   +'<svg viewBox="0 0 18 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>'
+   +'<svg viewBox="0 0 25 11"><rect x="0" y="0" width="21" height="11" rx="3.5" fill="none" stroke="currentColor" stroke-opacity=".4"/><rect x="2" y="2" width="15" height="7" rx="2" fill="currentColor"/><path d="M23 3.5v4a2 2 0 0 0 0-4z" fill="currentColor" fill-opacity=".4"/></svg></span></div>';
+}
+function backHTML(){ return '<button class="cd-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6-6 6 6 6"/></svg><span>Cá nhân</span></button>'; }
+var SVG={
+  search:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
+  funnel:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18l-7 8v5l-4 2v-7L3 5z"/></svg>',
+  sort:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v14m0 0-3-3m3 3 3-3M17 20V6m0 0-3 3m3-3 3 3"/></svg>',
+  chevD:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
+  chevR:'<svg class="csv-schev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>',
+  more:'<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
+  prev:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6-6 6 6 6"/></svg>',
+  next:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m10 6 6 6-6 6"/></svg>'
+};
+function listHTML(){
+  function row(ico,tint,t,s,amt,cat){
+    return '<button class="row" style="width:100%"><div class="r-ico" style="background:'+tint+'">'+ico+'</div>'
+     +'<div class="r-body"><div class="r-t">'+t+'</div><div class="r-s">'+s+'</div></div>'
+     +'<div class="r-right"><div class="r-amt num">'+amt+'</div><div class="r-cat">'+cat+'</div></div></button>';
+  }
+  return '<div class="txn-mhead"><span>Hôm nay</span><span class="num">−130.000 ₫</span></div><div class="rows">'
+   +row('🍜','#fdf4e8','Bún chả trưa với Vy','12:20<span class="sep">·</span>ghi tay','45.000 ₫','Ăn uống')
+   +row('☕','#fdf4e8','Highlands Coffee','08:45<span class="sep">·</span>từ email<span class="sep">·</span>thẻ …4512','85.000 ₫','Ăn uống')
+   +'</div>'
+   +'<div class="txn-mhead"><span>Hôm qua</span><span class="num">−382.000 ₫</span></div><div class="rows">'
+   +row('🛍️','#eef4fb','Đặt Shopee','21:30<span class="sep">·</span>từ email','320.000 ₫','Mua sắm')
+   +row('🚕','#eef4fb','Grab về nhà','18:05<span class="sep">·</span>từ email','62.000 ₫','Di chuyển')
+   +'</div>'
+   +'<div class="txn-mhead"><span>Th 5, 10/09</span><span class="num">−55.000 ₫</span></div><div class="rows">'
+   +row('🍱','#fdf4e8','Cơm văn phòng','12:05<span class="sep">·</span>ghi tay','55.000 ₫','Ăn uống')
+   +'</div><div style="height:40px"></div>';
+}
+function sortSheetHTML(pid){
+  return '<div class="p-sheet" id="sort-'+pid+'"><div class="crs-scrim" onclick="unsheet(\''+pid+'\')"></div>'
+   +'<div class="crs-sheet"><div class="crs-grab"></div><div class="crs-t">Sắp xếp</div>'
+   +'<div class="crs-sub">Nhóm và thứ tự trong nhóm</div><div class="crs-body">'
+   +'<div class="ctp-l">Nhóm theo</div><div class="atx-segs">'
+   +'<button class="atx-seg on" onclick="segOn(this);sortLab(\''+pid+'\',\'Theo ngày\')">Ngày</button>'
+   +'<button class="atx-seg" onclick="segOn(this);sortLab(\''+pid+'\',\'Theo tuần\')">Tuần</button>'
+   +'<button class="atx-seg" onclick="segOn(this);sortLab(\''+pid+'\',\'Theo tháng\')">Tháng</button></div>'
+   +'<div class="ctp-l">Xếp trong nhóm</div><div class="atx-segs">'
+   +'<button class="atx-seg on" onclick="segOn(this)">Mới nhất</button>'
+   +'<button class="atx-seg" onclick="segOn(this)">Số tiền lớn</button></div>'
+   +'</div><button class="crs-done" onclick="unsheet(\''+pid+'\')">Xong</button></div></div>';
+}
+function filtSheetHTML(pid){
+  function c(l,on){ return '<button class="choice'+(on?' on':'')+'" onclick="this.classList.toggle(\'on\');filtCount(\''+pid+'\')">'+l+'</button>'; }
+  return '<div class="p-sheet" id="filt-'+pid+'"><div class="crs-scrim" onclick="unsheet(\''+pid+'\')"></div>'
+   +'<div class="crs-sheet"><div class="crs-grab"></div><div class="crs-t">Bộ lọc</div>'
+   +'<div class="crs-sub">Hiện loại nào, tổng nhóm tính đúng loại đó</div><div class="crs-body">'
+   +'<div class="ctp-l">Loại khoản</div><div class="choices">'+c('Chi tiêu',1)+c('Thu nhập',1)+c('Chuyển khoản & thẻ',1)+c('Vay nợ',1)+c('Đầu tư',1)+'</div>'
+   +'<div class="ctp-l">Nguồn ghi</div><div class="choices">'+c('Ghi tay',1)+c('Từ email',1)+c('Từ sổ gia đình',1)+'</div>'
+   +'<div class="ctp-l">Nguồn tiền</div><div class="choices">'+c('VIB · thẻ …4512',1)+c('VCB',1)+c('Tiền mặt',1)+'</div>'
+   +'</div><button class="crs-done" onclick="unsheet(\''+pid+'\')">Xong</button></div></div>';
+}
+function toastHTML(pid){ return '<div class="toast" id="t-'+pid+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg><span></span></div>'; }
+function shell(pid, body, sheets){
+  return '<div class="phone"><div class="screen" id="ph-'+pid+'">'+sbarHTML()+body
+   +'<div class="homebar"><i></i></div>'+(sheets||'')+toastHTML(pid)+'</div></div>';
+}
+function sheet(pid,sid){ document.querySelectorAll('#ph-'+pid+' .p-sheet').forEach(function(s){s.classList.remove('on');}); document.getElementById(sid).classList.add('on'); }
+function unsheet(pid){ document.querySelectorAll('#ph-'+pid+' .p-sheet').forEach(function(s){s.classList.remove('on');}); }
+var toastT={};
+function toast(pid,msg){ var t=document.getElementById('t-'+pid); t.querySelector('span').textContent=msg; t.classList.add('on'); clearTimeout(toastT[pid]); toastT[pid]=setTimeout(function(){t.classList.remove('on');},2200); }
+function segOn(el){ el.parentElement.querySelectorAll('.atx-seg').forEach(function(s){s.classList.remove('on');}); el.classList.add('on'); }
+function chipOn(el){ el.parentElement.querySelectorAll('.chip:not(.tool)').forEach(function(c){c.classList.remove('on');}); el.classList.add('on'); }
+function sortLab(pid,lab){ document.querySelectorAll('#ph-'+pid+' [data-sortlab]').forEach(function(e){ e.textContent=lab; }); }
+function filtCount(pid){
+  var off=document.querySelectorAll('#filt-'+pid+' .choice:not(.on)').length;
+  document.querySelectorAll('#ph-'+pid+' [data-fdot]').forEach(function(e){
+    e.textContent=off||''; e.style.display=off?'flex':'none';
+  });
+  document.querySelectorAll('#ph-'+pid+' [data-fchip]').forEach(function(e){
+    e.classList.toggle('live',off>0);
+    var v=e.querySelector('[data-fval]'); if(v) v.textContent=off?('Bộ lọc · '+off):'Bộ lọc';
+  });
+}
+
+var MOCKS=[];
+
+/* ── V1 · tools trở thành chips đầu hàng ── */
+MOCKS.push({n:'01',tag:'Một hàng công cụ',title:'Ô tìm thở được, lọc & xếp thành chips đầu hàng',
+ note:'Ô tìm chiếm trọn bề ngang với placeholder ngắn — hết gãy dòng. Phễu và sắp xếp rời nút to, thành hai chips công cụ dẫn đầu hàng chips, ngăn cách hàng danh mục bằng một vạch mảnh. Tiết kiệm ~52px, một hàng cuộn ngang duy nhất.',
+ build:function(){ var p='v1';
+  return shell(p,
+   backHTML()
+   +'<div class="title-row"><div class="txn-title">Giao dịch</div><button class="txn-select">Chọn</button></div>'
+   +'<div class="hdrwrap">'
+   +'<label class="srch">'+SVG.search+'<input placeholder="Tìm giao dịch"></label>'
+   +'<div class="chips">'
+   +'<button class="chip tool" onclick="sheet(\''+p+'\',\'sort-'+p+'\')">'+SVG.sort+'<span data-sortlab>Theo ngày</span></button>'
+   +'<button class="chip tool" data-fchip onclick="sheet(\''+p+'\',\'filt-'+p+'\')">'+SVG.funnel+'<span data-fval>Bộ lọc</span></button>'
+   +'<span class="chipdiv"></span>'
+   +'<button class="chip on" onclick="chipOn(this)">Tất cả</button>'
+   +'<button class="chip" onclick="chipOn(this)">Ăn uống</button>'
+   +'<button class="chip" onclick="chipOn(this)">Mua sắm</button>'
+   +'<button class="chip" onclick="chipOn(this)">Nhà cửa</button>'
+   +'</div></div>'
+   +'<div class="scroll">'+listHTML()+'</div>',
+   sortSheetHTML(p)+filtSheetHTML(p));
+ }});
+
+/* ── V2 · menu ⋯ kiểu Files ── */
+MOCKS.push({n:'02',tag:'Menu ⋯',title:'Sắp xếp và Bộ lọc dọn vào một menu',
+ note:'Ngữ pháp app Files/Photos: một nút ⋯ tròn cạnh Chọn mở menu — Sắp xếp và Bộ lọc là hai hàng, giá trị hiện tại đọc được ngay trên hàng. Mặt bàn chỉ còn ô tìm + chips danh mục. Đổi bằng ít lối vào hơn một nhịp bấm sâu hơn.',
+ build:function(){ var p='v2';
+  return shell(p,
+   backHTML()
+   +'<div class="title-row"><div class="txn-title">Giao dịch</div>'
+   +'<span style="display:flex;gap:10px;align-items:center">'
+   +'<button class="icirc" onclick="sheet(\''+p+'\',\'menu-'+p+'\')" aria-label="Thêm">'+SVG.more+'<span class="fdot" data-fdot style="display:none"></span></button>'
+   +'<button class="txn-select">Chọn</button></span></div>'
+   +'<div class="hdrwrap">'
+   +'<label class="srch">'+SVG.search+'<input placeholder="Tìm giao dịch"></label>'
+   +'<div class="chips">'
+   +'<button class="chip on" onclick="chipOn(this)">Tất cả</button>'
+   +'<button class="chip" onclick="chipOn(this)">Ăn uống</button>'
+   +'<button class="chip" onclick="chipOn(this)">Mua sắm</button>'
+   +'<button class="chip" onclick="chipOn(this)">Nhà cửa</button>'
+   +'<button class="chip" onclick="chipOn(this)">Di chuyển</button>'
+   +'</div></div>'
+   +'<div class="scroll">'+listHTML()+'</div>',
+   '<div class="p-sheet" id="menu-'+p+'"><div class="crs-scrim" onclick="unsheet(\''+p+'\')"></div>'
+   +'<div class="crs-sheet"><div class="crs-grab"></div><div class="crs-t">Giao dịch</div><div class="crs-body" style="margin-top:6px">'
+   +'<button class="csv-srow" onclick="unsheet(\''+p+'\');sheet(\''+p+'\',\'sort-'+p+'\')"><small><span class="mi">'+SVG.sort+'</span>Sắp xếp</small><span class="csv-sval"><b data-sortlab>Theo ngày</b>'+SVG.chevR+'</span></button>'
+   +'<button class="csv-srow" onclick="unsheet(\''+p+'\');sheet(\''+p+'\',\'filt-'+p+'\')"><small><span class="mi">'+SVG.funnel+'</span>Bộ lọc</small><span class="csv-sval"><b>Đang hiện tất cả</b>'+SVG.chevR+'</span></button>'
+   +'<button class="csv-srow" onclick="unsheet(\''+p+'\');toast(\''+p+'\',\'Xuất CSV 6 tháng\')"><small><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 21h16"/></svg></span>Xuất CSV</small><span class="csv-sval">'+SVG.chevR+'</span></button>'
+   +'</div></div></div>'
+   +sortSheetHTML(p)+filtSheetHTML(p));
+ }});
+
+/* ── V3 · tìm kiếm ẩn ── */
+MOCKS.push({n:'03',tag:'Tìm kiếm ẩn',title:'Kính lúp gọi ô tìm, nội dung lên cao nhất',
+ note:'Tìm kiếm là việc thi thoảng, không đáng một hàng thường trực: kính lúp tròn cạnh Chọn, bấm mới trượt ô tìm xuống kèm Huỷ (đúng ngữ pháp iOS). Hàng chips gánh cả hai chip công cụ. Header nghỉ chỉ còn ~96px — cao nhất cho nội dung trong 8 biến thể.',
+ build:function(){ var p='v3';
+  return shell(p,
+   backHTML()
+   +'<div class="title-row"><div class="txn-title">Giao dịch</div>'
+   +'<span style="display:flex;gap:10px;align-items:center">'
+   +'<button class="icirc" onclick="v3Search(1)" aria-label="Tìm">'+SVG.search+'</button>'
+   +'<button class="txn-select">Chọn</button></span></div>'
+   +'<div class="hdrwrap"><div class="chips">'
+   +'<button class="chip tool" onclick="sheet(\''+p+'\',\'sort-'+p+'\')">'+SVG.sort+'<span data-sortlab>Theo ngày</span></button>'
+   +'<button class="chip tool" data-fchip onclick="sheet(\''+p+'\',\'filt-'+p+'\')">'+SVG.funnel+'<span data-fval>Bộ lọc</span></button>'
+   +'<span class="chipdiv"></span>'
+   +'<button class="chip on" onclick="chipOn(this)">Tất cả</button>'
+   +'<button class="chip" onclick="chipOn(this)">Ăn uống</button>'
+   +'<button class="chip" onclick="chipOn(this)">Mua sắm</button>'
+   +'</div></div>'
+   +'<div class="srchov" id="v3ov"><label class="srch">'+SVG.search+'<input id="v3in" placeholder="Tìm giao dịch"></label><button class="cancel" onclick="v3Search(0)">Huỷ</button></div>'
+   +'<div class="scroll">'+listHTML()+'</div>',
+   sortSheetHTML(p)+filtSheetHTML(p));
+ }});
+
+/* ── V4 · chips thông minh ── */
+MOCKS.push({n:'04',tag:'Chips thông minh',title:'Bộ lọc tháo rời thành từng chip menu',
+ note:'Không còn phễu: mỗi trục lọc là một chip có ▾ mở sheet nhỏ của riêng nó — Sắp xếp, Loại, Nguồn — rồi tới chips danh mục. Chip đang lệch mặc định tự đổi màu và nói giá trị ("Loại · Chi tiêu"). Nhiều lối vào phẳng, mỗi lối một việc, kiểu thanh lọc của Photos.',
+ build:function(){ var p='v4';
+  return shell(p,
+   backHTML()
+   +'<div class="title-row"><div class="txn-title">Giao dịch</div><button class="txn-select">Chọn</button></div>'
+   +'<div class="hdrwrap">'
+   +'<label class="srch">'+SVG.search+'<input placeholder="Tìm giao dịch"></label>'
+   +'<div class="chips">'
+   +'<button class="chip tool" onclick="sheet(\''+p+'\',\'sort-'+p+'\')"><span data-sortlab>Theo ngày</span>'+SVG.chevD+'</button>'
+   +'<button class="chip tool" id="v4kind" onclick="sheet(\''+p+'\',\'kind-'+p+'\')"><span>Loại</span>'+SVG.chevD+'</button>'
+   +'<button class="chip tool" id="v4src" onclick="sheet(\''+p+'\',\'src-'+p+'\')"><span>Nguồn</span>'+SVG.chevD+'</button>'
+   +'<span class="chipdiv"></span>'
+   +'<button class="chip on" onclick="chipOn(this)">Tất cả</button>'
+   +'<button class="chip" onclick="chipOn(this)">Ăn uống</button>'
+   +'<button class="chip" onclick="chipOn(this)">Mua sắm</button>'
+   +'</div></div>'
+   +'<div class="scroll">'+listHTML()+'</div>',
+   sortSheetHTML(p)
+   +'<div class="p-sheet" id="kind-'+p+'"><div class="crs-scrim" onclick="unsheet(\''+p+'\')"></div>'
+   +'<div class="crs-sheet"><div class="crs-grab"></div><div class="crs-t">Loại khoản</div><div class="crs-body"><div class="choices">'
+   +['Chi tiêu','Thu nhập','Chuyển khoản & thẻ','Vay nợ','Đầu tư'].map(function(l){return '<button class="choice on" onclick="this.classList.toggle(\'on\');v4Kind()">'+l+'</button>';}).join('')
+   +'</div></div><button class="crs-done" onclick="unsheet(\''+p+'\')">Xong</button></div></div>'
+   +'<div class="p-sheet" id="src-'+p+'"><div class="crs-scrim" onclick="unsheet(\''+p+'\')"></div>'
+   +'<div class="crs-sheet"><div class="crs-grab"></div><div class="crs-t">Nguồn ghi</div><div class="crs-body"><div class="choices">'
+   +['Ghi tay','Từ email','Từ sổ gia đình'].map(function(l){return '<button class="choice on" onclick="this.classList.toggle(\'on\')">'+l+'</button>';}).join('')
+   +'</div></div><button class="crs-done" onclick="unsheet(\''+p+'\')">Xong</button></div></div>');
+ }});
+function v4Kind(){
+  var on=[].slice.call(document.querySelectorAll('#kind-v4 .choice.on')).map(function(c){return c.textContent;});
+  var chip=document.getElementById('v4kind'), sp=chip.querySelector('span');
+  if(on.length===5||on.length===0){ chip.classList.remove('live'); sp.textContent='Loại'; }
+  else if(on.length===1){ chip.classList.add('live'); sp.textContent='Loại · '+on[0]; }
+  else { chip.classList.add('live'); sp.textContent='Loại · '+on.length; }
+}
+
+/* ── V5 · công cụ nằm trong ô tìm ── */
+MOCKS.push({n:'05',tag:'Trong ô tìm',title:'Một thanh duy nhất: tìm, lọc, xếp chung nhà',
+ note:'Kiểu thanh của Maps: phễu và sắp xếp là hai glyph nhỏ nằm CUỐI ô tìm, sau một vạch mảnh — một khối bo tròn duy nhất gánh cả ba việc. Chips chỉ còn danh mục. Gọn nhất về số khối; đánh đổi: hai glyph không còn nhãn chữ.',
+ build:function(){ var p='v5';
+  return shell(p,
+   backHTML()
+   +'<div class="title-row"><div class="txn-title">Giao dịch</div><button class="txn-select">Chọn</button></div>'
+   +'<div class="hdrwrap">'
+   +'<label class="srch">'+SVG.search+'<input placeholder="Tìm giao dịch">'
+   +'<span class="infield"><span class="sep"></span>'
+   +'<button onclick="event.preventDefault();sheet(\''+p+'\',\'filt-'+p+'\')" aria-label="Bộ lọc">'+SVG.funnel+'<span class="fdot" data-fdot style="display:none"></span></button>'
+   +'<button onclick="event.preventDefault();sheet(\''+p+'\',\'sort-'+p+'\')" aria-label="Sắp xếp">'+SVG.sort+'</button>'
+   +'</span></label>'
+   +'<div class="chips">'
+   +'<button class="chip on" onclick="chipOn(this)">Tất cả</button>'
+   +'<button class="chip" onclick="chipOn(this)">Ăn uống</button>'
+   +'<button class="chip" onclick="chipOn(this)">Mua sắm</button>'
+   +'<button class="chip" onclick="chipOn(this)">Nhà cửa</button>'
+   +'</div></div>'
+   +'<div class="scroll">'+listHTML()+'</div>',
+   sortSheetHTML(p)+filtSheetHTML(p));
+ }});
+
+/* ── V6 · cụm tròn cạnh tiêu đề ── */
+MOCKS.push({n:'06',tag:'Cụm tròn App Store',title:'Ba nút tròn nhỏ ôm lấy tiêu đề',
+ note:'Hàng tiêu đề gánh hết: kính lúp, phễu (chấm đếm), sắp xếp — ba nút tròn 34px + Chọn. Không còn hàng công cụ nào; chips danh mục là hàng duy nhất dưới tiêu đề. Bấm kính lúp: ô tìm trượt xuống thế chỗ chips, Huỷ trả lại.',
+ build:function(){ var p='v6';
+  return shell(p,
+   backHTML()
+   +'<div class="title-row"><div class="txn-title">Giao dịch</div>'
+   +'<span style="display:flex;gap:8px;align-items:center">'
+   +'<button class="icirc" onclick="v6Search(1)" aria-label="Tìm">'+SVG.search+'</button>'
+   +'<button class="icirc" onclick="sheet(\''+p+'\',\'filt-'+p+'\')" aria-label="Bộ lọc">'+SVG.funnel+'<span class="fdot" data-fdot style="display:none"></span></button>'
+   +'<button class="icirc" onclick="sheet(\''+p+'\',\'sort-'+p+'\')" aria-label="Sắp xếp">'+SVG.sort+'</button>'
+   +'<button class="txn-select" style="margin-left:2px">Chọn</button></span></div>'
+   +'<div class="hdrwrap" id="v6chips"><div class="chips">'
+   +'<button class="chip on" onclick="chipOn(this)">Tất cả</button>'
+   +'<button class="chip" onclick="chipOn(this)">Ăn uống</button>'
+   +'<button class="chip" onclick="chipOn(this)">Mua sắm</button>'
+   +'<button class="chip" onclick="chipOn(this)">Nhà cửa</button>'
+   +'</div></div>'
+   +'<div class="hdrwrap" id="v6srch" style="display:none"><div style="display:flex;gap:10px;align-items:center;padding-bottom:12px">'
+   +'<label class="srch" style="flex:1">'+SVG.search+'<input id="v6in" placeholder="Tìm giao dịch"></label>'
+   +'<button class="txn-select" style="flex:none;padding-right:16px" onclick="v6Search(0)">Huỷ</button></div></div>'
+   +'<div class="scroll">'+listHTML()+'</div>',
+   sortSheetHTML(p)+filtSheetHTML(p));
+ }});
+function v6Search(on){
+  document.getElementById('v6chips').style.display=on?'none':'';
+  document.getElementById('v6srch').style.display=on?'':'none';
+  if(on) setTimeout(function(){ document.getElementById('v6in').focus(); },60);
+}
+
+/* ── V7 · thu gọn khi cuộn ── */
+MOCKS.push({n:'07',tag:'Thu gọn khi cuộn',title:'Đủ đồ khi đứng yên, teo lại khi đọc',
+ note:'Trạng thái nghỉ là biến thể 01; CUỘN THỬ ĐI: tiêu đề lớn, ô tìm và chips gập lại thành thanh 44px — tên màn nhỏ, dòng tóm tắt trạng thái ("Theo ngày · 23 khoản") và kính lúp + phễu tròn. Đầu nhóm dính tiếp ngay dưới thanh gọn. Cuộn ngược lên đầu là header nở lại.',
+ build:function(){ var p='v7';
+  return shell(p,
+   backHTML()
+   +'<div class="v7hdr" id="v7hdr">'
+   +'<div class="v7full" id="v7full">'
+   +'<div class="title-row"><div class="txn-title">Giao dịch</div><button class="txn-select">Chọn</button></div>'
+   +'<div class="hdrwrap" style="border-bottom:0">'
+   +'<label class="srch">'+SVG.search+'<input placeholder="Tìm giao dịch"></label>'
+   +'<div class="chips">'
+   +'<button class="chip tool" onclick="sheet(\''+p+'\',\'sort-'+p+'\')">'+SVG.sort+'<span data-sortlab>Theo ngày</span></button>'
+   +'<button class="chip tool" data-fchip onclick="sheet(\''+p+'\',\'filt-'+p+'\')">'+SVG.funnel+'<span data-fval>Bộ lọc</span></button>'
+   +'<span class="chipdiv"></span>'
+   +'<button class="chip on" onclick="chipOn(this)">Tất cả</button>'
+   +'<button class="chip" onclick="chipOn(this)">Ăn uống</button>'
+   +'<button class="chip" onclick="chipOn(this)">Mua sắm</button>'
+   +'</div></div></div>'
+   +'<div class="v7mini"><div><div class="t">Giao dịch</div><div class="s" data-sortlab-mini>Theo ngày · 23 khoản</div></div>'
+   +'<div class="cl"><button class="icirc" onclick="toast(\''+p+'\',\'Cuộn lên đầu để tìm\')" aria-label="Tìm">'+SVG.search+'</button>'
+   +'<button class="icirc" onclick="sheet(\''+p+'\',\'filt-'+p+'\')" aria-label="Bộ lọc">'+SVG.funnel+'</button></div></div>'
+   +'<div style="border-bottom:1px solid var(--hairline)"></div>'
+   +'</div>'
+   +'<div class="scroll" id="v7sc">'+listHTML()+listHTML()+'</div>',
+   sortSheetHTML(p)+filtSheetHTML(p));
+ }});
+
+/* ── V8 · con số là tiêu đề ── */
+MOCKS.push({n:'08',tag:'Hero con số',title:'Ròng của kỳ đang xem là tiêu đề',
+ note:'Màn hình này tồn tại để trả lời "kỳ này ra vào bao nhiêu" — nên con số ròng đứng chỗ tiêu đề, kèm hai mũi tên bước qua kỳ trước/sau (nhãn kỳ theo cách nhóm đang chọn). Công cụ là kính lúp + phễu tròn cạnh số. Bấm ‹ › để bước kỳ.',
+ build:function(){ var p='v8';
+  return shell(p,
+   backHTML()
+   +'<div class="v8hero">'
+   +'<div style="display:flex;align-items:center;justify-content:space-between"><span class="v8eyebrow">Giao dịch · <span id="v8lab">Tháng 9</span></span><button class="txn-select" style="padding:2px">Chọn</button></div>'
+   +'<div class="v8row">'
+   +'<button class="v8step" onclick="v8Step(-1)" aria-label="Kỳ trước">'+SVG.prev+'</button>'
+   +'<div class="v8num" id="v8num">−8.410.000 ₫</div>'
+   +'<button class="v8step" onclick="v8Step(1)" aria-label="Kỳ sau">'+SVG.next+'</button>'
+   +'<button class="icirc" onclick="toast(\''+p+'\',\'Mở ô tìm\')" aria-label="Tìm">'+SVG.search+'</button>'
+   +'<button class="icirc" onclick="sheet(\''+p+'\',\'filt-'+p+'\')" aria-label="Bộ lọc">'+SVG.funnel+'<span class="fdot" data-fdot style="display:none"></span></button>'
+   +'</div>'
+   +'<div class="v8sub" id="v8sub">23 khoản · vào 20.000.000 ₫ · ra 28.410.000 ₫</div>'
+   +'</div>'
+   +'<div class="hdrwrap" style="margin-top:8px"><div class="chips">'
+   +'<button class="chip tool" onclick="sheet(\''+p+'\',\'sort-'+p+'\')">'+SVG.sort+'<span data-sortlab>Theo tháng</span></button>'
+   +'<span class="chipdiv"></span>'
+   +'<button class="chip on" onclick="chipOn(this)">Tất cả</button>'
+   +'<button class="chip" onclick="chipOn(this)">Ăn uống</button>'
+   +'<button class="chip" onclick="chipOn(this)">Mua sắm</button>'
+   +'</div></div>'
+   +'<div class="scroll">'+listHTML()+'</div>',
+   sortSheetHTML(p)+filtSheetHTML(p));
+ }});
+var V8=[{l:'Tháng 9',n:'−8.410.000 ₫',s:'23 khoản · vào 20.000.000 ₫ · ra 28.410.000 ₫'},
+        {l:'Tháng 8',n:'−4.180.000 ₫',s:'18 khoản · vào 3.000.000 ₫ · ra 7.180.000 ₫'},
+        {l:'Tháng 7',n:'+13.650.000 ₫',s:'12 khoản · vào 18.500.000 ₫ · ra 4.850.000 ₫'}];
+var v8i=0;
+function v8Step(d){
+  v8i=Math.min(V8.length-1,Math.max(0,v8i-d));   /* ‹ goes back in time */
+  var o=V8[v8i];
+  document.getElementById('v8lab').textContent=o.l;
+  var n=document.getElementById('v8num');
+  n.textContent=o.n; n.style.color=o.n[0]==='+'?'var(--good)':'var(--ink)';
+  document.getElementById('v8sub').textContent=o.s;
+}
+
+/* ═══ mount ═══ */
+var grid=document.getElementById('grid');
+MOCKS.forEach(function(m){
+  var sec=document.createElement('section');
+  sec.className='mock';
+  sec.innerHTML='<div class="m-tag"><i>'+m.n+'</i> '+m.tag+'</div><h2 class="m-title">'+m.title+'</h2><p class="m-note">'+m.note+'</p>'+m.build();
+  grid.appendChild(sec);
+});
+/* V3 search overlay */
+function v3Search(on){
+  var ov=document.getElementById('v3ov');
+  ov.classList.toggle('on',!!on);
+  if(on) setTimeout(function(){ document.getElementById('v3in').focus(); },200);
+}
+/* V7 collapse-on-scroll */
+(function(){
+  var sc=document.getElementById('v7sc'), hdr=document.getElementById('v7hdr'), compact=false;
+  sc.addEventListener('scroll',function(){
+    var want=sc.scrollTop>46;
+    if(want!==compact){ compact=want; hdr.classList.toggle('compact',want); }
+  },{passive:true});
+})();
+</script>
+</body>
+</html>

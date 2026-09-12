@@ -954,10 +954,12 @@ function submitBulk(opts){
     exPhotos = (k===0) ? savedPhotos.slice() : [];
     total+=parseAmtBase(rows[k].amt||'');
     window._fhImportSrc = (rows[k] && rows[k].source) || null;   // 0100 provenance for this row; the writethrough stamps it on the txn
+    window._fhImportInst = (rows[k] && rows[k].inst) || null;    // 0131 money source ("VIB · tín dụng ••4512"), same handoff
     BULK_SAVING=true;
     try{ window.addExpense(); } finally{ BULK_SAVING=false; }
   }
   window._fhImportSrc=null;
+  window._fhImportInst=null;
   exPhotos=[];
   // One nudge for the whole batch — each row's own addExpense() stayed silent under
   // BULK_SAVING. A lone surviving row is a single expense, not a batch (the composer

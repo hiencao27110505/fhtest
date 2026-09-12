@@ -55,7 +55,8 @@ function _pBuildTxnCtx(){
   var PAL=['#f2eef6','#eef4fb','#eefaf3','#fdf4e8','#f6eefb','#eef9fb'];
   var rows=[], style={}, order=[], spent={}, other=L('Khác','Others');
   var now=new Date(), ym=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
-  var txs=(P&&P.txns)||[];
+  /* the 2-month tab window + the on-demand months 3–6 (fhPersonalFetchOlder) */
+  var txs=((P&&P.txns)||[]).concat((P&&P.txnsOld)||[]);
   var acctName=function(id){ var a=id&&(P&&P.accounts||[]).find(function(x){ return x.id===id; }); return a?(a.name||L('Tài khoản','Account')):null; };
   var K_INC=L('Thu nhập','Income'), K_XFER=L('Chuyển khoản','Transfers'), K_DEBT=L('Cho vay & nợ','Loans & debts'), K_INV=L('Đầu tư','Investments');
   var kstyle={}; kstyle[K_INC]=['💰','#eefaf3','var(--good)']; kstyle[K_XFER]=['🔁','#eef4fb','var(--cat-other)']; kstyle[K_DEBT]=['💵','#fdf4e8','var(--cat-other)']; kstyle[K_INV]=['📈','#f6eefb','var(--cat-other)'];
@@ -70,11 +71,22 @@ function _pBuildTxnCtx(){
       // family expense shown in the personal book — write-inert, but tappable
       // since 0114 (fhMirrorRowTap → the family expense detail, M10).
       var eOpen=(t.spaceId||t.linkId)?(t.spaceId?"fhMirrorRowTap('"+t.id+"')":''):"openPersonalTxEdit('"+t.id+"')";
-      rows.push({ id:t.id, cat:cat, note:t.note||cat, amt:t.amt||0, _d:_d, ico:t.emoji||'🗂️', who:null, _style:style[cat], _open:eOpen, photos:t.photos||undefined, time:t.time||null });
+      /* _kg/_net/_src/_acct feed the Giao dịch screen's filters + net heads:
+         expense = money out (0109 stores it positive), so its cash flow is −amt. */
+      rows.push({ id:t.id, cat:cat, note:t.note||cat, amt:t.amt||0, _d:_d, ico:t.emoji||'🗂️', who:null, _style:style[cat], _open:eOpen, photos:t.photos||undefined, time:t.time||null,
+        _kg:'chi', _net:-(t.amt||0), _src:t.src||null, _acct:t.accountId||null, _mirror:!!(t.spaceId||t.linkId) });
       if((t.date||'').slice(0,7)===ym) spent[cat]=(spent[cat]||0)+(t.amt||0);   // hero = this month only (parity with family M())
       return;
     }
     var kcat, note, sign='', cls='xfer', open='', ico=null;
+    /* cash-flow of a non-expense row (23-debts-ui:1114 sign law):
+       loan negates its amount (lent > 0 = money out); everything else is
+       already signed. A folded transfer PAIR nets 0 by construction. */
+    var kg='ck', netv=(t.amt||0);
+    if(t.kind==='income'){ kg='thu'; }
+    else if(t.kind==='loan'){ kg='vay'; netv=-(t.amt||0); }
+    else if(t.kind==='repayment'){ kg='vay'; }
+    else if(t.kind==='investment'){ kg='dautu'; }
     if(t.kind==='income'){
       kcat=K_INC; note=t.note||t.cat||K_INC; sign='+'; cls='pos'; ico=t.emoji||'💰';
       open="fhIncomeRowSheet('"+t.id+"')";
@@ -83,6 +95,7 @@ function _pBuildTxnCtx(){
       if(t.transferGroupId){
         if(seenXfer[t.transferGroupId]) return;             // second leg of a pair already listed
         seenXfer[t.transferGroupId]=1;
+        netv=0;                                             // the pair's two legs cancel
         var from=null,to=null;
         txs.forEach(function(x){ if(x.kind==='transfer'&&x.transferGroupId===t.transferGroupId){ if((x.amt||0)<0) from=x.accountId; else to=x.accountId; } });
         var fn=acctName(from), tn=acctName(to);
@@ -106,10 +119,13 @@ function _pBuildTxnCtx(){
       open="fhInvRowSheet('"+t.id+"')";
     } else return;
     if(!kseen[kcat]){ kseen[kcat]=1; kindOrder.push(kcat); }
-    rows.push({ id:t.id, cat:kcat, note:note, amt:Math.abs(t.amt||0), _d:_d, ico:ico||kstyle[kcat][0], who:null, _style:kstyle[kcat], _open:open, _sign:sign, _amtCls:cls, time:t.time||null });
+    rows.push({ id:t.id, cat:kcat, note:note, amt:Math.abs(t.amt||0), _d:_d, ico:ico||kstyle[kcat][0], who:null, _style:kstyle[kcat], _open:open, _sign:sign, _amtCls:cls, time:t.time||null,
+      _kg:kg, _net:netv, _src:t.src||null, _acct:t.accountId||null });
   });
   order.sort(function(a,b){ return (spent[b]||0)-(spent[a]||0); });
-  _pTxnCtx={ rows:rows, catOrder:order, catStyle:style, catSpent:spent, catBudget:(P&&P.catBudget)||{}, kindOrder:kindOrder };
+  /* account names for the Nguồn tiền filter section (personal only) */
+  var acctDefs=((P&&P.accounts)||[]).map(function(a){ return { k:a.id, lbl:a.name||L('Tài khoản','Account') }; });
+  _pTxnCtx={ rows:rows, catOrder:order, catStyle:style, catSpent:spent, catBudget:(P&&P.catBudget)||{}, kindOrder:kindOrder, acctDefs:acctDefs };
 }
 function txRow(t){
   // personal rows carry their own style + no member/reactions/detail screen;
@@ -119,8 +135,10 @@ function txRow(t){
   // Localize the display date/payer; the stored t.date/t.who strings stay as-is
   // (they are parsed by _txnIso / mapped by _memberIdForWho — display only here).
   var dstr=(t.date==='Just now')?L('Vừa xong','Just now'):((t._d?sameDay(t._d,TODAY):(t.date==='Today'))?L('Hôm nay','Today'):(t._d?(sameDay(t._d,new Date(TODAY.getTime()-86400000))?L('Hôm qua','Yesterday'):fmtDayMon(t._d)):t.date));
-  // data-rxid (only persisted rows) arms the long-press reaction picker; rxChip appends any reactions inline
-  var rxid=(!personal && t._dbId)?(' data-rxid="'+escAttr(t._dbId)+'"'):'';
+  // data-rxid (only persisted rows) arms the long-press reaction picker; rxChip appends any reactions inline.
+  // In select mode the long-press stands down — the row's job is selection.
+  var selMode=!!window.__txnSelMode;
+  var rxid=(!personal && t._dbId && !selMode)?(' data-rxid="'+escAttr(t._dbId)+'"'):'';
   var chip=(!personal && typeof rxChip==='function')?rxChip(t):'';
   // C1 anatomy: a row with photos shows its first photo AS the tile (the enc
   // observer decrypts .enc backgrounds in place); category text moves under the
@@ -135,11 +153,32 @@ function txRow(t){
   var open=personal?(t._open?(' onclick="'+t._open+'"'):'')
                     :(' onclick="openExpenseDetail(\''+t.id+'\')"');
   var tapCls=(personal? (t._open?' tap':'') : ' tap');
+  // Select mode: a tap toggles selection (never opens); ineligible rows say why.
+  // Selected wears the tick; once anything is selected, misses fade — never hide.
+  var selTick='', selCls='';
+  if(selMode){
+    var elig=window.__txnSelElig?window.__txnSelElig(t):false;
+    var selOn=elig && window.__txnSel && window.__txnSel[t.id];
+    selTick='<span class="sel-tick'+(elig?'':' no-sel')+'"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg></i></span>';
+    selCls=(selOn?' is-sel':(window.__txnSelAny?' is-dim':''))+(elig?'':' no-sel');
+    open=elig?(' onclick="txnSelToggle(\''+escAttr(String(t.id))+'\')"')
+             :(' onclick="txnSelBlocked(\''+(t.future?'future':(t._mirror?'mirror':((t._kg&&t._kg!=='chi')?'kind':'na')))+'\')"');
+    tapCls=' tap';
+  }
   // _sign/_amtCls (personal, non-expense kinds): income wears +green; transfer,
   // debt and investment rows show the magnitude in the muted transfer style.
   var amtHtml='<div class="r-amt num'+(t._amtCls?' '+t._amtCls:'')+'">'+(t._sign||'')+fmt(t.amt)+'</div>';
-  return '<div class="row'+tapCls+(chip?' has-rx':'')+'"'+rxid+open+'><div class="r-ico-wrap">'+tile+av+'</div>'
-    +'<div class="r-body"><div class="r-t">'+esc(t.note)+'</div><div class="r-s">'+dstr+(t.time?' · '+esc(t.time):'')+'</div></div>'
+  /* Subline date-mode (variant A, txn-listing revamp): the Giao dịch screen
+     grouped by DAY sets 'time' (the sticky head already names the day — the
+     row keeps only its clock time); grouped by week/month it sets 'date'
+     (date + time, plain, same voice). Tab lists leave the mode unset = today's
+     full behaviour. */
+  var _dm=window.__txnDateMode||null;
+  var subTxt=_dm==='time' ? (t.time?esc(t.time):dstr)
+           : dstr+(t.time?' · '+esc(t.time):'');
+  if(t.inst) subTxt+=' · '+esc(t.inst);            // 0131 money source, quiet, same voice
+  return '<div class="row'+tapCls+selCls+(chip?' has-rx':'')+'"'+rxid+open+'>'+selTick+'<div class="r-ico-wrap">'+tile+av+'</div>'
+    +'<div class="r-body"><div class="r-t">'+esc(t.note)+'</div><div class="r-s">'+subTxt+'</div></div>'
     +'<div class="r-right">'+amtHtml+'<div class="r-cat">'+esc(t.cat)+'</div></div>'+chip+'</div>';
 }
 var txFilter=null; // {type:'cat'|'mem', val:'Fun'|'Emma'}
@@ -236,77 +275,647 @@ function renderTxns(){
 }
 function drillTo(type,val){ txFilter={type:type,val:val}; go('spending'); renderTxns(); segTo('activity'); }
 function clearFilter(){ txFilter=null; renderTxns(); }
-/* ---------- full transactions screen (drill-in: search · category · sort) ---------- */
-var txnCat=null, txnSort='date';
+/* ---------- full transactions screen (txn-listing revamp) ----------
+   Header direction 04: every axis is a dropdown chip (Sắp xếp · Loại · Nguồn ·
+   Danh mục) opening its own mini sheet. The list groups by Ngày/Tuần/Tháng
+   with SIGNED-NET sticky heads over exactly the displayed rows (Q4/Q10/Q15);
+   the stat card above reuses the cash-flow card's vocabulary with its own
+   chart zoom (independent of the list grouping). Grouping/sort/zoom persist
+   per scope; filters reset each open. */
+var txnSort='date';                                 // 'date' | 'amount' — order INSIDE a group
+var TXV={ grp:'day', cgrp:'day', pin:null, kinds:null, srcs:null, accts:null, cats:null, _jump:null, _stReset:false };
+function _txScopeKey(){ return _txnPersonal()?'personal':'family'; }
+function _txSavePrefs(){
+  try{ localStorage.setItem('fh-txnview:'+_txScopeKey(), JSON.stringify({grp:TXV.grp,cgrp:TXV.cgrp,sort:txnSort})); }catch(_e){}
+}
+function _txInitFilters(){
+  TXV.kinds={chi:1,thu:1,ck:1,vay:1,dautu:1};
+  TXV.srcs={tay:1,email:1,csv:1,nha:1};
+  TXV.accts={_none:1};
+  if(_txnPersonal() && _pTxnCtx) (_pTxnCtx.acctDefs||[]).forEach(function(a){ TXV.accts[a.k]=1; });
+  /* family money-source filter (0131): buckets are the instrument strings the
+     ledger actually holds, plus "chưa gắn" for everything hand-entered */
+  TXV.insts={_none:1};
+  if(!_txnPersonal()) (_txList()||[]).forEach(function(t){ if(t.inst) TXV.insts[t.inst]=1; });
+  TXV.cats={}; (_txCatOrder()||[]).forEach(function(c){ TXV.cats[c]=1; });
+  TXV.pin=null; TXV._stReset=true;
+}
 function openTxns(scope){
   window.__txnScope=(scope==='personal')?'personal':'family';
   if(_txnPersonal()) _pBuildTxnCtx();                             // snapshot the personal ledger into row shape
   // Title + back-label track the scope (personal vs the family Finance tab).
   var titleEl=document.querySelector('#txn-overlay .txn-title'); if(titleEl) titleEl.textContent=_txnPersonal()?L('Giao dịch cá nhân','Your transactions'):L('Giao dịch','Transactions');
   var backEl=document.querySelector('#txn-overlay .cd-back span'); if(backEl) backEl.textContent=_txnPersonal()?L('Cá nhân','Personal'):L('Gia đình','Family');
-  txnCat=null; txnSort='date';
+  var saved={}; try{ saved=JSON.parse(localStorage.getItem('fh-txnview:'+_txScopeKey())||'{}'); }catch(_e){}
+  TXV.grp=(saved.grp==='week'||saved.grp==='month')?saved.grp:'day';
+  TXV.cgrp=(saved.cgrp==='week'||saved.cgrp==='month')?saved.cgrp:(saved.cgrp==='day'?'day':TXV.grp);
+  txnSort=(saved.sort==='amount')?'amount':'date';
+  _txInitFilters();
+  TXV.selMode=false; TXV.sel={};
+  var selBtn=document.getElementById('txn-select'); if(selBtn) selBtn.textContent=L('Chọn','Select');
   var q=document.getElementById('txn-q'); if(q)q.value='';
-  setTxt('txn-sort-lab',L('Mới nhất','Newest')); var _cl=document.getElementById('txn-clear'); if(_cl)_cl.style.display='none';
-  buildTxnChips(); renderTxnScreen();
+  var _cl=document.getElementById('txn-clear'); if(_cl)_cl.style.display='none';
+  renderTxnScreen();
   if(typeof renderFinanceHero==='function') renderFinanceHero();   // month's category breakdown at the top
   document.getElementById('txn-overlay').classList.add('on');
   var sc=document.getElementById('txn-scroll'); if(sc)sc.scrollTop=0;
+  _txKickOlder();                                 // personal scope: months 3–6, once per session
+}
+/* Personal scope: pull months 3–6 in the background; the list tail narrates
+   (loading → the 6-month note; an error offers retry). Family scope holds the
+   full history client-side already and never enters here. */
+function _txKickOlder(){
+  if(!_txnPersonal() || !window.fhPersonalFetchOlder) return;
+  var st=(window.fhPersonalOlder||{}).state;
+  if(st==='loading'||st==='done') return;
+  window.fhPersonalFetchOlder().then(function(){
+    if(!_txnPersonal()) return;                   // closed / flipped scope while fetching
+    _pBuildTxnCtx();
+    renderTxnScreen();
+  });
+  renderTxnScreen();                              // repaint so the tail shows "Đang mở thêm…"
+}
+function txnRetryOlder(){
+  if(window.fhPersonalOlder) window.fhPersonalOlder.state='idle';
+  _txKickOlder();
 }
 // Reset scope on close: txRow is shared with the family activity list, so it must
 // never be left in personal mode once the overlay is gone.
-function closeTxns(){ document.getElementById('txn-overlay').classList.remove('on'); window.__txnScope='family'; _pTxnCtx=null; }
+function closeTxns(){
+  document.getElementById('txn-overlay').classList.remove('on');
+  TXV.selMode=false; TXV.sel={};
+  var bar=document.getElementById('txn-bulkbar'); if(bar) bar.classList.remove('on');
+  window.__txnScope='family'; _pTxnCtx=null;
+}
 /* Re-pull the personal ledger into the open overlay after an edit/delete made
-   from a row here. No-op unless the overlay is on AND in personal scope. */
+   from a row here. No-op unless the overlay is on AND in personal scope.
+   Filter maps re-key against the fresh ctx but KEEP the user's on/off choices
+   for keys that survived — an edit must not silently un-filter the screen. */
 function refreshPersonalTxnOverlay(){
   var o=document.getElementById('txn-overlay');
   if(!o || !o.classList.contains('on') || !_txnPersonal()) return;
   _pBuildTxnCtx();
-  if(txnCat && (_pTxnCtx.catOrder||[]).indexOf(txnCat)<0
-            && (_pTxnCtx.kindOrder||[]).indexOf(txnCat)<0) txnCat=null;   // filtered category/kind may be gone
-  buildTxnChips(); renderTxnScreen(); if(typeof renderFinanceHero==='function') renderFinanceHero();
+  var oldCats=TXV.cats||{}, oldAccts=TXV.accts||{};
+  TXV.cats={}; (_txCatOrder()||[]).forEach(function(c){ TXV.cats[c]=(oldCats[c]===0)?0:1; });
+  TXV.accts={_none:(oldAccts._none===0)?0:1};
+  (_pTxnCtx.acctDefs||[]).forEach(function(a){ TXV.accts[a.k]=(oldAccts[a.k]===0)?0:1; });
+  renderTxnScreen(); if(typeof renderFinanceHero==='function') renderFinanceHero();
 }
-function buildTxnChips(){
-  var html='<button class="txn-chip'+(!txnCat?' on':'')+'" onclick="setTxnCat(null)">'+L('Tất cả','All')+'</button>';
-  (_txCatOrder()||[]).forEach(function(c){
-    html+='<button class="txn-chip'+(txnCat===c?' on':'')+'" onclick="setTxnCat(&#39;'+escAttr(c)+'&#39;)">'+esc(c)+'</button>';
-  });
-  // Personal scope: the non-expense kinds present in the ledger (Thu nhập,
-  // Chuyển khoản, …) join the chips after the spend categories — chips only;
-  // the hero above stays chi-by-category.
-  if(_txnPersonal() && _pTxnCtx && _pTxnCtx.kindOrder) _pTxnCtx.kindOrder.forEach(function(c){
-    html+='<button class="txn-chip'+(txnCat===c?' on':'')+'" onclick="setTxnCat(&#39;'+escAttr(c)+'&#39;)">'+esc(c)+'</button>';
-  });
-  setHTML('txn-chips', html);
-}
-function setTxnCat(c){ txnCat=c; buildTxnChips(); renderTxnScreen(); }
-function toggleTxnSort(){ txnSort=(txnSort==='amount'?'date':'amount'); setTxt('txn-sort-lab', txnSort==='amount'?L('Số tiền','Amount'):L('Mới nhất','Newest')); renderTxnScreen(); }
 function onTxnQ(){ var v=(document.getElementById('txn-q').value||''); var c=document.getElementById('txn-clear'); if(c)c.style.display=v?'grid':'none'; renderTxnScreen(); }
 function txnClear(){ var q=document.getElementById('txn-q'); if(q){ q.value=''; q.focus(); } var c=document.getElementById('txn-clear'); if(c)c.style.display='none'; renderTxnScreen(); }
+
+/* ── grouping keys, labels, cash-flow ─────────────────────────────────────── */
+/* Keys are built from LOCAL date parts — never toISOString (UTC shifts a
+   pre-7am row to yesterday in UTC+7; the personal tab paid for this once). */
+function _txPad(n){ return String(n).padStart(2,'0'); }
+function _txDayKeyD(d){ return d.getFullYear()+'-'+_txPad(d.getMonth()+1)+'-'+_txPad(d.getDate()); }
+function _txWeekKeyD(d){ var x=new Date(d.getFullYear(),d.getMonth(),d.getDate()); x.setDate(x.getDate()-((x.getDay()+6)%7)); return _txDayKeyD(x); }
+function _txMonKeyD(d){ return d.getFullYear()+'-'+_txPad(d.getMonth()+1); }
+function _txGKey(t,g){ var d=t._d||TODAY; return g==='week'?_txWeekKeyD(d):g==='month'?_txMonKeyD(d):_txDayKeyD(d); }
+function _txDdMm(d){ return _txPad(d.getDate())+'/'+_txPad(d.getMonth()+1); }
+function _txKeyDate(k){ return new Date(+k.slice(0,4), +k.slice(5,7)-1, +(k.slice(8,10)||1)); }
+function _txWdShort(d){ var i=d.getDay(); return isVi()?(i===0?'CN':'Th '+(i+1)):['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][i]; }
+function _txGLabel(k,g){
+  if(g==='month'){
+    var y=+k.slice(0,4), m=+k.slice(5,7);
+    return (isVi()?('Tháng '+m):moAbbr(m-1))+(y!==TODAY.getFullYear()?' '+y:'');
+  }
+  var d=_txKeyDate(k);
+  if(g==='week'){
+    if(k===_txWeekKeyD(TODAY)) return L('Tuần này','This week');
+    var prev=new Date(TODAY.getTime()-7*86400000);
+    if(k===_txWeekKeyD(prev)) return L('Tuần trước','Last week');
+    var e=new Date(d.getFullYear(),d.getMonth(),d.getDate()+6);
+    return _txDdMm(d)+' – '+_txDdMm(e);
+  }
+  if(sameDay(d,TODAY)) return L('Hôm nay','Today');
+  if(sameDay(d,new Date(TODAY.getTime()-86400000))) return L('Hôm qua','Yesterday');
+  return _txWdShort(d)+', '+_txDdMm(d);
+}
+/* Signed cash flow of a row. Personal ctx rows carry _net (0109/0122/0123 sign
+   laws applied at build); a family row is an expense = money out. A future row
+   is a plan, not money that moved — it renders but never counts (Q10). */
+function _txNet(t){ if(t.future) return 0; return (t._net!==undefined)?t._net:-(t.amt||0); }
+function _txNetHTML(n){
+  if(n>0) return '<span class="num pos">+'+fmt(n)+'</span>';
+  if(n<0) return '<span class="num">−'+fmt(-n)+'</span>';
+  return '<span class="num">'+fmt(0)+'</span>';
+}
+function _txSrcKey(t){
+  if(t._mirror) return 'nha';                       // a family expense mirrored in — its own bucket
+  var s=t._src||t.src||null;
+  return s==='csv-import'?'csv':(s?'email':'tay');
+}
+function _txCatActive(){ var m=TXV.cats||{}; return (_txCatOrder()||[]).some(function(c){ return !m[c]; }); }
+function _txFiltersActive(){
+  var n=0, chk=function(g){ if(!g) return; Object.keys(g).forEach(function(k){ if(!g[k]) n++; }); };
+  if(_txnPersonal()){ chk(TXV.kinds); chk(TXV.accts); } else chk(TXV.insts);
+  chk(TXV.srcs); chk(TXV.cats);
+  return n>0;
+}
+
 function renderTxnScreen(){
   var q=(document.getElementById('txn-q').value||'').trim().toLowerCase();
+  var personal=_txnPersonal(), catNarrow=_txCatActive();
   var list=(_txList()||[]).filter(function(t){
-    if(txnCat && t.cat!==txnCat) return false;
     if(q){ var hay=((t.note||'')+' '+(t.cat||'')+' '+(t.who||'')).toLowerCase(); if(hay.indexOf(q)<0) return false; }
+    var kg=t._kg||'chi';
+    if(personal && TXV.kinds && !TXV.kinds[kg]) return false;
+    if(TXV.srcs && !TXV.srcs[_txSrcKey(t)]) return false;
+    if(personal && TXV.accts && !TXV.accts[t._acct||'_none']) return false;
+    if(!personal && TXV.insts && !TXV.insts[t.inst||'_none']) return false;
+    /* Danh mục narrowed ⇒ an expense view: other kinds step aside */
+    if(catNarrow){ if(kg!=='chi') return false; if(!TXV.cats[t.cat]) return false; }
     return true;
   });
-  var ts=document.getElementById('txn-sum'); if(ts) ts.style.display='none';   // count + total removed — less detail
+  var ts=document.getElementById('txn-sum'); if(ts) ts.style.display='none';
+  TXV._list=list;
+  var groups={}, order=[];
+  list.forEach(function(t){ var k=_txGKey(t,TXV.grp); if(!groups[k]){ groups[k]=[]; order.push(k); } groups[k].push(t); });
+  order.sort().reverse();
   var html='';
-  if(!list.length){
-    html='<div class="mem-empty" style="margin:22px 16px"><div class="me-emoji">🔍</div><div class="me-t">'+L('Không tìm thấy','No results')+'</div><p>'+L('Thử từ khoá khác hoặc đổi bộ lọc.','Try another keyword or change the filter.')+'</p></div>';
-  } else if(txnSort==='amount'){
-    html='<div class="rows">'+list.slice().sort(function(a,b){return b.amt-a.amt;}).map(txRow).join('')+'</div>';
-  } else {
-    var sorted=list.slice().sort(function(a,b){ var ta=a._d?a._d.getTime():0, tb=b._d?b._d.getTime():0; return tb-ta; });
-    var groups=[], idx={};
-    sorted.forEach(function(t){
-      var d=t._d||TODAY, key=d.getFullYear()+'-'+d.getMonth();
-      if(idx[key]===undefined){ idx[key]=groups.length; groups.push({label:(isVi()?('Tháng '+(d.getMonth()+1)):moAbbr(d.getMonth()))+' '+d.getFullYear(), rows:''}); }
-      groups[idx[key]].rows+=txRow(t);
-    });
-    html=groups.map(function(g){ return '<div class="txn-mhead">'+g.label+'</div><div class="rows">'+g.rows+'</div>'; }).join('');
+  window.__txnDateMode=(TXV.grp==='day')?'time':'date';
+  window.__txnSelMode=!!TXV.selMode;
+  window.__txnSel=TXV.sel||{};
+  window.__txnSelAny=!!Object.keys(TXV.sel||{}).length;
+  window.__txnSelElig=_txSelElig;
+  order.forEach(function(k){
+    var g=groups[k], net=0;
+    g.forEach(function(t){ net+=_txNet(t); });
+    g.sort(txnSort==='amount'
+      ? function(a,b){ return Math.abs(b.amt||0)-Math.abs(a.amt||0); }
+      : txNewestFirst);
+    html+='<div class="txn-mhead" id="txnh-'+k+'"><span>'+_txGLabel(k,TXV.grp)+'</span>'+_txNetHTML(net)+'</div>'
+      +'<div class="rows">'+g.map(txRow).join('')+'</div>';
+  });
+  window.__txnDateMode=null;
+  window.__txnSelMode=false;                       // txRow is shared with the tab lists — never leak the mode
+  if(!list.length) html='<div class="mem-empty" style="margin:22px 16px"><div class="me-emoji">🔍</div><div class="me-t">'+L('Không tìm thấy','No results')+'</div><p>'+L('Thử từ khoá khác hoặc nới bộ lọc.','Try another keyword or loosen the filters.')+'</p></div>';
+  /* tail (personal): older-history state — loading spinner, the 6-month note,
+     or a retry line. Family holds full history and shows nothing here. */
+  if(personal){
+    var ost=(window.fhPersonalOlder||{}).state;
+    if(ost==='loading') html+='<div class="txn-tail"><span class="txn-tail-spin"></span>'+L('Đang mở thêm lịch sử…','Opening older history…')+'</div>';
+    else if(ost==='done') html+='<div class="txn-tailnote">'+L('Sổ chi tiết giữ 6 tháng gần nhất.','Details cover the last 6 months.')+'</div>';
+    else if(ost==='error') html+='<button type="button" class="txn-tailnote link" onclick="txnRetryOlder()">'+L('Chưa tải được lịch sử cũ · Thử lại','Older history didn’t load · Try again')+'</button>';
   }
   setHTML('txn-list', html);
+  renderTxnStats(list);
+  if(TXV.selMode) buildTxnCondChips(); else buildTxnToolChips();
+  renderTxnBulkbar();
 }
+/* which rows a selection can hold: personal = private expenses (mirror rows are
+   machine-owned, other kinds have their own sheets); family = realized,
+   persisted expenses (a future row is a proposal with its own review flow). */
+function _txSelElig(t){
+  if(_txnPersonal()) return (t._kg||'chi')==='chi' && !t._mirror;
+  return !t.future && !!t._dbId;
+}
+/* ── stat card: Vào · Ra · Ròng of the displayed rows + the .pst bar strip
+   with its OWN zoom (TXV.cgrp) — list by day, chart by month is fine. Bars
+   are money-out (the app's chart law: bars are spending; income lives in the
+   tiles). Tapping a bar pins its value and jumps the list to that bucket's
+   newest group head via a chart-bucket → list-group jump map. ── */
+function _txStripLbl(k){
+  if(TXV.cgrp==='month') return isVi()?('Th '+(+k.slice(5,7))):moAbbr(+k.slice(5,7)-1);
+  return (+k.slice(8,10))+'/'+(+k.slice(5,7));
+}
+function _txStripOn(k){
+  return TXV.cgrp==='day' ? k===_txDayKeyD(TODAY)
+       : TXV.cgrp==='week' ? k===_txWeekKeyD(TODAY)
+       : k===_txMonKeyD(TODAY);
+}
+function renderTxnStats(list){
+  var box=document.getElementById('txn-stats'); if(!box) return;
+  var sp0=box.querySelector('.pst'), keep=(TXV._stReset||!sp0)?null:sp0.scrollLeft;
+  TXV._stReset=false;
+  box.style.display='';
+  var vao=0, ra=0, n=0;
+  list.forEach(function(t){ if(t.future) return; n++; var v=_txNet(t); if(v>0) vao+=v; else ra+=-v; });
+  var net=vao-ra;
+  var outs={}, keys=[], jump={};
+  list.forEach(function(t){
+    if(t.future) return;
+    var k=_txGKey(t,TXV.cgrp);
+    if(outs[k]===undefined){ outs[k]=0; keys.push(k); }
+    var v=_txNet(t); if(v<0) outs[k]+=-v;
+    var d=t._d?t._d.getTime():0;
+    if(!jump[k]||d>jump[k].d) jump[k]={ d:d, head:_txGKey(t,TXV.grp) };
+  });
+  keys.sort();
+  var maxOut=0; keys.forEach(function(k){ if(outs[k]>maxOut) maxOut=outs[k]; });
+  TXV._jump=jump;
+  var cols=keys.map(function(k){
+    var h=maxOut?Math.max(outs[k]?5:0, Math.round(outs[k]/maxOut*100)):0;
+    var pin=(TXV.pin===k)?'<span class="pst-pin" style="top:-20px">'+L('Ra ','Out ')+fmtK(outs[k])+'</span>':'';
+    return '<button type="button" class="pst-c" onclick="txnBarTap(&#39;'+k+'&#39;)" aria-label="'+escAttr(_txStripLbl(k))+'">'
+      +'<span class="pst-bars">'+pin+'<i class="pst-b" style="height:'+h+'%"></i></span>'
+      +'<span class="pst-l'+(_txStripOn(k)?' on':'')+(TXV.pin===k?' sel':'')+'">'+_txStripLbl(k)+'</span></button>';
+  }).join('');
+  function pz(g,lbl){ return '<button type="button" class="'+(TXV.cgrp===g?'on':'')+'" onclick="txnPz(&#39;'+g+'&#39;)">'+lbl+'</button>'; }
+  var filtered=_txFiltersActive();
+  box.innerHTML='<div class="st-head">'
+    +'<span class="st-eyebrow'+(filtered?' live':'')+'">'+(filtered?L('Bộ lọc đang bật','Filters on'):L('Đang hiện','Showing'))+' · '+n+' '+L('khoản', n===1?'item':'items')+'</span>'
+    +'<span class="pz">'+pz('day',L('Ngày','Day'))+pz('week',L('Tuần','Week'))+pz('month',L('Tháng','Month'))+'</span></div>'
+    +'<div class="st-tiles">'
+    +'<div class="st-tile"><div class="cf-tl">'+L('Vào','In')+'</div><div class="cf-tv pos num">+'+fmtK(vao)+'</div></div>'
+    +'<div class="st-tile"><div class="cf-tl">'+L('Ra','Out')+'</div><div class="cf-tv num">'+fmtK(ra)+'</div></div>'
+    +'<div class="st-tile"><div class="cf-tl">'+L('Ròng','Net')+'</div><div class="cf-tv num'+(net>0?' pos':'')+'">'+(net>0?'+':(net<0?'−':''))+fmtK(Math.abs(net))+'</div></div>'
+    +'</div>'
+    +'<div class="pst">'+cols+'</div>';
+  var sp=box.querySelector('.pst'); if(sp) sp.scrollLeft=(keep!=null)?keep:sp.scrollWidth;
+}
+function txnPz(g){ if(TXV.cgrp===g) return; TXV.cgrp=g; TXV.pin=null; TXV._stReset=true; _txSavePrefs(); renderTxnScreen(); }
+function txnBarTap(k){
+  TXV.pin=(TXV.pin===k)?null:k;
+  renderTxnScreen();
+  if(!TXV.pin) return;
+  var j=(TXV._jump||{})[k]; if(!j) return;
+  var head=document.getElementById('txnh-'+j.head), sc=document.getElementById('txn-scroll');
+  if(head && sc) sc.scrollTo({ top:Math.max(0, head.getBoundingClientRect().top-sc.getBoundingClientRect().top+sc.scrollTop), behavior:'smooth' });
+}
+
+/* ── dropdown chips + their mini sheets (header direction 04) ─────────────── */
+function _txKindDefs(){ return [
+  {k:'chi',  lbl:L('Chi tiêu','Spending')},
+  {k:'thu',  lbl:L('Thu nhập','Income')},
+  {k:'ck',   lbl:L('Chuyển khoản & thẻ','Transfers & cards')},
+  {k:'vay',  lbl:L('Vay nợ','Loans')},
+  {k:'dautu',lbl:L('Đầu tư','Investments')} ]; }
+function _txSrcDefs(){
+  var d=[
+    {k:'tay',  lbl:L('Ghi tay','By hand')},
+    {k:'email',lbl:L('Từ email','From email')},
+    {k:'csv',  lbl:L('Từ tệp','From a file')} ];
+  if(_txnPersonal()) d.push({k:'nha', lbl:L('Từ sổ gia đình','From the family book')});
+  return d;
+}
+function _txAcctDefs(){
+  var out=((_pTxnCtx&&_pTxnCtx.acctDefs)||[]).slice();
+  out.push({k:'_none',lbl:L('Tiền mặt / chưa gắn','Cash / untagged')});
+  return out;
+}
+/* family money-source buckets (0131) — the distinct instrument strings held
+   in the ledger; _none = hand-entered / pre-0131 rows */
+function _txInstDefs(){
+  var out=Object.keys(TXV.insts||{}).filter(function(k){ return k!=='_none'; })
+    .sort().map(function(k){ return { k:k, lbl:k }; });
+  out.push({k:'_none',lbl:L('Chưa gắn','Untagged')});
+  return out;
+}
+/* Chip label: at its default the chip is a plain noun; off-default it tints
+   and states the ON selection — one name, else a count. */
+function _txChipLbl(base, map, defs){
+  if(!map) return {t:base, live:false};
+  var on=defs.filter(function(o){ return map[o.k]; });
+  if(!on.length || on.length===defs.length) return {t:base, live:false};
+  if(on.length===1) return {t:base+' · '+on[0].lbl, live:true};
+  return {t:base+' · '+on.length, live:true};
+}
+function buildTxnToolChips(){
+  var personal=_txnPersonal();
+  function chip(lab,live,fn){
+    return '<button type="button" class="txn-chip tool'+(live?' live':'')+'" onclick="'+fn+'"><span>'+lab+'</span>'
+      +'<svg class="dch" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>';
+  }
+  var grpLab={day:L('Theo ngày','By day'),week:L('Theo tuần','By week'),month:L('Theo tháng','By month')}[TXV.grp];
+  if(txnSort==='amount') grpLab+=' · '+L('tiền lớn','largest');
+  var html=chip(grpLab,false,'txnSheetSort()');
+  if(personal){
+    var kl=_txChipLbl(L('Loại','Kinds'), TXV.kinds, _txKindDefs());
+    html+=chip(kl.t, kl.live, 'txnSheetKind()');
+  }
+  var srcDefs=_txSrcDefs().slice(), srcMap={};
+  srcDefs.forEach(function(o){ srcMap[o.k]=TXV.srcs?TXV.srcs[o.k]:1; });
+  if(personal) _txAcctDefs().forEach(function(o){ srcDefs.push(o); srcMap[o.k]=TXV.accts?TXV.accts[o.k]:1; });
+  else _txInstDefs().forEach(function(o){ srcDefs.push(o); srcMap[o.k]=TXV.insts?TXV.insts[o.k]:1; });
+  var sl=_txChipLbl(L('Nguồn','Source'), srcMap, srcDefs);
+  html+=chip(sl.t, sl.live, 'txnSheetSrc()');
+  var catDefs=(_txCatOrder()||[]).map(function(c){ return {k:c,lbl:c}; });
+  var cl=_txChipLbl(L('Danh mục','Categories'), TXV.cats, catDefs);
+  html+=chip(cl.t, cl.live, 'txnSheetCat()');
+  setHTML('txn-chips', html);
+}
+/* One toggle for every filter chip in a sheet; the last ON option refuses to
+   turn off (a view of nothing answers nothing). */
+function txnFiltTap(group,k){
+  var g=TXV[group]; if(!g) return;
+  g[k]=g[k]?0:1;
+  if(!Object.keys(g).some(function(x){ return g[x]; })) g[k]=1;
+  TXV.pin=null;
+  renderTxnScreen();
+  if(group==='kinds') txnSheetKind();
+  else if(group==='cats') txnSheetCat();
+  else txnSheetSrc();
+}
+function txnSheetSort(){
+  var b=document.getElementById('txnsort-body'); if(!b) return;
+  function seg(on,fn,lbl){ return '<button type="button" class="atx-seg'+(on?' on':'')+'" onclick="'+fn+'">'+lbl+'</button>'; }
+  b.innerHTML='<span class="crs-lbl">'+L('Nhóm theo','Group by')+'</span><div class="atx-segs">'
+    +seg(TXV.grp==='day',"txnSetGrp('day')",L('Ngày','Day'))
+    +seg(TXV.grp==='week',"txnSetGrp('week')",L('Tuần','Week'))
+    +seg(TXV.grp==='month',"txnSetGrp('month')",L('Tháng','Month'))+'</div>'
+    +'<span class="crs-lbl" style="margin-top:16px">'+L('Xếp trong nhóm','Order inside a group')+'</span><div class="atx-segs">'
+    +seg(txnSort==='date',"txnSetSort('date')",L('Mới nhất','Newest'))
+    +seg(txnSort==='amount',"txnSetSort('amount')",L('Số tiền lớn','Largest first'))+'</div>';
+  openSheet('sheet-txnsort');
+}
+function txnSetGrp(g){ TXV.grp=g; TXV.pin=null; _txSavePrefs(); renderTxnScreen(); txnSheetSort(); }
+function txnSetSort(s){ txnSort=s; _txSavePrefs(); renderTxnScreen(); txnSheetSort(); }
+function txnSheetKind(){
+  var el=document.getElementById('txnkind-list'); if(!el) return;
+  el.innerHTML=_txKindDefs().map(function(o){
+    return '<button type="button" class="choice'+(TXV.kinds[o.k]?' on':'')+'" onclick="txnFiltTap(&#39;kinds&#39;,&#39;'+o.k+'&#39;)">'+o.lbl+'</button>';
+  }).join('');
+  openSheet('sheet-txnkind');
+}
+function txnSheetSrc(){
+  var b=document.getElementById('txnsrc-body'); if(!b) return;
+  var h='<span class="crs-lbl">'+L('Nguồn ghi','Recorded via')+'</span><div class="choices">'
+    +_txSrcDefs().map(function(o){
+      return '<button type="button" class="choice'+(TXV.srcs[o.k]?' on':'')+'" onclick="txnFiltTap(&#39;srcs&#39;,&#39;'+o.k+'&#39;)">'+o.lbl+'</button>';
+    }).join('')+'</div>';
+  if(_txnPersonal()){
+    h+='<span class="crs-lbl" style="margin-top:16px">'+L('Nguồn tiền','Money source')+'</span><div class="choices">'
+      +_txAcctDefs().map(function(o){
+        return '<button type="button" class="choice'+(TXV.accts[o.k]?' on':'')+'" onclick="txnFiltTap(&#39;accts&#39;,&#39;'+escAttr(o.k)+'&#39;)">'+esc(o.lbl)+'</button>';
+      }).join('')+'</div>';
+  } else if(_txInstDefs().length>1){
+    h+='<span class="crs-lbl" style="margin-top:16px">'+L('Nguồn tiền · từ email trở đi','Money source · from email onward')+'</span><div class="choices">'
+      +_txInstDefs().map(function(o){
+        return '<button type="button" class="choice'+(TXV.insts[o.k]?' on':'')+'" onclick="txnFiltTap(&#39;insts&#39;,&#39;'+escAttr(o.k)+'&#39;)">'+esc(o.lbl)+'</button>';
+      }).join('')+'</div>';
+  }
+  b.innerHTML=h;
+  openSheet('sheet-txnsrc');
+}
+/* Hero legend drill (20-budget.js fh-lrow): narrow Danh mục to that one
+   category — the chip reads "Danh mục · X". Tapping the same category again
+   widens back to all, so the hero row is its own way home. */
+function setTxnCat(c){
+  if(!TXV.cats) return;
+  var all=_txCatOrder()||[];
+  var only=all.length && all.every(function(x){ return x===c ? TXV.cats[x]===1 : TXV.cats[x]===0; });
+  all.forEach(function(x){ TXV.cats[x]=(c==null||only||x===c)?1:0; });
+  TXV.pin=null;
+  renderTxnScreen();
+}
+function txnSheetCat(){
+  var el=document.getElementById('txncat-list'); if(!el) return;
+  var style=_txnPersonal()?((_pTxnCtx&&_pTxnCtx.catStyle)||{}):catStyle;
+  el.innerHTML=(_txCatOrder()||[]).map(function(c){
+    var em=(style[c]||['🏷️'])[0];
+    return '<button type="button" class="choice'+(TXV.cats[c]?' on':'')+'" onclick="txnFiltTap(&#39;cats&#39;,&#39;'+escAttr(c)+'&#39;)">'+em+' '+esc(c)+'</button>';
+  }).join('');
+  openSheet('sheet-txncat');
+}
+
+/* ── select mode (Chọn) — select-by-attribute like the review queue ────────
+   "Chọn" swaps the chips row to condition chips with counts; a condition tap
+   selects its whole cluster, ticks correct one row at a time, misses fade.
+   The bulk bar carries count + verbs; every write rides the same paths a
+   single edit uses (fhTxnBulkPatch / fhPersonal* with quiet batching). ── */
+function txnSelMode(){
+  TXV.selMode=!TXV.selMode;
+  if(!TXV.selMode){ TXV.sel={}; _txBulkDisarm(); }
+  var b=document.getElementById('txn-select');
+  if(b) b.textContent=TXV.selMode?L('Xong','Done'):L('Chọn','Select');
+  renderTxnScreen();
+}
+function txnSelExit(){ if(TXV.selMode) txnSelMode(); }
+function txnSelToggle(id){
+  if(TXV.sel[id]) delete TXV.sel[id]; else TXV.sel[id]=1;
+  _txBulkDisarm();
+  renderTxnScreen();
+}
+function txnSelBlocked(why){
+  var msg= why==='mirror' ? L('Bản sao từ sổ gia đình · sửa bên sổ gốc','A copy from the family book · edit it there')
+        : why==='future' ? L('Khoản đề xuất có luồng duyệt riêng','Proposals have their own review flow')
+        : why==='kind'   ? L('Loại này có sheet riêng, chưa sửa hàng loạt được','This kind edits in its own sheet, not in bulk')
+        : L('Khoản này không chọn được','This item can’t be selected');
+  if(typeof toast==='function') toast(msg);
+}
+function _txCondDefs(){
+  var rows=(TXV._list||[]).filter(_txSelElig);
+  function ids(f){ return rows.filter(f).map(function(t){ return String(t.id); }); }
+  var defs=[{lbl:L('Đang hiện','All shown'), ids:ids(function(){ return true; })}];
+  /* top categories by row count */
+  var cnt={};
+  rows.forEach(function(t){ cnt[t.cat]=(cnt[t.cat]||0)+1; });
+  Object.keys(cnt).sort(function(a,b){ return cnt[b]-cnt[a]; }).slice(0,4).forEach(function(c){
+    defs.push({lbl:c, ids:ids(function(t){ return t.cat===c; })});
+  });
+  /* source buckets present */
+  _txSrcDefs().forEach(function(o){
+    var m=ids(function(t){ return _txSrcKey(t)===o.k; });
+    if(m.length) defs.push({lbl:o.lbl, ids:m});
+  });
+  /* family: who paid */
+  if(!_txnPersonal() && window.FAM && FAM.members){
+    FAM.members.forEach(function(m){
+      var w=ids(function(t){ return memMatch(t.who, m.name); });
+      if(w.length) defs.push({lbl:m.name+' '+L('trả','paid'), ids:w});
+    });
+  }
+  return defs.filter(function(d){ return d.ids.length; });
+}
+function buildTxnCondChips(){
+  var defs=_txCondDefs(); TXV._conds=defs;
+  setHTML('txn-chips', defs.map(function(d,i){
+    var allOn=d.ids.length && d.ids.every(function(id){ return TXV.sel[id]; });
+    return '<button type="button" class="txn-chip'+(allOn?' on':'')+'" onclick="txnCondTap('+i+')">'+esc(d.lbl)+' <span class="n num">'+d.ids.length+'</span></button>';
+  }).join(''));
+}
+function txnCondTap(i){
+  var d=(TXV._conds||[])[i]; if(!d) return;
+  var allOn=d.ids.every(function(id){ return TXV.sel[id]; });
+  d.ids.forEach(function(id){ if(allOn) delete TXV.sel[id]; else TXV.sel[id]=1; });
+  _txBulkDisarm();
+  renderTxnScreen();
+}
+function renderTxnBulkbar(){
+  var bar=document.getElementById('txn-bulkbar'); if(!bar) return;
+  var n=Object.keys(TXV.sel||{}).length;
+  bar.classList.toggle('on', !!TXV.selMode && n>0);
+  var cnt=document.getElementById('txn-bb-n'); if(cnt) cnt.textContent=n+' '+L('khoản', n===1?'item':'items');
+  var verbs=document.getElementById('txn-bb-verbs');
+  if(verbs){
+    verbs.innerHTML=_txnPersonal()
+      ? '<button type="button" class="bb-v" onclick="txnBulkSheet(&#39;cat&#39;)">'+L('Danh mục','Category')+'</button>'
+       +'<button type="button" class="bb-v" onclick="txnBulkSheet(&#39;acct&#39;)">'+L('Nguồn tiền','Money source')+'</button>'
+      : '<button type="button" class="bb-v" onclick="txnBulkSheet(&#39;cat&#39;)">'+L('Danh mục','Category')+'</button>'
+       +'<button type="button" class="bb-v" onclick="txnBulkSheet(&#39;who&#39;)">'+L('Ai trả','Who paid')+'</button>';
+  }
+}
+var _txDelTimer=null;
+function _txBulkDisarm(){
+  clearTimeout(_txDelTimer);
+  var b=document.getElementById('txn-bb-del');
+  if(b && b.classList.contains('armed')){ b.classList.remove('armed'); b.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6"/></svg>'; }
+}
+function txnBulkSheet(kind){
+  var h=document.getElementById('txnbulk-h'), s=document.getElementById('txnbulk-sub'), list=document.getElementById('txnbulk-list');
+  if(!h||!s||!list) return;
+  var n=Object.keys(TXV.sel||{}).length;
+  if(kind==='cat'){
+    h.textContent=L('Danh mục','Category');
+    s.textContent=L('Áp cho '+n+' khoản đã chọn.','Applies to the '+n+' selected.');
+    var style=_txnPersonal()?((_pTxnCtx&&_pTxnCtx.catStyle)||{}):catStyle;
+    list.innerHTML=(_txCatOrder()||[]).map(function(c){
+      var em=(style[c]||['🏷️'])[0];
+      return '<button type="button" class="choice" onclick="txnBulkCatPick(&#39;'+escAttr(c)+'&#39;)">'+em+' '+esc(c)+'</button>';
+    }).join('');
+  } else if(kind==='who'){
+    h.textContent=L('Ai trả','Who paid');
+    s.textContent=L('Áp cho '+n+' khoản đã chọn.','Applies to the '+n+' selected.');
+    var mems=(window.FAM&&FAM.members)||[];
+    list.innerHTML=mems.map(function(m){
+      return '<button type="button" class="choice" onclick="txnBulkWhoPick(&#39;'+escAttr(m.name)+'&#39;)">'+esc(m.name)+'</button>';
+    }).join('')+'<button type="button" class="choice" onclick="txnBulkWhoPick(&#39;Both&#39;)">'+L('Chung','Both')+'</button>';
+  } else {
+    h.textContent=L('Nguồn tiền','Money source');
+    s.textContent=L('Áp cho '+n+' khoản đã chọn.','Applies to the '+n+' selected.');
+    var defs=((_pTxnCtx&&_pTxnCtx.acctDefs)||[]).slice();
+    list.innerHTML=defs.map(function(a){
+      return '<button type="button" class="choice" onclick="txnBulkAcctPick(&#39;'+escAttr(a.k)+'&#39;)">'+esc(a.lbl)+'</button>';
+    }).join('')+'<button type="button" class="choice" onclick="txnBulkAcctPick(&#39;&#39;)">'+L('Tiền mặt / bỏ gắn','Cash / untag')+'</button>';
+  }
+  openSheet('sheet-txnbulk');
+}
+/* Family applies are optimistic (local math + fire-through, the house posture);
+   personal applies are online-only: the bar goes busy, writes run quiet, one
+   hydrate at the end, success reported only after it lands (DESIGN §4.2). */
+function txnBulkCatPick(name){
+  closeSheet();
+  var ids=Object.keys(TXV.sel||{}); if(!ids.length) return;
+  if(_txnPersonal()){ _txBulkPersonal(ids, { cat:name }); return; }
+  var em=(catStyle[name]||['🧾'])[0], done=0;
+  ids.forEach(function(id){
+    var t=txById(id); if(!t||t.cat===name){ if(t) done++; return; }
+    var m=months[t.month];
+    if(m && !t.future){
+      m.catSpent[t.cat]=(m.catSpent[t.cat]||0)-t.amt;
+      m.catSpent[name]=(m.catSpent[name]||0)+t.amt;
+    }
+    t.cat=name; t.ico=em;
+    var catId=(window.DB&&DB.catByName)?DB.catByName[name]:null;
+    if(t._dbId && catId && window.fhTxnBulkPatch) fhTxnBulkPatch(t._dbId, { category_id:catId });
+    done++;
+  });
+  if(window.fhTxnBulkDone) fhTxnBulkDone();
+  txnSelExit(); renderAll(); renderTxns();
+  toast(L('Đã đổi danh mục cho '+done+' khoản','Category changed on '+done+' items'));
+}
+function txnBulkWhoPick(who){
+  closeSheet();
+  var ids=Object.keys(TXV.sel||{}); if(!ids.length) return;
+  var whoStore=(who==='Both')?'Shared':who, done=0;
+  ids.forEach(function(id){
+    var t=txById(id); if(!t||t.who===whoStore){ if(t) done++; return; }
+    var m=months[t.month];
+    if(m && !t.future){
+      var oldMk=(t.who==='Shared'||t.who==='both')?'Shared':t.who;
+      var newMk=(whoStore==='Shared')?'Shared':whoStore;
+      m.memberSpent[oldMk]=(m.memberSpent[oldMk]||0)-t.amt;
+      m.memberSpent[newMk]=(m.memberSpent[newMk]||0)+t.amt;
+    }
+    t.who=whoStore;
+    if(t._dbId && window.fhTxnBulkPatch && typeof _memberIdForWho==='function')
+      fhTxnBulkPatch(t._dbId, { member_id:_memberIdForWho(whoStore) });
+    done++;
+  });
+  if(window.fhTxnBulkDone) fhTxnBulkDone();
+  txnSelExit(); renderAll(); renderTxns();
+  toast(L('Đã đổi người trả cho '+done+' khoản','Payer changed on '+done+' items'));
+}
+function txnBulkAcctPick(acctId){
+  closeSheet();
+  var ids=Object.keys(TXV.sel||{}); if(!ids.length) return;
+  _txBulkPersonal(ids, { accountId:acctId||null });
+}
+async function _txBulkPersonal(ids, change){
+  var bar=document.getElementById('txn-bulkbar'); if(bar) bar.classList.add('busy');
+  var P=(typeof fhPersonalData==='function')?fhPersonalData():null;
+  var all=P?((P.txns||[]).concat(P.txnsOld||[])):[];   // selection may reach the on-demand months 3–6
+  var ok=0, fail=0;
+  for(var i=0;i<ids.length;i++){
+    var raw=all.find(function(x){ return String(x.id)===ids[i]; });
+    if(!raw){ fail++; continue; }
+    var fields={ amt:raw.amt, note:raw.note, cat:raw.cat, emoji:raw.emoji, time:raw.time, dateIso:raw.date };
+    if(change.cat){
+      fields.cat=change.cat;
+      fields.emoji=((_pTxnCtx&&_pTxnCtx.catStyle&&_pTxnCtx.catStyle[change.cat])||(window.catStyle&&catStyle[change.cat])||['🏷️'])[0];
+    }
+    if(change.hasOwnProperty('accountId')) fields.accountId=change.accountId;
+    var r=await window.fhPersonalUpdateExpense(ids[i], fields, true);
+    if(r){
+      ok++;
+      /* the hydrate below only refreshes the 2-month window — a row living in
+         the older cache is patched in place so the list can't show stale values */
+      raw.cat=fields.cat; raw.emoji=fields.emoji;
+      if(fields.hasOwnProperty('accountId')) raw.accountId=fields.accountId;
+    } else fail++;
+  }
+  try{ await window.fhPersonalHydrate(); }catch(_e){}
+  if(bar) bar.classList.remove('busy');
+  txnSelExit();
+  if(typeof renderPersonal==='function'){ try{ renderPersonal(); }catch(_e){} }
+  refreshPersonalTxnOverlay();
+  toast(fail
+    ? L('Đã lưu '+ok+' khoản · '+fail+' khoản lỗi, thử lại nhé','Saved '+ok+' · '+fail+' failed, try again')
+    : L('Đã lưu '+ok+' khoản','Saved '+ok+' items'));
+}
+function txnBulkDel(){
+  var b=document.getElementById('txn-bb-del');
+  var ids=Object.keys(TXV.sel||{}); if(!ids.length||!b) return;
+  if(!b.classList.contains('armed')){
+    b.classList.add('armed'); b.textContent=L('Xoá '+ids.length+'?','Delete '+ids.length+'?');
+    clearTimeout(_txDelTimer);
+    _txDelTimer=setTimeout(_txBulkDisarm, 3000);
+    return;
+  }
+  _txBulkDisarm();
+  if(_txnPersonal()){ _txBulkPersonalDel(ids); return; }
+  var done=0;
+  ids.forEach(function(id){
+    var t=txById(id); if(!t) return;
+    var m=months[t.month];
+    if(m && !t.future && t.month===curMonthKey()){
+      var mk=(t.who==='Shared'||t.who==='both')?'Shared':t.who;
+      m.spent-=t.amt; m.catSpent[t.cat]=(m.catSpent[t.cat]||0)-t.amt; m.memberSpent[mk]=(m.memberSpent[mk]||0)-t.amt;
+    }
+    var mirrorId=(t.linkedEvent && window.events && events[t.linkedEvent])?events[t.linkedEvent]._dbId:null;
+    if(t.photos&&t.photos.length){ t.photos=[]; if(typeof syncExpenseEvent==='function') syncExpenseEvent(t); }
+    var i=txns.indexOf(t); if(i>=0) txns.splice(i,1);
+    if(t._dbId && window.fhTxnBulkDelete) fhTxnBulkDelete(t._dbId, mirrorId);
+    done++;
+  });
+  if(window.fhTxnBulkDone) fhTxnBulkDone();
+  txnSelExit(); renderAll(); renderTxns(); if(typeof renderEvents==='function') renderEvents();
+  toast(L('Đã xoá '+done+' khoản','Deleted '+done+' items'));
+}
+async function _txBulkPersonalDel(ids){
+  var bar=document.getElementById('txn-bulkbar'); if(bar) bar.classList.add('busy');
+  var P=(typeof fhPersonalData==='function')?fhPersonalData():null;
+  var ok=0, fail=0;
+  for(var i=0;i<ids.length;i++){
+    var r=await window.fhPersonalDeleteExpense(ids[i], true);
+    if(r){
+      ok++;
+      /* keep the older cache honest — the hydrate below won't touch it */
+      if(P&&P.txnsOld){ var j=P.txnsOld.findIndex(function(x){ return String(x.id)===ids[i]; }); if(j>=0) P.txnsOld.splice(j,1); }
+    } else fail++;
+  }
+  try{ await window.fhPersonalHydrate(); }catch(_e){}
+  if(bar) bar.classList.remove('busy');
+  txnSelExit();
+  if(typeof renderPersonal==='function'){ try{ renderPersonal(); }catch(_e){} }
+  refreshPersonalTxnOverlay();
+  toast(fail
+    ? L('Đã xoá '+ok+' khoản · '+fail+' khoản lỗi','Deleted '+ok+' · '+fail+' failed')
+    : L('Đã xoá '+ok+' khoản','Deleted '+ok+' items'));
+}
+
 function memMatch(who,member){ var w=(who||'').toLowerCase(), v=member.toLowerCase(); if(v==='shared'||v==='both')return w==='shared'||w==='both'; return w===v; }
 // Push a focused, reusable detail screen. Optional `month` presets the month (contextual entry).
 var curDetail=null;

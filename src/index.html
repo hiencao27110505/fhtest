@@ -367,16 +367,27 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   <div class="cd-nav">
     <button class="cd-back" onclick="closeTxns()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg><span data-t="finHead">Finance</span></button>
   </div>
-  <h1 class="txn-title" data-t="txnTitle">Transactions</h1>
+  <!-- "Chọn" (iOS Photos grammar) enters select mode: the chips row swaps to
+       Chọn-nhanh condition chips, rows grow ticks, misses dim, a bulk bar
+       rises. Xong exits. -->
+  <div class="title-row">
+    <h1 class="txn-title" data-t="txnTitle">Transactions</h1>
+    <button class="txn-select" id="txn-select" onclick="txnSelMode()" data-t="txnSelect">Select</button>
+  </div>
+  <!-- Header direction 04 "chips thông minh": the search owns its row (short
+       placeholder, never wraps); sort/filter buttons are gone — every axis is a
+       uniform dropdown chip (Sắp xếp · Loại · Nguồn · Danh mục) built by
+       buildTxnToolChips(), each opening its own mini sheet. -->
   <div class="txn-tools">
-    <div class="txn-row1">
-      <div class="txn-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4" stroke-linecap="round"/></svg><input id="txn-q" inputmode="search" data-tp="phTxnSearch" placeholder="Search by name, category, person…" oninput="onTxnQ()"/><button class="txn-clear" id="txn-clear" onclick="txnClear()" aria-label="Clear search" data-ta="ariaClearSearch" style="display:none"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M9 9l6 6M15 9l-6 6" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg></button></div>
-      <button class="txn-sort" id="txn-sort" onclick="toggleTxnSort()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h13M4 12h8M4 18h4"/></svg><span id="txn-sort-lab">Newest</span></button>
-    </div>
+    <div class="txn-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4" stroke-linecap="round"/></svg><input id="txn-q" inputmode="search" data-tp="phTxnSearch" placeholder="Search transactions" oninput="onTxnQ()"/><button class="txn-clear" id="txn-clear" onclick="txnClear()" aria-label="Clear search" data-ta="ariaClearSearch" style="display:none"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M9 9l6 6M15 9l-6 6" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg></button></div>
     <div class="txn-chips" id="txn-chips"></div>
   </div>
   <div class="cd-scroll" id="txn-scroll">
     <div class="txn-sum" id="txn-sum"></div>
+    <!-- Stat card: Vào · Ra · Ròng of the DISPLAYED rows + the .pst bar strip
+         with its own Ngày/Tuần/Tháng zoom (independent of the list grouping).
+         Rendered by renderTxnStats(); scrolls with content, never sticky. -->
+    <div class="statcard" id="txn-stats" style="display:none"></div>
     <!-- CHI TIÊU THEO DANH MỤC — month's category breakdown, overview above the itemised list (renderFinanceHero) -->
     <div class="fin-cats-card">
       <div class="fin-cats-h"><span id="fh-cats-lbl"></span><a id="fh-cats-edit" onclick="openSheet('sheet-budget')"></a></div>
@@ -384,6 +395,13 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
     </div>
     <div id="txn-list"></div>
     <div class="spacer"></div>
+  </div>
+  <!-- Bulk bar — rises over the list once a selection exists. Verbs are built
+       per scope by renderTxnBulkbar(); delete is arm-then-confirm in place. -->
+  <div class="txn-bulkbar" id="txn-bulkbar">
+    <span class="bb-n num" id="txn-bb-n"></span>
+    <span class="bb-verbs" id="txn-bb-verbs"></span>
+    <button type="button" class="bb-del" id="txn-bb-del" onclick="txnBulkDel()" aria-label="Delete selected" data-ta="txnBulkDelAria"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6"/></svg></button>
   </div>
 </div>
 
@@ -871,6 +889,40 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   <div class="sheet-h" id="catpick-h">Category</div>
   <div class="sheet-sub" id="catpick-sub">Jump to another category's transactions.</div>
   <div class="choices" id="catpick-list"></div>
+</div>
+
+<!-- Giao dịch screen: one mini sheet per dropdown chip (header direction 04).
+     Bodies are built per-open by 60-transactions.js so chip states stay true. -->
+<div class="sheet" id="sheet-txnsort">
+  <div class="grab"></div>
+  <div class="sheet-h" data-t="txnSortH">Arrange</div>
+  <div class="sheet-sub" data-t="txnSortSub">Group, and the order inside a group.</div>
+  <div id="txnsort-body"></div>
+</div>
+<div class="sheet" id="sheet-txnkind">
+  <div class="grab"></div>
+  <div class="sheet-h" data-t="txnKindH">Kinds</div>
+  <div class="sheet-sub" data-t="txnKindSub">What shows is what the totals count.</div>
+  <div class="choices" id="txnkind-list"></div>
+</div>
+<div class="sheet" id="sheet-txnsrc">
+  <div class="grab"></div>
+  <div class="sheet-h" data-t="txnSrcH">Source</div>
+  <div class="sheet-sub" data-t="txnSrcSub">Where it came from, what paid for it.</div>
+  <div id="txnsrc-body"></div>
+</div>
+<div class="sheet" id="sheet-txncat">
+  <div class="grab"></div>
+  <div class="sheet-h" data-t="txnCatH">Categories</div>
+  <div class="sheet-sub" data-t="txnCatSub">Narrowing shows only those expenses.</div>
+  <div class="choices" id="txncat-list"></div>
+</div>
+<!-- Bulk-verb picker (select mode) — one shell, title/body set per verb. -->
+<div class="sheet" id="sheet-txnbulk">
+  <div class="grab"></div>
+  <div class="sheet-h" id="txnbulk-h">…</div>
+  <div class="sheet-sub" id="txnbulk-sub">…</div>
+  <div class="choices" id="txnbulk-list"></div>
 </div>
 
 <div class="modal" id="sheet-budget">

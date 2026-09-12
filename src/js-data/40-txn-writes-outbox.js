@@ -298,7 +298,8 @@
     if (!catId) catId = window.DB.catByName[CAT_FALLBACK] || Object.values(window.DB.catByName)[0];
     const row = Object.assign(
       { family_id: fid, category_id: catId, member_id: _memberIdForWho(t.who), txn_date: _txnIso(t, exD), status: t.future ? 'planned' : 'realized', created_by: (window.DB && window.DB.ownerMemberId) || null,
-        source: t.source || null },   // 0100 provenance: 'direct-email' | 'forwarding-email' | 'csv-import'; null = hand-entered
+        source: t.source || null,     // 0100 provenance: 'direct-email' | 'forwarding-email' | 'csv-import'; null = hand-entered
+        instrument: t.inst || null }, // 0131 money source string; email-staged rows only
       await fhField('amount', t.amt), await fhField('note', t.note),
       await fhField('occurred_time', _okTxnTime(t.time)));   // local "HH:MM" or null (day-only)
     // Offline → queue durably instead of losing the write.
@@ -334,6 +335,22 @@
       _syncSoon(true);   // edit may target/move an out-of-window row → full hydrate (edits are infrequent)
     } catch (e) { _writeErr('txn update failed', e); }
   }
+  /* ── bulk-edit doors (txn-listing revamp; the classic UI layer cannot reach
+     the module internals). Plaintext-only patches (category_id / member_id) —
+     amounts and notes never travel here, so the E2EE surface is untouched.
+     The caller applies its optimistic local math, fires these per row, then
+     calls fhTxnBulkDone() ONCE for the deferred full re-hydrate. ── */
+  window.fhTxnBulkPatch = async function (dbId, patch) {
+    try { await _w(sb.from('transactions').update(patch).eq('id', dbId), 'write transactions'); }
+    catch (e) { _writeErr('bulk txn patch failed', e); }
+  };
+  window.fhTxnBulkDelete = async function (dbId, mirrorEventDbId) {
+    // its mirror event goes first, through archive_event — same order as deleteExpense
+    try { if (mirrorEventDbId) await _rpc('archive_event', { p_event_id: mirrorEventDbId }); }
+    catch (e) { _writeErr('mirror event archive failed', e); }
+    await _dbDeleteTxn(dbId);
+  };
+  window.fhTxnBulkDone = function () { _syncSoon(true); };
   async function _dbDeleteTxn(dbId) {
     try {
       try {                                                   // remove storage files before the photo rows cascade away
