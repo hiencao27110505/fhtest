@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Copy thông báo · chuỗi thói quen 6AM</title>
+<style>
+:root{
+  --bg:#f6f4f1; --surface:#ffffff; --surface-2:#faf9f6; --ink:#1b241f; --ink-2:#3b463f;
+  --muted:#67736c; --line:#e7e3dc; --brand:#2E9E6B; --brand-ink:#1F7E52; --brand-tint:#eaf6ef;
+  --shadow:0 1px 2px rgba(20,30,25,.04),0 6px 20px rgba(20,30,25,.05);
+  --mono:"SF Mono",ui-monospace,"JetBrains Mono",Menlo,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Inter",system-ui,"Segoe UI",sans-serif;
+  --disp:-apple-system,BlinkMacSystemFont,"SF Pro Display","Inter",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0f130e; --surface:#161b14; --surface-2:#12160f; --ink:#e8ebe4; --ink-2:#c3cabf;
+  --muted:#8f998f; --line:#262c22; --brand:#5FD3A0; --brand-ink:#7fe0b3; --brand-tint:rgba(95,211,160,.11);
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 26px rgba(0,0,0,.34);
+}}
+:root[data-theme="light"]{ --bg:#f6f4f1; --surface:#ffffff; --surface-2:#faf9f6; --ink:#1b241f; --ink-2:#3b463f; --muted:#67736c; --line:#e7e3dc; --brand:#2E9E6B; --brand-ink:#1F7E52; --brand-tint:#eaf6ef; --shadow:0 1px 2px rgba(20,30,25,.04),0 6px 20px rgba(20,30,25,.05); }
+:root[data-theme="dark"]{ --bg:#0f130e; --surface:#161b14; --surface-2:#12160f; --ink:#e8ebe4; --ink-2:#c3cabf; --muted:#8f998f; --line:#262c22; --brand:#5FD3A0; --brand-ink:#7fe0b3; --brand-tint:rgba(95,211,160,.11); --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 26px rgba(0,0,0,.34); }
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.5;font-size:15px;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1120px;margin:0 auto;padding:34px 22px 96px}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--brand-ink);font-weight:600}
+h1{font-family:var(--disp);font-size:30px;font-weight:800;letter-spacing:-.6px;margin:.35rem 0 0;text-wrap:balance}
+.lede{color:var(--ink-2);max-width:66ch;margin:.6rem 0 0;font-size:15.5px}
+.note{margin-top:16px;background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--brand);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow)}
+.note p{margin:.2rem 0;color:var(--ink-2);font-size:14px}
+.note b{color:var(--ink)}
+.legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.chip{font-family:var(--mono);font-size:12px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:5px 11px;color:var(--ink-2)}
+.chip b{color:var(--ink);font-weight:600}
+.toggle{position:sticky;top:14px;float:right;margin-top:-2px;font-family:var(--mono);font-size:12px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:6px 13px;color:var(--ink-2);cursor:pointer}
+.toggle:hover{border-color:var(--brand);color:var(--brand-ink)}
+.card{margin-top:24px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:6px 4px 10px;box-shadow:var(--shadow);overflow:hidden}
+h2{font-family:var(--disp);font-size:18px;font-weight:750;letter-spacing:-.2px;margin:12px 16px 2px;display:flex;align-items:center;gap:9px}
+h2 .emo-h{font-size:20px}
+h2 .key{font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.04em;color:var(--muted);background:var(--surface-2);border:1px solid var(--line);padding:2px 7px;border-radius:6px;margin-left:auto}
+.sub-lbl{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:14px 16px 4px}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:680px;font-size:14px}
+thead th{text-align:left;font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;font-weight:600;color:var(--muted);padding:8px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+tbody td{padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+tbody tr:last-child td{border-bottom:0}
+.tier{width:150px;background:var(--surface-2);border-right:1px solid var(--line);padding-top:11px}
+.tier-n{display:block;font-weight:700;font-size:13.5px;color:var(--ink)}
+.tier-r{display:block;font-family:var(--mono);font-size:11px;color:var(--brand-ink);margin-top:3px;font-variant-numeric:tabular-nums}
+.tier-tag{display:block;font-size:12px;color:var(--muted);margin-top:3px}
+.n{width:22px;font-family:var(--mono);font-size:12px;color:var(--muted);text-align:center;font-variant-numeric:tabular-nums}
+.emo{width:30px;font-size:19px;text-align:center;line-height:1.3}
+.b{color:var(--ink);width:34%}
+.b-en{color:var(--muted)}
+tbody tr:hover td{background:var(--brand-tint)}
+tbody tr:hover .tier{background:var(--brand-tint)}
+.subhead{font-family:var(--disp);font-size:22px;font-weight:800;letter-spacing:-.4px;margin:44px 0 2px}
+.sub-note{color:var(--muted);font-size:14px;margin:0 0 6px;max-width:72ch}
+footer{margin-top:40px;color:var(--muted);font-size:12.5px;font-family:var(--mono);border-top:1px solid var(--line);padding-top:16px}
+@media (max-width:560px){.wrap{padding:22px 13px 70px}h1{font-size:24px}.tier{width:110px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<button class="toggle" onclick="var r=document.documentElement,d=(r.getAttribute('data-theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'))==='dark';r.setAttribute('data-theme',d?'light':'dark')">◐ Sáng / Tối</button>
+<header>
+  <div class="eyebrow">FamilyHub · Earthy</div>
+  <h1>Copy thông báo — chuỗi thói quen, 6 giờ sáng</h1>
+  <p class="lede">Mỗi sáng 6 giờ, app chốt sổ <b>ngày hôm qua</b> và nói đúng một câu: khen khi giữ được, chê khi vỡ, chốt theo <b>trạng thái chuỗi × độ dài × mức độ tái phạm</b>. Chữ do <b>máy của người dùng tự soạn</b> (server không đọc được sổ) — server chỉ bấm chuông; đứng từ service worker, tính lại chuỗi từ sổ + hàng chờ email rồi ghép câu.</p>
+  <div class="note">
+    <p><b>Luật ghép câu.</b> Push là <b>digest một dòng</b> cho mọi chuỗi: chọn <b>một</b> sự kiện đáng nói nhất theo thứ tự ưu tiên <b>đứt hôm qua → kỷ lục mới → chạm mốc → ngày sạch thường → im lặng không có (luôn gửi)</b>. Các chuỗi còn lại gói vào đuôi câu ("· 2 chuỗi khác vẫn sống").</p>
+    <p><b>Biến trong câu:</b> <span class="chip">{target}</span> tên thương hiệu/danh mục ("Grab", "ăn ngoài") · <span class="chip">{n}</span> số ngày · <span class="chip">{amt}</span> số tiền khoản phá chuỗi · <span class="chip">{saved}</span> tiền ở lại ví ước tính · <span class="chip">{record}</span> kỷ lục cũ.</p>
+    <p><b>Không bao giờ:</b> nêu tên người phá chuỗi gia đình trên push (nêu <i>khoản</i>, không nêu <i>người</i>) · số tiền trên push khoá màn hình khi sổ chưa mở khoá · giọng dạy đời dài dòng — mỗi câu một hơi thở, chấm than tiết chế.</p>
+  </div>
+  <div class="legend">
+    <span class="chip"><b>Xoay vòng</b> 4 biến thể mỗi ô, không lặp 2 ngày liền</span>
+    <span class="chip"><b>VN</b> chính thức · <b>EN</b> tham chiếu giọng</span>
+    <span class="chip">Fallback chung khi máy không soạn được (§F)</span>
+  </div>
+</header>
+
+<!-- ═══════════ A. NGÀY SẠCH ═══════════ -->
+<div class="subhead">A · Hôm qua sạch — khen</div>
+<p class="sub-note">Không có khoản nào khớp chuỗi trong ngày hôm qua (kể cả hàng chờ email). Bậc theo độ dài chuỗi — chuỗi càng non, câu càng vun; chuỗi càng già, câu càng gọn và tự hào.</p>
+<section class="card"><h2><span class="emo-h">🌱</span>Ngày sạch thường <span class="key">clean-day</span></h2><div class="scroll"><table>
+<thead><tr><th>Bậc</th><th>#</th><th colspan="2">Tiếng Việt</th><th colspan="2">English</th></tr></thead>
+<tbody>
+<tr><td rowspan="4" class="tier"><span class="tier-n">Mới chớm</span><span class="tier-r">ngày 1–3</span><span class="tier-tag">cần vun nhất</span></td>
+<td class="n">1</td><td class="emo">🌱</td><td class="b">Ngày {n} không {target} — khởi đầu ngon lành!</td><td class="emo">🌱</td><td class="b b-en">Day {n} without {target}, off to a good start!</td></tr>
+<tr><td class="n">2</td><td class="emo">💪</td><td class="b">Hôm qua {target} gọi mà bạn không bắt máy. Giỏi!</td><td class="emo">💪</td><td class="b b-en">{target} called yesterday and you did not pick up. Nice!</td></tr>
+<tr><td class="n">3</td><td class="emo">🤝</td><td class="b">Ngày {n} rồi đó. Từ từ mà chắc nha!</td><td class="emo">🤝</td><td class="b b-en">Day {n} already. Slow and steady!</td></tr>
+<tr><td class="n">4</td><td class="emo">☀️</td><td class="b">Sáng nay báo tin vui: hôm qua sạch bóng {target}!</td><td class="emo">☀️</td><td class="b b-en">Morning news: yesterday was {target}-free!</td></tr>
+<tr><td rowspan="4" class="tier"><span class="tier-n">Có đà</span><span class="tier-r">ngày 4–6</span><span class="tier-tag">sắp chạm mốc tuần</span></td>
+<td class="n">1</td><td class="emo">🔥</td><td class="b">{n} ngày liền không {target} — còn chút nữa là tròn tuần!</td><td class="emo">🔥</td><td class="b b-en">{n} days without {target}, almost a full week!</td></tr>
+<tr><td class="n">2</td><td class="emo">😎</td><td class="b">Ngày {n}. {target} chắc đang nhớ bạn lắm rồi.</td><td class="emo">😎</td><td class="b b-en">Day {n}. {target} must really miss you by now.</td></tr>
+<tr><td class="n">3</td><td class="emo">💰</td><td class="b">{n} ngày nói không với {target}, ~{saved} vẫn nằm im trong ví.</td><td class="emo">💰</td><td class="b b-en">{n} days of no to {target}, ~{saved} still sitting in your wallet.</td></tr>
+<tr><td class="n">4</td><td class="emo">🏃</td><td class="b">Đà này đẹp lắm, đừng để cuối tuần cản bước nha!</td><td class="emo">🏃</td><td class="b b-en">Great momentum, do not let the weekend trip you!</td></tr>
+<tr><td rowspan="4" class="tier"><span class="tier-n">Qua mốc tuần</span><span class="tier-r">ngày 8–13</span><span class="tier-tag">đã có gì để mất</span></td>
+<td class="n">1</td><td class="emo">🧘</td><td class="b">Ngày {n}. Không {target} giờ thành chuyện bình thường mới của bạn.</td><td class="emo">🧘</td><td class="b b-en">Day {n}. No {target} is just your new normal now.</td></tr>
+<tr><td class="n">2</td><td class="emo">💰</td><td class="b">{n} ngày, ~{saved} ở lại ví. Con số biết nói mà!</td><td class="emo">💰</td><td class="b b-en">{n} days, ~{saved} kept. Numbers do talk!</td></tr>
+<tr><td class="n">3</td><td class="emo">🛡️</td><td class="b">Chuỗi {n} ngày rồi đó — giờ đứt là tiếc lắm à nha.</td><td class="emo">🛡️</td><td class="b b-en">A {n}-day streak now, breaking it would sting.</td></tr>
+<tr><td class="n">4</td><td class="emo">☕</td><td class="b">Sáng nay cà phê ngon hơn: ngày {n} không {target}.</td><td class="emo">☕</td><td class="b b-en">Coffee tastes better today: day {n} without {target}.</td></tr>
+<tr><td rowspan="4" class="tier"><span class="tier-n">Bền vững</span><span class="tier-r">ngày 14+</span><span class="tier-tag">gọn, tự hào, ít lời</span></td>
+<td class="n">1</td><td class="emo">🏔️</td><td class="b">Ngày {n}. Vững như núi.</td><td class="emo">🏔️</td><td class="b b-en">Day {n}. Solid as a mountain.</td></tr>
+<tr><td class="n">2</td><td class="emo">✨</td><td class="b">{n} ngày không {target} — nói ít thôi, để con số tự khoe.</td><td class="emo">✨</td><td class="b b-en">{n} days without {target}, letting the number brag for us.</td></tr>
+<tr><td class="n">3</td><td class="emo">💰</td><td class="b">{n} ngày · ~{saved} ở lại ví. Đều như vắt tranh.</td><td class="emo">💰</td><td class="b b-en">{n} days, ~{saved} kept. Steady as clockwork.</td></tr>
+<tr><td class="n">4</td><td class="emo">🌳</td><td class="b">Cây thói quen của bạn giờ thành cổ thụ rồi. Ngày {n}!</td><td class="emo">🌳</td><td class="b b-en">Your habit sprout is a full tree now. Day {n}!</td></tr>
+</tbody></table></div></section>
+
+<!-- ═══════════ B. MỐC & KỶ LỤC ═══════════ -->
+<div class="subhead">B · Chạm mốc & kỷ lục — ăn mừng</div>
+<p class="sub-note">Ưu tiên cao hơn ngày sạch thường. Mốc mặc định 7, sau đó 14 · 30 · 100. Kỷ lục mới đè lên mốc nếu trùng ngày.</p>
+<section class="card"><h2><span class="emo-h">🎉</span>Chạm mốc <span class="key">milestone</span></h2><div class="scroll"><table>
+<thead><tr><th>Bậc</th><th>#</th><th colspan="2">Tiếng Việt</th><th colspan="2">English</th></tr></thead>
+<tbody>
+<tr><td rowspan="4" class="tier"><span class="tier-n">Tròn tuần</span><span class="tier-r">ngày 7</span><span class="tier-tag">mốc đầu tiên</span></td>
+<td class="n">1</td><td class="emo">🎉</td><td class="b">TRÒN 7 NGÀY không {target}! Tuần đầu là tuần khó nhất — xong rồi đó!</td><td class="emo">🎉</td><td class="b b-en">A FULL WEEK without {target}! The first week is the hardest, and it is done!</td></tr>
+<tr><td class="n">2</td><td class="emo">🏅</td><td class="b">7 ngày, một con tem sao đầu tiên. Đáng khoe với cả nhà!</td><td class="emo">🏅</td><td class="b b-en">Seven days, your first star stamp. Worth showing off!</td></tr>
+<tr><td class="n">3</td><td class="emo">💰</td><td class="b">Một tuần không {target} = ~{saved} còn nguyên. Tự thưởng gì đó rẻ hơn nha!</td><td class="emo">💰</td><td class="b b-en">One week without {target} = ~{saved} intact. Treat yourself to something cheaper!</td></tr>
+<tr><td class="n">4</td><td class="emo">🚀</td><td class="b">Mốc 7 đã qua. Giờ nhắm mốc 14 thôi chứ gì nữa!</td><td class="emo">🚀</td><td class="b b-en">Milestone 7 down. Next stop, 14!</td></tr>
+<tr><td rowspan="3" class="tier"><span class="tier-n">Mốc lớn</span><span class="tier-r">14 · 30 · 100</span><span class="tier-tag">càng lớn càng trang trọng</span></td>
+<td class="n">1</td><td class="emo">🏆</td><td class="b">{n} NGÀY không {target}. Đây không còn là thử thách — là con người mới của bạn.</td><td class="emo">🏆</td><td class="b b-en">{n} DAYS without {target}. Not a challenge anymore, just who you are now.</td></tr>
+<tr><td class="n">2</td><td class="emo">💎</td><td class="b">Mốc {n} ngày! ~{saved} ở lại ví — đủ làm một chuyện ra trò rồi.</td><td class="emo">💎</td><td class="b b-en">{n}-day milestone! ~{saved} kept, enough for something that matters.</td></tr>
+<tr><td class="n">3</td><td class="emo">🎊</td><td class="b">{n} ngày. Cả FamilyHub nghiêng mình. Mở app nhận pháo giấy nè!</td><td class="emo">🎊</td><td class="b b-en">{n} days. FamilyHub bows. Open the app for confetti!</td></tr>
+<tr><td rowspan="3" class="tier"><span class="tier-n">Kỷ lục mới</span><span class="tier-r">{n} &gt; {record}</span><span class="tier-tag">đè mọi mốc</span></td>
+<td class="n">1</td><td class="emo">📈</td><td class="b">KỶ LỤC MỚI: {n} ngày — vượt chính mình hồi trước ({record} ngày)!</td><td class="emo">📈</td><td class="b b-en">NEW RECORD: {n} days, past your old self ({record})!</td></tr>
+<tr><td class="n">2</td><td class="emo">👑</td><td class="b">Hôm nay bạn của hiện tại chính thức thắng bạn của ngày xưa. {n} ngày!</td><td class="emo">👑</td><td class="b b-en">Today's you officially beats past you. {n} days!</td></tr>
+<tr><td class="n">3</td><td class="emo">🔔</td><td class="b">Đỉnh cũ {record} ngày đã bị xô đổ. Đỉnh mới: {n} và đang đếm tiếp.</td><td class="emo">🔔</td><td class="b b-en">Old peak of {record} days toppled. New peak: {n} and counting.</td></tr>
+</tbody></table></div></section>
+
+<!-- ═══════════ C. ĐỨT HÔM QUA ═══════════ -->
+<div class="subhead">C · Đứt hôm qua — chê, nhưng chê khéo</div>
+<p class="sub-note">Có khoản khớp chuỗi ghi ngày hôm qua (sổ hoặc hàng chờ). Giọng "hơi phán xét" như copy bắt-giao-dịch, nhưng câu nào cũng chừa đường về: chuỗi mới đã tự chạy từ hôm nay. Không bao giờ xúc phạm — chọc nhẹ kiểu người nhà.</p>
+<section class="card"><h2><span class="emo-h">💔</span>Vỡ chuỗi <span class="key">broken</span></h2><div class="scroll"><table>
+<thead><tr><th>Bậc</th><th>#</th><th colspan="2">Tiếng Việt</th><th colspan="2">English</th></tr></thead>
+<tbody>
+<tr><td rowspan="4" class="tier"><span class="tier-n">Đứt sớm</span><span class="tier-r">chuỗi ≤ 3 ngày</span><span class="tier-tag">chưa kịp tiếc</span></td>
+<td class="n">1</td><td class="emo">🙈</td><td class="b">Hôm qua lỡ tay {amt} cho {target} rồi. Thôi, coi như khởi động lại!</td><td class="emo">🙈</td><td class="b b-en">Slipped {amt} on {target} yesterday. Fine, call it a warm-up restart!</td></tr>
+<tr><td class="n">2</td><td class="emo">😅</td><td class="b">Chuỗi non {n} ngày đã đứt vì {target}. Lần này ráng qua ngày 4 nha!</td><td class="emo">😅</td><td class="b b-en">Your young {n}-day streak broke on {target}. Make it past day 4 this time!</td></tr>
+<tr><td class="n">3</td><td class="emo">🌧️</td><td class="b">Hụt chân chút xíu thôi. Sáng nay là ngày 1 mới tinh.</td><td class="emo">🌧️</td><td class="b b-en">Just a small stumble. This morning is a brand-new day 1.</td></tr>
+<tr><td class="n">4</td><td class="emo">😏</td><td class="b">{target} thắng hiệp này. Hiệp sau tính tiếp!</td><td class="emo">😏</td><td class="b b-en">{target} took this round. Next round is yours!</td></tr>
+<tr><td rowspan="4" class="tier"><span class="tier-n">Đứt tiếc</span><span class="tier-r">chuỗi ≥ 4 ngày</span><span class="tier-tag">có gì đó để mất thật</span></td>
+<td class="n">1</td><td class="emo">💔</td><td class="b">Ôi, {n} ngày công phu đứt vì một khoản {amt} cho {target} hôm qua!</td><td class="emo">💔</td><td class="b b-en">Ouch, {n} hard-earned days broken by {amt} on {target} yesterday!</td></tr>
+<tr><td class="n">2</td><td class="emo">😤</td><td class="b">{n} ngày bền bỉ, rồi {target} chỉ tốn {amt} để kéo bạn lại. Cay không?</td><td class="emo">😤</td><td class="b b-en">{n} steady days, and {target} only needed {amt} to pull you back. Stings, right?</td></tr>
+<tr><td class="n">3</td><td class="emo">🪞</td><td class="b">Hôm qua {target} ghé và bạn mở cửa. Kỷ lục {record} ngày vẫn đứng đó chờ bạn phá.</td><td class="emo">🪞</td><td class="b b-en">{target} knocked yesterday and you answered. Your {record}-day record still stands, waiting.</td></tr>
+<tr><td class="n">4</td><td class="emo">🔁</td><td class="b">Đứt ở ngày {n}, tiếc thật. Nhưng người làm được {n} ngày thì làm lại được — chạy!</td><td class="emo">🔁</td><td class="b b-en">Broken at day {n}, a real shame. But whoever did {n} days can do it again. Go!</td></tr>
+<tr><td rowspan="4" class="tier"><span class="tier-n">Đứt sát mốc</span><span class="tier-r">còn ≤ 2 ngày tới mốc</span><span class="tier-tag">xát muối có chừng mực</span></td>
+<td class="n">1</td><td class="emo">😱</td><td class="b">Còn ĐÚNG {x} ngày nữa là chạm mốc… mà hôm qua lại {target}. Trời ơi!</td><td class="emo">😱</td><td class="b b-en">Just {x} days from the milestone… and then {target} yesterday. Come on!</td></tr>
+<tr><td class="n">2</td><td class="emo">🥲</td><td class="b">Mốc {m} ngày đã thấy cửa rồi mà {target} chặn ngay cửa. Lần này đi lối khác nha!</td><td class="emo">🥲</td><td class="b b-en">The {m}-day milestone was in sight and {target} blocked the door. Take another route this time!</td></tr>
+<tr><td class="n">3</td><td class="emo">🎯</td><td class="b">Trượt mốc trong gang tấc. Nhưng giờ bạn biết chính xác chỗ nào trơn rồi đó.</td><td class="emo">🎯</td><td class="b b-en">Missed the milestone by a hair. At least now you know exactly where it gets slippery.</td></tr>
+<tr><td class="n">4</td><td class="emo">😮‍💨</td><td class="b">Suýt nữa thì… thôi không nói nữa, đau lòng. Ngày 1, chạy lại!</td><td class="emo">😮‍💨</td><td class="b b-en">So close… let us not talk about it, too painful. Day 1, again!</td></tr>
+<tr><td rowspan="4" class="tier"><span class="tier-n">Đứt tái phạm</span><span class="tier-r">lần 3+ trong 30 ngày</span><span class="tier-tag">phán xét nhất — nhưng gợi cách</span></td>
+<td class="n">1</td><td class="emo">🤨</td><td class="b">Lại {target} nữa rồi — lần thứ {k} tháng này đó nha. Hay là đặt mốc ngắn hơn cho dễ thắng?</td><td class="emo">🤨</td><td class="b b-en">{target} again, round {k} this month. Maybe set a shorter milestone you can actually win?</td></tr>
+<tr><td class="n">2</td><td class="emo">🕵️</td><td class="b">Ba lần đứt gần đây đều rơi vào cuối tuần. Thấy quy luật gì chưa?</td><td class="emo">🕵️</td><td class="b b-en">Your last three breaks all landed on weekends. Seeing a pattern yet?</td></tr>
+<tr><td class="n">3</td><td class="emo">🧗</td><td class="b">Đứt hoài không có nghĩa là thua — nghĩa là còn đang leo. Nhưng mà… {k} lần rồi đó!</td><td class="emo">🧗</td><td class="b b-en">Breaking again does not mean losing, it means still climbing. But still… that is {k} times!</td></tr>
+<tr><td class="n">4</td><td class="emo">🤝</td><td class="b">{target} 1 – 0 bạn, ván thứ {k}. Muốn gỡ thì sáng nay đừng mở app đặt đồ nha!</td><td class="emo">🤝</td><td class="b b-en">{target} 1, you 0, game {k}. Want a rematch? Do not open that ordering app this morning!</td></tr>
+</tbody></table></div></section>
+
+<!-- ═══════════ D. CHUỖI GIA ĐÌNH ═══════════ -->
+<div class="subhead">D · Chuỗi cả nhà — vui chung, vỡ chung</div>
+<p class="sub-note">Gửi cho mọi thành viên có key. Khi vỡ: nêu <b>khoản</b> ("một ly 65k hôm qua"), tuyệt đối không nêu <b>người</b> trên push — ai muốn biết thì mở sổ, dữ liệu vẫn ở đó. Khen thì khen cả đội.</p>
+<section class="card"><h2><span class="emo-h">🏡</span>Cả nhà <span class="key">family</span></h2><div class="scroll"><table>
+<thead><tr><th>Bậc</th><th>#</th><th colspan="2">Tiếng Việt</th><th colspan="2">English</th></tr></thead>
+<tbody>
+<tr><td rowspan="4" class="tier"><span class="tier-n">Ngày sạch chung</span><span class="tier-r">cả nhà giữ được</span><span class="tier-tag">tinh thần đồng đội</span></td>
+<td class="n">1</td><td class="emo">🏡</td><td class="b">Cả nhà cùng qua ngày {n} không {target}. Đội hình đẹp!</td><td class="emo">🏡</td><td class="b b-en">The whole family made it through day {n} without {target}. What a squad!</td></tr>
+<tr><td class="n">2</td><td class="emo">🤜</td><td class="b">Ngày {n}: chưa ai trong nhà đầu hàng {target}. Cụng tay cái!</td><td class="emo">🤜</td><td class="b b-en">Day {n}: nobody in the house has caved to {target}. Fist bump!</td></tr>
+<tr><td class="n">3</td><td class="emo">🍀</td><td class="b">Nhà mình giữ chuỗi {target} sang ngày {n} — ví chung dày thêm ~{saved} rồi đó.</td><td class="emo">🍀</td><td class="b b-en">The family streak hits day {n}, roughly {saved} thicker in the shared wallet.</td></tr>
+<tr><td class="n">4</td><td class="emo">⛺</td><td class="b">Giữ lửa giùm nhau nha — chuỗi chung mà, một người vững là cả nhà vững.</td><td class="emo">⛺</td><td class="b b-en">Keep each other honest, a shared streak stands when everyone does.</td></tr>
+<tr><td rowspan="4" class="tier"><span class="tier-n">Vỡ chung</span><span class="tier-r">một khoản phá chuỗi</span><span class="tier-tag">nêu khoản, giấu người</span></td>
+<td class="n">1</td><td class="emo">🫢</td><td class="b">Chuỗi {target} của cả nhà đứt hôm qua vì một khoản {amt}. Không truy ai đâu — làm lại cùng nhau!</td><td class="emo">🫢</td><td class="b b-en">The family {target} streak broke yesterday over {amt}. No naming names, restart together!</td></tr>
+<tr><td class="n">2</td><td class="emo">🧯</td><td class="b">Có một khoản {amt} lọt lưới hôm qua. Chuỗi mới của nhà mình bắt đầu từ sáng nay!</td><td class="emo">🧯</td><td class="b b-en">One {amt} slipped through the net yesterday. The family's new streak starts this morning!</td></tr>
+<tr><td class="n">3</td><td class="emo">😬</td><td class="b">Ai đó trong nhà đã yếu lòng với {target} ({amt}). Sổ biết hết đó, nhưng mình không kể đâu.</td><td class="emo">😬</td><td class="b b-en">Somebody wobbled for {target} ({amt}). The ledger knows, but our lips are sealed.</td></tr>
+<tr><td class="n">4</td><td class="emo">🔄</td><td class="b">Đứt ở ngày {n}, cả nhà cùng chịu. Mà kỷ lục chung {record} ngày vẫn chờ bị phá kìa!</td><td class="emo">🔄</td><td class="b b-en">Broken at day {n}, all of us together. The family record of {record} days is still there to beat!</td></tr>
+</tbody></table></div></section>
+
+<!-- ═══════════ E. DIGEST NHIỀU CHUỖI ═══════════ -->
+<div class="subhead">E · Digest nhiều chuỗi — một dòng cho tất cả</div>
+<p class="sub-note">Chọn 1 sự kiện chính theo thứ tự ưu tiên (đứt → kỷ lục → mốc → sạch), các chuỗi còn lại gói vào đuôi. Không bao giờ gửi 2 push chuỗi trong một sáng.</p>
+<section class="card"><h2><span class="emo-h">🗞️</span>Ghép đuôi <span class="key">digest</span></h2><div class="scroll"><table>
+<thead><tr><th>Bậc</th><th>#</th><th colspan="2">Tiếng Việt</th><th colspan="2">English</th></tr></thead>
+<tbody>
+<tr><td rowspan="3" class="tier"><span class="tier-n">Tất cả sạch</span><span class="tier-r">mọi chuỗi qua ngày</span><span class="tier-tag">câu chính + đuôi gọn</span></td>
+<td class="n">1</td><td class="emo">✅</td><td class="b">Ngày {n} không {target} — và 2 chuỗi kia cũng sống khoẻ. Sáng đẹp trời!</td><td class="emo">✅</td><td class="b b-en">Day {n} without {target}, and the other two streaks are alive and well. Lovely morning!</td></tr>
+<tr><td class="n">2</td><td class="emo">🟢</td><td class="b">Cả 3 chuỗi đều qua đêm an toàn. Chuỗi dài nhất: {n} ngày không {target}.</td><td class="emo">🟢</td><td class="b b-en">All three streaks survived the night. Longest: {n} days without {target}.</td></tr>
+<tr><td class="n">3</td><td class="emo">🌤️</td><td class="b">Hôm qua sạch trơn mọi mặt trận. Cứ thế mà tiến!</td><td class="emo">🌤️</td><td class="b b-en">A clean sweep on every front yesterday. Keep marching!</td></tr>
+<tr><td rowspan="3" class="tier"><span class="tier-n">Kẻ đứt người lành</span><span class="tier-r">1 đứt, còn lại sạch</span><span class="tier-tag">đứt là câu chính</span></td>
+<td class="n">1</td><td class="emo">⚖️</td><td class="b">Chuỗi {target} đứt hôm qua ({amt}) — nhưng 2 chuỗi kia vẫn đứng vững. Không sao, gãy một không gãy cả!</td><td class="emo">⚖️</td><td class="b b-en">The {target} streak broke yesterday ({amt}), but the other two are standing firm. One down is not all down!</td></tr>
+<tr><td class="n">2</td><td class="emo">🩹</td><td class="b">Một chuỗi trầy xước ({target}), hai chuỗi nguyên vẹn. Băng bó rồi chạy tiếp nha!</td><td class="emo">🩹</td><td class="b b-en">One streak scraped ({target}), two intact. Patch it up and keep running!</td></tr>
+<tr><td class="n">3</td><td class="emo">🎭</td><td class="b">Tin buồn: {target} đứt. Tin vui: {target2} đã {n2} ngày. Đọc tin vui trước cũng được!</td><td class="emo">🎭</td><td class="b b-en">Bad news: {target} broke. Good news: {target2} is at {n2} days. Feel free to read the good news first!</td></tr>
+</tbody></table></div></section>
+
+<!-- ═══════════ F. TRẠNG THÁI RÌA ═══════════ -->
+<div class="subhead">F · Trạng thái rìa — máy không soạn được thì nói gì</div>
+<p class="sub-note">Push khoá màn hình không bao giờ mang số tiền khi sổ chưa mở khoá. Khi service worker không tính được (sổ khoá, cache lạnh, chưa từng mở app trên máy này) — rơi về câu chung, không đoán mò.</p>
+<section class="card"><h2><span class="emo-h">🌫️</span>Fallback & biên <span class="key">edge</span></h2><div class="scroll"><table>
+<thead><tr><th>Bậc</th><th>#</th><th colspan="2">Tiếng Việt</th><th colspan="2">English</th></tr></thead>
+<tbody>
+<tr><td rowspan="3" class="tier"><span class="tier-n">Fallback chung</span><span class="tier-r">sổ khoá / cache lạnh</span><span class="tier-tag">không số liệu, không đoán</span></td>
+<td class="n">1</td><td class="emo">🔔</td><td class="b">Chuỗi thói quen của bạn có tin sáng nay — mở app xem nha!</td><td class="emo">🔔</td><td class="b b-en">Your habit streaks have morning news, open the app to see!</td></tr>
+<tr><td class="n">2</td><td class="emo">📖</td><td class="b">Sổ đã chốt ngày hôm qua. Vào xem chuỗi của bạn ra sao!</td><td class="emo">📖</td><td class="b b-en">Yesterday is in the books. Come see how your streaks did!</td></tr>
+<tr><td class="n">3</td><td class="emo">🌅</td><td class="b">6 giờ sáng, giờ điểm danh chuỗi. Bạn vào điểm danh chưa?</td><td class="emo">🌅</td><td class="b b-en">Six a.m., streak roll call. Are you in?</td></tr>
+<tr><td rowspan="2" class="tier"><span class="tier-n">Còn khoản chờ</span><span class="tier-r">hàng chờ email chưa duyệt</span><span class="tier-tag">giục duyệt, không doạ</span></td>
+<td class="n">1</td><td class="emo">📬</td><td class="b">Chuỗi vẫn đứng — nhưng còn {q} khoản email chưa duyệt. Duyệt xong mới chắc ăn nha!</td><td class="emo">📬</td><td class="b b-en">Streaks still standing, but {q} email items await review. Clear them to be sure!</td></tr>
+<tr><td class="n">2</td><td class="emo">🔍</td><td class="b">Hôm qua sạch… trên giấy tờ. Duyệt nốt {q} khoản chờ để chốt sổ cho chắc!</td><td class="emo">🔍</td><td class="b b-en">Yesterday was clean… on paper. Review the {q} waiting items to seal it!</td></tr>
+<tr><td rowspan="2" class="tier"><span class="tier-n">Ngày đầu tiên</span><span class="tier-r">chuỗi tạo hôm qua</span><span class="tier-tag">chào sân</span></td>
+<td class="n">1</td><td class="emo">🐣</td><td class="b">Ngày đầu tiên không {target} đã xong! Ngày 1 luôn là ngày đáng nhớ nhất.</td><td class="emo">🐣</td><td class="b b-en">First day without {target}, done! Day 1 is always the one to remember.</td></tr>
+<tr><td class="n">2</td><td class="emo">🌱</td><td class="b">Hạt giống đã gieo: 1 ngày không {target}. Mai tưới tiếp nha!</td><td class="emo">🌱</td><td class="b b-en">Seed planted: one day without {target}. Water it again tomorrow!</td></tr>
+</tbody></table></div></section>
+
+<footer>docs/streak-copy-matrix.html · push 6AM chốt ngày hôm qua · chữ soạn trên máy người dùng, server chỉ bấm chuông · biến thể xoay vòng, không lặp 2 ngày liền</footer>
+</div>
+</body>
+</html>

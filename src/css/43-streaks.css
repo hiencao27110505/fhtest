@@ -1,0 +1,46 @@
+/* ═══ Habit streaks — "Chuỗi thói quen" (0131, mockup #6 stamp card) ═══ */
+.stk-card{padding:16px 18px 14px;cursor:pointer}
+.stk-card:active{background:var(--surface)}
+.stk-head{display:flex;align-items:center;gap:9px}
+.stk-emo{font-size:19px;line-height:1}
+.stk-name{font-size:15.5px;font-weight:600;color:var(--ink)}
+.stk-tag{margin-left:auto;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border-radius:9999px;padding:3px 9px}
+.stk-tag.good{background:var(--good-tint);color:var(--good)}
+.stk-tag.warn{background:var(--danger-tint);color:var(--danger)}
+.stk-stamps{display:flex;gap:8px;margin-top:11px}
+.stk-stamp{width:34px;height:34px;border-radius:11px;border:1.5px dashed var(--hairline);display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--muted-soft);flex:none;position:relative}
+.stk-stamp.on{border:none;background:var(--brand-tint);color:var(--brand-ink);font-weight:700}
+.stk-stamp.star{border:none;background:var(--grad-brand);color:#fff;font-weight:700}
+.stk-stamp.star i{position:absolute;right:-3px;bottom:-3px;font-style:normal;font-size:9px;font-weight:800;background:var(--white);color:var(--brand-ink);border:1px solid var(--hairline);border-radius:9999px;padding:0 4px;line-height:1.5}
+.stk-stamp.x{border:none;background:var(--danger-tint);color:var(--danger);font-weight:700}
+.stk-foot{font-size:13px;color:var(--muted);margin-top:10px}
+.stk-foot b{color:var(--ink);font-weight:700;font-size:14px}
+.stk-broke{font-size:13px;color:var(--danger);margin-top:5px}
+.stk-warn{font-size:12.5px;color:var(--amber);margin-top:5px}
+.stk-empty{padding:20px 18px;text-align:center;cursor:pointer}
+.stk-empty-e{font-size:26px}
+.stk-empty-t{font-size:15px;font-weight:600;color:var(--ink);margin-top:6px}
+.stk-empty-s{font-size:13px;color:var(--muted);margin-top:3px}
+/* creation picker */
+.stk-pick-lbl{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:16px 2px 7px}
+.stk-pick{display:flex;align-items:center;gap:11px;padding:11px 12px;border:1px solid var(--hairline);border-radius:13px;margin-bottom:8px;cursor:pointer;background:var(--white)}
+.stk-pick:active{border-color:var(--brand);background:var(--brand-tint)}
+.stk-pick-e{font-size:18px;flex:none}
+.stk-pick-t{font-size:15px;font-weight:500;color:var(--ink);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stk-pick-k{font-size:11px;color:var(--muted)}
+.stk-free{display:flex;gap:8px;margin-bottom:6px}
+.stk-free input{flex:1;border:1px solid var(--hairline);border-radius:13px;padding:12px 14px;font-size:16px;background:var(--white)}
+.stk-free input:focus{outline:none;border-color:var(--brand)}
+.stk-free-go{flex:none;padding:10px 16px}
+/* family avatar strip */
+.stk-avs{margin-left:auto;display:flex}
+.stk-av{width:24px;height:24px;border-radius:50%;border:2px solid var(--white);color:#fff;font-family:var(--disp);font-weight:700;font-size:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;flex:none}
+.stk-av+.stk-av{margin-left:-7px}
+.stk-av img{width:100%;height:100%;object-fit:cover}
+.stk-head .stk-avs+.stk-tag{margin-left:8px}
+/* detail sheet */
+.stk-d-big{font-size:17px;color:var(--ink-2);margin:4px 2px 0}
+.stk-d-big .num{font-family:var(--disp);font-size:34px;font-weight:700;letter-spacing:-.8px;color:var(--ink)}
+.stk-d-big b{color:var(--ink)}
+.stk-d-meta{font-size:13.5px;color:var(--muted);margin:6px 2px 0}
+.stk-d-del{text-align:center;font-size:14px;color:var(--muted);padding:14px 0 4px;cursor:pointer;margin-top:14px}

@@ -11,6 +11,9 @@ function renderBudget(){
     + '<span class="fsc-txt"><span class="fsc-t">'+L('Lập ngân sách cho cả nhà','Set up your budget')+'</span>'
     + '<span class="fsc-s">'+L('Đặt hạn mức cho từng hạng mục để theo dõi chi tiêu','A limit per category to track your spending')+'</span></span>'
     + '<svg class="fsc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 18l6-6-6-6"/></svg></button>';
+  // Chuỗi cả nhà (0132): fill the family-streak host; async compute refills itself.
+  var _stkHost=document.getElementById('fam-streaks');
+  if(_stkHost && window.famStreakFill){ try{ famStreakFill(_stkHost); }catch(e){} }
   var reserved=done?0:monthReserved();                 // set-aside for events (unrealized)
   var pctSpent=budget>0?Math.min(100,spent/budget*100):0;
   var pctRes=budget>0?Math.max(0,Math.min(100-pctSpent, reserved/budget*100)):0;

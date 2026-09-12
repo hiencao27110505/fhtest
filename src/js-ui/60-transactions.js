@@ -464,12 +464,20 @@ function renderTxnScreen(){
   if(TXV.selMode) buildTxnCondChips(); else buildTxnToolChips();
   renderTxnBulkbar();
 }
-/* which rows a selection can hold: personal = private expenses (mirror rows are
-   machine-owned, other kinds have their own sheets); family = realized,
+/* which rows a selection can hold (Q14): personal = every private row — a
+   pair selects as ONE and deletes as a pair; only mirror rows refuse (machine-
+   owned). Verbs are subset-honest: Danh mục touches only the chi in the
+   selection, Nguồn tiền chi + thu, Xoá everything. Family = realized,
    persisted expenses (a future row is a proposal with its own review flow). */
 function _txSelElig(t){
-  if(_txnPersonal()) return (t._kg||'chi')==='chi' && !t._mirror;
+  if(_txnPersonal()) return !t._mirror;
   return !t.future && !!t._dbId;
+}
+/* the selection, resolved to raw personal rows (2-month window + old cache) */
+function _txSelRaw(ids){
+  var P=(typeof fhPersonalData==='function')?fhPersonalData():null;
+  var all=P?((P.txns||[]).concat(P.txnsOld||[])):[];
+  return ids.map(function(id){ return all.find(function(x){ return String(x.id)===id; }); }).filter(Boolean);
 }
 /* ── stat card: Vào · Ra · Ròng of the displayed rows + the .pst bar strip
    with its OWN zoom (TXV.cgrp) — list by day, chart by month is fine. Bars
@@ -740,11 +748,17 @@ function renderTxnBulkbar(){
   var cnt=document.getElementById('txn-bb-n'); if(cnt) cnt.textContent=n+' '+L('khoản', n===1?'item':'items');
   var verbs=document.getElementById('txn-bb-verbs');
   if(verbs){
-    verbs.innerHTML=_txnPersonal()
-      ? '<button type="button" class="bb-v" onclick="txnBulkSheet(&#39;cat&#39;)">'+L('Danh mục','Category')+'</button>'
-       +'<button type="button" class="bb-v" onclick="txnBulkSheet(&#39;acct&#39;)">'+L('Nguồn tiền','Money source')+'</button>'
-      : '<button type="button" class="bb-v" onclick="txnBulkSheet(&#39;cat&#39;)">'+L('Danh mục','Category')+'</button>'
-       +'<button type="button" class="bb-v" onclick="txnBulkSheet(&#39;who&#39;)">'+L('Ai trả','Who paid')+'</button>';
+    if(_txnPersonal()){
+      /* a verb with nothing it can touch self-disables (Q14) */
+      var raw=_txSelRaw(Object.keys(TXV.sel||{}));
+      var hasChi=raw.some(function(r){ return r.kind==='expense'; });
+      var hasAcct=raw.some(function(r){ return r.kind==='expense'||r.kind==='income'; });
+      verbs.innerHTML='<button type="button" class="bb-v'+(hasChi?'':' dis')+'" onclick="txnBulkSheet(&#39;cat&#39;)">'+L('Danh mục','Category')+'</button>'
+        +'<button type="button" class="bb-v'+(hasAcct?'':' dis')+'" onclick="txnBulkSheet(&#39;acct&#39;)">'+L('Nguồn tiền','Money source')+'</button>';
+    } else {
+      verbs.innerHTML='<button type="button" class="bb-v" onclick="txnBulkSheet(&#39;cat&#39;)">'+L('Danh mục','Category')+'</button>'
+        +'<button type="button" class="bb-v" onclick="txnBulkSheet(&#39;who&#39;)">'+L('Ai trả','Who paid')+'</button>';
+    }
   }
 }
 var _txDelTimer=null;
@@ -757,9 +771,19 @@ function txnBulkSheet(kind){
   var h=document.getElementById('txnbulk-h'), s=document.getElementById('txnbulk-sub'), list=document.getElementById('txnbulk-list');
   if(!h||!s||!list) return;
   var n=Object.keys(TXV.sel||{}).length;
+  /* Subset honesty (Q14): a verb that touches only part of the selection says
+     so BEFORE anything fires — right here in the sheet's subtitle. */
+  function subsetSub(applies, what){
+    if(applies>=n) return L('Áp cho '+n+' khoản đã chọn.','Applies to the '+n+' selected.');
+    return L('Áp cho '+applies+'/'+n+' '+what+' đã chọn · các khoản khác giữ nguyên.',
+             'Applies to '+applies+'/'+n+' selected '+what+' · the rest stay as they are.');
+  }
+  var raw=_txnPersonal()?_txSelRaw(Object.keys(TXV.sel||{})):null;
   if(kind==='cat'){
     h.textContent=L('Danh mục','Category');
-    s.textContent=L('Áp cho '+n+' khoản đã chọn.','Applies to the '+n+' selected.');
+    var nChi=raw?raw.filter(function(r){ return r.kind==='expense'; }).length:n;
+    if(!nChi) return;                                   // verb was disabled; belt-and-braces
+    s.textContent=subsetSub(nChi, L('khoản chi','expenses'));
     var style=_txnPersonal()?((_pTxnCtx&&_pTxnCtx.catStyle)||{}):catStyle;
     list.innerHTML=(_txCatOrder()||[]).map(function(c){
       var em=(style[c]||['🏷️'])[0];
@@ -774,7 +798,9 @@ function txnBulkSheet(kind){
     }).join('')+'<button type="button" class="choice" onclick="txnBulkWhoPick(&#39;Both&#39;)">'+L('Chung','Both')+'</button>';
   } else {
     h.textContent=L('Nguồn tiền','Money source');
-    s.textContent=L('Áp cho '+n+' khoản đã chọn.','Applies to the '+n+' selected.');
+    var nAcct=raw?raw.filter(function(r){ return r.kind==='expense'||r.kind==='income'; }).length:n;
+    if(!nAcct) return;
+    s.textContent=subsetSub(nAcct, L('khoản thu chi','money rows'));
     var defs=((_pTxnCtx&&_pTxnCtx.acctDefs)||[]).slice();
     list.innerHTML=defs.map(function(a){
       return '<button type="button" class="choice" onclick="txnBulkAcctPick(&#39;'+escAttr(a.k)+'&#39;)">'+esc(a.lbl)+'</button>';
@@ -837,33 +863,48 @@ async function _txBulkPersonal(ids, change){
   var bar=document.getElementById('txn-bulkbar'); if(bar) bar.classList.add('busy');
   var P=(typeof fhPersonalData==='function')?fhPersonalData():null;
   var all=P?((P.txns||[]).concat(P.txnsOld||[])):[];   // selection may reach the on-demand months 3–6
-  var ok=0, fail=0;
+  var ok=0, fail=0, skipped=0;
   for(var i=0;i<ids.length;i++){
     var raw=all.find(function(x){ return String(x.id)===ids[i]; });
     if(!raw){ fail++; continue; }
-    var fields={ amt:raw.amt, note:raw.note, cat:raw.cat, emoji:raw.emoji, time:raw.time, dateIso:raw.date };
-    if(change.cat){
-      fields.cat=change.cat;
-      fields.emoji=((_pTxnCtx&&_pTxnCtx.catStyle&&_pTxnCtx.catStyle[change.cat])||(window.catStyle&&catStyle[change.cat])||['🏷️'])[0];
+    /* subset honesty (Q14): Danh mục touches chi only; Nguồn tiền chi + thu.
+       Everything else in the selection is left exactly as it was — the picker
+       sheet already said so before the tap. */
+    var isChi=(raw.kind==='expense'), isThu=(raw.kind==='income');
+    if(change.cat && !isChi){ skipped++; continue; }
+    if(change.hasOwnProperty('accountId') && !isChi && !isThu){ skipped++; continue; }
+    var r;
+    if(isThu){
+      var inf={ amt:raw.amt, note:raw.note, dateIso:raw.date };
+      if(change.hasOwnProperty('accountId')) inf.accountId=change.accountId;
+      r=await window.fhPersonalUpdateIncome(ids[i], inf, true);
+      if(r && change.hasOwnProperty('accountId')) raw.accountId=change.accountId;
+    } else {
+      var fields={ amt:raw.amt, note:raw.note, cat:raw.cat, emoji:raw.emoji, time:raw.time, dateIso:raw.date };
+      if(change.cat){
+        fields.cat=change.cat;
+        fields.emoji=((_pTxnCtx&&_pTxnCtx.catStyle&&_pTxnCtx.catStyle[change.cat])||(window.catStyle&&catStyle[change.cat])||['🏷️'])[0];
+      }
+      if(change.hasOwnProperty('accountId')) fields.accountId=change.accountId;
+      r=await window.fhPersonalUpdateExpense(ids[i], fields, true);
+      if(r){
+        /* the hydrate below only refreshes the 2-month window — a row living in
+           the older cache is patched in place so the list can't show stale values */
+        raw.cat=fields.cat; raw.emoji=fields.emoji;
+        if(fields.hasOwnProperty('accountId')) raw.accountId=fields.accountId;
+      }
     }
-    if(change.hasOwnProperty('accountId')) fields.accountId=change.accountId;
-    var r=await window.fhPersonalUpdateExpense(ids[i], fields, true);
-    if(r){
-      ok++;
-      /* the hydrate below only refreshes the 2-month window — a row living in
-         the older cache is patched in place so the list can't show stale values */
-      raw.cat=fields.cat; raw.emoji=fields.emoji;
-      if(fields.hasOwnProperty('accountId')) raw.accountId=fields.accountId;
-    } else fail++;
+    if(r) ok++; else fail++;
   }
   try{ await window.fhPersonalHydrate(); }catch(_e){}
   if(bar) bar.classList.remove('busy');
   txnSelExit();
   if(typeof renderPersonal==='function'){ try{ renderPersonal(); }catch(_e){} }
   refreshPersonalTxnOverlay();
+  var tail=skipped?L(' · '+skipped+' khoản khác giữ nguyên',' · '+skipped+' left as they were'):'';
   toast(fail
     ? L('Đã lưu '+ok+' khoản · '+fail+' khoản lỗi, thử lại nhé','Saved '+ok+' · '+fail+' failed, try again')
-    : L('Đã lưu '+ok+' khoản','Saved '+ok+' items'));
+    : L('Đã lưu '+ok+' khoản','Saved '+ok+' items')+tail);
 }
 function txnBulkDel(){
   var b=document.getElementById('txn-bb-del');
@@ -897,14 +938,27 @@ function txnBulkDel(){
 async function _txBulkPersonalDel(ids){
   var bar=document.getElementById('txn-bulkbar'); if(bar) bar.classList.add('busy');
   var P=(typeof fhPersonalData==='function')?fhPersonalData():null;
+  var all=P?((P.txns||[]).concat(P.txnsOld||[])):[];
   var ok=0, fail=0;
+  function dropOld(id){
+    if(P&&P.txnsOld){ var j=P.txnsOld.findIndex(function(x){ return String(x.id)===id; }); if(j>=0) P.txnsOld.splice(j,1); }
+  }
   for(var i=0;i<ids.length;i++){
-    var r=await window.fhPersonalDeleteExpense(ids[i], true);
-    if(r){
-      ok++;
-      /* keep the older cache honest — the hydrate below won't touch it */
-      if(P&&P.txnsOld){ var j=P.txnsOld.findIndex(function(x){ return String(x.id)===ids[i]; }); if(j>=0) P.txnsOld.splice(j,1); }
-    } else fail++;
+    /* a transfer PAIR was selected as one row — delete BOTH legs, count as one
+       (Q14: "pairs select as one and delete as a pair") */
+    var raw=all.find(function(x){ return String(x.id)===ids[i]; });
+    var legIds=[ids[i]];
+    if(raw && raw.kind==='transfer' && raw.transferGroupId){
+      all.forEach(function(x){
+        if(x.kind==='transfer' && x.transferGroupId===raw.transferGroupId && String(x.id)!==ids[i]) legIds.push(String(x.id));
+      });
+    }
+    var allOk=true;
+    for(var g=0; g<legIds.length; g++){
+      var r=await window.fhPersonalDeleteExpense(legIds[g], true);
+      if(r) dropOld(legIds[g]); else allOk=false;
+    }
+    if(allOk) ok++; else fail++;
   }
   try{ await window.fhPersonalHydrate(); }catch(_e){}
   if(bar) bar.classList.remove('busy');

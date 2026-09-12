@@ -692,6 +692,34 @@
     return out;
   };
 
+  /* Streak peek (0132) — the queue as the streak engine sees it. Fetch + open,
+     READ ONLY, same posture as fhStagedCardPayments: never touches the
+     review's _fhStagedRows. Debits only (credits can't break a no-spend
+     streak). `cat` is the sealed category hint resolved through
+     familyCatForConcept — the same resolver the review pre-fill uses — so a
+     category streak and the eventual reviewed row speak the same name; an
+     unresolvable concept yields '' and simply can't match (never a guess). */
+  window.fhStagedStreakPeek = async function () {
+    var raw;
+    try { raw = await fhFetchStagedTxns(); } catch (e) { return []; }
+    var out = [];
+    for (var i = 0; i < raw.length; i++) {
+      var r = await fhReadStagedRow(raw[i]);
+      if (i % 25 === 0) { await new Promise(function (res) { setTimeout(res, 0); }); }
+      if (!r || r._unreadable || r.direction === 'credit') continue;
+      var re = r.raw_extracted || {};
+      var concept = re.category_hint || re.category || '';
+      var cat = '';
+      if (concept && window.familyCatForConcept) { try { cat = window.familyCatForConcept(concept) || ''; } catch (e2) {} }
+      var d = String(r.occurred_at || '');
+      out.push({ date: d.slice(0, 10), amt: Number(r.amount) || null,
+        who: r.counterparty || '',
+        note: re.memo_display != null ? re.memo_display : (re.memo || ''),
+        cat: cat, scope: r.staging_scope || 'family' });
+    }
+    return out;
+  };
+
   /* Retire specific staged rows by id — local-first (survives a failed server
      delete), so a row assigned to a card from the detail screen cannot also
      reappear in the review to be imported twice. */
@@ -1366,7 +1394,13 @@
            BUILDS that card's balance). Auto-materializes the account (Q15). */
         var acctId = null;
         if (ai && window.fhPersonalAccountEnsure) { try { acctId = await window.fhPersonalAccountEnsure(ai); } catch (e2) {} }
+        /* `who` (0132, habit-streak-spec §10): the structured merchant, kept as
+           its own encrypted column instead of dying into the note — the streak
+           matcher and every later merchant feature read it. Only a REAL
+           counterparty rides; a description-only row stays null rather than
+           duplicating the note into a second column. */
         specs.push({ kind: 'expense', amt: base, note: c.description || '',
+          who: (c.counterparty && String(c.counterparty).trim()) || null,
           catName: c.categoryName || null,
           catEmoji: (window.catStyle && window.catStyle[c.categoryName] && window.catStyle[c.categoryName][0]) || '🗂️',
           dateIso: c.dateDisplay || undefined, time: _t, accountId: acctId, source: src });

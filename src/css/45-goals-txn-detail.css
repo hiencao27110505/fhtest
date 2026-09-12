@@ -119,6 +119,7 @@
   font-size:13px;font-weight:700;border-radius:12px;background:var(--brand-tint);color:var(--brand-ink);
   white-space:nowrap;padding:0 6px;cursor:pointer}
 .bb-v:active{opacity:.7}
+.bb-v.dis{opacity:.35;pointer-events:none}   /* verb with nothing it can touch (Q14) */
 .bb-del{flex:0 0 auto;min-width:40px;min-height:40px;display:flex;align-items:center;justify-content:center;
   border:1.5px solid var(--hairline);border-radius:12px;background:var(--white);color:var(--muted);cursor:pointer;font:inherit}
 .bb-del svg{width:16px;height:16px}

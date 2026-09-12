@@ -352,6 +352,12 @@ function _persEmailRow(){
     +badge+_ccChev+'</button>';
 }
 
+/* ── Chuỗi thói quen — no-spend streaks (0132), the behaviour dimension.
+     Built by 27-streaks.js (js-data); counts derive from the ledger + the
+     email review queue, so this section may re-render itself once the async
+     compute lands. ── */
+  h += (window.persStreakSection ? persStreakSection() : '');
+
 /* ── Nợ & cho vay — the balance-sheet dimension (stocks, not flows), between
      the month's cash-flow card and the month's spending cards. Built by
      23-debts-ui.js (js-data) so it can share the modal helper + space keys. ── */
@@ -471,20 +477,30 @@ function _persEmailRow(){
   }
   if(txList.length){
     txList.slice(0,30).forEach(function(t){
+      /* Unified row anatomy (txn-listing revamp): the subline holds only quiet
+         dot-joined facts — date · time · money source; the KIND/place moved to
+         the right column under the amount (r-cat), exactly like the Giao dịch
+         screen. No em-dashes; "không tính thu chi" reads from the muted amount
+         plus the kind word, not from a clause. */
       if(t._unreadable){
         h += '<div class="row is-locked"><div class="r-ico pers-r-ico priv">'+PIC.lock+'</div>'
            + '<div class="r-body"><div class="r-t">Chưa đọc được</div>'
            + '<div class="r-s">'+t.date.slice(8,10)+'/'+t.date.slice(5,7)+' · không tính vào tổng</div></div>'
-           + '<div class="r-amt num">—</div></div>';
+           + '<div class="r-right"><div class="r-amt num">—</div></div></div>';
         return;
       }
       var meta = t.date.slice(8,10)+'/'+t.date.slice(5,7)+(t.time?' · '+t.time:'');
+      var right = function(amtHtml, catTxt){
+        return '<div class="r-right"><div class="r-amt num'+(amtHtml.cls?' '+amtHtml.cls:'')+'">'+amtHtml.v+'</div>'
+             + (catTxt?'<div class="r-cat">'+catTxt+'</div>':'')+'</div>';
+      };
       if(t.kind==='income'){
         // taps into the income edit sheet — amount · date · note · receiving account
+        var _inAcct = acctName(t.accountId);
         h += '<div class="row tap" onclick="fhIncomeRowSheet(\''+t.id+'\')"><div class="r-ico personal-ico">'+(t.emoji||'💰')+'</div>'
            + '<div class="r-body"><div class="r-t">'+((t.note||t.cat||'Thu nhập').replace(/</g,'&lt;'))+'</div>'
-           + '<div class="r-s">'+meta+' · thu nhập</div></div>'
-           + '<div class="r-amt num pos">+'+fmt(t.amt||0)+'</div></div>';
+           + '<div class="r-s">'+meta+(_inAcct?' · '+_inAcct.replace(/</g,'&lt;'):'')+'</div></div>'
+           + right({v:'+'+fmt(t.amt||0), cls:'pos'}, 'Thu nhập');
       } else if(t.kind==='transfer'){
         var ends = t.transferGroupId ? pairEnds(t) : null;
         var xt = ends && ends.from && ends.to ? (ends.from+' → '+ends.to) : ((t.note||'Chuyển khoản').replace(/</g,'&lt;'));
@@ -493,19 +509,17 @@ function _persEmailRow(){
         var xTap = t.transferGroupId ? ' tap" onclick="fhXferPairSheet(\''+t.transferGroupId+'\')"' : '"';
         h += '<div class="row'+xTap+'><div class="r-ico personal-ico">🔁</div>'
            + '<div class="r-body"><div class="r-t">'+xt+'</div>'
-           + '<div class="r-s">'+meta+' · chuyển khoản — không tính thu chi</div></div>'
-           + '<div class="r-amt num xfer">'+fmt(Math.abs(t.amt||0))+'</div></div>';
+           + '<div class="r-s">'+meta+' · không tính thu chi</div></div>'
+           + right({v:fmt(Math.abs(t.amt||0)), cls:'xfer'}, 'Chuyển khoản');
       } else if(t.kind==='investment'){
-        /* One leg, signed inside the ciphertext: buy −X, sell +X (0123). The
-           plain-expense branch below would have printed the raw negative as
-           "−-12.000.000" — abs + its own label instead. Taps into the same
-           row sheet the position zoom-in uses. */
+        /* One leg, signed inside the ciphertext: buy −X, sell +X (0123). Taps
+           into the same row sheet the position zoom-in uses. */
         var _iP = (P.accounts||[]).find(function(a){ return a.id===t.positionId; });
         var _sell = (t.amt||0) > 0;
         h += '<div class="row tap" onclick="fhInvRowSheet(\''+t.id+'\')"><div class="r-ico personal-ico">📈</div>'
            + '<div class="r-body"><div class="r-t">'+((_sell?'Bán':'Mua')+(_iP&&_iP.name?' '+_iP.name:' đầu tư')).replace(/</g,'&lt;')+'</div>'
-           + '<div class="r-s">'+meta+' · đầu tư — không tính thu chi</div></div>'
-           + '<div class="r-amt num xfer">'+(_sell?'+':'−')+fmt(Math.abs(t.amt||0))+'</div></div>';
+           + '<div class="r-s">'+meta+' · không tính thu chi</div></div>'
+           + right({v:(_sell?'+':'−')+fmt(Math.abs(t.amt||0)), cls:'xfer'}, 'Đầu tư');
       } else if(t.kind==='loan' || t.kind==='repayment'){
         /* Counterparty + hẹn trả live on the all-time debt read (P.debts), not
            the month-window row — join by id. Tapping opens the same row sheet
@@ -514,25 +528,28 @@ function _persEmailRow(){
         var _dR = (P.debts||[]).filter(function(d){ return d.id===t.id; })[0];
         var _who = (_dR && _dR.who) ? ' · '+_dR.who.replace(/</g,'&lt;') : '';
         var _due = (_dR && t.kind==='loan' && _dR.due) ? ' · hẹn trả '+_dR.due.slice(8,10)+'/'+_dR.due.slice(5,7) : '';
-        var _lbl = t.kind==='loan' ? ((t.amt||0)>0?'cho vay':'đi mượn') : 'trả nợ';
+        var _lbl = t.kind==='loan' ? ((t.amt||0)>0?'Cho vay':'Đi mượn') : 'Trả nợ';
         h += '<div class="row tap" onclick="fhDebtRowSheet(\''+t.id+'\')"><div class="r-ico personal-ico">'+(t.kind==='loan'?'💵':'✅')+'</div>'
            + '<div class="r-body"><div class="r-t">'+((t.note||(t.kind==='loan'?'Cho vay / mượn':'Trả nợ')).replace(/</g,'&lt;'))+_who+'</div>'
-           + '<div class="r-s">'+meta+' · '+_lbl+_due+'</div></div>'
-           + '<div class="r-amt num xfer">'+fmt(Math.abs(t.amt||0))+'</div></div>';
+           + '<div class="r-s">'+meta+_due+'</div></div>'
+           + right({v:fmt(Math.abs(t.amt||0)), cls:'xfer'}, _lbl);
       } else {
         /* 0114: private rows tap into their edit sheet; mirror rows tap through
-           to the family expense detail (M10 — the natural door for "I spotted
-           my mis-filed row in my own book"). A photo wears the tile, exactly
-           like the family list; /personal-media/ URLs decrypt in place. */
+           to the family expense detail (M10) and wear the 🏡 badge on the tile
+           corner — the family name sits under the amount where the category
+           would; a private row shows its own category there. */
         var _tap = t.spaceId ? ' onclick="fhMirrorRowTap(\''+t.id+'\')"'
                  : (!t.linkId ? ' onclick="openPersonalTxEdit(\''+t.id+'\')"' : '');
         var _tile = (t.photos&&t.photos.length)
           ? '<div class="r-ico ph" style="background-image:url('+escAttr(t.photos[0])+')"></div>'
           : '<div class="r-ico personal-ico">'+(t.emoji||'🗂️')+'</div>';
+        if(t.spaceId) _tile='<div class="r-ico-wrap">'+_tile+'<div class="r-scope">🏡</div></div>';
+        var _acct = !t.spaceId ? acctName(t.accountId) : null;
+        var _catTxt = t.spaceId ? famName(t.spaceId).replace(/</g,'&lt;') : ((t.cat||'Khoản chi').replace(/</g,'&lt;'));
         h += '<div class="row'+(_tap?' tap':'')+'"'+_tap+'>'+_tile
            + '<div class="r-body"><div class="r-t">'+((t.note||t.cat||'Khoản chi').replace(/</g,'&lt;'))+'</div>'
-           + '<div class="r-s">'+meta+(t.spaceId? ' · '+famName(t.spaceId) : ' · riêng tư')+'</div></div>'
-           + '<div class="r-amt num">−'+fmt(t.amt||0)+'</div></div>';
+           + '<div class="r-s">'+meta+(_acct?' · '+_acct.replace(/</g,'&lt;'):'')+'</div></div>'
+           + right({v:'−'+fmt(t.amt||0), cls:''}, _catTxt);
       }
     });
   } else {

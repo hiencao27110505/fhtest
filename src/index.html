@@ -141,6 +141,9 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
     </div>
   </div>
 
+  <!-- Chuỗi cả nhà — family no-spend streaks (0132), filled by famStreakFill (27-streaks.js) -->
+  <div id="fam-streaks"></div>
+
   <!-- WIDGET B — Tích lũy (finance-final): pot total · goals · completed sub-info · momentum spark (renderGoals) -->
   <div class="goal-card" id="goal-card">
     <div class="til-head">
@@ -868,6 +871,20 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   <div class="grab"></div>
   <div class="sheet-h" id="savegoal-h">Saving goal</div>
   <div class="choices" id="savegoal-list"></div>
+</div>
+
+<!-- Habit streaks (0132) — creation picker + detail. Bodies are built by
+     27-streaks.js (fhStreakNewSheet / fhStreakDetail). -->
+<div class="sheet" id="sheet-streak-new">
+  <div class="grab"></div>
+  <div class="sheet-h">Chuỗi mới</div>
+  <div class="sheet-sub">Chọn thứ muốn nhịn — app tự đếm ngày từ sổ của bạn.</div>
+  <div id="stk-new-list"></div>
+</div>
+<div class="sheet" id="sheet-streak-detail">
+  <div class="grab"></div>
+  <div class="sheet-h">Chuỗi thói quen</div>
+  <div id="stk-detail-body"></div>
 </div>
 
 <!-- cross-ledger move (0114): the confirm sheet a scope-chip flip opens in edit

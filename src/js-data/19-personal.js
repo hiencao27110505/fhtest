@@ -810,7 +810,7 @@
     /* Income edit (same accountId contract as fhPersonalUpdateExpense: undefined =
        leave untouched, null = clear, id = set). Category and time are not touched —
        a review-committed income keeps its Lương/Thưởng tag through an edit. */
-    window.fhPersonalUpdateIncome = async function (id, fields) {
+    window.fhPersonalUpdateIncome = async function (id, fields, quiet) {
       if (!P.uid || !P.key || !id) return false;
       const row = { amount_enc: await _encP(Number(fields.amt)),
         note_enc: fields.note ? await _encP(fields.note) : null };
@@ -818,7 +818,8 @@
       if (fields.hasOwnProperty('accountId')) row.account_id = fields.accountId || null;
       const r = await _sb().from('personal_transactions').update(row).eq('id', id).eq('owner_user_id', P.uid).eq('kind', 'income').is('link_id', null);
       if (r.error) { console.warn('personal income update failed', r.error); return false; }
-      await window.fhPersonalHydrate(); return true;
+      if (!quiet) await window.fhPersonalHydrate();   // bulk batches hydrate once at the end
+      return true;
     };
 
     /* ═══ Borrowing & Lending (0105) — docs/specs/borrowing-lending-spec.md ═══
