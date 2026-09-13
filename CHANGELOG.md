@@ -52,6 +52,7 @@ inflated Được nợ, and a mis-kinded debit account showed up as debt. Spec:
   when the personal ledger is ready and writes the same display-grade `instrument` string an
   email import does; the author can edit the tag from the family detail
   (`fhPersonalMasterSetAccount`, mirror rows only). Forward-only for existing masters.
+- **Follow-ups the same day (v515–v517).** No autofocus on open (iOS scrolled the modal off-screen); tail-less ensure() matches by provider, never kind, plus a once-per-session heal folding existing tail-less twins; the wizard rebuilt as a rows screen in the debt overlay (name the one input, picker sheets for the rest, calendar pickers for the two days); and the old "Cài đặt tài khoản" modal folded into that screen as settings mode (Huỷ / Lưu, re-anchor by typing a new number).
 - **Push offer moved.** The once-only notification offer no longer fires after an import; it
   fires on the first home visit (`fhPushFirstVisitOffer`, from hydrate and `finishOnboarding`),
   yields to the install nudge, honours the old `fh-mbx-push-nudged` answer, and the sheet copy

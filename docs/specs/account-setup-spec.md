@@ -101,9 +101,18 @@ Order: cards, then bank accounts, e-wallets, cash last (Q20).
 The tile shows the number. A card reads "Đang nợ X" (red) or "Đang dư" if the
 anchor went negative the other way; a bank account reads its balance. The card
 detail is unchanged: reconcile-by-adjustment ("Cập nhật dư nợ thực tế") still
-books a dated "Điều chỉnh dư nợ" line on top of the anchor, and "Cài đặt thẻ"
-still edits the kind and card fields. A skipped account keeps "Chạm để thiết
-lập" indefinitely; the tile opens the same wizard for that one account.
+books a dated "Điều chỉnh dư nợ" line on top of the anchor. A skipped account
+keeps "Chạm để thiết lập" indefinitely; the tile opens the same wizard for that
+one account.
+
+**One screen, two modes.** "Cài đặt thẻ" / "Cài đặt" on a detail opens the
+very same account screen in *settings mode*: one account, no dots or intro,
+"Huỷ" / "Lưu" instead of "Để sau" / "Xong". On an anchored account the number
+row shows today's figure (a card's outstanding, an account's balance); typing a
+new one and saving **re-anchors** — the same declared-truth semantics as the
+first setup, stated under the rows ("Sửa số dư là đặt lại mốc, app tính tiếp
+từ số mới"). A name or kind fix alone never rewrites the anchor. The old
+"Cài đặt tài khoản" modal form is gone.
 
 ### 2.4 Family expenses and your card
 

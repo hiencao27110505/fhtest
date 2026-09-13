@@ -39,9 +39,13 @@ t('a card is verified only once anchored, and reads outstanding = −balance',
 t('the Tôi nợ / Được nợ totals skip unverified cards',
   /for \(const c of cards\) \{ if \(!c\.verified\) continue;/.test(data));
 t('the debts derivation counts what still needs setup', /unverified: unverified/.test(data));
-t('the wizard stores a card anchor NEGATIVE', /anchorK: isCard \? -d\.amtK : d\.amtK/.test(debts));
+t('the wizard stores a card anchor NEGATIVE', /anchorK = isCard \? -d\.amtK : d\.amtK/.test(debts));
 t('the wizard is a rows screen in the debt overlay, not a modal form',
-  /function _wizRender\(\)[\s\S]*?_ovOpen\('Xác nhận số dư'/.test(debts) && /window\._exdRow/.test(debts) && !/_fhModal\(\{\s*\n\s*title: 'Xác nhận số dư'/.test(debts));
+  /function _wizRender\(\)[\s\S]*?_ovOpen\(settings \? 'Cài đặt tài khoản' : \('Xác nhận số dư'/.test(debts) && /window\._exdRow/.test(debts) && !/_fhModal\(\{\s*\n\s*title: 'Xác nhận số dư'/.test(debts));
+t('"Cài đặt tài khoản" is the same screen in settings mode (one screen, two modes)',
+  /window\.fhAcctEditSheet = function \(acctId\) \{[\s\S]{0,400}mode: 'settings'/.test(debts) && !/fhAcctKindSync/.test(debts) && /settings \? 'Cài đặt tài khoản'/.test(debts));
+t('settings mode writes the anchor only when a number was typed',
+  /if \(d\.amtSet\) \{ fields\.anchorK = isCard \? -d\.amtK : d\.amtK; fields\.setupSkipped = false; \}/.test(debts));
 t('the day pickers are calendar inputs, the day of month is what is kept',
   /type="date" id="wz-in-date"/.test(debts) && /parseInt\(v\.slice\(8, 10\), 10\)/.test(debts));
 
