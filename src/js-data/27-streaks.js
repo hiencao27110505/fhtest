@@ -279,21 +279,22 @@
        the card grows it into the sheet. ─────────────────────────────────────── */
     // A 2-week window (this week + next), so recent clean days AND the upcoming
     // milestone flag are both on screen; the detail shows the whole month.
-    // Simplified (Option 1): one week of day-number cells, no weekday header,
-    // no legend, no border, no month label — the full month lives in the detail.
+    // Streak-progress grid: cells are STREAK DAYS (1, 2, 3 …), not calendar
+    // dates — day 1 up to the milestone this leg is climbing toward, wrapping at
+    // 7 per row. Achieved days fill green, today is the live ring, the rest wait;
+    // milestone cells (7 · 14 · 30 · 100) carry their medal. The full dated
+    // month lives in the detail sheet.
     function _cardCal(r) {
-      const today = _today();
-      const now = new Date(today + 'T00:00:00');
-      const monday = _shift(today, -((now.getDay() + 6) % 7));
-      const brk = {}; (r.breaks || []).forEach((b) => { brk[b] = 1; });
-      const started = r.startedOn || today;
-      const msIso = {}; if (r.current > 0) for (const m of MILESTONES) msIso[_shift(today, m - r.current)] = _MEDAL[m];
+      const cur = r.current || 0;
+      const top = MILESTONES[MILESTONES.length - 1];
+      let target = top;
+      for (const m of MILESTONES) { if (m >= cur) { target = m; break; } }   // next rung ≥ current
+      const isMs = {}; for (const m of MILESTONES) if (m <= target) isMs[m] = _MEDAL[m];
       let cells = '';
-      for (let i = 0; i < 7; i++) {   // the current week (Mon–Sun of today)
-        const iso = _shift(monday, i), dd = Number(iso.slice(8, 10));
-        const cls = iso > today ? 'fut' : (iso < started ? 'pre' : (brk[iso] ? 'x' : (iso === today ? 'today' : 'ok')));
-        const flag = msIso[iso] ? '<i class="stk-cc-flag">' + msIso[iso] + '</i>' : '';
-        cells += '<span class="stk-cc ' + cls + (flag ? ' ms' : '') + ' num">' + dd + flag + '</span>';
+      for (let day = 1; day <= target; day++) {
+        const cls = day < cur ? 'ok' : (day === cur ? 'today' : 'fut');   // today is still open, never a filled ✓
+        const flag = isMs[day] ? '<i class="stk-cc-flag">' + isMs[day] + '</i>' : '';
+        cells += '<span class="stk-cc ' + cls + (flag ? ' ms' : '') + ' num">' + day + flag + '</span>';
       }
       return '<div class="stk-cal stk-cardweek">' + cells + '</div>';
     }
