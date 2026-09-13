@@ -39,7 +39,11 @@ t('a card is verified only once anchored, and reads outstanding = −balance',
 t('the Tôi nợ / Được nợ totals skip unverified cards',
   /for \(const c of cards\) \{ if \(!c\.verified\) continue;/.test(data));
 t('the debts derivation counts what still needs setup', /unverified: unverified/.test(data));
-t('the wizard stores a card anchor NEGATIVE', /anchorK: isCard \? -amt : amt/.test(debts));
+t('the wizard stores a card anchor NEGATIVE', /anchorK: isCard \? -d\.amtK : d\.amtK/.test(debts));
+t('the wizard is a rows screen in the debt overlay, not a modal form',
+  /function _wizRender\(\)[\s\S]*?_ovOpen\('Xác nhận số dư'/.test(debts) && /window\._exdRow/.test(debts) && !/_fhModal\(\{\s*\n\s*title: 'Xác nhận số dư'/.test(debts));
+t('the day pickers are calendar inputs, the day of month is what is kept',
+  /type="date" id="wz-in-date"/.test(debts) && /parseInt\(v\.slice\(8, 10\), 10\)/.test(debts));
 
 console.log('\n-- the anchor supersedes older bank numbers (cause 6) --');
 t('setting an anchor drops the captured Số dư (both writers)', /ext_balance_enc: null, ext_balance_date: null,/.test(data) && /row\.ext_balance_enc = null; row\.ext_balance_date = null;/.test(data));

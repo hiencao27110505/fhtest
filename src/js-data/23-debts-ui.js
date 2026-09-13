@@ -858,7 +858,8 @@
        NEGATIVE so one balance derivation serves every kind (spec §5). */
     let _wiz = null;
     const WZ_KINDS = [['credit_card', '💳 Thẻ tín dụng'], ['deposit', '🏦 Tài khoản ngân hàng'], ['ewallet', '📱 Ví điện tử'], ['cash', '💵 Tiền mặt']];
-    const _wzAmtLabel = (kind) => kind === 'credit_card' ? 'Dư nợ hiện tại' : (kind === 'cash' ? 'Đang có bao nhiêu tiền mặt' : 'Số dư hiện tại');
+    const _wzKindLbl = (k) => { const f = WZ_KINDS.find((x) => x[0] === k); return f ? f[1] : k; };
+    const _wzAmtLabel = (kind) => kind === 'credit_card' ? 'Dư nợ hiện tại' : (kind === 'cash' ? 'Tiền mặt đang có' : 'Số dư hiện tại');
     /* After an import (spec §4): only the touched accounts that still need it,
        in wizard order. Nothing to ask → nothing opens. */
     window.fhAcctSetupAfterImport = function (touchedIds) {
@@ -875,54 +876,121 @@
     function _wizStep(queue, i, intro, saved) {
       const P = _P(); const acct = P && P.accounts.find((a) => a.id === queue[i]);
       if (!acct) { if (i + 1 < queue.length) return _wizStep(queue, i + 1, intro, saved); return _wizDone(saved); }
-      const n = queue.length, last = i === n - 1, isCash = acct.kind === 'cash';
-      _wiz = { queue: queue, i: i, intro: intro, saved: saved, acct: acct };
-      const dots = n > 1 ? '<div class="wz-dots" aria-hidden="true">' + queue.map((_, k) => '<i class="' + (k < i ? 'done' : (k === i ? 'on' : '')) + '"></i>').join('') + '</div>' : '';
-      const why = (intro && i === 0)
-        ? '<div class="wz-why">Email chỉ kể được vài tháng gần đây. Nhập số đang thấy trong app ngân hàng để tụi mình tính đúng từ đây.</div>' : '';
-      const kindChips = isCash ? '' : '<div class="field"><label>Loại</label><div class="choices" id="wz-akind">'
-        + WZ_KINDS.map(([v, lbl]) => '<button type="button" class="choice' + (acct.kind === v ? ' on' : '') + '" data-v="' + v + '" onclick="pick(\'wz-akind\',this);fhWizKindSync()">' + lbl + '</button>').join('')
-        + '</div></div>';
-      const _dayIn = (id, val) => '<input type="number" min="1" max="31" id="' + id + '" inputmode="numeric" placeholder="—" value="' + (val || '') + '" oninput="fhModalDirty()">';
-      const cardf = '<div id="wz-cardf"' + (acct.kind === 'credit_card' ? '' : ' hidden') + '>'
-        + '<button type="button" class="wz-more" id="wz-more-btn" onclick="fhWizMore()">Thêm chi tiết thẻ</button>'
-        + '<div id="wz-more" hidden>'
-        + '<div class="field"><label>Hạn mức thẻ <span class="opt">· để trống nếu không nhớ</span></label><input class="num" id="wz-lim" inputmode="numeric" value="' + (acct.limitK > 0 ? Math.round(acct.limitK * (window.curMult ? curMult() : 1000)).toLocaleString('vi-VN') : '') + '" oninput="fhModalDirty()"></div>'
-        + '<div class="field-row"><div class="field"><label>Ngày chốt sao kê</label>' + _dayIn('wz-stm', acct.statementDay) + '</div>'
-        + '<div class="field"><label>Ngày đến hạn</label>' + _dayIn('wz-due', acct.dueDay) + '</div></div>'
-        + '</div></div>';
-      _fhModal({
-        title: 'Xác nhận số dư' + (n > 1 ? ' · ' + (i + 1) + '/' + n : ''),
-        saveLabel: last ? 'Hoàn tất' : 'Xong', reqMsg: 'Nhập số đang thấy trong app ngân hàng nhé',
-        body: dots + why
-          + '<div class="field"><label>Tài khoản</label><input id="wz-name" value="' + _e(acct.name || '') + '" oninput="fhModalDirty()"></div>'
-          + kindChips
-          + '<div class="field"><label id="wz-amt-lbl">' + _wzAmtLabel(acct.kind) + '</label><input class="num big" id="wz-amt" inputmode="numeric" placeholder="0 ₫" oninput="fhModalDirty()"></div>'
-          + cardf
-          + '<div class="dbt-note" style="padding:0 0 14px">Mốc này đã gồm mọi giao dịch trước lúc đặt. Khoản ghi sau đó cộng trừ tiếp lên nó.</div>'
-          + '<button type="button" class="wz-later" onclick="fhWizLater()">Để sau</button>',
-        /* No autofocus on open: iOS Safari scrolls a fixed modal off-screen
-           when an input is focused programmatically during its rise — the
-           single-account wizard (tile tap) opened onto a blank canvas
-           (2026-09-13). No other sheet in the app focuses on open either. */
-        required: function () { return [{ el: document.getElementById('wz-amt'), ok: !!((document.getElementById('wz-amt') || {}).value || '').trim() }]; },
-        save: async function () {
-          const kind = isCash ? 'cash' : ((typeof chosen === 'function' && chosen('wz-akind')) || acct.kind);
-          const isCard = kind === 'credit_card';
-          const amt = _amtOf('wz-amt');
-          const name = ((document.getElementById('wz-name') || {}).value || '').trim() || acct.name;
-          const _day = (id) => { const v = parseInt((document.getElementById(id) || {}).value || '', 10); return (v >= 1 && v <= 31) ? v : null; };
-          const lim = isCard ? _amtOf('wz-lim') : 0;
-          const ok = await fhPersonalAccountUpdate(acct.id, { name: name, kind: kind, humanVerified: true,
-            limitK: lim > 0 ? lim : null, statementDay: isCard ? _day('wz-stm') : null, dueDay: isCard ? _day('wz-due') : null,
-            anchorK: isCard ? -amt : amt, setupSkipped: false });
-          if (!ok) throw new Error('save_failed');
-          return function () { if (!last) _wizStep(queue, i + 1, intro, saved + 1); else _wizDone(saved + 1); };
-        },
-      });
+      _wiz = { queue: queue, i: i, intro: intro, saved: saved, acct: acct, attempted: false,
+        draft: { name: acct.name || '', kind: acct.kind, amtK: null, amtSet: false, limitK: acct.limitK > 0 ? acct.limitK : null, stm: acct.statementDay || null, due: acct.dueDay || null } };
+      _wizRender();
     }
+    /* The screen: the debt overlay (sheets sit above it, like the personal
+       detail) — the name as the one input, every other value a settings row
+       that opens the app's own picker sheets, Để sau / Xong at the bottom.
+       Re-rendered after every pick, the name read back from the field first. */
+    function _wizRender() {
+      const w = _wiz; if (!w) return;
+      const d = w.draft, n = w.queue.length, i = w.i, last = i === n - 1, isCard = d.kind === 'credit_card';
+      const row = (typeof window._exdRow === 'function') ? window._exdRow : null;
+      const dots = n > 1 ? '<div class="wz-dots" aria-hidden="true">' + w.queue.map((_, k) => '<i class="' + (k < i ? 'done' : (k === i ? 'on' : '')) + '"></i>').join('') + '</div>' : '';
+      const why = (w.intro && i === 0)
+        ? '<div class="wz-why">Email chỉ kể được vài tháng gần đây. Nhập số đang thấy trong app ngân hàng để tụi mình tính đúng từ đây.</div>' : '';
+      let rows = '';
+      if (row) {
+        if (d.kind !== 'cash') rows += row({ label: 'Loại', val: '<b>' + _wzKindLbl(d.kind) + '</b>', fn: "fhWizSheet('kind')" });
+        rows += row({ label: _wzAmtLabel(d.kind), soft: !d.amtSet, hot: w.attempted && !d.amtSet,
+          val: '<b class="num">' + (d.amtSet ? fmt(d.amtK) : 'Chưa nhập') + '</b>', fn: "fhWizSheet('amt')" });
+        if (isCard) {
+          rows += row({ label: 'Hạn mức thẻ', soft: !(d.limitK > 0), val: '<b class="num">' + (d.limitK > 0 ? fmt(d.limitK) : 'Để trống nếu không nhớ') + '</b>', fn: "fhWizSheet('lim')" });
+          rows += row({ label: 'Ngày chốt sao kê', soft: !d.stm, val: '<b>' + (d.stm ? 'Ngày ' + d.stm + ' hằng tháng' : 'Chưa chọn') + '</b>', fn: "fhWizSheet('stm')" });
+          rows += row({ label: 'Ngày đến hạn', soft: !d.due, val: '<b>' + (d.due ? 'Ngày ' + d.due + ' hằng tháng' : 'Chưa chọn') + '</b>', fn: "fhWizSheet('due')" });
+        }
+      }
+      const h = '<div class="wz-head">' + dots + why + '</div>'
+        + '<div class="dbt-card wz-namecard"><span class="crs-lbl">Tài khoản</span><input class="crs-in" id="wz-name" value="' + _e(d.name) + '" placeholder="vd. VIB ••1234"></div>'
+        + '<div class="exd-meta srows"><div class="csv-srows">' + rows + '</div></div>'
+        + '<div class="dbt-note">Mốc này đã gồm mọi giao dịch trước lúc đặt. Khoản ghi sau đó cộng trừ tiếp lên nó.</div>'
+        + '<div class="dbt-acts">'
+        + '<button class="dbt-btn tinted" onclick="fhWizLater()">Để sau</button>'
+        + '<button class="dbt-btn primary" onclick="fhWizSave()">' + (last ? 'Hoàn tất' : 'Xong') + '</button>'
+        + '</div>';
+      _ovOpen('Xác nhận số dư' + (n > 1 ? ' · ' + (i + 1) + '/' + n : ''), h);
+    }
+    const _wizReadName = () => { const w = _wiz, el = document.getElementById('wz-name'); if (w && el) w.draft.name = (el.value || '').trim(); };
+    /* One entry for every row: which picker sheet, prefilled from the draft. */
+    window.fhWizSheet = function (which) {
+      const w = _wiz; if (!w) return; _wizReadName();
+      const d = w.draft;
+      if (which === 'kind') {
+        setTxt('exdacct-h', 'Loại tài khoản');
+        setTxt('exdacct-sub', 'Máy đoán từ email, bạn là người biết đúng nhất');
+        setHTML('exdacct-list', WZ_KINDS.map(([v, lbl]) => '<button type="button" class="choice' + (d.kind === v ? ' on' : '') + '" onclick="fhWizPickKind(\'' + v + '\')">' + lbl + '</button>').join(''));
+        openSheet('sheet-exd-acct'); return;
+      }
+      if (which === 'amt' || which === 'lim') {
+        const isAmt = which === 'amt';
+        const cur = isAmt ? (d.amtSet ? d.amtK : null) : d.limitK;
+        setTxt('exdamt-h', isAmt ? _wzAmtLabel(d.kind) : 'Hạn mức thẻ');
+        setTxt('exdamt-sub', isAmt ? 'Đúng số đang thấy trong app ngân hàng' : 'Để trống nếu không nhớ');
+        setHTML('exdamt-body',
+          '<span class="crs-lbl">Số tiền</span>'
+          + '<input class="crs-in num" id="wz-in-amt" inputmode="numeric" onblur="snapAmtInput(this)" value="' + (cur != null ? _e(amtToInput(cur)) : '') + '" placeholder="0">'
+          + '<button type="button" class="crs-done" onclick="fhWizAmtDone(\'' + which + '\')">Xong</button>');
+        openSheet('sheet-exd-amt'); return;
+      }
+      if (which === 'stm' || which === 'due') {
+        const day = which === 'stm' ? d.stm : d.due;
+        const now = new Date();
+        const iso = day ? (now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(Math.min(day, new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate())).padStart(2, '0')) : '';
+        setTxt('exdwhen-h', which === 'stm' ? 'Ngày chốt sao kê' : 'Ngày đến hạn');
+        setTxt('exdwhen-sub', which === 'stm' ? 'Chọn ngày chốt gần nhất, app nhớ ngày trong tháng' : 'Chọn ngày đến hạn gần nhất, app nhớ ngày trong tháng');
+        setHTML('exdwhen-body',
+          '<span class="crs-lbl">Ngày</span>'
+          + '<input class="crs-in num" type="date" id="wz-in-date" value="' + iso + '">'
+          + '<button type="button" class="crs-done" onclick="fhWizDateDone(\'' + which + '\')">Xong</button>'
+          + (day ? '<button type="button" class="wz-clear" onclick="fhWizDateClear(\'' + which + '\')">Bỏ ngày này</button>' : ''));
+        openSheet('sheet-exd-when'); return;
+      }
+    };
+    window.fhWizPickKind = function (v) { closeSheet(); const w = _wiz; if (!w) return; w.draft.kind = v; _wizRender(); };
+    window.fhWizAmtDone = function (which) {
+      const w = _wiz; if (!w) return;
+      const raw = ((document.getElementById('wz-in-amt') || {}).value || '').trim();
+      closeSheet();
+      if (which === 'amt') {
+        if (!raw) { w.draft.amtSet = false; w.draft.amtK = null; }
+        else { w.draft.amtSet = true; w.draft.amtK = window.parseAmtBase ? parseAmtBase(raw) : Number(raw); }
+      } else {
+        const v = raw && window.parseAmtBase ? parseAmtBase(raw) : 0;
+        w.draft.limitK = v > 0 ? v : null;
+      }
+      _wizRender();
+    };
+    window.fhWizDateDone = function (which) {
+      const w = _wiz; if (!w) return;
+      const v = (document.getElementById('wz-in-date') || {}).value || '';
+      if (!v) { const el = document.getElementById('wz-in-date'); if (el) el.focus(); return; }
+      closeSheet();
+      const day = parseInt(v.slice(8, 10), 10);
+      if (day >= 1 && day <= 31) { if (which === 'stm') w.draft.stm = day; else w.draft.due = day; }
+      _wizRender();
+    };
+    window.fhWizDateClear = function (which) { closeSheet(); const w = _wiz; if (!w) return; if (which === 'stm') w.draft.stm = null; else w.draft.due = null; _wizRender(); };
+    /* Xong: the anchor is the one required value. Cards store it NEGATIVE
+       (a liability is a negative asset). One write, one hydrate. */
+    window.fhWizSave = async function () {
+      const w = _wiz; if (!w) return; _wizReadName();
+      const d = w.draft, isCard = d.kind === 'credit_card';
+      if (!d.amtSet) { w.attempted = true; _wizRender(); window.toast && toast('Nhập số đang thấy trong app ngân hàng nhé'); return; }
+      const btn = document.querySelector('#dbt-body .dbt-btn.primary'); if (btn) { btn.disabled = true; btn.textContent = 'Đang lưu…'; }
+      let ok = false;
+      try {
+        ok = await fhPersonalAccountUpdate(w.acct.id, { name: d.name || w.acct.name, kind: d.kind, humanVerified: true,
+          limitK: isCard && d.limitK > 0 ? d.limitK : null, statementDay: isCard ? d.stm : null, dueDay: isCard ? d.due : null,
+          anchorK: isCard ? -d.amtK : d.amtK, setupSkipped: false });
+      } catch (e) { ok = false; }
+      if (!ok) { if (btn) { btn.disabled = false; btn.textContent = w.i === w.queue.length - 1 ? 'Hoàn tất' : 'Xong'; } window.toast && toast('Chưa lưu được, thử lại'); return; }
+      if (w.i + 1 < w.queue.length) _wizStep(w.queue, w.i + 1, w.intro, w.saved + 1); else _wizDone(w.saved + 1);
+    };
     function _wizDone(saved) {
       _wiz = null;
+      closeDebt();
       if (saved > 0) window.toast && toast(saved > 1 ? 'Đã xác nhận ' + saved + ' tài khoản' : 'Đã xác nhận số dư');
       if (window.renderPersonal) renderPersonal();
     }
@@ -931,18 +999,7 @@
     window.fhWizLater = async function () {
       const w = _wiz; if (!w) return;
       try { await fhPersonalAccountUpdate(w.acct.id, { setupSkipped: true }); } catch (e) {}
-      if (window._closeOv) window._closeOv();
-      setTimeout(function () { if (w.i + 1 < w.queue.length) _wizStep(w.queue, w.i + 1, w.intro, w.saved); else _wizDone(w.saved); }, 0);
-    };
-    /* the amount's label and the card-only block follow the picked kind, live */
-    window.fhWizKindSync = function () {
-      const k = typeof chosen === 'function' ? chosen('wz-akind') : null;
-      const f = document.getElementById('wz-cardf'); if (f) f.hidden = k !== 'credit_card';
-      const l = document.getElementById('wz-amt-lbl'); if (l && k) l.textContent = _wzAmtLabel(k);
-    };
-    window.fhWizMore = function () {
-      const m = document.getElementById('wz-more'), b = document.getElementById('wz-more-btn');
-      if (m) m.hidden = false; if (b) b.hidden = true;
+      if (w.i + 1 < w.queue.length) _wizStep(w.queue, w.i + 1, w.intro, w.saved); else _wizDone(w.saved);
     };
 
     /* ═══ Full ledger (0109) — balances, anchors, drift, the transfer pair ═══ */

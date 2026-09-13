@@ -69,21 +69,30 @@ thiết lập".
 
 Fires about half a second after the review screen closes on an import, only from
 the full queue (never the one-row quick sheet, Q32), only for accounts the import
-touched that still have no anchor and no "Để sau". One `_fhModal` per account:
+touched that still have no anchor and no "Để sau". One screen per account, in
+the debt overlay (the same layer the card and account details use), on the
+settings-rows pattern the detail screens already follow (revised after the first
+live test, 2026-09-13 — the first cut was a modal form with inline fields):
 
-- Title "Xác nhận số dư · 2/4"; progress dots at the top of the body.
+- Title "Xác nhận số dư · 2/4"; progress dots at the top.
 - On the first screen, one line of why: *"Email chỉ kể được vài tháng gần đây.
   Nhập số đang thấy trong app ngân hàng để tụi mình tính đúng từ đây."*
-- The account name, editable, prefilled from the provider canon ("VIB ••1234").
-- Kind chips (thẻ tín dụng · tài khoản ngân hàng · ví điện tử · tiền mặt),
-  prefilled from the classifier; a cash account shows none.
-- One large numeric field whose label follows the kind.
-- For a card, "Thêm chi tiết thẻ" unfolds hạn mức · ngày chốt · ngày đến hạn.
-- One line under the number: *"Mốc này đã gồm mọi giao dịch trước lúc đặt.
+- The account name is the **one input**, in its own card, prefilled from the
+  provider canon ("VIB ••1234").
+- Everything else is a **row that opens a picker sheet**: Loại (kind chips,
+  prefilled from the classifier; a cash account has no row), the number
+  (label follows the kind; grey "Chưa nhập" until filled, flagged after a save
+  attempt), and for a card: Hạn mức thẻ (amount sheet), Ngày chốt sao kê and
+  Ngày đến hạn (the app's calendar picker; the day of month is what is kept,
+  shown as "Ngày 25 hằng tháng", with a "Bỏ ngày này" to clear). No collapsed
+  section: the card rows are laid out straight.
+- One line under the rows: *"Mốc này đã gồm mọi giao dịch trước lúc đặt.
   Khoản ghi sau đó cộng trừ tiếp lên nó."*
-- Primary "Xong" ("Hoàn tất" on the last screen); a quiet "Để sau" per account.
-  The modal's Cancel closes the whole wizard; nothing is written, the tiles keep
-  their CTA, and the next import asks again.
+- Bottom pair: quiet "Để sau", primary "Xong" ("Hoàn tất" on the last screen).
+  The overlay's back button abandons the wizard; nothing is written, the tiles
+  keep their CTA, and the next import asks again.
+- Nothing is focused on open: iOS Safari scrolls a fixed layer off-screen when
+  an input is focused during its rise (the first cut's blank-screen bug).
 
 Order: cards, then bank accounts, e-wallets, cash last (Q20).
 
