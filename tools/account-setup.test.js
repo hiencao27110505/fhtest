@@ -53,6 +53,10 @@ t('the day rows open the OS calendar directly (fhPickRow), the day of month is w
   t('a shared picker row exists: a transparent OS input covers the row',
     /function fhPickRow\(o\)/.test(fmtH) && /class="csv-spick" type="'\+\(o\.type\|\|'date'\)\+'"/.test(fmtH));
   t('no date row opens a sheet any more: detail screens', !/exdSheetWhen|exdWhenDone|exd-in-date/.test(detail) && /on:'exdPickDate'/.test(detail) && /on:'exdPickTime'/.test(detail));
+  t('picker rows are two-phase: record on change, re-render only on blur (iOS fills today on open)',
+    /onchange="fhPickChange\(this\)" onblur="fhPickBlur\(this\)"/.test(fmtH) && /function fhPickBlur\(i\)\{ if\(i\.getAttribute\('data-dirty'\)!=='1'\) return;/.test(fmtH)
+    && /fhWizDay = function \(which, v, final\)/.test(debts) && /if \(!final\) return '<b>'/.test(debts)
+    && /function exdPickDate\(mode, v, final\)/.test(detail) && /function csvPickDate\(v, final\)/.test(rv));
   t('no date row opens a sheet any more: review card', !/csvsheet-date|csvsheet-loandue|f==='when'|f==='loandue'/.test(rv) && /on: 'csvPickDate'/.test(rv) && /on: 'csvPickLoanDue'/.test(rv));
 }
 

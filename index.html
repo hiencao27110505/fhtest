@@ -13422,9 +13422,9 @@ function csvSheetPick(f, v){
 /* Picker rows (fhPickRow) commit on the OS picker's change — no sheet, no Xong.
    A cleared date is ignored (a row always has a day); a cleared time is day-only;
    a cleared due date removes the reminder. */
-function csvPickDate(v){ var c = csvExpandedCandidate(); if(!c || !v) return; csvReadEditor(c); c.dateDisplay = v; c.date = new Date(v+'T00:00:00'); csvRowHot = 'when'; renderCsvReview(); }
-function csvPickTime(v){ var c = csvExpandedCandidate(); if(!c) return; csvReadEditor(c); c.time = v || ''; csvRowHot = 'when'; renderCsvReview(); }
-function csvPickLoanDue(v){ var c = csvExpandedCandidate(); if(!c) return; csvReadEditor(c); c._loanDue = v || null; csvRowHot = 'loandue'; renderCsvReview(); }
+function csvPickDate(v, final){ var c = csvExpandedCandidate(); if(!c || !v) return null; c.dateDisplay = v; c.date = new Date(v+'T00:00:00'); if(!final) return '<b class="num">'+esc(bulkDate(v))+'</b>'; csvReadEditor(c); csvRowHot = 'when'; renderCsvReview(); }
+function csvPickTime(v, final){ var c = csvExpandedCandidate(); if(!c) return null; c.time = v || ''; if(!final) return '<b class="num">'+(v ? esc(v) : esc(L('Chỉ tính theo ngày','Day only')))+'</b>'; csvReadEditor(c); csvRowHot = 'when'; renderCsvReview(); }
+function csvPickLoanDue(v, final){ var c = csvExpandedCandidate(); if(!c) return null; c._loanDue = v || null; if(!final) return '<b>'+(v ? '<span class="num">'+esc(bulkDate(v))+'</span>' : esc(L('Chưa hẹn','Not set')))+'</b>'; csvReadEditor(c); csvRowHot = 'loandue'; renderCsvReview(); }
 /* Sheets with typed input (amount / repay free-text) commit on Xong. */
 window.csvSheetValDone = function(){
   var c = csvExpandedCandidate();
@@ -18520,13 +18520,15 @@ function exdAmtDone(){
    the pending edits — staged like every other row, saved with Cập nhật. A
    cleared date is ignored (a row always has a day); a cleared time means
    day-only. */
-function exdPickDate(mode, v){
-  if(!v) return;
+function exdPickDate(mode, v, final){
+  if(!v) return null;
   _exdMode=mode; var P=(mode==='fam')?EXD:PXD; P.dateIso=v;
+  if(!final) return '<b class="num">'+esc(mode==='fam' ? fmtDateLong(new Date(v+'T00:00:00')) : v.slice(8,10)+'/'+v.slice(5,7))+'</b>';
   if(mode==='fam') renderExpenseDetail(); else renderPersonalTxDetail();
 }
-function exdPickTime(mode, v){
+function exdPickTime(mode, v, final){
   _exdMode=mode; var P=(mode==='fam')?EXD:PXD; P.timeStr=v||'';
+  if(!final) return '<b class="num">'+(v?esc(v):L('Chỉ tính theo ngày','Day only'))+'</b>';
   if(mode==='fam') renderExpenseDetail(); else renderPersonalTxDetail();
 }
 /* Cập nhật (family): apply the staged set through the composer's own persisting
@@ -25228,12 +25230,13 @@ window.obGoogle = async function () {
       _wizRender();
     };
     /* a day row's picker changed (or was cleared): keep the day of month */
-    window.fhWizDay = function (which, v) {
-      const w = _wiz; if (!w) return; _wizReadName();
+    window.fhWizDay = function (which, v, final) {
+      const w = _wiz; if (!w) return;
       const day = v ? parseInt(String(v).slice(8, 10), 10) : null;
       const val = (day >= 1 && day <= 31) ? day : null;
       if (which === 'stm') w.draft.stm = val; else w.draft.due = val;
-      _wizRender();
+      if (!final) return '<b>' + (val ? 'Ngày ' + val + ' hằng tháng' : 'Chưa chọn') + '</b>';   // patched in place, picker still open
+      _wizReadName(); _wizRender();
     };
     /* Xong / Lưu. The anchor is written only when the person typed one (the
        required value in wizard mode; optional in settings — a name or kind fix

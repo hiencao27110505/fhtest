@@ -97,12 +97,31 @@ function fhClearInvalid(scope){
    Markup mirrors _exdRow so it sits in a .csv-srows group unchanged. */
 function fhPickRow(o){   // {label, val, type:'date'|'time', value, on, arg, soft, chg, hot, clear}
   var cls='csv-srow pick'+(o.soft?' soft':'')+(o.hot?' hot':'')+(o.chg?' chg':'');
-  var pre=(o.arg!=null)?"'"+escAttr(String(o.arg))+"',":'';
   var chev='<svg class="csv-schev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>';
-  var x=(o.clear&&o.value)?'<button type="button" class="csv-sclear" aria-label="'+escAttr(L('Bỏ','Clear'))+'" onclick="event.stopPropagation();'+o.on+'('+pre+"'')\">✕</button>":'';
+  var x=(o.clear&&o.value)?'<button type="button" class="csv-sclear" aria-label="'+escAttr(L('Bỏ','Clear'))+'" onclick="event.stopPropagation();fhPickClear(this)">✕</button>':'';
   return '<div class="'+cls+'"><small>'+o.label+'</small><span class="csv-sval">'+o.val+x+chev+'</span>'
-    +'<input class="csv-spick" type="'+(o.type||'date')+'" value="'+escAttr(o.value||'')+'" onchange="'+o.on+'('+pre+'this.value)" onclick="fhPickOpen(this)" aria-label="'+escAttr(String(o.label).replace(/<[^>]*>/g,''))+'"></div>';
+    +'<input class="csv-spick" type="'+(o.type||'date')+'" value="'+escAttr(o.value||'')+'" data-on="'+escAttr(o.on)+'"'+(o.arg!=null?' data-arg="'+escAttr(String(o.arg))+'"':'')
+    +' onchange="fhPickChange(this)" onblur="fhPickBlur(this)" onclick="fhPickOpen(this)" aria-label="'+escAttr(String(o.label).replace(/<[^>]*>/g,''))+'"></div>';
 }
+/* Two phases, because iOS fills an EMPTY date input with today and fires
+   `change` the instant its wheel opens — a handler that re-rendered on change
+   tore the open picker down, which read as "it confirmed today by itself"
+   (2026-09-14). So: on change the handler only records the value and returns
+   the row's new label, patched in place under the still-open picker; on blur
+   (the picker closed, on iOS and desktop alike) the handler runs again with
+   final=true and re-renders. Handler contract: on([arg,] value, final) →
+   label HTML when !final. ✕ is always final. */
+function _fhPickCall(i, v, final){
+  var fn=window[i.getAttribute('data-on')]; if(typeof fn!=='function') return null;
+  return i.hasAttribute('data-arg') ? fn(i.getAttribute('data-arg'), v, final) : fn(v, final);
+}
+function fhPickChange(i){
+  i.setAttribute('data-dirty','1');
+  var lbl=_fhPickCall(i, i.value, false);
+  if(lbl){ var b=i.parentNode&&i.parentNode.querySelector('.csv-sval > b'); if(b) b.outerHTML=lbl; }
+}
+function fhPickBlur(i){ if(i.getAttribute('data-dirty')!=='1') return; i.removeAttribute('data-dirty'); _fhPickCall(i, i.value, true); }
+function fhPickClear(btn){ var i=btn.parentNode&&btn.parentNode.parentNode&&btn.parentNode.parentNode.querySelector('input.csv-spick'); if(!i) return; i.value=''; i.removeAttribute('data-dirty'); _fhPickCall(i, '', true); }
 function fhPickOpen(i){ try{ if(typeof i.showPicker==='function') i.showPicker(); }catch(e){} }
 function fhCheck(rules, msg){
   var bad=[];

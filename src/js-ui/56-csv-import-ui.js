@@ -1313,9 +1313,9 @@ function csvSheetPick(f, v){
 /* Picker rows (fhPickRow) commit on the OS picker's change — no sheet, no Xong.
    A cleared date is ignored (a row always has a day); a cleared time is day-only;
    a cleared due date removes the reminder. */
-function csvPickDate(v){ var c = csvExpandedCandidate(); if(!c || !v) return; csvReadEditor(c); c.dateDisplay = v; c.date = new Date(v+'T00:00:00'); csvRowHot = 'when'; renderCsvReview(); }
-function csvPickTime(v){ var c = csvExpandedCandidate(); if(!c) return; csvReadEditor(c); c.time = v || ''; csvRowHot = 'when'; renderCsvReview(); }
-function csvPickLoanDue(v){ var c = csvExpandedCandidate(); if(!c) return; csvReadEditor(c); c._loanDue = v || null; csvRowHot = 'loandue'; renderCsvReview(); }
+function csvPickDate(v, final){ var c = csvExpandedCandidate(); if(!c || !v) return null; c.dateDisplay = v; c.date = new Date(v+'T00:00:00'); if(!final) return '<b class="num">'+esc(bulkDate(v))+'</b>'; csvReadEditor(c); csvRowHot = 'when'; renderCsvReview(); }
+function csvPickTime(v, final){ var c = csvExpandedCandidate(); if(!c) return null; c.time = v || ''; if(!final) return '<b class="num">'+(v ? esc(v) : esc(L('Chỉ tính theo ngày','Day only')))+'</b>'; csvReadEditor(c); csvRowHot = 'when'; renderCsvReview(); }
+function csvPickLoanDue(v, final){ var c = csvExpandedCandidate(); if(!c) return null; c._loanDue = v || null; if(!final) return '<b>'+(v ? '<span class="num">'+esc(bulkDate(v))+'</span>' : esc(L('Chưa hẹn','Not set')))+'</b>'; csvReadEditor(c); csvRowHot = 'loandue'; renderCsvReview(); }
 /* Sheets with typed input (amount / repay free-text) commit on Xong. */
 window.csvSheetValDone = function(){
   var c = csvExpandedCandidate();

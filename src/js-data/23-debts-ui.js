@@ -939,12 +939,13 @@
       _wizRender();
     };
     /* a day row's picker changed (or was cleared): keep the day of month */
-    window.fhWizDay = function (which, v) {
-      const w = _wiz; if (!w) return; _wizReadName();
+    window.fhWizDay = function (which, v, final) {
+      const w = _wiz; if (!w) return;
       const day = v ? parseInt(String(v).slice(8, 10), 10) : null;
       const val = (day >= 1 && day <= 31) ? day : null;
       if (which === 'stm') w.draft.stm = val; else w.draft.due = val;
-      _wizRender();
+      if (!final) return '<b>' + (val ? 'Ngày ' + val + ' hằng tháng' : 'Chưa chọn') + '</b>';   // patched in place, picker still open
+      _wizReadName(); _wizRender();
     };
     /* Xong / Lưu. The anchor is written only when the person typed one (the
        required value in wizard mode; optional in settings — a name or kind fix

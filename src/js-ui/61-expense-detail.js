@@ -346,13 +346,15 @@ function exdAmtDone(){
    the pending edits — staged like every other row, saved with Cập nhật. A
    cleared date is ignored (a row always has a day); a cleared time means
    day-only. */
-function exdPickDate(mode, v){
-  if(!v) return;
+function exdPickDate(mode, v, final){
+  if(!v) return null;
   _exdMode=mode; var P=(mode==='fam')?EXD:PXD; P.dateIso=v;
+  if(!final) return '<b class="num">'+esc(mode==='fam' ? fmtDateLong(new Date(v+'T00:00:00')) : v.slice(8,10)+'/'+v.slice(5,7))+'</b>';
   if(mode==='fam') renderExpenseDetail(); else renderPersonalTxDetail();
 }
-function exdPickTime(mode, v){
+function exdPickTime(mode, v, final){
   _exdMode=mode; var P=(mode==='fam')?EXD:PXD; P.timeStr=v||'';
+  if(!final) return '<b class="num">'+(v?esc(v):L('Chỉ tính theo ngày','Day only'))+'</b>';
   if(mode==='fam') renderExpenseDetail(); else renderPersonalTxDetail();
 }
 /* Cập nhật (family): apply the staged set through the composer's own persisting
