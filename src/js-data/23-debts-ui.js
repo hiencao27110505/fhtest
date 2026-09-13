@@ -901,6 +901,10 @@
           + cardf
           + '<div class="dbt-note" style="padding:0 0 14px">Mốc này đã gồm mọi giao dịch trước lúc đặt. Khoản ghi sau đó cộng trừ tiếp lên nó.</div>'
           + '<button type="button" class="wz-later" onclick="fhWizLater()">Để sau</button>',
+        /* No autofocus on open: iOS Safari scrolls a fixed modal off-screen
+           when an input is focused programmatically during its rise — the
+           single-account wizard (tile tap) opened onto a blank canvas
+           (2026-09-13). No other sheet in the app focuses on open either. */
         required: function () { return [{ el: document.getElementById('wz-amt'), ok: !!((document.getElementById('wz-amt') || {}).value || '').trim() }]; },
         save: async function () {
           const kind = isCash ? 'cash' : ((typeof chosen === 'function' && chosen('wz-akind')) || acct.kind);
@@ -915,7 +919,6 @@
           if (!ok) throw new Error('save_failed');
           return function () { if (!last) _wizStep(queue, i + 1, intro, saved + 1); else _wizDone(saved + 1); };
         },
-        after: function () { const a = document.getElementById('wz-amt'); if (a && n === 1) { try { a.focus(); } catch (e) {} } },
       });
     }
     function _wizDone(saved) {

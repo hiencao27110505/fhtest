@@ -511,6 +511,8 @@
         P.fromSnapshot = false;                    // this is fresh data —
         _snapSave();                               // — worth caching for the next cold open
         _setState('ready');
+        _accountHealSoon();                        // once per session: fold tail-less twins, canonical names
+
       } catch (e) {
         console.warn('personal hydrate failed', e);
         if (gen !== _bootGen) return;              // an orphaned pass may not flip state either
@@ -1039,10 +1041,23 @@
          pair names one instrument; matching kind too is how one heuristic
          mis-guess minted a phantom duplicate of a real account (2026-09-02).
          Kind only participates when there is no tail to identify by. */
+      /* No tail: identity is the PROVIDER, still never the kind — a VCB credit
+         alert without a number and a VCB balance alert without a number are
+         one bank seen through two mail shapes, and matching on kind minted a
+         "Vietcombank" twin (found 2026-09-13). Prefer a same-kind tail-less
+         account when several exist, else any tail-less one for the provider. */
       const _match = (a) => tail
         ? ((a.provider || '') === (prov || '') && (a.tail || '') === tail)
-        : (a.kind === info.kind && (a.provider || '') === (prov || '') && !a.tail);
-      let hit = P.accounts.find(_match);
+        : ((a.provider || '') === (prov || '') && !a.tail);
+      let hit = tail ? P.accounts.find(_match)
+        : (P.accounts.find((a) => _match(a) && a.kind === info.kind) || P.accounts.find(_match));
+      /* No tail but a provider that owns exactly ONE account: adopt it. A bank
+         that prints its number on some mails and not others is one account,
+         not two; a provider with several accounts stays ambiguous → tail-less. */
+      if (!hit && !tail && prov) {
+        const byProv = P.accounts.filter((a) => (a.provider || '') === prov && a.kind !== 'investment');
+        if (byProv.length === 1) hit = byProv[0];
+      }
       /* A caller with a tail but NO provider still means one specific
          instrument. If exactly one active account carries that tail, adopt it
          rather than minting a provider-null twin (the "Tài khoản ••4751"
@@ -1064,6 +1079,50 @@
       P.accounts.push({ id: r.data.id, kind: info.kind, provider: prov, tail: tail, name: name, limitK: null, humanVerified: false });
       return r.data.id;
     };
+    /* One-time-per-session self-heal of the account list (2026-09-13):
+         1. a tail-less twin — an un-anchored, never-verified account with a
+            provider but no number, whose provider has another account — is
+            folded into that sibling (its rows re-tagged, then archived). The
+            kind-keyed tail-less match that minted these is gone from ensure();
+            this cleans up what it already made. Prefers a tail-less sibling,
+            else the provider's single account; several tailed siblings and no
+            tail-less one stays ambiguous and is left alone.
+         2. a default name from the old ensure() ("Vib ••5140") is rewritten
+            to the provider canon ("VIB ••5140") while the person has never
+            renamed it (human_verified false).
+       Fire-and-forget after the first ready hydrate; re-hydrates on change. */
+    let _healed = false;
+    function _accountHealSoon() {
+      if (_healed || !P.uid || !P.key) return;
+      _healed = true;
+      setTimeout(() => { _accountHeal().catch((e) => console.warn('account heal failed', e)); }, 1500);
+    }
+    async function _accountHeal() {
+      const live = (P.accounts || []).filter((a) => a.kind !== 'investment');
+      const gone = {}; let changed = false;
+      for (const a of live) {
+        if (gone[a.id] || a.tail || !a.provider || a.anchorK != null || a.humanVerified) continue;
+        const sibs = live.filter((b) => b.id !== a.id && !gone[b.id] && (b.provider || '') === a.provider);
+        if (!sibs.length) continue;
+        const target = sibs.find((b) => !b.tail) || (sibs.length === 1 ? sibs[0] : null);
+        if (!target) continue;
+        const mv = await _sb().from('personal_transactions').update({ account_id: target.id }).eq('owner_user_id', P.uid).eq('account_id', a.id);
+        if (mv.error) { console.warn('account heal: retag failed', mv.error); continue; }
+        const ar = await _sb().from('personal_accounts').update({ archived_at: new Date().toISOString() }).eq('id', a.id).eq('owner_user_id', P.uid);
+        if (ar.error) { console.warn('account heal: archive failed', ar.error); continue; }
+        gone[a.id] = 1; changed = true;
+      }
+      const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+      for (const a of live) {
+        if (gone[a.id] || a.humanVerified || !a.provider || !a.name) continue;
+        if (a.name !== cap(a.provider) + (a.tail ? ' ••' + a.tail : '')) continue;   // only the old default, never a person's name
+        const disp = (typeof window.fhProviderName === 'function') ? window.fhProviderName(a.provider) : '';
+        if (!disp || disp === cap(a.provider)) continue;
+        const r = await _sb().from('personal_accounts').update({ name_enc: await _encP(disp + (a.tail ? ' ••' + a.tail : '')) }).eq('id', a.id).eq('owner_user_id', P.uid);
+        if (!r.error) changed = true;
+      }
+      if (changed) await window.fhPersonalHydrate();
+    }
     window.fhPersonalCashAccount = function () {
       const hit = P.accounts.find((a) => a.kind === 'cash');
       return hit ? Promise.resolve(hit.id) : window.fhPersonalAccountEnsure({ kind: 'cash', name: 'Tiền mặt' });

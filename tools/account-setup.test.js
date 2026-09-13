@@ -88,5 +88,13 @@ t('it fires from hydrate and from finishOnboarding', /fhPushFirstVisitOffer\(\)/
 t('it yields to another sheet instead of stacking', /scrim\.classList\.contains\('on'\)\) return;/.test(push));
 t('the key is set only when the sheet actually opens', /localStorage\.setItem\(key, '1'\);\s*\n\s*window\.fhPushSheet\(\);/.test(push));
 
+console.log('\n-- the two bugs from the first live test (2026-09-13) --');
+t('the wizard never autofocuses on open (iOS blank-modal scroll)', !/wz-amt'\); if \(a && n === 1\) \{ try \{ a\.focus\(\)/.test(debts));
+t('a tail-less ensure() matches by provider, never by kind',
+  /: \(\(a\.provider \|\| ''\) === \(prov \|\| ''\) && !a\.tail\);/.test(data) && !/a\.kind === info\.kind && \(a\.provider \|\| ''\) === \(prov \|\| ''\) && !a\.tail/.test(data));
+t('a tail-less read adopts a provider\'s single account', /if \(byProv\.length === 1\) hit = byProv\[0\];/.test(data));
+t('existing tail-less twins are folded once per session', /function _accountHealSoon/.test(data) && /_accountHealSoon\(\);/.test(data) && /\.eq\('account_id', a\.id\);/.test(data));
+t('the heal never touches an anchored or person-verified account', /a\.anchorK != null \|\| a\.humanVerified\) continue;/.test(data));
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
