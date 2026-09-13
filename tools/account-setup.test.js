@@ -57,6 +57,8 @@ t('the day rows open the OS calendar directly (fhPickRow), the day of month is w
     /onchange="fhPickChange\(this\)" onblur="fhPickBlur\(this\)"/.test(fmtH) && /function fhPickBlur\(i\)\{ if\(i\.getAttribute\('data-dirty'\)!=='1'\) return;/.test(fmtH)
     && /fhWizDay = function \(which, v, final\)/.test(debts) && /if \(!final\) return '<b>'/.test(debts)
     && /function exdPickDate\(mode, v, final\)/.test(detail) && /function csvPickDate\(v, final\)/.test(rv));
+  t('the iOS pre-fill on open is not a choice: first change equal to now is ignored, blur without a pick empties the field',
+    /function _fhPickIsPrefill\(i\)/.test(fmtH) && /if\(_fhPickIsPrefill\(i\)\) return;/.test(fmtH) && /i\.value=i\.getAttribute\('data-init'\)\|\|''; return;/.test(fmtH) && /_fhPickIOS=/.test(fmtH));
   t('no date row opens a sheet any more: review card', !/csvsheet-date|csvsheet-loandue|f==='when'|f==='loandue'/.test(rv) && /on: 'csvPickDate'/.test(rv) && /on: 'csvPickLoanDue'/.test(rv));
 }
 

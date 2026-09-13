@@ -101,7 +101,28 @@ function fhPickRow(o){   // {label, val, type:'date'|'time', value, on, arg, sof
   var x=(o.clear&&o.value)?'<button type="button" class="csv-sclear" aria-label="'+escAttr(L('Bỏ','Clear'))+'" onclick="event.stopPropagation();fhPickClear(this)">✕</button>':'';
   return '<div class="'+cls+'"><small>'+o.label+'</small><span class="csv-sval">'+o.val+x+chev+'</span>'
     +'<input class="csv-spick" type="'+(o.type||'date')+'" value="'+escAttr(o.value||'')+'" data-on="'+escAttr(o.on)+'"'+(o.arg!=null?' data-arg="'+escAttr(String(o.arg))+'"':'')
-    +' onchange="fhPickChange(this)" onblur="fhPickBlur(this)" onclick="fhPickOpen(this)" aria-label="'+escAttr(String(o.label).replace(/<[^>]*>/g,''))+'"></div>';
+    +' onfocus="fhPickFocus(this)" onchange="fhPickChange(this)" onblur="fhPickBlur(this)" onclick="fhPickOpen(this)" aria-label="'+escAttr(String(o.label).replace(/<[^>]*>/g,''))+'"></div>';
+}
+/* iOS also PRE-FILLS an empty date/time input with "now" the moment its wheel
+   opens, and reports it as a change — so dismissing the picker without moving
+   the wheel used to leave today in the row (2026-09-14, second report). The
+   first change after focus on an empty field, when its value is exactly "now",
+   is that pre-fill: it is not a choice. Only a later change (the wheel moved)
+   counts; a blur with nothing chosen puts the field back to empty. iOS only —
+   desktop pickers never pre-fill, and there picking today on an empty field
+   must count the first time. */
+var _fhPickIOS=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+function _fhPickNow(type){
+  var n=new Date(), p=function(x){ return String(x).padStart(2,'0'); };
+  return type==='time' ? p(n.getHours())+':'+p(n.getMinutes()) : n.getFullYear()+'-'+p(n.getMonth()+1)+'-'+p(n.getDate());
+}
+function fhPickFocus(i){ i.setAttribute('data-init', i.value||''); i.removeAttribute('data-seen'); }
+function _fhPickIsPrefill(i){
+  if(!_fhPickIOS || i.getAttribute('data-init') || i.getAttribute('data-seen')==='1') return false;
+  i.setAttribute('data-seen','1');
+  var v=i.value||'', now=_fhPickNow(i.type);
+  if(i.type==='time' && v && now){ var a=v.split(':'), b=now.split(':'); return Math.abs((+a[0]*60+ +a[1])-(+b[0]*60+ +b[1]))<=1; }
+  return v===now;
 }
 /* Two phases, because iOS fills an EMPTY date input with today and fires
    `change` the instant its wheel opens — a handler that re-rendered on change
@@ -116,11 +137,16 @@ function _fhPickCall(i, v, final){
   return i.hasAttribute('data-arg') ? fn(i.getAttribute('data-arg'), v, final) : fn(v, final);
 }
 function fhPickChange(i){
+  if(_fhPickIsPrefill(i)) return;                 // iOS wrote "now" on open — not a choice
   i.setAttribute('data-dirty','1');
   var lbl=_fhPickCall(i, i.value, false);
   if(lbl){ var b=i.parentNode&&i.parentNode.querySelector('.csv-sval > b'); if(b) b.outerHTML=lbl; }
 }
-function fhPickBlur(i){ if(i.getAttribute('data-dirty')!=='1') return; i.removeAttribute('data-dirty'); _fhPickCall(i, i.value, true); }
+function fhPickBlur(i){
+  i.removeAttribute('data-seen');
+  if(i.getAttribute('data-dirty')!=='1'){ i.value=i.getAttribute('data-init')||''; return; }   // nothing chosen: drop the pre-fill
+  i.removeAttribute('data-dirty'); _fhPickCall(i, i.value, true);
+}
 function fhPickClear(btn){ var i=btn.parentNode&&btn.parentNode.parentNode&&btn.parentNode.parentNode.querySelector('input.csv-spick'); if(!i) return; i.value=''; i.removeAttribute('data-dirty'); _fhPickCall(i, '', true); }
 function fhPickOpen(i){ try{ if(typeof i.showPicker==='function') i.showPicker(); }catch(e){} }
 function fhCheck(rules, msg){
