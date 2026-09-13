@@ -54,7 +54,7 @@ t('the day rows open the OS calendar directly (fhPickRow), the day of month is w
     /function fhPickRow\(o\)/.test(fmtH) && /class="csv-spick" type="'\+\(o\.type\|\|'date'\)\+'"/.test(fmtH));
   t('no date row opens a sheet any more: detail screens', !/exdSheetWhen|exdWhenDone|exd-in-date/.test(detail) && /on:'exdPickDate'/.test(detail) && /on:'exdPickTime'/.test(detail));
   t('picker rows are two-phase: record on change, re-render only on blur (iOS fills today on open)',
-    /onchange="fhPickChange\(this\)" onblur="fhPickBlur\(this\)"/.test(fmtH) && /function fhPickBlur\(i\)\{ if\(i\.getAttribute\('data-dirty'\)!=='1'\) return;/.test(fmtH)
+    /onchange="fhPickChange\(this\)" onblur="fhPickBlur\(this\)"/.test(fmtH) && /function fhPickBlur\(i\)\{[\s\S]{0,80}if\(i\.getAttribute\('data-dirty'\)!=='1'\)/.test(fmtH)
     && /fhWizDay = function \(which, v, final\)/.test(debts) && /if \(!final\) return '<b>'/.test(debts)
     && /function exdPickDate\(mode, v, final\)/.test(detail) && /function csvPickDate\(v, final\)/.test(rv));
   t('the iOS pre-fill on open is not a choice: first change equal to now is ignored, blur without a pick empties the field',
