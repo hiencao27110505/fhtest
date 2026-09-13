@@ -877,8 +877,14 @@
           val: '<b class="num">' + shown + '</b>', fn: "fhWizSheet('amt')" });
         if (isCard) {
           rows += row({ label: 'Hạn mức thẻ', soft: !(d.limitK > 0), val: '<b class="num">' + (d.limitK > 0 ? fmt(d.limitK) : 'Để trống nếu không nhớ') + '</b>', fn: "fhWizSheet('lim')" });
-          rows += row({ label: 'Ngày chốt sao kê', soft: !d.stm, val: '<b>' + (d.stm ? 'Ngày ' + d.stm + ' hằng tháng' : 'Chưa chọn') + '</b>', fn: "fhWizSheet('stm')" });
-          rows += row({ label: 'Ngày đến hạn', soft: !d.due, val: '<b>' + (d.due ? 'Ngày ' + d.due + ' hằng tháng' : 'Chưa chọn') + '</b>', fn: "fhWizSheet('due')" });
+          /* the two days are picker rows: the tap opens the OS calendar itself
+             (fhPickRow), the day of month is what is kept */
+          const pr = (typeof window.fhPickRow === 'function') ? window.fhPickRow : null;
+          const dayIso = (day) => { if (!day) return ''; const now = new Date(); const dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate(); return now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(Math.min(day, dim)).padStart(2, '0'); };
+          if (pr) {
+            rows += pr({ label: 'Ngày chốt sao kê', type: 'date', value: dayIso(d.stm), on: 'fhWizDay', arg: 'stm', clear: true, soft: !d.stm, val: '<b>' + (d.stm ? 'Ngày ' + d.stm + ' hằng tháng' : 'Chưa chọn') + '</b>' });
+            rows += pr({ label: 'Ngày đến hạn', type: 'date', value: dayIso(d.due), on: 'fhWizDay', arg: 'due', clear: true, soft: !d.due, val: '<b>' + (d.due ? 'Ngày ' + d.due + ' hằng tháng' : 'Chưa chọn') + '</b>' });
+          }
         }
       }
       const note = (anchored && !d.amtSet)
@@ -917,19 +923,6 @@
           + '<button type="button" class="crs-done" onclick="fhWizAmtDone(\'' + which + '\')">Xong</button>');
         openSheet('sheet-exd-amt'); return;
       }
-      if (which === 'stm' || which === 'due') {
-        const day = which === 'stm' ? d.stm : d.due;
-        const now = new Date();
-        const iso = day ? (now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(Math.min(day, new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate())).padStart(2, '0')) : '';
-        setTxt('exdwhen-h', which === 'stm' ? 'Ngày chốt sao kê' : 'Ngày đến hạn');
-        setTxt('exdwhen-sub', which === 'stm' ? 'Chọn ngày chốt gần nhất, app nhớ ngày trong tháng' : 'Chọn ngày đến hạn gần nhất, app nhớ ngày trong tháng');
-        setHTML('exdwhen-body',
-          '<span class="crs-lbl">Ngày</span>'
-          + '<input class="crs-in num" type="date" id="wz-in-date" value="' + iso + '">'
-          + '<button type="button" class="crs-done" onclick="fhWizDateDone(\'' + which + '\')">Xong</button>'
-          + (day ? '<button type="button" class="wz-clear" onclick="fhWizDateClear(\'' + which + '\')">Bỏ ngày này</button>' : ''));
-        openSheet('sheet-exd-when'); return;
-      }
     };
     window.fhWizPickKind = function (v) { closeSheet(); const w = _wiz; if (!w) return; w.draft.kind = v; _wizRender(); };
     window.fhWizAmtDone = function (which) {
@@ -945,16 +938,14 @@
       }
       _wizRender();
     };
-    window.fhWizDateDone = function (which) {
-      const w = _wiz; if (!w) return;
-      const v = (document.getElementById('wz-in-date') || {}).value || '';
-      if (!v) { const el = document.getElementById('wz-in-date'); if (el) el.focus(); return; }
-      closeSheet();
-      const day = parseInt(v.slice(8, 10), 10);
-      if (day >= 1 && day <= 31) { if (which === 'stm') w.draft.stm = day; else w.draft.due = day; }
+    /* a day row's picker changed (or was cleared): keep the day of month */
+    window.fhWizDay = function (which, v) {
+      const w = _wiz; if (!w) return; _wizReadName();
+      const day = v ? parseInt(String(v).slice(8, 10), 10) : null;
+      const val = (day >= 1 && day <= 31) ? day : null;
+      if (which === 'stm') w.draft.stm = val; else w.draft.due = val;
       _wizRender();
     };
-    window.fhWizDateClear = function (which) { closeSheet(); const w = _wiz; if (!w) return; if (which === 'stm') w.draft.stm = null; else w.draft.due = null; _wizRender(); };
     /* Xong / Lưu. The anchor is written only when the person typed one (the
        required value in wizard mode; optional in settings — a name or kind fix
        must not rewrite the mốc). Cards store it NEGATIVE (a liability is a

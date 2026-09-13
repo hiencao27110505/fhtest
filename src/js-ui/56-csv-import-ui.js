@@ -1201,8 +1201,8 @@ function csvStagedRowsCard(c, opts){
     if(cur==='loan'){
       rows += row('loanwho', L('Cho ai mượn','Lent to'),
         c._loanWho ? esc(c._loanWho) : L('Chọn','Pick'), { soft: !c._loanWho });
-      rows += row('loandue', L('Hẹn trả','Due back'),
-        c._loanDue ? '<span class="num">'+esc(bulkDate(c._loanDue))+'</span>' : L('Chưa hẹn','Not set'), { soft: !c._loanDue });
+      rows += fhPickRow({ label: L('Hẹn trả','Due back'), type: 'date', value: c._loanDue||'', on: 'csvPickLoanDue', clear: true, soft: !c._loanDue, hot: csvRowHot==='loandue',
+        val: '<b>'+(c._loanDue ? '<span class="num">'+esc(bulkDate(c._loanDue))+'</span>' : esc(L('Chưa hẹn','Not set')))+'</b>' });
     }
     if(cur==='invest'){
       /* which position this buy/sell accrues to (0123, investment-spec §7) */
@@ -1250,9 +1250,13 @@ function csvStagedRowsCard(c, opts){
   }
   // Amount now leads as a top input field (above the note) — see the h assembly
   // above; it is no longer a row here.
+  /* Ngày / Giờ are picker rows (fhPickRow): the tap opens the OS calendar or
+     clock itself, no sheet in between; the change lands on the candidate. */
   var t = csvRowTime(c);
-  rows += row('when', L('Khi nào','When'),
-    '<span class="num">'+esc(bulkDate(c.dateDisplay))+(t ? ' · '+esc(t) : '')+'</span>');
+  rows += fhPickRow({ label: L('Ngày','Date'), type: 'date', value: c.dateDisplay||'', on: 'csvPickDate', hot: csvRowHot==='when',
+    val: '<b class="num">'+esc(bulkDate(c.dateDisplay))+'</b>' });
+  rows += fhPickRow({ label: L('Giờ','Time'), type: 'time', value: t||'', on: 'csvPickTime', clear: true, soft: !t, hot: csvRowHot==='when',
+    val: '<b class="num">'+(t ? esc(t) : esc(L('Chỉ tính theo ngày','Day only')))+'</b>' });
   /* Nguồn tiền (bank · instrument) and Nguồn nhập (transport) used to be two
      read-only rows here. They are fixed provenance, so they moved up to the
      card's top line (csvActiveCard header) and no longer take a row. */
@@ -1306,7 +1310,13 @@ function csvSheetPick(f, v){
   else if(f==='who'){ c.who = v; }
   renderCsvReview();
 }
-/* Sheets with typed input (amount / date+time / repay free-text) commit on Xong. */
+/* Picker rows (fhPickRow) commit on the OS picker's change — no sheet, no Xong.
+   A cleared date is ignored (a row always has a day); a cleared time is day-only;
+   a cleared due date removes the reminder. */
+function csvPickDate(v){ var c = csvExpandedCandidate(); if(!c || !v) return; csvReadEditor(c); c.dateDisplay = v; c.date = new Date(v+'T00:00:00'); csvRowHot = 'when'; renderCsvReview(); }
+function csvPickTime(v){ var c = csvExpandedCandidate(); if(!c) return; csvReadEditor(c); c.time = v || ''; csvRowHot = 'when'; renderCsvReview(); }
+function csvPickLoanDue(v){ var c = csvExpandedCandidate(); if(!c) return; csvReadEditor(c); c._loanDue = v || null; csvRowHot = 'loandue'; renderCsvReview(); }
+/* Sheets with typed input (amount / repay free-text) commit on Xong. */
 window.csvSheetValDone = function(){
   var c = csvExpandedCandidate();
   var f = csvRowSheet;
@@ -1320,20 +1330,12 @@ window.csvSheetValDone = function(){
       if(csvFxInfo(c)){ if(csvFxUnresolved(c)) c._skipImport = false; c._fxVnd = true; }
       c.amount = v.value;
     }
-  } else if(c && f==='when'){
-    var d = document.getElementById('csvsheet-date');
-    if(d && d.value){ c.dateDisplay = d.value; c.date = new Date(d.value+'T00:00:00'); }
-    var t = document.getElementById('csvsheet-time');
-    if(t) c.time = t.value || '';
   } else if(c && f==='repay'){
     var r = document.getElementById('csvsheet-repwho');
     if(r && r.value.trim()) c._repayWho = r.value.trim();
   } else if(c && f==='loanwho'){
     var lw = document.getElementById('csvsheet-loanwho');
     if(lw && lw.value.trim()) c._loanWho = lw.value.trim();
-  } else if(c && f==='loandue'){
-    var ld = document.getElementById('csvsheet-loandue');
-    if(ld) c._loanDue = ld.value || null;
   } else if(c && f==='invqty'){
     var iq = document.getElementById('csvsheet-invqty');
     if(iq){ var qn = Number(String(iq.value).replace(',', '.').trim()); c._investQty = (isFinite(qn) && qn > 0) ? qn : null; }
@@ -1405,11 +1407,6 @@ function csvRowSheetHTML(c){
         + lnames.map(function(n){ return chip(c._loanWho===n, "csvSheetPick('loanwho','"+escAttr(n)+"')", esc(n)); }).join('')+'</div>' : '')
       + '<input id="csvsheet-loanwho" class="crs-in" placeholder="'+escAttr(L('vd. Thằng em','e.g. a name'))+'" value="'+escAttr(c._loanWho||'')+'"/>'
       + '<div class="csv-scope-note">'+esc(L('Ghi vào sổ nợ riêng của bạn — không tính là chi tiêu.','Goes to your private receivables — never spending.'))+'</div>'
-      + '<button type="button" class="crs-done" onclick="csvSheetValDone()">'+esc(L('Xong','Done'))+'</button>';
-  } else if(f==='loandue'){
-    title = L('Hẹn trả','Due back');
-    body = '<input type="date" id="csvsheet-loandue" class="crs-in" value="'+escAttr(c._loanDue||'')+'"/>'
-      + '<div class="csv-scope-note">'+esc(L('Tuỳ chọn — để nhắc bạn khi đến hẹn. Xoá ngày để bỏ hẹn.','Optional — reminds you when it falls due. Clear the date to remove.'))+'</div>'
       + '<button type="button" class="crs-done" onclick="csvSheetValDone()">'+esc(L('Xong','Done'))+'</button>';
   } else if(f==='invpos'){
     /* which position — existing ones as chips; a new one materializes right
@@ -1490,13 +1487,6 @@ function csvRowSheetHTML(c){
     title = L('Số tiền','Amount');
     // Foreign rows open empty with the original as placeholder — see csvedit-amt.
     body = '<input id="csvsheet-amt" class="crs-in num" inputmode="numeric" placeholder="'+escAttr(csvFxUnresolved(c) ? csvFxOrigStr(csvFxInfo(c))+' → ₫?' : amtPlaceholder())+'" value="'+escAttr(!csvFxUnresolved(c) && c.amount!=null ? csvAmtInputVal(c.amount) : '')+'"/>'
-      + '<button type="button" class="crs-done" onclick="csvSheetValDone()">'+esc(L('Xong','Done'))+'</button>';
-  } else if(f==='when'){
-    title = L('Khi nào','When');
-    body = '<div class="crs-row2">'
-      + '<div><span class="crs-lbl">'+esc(L('Ngày','Date'))+'</span><input type="date" id="csvsheet-date" class="crs-in" value="'+escAttr(c.dateDisplay||'')+'"/></div>'
-      + '<div><span class="crs-lbl">'+esc(L('Giờ','Time'))+' <span style="text-transform:none;letter-spacing:0;font-weight:500">'+esc(L('tuỳ chọn','optional'))+'</span></span><input type="time" id="csvsheet-time" class="crs-in" value="'+escAttr(csvRowTime(c))+'"/></div>'
-      + '</div>'
       + '<button type="button" class="crs-done" onclick="csvSheetValDone()">'+esc(L('Xong','Done'))+'</button>';
   } else { return ''; }
   var sub = '<span class="num">'+esc(csvAmtDisp(c))+'</span>'

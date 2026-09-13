@@ -103,8 +103,19 @@ function renderExpenseDetail(){
     val:'<span class="exd-av" style="'+window.fhAvStyle(wd)+'">'+esc(window.fhAvIni(wd))+'</span><b>'+esc(wd.name)+'</b>', fn:"exdSheetWho()"});
   rows+=_exdRow({label:L('Số tiền & ghi chú','Amount & note'), chg:(EXD.amtDisp!=null||EXD.note!=null), ro:!canEdit,
     val:'<b class="num">'+esc(vAmtDisp)+(CUR==='VND'?' ₫':'')+'</b>', fn:"exdSheetAmt('fam')"});
-  rows+=_exdRow({label:L('Khi nào','When'), chg:(EXD.dateIso!=null||EXD.timeStr!==undefined), ro:!canEdit,
-    val:'<b class="num">'+esc(_exdDate(t))+(vTime?' · '+esc(vTime):'')+'</b>', fn:"exdSheetWhen('fam')"});
+  /* Ngày / Giờ are picker rows: the tap opens the OS calendar or clock itself
+     (fhPickRow, 2026-09-14) — no sheet in between. Read-only rows stay one line. */
+  if(canEdit){
+    var fIso=(EXD.dateIso!=null)?EXD.dateIso:((typeof txDateInput==='function')?txDateInput(t):'');
+    var fDateLbl=(EXD.dateIso!=null)?fmtDateLong(new Date(EXD.dateIso+'T00:00:00')):_exdDate(t);
+    rows+=fhPickRow({label:L('Ngày','Date'), type:'date', value:fIso, on:'exdPickDate', arg:'fam', chg:EXD.dateIso!=null,
+      val:'<b class="num">'+esc(fDateLbl)+'</b>'});
+    rows+=fhPickRow({label:L('Giờ','Time'), type:'time', value:vTime||'', on:'exdPickTime', arg:'fam', clear:true, chg:EXD.timeStr!==undefined, soft:!vTime,
+      val:'<b class="num">'+(vTime?esc(vTime):L('Chỉ tính theo ngày','Day only'))+'</b>'});
+  } else {
+    rows+=_exdRow({label:L('Khi nào','When'), ro:true,
+      val:'<b class="num">'+esc(_exdDate(t))+(vTime?' · '+esc(vTime):'')+'</b>'});
+  }
   /* Nguồn tiền. Read-only for everyone (the 0131 display string) — except the
      AUTHOR, whose own mirror master carries the real account tag (0134,
      account-setup-spec §6): for them the row opens the account picker, so a
@@ -331,28 +342,18 @@ function exdAmtDone(){
   P.amtDisp=a.trim(); P.note=n.trim();
   if(_exdMode==='fam') renderExpenseDetail(); else renderPersonalTxDetail();
 }
-function exdSheetWhen(mode){
-  _exdMode=mode; var t=_exdRowOf(); if(!t) return;
-  var dIso=_exdCur('dateIso', (_exdMode==='fam')?((typeof txDateInput==='function')?txDateInput(t):'') : (t.date||''));
-  var tm=_exdCur('timeStr', t.time||'');
-  setTxt('exdwhen-h', L('Khi nào','When'));
-  setTxt('exdwhen-sub', L('Giờ để trống là chỉ tính theo ngày','Leave the time empty for day-only'));
-  setHTML('exdwhen-body',
-    '<span class="crs-lbl">'+L('Ngày','Date')+'</span>'
-    +'<input class="crs-in num" type="date" id="exd-in-date" value="'+escAttr(dIso)+'">'
-    +'<span class="crs-lbl" style="margin-top:14px">'+L('Giờ','Time')+' <span style="text-transform:none;font-weight:600">· '+L('tuỳ chọn','optional')+'</span></span>'
-    +'<input class="crs-in num" type="time" id="exd-in-time" value="'+escAttr(tm)+'">'
-    +'<button type="button" class="crs-done" onclick="exdWhenDone()">'+L('Xong','Done')+'</button>');
-  openSheet('sheet-exd-when');
+/* Ngày / Giờ picker rows (fhPickRow): the OS picker's change lands straight in
+   the pending edits — staged like every other row, saved with Cập nhật. A
+   cleared date is ignored (a row always has a day); a cleared time means
+   day-only. */
+function exdPickDate(mode, v){
+  if(!v) return;
+  _exdMode=mode; var P=(mode==='fam')?EXD:PXD; P.dateIso=v;
+  if(mode==='fam') renderExpenseDetail(); else renderPersonalTxDetail();
 }
-function exdWhenDone(){
-  var d=(document.getElementById('exd-in-date')||{}).value||'';
-  var tm=(document.getElementById('exd-in-time')||{}).value||'';
-  if(!d){ var el=document.getElementById('exd-in-date'); if(el) el.focus(); return; }
-  closeSheet();
-  var P=(_exdMode==='fam')?EXD:PXD;
-  P.dateIso=d; P.timeStr=tm;
-  if(_exdMode==='fam') renderExpenseDetail(); else renderPersonalTxDetail();
+function exdPickTime(mode, v){
+  _exdMode=mode; var P=(mode==='fam')?EXD:PXD; P.timeStr=v||'';
+  if(mode==='fam') renderExpenseDetail(); else renderPersonalTxDetail();
 }
 /* Cập nhật (family): apply the staged set through the composer's own persisting
    path — fill the editor fields invisibly, overlay the pendings, then call the
@@ -429,8 +430,11 @@ function renderPersonalTxDetail(){
     val:'<b>'+esc(em)+' '+esc(vCat||'Chưa rõ')+'</b>', soft:!vCat, fn:"exdSheetCat('pers')"});
   rows+=_exdRow({label:'Số tiền & ghi chú', chg:(PXD.amtDisp!=null||PXD.note!=null),
     val:'<b class="num">'+esc(vAmtDisp)+(CUR==='VND'?' ₫':'')+'</b>', fn:"exdSheetAmt('pers')"});
-  rows+=_exdRow({label:'Khi nào', chg:(PXD.dateIso!=null||PXD.timeStr!==undefined),
-    val:'<b class="num">'+esc(vDate?vDate.slice(8,10)+'/'+vDate.slice(5,7):'')+(vTime?' · '+esc(vTime):'')+'</b>', fn:"exdSheetWhen('pers')"});
+  // Ngày / Giờ as picker rows — the tap opens the OS picker itself (fhPickRow)
+  rows+=fhPickRow({label:'Ngày', type:'date', value:vDate||'', on:'exdPickDate', arg:'pers', chg:PXD.dateIso!=null,
+    val:'<b class="num">'+esc(vDate?vDate.slice(8,10)+'/'+vDate.slice(5,7):'')+'</b>'});
+  rows+=fhPickRow({label:'Giờ', type:'time', value:vTime||'', on:'exdPickTime', arg:'pers', clear:true, chg:PXD.timeStr!==undefined, soft:!vTime,
+    val:'<b class="num">'+(vTime?esc(vTime):'Chỉ tính theo ngày')+'</b>'});
   rows+=_exdRow({label:'Nguồn tiền', chg:PXD.hasOwnProperty('accountId'), soft:!acctId,
     val:'<b>'+(acct?esc(acct.name||'Tài khoản'):(acctId?'Tài khoản':'Chưa rõ'))+'</b>', fn:'pexdSheetAcct()'});
   html+='<div class="exd-meta srows"><div class="csv-srows">'+rows+'</div></div>';

@@ -46,8 +46,15 @@ t('"Cài đặt tài khoản" is the same screen in settings mode (one screen, t
   /window\.fhAcctEditSheet = function \(acctId\) \{[\s\S]{0,400}mode: 'settings'/.test(debts) && !/fhAcctKindSync/.test(debts) && /settings \? 'Cài đặt tài khoản'/.test(debts));
 t('settings mode writes the anchor only when a number was typed',
   /if \(d\.amtSet\) \{ fields\.anchorK = isCard \? -d\.amtK : d\.amtK; fields\.setupSkipped = false; \}/.test(debts));
-t('the day pickers are calendar inputs, the day of month is what is kept',
-  /type="date" id="wz-in-date"/.test(debts) && /parseInt\(v\.slice\(8, 10\), 10\)/.test(debts));
+t('the day rows open the OS calendar directly (fhPickRow), the day of month is what is kept',
+  /on: 'fhWizDay', arg: 'stm'/.test(debts) && /parseInt\(String\(v\)\.slice\(8, 10\), 10\)/.test(debts) && !/sheet-exd-when/.test(debts));
+{
+  const fmtH = R('src/js-ui/12-format-helpers.js'), rv = R('src/js-ui/56-csv-import-ui.js');
+  t('a shared picker row exists: a transparent OS input covers the row',
+    /function fhPickRow\(o\)/.test(fmtH) && /class="csv-spick" type="'\+\(o\.type\|\|'date'\)\+'"/.test(fmtH));
+  t('no date row opens a sheet any more: detail screens', !/exdSheetWhen|exdWhenDone|exd-in-date/.test(detail) && /on:'exdPickDate'/.test(detail) && /on:'exdPickTime'/.test(detail));
+  t('no date row opens a sheet any more: review card', !/csvsheet-date|csvsheet-loandue|f==='when'|f==='loandue'/.test(rv) && /on: 'csvPickDate'/.test(rv) && /on: 'csvPickLoanDue'/.test(rv));
+}
 
 console.log('\n-- the anchor supersedes older bank numbers (cause 6) --');
 t('setting an anchor drops the captured Số dư (both writers)', /ext_balance_enc: null, ext_balance_date: null,/.test(data) && /row\.ext_balance_enc = null; row\.ext_balance_date = null;/.test(data));

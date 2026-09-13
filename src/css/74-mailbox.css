@@ -250,6 +250,11 @@ button.csv-srow:active{background:var(--surface)}
 .csv-srow.hot{background:var(--brand-tint);margin:0 -6px;padding:12px 8px;border-radius:11px;border-bottom-color:transparent}
 .csv-srow.hot small,.csv-srow.hot .csv-sval b{color:var(--brand-ink)}
 .csv-srow.hot .csv-schev{color:var(--brand-ink)}
+/* a picker row (fhPickRow): the OS date/time input covers the row, invisible,
+   so the tap opens the picker itself; the ✕ sits above it to clear */
+.csv-srow.pick{position:relative;cursor:pointer}
+.csv-spick{position:absolute;inset:0;width:100%;height:100%;opacity:0;margin:0;padding:0;border:0;background:none;color:transparent;font-size:16px;-webkit-appearance:none;appearance:none;z-index:1;cursor:pointer}
+.csv-sclear{position:relative;z-index:2;flex:none;width:22px;height:22px;border:0;border-radius:50%;background:var(--fill-neutral);color:var(--muted);font:inherit;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;padding:0;margin-left:2px}
 
 /* bottom CTA bar: delete (arm-then-confirm) · apply-to-similar · import-one */
 .csv-cta{display:flex;align-items:center;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--divider)}

@@ -83,9 +83,12 @@ live test, 2026-09-13 — the first cut was a modal form with inline fields):
   prefilled from the classifier; a cash account has no row), the number
   (label follows the kind; grey "Chưa nhập" until filled, flagged after a save
   attempt), and for a card: Hạn mức thẻ (amount sheet), Ngày chốt sao kê and
-  Ngày đến hạn (the app's calendar picker; the day of month is what is kept,
-  shown as "Ngày 25 hằng tháng", with a "Bỏ ngày này" to clear). No collapsed
-  section: the card rows are laid out straight.
+  Ngày đến hạn. The two day rows are **picker rows** (`fhPickRow`): the tap
+  opens the OS calendar itself, no sheet in between; the day of month is what
+  is kept, shown as "Ngày 25 hằng tháng", with a ✕ on the row to clear. The
+  same picker-row treatment now applies to every date or time row in the app
+  (the transaction details' Ngày / Giờ, the review card's Ngày / Giờ and Hẹn
+  trả). No collapsed section: the card rows are laid out straight.
 - One line under the rows: *"Mốc này đã gồm mọi giao dịch trước lúc đặt.
   Khoản ghi sau đó cộng trừ tiếp lên nó."*
 - Bottom pair: quiet "Để sau", primary "Xong" ("Hoàn tất" on the last screen).

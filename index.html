@@ -3852,6 +3852,11 @@ button.csv-srow:active{background:var(--surface)}
 .csv-srow.hot{background:var(--brand-tint);margin:0 -6px;padding:12px 8px;border-radius:11px;border-bottom-color:transparent}
 .csv-srow.hot small,.csv-srow.hot .csv-sval b{color:var(--brand-ink)}
 .csv-srow.hot .csv-schev{color:var(--brand-ink)}
+/* a picker row (fhPickRow): the OS date/time input covers the row, invisible,
+   so the tap opens the picker itself; the ✕ sits above it to clear */
+.csv-srow.pick{position:relative;cursor:pointer}
+.csv-spick{position:absolute;inset:0;width:100%;height:100%;opacity:0;margin:0;padding:0;border:0;background:none;color:transparent;font-size:16px;-webkit-appearance:none;appearance:none;z-index:1;cursor:pointer}
+.csv-sclear{position:relative;z-index:2;flex:none;width:22px;height:22px;border:0;border-radius:50%;background:var(--fill-neutral);color:var(--muted);font:inherit;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;padding:0;margin-left:2px}
 
 /* bottom CTA bar: delete (arm-then-confirm) · apply-to-similar · import-one */
 .csv-cta{display:flex;align-items:center;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--divider)}
@@ -5272,12 +5277,6 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   <div class="sheet-sub" id="exdamt-sub"></div>
   <div id="exdamt-body"></div>
 </div>
-<div class="sheet" id="sheet-exd-when">
-  <div class="grab"></div>
-  <div class="sheet-h" id="exdwhen-h">Khi nào</div>
-  <div class="sheet-sub" id="exdwhen-sub"></div>
-  <div id="exdwhen-body"></div>
-</div>
 <div class="sheet" id="sheet-exd-acct">
   <div class="grab"></div>
   <div class="sheet-h" id="exdacct-h">Nguồn tiền</div>
@@ -5938,6 +5937,22 @@ function fhClearInvalid(scope){
    truthy (or a function) when satisfied, and focus:false opts a field out of receiving
    focus. Returns true when every rule passes; otherwise flags the failing fields,
    focuses/shakes the first, toasts `msg`, and returns false. */
+/* A settings row whose value is ONE native picker (date or time): the tap opens
+   the OS picker directly, no sheet in between (2026-09-14). A transparent
+   <input> covers the row so the OS handles the tap itself (iOS opens its wheel
+   on the input's own tap; showPicker() where the browser has it, for desktop).
+   Its change event calls `on` with the new value ('' when cleared), preceded
+   by `arg` when one is given. `clear` adds a ✕ that calls `on` with ''.
+   Markup mirrors _exdRow so it sits in a .csv-srows group unchanged. */
+function fhPickRow(o){   // {label, val, type:'date'|'time', value, on, arg, soft, chg, hot, clear}
+  var cls='csv-srow pick'+(o.soft?' soft':'')+(o.hot?' hot':'')+(o.chg?' chg':'');
+  var pre=(o.arg!=null)?"'"+escAttr(String(o.arg))+"',":'';
+  var chev='<svg class="csv-schev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>';
+  var x=(o.clear&&o.value)?'<button type="button" class="csv-sclear" aria-label="'+escAttr(L('Bỏ','Clear'))+'" onclick="event.stopPropagation();'+o.on+'('+pre+"'')\">✕</button>":'';
+  return '<div class="'+cls+'"><small>'+o.label+'</small><span class="csv-sval">'+o.val+x+chev+'</span>'
+    +'<input class="csv-spick" type="'+(o.type||'date')+'" value="'+escAttr(o.value||'')+'" onchange="'+o.on+'('+pre+'this.value)" onclick="fhPickOpen(this)" aria-label="'+escAttr(String(o.label).replace(/<[^>]*>/g,''))+'"></div>';
+}
+function fhPickOpen(i){ try{ if(typeof i.showPicker==='function') i.showPicker(); }catch(e){} }
 function fhCheck(rules, msg){
   var bad=[];
   (rules||[]).forEach(function(r){
@@ -13276,8 +13291,8 @@ function csvStagedRowsCard(c, opts){
     if(cur==='loan'){
       rows += row('loanwho', L('Cho ai mượn','Lent to'),
         c._loanWho ? esc(c._loanWho) : L('Chọn','Pick'), { soft: !c._loanWho });
-      rows += row('loandue', L('Hẹn trả','Due back'),
-        c._loanDue ? '<span class="num">'+esc(bulkDate(c._loanDue))+'</span>' : L('Chưa hẹn','Not set'), { soft: !c._loanDue });
+      rows += fhPickRow({ label: L('Hẹn trả','Due back'), type: 'date', value: c._loanDue||'', on: 'csvPickLoanDue', clear: true, soft: !c._loanDue, hot: csvRowHot==='loandue',
+        val: '<b>'+(c._loanDue ? '<span class="num">'+esc(bulkDate(c._loanDue))+'</span>' : esc(L('Chưa hẹn','Not set')))+'</b>' });
     }
     if(cur==='invest'){
       /* which position this buy/sell accrues to (0123, investment-spec §7) */
@@ -13325,9 +13340,13 @@ function csvStagedRowsCard(c, opts){
   }
   // Amount now leads as a top input field (above the note) — see the h assembly
   // above; it is no longer a row here.
+  /* Ngày / Giờ are picker rows (fhPickRow): the tap opens the OS calendar or
+     clock itself, no sheet in between; the change lands on the candidate. */
   var t = csvRowTime(c);
-  rows += row('when', L('Khi nào','When'),
-    '<span class="num">'+esc(bulkDate(c.dateDisplay))+(t ? ' · '+esc(t) : '')+'</span>');
+  rows += fhPickRow({ label: L('Ngày','Date'), type: 'date', value: c.dateDisplay||'', on: 'csvPickDate', hot: csvRowHot==='when',
+    val: '<b class="num">'+esc(bulkDate(c.dateDisplay))+'</b>' });
+  rows += fhPickRow({ label: L('Giờ','Time'), type: 'time', value: t||'', on: 'csvPickTime', clear: true, soft: !t, hot: csvRowHot==='when',
+    val: '<b class="num">'+(t ? esc(t) : esc(L('Chỉ tính theo ngày','Day only')))+'</b>' });
   /* Nguồn tiền (bank · instrument) and Nguồn nhập (transport) used to be two
      read-only rows here. They are fixed provenance, so they moved up to the
      card's top line (csvActiveCard header) and no longer take a row. */
@@ -13381,7 +13400,13 @@ function csvSheetPick(f, v){
   else if(f==='who'){ c.who = v; }
   renderCsvReview();
 }
-/* Sheets with typed input (amount / date+time / repay free-text) commit on Xong. */
+/* Picker rows (fhPickRow) commit on the OS picker's change — no sheet, no Xong.
+   A cleared date is ignored (a row always has a day); a cleared time is day-only;
+   a cleared due date removes the reminder. */
+function csvPickDate(v){ var c = csvExpandedCandidate(); if(!c || !v) return; csvReadEditor(c); c.dateDisplay = v; c.date = new Date(v+'T00:00:00'); csvRowHot = 'when'; renderCsvReview(); }
+function csvPickTime(v){ var c = csvExpandedCandidate(); if(!c) return; csvReadEditor(c); c.time = v || ''; csvRowHot = 'when'; renderCsvReview(); }
+function csvPickLoanDue(v){ var c = csvExpandedCandidate(); if(!c) return; csvReadEditor(c); c._loanDue = v || null; csvRowHot = 'loandue'; renderCsvReview(); }
+/* Sheets with typed input (amount / repay free-text) commit on Xong. */
 window.csvSheetValDone = function(){
   var c = csvExpandedCandidate();
   var f = csvRowSheet;
@@ -13395,20 +13420,12 @@ window.csvSheetValDone = function(){
       if(csvFxInfo(c)){ if(csvFxUnresolved(c)) c._skipImport = false; c._fxVnd = true; }
       c.amount = v.value;
     }
-  } else if(c && f==='when'){
-    var d = document.getElementById('csvsheet-date');
-    if(d && d.value){ c.dateDisplay = d.value; c.date = new Date(d.value+'T00:00:00'); }
-    var t = document.getElementById('csvsheet-time');
-    if(t) c.time = t.value || '';
   } else if(c && f==='repay'){
     var r = document.getElementById('csvsheet-repwho');
     if(r && r.value.trim()) c._repayWho = r.value.trim();
   } else if(c && f==='loanwho'){
     var lw = document.getElementById('csvsheet-loanwho');
     if(lw && lw.value.trim()) c._loanWho = lw.value.trim();
-  } else if(c && f==='loandue'){
-    var ld = document.getElementById('csvsheet-loandue');
-    if(ld) c._loanDue = ld.value || null;
   } else if(c && f==='invqty'){
     var iq = document.getElementById('csvsheet-invqty');
     if(iq){ var qn = Number(String(iq.value).replace(',', '.').trim()); c._investQty = (isFinite(qn) && qn > 0) ? qn : null; }
@@ -13480,11 +13497,6 @@ function csvRowSheetHTML(c){
         + lnames.map(function(n){ return chip(c._loanWho===n, "csvSheetPick('loanwho','"+escAttr(n)+"')", esc(n)); }).join('')+'</div>' : '')
       + '<input id="csvsheet-loanwho" class="crs-in" placeholder="'+escAttr(L('vd. Thằng em','e.g. a name'))+'" value="'+escAttr(c._loanWho||'')+'"/>'
       + '<div class="csv-scope-note">'+esc(L('Ghi vào sổ nợ riêng của bạn — không tính là chi tiêu.','Goes to your private receivables — never spending.'))+'</div>'
-      + '<button type="button" class="crs-done" onclick="csvSheetValDone()">'+esc(L('Xong','Done'))+'</button>';
-  } else if(f==='loandue'){
-    title = L('Hẹn trả','Due back');
-    body = '<input type="date" id="csvsheet-loandue" class="crs-in" value="'+escAttr(c._loanDue||'')+'"/>'
-      + '<div class="csv-scope-note">'+esc(L('Tuỳ chọn — để nhắc bạn khi đến hẹn. Xoá ngày để bỏ hẹn.','Optional — reminds you when it falls due. Clear the date to remove.'))+'</div>'
       + '<button type="button" class="crs-done" onclick="csvSheetValDone()">'+esc(L('Xong','Done'))+'</button>';
   } else if(f==='invpos'){
     /* which position — existing ones as chips; a new one materializes right
@@ -13565,13 +13577,6 @@ function csvRowSheetHTML(c){
     title = L('Số tiền','Amount');
     // Foreign rows open empty with the original as placeholder — see csvedit-amt.
     body = '<input id="csvsheet-amt" class="crs-in num" inputmode="numeric" placeholder="'+escAttr(csvFxUnresolved(c) ? csvFxOrigStr(csvFxInfo(c))+' → ₫?' : amtPlaceholder())+'" value="'+escAttr(!csvFxUnresolved(c) && c.amount!=null ? csvAmtInputVal(c.amount) : '')+'"/>'
-      + '<button type="button" class="crs-done" onclick="csvSheetValDone()">'+esc(L('Xong','Done'))+'</button>';
-  } else if(f==='when'){
-    title = L('Khi nào','When');
-    body = '<div class="crs-row2">'
-      + '<div><span class="crs-lbl">'+esc(L('Ngày','Date'))+'</span><input type="date" id="csvsheet-date" class="crs-in" value="'+escAttr(c.dateDisplay||'')+'"/></div>'
-      + '<div><span class="crs-lbl">'+esc(L('Giờ','Time'))+' <span style="text-transform:none;letter-spacing:0;font-weight:500">'+esc(L('tuỳ chọn','optional'))+'</span></span><input type="time" id="csvsheet-time" class="crs-in" value="'+escAttr(csvRowTime(c))+'"/></div>'
-      + '</div>'
       + '<button type="button" class="crs-done" onclick="csvSheetValDone()">'+esc(L('Xong','Done'))+'</button>';
   } else { return ''; }
   var sub = '<span class="num">'+esc(csvAmtDisp(c))+'</span>'
@@ -18253,8 +18258,19 @@ function renderExpenseDetail(){
     val:'<span class="exd-av" style="'+window.fhAvStyle(wd)+'">'+esc(window.fhAvIni(wd))+'</span><b>'+esc(wd.name)+'</b>', fn:"exdSheetWho()"});
   rows+=_exdRow({label:L('Số tiền & ghi chú','Amount & note'), chg:(EXD.amtDisp!=null||EXD.note!=null), ro:!canEdit,
     val:'<b class="num">'+esc(vAmtDisp)+(CUR==='VND'?' ₫':'')+'</b>', fn:"exdSheetAmt('fam')"});
-  rows+=_exdRow({label:L('Khi nào','When'), chg:(EXD.dateIso!=null||EXD.timeStr!==undefined), ro:!canEdit,
-    val:'<b class="num">'+esc(_exdDate(t))+(vTime?' · '+esc(vTime):'')+'</b>', fn:"exdSheetWhen('fam')"});
+  /* Ngày / Giờ are picker rows: the tap opens the OS calendar or clock itself
+     (fhPickRow, 2026-09-14) — no sheet in between. Read-only rows stay one line. */
+  if(canEdit){
+    var fIso=(EXD.dateIso!=null)?EXD.dateIso:((typeof txDateInput==='function')?txDateInput(t):'');
+    var fDateLbl=(EXD.dateIso!=null)?fmtDateLong(new Date(EXD.dateIso+'T00:00:00')):_exdDate(t);
+    rows+=fhPickRow({label:L('Ngày','Date'), type:'date', value:fIso, on:'exdPickDate', arg:'fam', chg:EXD.dateIso!=null,
+      val:'<b class="num">'+esc(fDateLbl)+'</b>'});
+    rows+=fhPickRow({label:L('Giờ','Time'), type:'time', value:vTime||'', on:'exdPickTime', arg:'fam', clear:true, chg:EXD.timeStr!==undefined, soft:!vTime,
+      val:'<b class="num">'+(vTime?esc(vTime):L('Chỉ tính theo ngày','Day only'))+'</b>'});
+  } else {
+    rows+=_exdRow({label:L('Khi nào','When'), ro:true,
+      val:'<b class="num">'+esc(_exdDate(t))+(vTime?' · '+esc(vTime):'')+'</b>'});
+  }
   /* Nguồn tiền. Read-only for everyone (the 0131 display string) — except the
      AUTHOR, whose own mirror master carries the real account tag (0134,
      account-setup-spec §6): for them the row opens the account picker, so a
@@ -18481,28 +18497,18 @@ function exdAmtDone(){
   P.amtDisp=a.trim(); P.note=n.trim();
   if(_exdMode==='fam') renderExpenseDetail(); else renderPersonalTxDetail();
 }
-function exdSheetWhen(mode){
-  _exdMode=mode; var t=_exdRowOf(); if(!t) return;
-  var dIso=_exdCur('dateIso', (_exdMode==='fam')?((typeof txDateInput==='function')?txDateInput(t):'') : (t.date||''));
-  var tm=_exdCur('timeStr', t.time||'');
-  setTxt('exdwhen-h', L('Khi nào','When'));
-  setTxt('exdwhen-sub', L('Giờ để trống là chỉ tính theo ngày','Leave the time empty for day-only'));
-  setHTML('exdwhen-body',
-    '<span class="crs-lbl">'+L('Ngày','Date')+'</span>'
-    +'<input class="crs-in num" type="date" id="exd-in-date" value="'+escAttr(dIso)+'">'
-    +'<span class="crs-lbl" style="margin-top:14px">'+L('Giờ','Time')+' <span style="text-transform:none;font-weight:600">· '+L('tuỳ chọn','optional')+'</span></span>'
-    +'<input class="crs-in num" type="time" id="exd-in-time" value="'+escAttr(tm)+'">'
-    +'<button type="button" class="crs-done" onclick="exdWhenDone()">'+L('Xong','Done')+'</button>');
-  openSheet('sheet-exd-when');
+/* Ngày / Giờ picker rows (fhPickRow): the OS picker's change lands straight in
+   the pending edits — staged like every other row, saved with Cập nhật. A
+   cleared date is ignored (a row always has a day); a cleared time means
+   day-only. */
+function exdPickDate(mode, v){
+  if(!v) return;
+  _exdMode=mode; var P=(mode==='fam')?EXD:PXD; P.dateIso=v;
+  if(mode==='fam') renderExpenseDetail(); else renderPersonalTxDetail();
 }
-function exdWhenDone(){
-  var d=(document.getElementById('exd-in-date')||{}).value||'';
-  var tm=(document.getElementById('exd-in-time')||{}).value||'';
-  if(!d){ var el=document.getElementById('exd-in-date'); if(el) el.focus(); return; }
-  closeSheet();
-  var P=(_exdMode==='fam')?EXD:PXD;
-  P.dateIso=d; P.timeStr=tm;
-  if(_exdMode==='fam') renderExpenseDetail(); else renderPersonalTxDetail();
+function exdPickTime(mode, v){
+  _exdMode=mode; var P=(mode==='fam')?EXD:PXD; P.timeStr=v||'';
+  if(mode==='fam') renderExpenseDetail(); else renderPersonalTxDetail();
 }
 /* Cập nhật (family): apply the staged set through the composer's own persisting
    path — fill the editor fields invisibly, overlay the pendings, then call the
@@ -18579,8 +18585,11 @@ function renderPersonalTxDetail(){
     val:'<b>'+esc(em)+' '+esc(vCat||'Chưa rõ')+'</b>', soft:!vCat, fn:"exdSheetCat('pers')"});
   rows+=_exdRow({label:'Số tiền & ghi chú', chg:(PXD.amtDisp!=null||PXD.note!=null),
     val:'<b class="num">'+esc(vAmtDisp)+(CUR==='VND'?' ₫':'')+'</b>', fn:"exdSheetAmt('pers')"});
-  rows+=_exdRow({label:'Khi nào', chg:(PXD.dateIso!=null||PXD.timeStr!==undefined),
-    val:'<b class="num">'+esc(vDate?vDate.slice(8,10)+'/'+vDate.slice(5,7):'')+(vTime?' · '+esc(vTime):'')+'</b>', fn:"exdSheetWhen('pers')"});
+  // Ngày / Giờ as picker rows — the tap opens the OS picker itself (fhPickRow)
+  rows+=fhPickRow({label:'Ngày', type:'date', value:vDate||'', on:'exdPickDate', arg:'pers', chg:PXD.dateIso!=null,
+    val:'<b class="num">'+esc(vDate?vDate.slice(8,10)+'/'+vDate.slice(5,7):'')+'</b>'});
+  rows+=fhPickRow({label:'Giờ', type:'time', value:vTime||'', on:'exdPickTime', arg:'pers', clear:true, chg:PXD.timeStr!==undefined, soft:!vTime,
+    val:'<b class="num">'+(vTime?esc(vTime):'Chỉ tính theo ngày')+'</b>'});
   rows+=_exdRow({label:'Nguồn tiền', chg:PXD.hasOwnProperty('accountId'), soft:!acctId,
     val:'<b>'+(acct?esc(acct.name||'Tài khoản'):(acctId?'Tài khoản':'Chưa rõ'))+'</b>', fn:'pexdSheetAcct()'});
   html+='<div class="exd-meta srows"><div class="csv-srows">'+rows+'</div></div>';
@@ -25138,8 +25147,14 @@ window.obGoogle = async function () {
           val: '<b class="num">' + shown + '</b>', fn: "fhWizSheet('amt')" });
         if (isCard) {
           rows += row({ label: 'Hạn mức thẻ', soft: !(d.limitK > 0), val: '<b class="num">' + (d.limitK > 0 ? fmt(d.limitK) : 'Để trống nếu không nhớ') + '</b>', fn: "fhWizSheet('lim')" });
-          rows += row({ label: 'Ngày chốt sao kê', soft: !d.stm, val: '<b>' + (d.stm ? 'Ngày ' + d.stm + ' hằng tháng' : 'Chưa chọn') + '</b>', fn: "fhWizSheet('stm')" });
-          rows += row({ label: 'Ngày đến hạn', soft: !d.due, val: '<b>' + (d.due ? 'Ngày ' + d.due + ' hằng tháng' : 'Chưa chọn') + '</b>', fn: "fhWizSheet('due')" });
+          /* the two days are picker rows: the tap opens the OS calendar itself
+             (fhPickRow), the day of month is what is kept */
+          const pr = (typeof window.fhPickRow === 'function') ? window.fhPickRow : null;
+          const dayIso = (day) => { if (!day) return ''; const now = new Date(); const dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate(); return now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(Math.min(day, dim)).padStart(2, '0'); };
+          if (pr) {
+            rows += pr({ label: 'Ngày chốt sao kê', type: 'date', value: dayIso(d.stm), on: 'fhWizDay', arg: 'stm', clear: true, soft: !d.stm, val: '<b>' + (d.stm ? 'Ngày ' + d.stm + ' hằng tháng' : 'Chưa chọn') + '</b>' });
+            rows += pr({ label: 'Ngày đến hạn', type: 'date', value: dayIso(d.due), on: 'fhWizDay', arg: 'due', clear: true, soft: !d.due, val: '<b>' + (d.due ? 'Ngày ' + d.due + ' hằng tháng' : 'Chưa chọn') + '</b>' });
+          }
         }
       }
       const note = (anchored && !d.amtSet)
@@ -25178,19 +25193,6 @@ window.obGoogle = async function () {
           + '<button type="button" class="crs-done" onclick="fhWizAmtDone(\'' + which + '\')">Xong</button>');
         openSheet('sheet-exd-amt'); return;
       }
-      if (which === 'stm' || which === 'due') {
-        const day = which === 'stm' ? d.stm : d.due;
-        const now = new Date();
-        const iso = day ? (now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(Math.min(day, new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate())).padStart(2, '0')) : '';
-        setTxt('exdwhen-h', which === 'stm' ? 'Ngày chốt sao kê' : 'Ngày đến hạn');
-        setTxt('exdwhen-sub', which === 'stm' ? 'Chọn ngày chốt gần nhất, app nhớ ngày trong tháng' : 'Chọn ngày đến hạn gần nhất, app nhớ ngày trong tháng');
-        setHTML('exdwhen-body',
-          '<span class="crs-lbl">Ngày</span>'
-          + '<input class="crs-in num" type="date" id="wz-in-date" value="' + iso + '">'
-          + '<button type="button" class="crs-done" onclick="fhWizDateDone(\'' + which + '\')">Xong</button>'
-          + (day ? '<button type="button" class="wz-clear" onclick="fhWizDateClear(\'' + which + '\')">Bỏ ngày này</button>' : ''));
-        openSheet('sheet-exd-when'); return;
-      }
     };
     window.fhWizPickKind = function (v) { closeSheet(); const w = _wiz; if (!w) return; w.draft.kind = v; _wizRender(); };
     window.fhWizAmtDone = function (which) {
@@ -25206,16 +25208,14 @@ window.obGoogle = async function () {
       }
       _wizRender();
     };
-    window.fhWizDateDone = function (which) {
-      const w = _wiz; if (!w) return;
-      const v = (document.getElementById('wz-in-date') || {}).value || '';
-      if (!v) { const el = document.getElementById('wz-in-date'); if (el) el.focus(); return; }
-      closeSheet();
-      const day = parseInt(v.slice(8, 10), 10);
-      if (day >= 1 && day <= 31) { if (which === 'stm') w.draft.stm = day; else w.draft.due = day; }
+    /* a day row's picker changed (or was cleared): keep the day of month */
+    window.fhWizDay = function (which, v) {
+      const w = _wiz; if (!w) return; _wizReadName();
+      const day = v ? parseInt(String(v).slice(8, 10), 10) : null;
+      const val = (day >= 1 && day <= 31) ? day : null;
+      if (which === 'stm') w.draft.stm = val; else w.draft.due = val;
       _wizRender();
     };
-    window.fhWizDateClear = function (which) { closeSheet(); const w = _wiz; if (!w) return; if (which === 'stm') w.draft.stm = null; else w.draft.due = null; _wizRender(); };
     /* Xong / Lưu. The anchor is written only when the person typed one (the
        required value in wizard mode; optional in settings — a name or kind fix
        must not rewrite the mốc). Cards store it NEGATIVE (a liability is a

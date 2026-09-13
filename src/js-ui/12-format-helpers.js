@@ -88,6 +88,22 @@ function fhClearInvalid(scope){
    truthy (or a function) when satisfied, and focus:false opts a field out of receiving
    focus. Returns true when every rule passes; otherwise flags the failing fields,
    focuses/shakes the first, toasts `msg`, and returns false. */
+/* A settings row whose value is ONE native picker (date or time): the tap opens
+   the OS picker directly, no sheet in between (2026-09-14). A transparent
+   <input> covers the row so the OS handles the tap itself (iOS opens its wheel
+   on the input's own tap; showPicker() where the browser has it, for desktop).
+   Its change event calls `on` with the new value ('' when cleared), preceded
+   by `arg` when one is given. `clear` adds a ✕ that calls `on` with ''.
+   Markup mirrors _exdRow so it sits in a .csv-srows group unchanged. */
+function fhPickRow(o){   // {label, val, type:'date'|'time', value, on, arg, soft, chg, hot, clear}
+  var cls='csv-srow pick'+(o.soft?' soft':'')+(o.hot?' hot':'')+(o.chg?' chg':'');
+  var pre=(o.arg!=null)?"'"+escAttr(String(o.arg))+"',":'';
+  var chev='<svg class="csv-schev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>';
+  var x=(o.clear&&o.value)?'<button type="button" class="csv-sclear" aria-label="'+escAttr(L('Bỏ','Clear'))+'" onclick="event.stopPropagation();'+o.on+'('+pre+"'')\">✕</button>":'';
+  return '<div class="'+cls+'"><small>'+o.label+'</small><span class="csv-sval">'+o.val+x+chev+'</span>'
+    +'<input class="csv-spick" type="'+(o.type||'date')+'" value="'+escAttr(o.value||'')+'" onchange="'+o.on+'('+pre+'this.value)" onclick="fhPickOpen(this)" aria-label="'+escAttr(String(o.label).replace(/<[^>]*>/g,''))+'"></div>';
+}
+function fhPickOpen(i){ try{ if(typeof i.showPicker==='function') i.showPicker(); }catch(e){} }
 function fhCheck(rules, msg){
   var bad=[];
   (rules||[]).forEach(function(r){
