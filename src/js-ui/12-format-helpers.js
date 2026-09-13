@@ -144,8 +144,25 @@ function fhPickChange(i){
 }
 function fhPickBlur(i){
   i.removeAttribute('data-seen');
-  if(i.getAttribute('data-dirty')!=='1'){ i.value=i.getAttribute('data-init')||''; return; }   // nothing chosen: drop the pre-fill
+  if(i.getAttribute('data-dirty')!=='1'){
+    /* iOS pre-fill only, nothing moved. The OS cannot tell "dismissed" from
+       "wanted the already-selected date" (tapping today in the calendar fires
+       nothing), so the row ASKS: the date stays in the input and shows with a
+       "Chọn" chip — one tap confirms it; ✕ or another pick discards it. */
+    if(_fhPickIOS && !i.getAttribute('data-init') && i.value){ _fhPickOffer(i); return; }
+    i.value=i.getAttribute('data-init')||''; return;
+  }
   i.removeAttribute('data-dirty'); _fhPickCall(i, i.value, true);
+}
+function _fhPickOffer(i){
+  var v=i.value, sv=i.parentNode&&i.parentNode.querySelector('.csv-sval'); if(!sv) return;
+  var lbl=(i.type==='time') ? v : v.slice(8,10)+'/'+v.slice(5,7);
+  var b=sv.querySelector('b'); if(b){ b.textContent=lbl; b.className='num'; }
+  if(!sv.querySelector('.csv-spick-ok')){
+    var ok=document.createElement('button'); ok.type='button'; ok.className='csv-spick-ok'; ok.textContent=L('Chọn','Use');
+    ok.onclick=function(e){ e.stopPropagation(); i.setAttribute('data-dirty','1'); fhPickBlur(i); };
+    var chev=sv.querySelector('.csv-schev'); sv.insertBefore(ok, chev||null);
+  }
 }
 function fhPickClear(btn){ var i=btn.parentNode&&btn.parentNode.parentNode&&btn.parentNode.parentNode.querySelector('input.csv-spick'); if(!i) return; i.value=''; i.removeAttribute('data-dirty'); _fhPickCall(i, '', true); }
 function fhPickOpen(i){ try{ if(typeof i.showPicker==='function') i.showPicker(); }catch(e){} }
