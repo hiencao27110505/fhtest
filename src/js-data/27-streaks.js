@@ -172,6 +172,7 @@
           brokeStaged: !!(lastBreakRow && lastBreakRow.staged),
           brokeRecent: lastBreak ? (_days(lastBreak, today) <= 6) : false,
           saved: avgDay != null ? Math.round(avgDay * current) : null,
+          avgDay: avgDay,   // raw per-day spend (base units); powers the card's money band + per-medal projection
           queued: queued, unreadable: unreadableOverlap,
           milestone: d.rule.milestone || 7,
           breaks: matchDates.slice(), startedOn: d.startedOn   // per-day calendar in the detail sheet
@@ -250,40 +251,74 @@
     /* ═══ UI — the section (mockup #6, stamp card) ═══════════════════════════ */
     const _esc = (s) => (typeof esc === 'function' ? esc(s) : String(s || ''));
 
-    function _stamps(r) {
-      let h = '<div class="stk-stamps">';
-      if (r.brokeRecent && r.current < 7) h += '<span class="stk-stamp x">×</span>';
-      if (r.weeks > 0) h += '<span class="stk-stamp star">★' + (r.weeks > 1 ? '<i>×' + r.weeks + '</i>' : '') + '</span>';
-      const shown = Math.min(r.rem, 7);
-      // Today is still open: its stamp shows as in-progress, not a finished ✓.
-      // The live day is the LAST shown slot, unless the streak already broke
-      // today (current === 0 → shown 0, the × above carries it).
-      const liveIdx = (r.current > 0 && r.brokeOn !== _today()) ? shown - 1 : -1;
-      for (let i = 0; i < shown; i++)
-        h += (i === liveIdx) ? '<span class="stk-stamp live"></span>'
-                             : '<span class="stk-stamp on">✓</span>';
-      const used = (r.brokeRecent && r.current < 7 ? 1 : 0) + (r.weeks > 0 ? 1 : 0) + shown;
-      for (let i = used; i < 7; i++) h += '<span class="stk-stamp"></span>';
-      return h + '</div>';
-    }
-
-    function _cardFoot(d, r) {
-      const bits = [];
-      bits.push('<b class="num">' + r.current + '</b> ' + _L('ngày', 'days'));
-      if (r.record > r.current) bits.push(_L('kỷ lục ', 'best ') + r.record);
-      else if (r.weeks >= 1 && !r.brokeRecent) bits.push(_L('tuần ' + (r.weeks + 1), 'week ' + (r.weeks + 1)));
-      if (r.saved != null && r.saved > 0 && typeof fmt === 'function') bits.push('~' + fmt(r.saved) + _L(' ở lại ví', ' kept'));
-      let h = '<div class="stk-foot">' + bits.join(' · ') + '</div>';
-      if (r.brokeRecent) {
-        const when = r.brokeOn === _today() ? _L('hôm nay', 'today')
-          : r.brokeOn === _shift(_today(), -1) ? _L('hôm qua', 'yesterday') : r.brokeOn.slice(8, 10) + '/' + r.brokeOn.slice(5, 7);
-        const amtS = (r.brokeAmt != null && typeof fmt === 'function') ? fmt(r.brokeAmt) + ' ' : '';
-        h += '<div class="stk-broke">' + _L('Khoản ' + amtS + when + (r.brokeStaged ? ' (chưa duyệt)' : '') + ' làm đứt chuỗi. Bắt đầu lại từ hôm nay.',
-          'A ' + amtS + 'charge ' + when + ' broke the streak. Starting over today.') + '</div>';
+    /* ═══ The outside card (Option 8) — money band + 2-week calendar + medal
+       shelf carrying each milestone's projected savings. A compressed twin of
+       the detail sheet: same .stk-cc cells, same .stk-medal tiles, so tapping
+       the card grows it into the sheet. ─────────────────────────────────────── */
+    // A 2-week window (this week + next), so recent clean days AND the upcoming
+    // milestone flag are both on screen; the detail shows the whole month.
+    function _cardCal(r) {
+      const today = _today();
+      const now = new Date(today + 'T00:00:00');
+      const monday = _shift(today, -((now.getDay() + 6) % 7));
+      const brk = {}; (r.breaks || []).forEach((b) => { brk[b] = 1; });
+      const started = r.startedOn || today;
+      const msIso = {}; if (r.current > 0) for (const m of MILESTONES) msIso[_shift(today, m - r.current)] = _MEDAL[m];
+      const dows = _L('T2 T3 T4 T5 T6 T7 CN', 'Mo Tu We Th Fr Sa Su').split(' ');
+      let head = ''; for (const w of dows) head += '<span class="stk-dow">' + w + '</span>';
+      let cells = '';
+      for (let i = 0; i < 14; i++) {
+        const iso = _shift(monday, i), dd = Number(iso.slice(8, 10));
+        const cls = iso > today ? 'fut' : (iso < started ? 'pre' : (brk[iso] ? 'x' : (iso === today ? 'today' : 'ok')));
+        const flag = msIso[iso] ? '<i class="stk-cc-flag">' + msIso[iso] + '</i>' : '';
+        cells += '<span class="stk-cc ' + cls + (flag ? ' ms' : '') + ' num">' + dd + flag + '</span>';
       }
-      if (r.queued > 0 && !r.brokeRecent) h += '<div class="stk-warn">' + _L('Còn ' + r.queued + ' khoản email chưa duyệt trùng chuỗi', r.queued + ' unreviewed email item(s) overlap') + '</div>';
+      return '<div class="stk-cal-wrap"><div class="stk-cal-h"><span>' + _L('Tháng ' + (now.getMonth() + 1), _MON_EN[now.getMonth()]) + '</span>'
+        + '<span class="stk-legend"><i class="ok"></i>' + _L('sạch', 'clean') + '<i class="today"></i>' + _L('nay', 'today') + '<i class="x"></i>' + _L('lỡ', 'slip') + '</span></div>'
+        + '<div class="stk-dows">' + head + '</div><div class="stk-cal" style="margin-top:4px">' + cells + '</div></div>';
+    }
+    // Medal shelf, display-only (the whole card is one tap into the detail).
+    // With money known, each tile shows the savings at that milestone; earned
+    // shows "đã đạt". Without money, it degrades to the detail's aim/day labels.
+    function _cardMedals(d, r, hasMoney) {
+      const cur = r.current || 0, rec = r.record || 0, ms = r.milestone || 7;
+      let h = '';
+      for (const m of MILESTONES) {
+        const earned = Math.max(rec, cur) >= m;
+        const cls = earned ? 'earned' : (m === ms ? 'target' : 'lock');
+        let sub, subCls;
+        if (earned) { sub = _L('đã đạt', 'done'); subCls = 'stk-medal-s'; }
+        else if (hasMoney) { sub = '~' + fmt(Math.round(r.avgDay * m)); subCls = 'stk-medal-m'; }
+        else { sub = (m === ms ? _L('nhắm', 'aim') : _L('ngày', 'days')); subCls = 'stk-medal-s'; }
+        h += '<div class="stk-medal ' + cls + '"><div class="stk-medal-e">' + _MEDAL[m] + '</div><div class="stk-medal-n">' + m + '</div><div class="' + subCls + '">' + sub + '</div></div>';
+      }
+      return h;
+    }
+    function _cardWarn(r) {
+      let h = '';
+      if (r.queued > 0 && r.brokeOn !== _today()) h += '<div class="stk-warn">' + _L('Còn ' + r.queued + ' khoản email chưa duyệt trùng chuỗi', r.queued + ' unreviewed email item(s) overlap') + '</div>';
       if (r.unreadable) h += '<div class="stk-warn">' + _L('Có khoản chưa đọc được trong khoảng này', 'Some rows in range are unreadable') + '</div>';
       return h;
+    }
+    // The full card body: header + band + calendar + medals + warnings.
+    function _cardBody(d, r, fam, avs) {
+      const nm = '<div class="stk-head"><span class="stk-emo">' + _esc(d.rule.emoji) + '</span>'
+        + '<span class="stk-name">' + _L(fam ? 'Cả nhà không ' : 'Không ', 'No ') + _esc(d.rule.label) + '</span>'
+        + (fam ? '<span class="stk-avs">' + (avs || '') + '</span>' : '<span class="stk-chevr"></span>') + '</div>';
+      if (!r) return nm + '<div class="stk-foot">' + _L('Đang tính…', 'Computing…') + '</div>';
+      const cur = r.current || 0, brokeToday = r.brokeOn === _today();
+      const hasMoney = (r.avgDay != null && r.avgDay > 0 && cur > 0 && typeof fmt === 'function');
+      let band;
+      if (hasMoney) {
+        band = '<div class="stk-cband money"><div class="stk-cband-main"><div class="stk-cband-l">' + _L('Ở lại ví · ngày ' + cur, 'Kept · day ' + cur) + '</div>'
+          + '<div class="stk-cband-v num">~' + fmt(r.saved) + '</div></div>'
+          + '<div class="stk-cband-r">≈' + fmt(Math.round(r.avgDay)) + '<br>' + _L('mỗi ngày', 'per day') + '</div></div>';
+      } else {
+        band = '<div class="stk-cband day"><div class="stk-cband-main"><div class="stk-cband-l">' + (brokeToday ? _L('Đứt hôm nay', 'Broke today') : _L('Đang giữ', 'Holding')) + '</div>'
+          + '<div class="stk-cband-v num">' + cur + ' <span class="stk-cband-u">' + _L('ngày', 'days') + '</span></div></div>'
+          + '<div class="stk-cband-r">' + (brokeToday ? '' : _L('hôm nay<br>đang tính', 'today<br>counting')) + '</div></div>';
+      }
+      return nm + band + _cardCal(r) + '<div class="stk-medals stk-card-medals">' + _cardMedals(d, r, hasMoney) + '</div>' + _cardWarn(r);
     }
 
     window.persStreakSection = function () {
@@ -298,16 +333,7 @@
           + '<div class="stk-empty-t">' + _L('Thử nhịn một thói quen?', 'Try quitting a habit?') + '</div>'
           + '<div class="stk-empty-s">' + _L('Ví dụ: 7 ngày không Grab. App tự đếm từ sổ của bạn.', 'e.g. 7 days without Grab. Counted from your ledger.') + '</div></div>';
       } else for (const d of S.defs) {
-        const r = (S.res || {})[d.id];
-        h += '<div class="card stk-card" onclick="fhStreakDetail(\'' + d.id + '\')">'
-          + '<div class="stk-head"><span class="stk-emo">' + _esc(d.rule.emoji) + '</span>'
-          + '<span class="stk-name">' + _L('Không ', 'No ') + _esc(d.rule.label) + '</span>';
-        if (r && r.brokeRecent) h += '<span class="stk-tag warn">' + _L(r.brokeOn === _today() ? 'đứt hôm nay' : 'đứt gần đây', 'broken') + '</span>';
-        else if (r && r.current >= (r.milestone || 7)) h += '<span class="stk-tag good">' + _L('qua mốc ' + r.milestone, 'past ' + r.milestone) + '</span>';
-        h += '</div>';
-        h += r ? _stamps(r) + _cardFoot(d, r)
-               : '<div class="stk-foot">' + _L('Đang tính…', 'Computing…') + '</div>';
-        h += '</div>';
+        h += '<div class="card stk-card" onclick="fhStreakDetail(\'' + d.id + '\')">' + _cardBody(d, (S.res || {})[d.id], false, '') + '</div>';
       }
       return h + _archSection(false);
     };
@@ -442,14 +468,7 @@
           + '<div class="stk-empty-t">' + _L('Cả nhà cùng nhịn một thứ?', 'Quit something together?') + '</div>'
           + '<div class="stk-empty-s">' + _L('Ví dụ: 7 ngày không trà sữa, tính từ sổ chung, cả nhà cùng giữ.', 'e.g. 7 days without bubble tea, counted from the shared ledger.') + '</div></div>';
       } else for (const d of F.defs) {
-        const r = (F.res || {})[d.id];
-        h += '<div class="card stk-card" onclick="fhStreakDetail(\'' + d.id + '\',1)">'
-          + '<div class="stk-head"><span class="stk-emo">' + _esc(d.rule.emoji) + '</span>'
-          + '<span class="stk-name">' + _L('Cả nhà không ', 'No ') + _esc(d.rule.label) + '</span>'
-          + '<span class="stk-avs">' + avs + '</span></div>';
-        h += r ? _stamps(r) + _cardFoot(d, r)
-               : '<div class="stk-foot">' + _L('Đang tính…', 'Computing…') + '</div>';
-        h += '</div>';
+        h += '<div class="card stk-card" onclick="fhStreakDetail(\'' + d.id + '\',1)">' + _cardBody(d, (F.res || {})[d.id], true, avs) + '</div>';
       }
       host.innerHTML = h + _archSection(true);
     };

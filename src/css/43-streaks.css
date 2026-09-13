@@ -1,27 +1,31 @@
-/* ═══ Habit streaks — "Chuỗi thói quen" (0131, mockup #6 stamp card) ═══ */
-.stk-card{padding:16px 18px 14px;cursor:pointer}
+/* ═══ Habit streaks — "Chuỗi thói quen" (0132, Option-8 card: money band +
+   2-week calendar + medal shelf with per-milestone savings) ═══ */
+.stk-card{padding:16px 16px 15px;cursor:pointer}
 .stk-card:active{background:var(--surface)}
 .stk-head{display:flex;align-items:center;gap:9px}
 .stk-emo{font-size:19px;line-height:1}
 .stk-name{font-size:15.5px;font-weight:600;color:var(--ink)}
-.stk-tag{margin-left:auto;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border-radius:9999px;padding:3px 9px}
-.stk-tag.good{background:var(--good-tint);color:var(--good)}
-.stk-tag.warn{background:var(--danger-tint);color:var(--danger)}
-.stk-stamps{display:flex;gap:8px;margin-top:11px}
-.stk-stamp{width:34px;height:34px;border-radius:11px;border:1.5px dashed var(--hairline);display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--muted-soft);flex:none;position:relative}
-.stk-stamp.on{border:none;background:var(--brand-tint);color:var(--brand-ink);font-weight:700}
-.stk-stamp.star{border:none;background:var(--grad-brand);color:#fff;font-weight:700}
-.stk-stamp.star i{position:absolute;right:-3px;bottom:-3px;font-style:normal;font-size:9px;font-weight:800;background:var(--white);color:var(--brand-ink);border:1px solid var(--hairline);border-radius:9999px;padding:0 4px;line-height:1.5}
-.stk-stamp.x{border:none;background:var(--danger-tint);color:var(--danger);font-weight:700}
-/* today, still open — a live ring with a soft pulse, not a finished ✓ */
-.stk-stamp.live{border:2px solid var(--brand);background:var(--brand-tint)}
-.stk-stamp.live::after{content:"";width:8px;height:8px;border-radius:50%;background:var(--brand);animation:stkPulse 1.6s ease-in-out infinite}
+.stk-chevr{margin-left:auto;width:8px;height:8px;border-right:2px solid var(--chev);border-top:2px solid var(--chev);transform:rotate(45deg);flex:none}
+.stk-avs{margin-left:auto;display:flex}
+/* money / day band */
+.stk-cband{display:flex;align-items:center;justify-content:space-between;gap:10px;border-radius:15px;padding:12px 15px;margin-top:12px}
+.stk-cband-main{min-width:0}
+.stk-cband.money{background:var(--brand-tint)}
+.stk-cband.money .stk-cband-l,.stk-cband.money .stk-cband-v,.stk-cband.money .stk-cband-u,.stk-cband.money .stk-cband-r{color:var(--brand-ink)}
+.stk-cband.day{background:var(--fill-neutral)}
+.stk-cband.day .stk-cband-l{color:var(--muted)}
+.stk-cband.day .stk-cband-v{color:var(--ink)}
+.stk-cband.day .stk-cband-u{color:var(--muted)}
+.stk-cband.day .stk-cband-r{color:var(--muted)}
+.stk-cband-l{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase}
+.stk-cband-v{font-family:var(--disp);font-variant-numeric:tabular-nums;font-weight:800;letter-spacing:-1px;font-size:28px;margin-top:1px;line-height:1.05}
+.stk-cband-u{font-family:var(--text);font-size:12px;font-weight:500;letter-spacing:0}
+.stk-cband-r{font-size:11px;font-weight:600;text-align:right;line-height:1.3;flex:none}
+/* card-scoped spacing for the reused detail components */
+.stk-card .stk-cal-wrap{margin-top:12px}
+.stk-card .stk-medals{margin-top:12px}
+.stk-warn{font-size:12.5px;color:var(--amber);margin-top:8px}
 @keyframes stkPulse{0%,100%{opacity:.4;transform:scale(.8)}50%{opacity:1;transform:scale(1)}}
-@media (prefers-reduced-motion:reduce){.stk-stamp.live::after{animation:none}}
-.stk-foot{font-size:13px;color:var(--muted);margin-top:10px}
-.stk-foot b{color:var(--ink);font-weight:700;font-size:14px}
-.stk-broke{font-size:13px;color:var(--danger);margin-top:5px}
-.stk-warn{font-size:12.5px;color:var(--amber);margin-top:5px}
 .stk-empty{padding:20px 18px;text-align:center;cursor:pointer}
 .stk-empty-e{font-size:26px}
 .stk-empty-t{font-size:15px;font-weight:600;color:var(--ink);margin-top:6px}
@@ -77,6 +81,9 @@
 .stk-medal-e{font-size:23px;line-height:1;filter:grayscale(1);opacity:.5}
 .stk-medal-n{font-family:var(--disp);font-weight:800;font-size:16px;letter-spacing:-.4px;color:var(--ink);margin-top:3px}
 .stk-medal-s{font-size:10.5px;color:var(--muted);margin-top:1px}
+/* per-milestone projected savings on the card's medal tiles */
+.stk-medal-m{font-size:10px;font-weight:700;color:var(--brand-ink);margin-top:2px;font-variant-numeric:tabular-nums}
+.stk-medal.lock .stk-medal-m{color:var(--muted)}
 .stk-medal.earned{border-color:var(--brand);background:var(--brand-tint)}
 .stk-medal.earned .stk-medal-e{filter:none;opacity:1}
 .stk-medal.earned .stk-medal-s{color:var(--brand-ink);font-weight:700}

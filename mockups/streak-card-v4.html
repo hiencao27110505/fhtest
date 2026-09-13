@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Thẻ chuỗi v4 · tiền ở lại ví dẫn đầu + huy chương</title>
+<style>
+:root{
+  --bg:#f6f4f1;--surface:#fff;--doc-ink:#1b241f;--doc-ink2:#3b463f;--doc-muted:#67736c;
+  --doc-line:#e7e3dc;--doc-brand:#2E9E6B;--doc-brand-ink:#1F7E52;--doc-tint:#eaf6ef;
+  --doc-shadow:0 1px 2px rgba(20,30,25,.04),0 6px 20px rgba(20,30,25,.05);
+  --mono:"SF Mono",ui-monospace,Menlo,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Inter",system-ui,sans-serif;
+  --dispf:-apple-system,BlinkMacSystemFont,"SF Pro Display","Inter",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0f130e;--surface:#161b14;--doc-ink:#e8ebe4;--doc-ink2:#c3cabf;--doc-muted:#8f998f;
+  --doc-line:#262c22;--doc-brand:#5FD3A0;--doc-brand-ink:#7fe0b3;--doc-tint:rgba(95,211,160,.11);
+  --doc-shadow:0 1px 2px rgba(0,0,0,.3),0 8px 26px rgba(0,0,0,.34);
+}}
+:root[data-theme="light"]{--bg:#f6f4f1;--surface:#fff;--doc-ink:#1b241f;--doc-ink2:#3b463f;--doc-muted:#67736c;--doc-line:#e7e3dc;--doc-brand:#2E9E6B;--doc-brand-ink:#1F7E52;--doc-tint:#eaf6ef;--doc-shadow:0 1px 2px rgba(20,30,25,.04),0 6px 20px rgba(20,30,25,.05)}
+:root[data-theme="dark"]{--bg:#0f130e;--surface:#161b14;--doc-ink:#e8ebe4;--doc-ink2:#c3cabf;--doc-muted:#8f998f;--doc-line:#262c22;--doc-brand:#5FD3A0;--doc-brand-ink:#7fe0b3;--doc-tint:rgba(95,211,160,.11);--doc-shadow:0 1px 2px rgba(0,0,0,.3),0 8px 26px rgba(0,0,0,.34)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--doc-ink);font-family:var(--sans);line-height:1.5;font-size:15px;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1240px;margin:0 auto;padding:34px 22px 96px}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--doc-brand-ink);font-weight:600}
+h1{font-family:var(--dispf);font-size:30px;font-weight:800;letter-spacing:-.6px;margin:.35rem 0 0}
+.lede{color:var(--doc-ink2);max-width:78ch;margin:.6rem 0 0;font-size:15.5px}
+.note{margin-top:16px;background:var(--surface);border:1px solid var(--doc-line);border-left:3px solid var(--doc-brand);border-radius:12px;padding:14px 16px;box-shadow:var(--doc-shadow);max-width:880px}
+.note p{margin:.2rem 0;color:var(--doc-ink2);font-size:14px}.note b{color:var(--doc-ink)}
+.toggle{position:sticky;top:14px;float:right;font-family:var(--mono);font-size:12px;background:var(--surface);border:1px solid var(--doc-line);border-radius:999px;padding:6px 13px;color:var(--doc-ink2);cursor:pointer;z-index:5}
+.dwrap{display:flex;gap:26px;align-items:flex-start;margin-top:24px}
+.ref{position:sticky;top:56px;flex:none;width:290px}
+.ref-cap{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--doc-muted);margin-bottom:8px}
+.grid{flex:1;display:grid;grid-template-columns:repeat(auto-fill,minmax(370px,1fr));gap:22px}
+.opt{background:var(--surface);border:1px solid var(--doc-line);border-radius:18px;box-shadow:var(--doc-shadow);overflow:hidden;display:flex;flex-direction:column}
+.opt-h{padding:15px 17px 11px;border-bottom:1px solid var(--doc-line)}
+.opt-n{font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--doc-brand-ink);font-weight:600;text-transform:uppercase}
+.opt-t{font-family:var(--dispf);font-size:18px;font-weight:750;letter-spacing:-.3px;margin:.15rem 0 0}
+.opt-s{color:var(--doc-muted);font-size:13px;margin:.2rem 0 0}
+.opt-b{padding:18px;display:flex;justify-content:center;background:repeating-linear-gradient(45deg,transparent 0 14px,rgba(120,120,120,.025) 14px 15px)}
+.opt-f{padding:12px 17px 14px;border-top:1px solid var(--doc-line);font-size:12.5px;color:var(--doc-ink2)}
+.opt-f b{color:var(--doc-ink)}.opt-f .con{color:var(--doc-muted)}
+
+/* ===== phone canvas ===== */
+.ph{width:100%;max-width:340px;background:#f4f1f6;border-radius:24px;padding:15px 0 18px;border:1px solid #e9e4ee;
+  --brand:#2E9E6B;--brand-ink:#1F7E52;--brand-2:#5FD3A0;--brand-tint:#e9f7f0;--grad-brand:linear-gradient(135deg,#34B87A,#5FC98D);
+  --ink:#191022;--ink-2:#3a2f45;--muted:#8a8494;--muted-soft:#a29caa;--canvas:#f4f1f6;--hairline:#e9e4ee;--divider:#f1edf4;--fill-neutral:rgba(138,132,148,.14);
+  --good:#1a9d5f;--good-tint:#e7f5ee;--danger:#E0322F;--white:#fff;--chev:#cfc8d6;
+  color:var(--ink);font-family:var(--sans)}
+.ph *{box-sizing:border-box}
+.sech{display:flex;align-items:baseline;justify-content:space-between;margin:2px 18px 12px}
+.sech .t{font-family:var(--dispf);font-size:19px;font-weight:700;letter-spacing:-.5px}
+.sech a{font-size:13.5px;font-weight:600;color:var(--brand-ink)}
+.card{background:#fff;border-radius:22px;box-shadow:0 1px 3px rgba(25,16,34,.05),0 10px 26px rgba(25,16,34,.05);margin:0 14px 12px;padding:17px 17px 16px}
+.num{font-family:var(--dispf);font-variant-numeric:tabular-nums}
+.emo{font-size:19px;line-height:1;flex:none}
+.chev{width:8px;height:8px;border-right:2px solid var(--chev);border-top:2px solid var(--chev);transform:rotate(45deg);flex:none}
+.cardhead{display:flex;align-items:center;gap:9px;margin-bottom:12px}
+.name{font-size:15.5px;font-weight:600;color:var(--ink)}
+.foot{font-size:12.5px;color:var(--muted);margin-top:12px}
+.foot b{color:var(--ink-2);font-weight:700}
+.eyb{font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+/* money treatments */
+.money{font-family:var(--dispf);font-variant-numeric:tabular-nums;font-weight:800;letter-spacing:-1.4px;color:var(--brand-ink)}
+.moneyband{background:var(--brand-tint);border-radius:15px;padding:13px 15px;display:flex;align-items:center;justify-content:space-between}
+/* ---- EXACT detail components ---- */
+.stk-cc{position:relative;height:28px;display:flex;align-items:center;justify-content:center;border-radius:8px;font-size:11px;font-weight:600;color:var(--muted-soft)}
+.stk-cc.pre{color:var(--muted-soft);opacity:.5}.stk-cc.fut{color:var(--muted-soft)}
+.stk-cc.ok{background:var(--brand);color:#fff;font-weight:700}
+.stk-cc.x{background:var(--danger);color:#fff;font-weight:700}
+.stk-cc.today{border:2px solid var(--brand);color:var(--brand-ink);font-weight:800;animation:stkPulse 2s ease-in-out infinite}
+.stk-cc.ms.fut{border:1.5px dashed var(--brand);color:var(--brand-ink)}
+.stk-cc-flag{position:absolute;top:-5px;right:-4px;font-size:10px;line-height:1;text-shadow:0 0 2px #fff,0 0 2px #fff}
+.stk-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.stk-medals{display:flex;gap:7px}
+.stk-medal{flex:1;text-align:center;border:1px solid var(--hairline);border-radius:13px;padding:10px 0 8px;background:#fff}
+.stk-medal-e{font-size:22px;line-height:1;filter:grayscale(1);opacity:.5}
+.stk-medal-n{font-family:var(--dispf);font-weight:800;font-size:15px;letter-spacing:-.4px;color:var(--ink);margin-top:2px}
+.stk-medal-s{font-size:10px;color:var(--muted);margin-top:1px}
+.stk-medal.earned{border-color:var(--brand);background:var(--brand-tint)}
+.stk-medal.earned .stk-medal-e{filter:none;opacity:1}.stk-medal.earned .stk-medal-s{color:var(--brand-ink);font-weight:700}
+.stk-medal.target{border:2px solid var(--brand)}
+.stk-medal.target .stk-medal-e{filter:none;opacity:.9}.stk-medal.target .stk-medal-s{color:var(--brand-ink);font-weight:700}
+.stk-medal-m{font-size:9.5px;font-weight:700;color:var(--brand-ink);margin-top:2px}
+.mlbl{font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:14px 0 8px}
+@keyframes stkPulse{0%,100%{opacity:.4;transform:scale(.8)}50%{opacity:1;transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){.stk-cc.today{animation:none}}
+svg{display:block}
+@media (max-width:960px){.dwrap{flex-direction:column}.ref{position:static;width:100%;max-width:340px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<button class="toggle" onclick="var r=document.documentElement,d=(r.getAttribute('data-theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'))==='dark';r.setAttribute('data-theme',d?'light':'dark')">◐ Sáng / Tối</button>
+<header>
+  <div class="eyebrow">FamilyHub · Earthy</div>
+  <h1>Thẻ chuỗi v4 — tiền ở lại ví dẫn đầu, huy chương giữ nguyên</h1>
+  <p class="lede">Giữ đúng tinh thần Option 3 (kệ huy chương sưu tầm, cái đã đạt sáng lên) nhưng đẩy <b>"tiền ở lại ví" lên ưu tiên số 1</b> — con số payoff đập vào mắt trước, rồi mới tới huy chương. Tám cách làm tiền nổi bật + dễ hiểu + tạo động lực, vẫn dùng đúng ô lịch và tile huy chương của màn chi tiết.</p>
+  <div class="note">
+    <p><b>Mẫu:</b> 🛵 Không Grab · ngày 5 · <b>~350k ở lại ví</b> (≈ 70k/ngày) · nhắm 🥉 mốc 7 (đạt mốc ≈ 490k). &nbsp; 🛒 Không AEON · ngày 12 · <b>~1,2tr</b> · 🥉 đã đạt, nhắm 🥈 mốc 14.</p>
+    <p><b>Tiền ở lại ví</b> = số ngày × mức chi trung bình/ngày cho mục đó (60 ngày trước). Ước tính, luôn có dấu "~".</p>
+  </div>
+</header>
+
+<div class="dwrap">
+  <div class="ref">
+    <div class="ref-cap">◆ Option 3 (đã thích)</div>
+    <div class="ph" style="max-width:290px">
+      <div class="card">
+        <div class="cardhead"><span class="emo">🛒</span><span class="name">Không AEON</span><span class="num" style="margin-left:auto;font-weight:800;font-size:16px">12 <span style="font-size:11px;font-weight:500;color:var(--muted)">ngày</span></span></div>
+        <div class="stk-medals">
+          <div class="stk-medal earned"><div class="stk-medal-e">🥉</div><div class="stk-medal-n">7</div><div class="stk-medal-s">đã đạt</div></div>
+          <div class="stk-medal target"><div class="stk-medal-e">🥈</div><div class="stk-medal-n">14</div><div class="stk-medal-s">còn 2</div></div>
+          <div class="stk-medal"><div class="stk-medal-e">🥇</div><div class="stk-medal-n">30</div><div class="stk-medal-s">ngày</div></div>
+          <div class="stk-medal"><div class="stk-medal-e">🏆</div><div class="stk-medal-n">100</div><div class="stk-medal-s">ngày</div></div>
+        </div>
+        <div class="stk-cal" style="margin-top:13px"><span class="stk-cc ok">6</span><span class="stk-cc x">7</span><span class="stk-cc ok">8</span><span class="stk-cc ok">9</span><span class="stk-cc ok">10</span><span class="stk-cc ok">11</span><span class="stk-cc today">12</span></div>
+        <div class="foot">🥉 xong · ~1,2tr ở lại ví</div>
+      </div>
+      <div class="ref-cap" style="margin:14px 0 0">↑ tiền chỉ nằm ở dòng chân → v4 kéo nó lên đầu</div>
+    </div>
+  </div>
+
+  <div class="grid">
+
+  <!-- 1 · MONEY HERO -->
+  <div class="opt">
+    <div class="opt-h"><div class="opt-n">Option 1</div><div class="opt-t">Tiền làm số lớn nhất</div>
+      <div class="opt-s">"~350k ở lại ví" là con số to nhất thẻ; số ngày thành chip nhỏ; kệ huy chương ngay dưới.</div></div>
+    <div class="opt-b"><div class="ph">
+      <div class="sech"><span class="t">Chuỗi thói quen</span><a>＋ Thêm</a></div>
+      <div class="card">
+        <div class="cardhead"><span class="emo">🛵</span><span class="name">Không Grab</span><span style="margin-left:auto;font-size:11.5px;font-weight:700;color:var(--brand-ink);background:var(--brand-tint);border-radius:9999px;padding:3px 9px">ngày 5</span></div>
+        <div class="eyb">Tiền ở lại ví nhờ không Grab</div>
+        <div style="display:flex;align-items:baseline;gap:8px;margin-top:3px"><span class="money" style="font-size:42px">~350k</span></div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">≈ 70k mỗi ngày bạn giữ được · hôm nay đang tính</div>
+        <div class="stk-medals" style="margin-top:14px">
+          <div class="stk-medal target"><div class="stk-medal-e">🥉</div><div class="stk-medal-n">7</div><div class="stk-medal-s">nhắm</div></div>
+          <div class="stk-medal"><div class="stk-medal-e">🥈</div><div class="stk-medal-n">14</div><div class="stk-medal-s">ngày</div></div>
+          <div class="stk-medal"><div class="stk-medal-e">🥇</div><div class="stk-medal-n">30</div><div class="stk-medal-s">ngày</div></div>
+          <div class="stk-medal"><div class="stk-medal-e">🏆</div><div class="stk-medal-n">100</div><div class="stk-medal-s">ngày</div></div>
+        </div>
+      </div>
+    </div></div>
+    <div class="opt-f"><b>Cuốn:</b> payoff đập vào mắt đầu tiên; huy chương vẫn đủ để sưu tầm. <span class="con">Số ngày lùi xuống chip.</span></div>
+  </div>
+
+  <!-- 2 · MONEY BAND -->
+  <div class="opt">
+    <div class="opt-h"><div class="opt-n">Option 2</div><div class="opt-t">Băng tiền nổi bật</div>
+      <div class="opt-s">Một băng nền xanh nhạt (đúng màu tile huy chương đã đạt) ôm con số tiền + ngày, rồi tới kệ huy chương.</div></div>
+    <div class="opt-b"><div class="ph">
+      <div class="sech"><span class="t">Chuỗi thói quen</span><a>＋ Thêm</a></div>
+      <div class="card">
+        <div class="cardhead"><span class="emo">🛵</span><span class="name">Không Grab</span><span class="chev" style="margin-left:auto"></span></div>
+        <div class="moneyband">
+          <div><div class="eyb" style="color:var(--brand-ink);opacity:.8">Ở lại ví</div><div class="money" style="font-size:30px;margin-top:1px">~350k</div></div>
+          <div style="text-align:right"><div class="num" style="font-size:22px;font-weight:800;color:var(--ink)">5</div><div style="font-size:11px;color:var(--brand-ink);font-weight:600">ngày · đang tính</div></div>
+        </div>
+        <div class="stk-medals" style="margin-top:13px">
+          <div class="stk-medal target"><div class="stk-medal-e">🥉</div><div class="stk-medal-n">7</div><div class="stk-medal-s">còn 2</div></div>
+          <div class="stk-medal"><div class="stk-medal-e">🥈</div><div class="stk-medal-n">14</div><div class="stk-medal-s">ngày</div></div>
+          <div class="stk-medal"><div class="stk-medal-e">🥇</div><div class="stk-medal-n">30</div><div class="stk-medal-s">ngày</div></div>
+          <div class="stk-medal"><div class="stk-medal-e">🏆</div><div class="stk-medal-n">100</div><div class="stk-medal-s">ngày</div></div>
+        </div>
+      </div>
+    </div></div>
+    <div class="opt-f"><b>Cuốn:</b> băng xanh gói tiền + ngày thành khối payoff rõ; màu khớp tile "đã đạt". <span class="con">Thêm một mảng nền (nhẹ).</span></div>
+  </div>
+
+  <!-- 3 · SKIPPED UNITS -->
+  <div class="opt">
+    <div class="opt-h"><div class="opt-n">Option 3</div><div class="opt-t">Quy ra số lần đã nhịn</div>
+      <div class="opt-s">Tiền + dịch sang đơn vị đời thực: "≈ 10 chuyến Grab bạn đã không đi". Trực giác + vui, huy chương dưới.</div></div>
+    <div class="opt-b"><div class="ph">
+      <div class="sech"><span class="t">Chuỗi thói quen</span><a>＋ Thêm</a></div>
+      <div class="card">
+        <div class="cardhead"><span class="emo">🛵</span><span class="name">Không Grab</span><span style="margin-left:auto;font-size:11.5px;font-weight:700;color:var(--brand-ink);background:var(--brand-tint);border-radius:9999px;padding:3px 9px">ngày 5</span></div>
+        <div style="display:flex;align-items:baseline;gap:8px"><span class="money" style="font-size:38px">~350k</span><span style="font-size:13px;color:var(--ink-2)">ở lại ví</span></div>
+        <div style="font-size:13px;color:var(--muted);margin-top:3px">≈ <b style="color:var(--ink-2)">10 chuyến Grab</b> bạn đã không gọi</div>
+        <div class="stk-medals" style="margin-top:14px">
+          <div class="stk-medal target"><div class="stk-medal-e">🥉</div><div class="stk-medal-n">7</div><div class="stk-medal-s">nhắm</div></div>
+          <div class="stk-medal"><div class="stk-medal-e">🥈</div><div class="stk-medal-n">14</div><div class="stk-medal-s">ngày</div></div>
+          <div class="stk-medal"><div class="stk-medal-e">🥇</div><div class="stk-medal-n">30</div><div class="stk-medal-s">ngày</div></div>
+          <div class="stk-medal"><div class="stk-medal-e">🏆</div><div class="stk-medal-n">100</div><div class="stk-medal-s">ngày</div></div>
+        </div>
+      </div>
+    </div></div>
+    <div class="opt-f"><b>Cuốn:</b> "10 chuyến Grab" dễ hình dung hơn con số, gắn với thương hiệu chuỗi. <span class="con">Cần thêm dữ liệu <i>số lần</i> giao dịch (không chỉ số tiền).</span></div>
+  </div>
+
+  <!-- 4 · DAILY PACE -->
+  <div class="opt">
+    <div class="opt-h"><div class="opt-n">Option 4</div><div class="opt-t">Tiền + nhịp mỗi ngày</div>
+      <div class="opt-s">Con số tiền to + chip "+~70k mỗi ngày giữ được" → thấy phần thưởng lớn dần từng ngày. Huy chương dưới.</div></div>
+    <div class="opt-b"><div class="ph">
+      <div class="sech"><span class="t">Chuỗi thói quen</span><a>＋ Thêm</a></div>
+      <div class="card">
+        <div class="cardhead"><span class="emo">🛵</span><span class="name">Không Grab · ngày 5</span><span class="chev" style="margin-left:auto"></span></div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="money" style="font-size:38px">~350k</span>
+          <span style="font-size:11.5px;font-weight:700;color:var(--brand-ink);background:var(--brand-tint);border-radius:9999px;padding:5px 10px;line-height:1.3">+~70k<br>mỗi ngày</span>
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin-top:3px">ở lại ví nhờ không Grab · hôm nay đang tính</div>
+        <div class="stk-medals" style="margin-top:14px">
+          <div class="stk-medal target"><div class="stk-medal-e">🥉</div><div class="stk-medal-n">7</div><div class="stk-medal-s">nhắm</div></div>
+          <div class="stk-medal"><div class="stk-medal-e">🥈</div><div class="stk-medal-n">14</div><div class="stk-medal-s">ngày</div></div>
+          <div class="stk-medal"><div class="stk-medal-e">🥇</div><div class="stk-medal-n">30</div><div class="stk-medal-s">ngày</div></div>
+          <div class="stk-medal"><div class="stk-medal-e">🏆</div><div class="stk-medal-n">100</div><div class="stk-medal-s">ngày</div></div>
+        </div>
+      </div>
+    </div></div>
+    <div class="opt-f"><b>Cuốn:</b> "+70k mỗi ngày" cho lý do giữ tiếp ngày mai. <span class="con">Nhịp là ước tính trung bình, không phải tiền thật hôm nay.</span></div>
+  </div>
+
+  <!-- 5 · SAVINGS ON EACH MEDAL -->
+  <div class="opt">
+    <div class="opt-h"><div class="opt-n">Option 5</div><div class="opt-t">Mỗi huy chương = một mức tiền</div>
+      <div class="opt-s">Gắn tiền thẳng vào kệ huy chương: đạt mốc này thì dành được bao nhiêu. Vừa sưu tầm vừa "săn tiền".</div></div>
+    <div class="opt-b"><div class="ph">
+      <div class="sech"><span class="t">Chuỗi thói quen</span><a>＋ Thêm</a></div>
+      <div class="card">
+        <div class="cardhead"><span class="emo">🛵</span><span class="name">Không Grab</span><span style="margin-left:auto;font-size:11.5px;font-weight:700;color:var(--brand-ink)">ngày 5 · ~350k</span></div>
+        <div class="stk-medals">
+          <div class="stk-medal target" style="padding-bottom:9px"><div class="stk-medal-e">🥉</div><div class="stk-medal-n">7</div><div class="stk-medal-m">~490k</div></div>
+          <div class="stk-medal" style="padding-bottom:9px"><div class="stk-medal-e">🥈</div><div class="stk-medal-n">14</div><div class="stk-medal-m" style="color:var(--muted)">~980k</div></div>
+          <div class="stk-medal" style="padding-bottom:9px"><div class="stk-medal-e">🥇</div><div class="stk-medal-n">30</div><div class="stk-medal-m" style="color:var(--muted)">~2,1tr</div></div>
+          <div class="stk-medal" style="padding-bottom:9px"><div class="stk-medal-e">🏆</div><div class="stk-medal-n">100</div><div class="stk-medal-m" style="color:var(--muted)">~7tr</div></div>
+        </div>
+        <div class="foot">Giữ tới 🥉 mốc 7 là <b>~490k</b> ở lại ví · còn 2 ngày</div>
+      </div>
+    </div></div>
+    <div class="opt-f"><b>Cuốn:</b> nối thẳng động lực "sưu tầm huy chương" với "được bao nhiêu tiền". Đúng ý bạn nhất. <span class="con">Tile cao thêm chút để chứa dòng tiền.</span></div>
+  </div>
+
+  <!-- 6 · MONEY HERO + WEEK + MEDALS -->
+  <div class="opt">
+    <div class="opt-h"><div class="opt-n">Option 6</div><div class="opt-t">Tiền dẫn + lịch + huy chương</div>
+      <div class="opt-s">Bản đầy đủ do tiền dẫn dắt: số tiền to trên, dải lịch tuần, kệ huy chương. Payoff + bằng chứng + mục tiêu.</div></div>
+    <div class="opt-b"><div class="ph">
+      <div class="sech"><span class="t">Chuỗi thói quen</span><a>＋ Thêm</a></div>
+      <div class="card">
+        <div class="cardhead"><span class="emo">🛵</span><span class="name">Không Grab</span><span style="margin-left:auto;font-size:11.5px;font-weight:700;color:var(--brand-ink);background:var(--brand-tint);border-radius:9999px;padding:3px 9px">ngày 5</span></div>
+        <div style="display:flex;align-items:baseline;gap:8px"><span class="money" style="font-size:36px">~350k</span><span style="font-size:13px;color:var(--ink-2)">ở lại ví</span></div>
+        <div class="stk-cal" style="margin-top:13px"><span class="stk-cc pre">7</span><span class="stk-cc ok">8</span><span class="stk-cc ok">9</span><span class="stk-cc ok">10</span><span class="stk-cc ok">11</span><span class="stk-cc today">12</span><span class="stk-cc fut">13</span></div>
+        <div class="stk-medals" style="margin-top:13px">
+          <div class="stk-medal target"><div class="stk-medal-e">🥉</div><div class="stk-medal-n">7</div><div class="stk-medal-s">nhắm</div></div>
+          <div class="stk-medal"><div class="stk-medal-e">🥈</div><div class="stk-medal-n">14</div><div class="stk-medal-s">ngày</div></div>
+          <div class="stk-medal"><div class="stk-medal-e">🥇</div><div class="stk-medal-n">30</div><div class="stk-medal-s">ngày</div></div>
+          <div class="stk-medal"><div class="stk-medal-e">🏆</div><div class="stk-medal-n">100</div><div class="stk-medal-s">ngày</div></div>
+        </div>
+      </div>
+    </div></div>
+    <div class="opt-f"><b>Cuốn:</b> tiền dẫn nhưng vẫn thấy lịch (bằng chứng) và cả bộ huy chương. Giàu nhất. <span class="con">Cao — 3 chuỗi phải cuộn.</span></div>
+  </div>
+
+  <!-- 7 · TWO STATS + MEDALS -->
+  <div class="opt">
+    <div class="opt-h"><div class="opt-n">Option 7</div><div class="opt-t">Hai ô: tiền trội hơn ngày</div>
+      <div class="opt-s">Hai ô viền: ô Tiền to hơn, ô Ngày nhỏ hơn (đúng thứ tự ưu tiên), kệ huy chương phía dưới.</div></div>
+    <div class="opt-b"><div class="ph">
+      <div class="sech"><span class="t">Chuỗi thói quen</span><a>＋ Thêm</a></div>
+      <div class="card">
+        <div class="cardhead"><span class="emo">🛵</span><span class="name">Không Grab</span><span class="chev" style="margin-left:auto"></span></div>
+        <div style="display:flex;gap:10px">
+          <div style="flex:1.6;border:1px solid var(--brand);border-radius:14px;padding:11px 13px;background:var(--brand-tint)"><div class="eyb" style="color:var(--brand-ink);opacity:.85">Ở lại ví</div><div class="money" style="font-size:30px;margin-top:4px">~350k</div></div>
+          <div style="flex:1;border:1px solid var(--hairline);border-radius:14px;padding:11px 12px"><div class="eyb">Đang giữ</div><div style="display:flex;align-items:baseline;gap:3px;margin-top:4px"><span class="num" style="font-size:26px;font-weight:800">5</span><span style="font-size:11px;color:var(--muted)">ngày</span></div></div>
+        </div>
+        <div class="stk-medals" style="margin-top:13px">
+          <div class="stk-medal target"><div class="stk-medal-e">🥉</div><div class="stk-medal-n">7</div><div class="stk-medal-s">còn 2</div></div>
+          <div class="stk-medal"><div class="stk-medal-e">🥈</div><div class="stk-medal-n">14</div><div class="stk-medal-s">ngày</div></div>
+          <div class="stk-medal"><div class="stk-medal-e">🥇</div><div class="stk-medal-n">30</div><div class="stk-medal-s">ngày</div></div>
+          <div class="stk-medal"><div class="stk-medal-e">🏆</div><div class="stk-medal-n">100</div><div class="stk-medal-s">ngày</div></div>
+        </div>
+      </div>
+    </div></div>
+    <div class="opt-f"><b>Cuốn:</b> ô tiền tô nền xanh, to hơn → mắt đọc tiền trước; ngày vẫn có mặt. <span class="con">Hai ô cạnh nhau, cân tỉ lệ kỹ.</span></div>
+  </div>
+
+  <!-- 8 · MONEY BAND + SAVINGS-ON-MEDALS (combo) -->
+  <div class="opt">
+    <div class="opt-h"><div class="opt-n">Option 8</div><div class="opt-t">Băng tiền + huy chương gắn tiền</div>
+      <div class="opt-s">Kết hợp: băng tiền dẫn đầu + kệ huy chương mỗi cái ghi mức tiền sẽ dành được. Payoff hai tầng.</div></div>
+    <div class="opt-b"><div class="ph">
+      <div class="sech"><span class="t">Chuỗi thói quen</span><a>＋ Thêm</a></div>
+      <div class="card">
+        <div class="cardhead"><span class="emo">🛒</span><span class="name">Không AEON</span><span style="margin-left:auto;font-size:11.5px;font-weight:700;color:var(--brand-ink);background:var(--brand-tint);border-radius:9999px;padding:3px 9px">ngày 12</span></div>
+        <div class="moneyband" style="margin-bottom:13px"><div><div class="eyb" style="color:var(--brand-ink);opacity:.8">Đã ở lại ví</div><div class="money" style="font-size:30px;margin-top:1px">~1,2tr</div></div><div style="font-size:11.5px;color:var(--brand-ink);font-weight:600;text-align:right">≈ 100k<br>mỗi ngày</div></div>
+        <div class="stk-medals">
+          <div class="stk-medal earned" style="padding-bottom:9px"><div class="stk-medal-e">🥉</div><div class="stk-medal-n">7</div><div class="stk-medal-m">đã đạt</div></div>
+          <div class="stk-medal target" style="padding-bottom:9px"><div class="stk-medal-e">🥈</div><div class="stk-medal-n">14</div><div class="stk-medal-m">~1,4tr</div></div>
+          <div class="stk-medal" style="padding-bottom:9px"><div class="stk-medal-e">🥇</div><div class="stk-medal-n">30</div><div class="stk-medal-m" style="color:var(--muted)">~3tr</div></div>
+          <div class="stk-medal" style="padding-bottom:9px"><div class="stk-medal-e">🏆</div><div class="stk-medal-n">100</div><div class="stk-medal-m" style="color:var(--muted)">~10tr</div></div>
+        </div>
+      </div>
+    </div></div>
+    <div class="opt-f"><b>Cuốn:</b> tiền hiện tại (băng) + tiền tương lai (trên huy chương) → kéo cả "đang có" và "sắp có". <span class="con">Đầy đặn nhất về thông tin, cần chừa nhịp thở.</span></div>
+  </div>
+
+  </div><!-- /grid -->
+</div>
+
+<footer style="margin-top:44px;color:var(--doc-muted);font-size:12.5px;font-family:var(--mono);border-top:1px solid var(--doc-line);padding-top:16px">mockups/streak-card-v4.html · Tiền ở lại ví dẫn đầu + kệ huy chương (Option 3) · ô lịch & tile huy chương lấy từ màn chi tiết</footer>
+</div>
+</body>
+</html>
