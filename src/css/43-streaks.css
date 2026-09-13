@@ -24,6 +24,7 @@
 /* card-scoped spacing for the reused detail components */
 .stk-card .stk-cal-wrap{margin-top:12px}
 .stk-card .stk-medals{margin-top:12px}
+.stk-cardweek{margin-top:12px}   /* Option-1: a bare one-week row, no chrome */
 .stk-warn{font-size:12.5px;color:var(--amber);margin-top:8px}
 @keyframes stkPulse{0%,100%{opacity:.4;transform:scale(.8)}50%{opacity:1;transform:scale(1)}}
 .stk-empty{padding:20px 18px;text-align:center;cursor:pointer}
@@ -83,7 +84,9 @@
 .stk-medal-s{font-size:10.5px;color:var(--muted);margin-top:1px}
 /* per-milestone projected savings on the card's medal tiles */
 .stk-medal-m{font-size:10px;font-weight:700;color:var(--brand-ink);margin-top:2px;font-variant-numeric:tabular-nums}
+/* two-state card medals: .earned = active (coloured), .lock = disabled (muted) */
 .stk-medal.lock .stk-medal-m{color:var(--muted)}
+.stk-medal.lock .stk-medal-n{color:var(--muted)}
 .stk-medal.earned{border-color:var(--brand);background:var(--brand-tint)}
 .stk-medal.earned .stk-medal-e{filter:none;opacity:1}
 .stk-medal.earned .stk-medal-s{color:var(--brand-ink);font-weight:700}

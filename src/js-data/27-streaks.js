@@ -279,6 +279,8 @@
        the card grows it into the sheet. ─────────────────────────────────────── */
     // A 2-week window (this week + next), so recent clean days AND the upcoming
     // milestone flag are both on screen; the detail shows the whole month.
+    // Simplified (Option 1): one week of day-number cells, no weekday header,
+    // no legend, no border, no month label — the full month lives in the detail.
     function _cardCal(r) {
       const today = _today();
       const now = new Date(today + 'T00:00:00');
@@ -286,33 +288,27 @@
       const brk = {}; (r.breaks || []).forEach((b) => { brk[b] = 1; });
       const started = r.startedOn || today;
       const msIso = {}; if (r.current > 0) for (const m of MILESTONES) msIso[_shift(today, m - r.current)] = _MEDAL[m];
-      const dows = _L('T2 T3 T4 T5 T6 T7 CN', 'Mo Tu We Th Fr Sa Su').split(' ');
-      let head = ''; for (const w of dows) head += '<span class="stk-dow">' + w + '</span>';
       let cells = '';
-      for (let i = 0; i < 14; i++) {
+      for (let i = 0; i < 7; i++) {   // the current week (Mon–Sun of today)
         const iso = _shift(monday, i), dd = Number(iso.slice(8, 10));
         const cls = iso > today ? 'fut' : (iso < started ? 'pre' : (brk[iso] ? 'x' : (iso === today ? 'today' : 'ok')));
         const flag = msIso[iso] ? '<i class="stk-cc-flag">' + msIso[iso] + '</i>' : '';
         cells += '<span class="stk-cc ' + cls + (flag ? ' ms' : '') + ' num">' + dd + flag + '</span>';
       }
-      return '<div class="stk-cal-wrap"><div class="stk-cal-h"><span>' + _L('Tháng ' + (now.getMonth() + 1), _MON_EN[now.getMonth()]) + '</span>'
-        + '<span class="stk-legend"><i class="ok"></i>' + _L('sạch', 'clean') + '<i class="today"></i>' + _L('nay', 'today') + '<i class="x"></i>' + _L('lỡ', 'slip') + '</span></div>'
-        + '<div class="stk-dows">' + head + '</div><div class="stk-cal" style="margin-top:4px">' + cells + '</div></div>';
+      return '<div class="stk-cal stk-cardweek">' + cells + '</div>';
     }
-    // Medal shelf, display-only (the whole card is one tap into the detail).
-    // With money known, each tile shows the savings at that milestone; earned
-    // shows "đã đạt". Without money, it degrades to the detail's aim/day labels.
+    // Medal shelf, display-only, TWO states: active (achieved → coloured medal +
+    // "đã đạt") vs disabled (not yet → greyed medal + the money you'd reach).
     function _cardMedals(d, r, hasMoney) {
-      const cur = r.current || 0, rec = r.record || 0, ms = r.milestone || 7;
+      const cur = r.current || 0, rec = r.record || 0;
       let h = '';
       for (const m of MILESTONES) {
         const earned = Math.max(rec, cur) >= m;
-        const cls = earned ? 'earned' : (m === ms ? 'target' : 'lock');
         let sub, subCls;
         if (earned) { sub = _L('đã đạt', 'done'); subCls = 'stk-medal-s'; }
         else if (hasMoney) { sub = '~' + fmt(Math.round(r.avgDay * m)); subCls = 'stk-medal-m'; }
-        else { sub = (m === ms ? _L('nhắm', 'aim') : _L('ngày', 'days')); subCls = 'stk-medal-s'; }
-        h += '<div class="stk-medal ' + cls + '"><div class="stk-medal-e">' + _MEDAL[m] + '</div><div class="stk-medal-n">' + m + '</div><div class="' + subCls + '">' + sub + '</div></div>';
+        else { sub = _L('ngày', 'days'); subCls = 'stk-medal-s'; }
+        h += '<div class="stk-medal ' + (earned ? 'earned' : 'lock') + '"><div class="stk-medal-e">' + _MEDAL[m] + '</div><div class="stk-medal-n">' + m + '</div><div class="' + subCls + '">' + sub + '</div></div>';
       }
       return h;
     }
