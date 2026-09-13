@@ -3981,7 +3981,7 @@ button.csv-srow:active{background:var(--surface)}
 .atx-fd-body{position:relative;overflow:hidden;transition:height .42s cubic-bezier(.32,.72,0,1)}
 .atx-fd-wrap{position:absolute;left:0;right:0;transition:transform .5s cubic-bezier(.32,.72,0,1);
   will-change:transform,opacity,filter}
-.atx-fd-row{display:flex;align-items:center;gap:11px;padding:11px 13px;height:52px;
+.atx-fd-row{display:flex;align-items:center;gap:11px;padding:10px 13px;height:58px;
   border-top:1px solid var(--divider)}
 .atx-fd-wrap:first-child .atx-fd-row{border-top:0}
 /* D1 — the row MATERIALISES: blur out of nothing, settling into place. It is
@@ -3999,8 +3999,19 @@ button.csv-srow:active{background:var(--surface)}
   .atx-fd-wrap,.atx-fd-body{transition:none}}
 .atx-fd-ic{width:30px;height:30px;border-radius:9px;background:var(--fill-neutral);color:var(--muted);
   flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:800}
-.atx-fd-t{flex:1;min-width:0;font-size:13.5px;font-weight:650;color:var(--ink);
+/* Two lines: the description leads because that is what a person recognises,
+   the bank and date become provenance beneath it. .atx-fd-t/-s are BLOCKS —
+   as inline spans they run together on one line and collide with the amount. */
+.atx-fd-b{flex:1;min-width:0}
+.atx-fd-t{display:block;font-size:13.5px;font-weight:650;color:var(--ink);letter-spacing:-.01em;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.atx-fd-s{display:block;font-size:11.5px;color:var(--muted);margin-top:2px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Never shrinks and never wraps, so the column stays straight while long
+   merchant names ellipsize instead. */
+.atx-fd-a{font-size:13.5px;font-weight:700;font-variant-numeric:tabular-nums;flex-shrink:0;
+  letter-spacing:-.01em;white-space:nowrap;color:var(--ink)}
+.atx-fd-a.in{color:var(--good)}
 .atx-fd-d{font-size:11.5px;color:var(--muted);flex-shrink:0;font-variant-numeric:tabular-nums}
 .atx-fd-f{display:flex;align-items:center;gap:8px;padding:9px 13px;background:var(--surface);
   font-size:11.5px;color:var(--muted);font-weight:600}
@@ -5805,6 +5816,20 @@ function fmtDayMon(d){ return isVi()?(d.getDate()+' thg '+(d.getMonth()+1)):(MON
 function fmtDateLong(d){ if(!d) return ''; return isVi()?(WKD_VI[d.getDay()]+', '+d.getDate()+' thg '+(d.getMonth()+1)):(WKD[d.getDay()]+', '+MONF[d.getMonth()]+' '+d.getDate()); }
 // Weekday + day only (no month) — for the album's day groups, already scoped to one month.
 function fmtWeekdayDay(d){ if(!d) return ''; return isVi()?(WKD_VI[d.getDay()]+', '+d.getDate()):(WKD[d.getDay()]+' '+d.getDate()); }
+/* Elapsed time, said the way a person would — for the reconnect screens, which
+   have to name an outage ("kết nối đã bị ngắt 3 ngày 4 giờ"). LANG-gated like
+   every other helper here: a duration is no more hand-buildable than a date.
+   Steps down by scale so the number never reads as an incident report — minutes
+   under an hour, hours under a day, days beyond, and no seconds ever. */
+function fmtGap(ms){
+  var m=Math.max(0,Math.round(ms/60000)), h=Math.floor(m/60), d=Math.floor(h/24);
+  if(m<60)  return isVi() ? (m+' phút') : (m+' min');
+  if(h<24){ var rm=m-h*60;
+    return isVi() ? (h+' giờ'+(rm?' '+rm+' phút':'')) : (h+'h'+(rm?' '+rm+'m':'')); }
+  if(d<30){ var rh=h-d*24;
+    return isVi() ? (d+' ngày'+(rh?' '+rh+' giờ':'')) : (d+' day'+(d>1?'s':'')+(rh?' '+rh+'h':'')); }
+  return isVi() ? (d+' ngày') : (d+' days');
+}
 function sameDay(a,b){ return !!(a&&b&&a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate()); }
 function parseAmt(s){ return parseInt((s||'').replace(/[^0-9]/g,''))||0; }
 function daysLeft(d){ return Math.max(0,Math.round((d-TODAY)/86400000)); }
@@ -35451,16 +35476,25 @@ window.classifyAmount = classifyAmount;
      lands on agrees with what this screen just told them. */
   const _atxFrontKey = (gid) => 'fh-atx-frontier:' + gid;
 
-  async function _atxFrontier(gid) {
+  async function _atxFrontier(gid, sinceIso) {
+    /* SCOPED, when a catch-up asks. The all-time minimum is the right frontier
+       for a first backfill reading into an empty queue; it is the WRONG one for
+       a catch-up, where 88 rows from months ago are already pending and would
+       peg the answer to the oldest of those. Passing `sinceIso` filters to the
+       outage window, so the frontier walks back through the gap instead of the
+       whole ledger. The localStorage floor is deliberately skipped in that
+       mode: it remembers the all-time frontier, which is a different quantity. */
+    const scoped = !!sinceIso;
     let floor = null;
-    try { floor = localStorage.getItem(_atxFrontKey(gid)) || null; } catch (e) {}
+    if (!scoped) { try { floor = localStorage.getItem(_atxFrontKey(gid)) || null; } catch (e) {} }
     try {
-      const res = await sb.from('email_transactions')
+      let q = sb.from('email_transactions')
         .select('occurred_at')
-        .eq('review_status', 'pending')
-        .order('occurred_at', { ascending: true })
-        .limit(1);
+        .eq('review_status', 'pending');
+      if (scoped) q = q.gte('occurred_at', sinceIso);
+      const res = await q.order('occurred_at', { ascending: true }).limit(1);
       const oldest = !res.error && res.data && res.data[0] && res.data[0].occurred_at;
+      if (scoped) return oldest || null;
       if (oldest && (!floor || String(oldest) < String(floor))) {
         floor = oldest;
         try { localStorage.setItem(_atxFrontKey(gid), floor); } catch (e) {}
@@ -35468,6 +35502,29 @@ window.classifyAmount = classifyAmount;
     } catch (e) { /* keep the floor; a missed poll must not rewind the screen */ }
     return floor;
   }
+
+  /* ── a catch-up is an outage being read back ───────────────────────────────
+     After a reconnect the worker's own windowDays() already covers exactly the
+     gap — measured from last_synced_at, which SURVIVES the reconnect because
+     grant_mailbox_access does not touch it on conflict. So there is nothing to
+     request and nothing to store: a healthy grant whose last sync is far older
+     than the cron cadence IS mid-catch-up, and that is the whole detection.
+
+     Threshold is 3x the five-minute tick. Tighter and an ordinary slow run
+     reads as an outage; looser and a real one stays invisible for too long. */
+  const ATX_CATCHUP_MIN_MS = 15 * 60 * 1000;
+
+  function _atxCatchUpMs(conn) {
+    if (!conn || conn.needsReauth || !conn.backfilledAt || !conn.lastSyncedAt) return 0;
+    const gap = Date.now() - Date.parse(conn.lastSyncedAt);
+    return (Number.isFinite(gap) && gap > ATX_CATCHUP_MIN_MS) ? gap : 0;
+  }
+
+  /* The gap survives its own closing, so the card can say what it covered.
+     last_synced_at jumps to now the moment a run finishes the window, which
+     would otherwise erase the number in the same instant it became true. */
+  let _atxCatchUpSeen = 0;
+
 
   /* Days between the frontier and today, clamped into the window. Never
      negative, never past the window, so the bar cannot overrun its track. */
@@ -35495,23 +35552,73 @@ window.classifyAmount = classifyAmount;
      design: the read marches backwards, so the most recently STAGED row is the
      OLDEST transaction. created_at is what "vừa tìm thấy" actually means, and
      it stays correct in steady state too, where new mail really is newest. */
+  /* WIDENED DELIBERATELY (2026-09-13). It used to ask for clear columns only,
+     and a test asserted that — because at the time the amount was the one thing
+     this list could not show. The product call changed: a row reading
+     "Highlands Coffee Nguyen Hue · −92.000đ" proves the pipeline is alive in a
+     way "Techcombank" never does, and it is the same content the review screen
+     already opens two taps later. So the sealed envelope comes down too and is
+     opened HERE, on the client, exactly as fhReadStagedRow does it.
+
+     The clear columns still carry the fallback: when the ledger is locked the
+     row degrades to provider + date rather than rendering a padlock, which
+     matters because this list appears at the moment we are asking for trust. */
+  const ATX_FEED_COLS = 'id,source_provider,occurred_at,staging_scope,sealed,eph_pub,nonce,enc_v';
+
+  /* One staged row -> what the feed shows. Mirrors fhReadStagedRow's key choice
+     and payload flatten; anything that throws falls back to {} so the caller
+     renders the clear-column row. */
+  async function _atxOpenFind(r) {
+    if (!r || !r.sealed || !window.fhStagingOpenRow) return {};
+    try {
+      const personal = r.staging_scope === 'personal';
+      /* Both bindings come from OUR session, never from the row the server
+         sent — a check is only a check when both sides were already known. */
+      r.family_id = window.DB && window.DB.fid;
+      if (personal) r.owner_user_id = (window.fhUser && window.fhUser.id) || null;
+      const priv = personal
+        ? await window.fhPersonalStagingPrivKey()
+        : await window.fhStagingPrivKey();
+      const p = window.fhStagingOpenRow(r, priv);
+      /* Forwarding seals the detail FLAT; the direct-read worker nests it under
+         raw_extracted. Flatten the nested case up so both shapes read alike. */
+      const re = (p && p.raw_extracted && typeof p.raw_extracted === 'object')
+        ? Object.assign({}, p, p.raw_extracted) : (p || {});
+      /* memo_display === '' is a VERDICT ("this memo says nothing"), not a
+         missing value, so it must fall through to the counterparty rather than
+         resurrect the bank's auto-fill. Same rule the review screen uses. */
+      const tidied = re.memo_display == null ? re.memo : re.memo_display;
+      return { desc: tidied || re.counterparty || '',
+               amount: re.amount, currency: re.currency, direction: re.direction };
+    } catch (e) { return {}; }            // locked ledger, wrong key, bad box
+  }
+
   async function _atxRecentFinds() {
     try {
       const res = await sb.from('email_transactions')
-        .select('id,source_provider,occurred_at')
+        .select(ATX_FEED_COLS)
         .eq('review_status', 'pending')
         .order('created_at', { ascending: false })
-        .limit(3);
+        .limit(ATX_FEED_ROWS);
       if (res.error) return [];
-      return res.data || [];
+      const rows = res.data || [];
+      /* Three nacl.box opens; negligible, and they run together rather than in
+         sequence because none depends on another. */
+      const opened = await Promise.all(rows.map(_atxOpenFind));
+      return rows.map(function (r, i) {
+        return { id: r.id, source_provider: r.source_provider, occurred_at: r.occurred_at,
+                 _desc: opened[i].desc || '', _amount: opened[i].amount,
+                 _direction: opened[i].direction };
+      });
     } catch (e) { return []; }
   }
+
 
   const _atxInitials = (name) => String(name || '?')
     .replace(/[^\p{L}\p{N} ]/gu, '').trim().slice(0, 2).toUpperCase() || '?';
 
   const ATX_FEED_ROWS = 3;
-  const ATX_FEED_ROWH = 52;          // must match .atx-fd-row height in CSS
+  const ATX_FEED_ROWH = 58;          // must match .atx-fd-row height in CSS
 
   function _atxFeedRowHTML(r) {
     /* fhProviderName folds "vib"/"MBBank" into the household spelling the rest
@@ -35519,10 +35626,27 @@ window.classifyAmount = classifyAmount;
     const name = (window.fhProviderName ? window.fhProviderName(r.source_provider || '') : '')
       || r.source_provider || L('Giao dịch', 'Transaction');
     const when = r.occurred_at ? fmtDayMon(new Date(r.occurred_at)) : '';
+    /* Opened: the description leads, because that is what a person recognises,
+       and the bank becomes provenance. Locked: the provider leads and the row
+       is exactly what shipped before — a degrade, never a padlock. */
+    const lead = r._desc || name;
+    const sub = r._desc ? (when ? name + ' · ' + when : name) : when;
+    /* Staged amounts are FULL VND; fmt() multiplies by curMult(), so the divide
+       is what keeps this from rendering a thousand times too large. */
+    let amt = '';
+    if (r._amount != null && window.fmt) {
+      const mult = window.curMult ? window.curMult() : 1;
+      const n = Math.abs(Number(r._amount) || 0) / mult;
+      amt = (r._direction === 'credit' ? '+' : '−') + window.fmt(n);
+    }
     return '<div class="atx-fd-row"><span class="atx-fd-ic">' + _esc(_atxInitials(name)) + '</span>' +
-      '<span class="atx-fd-t">' + _esc(name) + '</span>' +
-      '<span class="atx-fd-d">' + _esc(when) + '</span></div>';
+      '<span class="atx-fd-b"><span class="atx-fd-t">' + _esc(lead) + '</span>' +
+      (sub ? '<span class="atx-fd-s">' + _esc(sub) + '</span>' : '') + '</span>' +
+      (amt ? '<span class="atx-fd-a' + (r._direction === 'credit' ? ' in' : '') + '">' + _esc(amt) + '</span>'
+           : '<span class="atx-fd-d">' + _esc(when) + '</span>') +
+      '</div>';
   }
+
 
   /* ── D1, the blur dissolve ─────────────────────────────────────────────────
      THE ROWS CARRY THE LIVENESS, so they get the whole motion budget: a row
@@ -35589,6 +35713,15 @@ window.classifyAmount = classifyAmount;
      the bar losing its transition. */
   function _atxProgressSub(st) {
     const cnt = '<b class="atx-pg-c" data-v="' + st.found + '">' + st.found + '</b>';
+    /* A catch-up that finished repeats the guarantee the reconnect screen made,
+       word for word. That screen wrote the cheque; this is it clearing. */
+    if (st.phase === 'caughtup') {
+      return st.found > 0
+        ? _esc(L('Đã đọc lại đủ ' + fmtGap(st.gapMs) + ' · tìm được ', 'Read back all ' + fmtGap(st.gapMs) + ' · ')) + cnt +
+          _esc(L(' khoản. Không trùng, không thiếu.', ' found. No duplicates, nothing missing.'))
+        : _esc(L('Không có khoản nào trong ' + fmtGap(st.gapMs) + ' bị ngắt.',
+                 'No transactions in the ' + fmtGap(st.gapMs) + ' that was missed.'));
+    }
     if (st.phase === 'done') {
       return st.found > 0
         ? cnt + _esc(L(' khoản đang chờ bạn duyệt.',
@@ -35603,22 +35736,27 @@ window.classifyAmount = classifyAmount;
       : _esc(L('Đã đọc tới ', 'Back to ')) + dayEl + _esc(L(' · tìm được ', ' · ')) + cnt + _esc(L(' khoản', ' found'));
   }
 
+
   function _atxProgressHTML(st) {
     const w = st.windowDays, d = st.daysRead;
-    const pct = st.phase === 'done' ? 100 : (w > 0 ? Math.min(100, Math.round(d / w * 100)) : 0);
-    const title = st.phase === 'done' ? L('Đã đọc xong ' + w + ' ngày qua', 'All ' + w + ' days read')
-                : st.phase === 'slow' ? L('Đã đọc tới đây', 'Read this far')
+    const finished = st.phase === 'done' || st.phase === 'caughtup';
+    const pct = finished ? 100 : (w > 0 ? Math.min(100, Math.round(d / w * 100)) : 0);
+    const title = st.phase === 'done'     ? L('Đã đọc xong ' + w + ' ngày qua', 'All ' + w + ' days read')
+                : st.phase === 'caughtup' ? L('Đã đọc bù xong', 'All caught up')
+                : st.phase === 'catchup'  ? L('Đang đọc bù ' + fmtGap(st.gapMs), 'Catching up ' + fmtGap(st.gapMs))
+                : st.phase === 'slow'     ? L('Đã đọc tới đây', 'Read this far')
                 : L('Đang đọc ' + w + ' ngày qua', 'Reading your last ' + w + ' days');
     /* The bar STOPS and greys on a stall: a bar still creeping while the copy
        says the queue is ready is the contradiction this state exists to remove. */
-    const fillCls = st.phase === 'done' ? ' done' : (st.phase === 'slow' ? ' halt' : '');
-    return '<div class="atx-pg' + (st.phase === 'done' ? ' done' : '') + '" data-phase="' + st.phase + '">' +
+    const fillCls = finished ? ' done' : (st.phase === 'slow' ? ' halt' : '');
+    return '<div class="atx-pg' + (finished ? ' done' : '') + '" data-phase="' + st.phase + '">' +
       '<div class="atx-pg-top"><span class="atx-pg-t">' + _esc(title) + '</span>' +
-      (st.phase === 'done' ? '' :
+      (finished ? '' :
         '<span class="atx-pg-n">' + d + '/' + w + _esc(L(' ngày', ' days')) + '</span>') + '</div>' +
       '<div class="atx-pg-track"><i class="atx-pg-fill' + fillCls + '" style="width:' + pct + '%"></i></div>' +
       '<div class="atx-pg-sub">' + _atxProgressSub(st) + '</div></div>';
   }
+
 
   /* PATCHES IN PLACE, and that is the whole point. Replacing the card's
      innerHTML gives the new <i> no from-state, so `transition: width` never
@@ -35668,16 +35806,30 @@ window.classifyAmount = classifyAmount;
 
   /* One read of everything the two screens need. */
   async function _atxProgressState(conn) {
-    const windowDays = (conn && conn.backfillDays) || ATX_DEFAULT_DAYS;
+    const catchUp = _atxCatchUpMs(conn);
+    if (catchUp) _atxCatchUpSeen = catchUp;
+    /* A catch-up that just closed still has a story to tell, once. */
+    const closing = !catchUp && _atxCatchUpSeen > 0 ? _atxCatchUpSeen : 0;
+    const windowDays = catchUp
+      ? Math.max(1, Math.ceil(catchUp / 86400000))
+      : ((conn && conn.backfillDays) || ATX_DEFAULT_DAYS);
     let found = 0, front = null, finds = [];
     try { found = await _atxPendingCount(); } catch (e) {}
-    if (conn && conn.id) { try { front = await _atxFrontier(conn.id); } catch (e) {} }
-    if (found > 0 && (!conn || conn.phase === 'reading')) finds = await _atxRecentFinds();
-    _atxProgressCache = { phase: (conn && conn.phase) || 'reading', windowDays: windowDays,
+    if (conn && conn.id) {
+      try { front = await _atxFrontier(conn.id, catchUp ? conn.lastSyncedAt : null); } catch (e) {}
+    }
+    const phase = catchUp ? 'catchup'
+                : closing ? 'caughtup'
+                : ((conn && conn.phase) || 'reading');
+    if (found > 0 && (phase === 'reading' || phase === 'catchup')) finds = await _atxRecentFinds();
+    if (closing) _atxCatchUpSeen = 0;            // said once, then forgotten
+    _atxProgressCache = { phase: phase, windowDays: windowDays,
              found: found, front: front, finds: finds,
+             gapMs: catchUp || closing,
              daysRead: _atxDaysRead(front, windowDays) };
     return _atxProgressCache;
   }
+
 
   let _atxLiveSeq = 0;
 

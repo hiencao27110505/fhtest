@@ -20,6 +20,20 @@ function fmtDayMon(d){ return isVi()?(d.getDate()+' thg '+(d.getMonth()+1)):(MON
 function fmtDateLong(d){ if(!d) return ''; return isVi()?(WKD_VI[d.getDay()]+', '+d.getDate()+' thg '+(d.getMonth()+1)):(WKD[d.getDay()]+', '+MONF[d.getMonth()]+' '+d.getDate()); }
 // Weekday + day only (no month) — for the album's day groups, already scoped to one month.
 function fmtWeekdayDay(d){ if(!d) return ''; return isVi()?(WKD_VI[d.getDay()]+', '+d.getDate()):(WKD[d.getDay()]+' '+d.getDate()); }
+/* Elapsed time, said the way a person would — for the reconnect screens, which
+   have to name an outage ("kết nối đã bị ngắt 3 ngày 4 giờ"). LANG-gated like
+   every other helper here: a duration is no more hand-buildable than a date.
+   Steps down by scale so the number never reads as an incident report — minutes
+   under an hour, hours under a day, days beyond, and no seconds ever. */
+function fmtGap(ms){
+  var m=Math.max(0,Math.round(ms/60000)), h=Math.floor(m/60), d=Math.floor(h/24);
+  if(m<60)  return isVi() ? (m+' phút') : (m+' min');
+  if(h<24){ var rm=m-h*60;
+    return isVi() ? (h+' giờ'+(rm?' '+rm+' phút':'')) : (h+'h'+(rm?' '+rm+'m':'')); }
+  if(d<30){ var rh=h-d*24;
+    return isVi() ? (d+' ngày'+(rh?' '+rh+' giờ':'')) : (d+' day'+(d>1?'s':'')+(rh?' '+rh+'h':'')); }
+  return isVi() ? (d+' ngày') : (d+' days');
+}
 function sameDay(a,b){ return !!(a&&b&&a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate()); }
 function parseAmt(s){ return parseInt((s||'').replace(/[^0-9]/g,''))||0; }
 function daysLeft(d){ return Math.max(0,Math.round((d-TODAY)/86400000)); }

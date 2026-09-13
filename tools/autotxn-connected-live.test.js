@@ -68,11 +68,13 @@ function harness(countAt) {
         /* The frontier read is the one non-head select on this path and it asks
            for exactly one clear column; it must never pull a sealed row. */
         if (cols === 'occurred_at') {
-          return { eq: () => ({ order: () => ({ limit: () => Promise.resolve({ data: [{ occurred_at: state.front }], error: null }) }) }) };
+          const one = { limit: () => Promise.resolve({ data: [{ occurred_at: state.front }], error: null }) };
+          const ordered = { order: () => one, gte: () => ({ order: () => one }) };
+          return { eq: () => ordered };
         }
         /* The "vừa tìm thấy" feed. Its projection is asserted at source level
            below; here it just must not be mistaken for a sealed-row fetch. */
-        if (cols === 'id,source_provider,occurred_at') {
+        if (cols.indexOf('source_provider') >= 0) {
           rec.feedAsks++;
           return { eq: () => ({ order: () => ({ limit: () => Promise.resolve({ data: state.finds, error: null }) }) }) };
         }
@@ -177,12 +179,18 @@ function harness(countAt) {
     t('the sheet-alive probe is #atx-pg, not a connect-sheet-only element',
       /const pg = document\.getElementById\('atx-pg'\);\s*\n\s*const sheet/.test(src)
       && /if \(!pg \|\| !sheet/.test(src));
-    /* Source-level, because a mock can only prove what it was asked. The feed
-       renders provider + date; the AMOUNT is the one field inside the sealed
-       box and must never appear in this projection. */
-    t('...asking for clear columns only, never a sealed one',
-      /\.select\('id,source_provider,occurred_at'\)/.test(src)
-      && !/select\('id,source_provider,occurred_at,[^']*(amount|sealed|nonce|counterparty)/.test(src));
+    /* CHANGED 2026-09-13. This used to assert the feed asked for CLEAR columns
+       only — correct while the amount was the one thing the list could not
+       show. The product call changed: the row now leads with the description
+       and carries the amount, which are both inside the sealed box, so the
+       envelope comes down and is opened on the client exactly as
+       fhReadStagedRow does it. What still has to hold is the DEGRADE. */
+    t('the feed asks for the sealed envelope AND the clear fallback columns',
+      /ATX_FEED_COLS = 'id,source_provider,occurred_at,staging_scope,sealed,eph_pub,nonce,enc_v'/.test(src));
+    t('...and a row with nothing opened still renders provider + date, never a padlock',
+      /const lead = r\._desc \|\| name;/.test(src) && /r\._desc \? \(when \? name/.test(src));
+    t('...with the amount divided by curMult, since staged amounts are full VND',
+      /Number\(r\._amount\)[\s\S]{0,40}\/ mult/.test(src));
     t('and once something is found the cadence relaxes to 4s',
       h.rec.timers.length === 1 && h.rec.timers[0].ms === 4000,
       JSON.stringify(h.rec.timers.map((x) => x.ms)));

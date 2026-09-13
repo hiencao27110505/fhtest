@@ -408,7 +408,7 @@ button.csv-srow:active{background:var(--surface)}
 .atx-fd-body{position:relative;overflow:hidden;transition:height .42s cubic-bezier(.32,.72,0,1)}
 .atx-fd-wrap{position:absolute;left:0;right:0;transition:transform .5s cubic-bezier(.32,.72,0,1);
   will-change:transform,opacity,filter}
-.atx-fd-row{display:flex;align-items:center;gap:11px;padding:11px 13px;height:52px;
+.atx-fd-row{display:flex;align-items:center;gap:11px;padding:10px 13px;height:58px;
   border-top:1px solid var(--divider)}
 .atx-fd-wrap:first-child .atx-fd-row{border-top:0}
 /* D1 — the row MATERIALISES: blur out of nothing, settling into place. It is
@@ -426,8 +426,19 @@ button.csv-srow:active{background:var(--surface)}
   .atx-fd-wrap,.atx-fd-body{transition:none}}
 .atx-fd-ic{width:30px;height:30px;border-radius:9px;background:var(--fill-neutral);color:var(--muted);
   flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:800}
-.atx-fd-t{flex:1;min-width:0;font-size:13.5px;font-weight:650;color:var(--ink);
+/* Two lines: the description leads because that is what a person recognises,
+   the bank and date become provenance beneath it. .atx-fd-t/-s are BLOCKS —
+   as inline spans they run together on one line and collide with the amount. */
+.atx-fd-b{flex:1;min-width:0}
+.atx-fd-t{display:block;font-size:13.5px;font-weight:650;color:var(--ink);letter-spacing:-.01em;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.atx-fd-s{display:block;font-size:11.5px;color:var(--muted);margin-top:2px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Never shrinks and never wraps, so the column stays straight while long
+   merchant names ellipsize instead. */
+.atx-fd-a{font-size:13.5px;font-weight:700;font-variant-numeric:tabular-nums;flex-shrink:0;
+  letter-spacing:-.01em;white-space:nowrap;color:var(--ink)}
+.atx-fd-a.in{color:var(--good)}
 .atx-fd-d{font-size:11.5px;color:var(--muted);flex-shrink:0;font-variant-numeric:tabular-nums}
 .atx-fd-f{display:flex;align-items:center;gap:8px;padding:9px 13px;background:var(--surface);
   font-size:11.5px;color:var(--muted);font-weight:600}
