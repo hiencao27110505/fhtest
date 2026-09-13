@@ -294,31 +294,11 @@
     } catch (e) { return ''; }
   }
 
-  /* One-time offer after a member has actually reviewed something (72-txn-review
-     calls this once the promote lands). Mirrors fhInstallNudge: an earned moment,
-     not a boot popup. That timing is the whole point for the members who
-     connected before notifications existed — they never see a setup screen again,
-     but they do reach the end of a review, and reaching it by hand is the proof
-     that nothing told them the queue had filled.
-
-     Keyed per member, not per device: two seats sharing a phone are two separate
-     push subscriptions, so each deserves the question once. Flag is set BEFORE
-     the sheet opens, so a throw mid-render cannot turn this into a loop. */
-  async function _mbxPushOfferOnce() {
-    try {
-      if (!window.fhPushState || !window.fhPushSheet) return;
-      const mid = window.DB && window.DB.ownerMemberId;
-      if (!mid) return;
-      const key = 'fh-mbx-push-nudged:' + mid;
-      if (localStorage.getItem(key) === '1') return;
-      // Only the actionable state. 'ios-install' is deliberately excluded here,
-      // unlike the row above: interrupting someone who just finished a task with
-      // a multi-step install errand is a worse trade than staying quiet.
-      if ((await window.fhPushState()) !== 'off') return;
-      localStorage.setItem(key, '1');
-      setTimeout(function () { try { window.fhPushSheet(); } catch (e) {} }, 1200);
-    } catch (e) {}
-  }
+  /* The post-review one-time push offer that lived here moved to the first
+     home visit (fhPushFirstVisitOffer, 55-push.js) with the account-setup
+     epic (0134): the moment after an import now belongs to the setup wizard.
+     Members who already answered the old offer keep their answer — the new
+     one honours the old `fh-mbx-push-nudged:<memberId>` key. */
 
   // ── Sheet 3 · the status ───────────────────────────────────────────────────
   /* `verified` is set by the Apps Script once it has clicked Gmail's confirmation.

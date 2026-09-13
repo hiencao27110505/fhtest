@@ -20,6 +20,43 @@ Going forward, add an entry here when a feature area changes meaningfully — se
 
 ## 2026-09-13
 
+### Account setup: an account shows a number only after the person has typed one (0134)
+
+A fresh mailbox-connected user's accounts materialize from a lookback window of email, so
+every derived number was wrong on day one: a card's outstanding ignored the balance carried in
+from before the window, a pre-window statement payment flipped the card to "Đang dư" and
+inflated Được nợ, and a mis-kinded debit account showed up as debt. Spec:
+`docs/specs/account-setup-spec.md`. What shipped, one release:
+
+- **Cards join the anchor model.** `fhPersonalBalance` no longer excludes `credit_card`; the
+  wizard stores "dư nợ hiện tại" as a NEGATIVE asset balance and `fhPersonalDebts` reads
+  outstanding = −balance. Un-anchored cards are `verified:false`, keep the window sum for the
+  reconcile copy only, and stay out of the Tôi nợ / Được nợ totals. The reconcile-by-adjustment
+  path is unchanged (kept until the wizard proves itself).
+- **The gate.** Bento tiles for any un-anchored account (card, bank, wallet, cash) show a dash
+  and "Chạm để thiết lập"; the hero rings hide until something verified contributes, then carry a
+  "Chưa gồm N tài khoản chưa thiết lập" footnote. Card detail for an un-anchored card shows the
+  way into setup instead of a number.
+- **The wizard** (`fhAcctSetupWizard`, `23-debts-ui.js`): one `_fhModal` per account, progress
+  dots, kind chips prefilled from the classifier, one big number, card extras behind "Thêm chi
+  tiết thẻ", "Để sau" per account (`personal_accounts.setup_skipped_at`, migration 0134). Fires
+  650 ms after a full-queue import for the accounts it touched (rows landed, or materialized in
+  that queue session), never from the one-row quick sheet; the tile CTA is the fallback.
+  `fhPersonalAccountUpdate` gained `anchorK` + `setupSkipped` so setup is one write per account.
+- **Anchor supersedes bank numbers.** Setting an anchor clears `ext_balance_*`; drift ignores a
+  bank-stated balance older than the anchor day; a pre-anchor "Số dư" is never stored.
+- **Family-scope gap closed.** A family expense paid with the author's instrument now reaches
+  that card: promote (and the quick sheet) resolve the account and reserve a `link_id`; the
+  family writer (`_dbInsertTxn`) pre-sets `link_id` and inserts the tagged mirror master
+  (`fhPersonalInsertMaster`); the family expense sheet shows "Trả bằng gì?" in family scope
+  when the personal ledger is ready and writes the same display-grade `instrument` string an
+  email import does; the author can edit the tag from the family detail
+  (`fhPersonalMasterSetAccount`, mirror rows only). Forward-only for existing masters.
+- **Push offer moved.** The once-only notification offer no longer fires after an import; it
+  fires on the first home visit (`fhPushFirstVisitOffer`, from hydrate and `finishOnboarding`),
+  yields to the install nudge, honours the old `fh-mbx-push-nudged` answer, and the sheet copy
+  now mentions captured transactions. Guard: `tools/account-setup.test.js`. SW v514.
+
 ### Everything else tuned to sage: neutrals, status, identity, foliage — computed, not picked
 
 Second pass after "one sage" (below). An OKLCH audit of every remaining colour found the whole

@@ -58,12 +58,21 @@
           + '</div></section></div>';
         return h;
       }
-      /* hero — dual concentric rings; frac against max side so the fuller ring closes */
+      /* hero — dual concentric rings; frac against max side so the fuller ring closes.
+         Account setup (0134, spec Q13/Q33): the rings sum VERIFIED cards only,
+         and hide entirely while nothing contributes — two empty rings over a
+         row of "Chạm để thiết lập" tiles read as broken; the tiles alone read
+         as the to-do list they are. Once something contributes, one quiet
+         footnote says what is still missing. */
       const mx = Math.max(t.owe, t.owed, 1);
       const C1 = 326.7, C2 = 219.9;                       // r=52 / r=35
       const o1 = (C1 * (1 - t.owe / mx)).toFixed(1), o2 = (C2 * (1 - t.owed / mx)).toFixed(1);
-      h += '<div class="debt-bento">'
-        + '<section class="dbt-tile wide dbt-hero">'
+      const contributes = t.d.cards.some(function (c) { return c.verified; })
+        || t.d.people.some(function (p) { return Math.abs(p.balance) > 0.5; })
+        || t.spaces.some(function (s) { return s.net != null; });
+      const unv = t.d.unverified || 0;
+      h += '<div class="debt-bento">';
+      if (contributes) h += '<section class="dbt-tile wide dbt-hero">'
         + '<svg width="100" height="100" viewBox="0 0 120 120" aria-hidden="true">'
         + '<circle cx="60" cy="60" r="52" fill="none" stroke="var(--danger-tint)" stroke-width="12"/>'
         + '<circle cx="60" cy="60" r="52" fill="none" stroke="var(--danger)" stroke-width="12" stroke-linecap="round" stroke-dasharray="' + C1 + '" stroke-dashoffset="' + o1 + '" transform="rotate(-90 60 60)"/>'
@@ -74,12 +83,24 @@
         + '<div class="dbt-lr"><span class="dbt-dot" style="background:var(--danger)"></span><span class="dbt-lk">Tôi nợ</span><span class="dbt-lv num">' + fmt(t.owe) + '</span></div>'
         + '<div class="dbt-ldiv"></div>'
         + '<div class="dbt-lr"><span class="dbt-dot" style="background:var(--good)"></span><span class="dbt-lk">Được nợ</span><span class="dbt-lv num">' + fmt(t.owed) + '</span></div>'
+        + (unv ? '<div class="dbt-hero-foot">Chưa gồm ' + unv + ' tài khoản chưa thiết lập</div>' : '')
         + '</div></section>';
       /* Tiles collected first, so a lone one (or an odd trailing one) can span
          the full width instead of leaving half the row empty — the sparse /
          single-card case (spec Q5). */
       const tiles = [];
+      /* An account with no anchor shows no number, only the way in (0134,
+         spec Q2): a dash and "Chạm để thiết lập". Cards and balance accounts
+         alike — a window-derived card outstanding is exactly the number that
+         broke trust on day one. */
+      const setupTile = function (a) {
+        return '<button class="dbt-tile dbt-setup" onclick="fhAcctSetupWizard([\'' + a.id + '\'])">'
+          + '<div class="dbt-tk">' + _e(a.name || 'Tài khoản') + '</div>'
+          + '<div class="dbt-tv num dim">—</div>'
+          + '<div class="dbt-ts">Chạm để thiết lập</div></button>';
+      };
       t.d.cards.forEach(function (c) {
+        if (!c.verified) { tiles.push(setupTile(c.acct)); return; }
         const neg = c.outstanding > 0, due = _dueLabel(c.acct);
         let ht = '<button class="dbt-tile dbt-card-tile" onclick="openDebtAccount(\'' + c.acct.id + '\')">'
           + '<div class="dbt-tk">' + _e(c.acct.name || 'Thẻ') + '</div>'
@@ -100,17 +121,13 @@
          with no anchor would be confidently wrong). Drift wears a quiet chip. */
       balAccts.forEach(function (a) {
         const bal = window.fhPersonalBalance ? fhPersonalBalance(a.id) : null;
+        if (bal == null) { tiles.push(setupTile(a)); return; }
         const dr = window.fhPersonalDrift ? fhPersonalDrift(a.id) : null;
         const kindLbl = a.kind === 'ewallet' ? 'ví điện tử' : (a.kind === 'cash' ? 'tiền mặt' : 'tài khoản');
         let ht = '<button class="dbt-tile" onclick="openBalAccount(\'' + a.id + '\')">'
-          + '<div class="dbt-tk">' + _e(a.name || 'Tài khoản') + '</div>';
-        if (bal != null) {
-          ht += '<div class="dbt-tv num' + (bal < 0 ? ' owe' : '') + '">' + (bal < 0 ? '−' : '') + fmtK(Math.abs(bal)) + '</div>'
-            + '<div class="dbt-ts">' + kindLbl + '</div>';
-        } else {
-          ht += '<div class="dbt-tv num dim">—</div>'
-            + '<div class="dbt-ts">chưa có mốc số dư · chạm để đặt</div>';
-        }
+          + '<div class="dbt-tk">' + _e(a.name || 'Tài khoản') + '</div>'
+          + '<div class="dbt-tv num' + (bal < 0 ? ' owe' : '') + '">' + (bal < 0 ? '−' : '') + fmtK(Math.abs(bal)) + '</div>'
+          + '<div class="dbt-ts">' + kindLbl + '</div>';
         if (dr) ht += '<div class="dbt-tchip"><span class="dbt-due">lệch ' + (dr.drift > 0 ? '+' : '−') + fmtK(Math.abs(dr.drift)) + '</span></div>';
         tiles.push(ht + '</button>');
       });
@@ -241,9 +258,20 @@
       const acct = P.accounts.find((a) => a.id === acctId); if (!acct) return;
       const d = _last || fhPersonalDebts();
       const b = (d.byAcct && d.byAcct[acctId]) || { spend: 0, paid: 0, rows: [] };
-      const out = b.spend - b.paid;
+      /* Outstanding comes from the debts derivation (0134): anchored cards read
+         anchor ± rows since; an un-anchored card shows no number, only the way
+         into setup — the window-derived sum is not a fact worth a hero. */
+      const ce = (d.cards || []).find(function (x) { return x.acct.id === acctId; });
+      const verified = !!(ce && ce.verified);
+      const out = ce ? ce.outstanding : (b.spend - b.paid);
       const due = _dueLabel(acct);
-      let h = '<div class="dbt-hero2"><div class="dbt-hk">' + (out >= 0 ? 'Đang nợ' : 'Đang dư') + '</div>'
+      let h;
+      if (!verified) {
+        h = '<div class="dbt-hero2"><div class="dbt-hk">Đang nợ</div><div class="dbt-hv num dim">—</div>'
+          + '<div class="dbt-hs">Chưa có dư nợ để tính. Nhập dư nợ hiện tại (xem trong app ngân hàng) để bắt đầu theo dõi.</div>'
+          + '<button class="dbt-relink" onclick="fhAcctSetupWizard([\'' + acct.id + '\'])">Xác nhận dư nợ</button></div>';
+      } else {
+      h = '<div class="dbt-hero2"><div class="dbt-hk">' + (out >= 0 ? 'Đang nợ' : 'Đang dư') + '</div>'
         + '<div class="dbt-hv num ' + (out > 0 ? 'owe' : 'owed') + '">' + fmt(Math.abs(out)) + '</div>';
       const meta = [];
       if (acct.limitK > 0) meta.push('Hạn mức còn ' + fmt(Math.max(0, acct.limitK - out)) + ' / ' + fmt(acct.limitK));
@@ -256,6 +284,7 @@
       // reconcile: the derived balance is only as complete as what got captured
       h += '<button class="dbt-relink" onclick="fhCardReconcileSheet(\'' + acct.id + '\')">Số chưa khớp? Cập nhật dư nợ thực tế</button>';
       h += '</div>';
+      }
       h += '<div class="dbt-acts">'
         + '<button class="dbt-btn primary" onclick="fhCardPaySheet(\'' + acct.id + '\')">Ghi thanh toán thẻ</button>'
         + '<button class="dbt-btn tinted" onclick="fhAcctEditSheet(\'' + acct.id + '\')">Cài đặt thẻ</button>'
@@ -800,7 +829,8 @@
       const P = _P(); const acct = P && P.accounts.find((a) => a.id === acctId); if (!acct) return;
       const d = _last || fhPersonalDebts();
       const b = (d.byAcct && d.byAcct[acctId]) || { spend: 0, paid: 0 };
-      const cur = b.spend - b.paid;
+      const ce = (d.cards || []).find(function (x) { return x.acct.id === acctId; });
+      const cur = ce ? ce.outstanding : (b.spend - b.paid);   // anchored outstanding since 0134, else the window sum
       _fhModal({
         title: 'Cập nhật dư nợ thực tế', saveLabel: 'Cập nhật', reqMsg: 'Nhập dư nợ hiện tại nhé',
         body: '<div class="dbt-note">App đang tính dư nợ thẻ là <b>' + fmt(Math.max(0, cur)) + '</b> từ những khoản đã ghi. Nếu app đọc thiếu vài giao dịch, nhập dư nợ thật (xem trong app ngân hàng), app sẽ ghi một dòng điều chỉnh cho khớp.</div>'
@@ -816,6 +846,100 @@
           return function () { openDebtAccount(acctId); if (window.renderPersonal) renderPersonal(); };
         },
       });
+    };
+
+    /* ═══ Account setup (0134, docs/specs/account-setup-spec.md) ═══════════════
+       A fresh mailbox-connected user's accounts come from a lookback window of
+       email, so every derived number is wrong on day one. The rule: an account
+       shows a number only after the person has typed one. This wizard walks the
+       accounts an import just touched (or the one tile the person tapped), one
+       screen each: confirm the kind, type the number the bank app shows, "Để
+       sau" per account. The anchor is the only required input; cards store it
+       NEGATIVE so one balance derivation serves every kind (spec §5). */
+    let _wiz = null;
+    const WZ_KINDS = [['credit_card', '💳 Thẻ tín dụng'], ['deposit', '🏦 Tài khoản ngân hàng'], ['ewallet', '📱 Ví điện tử'], ['cash', '💵 Tiền mặt']];
+    const _wzAmtLabel = (kind) => kind === 'credit_card' ? 'Dư nợ hiện tại' : (kind === 'cash' ? 'Đang có bao nhiêu tiền mặt' : 'Số dư hiện tại');
+    /* After an import (spec §4): only the touched accounts that still need it,
+       in wizard order. Nothing to ask → nothing opens. */
+    window.fhAcctSetupAfterImport = function (touchedIds) {
+      const list = window.fhPersonalAccountSetupNeeded ? fhPersonalAccountSetupNeeded(touchedIds) : [];
+      if (!list.length) return;
+      window.fhAcctSetupWizard(list.map((a) => a.id), { intro: true });
+    };
+    window.fhAcctSetupWizard = function (ids, opts) {
+      const P = _P(); if (!P || !P.key) { window.toast && toast('Mở khoá sổ cá nhân trước'); return; }
+      const queue = (ids || []).filter((id) => (P.accounts || []).some((a) => a.id === id));
+      if (!queue.length) return;
+      _wizStep(queue, 0, !!(opts && opts.intro), 0);
+    };
+    function _wizStep(queue, i, intro, saved) {
+      const P = _P(); const acct = P && P.accounts.find((a) => a.id === queue[i]);
+      if (!acct) { if (i + 1 < queue.length) return _wizStep(queue, i + 1, intro, saved); return _wizDone(saved); }
+      const n = queue.length, last = i === n - 1, isCash = acct.kind === 'cash';
+      _wiz = { queue: queue, i: i, intro: intro, saved: saved, acct: acct };
+      const dots = n > 1 ? '<div class="wz-dots" aria-hidden="true">' + queue.map((_, k) => '<i class="' + (k < i ? 'done' : (k === i ? 'on' : '')) + '"></i>').join('') + '</div>' : '';
+      const why = (intro && i === 0)
+        ? '<div class="wz-why">Email chỉ kể được vài tháng gần đây. Nhập số đang thấy trong app ngân hàng để tụi mình tính đúng từ đây.</div>' : '';
+      const kindChips = isCash ? '' : '<div class="field"><label>Loại</label><div class="choices" id="wz-akind">'
+        + WZ_KINDS.map(([v, lbl]) => '<button type="button" class="choice' + (acct.kind === v ? ' on' : '') + '" data-v="' + v + '" onclick="pick(\'wz-akind\',this);fhWizKindSync()">' + lbl + '</button>').join('')
+        + '</div></div>';
+      const _dayIn = (id, val) => '<input type="number" min="1" max="31" id="' + id + '" inputmode="numeric" placeholder="—" value="' + (val || '') + '" oninput="fhModalDirty()">';
+      const cardf = '<div id="wz-cardf"' + (acct.kind === 'credit_card' ? '' : ' hidden') + '>'
+        + '<button type="button" class="wz-more" id="wz-more-btn" onclick="fhWizMore()">Thêm chi tiết thẻ</button>'
+        + '<div id="wz-more" hidden>'
+        + '<div class="field"><label>Hạn mức thẻ <span class="opt">· để trống nếu không nhớ</span></label><input class="num" id="wz-lim" inputmode="numeric" value="' + (acct.limitK > 0 ? Math.round(acct.limitK * (window.curMult ? curMult() : 1000)).toLocaleString('vi-VN') : '') + '" oninput="fhModalDirty()"></div>'
+        + '<div class="field-row"><div class="field"><label>Ngày chốt sao kê</label>' + _dayIn('wz-stm', acct.statementDay) + '</div>'
+        + '<div class="field"><label>Ngày đến hạn</label>' + _dayIn('wz-due', acct.dueDay) + '</div></div>'
+        + '</div></div>';
+      _fhModal({
+        title: 'Xác nhận số dư' + (n > 1 ? ' · ' + (i + 1) + '/' + n : ''),
+        saveLabel: last ? 'Hoàn tất' : 'Xong', reqMsg: 'Nhập số đang thấy trong app ngân hàng nhé',
+        body: dots + why
+          + '<div class="field"><label>Tài khoản</label><input id="wz-name" value="' + _e(acct.name || '') + '" oninput="fhModalDirty()"></div>'
+          + kindChips
+          + '<div class="field"><label id="wz-amt-lbl">' + _wzAmtLabel(acct.kind) + '</label><input class="num big" id="wz-amt" inputmode="numeric" placeholder="0 ₫" oninput="fhModalDirty()"></div>'
+          + cardf
+          + '<div class="dbt-note" style="padding:0 0 14px">Mốc này đã gồm mọi giao dịch trước lúc đặt. Khoản ghi sau đó cộng trừ tiếp lên nó.</div>'
+          + '<button type="button" class="wz-later" onclick="fhWizLater()">Để sau</button>',
+        required: function () { return [{ el: document.getElementById('wz-amt'), ok: !!((document.getElementById('wz-amt') || {}).value || '').trim() }]; },
+        save: async function () {
+          const kind = isCash ? 'cash' : ((typeof chosen === 'function' && chosen('wz-akind')) || acct.kind);
+          const isCard = kind === 'credit_card';
+          const amt = _amtOf('wz-amt');
+          const name = ((document.getElementById('wz-name') || {}).value || '').trim() || acct.name;
+          const _day = (id) => { const v = parseInt((document.getElementById(id) || {}).value || '', 10); return (v >= 1 && v <= 31) ? v : null; };
+          const lim = isCard ? _amtOf('wz-lim') : 0;
+          const ok = await fhPersonalAccountUpdate(acct.id, { name: name, kind: kind, humanVerified: true,
+            limitK: lim > 0 ? lim : null, statementDay: isCard ? _day('wz-stm') : null, dueDay: isCard ? _day('wz-due') : null,
+            anchorK: isCard ? -amt : amt, setupSkipped: false });
+          if (!ok) throw new Error('save_failed');
+          return function () { if (!last) _wizStep(queue, i + 1, intro, saved + 1); else _wizDone(saved + 1); };
+        },
+        after: function () { const a = document.getElementById('wz-amt'); if (a && n === 1) { try { a.focus(); } catch (e) {} } },
+      });
+    }
+    function _wizDone(saved) {
+      _wiz = null;
+      if (saved > 0) window.toast && toast(saved > 1 ? 'Đã xác nhận ' + saved + ' tài khoản' : 'Đã xác nhận số dư');
+      if (window.renderPersonal) renderPersonal();
+    }
+    /* "Để sau": remembered on the account so the next import never re-asks;
+       the tile keeps its "Chạm để thiết lập" until the person comes back. */
+    window.fhWizLater = async function () {
+      const w = _wiz; if (!w) return;
+      try { await fhPersonalAccountUpdate(w.acct.id, { setupSkipped: true }); } catch (e) {}
+      if (window._closeOv) window._closeOv();
+      setTimeout(function () { if (w.i + 1 < w.queue.length) _wizStep(w.queue, w.i + 1, w.intro, w.saved); else _wizDone(w.saved); }, 0);
+    };
+    /* the amount's label and the card-only block follow the picked kind, live */
+    window.fhWizKindSync = function () {
+      const k = typeof chosen === 'function' ? chosen('wz-akind') : null;
+      const f = document.getElementById('wz-cardf'); if (f) f.hidden = k !== 'credit_card';
+      const l = document.getElementById('wz-amt-lbl'); if (l && k) l.textContent = _wzAmtLabel(k);
+    };
+    window.fhWizMore = function () {
+      const m = document.getElementById('wz-more'), b = document.getElementById('wz-more-btn');
+      if (m) m.hidden = false; if (b) b.hidden = true;
     };
 
     /* ═══ Full ledger (0109) — balances, anchors, drift, the transfer pair ═══ */

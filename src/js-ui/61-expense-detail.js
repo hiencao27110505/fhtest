@@ -105,7 +105,17 @@ function renderExpenseDetail(){
     val:'<b class="num">'+esc(vAmtDisp)+(CUR==='VND'?' ₫':'')+'</b>', fn:"exdSheetAmt('fam')"});
   rows+=_exdRow({label:L('Khi nào','When'), chg:(EXD.dateIso!=null||EXD.timeStr!==undefined), ro:!canEdit,
     val:'<b class="num">'+esc(_exdDate(t))+(vTime?' · '+esc(vTime):'')+'</b>', fn:"exdSheetWhen('fam')"});
-  if(t.inst) rows+=_exdRow({label:L('Nguồn tiền','Money source'), ro:true, val:'<b>'+esc(t.inst)+'</b>'});
+  /* Nguồn tiền. Read-only for everyone (the 0131 display string) — except the
+     AUTHOR, whose own mirror master carries the real account tag (0134,
+     account-setup-spec §6): for them the row opens the account picker, so a
+     family expense that landed untagged can still reach the right card. The
+     master is looked up once per detail open (link_id is not in the snapshot). */
+  var mm=_exdMasterOf(t);
+  if(mm){
+    var mAcct=mm.accountId&&mm.pd?((mm.pd.accounts||[]).find(function(a){ return a.id===mm.accountId; })||null):null;
+    rows+=_exdRow({label:L('Nguồn tiền','Money source'), soft:!mm.accountId,
+      val:'<b>'+(mAcct?esc(mAcct.name||L('Tài khoản','Account')):(t.inst?esc(t.inst):L('Chưa gắn','Not tagged')))+'</b>', fn:'exdSheetAcctFam()'});
+  } else if(t.inst) rows+=_exdRow({label:L('Nguồn tiền','Money source'), ro:true, val:'<b>'+esc(t.inst)+'</b>'});
   rows+=_exdRow({label:L('Sổ','Book'), ro:true, val:'<b>🏡 '+esc((window.FAM&&FAM.familyName)||L('Gia đình','Family'))+'</b>'});
   html+='<div class="exd-meta srows"><div class="csv-srows">'+rows+'</div></div>';
   var ph=t.photos||(t.photo?[t.photo]:[]);
@@ -141,6 +151,62 @@ function _exdTrash(){ return '<svg viewBox="0 0 24 24" fill="none" stroke="curre
 function expDetailReview(){ if(_expDetailId!=null && typeof openReview==='function') openReview('expense', _expDetailId); }
 window.expDetailReview=expDetailReview;
 window.renderExpenseDetail=renderExpenseDetail;
+/* The author's mirror master for a family row (0134). Cached per family row
+   id; resolved async on first ask (one select for link_id, then a P.txns
+   lookup), re-rendering the open detail when it lands. null = not the author,
+   ledger locked, or the master is outside the loaded window → the row stays
+   the read-only 0131 string. */
+var _exdMasters={};
+function _exdMasterOf(t){
+  if(!t||!t._dbId||!window.DB||!DB.ownerMemberId||t._createdBy!==DB.ownerMemberId) return null;
+  var pd=window.fhPersonalData?fhPersonalData():null; if(!pd||pd.state!=='ready') return null;
+  var c=_exdMasters[t._dbId];
+  if(c===undefined){
+    _exdMasters[t._dbId]=null;   // in flight
+    var fam=t._dbId;
+    window.sb.from('transactions').select('link_id').eq('id',fam).maybeSingle().then(function(r){
+      var link=r&&r.data&&r.data.link_id;
+      var m=link?((pd.txns||[]).find(function(x){ return x.linkId===link; })||null):null;
+      _exdMasters[fam]=m?{masterId:m.id, link:link}:false;
+      if(m && _expDetailId!=null){ var lt=txById(_expDetailId); if(lt&&lt._dbId===fam) renderExpenseDetailIfOpen(); }
+    }).catch(function(){ _exdMasters[fam]=false; });
+    return null;
+  }
+  if(!c) return null;
+  var m2=(pd.txns||[]).find(function(x){ return x.id===c.masterId; });
+  if(!m2) return null;
+  return {masterId:c.masterId, accountId:m2.accountId||null, pd:pd};
+}
+function exdSheetAcctFam(){
+  var t=(typeof txById==='function')?txById(_expDetailId):null; if(!t) return;
+  var mm=_exdMasterOf(t); if(!mm) return;
+  setTxt('exdacct-h', L('Nguồn tiền','Money source'));
+  setTxt('exdacct-sub', L('Gắn để dư nợ thẻ, số dư tài khoản tính đúng · chỉ sổ của bạn biết thẻ nào','Tag it so the card or account balance is right · only your ledger knows which'));
+  var ico={deposit:'🏦',ewallet:'📱',credit_card:'💳',cash:'💵'};
+  var h='<button type="button" class="choice'+(mm.accountId?'':' on')+'" onclick="exdPickAcctFam(&#39;&#39;)">'+L('Chưa gắn','Not tagged')+'</button>';
+  ((mm.pd.accounts||[]).filter(function(a){ return a.kind!=='investment'; })).forEach(function(a){
+    h+='<button type="button" class="choice'+(a.id===mm.accountId?' on':'')+'" onclick="exdPickAcctFam(&#39;'+escAttr(a.id)+'&#39;)">'+(ico[a.kind]||'🏦')+' '+esc(a.name||L('Tài khoản','Account'))+'</button>';
+  });
+  setHTML('exdacct-list', h);
+  openSheet('sheet-exd-acct');
+}
+window.exdSheetAcctFam=exdSheetAcctFam;
+/* Writes straight away (no staged "Cập nhật"): the tag is the personal side's
+   own field, and the family row's display string follows it (spec Q31). */
+async function exdPickAcctFam(id){
+  closeSheet();
+  var t=(typeof txById==='function')?txById(_expDetailId):null; if(!t) return;
+  var mm=_exdMasterOf(t); if(!mm||!window.fhPersonalMasterSetAccount) return;
+  var ok=false; try{ ok=await fhPersonalMasterSetAccount(mm.masterId, id||null); }catch(e){}
+  if(!ok){ toast(L('Chưa lưu được, thử lại nhé','Couldn’t save, try again')); return; }
+  var a=id?((mm.pd.accounts||[]).find(function(x){ return x.id===id; })||null):null;
+  var inst=a?((window.fhAccountInstString&&fhAccountInstString(a))||a.name||null):null;
+  try{ await window.sb.from('transactions').update({instrument:inst}).eq('id',t._dbId); t.inst=inst; }catch(e){}
+  toast(id?L('Đã gắn nguồn tiền','Money source tagged'):L('Đã bỏ gắn','Tag removed'));
+  renderExpenseDetailIfOpen();
+  if(typeof renderPersonal==='function'){ try{ renderPersonal(); }catch(e){} }
+}
+window.exdPickAcctFam=exdPickAcctFam;
 function openExpenseDetail(id){
   var t=(typeof txById==='function')?txById(id):null; if(!t) return;
   _expDetailId=id;

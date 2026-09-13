@@ -111,7 +111,10 @@ from the user's POV.
   debt list.
 - **Since built:** transfer pairs (`docs/specs/full-ledger-spec.md`, 0109);
   publish-from-personal→space and the reverse pull-back, plus personal photos
-  (`docs/specs/cross-ledger-move-spec.md`, 0114).
+  (`docs/specs/cross-ledger-move-spec.md`, 0114); account setup — an account
+  shows a number only after the person anchors it, cards included, and a
+  family expense's mirror master now carries the author's account tag
+  (`docs/specs/account-setup-spec.md`, 0134).
 - **Not built:** friend/trip spaces, annotation (photo/reaction) join of
   family rows into the personal stream (ordinary mirror rows stay photo-less —
   move-spec decision M7 kept this deferred), full-history backfill beyond the

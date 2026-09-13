@@ -1758,6 +1758,21 @@ input{font-family:inherit}
 /* the lone/odd card tile spans full width — a touch more inside padding earns it */
 .debt-bento .dbt-tile.wide.dbt-card-tile{padding:16px 18px}
 
+/* ── Account setup (0134): the un-anchored tile, the hero footnote, the wizard ──
+   An account with no anchor shows a dash and one brand-ink line — the way in,
+   nothing else. The wizard is a plain _fhModal form: progress dots, the account,
+   the one big number, card details folded behind a text disclosure. */
+.dbt-tile.dbt-setup .dbt-ts{color:var(--brand-ink);font-weight:700}
+.dbt-hero-foot{font-size:11.5px;font-weight:600;color:var(--muted);margin-top:8px;line-height:1.35}
+.wz-dots{display:flex;gap:6px;margin:2px 0 14px}
+.wz-dots i{display:block;width:6px;height:6px;border-radius:3px;background:var(--fill-neutral);transition:width .2s}
+.wz-dots i.on{width:18px;background:var(--brand)}
+.wz-dots i.done{background:var(--brand-tint)}
+.wz-why{font-size:13.5px;line-height:1.5;color:var(--ink-2);margin:0 0 16px}
+.wz-more{border:0;background:none;color:var(--brand-ink);font:inherit;font-size:13px;font-weight:600;padding:0;margin:-6px 0 16px;cursor:pointer}
+.wz-later{display:block;width:100%;min-height:46px;border:0;border-radius:13px;background:var(--fill-neutral);color:var(--ink-2);font:inherit;font-size:14.5px;font-weight:600;cursor:pointer}
+.wz-later:active{transform:scale(.98)}
+
 /* ── Full ledger (0109): balance tiles, drift, transfer pair ─────────────────
    A balance is the same visual grammar as an outstanding — dbt-tv / dbt-hv —
    just neutral ink (a balance is a fact, not a debt). "No anchor yet" is a
@@ -10485,11 +10500,15 @@ function _applyExScope(v){ selectChipByVal('ex-scope', v); _applyExLayout(); }
    restores per scope, exactly as before. */
 function _applyExLayout(){
   var personal=(chosen('ex-scope')==='personal'), income=(exType==='income');
-  // Instrument chips: personal rows only (family rows have no account concept).
-  // Expense asks "Trả bằng gì?"; income asks which account the money landed in —
-  // the tag is what makes a deposit balance computable at all (full-ledger §4.3).
+  // Instrument chips. Personal rows: expense asks "Trả bằng gì?"; income asks
+  // which account the money landed in — the tag is what makes a deposit balance
+  // computable at all (full-ledger §4.3). Family EXPENSES too since 0134
+  // (account-setup-spec §6): the family ledger still has no accounts, but the
+  // author's card must reach that card's outstanding, so the chip tags the
+  // author's mirror master. Family income stays chip-less (no personal row).
   var af=document.getElementById('ex-acctfield');
-  if(af){ var show=(personal&&!editingTx&&!editingPTx); af.style.display=show?'':'none';
+  if(af){ var pdA=window.fhPersonalData&&fhPersonalData(); var pReady=!!(pdA&&pdA.state==='ready');
+    var show=(!editingTx&&!editingPTx&&(personal||(pReady&&!income))); af.style.display=show?'':'none';
     var al=document.getElementById('ex-acct-lbl'); if(al) al.textContent = income ? L('Vào tài khoản nào?','Into which account?') : L('Trả bằng gì?','Paid with?');
     if(show) buildExAcctChips(); }
   var who=document.getElementById('ex-whofield'); if(who) who.style.display=(personal||income)?'none':'';   // no member-split in a private ledger / for income
@@ -11155,11 +11174,15 @@ function submitBulk(opts){
     total+=parseAmtBase(rows[k].amt||'');
     window._fhImportSrc = (rows[k] && rows[k].source) || null;   // 0100 provenance for this row; the writethrough stamps it on the txn
     window._fhImportInst = (rows[k] && rows[k].inst) || null;    // 0131 money source ("VIB · tín dụng ••4512"), same handoff
+    window._fhImportAcct = (rows[k] && rows[k].pAcct) || null;   // 0134 the author's account id → the mirror master's tag
+    window._fhImportLink = (rows[k] && rows[k].link) || null;    // 0134 pre-reserved link_id for that master
     BULK_SAVING=true;
     try{ window.addExpense(); } finally{ BULK_SAVING=false; }
   }
   window._fhImportSrc=null;
   window._fhImportInst=null;
+  window._fhImportAcct=null;
+  window._fhImportLink=null;
   exPhotos=[];
   // One nudge for the whole batch — each row's own addExpense() stayed silent under
   // BULK_SAVING. A lone surviving row is a single expense, not a batch (the composer
@@ -15342,6 +15365,10 @@ function csvPromote(subset, opts){
                // 0131 money source, display-grade: "VIB · tín dụng ••4512" as one
                // string. Only email-staged rows know it; a CSV row carries none.
                inst: csvStagedMode ? ([csvStagedProvider(c), csvStagedAcctChip(c)].filter(Boolean).join(' · ') || null) : null,
+               // 0134: the author's own account for this row (resolved by the
+               // promote path from the classifier) + the link_id pre-reserved
+               // for the tagged mirror master. Null on file rows.
+               pAcct: c._pAcct || null, link: c._link || null,
                time: csvRowTime(c), _timeAuto: false };   // reviewed time (edited value wins, else derived); '' = day-only
     });
     bulkActive = 0;
@@ -18221,7 +18248,17 @@ function renderExpenseDetail(){
     val:'<b class="num">'+esc(vAmtDisp)+(CUR==='VND'?' ₫':'')+'</b>', fn:"exdSheetAmt('fam')"});
   rows+=_exdRow({label:L('Khi nào','When'), chg:(EXD.dateIso!=null||EXD.timeStr!==undefined), ro:!canEdit,
     val:'<b class="num">'+esc(_exdDate(t))+(vTime?' · '+esc(vTime):'')+'</b>', fn:"exdSheetWhen('fam')"});
-  if(t.inst) rows+=_exdRow({label:L('Nguồn tiền','Money source'), ro:true, val:'<b>'+esc(t.inst)+'</b>'});
+  /* Nguồn tiền. Read-only for everyone (the 0131 display string) — except the
+     AUTHOR, whose own mirror master carries the real account tag (0134,
+     account-setup-spec §6): for them the row opens the account picker, so a
+     family expense that landed untagged can still reach the right card. The
+     master is looked up once per detail open (link_id is not in the snapshot). */
+  var mm=_exdMasterOf(t);
+  if(mm){
+    var mAcct=mm.accountId&&mm.pd?((mm.pd.accounts||[]).find(function(a){ return a.id===mm.accountId; })||null):null;
+    rows+=_exdRow({label:L('Nguồn tiền','Money source'), soft:!mm.accountId,
+      val:'<b>'+(mAcct?esc(mAcct.name||L('Tài khoản','Account')):(t.inst?esc(t.inst):L('Chưa gắn','Not tagged')))+'</b>', fn:'exdSheetAcctFam()'});
+  } else if(t.inst) rows+=_exdRow({label:L('Nguồn tiền','Money source'), ro:true, val:'<b>'+esc(t.inst)+'</b>'});
   rows+=_exdRow({label:L('Sổ','Book'), ro:true, val:'<b>🏡 '+esc((window.FAM&&FAM.familyName)||L('Gia đình','Family'))+'</b>'});
   html+='<div class="exd-meta srows"><div class="csv-srows">'+rows+'</div></div>';
   var ph=t.photos||(t.photo?[t.photo]:[]);
@@ -18257,6 +18294,62 @@ function _exdTrash(){ return '<svg viewBox="0 0 24 24" fill="none" stroke="curre
 function expDetailReview(){ if(_expDetailId!=null && typeof openReview==='function') openReview('expense', _expDetailId); }
 window.expDetailReview=expDetailReview;
 window.renderExpenseDetail=renderExpenseDetail;
+/* The author's mirror master for a family row (0134). Cached per family row
+   id; resolved async on first ask (one select for link_id, then a P.txns
+   lookup), re-rendering the open detail when it lands. null = not the author,
+   ledger locked, or the master is outside the loaded window → the row stays
+   the read-only 0131 string. */
+var _exdMasters={};
+function _exdMasterOf(t){
+  if(!t||!t._dbId||!window.DB||!DB.ownerMemberId||t._createdBy!==DB.ownerMemberId) return null;
+  var pd=window.fhPersonalData?fhPersonalData():null; if(!pd||pd.state!=='ready') return null;
+  var c=_exdMasters[t._dbId];
+  if(c===undefined){
+    _exdMasters[t._dbId]=null;   // in flight
+    var fam=t._dbId;
+    window.sb.from('transactions').select('link_id').eq('id',fam).maybeSingle().then(function(r){
+      var link=r&&r.data&&r.data.link_id;
+      var m=link?((pd.txns||[]).find(function(x){ return x.linkId===link; })||null):null;
+      _exdMasters[fam]=m?{masterId:m.id, link:link}:false;
+      if(m && _expDetailId!=null){ var lt=txById(_expDetailId); if(lt&&lt._dbId===fam) renderExpenseDetailIfOpen(); }
+    }).catch(function(){ _exdMasters[fam]=false; });
+    return null;
+  }
+  if(!c) return null;
+  var m2=(pd.txns||[]).find(function(x){ return x.id===c.masterId; });
+  if(!m2) return null;
+  return {masterId:c.masterId, accountId:m2.accountId||null, pd:pd};
+}
+function exdSheetAcctFam(){
+  var t=(typeof txById==='function')?txById(_expDetailId):null; if(!t) return;
+  var mm=_exdMasterOf(t); if(!mm) return;
+  setTxt('exdacct-h', L('Nguồn tiền','Money source'));
+  setTxt('exdacct-sub', L('Gắn để dư nợ thẻ, số dư tài khoản tính đúng · chỉ sổ của bạn biết thẻ nào','Tag it so the card or account balance is right · only your ledger knows which'));
+  var ico={deposit:'🏦',ewallet:'📱',credit_card:'💳',cash:'💵'};
+  var h='<button type="button" class="choice'+(mm.accountId?'':' on')+'" onclick="exdPickAcctFam(&#39;&#39;)">'+L('Chưa gắn','Not tagged')+'</button>';
+  ((mm.pd.accounts||[]).filter(function(a){ return a.kind!=='investment'; })).forEach(function(a){
+    h+='<button type="button" class="choice'+(a.id===mm.accountId?' on':'')+'" onclick="exdPickAcctFam(&#39;'+escAttr(a.id)+'&#39;)">'+(ico[a.kind]||'🏦')+' '+esc(a.name||L('Tài khoản','Account'))+'</button>';
+  });
+  setHTML('exdacct-list', h);
+  openSheet('sheet-exd-acct');
+}
+window.exdSheetAcctFam=exdSheetAcctFam;
+/* Writes straight away (no staged "Cập nhật"): the tag is the personal side's
+   own field, and the family row's display string follows it (spec Q31). */
+async function exdPickAcctFam(id){
+  closeSheet();
+  var t=(typeof txById==='function')?txById(_expDetailId):null; if(!t) return;
+  var mm=_exdMasterOf(t); if(!mm||!window.fhPersonalMasterSetAccount) return;
+  var ok=false; try{ ok=await fhPersonalMasterSetAccount(mm.masterId, id||null); }catch(e){}
+  if(!ok){ toast(L('Chưa lưu được, thử lại nhé','Couldn’t save, try again')); return; }
+  var a=id?((mm.pd.accounts||[]).find(function(x){ return x.id===id; })||null):null;
+  var inst=a?((window.fhAccountInstString&&fhAccountInstString(a))||a.name||null):null;
+  try{ await window.sb.from('transactions').update({instrument:inst}).eq('id',t._dbId); t.inst=inst; }catch(e){}
+  toast(id?L('Đã gắn nguồn tiền','Money source tagged'):L('Đã bỏ gắn','Tag removed'));
+  renderExpenseDetailIfOpen();
+  if(typeof renderPersonal==='function'){ try{ renderPersonal(); }catch(e){} }
+}
+window.exdPickAcctFam=exdPickAcctFam;
 function openExpenseDetail(id){
   var t=(typeof txById==='function')?txById(id):null; if(!t) return;
   _expDetailId=id;
@@ -20215,6 +20308,7 @@ function finishOnboarding(){
   window.__obFromApp=false;                                              // the in-app trigger's back intent is spent
   go('home');
   try{ if(window.fhInstallNudge) window.fhInstallNudge(); }catch(e){}   // earned-moment install nudge (once, dismissible, only if installable)
+  try{ if(window.fhPushFirstVisitOffer) fhPushFirstVisitOffer(); }catch(e){}   // first home visit → the notification offer (yields to the install nudge if it fired)
 }
 /* device locale, re-derived (mirrors the LANG bootstrap in 70-theme-i18n) */
 function obDeviceLang(){
@@ -20526,7 +20620,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v513';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v514';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -20547,6 +20641,13 @@ var ICO = {
 };
 
 var RELEASES = [
+  { id:'2026-09-13-so-du-ban-chot', date:'2026-09-13', time:'13:55', ver:'v514', icon:ICO.shield,
+    vi:{ t:'Số dư tài khoản, do bạn chốt',
+      problem:'Kết nối email xong, thẻ và tài khoản hiện lên với những con số sai ngay từ đầu. Email chỉ kể được vài tháng gần đây, còn dư nợ và số dư trước đó thì không.',
+      sol:'Sau lần nhập đầu tiên, app hỏi bạn số đang thấy trong app ngân hàng cho từng thẻ và tài khoản, mỗi cái một màn, chưa tiện thì để sau. Chưa nhập thì ô đó để trống chứ không hiện số bừa. Khoản chi gia đình trả bằng thẻ của bạn giờ cũng tính vào dư nợ thẻ.' },
+    en:{ t:'Account balances, confirmed by you',
+      problem:'Right after connecting email, cards and accounts showed numbers that were wrong from the start. Email only tells the last few months, not the balance carried in before that.',
+      sol:'After your first import the app asks for the number your bank app shows, one screen per card or account, with a Later button on each. Until you enter it, the tile stays blank instead of guessing. A family expense paid with your card now counts toward that card too.' } },
   { id:'2026-09-13-mot-mau-xanh', date:'2026-09-13', time:'14:30', ver:'v513', icon:ICO.sun,
     vi:{ t:'Một màu xanh, cả app theo',
       problem:'Nút bấm, số dương, ô "Hôm nay còn tiêu được" mỗi chỗ một sắc xanh, còn màu xám nền hơi ngả tím nên nhìn tổng thể cứ thấy lệch lệch.',
@@ -22425,7 +22526,7 @@ window.obGoogle = async function () {
         const [tr, bd, ac, dr, pp, mm] = await Promise.all([
           _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,occurred_time_enc,txn_date,kind,space_id,link_id,version,updated_at,created_at,account_id,transfer_group_id,position_account_id,quantity_enc,source').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }).order('id')),
           _sb().from('personal_budgets').select('total_enc,cats_enc').eq('owner_user_id', P.uid).eq('month', _monISO()).maybeSingle(),
-          _sb().from('personal_accounts').select('id,kind,name_enc,tail,provider,credit_limit_enc,human_verified,statement_day,due_day,anchor_balance_enc,anchor_at,ext_balance_enc,ext_balance_date,account_number_enc,asset_symbol_enc,asset_unit_enc,asset_class_enc,manual_price_enc,manual_price_at').eq('owner_user_id', P.uid).is('archived_at', null),
+          _sb().from('personal_accounts').select('id,kind,name_enc,tail,provider,credit_limit_enc,human_verified,statement_day,due_day,anchor_balance_enc,anchor_at,ext_balance_enc,ext_balance_date,account_number_enc,asset_symbol_enc,asset_unit_enc,asset_class_enc,manual_price_enc,manual_price_at,setup_skipped_at').eq('owner_user_id', P.uid).is('archived_at', null),
           _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,counterparty_enc,cat_name_enc,cat_emoji,txn_date,kind,account_id,transfer_group_id,position_account_id,quantity_enc,due_date,created_at').eq('owner_user_id', P.uid).or('kind.neq.expense,account_id.not.is.null').order('txn_date', { ascending: false }).order('id')),
           _sb().from('personal_transaction_photos').select('transaction_id,photo_url,sort_order').eq('owner_user_id', P.uid).order('sort_order').limit(800).then((r) => r, () => ({ data: null })),
           _sb().from('personal_review_memory').select('id,key_enc,position_account_id').eq('owner_user_id', P.uid).limit(500).then((r) => r, () => ({ data: null })),
@@ -22496,6 +22597,9 @@ window.obGoogle = async function () {
             anchorAt: a.anchor_at || null,
             extK: (ext == null || ext === _DEC_FAILED) ? null : Number(ext),
             extDate: a.ext_balance_date || null,
+            /* account setup (0134): "Để sau" on the setup wizard — the account
+               stays unverified (no number) but is never re-asked at import */
+            setupSkippedAt: a.setup_skipped_at || null,
             /* position identity (0122): only kind='investment' rows carry these.
                An unreadable manual price is null — the value falls back to
                giá vốn, never to a wrong number (same stance as the anchor). */
@@ -23119,6 +23223,18 @@ window.obGoogle = async function () {
       if (fields.hasOwnProperty('dueDay')) row.due_day = fields.dueDay || null;
       /* Full receiving account number (0122) — typed once for VietQR, sealed. */
       if (fields.hasOwnProperty('accountNumber')) row.account_number_enc = fields.accountNumber ? await _encP(String(fields.accountNumber)) : null;
+      /* Setup wizard "Để sau" (0134): remembered per account so the next import
+         never re-asks; setting an anchor later clears it implicitly (the
+         wizard filters on anchorK first). */
+      if (fields.hasOwnProperty('setupSkipped')) row.setup_skipped_at = fields.setupSkipped ? new Date().toISOString() : null;
+      /* The setup wizard sets name/kind/card config AND the anchor in one
+         write (one hydrate per account, not two). Same semantics as
+         fhPersonalAnchorSet: declared truth now, older bank numbers dropped.
+         Cards pass a NEGATIVE value (a liability is a negative asset). */
+      if (fields.hasOwnProperty('anchorK') && isFinite(fields.anchorK)) {
+        row.anchor_balance_enc = await _encP(Number(fields.anchorK)); row.anchor_at = new Date().toISOString();
+        row.ext_balance_enc = null; row.ext_balance_date = null;
+      }
       if (fields.archived) row.archived_at = new Date().toISOString();
       const r = await _sb().from('personal_accounts').update(row).eq('id', id).eq('owner_user_id', P.uid);
       if (r.error) { console.warn('account update failed', r.error); return false; }
@@ -23147,13 +23263,38 @@ window.obGoogle = async function () {
       for (const a of P.accounts) {
         if (a.kind !== 'credit_card') continue;
         const b = byAcct[a.id] || { spend: 0, paid: 0, rows: [] };
-        cards.push({ acct: a, outstanding: b.spend - b.paid, rows: b.rows });
+        /* Account setup (0134): a card's outstanding is TRUSTED only once the
+           person has anchored it ("dư nợ hiện tại", stored as a negative asset
+           balance so fhPersonalBalance serves every kind). Until then the
+           window-derived Σ purchases − Σ payments is kept for the detail
+           screen's reconcile copy, but the card is unverified: no number on
+           the tile, and it stays OUT of the Tôi nợ / Được nợ totals — a
+           lookback window of email cannot know the balance carried in from
+           before it, and a pre-window statement payment once flipped a card
+           to "Đang dư" and inflated Được nợ on day one. */
+        const bal = a.anchorK != null ? window.fhPersonalBalance(a.id) : null;
+        const verified = bal != null;
+        cards.push({ acct: a, outstanding: verified ? -bal : (b.spend - b.paid), verified: verified, rows: b.rows });
       }
       const persons = Object.values(people).map((p) => ({ who: p.who, balance: p.loan - p.repaid, rows: p.rows }));
       let owe = 0, owed = 0;
-      for (const c of cards) { if (c.outstanding > 0) owe += c.outstanding; else owed += -c.outstanding; }
+      for (const c of cards) { if (!c.verified) continue; if (c.outstanding > 0) owe += c.outstanding; else owed += -c.outstanding; }
       for (const p of persons) { if (p.balance > 0) owed += p.balance; else owe += -p.balance; }
-      return { cards: cards, people: persons, byAcct: byAcct, owe: owe, owed: owed };
+      /* accounts still awaiting setup — cards and balance accounts alike,
+         skipped ones included: they are still "chưa thiết lập" */
+      const unverified = P.accounts.filter((a) => a.kind !== 'investment' && a.anchorK == null).length;
+      return { cards: cards, people: persons, byAcct: byAcct, owe: owe, owed: owed, unverified: unverified };
+    };
+    /* The accounts the setup wizard should walk (0134): every non-investment
+       account with no anchor and no "Để sau", optionally narrowed to a set of
+       ids (the accounts an import just touched). Ordered cards → bank →
+       e-wallet → cash (spec Q20): a wrong card number damages trust most, cash
+       is the one people most want to skip. */
+    window.fhPersonalAccountSetupNeeded = function (onlyIds) {
+      const rank = { credit_card: 0, deposit: 1, ewallet: 2, cash: 3 };
+      return (P.accounts || [])
+        .filter((a) => a.kind !== 'investment' && a.anchorK == null && !a.setupSkippedAt && (!onlyIds || onlyIds.indexOf(a.id) >= 0))
+        .sort((a, b) => (rank[a.kind] == null ? 9 : rank[a.kind]) - (rank[b.kind] == null ? 9 : rank[b.kind]));
     };
 
     /* ═══ Account balances (0109, spec §5) ══════════════════════════════════════
@@ -23171,10 +23312,14 @@ window.obGoogle = async function () {
        adds; −X paid drains). Untagged (manual) debt rows still skip.
        Since 0123 an investment leg moves it like a signed transfer leg:
        buy −X drains the funding account, sell +X fills the receiving one.
-       Cards keep their outstanding derivation in fhPersonalDebts, untouched. */
+       Since 0134 CARDS use this too: the anchor is the declared "dư nợ hiện
+       tại" stored NEGATIVE (a liability is a negative asset), so a purchase
+       (−amt) deepens the debt, a payment or reconcile adjustment (+amt) draws
+       it down, and fhPersonalDebts reads outstanding = −balance. Un-anchored
+       cards return null here and fall back to the window-derived sum there. */
     window.fhPersonalBalance = function (acctId) {
       const a = P.accounts.find((x) => x.id === acctId);
-      if (!a || a.kind === 'credit_card' || a.anchorK == null) return null;
+      if (!a || a.anchorK == null) return null;
       const anchorDay = a.anchorAt ? _localDate(new Date(a.anchorAt)) : null;
       let bal = a.anchorK;
       for (const d of P.debts) {
@@ -23194,6 +23339,10 @@ window.obGoogle = async function () {
     window.fhPersonalDrift = function (acctId) {
       const a = P.accounts.find((x) => x.id === acctId);
       if (!a || a.extK == null) return null;
+      /* A bank-stated balance OLDER than the anchor is stale by definition —
+         the anchor superseded it. Without this, the first setup after a
+         backfill argued against a "Số dư" from weeks ago (spec cause 6). */
+      if (a.anchorAt && a.extDate && a.extDate < _localDate(new Date(a.anchorAt))) return null;
       const bal = window.fhPersonalBalance(acctId);
       if (bal == null) return null;
       const d = a.extK - bal;
@@ -23204,6 +23353,9 @@ window.obGoogle = async function () {
       if (!P.uid || !P.key || !acctId || !(isFinite(amtK))) return false;
       const r = await _sb().from('personal_accounts').update({
         anchor_balance_enc: await _encP(Number(amtK)), anchor_at: new Date().toISOString(),
+        /* the anchor is newer truth than any captured "Số dư" — drop the old
+           bank number so drift can only argue from mail dated after this */
+        ext_balance_enc: null, ext_balance_date: null,
       }).eq('id', acctId).eq('owner_user_id', P.uid);
       if (r.error) { console.warn('anchor set failed', r.error); return false; }
       await window.fhPersonalHydrate(); return true;
@@ -23215,6 +23367,7 @@ window.obGoogle = async function () {
       const a = P.accounts.find((x) => x.id === acctId);
       const day = dateIso || _localDate(new Date());
       if (a && a.extDate && a.extDate > day) return true;   // an older statement never overwrites a newer one
+      if (a && a.anchorAt && day < _localDate(new Date(a.anchorAt))) return true;   // pre-anchor mail is already inside the anchor (0134)
       const r = await _sb().from('personal_accounts').update({
         ext_balance_enc: await _encP(Number(amtK)), ext_balance_date: day,
       }).eq('id', acctId).eq('owner_user_id', P.uid);
@@ -23375,11 +23528,36 @@ window.obGoogle = async function () {
       finally { _regenning = false; }
     };
 
-    async function _insertMaster(linkId, fid, dateIso, amt, note, catName, catEmoji, timeStr) {
+    async function _insertMaster(linkId, fid, dateIso, amt, note, catName, catEmoji, timeStr, accountId) {
       return _sb().from('personal_transactions').insert({ owner_user_id: P.uid, space_id: fid, link_id: linkId, txn_date: dateIso, kind: 'expense', version: 1,
         amount_enc: await _encP(amt), note_enc: note ? await _encP(note) : null, cat_name_enc: catName ? await _encP(catName) : null, cat_emoji: catEmoji || null,
-        occurred_time_enc: timeStr ? await _encP(timeStr) : null });   // carry the family expense's time into the personal copy
+        occurred_time_enc: timeStr ? await _encP(timeStr) : null,   // carry the family expense's time into the personal copy
+        account_id: accountId || null });   // 0134: the author's instrument, known only on their device
     }
+    /* Account tag on a mirror master (0134, account-setup-spec §6). A family
+       expense paid with the author's card must reach that card's outstanding,
+       and only the author's device knows the card. The writer that creates the
+       family row calls this right after the insert (link_id pre-set on the
+       family row, exactly like publishing a private row); the mirror engine
+       then finds the master already there and leaves it alone. If this insert
+       fails (offline, a race), the engine repairs a tag-less master later and
+       the person can tag it by hand from the detail screen. */
+    window.fhPersonalInsertMaster = async function (linkId, fid, dateIso, amt, note, catName, catEmoji, timeStr, accountId) {
+      if (!P.uid || !P.key || !linkId || !fid || !dateIso || !(isFinite(amt))) return false;
+      const r = await _insertMaster(linkId, fid, dateIso, Number(amt), note, catName, catEmoji, timeStr, accountId);
+      if (r.error) { console.warn('master insert failed', r.error); return false; }
+      return true;
+    };
+    /* Edit the account tag on a MIRROR master (the one field the personal
+       side owns on a machine-owned row: the family ledger has no accounts, so
+       nothing here can disagree with it). Private rows use fhPersonalUpdateExpense. */
+    window.fhPersonalMasterSetAccount = async function (id, accountId) {
+      if (!P.uid || !P.key || !id) return false;
+      const r = await _sb().from('personal_transactions').update({ account_id: accountId || null })
+        .eq('id', id).eq('owner_user_id', P.uid).not('link_id', 'is', null);
+      if (r.error) { console.warn('master account set failed', r.error); return false; }
+      await window.fhPersonalHydrate(); return true;
+    };
     // Resolve a family row's occurred_time (plaintext for off/dual, ciphertext for enc).
     async function _famTime(r) { return r.occurred_time != null ? r.occurred_time : (r.occurred_time_enc ? await fhDecStr(r.occurred_time_enc) : null); }
   })();
@@ -24075,12 +24253,21 @@ window.obGoogle = async function () {
           + '</div></section></div>';
         return h;
       }
-      /* hero — dual concentric rings; frac against max side so the fuller ring closes */
+      /* hero — dual concentric rings; frac against max side so the fuller ring closes.
+         Account setup (0134, spec Q13/Q33): the rings sum VERIFIED cards only,
+         and hide entirely while nothing contributes — two empty rings over a
+         row of "Chạm để thiết lập" tiles read as broken; the tiles alone read
+         as the to-do list they are. Once something contributes, one quiet
+         footnote says what is still missing. */
       const mx = Math.max(t.owe, t.owed, 1);
       const C1 = 326.7, C2 = 219.9;                       // r=52 / r=35
       const o1 = (C1 * (1 - t.owe / mx)).toFixed(1), o2 = (C2 * (1 - t.owed / mx)).toFixed(1);
-      h += '<div class="debt-bento">'
-        + '<section class="dbt-tile wide dbt-hero">'
+      const contributes = t.d.cards.some(function (c) { return c.verified; })
+        || t.d.people.some(function (p) { return Math.abs(p.balance) > 0.5; })
+        || t.spaces.some(function (s) { return s.net != null; });
+      const unv = t.d.unverified || 0;
+      h += '<div class="debt-bento">';
+      if (contributes) h += '<section class="dbt-tile wide dbt-hero">'
         + '<svg width="100" height="100" viewBox="0 0 120 120" aria-hidden="true">'
         + '<circle cx="60" cy="60" r="52" fill="none" stroke="var(--danger-tint)" stroke-width="12"/>'
         + '<circle cx="60" cy="60" r="52" fill="none" stroke="var(--danger)" stroke-width="12" stroke-linecap="round" stroke-dasharray="' + C1 + '" stroke-dashoffset="' + o1 + '" transform="rotate(-90 60 60)"/>'
@@ -24091,12 +24278,24 @@ window.obGoogle = async function () {
         + '<div class="dbt-lr"><span class="dbt-dot" style="background:var(--danger)"></span><span class="dbt-lk">Tôi nợ</span><span class="dbt-lv num">' + fmt(t.owe) + '</span></div>'
         + '<div class="dbt-ldiv"></div>'
         + '<div class="dbt-lr"><span class="dbt-dot" style="background:var(--good)"></span><span class="dbt-lk">Được nợ</span><span class="dbt-lv num">' + fmt(t.owed) + '</span></div>'
+        + (unv ? '<div class="dbt-hero-foot">Chưa gồm ' + unv + ' tài khoản chưa thiết lập</div>' : '')
         + '</div></section>';
       /* Tiles collected first, so a lone one (or an odd trailing one) can span
          the full width instead of leaving half the row empty — the sparse /
          single-card case (spec Q5). */
       const tiles = [];
+      /* An account with no anchor shows no number, only the way in (0134,
+         spec Q2): a dash and "Chạm để thiết lập". Cards and balance accounts
+         alike — a window-derived card outstanding is exactly the number that
+         broke trust on day one. */
+      const setupTile = function (a) {
+        return '<button class="dbt-tile dbt-setup" onclick="fhAcctSetupWizard([\'' + a.id + '\'])">'
+          + '<div class="dbt-tk">' + _e(a.name || 'Tài khoản') + '</div>'
+          + '<div class="dbt-tv num dim">—</div>'
+          + '<div class="dbt-ts">Chạm để thiết lập</div></button>';
+      };
       t.d.cards.forEach(function (c) {
+        if (!c.verified) { tiles.push(setupTile(c.acct)); return; }
         const neg = c.outstanding > 0, due = _dueLabel(c.acct);
         let ht = '<button class="dbt-tile dbt-card-tile" onclick="openDebtAccount(\'' + c.acct.id + '\')">'
           + '<div class="dbt-tk">' + _e(c.acct.name || 'Thẻ') + '</div>'
@@ -24117,17 +24316,13 @@ window.obGoogle = async function () {
          with no anchor would be confidently wrong). Drift wears a quiet chip. */
       balAccts.forEach(function (a) {
         const bal = window.fhPersonalBalance ? fhPersonalBalance(a.id) : null;
+        if (bal == null) { tiles.push(setupTile(a)); return; }
         const dr = window.fhPersonalDrift ? fhPersonalDrift(a.id) : null;
         const kindLbl = a.kind === 'ewallet' ? 'ví điện tử' : (a.kind === 'cash' ? 'tiền mặt' : 'tài khoản');
         let ht = '<button class="dbt-tile" onclick="openBalAccount(\'' + a.id + '\')">'
-          + '<div class="dbt-tk">' + _e(a.name || 'Tài khoản') + '</div>';
-        if (bal != null) {
-          ht += '<div class="dbt-tv num' + (bal < 0 ? ' owe' : '') + '">' + (bal < 0 ? '−' : '') + fmtK(Math.abs(bal)) + '</div>'
-            + '<div class="dbt-ts">' + kindLbl + '</div>';
-        } else {
-          ht += '<div class="dbt-tv num dim">—</div>'
-            + '<div class="dbt-ts">chưa có mốc số dư · chạm để đặt</div>';
-        }
+          + '<div class="dbt-tk">' + _e(a.name || 'Tài khoản') + '</div>'
+          + '<div class="dbt-tv num' + (bal < 0 ? ' owe' : '') + '">' + (bal < 0 ? '−' : '') + fmtK(Math.abs(bal)) + '</div>'
+          + '<div class="dbt-ts">' + kindLbl + '</div>';
         if (dr) ht += '<div class="dbt-tchip"><span class="dbt-due">lệch ' + (dr.drift > 0 ? '+' : '−') + fmtK(Math.abs(dr.drift)) + '</span></div>';
         tiles.push(ht + '</button>');
       });
@@ -24258,9 +24453,20 @@ window.obGoogle = async function () {
       const acct = P.accounts.find((a) => a.id === acctId); if (!acct) return;
       const d = _last || fhPersonalDebts();
       const b = (d.byAcct && d.byAcct[acctId]) || { spend: 0, paid: 0, rows: [] };
-      const out = b.spend - b.paid;
+      /* Outstanding comes from the debts derivation (0134): anchored cards read
+         anchor ± rows since; an un-anchored card shows no number, only the way
+         into setup — the window-derived sum is not a fact worth a hero. */
+      const ce = (d.cards || []).find(function (x) { return x.acct.id === acctId; });
+      const verified = !!(ce && ce.verified);
+      const out = ce ? ce.outstanding : (b.spend - b.paid);
       const due = _dueLabel(acct);
-      let h = '<div class="dbt-hero2"><div class="dbt-hk">' + (out >= 0 ? 'Đang nợ' : 'Đang dư') + '</div>'
+      let h;
+      if (!verified) {
+        h = '<div class="dbt-hero2"><div class="dbt-hk">Đang nợ</div><div class="dbt-hv num dim">—</div>'
+          + '<div class="dbt-hs">Chưa có dư nợ để tính. Nhập dư nợ hiện tại (xem trong app ngân hàng) để bắt đầu theo dõi.</div>'
+          + '<button class="dbt-relink" onclick="fhAcctSetupWizard([\'' + acct.id + '\'])">Xác nhận dư nợ</button></div>';
+      } else {
+      h = '<div class="dbt-hero2"><div class="dbt-hk">' + (out >= 0 ? 'Đang nợ' : 'Đang dư') + '</div>'
         + '<div class="dbt-hv num ' + (out > 0 ? 'owe' : 'owed') + '">' + fmt(Math.abs(out)) + '</div>';
       const meta = [];
       if (acct.limitK > 0) meta.push('Hạn mức còn ' + fmt(Math.max(0, acct.limitK - out)) + ' / ' + fmt(acct.limitK));
@@ -24273,6 +24479,7 @@ window.obGoogle = async function () {
       // reconcile: the derived balance is only as complete as what got captured
       h += '<button class="dbt-relink" onclick="fhCardReconcileSheet(\'' + acct.id + '\')">Số chưa khớp? Cập nhật dư nợ thực tế</button>';
       h += '</div>';
+      }
       h += '<div class="dbt-acts">'
         + '<button class="dbt-btn primary" onclick="fhCardPaySheet(\'' + acct.id + '\')">Ghi thanh toán thẻ</button>'
         + '<button class="dbt-btn tinted" onclick="fhAcctEditSheet(\'' + acct.id + '\')">Cài đặt thẻ</button>'
@@ -24817,7 +25024,8 @@ window.obGoogle = async function () {
       const P = _P(); const acct = P && P.accounts.find((a) => a.id === acctId); if (!acct) return;
       const d = _last || fhPersonalDebts();
       const b = (d.byAcct && d.byAcct[acctId]) || { spend: 0, paid: 0 };
-      const cur = b.spend - b.paid;
+      const ce = (d.cards || []).find(function (x) { return x.acct.id === acctId; });
+      const cur = ce ? ce.outstanding : (b.spend - b.paid);   // anchored outstanding since 0134, else the window sum
       _fhModal({
         title: 'Cập nhật dư nợ thực tế', saveLabel: 'Cập nhật', reqMsg: 'Nhập dư nợ hiện tại nhé',
         body: '<div class="dbt-note">App đang tính dư nợ thẻ là <b>' + fmt(Math.max(0, cur)) + '</b> từ những khoản đã ghi. Nếu app đọc thiếu vài giao dịch, nhập dư nợ thật (xem trong app ngân hàng), app sẽ ghi một dòng điều chỉnh cho khớp.</div>'
@@ -24833,6 +25041,100 @@ window.obGoogle = async function () {
           return function () { openDebtAccount(acctId); if (window.renderPersonal) renderPersonal(); };
         },
       });
+    };
+
+    /* ═══ Account setup (0134, docs/specs/account-setup-spec.md) ═══════════════
+       A fresh mailbox-connected user's accounts come from a lookback window of
+       email, so every derived number is wrong on day one. The rule: an account
+       shows a number only after the person has typed one. This wizard walks the
+       accounts an import just touched (or the one tile the person tapped), one
+       screen each: confirm the kind, type the number the bank app shows, "Để
+       sau" per account. The anchor is the only required input; cards store it
+       NEGATIVE so one balance derivation serves every kind (spec §5). */
+    let _wiz = null;
+    const WZ_KINDS = [['credit_card', '💳 Thẻ tín dụng'], ['deposit', '🏦 Tài khoản ngân hàng'], ['ewallet', '📱 Ví điện tử'], ['cash', '💵 Tiền mặt']];
+    const _wzAmtLabel = (kind) => kind === 'credit_card' ? 'Dư nợ hiện tại' : (kind === 'cash' ? 'Đang có bao nhiêu tiền mặt' : 'Số dư hiện tại');
+    /* After an import (spec §4): only the touched accounts that still need it,
+       in wizard order. Nothing to ask → nothing opens. */
+    window.fhAcctSetupAfterImport = function (touchedIds) {
+      const list = window.fhPersonalAccountSetupNeeded ? fhPersonalAccountSetupNeeded(touchedIds) : [];
+      if (!list.length) return;
+      window.fhAcctSetupWizard(list.map((a) => a.id), { intro: true });
+    };
+    window.fhAcctSetupWizard = function (ids, opts) {
+      const P = _P(); if (!P || !P.key) { window.toast && toast('Mở khoá sổ cá nhân trước'); return; }
+      const queue = (ids || []).filter((id) => (P.accounts || []).some((a) => a.id === id));
+      if (!queue.length) return;
+      _wizStep(queue, 0, !!(opts && opts.intro), 0);
+    };
+    function _wizStep(queue, i, intro, saved) {
+      const P = _P(); const acct = P && P.accounts.find((a) => a.id === queue[i]);
+      if (!acct) { if (i + 1 < queue.length) return _wizStep(queue, i + 1, intro, saved); return _wizDone(saved); }
+      const n = queue.length, last = i === n - 1, isCash = acct.kind === 'cash';
+      _wiz = { queue: queue, i: i, intro: intro, saved: saved, acct: acct };
+      const dots = n > 1 ? '<div class="wz-dots" aria-hidden="true">' + queue.map((_, k) => '<i class="' + (k < i ? 'done' : (k === i ? 'on' : '')) + '"></i>').join('') + '</div>' : '';
+      const why = (intro && i === 0)
+        ? '<div class="wz-why">Email chỉ kể được vài tháng gần đây. Nhập số đang thấy trong app ngân hàng để tụi mình tính đúng từ đây.</div>' : '';
+      const kindChips = isCash ? '' : '<div class="field"><label>Loại</label><div class="choices" id="wz-akind">'
+        + WZ_KINDS.map(([v, lbl]) => '<button type="button" class="choice' + (acct.kind === v ? ' on' : '') + '" data-v="' + v + '" onclick="pick(\'wz-akind\',this);fhWizKindSync()">' + lbl + '</button>').join('')
+        + '</div></div>';
+      const _dayIn = (id, val) => '<input type="number" min="1" max="31" id="' + id + '" inputmode="numeric" placeholder="—" value="' + (val || '') + '" oninput="fhModalDirty()">';
+      const cardf = '<div id="wz-cardf"' + (acct.kind === 'credit_card' ? '' : ' hidden') + '>'
+        + '<button type="button" class="wz-more" id="wz-more-btn" onclick="fhWizMore()">Thêm chi tiết thẻ</button>'
+        + '<div id="wz-more" hidden>'
+        + '<div class="field"><label>Hạn mức thẻ <span class="opt">· để trống nếu không nhớ</span></label><input class="num" id="wz-lim" inputmode="numeric" value="' + (acct.limitK > 0 ? Math.round(acct.limitK * (window.curMult ? curMult() : 1000)).toLocaleString('vi-VN') : '') + '" oninput="fhModalDirty()"></div>'
+        + '<div class="field-row"><div class="field"><label>Ngày chốt sao kê</label>' + _dayIn('wz-stm', acct.statementDay) + '</div>'
+        + '<div class="field"><label>Ngày đến hạn</label>' + _dayIn('wz-due', acct.dueDay) + '</div></div>'
+        + '</div></div>';
+      _fhModal({
+        title: 'Xác nhận số dư' + (n > 1 ? ' · ' + (i + 1) + '/' + n : ''),
+        saveLabel: last ? 'Hoàn tất' : 'Xong', reqMsg: 'Nhập số đang thấy trong app ngân hàng nhé',
+        body: dots + why
+          + '<div class="field"><label>Tài khoản</label><input id="wz-name" value="' + _e(acct.name || '') + '" oninput="fhModalDirty()"></div>'
+          + kindChips
+          + '<div class="field"><label id="wz-amt-lbl">' + _wzAmtLabel(acct.kind) + '</label><input class="num big" id="wz-amt" inputmode="numeric" placeholder="0 ₫" oninput="fhModalDirty()"></div>'
+          + cardf
+          + '<div class="dbt-note" style="padding:0 0 14px">Mốc này đã gồm mọi giao dịch trước lúc đặt. Khoản ghi sau đó cộng trừ tiếp lên nó.</div>'
+          + '<button type="button" class="wz-later" onclick="fhWizLater()">Để sau</button>',
+        required: function () { return [{ el: document.getElementById('wz-amt'), ok: !!((document.getElementById('wz-amt') || {}).value || '').trim() }]; },
+        save: async function () {
+          const kind = isCash ? 'cash' : ((typeof chosen === 'function' && chosen('wz-akind')) || acct.kind);
+          const isCard = kind === 'credit_card';
+          const amt = _amtOf('wz-amt');
+          const name = ((document.getElementById('wz-name') || {}).value || '').trim() || acct.name;
+          const _day = (id) => { const v = parseInt((document.getElementById(id) || {}).value || '', 10); return (v >= 1 && v <= 31) ? v : null; };
+          const lim = isCard ? _amtOf('wz-lim') : 0;
+          const ok = await fhPersonalAccountUpdate(acct.id, { name: name, kind: kind, humanVerified: true,
+            limitK: lim > 0 ? lim : null, statementDay: isCard ? _day('wz-stm') : null, dueDay: isCard ? _day('wz-due') : null,
+            anchorK: isCard ? -amt : amt, setupSkipped: false });
+          if (!ok) throw new Error('save_failed');
+          return function () { if (!last) _wizStep(queue, i + 1, intro, saved + 1); else _wizDone(saved + 1); };
+        },
+        after: function () { const a = document.getElementById('wz-amt'); if (a && n === 1) { try { a.focus(); } catch (e) {} } },
+      });
+    }
+    function _wizDone(saved) {
+      _wiz = null;
+      if (saved > 0) window.toast && toast(saved > 1 ? 'Đã xác nhận ' + saved + ' tài khoản' : 'Đã xác nhận số dư');
+      if (window.renderPersonal) renderPersonal();
+    }
+    /* "Để sau": remembered on the account so the next import never re-asks;
+       the tile keeps its "Chạm để thiết lập" until the person comes back. */
+    window.fhWizLater = async function () {
+      const w = _wiz; if (!w) return;
+      try { await fhPersonalAccountUpdate(w.acct.id, { setupSkipped: true }); } catch (e) {}
+      if (window._closeOv) window._closeOv();
+      setTimeout(function () { if (w.i + 1 < w.queue.length) _wizStep(w.queue, w.i + 1, w.intro, w.saved); else _wizDone(w.saved); }, 0);
+    };
+    /* the amount's label and the card-only block follow the picked kind, live */
+    window.fhWizKindSync = function () {
+      const k = typeof chosen === 'function' ? chosen('wz-akind') : null;
+      const f = document.getElementById('wz-cardf'); if (f) f.hidden = k !== 'credit_card';
+      const l = document.getElementById('wz-amt-lbl'); if (l && k) l.textContent = _wzAmtLabel(k);
+    };
+    window.fhWizMore = function () {
+      const m = document.getElementById('wz-more'), b = document.getElementById('wz-more-btn');
+      if (m) m.hidden = false; if (b) b.hidden = true;
     };
 
     /* ═══ Full ledger (0109) — balances, anchors, drift, the transfer pair ═══ */
@@ -27264,6 +27566,7 @@ window.obGoogle = async function () {
         if (typeof window.renderHome === 'function') window.renderHome();
       } catch (e) { window.memberWeather = window.memberWeather || {}; }
       try { if (window.fhPushResync) window.fhPushResync(); } catch (e) {}   // web push: re-point this device's subscription row at the active family (per-family, self-heals on switch)
+      try { if (window.fhPushFirstVisitOffer) window.fhPushFirstVisitOffer(); } catch (e) {}   // once per member, first home visit (0134 epic): the notification offer
       try { if (window.rxAfterHydrate) window.rxAfterHydrate(); } catch (e) {}   // reactions: refresh the wall + play any just-arrived reaction moment
       try { if (window.reqAfterHydrate) window.reqAfterHydrate(); } catch (e) {}   // future-expense requests: refresh mounts/hub + play any just-arrived decision
       try { if (window.fhPersonalBoot) window.fhPersonalBoot(); } catch (e) {}     // personal ledger (0082): provision/unlock, hydrate, mirror my authored rows
@@ -27618,10 +27921,21 @@ window.obGoogle = async function () {
     let catId = window.DB.catByName[t.cat];
     if (!catId && navigator.onLine !== false) { try { catId = await _categoryIdForName(t.cat, t.ico, window.catOrder.indexOf(t.cat) + 1); } catch (e) {} }
     if (!catId) catId = window.DB.catByName[CAT_FALLBACK] || Object.values(window.DB.catByName)[0];
+    /* 0134 — the author's instrument on a FAMILY expense. The family ledger has
+       no accounts, so the tag lives on the author's mirror master: link_id is
+       pre-set on the family row (the write-once trigger allows the initial
+       set, exactly as publishing a private row does) and the master is written
+       right after the insert with account_id. 'cash' is the Tiền mặt account,
+       materialized on first use. No tag → no link_id → the mirror engine
+       adopts the row as before. */
+    let pAcct = t.pAcct || null;
+    if (pAcct === 'cash') { try { pAcct = window.fhPersonalCashAccount ? await window.fhPersonalCashAccount() : null; } catch (e) { pAcct = null; } }
+    const linkId = (pAcct && t.linkId) ? t.linkId : null;
     const row = Object.assign(
       { family_id: fid, category_id: catId, member_id: _memberIdForWho(t.who), txn_date: _txnIso(t, exD), status: t.future ? 'planned' : 'realized', created_by: (window.DB && window.DB.ownerMemberId) || null,
         source: t.source || null,     // 0100 provenance: 'direct-email' | 'forwarding-email' | 'csv-import'; null = hand-entered
-        instrument: t.inst || null }, // 0131 money source string; email-staged rows only
+        instrument: t.inst || null,   // 0131 money source string; email-staged rows + a tagged manual log (0134)
+        link_id: linkId },            // 0134: pre-reserved so the tagged master below is THE master
       await fhField('amount', t.amt), await fhField('note', t.note),
       await fhField('occurred_time', _okTxnTime(t.time)));   // local "HH:MM" or null (day-only)
     // Offline → queue durably instead of losing the write.
@@ -27630,6 +27944,11 @@ window.obGoogle = async function () {
       const res = await sb.from('transactions').insert(row).select('id').single();
       if (res.error) throw res.error;
       if (res.data) { t._dbId = res.data.id; if (t.photos && t.photos.length) _dbUploadTxnPhotos(t._dbId, t.photos); }
+      // the tagged mirror master, before the mirror engine's next pass can
+      // adopt the row tag-less; a failure here is repaired by that pass
+      if (res.data && linkId && window.fhPersonalInsertMaster) {
+        try { await window.fhPersonalInsertMaster(linkId, fid, row.txn_date, t.amt, t.note, t.cat, t.ico, _okTxnTime(t.time), pAcct); } catch (e) {}
+      }
       _syncSoon();
     } catch (e) {
       // A connection dropped mid-write is recoverable — queue it. So is an
@@ -28634,6 +28953,29 @@ window.fhFindHeaderRow = fhFindHeaderRow;
 window.classifyDate = classifyDate;
 window.classifyAmount = classifyAmount;
 
+  /* The family sheet's instrument chip (0134): {id, inst} when the scope is
+     family, the personal ledger is ready, and a chip is on; else null. 'cash'
+     is resolved to the Tiền mặt account by the writer (async). The instrument
+     string mirrors csvStagedAcctChip's grammar — "VIB · tín dụng ••4512" — or
+     falls back to the account's own name for a manual (name-identity) account. */
+  function _famAcctPick() {
+    try {
+      if (typeof window.chosen !== 'function' || window.chosen('ex-scope') === 'personal') return null;
+      const pd = window.fhPersonalData && window.fhPersonalData();
+      if (!pd || pd.state !== 'ready') return null;
+      const v = window.chosen('ex-acct'); if (!v) return null;
+      if (v === 'cash') return { id: 'cash', inst: L('Tiền mặt', 'Cash') };
+      const a = (pd.accounts || []).find((x) => x.id === v); if (!a) return null;
+      return { id: a.id, inst: window.fhAccountInstString ? window.fhAccountInstString(a) : (a.name || null) };
+    } catch (e) { return null; }
+  }
+  window.fhAccountInstString = function (a) {
+    if (!a) return null;
+    const prov = a.provider ? ((typeof window.fhProviderName === 'function') ? window.fhProviderName(a.provider) : a.provider) : '';
+    if (!prov && !a.tail) return a.name || null;
+    const k = a.kind === 'credit_card' ? L('tín dụng', 'credit') : (a.kind === 'ewallet' ? L('ví', 'wallet') : (a.kind === 'cash' ? L('tiền mặt', 'cash') : 'TK'));
+    return [prov, k + (a.tail ? ' ••' + a.tail : '')].filter(Boolean).join(' · ');
+  };
   const _origAddExpense = window.addExpense;
   window.addExpense = function () {
     if (_fhWriteLocked()) return;                            // guard BEFORE the optimistic local row exists
@@ -28648,6 +28990,18 @@ window.classifyAmount = classifyAmount;
     if (nt) {
       nt.source = window.BULK_SAVING ? (window._fhImportSrc || null) : null;
       nt.inst   = window.BULK_SAVING ? (window._fhImportInst || null) : null;   // 0131 money source
+      /* 0134 — the author's instrument rides to the mirror master (account-
+         setup-spec §6). Bulk/import: the row's own pAcct/link handed over on
+         the globals like source/inst. Manual family log: the "Trả bằng gì?"
+         chip, read here because only the family path reaches this decorator
+         (the personal path never calls addExpense). The family row also gets
+         the same display-grade instrument string an email import writes, so
+         the household sees the source the same way on every row (spec Q31). */
+      if (window.BULK_SAVING) { nt.pAcct = window._fhImportAcct || null; nt.linkId = window._fhImportLink || null; }
+      else {
+        const pick = _famAcctPick();
+        if (pick) { nt.pAcct = pick.id; nt.linkId = crypto.randomUUID(); nt.inst = pick.inst; }
+      }
     }
     const newKeys = (window.order || []).filter((k) => beforeOrder.indexOf(k) < 0);
     const inserted = nt ? _dbInsertTxn(nt, exD) : Promise.resolve();
@@ -29246,10 +29600,40 @@ window.classifyAmount = classifyAmount;
       act = _btn(L('Tắt thông báo trên máy này', 'Turn off on this device'), 'fhPushDisable()', _S.line)
           + _btn(L('Xong', 'Done'), '_closeOv()', _S.cta);
     } else {
-      sub = L('Nhận thông báo khi cả nhà ghi một khoản, thêm ảnh, thả cảm xúc, gửi yêu cầu hoặc chia sẻ tâm trạng, kể cả khi app đang đóng.', 'Get a heads-up when the family logs an expense, adds a photo, reacts, sends a request or shares a mood, even with the app closed.');
+      sub = L('Nhận thông báo khi cả nhà ghi một khoản, thêm ảnh, thả cảm xúc, gửi yêu cầu hoặc chia sẻ tâm trạng, và khi có giao dịch từ email chờ bạn duyệt. Kể cả khi app đang đóng.', 'Get a heads-up when the family logs an expense, adds a photo, reacts, sends a request or shares a mood, and when a bank email is waiting for your review. Even with the app closed.');
       act = _btn(L('Bật thông báo 🔔', 'Turn on notifications 🔔'), 'fhPushEnable()', _S.cta);
     }
     _fhSheet(h + '<div class="fh-s-sub">' + sub + '</div>' + act);
+  };
+  /* One-time offer on the FIRST home visit (account-setup-spec §9). It used to
+     fire after the first email import; that moment now belongs to the account
+     setup wizard, and asking for notifications there had no context anyway —
+     a person who has just seen their home screen has one. Rules:
+       • once per member (two seats on one phone are two subscriptions);
+       • only the actionable 'off' state — 'ios-install' belongs to the install
+         nudge, 'denied' to Settings;
+       • never over another sheet (the install nudge fires at the same
+         moment): if the scrim is up, stay quiet and try again next launch —
+         the key is set only when the sheet actually opens;
+       • members who answered the old post-import offer keep that answer. */
+  window.fhPushFirstVisitOffer = function () {
+    try {
+      const mid = window.DB && window.DB.ownerMemberId; if (!mid) return;
+      const ob = document.getElementById('onboarding');
+      if (ob && !ob.classList.contains('done')) return;          // mid-onboarding: finishOnboarding calls again
+      if (window._fhPushOfferArmed) return; window._fhPushOfferArmed = true;
+      const key = 'fh-push-nudged:' + mid;
+      if (localStorage.getItem(key) === '1' || localStorage.getItem('fh-mbx-push-nudged:' + mid) === '1') return;
+      setTimeout(async function () {
+        try {
+          if ((await window.fhPushState()) !== 'off') return;
+          const scrim = document.getElementById('scrim');
+          if (scrim && scrim.classList.contains('on')) return;   // another sheet owns this moment
+          localStorage.setItem(key, '1');
+          window.fhPushSheet();
+        } catch (e) {}
+      }, 2600);
+    } catch (e) {}
   };
   /* Fire-and-forget nudge to the family's other devices after a social write.
      Never blocks or fails the write it follows; a rapid re-tap REPLACES the
@@ -32678,31 +33062,11 @@ window.classifyAmount = classifyAmount;
     } catch (e) { return ''; }
   }
 
-  /* One-time offer after a member has actually reviewed something (72-txn-review
-     calls this once the promote lands). Mirrors fhInstallNudge: an earned moment,
-     not a boot popup. That timing is the whole point for the members who
-     connected before notifications existed — they never see a setup screen again,
-     but they do reach the end of a review, and reaching it by hand is the proof
-     that nothing told them the queue had filled.
-
-     Keyed per member, not per device: two seats sharing a phone are two separate
-     push subscriptions, so each deserves the question once. Flag is set BEFORE
-     the sheet opens, so a throw mid-render cannot turn this into a loop. */
-  async function _mbxPushOfferOnce() {
-    try {
-      if (!window.fhPushState || !window.fhPushSheet) return;
-      const mid = window.DB && window.DB.ownerMemberId;
-      if (!mid) return;
-      const key = 'fh-mbx-push-nudged:' + mid;
-      if (localStorage.getItem(key) === '1') return;
-      // Only the actionable state. 'ios-install' is deliberately excluded here,
-      // unlike the row above: interrupting someone who just finished a task with
-      // a multi-step install errand is a worse trade than staying quiet.
-      if ((await window.fhPushState()) !== 'off') return;
-      localStorage.setItem(key, '1');
-      setTimeout(function () { try { window.fhPushSheet(); } catch (e) {} }, 1200);
-    } catch (e) {}
-  }
+  /* The post-review one-time push offer that lived here moved to the first
+     home visit (fhPushFirstVisitOffer, 55-push.js) with the account-setup
+     epic (0134): the moment after an import now belongs to the setup wizard.
+     Members who already answered the old offer keep their answer — the new
+     one honours the old `fh-mbx-push-nudged:<memberId>` key. */
 
   // ── Sheet 3 · the status ───────────────────────────────────────────────────
   /* `verified` is set by the Apps Script once it has clicked Gmail's confirmation.
@@ -33635,11 +33999,13 @@ window.classifyAmount = classifyAmount;
        created account reads "VIB ••1234", not "vib ••1234". Fire-and-forget —
        a slow insert must never hold the list — and idempotent: ensure() keys
        on (kind, provider, tail), so reopening the queue creates nothing twice. */
+    window._fhQueueNewAccts = [];   // 0134: accounts this queue session materialized (the wizard treats them as "touched")
     (async function () {
       try {
         var pdE = window.fhPersonalData && window.fhPersonalData();
         if (!pdE || pdE.state !== 'ready' || !window.fhPersonalAccountEnsure) return;   // locked ledger — pickers fall back as today
         var seenAi = {}, made = false;
+        var hadIds = {}; (pdE.accounts || []).forEach(function (a) { hadIds[a.id] = 1; });
         for (var ei = 0; ei < readable.length; ei++) {
           var aiE = null;
           try { aiE = window.fhStagedAcct ? window.fhStagedAcct({ rowIndex: ei }) : null; } catch (eA) {}
@@ -33650,7 +34016,7 @@ window.classifyAmount = classifyAmount;
           try {
             var idE = await window.fhPersonalAccountEnsure(Object.assign({}, aiE,
               { name: disp ? (disp + (aiE.tail ? ' ••' + aiE.tail : '')) : null }));
-            if (idE) made = true;
+            if (idE) { made = true; if (!hadIds[idE]) window._fhQueueNewAccts.push(idE); }
           } catch (eB) {}
         }
         if (made) { try { window.renderPersonal && window.renderPersonal(); } catch (eC) {} }
@@ -33962,6 +34328,13 @@ window.classifyAmount = classifyAmount;
        records the span so progress and retirement speak in candidates. */
     var pd = (window.fhPersonalData && window.fhPersonalData()) || { accounts: [] };
     var specs = [], ranges = [], extBals = {}, lessonOps = [], invMemOps = [];
+    /* 0134 — every account this import touches (a row landed on it, or the
+       queue session materialized it) is what the setup wizard walks afterwards
+       (account-setup-spec §4). Filled from the personal specs, the family
+       tags, and the queue's census; filtered to un-anchored, un-skipped
+       accounts by fhPersonalAccountSetupNeeded when it fires. */
+    var touchedAccts = {};
+    ((window._fhQueueNewAccts) || []).forEach(function (nid) { touchedAccts[nid] = 1; });
     for (var i = 0; i < mine.length; i++) {
       var c = mine[i];
       /* Lesson bookkeeping (0122, spec Q20c) — resolved AFTER the write lands:
@@ -34265,6 +34638,23 @@ window.classifyAmount = classifyAmount;
         if (!fOk) throw new Error('family income write failed at row ' + fi2);
       }
 
+      /* 0134 — a family-scoped row still names the author's instrument. The
+         family ledger has no accounts, so the tag rides to the author's mirror
+         master: resolve the account here (a P.accounts lookup after the queue's
+         eager materialization), reserve a link_id, and let the family writer
+         create the tagged master (account-setup-spec §6). Locked ledger → no
+         tag, exactly as before. Never lets a resolution error block the import. */
+      if (theirs.length && pd && pd.state === 'ready' && window.fhPersonalAccountEnsure) {
+        for (var ti = 0; ti < theirs.length; ti++) {
+          var tc = theirs[ti], tAi = null;
+          try { tAi = window.fhStagedAcct ? window.fhStagedAcct(tc) : null; } catch (eTa) {}
+          if (!tAi) continue;
+          try {
+            var tId = await window.fhPersonalAccountEnsure(tAi);
+            if (tId) { tc._pAcct = tId; tc._link = crypto.randomUUID(); touchedAccts[tId] = 1; }
+          } catch (eTb) {}
+        }
+      }
       // csvPromote() returns its promise chain, so this genuinely waits for the
       // ledger writes. It did not always: an earlier version assumed a promise
       // and resolved instantly, which meant the delete below could race the
@@ -34323,12 +34713,18 @@ window.classifyAmount = classifyAmount;
                                      'Saved, but the drafts could not be removed on the server.'));
     }
 
-    /* They have just reviewed real transactions by hand, which is exactly the
-       evidence that nothing told them the queue had filled. Offered here, once,
-       and only if this member has never been asked (71-mailbox-ui). Placed after
-       the cleanup rather than inside the success branch: the ledger write landed
-       either way, so the moment is earned either way. */
-    _mbxPushOfferOnce();
+    /* Account setup (0134, account-setup-spec §4): the accounts this import
+       touched that still have no anchor get the wizard now — the one moment
+       the person has just seen the transactions and has the bank app in mind.
+       Fired after the review closes below (a modal over a modal is a mess), and
+       only from the full queue, never the one-row quick sheet (Q32). The
+       once-only push offer that used to sit here moved to the first home
+       render (55-push.js), so the two never compete for this moment. */
+    specs.forEach(function (s) { if (s && s.accountId) touchedAccts[s.accountId] = 1; });
+    var touchedIds = Object.keys(touchedAccts);
+    if (touchedIds.length && window.fhAcctSetupAfterImport) {
+      setTimeout(function () { try { window.fhAcctSetupAfterImport(touchedIds); } catch (eW) {} }, 650);
+    }
     try { window.fhRefreshStagedCount && window.fhRefreshStagedCount(); } catch (e) {}   // queue shrank — update the badge
 
     /* The screen has to agree with the write. Retirement emptied the server
@@ -37365,6 +37761,17 @@ window.classifyAmount = classifyAmount;
       try { if (typeof loadRow === 'function') loadRow(0); } catch (e) {}
       window._fhImportSrc = src || null;
       window._fhImportInst = (QR && QR.inst) || null;   // 0131 — explicit null, never a stale value from a prior bulk
+      /* 0134 — the author's instrument rides to the mirror master even from
+         the one-row sheet (account-setup-spec §6): resolve the account, reserve
+         the link_id; the family writer creates the tagged master. Locked
+         ledger or no confident instrument → untagged, as before. */
+      window._fhImportAcct = null; window._fhImportLink = null;
+      try {
+        var pdF = window.fhPersonalData && window.fhPersonalData();
+        var aiF = (pdF && pdF.state === 'ready') ? _qrAcct(QR.re) : null;
+        var idF = (aiF && window.fhPersonalAccountEnsure) ? await window.fhPersonalAccountEnsure(aiF) : null;
+        if (idF) { window._fhImportAcct = idF; window._fhImportLink = crypto.randomUUID(); }
+      } catch (eF) { window._fhImportAcct = null; window._fhImportLink = null; }
       window._dgLocalAdd = true;                 // this device logged → allow the daily-guide push
       window.BULK_SAVING = true;                 // suppress addExpense's own close/toast/nav + per-row notify
       // addExpense bails SILENTLY on a bad amount (it just focuses the field),
@@ -37373,8 +37780,8 @@ window.classifyAmount = classifyAmount;
       // the transaction. It unshifts window.txns on success.
       var before = (window.txns || []).length;
       try { window.addExpense(); }
-      catch (e) { window.BULK_SAVING = false; window._fhImportSrc = null; window._fhImportInst = null; console.warn('quick family write failed', e); return false; }
-      window.BULK_SAVING = false; window._fhImportSrc = null; window._fhImportInst = null;
+      catch (e) { window.BULK_SAVING = false; window._fhImportSrc = null; window._fhImportInst = null; window._fhImportAcct = null; window._fhImportLink = null; console.warn('quick family write failed', e); return false; }
+      window.BULK_SAVING = false; window._fhImportSrc = null; window._fhImportInst = null; window._fhImportAcct = null; window._fhImportLink = null;
       if ((window.txns || []).length <= before) { console.warn('quick family write added nothing'); return false; }
       /* Hold the new txn OBJECT so the photo step can read the id the async
          insert stamps on it (_dbInsertTxn sets t._dbId on this same object).

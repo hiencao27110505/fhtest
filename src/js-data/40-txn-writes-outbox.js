@@ -296,10 +296,21 @@
     let catId = window.DB.catByName[t.cat];
     if (!catId && navigator.onLine !== false) { try { catId = await _categoryIdForName(t.cat, t.ico, window.catOrder.indexOf(t.cat) + 1); } catch (e) {} }
     if (!catId) catId = window.DB.catByName[CAT_FALLBACK] || Object.values(window.DB.catByName)[0];
+    /* 0134 — the author's instrument on a FAMILY expense. The family ledger has
+       no accounts, so the tag lives on the author's mirror master: link_id is
+       pre-set on the family row (the write-once trigger allows the initial
+       set, exactly as publishing a private row does) and the master is written
+       right after the insert with account_id. 'cash' is the Tiền mặt account,
+       materialized on first use. No tag → no link_id → the mirror engine
+       adopts the row as before. */
+    let pAcct = t.pAcct || null;
+    if (pAcct === 'cash') { try { pAcct = window.fhPersonalCashAccount ? await window.fhPersonalCashAccount() : null; } catch (e) { pAcct = null; } }
+    const linkId = (pAcct && t.linkId) ? t.linkId : null;
     const row = Object.assign(
       { family_id: fid, category_id: catId, member_id: _memberIdForWho(t.who), txn_date: _txnIso(t, exD), status: t.future ? 'planned' : 'realized', created_by: (window.DB && window.DB.ownerMemberId) || null,
         source: t.source || null,     // 0100 provenance: 'direct-email' | 'forwarding-email' | 'csv-import'; null = hand-entered
-        instrument: t.inst || null }, // 0131 money source string; email-staged rows only
+        instrument: t.inst || null,   // 0131 money source string; email-staged rows + a tagged manual log (0134)
+        link_id: linkId },            // 0134: pre-reserved so the tagged master below is THE master
       await fhField('amount', t.amt), await fhField('note', t.note),
       await fhField('occurred_time', _okTxnTime(t.time)));   // local "HH:MM" or null (day-only)
     // Offline → queue durably instead of losing the write.
@@ -308,6 +319,11 @@
       const res = await sb.from('transactions').insert(row).select('id').single();
       if (res.error) throw res.error;
       if (res.data) { t._dbId = res.data.id; if (t.photos && t.photos.length) _dbUploadTxnPhotos(t._dbId, t.photos); }
+      // the tagged mirror master, before the mirror engine's next pass can
+      // adopt the row tag-less; a failure here is repaired by that pass
+      if (res.data && linkId && window.fhPersonalInsertMaster) {
+        try { await window.fhPersonalInsertMaster(linkId, fid, row.txn_date, t.amt, t.note, t.cat, t.ico, _okTxnTime(t.time), pAcct); } catch (e) {}
+      }
       _syncSoon();
     } catch (e) {
       // A connection dropped mid-write is recoverable — queue it. So is an

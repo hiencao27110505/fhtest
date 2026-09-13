@@ -502,6 +502,17 @@
       try { if (typeof loadRow === 'function') loadRow(0); } catch (e) {}
       window._fhImportSrc = src || null;
       window._fhImportInst = (QR && QR.inst) || null;   // 0131 — explicit null, never a stale value from a prior bulk
+      /* 0134 — the author's instrument rides to the mirror master even from
+         the one-row sheet (account-setup-spec §6): resolve the account, reserve
+         the link_id; the family writer creates the tagged master. Locked
+         ledger or no confident instrument → untagged, as before. */
+      window._fhImportAcct = null; window._fhImportLink = null;
+      try {
+        var pdF = window.fhPersonalData && window.fhPersonalData();
+        var aiF = (pdF && pdF.state === 'ready') ? _qrAcct(QR.re) : null;
+        var idF = (aiF && window.fhPersonalAccountEnsure) ? await window.fhPersonalAccountEnsure(aiF) : null;
+        if (idF) { window._fhImportAcct = idF; window._fhImportLink = crypto.randomUUID(); }
+      } catch (eF) { window._fhImportAcct = null; window._fhImportLink = null; }
       window._dgLocalAdd = true;                 // this device logged → allow the daily-guide push
       window.BULK_SAVING = true;                 // suppress addExpense's own close/toast/nav + per-row notify
       // addExpense bails SILENTLY on a bad amount (it just focuses the field),
@@ -510,8 +521,8 @@
       // the transaction. It unshifts window.txns on success.
       var before = (window.txns || []).length;
       try { window.addExpense(); }
-      catch (e) { window.BULK_SAVING = false; window._fhImportSrc = null; window._fhImportInst = null; console.warn('quick family write failed', e); return false; }
-      window.BULK_SAVING = false; window._fhImportSrc = null; window._fhImportInst = null;
+      catch (e) { window.BULK_SAVING = false; window._fhImportSrc = null; window._fhImportInst = null; window._fhImportAcct = null; window._fhImportLink = null; console.warn('quick family write failed', e); return false; }
+      window.BULK_SAVING = false; window._fhImportSrc = null; window._fhImportInst = null; window._fhImportAcct = null; window._fhImportLink = null;
       if ((window.txns || []).length <= before) { console.warn('quick family write added nothing'); return false; }
       /* Hold the new txn OBJECT so the photo step can read the id the async
          insert stamps on it (_dbInsertTxn sets t._dbId on this same object).

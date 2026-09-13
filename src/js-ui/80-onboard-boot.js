@@ -266,6 +266,7 @@ function finishOnboarding(){
   window.__obFromApp=false;                                              // the in-app trigger's back intent is spent
   go('home');
   try{ if(window.fhInstallNudge) window.fhInstallNudge(); }catch(e){}   // earned-moment install nudge (once, dismissible, only if installable)
+  try{ if(window.fhPushFirstVisitOffer) fhPushFirstVisitOffer(); }catch(e){}   // first home visit → the notification offer (yields to the install nudge if it fired)
 }
 /* device locale, re-derived (mirrors the LANG bootstrap in 70-theme-i18n) */
 function obDeviceLang(){

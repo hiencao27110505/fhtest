@@ -395,7 +395,7 @@
         const [tr, bd, ac, dr, pp, mm] = await Promise.all([
           _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,occurred_time_enc,txn_date,kind,space_id,link_id,version,updated_at,created_at,account_id,transfer_group_id,position_account_id,quantity_enc,source').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }).order('id')),
           _sb().from('personal_budgets').select('total_enc,cats_enc').eq('owner_user_id', P.uid).eq('month', _monISO()).maybeSingle(),
-          _sb().from('personal_accounts').select('id,kind,name_enc,tail,provider,credit_limit_enc,human_verified,statement_day,due_day,anchor_balance_enc,anchor_at,ext_balance_enc,ext_balance_date,account_number_enc,asset_symbol_enc,asset_unit_enc,asset_class_enc,manual_price_enc,manual_price_at').eq('owner_user_id', P.uid).is('archived_at', null),
+          _sb().from('personal_accounts').select('id,kind,name_enc,tail,provider,credit_limit_enc,human_verified,statement_day,due_day,anchor_balance_enc,anchor_at,ext_balance_enc,ext_balance_date,account_number_enc,asset_symbol_enc,asset_unit_enc,asset_class_enc,manual_price_enc,manual_price_at,setup_skipped_at').eq('owner_user_id', P.uid).is('archived_at', null),
           _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,counterparty_enc,cat_name_enc,cat_emoji,txn_date,kind,account_id,transfer_group_id,position_account_id,quantity_enc,due_date,created_at').eq('owner_user_id', P.uid).or('kind.neq.expense,account_id.not.is.null').order('txn_date', { ascending: false }).order('id')),
           _sb().from('personal_transaction_photos').select('transaction_id,photo_url,sort_order').eq('owner_user_id', P.uid).order('sort_order').limit(800).then((r) => r, () => ({ data: null })),
           _sb().from('personal_review_memory').select('id,key_enc,position_account_id').eq('owner_user_id', P.uid).limit(500).then((r) => r, () => ({ data: null })),
@@ -466,6 +466,9 @@
             anchorAt: a.anchor_at || null,
             extK: (ext == null || ext === _DEC_FAILED) ? null : Number(ext),
             extDate: a.ext_balance_date || null,
+            /* account setup (0134): "Để sau" on the setup wizard — the account
+               stays unverified (no number) but is never re-asked at import */
+            setupSkippedAt: a.setup_skipped_at || null,
             /* position identity (0122): only kind='investment' rows carry these.
                An unreadable manual price is null — the value falls back to
                giá vốn, never to a wrong number (same stance as the anchor). */
@@ -1089,6 +1092,18 @@
       if (fields.hasOwnProperty('dueDay')) row.due_day = fields.dueDay || null;
       /* Full receiving account number (0122) — typed once for VietQR, sealed. */
       if (fields.hasOwnProperty('accountNumber')) row.account_number_enc = fields.accountNumber ? await _encP(String(fields.accountNumber)) : null;
+      /* Setup wizard "Để sau" (0134): remembered per account so the next import
+         never re-asks; setting an anchor later clears it implicitly (the
+         wizard filters on anchorK first). */
+      if (fields.hasOwnProperty('setupSkipped')) row.setup_skipped_at = fields.setupSkipped ? new Date().toISOString() : null;
+      /* The setup wizard sets name/kind/card config AND the anchor in one
+         write (one hydrate per account, not two). Same semantics as
+         fhPersonalAnchorSet: declared truth now, older bank numbers dropped.
+         Cards pass a NEGATIVE value (a liability is a negative asset). */
+      if (fields.hasOwnProperty('anchorK') && isFinite(fields.anchorK)) {
+        row.anchor_balance_enc = await _encP(Number(fields.anchorK)); row.anchor_at = new Date().toISOString();
+        row.ext_balance_enc = null; row.ext_balance_date = null;
+      }
       if (fields.archived) row.archived_at = new Date().toISOString();
       const r = await _sb().from('personal_accounts').update(row).eq('id', id).eq('owner_user_id', P.uid);
       if (r.error) { console.warn('account update failed', r.error); return false; }
@@ -1117,13 +1132,38 @@
       for (const a of P.accounts) {
         if (a.kind !== 'credit_card') continue;
         const b = byAcct[a.id] || { spend: 0, paid: 0, rows: [] };
-        cards.push({ acct: a, outstanding: b.spend - b.paid, rows: b.rows });
+        /* Account setup (0134): a card's outstanding is TRUSTED only once the
+           person has anchored it ("dư nợ hiện tại", stored as a negative asset
+           balance so fhPersonalBalance serves every kind). Until then the
+           window-derived Σ purchases − Σ payments is kept for the detail
+           screen's reconcile copy, but the card is unverified: no number on
+           the tile, and it stays OUT of the Tôi nợ / Được nợ totals — a
+           lookback window of email cannot know the balance carried in from
+           before it, and a pre-window statement payment once flipped a card
+           to "Đang dư" and inflated Được nợ on day one. */
+        const bal = a.anchorK != null ? window.fhPersonalBalance(a.id) : null;
+        const verified = bal != null;
+        cards.push({ acct: a, outstanding: verified ? -bal : (b.spend - b.paid), verified: verified, rows: b.rows });
       }
       const persons = Object.values(people).map((p) => ({ who: p.who, balance: p.loan - p.repaid, rows: p.rows }));
       let owe = 0, owed = 0;
-      for (const c of cards) { if (c.outstanding > 0) owe += c.outstanding; else owed += -c.outstanding; }
+      for (const c of cards) { if (!c.verified) continue; if (c.outstanding > 0) owe += c.outstanding; else owed += -c.outstanding; }
       for (const p of persons) { if (p.balance > 0) owed += p.balance; else owe += -p.balance; }
-      return { cards: cards, people: persons, byAcct: byAcct, owe: owe, owed: owed };
+      /* accounts still awaiting setup — cards and balance accounts alike,
+         skipped ones included: they are still "chưa thiết lập" */
+      const unverified = P.accounts.filter((a) => a.kind !== 'investment' && a.anchorK == null).length;
+      return { cards: cards, people: persons, byAcct: byAcct, owe: owe, owed: owed, unverified: unverified };
+    };
+    /* The accounts the setup wizard should walk (0134): every non-investment
+       account with no anchor and no "Để sau", optionally narrowed to a set of
+       ids (the accounts an import just touched). Ordered cards → bank →
+       e-wallet → cash (spec Q20): a wrong card number damages trust most, cash
+       is the one people most want to skip. */
+    window.fhPersonalAccountSetupNeeded = function (onlyIds) {
+      const rank = { credit_card: 0, deposit: 1, ewallet: 2, cash: 3 };
+      return (P.accounts || [])
+        .filter((a) => a.kind !== 'investment' && a.anchorK == null && !a.setupSkippedAt && (!onlyIds || onlyIds.indexOf(a.id) >= 0))
+        .sort((a, b) => (rank[a.kind] == null ? 9 : rank[a.kind]) - (rank[b.kind] == null ? 9 : rank[b.kind]));
     };
 
     /* ═══ Account balances (0109, spec §5) ══════════════════════════════════════
@@ -1141,10 +1181,14 @@
        adds; −X paid drains). Untagged (manual) debt rows still skip.
        Since 0123 an investment leg moves it like a signed transfer leg:
        buy −X drains the funding account, sell +X fills the receiving one.
-       Cards keep their outstanding derivation in fhPersonalDebts, untouched. */
+       Since 0134 CARDS use this too: the anchor is the declared "dư nợ hiện
+       tại" stored NEGATIVE (a liability is a negative asset), so a purchase
+       (−amt) deepens the debt, a payment or reconcile adjustment (+amt) draws
+       it down, and fhPersonalDebts reads outstanding = −balance. Un-anchored
+       cards return null here and fall back to the window-derived sum there. */
     window.fhPersonalBalance = function (acctId) {
       const a = P.accounts.find((x) => x.id === acctId);
-      if (!a || a.kind === 'credit_card' || a.anchorK == null) return null;
+      if (!a || a.anchorK == null) return null;
       const anchorDay = a.anchorAt ? _localDate(new Date(a.anchorAt)) : null;
       let bal = a.anchorK;
       for (const d of P.debts) {
@@ -1164,6 +1208,10 @@
     window.fhPersonalDrift = function (acctId) {
       const a = P.accounts.find((x) => x.id === acctId);
       if (!a || a.extK == null) return null;
+      /* A bank-stated balance OLDER than the anchor is stale by definition —
+         the anchor superseded it. Without this, the first setup after a
+         backfill argued against a "Số dư" from weeks ago (spec cause 6). */
+      if (a.anchorAt && a.extDate && a.extDate < _localDate(new Date(a.anchorAt))) return null;
       const bal = window.fhPersonalBalance(acctId);
       if (bal == null) return null;
       const d = a.extK - bal;
@@ -1174,6 +1222,9 @@
       if (!P.uid || !P.key || !acctId || !(isFinite(amtK))) return false;
       const r = await _sb().from('personal_accounts').update({
         anchor_balance_enc: await _encP(Number(amtK)), anchor_at: new Date().toISOString(),
+        /* the anchor is newer truth than any captured "Số dư" — drop the old
+           bank number so drift can only argue from mail dated after this */
+        ext_balance_enc: null, ext_balance_date: null,
       }).eq('id', acctId).eq('owner_user_id', P.uid);
       if (r.error) { console.warn('anchor set failed', r.error); return false; }
       await window.fhPersonalHydrate(); return true;
@@ -1185,6 +1236,7 @@
       const a = P.accounts.find((x) => x.id === acctId);
       const day = dateIso || _localDate(new Date());
       if (a && a.extDate && a.extDate > day) return true;   // an older statement never overwrites a newer one
+      if (a && a.anchorAt && day < _localDate(new Date(a.anchorAt))) return true;   // pre-anchor mail is already inside the anchor (0134)
       const r = await _sb().from('personal_accounts').update({
         ext_balance_enc: await _encP(Number(amtK)), ext_balance_date: day,
       }).eq('id', acctId).eq('owner_user_id', P.uid);
@@ -1345,11 +1397,36 @@
       finally { _regenning = false; }
     };
 
-    async function _insertMaster(linkId, fid, dateIso, amt, note, catName, catEmoji, timeStr) {
+    async function _insertMaster(linkId, fid, dateIso, amt, note, catName, catEmoji, timeStr, accountId) {
       return _sb().from('personal_transactions').insert({ owner_user_id: P.uid, space_id: fid, link_id: linkId, txn_date: dateIso, kind: 'expense', version: 1,
         amount_enc: await _encP(amt), note_enc: note ? await _encP(note) : null, cat_name_enc: catName ? await _encP(catName) : null, cat_emoji: catEmoji || null,
-        occurred_time_enc: timeStr ? await _encP(timeStr) : null });   // carry the family expense's time into the personal copy
+        occurred_time_enc: timeStr ? await _encP(timeStr) : null,   // carry the family expense's time into the personal copy
+        account_id: accountId || null });   // 0134: the author's instrument, known only on their device
     }
+    /* Account tag on a mirror master (0134, account-setup-spec §6). A family
+       expense paid with the author's card must reach that card's outstanding,
+       and only the author's device knows the card. The writer that creates the
+       family row calls this right after the insert (link_id pre-set on the
+       family row, exactly like publishing a private row); the mirror engine
+       then finds the master already there and leaves it alone. If this insert
+       fails (offline, a race), the engine repairs a tag-less master later and
+       the person can tag it by hand from the detail screen. */
+    window.fhPersonalInsertMaster = async function (linkId, fid, dateIso, amt, note, catName, catEmoji, timeStr, accountId) {
+      if (!P.uid || !P.key || !linkId || !fid || !dateIso || !(isFinite(amt))) return false;
+      const r = await _insertMaster(linkId, fid, dateIso, Number(amt), note, catName, catEmoji, timeStr, accountId);
+      if (r.error) { console.warn('master insert failed', r.error); return false; }
+      return true;
+    };
+    /* Edit the account tag on a MIRROR master (the one field the personal
+       side owns on a machine-owned row: the family ledger has no accounts, so
+       nothing here can disagree with it). Private rows use fhPersonalUpdateExpense. */
+    window.fhPersonalMasterSetAccount = async function (id, accountId) {
+      if (!P.uid || !P.key || !id) return false;
+      const r = await _sb().from('personal_transactions').update({ account_id: accountId || null })
+        .eq('id', id).eq('owner_user_id', P.uid).not('link_id', 'is', null);
+      if (r.error) { console.warn('master account set failed', r.error); return false; }
+      await window.fhPersonalHydrate(); return true;
+    };
     // Resolve a family row's occurred_time (plaintext for off/dual, ciphertext for enc).
     async function _famTime(r) { return r.occurred_time != null ? r.occurred_time : (r.occurred_time_enc ? await fhDecStr(r.occurred_time_enc) : null); }
   })();

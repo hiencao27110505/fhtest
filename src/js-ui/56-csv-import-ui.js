@@ -3297,6 +3297,10 @@ function csvPromote(subset, opts){
                // 0131 money source, display-grade: "VIB · tín dụng ••4512" as one
                // string. Only email-staged rows know it; a CSV row carries none.
                inst: csvStagedMode ? ([csvStagedProvider(c), csvStagedAcctChip(c)].filter(Boolean).join(' · ') || null) : null,
+               // 0134: the author's own account for this row (resolved by the
+               // promote path from the classifier) + the link_id pre-reserved
+               // for the tagged mirror master. Null on file rows.
+               pAcct: c._pAcct || null, link: c._link || null,
                time: csvRowTime(c), _timeAuto: false };   // reviewed time (edited value wins, else derived); '' = day-only
     });
     bulkActive = 0;

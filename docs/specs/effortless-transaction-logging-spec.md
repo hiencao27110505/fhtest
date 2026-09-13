@@ -1889,6 +1889,28 @@ as — or the same day as — the deploy. A deploy announced only in
 
 ## 28. Releases (newest first)
 
+### 2026-09-13 — client only (review promote, quick sheet) — accounts ask for a starting number; family rows carry the author's instrument
+
+- **For product:** after the first import from the queue, the app now asks for
+  the balance the bank app shows, one screen per card or account the import
+  touched ("Xác nhận số dư", "Để sau" on each). Until then a captured account
+  shows no number, only "Chạm để thiết lập". A family-scoped row still names
+  the card it was paid with, so that card's outstanding is right even for a
+  household that files everything to Gia đình.
+- **Under the hood:** `_fhPromoteStagedRun` collects the accounts a batch
+  touched (personal specs' `accountId`, family rows' resolved instrument, and
+  `_fhQueueNewAccts` from the eager materialization) and calls
+  `fhAcctSetupAfterImport` after the review closes; the post-import push offer
+  (`_mbxPushOfferOnce`) is removed from this path (moved to the first home
+  visit). Family-scoped candidates get `_pAcct` + a reserved `_link`, carried
+  by `csvPromote` → `submitBulk` → the write-through → `_dbInsertTxn`, which
+  pre-sets `link_id` on the family row and inserts the tagged mirror master.
+  The quick sheet's family write does the same for one row. No pipeline change.
+- **Spec sections updated:** new [account-setup-spec.md](account-setup-spec.md);
+  §19.4 step 4 (family rows now carry the author's account tag to the master);
+  §24 "nothing records which bank accounts are yours" is closed by
+  `personal_accounts` + the setup anchor.
+
 ### 2026-09-07 — extraction + review + template learner — a card repayment names the card it pays off
 
 - **For product:** a "Trả nợ thẻ" row now pre-selects **which** credit card is

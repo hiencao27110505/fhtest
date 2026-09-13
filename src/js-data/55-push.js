@@ -131,10 +131,40 @@
       act = _btn(L('Tắt thông báo trên máy này', 'Turn off on this device'), 'fhPushDisable()', _S.line)
           + _btn(L('Xong', 'Done'), '_closeOv()', _S.cta);
     } else {
-      sub = L('Nhận thông báo khi cả nhà ghi một khoản, thêm ảnh, thả cảm xúc, gửi yêu cầu hoặc chia sẻ tâm trạng, kể cả khi app đang đóng.', 'Get a heads-up when the family logs an expense, adds a photo, reacts, sends a request or shares a mood, even with the app closed.');
+      sub = L('Nhận thông báo khi cả nhà ghi một khoản, thêm ảnh, thả cảm xúc, gửi yêu cầu hoặc chia sẻ tâm trạng, và khi có giao dịch từ email chờ bạn duyệt. Kể cả khi app đang đóng.', 'Get a heads-up when the family logs an expense, adds a photo, reacts, sends a request or shares a mood, and when a bank email is waiting for your review. Even with the app closed.');
       act = _btn(L('Bật thông báo 🔔', 'Turn on notifications 🔔'), 'fhPushEnable()', _S.cta);
     }
     _fhSheet(h + '<div class="fh-s-sub">' + sub + '</div>' + act);
+  };
+  /* One-time offer on the FIRST home visit (account-setup-spec §9). It used to
+     fire after the first email import; that moment now belongs to the account
+     setup wizard, and asking for notifications there had no context anyway —
+     a person who has just seen their home screen has one. Rules:
+       • once per member (two seats on one phone are two subscriptions);
+       • only the actionable 'off' state — 'ios-install' belongs to the install
+         nudge, 'denied' to Settings;
+       • never over another sheet (the install nudge fires at the same
+         moment): if the scrim is up, stay quiet and try again next launch —
+         the key is set only when the sheet actually opens;
+       • members who answered the old post-import offer keep that answer. */
+  window.fhPushFirstVisitOffer = function () {
+    try {
+      const mid = window.DB && window.DB.ownerMemberId; if (!mid) return;
+      const ob = document.getElementById('onboarding');
+      if (ob && !ob.classList.contains('done')) return;          // mid-onboarding: finishOnboarding calls again
+      if (window._fhPushOfferArmed) return; window._fhPushOfferArmed = true;
+      const key = 'fh-push-nudged:' + mid;
+      if (localStorage.getItem(key) === '1' || localStorage.getItem('fh-mbx-push-nudged:' + mid) === '1') return;
+      setTimeout(async function () {
+        try {
+          if ((await window.fhPushState()) !== 'off') return;
+          const scrim = document.getElementById('scrim');
+          if (scrim && scrim.classList.contains('on')) return;   // another sheet owns this moment
+          localStorage.setItem(key, '1');
+          window.fhPushSheet();
+        } catch (e) {}
+      }, 2600);
+    } catch (e) {}
   };
   /* Fire-and-forget nudge to the family's other devices after a social write.
      Never blocks or fails the write it follows; a rapid re-tap REPLACES the

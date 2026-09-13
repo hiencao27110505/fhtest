@@ -873,11 +873,13 @@
        created account reads "VIB ••1234", not "vib ••1234". Fire-and-forget —
        a slow insert must never hold the list — and idempotent: ensure() keys
        on (kind, provider, tail), so reopening the queue creates nothing twice. */
+    window._fhQueueNewAccts = [];   // 0134: accounts this queue session materialized (the wizard treats them as "touched")
     (async function () {
       try {
         var pdE = window.fhPersonalData && window.fhPersonalData();
         if (!pdE || pdE.state !== 'ready' || !window.fhPersonalAccountEnsure) return;   // locked ledger — pickers fall back as today
         var seenAi = {}, made = false;
+        var hadIds = {}; (pdE.accounts || []).forEach(function (a) { hadIds[a.id] = 1; });
         for (var ei = 0; ei < readable.length; ei++) {
           var aiE = null;
           try { aiE = window.fhStagedAcct ? window.fhStagedAcct({ rowIndex: ei }) : null; } catch (eA) {}
@@ -888,7 +890,7 @@
           try {
             var idE = await window.fhPersonalAccountEnsure(Object.assign({}, aiE,
               { name: disp ? (disp + (aiE.tail ? ' ••' + aiE.tail : '')) : null }));
-            if (idE) made = true;
+            if (idE) { made = true; if (!hadIds[idE]) window._fhQueueNewAccts.push(idE); }
           } catch (eB) {}
         }
         if (made) { try { window.renderPersonal && window.renderPersonal(); } catch (eC) {} }
@@ -1200,6 +1202,13 @@
        records the span so progress and retirement speak in candidates. */
     var pd = (window.fhPersonalData && window.fhPersonalData()) || { accounts: [] };
     var specs = [], ranges = [], extBals = {}, lessonOps = [], invMemOps = [];
+    /* 0134 — every account this import touches (a row landed on it, or the
+       queue session materialized it) is what the setup wizard walks afterwards
+       (account-setup-spec §4). Filled from the personal specs, the family
+       tags, and the queue's census; filtered to un-anchored, un-skipped
+       accounts by fhPersonalAccountSetupNeeded when it fires. */
+    var touchedAccts = {};
+    ((window._fhQueueNewAccts) || []).forEach(function (nid) { touchedAccts[nid] = 1; });
     for (var i = 0; i < mine.length; i++) {
       var c = mine[i];
       /* Lesson bookkeeping (0122, spec Q20c) — resolved AFTER the write lands:
@@ -1503,6 +1512,23 @@
         if (!fOk) throw new Error('family income write failed at row ' + fi2);
       }
 
+      /* 0134 — a family-scoped row still names the author's instrument. The
+         family ledger has no accounts, so the tag rides to the author's mirror
+         master: resolve the account here (a P.accounts lookup after the queue's
+         eager materialization), reserve a link_id, and let the family writer
+         create the tagged master (account-setup-spec §6). Locked ledger → no
+         tag, exactly as before. Never lets a resolution error block the import. */
+      if (theirs.length && pd && pd.state === 'ready' && window.fhPersonalAccountEnsure) {
+        for (var ti = 0; ti < theirs.length; ti++) {
+          var tc = theirs[ti], tAi = null;
+          try { tAi = window.fhStagedAcct ? window.fhStagedAcct(tc) : null; } catch (eTa) {}
+          if (!tAi) continue;
+          try {
+            var tId = await window.fhPersonalAccountEnsure(tAi);
+            if (tId) { tc._pAcct = tId; tc._link = crypto.randomUUID(); touchedAccts[tId] = 1; }
+          } catch (eTb) {}
+        }
+      }
       // csvPromote() returns its promise chain, so this genuinely waits for the
       // ledger writes. It did not always: an earlier version assumed a promise
       // and resolved instantly, which meant the delete below could race the
@@ -1561,12 +1587,18 @@
                                      'Saved, but the drafts could not be removed on the server.'));
     }
 
-    /* They have just reviewed real transactions by hand, which is exactly the
-       evidence that nothing told them the queue had filled. Offered here, once,
-       and only if this member has never been asked (71-mailbox-ui). Placed after
-       the cleanup rather than inside the success branch: the ledger write landed
-       either way, so the moment is earned either way. */
-    _mbxPushOfferOnce();
+    /* Account setup (0134, account-setup-spec §4): the accounts this import
+       touched that still have no anchor get the wizard now — the one moment
+       the person has just seen the transactions and has the bank app in mind.
+       Fired after the review closes below (a modal over a modal is a mess), and
+       only from the full queue, never the one-row quick sheet (Q32). The
+       once-only push offer that used to sit here moved to the first home
+       render (55-push.js), so the two never compete for this moment. */
+    specs.forEach(function (s) { if (s && s.accountId) touchedAccts[s.accountId] = 1; });
+    var touchedIds = Object.keys(touchedAccts);
+    if (touchedIds.length && window.fhAcctSetupAfterImport) {
+      setTimeout(function () { try { window.fhAcctSetupAfterImport(touchedIds); } catch (eW) {} }, 650);
+    }
     try { window.fhRefreshStagedCount && window.fhRefreshStagedCount(); } catch (e) {}   // queue shrank — update the badge
 
     /* The screen has to agree with the write. Retirement emptied the server

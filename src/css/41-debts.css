@@ -126,6 +126,21 @@
 /* the lone/odd card tile spans full width — a touch more inside padding earns it */
 .debt-bento .dbt-tile.wide.dbt-card-tile{padding:16px 18px}
 
+/* ── Account setup (0134): the un-anchored tile, the hero footnote, the wizard ──
+   An account with no anchor shows a dash and one brand-ink line — the way in,
+   nothing else. The wizard is a plain _fhModal form: progress dots, the account,
+   the one big number, card details folded behind a text disclosure. */
+.dbt-tile.dbt-setup .dbt-ts{color:var(--brand-ink);font-weight:700}
+.dbt-hero-foot{font-size:11.5px;font-weight:600;color:var(--muted);margin-top:8px;line-height:1.35}
+.wz-dots{display:flex;gap:6px;margin:2px 0 14px}
+.wz-dots i{display:block;width:6px;height:6px;border-radius:3px;background:var(--fill-neutral);transition:width .2s}
+.wz-dots i.on{width:18px;background:var(--brand)}
+.wz-dots i.done{background:var(--brand-tint)}
+.wz-why{font-size:13.5px;line-height:1.5;color:var(--ink-2);margin:0 0 16px}
+.wz-more{border:0;background:none;color:var(--brand-ink);font:inherit;font-size:13px;font-weight:600;padding:0;margin:-6px 0 16px;cursor:pointer}
+.wz-later{display:block;width:100%;min-height:46px;border:0;border-radius:13px;background:var(--fill-neutral);color:var(--ink-2);font:inherit;font-size:14.5px;font-weight:600;cursor:pointer}
+.wz-later:active{transform:scale(.98)}
+
 /* ── Full ledger (0109): balance tiles, drift, transfer pair ─────────────────
    A balance is the same visual grammar as an outstanding — dbt-tv / dbt-hv —
    just neutral ink (a balance is a fact, not a debt). "No anchor yet" is a

@@ -1,3 +1,26 @@
+  /* The family sheet's instrument chip (0134): {id, inst} when the scope is
+     family, the personal ledger is ready, and a chip is on; else null. 'cash'
+     is resolved to the Tiền mặt account by the writer (async). The instrument
+     string mirrors csvStagedAcctChip's grammar — "VIB · tín dụng ••4512" — or
+     falls back to the account's own name for a manual (name-identity) account. */
+  function _famAcctPick() {
+    try {
+      if (typeof window.chosen !== 'function' || window.chosen('ex-scope') === 'personal') return null;
+      const pd = window.fhPersonalData && window.fhPersonalData();
+      if (!pd || pd.state !== 'ready') return null;
+      const v = window.chosen('ex-acct'); if (!v) return null;
+      if (v === 'cash') return { id: 'cash', inst: L('Tiền mặt', 'Cash') };
+      const a = (pd.accounts || []).find((x) => x.id === v); if (!a) return null;
+      return { id: a.id, inst: window.fhAccountInstString ? window.fhAccountInstString(a) : (a.name || null) };
+    } catch (e) { return null; }
+  }
+  window.fhAccountInstString = function (a) {
+    if (!a) return null;
+    const prov = a.provider ? ((typeof window.fhProviderName === 'function') ? window.fhProviderName(a.provider) : a.provider) : '';
+    if (!prov && !a.tail) return a.name || null;
+    const k = a.kind === 'credit_card' ? L('tín dụng', 'credit') : (a.kind === 'ewallet' ? L('ví', 'wallet') : (a.kind === 'cash' ? L('tiền mặt', 'cash') : 'TK'));
+    return [prov, k + (a.tail ? ' ••' + a.tail : '')].filter(Boolean).join(' · ');
+  };
   const _origAddExpense = window.addExpense;
   window.addExpense = function () {
     if (_fhWriteLocked()) return;                            // guard BEFORE the optimistic local row exists
@@ -12,6 +35,18 @@
     if (nt) {
       nt.source = window.BULK_SAVING ? (window._fhImportSrc || null) : null;
       nt.inst   = window.BULK_SAVING ? (window._fhImportInst || null) : null;   // 0131 money source
+      /* 0134 — the author's instrument rides to the mirror master (account-
+         setup-spec §6). Bulk/import: the row's own pAcct/link handed over on
+         the globals like source/inst. Manual family log: the "Trả bằng gì?"
+         chip, read here because only the family path reaches this decorator
+         (the personal path never calls addExpense). The family row also gets
+         the same display-grade instrument string an email import writes, so
+         the household sees the source the same way on every row (spec Q31). */
+      if (window.BULK_SAVING) { nt.pAcct = window._fhImportAcct || null; nt.linkId = window._fhImportLink || null; }
+      else {
+        const pick = _famAcctPick();
+        if (pick) { nt.pAcct = pick.id; nt.linkId = crypto.randomUUID(); nt.inst = pick.inst; }
+      }
     }
     const newKeys = (window.order || []).filter((k) => beforeOrder.indexOf(k) < 0);
     const inserted = nt ? _dbInsertTxn(nt, exD) : Promise.resolve();

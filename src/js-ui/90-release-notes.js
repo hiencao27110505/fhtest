@@ -44,6 +44,13 @@ var ICO = {
 };
 
 var RELEASES = [
+  { id:'2026-09-13-so-du-ban-chot', date:'2026-09-13', time:'13:55', ver:'v514', icon:ICO.shield,
+    vi:{ t:'Số dư tài khoản, do bạn chốt',
+      problem:'Kết nối email xong, thẻ và tài khoản hiện lên với những con số sai ngay từ đầu. Email chỉ kể được vài tháng gần đây, còn dư nợ và số dư trước đó thì không.',
+      sol:'Sau lần nhập đầu tiên, app hỏi bạn số đang thấy trong app ngân hàng cho từng thẻ và tài khoản, mỗi cái một màn, chưa tiện thì để sau. Chưa nhập thì ô đó để trống chứ không hiện số bừa. Khoản chi gia đình trả bằng thẻ của bạn giờ cũng tính vào dư nợ thẻ.' },
+    en:{ t:'Account balances, confirmed by you',
+      problem:'Right after connecting email, cards and accounts showed numbers that were wrong from the start. Email only tells the last few months, not the balance carried in before that.',
+      sol:'After your first import the app asks for the number your bank app shows, one screen per card or account, with a Later button on each. Until you enter it, the tile stays blank instead of guessing. A family expense paid with your card now counts toward that card too.' } },
   { id:'2026-09-13-mot-mau-xanh', date:'2026-09-13', time:'14:30', ver:'v513', icon:ICO.sun,
     vi:{ t:'Một màu xanh, cả app theo',
       problem:'Nút bấm, số dương, ô "Hôm nay còn tiêu được" mỗi chỗ một sắc xanh, còn màu xám nền hơi ngả tím nên nhìn tổng thể cứ thấy lệch lệch.',

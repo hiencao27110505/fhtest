@@ -143,6 +143,23 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-09-13 (Hien's session) — FYI, no answer needed: migration `0134_account_setup_skipped`
+  APPLIED live (13:50 ICT) — next free is 0135.** One nullable column,
+  `personal_accounts.setup_skipped_at timestamptz`. Epic: account setup
+  (`docs/specs/account-setup-spec.md`) — an account shows a number only after the
+  person anchors it; cards now use the anchor model too (anchor stored NEGATIVE,
+  `fhPersonalBalance` no longer excludes `credit_card`, `fhPersonalDebts` cards carry
+  `verified`). Heads-up for anything you touch nearby: (1) `_dbInsertTxn`
+  (`40-txn-writes-outbox.js`) now writes `link_id` on a family row when the author
+  tagged an instrument, and inserts the mirror master itself
+  (`fhPersonalInsertMaster`) — the mirror engine finds it already there; (2) the
+  write-through globals gained `_fhImportAcct` / `_fhImportLink` beside
+  `_fhImportSrc` / `_fhImportInst`; (3) `_mbxPushOfferOnce` is gone from
+  `71-mailbox-ui.js` / the promote path — the push offer is `fhPushFirstVisitOffer`
+  (`55-push.js`), fired from hydrate + `finishOnboarding`; (4) SW bumped to v514.
+  Uncommitted in the main checkout until Hien says commit. Guard:
+  `tools/account-setup.test.js`.
+
 - **2026-09-07 (Hien's other session) — card-repayment "Chưa rõ" root-caused
   (TWO bugs); fixes uncommitted in the tree; ⚠️ I deployed `mailbox-sync` v43
   (bunx supabase, 15:46 ICT) = your v42 tree + these fixes.** Root cause #2,

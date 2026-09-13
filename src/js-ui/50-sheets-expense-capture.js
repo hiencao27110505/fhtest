@@ -285,11 +285,15 @@ function _applyExScope(v){ selectChipByVal('ex-scope', v); _applyExLayout(); }
    restores per scope, exactly as before. */
 function _applyExLayout(){
   var personal=(chosen('ex-scope')==='personal'), income=(exType==='income');
-  // Instrument chips: personal rows only (family rows have no account concept).
-  // Expense asks "Trả bằng gì?"; income asks which account the money landed in —
-  // the tag is what makes a deposit balance computable at all (full-ledger §4.3).
+  // Instrument chips. Personal rows: expense asks "Trả bằng gì?"; income asks
+  // which account the money landed in — the tag is what makes a deposit balance
+  // computable at all (full-ledger §4.3). Family EXPENSES too since 0134
+  // (account-setup-spec §6): the family ledger still has no accounts, but the
+  // author's card must reach that card's outstanding, so the chip tags the
+  // author's mirror master. Family income stays chip-less (no personal row).
   var af=document.getElementById('ex-acctfield');
-  if(af){ var show=(personal&&!editingTx&&!editingPTx); af.style.display=show?'':'none';
+  if(af){ var pdA=window.fhPersonalData&&fhPersonalData(); var pReady=!!(pdA&&pdA.state==='ready');
+    var show=(!editingTx&&!editingPTx&&(personal||(pReady&&!income))); af.style.display=show?'':'none';
     var al=document.getElementById('ex-acct-lbl'); if(al) al.textContent = income ? L('Vào tài khoản nào?','Into which account?') : L('Trả bằng gì?','Paid with?');
     if(show) buildExAcctChips(); }
   var who=document.getElementById('ex-whofield'); if(who) who.style.display=(personal||income)?'none':'';   // no member-split in a private ledger / for income
@@ -955,11 +959,15 @@ function submitBulk(opts){
     total+=parseAmtBase(rows[k].amt||'');
     window._fhImportSrc = (rows[k] && rows[k].source) || null;   // 0100 provenance for this row; the writethrough stamps it on the txn
     window._fhImportInst = (rows[k] && rows[k].inst) || null;    // 0131 money source ("VIB · tín dụng ••4512"), same handoff
+    window._fhImportAcct = (rows[k] && rows[k].pAcct) || null;   // 0134 the author's account id → the mirror master's tag
+    window._fhImportLink = (rows[k] && rows[k].link) || null;    // 0134 pre-reserved link_id for that master
     BULK_SAVING=true;
     try{ window.addExpense(); } finally{ BULK_SAVING=false; }
   }
   window._fhImportSrc=null;
   window._fhImportInst=null;
+  window._fhImportAcct=null;
+  window._fhImportLink=null;
   exPhotos=[];
   // One nudge for the whole batch — each row's own addExpense() stayed silent under
   // BULK_SAVING. A lone surviving row is a single expense, not a batch (the composer
