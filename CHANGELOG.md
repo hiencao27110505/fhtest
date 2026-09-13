@@ -18,6 +18,28 @@ Going forward, add an entry here when a feature area changes meaningfully — se
 
 ---
 
+## 2026-09-13
+
+### One sage: the palette is rebuilt around the daily-guide tile
+
+The app shipped 32 distinct greens in two hue families: the Sage brand ramp, `--good`, the ring
+arcs and both button gradients sat at ~158° (a grassy green), while the "Hôm nay còn tiêu được"
+tile — the green the product wants — sat at ~175°, hardcoded in JS (`DG_STATES`). Every button and
+selected chip was 17° off the tile beside it, and nothing stopped a 33rd green.
+
+- **Primitive ramp** `--sage-50…900` + `--sage-soft` / `--sage-wash` in `10-tokens.css`, generated
+  in OKLCH at hue 175° with step 500 = the tile's amount colour. Primitives are never used directly.
+- **Semantic tokens re-pointed** at ramp steps (`--brand`, `--brand-ink`, `--brand-2`, `--brand-tint`,
+  `--grad-brand`, `--grad-hero`, `--brand-glow`, `--good`, `--good-tint`, `--ring-ok-1/2`). No component
+  CSS changed; the whole app moved by changing values behind names. `--good` is sage in every theme.
+- **Tile states left JS.** `DG_STATES` → four `--guide-*` token quads + `.cf-daily.{ok,warn,hot,over}`
+  classes; the water SVG draws in `currentColor`. Same logic (`DG_CLASS` maps the guide key).
+- **Colour ratchet** `tools/color-lint.js`, run by `build.js`: a file may not gain raw colour beyond
+  `tools/color-baseline.json`; new files must be token-only. `--update` tightens the baseline.
+- Theme swatch, `<meta theme-color>` and `manifest.json` `theme_color` follow `--sage-500`.
+- Not done: the four non-Sage themes keep their legacy hexes (theme choice is being retired); no
+  styleguide page yet — DESIGN.md §2.1 is the reference.
+
 ## 2026-09-07
 
 ### Old templates learn the repaid card instead of blocking it

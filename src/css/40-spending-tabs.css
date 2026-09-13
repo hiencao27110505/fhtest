@@ -47,14 +47,20 @@
 .cf-note.over{background:var(--danger-tint);color:var(--danger)}
 .cf-note.flat{background:var(--surface);color:var(--muted)}
 /* daily guide — "Hôm nay còn tiêu được": tappable tile with an animated water level.
-   Background + text colours are set inline per state (green · yellow · orange · red). */
-.cf-daily{display:grid;grid-template-columns:1fr auto;align-items:center;gap:0 12px;width:100%;text-align:left;border:0;font:inherit;cursor:pointer;border-radius:14px;padding:14px;margin-top:15px;background:var(--good-tint);transition:transform .14s ease}
+   State (ok · warn · hot · over) is a class set by fhGuideRender; each class binds the four
+   --g-* slots to that state's --guide-* tokens (10-tokens), so the tile follows the palette and
+   never carries its own hex. The SVG water/ring draw in currentColor (= --g-main). */
+.cf-daily{--g-main:var(--guide-ok);--g-mut:var(--guide-ok-mut);--g-bg:var(--guide-ok-bg);--g-trk:var(--guide-ok-trk);display:grid;grid-template-columns:1fr auto;align-items:center;gap:0 12px;width:100%;text-align:left;border:0;font:inherit;cursor:pointer;border-radius:14px;padding:14px;margin-top:15px;background:var(--g-bg);transition:transform .14s ease}
+.cf-daily.warn{--g-main:var(--guide-warn);--g-mut:var(--guide-warn-mut);--g-bg:var(--guide-warn-bg);--g-trk:var(--guide-warn-trk)}
+.cf-daily.hot{--g-main:var(--guide-hot);--g-mut:var(--guide-hot-mut);--g-bg:var(--guide-hot-bg);--g-trk:var(--guide-hot-trk)}
+.cf-daily.over{--g-main:var(--guide-over);--g-mut:var(--guide-over-mut);--g-bg:var(--guide-over-bg);--g-trk:var(--guide-over-trk)}
 .cf-daily:empty{display:none}
 .cf-daily:active{transform:scale(.99)}
-.dg-lbl{grid-column:1;grid-row:1;font-size:12px;font-weight:600;letter-spacing:-.01em}
-.dg-amt{grid-column:1;grid-row:2;font-family:var(--disp);font-size:24px;font-weight:700;letter-spacing:-.03em;line-height:1;margin-top:5px;font-variant-numeric:tabular-nums}
-.dg-vis{grid-column:2;grid-row:1 / span 2;position:relative;width:46px;height:46px;display:flex;align-items:center;justify-content:center;line-height:0}
-.dg-bang{position:absolute;color:#e0483f;font-weight:800;font-size:23px;line-height:1}
+.dg-lbl{grid-column:1;grid-row:1;font-size:12px;font-weight:600;letter-spacing:-.01em;color:var(--g-mut)}
+.dg-amt{grid-column:1;grid-row:2;font-family:var(--disp);font-size:24px;font-weight:700;letter-spacing:-.03em;line-height:1;margin-top:5px;font-variant-numeric:tabular-nums;color:var(--g-main)}
+.dg-vis{grid-column:2;grid-row:1 / span 2;position:relative;width:46px;height:46px;display:flex;align-items:center;justify-content:center;line-height:0;color:var(--g-main)}
+.dg-trk{fill:var(--g-trk)}
+.dg-bang{position:absolute;font-weight:800;font-size:23px;line-height:1}
 .cf-water{animation:cf-bob 3.1s ease-in-out infinite}
 .cf-w1{animation:cf-wave 2.6s linear infinite}
 .cf-w2{animation:cf-wave 3.7s linear infinite;animation-delay:-1.2s}

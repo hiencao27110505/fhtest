@@ -1,12 +1,22 @@
 :root{
+  /* ── Primitive ramp: SAGE. The one green in the app (DESIGN.md §2.1). Generated in OKLCH at
+     hue 175° (the "Hôm nay còn tiêu được" tile's hue), chroma peaking at 500 and tapering both
+     ways. Primitives are NEVER used in a component — only the semantic tokens below point at
+     them. --sage-soft = 500's lightness at two-thirds chroma (fills, water); --sage-wash = 500
+     at 18% (ring tracks, progress rails). */
+  --sage-50:#ebfbf6; --sage-100:#d6f5eb; --sage-200:#afe9d8; --sage-300:#7ad5bd; --sage-400:#4abba1;
+  --sage-500:#149d83; --sage-600:#00846d; --sage-700:#006b58; --sage-800:#095143; --sage-900:#0a362c;
+  --sage-soft:#4a917f; --sage-wash:rgba(20,157,131,.18);
   /* default theme = Sage (overridden by .phone.t-* classes) */
-  --brand:#2E9E6B; --brand-ink:#1F7E52; --brand-2:#5FD3A0;
-  --grad-brand:linear-gradient(135deg,#34B87A,#5FC98D);
-  --grad-hero:linear-gradient(150deg,#4CB584 0%,#2E9E6B 52%,#8FC97E 100%);
-  --brand-glow:rgba(46,158,107,.32); --brand-tint:#e9f7f0;
+  --brand:var(--sage-500); --brand-ink:var(--sage-600); --brand-2:var(--sage-300);
+  --grad-brand:linear-gradient(135deg,var(--sage-500),var(--sage-400));
+  --grad-hero:linear-gradient(150deg,var(--sage-400) 0%,var(--sage-500) 52%,var(--sage-300) 100%);
+  --brand-glow:rgba(20,157,131,.32); --brand-tint:var(--sage-50);
   --danger:#E0322F; --danger-tint:#fdecef;
   --emo:#C9757F; --emo-tint:#f9ecee;   /* nostalgia / care accent (home recommendations) */
-  --good:#1a9d5f; --good-tint:#e7f5ee; --amber:#B8730B; --amber-tint:#fbefda;
+  /* "good" (income, success, today) is ALWAYS sage, in every theme — the theme swaps the brand
+     ramp, never the meaning of a positive number. */
+  --good:var(--sage-600); --good-tint:var(--sage-50); --amber:#B8730B; --amber-tint:#fbefda;
   --ink:#191022; --ink-2:#3a2f45; --muted:#6b6576; --muted-soft:#78727f;   /* AA: ~4.6:1 / ~3.9:1 on white (were 3.6 / 2.7) */
   --white:#ffffff; --canvas:#f4f1f6; --pearl:#fbfafc;
   --hairline:#e9e4ee; --divider:#f1edf4;
@@ -16,7 +26,14 @@
   --shadow-raised:0 2px 6px rgba(25,16,34,.06),0 16px 34px rgba(25,16,34,.12);
   --r-card-lg:22px;
   /* finance progress-ring status arcs (light stop -> dark stop): ok anchors --good, over anchors --danger, pace = vivid amber (brighter than text --amber) */
-  --ring-ok-1:#48CE93; --ring-ok-2:#1A9D5F; --ring-pace-1:#F5C061; --ring-pace-2:#E0951E; --ring-over-1:#F58A8A; --ring-over-2:#E0322F;
+  --ring-ok-1:var(--sage-300); --ring-ok-2:var(--sage-600); --ring-pace-1:#F5C061; --ring-pace-2:#E0951E; --ring-over-1:#F58A8A; --ring-over-2:#E0322F;
+  /* daily-guide tile ("Hôm nay còn tiêu được", Finance + Cá nhân) state colours: main = amount text +
+     water, mut = label, bg = tile fill, trk = the circle's track. ok anchors the sage ramp, over anchors
+     --danger; warn/hot are the tile's own vivid yellow/orange (text-legible --amber is too dark at 24px). */
+  --guide-ok:var(--sage-500); --guide-ok-mut:var(--sage-soft); --guide-ok-bg:var(--sage-50); --guide-ok-trk:var(--sage-wash);
+  --guide-warn:#e0a500; --guide-warn-mut:#8a6810; --guide-warn-bg:#fdf6df; --guide-warn-trk:rgba(224,165,0,.2);
+  --guide-hot:#ef5f37; --guide-hot-mut:#a63e22; --guide-hot-bg:#fdeee9; --guide-hot-trk:rgba(239,95,55,.18);
+  --guide-over:var(--danger); --guide-over-mut:#a5645c; --guide-over-bg:var(--danger-tint); --guide-over-trk:rgba(224,50,47,.18);
   --cat-housing:#5E5CE6; --cat-food:#34C759; --cat-dining:#FF375F;
   --cat-kids:#FF9F0A; --cat-transport:#32ADE6; --cat-fun:#BF5AF2; --cat-other:#98949e;
   --emma-a:#a074e0; --emma-b:#6f3fc0;
@@ -26,7 +43,7 @@
   --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
   --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
 }
-.phone.t-sage{--brand:#2E9E6B;--brand-ink:#1F7E52;--brand-2:#5FD3A0;--grad-brand:linear-gradient(135deg,#34B87A,#5FC98D);--grad-hero:linear-gradient(150deg,#4CB584 0%,#2E9E6B 52%,#8FC97E 100%);--brand-glow:rgba(46,158,107,.32);--brand-tint:#e9f7f0}
+.phone.t-sage{--brand:var(--sage-500);--brand-ink:var(--sage-600);--brand-2:var(--sage-300);--grad-brand:linear-gradient(135deg,var(--sage-500),var(--sage-400));--grad-hero:linear-gradient(150deg,var(--sage-400) 0%,var(--sage-500) 52%,var(--sage-300) 100%);--brand-glow:rgba(20,157,131,.32);--brand-tint:var(--sage-50)}
 .phone.t-ocean{--brand:#1487D6;--brand-ink:#0F6DB0;--brand-2:#62C6F5;--grad-brand:linear-gradient(135deg,#1E9BE0,#3FB6D9);--grad-hero:linear-gradient(150deg,#2AA9E0 0%,#1E74D0 52%,#4FC2C9 100%);--brand-glow:rgba(20,135,214,.32);--brand-tint:#e7f4fd}
 .phone.t-lavender{--brand:#7A5AE0;--brand-ink:#6242C4;--brand-2:#B79BF5;--grad-brand:linear-gradient(135deg,#8A63E8,#A97DF0);--grad-hero:linear-gradient(150deg,#9270E8 0%,#7A5AE0 50%,#B98BE0 100%);--brand-glow:rgba(122,90,224,.32);--brand-tint:#f0ecfd}
 .phone.t-blossom{--brand:#E0567F;--brand-ink:#C43E68;--brand-2:#F79BB8;--grad-brand:linear-gradient(135deg,#EC6A90,#F58FA5);--grad-hero:linear-gradient(150deg,#F07898 0%,#E0567F 50%,#D98AB0 100%);--brand-glow:rgba(224,86,127,.32);--brand-tint:#fdecf1}

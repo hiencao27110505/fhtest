@@ -9,7 +9,7 @@
 <meta name="description" content="One place for your family's money — a shared pool, bills, goals and allowances, private by design."/>
 <!-- Light-only design: declare it so the browser doesn't auto-darken form controls/colours. -->
 <meta name="color-scheme" content="light"/>
-<meta name="theme-color" content="#2E9E6B"/>
+<meta name="theme-color" content="#149d83"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="Earthy"/>
@@ -59,14 +59,24 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
 </style>
 <style>
 :root{
+  /* ── Primitive ramp: SAGE. The one green in the app (DESIGN.md §2.1). Generated in OKLCH at
+     hue 175° (the "Hôm nay còn tiêu được" tile's hue), chroma peaking at 500 and tapering both
+     ways. Primitives are NEVER used in a component — only the semantic tokens below point at
+     them. --sage-soft = 500's lightness at two-thirds chroma (fills, water); --sage-wash = 500
+     at 18% (ring tracks, progress rails). */
+  --sage-50:#ebfbf6; --sage-100:#d6f5eb; --sage-200:#afe9d8; --sage-300:#7ad5bd; --sage-400:#4abba1;
+  --sage-500:#149d83; --sage-600:#00846d; --sage-700:#006b58; --sage-800:#095143; --sage-900:#0a362c;
+  --sage-soft:#4a917f; --sage-wash:rgba(20,157,131,.18);
   /* default theme = Sage (overridden by .phone.t-* classes) */
-  --brand:#2E9E6B; --brand-ink:#1F7E52; --brand-2:#5FD3A0;
-  --grad-brand:linear-gradient(135deg,#34B87A,#5FC98D);
-  --grad-hero:linear-gradient(150deg,#4CB584 0%,#2E9E6B 52%,#8FC97E 100%);
-  --brand-glow:rgba(46,158,107,.32); --brand-tint:#e9f7f0;
+  --brand:var(--sage-500); --brand-ink:var(--sage-600); --brand-2:var(--sage-300);
+  --grad-brand:linear-gradient(135deg,var(--sage-500),var(--sage-400));
+  --grad-hero:linear-gradient(150deg,var(--sage-400) 0%,var(--sage-500) 52%,var(--sage-300) 100%);
+  --brand-glow:rgba(20,157,131,.32); --brand-tint:var(--sage-50);
   --danger:#E0322F; --danger-tint:#fdecef;
   --emo:#C9757F; --emo-tint:#f9ecee;   /* nostalgia / care accent (home recommendations) */
-  --good:#1a9d5f; --good-tint:#e7f5ee; --amber:#B8730B; --amber-tint:#fbefda;
+  /* "good" (income, success, today) is ALWAYS sage, in every theme — the theme swaps the brand
+     ramp, never the meaning of a positive number. */
+  --good:var(--sage-600); --good-tint:var(--sage-50); --amber:#B8730B; --amber-tint:#fbefda;
   --ink:#191022; --ink-2:#3a2f45; --muted:#6b6576; --muted-soft:#78727f;   /* AA: ~4.6:1 / ~3.9:1 on white (were 3.6 / 2.7) */
   --white:#ffffff; --canvas:#f4f1f6; --pearl:#fbfafc;
   --hairline:#e9e4ee; --divider:#f1edf4;
@@ -76,7 +86,14 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   --shadow-raised:0 2px 6px rgba(25,16,34,.06),0 16px 34px rgba(25,16,34,.12);
   --r-card-lg:22px;
   /* finance progress-ring status arcs (light stop -> dark stop): ok anchors --good, over anchors --danger, pace = vivid amber (brighter than text --amber) */
-  --ring-ok-1:#48CE93; --ring-ok-2:#1A9D5F; --ring-pace-1:#F5C061; --ring-pace-2:#E0951E; --ring-over-1:#F58A8A; --ring-over-2:#E0322F;
+  --ring-ok-1:var(--sage-300); --ring-ok-2:var(--sage-600); --ring-pace-1:#F5C061; --ring-pace-2:#E0951E; --ring-over-1:#F58A8A; --ring-over-2:#E0322F;
+  /* daily-guide tile ("Hôm nay còn tiêu được", Finance + Cá nhân) state colours: main = amount text +
+     water, mut = label, bg = tile fill, trk = the circle's track. ok anchors the sage ramp, over anchors
+     --danger; warn/hot are the tile's own vivid yellow/orange (text-legible --amber is too dark at 24px). */
+  --guide-ok:var(--sage-500); --guide-ok-mut:var(--sage-soft); --guide-ok-bg:var(--sage-50); --guide-ok-trk:var(--sage-wash);
+  --guide-warn:#e0a500; --guide-warn-mut:#8a6810; --guide-warn-bg:#fdf6df; --guide-warn-trk:rgba(224,165,0,.2);
+  --guide-hot:#ef5f37; --guide-hot-mut:#a63e22; --guide-hot-bg:#fdeee9; --guide-hot-trk:rgba(239,95,55,.18);
+  --guide-over:var(--danger); --guide-over-mut:#a5645c; --guide-over-bg:var(--danger-tint); --guide-over-trk:rgba(224,50,47,.18);
   --cat-housing:#5E5CE6; --cat-food:#34C759; --cat-dining:#FF375F;
   --cat-kids:#FF9F0A; --cat-transport:#32ADE6; --cat-fun:#BF5AF2; --cat-other:#98949e;
   --emma-a:#a074e0; --emma-b:#6f3fc0;
@@ -86,7 +103,7 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
   --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
 }
-.phone.t-sage{--brand:#2E9E6B;--brand-ink:#1F7E52;--brand-2:#5FD3A0;--grad-brand:linear-gradient(135deg,#34B87A,#5FC98D);--grad-hero:linear-gradient(150deg,#4CB584 0%,#2E9E6B 52%,#8FC97E 100%);--brand-glow:rgba(46,158,107,.32);--brand-tint:#e9f7f0}
+.phone.t-sage{--brand:var(--sage-500);--brand-ink:var(--sage-600);--brand-2:var(--sage-300);--grad-brand:linear-gradient(135deg,var(--sage-500),var(--sage-400));--grad-hero:linear-gradient(150deg,var(--sage-400) 0%,var(--sage-500) 52%,var(--sage-300) 100%);--brand-glow:rgba(20,157,131,.32);--brand-tint:var(--sage-50)}
 .phone.t-ocean{--brand:#1487D6;--brand-ink:#0F6DB0;--brand-2:#62C6F5;--grad-brand:linear-gradient(135deg,#1E9BE0,#3FB6D9);--grad-hero:linear-gradient(150deg,#2AA9E0 0%,#1E74D0 52%,#4FC2C9 100%);--brand-glow:rgba(20,135,214,.32);--brand-tint:#e7f4fd}
 .phone.t-lavender{--brand:#7A5AE0;--brand-ink:#6242C4;--brand-2:#B79BF5;--grad-brand:linear-gradient(135deg,#8A63E8,#A97DF0);--grad-hero:linear-gradient(150deg,#9270E8 0%,#7A5AE0 50%,#B98BE0 100%);--brand-glow:rgba(122,90,224,.32);--brand-tint:#f0ecfd}
 .phone.t-blossom{--brand:#E0567F;--brand-ink:#C43E68;--brand-2:#F79BB8;--grad-brand:linear-gradient(135deg,#EC6A90,#F58FA5);--grad-hero:linear-gradient(150deg,#F07898 0%,#E0567F 50%,#D98AB0 100%);--brand-glow:rgba(224,86,127,.32);--brand-tint:#fdecf1}
@@ -1203,14 +1220,20 @@ input{font-family:inherit}
 .cf-note.over{background:var(--danger-tint);color:var(--danger)}
 .cf-note.flat{background:var(--surface);color:var(--muted)}
 /* daily guide — "Hôm nay còn tiêu được": tappable tile with an animated water level.
-   Background + text colours are set inline per state (green · yellow · orange · red). */
-.cf-daily{display:grid;grid-template-columns:1fr auto;align-items:center;gap:0 12px;width:100%;text-align:left;border:0;font:inherit;cursor:pointer;border-radius:14px;padding:14px;margin-top:15px;background:var(--good-tint);transition:transform .14s ease}
+   State (ok · warn · hot · over) is a class set by fhGuideRender; each class binds the four
+   --g-* slots to that state's --guide-* tokens (10-tokens), so the tile follows the palette and
+   never carries its own hex. The SVG water/ring draw in currentColor (= --g-main). */
+.cf-daily{--g-main:var(--guide-ok);--g-mut:var(--guide-ok-mut);--g-bg:var(--guide-ok-bg);--g-trk:var(--guide-ok-trk);display:grid;grid-template-columns:1fr auto;align-items:center;gap:0 12px;width:100%;text-align:left;border:0;font:inherit;cursor:pointer;border-radius:14px;padding:14px;margin-top:15px;background:var(--g-bg);transition:transform .14s ease}
+.cf-daily.warn{--g-main:var(--guide-warn);--g-mut:var(--guide-warn-mut);--g-bg:var(--guide-warn-bg);--g-trk:var(--guide-warn-trk)}
+.cf-daily.hot{--g-main:var(--guide-hot);--g-mut:var(--guide-hot-mut);--g-bg:var(--guide-hot-bg);--g-trk:var(--guide-hot-trk)}
+.cf-daily.over{--g-main:var(--guide-over);--g-mut:var(--guide-over-mut);--g-bg:var(--guide-over-bg);--g-trk:var(--guide-over-trk)}
 .cf-daily:empty{display:none}
 .cf-daily:active{transform:scale(.99)}
-.dg-lbl{grid-column:1;grid-row:1;font-size:12px;font-weight:600;letter-spacing:-.01em}
-.dg-amt{grid-column:1;grid-row:2;font-family:var(--disp);font-size:24px;font-weight:700;letter-spacing:-.03em;line-height:1;margin-top:5px;font-variant-numeric:tabular-nums}
-.dg-vis{grid-column:2;grid-row:1 / span 2;position:relative;width:46px;height:46px;display:flex;align-items:center;justify-content:center;line-height:0}
-.dg-bang{position:absolute;color:#e0483f;font-weight:800;font-size:23px;line-height:1}
+.dg-lbl{grid-column:1;grid-row:1;font-size:12px;font-weight:600;letter-spacing:-.01em;color:var(--g-mut)}
+.dg-amt{grid-column:1;grid-row:2;font-family:var(--disp);font-size:24px;font-weight:700;letter-spacing:-.03em;line-height:1;margin-top:5px;font-variant-numeric:tabular-nums;color:var(--g-main)}
+.dg-vis{grid-column:2;grid-row:1 / span 2;position:relative;width:46px;height:46px;display:flex;align-items:center;justify-content:center;line-height:0;color:var(--g-main)}
+.dg-trk{fill:var(--g-trk)}
+.dg-bang{position:absolute;font-weight:800;font-size:23px;line-height:1}
 .cf-water{animation:cf-bob 3.1s ease-in-out infinite}
 .cf-w1{animation:cf-wave 2.6s linear infinite}
 .cf-w2{animation:cf-wave 3.7s linear infinite;animation-delay:-1.2s}
@@ -6132,13 +6155,10 @@ function cfRenderMonth(m, daily){
 /* Daily guide — "Hôm nay còn tiêu được": a per-day allowance minus what's been spent today.
    The allowance is the SAVER of (a) last month's daily average and (b) the budget-pace daily
    allowance, tightened by the family's saving goal (window.saveGoalPct). Colour + water level
-   read how much room is left; tapping the tile opens the goal sheet. */
-var DG_STATES={
-  green:{main:'#0f9d84',mut:'#4a917f',bg:'#eaf6f2',trk:'rgba(15,157,132,.18)'},
-  yellow:{main:'#e0a500',mut:'#8a6810',bg:'#fdf6df',trk:'rgba(224,165,0,.2)'},
-  orange:{main:'#ef5f37',mut:'#a63e22',bg:'#fdeee9',trk:'rgba(239,95,55,.18)'},
-  red:{main:'#e0483f',mut:'#a5645c',bg:'#fdeeec',trk:'rgba(224,72,63,.18)'}
-};
+   read how much room is left; tapping the tile opens the goal sheet.
+   Colours are NOT set here: each guide key maps to a .cf-daily state class whose --guide-* tokens
+   live in 10-tokens.css (ok = the sage ramp, over = --danger). Keep JS palette-free. */
+var DG_CLASS={green:'ok',yellow:'warn',orange:'hot',red:'over'};
 function dgBase(m, daily){                                    // per-day norm (pre-goal) — used only by the goal-sheet estimate
   var spent=m.spent||0, spentToday=(daily&&daily[m.dom])||0, reserved=m.done?0:monthReserved();
   var prevKey=_MOA[(TODAY.getMonth()+11)%12], pm=months[prevKey];
@@ -6260,16 +6280,16 @@ function fhGuideCompute(p, goalMult, blockWin){
    over/excess amount + red alarm; UNDER → budget left + headroom gauge; PAR → on-par + spent. */
 function fhGuideRender(hostId, periodKey, p, goalMult, blockWin){
   var host=document.getElementById(hostId); if(!host) return null;
-  if(typeof cfWaterSVG!=='function' || typeof DG_STATES==='undefined'){ host.style.display='none'; host.innerHTML=''; return null; }
+  if(typeof cfWaterSVG!=='function'){ host.style.display='none'; host.innerHTML=''; return null; }
   var g=fhGuideCompute(p, goalMult, blockWin);
   if(!g){ host.style.display='none'; host.innerHTML=''; return null; }   // no basis → hide
-  var s=DG_STATES[g.key];
   var lbl=fhGuideLabel(periodKey, g.state, g.hasBudget);
   var amt = fmt(g.state==='par' ? g.sofar : g.amount);
-  host.style.display=''; host.style.background=s.bg;
-  host.innerHTML='<span class="dg-lbl" style="color:'+s.mut+'">'+lbl+'</span>'
-    +'<span class="dg-amt num" style="color:'+s.main+'">'+amt+'</span>'
-    +'<span class="dg-vis">'+cfWaterSVG(g.level,s,g.alarm)+'</span>';
+  host.classList.remove('ok','warn','hot','over'); host.classList.add(DG_CLASS[g.key]||'ok');
+  host.style.display='';
+  host.innerHTML='<span class="dg-lbl">'+lbl+'</span>'
+    +'<span class="dg-amt num">'+amt+'</span>'
+    +'<span class="dg-vis">'+cfWaterSVG(g.level,g.alarm)+'</span>';
   return g.key;
 }
 /* Period parts for the live month. budgetAllow is the SELF-CORRECTING remaining-budget slice
@@ -6315,17 +6335,19 @@ function cfPeriodGuide(m, daily, periodKey){
   window.cfDailyState=key;
   return key!=null;
 }
-function cfWaterSVG(level,s,over){
+/* Water circle. Draws in currentColor (the host .cf-daily's --g-main) and the track in the
+   .dg-trk token slot, so the SVG carries no colour of its own. */
+function cfWaterSVG(level,over){
   if(over){
-    return '<svg viewBox="0 0 46 46" width="46" height="46"><circle cx="23" cy="23" r="22" fill="'+s.main+'" fill-opacity=".08"/>'
-      +'<circle cx="23" cy="23" r="22" fill="none" stroke="'+s.main+'" stroke-opacity=".4" stroke-width="1.5"/></svg><span class="dg-bang" style="color:'+s.main+'">!</span>';
+    return '<svg viewBox="0 0 46 46" width="46" height="46"><circle cx="23" cy="23" r="22" fill="currentColor" fill-opacity=".08"/>'
+      +'<circle cx="23" cy="23" r="22" fill="none" stroke="currentColor" stroke-opacity=".4" stroke-width="1.5"/></svg><span class="dg-bang">!</span>';
   }
   var y=(46*(1-level/100)).toFixed(2), WP='M0 0 Q 11.5 -3 23 0 T 46 0 T 69 0 T 92 0 L 92 62 L 0 62 Z';
   return '<svg viewBox="0 0 46 46" width="46" height="46"><defs><clipPath id="cfwclip"><circle cx="23" cy="23" r="22"/></clipPath></defs>'
-    +'<circle cx="23" cy="23" r="22" fill="'+s.trk+'"/>'
+    +'<circle class="dg-trk" cx="23" cy="23" r="22"/>'
     +'<g clip-path="url(#cfwclip)"><g class="cf-water" style="--y:'+y+'px;transform:translateY('+y+'px)">'
-    +'<path class="cf-w1" d="'+WP+'" fill="'+s.main+'"/><path class="cf-w2" d="'+WP+'" fill="'+s.main+'" opacity=".5"/>'
-    +'</g></g><circle cx="23" cy="23" r="22" fill="none" stroke="'+s.main+'" stroke-opacity=".35" stroke-width="1.5"/></svg>';
+    +'<path class="cf-w1" d="'+WP+'" fill="currentColor"/><path class="cf-w2" d="'+WP+'" fill="currentColor" opacity=".5"/>'
+    +'</g></g><circle cx="23" cy="23" r="22" fill="none" stroke="currentColor" stroke-opacity=".35" stroke-width="1.5"/></svg>';
 }
 /* Saving-goal sheet — "Tiêu hoang như trước" (0%) + "Tiêu ít hơn 10/15/20/50%". Tapping a
    row applies immediately (like the month picker): sets the goal, re-renders, and closes. */
@@ -6758,7 +6780,7 @@ function setBudget(){
    and composition as the Finance tab: a focal cash-flow card (Còn lại + In/Out
    tiles + week-over-week chart + note + daily "còn tiêu được" guide) followed by
    section cards. Reuses the finance widget's own helpers (cfWeekChartHTML,
-   cfWaterSVG, DG_STATES, dgKey) so it stays in lockstep with the family version.
+   cfWaterSVG, DG_CLASS, dgKey) so it stays in lockstep with the family version.
    Icons are drawn SVG (app convention); emoji appear only as category marks. */
 var PIC = {
   house: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>',
@@ -19471,7 +19493,7 @@ function floatEmojis(emoji){
    is just noise. buildThemeChoices re-runs on every pick, so the notes appear
    and disappear live as someone tries colours. */
 var THEMES=[
-  {k:'sage',name:'Sage',grad:'linear-gradient(150deg,#4CB584,#2E9E6B 52%,#8FC97E)',bar:'#2E9E6B'},
+  {k:'sage',name:'Sage',grad:'linear-gradient(150deg,#4abba1,#149d83 52%,#7ad5bd)',bar:'#149d83'},   /* = --grad-hero / --sage-500 (10-tokens); keep in sync */
   {k:'ocean',name:'Ocean',grad:'linear-gradient(150deg,#2AA9E0,#1E74D0 52%,#4FC2C9)',bar:'#1E74D0'},
   {k:'lavender',name:'Lavender',grad:'linear-gradient(150deg,#9270E8,#7A5AE0 50%,#B98BE0)',bar:'#7A5AE0'},
   {k:'blossom',name:'Blossom',grad:'linear-gradient(150deg,#F07898,#E0567F 50%,#D98AB0)',bar:'#E0567F'},
@@ -20384,7 +20406,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v510';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v511';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',

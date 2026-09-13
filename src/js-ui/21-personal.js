@@ -3,7 +3,7 @@
    and composition as the Finance tab: a focal cash-flow card (Còn lại + In/Out
    tiles + week-over-week chart + note + daily "còn tiêu được" guide) followed by
    section cards. Reuses the finance widget's own helpers (cfWeekChartHTML,
-   cfWaterSVG, DG_STATES, dgKey) so it stays in lockstep with the family version.
+   cfWaterSVG, DG_CLASS, dgKey) so it stays in lockstep with the family version.
    Icons are drawn SVG (app convention); emoji appear only as category marks. */
 var PIC = {
   house: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>',

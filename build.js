@@ -60,6 +60,9 @@ function minifyRegion(body, loader) {
 }
 
 function build() {
+  // Colour ratchet (tools/color-lint.js): no raw colour outside src/css/10-tokens.css beyond the
+  // recorded baseline. Fails the build — and therefore the deploy — so tokens stay the only way.
+  if (require('./tools/color-lint.js').main() !== 0) process.exit(1);
   let html = fs.readFileSync(path.join(ROOT, 'src/index.html'), 'utf8');
   for (const m of MARKERS) {
     if (html.indexOf(m.token) < 0) throw new Error('marker not found in src/index.html: ' + m.token);

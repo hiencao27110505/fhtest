@@ -42,7 +42,7 @@ function floatEmojis(emoji){
    is just noise. buildThemeChoices re-runs on every pick, so the notes appear
    and disappear live as someone tries colours. */
 var THEMES=[
-  {k:'sage',name:'Sage',grad:'linear-gradient(150deg,#4CB584,#2E9E6B 52%,#8FC97E)',bar:'#2E9E6B'},
+  {k:'sage',name:'Sage',grad:'linear-gradient(150deg,#4abba1,#149d83 52%,#7ad5bd)',bar:'#149d83'},   /* = --grad-hero / --sage-500 (10-tokens); keep in sync */
   {k:'ocean',name:'Ocean',grad:'linear-gradient(150deg,#2AA9E0,#1E74D0 52%,#4FC2C9)',bar:'#1E74D0'},
   {k:'lavender',name:'Lavender',grad:'linear-gradient(150deg,#9270E8,#7A5AE0 50%,#B98BE0)',bar:'#7A5AE0'},
   {k:'blossom',name:'Blossom',grad:'linear-gradient(150deg,#F07898,#E0567F 50%,#D98AB0)',bar:'#E0567F'},

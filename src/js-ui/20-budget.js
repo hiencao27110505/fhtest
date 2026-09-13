@@ -263,13 +263,10 @@ function cfRenderMonth(m, daily){
 /* Daily guide — "Hôm nay còn tiêu được": a per-day allowance minus what's been spent today.
    The allowance is the SAVER of (a) last month's daily average and (b) the budget-pace daily
    allowance, tightened by the family's saving goal (window.saveGoalPct). Colour + water level
-   read how much room is left; tapping the tile opens the goal sheet. */
-var DG_STATES={
-  green:{main:'#0f9d84',mut:'#4a917f',bg:'#eaf6f2',trk:'rgba(15,157,132,.18)'},
-  yellow:{main:'#e0a500',mut:'#8a6810',bg:'#fdf6df',trk:'rgba(224,165,0,.2)'},
-  orange:{main:'#ef5f37',mut:'#a63e22',bg:'#fdeee9',trk:'rgba(239,95,55,.18)'},
-  red:{main:'#e0483f',mut:'#a5645c',bg:'#fdeeec',trk:'rgba(224,72,63,.18)'}
-};
+   read how much room is left; tapping the tile opens the goal sheet.
+   Colours are NOT set here: each guide key maps to a .cf-daily state class whose --guide-* tokens
+   live in 10-tokens.css (ok = the sage ramp, over = --danger). Keep JS palette-free. */
+var DG_CLASS={green:'ok',yellow:'warn',orange:'hot',red:'over'};
 function dgBase(m, daily){                                    // per-day norm (pre-goal) — used only by the goal-sheet estimate
   var spent=m.spent||0, spentToday=(daily&&daily[m.dom])||0, reserved=m.done?0:monthReserved();
   var prevKey=_MOA[(TODAY.getMonth()+11)%12], pm=months[prevKey];
@@ -391,16 +388,16 @@ function fhGuideCompute(p, goalMult, blockWin){
    over/excess amount + red alarm; UNDER → budget left + headroom gauge; PAR → on-par + spent. */
 function fhGuideRender(hostId, periodKey, p, goalMult, blockWin){
   var host=document.getElementById(hostId); if(!host) return null;
-  if(typeof cfWaterSVG!=='function' || typeof DG_STATES==='undefined'){ host.style.display='none'; host.innerHTML=''; return null; }
+  if(typeof cfWaterSVG!=='function'){ host.style.display='none'; host.innerHTML=''; return null; }
   var g=fhGuideCompute(p, goalMult, blockWin);
   if(!g){ host.style.display='none'; host.innerHTML=''; return null; }   // no basis → hide
-  var s=DG_STATES[g.key];
   var lbl=fhGuideLabel(periodKey, g.state, g.hasBudget);
   var amt = fmt(g.state==='par' ? g.sofar : g.amount);
-  host.style.display=''; host.style.background=s.bg;
-  host.innerHTML='<span class="dg-lbl" style="color:'+s.mut+'">'+lbl+'</span>'
-    +'<span class="dg-amt num" style="color:'+s.main+'">'+amt+'</span>'
-    +'<span class="dg-vis">'+cfWaterSVG(g.level,s,g.alarm)+'</span>';
+  host.classList.remove('ok','warn','hot','over'); host.classList.add(DG_CLASS[g.key]||'ok');
+  host.style.display='';
+  host.innerHTML='<span class="dg-lbl">'+lbl+'</span>'
+    +'<span class="dg-amt num">'+amt+'</span>'
+    +'<span class="dg-vis">'+cfWaterSVG(g.level,g.alarm)+'</span>';
   return g.key;
 }
 /* Period parts for the live month. budgetAllow is the SELF-CORRECTING remaining-budget slice
@@ -446,17 +443,19 @@ function cfPeriodGuide(m, daily, periodKey){
   window.cfDailyState=key;
   return key!=null;
 }
-function cfWaterSVG(level,s,over){
+/* Water circle. Draws in currentColor (the host .cf-daily's --g-main) and the track in the
+   .dg-trk token slot, so the SVG carries no colour of its own. */
+function cfWaterSVG(level,over){
   if(over){
-    return '<svg viewBox="0 0 46 46" width="46" height="46"><circle cx="23" cy="23" r="22" fill="'+s.main+'" fill-opacity=".08"/>'
-      +'<circle cx="23" cy="23" r="22" fill="none" stroke="'+s.main+'" stroke-opacity=".4" stroke-width="1.5"/></svg><span class="dg-bang" style="color:'+s.main+'">!</span>';
+    return '<svg viewBox="0 0 46 46" width="46" height="46"><circle cx="23" cy="23" r="22" fill="currentColor" fill-opacity=".08"/>'
+      +'<circle cx="23" cy="23" r="22" fill="none" stroke="currentColor" stroke-opacity=".4" stroke-width="1.5"/></svg><span class="dg-bang">!</span>';
   }
   var y=(46*(1-level/100)).toFixed(2), WP='M0 0 Q 11.5 -3 23 0 T 46 0 T 69 0 T 92 0 L 92 62 L 0 62 Z';
   return '<svg viewBox="0 0 46 46" width="46" height="46"><defs><clipPath id="cfwclip"><circle cx="23" cy="23" r="22"/></clipPath></defs>'
-    +'<circle cx="23" cy="23" r="22" fill="'+s.trk+'"/>'
+    +'<circle class="dg-trk" cx="23" cy="23" r="22"/>'
     +'<g clip-path="url(#cfwclip)"><g class="cf-water" style="--y:'+y+'px;transform:translateY('+y+'px)">'
-    +'<path class="cf-w1" d="'+WP+'" fill="'+s.main+'"/><path class="cf-w2" d="'+WP+'" fill="'+s.main+'" opacity=".5"/>'
-    +'</g></g><circle cx="23" cy="23" r="22" fill="none" stroke="'+s.main+'" stroke-opacity=".35" stroke-width="1.5"/></svg>';
+    +'<path class="cf-w1" d="'+WP+'" fill="currentColor"/><path class="cf-w2" d="'+WP+'" fill="currentColor" opacity=".5"/>'
+    +'</g></g><circle cx="23" cy="23" r="22" fill="none" stroke="currentColor" stroke-opacity=".35" stroke-width="1.5"/></svg>';
 }
 /* Saving-goal sheet — "Tiêu hoang như trước" (0%) + "Tiêu ít hơn 10/15/20/50%". Tapping a
    row applies immediately (like the month picker): sets the goal, re-renders, and closes. */

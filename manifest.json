@@ -12,7 +12,7 @@
   "orientation": "portrait",
   "launch_handler": { "client_mode": "navigate-existing" },
   "background_color": "#f4f1f6",
-  "theme_color": "#2E9E6B",
+  "theme_color": "#149d83",
   "categories": ["finance", "productivity", "lifestyle"],
   "shortcuts": [
     { "name": "Ghi chi tiêu", "short_name": "Chi tiêu", "description": "Log an expense", "url": "./#sheet-add" },
