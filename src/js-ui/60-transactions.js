@@ -52,7 +52,7 @@ function _txCatOrder(){ return _txnPersonal() ? (_pTxnCtx?_pTxnCtx.catOrder:[]) 
    fhDebtRowSheet, investment → fhInvRowSheet. */
 function _pBuildTxnCtx(){
   var P = window.fhPersonalData ? fhPersonalData() : null;
-  var PAL=['#f2eef6','#eef4fb','#eefaf3','#fdf4e8','#f6eefb','#eef9fb'];
+  var PAL=[1,2,3,4,5,6].map(function(n){ return 'var(--id-'+n+'-tint)'; });
   var rows=[], style={}, order=[], spent={}, other=L('Khác','Others');
   var now=new Date(), ym=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
   /* the 2-month tab window + the on-demand months 3–6 (fhPersonalFetchOlder) */
@@ -131,7 +131,7 @@ function txRow(t){
   // personal rows carry their own style + no member/reactions/detail screen;
   // family rows keep the avatar, reaction chip and tap-through to the detail.
   var personal=_txnPersonal();
-  var s=t._style||catStyle[t.cat]||['🧾','#f2eef6','var(--cat-other)'];
+  var s=t._style||catStyle[t.cat]||['🧾','var(--id-none-tint)','var(--id-none)'];
   // Localize the display date/payer; the stored t.date/t.who strings stay as-is
   // (they are parsed by _txnIso / mapped by _memberIdForWho — display only here).
   var dstr=(t.date==='Just now')?L('Vừa xong','Just now'):((t._d?sameDay(t._d,TODAY):(t.date==='Today'))?L('Hôm nay','Today'):(t._d?(sameDay(t._d,new Date(TODAY.getTime()-86400000))?L('Hôm qua','Yesterday'):fmtDayMon(t._d)):t.date));
@@ -218,7 +218,7 @@ function resRow(k){   // an event funded from this month → an "Events" future 
     +'<div class="r-right"><div class="r-amt num plan">'+fmt(e.setAside)+'</div><div class="r-cat due">'+_futDue(e.d)+'</div></div></div>';
 }
 function futRow(t){   // a standalone future expense logged in the expense sheet
-  var s=catStyle[t.cat]||['🧾','#f2eef6','var(--cat-other)'];
+  var s=catStyle[t.cat]||['🧾','var(--id-none-tint)','var(--id-none)'];
   var ph=(t.photos&&t.photos.length)?t.photos[0]:null;
   var tile=ph?'<div class="r-ico ph" style="background-image:url('+escAttr(ph)+')"></div>'
             :'<div class="r-ico" style="background:'+s[1]+';color:'+s[2]+'">'+esc(t.ico||'📅')+'</div>';
@@ -1018,14 +1018,14 @@ function openCat(type,val,month){
     count=isEv?evks.length:ftx.length; rows=isEv?evks.map(resRow).join(''):ftx.map(futRow).join('');
     listHead=isEv?L('Sự kiện sắp tới','Upcoming events'):L('Chi tiêu dự kiến','Planned expenses'); unit=isEv?L('sự kiện','event'):L('khoản','item');
   } else {
-    var s=catStyle[val]||['🧾','#f2eef6','var(--cat-other)'], sp=m.catSpent[val]||0, bd=catBudget[val]||0, done=m.done, pace=done?1:m.dom/m.dim;
+    var s=catStyle[val]||['🧾','var(--id-none-tint)','var(--id-none)'], sp=m.catSpent[val]||0, bd=catBudget[val]||0, done=m.done, pace=done?1:m.dom/m.dim;
     ico.style.cssText='background:'+s[1]+';color:'+s[2]; ico.textContent=s[0];
     var overBud=sp>bd, overPace=!done&&bd&&(sp/bd)>(pace+0.14), under=bd&&(sp/bd)<pace-0.05;
     lab=L('Đã chi · ','Spent · ')+moAb; num=fmt(sp);
     line=overBud?L('Vượt ngân sách','Over budget'):(overPace?L('Đang tiêu nhanh hơn dự kiến','Running over pace'):(under?L('Thoải mái dưới mức','Comfortably under pace'):L('Đúng nhịp','On track')));
     lineCol=overBud?'var(--danger)':(overPace?'var(--amber)':(under?'var(--good)':'var(--muted)'));
     showBar=true; showFoot=true; fl='<b>'+fmt(sp)+'</b> '+L('trên','of')+' '+fmt(bd); fr=done?L('Đã chốt tháng','Month closed'):(m.dim-m.dom)+L(' ngày còn lại',' days left');
-    var bar=document.getElementById('cd-bar'); bar.style.width=(bd?Math.min(100,sp/bd*100):0)+'%'; bar.style.background=overBud?'#F5694F':(overPace?'#FFB020':s[2]);
+    var bar=document.getElementById('cd-bar'); bar.style.width=(bd?Math.min(100,sp/bd*100):0)+'%'; bar.style.background=overBud?'var(--danger-base)':(overPace?'var(--amber-base)':s[2]);
     document.getElementById('cd-mark').style.cssText=done?'display:none':('left:'+(pace*100)+'%');
     var ctx=txns.filter(function(t){return !t.future && t.month===selMonth && t.cat===val;}); count=ctx.length; rows=ctx.map(txRow).join('');
   }
@@ -1064,7 +1064,7 @@ function addExpense(){
   if(!amt){ document.getElementById('ex-amt').focus(); return; }
   var note=document.getElementById('ex-note').value.trim()||L('Khoản chi','Expense');
   var cat=chosen('ex-cat')||'Fun'; lastCat=cat;
-  var s=catStyle[cat]||['🧾','#f2eef6','var(--cat-other)'];
+  var s=catStyle[cat]||['🧾','var(--id-none-tint)','var(--id-none)'];
   var dObj=exDate(), dstr=(dObj.getTime()===TODAY.getTime())?'Today':(MONA[dObj.getMonth()]+' '+dObj.getDate());
   // Per-row time: in a bulk save, submitBulk loadRow(i)s each row into the fields
   // first, so #ex-time already holds this row's own time (or '' → day-only).

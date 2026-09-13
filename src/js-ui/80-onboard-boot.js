@@ -9,7 +9,7 @@ var FAM={
   members:[{name:'Emma',color:'#6f3fc0'},{name:'James',color:'#0e8478'},{name:'Mia',color:'#f0701a'},{name:'Leo',color:'#e03d86'}],
   budget:9000
 };
-var OB_COLORS=['#6f3fc0','#0e8478','#f0701a','#e03d86','#1e74d0','#B8730B','#7A5AE0','#1a9d5f'];
+var OB_COLORS=[1,2,3,4,5,6].map(function(n){ return 'var(--id-'+n+')'; });   // the six identity slots (10-tokens.css)
 var obOrder=['welcome','start','budget'];
 function inits(n){ return ((n||'').trim().split(/\s+/).map(function(w){return w[0]||'';}).join('').slice(0,2)||'?').toUpperCase(); }
 /* light tactile tick — vibration is a no-op where unsupported (iOS Safari) */
@@ -104,12 +104,12 @@ function obAcctLine(){
    first hydrate replaces catOrder with the seeded rows. Drift here desyncs the
    onboarding categories/budget from what Settings shows. */
 var DEFAULT_CATS=[
-  {concept:'Housing',   vi:'Nhà ở',   en:'Housing',   emoji:'🏠', color:'#7E6BE0'},
-  {concept:'Groceries', vi:'Đi chợ',  en:'Groceries', emoji:'🛒', color:'#1FA971'},
-  {concept:'Dining',    vi:'Ăn ngoài',en:'Dining',    emoji:'🍽️', color:'#E14B8A'},
-  {concept:'Transport', vi:'Đi lại',  en:'Transport', emoji:'🚗', color:'#12B5A6'},
-  {concept:'Fun',       vi:'Giải trí',en:'Fun',       emoji:'🎉', color:'#9D4EFF'},
-  {concept:'Shopping',  vi:'Mua sắm', en:'Shopping',  emoji:'🛍️', color:'#E8843C'}
+  {concept:'Housing',   vi:'Nhà ở',   en:'Housing',   emoji:'🏠', color:'var(--id-1)'},
+  {concept:'Groceries', vi:'Đi chợ',  en:'Groceries', emoji:'🛒', color:'var(--id-6)'},
+  {concept:'Dining',    vi:'Ăn ngoài',en:'Dining',    emoji:'🍽️', color:'var(--id-5)'},
+  {concept:'Transport', vi:'Đi lại',  en:'Transport', emoji:'🚗', color:'var(--id-2)'},
+  {concept:'Fun',       vi:'Giải trí',en:'Fun',       emoji:'🎉', color:'var(--id-3)'},
+  {concept:'Shopping',  vi:'Mua sắm', en:'Shopping',  emoji:'🛍️', color:'var(--id-4)'}
 ];
 // "Con cái"/Kids is intentionally NOT a default category — a family without kids
 // shouldn't start with an empty kids line, and those who want it can add it. Kids
@@ -118,7 +118,7 @@ var DEFAULT_CATS=[
 function obSeedCats(){
   var names=DEFAULT_CATS.map(function(d){ return (LANG==='vi'?d.vi:d.en); });
   catOrder=names.slice(); catStyle={};
-  DEFAULT_CATS.forEach(function(d,i){ catStyle[names[i]]=[d.emoji,'#f2eef6',d.color]; });
+  DEFAULT_CATS.forEach(function(d,i){ catStyle[names[i]]=[d.emoji,d.color.replace(')','-tint)'),d.color]; });
   ensureFallbackCat(catOrder,catStyle,catBudget||(catBudget={}));   // append the "Others" catch-all
 }
 /* Create: validate the name + seed the member/categories, then step into the
@@ -153,7 +153,7 @@ function obPrefillBudget(){
   var body=document.getElementById('ob-budget-body'); if(!body) return;
   var sym=curSym();
   var rows=catOrder.filter(function(c){ return !isFallbackCat(c); }).map(function(c){
-    var s=catStyle[c]||['🏷️','#f2eef6','#7a5a6e'];
+    var s=catStyle[c]||['🏷️','var(--id-none-tint)','var(--id-none-text)'];
     return '<div class="ob-catbud"><span class="ob-catbud-ic" style="background:'+s[1]+';color:'+s[2]+'">'+s[0]+'</span>'
       +'<span class="ob-catbud-n">'+esc(c)+'</span>'
       +'<span class="ob-catbud-in">'+sym+'<input class="ob-cat-bud num" data-cat="'+escAttr(c)+'" inputmode="numeric" placeholder="0" oninput="obCatEdit(this)" onblur="snapAmtInput(this);obCatEdit(this)"></span></div>';

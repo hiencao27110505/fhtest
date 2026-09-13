@@ -16,11 +16,11 @@
 .b-badge{margin-left:auto;padding:7px 13px;border-radius:9999px;font-size:13px;font-weight:700;letter-spacing:-.01em;white-space:nowrap;flex-shrink:0}
 .b-badge.over{background:#fff3e0;color:#E88A0A}
 .b-badge.red{background:var(--danger-tint);color:var(--danger)}
-.b-badge.ok{background:#e7f8ee;color:#12934f}
+.b-badge.ok{background:var(--good-tint);color:var(--good)}
 .b-tip{margin-top:14px;background:var(--canvas);border-radius:14px;padding:13px 15px;font-size:14px;line-height:1.45;color:var(--ink-2);letter-spacing:-.01em;display:flex;gap:10px}
 .b-tip b{font-weight:700;color:var(--ink)}
 .b-tip .em{flex-shrink:0}
-.fill-ok{background:linear-gradient(90deg,#34C759,#12C9B0)}
+.fill-ok{background:linear-gradient(90deg,var(--ring-ok-2),var(--ring-ok-1))}
 .fill-over{background:linear-gradient(90deg,#FFB020,#FF7A45)}
 .fill-red{background:linear-gradient(90deg,#EC4340,#F5694F)}
 /* 6-month trend chart (per-month budgets) */

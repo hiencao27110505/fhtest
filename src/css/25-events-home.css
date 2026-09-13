@@ -1,7 +1,7 @@
 /* ---------- event cards (neutral, theme-consistent) ---------- */
 .escroll{display:flex;gap:14px;overflow-x:auto;padding:0 16px 6px;scroll-snap-type:x mandatory}
 .escroll::-webkit-scrollbar{display:none}
-.ecard-mini{flex:0 0 220px;scroll-snap-align:start;background:var(--white);border-radius:18px;padding:16px;cursor:pointer;box-shadow:0 1px 3px rgba(25,16,34,.05),0 8px 22px rgba(25,16,34,.06)}
+.ecard-mini{flex:0 0 220px;scroll-snap-align:start;background:var(--white);border-radius:18px;padding:16px;cursor:pointer;box-shadow:0 1px 3px rgba(14,22,19,.05),0 8px 22px rgba(14,22,19,.06)}
 .ecard-mini:active{transform:scale(.98)}
 .em-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
 .em-tile{width:44px;height:44px;border-radius:12px;background:var(--canvas);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
@@ -10,7 +10,7 @@
 .ecard-mini .nm{font-family:var(--disp);font-weight:700;font-size:16px;letter-spacing:-.3px;color:var(--ink)}
 .ecard-mini .fig{font-size:13px;letter-spacing:-.01em;color:var(--muted);margin-top:4px}
 .ecard-mini .fig b{color:var(--ink);font-weight:600}
-.ecard{background:var(--white);border-radius:20px;padding:18px;margin:0 16px 14px;cursor:pointer;box-shadow:0 1px 3px rgba(25,16,34,.05),0 8px 22px rgba(25,16,34,.06)}
+.ecard{background:var(--white);border-radius:20px;padding:18px;margin:0 16px 14px;cursor:pointer;box-shadow:0 1px 3px rgba(14,22,19,.05),0 8px 22px rgba(14,22,19,.06)}
 .ecard:active{transform:scale(.99)}
 .e-head{display:flex;align-items:center;gap:14px}
 .e-hbody{flex:1;min-width:0}
@@ -26,7 +26,7 @@
 .ecard .ppl{display:flex;align-items:center;justify-content:space-between;margin-top:14px}
 /* past events — nudge to turn into memories */
 .pastlist{margin:0 16px}
-.past-item{display:flex;align-items:center;gap:13px;background:var(--white);border-radius:16px;padding:11px 13px;margin-bottom:10px;box-shadow:0 1px 3px rgba(25,16,34,.05),0 8px 22px rgba(25,16,34,.05);cursor:pointer;transition:transform .18s}
+.past-item{display:flex;align-items:center;gap:13px;background:var(--white);border-radius:16px;padding:11px 13px;margin-bottom:10px;box-shadow:0 1px 3px rgba(14,22,19,.05),0 8px 22px rgba(14,22,19,.05);cursor:pointer;transition:transform .18s}
 .past-item:active{transform:scale(.99)}
 .past-thumb{width:52px;height:52px;border-radius:13px;flex-shrink:0;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:24px;background:var(--canvas)}
 .past-thumb.photo{color:#fff}
@@ -51,7 +51,7 @@
 .tl-rail::before{content:'';position:absolute;top:9px;bottom:-16px;left:50%;transform:translateX(-50%);width:1px;background:var(--hairline)}
 .tl-item:last-child .tl-rail::before{display:none}
 .tl-dot{width:9px;height:9px;border-radius:50%;background:var(--muted-soft);box-shadow:0 0 0 3px var(--white);margin-top:8px;position:relative;z-index:1}
-.tl-card{flex:1;min-width:0;background:var(--white);border-radius:16px;padding:13px 15px;box-shadow:0 1px 3px rgba(25,16,34,.05),0 8px 22px rgba(25,16,34,.06);transition:transform .18s}
+.tl-card{flex:1;min-width:0;background:var(--white);border-radius:16px;padding:13px 15px;box-shadow:0 1px 3px rgba(14,22,19,.05),0 8px 22px rgba(14,22,19,.06);transition:transform .18s}
 .tl-top{display:flex;align-items:center;gap:9px}
 .tl-emoji{font-size:19px;flex-shrink:0}
 .tl-name{flex:1;min-width:0;font-family:var(--disp);font-weight:600;font-size:16px;letter-spacing:-.3px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -62,7 +62,7 @@
    (italic, quiet), one line each so the rows stack evenly without a fill or a badge. */
 .tl-rx-list{margin-top:1px;padding-top:9px;border-top:1px solid var(--divider);display:flex;flex-direction:column;gap:5px}
 .tl-rx-row{display:flex;align-items:center;gap:6px;min-width:0}
-.tl-rx-e{font-size:14px;line-height:1;flex:0 0 auto;filter:drop-shadow(0 1px 1px rgba(25,16,34,.12))}
+.tl-rx-e{font-size:14px;line-height:1;flex:0 0 auto;filter:drop-shadow(0 1px 1px rgba(14,22,19,.12))}
 .tl-rx-msg{flex:1;min-width:0;font-size:12.5px;font-style:italic;font-weight:500;color:var(--ink-2);letter-spacing:-.01em;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tl-rx-more{font-size:11.5px;font-weight:600;color:var(--chev);letter-spacing:-.01em;padding-left:20px}
 .tl-fig{font-size:13px;font-weight:500;letter-spacing:-.01em;color:var(--muted);margin-top:2px}
@@ -89,7 +89,7 @@
 .tl-stack .tl-card:active{transform:scale(.99)}
 .pastlist{margin:0 16px}
 /* coming-up compact stats (home) */
-.ev-sum{display:flex;background:var(--white);border-radius:16px;margin:0 16px 12px;padding:15px 6px;box-shadow:0 1px 3px rgba(25,16,34,.05),0 8px 22px rgba(25,16,34,.06)}
+.ev-sum{display:flex;background:var(--white);border-radius:16px;margin:0 16px 12px;padding:15px 6px;box-shadow:0 1px 3px rgba(14,22,19,.05),0 8px 22px rgba(14,22,19,.06)}
 .ev-sum:empty{display:none}
 .ev-sum .s{flex:1;text-align:center;position:relative}
 .ev-sum .s+.s::before{content:'';position:absolute;left:0;top:18%;bottom:18%;width:1px;background:var(--divider)}

@@ -19,7 +19,7 @@
    back stair-stepped instead of antialiased. Round the media itself and there is
    no clip to alias. backface-visibility keeps the promoted layer on the pixel
    grid so the corners stay clean at rest, not just mid-animation. */
-.peek-frame{position:relative;border-radius:20px;box-shadow:0 24px 70px rgba(25,16,34,.42);
+.peek-frame{position:relative;border-radius:20px;box-shadow:0 24px 70px rgba(14,22,19,.42);
   transform:scale(.94);transition:transform .34s cubic-bezier(.32,.72,0,1);background:var(--canvas);
   will-change:transform;backface-visibility:hidden;-webkit-backface-visibility:hidden}
 .peek.on .peek-frame{transform:scale(1)}
@@ -55,8 +55,8 @@
 .ph-beach{background:linear-gradient(180deg,#6fb7e8,#a9dbf2 40%,#f2dfa8 56%,#e6c98a)}
 .ph-japan{background:linear-gradient(180deg,#3a2f66,#6d4b9e 55%,#c67fb0)}
 .ph-dinner{background:radial-gradient(120% 100% at 50% 15%,#f4b269,#d97a35 55%,#a9531f)}
-.ph-hike{background:linear-gradient(180deg,#9cc4e4,#89ab8a 55%,#5f7d55)}
-.ph-park{background:linear-gradient(180deg,#8fd0c0,#6bb894 55%,#3f8f6a)}
+.ph-hike{background:linear-gradient(180deg,#9cc4e4,#81ac92 55%,#4f8064)}
+.ph-park{background:linear-gradient(180deg,#8fd0c0,#70b78f 55%,#448f66)}
 .ph-city{background:linear-gradient(180deg,#2a2350,#5b3f8a 55%,#8a5a9e)}
 .mem-empty{grid-column:1/-1;width:auto;text-align:center;padding:28px 20px;margin:0 16px;background:var(--white);border-radius:20px}
 .me-emoji{font-size:40px}
@@ -85,7 +85,7 @@
 .celebrate .cel-btn{margin-top:34px;background:#fff;color:var(--brand-ink);font-size:17px;font-weight:700;letter-spacing:-.02em;padding:15px 42px;border-radius:9999px}
 .float-e{position:absolute;bottom:38%;font-size:26px;pointer-events:none;opacity:0;z-index:71}
 
-.toast{position:absolute;left:50%;transform:translateX(-50%) translateY(24px);bottom:100px;background:rgba(25,16,34,.95);backdrop-filter:blur(6px);color:#fff;
+.toast{position:absolute;left:50%;transform:translateX(-50%) translateY(24px);bottom:100px;background:rgba(14,22,19,.95);backdrop-filter:blur(6px);color:#fff;
   padding:13px 20px;border-radius:9999px;font-size:15px;font-weight:500;letter-spacing:-.02em;opacity:0;transition:all .32s cubic-bezier(.4,0,.2,1);z-index:80;
   display:flex;align-items:center;gap:9px;white-space:nowrap;max-width:88%;pointer-events:none}
 .toast.on{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto}

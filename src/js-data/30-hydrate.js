@@ -221,27 +221,31 @@
       // place. Empty when the member has no photo (→ colour+initials fallback).
       const _AVPUB = SUPABASE_URL + '/storage/v1/object/public/family-media/';
       const _avUrl = (p) => p ? (p.indexOf('http') === 0 ? p : (_AVPUB + p.split('/').map(encodeURIComponent).join('/'))) : '';
-      mem.forEach((m) => {
+      const mslots = window.fhIdAssign(mem.map((m) => m.is_shared ? null : m.color));   // identity slots, distinct per family
+      mem.forEach((m, i) => {
         window.DB.memberById[m.id] = m;
         const appName = m.is_shared ? 'Shared' : m.name;
-        mm[appName] = { av: _avUrl(m.avatar_url), ini: inits(m.name), col: m.color || '#8f8a99' };
+        mm[appName] = { av: _avUrl(m.avatar_url), ini: inits(m.name), col: window.fhIdVar(mslots[i]) };
         window.DB.memberByAppName[appName] = m.id;
         if (m.is_shared) window.DB.sharedId = m.id;
         if (m.user_id === uid && !m.is_shared) window.DB.ownerMemberId = m.id;
       });
-      if (!mm['Shared']) mm['Shared'] = { av: '', ini: '👥', col: '#8f8a99' };
+      if (!mm['Shared']) mm['Shared'] = { av: '', ini: '👥', col: 'var(--id-none)' };
       window.membersMeta = mm;
-      window.FAM.members = mem.filter((m) => !m.is_shared).map((m) => ({ name: m.name, color: m.color || '#8f8a99', av: _avUrl(m.avatar_url), me: m.user_id === uid }));
+      window.FAM.members = mem.filter((m) => !m.is_shared).map((m) => ({ name: m.name, color: mm[m.name] ? mm[m.name].col : 'var(--id-none)', av: _avUrl(m.avatar_url), me: m.user_id === uid }));
       _rebuildWhoChips();
 
       // categories → catOrder / catStyle
       const order = [], style = {};
       window.DB.catById = {}; window.DB.catByName = {};
+      // identity slots (20-budget.js): stored colours (legacy hex / var(--cat-x) / var(--id-N)) → six distinct --id-* slots
+      const live = cat.filter((c) => !c.archived_at), slots = window.fhIdAssign(live.map((c) => c.color));
       cat.forEach((c) => {
         window.DB.catById[c.id] = c;                       // by id: archived included, so removals resolve to the catch-all
         if (c.archived_at) return;                          // archived: no picker entry, no budget row
         window.DB.catByName[c.name] = c.id;
-        order.push(c.name); style[c.name] = [c.emoji || '🏷️', '#f2eef6', c.color || 'var(--cat-other)'];
+        const n = slots[live.indexOf(c)];
+        order.push(c.name); style[c.name] = [c.emoji || '🏷️', window.fhIdVar(n, 'tint'), window.fhIdVar(n)];
       });
       window.catStyle = style;
       window.catOrder = ensureFallbackCat(order, style, null);   // the catch-all is always present

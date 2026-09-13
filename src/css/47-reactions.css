@@ -11,7 +11,7 @@
 .row.has-rx{flex-wrap:wrap;row-gap:0}   /* the row's 14px gap is between columns only; the chip sets its own top space */
 .rx-chip{flex:0 0 100%;display:flex;align-items:center;gap:6px;min-width:0;margin:7px 0 1px 56px}
 .rx-es{display:inline-flex;flex:0 0 auto}
-.rx-es .rx-e{font-size:14px;line-height:1;margin-right:-3px;filter:drop-shadow(0 1px 1px rgba(25,16,34,.12))}
+.rx-es .rx-e{font-size:14px;line-height:1;margin-right:-3px;filter:drop-shadow(0 1px 1px rgba(14,22,19,.12))}
 .rx-msg{font-size:12.5px;font-style:italic;font-weight:500;color:var(--muted);letter-spacing:-.01em;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rx-n{font-style:normal;font-weight:700;color:var(--chev)}
 
@@ -31,7 +31,7 @@
 /* the reactor's own burst — emoji fanning up from where it was thrown */
 .rx-burst{position:absolute;z-index:75;font-size:26px;line-height:1;pointer-events:none;opacity:.98;
   transform:translate(0,0) scale(.5);will-change:transform,opacity;margin:-14px 0 0 -14px;
-  filter:drop-shadow(0 2px 4px rgba(25,16,34,.18))}
+  filter:drop-shadow(0 2px 4px rgba(14,22,19,.18))}
 
 /* B · the wall (finance) + home strip — one card per reacted transaction, .woffer-style */
 .rx-count{font-size:11px;font-weight:700;color:var(--white);background:var(--brand);border-radius:9999px;
@@ -105,9 +105,9 @@
 /* C · the arrival — a non-blocking tappable toast (the confetti is floatEmojis) */
 .rx-toast{position:absolute;left:50%;bottom:100px;transform:translateX(-50%) translateY(24px);z-index:80;
   display:flex;align-items:center;gap:11px;max-width:88%;
-  background:rgba(25,16,34,.96);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+  background:rgba(14,22,19,.96);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
   color:#fff;border:none;border-radius:16px;padding:11px 13px 11px 14px;cursor:pointer;text-align:left;
-  box-shadow:0 10px 30px rgba(25,16,34,.32);opacity:0;
+  box-shadow:0 10px 30px rgba(14,22,19,.32);opacity:0;
   transition:opacity .3s,transform .32s cubic-bezier(.32,.72,0,1)}
 .rx-toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 .rx-toast:active{transform:translateX(-50%) translateY(0) scale(.98)}

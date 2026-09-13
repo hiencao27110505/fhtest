@@ -15,9 +15,9 @@
 function _memName(id){ var db=window.DB; return (db && db.memberById && db.memberById[id] && db.memberById[id].name) || ''; }
 function _memColor(idOrName){
   var db=window.DB;
-  if(db && db.memberById && db.memberById[idOrName] && db.memberById[idOrName].color) return db.memberById[idOrName].color;
+  if(db && db.memberById && db.memberById[idOrName] && db.memberById[idOrName].color) return fhIdColor(db.memberById[idOrName].color);
   var mems=(window.FAM&&FAM.members)||[]; for(var i=0;i<mems.length;i++){ if(mems[i].name===idOrName) return mems[i].color; }
-  return '#8a8494';
+  return 'var(--id-none)';
 }
 function _futMeId(){ var db=window.DB; if(db && db.ownerMemberId) return db.ownerMemberId; return (typeof _meName==='function')?_meName():''; }
 function _reqName(idOrName){ var nm=_memName(idOrName)||idOrName||''; var f=(''+nm).trim().split(/\s+/)[0]; return f || L('Người nhà','a family member'); }

@@ -53,7 +53,7 @@
         return c.id;
       }
       const res = await sb.from('categories').insert(Object.assign(
-        { family_id: window.DB.fid, emoji: emoji || '🏷️', color: '#8f8a99', sort_order: sort || 99 },
+        { family_id: window.DB.fid, emoji: emoji || '🏷️', color: window.fhIdVar ? window.fhIdVar(((window.catOrder || []).length % 6) + 1) : 'var(--id-none)', sort_order: sort || 99 },
         await fhField('name', nm))).select('id').single();
       if (res.data) { window.DB.catByName[nm] = res.data.id; window.DB.catById[res.data.id] = { id: res.data.id, name: nm, emoji: emoji }; return res.data.id; }
     } catch (e) { console.warn('category create failed', e); }
@@ -130,7 +130,7 @@
     const key = (who || '').toLowerCase(); let mm = null;
     if (key === 'both' || key === 'shared') mm = window.membersMeta && window.membersMeta['Shared'];
     else if (window.membersMeta) { for (const n in window.membersMeta) { if (n.toLowerCase() === key) { mm = window.membersMeta[n]; break; } } }
-    mm = mm || { col: '#8f8a99', ini: '👥' };
+    mm = mm || { col: 'var(--id-none)', ini: '👥' };
     return '<div class="r-sp av" style="' + window.fhAvStyle(mm) + '">' + window.esc(window.fhAvIni(mm)) + '</div>';
   };
 

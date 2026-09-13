@@ -7,7 +7,7 @@
    initials, never a blank disc. Accepts a membersMeta entry ({col,av,ini}) or a
    FAM.members entry ({color,av}). */
 window.fhAvStyle = function(mm){
-  var c = (mm && (mm.col || mm.color)) || '#8f8a99';
+  var c = (mm && (mm.col || mm.color)) || 'var(--id-none)';
   return (mm && mm.av)
     ? ('background:' + c + ';background-image:url(' + mm.av + ');background-size:cover;background-position:center')
     : ('background:' + c);

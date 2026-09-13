@@ -8,7 +8,7 @@
 
 /* ---- LOCKED decor tokens + material / species / pet hues (from the mock) ---- */
 :root{
-  --wood:#7d5f45;--wood-2:#8a6844;--leaf-2:#49b183;--gold:#e5b34a;
+  --wood:#7d5f45;--wood-2:#8a6844;--leaf-2:#50b07e;--gold:#e5b34a;
   --gshadow:rgba(35,55,35,.16);
   /* house materials */
   --terra:#bf6e4e;--terra-2:#a55e40;--brick:#c68a71;--brick-2:#b97e64;
@@ -200,11 +200,11 @@
 
 /* thumbnail mini-scene inside an option card — its own phase vars (self-contained) */
 .thumb{position:relative;height:96px;border-radius:11px;overflow:hidden;color:#fff;
-  --sky1:#5fa7d6;--sky2:#cde8f7;--hill1:#86b294;--hill2:#639b7c;--gr1:#9cc98b;--gr2:#77aa67;
+  --sky1:#5fa7d6;--sky2:#cde8f7;--hill1:#84b296;--hill2:#649b7b;--gr1:var(--scene-leaf-light);--gr2:var(--scene-grass);
   --dim:rgba(15,20,45,0);
   background:linear-gradient(180deg,var(--sky1),var(--sky2) 82%)}
-.thumb.sky-dawn{--sky1:#d98e6b;--sky2:#ffdfb4;--hill1:#b18a8e;--hill2:#93707e;--gr1:#a8bf7e;--gr2:#87a565;--dim:rgba(80,40,30,.06)}
-.thumb.sky-dusk{--sky1:#5d4d8f;--sky2:#f0a172;--hill1:#6d5a80;--hill2:#55486b;--gr1:#69865c;--gr2:#4d6a45;--dim:rgba(35,25,70,.16)}
+.thumb.sky-dawn{--sky1:#d98e6b;--sky2:#ffdfb4;--hill1:#b18a8e;--hill2:#93707e;--gr1:#81c79f;--gr2:#63ab83;--dim:rgba(80,40,30,.06)}
+.thumb.sky-dusk{--sky1:#5d4d8f;--sky2:#f0a172;--hill1:#6d5a80;--hill2:#55486b;--gr1:#57896c;--gr2:var(--scene-grass-deep);--dim:rgba(35,25,70,.16)}
 .thumb.sky-night{--sky1:#121a32;--sky2:#33406b;--hill1:#232b48;--hill2:#1a2138;--gr1:#28403a;--gr2:#1c2f2a;--dim:rgba(10,14,40,.4)}
 .th-ground{position:absolute;left:0;right:0;bottom:0;height:26px;background:linear-gradient(180deg,var(--gr1),var(--gr2))}
 .th-house{position:absolute;inset:0}

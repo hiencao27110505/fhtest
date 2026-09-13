@@ -238,7 +238,7 @@ async function loadActiveFamily() {
     if (fam.currency) window.CUR = fam.currency;
   }
   window.FAM.members = mems.filter((m) => !m.is_shared).map((m) => ({
-    name: m.name, color: m.color || '#8f8a99', me: m.user_id === uid
+    name: m.name, color: window.fhIdColor ? window.fhIdColor(m.color) : (m.color || 'var(--id-none)'), me: m.user_id === uid
   }));
   try {
     localStorage.setItem('fh-fam', JSON.stringify(window.FAM));

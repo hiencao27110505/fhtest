@@ -76,7 +76,7 @@
 /* reactions — the family's takes, then a choice-chip react bar */
 .exd-rx-list{display:flex;flex-direction:column;gap:8px;margin:0 16px}
 .exd-rx{display:flex;align-items:center;gap:11px;background:var(--white);border-radius:14px;box-shadow:var(--shadow-card);padding:12px 14px}
-.exd-rx-e{font-size:22px;line-height:1;flex:0 0 auto;filter:drop-shadow(0 1px 2px rgba(25,16,34,.12))}
+.exd-rx-e{font-size:22px;line-height:1;flex:0 0 auto;filter:drop-shadow(0 1px 2px rgba(14,22,19,.12))}
 .exd-rx-msg{flex:1;min-width:0;font-size:14px;font-weight:500;font-style:italic;color:var(--ink-2);letter-spacing:-.01em;line-height:1.3}
 .exd-rx .rx-av{width:26px;height:26px;font-size:11px;margin:0;box-shadow:none}
 .exd-rx-empty{margin:0 16px;padding:18px 16px;font-size:14px;font-weight:500;color:var(--muted);text-align:center;background:var(--white);border-radius:14px;box-shadow:var(--shadow-card)}

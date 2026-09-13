@@ -595,14 +595,14 @@ function renderCatBudget(){
   catOrder.forEach(function(c){
     var sp=m.catSpent[c]||0, bd=catBudget[c]||0, pct=bd?Math.min(100,sp/bd*100):0;
     var fut=done?0:catFutureReserved(c), rpct=bd?Math.max(0,Math.min(100-pct, fut/bd*100)):0;   // upcoming, shown after the spent bar
-    var s=catStyle[c]||['🧾','#f2eef6','var(--cat-other)'];
+    var s=catStyle[c]||['🧾','var(--id-none-tint)','var(--id-none)'];
     var overBud=sp>bd, overPace=!done && bd && (sp/bd)>(pace+0.14);
     var statusText, statusCol;
     if(overBud){ statusText=L('Vượt ngân sách','Over budget'); statusCol='var(--danger)'; }
     else if(overPace){ statusText=L('Vượt tiến độ','Over pace'); statusCol='var(--amber)'; }
     else if(fut>0){ statusText='＋'+fmt(fut)+L(' sắp tới',' upcoming'); statusCol='var(--brand-ink)'; }
     else { statusText=''; }
-    var barCol=overBud?'#FF375F':(overPace?'#FFB020':s[2]);
+    var barCol=overBud?'var(--danger-base)':(overPace?'var(--amber-base)':s[2]);
     var mark=done?'display:none':('left:'+(pace*100)+'%');
     html+='<div class="crow tap" onclick="openCat(\'cat\',\''+c+'\')"><div class="cico" style="background:'+s[1]+';color:'+s[2]+'">'+s[0]+'</div>'
       +'<div class="r-body"><div class="r-t" style="display:flex;justify-content:space-between;align-items:center">'
@@ -657,7 +657,39 @@ function buildMonthChoices(){
 function selectMonth(k){ selMonth=k; renderAll(); renderTxns(); closeSheet(); if(curDetail && document.getElementById('cat-overlay').classList.contains('on')) openCat(curDetail.type,curDetail.val); }
 
 /* ---------- budget setup ---------- */
-var CATPAL=[['#eeeefc','var(--cat-housing)'],['#eaf7ee','var(--cat-food)'],['#fdeef4','var(--cat-dining)'],['#eafaf9','var(--cat-transport)'],['#f7eefd','var(--cat-fun)'],['#fff2e6','var(--cat-kids)'],['#eef4fb','var(--cat-other)']];
+/* ── Identity slots ── categories AND members share the six --id-* slots in 10-tokens.css (hues
+   mirrored from tools/palette-gen.js). A stored colour may be a legacy hex, 'var(--cat-x)' or
+   'var(--id-N)'. fhIdAssign maps a family's list to slots deterministically, keeping slots unique
+   while it can, so the six identities stay distinct with no DB change; greys map to --id-none.
+   Colour is never the only carrier: categories have an emoji, members have initials. */
+var ID_HUES=[248,256,308,356,14,58];
+var ID_ALIAS={'cat-housing':1,'cat-transport':2,'cat-fun':3,'cat-kids':4,'cat-dining':5,'cat-food':6};
+function fhIdVar(n,step){ return 'var(--id-'+(n||'none')+(step?'-'+step:'')+')'; }
+function fhIdHue(hex){                                        // OKLCH hue of a hex, or null for greys / non-hex
+  var h=String(hex).replace('#',''); if(h.length===3) h=h.replace(/(.)/g,'$1$1'); if(!/^[0-9a-f]{6}$/i.test(h)) return null;
+  var f=function(i){ var c=parseInt(h.substr(i,2),16)/255; return c<=0.04045?c/12.92:Math.pow((c+0.055)/1.055,2.4); };
+  var r=f(0),g=f(2),b=f(4);
+  var l=Math.cbrt(0.4122214708*r+0.5363325363*g+0.0514459929*b), m=Math.cbrt(0.2119034982*r+0.6806995451*g+0.1073969566*b), s=Math.cbrt(0.0883024619*r+0.2817188376*g+0.6299787005*b);
+  var a=1.9779984951*l-2.4285922050*m+0.4505937099*s, bb=0.0259040371*l+0.7827717662*m-0.8086757660*s;
+  if(Math.hypot(a,bb)<0.03) return null;
+  return (Math.atan2(bb,a)*180/Math.PI+360)%360;
+}
+function _idDist(h1,h2){ var d=Math.abs(h1-h2)%360; return d>180?360-d:d; }
+function fhIdSlotOf(c){                                       // number (explicit slot / alias) · {hue} (legacy hex) · null (grey / unknown)
+  if(!c) return null; c=String(c).trim();
+  var m=/^var\(--id-(\d)/.exec(c); if(m) return +m[1];
+  m=/^var\(--(cat-[a-z]+)\)/.exec(c); if(m) return ID_ALIAS[m[1]]||null;
+  var hue=fhIdHue(c); return hue==null?null:{hue:hue};
+}
+function fhIdNearest(hue, used){ var best=null,bd=1e9; ID_HUES.forEach(function(h,k){ if(used&&used[k+1]) return; var d=_idDist(hue,h); if(d<bd){bd=d;best=k+1;} }); return best; }
+function fhIdAssign(colors){                                  // stable order in → slot numbers out (null = no identity)
+  var used={}, out=colors.map(function(c){ var s=fhIdSlotOf(c); if(typeof s==='number') used[s]=1; return s; });
+  out.forEach(function(s,i){ if(s&&typeof s==='object'){ var pick=fhIdNearest(s.hue,used)||fhIdNearest(s.hue,null); used[pick]=1; out[i]=pick; } });
+  return out;
+}
+function fhIdColor(c){ var s=fhIdSlotOf(c); if(typeof s==='number') return fhIdVar(s); if(s) return fhIdVar(fhIdNearest(s.hue,null)); return fhIdVar(null); }
+/* New categories cycle the six slots: [tint, base] pairs, stored as 'var(--id-N)' so the slot is explicit from then on. */
+var CATPAL=[1,2,3,4,5,6].map(function(n){ return [fhIdVar(n,'tint'), fhIdVar(n)]; });
 // "Others" is the catch-all: it always exists, can't be renamed away or removed,
 // and anything with no category of its own lands here.
 var CAT_FALLBACK='Others';

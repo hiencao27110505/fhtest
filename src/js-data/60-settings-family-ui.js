@@ -9,7 +9,7 @@
   // (arrow, resolved at call-time) so there is exactly one escaping implementation.
   const _esc = (s) => window.esc(s);
   const _escAttr = (s) => window.escAttr(s);
-  const _pal = () => window.OB_COLORS || ['#6f3fc0', '#0e8478', '#f0701a', '#e03d86', '#1e74d0', '#B8730B', '#7A5AE0', '#1a9d5f'];
+  const _pal = () => window.OB_COLORS || [1, 2, 3, 4, 5, 6].map((n) => 'var(--id-' + n + ')');
 
   function _fhSheet(inner) {
     const body = document.getElementById('fh-sheet-body'); if (!body) return;
@@ -177,7 +177,7 @@
     const rows = mems.map((m) => {
       const isSelf = m.user_id === uid;
       const tag = m.is_shared ? L('chung','shared') : (m.user_id ? (isSelf ? L('bạn','you') : L('thành viên','member')) : L('chỗ trống','seat'));
-      const _mm = (window.membersMeta && window.membersMeta[m.is_shared ? 'Shared' : m.name]) || { col: m.color || '#8f8a99', ini: inits(m.name) };
+      const _mm = (window.membersMeta && window.membersMeta[m.is_shared ? 'Shared' : m.name]) || { col: window.fhIdColor ? window.fhIdColor(m.color) : 'var(--id-none)', ini: inits(m.name) };
       return '<div class="fh-s-row">'
         + '<div class="av av-32" style="' + window.fhAvStyle(_mm) + '">' + _esc(window.fhAvIni(_mm)) + '</div>'
         + '<div class="fh-s-grow"><div class="fh-s-name">' + _esc(m.name) + '</div><div class="fh-s-meta">' + tag + '</div></div>'
@@ -215,7 +215,7 @@
   /* Editing a member is a form → modal with Cancel · Title · Save (DESIGN §4). */
   window.fhEditMember = function (id, title) {
     const m = (window._fhMembers || []).find((x) => x.id === id) || { name: '', color: '' };
-    window._fhMColor = m.color || _pal()[0];
+    window._fhMColor = m.color ? (window.fhIdColor ? window.fhIdColor(m.color) : m.color) : _pal()[0];   // legacy hex → its slot, so the swatch shows selected and Save persists the slot
     window._fhMName0 = m.name || '';
     const swatches = _pal().map((c) =>
       '<button class="fh-s-sw' + (c === window._fhMColor ? ' on' : '') + '" data-c="' + c + '" aria-label="' + L('Màu','Colour') + ' ' + c + '"'
@@ -223,7 +223,7 @@
     // Avatar row: photo preview (or colour+initials) + change / use-Google / remove.
     // Photo actions apply immediately (upload + re-hydrate), separate from the
     // name/colour Save. "Use Google photo" only for the current user's own row.
-    const _avm = (window.membersMeta && window.membersMeta[m.is_shared ? 'Shared' : m.name]) || { col: m.color || '#8f8a99', ini: inits(m.name) };
+    const _avm = (window.membersMeta && window.membersMeta[m.is_shared ? 'Shared' : m.name]) || { col: window.fhIdColor ? window.fhIdColor(m.color) : 'var(--id-none)', ini: inits(m.name) };
     const isSelf = m.user_id && window.fhUser && m.user_id === window.fhUser.id;
     const avActions = _btn(L('Đổi ảnh','Change'), "fhAvatarPickFor('" + id + "')", 'fh-s-edit')
       + ((isSelf && window.fhHasGooglePic && window.fhHasGooglePic()) ? _btn(L('Dùng ảnh Google','Use Google photo'), "fhAvatarFromGoogle('" + id + "')", 'fh-s-edit') : '')

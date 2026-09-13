@@ -17,7 +17,7 @@ function _whoDisp(who){
   var raw=String(who||''), isShared=/^(both|shared)$/i.test(raw), key=isShared?'Shared':raw;
   var mm=(window.membersMeta&&membersMeta[key])||null;
   var demoCol={emma:'#6f3fc0',james:'#0e8478',mia:'#f0701a',leo:'#e03d86'}, lk=raw.toLowerCase();
-  var col=mm?mm.col:(isShared?'#8f8a99':(demoCol[lk]||'#8a8494'));
+  var col=mm?mm.col:(isShared?'var(--id-none)':(demoCol[lk]||'var(--id-none)'));
   var ini=mm?mm.ini:((typeof inits==='function')?inits(key||'?'):(key.slice(0,2).toUpperCase()||'?'));
   var name=isShared?L('Chi tiêu chung','Shared'):(key||L('Ai đó','Someone'));
   return { name:name, ini:ini, col:col, av:mm?mm.av:'' };
@@ -81,7 +81,7 @@ function renderExpenseDetail(){
   var vAmtDisp=EXD.amtDisp!=null?EXD.amtDisp:(typeof amtToInput==='function'?amtToInput(t.amt):String(t.amt));
   var vNote=EXD.note!=null?EXD.note:(t.note||'');
   var vTime=EXD.timeStr!==undefined?EXD.timeStr:(t.time||'');
-  var s=catStyle[vCat]||catStyle[t.cat]||['🧾','#f2eef6','var(--cat-other)'];
+  var s=catStyle[vCat]||catStyle[t.cat]||['🧾','var(--id-none-tint)','var(--id-none)'];
   var wd=_whoDisp(vWho);
   var isFuture=!!t.future;
   var item=(isFuture && typeof _entNorm==='function')?_entNorm('expense',t,t.id):null;

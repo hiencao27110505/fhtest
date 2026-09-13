@@ -12,7 +12,7 @@
     const _e = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     const _P = () => window.fhPersonalData && fhPersonalData();
     const _S = () => window.fhSpacesData && fhSpacesData();
-    const AV_COLORS = ['#5E5CE6', '#E0567F', '#12B5A6', '#E8843C', '#9D4EFF', '#1FA971'];
+    const AV_COLORS = [1, 2, 3, 4, 5, 6].map((n) => 'var(--id-' + n + ')');
     const _avColor = (i) => AV_COLORS[i % AV_COLORS.length];
     let _last = null;          // last computed personal debts (tile taps resolve through this)
     let _spinning = false;     // space hydrate in flight

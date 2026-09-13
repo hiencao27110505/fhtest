@@ -46,7 +46,7 @@
 .hero-big .of{font-size:16px;font-weight:600;color:rgba(255,255,255,.85)}
 .hbar{position:relative;height:14px;border-radius:7px;background:rgba(255,255,255,.28);margin:26px 0 0}
 .hbar i{position:absolute;left:0;top:0;bottom:0;border-radius:7px;background:#fff;transition:width .5s cubic-bezier(.4,0,.2,1)}
-.hbar .hmark{position:absolute;top:-4px;bottom:-4px;width:2.5px;border-radius:2px;background:rgba(25,16,34,.5)}
+.hbar .hmark{position:absolute;top:-4px;bottom:-4px;width:2.5px;border-radius:2px;background:rgba(14,22,19,.5)}
 .hbar .hmark::after{content:'today';position:absolute;top:-15px;left:50%;transform:translateX(-50%);font-size:9px;font-weight:700;letter-spacing:.03em;color:rgba(255,255,255,.9);text-transform:uppercase}
 .hero-metrics{display:flex;gap:10px;margin-top:24px}
 .hero-metrics .hm{flex:1}

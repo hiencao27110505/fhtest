@@ -72,7 +72,7 @@ function buildThemeChoices(){
        click on a bare div (CLAUDE.md §3), and this control has no business
        depending on a cursor:pointer rule to work on a phone. */
     return '<button type="button" class="theme-opt'+(t.k===curTheme?' on':'')+'" onclick="applyTheme(\''+t.k+'\')">'
-      +'<div class="sw" style="background:'+t.grad+'"><div class="chk"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#191022" stroke-width="3.2"><path d="M5 12l5 5L20 7"/></svg></div></div>'
+      +'<div class="sw" style="background:'+t.grad+'"><div class="chk"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0e1613" stroke-width="3.2"><path d="M5 12l5 5L20 7"/></svg></div></div>'
       +'<div class="nm">'+t.name+'</div></button>';
   }).join('');
 

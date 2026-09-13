@@ -485,7 +485,7 @@
       if (!_famOk()) { host.innerHTML = ''; return; }
       window.fhFamStreaksEnsure();
       const avs = ((window.FAM && FAM.members) || []).slice(0, 5).map((m) =>
-        '<span class="av stk-av" style="background:' + _esc(m.color || '#8f8a99') + '">'
+        '<span class="av stk-av" style="background:' + _esc(m.color || 'var(--id-none)') + '">'
         + (m.av ? '<img src="' + _esc(m.av) + '" alt="">' : _esc(String(m.name || '?').trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase()))
         + '</span>').join('');
       let h = '<div class="section-h"><span class="t">' + _L('Chuỗi cả nhà', 'Family streaks') + '</span>';

@@ -44,6 +44,13 @@ var ICO = {
 };
 
 var RELEASES = [
+  { id:'2026-09-13-mot-mau-xanh', date:'2026-09-13', time:'14:30', ver:'v513', icon:ICO.sun,
+    vi:{ t:'Một màu xanh, cả app theo',
+      problem:'Nút bấm, số dương, ô "Hôm nay còn tiêu được" mỗi chỗ một sắc xanh, còn màu xám nền hơi ngả tím nên nhìn tổng thể cứ thấy lệch lệch.',
+      sol:'Cả app giờ dùng đúng một màu xanh sage, xám nền đi theo, đỏ và cam nhẹ tay hơn cho cân. Màu của nhóm chi tiêu và màu đại diện từng người cũng đổi sang bộ mới, rõ hơn và không còn ai bị trùng màu tiền vào.' },
+    en:{ t:'One green, everywhere',
+      problem:'Buttons, positive numbers and the "Left to spend today" tile each wore a slightly different green, and the grey backgrounds leaned purple, so the whole app felt a touch off.',
+      sol:'The app now uses one sage green, with greys that follow it and a calmer red and amber to match. Category and member colours moved to a new set that is easier to tell apart, and none of them can be mistaken for income green any more.' } },
   { id:'2026-09-02-no-cho-vay', date:'2026-09-02', time:'11:53', ver:'v443', icon:ICO.swap,
     vi:{ t:'Nợ & cho vay',
       problem:'Thẻ tín dụng, tiền cho bạn mượn, bữa nhóm ai đó trả trước, mấy khoản này nằm rải rác chẳng đâu ghi, tới lúc cần nhớ ai nợ ai thì chịu.',

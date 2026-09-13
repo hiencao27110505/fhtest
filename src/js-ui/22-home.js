@@ -253,7 +253,7 @@ function _byChip(who){
   if(!who) return '';
   var w = ('' + who).toLowerCase();
   if(w === 'both' || w === 'shared' || w === 'chung') return '';        // collective → no single face
-  var nm = who, col = '#8f8a99', ini = (typeof inits === 'function') ? inits(who) : ('' + who).charAt(0).toUpperCase(), mmx = null;
+  var nm = who, col = 'var(--id-none)', ini = (typeof inits === 'function') ? inits(who) : ('' + who).charAt(0).toUpperCase(), mmx = null;
   if(typeof membersMeta !== 'undefined' && membersMeta){ for(var n in membersMeta){ if(n.toLowerCase() === w){ mmx = membersMeta[n]; col = mmx.col; ini = mmx.ini; nm = n; break; } } }
   var fn = (typeof firstName === 'function') ? firstName(nm) : nm;
   var _pm = mmx || { col: col, ini: ini };
@@ -327,7 +327,7 @@ var _GS_ILL = {
     + '<rect width="200" height="120" fill="#eef1fc"/>'
     + '<ellipse cx="100" cy="144" rx="150" ry="52" fill="#5E5CE6" opacity=".13"/>'
     + '<rect x="58" y="66" width="17" height="30" rx="4.5" fill="#7E6BE0"/>'
-    + '<rect x="81" y="52" width="17" height="44" rx="4.5" fill="#1FA971"/>'
+    + '<rect x="81" y="52" width="17" height="44" rx="4.5" fill="var(--brand)"/>'
     + '<rect x="104" y="60" width="17" height="36" rx="4.5" fill="#E14B8A"/>'
     + '<rect x="127" y="44" width="17" height="52" rx="4.5" fill="#F0701A"/>'
     + '<line x1="52" y1="97" x2="150" y2="97" stroke="#c9cff0" stroke-width="2.5" stroke-linecap="round"/>'

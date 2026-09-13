@@ -20,6 +20,34 @@ Going forward, add an entry here when a feature area changes meaningfully — se
 
 ## 2026-09-13
 
+### Everything else tuned to sage: neutrals, status, identity, foliage — computed, not picked
+
+Second pass after "one sage" (below). An OKLCH audit of every remaining colour found the whole
+neutral system (ink, muted, canvas, hairlines, shadows) tinted plum at hue ~306°, status colours
+of unequal weight (red C .21 vs amber .13 vs green .105), Apple-system category colours with a
+green 28° from the brand, member colours that fail colour-blind separation, and grassy foliage
+in the illustrations. Fix: one harmony scheme, executed by a generator.
+
+- **`tools/palette-gen.js`** holds the OKLCH bands and prints the primitive block of
+  `10-tokens.css`. Scheme: sage anchor H175; neutrals = anchor hue at C ≤ .015 ("stone");
+  danger = near-complement H25; amber = split-complementary H70; guide tile 175·85·50·25;
+  identity on the 215°→85° arc with 100°–210° reserved for the anchor; foliage rotated to H158.
+- **Neutrals rebased** plum → stone (11 tokens, `--fill-neutral`, shadows, `--cat-other`) and the
+  same literals rebased in 35 files so shell chrome matches. `--muted-soft` becomes AA (4.7:1).
+- **Status ramps** `--red-*` / `--amber-*` (tint · light · base · ink). `--danger`/`--amber` = ink
+  step; new `--danger-base` / `--amber-base` for bars and fills. Ring pairs + guide warn/hot/over
+  derive from them; eight private hexes retired. `--emo` (unused) deleted.
+- **Identity slots** `--id-1…6` (+ soft/tint/text) shared by categories AND members.
+  `fhIdAssign` (20-budget.js) maps stored colours (legacy hex / `var(--cat-x)` / `var(--id-N)`)
+  to distinct slots at hydrate — client-side, no schema change; legacy `--cat-*` names alias
+  slots. `CATPAL`, `OB_COLORS`, `DEFAULT_CATS`, debts `AV_COLORS` and every grey fallback now use
+  slots. Food leaves green. Members past six reuse the least-used slot.
+- **Scene tokens** `--scene-grass/-deep/leaf/-light`; 20 foliage greens across the house, home
+  and celebrate art rotated to H158 (lightness/chroma preserved).
+- **`tools/color-lint.js`** gains a contrast contract: (fg, bg, min ratio) pairs asserted against
+  resolved token values at build time, so a value swap can't silently break AA.
+- In-app release note added. SW v513.
+
 ### One sage: the palette is rebuilt around the daily-guide tile
 
 The app shipped 32 distinct greens in two hue families: the Sage brand ramp, `--good`, the ring

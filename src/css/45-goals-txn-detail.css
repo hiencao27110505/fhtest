@@ -108,7 +108,7 @@
 /* bulk bar — rises over the list; cts verb language, arm-then-confirm delete */
 .txn-bulkbar{position:absolute;left:12px;right:12px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:15;
   display:flex;align-items:center;gap:8px;background:var(--white);border:1px solid var(--hairline);
-  border-radius:18px;padding:10px;box-shadow:0 -2px 8px rgba(25,16,34,.06),0 16px 34px rgba(25,16,34,.16);
+  border-radius:18px;padding:10px;box-shadow:0 -2px 8px rgba(14,22,19,.06),0 16px 34px rgba(14,22,19,.16);
   transform:translateY(140%);opacity:0;visibility:hidden;
   transition:transform .32s cubic-bezier(.32,.72,0,1),opacity .25s ease,visibility 0s linear .32s}
 .txn-bulkbar.on{transform:none;opacity:1;visibility:visible;transition:transform .32s cubic-bezier(.32,.72,0,1),opacity .25s ease}

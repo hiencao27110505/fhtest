@@ -29,96 +29,78 @@ FamilyHub follows Apple's Human Interface Guidelines, adapted for a warm family-
 
 ### 2.1 Color
 
-Colors are CSS variables in two layers. **Primitives** (`--sage-*`) define the colour; **semantic
-tokens** (`--brand`, `--good`, `--guide-ok` …) give it a meaning. Components use semantic tokens
-**only** — never a primitive, never a raw hex. `src/css/10-tokens.css` is the one file allowed to
-contain a colour literal; `node build.js` runs `tools/color-lint.js`, a ratchet that fails the build
-(and the deploy) when any other file gains a raw colour beyond its recorded baseline
-(`tools/color-baseline.json`). Tokenizing a file? Run `node tools/color-lint.js --update` in the same
-commit so the baseline only ever goes down.
+Colors are CSS variables in two layers. **Primitives** are *computed* by `tools/palette-gen.js` from
+a handful of OKLCH bands and pasted into the top of `src/css/10-tokens.css`; **semantic tokens**
+(`--brand`, `--good`, `--danger`, `--ink`, `--guide-ok`, `--id-3` …) give a primitive a meaning.
+Components use semantic tokens **only** — never a primitive, never a raw hex. Two build-time guards
+(`tools/color-lint.js`, run by `node build.js`, so they gate the deploy):
+- **Ratchet** — no file other than `10-tokens.css` may gain a raw colour beyond `tools/color-baseline.json`;
+  new files must be token-only. Tokenizing a file? `node tools/color-lint.js --update` in the same commit.
+- **Contrast contract** — a list of (foreground token, background token, minimum ratio) pairs asserted
+  against the resolved token values. A value swap that breaks AA fails the build. Add a pair when a new
+  token carries text.
 
-**Primitive ramp — Sage (the one green in the app):**
-Generated in OKLCH at hue 175°, the hue of the "Hôm nay còn tiêu được" tile. Chroma peaks at 500 and
-tapers toward both ends, so the light tints stay soft and the darks stay sage rather than teal.
+Want a new colour? Don't pick one: add a rule to `palette-gen.js`, re-run, paste, and reference it by a
+semantic name.
 
-| Step | Value | On white | May be used as |
-|---|---|---|---|
-| `--sage-50` | `#ebfbf6` | — | Tints, selected-chip fill, tile background |
-| `--sage-100` | `#d6f5eb` | — | Stronger tint |
-| `--sage-200` | `#afe9d8` | — | Light gradient stop |
-| `--sage-300` | `#7ad5bd` | 1.7 | Secondary brand, light ring stop |
-| `--sage-400` | `#4abba1` | 2.4 | Button gradient end |
-| `--sage-500` | `#149d83` | 3.4 | **Brand.** Large text (≥18px or 14px bold), icons, fills with white text |
-| `--sage-600` | `#00846d` | 4.6 | **Brand ink / good.** Body-size brand text |
-| `--sage-700` | `#006b58` | 6.5 | Small labels, dark-mode accent text |
-| `--sage-800` | `#095143` | 9.3 | Reserved |
-| `--sage-900` | `#0a362c` | 13.3 | Reserved |
-| `--sage-soft` | `#4a917f` | 3.7 | 500's lightness at ⅔ chroma — **fills only** (the tile's water, secondary marks). Never text under 18px |
-| `--sage-wash` | `rgba(20,157,131,.18)` | — | Ring tracks, progress rails, icon tiles on brand surfaces |
+#### The harmony scheme
 
-**Brand ramp (semantic, theme-driven — default "Sage"):**
-| Token | Sage value | Use |
+| Role | Position | Reasoning |
 |---|---|---|
-| `--brand` | `--sage-500` | Primary actions, selected state, the one accent per view |
-| `--brand-ink` | `--sage-600` | Brand-colored text on light backgrounds (AA at body size) |
-| `--brand-2` | `--sage-300` | Secondary brand, gradient stop |
-| `--grad-brand` | `135deg, --sage-500 → --sage-400` | Primary button fill |
-| `--grad-hero` | `150deg, --sage-400 · --sage-500 · --sage-300` | App mark, theme swatch (mirrored in `THEMES[sage]`, `70-theme-i18n.js`; keep in sync) |
-| `--brand-tint` | `--sage-50` | Selected-chip fill, subtle brand backgrounds |
-| `--brand-glow` | `--sage-500` at 32% | Primary button shadow |
+| **Anchor** | Sage, H 175 (the "Hôm nay còn tiêu được" tile's hue) | The one hue with meaning: brand, action, money-positive. |
+| **Neutrals ("stone")** | H 175, C ≤ .015 | Monochromatic extension: greys that share the anchor hue read as the same material. (They used to sit at H 306, a plum cast left over from an earlier identity.) |
+| **Danger** | Red, H 25 | Near-complement (exact complement is 355): maximum contrast with sage without vibrating beside it. |
+| **Warning** | Amber, H 70 | Split-complementary partner; between "fine" and "danger" on the wheel as in meaning. |
+| **Guide tile** | 175 · 85 · 50 · 25 | Evenly spaced from anchor to near-complement; ≥ 35° between neighbours. |
+| **Identity** (categories, members) | Six slots on the 215°→85° arc | **100°–210° is reserved for the anchor**: no category or member can be mistaken for "money-positive". Colour is never the only carrier — categories have an emoji, members initials — because the reserved arc caps mutual distinctness at six. |
+| **Illustration foliage** | H 158, C .10–.13 | Analogous: the garden is the same world as the UI, clearly art. Sky, sun, flowers, roofs keep their own colour. |
 
-Also mirrored outside CSS: `<meta name="theme-color">` in `src/index.html` and `theme_color` in
-`manifest.json` are `--sage-500` by value.
+#### The bands (OKLCH; L lightness, C chroma)
 
-**Neutrals & surfaces (fixed):**
-| Token | Value | Use |
-|---|---|---|
-| `--ink` | `#191022` | Primary text, titles |
-| `--ink-2` | `#3a2f45` | Body text |
-| `--muted` | `#8a8494` | Secondary text, labels, captions |
-| `--muted-soft` | `#a29caa` | Tertiary / disabled |
-| `--canvas` | `#f4f1f6` | App background (behind cards) |
-| `--white` | `#ffffff` | Card / sheet / modal surfaces, input fields |
-| `--surface` | `#f9f7f8` | Subtle hover / inset field fill |
-| `--fill-neutral` | `rgba(138,132,148,.14)` | Neutral wash — segmented controls, chips, progress-ring track + bars, icon tiles |
-| `--chev` | `#cfc8d6` | Disclosure-chevron color |
-| `--hairline` | `#e9e4ee` | Borders, dividers between groups |
-| `--divider` | `#f1edf4` | Row dividers inside a card |
+| Job | Band |
+|---|---|
+| Text on white / canvas | L ≤ .52 → AA 4.5:1 automatically |
+| Large text, icons, fills with white text | L .60–.64 → 3:1 |
+| Tints (row / chip backgrounds) | L .96, C .025 for every hue — one weight |
+| Hairlines · dividers · canvas | L .93 · .955 · .965 |
+| Status ramp shape (red, amber, sage alike) | tint L .96 C .025 · light L .78 C .11 · base L .62 C .15 · ink L .50 C .13 |
+| Identity slot | base (as searched) · soft = base L + .12 at C .12 · tint L .96 C .025 · text L .48 C .12 |
+| Washes / glows / shadows | the parent colour at α .18 / .32 / .05–.12 — never a new hex |
 
-**Semantic:**
-| Token | Value | Meaning |
-|---|---|---|
-| `--good` / `--good-tint` | `--sage-600` / `--sage-50` | Positive, income, success, "today". **Always sage, in every theme** — the theme swaps the brand ramp, never the meaning of a positive number |
-| `--danger` / `--danger-tint` | `#E0322F` / `#fdecef` | Destructive, over budget |
-| `--amber` / `--amber-tint` | `#B8730B` / `#fbefda` | Warning, "over pace" |
+#### Semantic tokens (default theme = Sage)
 
-**Progress-ring status arcs** (finance hero) — status on the large ring is carried by gradient-stop
-token *pairs* (light→dark), never raw hex in markup, so it stays consistent and can be re-tinted in
-one place: `--ring-ok-1/2` (`--sage-300` → `--sage-600`), `--ring-over-1/2` (light → `--danger`), `--ring-pace-1/2`
-(a vivid amber pair, deliberately brighter than the text-legible `--amber`, which is too dark for a big arc).
+**Brand:** `--brand` sage-500 · `--brand-ink` sage-600 (AA body text) · `--brand-2` sage-300 · `--brand-tint` sage-50 ·
+`--grad-brand` 500→400 · `--grad-hero` 400·500·300 (mirrored in `THEMES[sage]`, `70-theme-i18n.js`) · `--brand-glow` 500 @ .32.
+Also mirrored by value: `<meta name="theme-color">` and `manifest.json` `theme_color` = sage-500.
 
-**Daily-guide tile states** ("Hôm nay còn tiêu được", Finance + Cá nhân) — four token quads
-`--guide-{ok,warn,hot,over}` + `-mut` / `-bg` / `-trk` (amount text + water · label · tile fill · circle
-track). `ok` is the sage ramp (`--sage-500` / `--sage-soft` / `--sage-50` / `--sage-wash`), `over` anchors
-`--danger`; `warn`/`hot` keep the tile's vivid yellow/orange because `--amber` is too dark at 24px.
-`fhGuideRender` sets a state **class** on `.cf-daily` (`ok|warn|hot|over`); the class binds `--g-main/-mut/-bg/-trk`
-and the SVG draws in `currentColor`. JS never chooses a colour.
+**Status:** `--danger` = red-ink (text, 6.4:1) · `--danger-base` = red-base (bars, filled buttons with white text) ·
+`--danger-tint` · `--amber` = amber-ink · `--amber-base` · `--amber-tint` · `--good` = sage-600 · `--good-tint` = sage-50.
+**`--good` is sage in every theme**: the theme swaps the brand ramp, never the meaning of a positive number.
+Ring arcs `--ring-{ok,pace,over}-1/2` = light → base of their ramp, so the three arcs weigh equal.
 
-**Category colors** (`--cat-housing #5E5CE6`, `--cat-food #34C759`, `--cat-dining #FF375F`,
-`--cat-kids #FF9F0A`, `--cat-transport #32ADE6`, `--cat-fun #BF5AF2`, `--cat-other #98949e`) —
-each category has a `[emoji, tint-bg, text-color]` triple in `catStyle`. New categories cycle a
-palette (`CATPAL`). **Member/person colors** are per-member, stored on the member.
+**Neutrals:** `--ink` stone-900 · `--ink-2` 800 · `--muted` 600 · `--muted-soft` 500 · `--chev` 300 · `--hairline` 200 ·
+`--divider` 150 · `--canvas` 100 · `--surface` 50 · `--pearl` 25 · `--fill-neutral` stone-400 @ .14 · shadows = stone-900 @ α.
 
-**Themes:** `Sage, Ocean, Lavender, Blossom, Twilight` — each overrides the brand ramp via a
-`.phone.t-<name>` class; chosen in Settings (every family starts on Sage), persisted to `localStorage: fh-theme`.
-Theme choice is being retired (Settings already says so); the four non-Sage ramps are legacy hand-picked
-hexes and were deliberately left untouched rather than regenerated, to avoid shifting colours on users
-days before the setting goes away.
+**Daily-guide tile:** `--guide-{ok,warn,hot,over}` + `-mut` / `-bg` / `-trk`. `fhGuideRender` sets a state **class** on
+`.cf-daily`; the class binds `--g-main/-mut/-bg/-trk`, the SVG draws in `currentColor`. JS never chooses a colour.
 
-**Rules:** No colored fills on info cards, quote cards, table headers or stat blocks — use borders
-and left-accent lines. No gradients except the brand hero/CTA. One accent per view. The finance
-hero is the reference for this restraint (status lives in the ring, not a tinted card). Known legacy
-tint-fill exceptions to migrate: `.fund-avail`, `.founder-note` (event sheet).
+**Identity:** `--id-1…6` (+ `-soft`, `-tint`, `-text`) and `--id-none` (stone) are shared by **categories and members**.
+Stored colours may be a legacy hex, `var(--cat-x)` or `var(--id-N)`; `fhIdAssign` (`20-budget.js`) maps a family's list
+to slots deterministically at hydrate, keeping slots distinct while it can — no DB change. New categories and members
+are stored as `var(--id-N)`. Legacy `--cat-housing/transport/fun/kids/dining/food` alias slots 1–6 because those strings
+live in the `categories` table; do not remove them. New families' default categories are assigned slots directly.
+
+**Scene:** `--scene-grass`, `--scene-grass-deep`, `--scene-leaf`, `--scene-leaf-light` for the house / home / celebrate
+art. All other illustration colour stays raw (on the ratchet baseline).
+
+**Themes:** `Sage, Ocean, Lavender, Blossom, Twilight` — each overrides only the brand ramp via `.phone.t-<name>`;
+chosen in Settings (every family starts on Sage), persisted to `localStorage: fh-theme`. Theme choice is being retired;
+the four non-Sage ramps are legacy hand-picked hexes and were deliberately left untouched.
+
+**Rules:** No colored fills on info cards, quote cards, table headers or stat blocks — use borders and left-accent
+lines. No gradients except the brand hero/CTA. One accent per view. The finance hero is the reference for this
+restraint (status lives in the ring, not a tinted card). Known legacy tint-fill exceptions to migrate: `.fund-avail`,
+`.founder-note` (event sheet).
 
 ### 2.2 Typography
 

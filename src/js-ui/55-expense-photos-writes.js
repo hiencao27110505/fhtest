@@ -445,7 +445,7 @@ function saveExpenseEdit(){
   var cat=chosen('ex-cat')||'Fun', who=chosen('ex-who')||'Emma';
   var whoStore=(who==='Both')?'Shared':who;
   var dObj=exDate(), dstr=(dObj.getTime()===TODAY.getTime())?'Today':(MONA[dObj.getMonth()]+' '+dObj.getDate());
-  var s=catStyle[cat]||['🧾','#f2eef6','var(--cat-other)'];
+  var s=catStyle[cat]||['🧾','var(--id-none-tint)','var(--id-none)'];
   var jul=months[curMonthKey()], newFuture=dObj>TODAY;      // a future date → reserved (not counted as spent)
   // reverse the OLD contribution (only realized items were ever counted toward spending)
   if(!t.future){

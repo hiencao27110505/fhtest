@@ -380,8 +380,8 @@ function svgRabbit(phase){
       + '<circle cx="3.2" cy="33.4" r="1.25" fill="var(--snout)"/>'
       + '<rect x="10" y="39.5" width="8" height="4" rx="2" fill="var(--coat-cream)"/>'
       + '<rect x="10" y="39.5" width="8" height="4" rx="2" fill="rgba(120,95,70,.08)"/>'
-      + '<rect x="1.6" y="39" width="1.4" height="4.5" rx=".7" fill="#57a86a"/>'
-      + '<circle cx="1.4" cy="38" r="1.5" fill="#57a86a"/><circle cx="3.4" cy="37.6" r="1.5" fill="#57a86a"/><circle cx="2.4" cy="36.2" r="1.5" fill="#57a86a"/>';
+      + '<rect x="1.6" y="39" width="1.4" height="4.5" rx=".7" fill="#46aa76"/>'
+      + '<circle cx="1.4" cy="38" r="1.5" fill="#46aa76"/><circle cx="3.4" cy="37.6" r="1.5" fill="#46aa76"/><circle cx="2.4" cy="36.2" r="1.5" fill="#46aa76"/>';
   }
   else if(phase === 'dawn'){
     b = '<ellipse cx="20" cy="44" rx="15" ry="2.3" fill="var(--gshadow)"/>'
