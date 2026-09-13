@@ -139,7 +139,7 @@
       for (const d of defs) {
         const from60 = _shift(d.startedOn, -60);
         const matchDates = [];       // dates with a matching txn ON/AFTER start
-        let pre = { total: 0, n: 0 };   // pre-start slice for the money-kept avg
+        let pre = { fares: [], first: null };   // pre-start slice: the money-kept model
         let lastBreakRow = null, unreadableOverlap = false, queued = 0;
         for (const r of rows) {
           if (r._unreadable) { if (r.date >= d.startedOn) unreadableOverlap = true; continue; }
@@ -147,7 +147,10 @@
           if (r.date >= d.startedOn && r.date <= today) {
             matchDates.push(r.date);
             if (!lastBreakRow || r.date > lastBreakRow.date) lastBreakRow = r;
-          } else if (r.date >= from60 && r.date < d.startedOn) { pre.total += (r.amt || 0); pre.n++; }
+          } else if (r.date >= from60 && r.date < d.startedOn) {
+            pre.fares.push(r.amt || 0);
+            if (!pre.first || r.date < pre.first) pre.first = r.date;
+          }
         }
         for (const q of staged) {
           if (q.date < d.startedOn || q.date > today) continue;
@@ -164,7 +167,26 @@
         let best = current, prev = _shift(d.startedOn, -1);
         for (const m of matchDates) { best = Math.max(best, _days(prev, m) - 1); prev = m; }
         best = Math.max(best, d.record || 0);
-        const avgDay = pre.n >= 3 ? pre.total / 60 : null;
+        /* Money kept — frequency × typical fare, not mean-over-60-days.
+           Validated against real Grab history: the old `sum/60` undercounted
+           dense/recent spend ~4× (9 days of rides divided by 60), and the mean
+           fare was doubled by two atypical long trips. So instead:
+             • typical fare = MEDIAN of matching fares (outlier-robust)
+             • λ = matching events per day over the OBSERVED span (first
+               matching txn → start, clamped 7–60d), not a fixed 60
+             • confidence = min(1, n/6) shrinks the estimate on thin data
+           perDay = λ × median × confidence; rides/day = λ × confidence.
+           This reads as "~9 lần đã nhịn · ~425k" for a week of that commute —
+           a figure the user can eyeball against their own ride list. */
+        let avgDay = null, ridesDay = null;
+        if (pre.fares.length >= 3) {
+          const fs = pre.fares.slice().sort((a, b) => a - b), fn = fs.length;
+          const median = (fs[(fn - 1) >> 1] + fs[fn >> 1]) / 2;
+          const spanDays = Math.min(60, Math.max(7, _days(pre.first, d.startedOn)));
+          const confidence = Math.min(1, fn / 6);
+          ridesDay = (fn / spanDays) * confidence;
+          avgDay = median * ridesDay;
+        }
         res[d.id] = {
           current: current, record: best,
           weeks: Math.floor(current / 7), rem: current % 7,
@@ -172,7 +194,7 @@
           brokeStaged: !!(lastBreakRow && lastBreakRow.staged),
           brokeRecent: lastBreak ? (_days(lastBreak, today) <= 6) : false,
           saved: avgDay != null ? Math.round(avgDay * current) : null,
-          avgDay: avgDay,   // raw per-day spend (base units); powers the card's money band + per-medal projection
+          avgDay: avgDay, ridesDay: ridesDay,   // per-day spend + per-day events avoided (base units)
           queued: queued, unreadable: unreadableOverlap,
           milestone: d.rule.milestone || 7,
           breaks: matchDates.slice(), startedOn: d.startedOn   // per-day calendar in the detail sheet
@@ -310,9 +332,16 @@
       const hasMoney = (r.avgDay != null && r.avgDay > 0 && cur > 0 && typeof fmt === 'function');
       let band;
       if (hasMoney) {
+        // Right side leads with the tangible "events avoided" count — a figure
+        // the user can eyeball against their own history; falls back to the
+        // per-day money when the rate is too low to round to a whole event.
+        const rides = Math.round((r.ridesDay || 0) * cur);
+        const rside = rides >= 1
+          ? '≈' + rides + ' ' + _L('lần', 'times') + '<br>' + _L('đã nhịn', 'skipped')
+          : '≈' + fmt(Math.round(r.avgDay)) + '<br>' + _L('mỗi ngày', 'per day');
         band = '<div class="stk-cband money"><div class="stk-cband-main"><div class="stk-cband-l">' + _L('Ở lại ví · ngày ' + cur, 'Kept · day ' + cur) + '</div>'
           + '<div class="stk-cband-v num">~' + fmt(r.saved) + '</div></div>'
-          + '<div class="stk-cband-r">≈' + fmt(Math.round(r.avgDay)) + '<br>' + _L('mỗi ngày', 'per day') + '</div></div>';
+          + '<div class="stk-cband-r">' + rside + '</div></div>';
       } else {
         band = '<div class="stk-cband day"><div class="stk-cband-main"><div class="stk-cband-l">' + (brokeToday ? _L('Đứt hôm nay', 'Broke today') : _L('Đang giữ', 'Holding')) + '</div>'
           + '<div class="stk-cband-v num">' + cur + ' <span class="stk-cband-u">' + _L('ngày', 'days') + '</span></div></div>'
