@@ -57,10 +57,8 @@ t('the day rows open the OS calendar directly (fhPickRow), the day of month is w
     /onchange="fhPickChange\(this\)" onblur="fhPickBlur\(this\)"/.test(fmtH) && /function fhPickBlur\(i\)\{[\s\S]{0,80}if\(i\.getAttribute\('data-dirty'\)!=='1'\)/.test(fmtH)
     && /fhWizDay = function \(which, v, final\)/.test(debts) && /if \(!final\) return '<b>'/.test(debts)
     && /function exdPickDate\(mode, v, final\)/.test(detail) && /function csvPickDate\(v, final\)/.test(rv));
-  t('the iOS pre-fill on open is not a choice: first change equal to now is ignored, blur without a pick empties the field',
-    /function _fhPickIsPrefill\(i\)/.test(fmtH) && /if\(_fhPickIsPrefill\(i\)\) return;/.test(fmtH) && /i\.value=i\.getAttribute\('data-init'\)\|\|''; return;/.test(fmtH) && /_fhPickIOS=/.test(fmtH));
-  t('an un-moved iOS pre-fill is OFFERED with a Chọn chip, never assumed and never impossible to pick',
-    /function _fhPickOffer\(i\)/.test(fmtH) && /if\(_fhPickIOS && !i\.getAttribute\('data-init'\) && i\.value\)\{ _fhPickOffer\(i\); return; \}/.test(fmtH) && /csv-spick-ok/.test(fmtH));
+  t('closing the picker accepts what it shows (iOS pre-fill included): no prefill/offer logic remains',
+    !/_fhPickIsPrefill|_fhPickOffer|csv-spick-ok|fhPickFocus/.test(fmtH));
   t('no date row opens a sheet any more: review card', !/csvsheet-date|csvsheet-loandue|f==='when'|f==='loandue'/.test(rv) && /on: 'csvPickDate'/.test(rv) && /on: 'csvPickLoanDue'/.test(rv));
 }
 
