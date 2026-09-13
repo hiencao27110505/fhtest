@@ -3856,6 +3856,9 @@ button.csv-srow:active{background:var(--surface)}
    so the tap opens the picker itself; the ✕ sits above it to clear */
 .csv-srow.pick{position:relative;cursor:pointer}
 .csv-spick{position:absolute;inset:0;width:100%;height:100%;opacity:0;margin:0;padding:0;border:0;background:none;color:transparent;font-size:16px;-webkit-appearance:none;appearance:none;z-index:1;cursor:pointer}
+/* the iOS "is this what you meant?" chip on a pre-filled, un-moved picker */
+.csv-spick-ok{position:relative;z-index:2;flex:none;border:0;border-radius:9999px;background:var(--brand);color:var(--white);font:inherit;font-size:12px;font-weight:700;padding:5px 11px;margin-left:4px;-webkit-tap-highlight-color:transparent}
+.csv-spick-ok:active{opacity:.75}
 .csv-sclear{position:relative;z-index:2;flex:none;width:22px;height:22px;border:0;border-radius:50%;background:var(--fill-neutral);color:var(--muted);font:inherit;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;padding:0;margin-left:2px}
 
 /* bottom CTA bar: delete (arm-then-confirm) · apply-to-similar · import-one */
@@ -5993,8 +5996,25 @@ function fhPickChange(i){
 }
 function fhPickBlur(i){
   i.removeAttribute('data-seen');
-  if(i.getAttribute('data-dirty')!=='1'){ i.value=i.getAttribute('data-init')||''; return; }   // nothing chosen: drop the pre-fill
+  if(i.getAttribute('data-dirty')!=='1'){
+    /* iOS pre-fill only, nothing moved. The OS cannot tell "dismissed" from
+       "wanted the already-selected date" (tapping today in the calendar fires
+       nothing), so the row ASKS: the date stays in the input and shows with a
+       "Chọn" chip — one tap confirms it; ✕ or another pick discards it. */
+    if(_fhPickIOS && !i.getAttribute('data-init') && i.value){ _fhPickOffer(i); return; }
+    i.value=i.getAttribute('data-init')||''; return;
+  }
   i.removeAttribute('data-dirty'); _fhPickCall(i, i.value, true);
+}
+function _fhPickOffer(i){
+  var v=i.value, sv=i.parentNode&&i.parentNode.querySelector('.csv-sval'); if(!sv) return;
+  var lbl=(i.type==='time') ? v : v.slice(8,10)+'/'+v.slice(5,7);
+  var b=sv.querySelector('b'); if(b){ b.textContent=lbl; b.className='num'; }
+  if(!sv.querySelector('.csv-spick-ok')){
+    var ok=document.createElement('button'); ok.type='button'; ok.className='csv-spick-ok'; ok.textContent=L('Chọn','Use');
+    ok.onclick=function(e){ e.stopPropagation(); i.setAttribute('data-dirty','1'); fhPickBlur(i); };
+    var chev=sv.querySelector('.csv-schev'); sv.insertBefore(ok, chev||null);
+  }
 }
 function fhPickClear(btn){ var i=btn.parentNode&&btn.parentNode.parentNode&&btn.parentNode.parentNode.querySelector('input.csv-spick'); if(!i) return; i.value=''; i.removeAttribute('data-dirty'); _fhPickCall(i, '', true); }
 function fhPickOpen(i){ try{ if(typeof i.showPicker==='function') i.showPicker(); }catch(e){} }
@@ -20683,7 +20703,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v520';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v521';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
