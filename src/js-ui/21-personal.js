@@ -334,8 +334,20 @@ function _persEmailRow(){
   var n=window.fhStagedCount||0;
   var p=(typeof window.fhBackfillProgress==='function') ? window.fhBackfillProgress() : null;
   var reading=!!(p && p.phase==='reading');
-  var ic=PIC.mail, badge, sub='', prog='';
-  if(reading){
+  /* A DEAD CONNECTION OUTRANKS PROGRESS — there is nothing to be making
+     progress on. This is the surface that survives "Nhắc tôi sau", so it is not
+     dismissible and carries no count: a number here would read as work waiting,
+     when the truth is that nothing is arriving at all. */
+  var rx=(typeof window.fhReauthState==='function') ? window.fhReauthState() : null;
+  var rxGap = (rx && rx.since) ? fmtGap(Date.now()-Date.parse(rx.since)) : '';
+  var ic=PIC.mail, badge, sub='', prog='', warn=false;
+  if(rx){
+    warn=true;
+    badge='<span class="cc-badge warn">!</span>';
+    sub='<span class="cc-sub warn">'+esc(rxGap
+      ? L('Ngắt kết nối '+rxGap+' · cần làm mới','Disconnected '+rxGap+' · needs refreshing')
+      : L('Cần làm mới kết nối','Connection needs refreshing'))+'</span>';
+  } else if(reading){
     badge='<span class="cc-badge run"><span class="cc-dot"></span>'+p.daysRead+'/'+p.windowDays+'</span>';
     sub='<span class="cc-sub">'+esc(p.front
       ? L('Đang đọc… đã tới '+fmtDayMon(new Date(p.front))+' · '+n+' khoản',
@@ -347,7 +359,7 @@ function _persEmailRow(){
     badge = n>0 ? '<span class="cc-badge num">'+n+'</span>' : '';
   }
   return '<button class="cc-row" onclick="fhEmailTxnCta({scope:\'personal\'})">'
-    +'<span class="'+(reading?'cc-ic run':'cc-ic')+'">'+ic+'</span>'
+    +'<span class="'+(warn?'cc-ic warn':(reading?'cc-ic run':'cc-ic'))+'">'+ic+'</span>'
     +'<span class="cc-t">'+L('Khoản thu chi từ email','Income & expenses from email')+sub+prog+'</span>'
     +badge+_ccChev+'</button>';
 }

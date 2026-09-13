@@ -101,6 +101,10 @@ function make(o) {
     window: {
       FAM: { user: { email: 'me@gmail.com' } }, DB: { ownerMemberId: 'm1', _hydrated: true },
       fhUser: { id: 'u1' }, toast: (m) => toasts.push(m),
+      /* Rows already staged before the token died. The reconnect screen offers
+         them only when some exist, so the harness has to say how many. */
+      fhStagedCount: o.staged == null ? 0 : o.staged,
+      fhTxnReviewSheet: () => {},
       sb: {
         auth: { getSession: async () => (o.noSession
           ? { data: { session: null }, error: null }
@@ -190,7 +194,7 @@ const ok = (json, headers) => ({ status: 200, json: json, headers: headers || {}
       !m.sheets.some((h) => h.indexOf('Đang tự động ghi') >= 0), 'sheets=' + m.sheets.length);
   }
   {
-    const m = make({ grants: [{ id: 'g1', provider: 'google', email: 'me@gmail.com', needs_reauth: true }] });
+    const m = make({ staged: 88, grants: [{ id: 'g1', provider: 'google', email: 'me@gmail.com', needs_reauth: true }] });
     m.api.fhAutoTxnSheet();
     await new Promise((r) => setTimeout(r, 10));
     /* A token dies every 7 days while the OAuth app is in Testing status, so a
@@ -200,9 +204,28 @@ const ok = (json, headers) => ({ status: 200, json: json, headers: headers || {}
     const html = m.sheets.join('');
     t('a grant needing re-consent does NOT read as healthy',
       html.indexOf('Đang tự động ghi') === -1, 'sheets=' + m.sheets.length);
-    t('  ...it names the state', html.indexOf('Cần kết nối lại') >= 0);
+    /* Copy rewritten 2026-09-13: the screen now apologises, states the 7-day
+       rule frankly and names the outage, instead of reporting what Google
+       stopped allowing. The state must still be unmistakable. */
+    t('  ...it names the state', html.indexOf('làm mới kết nối email') >= 0);
     t('  ...offers the one tap that fixes it', html.indexOf('fhAutoTxnGrant()') >= 0);
-    t('  ...and says the queue is untouched', html.indexOf('mục duyệt') >= 0);
+    /* Rows already staged are complete — staging has stopped, so there is no
+       partial-duplicate hazard and withholding them would punish the person for
+       our expiry. Offered only when some exist. */
+    t('  ...and leaves the 88 already-staged rows reachable',
+      html.indexOf('fhTxnReviewSheet()') >= 0 && html.indexOf('88') >= 0, html.slice(-400));
+    t('  ...but does NOT offer the off-switch on an apology screen',
+      html.indexOf('fhAutoTxnDisconnect') === -1);
+  }
+  {
+    /* Nothing staged: no link, so the screen stays about the one thing it is
+       asking for. */
+    const m = make({ staged: 0, grants: [{ id: 'g1', provider: 'google', email: 'me@gmail.com', needs_reauth: true }] });
+    m.api.fhAutoTxnSheet();
+    await new Promise((r) => setTimeout(r, 10));
+    const html = m.sheets.join('');
+    t('an empty queue is not offered on the reconnect screen',
+      html.indexOf('fhTxnReviewSheet()') === -1);
   }
   {
     const m = make({ grants: [{ id: 'g1', provider: 'google', email: 'me@gmail.com', needs_reauth: false }] });

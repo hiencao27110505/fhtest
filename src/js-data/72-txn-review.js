@@ -201,6 +201,14 @@
        `oauth` is re-used rather than re-fetched — _atxConnection already ran
        above and caches the phase. Forwarding has no first pass, so a
        forwarding-only member is never held. */
+    /* A DEAD GRANT INTERCEPTS TOO. They came asking for their transactions;
+       the honest answer is why there are none, and the way to get them back.
+       Opening a queue that stopped filling days ago answers neither. */
+    if (oauth && window.fhReauthState && window.fhReauthState()) {
+      const c = window.fhAutoTxnConnection ? await window.fhAutoTxnConnection() : null;
+      if (c && c.needsReauth && window.fhAutoTxnStatus) return window.fhAutoTxnStatus(c);
+    }
+
     if (oauth && window.fhBackfillHolds && window.fhBackfillHolds()) {
       return window.fhAutoTxnStatus
         ? window.fhAutoTxnStatus(await window.fhAutoTxnConnection())

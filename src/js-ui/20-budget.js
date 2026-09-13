@@ -519,8 +519,20 @@ function renderCashflowEmailCta(){
   var n=window.fhStagedCount||0;
   var p=(typeof window.fhBackfillProgress==='function') ? window.fhBackfillProgress() : null;
   var reading=!!(p && p.phase==='reading');
+  /* A DEAD CONNECTION OUTRANKS PROGRESS — there is nothing to be making
+     progress on. This is the surface that survives "Nhắc tôi sau", so it is not
+     dismissible and carries no count: a number here would read as work waiting,
+     when the truth is that nothing is arriving at all. */
+  var rx=(typeof window.fhReauthState==='function') ? window.fhReauthState() : null;
+  var rxGap = (rx && rx.since) ? fmtGap(Date.now()-Date.parse(rx.since)) : '';
   var badge, sub='', prog='', icCls='cc-ic';
-  if(reading){
+  if(rx){
+    icCls='cc-ic warn';
+    badge='<span class="cc-badge warn">!</span>';
+    sub='<span class="cc-sub warn">'+esc(rxGap
+      ? L('Ngắt kết nối '+rxGap+' · cần làm mới','Disconnected '+rxGap+' · needs refreshing')
+      : L('Cần làm mới kết nối','Connection needs refreshing'))+'</span>';
+  } else if(reading){
     icCls='cc-ic run';                       // subordinate: this row is not a destination yet
     badge='<span class="cc-badge run"><span class="cc-dot"></span>'+p.daysRead+'/'+p.windowDays+'</span>';
     sub='<span class="cc-sub">'+esc(p.front

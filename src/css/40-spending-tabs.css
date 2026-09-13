@@ -100,6 +100,13 @@
 .cc-sub{display:block;margin-top:3px;font-size:12px;font-weight:400;line-height:1.45;color:var(--muted);white-space:normal}
 .cc-badge{flex:0 0 auto;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--brand);color:#fff;font-size:11px;font-weight:800;line-height:20px;text-align:center;font-variant-numeric:tabular-nums}
 .cc-chev{width:18px;height:18px;flex-shrink:0;color:var(--chev)}
+/* Bank-email row with a DEAD connection. Amber, and deliberately no count: a
+   number here would read as work waiting, when the truth is that nothing is
+   arriving at all. Survives the sheet's snooze, so it is never dismissible. */
+.cc-ic.warn{background:var(--amber-tint);color:var(--amber)}
+.cc-badge.warn{background:var(--amber-tint);color:var(--amber);min-width:20px}
+.cc-sub.warn{color:var(--amber)}
+
 /* Bank-email row while a first read is running (74-autotxn-ui). The row keeps
    its shape; only the badge changes meaning and a hairline appears under the
    subtitle. Semantic tokens only, so all five themes follow.

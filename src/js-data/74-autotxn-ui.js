@@ -598,6 +598,8 @@
                   which is what the null means rather than "unknown". */
                scope: row.default_scope === 'personal' ? 'personal' : 'family' };
       conn.phase = _atxPhase(conn);
+      _atxReauthCache = conn.needsReauth
+        ? { since: conn.lastSyncedAt || null, email: conn.email || '' } : null;
       _atxPhaseCache = conn.phase;            // the row renderer reads this synchronously
       return conn;
     } catch (e) { return null; }
@@ -645,6 +647,13 @@
      as the ordinary row. */
   let _atxProgressCache = null;
   window.fhBackfillProgress = () => _atxProgressCache;
+
+  /* What the two email rows paint their warning from. Set whenever a grant is
+     read, so the row can show the outage without a round trip of its own. Null
+     means "not known yet", which must render as the ordinary row — a slow
+     network must never make a healthy mailbox look broken. */
+  let _atxReauthCache = null;
+  window.fhReauthState = () => _atxReauthCache;
 
   /* ── how far back the read has actually got ────────────────────────────────
      Gmail lists newest-first and the worker eats the next unprocessed slice
@@ -701,27 +710,77 @@
        missing transactions. The fix is one tap and the same button as the first
        time, so the copy names the state plainly and offers it. */
     if (conn && conn.needsReauth) {
+      /* WRITTEN FOR THE PERSON, NOT THE PLUMBING. The old copy named Google
+         twice and the user's money never — it explained what a third party had
+         stopped allowing, at the moment someone wanted their spending logged.
+         In consumption-chain terms this whole screen is a MAINTENANCE job: pure
+         cost, no value, so the copy has to justify the finger-move and own the
+         cost as ours.
+
+         Three moves. Apologise first, once, and quietly. State the rule
+         FRANKLY — "every 7 days" is something a person can hold and plan
+         around, where "the connection dropped" is weather. Then the current
+         state to the hour, from last_synced_at, which is a real timestamp and
+         survives the reconnect untouched (grant_mailbox_access leaves it alone
+         on conflict), so every number here is exactly true.
+
+         The window we actually READ is rounded outward by windowDays; we never
+         state it. Stating it would be the one sentence on this screen that is
+         false. We state the OUTAGE, and cover a superset of it. */
+      const gapMs = conn.lastSyncedAt ? (Date.now() - Date.parse(conn.lastSyncedAt)) : 0;
+      const gap = (Number.isFinite(gapMs) && gapMs > 0) ? fmtGap(gapMs) : '';
+      const steps = [
+        L('Bạn <b>kết nối</b> ở màn hình Google.', 'You <b>connect</b> on Google’s screen.'),
+        gap ? L('Chúng tôi đọc lại đúng <b>' + _esc(gap) + '</b> bị ngắt.',
+                'We re-read exactly the <b>' + _esc(gap) + '</b> that was missed.')
+            : L('Chúng tôi đọc lại đúng khoảng thời gian bị ngắt.', 'We re-read exactly the period that was missed.'),
+        L('Đối chiếu với các khoản đã có — <b>không trùng, không thiếu</b>.',
+          'We reconcile against what you already have — <b>no duplicates, nothing missing</b>.'),
+      ];
       return _fhSheet(
-        '<div class="mbx-hero">' + _mbxGlyph('mail') + '</div>' +
-        '<div class="sheet-h">' + _esc(L('Cần kết nối lại', 'Reconnect needed')) + '</div>' +
-        '<div class="sheet-sub">' + _esc(email
-          ? L('Google đã ngừng cho tụi mình đọc ' + email + ', nên tạm thời không có giao dịch mới nào được ghi. Kết nối lại một lần là xong.',
-              'Google stopped letting us read ' + email + ', so no new transactions are being logged. One reconnect fixes it.')
-          : L('Google đã ngừng cho tụi mình đọc email của bạn, nên tạm thời không có giao dịch mới nào được ghi. Kết nối lại một lần là xong.',
-              'Google stopped letting us read your email, so no new transactions are being logged. One reconnect fixes it.')) + '</div>' +
-        '<div class="mbx-note">' + _mbxGlyph('check') + '<span>' + _esc(L(
-          'Những khoản đã tìm được trước đó vẫn nằm nguyên trong mục duyệt.',
-          'Anything found before this is still waiting in Review transactions.')) + '</span></div>' +
-        '<button class="cta" id="atx-go" onclick="fhAutoTxnGrant()">' +
-          _esc(L('Kết nối lại', 'Reconnect')) + '</button>' +
-        (window.fhTxnReviewSheet
-          ? '<button class="btn-line" onclick="fhTxnReviewSheet()">' + _esc(L('Xem mục duyệt', 'Open Review transactions')) + '</button>'
+        '<div class="mbx-hero warn">' + _mbxGlyph('mail') + '</div>' +
+        '<div class="sheet-h">' + _esc(L('Xin lỗi, bạn cần làm mới kết nối email',
+                                         'Sorry — your email connection needs refreshing')) + '</div>' +
+        '<div class="sheet-sub">' +
+          L('App đang trong giai đoạn thử nghiệm nên cần bạn làm mới kết nối email <b>mỗi 7 ngày</b>.'
+            + (gap ? ' Tính tới hiện tại, kết nối đã bị ngắt <b>' + _esc(gap) + '</b>.' : ''),
+            'Earthy is in its testing phase, so the email connection has to be refreshed <b>every 7 days</b>.'
+            + (gap ? ' It has now been disconnected for <b>' + _esc(gap) + '</b>.' : '')) + '</div>' +
+        (conn.lastSyncedAt
+          ? '<span class="atx-stamp">' + _esc(L('Lần đọc cuối: ', 'Last read: ')) +
+            _esc(fmtDateLong(new Date(conn.lastSyncedAt))) + '</span>'
           : '') +
-        '<button class="ex-del" id="atx-off" onclick="fhAutoTxnDisconnect(this)">' +
-          _esc(L('Ngừng đọc email', 'Stop reading my email')) + '</button>' +
-        '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Đóng', 'Close')) + '</button>'
+        /* A sequence, not a second info box. Two stacked grey panels read as
+           small print twice; a numbered spine reads as a process with an order,
+           which is what this is. */
+        '<div class="atx-seq-lbl">' + _esc(L('Khi bạn kết nối lại', 'When you reconnect')) + '</div>' +
+        '<div class="atx-seq">' + steps.map(function (t) {
+          return '<div class="atx-seq-i">' + t + '</div>'; }).join('') + '</div>' +
+        '<div class="mbx-note plain">' + _mbxGlyph('check') + '<span>' + _esc(L(
+          'Chúng tôi đang làm việc để bỏ hẳn bước này. Trong thời gian đó, chúng tôi sẽ nhắc bạn trước khi kết nối hết hạn.',
+          'We are working to remove this step entirely. Until then, we will remind you before the connection expires.')) + '</span></div>' +
+        '<button class="cta" id="atx-go" onclick="fhAutoTxnGrant()">' +
+          _esc(L('Kết nối', 'Connect')) + '</button>' +
+        /* THE QUEUE STAYS REACHABLE, and that is not a hedge. The hold exists
+           because partial staging breaks duplicate bucketing mid-backfill —
+           but a dead grant means staging has STOPPED, so the rows already
+           there are complete and safe to work. Withholding them would punish
+           the person for our expiry. Offered only when some exist, so the
+           screen stays clean in the common case. */
+        ((window.fhStagedCount > 0 && window.fhTxnReviewSheet)
+          ? '<button class="btn-line" onclick="fhTxnReviewSheet()">' +
+            _esc(L('Xem ' + window.fhStagedCount + ' khoản đang chờ trong mục duyệt',
+                   'Review the ' + window.fhStagedCount + ' already waiting')) + '</button>'
+          : '') +
+        /* "Ngừng đọc email" is deliberately NOT here. On a screen apologising
+           for a failure, offering to turn the feature off as a peer of the
+           primary is inviting churn at the worst possible moment; it stays on
+           the healthy status screen, where the choice is a considered one. */
+        '<button class="btn-skip" onclick="fhAutoTxnSnooze()">' +
+          _esc(L('Nhắc tôi sau', 'Remind me later')) + '</button>'
       );
     }
+
 
     _fhSheet(
       '<div class="mbx-hero">' + _mbxGlyph('done') + '</div>' +
@@ -785,6 +844,32 @@
     if (typeof _atxStatusProgress === 'function') _atxStatusProgress(conn);
   }
   window.fhAutoTxnStatus = fhAutoTxnStatus;
+
+  /* ── being asked, without being nagged ─────────────────────────────────────
+     "Nhắc tôi sau" only means something if the sheet can arrive on its own, so
+     it does: once per app open, at most once a day, and only while the grant is
+     actually dead.
+
+     THE SNOOZE HIDES THE SHEET AND NOTHING ELSE. The row keeps its warning for
+     as long as the connection is down. A snooze that silenced every surface
+     would be a mute button wearing a friendly label — and since this recurs
+     weekly, it is the button everyone would learn to press. */
+  const ATX_SNOOZE_MS = 24 * 60 * 60 * 1000;
+  const _atxSnoozeKey = () => 'fh-atx-reauth-snooze';
+
+  function _atxSnoozedUntil() {
+    try { return Number(localStorage.getItem(_atxSnoozeKey()) || 0) || 0; } catch (e) { return 0; }
+  }
+  window.fhAutoTxnSnooze = function () {
+    try { localStorage.setItem(_atxSnoozeKey(), String(Date.now() + ATX_SNOOZE_MS)); } catch (e) {}
+    try { window._closeOv && window._closeOv(); } catch (e) {}
+  };
+  /* Cleared on a successful reconnect, so a fresh outage is never silenced by
+     a snooze the person set for the previous one. */
+  function _atxSnoozeClear() {
+    try { localStorage.removeItem(_atxSnoozeKey()); } catch (e) {}
+  }
+
 
   /* Fills #atx-pg on the status screen, and keeps it live while a first read is
      still running so someone who opens Settings mid-backfill watches the same
@@ -1677,6 +1762,15 @@
         (async function () {
           try {
             const conn = await _atxConnection();
+            /* A dead grant outranks everything else this boot hook does: there
+               is nothing to show progress for until it is alive again. */
+            if (conn && conn.needsReauth) {
+              if (Date.now() >= _atxSnoozedUntil()) fhAutoTxnStatus(conn);
+              try { if (typeof window.renderCashflowEmailCta === 'function') window.renderCashflowEmailCta(); } catch (e) {}
+              try { if (typeof window.renderPersonal === 'function') window.renderPersonal(); } catch (e) {}
+              return;
+            }
+            _atxSnoozeClear();                 // healthy again: forget any snooze
             if (!conn || conn.phase !== 'reading') return;
             await _atxProgressState(conn);
             try { if (typeof window.renderCashflowEmailCta === 'function') window.renderCashflowEmailCta(); } catch (e) {}

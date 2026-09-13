@@ -443,6 +443,31 @@ button.csv-srow:active{background:var(--surface)}
 .atx-fd-f{display:flex;align-items:center;gap:8px;padding:9px 13px;background:var(--surface);
   font-size:11.5px;color:var(--muted);font-weight:600}
 
+/* ---------- reconnect: the ask (74-autotxn-ui) ---------- */
+/* What happens next, as a sequence rather than a second info box. Two stacked
+   grey panels read as small print twice; a numbered spine reads as a process
+   with an order, which is what this actually is. */
+.atx-seq-lbl{font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:9px}
+.atx-seq{counter-reset:atxsq;position:relative;margin:0 0 16px;padding-left:27px}
+.atx-seq::before{content:'';position:absolute;left:9px;top:9px;bottom:9px;width:1.5px;background:var(--hairline)}
+.atx-seq-i{counter-increment:atxsq;position:relative;font-size:12.5px;line-height:1.5;
+  color:var(--ink-2);margin-bottom:11px}
+.atx-seq-i:last-child{margin-bottom:0}
+.atx-seq-i::before{content:counter(atxsq);position:absolute;left:-27px;top:0;width:19px;height:19px;
+  border-radius:50%;background:var(--brand-tint);color:var(--brand-ink);font-size:10.5px;font-weight:800;
+  display:flex;align-items:center;justify-content:center}
+.atx-seq-i b{color:var(--ink);font-weight:700}
+/* Verifiable, checkable, and the one number on the screen that is precise to
+   the minute — which is where precision belongs, not in the duration. */
+.atx-stamp{display:block;font-size:12.5px;color:var(--muted-soft);margin:-10px 0 18px;
+  font-variant-numeric:tabular-nums}
+/* A commitment, not an instruction: bordered rather than filled, so it reads
+   quieter than the note above it. */
+.mbx-note.plain{background:none;border:1px solid var(--hairline)}
+.mbx-note.plain svg{color:var(--muted-soft)}
+.mbx-hero.warn{background:var(--amber-tint);color:var(--amber)}
+
 /* ---------- bank-email: first-read progress (74-autotxn-ui) ---------- */
 /* Shared by the connect screen and the status screen so the two can never tell
    different stories. Neutral surface, never a tint, until it is genuinely done
