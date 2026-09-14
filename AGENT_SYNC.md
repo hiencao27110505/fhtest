@@ -143,6 +143,30 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-09-14 (Trang's session) — `0135_expiry_experiment` APPLIED live and verified.
+  Next free is `0136`.** A one-off Telegram monitor for the publishing experiment: the
+  OAuth app was flipped Testing → In production (still unverified) on 09-13, and
+  `pipeline/OAUTH-COMPLIANCE-FINDINGS.md` predicts the 7-day refresh-token death is tied
+  to *Testing status*, not to being unverified. This settles it without anyone watching.
+
+  - Watches grants `54a6d704…` (trang.nguyen.wh) and `25101d7b…` (hiencao27110505), both
+    reconnected AFTER publishing. The mint windows are observed **bounds**, not times —
+    there is no token-issued column (`connected_at` does not move on reconnect,
+    `updated_at` moves every sync).
+  - `familyhub-expiry-experiment`, hourly at :17. Sends exactly once, then unschedules
+    itself: ❌ a token dies at ~7 days (the expiry survived) · 🟠 dies clearly too early
+    (revoke/password — dropped, keeps watching the other) · ⚪ a watched grant row vanishes
+    (void) · ✅ past **21/09 08:00 UTC** with both still connected **and still syncing**, so
+    a broken worker cannot masquerade as a surviving token.
+  - **Verified, not assumed:** job active; both rows present; Telegram delivered the arming
+    message (pg_net HTTP 200, `earthyyy_bot`, message_id 847); a dry-run tick returned
+    cleanly, sent nothing (no new `net._http_response` row) and left the job armed.
+  - ⚠️ **DO NOT RECONNECT trang.nguyen.wh OR hiencao27110505 BEFORE 21/09.** A reconnect
+    silently re-mints the token and produces a false ✅ — the one confound the monitor
+    cannot see. Hien: this means you.
+  - Cleanup once the verdict lands (not urgent, the job is already gone by then):
+    `drop function public._expiry_experiment_tick(); drop table public.expiry_experiment;`
+
 - **2026-09-13 (Hien's session) — FYI, no answer needed: migration `0134_account_setup_skipped`
   APPLIED live (13:50 ICT) — next free is 0135.** One nullable column,
   `personal_accounts.setup_skipped_at timestamptz`. Epic: account setup
