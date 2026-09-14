@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Băng đỏ vào thẻ hiện tại · 8 hướng</title>
+<style>
+:root{
+  --bg:#f6f4f1;--surface:#fff;--doc-ink:#1b241f;--doc-ink2:#3b463f;--doc-muted:#67736c;
+  --doc-line:#e7e3dc;--doc-brand:#2E9E6B;--doc-brand-ink:#1F7E52;--doc-tint:#eaf6ef;--doc-red:#c0392b;
+  --doc-shadow:0 1px 2px rgba(20,30,25,.04),0 6px 20px rgba(20,30,25,.05);
+  --mono:"SF Mono",ui-monospace,Menlo,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Inter",system-ui,sans-serif;
+  --dispf:-apple-system,BlinkMacSystemFont,"SF Pro Display","Inter",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0f130e;--surface:#161b14;--doc-ink:#e8ebe4;--doc-ink2:#c3cabf;--doc-muted:#8f998f;
+  --doc-line:#262c22;--doc-brand:#5FD3A0;--doc-brand-ink:#7fe0b3;--doc-tint:rgba(95,211,160,.11);--doc-red:#e0605a;
+  --doc-shadow:0 1px 2px rgba(0,0,0,.3),0 8px 26px rgba(0,0,0,.34);
+}}
+:root[data-theme="light"]{--bg:#f6f4f1;--surface:#fff;--doc-ink:#1b241f;--doc-ink2:#3b463f;--doc-muted:#67736c;--doc-line:#e7e3dc;--doc-brand:#2E9E6B;--doc-brand-ink:#1F7E52;--doc-tint:#eaf6ef;--doc-red:#c0392b;--doc-shadow:0 1px 2px rgba(20,30,25,.04),0 6px 20px rgba(20,30,25,.05)}
+:root[data-theme="dark"]{--bg:#0f130e;--surface:#161b14;--doc-ink:#e8ebe4;--doc-ink2:#c3cabf;--doc-muted:#8f998f;--doc-line:#262c22;--doc-brand:#5FD3A0;--doc-brand-ink:#7fe0b3;--doc-tint:rgba(95,211,160,.11);--doc-red:#e0605a;--doc-shadow:0 1px 2px rgba(0,0,0,.3),0 8px 26px rgba(0,0,0,.34)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--doc-ink);font-family:var(--sans);line-height:1.5;font-size:15px;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1240px;margin:0 auto;padding:34px 22px 96px}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--doc-red);font-weight:600}
+h1{font-family:var(--dispf);font-size:30px;font-weight:800;letter-spacing:-.6px;margin:.35rem 0 0}
+.lede{color:var(--doc-ink2);max-width:80ch;margin:.6rem 0 0;font-size:15.5px}
+.note{margin-top:16px;background:var(--surface);border:1px solid var(--doc-line);border-left:3px solid var(--doc-red);border-radius:12px;padding:14px 16px;box-shadow:var(--doc-shadow);max-width:880px}
+.note p{margin:.2rem 0;color:var(--doc-ink2);font-size:14px}.note b{color:var(--doc-ink)}
+.toggle{position:sticky;top:14px;float:right;font-family:var(--mono);font-size:12px;background:var(--surface);border:1px solid var(--doc-line);border-radius:999px;padding:6px 13px;color:var(--doc-ink2);cursor:pointer;z-index:5}
+.dwrap{display:flex;gap:26px;align-items:flex-start;margin-top:24px}
+.ref{position:sticky;top:56px;flex:none;width:290px}
+.ref-cap{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--doc-muted);margin-bottom:8px}
+.grid{flex:1;display:grid;grid-template-columns:repeat(auto-fill,minmax(348px,1fr));gap:22px}
+.opt{background:var(--surface);border:1px solid var(--doc-line);border-radius:18px;box-shadow:var(--doc-shadow);overflow:hidden;display:flex;flex-direction:column}
+.opt-h{padding:15px 17px 11px;border-bottom:1px solid var(--doc-line)}
+.opt-n{font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--doc-red);font-weight:600;text-transform:uppercase}
+.opt-t{font-family:var(--dispf);font-size:18px;font-weight:750;letter-spacing:-.3px;margin:.15rem 0 0}
+.opt-s{color:var(--doc-muted);font-size:13px;margin:.2rem 0 0}
+.opt-b{padding:18px;display:flex;justify-content:center;background:repeating-linear-gradient(45deg,transparent 0 14px,rgba(120,120,120,.025) 14px 15px)}
+.opt-f{padding:12px 17px 14px;border-top:1px solid var(--doc-line);font-size:12.5px;color:var(--doc-ink2)}
+.opt-f b{color:var(--doc-ink)}.opt-f .con{color:var(--doc-muted)}
+
+/* phone + card (matches shipped) */
+.ph{width:100%;max-width:334px;background:#f4f1f6;border-radius:24px;padding:15px 0 18px;border:1px solid #e9e4ee;
+  --brand:#2E9E6B;--brand-ink:#1F7E52;--brand-tint:#e9f7f0;--grad-brand:linear-gradient(135deg,#34B87A,#5FC98D);
+  --ink:#191022;--ink-2:#3a2f45;--muted:#8a8494;--muted-soft:#a29caa;--canvas:#f4f1f6;--hairline:#e9e4ee;--divider:#f1edf4;--fill-neutral:rgba(138,132,148,.14);
+  --good:#1a9d5f;--danger:#E0322F;--danger-tint:#fdecef;--white:#fff;--chev:#cfc8d6;
+  color:var(--ink);font-family:var(--sans)}
+.ph *{box-sizing:border-box}
+.sech{display:flex;align-items:baseline;justify-content:space-between;margin:2px 18px 12px}
+.sech .t{font-family:var(--dispf);font-size:19px;font-weight:700;letter-spacing:-.5px}
+.sech a{font-size:13.5px;font-weight:600;color:var(--brand-ink)}
+.card{background:#fff;border-radius:22px;box-shadow:0 1px 3px rgba(25,16,34,.05),0 10px 26px rgba(25,16,34,.05);margin:0 14px 12px;padding:16px 16px 15px}
+.num{font-family:var(--dispf);font-variant-numeric:tabular-nums}
+.emo{font-size:19px;line-height:1;flex:none}
+.head{display:flex;align-items:center;gap:9px}
+.name{font-size:15.5px;font-weight:600;color:var(--ink)}
+.avs{margin-left:auto;display:flex}
+.av{width:26px;height:26px;border-radius:50%;border:2px solid #fff;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.av+.av{margin-left:-8px}
+.eyb{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+/* streak-day grid */
+.g7{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-top:12px}
+.cc{position:relative;height:30px;display:flex;align-items:center;justify-content:center;border-radius:8px;font-size:11.5px;font-weight:700;color:var(--muted-soft)}
+.cc.ok{background:var(--brand);color:#fff}
+.cc.x{background:var(--danger);color:#fff}
+.cc.fut{color:var(--muted-soft);font-weight:600}
+.cc.ms{border:1.5px dashed var(--muted-soft)}
+.cc.today{border:2px solid var(--brand);color:var(--brand-ink);font-weight:800}
+.cc-flag{position:absolute;top:-5px;right:-4px;font-size:10px;text-shadow:0 0 2px #fff,0 0 2px #fff}
+/* medals */
+.medals{display:flex;gap:7px;margin-top:12px}
+.medal{flex:1;text-align:center;border:1px solid var(--hairline);border-radius:13px;padding:10px 0 8px;background:#fff}
+.medal-e{font-size:21px;line-height:1;filter:grayscale(1);opacity:.5}
+.medal-n{font-family:var(--dispf);font-weight:800;font-size:15px;color:var(--muted);margin-top:2px}
+.medal-s{font-size:10px;color:var(--muted);margin-top:1px}
+/* the red band (the piece the user loved) */
+.rband{background:var(--danger-tint);border-radius:15px;padding:13px 15px;margin-top:12px}
+.rband .eyb{color:var(--danger)}
+.rband-v{font-family:var(--dispf);font-weight:800;letter-spacing:-.5px;color:var(--danger);margin-top:2px;font-size:22px}
+.rband-sub{font-size:12px;color:var(--danger);opacity:.82;margin-top:2px}
+.rrow{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.restart{margin-top:12px;text-align:center;font-size:13px;font-weight:700;color:var(--brand-ink);background:var(--brand-tint);border-radius:9999px;padding:11px}
+.cta{margin-top:12px;text-align:center;font-size:15px;font-weight:700;color:#fff;background:var(--grad-brand);border-radius:9999px;padding:13px;box-shadow:0 8px 20px rgba(46,158,107,.28)}
+.hint{font-size:12px;color:var(--muted);margin-top:10px;text-align:center}
+.hint b{color:var(--ink-2);font-weight:700}
+@media (max-width:980px){.dwrap{flex-direction:column}.ref{position:static;width:100%;max-width:334px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<button class="toggle" onclick="var r=document.documentElement,d=(r.getAttribute('data-theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'))==='dark';r.setAttribute('data-theme',d?'light':'dark')">◐ Sáng / Tối</button>
+<header>
+  <div class="eyebrow">FamilyHub · Earthy</div>
+  <h1>Băng đỏ vào thẻ hiện tại — 8 hướng</h1>
+  <p class="lede">Giữ nguyên bố cục thẻ đang chạy (tên · băng · lưới ngày · huy chương). Băng xám khi đứt được thay bằng <b>băng đỏ nêu thủ phạm</b>. Tám hướng khác nhau ở chỗ: băng nói gì, lưới ngày phản ứng ra sao (giữ chuỗi vừa đứt / reset về ngày 1 / gạch bỏ), và có nút gỡ hay không.</p>
+  <div class="note">
+    <p><b>Mẫu:</b> Cả nhà giữ 6 ngày, sáng nay một khoản <b>Grab 65k</b> làm đứt (suýt chạm 🥉 mốc 7). Kỷ lục 9. Nêu khoản, không nêu người.</p>
+  </div>
+</header>
+
+<div class="dwrap">
+  <div class="ref">
+    <div class="ref-cap">◆ Hiện tại (băng xám)</div>
+    <div class="ph" style="max-width:290px">
+      <div class="card">
+        <div class="head"><span class="emo">🛵</span><span class="name">Cả nhà không grab</span><span class="avs"><span class="av" style="background:#5E5CE6">H</span><span class="av" style="background:#32ADE6">B</span></span></div>
+        <div style="background:var(--fill-neutral);border-radius:15px;padding:13px 15px;margin-top:12px"><div class="eyb" style="color:var(--muted)">Đứt hôm nay</div><div style="display:flex;align-items:baseline;gap:5px;margin-top:2px"><span class="num" style="font-size:28px;font-weight:800">0</span><span style="font-size:12px;color:var(--muted)">ngày</span></div></div>
+        <div class="g7"><span class="cc fut">1</span><span class="cc fut">2</span><span class="cc fut">3</span><span class="cc fut">4</span><span class="cc fut">5</span><span class="cc fut">6</span><span class="cc fut ms">7</span></div>
+        <div class="medals"><div class="medal"><div class="medal-e">🥉</div><div class="medal-n">7</div><div class="medal-s">ngày</div></div><div class="medal"><div class="medal-e">🥈</div><div class="medal-n">14</div><div class="medal-s">ngày</div></div><div class="medal"><div class="medal-e">🥇</div><div class="medal-n">30</div><div class="medal-s">ngày</div></div><div class="medal"><div class="medal-e">🏆</div><div class="medal-n">100</div><div class="medal-s">ngày</div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid">
+
+  <!-- 1 · BAND + BROKEN GRID + MEDALS -->
+  <div class="opt">
+    <div class="opt-h"><div class="opt-n">Option 1</div><div class="opt-t">Băng đỏ + lưới đứt + huy chương</div>
+      <div class="opt-s">Thay đúng chỗ băng xám bằng băng đỏ (thủ phạm). Lưới hiện chuỗi vừa đứt: 6 ô xanh + ô đỏ. Giữ nguyên huy chương.</div></div>
+    <div class="opt-b"><div class="ph">
+      <div class="sech"><span class="t">Chuỗi cả nhà</span><a>＋ Thêm</a></div>
+      <div class="card">
+        <div class="head"><span class="emo">🛵</span><span class="name">Cả nhà không grab</span><span class="avs"><span class="av" style="background:#5E5CE6">H</span><span class="av" style="background:#32ADE6">B</span></span></div>
+        <div class="rband"><div class="eyb">Chuỗi 6 ngày vừa đứt</div><div class="rband-v">một khoản Grab 65k</div><div class="rband-sub">lọt lưới sáng nay</div></div>
+        <div class="g7"><span class="cc ok">1</span><span class="cc ok">2</span><span class="cc ok">3</span><span class="cc ok">4</span><span class="cc ok">5</span><span class="cc ok">6</span><span class="cc x">✕</span></div>
+        <div class="medals"><div class="medal"><div class="medal-e">🥉</div><div class="medal-n">7</div><div class="medal-s">ngày</div></div><div class="medal"><div class="medal-e">🥈</div><div class="medal-n">14</div><div class="medal-s">ngày</div></div><div class="medal"><div class="medal-e">🥇</div><div class="medal-n">30</div><div class="medal-s">ngày</div></div><div class="medal"><div class="medal-e">🏆</div><div class="medal-n">100</div><div class="medal-s">ngày</div></div></div>
+      </div>
+    </div></div>
+    <div class="opt-f"><b>Đổi ít nhất:</b> chỉ băng đổi đỏ + lưới đánh dấu đứt. <span class="con">An toàn, khớp thẻ hiện tại 100%.</span></div>
+  </div>
+
+  <!-- 2 · BAND + RESET GRID -->
+  <div class="opt">
+    <div class="opt-h"><div class="opt-n">Option 2</div><div class="opt-t">Băng đỏ + lưới reset</div>
+      <div class="opt-s">Băng đỏ nói mất mát; lưới đã reset về ngày 1 (trống), báo "chuỗi mới bắt đầu". Mất mát ở băng, hy vọng ở lưới.</div></div>
+    <div class="opt-b"><div class="ph">
+      <div class="sech"><span class="t">Chuỗi cả nhà</span><a>＋ Thêm</a></div>
+      <div class="card">
+        <div class="head"><span class="emo">🛵</span><span class="name">Cả nhà không grab</span><span class="avs"><span class="av" style="background:#5E5CE6">H</span><span class="av" style="background:#32ADE6">B</span></span></div>
+        <div class="rband"><div class="eyb">Chuỗi 6 ngày vừa đứt</div><div class="rband-v">một khoản Grab 65k</div><div class="rband-sub">sáng nay · về lại ngày 1</div></div>
+        <div class="g7"><span class="cc fut">1</span><span class="cc fut">2</span><span class="cc fut">3</span><span class="cc fut">4</span><span class="cc fut">5</span><span class="cc fut">6</span><span class="cc fut ms">7</span></div>
+        <div class="hint">Ngày 1 lại từ đầu · kỷ lục vẫn <b>9 ngày</b></div>
+      </div>
+    </div></div>
+    <div class="opt-f"><b>Cân bằng:</b> đỏ (tiếc) + lưới trống (khởi động lại). <span class="con">Bỏ huy chương cho gọn; thay bằng dòng kỷ lục.</span></div>
+  </div>
+
+  <!-- 3 · BAND LEADS WITH LOST DAYS -->
+  <div class="opt">
+    <div class="opt-h"><div class="opt-n">Option 3</div><div class="opt-t">Băng đỏ · số ngày mất làm chủ</div>
+      <div class="opt-s">Băng đỏ lấy "6 ngày" gạch ngang làm số lớn, thủ phạm là dòng phụ. Nhấn công sức vừa mất.</div></div>
+    <div class="opt-b"><div class="ph">
+      <div class="sech"><span class="t">Chuỗi cả nhà</span><a>＋ Thêm</a></div>
+      <div class="card">
+        <div class="head"><span class="emo">🛵</span><span class="name">Cả nhà không grab</span><span class="avs"><span class="av" style="background:#5E5CE6">H</span><span class="av" style="background:#32ADE6">B</span></span></div>
+        <div class="rband"><div class="rrow"><div><div class="eyb">Vừa mất trắng</div><div style="display:flex;align-items:baseline;gap:5px;margin-top:1px"><span class="rband-v" style="font-size:30px;text-decoration:line-through;text-decoration-color:var(--danger)">6</span><span style="font-size:13px;color:var(--danger)">ngày</span></div></div><div style="text-align:right;font-size:11.5px;color:var(--danger);font-weight:600">một khoản<br>Grab 65k</div></div></div>
+        <div class="g7"><span class="cc ok">1</span><span class="cc ok">2</span><span class="cc ok">3</span><span class="cc ok">4</span><span class="cc ok">5</span><span class="cc ok">6</span><span class="cc x">✕</span></div>
+        <div class="medals"><div class="medal"><div class="medal-e">🥉</div><div class="medal-n">7</div><div class="medal-s">ngày</div></div><div class="medal"><div class="medal-e">🥈</div><div class="medal-n">14</div><div class="medal-s">ngày</div></div><div class="medal"><div class="medal-e">🥇</div><div class="medal-n">30</div><div class="medal-s">ngày</div></div><div class="medal"><div class="medal-e">🏆</div><div class="medal-n">100</div><div class="medal-s">ngày</div></div></div>
+      </div>
+    </div></div>
+    <div class="opt-f"><b>Nhấn:</b> "6 ngày" gạch ngang = mất mát rõ. <span class="con">Số ngày mất > tên thủ phạm.</span></div>
+  </div>
+
+  <!-- 4 · BAND + MONEY LEAK -->
+  <div class="opt">
+    <div class="opt-h"><div class="opt-n">Option 4</div><div class="opt-t">Băng đỏ + tiền rò</div>
+      <div class="opt-s">Băng đỏ nêu khoản, kèm dòng tiền "65k rời ví · 6 ngày công cốc". Nối mạch "tiền ở lại ví" xuyên suốt.</div></div>
+    <div class="opt-b"><div class="ph">
+      <div class="sech"><span class="t">Chuỗi cả nhà</span><a>＋ Thêm</a></div>
+      <div class="card">
+        <div class="head"><span class="emo">🛵</span><span class="name">Cả nhà không grab</span><span class="avs"><span class="av" style="background:#5E5CE6">H</span><span class="av" style="background:#32ADE6">B</span></span></div>
+        <div class="rband"><div class="eyb">Chuỗi 6 ngày vừa đứt</div><div class="rband-v">một khoản Grab 65k</div><div class="rband-sub">65k rời ví sáng nay · 6 ngày coi như công cốc</div></div>
+        <div class="g7"><span class="cc ok">1</span><span class="cc ok">2</span><span class="cc ok">3</span><span class="cc ok">4</span><span class="cc ok">5</span><span class="cc ok">6</span><span class="cc x">✕</span></div>
+        <div class="medals"><div class="medal"><div class="medal-e">🥉</div><div class="medal-n">7</div><div class="medal-s">ngày</div></div><div class="medal"><div class="medal-e">🥈</div><div class="medal-n">14</div><div class="medal-s">ngày</div></div><div class="medal"><div class="medal-e">🥇</div><div class="medal-n">30</div><div class="medal-s">ngày</div></div><div class="medal"><div class="medal-e">🏆</div><div class="medal-n">100</div><div class="medal-s">ngày</div></div></div>
+      </div>
+    </div></div>
+    <div class="opt-f"><b>Nối mạch tiền:</b> đứt = tiền rò khỏi ví. <span class="con">Dòng phụ dài hơn một chút.</span></div>
+  </div>
+
+  <!-- 5 · BAND + NEAR-MISS MEDAL -->
+  <div class="opt">
+    <div class="opt-h"><div class="opt-n">Option 5</div><div class="opt-t">Băng đỏ + huy chương suýt</div>
+      <div class="opt-s">Băng đỏ nêu khoản + huy chương 🥉 nứt/mờ nằm ngay trong băng: "suýt chạm mốc 7". Xót vì gần xịt.</div></div>
+    <div class="opt-b"><div class="ph">
+      <div class="sech"><span class="t">Chuỗi cả nhà</span><a>＋ Thêm</a></div>
+      <div class="card">
+        <div class="head"><span class="emo">🛵</span><span class="name">Cả nhà không grab</span><span class="avs"><span class="av" style="background:#5E5CE6">H</span><span class="av" style="background:#32ADE6">B</span></span></div>
+        <div class="rband"><div class="rrow"><div><div class="eyb">Đứt ở ngày 7 · Grab 65k</div><div class="rband-v" style="font-size:17px;margin-top:3px">Còn đúng 1 ngày là chạm mốc</div></div><div style="position:relative;flex:none"><span style="font-size:36px;filter:grayscale(1);opacity:.5">🥉</span><span style="position:absolute;right:-3px;top:-4px;font-size:16px;color:var(--danger)">✕</span></div></div></div>
+        <div class="g7"><span class="cc ok">1</span><span class="cc ok">2</span><span class="cc ok">3</span><span class="cc ok">4</span><span class="cc ok">5</span><span class="cc ok">6</span><span class="cc x">✕</span></div>
+        <div class="restart">Làm lại. Lần này chạm 🥉 luôn nha!</div>
+      </div>
+    </div></div>
+    <div class="opt-f"><b>Xót nhất khi sát mốc:</b> huy chương tuột khỏi tay. <span class="con">Chỉ hiện huy chương-suýt khi đứt gần mốc; xa mốc đổi câu.</span></div>
+  </div>
+
+  <!-- 6 · BAND COMPACT + CTA -->
+  <div class="opt">
+    <div class="opt-h"><div class="opt-n">Option 6</div><div class="opt-t">Băng đỏ gọn + nút gỡ</div>
+      <div class="opt-s">Băng đỏ một dòng (đứt + thủ phạm), lưới đứt, rồi một nút "Bắt đầu lại" nổi bật. Chuyển tiếc thành hành động.</div></div>
+    <div class="opt-b"><div class="ph">
+      <div class="sech"><span class="t">Chuỗi cả nhà</span><a>＋ Thêm</a></div>
+      <div class="card">
+        <div class="head"><span class="emo">🛵</span><span class="name">Cả nhà không grab</span><span class="avs"><span class="av" style="background:#5E5CE6">H</span><span class="av" style="background:#32ADE6">B</span></span></div>
+        <div class="rband" style="padding:11px 15px"><div class="rrow"><div style="font-size:13.5px;font-weight:700;color:var(--danger)">Đứt sáng nay · Grab 65k</div><span style="font-size:18px">💔</span></div></div>
+        <div class="g7"><span class="cc ok">1</span><span class="cc ok">2</span><span class="cc ok">3</span><span class="cc ok">4</span><span class="cc ok">5</span><span class="cc ok">6</span><span class="cc x">✕</span></div>
+        <div class="cta">Bắt đầu lại · nhắm 🥉 mốc 7</div>
+      </div>
+    </div></div>
+    <div class="opt-f"><b>Hành động:</b> nút to đưa người quay lại ngay. <span class="con">Bỏ kệ huy chương để nhường nút.</span></div>
+  </div>
+
+  <!-- 7 · BAND + STRUCK-THROUGH DAYS -->
+  <div class="opt">
+    <div class="opt-h"><div class="opt-n">Option 7</div><div class="opt-t">Băng đỏ + lưới gạch bỏ</div>
+      <div class="opt-s">Băng đỏ + lưới 6 ngày xanh bị mờ và gạch ngang đỏ ("công cốc"), ô hôm nay đỏ. Công sức hiện hình rồi bị xoá.</div></div>
+    <div class="opt-b"><div class="ph">
+      <div class="sech"><span class="t">Chuỗi cả nhà</span><a>＋ Thêm</a></div>
+      <div class="card">
+        <div class="head"><span class="emo">🛵</span><span class="name">Cả nhà không grab</span><span class="avs"><span class="av" style="background:#5E5CE6">H</span><span class="av" style="background:#32ADE6">B</span></span></div>
+        <div class="rband"><div class="eyb">6 ngày vừa mất trắng</div><div class="rband-v">một khoản Grab 65k</div><div class="rband-sub">lọt lưới sáng nay</div></div>
+        <div class="g7" style="position:relative;opacity:.55"><span class="cc ok">1</span><span class="cc ok">2</span><span class="cc ok">3</span><span class="cc ok">4</span><span class="cc ok">5</span><span class="cc ok">6</span><span class="cc x" style="opacity:1">✕</span>
+          <div style="position:absolute;left:2px;right:15%;top:calc(50% + 6px);height:2.5px;background:var(--danger);transform:rotate(-3deg)"></div></div>
+        <div class="hint">Đừng để ngày mai giống hôm nay. Kỷ lục vẫn <b>9</b>.</div>
+      </div>
+    </div></div>
+    <div class="opt-f"><b>Nhấn "công cốc":</b> gạch ngang cả dãy ngày đã giữ. <span class="con">Phũ; hợp khi muốn cảm mạnh.</span></div>
+  </div>
+
+  <!-- 8 · BAND + RECORD REASSURANCE + RESTART -->
+  <div class="opt">
+    <div class="opt-h"><div class="opt-n">Option 8</div><div class="opt-t">Băng đỏ + trấn an kỷ lục</div>
+      <div class="opt-s">Băng đỏ nêu khoản, lưới đứt, rồi pill xanh trấn an "kỷ lục vẫn 9, làm lại nào". Tiếc nhưng không nản.</div></div>
+    <div class="opt-b"><div class="ph">
+      <div class="sech"><span class="t">Chuỗi cả nhà</span><a>＋ Thêm</a></div>
+      <div class="card">
+        <div class="head"><span class="emo">🛵</span><span class="name">Cả nhà không grab</span><span class="avs"><span class="av" style="background:#5E5CE6">H</span><span class="av" style="background:#32ADE6">B</span></span></div>
+        <div class="rband"><div class="eyb">Chuỗi 6 ngày vừa đứt</div><div class="rband-v">một khoản Grab 65k</div><div class="rband-sub">lọt lưới sáng nay</div></div>
+        <div class="g7"><span class="cc ok">1</span><span class="cc ok">2</span><span class="cc ok">3</span><span class="cc ok">4</span><span class="cc ok">5</span><span class="cc ok">6</span><span class="cc x">✕</span></div>
+        <div class="restart">Kỷ lục vẫn 9 ngày. Làm lại là phá được liền!</div>
+      </div>
+    </div></div>
+    <div class="opt-f"><b>Tiếc + nâng đỡ:</b> đỏ ở băng, xanh động viên ở dưới. <span class="con">Bỏ huy chương, thay bằng pill động viên.</span></div>
+  </div>
+
+  </div><!-- /grid -->
+</div>
+
+<footer style="margin-top:44px;color:var(--doc-muted);font-size:12.5px;font-family:var(--mono);border-top:1px solid var(--doc-line);padding-top:16px">mockups/streak-broken-integrated.html · Băng đỏ vào thẻ hiện tại · nêu khoản không nêu người · thích ứng theo độ dài chuỗi vừa đứt</footer>
+</div>
+</body>
+</html>

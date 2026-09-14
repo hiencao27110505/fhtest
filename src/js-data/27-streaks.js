@@ -163,6 +163,14 @@
         const lastBreak = matchDates.length ? matchDates[matchDates.length - 1] : null;
         const anchor = lastBreak ? _shift(lastBreak, 1) : d.startedOn;
         const current = Math.max(0, _days(anchor, today) + 1);   // break today → 0
+        // Length of the clean run that ended at the most recent break — the card's
+        // broken state mourns it ("chuỗi N ngày vừa đứt") and draws its cells.
+        let brokeRunLen = 0;
+        if (lastBreak) {
+          let prevBreak = null;
+          for (const md of matchDates) { if (md < lastBreak) prevBreak = md; }
+          brokeRunLen = Math.max(0, _days(prevBreak ? _shift(prevBreak, 1) : d.startedOn, lastBreak));
+        }
         /* best run inside the window (gaps between breaks), then the cache */
         let best = current, prev = _shift(d.startedOn, -1);
         for (const m of matchDates) { best = Math.max(best, _days(prev, m) - 1); prev = m; }
@@ -191,7 +199,7 @@
           current: current, record: best,
           weeks: Math.floor(current / 7), rem: current % 7,
           brokeOn: lastBreak, brokeAmt: lastBreakRow ? lastBreakRow.amt : null,
-          brokeStaged: !!(lastBreakRow && lastBreakRow.staged),
+          brokeStaged: !!(lastBreakRow && lastBreakRow.staged), brokeRunLen: brokeRunLen,
           brokeRecent: lastBreak ? (_days(lastBreak, today) <= 6) : false,
           saved: avgDay != null ? Math.round(avgDay * current) : null,
           avgDay: avgDay, ridesDay: ridesDay,   // per-day spend + per-day events avoided (base units)
@@ -286,14 +294,24 @@
     // month lives in the detail sheet.
     function _cardCal(r) {
       const cur = r.current || 0;
-      const top = MILESTONES[MILESTONES.length - 1];
-      let target = top;
+      const isMs = {}; for (const m of MILESTONES) isMs[m] = _MEDAL[m];
+      // Broken today: draw the run that just ended — N green cells + the red ✕.
+      if (r.brokeOn === _today()) {
+        const len = r.brokeRunLen || 0;
+        let cells = '';
+        for (let day = 1; day <= len; day++) {
+          const flag = isMs[day] ? '<i class="stk-cc-flag">' + isMs[day] + '</i>' : '';
+          cells += '<span class="stk-cc ok' + (flag ? ' ms' : '') + ' num">' + day + flag + '</span>';
+        }
+        cells += '<span class="stk-cc x num">✕</span>';   // the day the break landed
+        return '<div class="stk-cal stk-cardweek">' + cells + '</div>';
+      }
+      let target = MILESTONES[MILESTONES.length - 1];
       for (const m of MILESTONES) { if (m >= cur) { target = m; break; } }   // next rung ≥ current
-      const isMs = {}; for (const m of MILESTONES) if (m <= target) isMs[m] = _MEDAL[m];
       let cells = '';
       for (let day = 1; day <= target; day++) {
         const cls = day < cur ? 'ok' : (day === cur ? 'today' : 'fut');   // today is still open, never a filled ✓
-        const flag = isMs[day] ? '<i class="stk-cc-flag">' + isMs[day] + '</i>' : '';
+        const flag = (isMs[day] && day <= target) ? '<i class="stk-cc-flag">' + isMs[day] + '</i>' : '';
         cells += '<span class="stk-cc ' + cls + (flag ? ' ms' : '') + ' num">' + day + flag + '</span>';
       }
       return '<div class="stk-cal stk-cardweek">' + cells + '</div>';
@@ -328,7 +346,18 @@
       const cur = r.current || 0, brokeToday = r.brokeOn === _today();
       const hasMoney = (r.avgDay != null && r.avgDay > 0 && cur > 0 && typeof fmt === 'function');
       let band;
-      if (hasMoney) {
+      if (brokeToday) {
+        // Red band (Option 1): name the khoản that broke it, never a person.
+        // Copy scales with the run lost so a day-1 slip stays light.
+        const len = r.brokeRunLen || 0;
+        const amt = (r.brokeAmt != null && typeof fmt === 'function') ? ' ' + fmt(r.brokeAmt) : '';
+        const culprit = _L('một khoản ' + _esc(d.rule.label) + amt, 'a ' + _esc(d.rule.label) + ' charge' + (amt ? ' of' + amt : ''));
+        const eyebrow = len >= 1 ? _L('Chuỗi ' + len + ' ngày vừa đứt', len + '-day streak just broke') : _L('Đứt hôm nay', 'Broke today');
+        const sub = r.brokeStaged ? _L('lọt lưới sáng nay (chưa duyệt)', 'slipped through this morning (unreviewed)') : _L('lọt lưới sáng nay', 'slipped through this morning');
+        band = '<div class="stk-cband broke"><div class="stk-cband-l">' + eyebrow + '</div>'
+          + '<div class="stk-cband-broke">' + culprit + '</div>'
+          + '<div class="stk-cband-sub">' + sub + '</div></div>';
+      } else if (hasMoney) {
         // Right side leads with the tangible "events avoided" count — a figure
         // the user can eyeball against their own history; falls back to the
         // per-day money when the rate is too low to round to a whole event.
@@ -340,9 +369,10 @@
           + '<div class="stk-cband-v num">~' + fmt(r.saved) + '</div></div>'
           + '<div class="stk-cband-r">' + rside + '</div></div>';
       } else {
-        band = '<div class="stk-cband day"><div class="stk-cband-main"><div class="stk-cband-l">' + (brokeToday ? _L('Đứt hôm nay', 'Broke today') : _L('Đang giữ', 'Holding')) + '</div>'
+        // Holding, but no money estimate yet (too few prior matching txns).
+        band = '<div class="stk-cband day"><div class="stk-cband-main"><div class="stk-cband-l">' + _L('Đang giữ', 'Holding') + '</div>'
           + '<div class="stk-cband-v num">' + cur + ' <span class="stk-cband-u">' + _L('ngày', 'days') + '</span></div></div>'
-          + '<div class="stk-cband-r">' + (brokeToday ? '' : _L('hôm nay<br>đang tính', 'today<br>counting')) + '</div></div>';
+          + '<div class="stk-cband-r">' + _L('hôm nay<br>đang tính', 'today<br>counting') + '</div></div>';
       }
       return nm + band + _cardCal(r) + '<div class="stk-medals stk-card-medals">' + _cardMedals(d, r, hasMoney) + '</div>' + _cardWarn(r);
     }
