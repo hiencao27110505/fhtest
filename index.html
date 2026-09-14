@@ -35049,12 +35049,33 @@ window.classifyAmount = classifyAmount;
     return _atxTyped;
   };
 
-  /* Always names the SIGN-IN address, because that is what this screen's CTA
-     will use — fhAutoTxnGrant reads _atxLoginEmail and nothing else. Showing a
-     previously typed address here would promise an account the button beside it
-     ignores. Typing one is a different journey, and it carries its own CTA. */
+  /* ── which account Google should open on ───────────────────────────────────
+     THIS CAUSED A REAL ACCOUNT SPLIT. The hint was always the SIGN-IN address,
+     and a person whose bank writes to a different mailbox than the one they log
+     in with (the live case: login gichisreading@, mail at trang.nguyen.wh@) got
+     Google's picker defaulted to the wrong account on every reconnect. Consent
+     there mints a grant under a DIFFERENT auth user, and rows staged under the
+     old one become invisible to the person who owns the mailbox — 60 of them,
+     stranded, before this was noticed.
+
+     So the mailbox ALREADY ON THE GRANT wins. It is the only address we know
+     for certain the bank writes to, because we have been reading it.
+
+     Order, most specific first:
+       1. an address typed in this session — an explicit choice, always obeyed
+       2. the mailbox on the existing grant — right for every reconnect
+       3. the sign-in address — the first-connect default, and a decent guess
+
+     Still only a `login_hint`: it picks which account Google opens on and can
+     never grant anything. Whoever consents on Google's screen is who we get. */
+  let _atxKnownMailbox = null;
+
+  const _atxHintEmail = () => _atxTyped || _atxKnownMailbox || _atxLoginEmail();
+
   function _atxAcctRow() {
-    const email = _atxLoginEmail();
+    /* Names whatever the CTA beside it will actually use, so the row can never
+       promise an account the button ignores. */
+    const email = _atxHintEmail();
     return '<div class="atx-row" id="atx-acct">' +
       '<div class="atx-row-h">' +
         '<span class="atx-row-lbl">' + _esc(L('Đọc thư từ', 'Reading from')) + '</span>' +
@@ -35561,6 +35582,8 @@ window.classifyAmount = classifyAmount;
                   which is what the null means rather than "unknown". */
                scope: row.default_scope === 'personal' ? 'personal' : 'family' };
       conn.phase = _atxPhase(conn);
+      /* The mailbox actually on the grant, remembered for the login_hint. */
+      _atxKnownMailbox = conn.email || _atxKnownMailbox;
       _atxReauthCache = conn.needsReauth
         ? { since: conn.lastSyncedAt || null, email: conn.email || '' } : null;
       _atxPhaseCache = conn.phase;            // the row renderer reads this synchronously
@@ -36021,7 +36044,7 @@ window.classifyAmount = classifyAmount;
     // await is cancelled without a word.
     const win = _atxOpenBlank();
     try {
-      _atxNavigate(win, await _atxConsentUrl(_atxLoginEmail()));
+      _atxNavigate(win, await _atxConsentUrl(_atxHintEmail()));
       return;                                   // navigating: leave the button as it is
     } catch (e) {
       // A blank tab left open reads as a second failure on top of the reported one.

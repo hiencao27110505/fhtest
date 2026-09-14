@@ -143,9 +143,30 @@ const ok = (json, headers) => ({ status: 200, json: json, headers: headers || {}
     t('and takes the URL from the JSON body', m.nav.to === GURL, String(m.nav.to));
     t('carrying returnTo so they land back where they were',
       m.calls.some((c) => c.indexOf('returnTo=') >= 0), m.calls.join(' | '));
-    t('and login_hint for the sign-in address',
+    t('and login_hint for the sign-in address when no mailbox is known yet',
       m.calls.some((c) => c.indexOf('login_hint=me%40gmail.com') >= 0), m.calls.join(' | '));
   }
+  {
+    /* THE ACCOUNT SPLIT THIS PREVENTS. A person whose bank writes to a mailbox
+       other than their sign-in address got Google's picker defaulted to the
+       wrong account on every reconnect; consenting there mints a grant under a
+       DIFFERENT auth user, and rows staged under the old one go invisible. 60
+       were stranded that way before it was noticed. The mailbox already on the
+       grant is the only address we KNOW the bank writes to. */
+    const m = make({ routes: { 'GET /authorize': ok({ url: GURL }) },
+      grants: [{ id: 'g1', provider: 'google', email: 'mailbox@gmail.com', needs_reauth: true }] });
+    await m.api.fhAutoTxnSheet();              // reads the grant, learns the mailbox
+    await new Promise((r) => setTimeout(r, 10));
+    await m.api.fhAutoTxnGrant();
+    t('a reconnect hints the MAILBOX on the grant, not the sign-in address',
+      m.calls.some((c) => c.indexOf('login_hint=mailbox%40gmail.com') >= 0), m.calls.join(' | '));
+    t('  ...and never the sign-in address once a mailbox is known',
+      !m.calls.some((c) => c.indexOf('login_hint=me%40gmail.com') >= 0), m.calls.join(' | '));
+  }
+  /* Source-level, because the order matters more than any one case: an address
+     typed this session is an explicit choice and must outrank both. */
+  t('the hint order is typed > known mailbox > sign-in',
+    /_atxTyped \|\| _atxKnownMailbox \|\| _atxLoginEmail\(\)/.test(src));
   {
     // A 200 whose body carries no url. Navigating anyway would send them nowhere.
     const m = make({ routes: { 'GET /authorize': ok({ ok: true }),
