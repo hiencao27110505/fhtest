@@ -18,6 +18,17 @@ Going forward, add an entry here when a feature area changes meaningfully — se
 
 ---
 
+## 2026-09-14
+
+### Danger red: crimson, one step louder
+
+The equal-weight status rule made red read as brick, not alarm. Six OKLCH candidates were
+previewed in situ; crimson (H 15, 20° warm of sage's exact complement, base C .20 vs .15 for
+amber/sage) won. `tools/palette-gen.js` now gives red its own ramp shape and derives the guide
+tile's "over" state from it; `--danger`, `--danger-base`, `--danger-tint`, `--ring-over-*` and
+`--guide-over-*` follow. Rule in DESIGN.md §2.1 updated: warning matches sage, danger interrupts.
+SW v524.
+
 ## 2026-09-13
 
 ### Account setup: an account shows a number only after the person has typed one (0134)

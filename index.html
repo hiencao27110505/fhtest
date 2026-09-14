@@ -63,7 +63,7 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   --sage-50:#ebfbf6; --sage-100:#d6f5eb; --sage-200:#afe9d8; --sage-300:#7ad5bd; --sage-400:#4abba1; --sage-500:#149d83; --sage-600:#007c65; --sage-700:#006b58; --sage-800:#095143; --sage-900:#0a362c;
   --sage-soft:#4a917f; --sage-wash:rgba(20,157,131,0.18);
   --stone-25:#fafcfc; --stone-50:#f6f9f8; --stone-100:#f0f5f3; --stone-150:#ecf1f0; --stone-200:#e3eae7; --stone-300:#c3cdca; --stone-400:#7f8986; --stone-500:#6f7674; --stone-600:#626b68; --stone-800:#2e3835; --stone-900:#0e1613;
-  --red-tint:#ffece9; --red-light:#f69b94; --red-base:#d15c56; --red-ink:#a03f3c;
+  --red-tint:#ffeaeb; --red-light:#ff939c; --red-base:#d63053; --red-ink:#a41b3b;
   --amber-tint:#fdefe0; --amber-light:#e5ab66; --amber-base:#be7200; --amber-ink:#915200;
   --id-1:#0b67a9; --id-1-soft:#448bcb; --id-1-tint:#e5f4ff; --id-1-text:#13619d;
   --id-2:#5a94e0; --id-2-soft:#83baff; --id-2-tint:#e7f3ff; --id-2-text:#2a5ea0;
@@ -76,15 +76,15 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   --guide-ok-mut:#107460;
   --guide-warn:#af7c00; --guide-warn-mut:#7b5f1b; --guide-warn-bg:#fbf3e1; --guide-warn-trk:rgba(175,124,0,0.18);
   --guide-hot:#cb6620; --guide-hot-mut:#8c5331; --guide-hot-bg:#ffefe5; --guide-hot-trk:rgba(203,102,32,0.18);
-  --guide-over:#d15c56; --guide-over-mut:#904d49; --guide-over-bg:#ffedeb; --guide-over-trk:rgba(209,92,86,0.18);
+  --guide-over:#d63053; --guide-over-mut:#8f4c53; --guide-over-bg:#ffeaeb; --guide-over-trk:rgba(214,48,83,0.18);
   /* ── SEMANTIC — components use ONLY these. Every value points at a primitive above (DESIGN.md §2.1). ── */
   /* brand (default theme = Sage; overridden by .phone.t-* classes) */
   --brand:var(--sage-500); --brand-ink:var(--sage-600); --brand-2:var(--sage-300);
   --grad-brand:linear-gradient(135deg,var(--sage-500),var(--sage-400));
   --grad-hero:linear-gradient(150deg,var(--sage-400) 0%,var(--sage-500) 52%,var(--sage-300) 100%);
   --brand-glow:rgba(20,157,131,.32); --brand-tint:var(--sage-50);
-  /* status: one ramp shape × three hues. --danger/--amber are the INK step (text, AA); *-base is the fill step
-     (bars, filled buttons with white text); tints share one chroma. "good" is ALWAYS sage, in every theme. */
+  /* status: one ramp shape × three hues; danger is allowed one step louder (it interrupts). --danger/--amber are the
+     INK step (text, AA); *-base is the fill step (bars, filled buttons with white text). "good" is ALWAYS sage, in every theme. */
   --danger:var(--red-ink); --danger-base:var(--red-base); --danger-tint:var(--red-tint);
   --amber:var(--amber-ink);   /* --amber-base / --amber-tint ARE the primitive steps of that name (no alias needed) */
   --good:var(--sage-600); --good-tint:var(--sage-50);
@@ -20671,7 +20671,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v523';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v524';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',

@@ -49,7 +49,7 @@ semantic name.
 |---|---|---|
 | **Anchor** | Sage, H 175 (the "Hôm nay còn tiêu được" tile's hue) | The one hue with meaning: brand, action, money-positive. |
 | **Neutrals ("stone")** | H 175, C ≤ .015 | Monochromatic extension: greys that share the anchor hue read as the same material. (They used to sit at H 306, a plum cast left over from an earlier identity.) |
-| **Danger** | Red, H 25 | Near-complement (exact complement is 355): maximum contrast with sage without vibrating beside it. |
+| **Danger** | Crimson, H 15 | Near-complement (exact complement is 355), 20° warm of it: maximum contrast with sage without vibrating beside it. **The one state allowed a step louder** (base C .20 vs .15): its job is to interrupt. Picked from six candidates on 2026-09-14. |
 | **Warning** | Amber, H 70 | Split-complementary partner; between "fine" and "danger" on the wheel as in meaning. |
 | **Guide tile** | 175 · 85 · 50 · 25 | Evenly spaced from anchor to near-complement; ≥ 35° between neighbours. |
 | **Identity** (categories, members) | Six slots on the 215°→85° arc | **100°–210° is reserved for the anchor**: no category or member can be mistaken for "money-positive". Colour is never the only carrier — categories have an emoji, members initials — because the reserved arc caps mutual distinctness at six. |
@@ -63,7 +63,8 @@ semantic name.
 | Large text, icons, fills with white text | L .60–.64 → 3:1 |
 | Tints (row / chip backgrounds) | L .96, C .025 for every hue — one weight |
 | Hairlines · dividers · canvas | L .93 · .955 · .965 |
-| Status ramp shape (red, amber, sage alike) | tint L .96 C .025 · light L .78 C .11 · base L .62 C .15 · ink L .50 C .13 |
+| Status ramp shape (amber, sage) | tint L .96 C .025 · light L .78 C .11 · base L .62 C .15 · ink L .50 C .13 |
+| Danger ramp (louder by design) | tint L .96 C .03 · light L .78 C .13 · base L .58 C .20 · ink L .47 C .17 |
 | Identity slot | base (as searched) · soft = base L + .12 at C .12 · tint L .96 C .025 · text L .48 C .12 |
 | Washes / glows / shadows | the parent colour at α .18 / .32 / .05–.12 — never a new hex |
 
@@ -76,7 +77,7 @@ Also mirrored by value: `<meta name="theme-color">` and `manifest.json` `theme_c
 **Status:** `--danger` = red-ink (text, 6.4:1) · `--danger-base` = red-base (bars, filled buttons with white text) ·
 `--danger-tint` · `--amber` = amber-ink · `--amber-base` · `--amber-tint` · `--good` = sage-600 · `--good-tint` = sage-50.
 **`--good` is sage in every theme**: the theme swaps the brand ramp, never the meaning of a positive number.
-Ring arcs `--ring-{ok,pace,over}-1/2` = light → base of their ramp, so the three arcs weigh equal.
+Ring arcs `--ring-{ok,pace,over}-1/2` = light → base of their ramp. Warning weighs the same as sage; danger is one step louder.
 
 **Neutrals:** `--ink` stone-900 · `--ink-2` 800 · `--muted` 600 · `--muted-soft` 500 · `--chev` 300 · `--hairline` 200 ·
 `--divider` 150 · `--canvas` 100 · `--surface` 50 · `--pearl` 25 · `--fill-neutral` stone-400 @ .14 · shadows = stone-900 @ α.
