@@ -607,6 +607,23 @@ per-grant backfill window.
 
 ## Open questions
 
+**Email capture has a coverage floor, and the app implies it does not.** Confirmed
+with a real user on 2026-09-14: an MB Bank QR/VNPAY payment (`-62.000đ`, 13/09
+09:36) appears in the bank's own app and **generates no email at all**. The
+pipeline was healthy, syncing every five minutes, and correctly staged that
+user's next transfer within the same minute it happened — so nothing was broken.
+The transaction simply never existed as mail.
+
+This is not a bug to fix; it is a property of the transport. What it costs is
+*trust*, because every screen we have says some version of "we read your
+transactions" and none says "of the ones your bank emails you about". A person
+who finds one missing has no way to tell a coverage gap from a fault, and the
+pipeline's characteristic failure is already silence. Worth one honest sentence
+somewhere in the connect flow, and worth knowing before anyone measures capture
+rate against the bank's own statement and concludes the reader is dropping mail.
+
+
+
 **Internal transfers still double-count.** Two mails, opposite directions, one movement
 of money. Every dedup rule here matches on *sameness*; a transfer pair is defined by
 *oppositeness*. Blocking detail, shared with the forwarding pipeline: **nothing records

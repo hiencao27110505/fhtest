@@ -768,9 +768,9 @@
            the person for our expiry. Offered only when some exist, so the
            screen stays clean in the common case. */
         ((window.fhStagedCount > 0 && window.fhTxnReviewSheet)
-          ? '<button class="btn-line" onclick="fhTxnReviewSheet()">' +
-            _esc(L('Xem ' + window.fhStagedCount + ' khoản đang chờ trong mục duyệt',
-                   'Review the ' + window.fhStagedCount + ' already waiting')) + '</button>'
+          ? '<button class="atx-btn2" onclick="fhTxnReviewSheet()">' +
+            _esc(L('Xem ' + window.fhStagedCount + ' khoản đang chờ',
+                   'Review ' + window.fhStagedCount + ' waiting')) + '</button>'
           : '') +
         /* "Ngừng đọc email" is deliberately NOT here. On a screen apologising
            for a failure, offering to turn the feature off as a peer of the

@@ -449,6 +449,18 @@ button.csv-srow:active{background:var(--surface)}
   font-size:11.5px;color:var(--muted);font-weight:600}
 
 /* ---------- reconnect: the ask (74-autotxn-ui) ---------- */
+/* THE RECONNECT SHEET'S SECONDARY. Not .btn-line: that one is sized for a
+   full-bleed context — width:calc(100% - 32px) plus 16px side margins — so
+   inside a sheet that already pads 20px it renders NARROWER than the .cta
+   above it and leaves a stray 16px gap beneath. Narrower-than-primary reads as
+   misalignment, not as hierarchy.
+   Hairline border rather than a brand outline: under a gradient primary, a
+   second ringed-in-brand button competes instead of deferring. */
+.atx-btn2{display:block;width:100%;margin:10px 0 0;text-align:center;
+  background:var(--white);color:var(--brand-ink);border:1.5px solid var(--hairline);
+  border-radius:9999px;font:inherit;font-size:15.5px;font-weight:650;padding:15px;
+  letter-spacing:-.02em;min-height:44px;cursor:pointer}
+.atx-btn2:active{background:var(--surface)}
 /* What happens next, as a sequence rather than a second info box. Two stacked
    grey panels read as small print twice; a numbered spine reads as a process
    with an order, which is what this actually is. */
