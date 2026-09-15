@@ -8,7 +8,7 @@ of four states, each with one job.
 
 > **Status, 2026-09-15.** Designed through eight rounds of mockups
 > (`mockups/personal-activation.html`, the "Phương án chốt" row) and BUILT the
-> same day, big bang, in the client only. No migration. SW **v525**. Every
+> same day, big bang, in the client only. No migration. SW **v526**. Every
 > input is data the app already holds; the only stored flag is the widget's
 > "Ẩn".
 

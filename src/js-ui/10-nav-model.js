@@ -32,7 +32,9 @@ function go(name){
     // here (76-quick-review.js). Delayed so the tab paints first; the function
     // itself declines when the sheet layer is busy, the ledger is locked, or
     // every pending row has already had its one showing.
-    try{ if(window.fhQuickReviewMaybe) setTimeout(function(){ window.fhQuickReviewMaybe(); }, 450); }catch(e){}
+    // Not while the activation card is already showing the queue as a deck
+    // (state 2): two surfaces would compete for the same tap.
+    try{ if(window.fhQuickReviewMaybe) setTimeout(function(){ if(window.persActState && persActState()===2) return; window.fhQuickReviewMaybe(); }, 450); }catch(e){}
   }
 }
 /* Khoảnh Khắc has three inner sections: Dự định (plans) · Kỷ niệm (memories) · Album gia đình (album). */

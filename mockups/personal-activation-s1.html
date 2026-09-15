@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sổ cá nhân · trạng thái 1, sau lần thử đầu</title>
+<style>
+:root{
+  --sage-50:#ebfbf6; --sage-300:#7ad5bd; --sage-400:#4abba1; --sage-500:#149d83; --sage-600:#007c65; --sage-wash:rgba(20,157,131,0.18);
+  --stone-25:#fafcfc; --stone-50:#f6f9f8; --stone-100:#f0f5f3; --stone-150:#ecf1f0; --stone-200:#e3eae7; --stone-300:#c3cdca; --stone-400:#7f8986; --stone-500:#6f7674; --stone-600:#626b68; --stone-800:#2e3835; --stone-900:#0e1613;
+  --id-3:#9e5cd1; --id-3-soft:#b98fde;
+  --brand:var(--sage-500); --brand-ink:var(--sage-600); --brand-tint:var(--sage-50);
+  --grad-brand:linear-gradient(135deg,var(--sage-500),var(--sage-400)); --brand-glow:rgba(20,157,131,.32);
+  --good:var(--sage-600); --ink:var(--stone-900); --ink-2:var(--stone-800); --muted:var(--stone-600); --muted-soft:var(--stone-500);
+  --white:#fff; --canvas:var(--stone-100); --pearl:var(--stone-25); --hairline:var(--stone-200); --divider:var(--stone-150);
+  --surface:var(--stone-50); --fill-neutral:rgba(127,137,134,.14); --chev:var(--stone-300);
+  --shadow-card:0 1px 3px rgba(14,22,19,.05),0 8px 24px rgba(14,22,19,.04);
+  --shadow-focal:0 1px 3px rgba(14,22,19,.05),0 12px 30px rgba(14,22,19,.09);
+  --r-card-lg:22px;
+  --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--text);background:#e6ebe9;color:var(--ink);padding:34px 22px 80px;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;font-size:inherit;color:inherit;border:0;background:none;cursor:pointer;text-align:left}
+svg{display:block}
+.page-h{max-width:1700px;margin:0 auto 10px}
+.page-h h1{font-family:var(--disp);font-size:26px;font-weight:800;letter-spacing:-.6px}
+.page-h p{font-size:14px;color:var(--muted);margin-top:8px;max-width:900px;line-height:1.6}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:40px 30px;max-width:1700px;margin:26px auto 0}
+.opt{display:flex;flex-direction:column;align-items:center;gap:12px;min-width:0}
+.opt-tag{align-self:flex-start;display:flex;align-items:baseline;gap:9px}
+.opt-k{font-family:var(--disp);font-weight:800;font-size:13px;letter-spacing:.4px;color:var(--brand-ink);background:var(--brand-tint);border-radius:7px;padding:3px 9px}
+.opt-k.cur{background:var(--fill-neutral);color:var(--muted)}
+.opt-k.chosen{background:var(--brand);color:#fff}
+.opt-t{font-family:var(--disp);font-weight:700;font-size:17px;letter-spacing:-.3px}
+.opt-why{align-self:flex-start;font-size:13px;line-height:1.55;color:var(--muted);min-height:92px}
+.opt-why b{color:var(--ink-2);font-weight:600}
+/* phone */
+.phone{width:100%;max-width:392px;height:820px;background:var(--canvas);border-radius:44px;box-shadow:0 2px 8px rgba(14,22,19,.10),0 30px 70px rgba(14,22,19,.16);overflow:hidden;display:flex;flex-direction:column;position:relative;border:1px solid rgba(14,22,19,.06)}
+.scroll{flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;padding-bottom:110px}
+.scroll::-webkit-scrollbar{display:none}
+.safe{height:22px}
+.hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 22px 8px}
+.h-title{font-family:var(--disp);font-weight:700;font-size:34px;line-height:1.06;letter-spacing:-1px;color:var(--ink);margin-top:5px}
+.hclus{display:flex;align-items:center;gap:10px}
+.av{width:40px;height:40px;border-radius:50%;background:linear-gradient(145deg,#a9b3af,#6f7a76)}
+.av.ini{background:linear-gradient(145deg,var(--id-3-soft),var(--id-3));color:#fff;font-family:var(--disp);font-weight:700;font-size:15px;display:flex;align-items:center;justify-content:center;letter-spacing:.2px}
+.gear{width:40px;height:40px;border-radius:50%;background:var(--white);box-shadow:var(--shadow-card);display:flex;align-items:center;justify-content:center;color:var(--ink-2)}
+.gear svg{width:20px;height:20px}
+.tabbar{position:absolute;left:0;right:0;bottom:0;height:78px;display:flex;background:rgba(246,249,248,.86);backdrop-filter:blur(14px);border-top:1px solid var(--hairline)}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;color:var(--muted);padding-top:6px}
+.tab.on{color:var(--brand)} .tab svg{width:25px;height:25px} .tab span{font-size:11px;font-weight:600;letter-spacing:-.01em} .tab.on span{color:var(--brand-ink)}
+/* kit */
+.cf-card{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-focal);padding:16px 16px 14px;margin:2px 16px 12px;overflow:hidden;position:relative}
+.cf-lbl{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.pact-h{font-family:var(--disp);font-size:22px;font-weight:700;letter-spacing:-.6px;line-height:1.15;color:var(--ink);margin-top:6px}
+.pact-p{font-size:14px;line-height:1.5;color:var(--ink-2);margin-top:8px;letter-spacing:-.01em}
+.cta{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;background:var(--grad-brand);color:#fff;font-size:17px;font-weight:700;letter-spacing:-.02em;padding:17px;border-radius:9999px;margin-top:14px;box-shadow:0 8px 20px var(--brand-glow)}
+.cta svg{width:18px;height:18px}
+.ob-textlink{display:block;width:100%;text-align:center;color:var(--brand-ink);font-size:15px;font-weight:600;letter-spacing:-.01em;padding:15px 0 2px;min-height:44px}
+.trust{display:flex;align-items:flex-start;gap:8px;font-size:12.5px;line-height:1.45;color:var(--muted);margin-top:12px}
+.trust svg{width:15px;height:15px;flex-shrink:0;margin-top:1px}
+.trust b{font-weight:600;color:var(--ink-2)}
+.trust.c{justify-content:center;text-align:center}
+.howlink{display:inline-flex;align-items:center;gap:4px;color:var(--brand-ink);font-weight:600}
+.howlink svg{width:12px;height:12px}
+/* how it works, inside the card */
+.how{margin:14px -16px 0;border-top:1px solid var(--divider)}
+.how-r{display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--divider)}
+.how-r:last-child{border-bottom:0}
+.how-n{width:24px;height:24px;border-radius:50%;background:var(--brand-tint);color:var(--brand-ink);font-family:var(--disp);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.how-t{font-size:14px;font-weight:600;color:var(--ink)}
+.how-s{font-size:12px;color:var(--muted);margin-top:1px}
+.how-t small{font-weight:500;color:var(--muted);font-size:12px;margin-left:6px}
+/* section + rows */
+.section-h{display:flex;align-items:baseline;justify-content:space-between;margin:26px 22px 13px}
+.section-h .t{font-family:var(--disp);font-weight:700;font-size:22px;letter-spacing:-.6px;color:var(--ink)}
+.section-h .t.sm{font-size:13px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.rows{background:var(--white);border-radius:20px;margin:0 16px 14px;overflow:hidden;box-shadow:var(--shadow-card)}
+.row{display:flex;align-items:center;gap:14px;padding:14px 18px;border-bottom:1px solid var(--divider)}
+.row:last-child{border-bottom:none}
+.r-ico{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:var(--fill-neutral);color:var(--muted)}
+.r-ico svg{width:20px;height:20px}
+.r-ico.b{background:var(--brand-tint);color:var(--brand-ink)}
+.r-body{flex:1;min-width:0}
+.r-t{font-size:16px;font-weight:500;letter-spacing:-.02em;color:var(--ink)}
+.r-s{font-size:13px;color:var(--muted);margin-top:2px}
+.r-right{flex-shrink:0;color:var(--chev)} .r-right svg{width:18px;height:18px}
+/* compact inert list */
+.quiet{margin:0 22px 14px;padding:0}
+.q-r{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--divider);color:var(--ink-2);font-size:14px}
+.q-r:last-child{border-bottom:0}
+.q-r svg{width:16px;height:16px;color:var(--muted-soft);flex-shrink:0}
+.q-r span{flex:1}
+.q-r small{color:var(--muted);font-size:12.5px}
+/* 2x2 tiles */
+.wgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:2px 16px 12px}
+.wtile{background:var(--white);border-radius:20px;box-shadow:var(--shadow-card);padding:14px 14px 13px;min-height:104px;display:flex;flex-direction:column;gap:8px}
+.wt-ch{width:28px;height:28px;border-radius:9px;background:var(--fill-neutral);color:var(--muted);display:flex;align-items:center;justify-content:center}
+.wt-ch svg{width:16px;height:16px}
+.wt-l{font-size:14px;font-weight:600;color:var(--ink);letter-spacing:-.01em;margin-top:auto}
+.wt-s{font-size:12px;color:var(--muted);line-height:1.35}
+/* sheet preview */
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--white);border-radius:24px 24px 0 0;padding:12px 20px 30px;box-shadow:0 -12px 44px rgba(14,22,19,.22);z-index:5}
+.sheet-grab{width:36px;height:5px;border-radius:3px;background:var(--hairline);margin:0 auto 14px}
+.sheet-h{font-family:var(--disp);font-weight:700;font-size:25px;letter-spacing:-.7px;color:var(--ink);margin-bottom:5px}
+.scrim{position:absolute;inset:0;background:rgba(14,22,19,.32);z-index:4}
+.sheet .how{margin:8px 0 0;border-top:0}
+.sheet .how-r{padding:12px 0}
+.sheet .cta{margin-top:16px}
+</style>
+</head>
+<body>
+<div class="page-h">
+  <h1>Trạng thái 1 · sau lần thử đầu</h1>
+  <p>Ảnh chụp thật cho thấy ba điều: nút xin quyền Gmail đứng một mình không có dòng nào nói app sẽ đọc gì; bốn hàng "sau đó bạn sẽ thấy" trông bấm được nhưng không; nửa dưới màn trống. Mỗi phương án dưới đây sửa một tổ hợp, và tất cả cùng áp ba việc nhỏ: avatar chữ cái thay vì đĩa xám, eyebrow bỏ tháng, tab bar đọc "Tài chính" cho khớp tiêu đề.</p>
+</div>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-mail" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3.5 7.5 12 13l8.5-5.5"/></symbol>
+  <symbol id="i-bars" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M5 20V10M12 20V4M19 20v-7"/></symbol>
+  <symbol id="i-card" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="6" width="18" height="12" rx="3"/><path d="M3 10h18"/></symbol>
+  <symbol id="i-trend" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l5-6 4 3 7-8"/><path d="M15 6h5v5"/></symbol>
+  <symbol id="i-flame" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c1 4 5 5.5 5 10a5 5 0 0 1-10 0c0-2 1-3.5 2-4.5 0 2 1 3 2 3 0-3 0-6 1-8.5z"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11l8-7 8 7"/><path d="M6 10v10h12V10"/><path d="M10 20v-6h4v6"/></symbol>
+  <symbol id="i-person" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></symbol>
+  <symbol id="i-palette" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 3a9 9 0 100 18 2 2 0 001.6-3.3 2 2 0 011.5-3.2H18a3 3 0 003-3c0-4-4-6-9-6z"/><circle cx="7.5" cy="12.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="10" cy="8.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="14.5" cy="8" r="1.1" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+</svg>
+<div id="root" class="grid"></div>
+<script>
+const I = (id) => `<svg><use href="#i-${id}"/></svg>`;
+const HDR = (ini) => `<div class="safe"></div><div class="hdr"><div class="h-title">Tài Chính</div><div class="hclus"><span class="av${ini ? ' ini' : ''}">${ini || ''}</span><button class="gear">${I('palette')}</button></div></div>`;
+const TAB = (lbl) => `<div class="tabbar"><div class="tab on">${I('person')}<span>${lbl}</span></div><div class="tab">${I('home')}<span>Home</span></div></div>`;
+const phone = (inner, o) => `<div class="phone"><div class="scroll">${HDR(o && o.ini)}${inner}</div>${o && o.overlay ? o.overlay : ''}${TAB(o && o.tab || 'Cá nhân')}</div>`;
+const ROWS = (withChev) => `<div class="rows">${[
+  ['bars', 'Tiền đi đâu mỗi tháng', 'Theo danh mục, theo tuần'],
+  ['card', 'Thẻ tín dụng và khoản nợ', 'Đang nợ bao nhiêu, đến hạn khi nào'],
+  ['trend', 'Đầu tư', 'Crypto, vàng, chứng khoán'],
+  ['flame', 'Chuỗi thói quen', '7 ngày không Grab, app tự đếm'],
+].map((r) => `<div class="row"><div class="r-ico">${I(r[0])}</div><div class="r-body"><div class="r-t">${r[1]}</div><div class="r-s">${r[2]}</div></div>${withChev ? `<div class="r-right">${I('chev')}</div>` : ''}</div>`).join('')}</div>`;
+const DOORS = `<div class="rows">${[
+  ['card', 'Ghi khoản cho vay hoặc mượn', 'Ai nợ bạn, bạn nợ ai'],
+  ['trend', 'Thêm vị thế đầu tư', 'Crypto, vàng, chứng khoán'],
+  ['flame', 'Thử nhịn một thói quen', '7 ngày không Grab, app tự đếm'],
+].map((r) => `<div class="row"><div class="r-ico b">${I(r[0])}</div><div class="r-body"><div class="r-t">${r[1]}</div><div class="r-s">${r[2]}</div></div><div class="r-right">${I('chev')}</div></div>`).join('')}</div>`;
+const QUIET = `<div class="quiet">${[
+  ['bars', 'Tiền đi đâu mỗi tháng', 'theo danh mục, theo tuần'],
+  ['card', 'Thẻ tín dụng và khoản nợ', 'đến hạn khi nào'],
+  ['trend', 'Đầu tư', 'crypto, vàng, chứng khoán'],
+  ['flame', 'Chuỗi thói quen', 'app tự đếm từ sổ'],
+].map((r) => `<div class="q-r">${I(r[0])}<span>${r[1]}</span><small>${r[2]}</small></div>`).join('')}</div>`;
+const TILES = `<div class="wgrid">${[
+  ['bars', 'Tiền đi đâu', 'Theo danh mục, theo tuần'],
+  ['card', 'Thẻ và khoản nợ', 'Đang nợ, đến hạn'],
+  ['trend', 'Đầu tư', 'Crypto, vàng, cổ phiếu'],
+  ['flame', 'Chuỗi thói quen', 'App tự đếm từ sổ'],
+].map((r) => `<div class="wtile"><span class="wt-ch">${I(r[0])}</span><div><div class="wt-l">${r[1]}</div><div class="wt-s">${r[2]}</div></div></div>`).join('')}</div>`;
+const CTA = `<button class="cta">${I('mail')}Kết nối email ngân hàng</button>`;
+const LINK = `<button class="ob-textlink">Hoặc ghi tay một khoản</button>`;
+const TRUST = `<div class="trust">${I('lock')}<div><b>Chỉ đọc email báo giao dịch từ ngân hàng.</b> Không ai khác xem được, kể cả gia đình. Khoảng 1 phút.</div></div>`;
+const HOW = `<div class="how">
+  <div class="how-r"><span class="how-n">1</span><div><div class="how-t">Kết nối Gmail <small>1 phút</small></div><div class="how-s">App chỉ đọc email báo giao dịch từ ngân hàng</div></div></div>
+  <div class="how-r"><span class="how-n">2</span><div><div class="how-t">App đọc vài tháng gần nhất</div><div class="how-s">Mỗi email thành một khoản chờ bạn duyệt</div></div></div>
+  <div class="how-r"><span class="how-n">3</span><div><div class="how-t">Bạn duyệt, sổ tự đầy</div><div class="how-s">Không ai khác xem được, kể cả gia đình</div></div></div></div>`;
+const CARD = (o) => `<section class="cf-card"><div class="cf-lbl">${o.eyebrow || 'Sổ cá nhân'}</div><div class="pact-h">Bắt đầu sổ của bạn</div><p class="pact-p">${o.p || 'Kết nối email ngân hàng, app tự ghi lại vài tháng giao dịch gần nhất. Bạn chỉ duyệt, không nhập tay.'}</p>${o.body || ''}${CTA}${o.after || ''}${LINK}</section>`;
+const OPTS = [
+  { k: 'Chốt', t: 'Thẻ S5 + danh sách hiện tại', why: '<b>Phương án chốt.</b> Thẻ "Sổ cá nhân" của S5: tiêu đề, copy "vài tháng gần nhất", CTA, dòng khoá dưới nút nói app đọc gì, ai xem được, mất bao lâu, rồi link ghi tay. Bên dưới giữ danh sách đang chạy: bốn hàng có ô icon, không chevron. Avatar chữ cái, eyebrow bỏ tháng, tab bar "Tài chính".',
+    h: CARD({ after: TRUST }) + `<div class="section-h"><span class="t">Sau đó bạn sẽ thấy</span></div>` + ROWS(false), o: { ini: 'HC', tab: 'Tài chính' }, chosen: true },
+  { k: 'Hiện tại', cur: true, t: 'Như đang chạy', why: 'Bản đang live để đối chiếu. Đĩa avatar xám, eyebrow có tháng, tab bar ghi "Cá nhân" dưới tiêu đề "Tài Chính", nút xin Gmail không có dòng tin cậy, bốn hàng trông bấm được, nửa dưới trống.',
+    h: CARD({ eyebrow: 'Sổ cá nhân · Thg 9', p: 'Kết nối email ngân hàng, app tự ghi lại 90 ngày giao dịch gần nhất. Bạn chỉ duyệt, không nhập tay.' }) + `<div class="section-h"><span class="t">Sau đó bạn sẽ thấy</span></div>` + ROWS(false), o: {} },
+  { k: 'S1', t: 'Dòng tin cậy dưới nút', why: '<b>Sửa ít nhất.</b> Một dòng khoá nhỏ ngay dưới CTA nói app đọc gì, ai xem được, mất bao lâu. Copy "vài tháng gần nhất" thay cho "90 ngày". Bốn hàng giữ nguyên nhưng bỏ ô icon để thôi trông như hàng giao dịch.',
+    h: CARD({ after: TRUST }) + `<div class="section-h"><span class="t">Sau đó bạn sẽ thấy</span></div>` + QUIET, o: { ini: 'HC', tab: 'Tài chính' } },
+  { k: 'S2', t: 'Cách hoạt động trong thẻ', why: '<b>Ba bước ngay trong thẻ</b>, trước nút: kết nối, app đọc, bạn duyệt. Trả lời "app làm gì với email của tôi" mà không cần mở gì thêm, và lấp một phần khoảng trống. Thẻ dài hơn, nên danh sách bên dưới rút thành 2×2 ô nhỏ.',
+    h: CARD({ p: 'Sổ tự đầy từ email ngân hàng. Bạn chỉ duyệt, không nhập tay.', body: HOW }) + `<div class="section-h"><span class="t sm">Sau đó bạn sẽ thấy</span></div>` + TILES, o: { ini: 'HC', tab: 'Tài chính' } },
+  { k: 'S3', t: 'Link "Cách hoạt động" mở sheet', why: '<b>Thẻ giữ gọn, chi tiết nằm trong sheet.</b> Dưới nút là một dòng khoá ngắn kèm link "Cách hoạt động"; chạm mở sheet ba bước rồi CTA lặp lại ở đó. Ai không cần đọc thì không phải cuộn qua.',
+    h: CARD({ after: `<div class="trust c">${I('lock')}<div>Chỉ đọc email báo giao dịch. <span class="howlink">Cách hoạt động ${I('chev')}</span></div></div>` }) + `<div class="section-h"><span class="t">Sau đó bạn sẽ thấy</span></div>` + ROWS(false),
+    o: { ini: 'HC', tab: 'Tài chính', overlay: `<div class="scrim"></div><div class="sheet"><div class="sheet-grab"></div><div class="sheet-h">Cách hoạt động</div>${HOW}${CTA}<button class="ob-textlink">Để sau</button></div>` } },
+  { k: 'S4', t: 'Hàng thành cửa vào', why: '<b>Bốn hàng làm việc thật.</b> Đổi tiêu đề thành "Hoặc bắt đầu từ" và mỗi hàng mở đúng sheet của nó: ghi khoản vay, thêm vị thế, thử một chuỗi. Có chevron, có ô icon brand. Người không có email ngân hàng vẫn có ba cửa để bắt đầu.',
+    h: CARD({ after: TRUST }) + `<div class="section-h"><span class="t">Hoặc bắt đầu từ</span></div>` + DOORS, o: { ini: 'HC', tab: 'Tài chính' } },
+  { k: 'S5', t: 'Lấp khoảng trống bằng ô', why: '<b>Chấp nhận thẻ ngắn, sắp lại phần dưới.</b> Dòng tin cậy dưới nút; bốn chiều thành lưới 2×2 như widget Home, rõ là thông tin chứ không phải hàng bấm; lưới chiếm đủ chiều rộng nên màn không còn hụt nửa dưới.',
+    h: CARD({ after: TRUST }) + `<div class="section-h"><span class="t">Sau đó bạn sẽ thấy</span></div>` + TILES, o: { ini: 'HC', tab: 'Tài chính' } },
+];
+document.getElementById('root').innerHTML = OPTS.map((o) => `<div class="opt"><div class="opt-tag"><span class="opt-k${o.cur ? ' cur' : (o.chosen ? ' chosen' : '')}">${o.k}</span><span class="opt-t">${o.t}</span></div><div class="opt-why">${o.why}</div>${phone(o.h, o.o)}</div>`).join('');
+</script>
+</body>
+</html>

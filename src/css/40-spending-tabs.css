@@ -304,6 +304,7 @@
 .av-mia{background:linear-gradient(160deg,var(--mia-a),var(--mia-b))}
 .av-leo{background:linear-gradient(160deg,var(--leo-a),var(--leo-b))}
 .av-shared{background:linear-gradient(160deg,#aeb8b5,#7f8986)}
+.av-you{background:linear-gradient(160deg,var(--id-3-soft),var(--id-3))}   /* the signed-in person before a family face exists */
 .av-32{width:32px;height:32px;font-size:13px;letter-spacing:-.2px}
 .av-40{width:40px;height:40px;font-size:15px;letter-spacing:-.25px}
 .av-44{width:44px;height:44px;font-size:17px;letter-spacing:-.3px}
@@ -464,6 +465,9 @@
 /* .ob-textlink as a button: keeps the app's tertiary link metrics, 44px target */
 .pact-link{min-height:44px;border:0;background:none;font-family:inherit;cursor:pointer}
 .pact-link.m{color:var(--muted)}
+.pact-trust{display:flex;align-items:flex-start;gap:8px;font-size:12.5px;line-height:1.45;color:var(--muted);margin-top:12px}
+.pact-trust svg{width:15px;height:15px;flex-shrink:0;margin-top:1px}
+.pact-trust b{font-weight:600;color:var(--ink-2)}
 /* the queue deck: the newest staged row on top, two blank cards behind */
 .pq-deck{position:relative;padding-bottom:24px;margin:16px 0 4px}
 .pq-card{position:relative;z-index:2;display:block;width:100%;text-align:left;background:var(--white);border:1.5px solid var(--hairline);border-radius:14px;padding:12px 14px;box-shadow:var(--shadow-card);font:inherit;color:inherit;cursor:pointer}

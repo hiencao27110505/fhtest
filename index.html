@@ -1484,6 +1484,7 @@ input{font-family:inherit}
 .av-mia{background:linear-gradient(160deg,var(--mia-a),var(--mia-b))}
 .av-leo{background:linear-gradient(160deg,var(--leo-a),var(--leo-b))}
 .av-shared{background:linear-gradient(160deg,#aeb8b5,#7f8986)}
+.av-you{background:linear-gradient(160deg,var(--id-3-soft),var(--id-3))}   /* the signed-in person before a family face exists */
 .av-32{width:32px;height:32px;font-size:13px;letter-spacing:-.2px}
 .av-40{width:40px;height:40px;font-size:15px;letter-spacing:-.25px}
 .av-44{width:44px;height:44px;font-size:17px;letter-spacing:-.3px}
@@ -1644,6 +1645,9 @@ input{font-family:inherit}
 /* .ob-textlink as a button: keeps the app's tertiary link metrics, 44px target */
 .pact-link{min-height:44px;border:0;background:none;font-family:inherit;cursor:pointer}
 .pact-link.m{color:var(--muted)}
+.pact-trust{display:flex;align-items:flex-start;gap:8px;font-size:12.5px;line-height:1.45;color:var(--muted);margin-top:12px}
+.pact-trust svg{width:15px;height:15px;flex-shrink:0;margin-top:1px}
+.pact-trust b{font-weight:600;color:var(--ink-2)}
 /* the queue deck: the newest staged row on top, two blank cards behind */
 .pq-deck{position:relative;padding-bottom:24px;margin:16px 0 4px}
 .pq-card{position:relative;z-index:2;display:block;width:100%;text-align:left;background:var(--white);border:1.5px solid var(--hairline);border-radius:14px;padding:12px 14px;box-shadow:var(--shadow-card);font:inherit;color:inherit;cursor:pointer}
@@ -4638,7 +4642,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
 
 <!-- TAB BAR — personal-first: Cá nhân leads and is the default tab -->
 <nav class="tabbar">
-  <button class="tab on" id="t-personal" onclick="go('personal')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></svg><span>Cá nhân</span></button>
+  <button class="tab on" id="t-personal" onclick="go('personal')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></svg><span>Tài chính</span></button>
   <button class="tab" id="t-home" onclick="go('home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M3 10.5L12 3l9 7.5V21a1 1 0 01-1 1h-5v-6h-6v6H4a1 1 0 01-1-1z"/></svg><span data-t="tabHome">Home</span></button>
   <button class="tab" id="t-spending" onclick="go('spending')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 19V9M9 19V5M14 19v-7M19 19v-11"/></svg><span data-t="tabMoney">Finance</span></button>
   <button class="tab" id="t-events" onclick="go('events')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M3 16l4.5-4 3.5 3 4-3.5L21 16.5"/></svg><span data-t="tabMoments">Moments</span></button>
@@ -5736,7 +5740,9 @@ function go(name){
     // here (76-quick-review.js). Delayed so the tab paints first; the function
     // itself declines when the sheet layer is busy, the ledger is locked, or
     // every pending row has already had its one showing.
-    try{ if(window.fhQuickReviewMaybe) setTimeout(function(){ window.fhQuickReviewMaybe(); }, 450); }catch(e){}
+    // Not while the activation card is already showing the queue as a deck
+    // (state 2): two surfaces would compete for the same tap.
+    try{ if(window.fhQuickReviewMaybe) setTimeout(function(){ if(window.persActState && persActState()===2) return; window.fhQuickReviewMaybe(); }, 450); }catch(e){}
   }
 }
 /* Khoảnh Khắc has three inner sections: Dự định (plans) · Kỷ niệm (memories) · Album gia đình (album). */
@@ -7091,7 +7097,16 @@ function persRenderAvatar(){
        blank a disc that already shows a face; when nothing is showing yet,
        hold the neutral disc and retry briefly so it fills the moment the
        member data lands (nothing else re-renders this tab for it). */
-    if(!el.textContent){ el.className='av av-40 av-shared'; el.removeAttribute('style'); }
+    /* No member face yet (often: no family at all). Initials from the
+       signed-in account beat a grey disc that reads as loading. Swapped for
+       the member face the moment family data lands, never the other way. */
+    if(!el.textContent || el.classList.contains('av-you')){
+      var u = window.fhUser, nm = u && ((u.user_metadata && (u.user_metadata.full_name || u.user_metadata.name)) || u.email) || '';
+      var parts = String(nm).split('@')[0].trim().split(/[\s._-]+/).filter(Boolean);
+      var ini = parts.length ? (parts[0][0] + (parts.length>1 ? parts[parts.length-1][0] : '')).toUpperCase() : '';
+      if(ini){ el.className='av av-40 av-you'; el.removeAttribute('style'); el.textContent=ini; }
+      else if(!el.textContent){ el.className='av av-40 av-shared'; el.removeAttribute('style'); }
+    }
     if(_persAvTries < 12 && !_persAvTimer){
       _persAvTimer = setTimeout(function(){ _persAvTimer=null; _persAvTries++; persRenderAvatar(); }, 500);
     }
@@ -7182,10 +7197,20 @@ var _PI = {
   card:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="6" width="18" height="12" rx="3"/><path d="M3 10h18"/></svg>',
   trend:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l5-6 4 3 7-8"/><path d="M15 6h5v5"/></svg>',
   flame:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c1 4 5 5.5 5 10a5 5 0 0 1-10 0c0-2 1-3.5 2-4.5 0 2 1 3 2 3 0-3 0-6 1-8.5z"/></svg>',
+  lock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
   check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>'
 };
 var _persMail = null, _persMailAt = 0, _persMailBusy = false;
 /* both transports, like fhEmailTxnCta: either one means "mail is on" */
+function _persMailKey(){ var P = window.fhPersonalData ? fhPersonalData() : null; return 'fh-pers-mail:' + (P && P.uid || ''); }
+/* last answer, remembered on the device: a returning user must not see the
+   start card for the half second the probe takes (the state 1 → 2 flash) */
+function persMailSeed(){
+  if(_persMail) return;
+  try{ var v = JSON.parse(localStorage.getItem(_persMailKey()) || 'null'); if(v && typeof v==='object') _persMail = { fwd: !!v.fwd, oauth: !!v.oauth }; }catch(e){}
+}
+var _persActLast = 0;
+window.persActState = function(){ return _persActLast; };
 function persMailProbe(){
   if(_persMailBusy || (Date.now() - _persMailAt) < 60000) return;
   _persMailBusy = true;
@@ -7197,6 +7222,7 @@ function persMailProbe(){
     var next = { fwd: fwd, oauth: oauth };
     var changed = !_persMail || _persMail.fwd !== fwd || _persMail.oauth !== oauth;
     _persMail = next; _persMailAt = Date.now(); _persMailBusy = false;
+    try{ localStorage.setItem(_persMailKey(), JSON.stringify(next)); }catch(e){}
     if(changed) try{ renderPersonal(); }catch(e){}
   });
 }
@@ -7236,22 +7262,25 @@ function persActivation(P, SL){
     || !!(SL && SL.rows && SL.rows.length) || ((P.txnsOld||[]).length>0);
   var queue = window.fhStagedCount||0;
   if(!hasTx){
-    persMailProbe();
+    persMailSeed(); persMailProbe();
     var mailOn = !!(_persMail && (_persMail.fwd || _persMail.oauth));
-    return { state: (queue>0 || mailOn) ? 2 : 1, queue: queue, mail: _persMail };
+    _persActLast = (queue>0 || mailOn) ? 2 : 1;
+    return { state: _persActLast, queue: queue, mail: _persMail };
   }
   var steps = persSetupSteps(P);
   var open = steps.filter(function(x){ return !x.done; });
-  return { state: (!open.length || persSetupHidden(P)) ? 4 : 3, steps: steps, open: open, queue: queue };
+  _persActLast = (!open.length || persSetupHidden(P)) ? 4 : 3;
+  return { state: _persActLast, steps: steps, open: open, queue: queue };
 }
 /* state 1 + 2: the one card */
 function persActCard(act, mon){
-  var lbl = 'Sổ cá nhân · ' + persMonLabel(mon,false);
   var link = '<button class="ob-textlink pact-link" onclick="openPersonalExpense()">Hoặc ghi tay một khoản</button>';
+  /* the one line that earns the Gmail tap: what is read, who can see it, how long */
+  var trust = '<div class="pact-trust">'+_PI.lock+'<div><b>Chỉ đọc email báo giao dịch từ ngân hàng.</b> Không ai khác xem được, kể cả gia đình. Khoảng 1 phút.</div></div>';
   if(act.state===1){
-    return '<section class="cf-card"><div class="cf-lbl">'+lbl+'</div><div class="pact-h">Bắt đầu sổ của bạn</div>'
-      + '<p class="pact-p">Kết nối email ngân hàng, app tự ghi lại 90 ngày giao dịch gần nhất. Bạn chỉ duyệt, không nhập tay.</p>'
-      + '<button class="cta pact-cta" onclick="fhEmailTxnCta({scope:\'personal\'})">'+_PI.mail+'Kết nối email ngân hàng</button>'+link+'</section>';
+    return '<section class="cf-card"><div class="cf-lbl">Sổ cá nhân</div><div class="pact-h">Bắt đầu sổ của bạn</div>'
+      + '<p class="pact-p">Kết nối email ngân hàng, app tự ghi lại vài tháng giao dịch gần nhất. Bạn chỉ duyệt, không nhập tay.</p>'
+      + '<button class="cta pact-cta" onclick="fhEmailTxnCta({scope:\'personal\'})">'+_PI.mail+'Kết nối email ngân hàng</button>'+trust+link+'</section>';
   }
   var rx = (typeof window.fhReauthState==='function') ? fhReauthState() : null;
   var pg = (typeof window.fhBackfillProgress==='function') ? fhBackfillProgress() : null;

@@ -78,7 +78,16 @@ function persRenderAvatar(){
        blank a disc that already shows a face; when nothing is showing yet,
        hold the neutral disc and retry briefly so it fills the moment the
        member data lands (nothing else re-renders this tab for it). */
-    if(!el.textContent){ el.className='av av-40 av-shared'; el.removeAttribute('style'); }
+    /* No member face yet (often: no family at all). Initials from the
+       signed-in account beat a grey disc that reads as loading. Swapped for
+       the member face the moment family data lands, never the other way. */
+    if(!el.textContent || el.classList.contains('av-you')){
+      var u = window.fhUser, nm = u && ((u.user_metadata && (u.user_metadata.full_name || u.user_metadata.name)) || u.email) || '';
+      var parts = String(nm).split('@')[0].trim().split(/[\s._-]+/).filter(Boolean);
+      var ini = parts.length ? (parts[0][0] + (parts.length>1 ? parts[parts.length-1][0] : '')).toUpperCase() : '';
+      if(ini){ el.className='av av-40 av-you'; el.removeAttribute('style'); el.textContent=ini; }
+      else if(!el.textContent){ el.className='av av-40 av-shared'; el.removeAttribute('style'); }
+    }
     if(_persAvTries < 12 && !_persAvTimer){
       _persAvTimer = setTimeout(function(){ _persAvTimer=null; _persAvTries++; persRenderAvatar(); }, 500);
     }
@@ -169,10 +178,20 @@ var _PI = {
   card:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="6" width="18" height="12" rx="3"/><path d="M3 10h18"/></svg>',
   trend:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l5-6 4 3 7-8"/><path d="M15 6h5v5"/></svg>',
   flame:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c1 4 5 5.5 5 10a5 5 0 0 1-10 0c0-2 1-3.5 2-4.5 0 2 1 3 2 3 0-3 0-6 1-8.5z"/></svg>',
+  lock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
   check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>'
 };
 var _persMail = null, _persMailAt = 0, _persMailBusy = false;
 /* both transports, like fhEmailTxnCta: either one means "mail is on" */
+function _persMailKey(){ var P = window.fhPersonalData ? fhPersonalData() : null; return 'fh-pers-mail:' + (P && P.uid || ''); }
+/* last answer, remembered on the device: a returning user must not see the
+   start card for the half second the probe takes (the state 1 → 2 flash) */
+function persMailSeed(){
+  if(_persMail) return;
+  try{ var v = JSON.parse(localStorage.getItem(_persMailKey()) || 'null'); if(v && typeof v==='object') _persMail = { fwd: !!v.fwd, oauth: !!v.oauth }; }catch(e){}
+}
+var _persActLast = 0;
+window.persActState = function(){ return _persActLast; };
 function persMailProbe(){
   if(_persMailBusy || (Date.now() - _persMailAt) < 60000) return;
   _persMailBusy = true;
@@ -184,6 +203,7 @@ function persMailProbe(){
     var next = { fwd: fwd, oauth: oauth };
     var changed = !_persMail || _persMail.fwd !== fwd || _persMail.oauth !== oauth;
     _persMail = next; _persMailAt = Date.now(); _persMailBusy = false;
+    try{ localStorage.setItem(_persMailKey(), JSON.stringify(next)); }catch(e){}
     if(changed) try{ renderPersonal(); }catch(e){}
   });
 }
@@ -223,22 +243,25 @@ function persActivation(P, SL){
     || !!(SL && SL.rows && SL.rows.length) || ((P.txnsOld||[]).length>0);
   var queue = window.fhStagedCount||0;
   if(!hasTx){
-    persMailProbe();
+    persMailSeed(); persMailProbe();
     var mailOn = !!(_persMail && (_persMail.fwd || _persMail.oauth));
-    return { state: (queue>0 || mailOn) ? 2 : 1, queue: queue, mail: _persMail };
+    _persActLast = (queue>0 || mailOn) ? 2 : 1;
+    return { state: _persActLast, queue: queue, mail: _persMail };
   }
   var steps = persSetupSteps(P);
   var open = steps.filter(function(x){ return !x.done; });
-  return { state: (!open.length || persSetupHidden(P)) ? 4 : 3, steps: steps, open: open, queue: queue };
+  _persActLast = (!open.length || persSetupHidden(P)) ? 4 : 3;
+  return { state: _persActLast, steps: steps, open: open, queue: queue };
 }
 /* state 1 + 2: the one card */
 function persActCard(act, mon){
-  var lbl = 'Sổ cá nhân · ' + persMonLabel(mon,false);
   var link = '<button class="ob-textlink pact-link" onclick="openPersonalExpense()">Hoặc ghi tay một khoản</button>';
+  /* the one line that earns the Gmail tap: what is read, who can see it, how long */
+  var trust = '<div class="pact-trust">'+_PI.lock+'<div><b>Chỉ đọc email báo giao dịch từ ngân hàng.</b> Không ai khác xem được, kể cả gia đình. Khoảng 1 phút.</div></div>';
   if(act.state===1){
-    return '<section class="cf-card"><div class="cf-lbl">'+lbl+'</div><div class="pact-h">Bắt đầu sổ của bạn</div>'
-      + '<p class="pact-p">Kết nối email ngân hàng, app tự ghi lại 90 ngày giao dịch gần nhất. Bạn chỉ duyệt, không nhập tay.</p>'
-      + '<button class="cta pact-cta" onclick="fhEmailTxnCta({scope:\'personal\'})">'+_PI.mail+'Kết nối email ngân hàng</button>'+link+'</section>';
+    return '<section class="cf-card"><div class="cf-lbl">Sổ cá nhân</div><div class="pact-h">Bắt đầu sổ của bạn</div>'
+      + '<p class="pact-p">Kết nối email ngân hàng, app tự ghi lại vài tháng giao dịch gần nhất. Bạn chỉ duyệt, không nhập tay.</p>'
+      + '<button class="cta pact-cta" onclick="fhEmailTxnCta({scope:\'personal\'})">'+_PI.mail+'Kết nối email ngân hàng</button>'+trust+link+'</section>';
   }
   var rx = (typeof window.fhReauthState==='function') ? fhReauthState() : null;
   var pg = (typeof window.fhBackfillProgress==='function') ? fhBackfillProgress() : null;

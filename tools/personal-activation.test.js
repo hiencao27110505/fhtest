@@ -35,6 +35,13 @@ t('state 2 degrades to a blank deck while the row is still opening (never a wron
 t('state 2 covers a first read still running and a dead grant before it shows a queue',
   /pg\.phase==='reading'/.test(ui) && /fhReauthState\(\)/.test(ui));
 t('the privacy footer is gone from the guidance cards', !/pact-[\s\S]{0,40}Gia đình không xem được/.test(ui));
+t('state 1 earns the Gmail tap with one trust line under the CTA and promises no fixed window',
+  /class="pact-trust"[\s\S]{0,200}Chỉ đọc email báo giao dịch từ ngân hàng/.test(ui) && /vài tháng giao dịch gần nhất/.test(ui) && !/90 ngày giao dịch/.test(ui)
+  && /<div class="cf-lbl">Sổ cá nhân<\/div>/.test(ui));
+t('the last mailbox answer is cached per user so a returning person never sees the start card flash',
+  /function persMailSeed\(\)/.test(ui) && /localStorage\.setItem\(_persMailKey\(\)/.test(ui));
+t('the quick-review pop yields to the deck in state 2', /persActState\(\)===2\) return; window\.fhQuickReviewMaybe\(\)/.test(R('src/js-ui/10-nav-model.js')));
+t('the header avatar falls back to the signed-in person\'s initials', /el\.className='av av-40 av-you'/.test(ui) && /\.av-you\{/.test(css));
 
 console.log('\n-- state 3: the widget above the real dashboard --');
 t('three steps: first row, accounts and cards, monthly budget; the second is named "Cài đặt tài khoản, thẻ"',
