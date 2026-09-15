@@ -26,17 +26,37 @@ BEGIN
   END IF;
 END $$;
 
+-- COVERAGE SELF-CHECK: abort if a migration added a `personal%` table this script
+-- doesn't handle, so a new personal table can never silently survive the reset.
+DO $$
+DECLARE unhandled text;
+BEGIN
+  SELECT string_agg(t.table_name, ', ' ORDER BY t.table_name) INTO unhandled
+  FROM information_schema.tables t
+  WHERE t.table_schema='public' AND t.table_type='BASE TABLE' AND t.table_name LIKE 'personal%'
+    AND t.table_name NOT IN (
+      'personal_transaction_photos','personal_transactions','personal_review_memory',
+      'personal_accounts','personal_budgets','personal_lessons','personal_streaks','personal_keys'
+    );
+  IF unhandled IS NOT NULL THEN
+    RAISE EXCEPTION 'reset-personal: UNHANDLED personal table(s): % — update reset-personal.sql (add the DELETE + this known-list) before running', unhandled;
+  END IF;
+END $$;
+
 -- Leaf-first (respects the personal FK graph):
---   personal_transaction_photos.transaction_id → personal_transactions
---   personal_transactions.account_id           → personal_accounts
+--   personal_transaction_photos.transaction_id                 → personal_transactions
+--   personal_transactions.account_id / position_account_id     → personal_accounts
+--   personal_review_memory.position_account_id                  → personal_accounts
 --   personal_transactions.space_id → families is an OUTBOUND ref only (family untouched).
--- (personal_incomes was folded into personal_transactions. Keep this list in sync
---  with the `personal%` tables if the schema grows again.)
+-- (personal_incomes was folded into personal_transactions. The coverage check above
+--  enforces that this list stays complete as the `personal%` schema grows.)
 DELETE FROM personal_transaction_photos WHERE owner_user_id IN (SELECT uid FROM _u);
 DELETE FROM personal_transactions       WHERE owner_user_id IN (SELECT uid FROM _u);
+DELETE FROM personal_review_memory      WHERE owner_user_id IN (SELECT uid FROM _u);  -- investment review memory (0123)
 DELETE FROM personal_accounts           WHERE owner_user_id IN (SELECT uid FROM _u);
 DELETE FROM personal_budgets            WHERE owner_user_id IN (SELECT uid FROM _u);
 DELETE FROM personal_lessons            WHERE owner_user_id IN (SELECT uid FROM _u);  -- 0122: learned loan/category lessons
+DELETE FROM personal_streaks            WHERE owner_user_id IN (SELECT uid FROM _u);  -- habit streaks (0132)
 DELETE FROM personal_keys               WHERE user_id       IN (SELECT uid FROM _u);
 
 -- NOTE: personal photo blobs in the `personal-media` bucket are NOT deleted here

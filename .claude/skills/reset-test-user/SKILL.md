@@ -36,6 +36,16 @@ Optional flag: `--soft` or `--personal` (anything else, or nothing, means hard).
 
 ## Steps
 
+### 0. Coverage check — run when you haven't reset in a while
+The schema drifts constantly (new migrations add family-, user-, and `personal%`-scoped tables).
+Read `coverage.sql` and run it via `execute_sql`: it lists every table the reset must account for,
+grouped by scope. Skim it against the DELETE lists in `reset.sql` / `reset-personal.sql`; anything
+unfamiliar means the scripts need a new line. **You don't have to diff by hand** — `reset.sql` and
+`reset-personal.sql` both carry a coverage self-check that ABORTS the transaction (naming the table)
+if a scoped table isn't handled. Step 0 just turns a mid-run abort into a calm five-second look.
+When the self-check fires: add the table's `DELETE` in the correct leaf-first spot **and** to the
+known-list inside that file's self-check, then re-run.
+
 ### 1. Dry run — always first
 Read `preview.sql`, replace every `__EMAIL__` with the target address, run it via
 `execute_sql`. Interpret the single row:
@@ -106,9 +116,14 @@ SELECT u.id, u.email,
   (SELECT count(*) FROM personal_transactions      WHERE owner_user_id=u.id AND space_id IS NOT NULL) AS ptxns_mirror,
   (SELECT count(*) FROM personal_accounts          WHERE owner_user_id=u.id) AS paccounts,
   (SELECT count(*) FROM personal_transaction_photos WHERE owner_user_id=u.id) AS pphotos,
-  (SELECT count(*) FROM personal_budgets           WHERE owner_user_id=u.id) AS pbudgets
+  (SELECT count(*) FROM personal_budgets           WHERE owner_user_id=u.id) AS pbudgets,
+  (SELECT count(*) FROM personal_lessons           WHERE owner_user_id=u.id) AS plessons,
+  (SELECT count(*) FROM personal_streaks           WHERE owner_user_id=u.id) AS pstreaks,
+  (SELECT count(*) FROM personal_review_memory     WHERE owner_user_id=u.id) AS previewmem
 FROM auth.users u WHERE lower(u.email)=lower('__EMAIL__');
 ```
+(If any of these table names errors, the schema drifted — run `coverage.sql` and update both the
+dry run and `reset-personal.sql`.)
 `id` NULL → no such account, stop. Report the private-vs-mirror split (that's what's genuinely
 lost) and get a go-ahead.
 
@@ -147,19 +162,21 @@ non-negotiable.
 - The email→account map is `auth.users.email`; the app maps user→family via
   `profiles.family_id` (see `auth_family_id()`), and onboarding gates on `my_families()`
   (`src/js-data/10-client-auth.js`).
-- If you add a new family-scoped table in a future migration, add its `DELETE` to `reset.sql`
-  in the correct leaf-first position.
-- **Schema drift — re-verify the table list before trusting either SQL file.** The schema moves;
-  confirm current tables/FKs each time with:
-  ```sql
-  SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name LIKE 'personal%';
-  -- and, for the FK order, the referencing/referenced pairs (see how this skill was last verified).
-  ```
-  Known additions already handled: family side — `email_transactions`, `mailbox_connections`
-  (member-scoped), `family_creation_keys` (family+user-scoped); personal side — `personal_accounts`
-  and `personal_transaction_photos` were added and `personal_incomes` was **folded into**
-  `personal_transactions` (a `kind` column). If a new `personal%` table appears, add its `DELETE`
-  to BOTH the HARD block of `reset.sql` and to `reset-personal.sql`, leaf-first.
+- If you add a new scoped table in a future migration, add its `DELETE` to `reset.sql`
+  (family/user) or `reset-personal.sql` (personal) in the correct leaf-first position **and** to
+  the matching known-list in that file's coverage self-check.
+- **Schema drift is enforced now, not just documented.** `reset.sql` and `reset-personal.sql` each
+  carry a coverage self-check `DO` block that ABORTS the transaction and names any family-, user-,
+  or `personal%`-scoped table not in its known-list — so a new table can never silently survive a
+  reset. `coverage.sql` (step 0) shows the full inventory read-only so you can see drift before
+  running. Tables handled as of 2026-09-15: family-scoped — `txn_shares`, `settle_ups`,
+  `family_streaks`, `family_creation_keys` (+ the original event/txn/budget/member set); member/
+  person-scoped — `email_transactions`, `resolved_email_messages`, `mailbox_connections`,
+  `mailbox_grants`; other user-scoped (HARD) — `connected_accounts`, `device_sessions`,
+  `merchant_corrections`, `user_consents`, `mailbox_beta_access`, `founder_daily_active`; personal —
+  `personal_transactions`, `personal_transaction_photos`, `personal_accounts`, `personal_budgets`,
+  `personal_lessons`, `personal_streaks`, `personal_review_memory`, `personal_keys` (`personal_incomes`
+  was folded into `personal_transactions`).
 - **Personal key facts** (for accurate reporting): the personal ledger is E2EE under the user's own
   Key Card with **no escrow**; `init_personal_key` is `ON CONFLICT DO NOTHING` (first-writer-wins,
   server wrap never clobbered). The historical "new key minted on every reopen" modal was a
