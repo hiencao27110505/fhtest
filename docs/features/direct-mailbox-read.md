@@ -89,6 +89,11 @@ mailbox to the wrong container. A user with no member row in a real family raise
 `no_member_row` and the flow bounces them to a screen that says so — a product state,
 not a fault.
 
+The same holds for a mailbox another account already reads. `0103`'s unique index on
+`lower(btrim(email))` refuses the insert, the callback matches the index name in the error
+and bounces `reason=mailbox_taken`, and the app shows "Gmail này đã được kết nối" with the
+way to move it. It does not say which account holds the mailbox.
+
 Finally the callback registers `users.watch()` if `GMAIL_PUSH_TOPIC` is set. Best effort:
 failure costs latency, not transactions.
 

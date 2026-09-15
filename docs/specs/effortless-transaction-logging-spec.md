@@ -1889,6 +1889,21 @@ as — or the same day as — the deploy. A deploy announced only in
 
 ## 28. Releases (newest first)
 
+### 2026-09-15 — mailbox-connect + client — a Gmail already connected elsewhere says so
+
+- **For product:** connecting a Gmail that another Earthy account already
+  reads used to end on "Chưa kết nối được · Thử lại", and retrying could
+  never work. It now says the mailbox is connected to another account and
+  how to move it (stop reading there, reconnect here).
+- **Under the hood:** callback maps a `mailbox_grants_one_per_mailbox`
+  unique violation to `reason=mailbox_taken` (no migration); client state
+  `'taken'` with its own sheet. Deployed from `origin/main` code equal to
+  live v8 plus this change only; no shared module other than `gmail.mjs`
+  is imported by the function, and it is unchanged.
+- **Spec sections updated:** none (the one-reader rule is `0103`, unchanged).
+- **Watch for:** the takeover question is still open. Refusing is the
+  0103 behaviour made legible, not a decision that refusing is right.
+
 ### 2026-09-13 — client only (review promote, quick sheet) — accounts ask for a starting number; family rows carry the author's instrument
 
 - **For product:** after the first import from the queue, the app now asks for

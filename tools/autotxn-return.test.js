@@ -35,6 +35,14 @@ if (start < 0 || !Number.isFinite(end)) {
   process.exit(1);
 }
 const FN_SRC = src.slice(start, end);
+/* _atxReturnState reads _ATX_DENIED, declared just above it. Without it every
+   `reason=` case throws inside the function's own try and reads back as null,
+   which is how the reason branch went untested until mailbox_taken needed it. */
+const DENIED_DECL = (src.match(/const _ATX_DENIED = \[[^\]]*\];/) || [])[0];
+if (!DENIED_DECL) {
+  console.error('FAIL: could not find const _ATX_DENIED in ' + SRC_FILE);
+  process.exit(1);
+}
 
 let pass = 0, fail = 0;
 const t = (n, ok, d) => {
@@ -48,7 +56,7 @@ function make(search, hash) {
   const location = { search: search, pathname: '/', hash: hash || '' };
   const history = { calls: 0, url: null, replaceState: function (a, b, u) { this.calls++; this.url = u; } };
   // eslint-disable-next-line no-eval
-  const read = eval('(function(){' + FN_SRC + 'return _atxReturnState;})()');
+  const read = eval('(function(){' + DENIED_DECL + FN_SRC + 'return _atxReturnState;})()');
   return { read, location, history, URLSearchParams };
 }
 
@@ -72,6 +80,20 @@ console.log('\n-- ...and the documented alias --');
 {
   const r = run('?gmail=connected');
   t('gmail= is accepted too', r.out === 'connected', JSON.stringify(r.out));
+}
+
+console.log('\n-- the API reason word: one refusal gets its own screen --');
+for (const [q, want] of [
+  ['?reason=mailbox_taken', 'taken'],       // 0103: the Gmail already has a reader
+  ['?reason=MAILBOX_TAKEN', 'taken'],
+  ['?reason=access_denied', 'denied'],
+  ['?reason=store_failed', 'error'],        // must NOT be mistaken for taken
+  ['?reason=no_member', 'error'],
+  ['?reason=something_new', 'error'],       // unknown reason is still a failure
+]) {
+  const r = run(q);
+  t(q + ' -> ' + want, r.out === want, JSON.stringify(r.out));
+  t('  ...and the reason is eaten', r.history.calls === 1 && r.history.url.indexOf('reason') < 0, r.history.url);
 }
 
 console.log('\n-- anything else is ignored, never guessed at --');

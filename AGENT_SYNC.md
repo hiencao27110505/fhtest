@@ -143,6 +143,16 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-09-15 (Trang's session) — `mailbox-connect` redeployed: "mailbox already
+  connected" gets its own screen. No migration.** A second account granting a Gmail that
+  another account already reads (0103's `mailbox_grants_one_per_mailbox`) used to bounce
+  `store_failed` and show "Chưa kết nối được · Thử lại" forever; real case kaoheen@. The
+  callback now matches the index name and bounces `reason=mailbox_taken`; the client shows
+  a dedicated sheet. Deployed from worktree branch `fix/mailbox-taken` off `origin/main`:
+  live v8 matched `921d68c`, and the function imports only `gmail.mjs` from `_shared`
+  (unchanged since), so this redeploy ships nothing but the reason mapping. Open product
+  question, not decided: should a new connect take the mailbox over instead of refusing?
+
 - **2026-09-14 (Trang's session) — `0135_expiry_experiment` APPLIED live and verified.
   Next free is `0136`.** A one-off Telegram monitor for the publishing experiment: the
   OAuth app was flipped Testing → In production (still unverified) on 09-13, and

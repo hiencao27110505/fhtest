@@ -20,6 +20,22 @@ Going forward, add an entry here when a feature area changes meaningfully — se
 
 ## 2026-09-15
 
+### Gmail connect: "already connected to another account" gets its own screen
+
+`0103` made a mailbox readable by one account (`mailbox_grants_one_per_mailbox`), and said the
+app should catch the refusal and say so. It never did: a second account granting the same Gmail
+passed Google's consent, then `grant_mailbox_access` hit the unique index, the callback bounced
+`reason=store_failed`, and the app showed "Chưa kết nối được · Thử lại", which fails identically
+on every retry. Found on a real user (kaoheen@) whose grant silently never landed.
+
+- `mailbox-connect` callback maps an error naming the index to `reason=mailbox_taken`. No
+  migration: Postgres already names the index in the 23505 message.
+- `_atxReturnState` returns `'taken'` for it; `fhAutoTxnDone` renders a sheet that names the state
+  and the one move that clears it (stop reading on the other account, then reconnect). It never
+  reveals which account holds the mailbox.
+- `tools/autotxn-return.test.js` now covers the `reason=` branch, which had been untested: the
+  harness never declared `_ATX_DENIED`, so any reason case threw and read back as null.
+
 ### Personal tab: four activation states instead of an empty dashboard
 
 A first-time user opened "Tài Chính" to three 0 ₫ figures, a blank chart, a sync note that never

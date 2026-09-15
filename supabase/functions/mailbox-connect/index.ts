@@ -163,7 +163,16 @@ async function callback(url: URL): Promise<Response> {
       // no_member_row now means only ONE thing: they asked for a FAMILY-scoped
       // mailbox without being in a family. A personal-scoped grant needs none,
       // so this is a real product state rather than the blanket refusal it was.
-      return bounce(detail.includes("no_member_row") ? "no_member" : "store_failed", returnTo);
+      //
+      // mailbox_taken: 0103 lets a mailbox be read by ONE account, so a second
+      // account granting the same Gmail trips `mailbox_grants_one_per_mailbox`,
+      // which Postgres names in the error. Google said yes and we refused, so the
+      // app has to say which refusal this was: "store_failed" reads as a fault to
+      // retry, and retrying fails the same way every time.
+      const reason = detail.includes("no_member_row") ? "no_member"
+        : detail.includes("mailbox_grants_one_per_mailbox") ? "mailbox_taken"
+        : "store_failed";
+      return bounce(reason, returnTo);
     }
     grantId = (await res.json()) as string;
   } catch (e) {

@@ -1193,7 +1193,11 @@
       if (!ok && !reason && !legacy) return null;
 
       let v;
-      if (reason) v = _ATX_DENIED.indexOf(reason) >= 0 ? 'denied' : 'error';
+      /* `mailbox_taken` is the one failure with its own screen: the Gmail is
+         already read by another Earthy account (0103), and "try again" would
+         fail identically forever. Every other reason stays a generic error. */
+      if (reason) v = _ATX_DENIED.indexOf(reason) >= 0 ? 'denied'
+        : reason === 'mailbox_taken' ? 'taken' : 'error';
       else if (ok) v = 'connected';
       else if (legacy === 'denied' || legacy === 'error') v = legacy;
       else return null;                          // an unrecognised value, ignored
@@ -1743,6 +1747,27 @@
         '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Đóng', 'Close')) + '</button>'
       );
       _atxLiveWatch();
+      return;
+    }
+    /* THE MAILBOX IS ALREADY SOMEONE ELSE'S READER. Google approved the grant;
+       0103's one-reader rule is what refused it. The generic error offered
+       "Thử lại", which fails the same way every time, so this names the state
+       and the only move that clears it: stop reading on the other account. We
+       never say WHICH account holds it; the person proved they control the
+       mailbox, not that they may learn who else connected it. */
+    if (state === 'taken') {
+      _fhSheet(
+        '<div class="mbx-hero">' + _mbxGlyph('mail') + '</div>' +
+        '<div class="sheet-h">' + _esc(L('Gmail này đã được kết nối', 'This Gmail is already connected')) + '</div>' +
+        '<div class="sheet-sub">' + _esc(L(
+          'Gmail bạn vừa chọn đang được một tài khoản Earthy khác đọc. Mỗi hộp thư chỉ kết nối với một tài khoản, để giao dịch không bị chia ra hai nơi.',
+          'The Gmail account you picked is already being read by another Earthy account. Each mailbox connects to only one account, so your transactions don’t get split between two places.')) + '</div>' +
+        '<div class="mbx-note">' + _mbxGlyph('mail') + '<span>' + _esc(L(
+          'Muốn chuyển sang tài khoản này, người đã kết nối (có thể là bạn hoặc người nhà) vào Cài đặt › Tự động ghi giao dịch và chọn “Ngừng đọc email”. Nếu ở đó hiện màn hình làm mới kết nối, bấm “Kết nối” trước. Rồi quay lại đây kết nối lần nữa.',
+          'To move it here, whoever connected it (you or someone in your family) goes to Settings › Auto-log transactions and taps “Stop reading my email”. If that screen asks to refresh the connection, tap “Connect” first. Then come back and connect again.')) + '</span></div>' +
+        '<button class="cta" onclick="fhAutoTxnSheet()">' + _esc(L('Chọn Gmail khác', 'Pick a different Gmail')) + '</button>' +
+        '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Để sau', 'Not now')) + '</button>'
+      );
       return;
     }
     // Declining is a normal answer, not an error — no alarm colour, no blame,
