@@ -251,6 +251,18 @@ csvBulkReset();
 t('a rebuild leaves the mode again', csvSelTouched === false);
 t('and clears the conditions and the sheet', csvPickCount() === 0 && csvToolSheet === null);
 
+console.log('\n-- ticking the OPEN card keeps it open --');
+reset();
+csvExpand = { kind:'ready', idx:0 };
+csvStagedToggle(0);
+t('the tick lands on the open card', csvReview.ready[0]._skipImport === true);
+t('and the card stays open', !!csvExpand && csvExpand.kind === 'ready' && csvExpand.idx === 0);
+csvStagedToggle(0);
+t('ticking it back keeps it open too', csvReview.ready[0]._skipImport === false && !!csvExpand && csvExpand.idx === 0);
+csvExpand = { kind:'ready', idx:1 };
+csvStagedToggle(0);
+t('ticking a DIFFERENT card still closes the open one', csvExpand === null);
+
 console.log('\n-- the sheets say what they mean (smoke) --');
 reset();
 csvPickSrcTgl('MB Bank'); csvPickDupTgl('no');

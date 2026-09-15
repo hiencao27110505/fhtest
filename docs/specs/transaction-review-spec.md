@@ -228,6 +228,18 @@ alarming rows.
   card asks "to which account", not "which card". Conservative: a name mismatch
   stays a card payment.
 
+**Polish, 2026-09-16.**
+
+- The checkbox sits in the same top-right corner whether a card is open or
+  closed. Ticking an open card reads its fields back and keeps it open.
+- Date rows name today with its date: "Hôm nay, 19/09", not a bare "Hôm nay".
+- "Chi cho gì?" starts one line tall and grows to two only when the text
+  needs it; past two lines it scrolls.
+- The summary chart above the list is the personal "Còn lại" strip itself:
+  same bars, zoom row and in-view rescale. Grey is the period's whole queue,
+  green its ticked share, and the label rides the green. A chart button in
+  the toolbox hides or shows it, remembered on the device.
+
 ### 5. Destination routing — Family vs Personal (the cross-tab heart)
 
 Every reviewed row goes to exactly one of two ledgers, and the difference is
@@ -593,12 +605,12 @@ the pipeline can't read on sealed rows). Layers, most concrete first:
   bank-vs-bank flag it can prove wrong (the pipeline flagged it blind to
   `transaction_type`).
 
-**Visible diligence.** Staged review opens with a check-count line — "Đã đối
-chiếu N thẻ với sổ chi tiêu — X có thể trùng" — because an unflagged card
-carries an invisible claim ("we checked; looks new") that used to be
-indistinguishable from no check at all. When X > 0 the line offers a filter
-("Chỉ xem thẻ trùng") that narrows the list to flagged cards, plus select-all /
-clear-all over exactly those. An opened flagged card shows its evidence: the
+**Visible diligence.** The suspect count lives in the toolbox, not above the
+list. "Chọn nhanh" shows "Có thể trùng" and "Không trùng" chips with counts;
+picking one fades every other card, and its verbs select, add or remove
+exactly those rows. Until 2026-09-16 a separate line ("Đã đối chiếu N thẻ với
+sổ chi tiêu") sat between the toolbox and the cards with its own filter. It
+said the same thing twice and was removed. An opened flagged card shows its evidence: the
 matched ledger row's note/category, amount, date, which book, and who logged it
 (`csvDupWhy`) — "is this the same purchase?" is unanswerable from memory.
 

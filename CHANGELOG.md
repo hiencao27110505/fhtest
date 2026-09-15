@@ -18,6 +18,18 @@ Going forward, add an entry here when a feature area changes meaningfully — se
 
 ---
 
+## 2026-09-16
+
+### Transaction review: six rough edges on the bulk queue
+
+- The "Đã đối chiếu N thẻ với sổ chi tiêu" line and its duplicate filter are gone (`csvDupStrip`, `csvDupFilter`). "Chọn nhanh" already counts and picks the suspects.
+- The summary chart renders with the personal strip's markup (`.pz` / `.pst`) and shares its in-view rescale, now `fhStripSync` in 21-personal. Grey is the period's whole queue, green the ticked share. A tick repaints the chart in place (`csvSumRepaint`), which the fast tick path used to leave stale.
+- The toolbox gains an icon-only chart button (`csvSumToggle`), remembered per device in localStorage.
+- The expanded card's checkbox sits at exactly the collapsed card's offsets. Ticking the open card flushes its editor and keeps it open instead of collapsing it.
+- Date rows read "Hôm nay, 19/09" (`csvDateRowLbl`).
+- "Chi cho gì?" starts at one line and grows to two (`csvNoteFit`), and flushes on blur like the amount.
+- SW v532.
+
 ## 2026-09-15
 
 ### A mailbox may have more than one reader (0137, 0138)

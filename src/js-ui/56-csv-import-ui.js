@@ -1168,7 +1168,7 @@ function csvStagedRowsCard(c, opts){
     + '<input class="num" id="csvedit-amt" inputmode="numeric" onblur="csvAmtBlur(this)" placeholder="'+escAttr(fxUn ? csvFxOrigStr(_fx)+' → ₫?' : amtPlaceholder())+'" value="'+escAttr(!fxUn && c.amount!=null?csvAmtInputVal(c.amount):'')+'"/>'
     + fxHint + '</div>'
     + '<div class="field csv-notef"><label>'+noteLbl+'</label>'
-    + '<textarea id="csvedit-note" rows="2">'+esc(c.description||'')+'</textarea></div>';
+    + '<div class="csv-notebox"><textarea id="csvedit-note" rows="1" oninput="csvNoteFit(this)" onblur="csvNoteBlur()">'+esc(c.description||'')+'</textarea></div></div>';
 
   /* Two "not filled" states, deliberately different colours:
        miss (amber) — BLOCKING: import is gated until this is set (the no-rate
@@ -1202,7 +1202,7 @@ function csvStagedRowsCard(c, opts){
       rows += row('loanwho', L('Cho ai mượn','Lent to'),
         c._loanWho ? esc(c._loanWho) : L('Chọn','Pick'), { soft: !c._loanWho });
       rows += fhPickRow({ label: L('Hẹn trả','Due back'), type: 'date', value: c._loanDue||'', on: 'csvPickLoanDue', clear: true, soft: !c._loanDue, hot: csvRowHot==='loandue',
-        val: '<b>'+(c._loanDue ? '<span class="num">'+esc(bulkDate(c._loanDue))+'</span>' : esc(L('Chưa hẹn','Not set')))+'</b>' });
+        val: '<b>'+(c._loanDue ? '<span class="num">'+esc(csvDateRowLbl(c._loanDue))+'</span>' : esc(L('Chưa hẹn','Not set')))+'</b>' });
     }
     if(cur==='invest'){
       /* which position this buy/sell accrues to (0123, investment-spec §7) */
@@ -1254,7 +1254,7 @@ function csvStagedRowsCard(c, opts){
      clock itself, no sheet in between; the change lands on the candidate. */
   var t = csvRowTime(c);
   rows += fhPickRow({ label: L('Ngày','Date'), type: 'date', value: c.dateDisplay||'', on: 'csvPickDate', hot: csvRowHot==='when',
-    val: '<b class="num">'+esc(bulkDate(c.dateDisplay))+'</b>' });
+    val: '<b class="num">'+esc(csvDateRowLbl(c.dateDisplay))+'</b>' });
   rows += fhPickRow({ label: L('Giờ','Time'), type: 'time', value: t||'', on: 'csvPickTime', clear: true, soft: !t, hot: csvRowHot==='when',
     val: '<b class="num">'+(t ? esc(t) : esc(L('Chỉ tính theo ngày','Day only')))+'</b>' });
   /* Nguồn tiền (bank · instrument) and Nguồn nhập (transport) used to be two
@@ -1313,9 +1313,9 @@ function csvSheetPick(f, v){
 /* Picker rows (fhPickRow) commit on the OS picker's change — no sheet, no Xong.
    A cleared date is ignored (a row always has a day); a cleared time is day-only;
    a cleared due date removes the reminder. */
-function csvPickDate(v, final){ var c = csvExpandedCandidate(); if(!c || !v) return null; c.dateDisplay = v; c.date = new Date(v+'T00:00:00'); if(!final) return '<b class="num">'+esc(bulkDate(v))+'</b>'; csvReadEditor(c); csvRowHot = 'when'; renderCsvReview(); }
+function csvPickDate(v, final){ var c = csvExpandedCandidate(); if(!c || !v) return null; c.dateDisplay = v; c.date = new Date(v+'T00:00:00'); if(!final) return '<b class="num">'+esc(csvDateRowLbl(v))+'</b>'; csvReadEditor(c); csvRowHot = 'when'; renderCsvReview(); }
 function csvPickTime(v, final){ var c = csvExpandedCandidate(); if(!c) return null; c.time = v || ''; if(!final) return '<b class="num">'+(v ? esc(v) : esc(L('Chỉ tính theo ngày','Day only')))+'</b>'; csvReadEditor(c); csvRowHot = 'when'; renderCsvReview(); }
-function csvPickLoanDue(v, final){ var c = csvExpandedCandidate(); if(!c) return null; c._loanDue = v || null; if(!final) return '<b>'+(v ? '<span class="num">'+esc(bulkDate(v))+'</span>' : esc(L('Chưa hẹn','Not set')))+'</b>'; csvReadEditor(c); csvRowHot = 'loandue'; renderCsvReview(); }
+function csvPickLoanDue(v, final){ var c = csvExpandedCandidate(); if(!c) return null; c._loanDue = v || null; if(!final) return '<b>'+(v ? '<span class="num">'+esc(csvDateRowLbl(v))+'</span>' : esc(L('Chưa hẹn','Not set')))+'</b>'; csvReadEditor(c); csvRowHot = 'loandue'; renderCsvReview(); }
 /* Sheets with typed input (amount / repay free-text) commit on Xong. */
 window.csvSheetValDone = function(){
   var c = csvExpandedCandidate();
@@ -1572,6 +1572,37 @@ window.csvAmtBlur = function(el){
   var c = (typeof csvExpandedCandidate==='function') ? csvExpandedCandidate() : null;
   if(c) csvReadEditor(c);
 };
+/* The note starts one line tall and grows to two only when its text needs the
+   room; past two lines it scrolls inside the box. A rows="2" box made a short
+   note look like a paragraph field. */
+function csvNoteFit(el){
+  if(!el || el.tagName !== 'TEXTAREA') return;
+  el.style.height = 'auto';
+  var cs = getComputedStyle(el);
+  var bd = (parseFloat(cs.borderTopWidth)||0) + (parseFloat(cs.borderBottomWidth)||0);
+  var pad = (parseFloat(cs.paddingTop)||0) + (parseFloat(cs.paddingBottom)||0);
+  var line = parseFloat(cs.lineHeight) || 21;
+  var max = Math.ceil(line * 2 + pad + bd);
+  var want = el.scrollHeight + bd;
+  el.style.height = Math.min(want, max) + 'px';
+  el.style.overflowY = want > max ? 'auto' : 'hidden';
+}
+/* Like the amount, the note lands on its candidate on blur, so a typed note
+   survives a tick or a straight tap to Import while the card is still open. */
+window.csvNoteBlur = function(){
+  var c = (typeof csvExpandedCandidate==='function') ? csvExpandedCandidate() : null;
+  if(c) csvReadEditor(c);
+};
+/* A date row's value. Today names itself AND its date ("Hôm nay, 19/09"),
+   because "Hôm nay" alone leaves the person working out which day that is.
+   Other days keep bulkDate's dd/mm, with the year when it isn't this one. */
+function csvDateRowLbl(iso){
+  var s = bulkDate(iso);
+  if(iso && typeof isoDate === 'function' && iso === isoDate(TODAY)){
+    var p = iso.split('-'); s += ', ' + p[2] + '/' + p[1];
+  }
+  return s;
+}
 function csvReadEditor(c){
   if(!c) return;
   var n=document.getElementById('csvedit-note');
@@ -1970,43 +2001,6 @@ function csvDupWhy(c){
   return '';
 }
 
-/* Staged review's check-count line: the diligence made visible. A card that
-   is NOT flagged carries an invisible claim — "we compared this against your
-   books and it looks new" — and until this line existed there was no way to
-   know the comparison even ran. The filter narrows the list to flagged cards
-   so ruling on ten suspects is not a hunt through eighty rows; ticking is the
-   one include verb it already has. */
-window.csvDupFilter = false;
-function csvDupStrip(total, dupN){
-  var on = !!window.csvDupFilter;
-  var line = esc(L('Đã đối chiếu ' + total + ' thẻ với sổ chi tiêu','Checked ' + total + ' cards against your ledgers'));
-  line += dupN
-    ? ' — <b>' + dupN + '</b> ' + esc(L('có thể trùng','possible duplicate' + (dupN === 1 ? '' : 's')))
-    : ' — ' + esc(L('không thấy trùng','no matches found'));
-  var act = '';
-  if(dupN){
-    act += '<button type="button" class="txh-sublink" onclick="csvDupFilterToggle()">'
-        + esc(on ? L('Hiện tất cả','Show all') : L('Chỉ xem thẻ trùng','Only duplicates')) + '</button>';
-    if(on){
-      var flagged = (csvReview && csvReview.ready || []).filter(csvIsFlaggedDup);
-      var allOn = flagged.length > 0 && flagged.every(function(c){ return !c._skipImport; });
-      act += '<button type="button" class="txh-sublink" onclick="csvDupSelectFlagged(' + (allOn ? 'false' : 'true') + ')">'
-          + esc(allOn ? L('Bỏ chọn tất cả','Clear all') : L('Chọn tất cả để nhập','Select all to import')) + '</button>';
-    }
-  }
-  return '<div class="csv-dupstrip"><span>' + line + '</span>' + act + '</div>';
-}
-window.csvDupFilterToggle = function(){
-  window.csvDupFilter = !window.csvDupFilter;
-  csvExpand = null; renderCsvReview();
-};
-window.csvDupSelectFlagged = function(on){
-  ((csvReview && csvReview.ready) || []).forEach(function(c){
-    if(csvIsFlaggedDup(c)) c._skipImport = !on;
-  });
-  renderCsvReview(); csvPersistDraft();
-};
-
 /* ── In-review summary — brief line + Ngày/Tuần/Tháng zoom + pannable Chi bars ──
    A whole-batch overview at the top of BOTH review flows (staged bank-email and
    file import): every readable row in the queue counts, no exception — ready,
@@ -2041,6 +2035,24 @@ window.csvDupSelectFlagged = function(on){
 var csvSumZoom = 'week';     // 'day' | 'week' | 'month' — reset per batch in csvBuildReview
 var csvSumScroll = null;     // strip scrollLeft; null = pin to newest (right end)
 var csvSumRaf = 0;
+/* Shown or hidden from the toolbox's chart button (staged review only),
+   remembered on this device: a viewing preference nobody else needs. */
+var csvSumHidden = false;
+try{ csvSumHidden = localStorage.getItem('fh-review-chart-hidden') === '1'; }catch(e){}
+function csvSumToggle(){
+  csvSumHidden = !csvSumHidden;
+  try{ localStorage.setItem('fh-review-chart-hidden', csvSumHidden ? '1' : '0'); }catch(e){}
+  csvSumScroll = null;
+  renderCsvReview();
+}
+/* The toolbox's third, icon-only button. Absent when there is nothing to chart. */
+function csvSumBtnHTML(){
+  var d = csvSumData(); if(!d || !d.n) return '';
+  return '<button type="button" class="txb-b txb-ico'+(csvSumHidden ? ' off' : '')+'" onclick="csvSumToggle()"'
+    + ' aria-pressed="'+(csvSumHidden ? 'false' : 'true')+'"'
+    + ' aria-label="'+escAttr(csvSumHidden ? L('Hiện biểu đồ','Show chart') : L('Ẩn biểu đồ','Hide chart'))+'">'
+    + '<span class="txb-ic">'+CSV_TXB_I_CHART+'</span></button>';
+}
 
 function csvSumData(){
   var r = csvReview; if(!r) return null;
@@ -2099,12 +2111,13 @@ function csvSumBuckets(byDay, bySel){
     var mEnd=new Date(m.getFullYear(), m.getMonth()+1, 0);
     var ms=iso(m), me=iso(mEnd), ma=0, msel=0;
     days.forEach(function(k){ if(k>=ms&&k<=me){ ma+=byDay[k]; msel+=bySel[k]||0; } });
-    out.push({ s:ms, e:me, lbl:moAbbr(m.getMonth()), amt:ma, sel:msel });
+    out.push({ s:ms, e:me, lbl:moAbbr(m.getMonth())+(m.getFullYear()===new Date().getFullYear()?'':' '+String(m.getFullYear()).slice(2)), amt:ma, sel:msel });
     m.setMonth(m.getMonth()+1);
   }
   return out;
 }
 function csvSumHTML(){
+  if(csvStagedMode && csvSumHidden) return '';   // hidden from the toolbox's chart button
   var d = csvSumData(); if(!d || !d.n) return '';
   var html = '<div class="csum">'
     + '<div class="csum-brief">'+d.n+' '+L('giao dịch','transactions')
@@ -2113,23 +2126,26 @@ function csvSumHTML(){
   var buckets = csvSumBuckets(d.byDay, d.bySel);
   if(buckets.length){
     var Z=[['day',L('Ngày','Day')],['week',L('Tuần','Week')],['month',L('Tháng','Month')]];
-    html += '<div class="csum-zoom">'+Z.map(function(z){
-      return '<button type="button" class="csum-z'+(csvSumZoom===z[0]?' on':'')+'" onclick="csvSumZoomGo(\''+z[0]+'\')">'+z[1]+'</button>';
+    // The personal "Còn lại" card's zoom row and strip, same markup and CSS
+    // (.pz / .pst in 40-spending-tabs.css), so the two charts are one component.
+    html += '<div class="pz">'+Z.map(function(z){
+      return '<button type="button" class="'+(csvSumZoom===z[0]?'on':'')+'" onclick="csvSumZoomGo(\''+z[0]+'\')">'+z[1]+'</button>';
     }).join('')+'</div>';
     var max=1; buckets.forEach(function(b){ if(b.amt>max) max=b.amt; });
-    html += '<div class="csum-strip" id="csum-strip" onscroll="csvSumOnScroll(this)">';
+    html += '<div class="pst" id="csum-strip" onscroll="csvSumOnScroll(this)">';
     buckets.forEach(function(b){
-      var h = b.amt>0 ? Math.max(Math.round(b.amt/max*100),4) : 0;
-      // green front bar = the ticked share, same overlay as the widget's
-      // .prev/.cur pair; sel ≤ amt always, so it sits inside the grey
-      var hs = b.sel>0 ? Math.max(Math.round(b.sel/max*100),4) : 0;
-      html += '<div class="csum-col" data-amt="'+b.amt+'" data-s="'+b.s+'" data-e="'+b.e+'" onclick="csvSumTap(this)">'
-        + '<span class="csum-bars">'
-        + (b.amt>0
-            ? '<span class="csum-val num" style="bottom:calc('+h+'% + 3px)">'+esc(fmtK(b.amt))+'</span><i class="csum-bar" style="height:'+h+'%"></i>'
-              + (hs ? '<i class="csum-bar sel" style="height:'+hs+'%"></i>' : '')
-            : '')
-        + '</span><span class="csum-lbl">'+esc(b.lbl)+'</span></div>';
+      /* Grey .pst-p = the period's whole queue, green .pst-b = its ticked share.
+         sel never exceeds amt, so green never passes grey and never turns red.
+         data-chi / data-prev feed fhStripSync's in-view rescale; the label
+         rides the green, as it does on the personal card. */
+      var hp = b.amt>0 ? Math.max(Math.round(b.amt/max*100),4) : 0;
+      var hc = b.sel>0 ? Math.max(Math.round(b.sel/max*100),4) : 0;
+      html += '<div class="pst-c" data-chi="'+b.sel+'" data-prev="'+b.amt+'" data-ly="" data-s="'+b.s+'" data-e="'+b.e+'" onclick="csvSumTap(this)">'
+        + '<span class="pst-bars">'
+        + (hc ? '<span class="pst-val num" style="bottom:calc('+hp+'% + 3px)">'+esc(fmtK(b.sel))+'</span>' : '')
+        + (hp ? '<i class="pst-p" style="height:'+hp+'%"></i>' : '')
+        + (hc ? '<i class="pst-b" style="height:'+hc+'%"></i>' : '')
+        + '</span><span class="pst-l">'+esc(b.lbl)+'</span></div>';
     });
     html += '</div>';
   }
@@ -2141,21 +2157,21 @@ function csvSumOnScroll(el){
   if(csvSumRaf) return;
   csvSumRaf = requestAnimationFrame(function(){ csvSumRaf=0; csvSumLabelSync(); });
 }
-/* The amount label rides the tallest bar CURRENTLY IN VIEW, recomputed as the
-   strip pans — a label pinned to an off-screen global max helps nobody. */
+/* The personal strip's own rescale (fhStripSync, 21-personal): bars scale to
+   the tallest bar in view and the label rides the tallest green one, so both
+   charts pan and breathe alike. Nothing is pinned here; a tap scrolls the
+   list instead (csvSumTap). */
 function csvSumLabelSync(){
-  var el=document.getElementById('csum-strip'); if(!el) return;
-  var x0=el.scrollLeft, x1=x0+el.clientWidth, best=null, bestAmt=0;
-  for(var i=0;i<el.children.length;i++){
-    var c=el.children[i], mid=c.offsetLeft + c.offsetWidth/2;
-    if(mid<x0 || mid>x1) continue;
-    var a=Number(c.getAttribute('data-amt'))||0;
-    if(a>bestAmt){ bestAmt=a; best=c; }
-  }
-  for(var j=0;j<el.children.length;j++){
-    var v=el.children[j].querySelector('.csum-val');
-    if(v) v.style.opacity = (el.children[j]===best)?'1':'0';
-  }
+  var el=document.getElementById('csum-strip'); if(!el || typeof fhStripSync!=='function') return;
+  fhStripSync(el, false);
+}
+/* Repaint only the summary, for the in-place tick path: the green share moves
+   with a tick, and rebuilding the whole list for it is what that path avoids. */
+function csvSumRepaint(){
+  var box=document.querySelector('#csv-result .csum'); if(!box) return;
+  var el=document.getElementById('csum-strip'); if(el) csvSumScroll=el.scrollLeft;
+  box.outerHTML = csvSumHTML();
+  csvSumAfterRender();
 }
 function csvSumAfterRender(){
   var el=document.getElementById('csum-strip'); if(!el) return;
@@ -2460,14 +2476,11 @@ function renderCsvReview(){
 
   /* Ready list, grouped by date (newest first) -- same cards, no red border. */
   if(r.ready.length){
-    /* The comparison happened either way; staged mode SAYS so, with the count
-       of suspects and the filter that narrows the list to them. */
-    if(csvStagedMode){
-      html += csvDupStrip(r.ready.length, r.ready.filter(csvIsFlaggedDup).length);
-    }
+    /* No check-count line above the cards: Chọn nhanh's duplicate chips count
+       the suspects and fade the rest, so a second line saying the same thing
+       only sat between the toolbox and the list (removed 2026-09-16). */
     var dateBuckets = {};
     r.ready.forEach(function(c, i){
-      if(csvStagedMode && window.csvDupFilter && !csvIsFlaggedDup(c)) return;
       var k = c.dateDisplay || ''; (dateBuckets[k] = dateBuckets[k] || []).push({ c:c, i:i });
     });
     var keys = Object.keys(dateBuckets).sort().reverse();
@@ -2562,6 +2575,7 @@ function renderCsvReview(){
   out.classList.toggle('staged', !!csvStagedMode);   // scopes the calm-list CSS overrides (74-mailbox.css)
   out.innerHTML = html;
   csvSumAfterRender();   // re-pin the summary strip (zoom + scroll survive the innerHTML rebuild)
+  if(csvStagedMode) csvNoteFit(document.getElementById('csvedit-note'));   // one line, or two when the note needs it
   var pick=document.getElementById('csv-pick'); if(pick) pick.style.display='none';
 
   csvPersistDraft();
@@ -2632,6 +2646,12 @@ function csvStagedToggle(i){
   if(!csvReview) return;
   var c = csvReview.ready[i]; if(!c) return;
   csvDisarmRemove();                 // ticking is not confirming a delete
+  /* Ticking the OPEN card keeps it open. Its editor is read back first, so a
+     typed note or amount lands on the row; then only the tick, the counts and
+     the chart change. Collapsing it under the person's thumb read as a glitch.
+     Ticking a different card still closes the open one (the full path below). */
+  var openHere = !!(csvExpand && csvExpand.kind === 'ready' && csvExpand.idx === i);
+  if(openHere) csvFlushExpand();
   /* A foreign-denominated row cannot be SELECTED until someone types its VND
      amount — selecting is asking to import, and there is no figure to import
      (foreign-currency-emails-spec.md, the FX gate). Deselecting stays free. */
@@ -2647,16 +2667,17 @@ function csvStagedToggle(i){
      invisible at 40 cards, and the difference between "instant" and "broken"
      at a 365-day backfill's 1000. Only three things on screen depend on one
      tick: this card's checkbox, the header's selection count, and the Import
-     label — so patch exactly those. Taken only when no editor is open: an
-     open editor must flush its fields back first, and the full render below
-     owns that. Falls through when the card is not in the DOM (dup-filtered
-     view, not yet revealed) — the full render is always correct, just slower. */
-  if(!csvExpand){
+     label, plus the summary chart's green share — so patch exactly those.
+     Taken when no editor is open, or when the tick is on the open card itself
+     (flushed above). Falls through when the card is not in the DOM (not yet
+     revealed) — the full render is always correct, just slower. */
+  if(!csvExpand || openHere){
     var btn = document.querySelector('#csv-import-modal .bulk-check[onclick="csvStagedToggle('+i+')"]');
     if(btn){
       btn.classList.toggle('on', !c._skipImport);
       btn.setAttribute('aria-checked', c._skipImport ? 'false' : 'true');
       csvTxrHeadSync();              // the small header strip, not the list
+      if(typeof csvSumRepaint === 'function') csvSumRepaint();   // the green share follows the tick
       var save = document.getElementById('csv-save');
       if(save){
         var n = csvStagedSelected().length;
@@ -2671,7 +2692,7 @@ function csvStagedToggle(i){
      and re-rendering without it throws away a description or amount someone was
      part-way through typing. The handlers that skip the flush (csvReadyRemove and
      friends) can only do so because the row they touch is being removed anyway. */
-  csvFlushExpand(); csvExpand = null;
+  csvFlushExpand(); if(!openHere) csvExpand = null;
   renderCsvReview();                 // count, total and the Import label all follow
 }
 
@@ -2815,6 +2836,7 @@ function csvBulkDelete(){
    csvTxrHeadSync keeps its name and call sites; it now paints two buttons. */
 var CSV_TXR_I_SEL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h9M4 12h9M4 18h9"/><path d="m15.5 11.5 2.5 2.5 5-5.5"/></svg>';
 var CSV_TXB_I_EDIT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+var CSV_TXB_I_CHART = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9M9 19V5M14 19v-7M19 19v-11"/></svg>';
 var CSV_TXB_I_TAG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8Z"/><path d="M7.5 7.5h.01"/></svg>';
 var CSV_TXB_I_BOOK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5h13l3.5 7v5a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-5Z"/></svg>';
 var CSV_TXB_I_BANK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 4l9 5.5"/><path d="M5 10v7M9.7 10v7M14.3 10v7M19 10v7"/><path d="M3 20h18"/></svg>';
@@ -2944,6 +2966,7 @@ function csvTxrHeadSync(){
     + '<button type="button" class="txb-b" onclick="csvToolOpen(\'edit\')">'
       + '<span class="txb-ic">'+CSV_TXB_I_EDIT+'</span>'+esc(L('Chỉnh sửa','Edit'))
       + '<span class="txb-n">'+n+'</span></button>'
+    + ((typeof csvSumBtnHTML === 'function') ? csvSumBtnHTML() : '')   // show / hide the summary chart
     + '</div>';
 }
 

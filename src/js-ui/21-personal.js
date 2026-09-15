@@ -1130,8 +1130,12 @@ function persStripOnScroll(el){
    scale at the edge instead of popping at its midpoint. The auto amount label
    rides the tallest visible bar — and yields the stage entirely while a
    tapped bar holds a pinned label, so the two never talk over each other. */
-function persStripLabelSync(){
-  var el=document.getElementById('pcf-strip'); if(!el) return;
+function persStripLabelSync(){ fhStripSync(document.getElementById('pcf-strip'), !!persPinKey); }
+/* The body, shared: the transaction review's summary strip (56-csv-import-ui)
+   wears the same .pst markup and calls this with its own element. `pinned`
+   means a tapped bar holds a label, so the auto label stays out of its way. */
+function fhStripSync(el, pinned){
+  if(!el) return;
   var sr=el.getBoundingClientRect(), kids=el.querySelectorAll('.pst-c'), i, c;
   var num=function(c,a){ var s=c.getAttribute(a); return (s==null||s==='')?null:(Number(s)||0); };
   var vis=[], visMax=0;
@@ -1158,7 +1162,7 @@ function persStripLabelSync(){
   }
   for(i=0;i<kids.length;i++){
     var s=kids[i].querySelector('.pst-val');
-    if(s) s.style.opacity=(!persPinKey && kids[i]===best)?'1':'0';
+    if(s) s.style.opacity=(!pinned && kids[i]===best)?'1':'0';
   }
 }
 function persChartAfterRender(isCur){
