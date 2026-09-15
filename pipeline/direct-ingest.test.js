@@ -97,21 +97,25 @@ function makeDb(o) {
   };
   return {
     state,
-    async grantByEmail(email, folded) {
+    async grantsByEmail(email, folded) {
       state.lookups.push(email);
-      return state.grants.find(g => g.email === email)
-        || (folded ? state.grants.find(g => g.email === folded) : null) || null;
+      const exact = state.grants.filter(g => g.email === email);
+      return exact.length ? exact : (folded ? state.grants.filter(g => g.email === folded) : []);
     },
     async memberById(id) { return state.members[id] || null; },
     async stagingPubForFamily() { return state.stagingPub; },
     async providerDomains() { return o.domains || []; },
-    async alreadyStaged(ids) {
-      const have = new Set(state.staged.map(r => r.gmail_message_id));
+    // Per reader, like the real query and the 0137 key.
+    async alreadyStaged(ids, memberId, ownerUserId) {
+      const have = new Set(state.staged
+        .filter(r => (r.owner_user_id || null) === (ownerUserId || null))
+        .map(r => r.gmail_message_id));
       return new Set(ids.filter(id => have.has(id)));
     },
     async stagedCandidates() { return o.candidates || []; },
     async insertStaged(row) {
-      if (state.staged.some(r => r.gmail_message_id === row.gmail_message_id)) return false;
+      if (state.staged.some(r => r.gmail_message_id === row.gmail_message_id
+        && (r.owner_user_id || null) === (row.owner_user_id || null))) return false;
       state.staged.push(row);
       return true;
     },
@@ -321,6 +325,45 @@ console.log('\n-- the same mail arriving twice is one transaction --');
     a.status === 'staged' && b.status === 'skipped' && b.reason === 'raced',
     JSON.stringify(b));
   t('and still leaves one row', db.state.staged.length === 1);
+}
+
+/* ── two readers of one mailbox (0137) ────────────────────────────────────── */
+console.log('\n-- one mailbox, two accounts: each gets its own row --');
+{
+  const db = makeDb({ grants: [
+    { id: 'grant-1', user_id: USER, member_id: MEMBER, family_id: FAMILY, provider: 'google', email: EMAIL, needs_reauth: false },
+    { id: 'grant-2', user_id: 'user-two', member_id: MEMBER, family_id: FAMILY, provider: 'google', email: EMAIL, needs_reauth: false },
+  ] });
+  const out = await I.runIngest(payload(), ctxFor(db));
+  const owners = db.state.staged.map(r => r.owner_user_id).sort();
+  t('both readers stage the mail', db.state.staged.length === 2, JSON.stringify(out));
+  t('  ...one row per owner, not two for the first', owners[0] !== owners[1], JSON.stringify(owners));
+  t('  ...and the fan-out is acked', out.status === 'fanned_out' && out.ack === true, JSON.stringify(out));
+  const again = await I.runIngest(payload(), ctxFor(db));
+  t('a redelivery stages nothing for either reader',
+    db.state.staged.length === 2 && again.results.every(r => r.reason === 'already_staged'),
+    JSON.stringify(again));
+}
+{
+  // The oldest reader failing must not block the next one, nor fail the delivery.
+  const db = makeDb({ grants: [
+    { id: 'grant-1', user_id: USER, member_id: 'mem-THROWS', family_id: FAMILY, provider: 'google', email: EMAIL, needs_reauth: false },
+    { id: 'grant-2', user_id: 'user-two', member_id: MEMBER, family_id: FAMILY, provider: 'google', email: EMAIL, needs_reauth: false },
+  ] });
+  const realMember = db.memberById;
+  db.memberById = async (id) => { if (id === 'mem-THROWS') throw new Error('database blip'); return realMember(id); };
+  let out = null, threw = false;
+  try { out = await I.runIngest(payload(), ctxFor(db)); } catch (e) { threw = true; }
+  t('a failing first reader does not block the second',
+    !threw && db.state.staged.length === 1 && db.state.staged[0].owner_user_id === 'user-two', JSON.stringify(out));
+  t('  ...the delivery is acked and the failure reported',
+    !!out && out.ack === true && out.results.some(r => r.grantId === 'grant-1' && r.status === 'error'),
+    JSON.stringify(out));
+  const all = makeDb({ grants: [{ id: 'grant-1', user_id: USER, member_id: 'mem-THROWS', family_id: FAMILY, provider: 'google', email: EMAIL, needs_reauth: false }] });
+  all.memberById = async () => { throw new Error('database blip'); };
+  let threwAll = false;
+  try { await I.runIngest(payload(), ctxFor(all)); } catch (e) { threwAll = true; }
+  t('when every reader fails, the delivery is left for a retry', threwAll);
 }
 
 /* ── whose sender registry wins ───────────────────────────────────────────── */

@@ -234,6 +234,9 @@ export async function buildStagedRow(args) {
       sourceProvider,
       memberId: destination.memberId,
       dedupFp,
+      familyId: destination.familyId,
+      scope: destination.scope,
+      gmailMessageId,
     }, deps.db);
     duplicateOfId = dup ? dup.id : null;
   }

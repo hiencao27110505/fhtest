@@ -1889,6 +1889,25 @@ as — or the same day as — the deploy. A deploy announced only in
 
 ## 28. Releases (newest first)
 
+### 2026-09-15 — mailbox-sync + migrations 0137, 0138 (not deployed) — a mailbox may have more than one reader
+
+- **Two steps, in order:** `0137` (per-reader key, owner backfill) after the worker is live;
+  `0138` (drop the one-reader index) only once that worker is confirmed. Two members of one
+  family reading the same inbox: the later family row for a message is flagged "Có thể
+  trùng" at staging. Push and ingest ack once any reader got through.
+
+- **For product:** one Gmail can be connected by more than one Earthy account (the same
+  person with two logins, or two people sharing an inbox). Each account gets every
+  transaction in its own queue, instead of the second connect being refused.
+- **Under the hood:** the "already staged?" lookup is scoped to the owner; push and
+  ingest ring every grant on the address (`grantsByEmail`); `0137` swaps the global
+  `gmail_message_id` key for `(owner_user_id, gmail_message_id)` NULLS NOT DISTINCT and
+  drops `0103`'s one-reader index. Deploy the worker first, then the migration. Deployed
+  from `main` minus `5e0be5d`, which stays excluded as in v45.
+- **Spec sections updated:** none; the model lives in `docs/ARCHITECTURE.md`.
+- **Watch for:** model calls double for mail neither reader has a template for; an account
+  that starts reading an already-worked mailbox sees that history staged again.
+
 ### 2026-09-15 — mailbox-connect + client — a Gmail already connected elsewhere says so
 
 - **For product:** connecting a Gmail that another Earthy account already

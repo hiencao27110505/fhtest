@@ -19,8 +19,9 @@
  *
  * That makes re-reading normal rather than exceptional, which is why
  * `alreadyStaged` is asked once per window before anything is fetched, and why
- * `gmail_message_id` carries a UNIQUE constraint underneath it as the real
- * guard.
+ * `(owner_user_id, gmail_message_id)` carries a UNIQUE constraint underneath it
+ * as the real guard (per reader since 0137, so two accounts reading one mailbox
+ * each keep their own copy).
  */
 
 import { resolveDestination, MailboxHold } from './identity.mjs';
@@ -910,20 +911,44 @@ export async function runPush(notification, ctx) {
     return { status: 'ignored', reason: 'malformed', ack: true };
   }
 
-  const grant = await ctx.db.grantByEmail(
+  const grants = await ctx.db.grantsByEmail(
     notification.emailAddress, gmail.foldAddress(notification.emailAddress));
 
-  if (!grant) {
+  if (!grants.length) {
     // Disconnected, or awaiting re-consent (the query excludes those). Either
     // way there is nothing to read and nothing a retry would change.
     return { status: 'ignored', reason: 'no_grant', ack: true };
   }
 
-  const summary = await runGrant(grant, {
-    ...ctx,
-    budget: ctx.budget || _budget(ctx.maxModelCalls ?? MAX_MODEL_CALLS_PER_RUN),
-  });
-  return { ...summary, ack: true };
+  /* EVERY READER OF THIS MAILBOX (0137). One doorbell, several queues: each
+     grant is its own person's run with its own budget, cursor and seal, and a
+     fault in one must not starve the next.
+
+     ACK ONCE ANY READER GOT THROUGH. Rethrowing on a partial failure would 500,
+     and Pub/Sub would redeliver for the topic's whole retention: a reader that
+     fails every time would re-run every healthy reader on every retry, spending
+     model budget and stall counters for nothing. The failed reader is reported
+     the way runAll reports one, and the 5-minute poll reads it regardless. Only
+     when EVERY reader threw is the fault plausibly transient enough to retry. */
+  const results = [];
+  let firstError = null;
+  let succeeded = 0;
+  for (const grant of grants) {
+    try {
+      results.push(await runGrant(grant, {
+        ...ctx,
+        budget: ctx.budget || _budget(ctx.maxModelCalls ?? MAX_MODEL_CALLS_PER_RUN),
+      }));
+      succeeded++;
+    } catch (e) {
+      if (!firstError) firstError = e;
+      results.push({ grantId: grant.id, status: 'error', detail: String(e && e.message || e) });
+    }
+  }
+  if (!succeeded) throw firstError;
+  return results.length === 1
+    ? { ...results[0], ack: true }
+    : { status: 'read', grants: results, ack: true };
 }
 
 /**
@@ -962,10 +987,16 @@ function _coverageShaped(subject) {
 export async function runCoverageProbe(ctx) {
   const grants = await ctx.db.dueGrants(ctx.maxGrants);   // dueGrants applies its own default cap
   const domains = await ctx.db.providerDomains();
-  const seen = new Map();   // domain -> { messages, mailboxes:Set(grant.id) }
+  const seen = new Map();   // domain -> { messages, mailboxes:Set(folded address) }
   const summary = { grants: grants.length, listed: 0, candidates: 0, errors: 0 };
+  // A mailbox with two readers (0137) is surveyed once: counted by address,
+  // not by grant, or its gaps would read as two mailboxes' worth of evidence.
+  const probed = new Set();
 
   for (const grant of grants) {
+    const mailboxKey = gmail.foldAddress(String(grant.email || grant.id));
+    if (probed.has(mailboxKey)) continue;
+    probed.add(mailboxKey);
     let access;
     try {
       const enc = ctx.fromBytea ? ctx.fromBytea(grant.refresh_token_enc) : grant.refresh_token_enc;

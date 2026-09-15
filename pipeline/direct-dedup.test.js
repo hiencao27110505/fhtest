@@ -156,6 +156,29 @@ const earlier = { id: 'r0', source_provider: 'VCB', occurred_at: now, created_at
 t('the EARLIEST candidate wins, so the pair is stable',
   (await D.findDuplicate(mkRow(), db([bankRow, earlier])) || {}).id === 'r0');
 
+console.log('\n-- one household inbox, two readers: the same mail is one family row (0137) --');
+{
+  const asked = [];
+  const twinDb = {
+    stagedCandidates: async () => [],
+    familyMessageTwin: async (q) => { asked.push(q); return { id: 'orig' }; },
+  };
+  const fam = { scope: 'family', familyId: 'fam-1', gmailMessageId: 'msg-1' };
+  t('a family row whose mail another member already staged is flagged',
+    (await D.findDuplicate(mkRow(fam), twinDb) || {}).id === 'orig');
+  t('  ...asking about the right family, message and member',
+    asked[0] && asked[0].familyId === 'fam-1' && asked[0].gmailMessageId === 'msg-1' && asked[0].memberId === 'mem-1',
+    JSON.stringify(asked[0]));
+  asked.length = 0;
+  t('a PERSONAL row is never paired across people',
+    await D.findDuplicate(mkRow({ ...fam, scope: 'personal' }), twinDb) === null && asked.length === 0);
+  const noTwin = { stagedCandidates: async () => [bankRow], familyMessageTwin: async () => null };
+  t('no twin falls through to the fingerprint rule',
+    (await D.findDuplicate(mkRow(fam), noTwin) || {}).id === 'r1');
+  t('a db without the lookup (forwarding side) behaves as before',
+    (await D.findDuplicate(mkRow(fam), db([bankRow])) || {}).id === 'r1');
+}
+
 console.log('\n' + (fail ? 'FAILED ' + fail + ' of ' + (pass + fail)
                          : 'ALL ' + pass + ' assertions passed'));
 process.exit(fail ? 1 : 0);

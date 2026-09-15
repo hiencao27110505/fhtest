@@ -153,6 +153,22 @@ export async function findDuplicate(row, db) {
   // matching it against a real member's row would let an invisible row suppress
   // one somebody is waiting for.
   if (!row.memberId) return null;
+
+  /* THE SAME MAIL, READ BY TWO MEMBERS OF ONE FAMILY (0137). Once a mailbox may
+     have two readers, a household inbox yields two FAMILY rows for one email,
+     one in each reader's queue. The fingerprint rule below never pairs them: it
+     looks within one member, and same bank + same instant is exactly what it is
+     told to treat as one email. Promoting both would book the purchase into the
+     family ledger twice. Here the evidence is exact (same message id, same
+     family), but it is still only a flag: the review screen decides. Personal
+     rows are never paired across people; their ledgers are separate. */
+  if (row.scope !== 'personal' && row.familyId && row.gmailMessageId && db.familyMessageTwin) {
+    const twin = await db.familyMessageTwin({
+      familyId: row.familyId, memberId: row.memberId, gmailMessageId: row.gmailMessageId,
+    });
+    if (twin) return twin;
+  }
+
   if (!row.dedupFp) return null;
 
   const occurred = new Date(row.occurredAt).getTime();

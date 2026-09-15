@@ -198,17 +198,22 @@ function makeDb(o) {
     async fingerprint(s, tpl) { return state.fingerprints.get(key(s, tpl)) || null; },
     async saveFingerprint(row) { state.fingerprints.set(key(row.sender_address, row.subject_template), row); },
     async providerDomains() { return []; },
-    async alreadyStaged(ids) {
+    async alreadyStaged(ids, memberId, ownerUserId) {
       if (o.stagedLookupThrows) throw new Error('database unreachable');
-      const have = new Set(state.staged.map(r => r.gmail_message_id));
+      const have = new Set(state.staged
+        .filter(r => (r.owner_user_id || null) === (ownerUserId || null))
+        .map(r => r.gmail_message_id));
       return new Set(ids.filter(id => have.has(id)));
     },
     /* The split view (0113): staged now, and tombstoned-when. The harness keeps
        tombstones in state.resolved as { id: resolved_at } when a scenario sets
        them; most scenarios have none. */
-    async stagedState(ids) {
+    async stagedState(ids, memberId, ownerUserId) {
       if (o.stagedLookupThrows) throw new Error('database unreachable');
-      const have = new Set(state.staged.map(r => r.gmail_message_id));
+      // Per reader, like the real query and the 0137 key.
+      const have = new Set(state.staged
+        .filter(r => (r.owner_user_id || null) === (ownerUserId || null))
+        .map(r => r.gmail_message_id));
       const resolved = new Map();
       for (const [id, at] of Object.entries(state.resolved || {})) {
         if (ids.includes(id)) resolved.set(id, at);
@@ -217,16 +222,16 @@ function makeDb(o) {
     },
     async stagedCandidates() { return o.candidates || []; },
     async insertStaged(row) {
-      if (state.staged.some(r => r.gmail_message_id === row.gmail_message_id)) return false;
+      if (state.staged.some(r => r.gmail_message_id === row.gmail_message_id
+        && (r.owner_user_id || null) === (row.owner_user_id || null))) return false;
       state.staged.push(row);
       return true;
     },
     async recordFailure(row) { state.failures.push(row); },
-    async grantByEmail(email, folded) {
+    async grantsByEmail(email, folded) {
       state.lookups.push(email);
-      return state.grants.find(g => g.email === email)
-        || (folded ? state.grants.find(g => g.email === folded) : null)
-        || null;
+      const exact = state.grants.filter(g => g.email === email);
+      return exact.length ? exact : (folded ? state.grants.filter(g => g.email === folded) : []);
     },
     async saveWatch(id, expiresAt) { state.watches.push({ id, expiresAt }); },
     async watchesDue() { return o.due || []; },
@@ -730,6 +735,48 @@ console.log('\n-- push: the mail arrives, and so does the notification --');
   await W.runAll(ctxFor(d, makeWorld()));
   t('a poll right after a push does not stage a second copy', d.state.staged.length === 1);
 }
+{
+  /* One mailbox, two readers (0137). The doorbell used to find ONE grant
+     (limit 1), so the second account only heard about new mail on the next
+     poll. Both must be read, each into its own queue, and a poll that follows
+     must add nothing for either. */
+  const a = await makeGrant('refresh-1', TC);
+  const b = await makeGrant('refresh-1', TC, { id: 'grant-2', user_id: 'user-two' });
+  const d = makeDb({ grants: [a, b] });
+  const notices = [];
+  const out = await W.runPush({ emailAddress: 'me@gmail.com' },
+    ctxFor(d, makeWorld(), { notify: (g, n) => notices.push(g.id) }));
+  const owners = d.state.staged.map(r => r.owner_user_id).sort();
+  t('a push reads every grant on the mailbox', d.state.staged.length === 2, JSON.stringify(out));
+  t('  ...one row per owner', owners.length === 2 && owners[0] !== owners[1], JSON.stringify(owners));
+  t('  ...both owners are told', notices.length === 2 && notices.includes('grant-2'), JSON.stringify(notices));
+  t('  ...and the push is acked', out.ack === true && Array.isArray(out.grants) && out.grants.length === 2);
+  await W.runAll(ctxFor(d, makeWorld()));
+  t('a poll right after stages nothing more for either reader', d.state.staged.length === 2);
+}
+{
+  /* One reader failing must not cost the other its mail, nor fail the push:
+     a 500 here would make Pub/Sub redeliver for days and re-run the healthy
+     reader every time. Only when every reader fails is a retry worth asking for. */
+  const a = await makeGrant('refresh-1', TC);
+  const b = await makeGrant('refresh-1', TC, { id: 'grant-2', user_id: 'user-two', member_id: 'mem-THROWS' });
+  const d = makeDb({ grants: [b, a] });
+  const realMember = d.memberById;
+  d.memberById = async (id) => { if (id === 'mem-THROWS') throw new Error('database blip'); return realMember(id); };
+  let out = null, threw = false;
+  try { out = await W.runPush({ emailAddress: 'me@gmail.com' }, ctxFor(d, makeWorld())); } catch (e) { threw = true; }
+  t('a push with one failing reader still acks', !threw && out && out.ack === true, JSON.stringify(out));
+  t('  ...the healthy reader staged its row', d.state.staged.length === 1);
+  t('  ...and the failing reader is reported, not swallowed',
+    !!out && Array.isArray(out.grants) && out.grants.some(g => g.grantId === 'grant-2' && g.status === 'error'),
+    JSON.stringify(out));
+
+  const all = makeDb({ grants: [b] });
+  all.memberById = async () => { throw new Error('database blip'); };
+  let threwAll = false;
+  try { await W.runPush({ emailAddress: 'me@gmail.com' }, ctxFor(all, makeWorld())); } catch (e) { threwAll = true; }
+  t('when every reader fails, the push is left for a retry', threwAll);
+}
 
 console.log('\n-- the watch: registered, renewed, and never silently lapsed --');
 {
@@ -785,7 +832,8 @@ console.log('\n-- notification: something is waiting, and nothing more --');
   t('  ...and no merchant', !payload.includes('HIGHLANDS'));
 
   const quiet = makeDb({ grants: [await makeGrant('refresh-1', TC)] });
-  quiet.state.staged.push({ gmail_message_id: MESSAGE_ID });
+  // Already staged FOR THIS READER: since 0137 "staged" is per owner.
+  quiet.state.staged.push({ gmail_message_id: MESSAGE_ID, owner_user_id: USER });
   const none = [];
   await W.runAll(ctxFor(quiet, makeWorld(), { notify: (g, n) => none.push(n) }));
   t('a run that staged nothing says nothing', none.length === 0);

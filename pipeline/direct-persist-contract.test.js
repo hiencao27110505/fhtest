@@ -31,7 +31,7 @@ const payload = JSON.parse(emitted.stdout);
   ).toString('base64');
   const rows = [];
   const db = {
-    async grantByEmail() { return { id: 'g1', user_id: 'u1', member_id: 'm1', family_id: 'f1' }; },
+    async grantsByEmail() { return [{ id: 'g1', user_id: 'u1', member_id: 'm1', family_id: 'f1' }]; },
     async memberById() { return { id: 'm1', family_id: 'f1', archived_at: null }; },
     async stagingPubForFamily() { return stagingPub; },
     async providerDomains() { return []; },

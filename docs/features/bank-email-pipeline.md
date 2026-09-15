@@ -211,6 +211,10 @@ ledger rows and double the spending.
 different timestamps, different descriptions. Only an amount. **Dedup is a guess, not
 a lookup**, and every bug below is a wrong guess rather than a broken query.
 
+This section is the "same real transaction?" question only. How it relates to the other
+three (processed, booked, decided), and which scope each belongs at, is the dedup model in
+[`ARCHITECTURE.md`](../ARCHITECTURE.md#cross-cutting-patterns).
+
 **The rule today:**
 
 ```
@@ -252,10 +256,14 @@ rows it compares — they are sealed — so bank-vs-bank is a rule only the clie
 apply. Where the screen can prove a pipeline flag wrong, it drops it rather than
 passing the tap to a person.
 
-**Not caught by anything today: internal transfers.** Moving money between your own
-accounts produces two emails with **opposite** directions. Every dedup mechanism here
-matches on *sameness*; a transfer pair is defined by *oppositeness*, so the two legs
-never meet in any check. See [Open questions](#open-questions).
+**Internal transfers are paired at review, not here.** Moving money between your own
+accounts produces two emails with **opposite** directions. Every mechanism in this
+section matches on *sameness*, so the two legs never meet in it. The review screen does
+the pairing instead (`csvXferProposals`, `0109` §8): a debit and a credit in the same
+queue with the exact amount, within a day, on two different instruments, are proposed as
+one "Chuyển khoản nội bộ?" card, and ambiguity proposes nothing. What is still not caught
+is a transfer **between two people**, whose legs sit in two different queues. See
+[Open questions](#open-questions).
 
 ### 7. Notification
 

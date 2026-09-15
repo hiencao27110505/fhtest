@@ -47,7 +47,9 @@ function fakeFetch(staged, resolved, opts) {
     }
     if (path.includes('/email_transactions')) {
       if (opts && opts.stagedThrows) throw new Error('staged lookup unreachable');
-      return { ok: true, status: 200, text: async () => JSON.stringify(pick(staged)) };
+      // A row with an owner answers only a query scoped to that owner (0137).
+      const scoped = staged.filter(r => !r.owner_user_id || path.includes('owner_user_id=eq.' + r.owner_user_id));
+      return { ok: true, status: 200, text: async () => JSON.stringify(pick(scoped)) };
     }
     return { ok: true, status: 200, text: async () => '[]' };
   };
@@ -94,6 +96,45 @@ console.log('\n-- one person finishing says nothing about another --');
   const { db } = mk([], [{ member_id: 'someone-else', gmail_message_id: 'theirs' }]);
   const done = await db.alreadyStaged(['theirs'], MEMBER);
   t('another member’s resolution does not hide my mail', !done.has('theirs'));
+}
+
+console.log('\n-- another reader staging the same mail does not hide it from me (0137) --');
+{
+  // One mailbox read by two accounts: their queue holding the id must not make
+  // my run skip it. This is the split feed 0103 recorded, pinned at the query.
+  const { db, seen } = mk([{ gmail_message_id: 'shared', owner_user_id: 'owner-b' }], []);
+  const done = await db.alreadyStaged(['shared'], MEMBER, 'owner-a');
+  t('another owner’s staged row does not count as mine', !done.has('shared'));
+  t('the staged lookup is SCOPED to the owner',
+    seen.some(u => u.includes('/email_transactions') && u.includes('owner_user_id=eq.owner-a')),
+    seen.join(' | '));
+  const mine = await db.alreadyStaged(['shared'], MEMBER, 'owner-b');
+  t('while the owner who staged it still sees it as done', mine.has('shared'));
+}
+
+console.log('\n-- the family twin lookup asks the right question (0137) --');
+{
+  const seen = [];
+  const f = async (url) => {
+    const u = String(url); seen.push(u);
+    if (u.includes('/members')) return { ok: true, status: 200, text: async () => JSON.stringify([{ id: MEMBER }, { id: 'mem-2' }]) };
+    if (u.includes('/email_transactions')) return { ok: true, status: 200, text: async () => JSON.stringify([{ id: 'orig', created_at: 'x' }]) };
+    return { ok: true, status: 200, text: async () => '[]' };
+  };
+  const db = createDb('https://x.supabase.co', 'service-key', f);
+  const twin = await db.familyMessageTwin({ familyId: 'fam-1', memberId: MEMBER, gmailMessageId: 'msg-1' });
+  const q = decodeURIComponent(seen.find(u => u.includes('/email_transactions')) || '');
+  t('a twin is returned', twin && twin.id === 'orig');
+  t('  ...only among the OTHER members of the family', q.includes('member_id=in.(mem-2)') && !q.includes(MEMBER), q);
+  t('  ...only family rows, never someone’s personal row', q.includes('staging_scope=eq.family'), q);
+  t('  ...for this exact message', q.includes('gmail_message_id=eq.msg-1'), q);
+
+  const alone = createDb('https://x.supabase.co', 'service-key', async (url) => {
+    if (String(url).includes('/members')) return { ok: true, status: 200, text: async () => JSON.stringify([{ id: MEMBER }]) };
+    throw new Error('must not query staging for a family of one');
+  });
+  t('a family of one has no twin and asks nothing more',
+    await alone.familyMessageTwin({ familyId: 'fam-1', memberId: MEMBER, gmailMessageId: 'msg-1' }) === null);
 }
 
 console.log('\n-- degrading safely --');

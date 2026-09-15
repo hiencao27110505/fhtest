@@ -120,6 +120,59 @@ into web push. If you add a new kind of family-visible event and want it to noti
 devices, this is the function to call, not a new push-sending path. Detail:
 [`web-push.md`](features/web-push.md).
 
+**Dedup: what "the same" means, and at which level.** Every capture path (bank email over
+forwarding or direct read, CSV import, manual entry, splits, cross-ledger moves) eventually
+asks "have we seen this before?". The answer is not one check, and treating it as one is
+how bugs here have happened.
+
+*The goal* is three promises, in this order of cost when broken:
+1. **Nothing is lost silently.** A missing transaction is worse than a flagged duplicate.
+2. **Each real money event is counted once in each ledger it belongs to.**
+3. **Nobody is asked twice about the same thing.** Review effort is the scarce resource.
+
+A unique id is not the goal. It is the cheapest evidence of sameness, and it only answers
+one of the four questions below.
+
+| Question | Evidence | Nature | Right scope | Where it lives |
+|---|---|---|---|---|
+| **Processed this message?** (retry, widened backfill, reconnect) | `gmail_message_id` | exact | per reader (mailbox + owner) | `email_transactions` unique; worker `alreadyStaged` (`_shared/mailbox/db.mjs`) |
+| **Same real transaction?** (bank debit + wallet receipt) | amount, direction, currency, time, provider (`dedup_fp`) | guess | the ledger it lands in | server `findDuplicate` (`_shared/mailbox/dedup.mjs`); client `csvStagedCrossSourceDup` (`src/js-ui/57-csv-import-review.js`) |
+| **Already booked in this ledger?** (email + CSV + typed by hand) | match against booked rows | guess | per ledger | review `existingTxns`: all family rows (every member) + the personal slice |
+| **Already decided by this person?** (imported or dismissed) | message id tombstone | exact | per person | `resolved_email_messages`, keyed on owner since `0092` |
+
+Two rules follow, and both were paid for:
+- **An exact key may block. A guess may only flag.** Two identical coffees on the same day
+  are real. A guess that hid a row once cost a genuine 2.000đ transfer, which is why
+  `duplicate_of_id` is a suspicion routed to "Có thể trùng", never a delete.
+- **A dedup check must never decide ownership or visibility.** The global
+  `gmail_message_id` unique (inherited from `0025`, when forwarding funnelled every mail
+  through one relay inbox and the id was system-unique by construction) did exactly that
+  once direct read existed: two accounts reading one mailbox raced, and each mail landed
+  in whichever queue claimed it first. `0103` hid the symptom by banning a second reader;
+  `0137` fixed the cause by scoping the key to the reader, and `0138` lifted the ban.
+
+Scenarios the model has to hold, and which question each exercises:
+
+| Scenario | Question | Status |
+|---|---|---|
+| Same mail re-read (retry, widened backfill, reconnect) | processed · decided | handled (`0090` tombstones stopped 42 promoted rows returning) |
+| Same person, second login, one mailbox | processed | each account reads it into its own queue (`0137`) |
+| Two family members read one household inbox | processed · same · booked | both read (`0138`); the later FAMILY row for the same message is flagged at staging (`familyMessageTwin`), and review also matches against the family ledger |
+| One purchase, two emails | same | handled, member-scoped server side, cross-checked at review |
+| One purchase via email, CSV and manual entry | booked | handled at review against both books |
+| Transfer between your own accounts | same, by **oppositeness** | a single self-transfer mail is tagged `flow: transfer` at extraction; a debit and a credit in **your** queue are proposed as one pair at review ("Chuyển khoản nội bộ?", `0109` §8: exact amount, ±1 day, two different instruments, ambiguity proposes nothing) |
+| Transfer to a family member (debit mail to one, credit mail to the other) | same, by oppositeness | **not caught**: the legs sit in two people's queues and pairing only looks within one |
+| Card spend, then card repayment | booked | handled by the `cardpay` kind at review |
+| Declined, cancelled or reversed attempt | processed | direct read drops it at extraction (`labeltable.mjs` status words); the Cloud Run ingest filter is on `main` but not live, see debt below |
+| Refund | none: a new offsetting event | booked as income `Hoàn tiền`, never matched against the purchase |
+| Two identical purchases the same day | same | must stay two rows; why guesses only flag |
+| Split bill, or a personal → family move (`0114`) | booked | one event allocated or moved, never copied |
+| A second account starts reading a mailbox | decided | **decisions are per owner**: mail the first account already imported is staged again for the second; review flags it against the family ledger, not against the other account's personal ledger |
+
+Feature-level rules and the history of each clause:
+[`bank-email-pipeline.md` §6](features/bank-email-pipeline.md),
+[`direct-mailbox-read.md` §7](features/direct-mailbox-read.md).
+
 **Build system & runtime scope.** Covered in `../CLAUDE.md` and `../BUILD.md` — not
 repeated here.
 
@@ -127,6 +180,21 @@ repeated here.
 
 Surfaced during this docs pass — not fixes, just visibility so nobody rediscovers these
 from scratch:
+
+- **Dedup gaps against the model above** (2026-09-15):
+  - *Transfers between people double-count.* Own-account pairs are proposed at review, but
+    pairing only looks within one queue; a transfer between family members has one leg in
+    each person's queue, so neither side ever sees a pair.
+  - *Server fingerprint needs a member.* `findDuplicate` returns nothing without
+    `memberId`, so personal-only users get no queue-time flag. Review still runs the rule,
+    so the cost is when the flag appears, not whether.
+  - *A second reader re-stages history.* Decisions are per owner, so an account that starts
+    reading a mailbox another account already worked gets that account's imported mail
+    staged again. Correct for two people; noisy for one person with two logins.
+  - *The Cloud Run ingest status filter is on `main` but not live.* `5e0be5d` rejects
+    failed/declined/cancelled/pending readings in `ingest.mjs`'s `validate`; it was
+    deliberately excluded from `mailbox-sync` v45. Direct read is unaffected: it drops those
+    at extraction.
 
 - **Bank-email pipeline: unresolved who-encrypts-staging-rows question.** The pipeline's
   writer (an unattended Apps Script) can never hold the family DEK, so `_enc` columns

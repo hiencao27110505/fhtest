@@ -320,6 +320,11 @@ export async function watch(topicName, token, fetchImpl) {
  * Failing a disconnect because the doorbell could not be unwired would be the
  * wrong trade — the row is gone, so a notification that still arrives finds no
  * grant and is dropped.
+ *
+ * ⚠️ NEVER on a disconnect while another grant still reads this address (0137).
+ * The watch belongs to the MAILBOX, not to a grant: stopping it for one reader
+ * silences the push for every reader, who would then hear about new mail only
+ * from the 5-minute poll.
  */
 export async function stopWatch(token, fetchImpl) {
   const doFetch = fetchImpl || globalThis.fetch;

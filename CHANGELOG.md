@@ -20,6 +20,25 @@ Going forward, add an entry here when a feature area changes meaningfully — se
 
 ## 2026-09-15
 
+### A mailbox may have more than one reader (0137, 0138)
+
+`0103` banned a second account from reading a Gmail another account already read, because two
+readers raced: `email_transactions.gmail_message_id` had been globally UNIQUE since `0025` (the
+forwarding era, when one relay inbox made ids system-unique) and the worker's "already staged?"
+lookup had no owner filter, so every mail landed in whichever queue claimed it first. That blocked
+a real case: one person with two logins (kaoheen@). The race was a processed-check scoped to the
+system instead of the reader.
+
+- `stagedState` scopes the staged lookup by owner (member when there is none), like the tombstones.
+- `grantByEmail` (limit 1) → `grantsByEmail`; `runPush` reads every grant on the mailbox, each with
+  its own budget, attempting all before rethrowing; `runIngest` stages once per grant.
+- Migration `0137`: `UNIQUE NULLS NOT DISTINCT (owner_user_id, gmail_message_id)` replaces the
+  global key, a plain `gmail_message_id` index keeps the forwarding script's unscoped check cheap,
+  and `mailbox_grants_one_per_mailbox` is dropped. Worker must be live before the migration.
+- Tests: per-owner fakes; two readers stage one row each and a redelivery stages nothing; another
+  owner's staged row does not hide mine.
+- Docs: the dedup model in `docs/ARCHITECTURE.md` (four questions, their scopes, scenarios, gaps).
+
 ### Gmail connect: "already connected to another account" gets its own screen
 
 `0103` made a mailbox readable by one account (`mailbox_grants_one_per_mailbox`), and said the

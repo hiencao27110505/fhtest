@@ -199,13 +199,40 @@ export async function runIngest(payload, ctx) {
   const email = String(payload.email);
   const messageId = String(payload.gmailMessageId);
 
-  const grant = await ctx.db.grantByEmail(email, gmail.foldAddress(email));
-  if (!grant) {
+  const grants = await ctx.db.grantsByEmail(email, gmail.foldAddress(email));
+  if (!grants.length) {
     // Disconnected, or awaiting re-consent. A reader can outlive a disconnect —
     // theirs holds its own credentials — so this is ordinary, not an error.
     return { status: 'ignored', reason: 'no_grant', ack: true };
   }
 
+  /* ONE ROW PER READER (0137). A mailbox may be connected by more than one
+     account, and each has its own queue, seal and "already dealt with" record,
+     so the same mail is staged once for each.
+
+     Every reader is tried, and the delivery is acked once any got through: the
+     same trade runPush makes, for the same reason (a reader that always fails
+     would otherwise re-run the healthy ones on every redelivery). A reader that
+     threw is reported, and the direct-read poll still reads that mailbox. Only
+     when every reader threw is it left for a retry. One grant answers exactly
+     the shape it always did. */
+  const results = [];
+  let firstError = null;
+  let succeeded = 0;
+  for (const grant of grants) {
+    try {
+      results.push(await ingestForGrant(grant, payload, messageId, ctx));
+      succeeded++;
+    } catch (e) {
+      if (!firstError) firstError = e;
+      results.push({ grantId: grant.id, status: 'error', detail: String(e && e.message || e) });
+    }
+  }
+  if (!succeeded) throw firstError;
+  return results.length === 1 ? results[0] : { status: 'fanned_out', ack: true, results };
+}
+
+async function ingestForGrant(grant, payload, messageId, ctx) {
   let destination;
   try {
     destination = await resolveDestination(grant, ctx.db);
@@ -226,7 +253,8 @@ export async function runIngest(payload, ctx) {
   // Delivery upstream is at-least-once and their own docstring says so, so the
   // same mail arrives more than once as a matter of course. Asked before the
   // seal because sealing is the expensive half, and backed by the UNIQUE on
-  // gmail_message_id underneath in case two deliveries race past this check.
+  // (owner_user_id, gmail_message_id) underneath (0137) in case two deliveries
+  // race past this check.
   const staged = await ctx.db.alreadyStaged([messageId], destination.memberId, destination.ownerUserId);
   if (staged.has(messageId)) return { status: 'skipped', reason: 'already_staged', ack: true };
 

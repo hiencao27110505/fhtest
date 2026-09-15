@@ -120,7 +120,12 @@ export function createDb(url, serviceKey, fetchImpl) {
     },
 
     /**
-     * The grant for one mailbox address, for a push notification to resolve.
+     * EVERY grant for one mailbox address, for a push or an ingest to resolve.
+     *
+     * Plural since 0137: a mailbox may have more than one reader (two accounts
+     * of one person, or two people sharing an inbox), and each one is a separate
+     * queue. Returning the first, as this did under `limit: 1`, would ring only
+     * one of them and leave the other waiting for the next poll.
      *
      * Two lookups, not one: the exact address first, then the Gmail-folded
      * form. Google returns the canonical address in both the profile call and
@@ -130,18 +135,18 @@ export function createDb(url, serviceKey, fetchImpl) {
      * bitten by exactly this. The fallback costs one query on a path that
      * already failed.
      */
-    async grantByEmail(email, folded) {
+    async grantsByEmail(email, folded) {
       const q = e => new URLSearchParams({
         select: 'id,user_id,member_id,family_id,provider,email,refresh_token_enc,scopes,needs_reauth,history_id,last_synced_at,backfilled_at,watch_expires_at,default_scope,backfill_days,stalled_runs,first_stalled_at',
         email: 'eq.' + e,
         needs_reauth: 'eq.false',
-        limit: '1',
+        order: 'connected_at.asc',
       });
       let rows = await rest('/mailbox_grants?' + q(email).toString());
       if ((!rows || !rows.length) && folded && folded !== email) {
         rows = await rest('/mailbox_grants?' + q(folded).toString());
       }
-      return (rows && rows[0]) || null;
+      return rows || [];
     },
 
     /** Records a fresh watch registration. `expiresAt` is epoch milliseconds. */
@@ -574,8 +579,14 @@ export function createDb(url, serviceKey, fetchImpl) {
            forgets; `resolved_email_messages` (0090) keeps the id and nothing
            else. Both are asked, and a failure of either must THROW rather than
            return an empty set — failing open here stages everything twice. */
+        /* SCOPED TO THE READER (0137), like the tombstones below. Unscoped, this
+           asked "has ANY account staged this id?", which under two readers of
+           one mailbox meant the first reader's row made the second skip the
+           mail: the split feed 0103 recorded. With no scope at all (an unrouted
+           row) the old unscoped question is the only one there is. */
         const staged = await rest(
-          '/email_transactions?select=gmail_message_id&gmail_message_id=in.(' + list + ')');
+          '/email_transactions?select=gmail_message_id&' + (scope ? scope + '&' : '') +
+          'gmail_message_id=in.(' + list + ')');
         for (const r of (staged || [])) out.staged.add(r.gmail_message_id);
 
         if (scope) {
@@ -632,11 +643,35 @@ export function createDb(url, serviceKey, fetchImpl) {
     },
 
     /**
+     * A family row for the same message, staged for ANOTHER member of the same
+     * family (0137: one household inbox, two readers). Oldest first, so every
+     * later copy points at the same original. Family rows only: a personal row
+     * belongs to one person's ledger and is never someone else's duplicate.
+     */
+    async familyMessageTwin(q) {
+      const members = (await rest('/members?' + new URLSearchParams({
+        select: 'id', family_id: 'eq.' + q.familyId,
+      }).toString())) || [];
+      const others = members.map(m => m.id).filter(id => id && id !== q.memberId);
+      if (!others.length) return null;
+      const rows = (await rest('/email_transactions?' + new URLSearchParams({
+        select: 'id,created_at',
+        gmail_message_id: 'eq.' + q.gmailMessageId,
+        staging_scope: 'eq.family',
+        member_id: 'in.(' + others.join(',') + ')',
+        order: 'created_at.asc',
+        limit: '1',
+      }).toString())) || [];
+      return rows[0] || null;
+    },
+
+    /**
      * Inserts one staged row.
      *
-     * A unique violation on `gmail_message_id` returns false rather than
-     * throwing: it means another run staged this message between our check and
-     * our insert, which is the guard working, not a failure.
+     * A unique violation on `(owner_user_id, gmail_message_id)` (0137) returns
+     * false rather than throwing: it means another run staged this message for
+     * the same reader between our check and our insert, which is the guard
+     * working, not a failure.
      */
     async insertStaged(row) {
       try {

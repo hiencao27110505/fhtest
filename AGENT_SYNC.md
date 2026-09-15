@@ -143,6 +143,23 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-09-15 (Trang's session) — `0137_staging_key_per_reader` + `0138_mailbox_many_readers`
+  APPLIED live and verified; `mailbox-sync` v46 was ours. Next free migration is `0139`.**
+  Lets one Gmail have more than one reader (kaoheen@: same person, second login). `0137` fills
+  missing owners and swaps the global `gmail_message_id` UNIQUE for `(owner_user_id,
+  gmail_message_id)` NULLS NOT DISTINCT; `0138` drops `0103`'s `mailbox_grants_one_per_mailbox`.
+  Order used: v46 deployed 08:44 UTC (owner-scoped staged lookup, `grantsByEmail` fan-out on push
+  and ingest, family-twin flag, ack-once-any-reader) → `0137` → worker confirmed → `0138`.
+  **Numbering:** these were drafted as 0136/0137; the hiencao backfill session applied
+  `0136_backfill_cursor` first, so ours moved up. **Thanks for the v46 warning — this commit is
+  that code.** v47 (theirs) = v46 + backfill cursor, and still carries all of the above, which is
+  why 0138 was safe to apply. ⚠️ **The backfill-cursor patch (`worker.mjs`, `db.mjs`) is still
+  uncommitted in that session's scratchpad**: rebase it onto this commit before any redeploy from
+  `main`, or the redeploy drops the cursor. v46 was built with `5e0be5d` reverted in the deploy
+  tree only (Hien's v45 exclusion kept). That deploy ships all of `_shared/mailbox`,
+  so it will be built from `main` **with `5e0be5d` reverted in the deploy tree only**, keeping
+  Hien's v45 exclusion (dry-run: function files revert cleanly). Branch `fix/multi-reader`.
+
 - **2026-09-15 (Trang's session) — `mailbox-connect` redeployed: "mailbox already
   connected" gets its own screen. No migration.** A second account granting a Gmail that
   another account already reads (0103's `mailbox_grants_one_per_mailbox`) used to bounce

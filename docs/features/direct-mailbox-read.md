@@ -89,10 +89,18 @@ mailbox to the wrong container. A user with no member row in a real family raise
 `no_member_row` and the flow bounces them to a screen that says so — a product state,
 not a fault.
 
-The same holds for a mailbox another account already reads. `0103`'s unique index on
-`lower(btrim(email))` refuses the insert, the callback matches the index name in the error
-and bounces `reason=mailbox_taken`, and the app shows "Gmail này đã được kết nối" with the
-way to move it. It does not say which account holds the mailbox.
+**A mailbox may have more than one reader (`0137`, `0138`).** One person with two logins,
+or two people sharing an inbox, can each connect the same Gmail, and each gets its own
+queue. `0103` had banned this with a unique index on `lower(btrim(email))`, because two
+readers raced: the "already staged?" check and the `gmail_message_id` key were global, so
+each mail landed in whichever account claimed it first. `0137` scopes both to the owner;
+`0138` drops the ban, and only after the owner-scoped worker is live. A push or an ingest
+rings every grant on the address (`grantsByEmail`), each run with its own budget and
+cursor, and acks once any reader got through. Two members of one family reading the same
+inbox each get a FAMILY row for the same mail, so `findDuplicate` flags the later one
+against the earlier (`familyMessageTwin`) before review can book it twice. The callback
+still maps that index name to `reason=mailbox_taken` and the app still has the sheet, but
+nothing raises it once `0138` is applied.
 
 Finally the callback registers `users.watch()` if `GMAIL_PUSH_TOPIC` is set. Best effort:
 failure costs latency, not transactions.
@@ -320,6 +328,11 @@ are null, or all four are set **and** every sensitive column is null.
 One purchase can generate two emails: the bank says "debit 200.000đ", the wallet says
 "receipt 200.000đ". They share **no identifier** — different references, timestamps and
 wording. Only an amount. So this is a guess.
+
+`gmail_message_id` answers a different question (have we processed this mail?) and must
+not be read as transaction dedup, nor allowed to decide whose queue a row lands in. The
+four questions and their scopes: the dedup model in
+[`ARCHITECTURE.md`](../ARCHITECTURE.md#cross-cutting-patterns).
 
 `dedup_fp = HMAC-SHA256(DEDUP_FP_KEY, amount|direction|currency)`. Keyed, not a plain
 hash: VND amounts are low-entropy and an unkeyed hash is a dictionary away from being
