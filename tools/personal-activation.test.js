@@ -40,7 +40,7 @@ t('state 1 earns the Gmail tap with one trust line under the CTA and promises no
   && /<div class="cf-lbl">Sổ cá nhân<\/div>/.test(ui));
 t('the last mailbox answer is cached per user so a returning person never sees the start card flash',
   /function persMailSeed\(\)/.test(ui) && /localStorage\.setItem\(_persMailKey\(\)/.test(ui));
-t('the quick-review pop yields to the deck in state 2', /persActState\(\)===2\) return; window\.fhQuickReviewMaybe\(\)/.test(R('src/js-ui/10-nav-model.js')));
+t('the quick-review pop yields to the deck in state 2', /persActState\(\)===2\) \|\| \(window\.fhStagedCount\|\|0\)>0\) return; window\.fhQuickReviewMaybe\(\)/.test(R('src/js-ui/10-nav-model.js')));
 t('the header avatar falls back to the signed-in person\'s initials', /el\.className='av av-40 av-you'/.test(ui) && /\.av-you\{/.test(css));
 
 console.log('\n-- state 3: the widget above the real dashboard --');
@@ -50,13 +50,23 @@ t('step 2 is done when every non-investment account is anchored or skipped',
   /a\.anchorK==null && !a\.setupSkippedAt/.test(ui) && /accts\.length>0 && need\.length===0/.test(ui));
 t('the widget shows only the remaining steps and can be hidden; hidden or complete = state 4',
   /act\.open\.forEach/.test(ui) && /persSetupHide/.test(ui) && /\(!open\.length \|\| persSetupHidden\(P\)\) \? 4 : 3/.test(ui));
-t('state 4 renders no widget at all', /var h = act\.state===3 \? persSetupWidgetHTML\(act\) : '';/.test(ui));
+t('state 4 renders no setup widget at all', /var h = act\.state===3 \? persSetupWidgetHTML\(act\) \+ persQueueWidgetHTML\(act\) : '';/.test(ui) && !/act\.state===4[^\n]*persSetupWidgetHTML/.test(ui));
 t('step 2 opens the account-setup wizard for the accounts that need it', /fhAcctSetupWizard\(st\.needIds, \{ intro: true \}\)/.test(ui));
 t('streak and investment empty states are built from the month\'s own private rows',
   /function persStreakDriven\(P, mon\)/.test(ui) && /top\.n<3\) return base/.test(ui)
   && /function persInvestDriven\(P, mon\)/.test(ui) && /_PERS_INV_RE\.test\(_persFold\(t\.note\)\)/.test(ui));
 t('the driven empties fall back to the sections\' own markup when there is nothing to name',
   /if\(cnt !== 0\) return base;/.test(ui) && /if\(!hits\.length\) return base;/.test(ui));
+
+console.log('\n-- the queue deck as a standing widget --');
+t('the deck is one builder shared by the state 2 card and the standalone widget',
+  /function persQueueDeckHTML\(n\)\{/.test(ui) && (ui.match(/persQueueDeckHTML\(n\)/g) || []).length >= 3);
+t('states 3 and 4 mount the widget right under the first widget whenever rows wait',
+  /persSetupWidgetHTML\(act\) \+ persQueueWidgetHTML\(act\)/.test(ui) && /if\(act\.state===4\) h \+= persQueueWidgetHTML\(act\);/.test(ui) && /var n = act\.queue \|\| 0; if\(!n\) return '';/.test(ui));
+t('the widget hides while a first read runs or the grant is dead', /fhBackfillHolds\(\)\) return '';/.test(ui) && /fhReauthState\(\)\) return '';/.test(ui));
+t('the widget keeps the screen to one primary: its action is the tinted button', /pq-widget[\s\S]{0,400}class="dbt-empty-cta"/.test(ui) && !/pq-widget[\s\S]{0,400}class="cta /.test(ui));
+t('quick review never auto-pops while the first read is running', /if \(!opts\.force\) \{[\s\S]{0,300}fhBackfillHolds\(\)\) return;/.test(quick));
+t('quick review never auto-pops while the deck is on screen', /\(window\.fhStagedCount\|\|0\)>0\) return; window\.fhQuickReviewMaybe\(\)/.test(R('src/js-ui/10-nav-model.js')));
 
 console.log('\n-- exports the tab leans on --');
 t('quick review exports a cached, never-throwing peek at the newest personal row',

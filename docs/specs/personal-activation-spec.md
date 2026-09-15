@@ -8,7 +8,7 @@ of four states, each with one job.
 
 > **Status, 2026-09-15.** Designed through eight rounds of mockups
 > (`mockups/personal-activation.html`, the "Phương án chốt" row) and BUILT the
-> same day, big bang, in the client only. No migration. SW **v526**. Every
+> same day, big bang, in the client only. No migration. SW **v527**. Every
 > input is data the app already holds; the only stored flag is the widget's
 > "Ẩn".
 
@@ -44,8 +44,25 @@ of four states, each with one job.
 |---|---|---|
 | 1 · Chưa thiết lập | No rows in the ledger, no queue, no mailbox connected | Start card: "Bắt đầu sổ của bạn", CTA "Kết nối email ngân hàng", link "Hoặc ghi tay một khoản". Then "Sau đó bạn sẽ thấy": four quiet rows naming the dimensions the tab will grow. |
 | 2 · Đã nối email | No rows in the ledger, but a mailbox is connected or the queue is non-empty | The same card with the queue on it: "N khoản đang chờ bạn duyệt", the newest staged row as the top card of a deck (two blank cards behind), "1 / N · mới nhất trước · Chạm thẻ để mở hàng chờ", CTA "Duyệt N khoản". Two sub-states cover a first read still running (a progress bar) and a dead grant ("Kết nối email cần làm mới"); a connected mailbox with an empty queue offers manual entry first. |
-| 3 · Đã có giao dịch | Rows exist, at least one setup step open | The widget "Thiết lập · k / 3" listing only the remaining steps, then the real cash-flow card, then the sections. Streaks and investment, when empty, name a concrete trigger from this month's private rows. |
-| 4 · Kích hoạt đủ | All three steps done, or the widget hidden | The dashboard exactly as before this spec. |
+| 3 · Đã có giao dịch | Rows exist, at least one setup step open | The widget "Thiết lập · k / 3" listing only the remaining steps, then (when rows are waiting) the queue widget, then the real cash-flow card, then the sections. Streaks and investment, when empty, name a concrete trigger from this month's private rows. |
+| 4 · Kích hoạt đủ | All three steps done, or the widget hidden | The dashboard as before this spec, plus the queue widget right under the cash-flow card whenever rows are waiting. |
+
+## 2a. The queue widget, standing
+
+The deck from state 2 (newest staged row on top, two blank cards behind, a
+count line) is one builder, `persQueueDeckHTML`, and from state 3 on it lives
+in its own card, `persQueueWidgetHTML`: "Email ngân hàng · N khoản đang chờ
+bạn duyệt", the deck, and a tinted "Duyệt N khoản" button (secondary, so the
+screen keeps one primary). It appears whenever the badge count is non-zero
+and sits right under the first widget: under the setup widget in state 3,
+under the cash-flow card in state 4. It hides while a first read is still
+running (the queue is held then) and while the grant needs re-auth (the email
+row carries that warning).
+
+Because the widget is the review door whenever rows wait, the quick-review
+sheet no longer auto-pops on tab open while rows wait, and never while a
+first read is running (it resolves the grant phase first rather than treating
+"unknown" as "not reading"). A notification tap still forces the sheet.
 
 ## 3. The three steps
 

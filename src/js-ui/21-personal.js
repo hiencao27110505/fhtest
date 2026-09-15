@@ -283,8 +283,15 @@ function persActCard(act, mon){
       + '<button class="cta pact-cta" onclick="openPersonalExpense()">Ghi tay một khoản</button>'
       + '<button class="ob-textlink pact-link m" onclick="fhEmailTxnCta({scope:\'personal\'})">Kiểm tra kết nối</button></section>';
   }
-  /* the queue: newest row on top of a small deck (read-only; the tap opens the queue) */
   var n = act.queue;
+  return '<section class="cf-card"><div class="cf-lbl">Email ngân hàng · đã đọc xong</div><div class="pact-h">'+n+' khoản đang chờ bạn duyệt</div>'
+    + persQueueDeckHTML(n)
+    + '<button class="cta pact-cta" onclick="fhEmailTxnCta({scope:\'personal\'})">'+_PI.list+'Duyệt '+n+' khoản</button>'+link+'</section>';
+}
+/* The queue as a deck: the newest staged row on top (two lines, read-only,
+   the tap opens the review queue), two blank cards behind, a count line.
+   Shared by the state 2 card and the standalone widget below. */
+function persQueueDeckHTML(n){
   var pk = window.fhStagedPeekCached ? fhStagedPeekCached() : null;
   if(window.fhStagedPeek && (!pk || window._persPeekFor !== n)){
     window._persPeekFor = n;
@@ -306,10 +313,22 @@ function persActCard(act, mon){
     top = '<button class="pq-card" aria-label="Mở hàng chờ duyệt" onclick="fhEmailTxnCta({scope:\'personal\'})"><div class="pq-line"><span class="pq-sk" style="width:52%"></span><span class="pq-sk" style="width:24%"></span></div>'
       + '<div class="pq-meta"><span class="pq-sk" style="width:30%;height:10px"></span><span class="pq-sk" style="width:22%;height:10px"></span></div></button>';
   }
-  return '<section class="cf-card"><div class="cf-lbl">Email ngân hàng · đã đọc xong</div><div class="pact-h">'+n+' khoản đang chờ bạn duyệt</div>'
-    + '<div class="pq-deck">'+top+'<i class="k2"></i><i class="k3"></i></div>'
-    + '<div class="pq-count"><span>1 / '+n+' · mới nhất trước</span><span>Chạm thẻ để mở hàng chờ</span></div>'
-    + '<button class="cta pact-cta" onclick="fhEmailTxnCta({scope:\'personal\'})">'+_PI.list+'Duyệt '+n+' khoản</button>'+link+'</section>';
+  return '<div class="pq-deck">'+top+'<i class="k2"></i><i class="k3"></i></div>'
+    + '<div class="pq-count"><span>1 / '+n+' · mới nhất trước</span><span>Chạm thẻ để mở hàng chờ</span></div>';
+}
+/* States 3 and 4: the same deck as a standalone card whenever rows are
+   waiting, right under the first widget. The review door people already
+   learned in state 2 stays where they learned it. Hidden while a first read
+   is still running (the queue is held then) and while the grant is dead (the
+   email row carries that warning); the tinted button is a secondary action,
+   the screen's one primary stays with the dashboard. */
+function persQueueWidgetHTML(act){
+  var n = act.queue || 0; if(!n) return '';
+  if(typeof window.fhBackfillHolds==='function' && fhBackfillHolds()) return '';
+  if(typeof window.fhReauthState==='function' && fhReauthState()) return '';
+  return '<section class="cf-card pq-widget"><div class="cf-lbl">Email ngân hàng</div><div class="pact-h sm">'+n+' khoản đang chờ bạn duyệt</div>'
+    + persQueueDeckHTML(n)
+    + '<div class="dbt-empty-cta"><button onclick="fhEmailTxnCta({scope:\'personal\'})">Duyệt '+n+' khoản</button></div></section>';
 }
 function persWillSeeHTML(){
   var row = function(ic, t, s2){ return '<div class="row"><div class="r-ico personal-ico">'+ic+'</div><div class="r-body"><div class="r-t">'+t+'</div><div class="r-s">'+s2+'</div></div></div>'; };
@@ -508,7 +527,7 @@ function renderPersonal(){
       + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M6 9l6 6 6-6"/></svg></button>';
   var cfLbl = 'Còn lại · cá nhân';
 
-  var h = act.state===3 ? persSetupWidgetHTML(act) : '';
+  var h = act.state===3 ? persSetupWidgetHTML(act) + persQueueWidgetHTML(act) : '';
   h += '<section class="cf-card'+(persMaskIs('cf')?' sec-masked':'')+'">'
      + '<div class="cf-lblrow"><div class="cf-lbl">'+cfLbl+'</div>'+persEyeHTML('cf')+moCaret+'</div>'
      + '<div class="cf-big num'+(left<0&&slReady?' neg':'')+'">'+(slReady?fmt(left):'…')+'</div>'
@@ -610,6 +629,7 @@ function _persEmailRow(){
      Built by 27-streaks.js (js-data); counts derive from the ledger + the
      email review queue, so this section may re-render itself once the async
      compute lands. ── */
+  if(act.state===4) h += persQueueWidgetHTML(act);   // right under the first widget
   h += act.state===3 ? persStreakDriven(P, mon) : (window.persStreakSection ? persStreakSection() : '');
 
 /* ── Nợ & cho vay — the balance-sheet dimension (stocks, not flows), between

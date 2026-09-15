@@ -459,6 +459,9 @@
    empty state built from the ledger's own rows. Tokens only, one accent. */
 .pact-h{font-family:var(--disp);font-size:22px;font-weight:700;letter-spacing:-.6px;line-height:1.15;color:var(--ink);margin-top:6px}
 .pact-p{font-size:14px;line-height:1.5;color:var(--ink-2);margin-top:8px;letter-spacing:-.01em}
+.pact-h.sm{font-size:18px;letter-spacing:-.4px}
+.pq-widget .pq-deck{margin-top:12px}
+.pq-widget .dbt-empty-cta{margin-top:12px}
 /* .cta with an icon: the app's primary pill, laid out as a flex row */
 .pact-cta{display:flex;align-items:center;justify-content:center;gap:9px;margin-top:14px}
 .pact-cta svg{width:18px;height:18px}

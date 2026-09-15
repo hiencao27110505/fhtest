@@ -234,6 +234,16 @@
         if (!window.DB || !window.DB._hydrated) return;
         if (sheetEl && sheetEl.classList.contains('on')) return;         // something else is up
         if (window.fhStagingAlarmActive && window.fhStagingAlarmActive()) return;   // key alarm freezes approval
+        /* A first read still running holds the full queue (fhEmailTxnCta), and
+           the teaser must hold with it: a row popped mid-backfill is reviewed
+           against a partial set, and the person is asked to act before the
+           app has finished reading. The phase is null until the grant has
+           been read once, so resolve it here rather than treat "unknown" as
+           "not reading". A notification tap (force) keeps its own path. */
+        if (!opts.force) {
+          try { if (window.fhBackfillPhase && fhBackfillPhase() == null && window.fhAutoTxnConnection) await fhAutoTxnConnection(); } catch (e) {}
+          if (window.fhBackfillHolds && fhBackfillHolds()) return;
+        }
         // promoting needs the personal DEK; a locked ledger gets no teaser
         if (!window.fhPersonalKeyReady || !window.fhPersonalKeyReady()) {
           if (opts.force && window.fhTxnReviewSheet) window.fhTxnReviewSheet();
