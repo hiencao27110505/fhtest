@@ -51,7 +51,7 @@
           + '<div class="dbt-empty-cta"><button onclick="fhSpaceAcceptInvite(\'' + inv.family_id + '\')">Tham gia nhóm</button></div></section>';
       });
       if (!hasAny) {
-        h += '<section class="dbt-empty"><div class="dbt-empty-t">Thẻ tín dụng, cho vay, chia tiền nhóm — bức tranh nợ của bạn nằm ở đây.</div>'
+        h += '<section class="dbt-empty"><div class="dbt-empty-t">Thẻ tín dụng, cho vay, chia tiền nhóm. Bức tranh nợ của bạn nằm ở đây.</div>'
           + '<div class="dbt-empty-cta">'
           + '<button onclick="fhDebtLoanSheet()">Ghi cho vay / mượn</button>'
           + '<button onclick="fhSpaceCreateSheet()">Tạo nhóm chia tiền</button>'

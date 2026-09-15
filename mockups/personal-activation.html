@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sổ cá nhân · 8 hướng × 4 trạng thái</title>
+<style>
+/* ── tokens: verbatim from src/css/10-tokens.css (Sage) ───────────────────── */
+:root{
+  --sage-50:#ebfbf6; --sage-100:#d6f5eb; --sage-200:#afe9d8; --sage-300:#7ad5bd; --sage-400:#4abba1; --sage-500:#149d83; --sage-600:#007c65;
+  --sage-wash:rgba(20,157,131,0.18);
+  --stone-25:#fafcfc; --stone-50:#f6f9f8; --stone-100:#f0f5f3; --stone-150:#ecf1f0; --stone-200:#e3eae7; --stone-300:#c3cdca; --stone-400:#7f8986; --stone-500:#6f7674; --stone-600:#626b68; --stone-800:#2e3835; --stone-900:#0e1613;
+  --red-tint:#ffeaeb; --red-ink:#a41b3b; --amber-tint:#fdefe0; --amber-ink:#915200;
+  --guide-ok-mut:#107460;
+  --brand:var(--sage-500); --brand-ink:var(--sage-600); --brand-2:var(--sage-300); --brand-tint:var(--sage-50);
+  --grad-brand:linear-gradient(135deg,var(--sage-500),var(--sage-400)); --brand-glow:rgba(20,157,131,.32);
+  --danger:var(--red-ink); --danger-tint:var(--red-tint); --amber:var(--amber-ink);
+  --good:var(--sage-600); --good-tint:var(--sage-50);
+  --ink:var(--stone-900); --ink-2:var(--stone-800); --muted:var(--stone-600); --muted-soft:var(--stone-500);
+  --white:#fff; --canvas:var(--stone-100); --pearl:var(--stone-25); --hairline:var(--stone-200); --divider:var(--stone-150);
+  --surface:var(--stone-50); --fill-neutral:rgba(127,137,134,.14); --chev:var(--stone-300);
+  --shadow-card:0 1px 3px rgba(14,22,19,.05),0 8px 24px rgba(14,22,19,.04);
+  --shadow-focal:0 1px 3px rgba(14,22,19,.05),0 12px 30px rgba(14,22,19,.09);
+  --r-card-lg:22px;
+  --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --ease:cubic-bezier(.32,.72,0,1);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{-webkit-text-size-adjust:100%}
+body{font-family:var(--text);background:#e6ebe9;color:var(--ink);padding:34px 22px 80px;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;font-size:inherit;color:inherit;border:0;background:none;cursor:pointer;text-align:left}
+svg{display:block}
+
+/* ── page chrome ── */
+.page-h{max-width:1700px;margin:0 auto 10px}
+.page-h h1{font-family:var(--disp);font-size:26px;font-weight:800;letter-spacing:-.6px}
+.page-h p{font-size:14px;color:var(--muted);margin-top:8px;max-width:900px;line-height:1.6}
+.rules{max-width:1700px;margin:16px auto 8px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px 22px;font-size:13px;color:var(--ink-2);line-height:1.5}
+.rules b{color:var(--ink);font-weight:700}
+.states-h{max-width:1700px;margin:26px auto 0;display:grid;grid-template-columns:repeat(4,1fr);gap:22px}
+.states-h div{font-size:12.5px;line-height:1.5;color:var(--muted);border-top:2px solid var(--stone-300);padding-top:8px}
+.states-h b{display:block;font-family:var(--disp);font-size:14px;font-weight:800;color:var(--ink);letter-spacing:-.2px;margin-bottom:2px}
+.orow{max-width:1700px;margin:44px auto 0}
+.orow.chosen{background:var(--white);border-radius:24px;padding:22px 24px 26px;box-shadow:var(--shadow-card);margin-top:22px}
+.orow.chosen .opt-k{background:var(--brand);color:#fff}
+.s2grid{max-width:1700px;margin:18px auto 0;display:grid;grid-template-columns:repeat(4,1fr);gap:34px 22px}
+.s2grid .opt{display:flex;flex-direction:column;gap:10px;min-width:0}
+.s2grid .opt-why{min-height:96px;font-size:12.5px}
+.divider{max-width:1700px;margin:56px auto 0;font-family:var(--disp);font-size:15px;font-weight:700;letter-spacing:-.2px;color:var(--muted);border-top:1px solid var(--stone-300);padding-top:14px}
+.opt-tag{display:flex;align-items:baseline;gap:10px}
+.opt-k{font-family:var(--disp);font-weight:800;font-size:13px;letter-spacing:.4px;color:var(--brand-ink);background:var(--brand-tint);border-radius:7px;padding:3px 9px}
+.opt-t{font-family:var(--disp);font-weight:700;font-size:20px;letter-spacing:-.4px}
+.opt-why{font-size:13px;line-height:1.55;color:var(--muted);max-width:1100px;margin-top:6px}
+.opt-why b{color:var(--ink-2);font-weight:600}
+.states{display:grid;grid-template-columns:repeat(4,1fr);gap:22px;margin-top:16px}
+.state{min-width:0}
+.st-lbl{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 8px 6px}
+.st-note{font-size:12.5px;line-height:1.5;color:var(--muted);margin:10px 6px 0}
+
+/* ── phone frame (app shell) ── */
+.phone{width:100%;max-width:392px;height:820px;background:var(--canvas);border-radius:44px;box-shadow:0 2px 8px rgba(14,22,19,.10),0 30px 70px rgba(14,22,19,.16);overflow:hidden;display:flex;flex-direction:column;position:relative;border:1px solid rgba(14,22,19,.06)}
+.scroll{flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;padding-bottom:110px}
+.scroll::-webkit-scrollbar{display:none}
+.safe{height:22px}
+.hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 22px 8px}
+.h-title{font-family:var(--disp);font-weight:700;font-size:34px;line-height:1.06;letter-spacing:-1px;color:var(--ink);margin-top:5px}
+.hclus{display:flex;align-items:center;gap:10px}
+.av{width:40px;height:40px;border-radius:50%;background:linear-gradient(145deg,#a9b3af,#6f7a76)}
+.gear{width:40px;height:40px;border-radius:50%;background:var(--white);box-shadow:var(--shadow-card);display:flex;align-items:center;justify-content:center;color:var(--ink-2)}
+.gear svg{width:20px;height:20px}
+.tabbar{position:absolute;left:0;right:0;bottom:0;height:78px;display:flex;background:rgba(246,249,248,.86);backdrop-filter:blur(14px);border-top:1px solid var(--hairline)}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;color:var(--muted);padding-top:6px}
+.tab.on{color:var(--brand)}
+.tab svg{width:25px;height:25px}
+.tab span{font-size:11px;font-weight:600;letter-spacing:-.01em}
+.tab.on span{color:var(--brand-ink)}
+
+/* ── shared kit (recipes lifted from src/css) ── */
+.num{font-family:var(--disp);font-variant-numeric:tabular-nums}
+.cf-card{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-focal);padding:16px 16px 14px;margin:2px 16px 12px;overflow:hidden;position:relative}
+.cf-card.slim{padding:13px 16px 12px}
+.cf-lbl{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.cf-lblrow{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.pers-mp{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--brand-ink)}
+.pers-mp svg{width:12px;height:12px}
+.cf-h{font-family:var(--disp);font-size:22px;font-weight:700;letter-spacing:-.6px;line-height:1.15;color:var(--ink);margin-top:6px}
+.cf-h.sm{font-size:18px;letter-spacing:-.4px}
+.cf-p{font-size:14px;line-height:1.5;color:var(--ink-2);margin-top:8px;letter-spacing:-.01em}
+.cf-p.m{color:var(--muted);font-size:13px}
+.cf-big{font-family:var(--disp);font-size:34px;font-weight:700;letter-spacing:-1.2px;line-height:1.04;color:var(--ink);font-variant-numeric:tabular-nums;margin-top:4px}
+.cf-tiles{display:flex;gap:8px;margin-top:13px}
+.cf-tile{flex:1;display:flex;flex-direction:column;align-items:flex-start;gap:3px;background:var(--surface);border-radius:12px;padding:10px 12px}
+.cf-tl{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--muted)}
+.cf-tl .up{color:var(--good);font-weight:700}.cf-tl .dn{color:var(--ink-2);font-weight:700}
+.cf-tv{font-family:var(--disp);font-size:16px;font-weight:700;letter-spacing:-.03em;color:var(--ink);font-variant-numeric:tabular-nums}
+.cf-lend{font-size:12px;font-weight:600;color:var(--muted);margin-top:10px}
+.cf-cta{margin:15px -16px -14px;border-top:1px solid var(--divider)}
+.cc-row{display:flex;align-items:center;gap:11px;width:100%;padding:13px 16px;border-bottom:1px solid var(--divider);font-size:13.5px;font-weight:600;color:var(--ink)}
+.cc-row:last-child{border-bottom:0}
+.cc-ic{width:30px;height:30px;flex-shrink:0;border-radius:9px;background:var(--brand-tint);color:var(--brand-ink);display:flex;align-items:center;justify-content:center}
+.cc-ic svg{width:17px;height:17px}
+.cc-t{flex:1;min-width:0}
+.cc-sub{display:block;margin-top:3px;font-size:12px;font-weight:400;line-height:1.45;color:var(--muted)}
+.cc-chev{width:18px;height:18px;flex-shrink:0;color:var(--chev)}
+.cc-badge{flex:0 0 auto;min-width:20px;height:20px;padding:0 7px;border-radius:999px;background:var(--brand);color:#fff;font-size:11px;font-weight:800;line-height:20px;text-align:center;font-variant-numeric:tabular-nums}
+.section-h{display:flex;align-items:baseline;justify-content:space-between;margin:26px 22px 13px}
+.section-h .t{font-family:var(--disp);font-weight:700;font-size:22px;letter-spacing:-.6px;color:var(--ink)}
+.section-h a{font-size:15px;font-weight:600;letter-spacing:-.01em;color:var(--brand-ink)}
+.rows{background:var(--white);border-radius:20px;margin:0 16px 14px;overflow:hidden;box-shadow:var(--shadow-card)}
+.row{display:flex;align-items:center;gap:14px;padding:14px 18px;border-bottom:1px solid var(--divider)}
+.row:last-child{border-bottom:none}
+.r-ico{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0;background:var(--surface);color:var(--muted)}
+.r-ico svg{width:20px;height:20px}
+.r-ico.b{background:var(--brand-tint);color:var(--brand-ink)}
+.r-body{flex:1;min-width:0}
+.r-t{font-size:16px;font-weight:500;letter-spacing:-.02em;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r-s{font-size:13px;letter-spacing:-.01em;color:var(--muted);margin-top:2px}
+.r-right{flex-shrink:0;text-align:right;color:var(--chev)}
+.r-right svg{width:18px;height:18px}
+.r-amt{font-family:var(--disp);font-weight:700;font-size:16px;letter-spacing:-.4px;color:var(--ink);font-variant-numeric:tabular-nums}
+.r-amt.pos{color:var(--good)}
+.r-cat{font-size:12px;color:var(--muted);margin-top:1px}
+.cta{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;background:var(--grad-brand);color:#fff;font-size:16px;font-weight:700;letter-spacing:-.02em;padding:15px;border-radius:9999px;margin-top:14px;box-shadow:0 8px 20px var(--brand-glow)}
+.cta svg{width:18px;height:18px}
+.btn-line{display:flex;align-items:center;justify-content:center;width:100%;background:var(--white);color:var(--brand);border:1.5px solid var(--brand);border-radius:9999px;font-size:15px;font-weight:700;padding:13px;letter-spacing:-.02em;margin-top:10px}
+.textlink{display:block;width:100%;text-align:center;font-size:14px;font-weight:600;color:var(--brand-ink);padding:12px 0 2px}
+.textlink.m{color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:9px 13px;border-radius:9999px;border:1.5px solid var(--hairline);background:var(--white);font-size:13.5px;font-weight:500;color:var(--ink-2)}
+.chip svg{width:14px;height:14px}
+.chip.on{border:2px solid var(--brand);background:var(--brand-tint);color:var(--brand-ink);font-weight:700;padding:8px 12px}
+.field{margin-top:14px}
+.field label{display:block;font-size:12px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.inp{display:flex;align-items:baseline;gap:8px;background:var(--canvas);border-radius:13px;padding:14px 15px;border:2px solid transparent}
+.inp.big .v{font-family:var(--disp);font-size:30px;font-weight:700;letter-spacing:-1px;color:var(--chev);font-variant-numeric:tabular-nums}
+.inp .u{font-family:var(--disp);font-size:18px;font-weight:600;color:var(--muted)}
+.fine{font-size:12.5px;line-height:1.5;color:var(--muted);margin-top:10px}
+.lockline{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:var(--muted);margin-top:14px}
+.lockline svg{width:14px;height:14px;flex-shrink:0}
+.stat{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;border-radius:9999px;padding:3px 9px;background:var(--fill-neutral);color:var(--muted);white-space:nowrap}
+.stat.b{background:var(--brand-tint);color:var(--brand-ink)}
+
+/* period control + week chart (the real cash-flow card) */
+.pz{display:inline-flex;gap:2px;background:var(--fill-neutral);border-radius:9999px;padding:3px;margin-top:14px}
+.pz span{padding:6px 14px;border-radius:9999px;font-size:13px;font-weight:600;color:var(--muted)}
+.pz span.on{background:var(--white);color:var(--ink);font-weight:700;box-shadow:var(--shadow-card)}
+.wk{display:flex;gap:7px;align-items:flex-end;height:86px;margin-top:14px;padding:0 2px}
+.wk .d{flex:1;display:flex;gap:2px;align-items:flex-end;height:100%}
+.wk .d i{flex:1;border-radius:3px 3px 1px 1px;background:var(--fill-neutral)}
+.wk .d i.cur{background:var(--brand)}
+.wk .d i.cur.zero{background:transparent;border-bottom:2px solid var(--hairline)}
+.axis{display:flex;justify-content:space-between;font-size:10px;font-weight:600;color:var(--muted-soft);margin-top:6px;padding:0 2px}
+.axis .on{color:var(--brand-ink)}
+.wk-lg{display:flex;gap:14px;font-size:10.5px;font-weight:600;color:var(--muted);margin-top:8px}
+.wk-lg i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px;background:var(--fill-neutral)}
+.wk-lg i.cur{background:var(--brand)}
+/* daily guide tile (guide-ok state) */
+.cf-daily{display:grid;grid-template-columns:1fr auto;align-items:center;gap:0 12px;border-radius:14px;padding:14px;margin-top:15px;background:var(--brand-tint)}
+.gd-l{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--guide-ok-mut)}
+.gd-v{font-family:var(--disp);font-size:26px;font-weight:800;letter-spacing:-.9px;color:var(--brand);margin-top:2px;font-variant-numeric:tabular-nums}
+.gd-s{font-size:11.5px;font-weight:600;color:var(--guide-ok-mut);margin-top:3px}
+.gd-ring{width:52px;height:52px}
+
+/* steps / progress */
+.steps{margin:14px -16px -14px;border-top:1px solid var(--divider)}
+.step{display:flex;align-items:center;gap:13px;padding:13px 16px;border-bottom:1px solid var(--divider)}
+.step:last-child{border-bottom:0}
+.ring{width:28px;height:28px;border-radius:50%;border:2px solid var(--hairline);display:flex;align-items:center;justify-content:center;font-family:var(--disp);font-size:12.5px;font-weight:700;color:var(--muted);flex-shrink:0}
+.ring svg{width:14px;height:14px}
+.step.now .ring{border-color:var(--brand);color:var(--brand-ink)}
+.step.done .ring{background:var(--brand);border-color:var(--brand);color:#fff}
+.step .sb{flex:1;min-width:0}
+.step .st{font-size:14.5px;font-weight:600;letter-spacing:-.01em;color:var(--ink)}
+.step:not(.now):not(.done) .st{color:var(--ink-2);font-weight:500}
+.step.done .st{color:var(--ink)}
+.step.done .ss{color:var(--brand-ink)}
+.step .ss{font-size:12px;color:var(--muted);margin-top:2px}
+.step .ss b{color:var(--brand-ink);font-weight:700}
+.step .cc-chev{margin-left:auto}
+.segs{display:flex;gap:4px;margin-top:12px}
+.segs i{flex:1;height:5px;border-radius:3px;background:var(--fill-neutral)}
+.segs i.on{background:var(--brand)}
+.segs i.half{background:linear-gradient(90deg,var(--brand) 50%,var(--fill-neutral) 50%)}
+.dots{display:flex;gap:5px;align-items:center}
+.dots i{width:5px;height:5px;border-radius:50%;background:var(--fill-neutral)}
+.dots i.on{width:16px;border-radius:3px;background:var(--brand)}
+.dots i.done{background:var(--brand-2)}
+
+/* ghost / skeleton */
+.ghost{opacity:.55;pointer-events:none}
+.sk{display:block;height:12px;border-radius:6px;background:var(--fill-neutral)}
+.sk.h{height:30px;width:58%;border-radius:8px;margin-top:6px}
+.sk.t{height:15px;width:44%}
+.sk.s{height:10px;width:64%;margin-top:6px}
+.skbars{display:flex;align-items:flex-end;gap:5px;height:76px;margin-top:16px;padding:0 2px}
+.skbars i{flex:1;border-radius:4px 4px 2px 2px;background:var(--fill-neutral)}
+.skbars i.b{background:var(--brand-tint)}
+.preview-tag{position:absolute;top:12px;right:14px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--fill-neutral);border-radius:6px;padding:3px 7px}
+
+/* bento (debts / invest) */
+.bento{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:2px 16px 12px}
+.tile{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-focal);padding:14px 15px;position:relative}
+.tile.wide{grid-column:1/-1}
+.tk{font-size:13px;font-weight:600;letter-spacing:-.01em;color:var(--ink)}
+.tv{font-family:var(--disp);font-size:21px;font-weight:700;letter-spacing:-.5px;margin-top:6px;color:var(--ink);font-variant-numeric:tabular-nums}
+.tv.owe{color:var(--danger)}.tv.owed{color:var(--good)}.tv.dim{color:var(--chev)}
+.ts{font-size:11.5px;font-weight:600;color:var(--muted);margin-top:5px}
+.ts.b{color:var(--brand-ink);font-weight:700}
+.due{display:inline-flex;align-items:center;font-size:10.5px;font-weight:700;border-radius:9999px;padding:2px 8px;background:var(--amber-tint);color:var(--amber);margin-top:8px}
+.inv-hero{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.inv-d{font-size:12px;font-weight:700;color:var(--good)}
+.inv-row{display:flex;align-items:center;gap:11px;padding-top:12px;margin-top:12px;border-top:1px solid var(--divider)}
+.inv-ic{width:34px;height:34px;border-radius:50%;background:var(--surface);display:flex;align-items:center;justify-content:center;font-family:var(--disp);font-weight:800;font-size:12px;color:var(--ink-2)}
+.inv-b{flex:1;min-width:0}
+.inv-n{font-size:14.5px;font-weight:600;color:var(--ink)}
+.inv-s{font-size:11.5px;color:var(--muted);margin-top:1px}
+.inv-v{font-family:var(--disp);font-weight:700;font-size:15px;letter-spacing:-.3px;color:var(--ink);text-align:right;font-variant-numeric:tabular-nums}
+.inv-v small{display:block;font-family:var(--text);font-size:11px;font-weight:700;color:var(--good);letter-spacing:0}
+
+/* streak card */
+.stk{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-card);margin:2px 16px 12px;padding:16px 16px 15px}
+.stk-head{display:flex;align-items:center;gap:9px}
+.stk-emo{font-size:19px;line-height:1}
+.stk-name{font-size:15.5px;font-weight:600;color:var(--ink)}
+.stk-head .cc-chev{margin-left:auto}
+.stk-band{display:flex;align-items:center;justify-content:space-between;gap:10px;border-radius:15px;padding:12px 15px;margin-top:12px;background:var(--brand-tint);color:var(--brand-ink)}
+.stk-bl{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase}
+.stk-bv{font-family:var(--disp);font-weight:800;letter-spacing:-1px;font-size:26px;margin-top:1px;line-height:1.05;font-variant-numeric:tabular-nums}
+.stk-bv small{font-family:var(--text);font-size:12px;font-weight:500;letter-spacing:0}
+.stk-br{font-size:11px;font-weight:600;text-align:right;line-height:1.3}
+.stk-week{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-top:12px}
+.stk-cc{height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--muted-soft)}
+.stk-cc.ok{background:var(--brand);color:#fff;font-weight:700}
+.stk-cc.today{border:2px solid var(--brand);color:var(--brand-ink);font-weight:800}
+
+/* psp (Tiền đi đâu) */
+.psp{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-focal);margin:2px 16px 12px;overflow:hidden}
+.psp-h{display:flex;align-items:center;gap:11px;padding:13px 16px 9px}
+.psp-em{width:38px;height:38px;border-radius:11px;background:var(--fill-neutral);color:var(--muted);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.psp-em svg{width:17px;height:17px}
+.psp-bd{flex:1;min-width:0}
+.psp-t{font-size:16px;font-weight:600;letter-spacing:-.02em;color:var(--ink)}
+.psp-s{font-size:12px;color:var(--muted);margin-top:1px}
+.psp-amt{font-family:var(--disp);font-size:16.5px;font-weight:700;letter-spacing:-.4px;color:var(--ink);font-variant-numeric:tabular-nums}
+.psp-rows{padding:3px 16px 8px}
+.psp-mini{display:flex;align-items:center;gap:10px;min-height:38px;padding:3px 0;font-size:14px}
+.psp-mini+.psp-mini{border-top:1px solid var(--divider)}
+.psp-mico{width:22px;text-align:center;font-size:16px}
+.psp-mname{flex:1;color:var(--ink-2)}
+.psp-mval{font-family:var(--disp);font-weight:600;font-size:14px;color:var(--ink);font-variant-numeric:tabular-nums}
+
+/* timeline strip (opt 6) */
+.tl{margin-top:16px;position:relative}
+.tl-bars{display:flex;align-items:flex-end;gap:4px;height:64px}
+.tl-bars i{flex:1;border-radius:3px 3px 1px 1px;border:1.5px dashed var(--hairline);background:var(--pearl)}
+.tl-bars i.pend{border:0;background:var(--brand-tint)}
+.tl-bars i.real{border:0;background:var(--brand)}
+.tl-bars i.now{border:0;background:var(--brand)}
+.tl-today{position:absolute;right:-2px;top:-14px;font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--brand-ink)}
+.tl-cover{position:absolute;left:0;right:34px;top:0;bottom:22px;display:flex;align-items:center;justify-content:center}
+.tl-cover span{background:var(--white);border:1px solid var(--hairline);border-radius:9999px;padding:6px 12px;font-size:12px;font-weight:700;color:var(--ink-2);box-shadow:var(--shadow-card)}
+
+/* widget grid (opt 8) — Home .wgrid/.wtile grammar */
+.wgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:2px 16px 12px}
+.wtile{background:var(--white);border-radius:20px;box-shadow:var(--shadow-card);padding:13px 14px 12px;min-height:118px;display:flex;flex-direction:column}
+.wt-h{display:flex;align-items:center;gap:8px}
+.wt-ch{width:26px;height:26px;border-radius:8px;background:var(--brand-tint);color:var(--brand-ink);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.wt-ch svg{width:15px;height:15px}
+.wt-l{font-size:12.5px;font-weight:600;color:var(--ink-2);letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wt-v{height:30px;display:flex;align-items:baseline;gap:4px;margin-top:10px;font-family:var(--disp);font-size:24px;font-weight:700;letter-spacing:-.9px;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
+.wt-v.dim{color:var(--chev)}.wt-v.owe{color:var(--danger)}
+.wt-v small{font-family:var(--text);font-size:12px;font-weight:600;color:var(--muted);letter-spacing:0}
+.wt-f{margin-top:auto;font-size:11.5px;font-weight:600;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wt-f.up{color:var(--good)}
+.wt-add{margin-top:auto;display:flex;align-items:center;gap:5px;font-size:12.5px;font-weight:700;color:var(--brand-ink)}
+.wt-add svg{width:14px;height:14px}
+.setup-card{display:flex;align-items:center;gap:13px;background:var(--white);border:1px solid var(--brand-tint);border-radius:16px;padding:14px 15px;margin:2px 16px 12px;box-shadow:var(--shadow-card)}
+.fsc-ic{width:40px;height:40px;flex-shrink:0;border-radius:12px;background:var(--brand-tint);color:var(--brand-ink);display:flex;align-items:center;justify-content:center}
+.fsc-ic svg{width:21px;height:21px}
+.fsc-txt{flex:1;min-width:0}
+.fsc-t{font-size:15px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
+.fsc-s{font-size:12.5px;line-height:1.35;color:var(--muted);margin-top:2px}
+.fsc-chev{width:20px;height:20px;flex-shrink:0;color:var(--chev)}
+
+/* composer (opt 7) */
+.cats{display:flex;gap:8px;margin-top:14px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.cats::-webkit-scrollbar{display:none}
+.cat{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:5px;width:64px;padding:9px 0 8px;border-radius:14px;border:1.5px solid var(--hairline);background:var(--white)}
+.cat.on{border:2px solid var(--brand);background:var(--brand-tint)}
+.cat .e{font-size:22px;line-height:1}
+.cat .n{font-size:11px;font-weight:600;color:var(--ink-2);white-space:nowrap}
+.cat.on .n{color:var(--brand-ink);font-weight:700}
+.cat.add{border-style:dashed}
+.cat.add .e{color:var(--brand-ink);font-family:var(--disp);font-weight:600;font-size:20px}
+.prog3{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:12.5px;color:var(--muted)}
+.prog3 .pb{display:flex;gap:4px}
+.prog3 .pb i{width:22px;height:5px;border-radius:3px;background:var(--fill-neutral)}
+.prog3 .pb i.on{background:var(--brand)}
+
+/* assets strip (opt 4) */
+.assets{display:flex;gap:8px;margin:0 16px 12px;overflow-x:auto;scrollbar-width:none;padding:2px 0 6px}
+.assets::-webkit-scrollbar{display:none}
+.as{flex:0 0 auto;background:var(--white);border-radius:14px;box-shadow:var(--shadow-card);padding:10px 13px;min-width:118px}
+.as-k{font-size:11px;font-weight:600;color:var(--muted);white-space:nowrap}
+.as-v{font-family:var(--disp);font-size:15px;font-weight:700;letter-spacing:-.3px;margin-top:3px;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
+.as-v.dim{color:var(--brand-ink);font-family:var(--text);font-size:12.5px}
+.as-v.owe{color:var(--danger)}
+
+/* ── state-2 variants: the queue lives inside the widget ── */
+.q-list{margin:14px -16px 0;border-top:1px solid var(--divider)}
+.q-row{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--divider)}
+.q-row:last-child{border-bottom:0}
+.q-ico{width:34px;height:34px;border-radius:10px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.q-b{flex:1;min-width:0}
+.q-t{font-size:14px;font-weight:600;letter-spacing:-.01em;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.q-s{font-size:11.5px;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.q-a{font-family:var(--disp);font-weight:700;font-size:14.5px;letter-spacing:-.3px;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
+.q-a.pos{color:var(--good)}
+.q-c{font-size:11px;color:var(--muted);margin-top:1px;text-align:right}
+.q-more{display:flex;align-items:center;justify-content:space-between;padding:11px 16px;font-size:13px;font-weight:600;color:var(--brand-ink)}
+.q-more svg{width:16px;height:16px;color:var(--chev)}
+.q-day{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding:10px 16px 2px;display:flex;justify-content:space-between}
+.q-day span:last-child{font-weight:600;letter-spacing:0;text-transform:none}
+/* deck */
+.deck{position:relative;height:140px;margin:16px 0 4px}
+.deck .qc{position:absolute;left:0;right:0;top:0}
+.deck .qc.k2{transform:translateY(14px) scale(.96);opacity:.55;z-index:1}
+.deck .qc.k3{transform:translateY(28px) scale(.92);opacity:.3;z-index:0}
+.deck .qc.k1{z-index:2}
+.qc{background:var(--white);border:1px solid var(--hairline);border-radius:16px;padding:12px 14px;box-shadow:var(--shadow-card)}
+.qc-top{display:flex;align-items:center;gap:10px}
+.qc-amt{font-family:var(--disp);font-size:22px;font-weight:700;letter-spacing:-.7px;color:var(--ink);font-variant-numeric:tabular-nums}
+.qc-amt.pos{color:var(--good)}
+.qc-m{font-size:13px;font-weight:600;color:var(--ink);margin-top:2px}
+.qc-s{font-size:11.5px;color:var(--muted);margin-top:1px}
+.qc-chips{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.qc-chip{font-size:11.5px;font-weight:600;border-radius:9999px;padding:5px 10px;background:var(--fill-neutral);color:var(--ink-2)}
+.qc-chip.on{background:var(--brand-tint);color:var(--brand-ink);font-weight:700}
+.q-count{display:flex;align-items:center;justify-content:space-between;margin-top:10px;font-size:12px;font-weight:600;color:var(--muted)}
+/* strip */
+.qstrip{display:flex;gap:8px;margin:14px -16px 0;padding:2px 16px 6px;overflow-x:auto;scrollbar-width:none}
+.qstrip::-webkit-scrollbar{display:none}
+.qt{flex:0 0 132px;border:1px solid var(--hairline);border-radius:14px;padding:11px 12px;background:var(--white)}
+.qt .e{font-size:18px;line-height:1}
+.qt .a{font-family:var(--disp);font-weight:700;font-size:15px;letter-spacing:-.4px;margin-top:8px;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
+.qt .a.pos{color:var(--good)}
+.qt .m{font-size:12px;font-weight:600;color:var(--ink-2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.qt .d{font-size:10.5px;color:var(--muted);margin-top:1px;white-space:nowrap}
+.qt.more{display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--brand-ink);border-style:dashed}
+/* summary tiles */
+.q-sum{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:14px}
+.q-sum div{background:var(--surface);border-radius:12px;padding:10px 11px}
+.q-sum .l{font-size:10.5px;font-weight:600;color:var(--muted)}
+.q-sum .v{font-family:var(--disp);font-size:15px;font-weight:700;letter-spacing:-.3px;color:var(--ink);margin-top:3px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.q-sum .v.pos{color:var(--good)}
+.q-sum .n{font-size:10.5px;color:var(--muted);margin-top:2px;white-space:nowrap}
+/* inline quick review */
+.qa{display:flex;gap:6px;flex-shrink:0}
+.qa button{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1.5px solid var(--hairline);background:var(--white);color:var(--muted)}
+.qa button svg{width:15px;height:15px}
+.qa button.ok{border-color:var(--brand);background:var(--brand-tint);color:var(--brand-ink)}
+.q-row.picked{background:var(--surface)}
+
+/* ── A / B deep-dive variants ── */
+.q-row.amt1{gap:12px}
+.q-amtL{font-family:var(--disp);font-weight:700;font-size:17px;letter-spacing:-.5px;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap;min-width:104px}
+.q-amtL.pos{color:var(--good)}
+.q-st{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;border-radius:9999px;padding:3px 8px;white-space:nowrap}
+.q-st.ok{background:var(--good-tint);color:var(--good)}
+.q-st svg{width:11px;height:11px;flex-shrink:0}
+.q-st.look{background:var(--amber-tint);color:var(--amber)}
+.q-grp{display:flex;align-items:center;justify-content:space-between;padding:10px 16px 4px;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.q-grp.look{color:var(--amber)}
+.q-row.look{box-shadow:inset 3px 0 0 var(--amber-tint)}
+.q-sumrow{display:flex;align-items:center;justify-content:space-between;padding:11px 16px;background:var(--surface);font-size:12.5px;font-weight:600;color:var(--ink-2)}
+.q-sumrow b{font-family:var(--disp);font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
+.q-sumrow b.pos{color:var(--good)}
+.q-filters{display:flex;gap:6px;margin-top:12px}
+.q-f{font-size:12px;font-weight:600;border-radius:9999px;padding:6px 11px;background:var(--fill-neutral);color:var(--ink-2)}
+.q-f.on{background:var(--brand);color:#fff}
+.q-f small{font-weight:700;opacity:.75;margin-left:3px}
+.q-cb{width:22px;height:22px;border-radius:7px;border:1.5px solid var(--hairline);display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0}
+.q-cb.on{background:var(--brand);border-color:var(--brand)}
+.q-cb svg{width:13px;height:13px}
+.q-catchip{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;border-radius:9999px;padding:3px 8px;background:var(--brand-tint);color:var(--brand-ink);margin-top:4px}
+.q-catchip svg{width:10px;height:10px}
+/* deck variants */
+.deck.fan{height:150px}
+.deck.fan .qc.k2{transform:rotate(-4deg) translate(-8px,10px) scale(.97);opacity:.7}
+.deck.fan .qc.k3{transform:rotate(4deg) translate(8px,12px) scale(.97);opacity:.7}
+.deck .badge84{position:absolute;top:-8px;right:-4px;z-index:3;background:var(--brand);color:#fff;font-family:var(--disp);font-weight:800;font-size:12px;border-radius:9999px;padding:4px 9px;box-shadow:var(--shadow-card)}
+.deck.peek{height:132px;overflow:visible}
+.deck.peek .qc.k1{right:18px}
+.deck.peek .qc.k2{left:auto;right:-6px;width:52px;transform:none;opacity:1;background:var(--pearl);top:8px;bottom:8px;border-radius:14px}
+.deck.peek .qc.k2 *{display:none}
+.deck.day{height:150px}
+.deck.day .qc.k2,.deck.acc .qc.k2{top:auto;bottom:16px;transform:scale(.97);opacity:.7}
+.deck.day .qc.k3,.deck.acc .qc.k3{top:auto;bottom:0;transform:scale(.94);opacity:.45}
+.deck.day .qc.k2 *,.deck.day .qc.k3 *,.deck.acc .qc.k2 *,.deck.acc .qc.k3 *{visibility:hidden}
+.deck.day .qc.k1 .q-row{padding:8px 0}
+.deck.acc{height:172px}
+.qc-h{display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:700;color:var(--ink)}
+.qc-h span:last-child{font-size:11px;font-weight:600;color:var(--muted)}
+.qc .q-row{padding:8px 0;border-color:var(--divider)}
+.qc .q-row:first-of-type{border-top:1px solid var(--divider);margin-top:8px}
+.swipe-hint{display:flex;justify-content:space-between;font-size:11px;font-weight:600;color:var(--muted);margin-top:8px}
+.swipe-hint .r{color:var(--brand-ink)}
+.mini-deck{position:relative;width:76px;height:64px;flex-shrink:0}
+.mini-deck i{position:absolute;left:0;right:0;height:52px;border-radius:10px;background:var(--white);border:1px solid var(--hairline);box-shadow:var(--shadow-card)}
+.mini-deck i:nth-child(1){top:0;z-index:3}
+.mini-deck i:nth-child(2){top:6px;transform:scale(.94);z-index:2;opacity:.75}
+.mini-deck i:nth-child(3){top:12px;transform:scale(.88);z-index:1;opacity:.5}
+.big84{font-family:var(--disp);font-size:44px;font-weight:800;letter-spacing:-1.8px;line-height:1;color:var(--ink);font-variant-numeric:tabular-nums}
+.big84 small{font-family:var(--text);font-size:14px;font-weight:600;color:var(--muted);letter-spacing:0;margin-left:6px}
+.piles{display:flex;align-items:center;gap:12px;margin-top:16px}
+.pile{flex:1;border:1.5px dashed var(--hairline);border-radius:14px;min-height:96px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;position:relative;font-size:11px;font-weight:600;color:var(--muted)}
+.pile .n{font-family:var(--disp);font-size:22px;font-weight:800;letter-spacing:-.6px;color:var(--ink)}
+.pile.wait{border-style:solid;background:var(--pearl)}
+.pile.wait .mini-deck{width:60px;height:46px}
+.pile.wait .mini-deck i{height:40px}
+.pile-arrow{width:20px;height:20px;color:var(--chev)}
+
+/* ── B1 card-anatomy variants: a clean stack with blank cards behind ── */
+.deck.simple{height:auto;padding-bottom:24px;margin:16px 0 4px}
+.deck.simple .qc.k1{position:relative;z-index:2}
+.deck.simple .qc.k2,.deck.simple .qc.k3{position:absolute;background:var(--white);transform:none}
+.deck.simple .qc.k2{left:8px;right:8px;top:12px;bottom:12px;opacity:.75;z-index:1}
+.deck.simple .qc.k3{left:16px;right:16px;top:24px;bottom:0;opacity:.45;z-index:0}
+.c-meta{font-size:11.5px;color:var(--muted);letter-spacing:-.01em}
+.c-eyebrow{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.c-name{font-size:15px;font-weight:600;letter-spacing:-.01em;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.c-amt{font-family:var(--disp);font-weight:700;letter-spacing:-.7px;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
+.c-amt.pos{color:var(--good)}
+.c-chip{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;border-radius:9999px;padding:5px 10px;background:var(--brand-tint);color:var(--brand-ink)}
+.c-chip small{font-weight:600;color:var(--muted);opacity:.9}
+.c-tile{width:40px;height:40px;border-radius:12px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.c-tile.lg{width:46px;height:46px;font-size:23px}
+.c-row{display:flex;align-items:center;gap:12px}
+.c-cols{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.c-line{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.c-div{height:1px;background:var(--divider);margin:10px 0}
+.c-center{text-align:center}
+.c-band{display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:600;color:var(--muted);padding-bottom:9px;border-bottom:1px dashed var(--hairline);margin-bottom:10px}
+.c-band b{color:var(--ink-2);font-weight:700}
+
+/* ── C7 footer variants ── */
+.c-chip svg{width:12px;height:12px;flex-shrink:0}
+.c-chip.ghost{background:var(--white);border:1.5px solid var(--hairline);color:var(--ink-2);font-weight:600}
+.c-chip.more{background:var(--white);border:1.5px dashed var(--hairline);color:var(--brand-ink);padding:5px 9px}
+.c-lbl{font-size:12px;font-weight:600;color:var(--muted)}
+.c-val{display:inline-flex;align-items:center;gap:6px;font-size:13.5px;font-weight:600;color:var(--ink)}
+.c-val svg{width:16px;height:16px;color:var(--chev)}
+.c-act{font-size:13px;font-weight:700;color:var(--brand-ink);min-height:32px;display:inline-flex;align-items:center;padding:0 4px}
+.c-ok{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;color:var(--good)}
+.c-ok svg{width:12px;height:12px}
+.c-mini{display:inline-flex;align-items:center;justify-content:center;background:var(--grad-brand);color:#fff;font-size:13px;font-weight:700;letter-spacing:-.01em;padding:8px 16px;border-radius:9999px;box-shadow:0 4px 12px var(--brand-glow)}
+
+/* ── C7 info-only variants ── */
+.c-cat{font-size:12.5px;font-weight:500;color:var(--muted);letter-spacing:-.01em}
+.c-cat b{font-weight:600;color:var(--ink-2)}
+.c-sub{font-size:12.5px;color:var(--muted);margin-top:1px}
+.c-look{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;color:var(--amber)}
+.c-look i{width:6px;height:6px;border-radius:50%;background:var(--amber-base);display:inline-block}
+.c-chev{display:inline-flex;align-items:center;color:var(--chev)}
+.c-chev svg{width:16px;height:16px}
+.c-emo{font-size:15px;margin-right:6px;vertical-align:-1px}
+.qc.tap{cursor:pointer}
+</style>
+</head>
+<body>
+
+<div class="page-h">
+  <h1>Sổ cá nhân · 8 hướng × 4 trạng thái</h1>
+  <p>Mỗi hàng là một hướng thiết kế cho tab Tài Chính (sổ cá nhân). Bốn cột là bốn mốc trong đời một người dùng: chưa thiết lập gì; đã nối email và giao dịch đang nằm trong hàng chờ duyệt; giao dịch đã vào sổ; và kích hoạt đủ tài khoản ngân hàng/thẻ, đầu tư, chuỗi thói quen. Dữ liệu mẫu giống nhau ở mọi hướng, để chỉ so sánh cách trình bày.</p>
+</div>
+<div class="rules">
+  <div><b>Một CTA chính mỗi màn.</b> Pill gradient brand, còn lại là line/text.</div>
+  <div><b>Không tô nền màu cho thẻ thông tin.</b> Tint chỉ ở chip, ô icon, ô gợi ý hôm nay.</div>
+  <div><b>Emoji chỉ làm dấu nội dung</b> (danh mục, thói quen), icon chức năng là SVG.</div>
+  <div><b>Mục chưa có dữ liệu thì ẩn hoặc gập lại</b>, không hiện thẻ trống.</div>
+  <div><b>Con số chỉ hiện khi là thật.</b> Không 0 ₫ giả, không biểu đồ rỗng.</div>
+</div>
+<div class="states-h">
+  <div><b>1 · Chưa thiết lập</b>Người mới, sổ trống, chưa nối gì.</div>
+  <div><b>2 · Đã nối email, 84 khoản chờ duyệt</b>App đọc xong 90 ngày. Chưa có gì trong sổ; mọi thứ nằm ở hàng chờ.</div>
+  <div><b>3 · Đã có giao dịch</b>84 khoản đã duyệt + 2 khoản ghi tay. Chưa chốt số dư tài khoản, chưa có ngân sách.</div>
+  <div><b>4 · Kích hoạt đủ</b>Tài khoản VIB/VCB/tiền mặt chốt số dư, thẻ VIB Visa, vị thế Bitcoin, chuỗi 7 ngày không Grab, ngân sách 15tr.</div>
+</div>
+
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-mail" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3.5 7.5 12 13l8.5-5.5"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1" fill="currentColor"/><circle cx="4" cy="12" r="1" fill="currentColor"/><circle cx="4" cy="18" r="1" fill="currentColor"/></symbol>
+  <symbol id="i-bars" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M5 20V10M12 20V4M19 20v-7"/></symbol>
+  <symbol id="i-card" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="6" width="18" height="12" rx="3"/><path d="M3 10h18"/></symbol>
+  <symbol id="i-wallet" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H19v3"/><rect x="4" y="8" width="17" height="11" rx="2.5"/><circle cx="16.5" cy="13.5" r="1.2" fill="currentColor"/></symbol>
+  <symbol id="i-trend" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l5-6 4 3 7-8"/><path d="M15 6h5v5"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></symbol>
+  <symbol id="i-flag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"/><path d="M5 4h12l-2.5 4L17 12H5"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11l8-7 8 7"/><path d="M6 10v10h12V10"/><path d="M10 20v-6h4v6"/></symbol>
+  <symbol id="i-person" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></symbol>
+  <symbol id="i-palette" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 3a9 9 0 100 18 2 2 0 001.6-3.3 2 2 0 011.5-3.2H18a3 3 0 003-3c0-4-4-6-9-6z"/><circle cx="7.5" cy="12.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="10" cy="8.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="14.5" cy="8" r="1.1" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-flame" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c1 4 5 5.5 5 10a5 5 0 0 1-10 0c0-2 1-3.5 2-4.5 0 2 1 3 2 3 0-3 0-6 1-8.5z"/></symbol>
+</svg>
+
+<div id="root"></div>
+
+<script>
+/* ═══ kit: small string builders over the app's own class recipes ═══ */
+const I = (id) => `<svg><use href="#i-${id}"/></svg>`;
+const HDR = `<div class="safe"></div><div class="hdr"><div class="h-title">Tài Chính</div><div class="hclus"><span class="av"></span><button class="gear">${I('palette')}</button></div></div>`;
+const TABBAR = `<div class="tabbar"><div class="tab on">${I('person')}<span>Cá nhân</span></div><div class="tab">${I('home')}<span>Home</span></div></div>`;
+const phone = (inner) => `<div class="phone"><div class="scroll">${HDR}${inner}</div>${TABBAR}</div>`;
+const sec = (t, link) => `<div class="section-h"><span class="t">${t}</span>${link ? `<a>${link}</a>` : ''}</div>`;
+const isSvg = (x) => /^[a-z]+$/.test(x);
+const ico = (x, b) => `<div class="r-ico${b ? ' b' : ''}">${isSvg(x) ? I(x) : x}</div>`;
+function right(r) {
+  if (r.lock) return `<div class="r-right">${I('lock')}</div>`;
+  if (r.stat) return `<span class="stat${r.statB ? ' b' : ''}">${r.stat}</span>`;
+  if (r.badge) return `<span class="cc-badge">${r.badge}</span>`;
+  if (r.amt) return `<div class="r-right"><div class="r-amt${r.cls ? ' ' + r.cls : ''}">${r.amt}</div>${r.cat ? `<div class="r-cat">${r.cat}</div>` : ''}</div>`;
+  if (r.chev === false) return '';
+  return `<div class="r-right">${I('chev')}</div>`;
+}
+const rows = (items) => `<div class="rows">${items.map((r) => `<div class="row">${ico(r.i, r.b)}<div class="r-body"><div class="r-t">${r.t}</div>${r.s ? `<div class="r-s">${r.s}</div>` : ''}</div>${right(r)}</div>`).join('')}</div>`;
+const ccRow = (r) => `<div class="cc-row"><span class="cc-ic">${I(r.i)}</span><span class="cc-t">${r.t}${r.s ? `<span class="cc-sub">${r.s}</span>` : ''}</span>${r.badge ? `<span class="cc-badge">${r.badge}</span>` : ''}<svg class="cc-chev"><use href="#i-chev"/></svg></div>`;
+const CC_DEFAULT = (q) => [
+  { i: 'bars', t: q && q.budget ? 'Ngân sách cá nhân' : 'Lập ngân sách cá nhân' },
+  { i: 'list', t: 'Xem giao dịch' },
+  { i: 'plus', t: 'Ghi giao dịch' },
+  { i: 'mail', t: 'Khoản thu chi từ email', badge: q && q.queue },
+];
+const setupCard = (i, t, s, badge) => `<div class="setup-card"><div class="fsc-ic">${I(i)}</div><div class="fsc-txt"><div class="fsc-t">${t}</div><div class="fsc-s">${s}</div></div>${badge ? `<span class="cc-badge">${badge}</span>` : ''}<svg class="fsc-chev"><use href="#i-chev"/></svg></div>`;
+const lockline = (txt) => `<div class="lockline">${I('lock')}${txt}</div>`;
+const LOCK_TXT = 'Sổ này chỉ mình bạn thấy. Gia đình không xem được.';
+
+/* the real cash-flow card. this week vs last week, today = T3 (15/09) */
+const WK_LAST = [40, 55, 30, 70, 45, 62, 50], WK_CUR = [48, 30, 0, 0, 0, 0, 0];
+function weekChart() {
+  const days = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+  return `<div class="wk">${days.map((d, k) => `<div class="d"><i style="height:${WK_LAST[k]}%"></i><i class="cur${WK_CUR[k] ? '' : ' zero'}" style="height:${WK_CUR[k] || 2}%"></i></div>`).join('')}</div>`
+    + `<div class="axis">${days.map((d, k) => `<span${k === 1 ? ' class="on"' : ''}>${d}</span>`).join('')}</div>`
+    + `<div class="wk-lg"><span><i></i>Tuần trước 3.520.000 ₫</span><span><i class="cur"></i>Tuần này 1.240.000 ₫</span></div>`;
+}
+const GUIDE = `<div class="cf-daily"><div><div class="gd-l">Hôm nay còn tiêu được</div><div class="gd-v">349.000 ₫</div><div class="gd-s">Ngân sách 15.000.000 · đã tiêu 9.760.000</div></div><svg class="gd-ring" viewBox="0 0 52 52"><circle cx="26" cy="26" r="21" fill="none" stroke="var(--sage-wash)" stroke-width="6"/><circle cx="26" cy="26" r="21" fill="none" stroke="var(--brand)" stroke-width="6" stroke-linecap="round" stroke-dasharray="132" stroke-dashoffset="46" transform="rotate(-90 26 26)"/></svg></div>`;
+function cfReal(o) {
+  o = o || {};
+  const cc = (o.cc || CC_DEFAULT(o)).map(ccRow).join('');
+  return `<section class="cf-card">
+    <div class="cf-lblrow"><div class="cf-lbl">${o.noHero ? 'Chi tiêu theo tuần' : 'Còn lại · cá nhân'}</div><span class="pers-mp">Thg 9 ${I('down')}</span></div>
+    ${o.noHero ? '' : `<div class="cf-big">8.240.000 ₫</div>
+    <div class="cf-tiles"><div class="cf-tile"><div class="cf-tl"><span class="up">↑</span> Vào</div><div class="cf-tv">18.000.000 ₫</div></div><div class="cf-tile"><div class="cf-tl"><span class="dn">↓</span> Ra</div><div class="cf-tv">9.760.000 ₫</div></div></div>`}
+    ${o.lend ? `<div class="cf-lend">📈 Đầu tư tháng này: −20.000.000 ₫</div>` : ''}
+    ${o.chart === false ? '' : `<div class="pz"><span>Ngày</span><span class="on">Tuần</span><span>Tháng</span></div>${weekChart()}`}
+    ${o.after || ''}
+    ${o.guide ? GUIDE : ''}
+    <div class="cf-cta">${cc}</div>
+  </section>`;
+}
+
+/* dashboard tail blocks (identical data in every option) */
+const PSP = sec('Tiền đi đâu tháng này', 'Ngân sách') + `<section class="psp"><div class="psp-h"><div class="psp-em">${I('lock')}</div><div class="psp-bd"><div class="psp-t">Riêng tư</div><div class="psp-s">Chỉ mình bạn thấy</div></div><div class="psp-amt">9.760.000 ₫</div></div><div class="psp-rows">
+  <div class="psp-mini"><span class="psp-mico">🍜</span><span class="psp-mname">Ăn uống</span><span class="psp-mval">3.120.000 ₫</span></div>
+  <div class="psp-mini"><span class="psp-mico">🛒</span><span class="psp-mname">Mua sắm</span><span class="psp-mval">2.650.000 ₫</span></div>
+  <div class="psp-mini"><span class="psp-mico">🚕</span><span class="psp-mname">Đi lại</span><span class="psp-mval">1.480.000 ₫</span></div>
+  <div class="psp-mini"><span class="psp-mico">☕</span><span class="psp-mname">Cà phê</span><span class="psp-mval">640.000 ₫</span></div>
+</div></section>`;
+const TXN = sec('Giao dịch của bạn') + rows([
+  { i: '☕', t: 'Highlands Coffee', s: '15/09 · 09:12 · VIB ••5140', amt: '−65.000 ₫', cat: 'Cà phê' },
+  { i: '🚕', t: 'Grab', s: '14/09 · 18:40 · VIB ••5140', amt: '−86.000 ₫', cat: 'Đi lại' },
+  { i: '🛒', t: 'Bách Hoá Xanh', s: '14/09 · 11:05 · Tiền mặt', amt: '−312.000 ₫', cat: 'Mua sắm' },
+  { i: '💰', t: 'Lương tháng 9', s: '10/09 · VCB ••2291', amt: '+18.000.000 ₫', cls: 'pos', cat: 'Thu nhập' },
+]);
+const DEBTS = sec('Nợ &amp; cho vay', 'Chuyển tiền') + `<div class="bento">
+  <div class="tile"><div class="tk">Tôi nợ</div><div class="tv owe">4.820.000 ₫</div><div class="ts">1 thẻ tín dụng</div></div>
+  <div class="tile"><div class="tk">Được nợ</div><div class="tv owed">2.000.000 ₫</div><div class="ts">Minh · hẹn trả 20/09</div></div>
+  <div class="tile wide"><div class="tk">VIB Visa · tín dụng ••4512</div><div class="tv owe">Đang nợ 4.820.000 ₫</div><span class="due">đến hạn 25/09</span></div>
+</div>`;
+const INVEST = sec('Đầu tư', '＋ Vị thế') + `<section class="cf-card"><div class="cf-lbl">Giá trị hiện tại</div><div class="inv-hero"><div class="cf-big" style="font-size:28px">61.200.000 ₫</div><span class="inv-d">▲ +6.200.000 (+11%)</span></div>
+  <div class="inv-row"><div class="inv-ic">₿</div><div class="inv-b"><div class="inv-n">Bitcoin</div><div class="inv-s">0,0015 BTC · giá 2 giờ trước</div></div><div class="inv-v">61.200.000 ₫<small>▲ +12%</small></div></div></section>`;
+const STREAK = sec('Chuỗi thói quen', '＋ Thêm') + `<section class="stk"><div class="stk-head"><span class="stk-emo">🚕</span><span class="stk-name">7 ngày không Grab</span><svg class="cc-chev"><use href="#i-chev"/></svg></div>
+  <div class="stk-band"><div><div class="stk-bl">Tiết kiệm được</div><div class="stk-bv">602.000 <small>₫</small></div></div><div class="stk-br">ngày 7 / 7<br>🏅 huy chương đầu</div></div>
+  <div class="stk-week"><div class="stk-cc ok">9</div><div class="stk-cc ok">10</div><div class="stk-cc ok">11</div><div class="stk-cc ok">12</div><div class="stk-cc ok">13</div><div class="stk-cc ok">14</div><div class="stk-cc today">15</div></div></section>`;
+const FULL_TAIL = DEBTS + INVEST + STREAK + PSP + TXN;
+
+const ASSETS = (full) => `<div class="assets">
+  <div class="as"><div class="as-k">Tiền mặt</div><div class="as-v">1.350.000 ₫</div></div>
+  <div class="as"><div class="as-k">VIB ••5140</div><div class="as-v${full ? '' : ' dim'}">${full ? '12.400.000 ₫' : 'Chốt số dư ›'}</div></div>
+  <div class="as"><div class="as-k">VCB ••2291</div><div class="as-v${full ? '' : ' dim'}">${full ? '8.120.000 ₫' : 'Chốt số dư ›'}</div></div>
+  ${full ? `<div class="as"><div class="as-k">VIB Visa</div><div class="as-v owe">−4.820.000 ₫</div></div>` : ''}
+</div>`;
+
+/* ghost dashboard fragments (opt 3) */
+const GHOST_CF = `<section class="cf-card ghost"><span class="preview-tag">Nháp</span><div class="cf-lbl">Còn lại · cá nhân</div><span class="sk h"></span>
+  <div class="cf-tiles"><div class="cf-tile"><div class="cf-tl">↑ Vào</div><span class="sk" style="width:55%;height:16px"></span></div><div class="cf-tile"><div class="cf-tl">↓ Ra</div><span class="sk" style="width:55%;height:16px"></span></div></div>
+  <div class="skbars"><i style="height:35%"></i><i style="height:60%"></i><i style="height:42%"></i><i style="height:75%"></i><i style="height:50%"></i><i style="height:66%"></i><i class="b" style="height:85%"></i></div>
+  <div class="axis"><span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span><span>CN</span></div></section>`;
+const GHOST_DEBTS = (invite) => `<div class="section-h ghost"><span class="t">Nợ &amp; cho vay</span></div><div class="bento${invite ? '' : ' ghost'}">
+  <div class="tile"><div class="tk">Thẻ tín dụng</div>${invite ? `<div class="tv dim">—</div><div class="ts b">Chạm để chốt số dư</div>` : `<span class="sk h" style="width:70%;height:22px"></span><div class="ts">đến hạn</div>`}</div>
+  <div class="tile"><div class="tk">${invite ? 'VIB ••5140' : 'Bạn bè'}</div>${invite ? `<div class="tv dim">—</div><div class="ts b">Chạm để chốt số dư</div>` : `<span class="sk h" style="width:60%;height:22px"></span><div class="ts">được nợ</div>`}</div></div>`;
+const GHOST_PSP = `<div class="section-h ghost"><span class="t">Tiền đi đâu tháng này</span></div><div class="rows ghost">
+  <div class="row"><div class="r-ico">🍜</div><div class="r-body"><span class="sk t"></span><span class="sk s"></span></div><span class="sk" style="width:56px;height:14px"></span></div>
+  <div class="row"><div class="r-ico">🚕</div><div class="r-body"><span class="sk t"></span><span class="sk s"></span></div><span class="sk" style="width:48px;height:14px"></span></div>
+  <div class="row"><div class="r-ico">🛒</div><div class="r-body"><span class="sk t"></span><span class="sk s"></span></div><span class="sk" style="width:52px;height:14px"></span></div></div>`;
+const GHOST_INVEST = `<div class="section-h ghost"><span class="t">Đầu tư</span></div><div class="bento"><div class="tile wide"><div class="tk">Vị thế đầu tư</div><div class="tv dim">—</div><div class="ts b">＋ Thêm vị thế</div></div></div>`;
+
+const WILL_SEE = sec('Sau đó bạn sẽ thấy') + rows([
+  { i: 'bars', t: 'Tiền đi đâu mỗi tháng', s: 'Theo danh mục, theo tuần', chev: false },
+  { i: 'card', t: 'Thẻ tín dụng và khoản nợ', s: 'Đang nợ bao nhiêu, đến hạn khi nào', chev: false },
+  { i: 'trend', t: 'Đầu tư', s: 'Crypto, vàng, chứng khoán', chev: false },
+  { i: 'flame', t: 'Chuỗi thói quen', s: '7 ngày không Grab, app tự đếm', chev: false },
+]);
+const LOCKED = sec('Mở khi sổ có giao dịch') + rows([
+  { i: 'card', t: 'Nợ &amp; cho vay', s: 'Thẻ tín dụng, bạn bè, nhóm chia tiền', lock: 1 },
+  { i: 'trend', t: 'Đầu tư', s: 'Tiền mua không tính là chi tiêu', lock: 1 },
+  { i: 'flame', t: 'Chuỗi thói quen', s: 'Cần 7 ngày dữ liệu để đếm', lock: 1 },
+]);
+const NEXT_C = sec('Tiếp theo') + rows([
+  { i: 'wallet', b: 1, t: 'Chốt số dư 3 tài khoản', s: 'VIB ••5140, VCB ••2291, Tiền mặt' },
+  { i: 'bars', t: 'Lập ngân sách tháng', s: 'Để có "hôm nay còn tiêu được"' },
+  { i: 'trend', t: 'Theo dõi đầu tư', s: 'Crypto, vàng, chứng khoán' },
+]);
+const NEXT_D = sec('Còn thiếu') + rows([{ i: 'flame', t: 'Thử nhịn một thói quen', s: 'Ví dụ 7 ngày không Grab' }]);
+
+const timeline = (mode) => {
+  const h = [38, 52, 30, 64, 46, 58, 36, 70, 44, 56, 40, 62];
+  const cls = mode === 'pend' ? 'pend' : mode === 'real' ? 'real' : '';
+  return `<div class="tl"><span class="tl-today">Hôm nay</span><div class="tl-bars">${h.map((x) => `<i class="${cls}" style="height:${x}%"></i>`).join('')}<i class="now" style="height:${mode === 'real' ? 22 : 18}%"></i></div>
+    <div class="axis"><span>Thg 6</span><span>Thg 7</span><span>Thg 8</span><span>Thg 9</span></div>
+    ${mode === 'empty' ? `<div class="tl-cover"><span>Chưa có gì ở đây</span></div>` : mode === 'pend' ? `<div class="tl-cover"><span>84 khoản · chờ duyệt</span></div>` : ''}</div>`;
+};
+const SOURCES = (st) => sec('Giao dịch vào sổ từ đâu') + rows([
+  { i: 'mail', b: 1, t: 'Email ngân hàng', s: 'Tự động, bạn duyệt trước khi ghi', stat: st === 1 ? 'Chưa kết nối' : st === 2 ? '84 chờ duyệt' : '84 đã ghi', statB: st >= 2 },
+  { i: 'plus', t: 'Ghi tay', s: 'Tiền mặt, khoản không có email', stat: st >= 3 ? '2 khoản' : '0 khoản' },
+  { i: 'home', t: 'Từ sổ gia đình', s: 'Khoản bạn ghi cho nhà tự về đây', stat: 'Tự động', statB: 1 },
+]);
+const wtile = (i, l, v, foot, cls) => `<div class="wtile"><div class="wt-h"><span class="wt-ch">${I(i)}</span><span class="wt-l">${l}</span></div><div class="wt-v${cls ? ' ' + cls : ''}">${v}</div>${foot}</div>`;
+const wadd = (t) => `<div class="wt-add">${I('plus')}${t}</div>`;
+const wfoot = (t, up) => `<div class="wt-f${up ? ' up' : ''}">${t}</div>`;
+const COMPOSER = (n) => `<section class="cf-card"><div class="cf-lbl">Ghi khoản đầu tiên</div><div class="inp big" style="margin-top:10px"><span class="v">0</span><span class="u">₫</span></div>
+  <div class="cats"><div class="cat on"><span class="e">🍜</span><span class="n">Ăn uống</span></div><div class="cat"><span class="e">☕</span><span class="n">Cà phê</span></div><div class="cat"><span class="e">🚕</span><span class="n">Đi lại</span></div><div class="cat"><span class="e">🛒</span><span class="n">Mua sắm</span></div><div class="cat add"><span class="e">+</span><span class="n">Khác</span></div></div>
+  <button class="cta">Ghi vào sổ</button>
+  <div class="prog3"><div class="pb"><i class="${n > 0 ? 'on' : ''}"></i><i class="${n > 1 ? 'on' : ''}"></i><i class="${n > 2 ? 'on' : ''}"></i></div><span>3 khoản là đủ để có biểu đồ tuần này</span></div>
+  <div class="cf-cta">${ccRow({ i: 'mail', t: 'Hoặc tự ghi từ email ngân hàng', s: 'Kết nối một lần, 90 ngày gần nhất vào sổ' })}</div></section>`;
+const CC_QUICK = (q) => [{ i: 'plus', t: 'Ghi nhanh', s: 'Số tiền, danh mục, xong' }, { i: 'bars', t: q ? 'Ngân sách cá nhân' : 'Lập ngân sách cá nhân' }, { i: 'list', t: 'Xem giao dịch' }, { i: 'mail', t: 'Khoản thu chi từ email' }];
+
+const START_CARD = `<section class="cf-card"><div class="cf-lbl">Sổ cá nhân · tháng 9</div><div class="cf-h">Bắt đầu sổ của bạn</div><p class="cf-p">Kết nối email ngân hàng, app tự ghi lại 90 ngày giao dịch gần nhất. Bạn chỉ duyệt, không nhập tay.</p><button class="cta">${I('mail')}Kết nối email ngân hàng</button><button class="textlink">Hoặc ghi tay một khoản</button></section>`;
+const QUEUE_CARD = `<section class="cf-card"><div class="cf-lbl">Email ngân hàng · đã đọc 90 ngày</div><div class="cf-h">84 khoản đang chờ bạn duyệt</div><p class="cf-p">Xem từng khoản, sửa danh mục nếu cần, rồi ghi vào sổ. Chưa duyệt thì chưa tính.</p><button class="cta">${I('list')}Duyệt 84 khoản</button><button class="textlink">Ghi tay một khoản</button></section>`;
+const QUEUE_LATEST = sec('Mới nhất trong hàng chờ', 'Xem cả 84') + rows([
+  { i: '☕', t: 'Highlands Coffee', s: '15/09 · 09:12 · VIB ••5140', amt: '−65.000 ₫', cat: 'Cà phê · gợi ý' },
+  { i: '🚕', t: 'Grab', s: '14/09 · 18:40 · VIB ••5140', amt: '−86.000 ₫', cat: 'Đi lại · gợi ý' },
+  { i: '💰', t: 'CTY TNHH ABC chuyển lương', s: '10/09 · VCB ••2291', amt: '+18.000.000 ₫', cls: 'pos', cat: 'Thu nhập · gợi ý' },
+]);
+const STEP = (n, cls, t, s, chev) => `<div class="step ${cls}"><div class="ring">${cls === 'done' ? I('check') : n}</div><div class="sb"><div class="st">${t}</div><div class="ss">${s}</div></div>${chev ? '<svg class="cc-chev"><use href="#i-chev"/></svg>' : ''}</div>`;
+/* state-3 feature sections: each empty state is built from the ledger's own
+   rows, so it names something the person recognises and gives one tap */
+const EMPTY_DEBTS = sec('Nợ &amp; cho vay', 'Ghi cho vay') + `<div class="bento">
+  <div class="tile"><div class="tk">VIB Visa ••4512</div><div class="tv dim">—</div><div class="ts b">Chạm để cài đặt thẻ</div></div>
+  <div class="tile"><div class="tk">VIB ••5140</div><div class="tv dim">—</div><div class="ts b">Chạm để cài đặt</div></div>
+  <div class="tile wide" style="display:flex;align-items:center;gap:12px"><div style="flex:1"><div class="tk">3 tài khoản nhận diện từ email</div><div class="ts">Nhập số đang thấy trong app ngân hàng, app tính tiếp từ đó</div></div><span class="stat b">Cài đặt cả 3</span></div>
+</div>`;
+const EMPTY_INVEST = sec('Đầu tư', '＋ Vị thế') + `<section class="cf-card slim"><div class="cf-h sm">2 khoản chuyển tới Binance tháng này</div><p class="cf-p m" style="margin-top:6px">Nếu là mua coin, chuyển thành đầu tư để 20.000.000 ₫ không bị tính là chi tiêu.</p><div class="chips" style="margin-top:12px"><span class="chip on">Xem 2 khoản</span><span class="chip">Thêm vị thế</span></div></section>`;
+const EMPTY_STREAK = sec('Chuỗi thói quen', '＋ Thêm') + `<section class="cf-card slim"><div style="display:flex;align-items:center;gap:12px"><span class="stk-emo" style="font-size:26px">🚕</span><div style="flex:1"><div class="cf-h sm">Grab 9 lần tháng này, 1.480.000 ₫</div><p class="cf-p m" style="margin-top:4px">Thử 7 ngày không Grab? App tự đếm từ sổ của bạn.</p></div></div><button class="btn-line" style="margin-top:12px">Bắt đầu chuỗi 7 ngày</button></section>`;
+const COMBINED = {
+  k: '01 + 02', t: 'Phương án chốt: Cửa chính, rồi Ba bước',
+  why: '<b>Ngày đầu chỉ có một cửa. Khi sổ đã có số, checklist dẫn đường.</b> Trạng thái 1 giữ nguyên thẻ mời của hướng 01. Trạng thái 2 vẫn là thẻ đó, việc đổi thành duyệt, và hàng chờ hiện thành một xấp thẻ ngay trong widget (B1) với thẻ hai dòng E7: chỉ hiển thị, chạm là mở màn duyệt. Sang trạng thái 3, widget ba bước của hướng 02 lên đầu màn, và mỗi mục tính năng bên dưới hiện một ô trống biết nói, lấy từ chính dữ liệu trong sổ: thẻ vừa nhận diện, hai khoản chuyển tới Binance, chín cuốc Grab. Trạng thái 4 không còn widget.',
+  s: [
+    START_CARD + WILL_SEE,
+    () => BWRAP2(`<div class="qc k1 tap"><div class="c-line"><div class="c-name"><span class="c-emo">☕</span>Highlands Coffee</div><div class="c-amt" style="font-size:18px">−65.000 ₫</div></div>${L2('15/09 · 09:12', 'VIB ••5140')}</div>`) + WILL_SEE,
+    `<section class="cf-card slim"><div class="cf-lblrow"><div class="cf-lbl">Thiết lập · 1 / 3</div><div class="dots"><i class="done"></i><i class="on"></i><i></i></div></div><div class="segs" style="margin-top:8px"><i class="on"></i><i></i><i></i></div>
+      <div class="steps" style="margin-top:10px">${STEP(2, 'now', 'Cài đặt tài khoản, thẻ', 'VIB ••5140, VCB ••2291, VIB Visa ••4512', 1)}${STEP(3, '', 'Lập ngân sách tháng', 'Biết mỗi ngày còn tiêu được bao nhiêu', 1)}</div></section>` + cfReal() + EMPTY_DEBTS + EMPTY_INVEST + EMPTY_STREAK + PSP + TXN,
+    cfReal({ guide: 1, budget: 1 }) + FULL_TAIL,
+  ],
+  n: ['Hướng 01: một thẻ, một CTA, danh sách những gì sẽ có.', 'Cùng thẻ, việc đổi thành duyệt. Khoản mới nhất là thẻ trên cùng của một xấp (B1 với thẻ E7): hai dòng, chỉ hiển thị, chạm là mở hàng chờ.', 'Widget ba bước trên đầu, còn hai việc. Mỗi mục bên dưới là một ô trống lấy từ dữ liệu thật, một chạm là xong.', 'Không còn widget. Dashboard đủ.'],
+};
+
+/* ═══ the 8 options × 4 states ═══ */
+const OPTIONS = [
+  COMBINED,
+  {
+    k: '01', t: 'Cửa chính',
+    why: '<b>Một thẻ, một việc.</b> Thẻ đầu chỉ có một lời mời và nó đổi nội dung theo mốc: kết nối email → duyệt hàng chờ → dashboard thật. Các chiều khác chỉ xuất hiện khi có dữ liệu; trước đó là một danh sách lặng nói app còn theo dõi được gì.',
+    s: [
+      `<section class="cf-card"><div class="cf-lbl">Sổ cá nhân · tháng 9</div><div class="cf-h">Bắt đầu sổ của bạn</div><p class="cf-p">Kết nối email ngân hàng, app tự ghi lại 90 ngày giao dịch gần nhất. Bạn chỉ duyệt, không nhập tay.</p><button class="cta">${I('mail')}Kết nối email ngân hàng</button><button class="textlink">Hoặc ghi tay một khoản</button>${lockline(LOCK_TXT)}</section>` + WILL_SEE,
+      `<section class="cf-card"><div class="cf-lbl">Email ngân hàng · đã đọc 90 ngày</div><div class="cf-h">84 khoản đang chờ bạn duyệt</div><p class="cf-p">Xem từng khoản, sửa danh mục nếu cần, rồi ghi vào sổ. App không tự ghi gì khi bạn chưa gật.</p><button class="cta">${I('list')}Duyệt 84 khoản</button><button class="textlink">Ghi tay một khoản</button>${lockline(LOCK_TXT)}</section>` + WILL_SEE,
+      cfReal() + NEXT_C + PSP + TXN,
+      cfReal({ guide: 1, budget: 1 }) + FULL_TAIL,
+    ],
+    n: ['Một CTA, phần còn lại là lời hứa.', 'Cùng thẻ, đổi việc: duyệt thay vì kết nối.', 'Dashboard thật; việc còn lại gom vào "Tiếp theo".', 'Thẻ mời biến mất hẳn, không còn dấu vết thiết lập.'],
+  },
+  {
+    k: '02', t: 'Ba bước',
+    why: '<b>Tiến độ thay cho trống vắng.</b> Một checklist ba việc dẫn từ đầu đến cuối. Bước hiện tại mang CTA; khi sổ đã có số, checklist co lại thành một thanh mỏng phía trên dashboard rồi biến mất ở 3/3.',
+    s: [
+      `<section class="cf-card"><div class="cf-lbl">Thiết lập · 0 / 3</div><div class="cf-h">Sổ của bạn sống sau 3 bước</div><div class="segs"><i></i><i></i><i></i></div><div class="steps">
+        <div class="step now"><div class="ring">1</div><div class="sb"><div class="st">Có khoản đầu tiên</div><div class="ss">Kết nối email ngân hàng, hoặc ghi tay</div></div></div>
+        <div class="step"><div class="ring">2</div><div class="sb"><div class="st">Cài đặt tài khoản, thẻ</div><div class="ss">Để app tính đúng từ hôm nay</div></div></div>
+        <div class="step"><div class="ring">3</div><div class="sb"><div class="st">Lập ngân sách tháng</div><div class="ss">Biết mỗi ngày còn tiêu được bao nhiêu</div></div></div></div></section>
+        <div style="margin:0 16px"><button class="cta" style="margin-top:2px">${I('mail')}Kết nối email ngân hàng</button><button class="textlink">Ghi tay khoản đầu tiên</button></div>`,
+      `<section class="cf-card"><div class="cf-lbl">Thiết lập · 0 / 3</div><div class="cf-h">Sổ của bạn sống sau 3 bước</div><div class="segs"><i class="half"></i><i></i><i></i></div><div class="steps">
+        <div class="step now"><div class="ring">1</div><div class="sb"><div class="st">Có khoản đầu tiên</div><div class="ss"><b>84 khoản</b> từ email đang chờ bạn duyệt</div></div></div>
+        <div class="step"><div class="ring">2</div><div class="sb"><div class="st">Cài đặt tài khoản, thẻ</div><div class="ss">VIB ••5140, VCB ••2291 đã nhận diện từ email</div></div></div>
+        <div class="step"><div class="ring">3</div><div class="sb"><div class="st">Lập ngân sách tháng</div><div class="ss">Biết mỗi ngày còn tiêu được bao nhiêu</div></div></div></div></section>
+        <div style="margin:0 16px"><button class="cta" style="margin-top:2px">${I('list')}Duyệt 84 khoản</button><button class="textlink m">Để sau</button></div>`,
+      `<section class="cf-card slim"><div class="cf-lblrow"><div class="cf-lbl">Thiết lập · 1 / 3</div><div class="dots"><i class="done"></i><i class="on"></i><i></i></div></div><div class="segs" style="margin-top:8px"><i class="on"></i><i></i><i></i></div>
+        <div class="steps" style="margin-top:10px"><div class="step now" style="padding:12px 16px"><div class="ring">2</div><div class="sb"><div class="st">Cài đặt tài khoản, thẻ</div><div class="ss">VIB ••5140, VCB ••2291, Tiền mặt</div></div><svg class="cc-chev"><use href="#i-chev"/></svg></div></div></section>` + cfReal() + PSP + TXN,
+      cfReal({ guide: 1, budget: 1 }) + FULL_TAIL,
+    ],
+    n: ['Ba việc, một CTA cho việc đầu.', 'Bước 1 nửa chừng: hàng chờ đã đầy.', 'Checklist co thành thanh mỏng; bước 2 là việc duy nhất còn lộ.', '3/3 xong, thanh biến mất.'],
+  },
+  {
+    k: '03', t: 'Bản nháp',
+    why: '<b>Cho thấy đích đến.</b> Bố cục dashboard thật hiện từ ngày đầu, phần chưa có dữ liệu ở dạng nháp mờ. Mỗi mốc lấp đầy một phần; phần chưa lấp mang lời mời ngay trong ô của nó, nên người dùng luôn thấy còn gì để mở.',
+    s: [
+      setupCard('mail', 'Kết nối email để lấp đầy sổ', '90 ngày gần nhất, tự ghi, bạn chỉ duyệt') + GHOST_CF + GHOST_DEBTS() + GHOST_PSP,
+      setupCard('list', 'Duyệt 84 khoản từ email', 'Đã đọc xong 90 ngày, đang chờ bạn', '84') + GHOST_CF + GHOST_DEBTS() + GHOST_PSP,
+      cfReal() + GHOST_DEBTS(true) + GHOST_INVEST + PSP + TXN,
+      cfReal({ guide: 1, budget: 1 }) + FULL_TAIL,
+    ],
+    n: ['Toàn bộ khung ở dạng nháp, một thẻ mời trên cùng.', 'Thẻ mời đổi việc, khung nháp giữ nguyên.', 'Phần có số hiện thật; ô nợ/đầu tư mang lời mời tại chỗ.', 'Không còn nháp.'],
+  },
+  {
+    k: '04', t: 'Số đầu tiên',
+    why: '<b>Một con số thật ngay phút đầu.</b> Trước cả giao dịch, hỏi "đang có bao nhiêu tiền" và chốt mốc số dư. Dải tài khoản dưới thẻ dòng tiền là chữ ký của hướng này: mỗi tài khoản là một ô, có số hoặc có lời mời chốt.',
+    s: [
+      `<section class="cf-card"><div class="cf-lbl">Bước đầu · 1 phút</div><div class="cf-h">Bạn đang có bao nhiêu tiền?</div><div class="chips"><span class="chip on">${I('check')}Tiền mặt</span><span class="chip">Ngân hàng</span><span class="chip">Ví điện tử</span></div><div class="field"><label>Số đang có</label><div class="inp big"><span class="v">9.000.000</span><span class="u">₫</span></div></div><p class="fine">Mốc này đã gồm mọi giao dịch trước lúc đặt. Khoản ghi sau đó cộng trừ tiếp lên nó.</p><button class="cta">Chốt số dư</button></section>`
+        + sec('Tiếp theo') + rows([{ i: 'mail', b: 1, t: 'Kết nối email ngân hàng', s: 'Tự ghi 90 ngày gần nhất' }, { i: 'plus', t: 'Ghi khoản chi đầu tiên', s: '10 giây, số tiền và danh mục' }, { i: 'bars', t: 'Lập ngân sách tháng', s: 'Để có "hôm nay còn tiêu được"' }]),
+      setupCard('list', '84 khoản từ email chờ duyệt', 'Đã đọc xong 90 ngày', '84')
+        + `<section class="cf-card"><div class="cf-lbl">Tài khoản nhận diện từ email</div><div class="cf-h">VIB ••5140 đang có bao nhiêu?</div><div class="chips"><span class="chip on">${I('check')}VIB ••5140</span><span class="chip">VCB ••2291</span><span class="chip">Tiền mặt</span></div><div class="field"><label>Số dư hiện tại</label><div class="inp big"><span class="v">9.000.000</span><span class="u">₫</span></div></div><p class="fine">Email chỉ kể được vài tháng gần đây. Nhập số đang thấy trong app ngân hàng để tính đúng từ đây.</p><button class="cta">Chốt số dư</button><button class="textlink m">Để sau</button></section>`,
+      cfReal() + ASSETS(false) + PSP + TXN,
+      cfReal({ guide: 1, budget: 1 }) + ASSETS(true) + FULL_TAIL,
+    ],
+    n: ['Hỏi số dư tiền mặt trước, email là "tiếp theo".', 'Hàng chờ trên cùng; câu hỏi số dư chuyển sang tài khoản email vừa nhận diện.', 'Dải tài khoản: tiền mặt có số, hai tài khoản kia mời chốt.', 'Dải tài khoản đầy số, thẻ tín dụng đỏ.'],
+  },
+  {
+    k: '05', t: 'Hỏi từng câu',
+    why: '<b>Onboarding nằm ngay trong tab.</b> Ba câu hỏi, mỗi mốc một câu, hai câu trả lời lớn và "Để sau". Câu trả lời quyết định việc kế tiếp nên không ai phải chọn giữa mười nút. Các chiều nâng cao gập dưới khóa cho tới khi sổ có giao dịch.',
+    s: [
+      `<section class="cf-card"><div class="cf-lblrow"><div class="cf-lbl">Câu 1 / 3</div><div class="dots"><i class="on"></i><i></i><i></i></div></div><div class="cf-h">Ngân hàng có gửi email báo giao dịch cho bạn không?</div><p class="cf-p m">Nếu có, app đọc email và ghi sẵn vào sổ. Nếu không, bạn ghi tay, mỗi khoản mười giây.</p><button class="cta">${I('mail')}Có, kết nối Gmail</button><button class="btn-line">Không, tôi ghi tay</button><button class="textlink m">Để sau</button></section>` + LOCKED,
+      `<section class="cf-card"><div class="cf-lblrow"><div class="cf-lbl">Câu 2 / 3</div><div class="dots"><i class="done"></i><i class="on"></i><i></i></div></div><div class="cf-h">84 khoản từ email đã về. Duyệt ngay?</div><p class="cf-p m">Bạn xem từng khoản, sửa danh mục nếu cần, rồi ghi vào sổ. Khoảng 5 phút cho 90 ngày.</p><button class="cta">${I('list')}Duyệt 84 khoản</button><button class="textlink m">Để sau</button></section>` + LOCKED,
+      `<section class="cf-card slim"><div class="cf-lblrow"><div class="cf-lbl">Câu 3 / 3</div><div class="dots"><i class="done"></i><i class="done"></i><i class="on"></i></div></div><div class="cf-h sm">VIB ••5140 đang có bao nhiêu?</div><div class="chips" style="margin-top:10px"><span class="chip on">${I('check')}VIB ••5140</span><span class="chip">VCB ••2291</span><span class="chip">Tiền mặt</span></div><div class="inp big" style="margin-top:12px"><span class="v">9.000.000</span><span class="u">₫</span></div><button class="cta" style="margin-top:12px">Chốt số dư</button><button class="textlink m">Để sau</button></section>` + cfReal() + PSP + TXN,
+      cfReal({ guide: 1, budget: 1 }) + FULL_TAIL,
+    ],
+    n: ['Câu 1: có email không. Chiều nâng cao khóa.', 'Câu 2: duyệt hàng chờ.', 'Câu 3: chốt số dư, đặt trên dashboard thật.', 'Hết câu hỏi.'],
+  },
+  {
+    k: '06', t: '90 ngày',
+    why: '<b>Bán lời hứa bằng hình.</b> Dải 12 tuần là chữ ký: rỗng khi chưa nối, tint khi hàng chờ đầy, brand khi đã vào sổ, và ở trạng thái đủ nó trở thành biểu đồ tháng của thẻ dòng tiền. Bên dưới là ba nguồn giao dịch với tình trạng từng nguồn.',
+    s: [
+      `<section class="cf-card"><div class="cf-lbl">Sổ cá nhân</div><div class="cf-h">90 ngày gần nhất đang chờ được ghi</div>${timeline('empty')}<p class="cf-p">Kết nối email ngân hàng, app đọc ngược 90 ngày và xếp sẵn vào sổ. Bạn duyệt, app ghi.</p><button class="cta">${I('mail')}Kết nối email ngân hàng</button></section>` + SOURCES(1),
+      `<section class="cf-card"><div class="cf-lbl">Email ngân hàng · đã đọc xong</div><div class="cf-h">84 khoản trong 90 ngày, chờ bạn duyệt</div>${timeline('pend')}<p class="cf-p">Duyệt một lượt là cả dải này vào sổ. Bạn có thể sửa danh mục từng khoản trước khi ghi.</p><button class="cta">${I('list')}Duyệt 84 khoản</button></section>` + SOURCES(2),
+      cfReal({ chart: false, after: `<div class="pz"><span>Tuần</span><span class="on">90 ngày</span></div>${timeline('real')}` }) + SOURCES(3) + PSP + TXN,
+      cfReal({ chart: false, after: `<div class="pz"><span>Tuần</span><span class="on">90 ngày</span></div>${timeline('real')}`, guide: 1, budget: 1 }) + FULL_TAIL,
+    ],
+    n: ['Dải rỗng, một CTA.', 'Dải tint: đã tìm thấy, chưa ghi.', 'Dải brand thành biểu đồ; nguồn email ghi "84 đã ghi".', 'Dải giữ vai biểu đồ 90 ngày trong dashboard đủ.'],
+  },
+  {
+    k: '07', t: 'Ghi nhanh',
+    why: '<b>Ghi tay là cửa chính.</b> Thẻ đầu là bộ gõ tại chỗ: số tiền, chip danh mục, một nút Ghi, thanh 0/3. Khi sổ đã có số, bộ gõ co thành hàng "Ghi nhanh" đứng đầu danh sách hành động, nên thói quen ghi tay không mất chỗ.',
+    s: [
+      COMPOSER(0) + sec('Khi đã có khoản') + rows([{ i: 'bars', t: 'Lập ngân sách tháng', s: 'Hôm nay còn tiêu được bao nhiêu' }, { i: 'wallet', t: 'Cài đặt tài khoản, thẻ', s: 'Để app tính đúng từ hôm nay' }]),
+      setupCard('list', '84 khoản từ email chờ duyệt', 'Duyệt xong là có biểu đồ ngay', '84') + COMPOSER(0),
+      cfReal({ cc: CC_QUICK(false) }) + NEXT_C + PSP + TXN,
+      cfReal({ cc: CC_QUICK(true), guide: 1 }) + FULL_TAIL,
+    ],
+    n: ['Bộ gõ là hero; email là hàng phụ.', 'Hàng chờ trên cùng, bộ gõ vẫn mở.', 'Bộ gõ co thành hàng "Ghi nhanh" đầu danh sách.', 'Giữ hàng "Ghi nhanh" trong dashboard đủ.'],
+  },
+  {
+    k: '08', t: 'Ô nhỏ',
+    why: '<b>Mượn lưới widget của Home.</b> Bốn ô cùng một khuôn, cùng vị trí ở mọi mốc: có dữ liệu thì hiện số, chưa có thì hiện lời mời "＋". Người dùng học một bố cục và thấy nó lấp đầy dần; thẻ mời email đứng trên cho tới khi hàng chờ trống.',
+    s: [
+      setupCard('mail', 'Kết nối email ngân hàng', 'Tự ghi 90 ngày gần nhất, bạn chỉ duyệt') + `<div class="wgrid">${wtile('bars', 'Còn lại tháng này', '—', wadd('Ghi khoản đầu tiên'), 'dim')}${wtile('wallet', 'Tài khoản', '—', wadd('Chốt số dư'), 'dim')}${wtile('card', 'Nợ &amp; thẻ', '—', wadd('Ghi khoản vay'), 'dim')}${wtile('trend', 'Đầu tư', '—', wadd('Thêm vị thế'), 'dim')}</div>`
+        + sec('Thêm cho sổ') + rows([{ i: 'flag', t: 'Lập ngân sách tháng', s: 'Biết mỗi ngày còn tiêu được bao nhiêu' }, { i: 'flame', t: 'Thử nhịn một thói quen', s: 'Ví dụ 7 ngày không Grab' }]) + `<div class="lockline" style="margin:4px 22px 0">${I('lock')}Sổ này chỉ mình bạn thấy.</div>`,
+      setupCard('list', 'Duyệt 84 khoản từ email', 'Đã đọc xong 90 ngày', '84') + `<div class="wgrid">${wtile('bars', 'Còn lại tháng này', '—', wfoot('Có số sau khi duyệt'), 'dim')}${wtile('wallet', 'Tài khoản', '—', wfoot('VIB, VCB đã nhận diện'), 'dim')}${wtile('card', 'Nợ &amp; thẻ', '—', wfoot('VIB Visa đã nhận diện'), 'dim')}${wtile('trend', 'Đầu tư', '—', wadd('Thêm vị thế'), 'dim')}</div>`
+        + sec('Thêm cho sổ') + rows([{ i: 'flag', t: 'Lập ngân sách tháng', s: 'Biết mỗi ngày còn tiêu được bao nhiêu' }, { i: 'flame', t: 'Thử nhịn một thói quen', s: 'Ví dụ 7 ngày không Grab' }]),
+      `<div class="wgrid">${wtile('bars', 'Còn lại tháng này', '8,24<small>tr ₫</small>', wfoot('Vào 18tr · Ra 9,76tr'))}${wtile('wallet', 'Tài khoản', '—', wadd('Chốt số dư'), 'dim')}${wtile('card', 'Nợ &amp; thẻ', '—', wadd('Chốt dư nợ thẻ'), 'dim')}${wtile('trend', 'Đầu tư', '—', wadd('Thêm vị thế'), 'dim')}</div>`
+        + cfReal({ noHero: 1 }) + PSP + TXN,
+      `<div class="wgrid">${wtile('bars', 'Còn lại tháng này', '8,24<small>tr ₫</small>', wfoot('Hôm nay còn 349.000 ₫', true))}${wtile('wallet', 'Tài khoản', '21,87<small>tr ₫</small>', wfoot('3 tài khoản'))}${wtile('card', 'Nợ &amp; thẻ', '4,82<small>tr ₫</small>', wfoot('đến hạn 25/09'), 'owe')}${wtile('trend', 'Đầu tư', '61,2<small>tr ₫</small>', wfoot('▲ +11% · Bitcoin', true))}</div>` + STREAK + cfReal({ noHero: 1, budget: 1 }) + DEBTS + INVEST + PSP + TXN,
+    ],
+    n: ['Bốn ô, bốn lời mời; thẻ email trên cùng.', 'Ô ghi rõ điều gì sẽ có sau khi duyệt.', 'Ô "Còn lại" có số, ba ô kia còn mời.', 'Bốn ô đầy số, chuỗi thói quen dưới lưới.'],
+  },
+];
+
+
+/* ═══ state 2 × 8: the queue folded into the widget ═══ */
+const QH = `<div class="cf-lbl">Email ngân hàng · đã đọc 90 ngày</div>`;
+const QCTA = (t) => `<button class="cta">${I('list')}${t || 'Duyệt 84 khoản'}</button>`;
+const QROW = (e, t, s2, a, c, pos, extra) => `<div class="q-row${extra && extra.cls ? ' ' + extra.cls : ''}"><div class="q-ico">${e}</div><div class="q-b"><div class="q-t">${t}</div><div class="q-s">${s2}</div></div>${extra && extra.right ? extra.right : `<div><div class="q-a${pos ? ' pos' : ''}">${a}</div>${c ? `<div class="q-c">${c}</div>` : ''}</div>`}</div>`;
+const QMORE = (t) => `<div class="q-more"><span>${t}</span>${I('chev')}</div>`;
+const R1 = ['☕', 'Highlands Coffee', '15/09 · 09:12 · VIB ••5140', '−65.000 ₫', 'Cà phê · gợi ý'];
+const R2 = ['🚕', 'Grab', '14/09 · 18:40 · VIB ••5140', '−86.000 ₫', 'Đi lại · gợi ý'];
+const R3 = ['💰', 'CTY TNHH ABC chuyển lương', '10/09 · VCB ••2291', '+18.000.000 ₫', 'Thu nhập · gợi ý', 1];
+const QC = (k, amt, pos, m, s2, chips) => `<div class="qc ${k}"><div class="qc-top"><div style="flex:1"><div class="qc-amt${pos ? ' pos' : ''}">${amt}</div><div class="qc-m">${m}</div><div class="qc-s">${s2}</div></div></div>${chips ? `<div class="qc-chips">${chips}</div>` : ''}</div>`;
+const S2 = [
+  {
+    k: 'A', t: 'Danh sách trong thẻ',
+    why: 'Ba khoản mới nhất nằm ngay trong thẻ, dưới phần lời. Hàng "còn 81 khoản" là cửa vào hàng chờ đầy đủ; CTA giữ vai duyệt cả lượt. Gọn, quen mắt, ít rủi ro nhất.',
+    h: `<section class="cf-card">${QH}<div class="cf-h">84 khoản đang chờ bạn duyệt</div><p class="cf-p">Xem từng khoản, sửa danh mục nếu cần, rồi ghi vào sổ. Chưa duyệt thì chưa tính.</p>
+      <div class="q-list">${QROW(...R1)}${QROW(...R2)}${QROW(...R3)}${QMORE('Còn 81 khoản nữa')}</div>${QCTA()}</section>`,
+  },
+  {
+    k: 'B', t: 'Xếp chồng',
+    why: 'Khoản mới nhất là một thẻ duyệt thu nhỏ, hai thẻ sau ló ra phía dưới như chồng thông báo iOS. Nhìn là hiểu "đây là một xấp cần lật". Đếm 1/84 gắn vào xấp, không vào tiêu đề.',
+    h: `<section class="cf-card">${QH}<div class="cf-h">84 khoản đang chờ bạn duyệt</div>
+      <div class="deck">${QC('k1', '−65.000 ₫', 0, 'Highlands Coffee', '15/09 · 09:12 · VIB ••5140', '<span class="qc-chip on">☕ Cà phê</span><span class="qc-chip">Đổi danh mục</span>')}${QC('k2', '−86.000 ₫', 0, 'Grab', '14/09 · 18:40 · VIB ••5140', '<span class="qc-chip on">🚕 Đi lại</span>')}${QC('k3', '+18.000.000 ₫', 1, 'Chuyển lương', '10/09 · VCB ••2291', '<span class="qc-chip on">💰 Thu nhập</span>')}</div>
+      <div class="q-count"><span>1 / 84 · mới nhất trước</span><span>Vuốt để xem tiếp</span></div>${QCTA('Bắt đầu duyệt')}</section>`,
+  },
+  {
+    k: 'C', t: 'Một thẻ duyệt tại chỗ',
+    why: 'Thẻ đầu tiên của hàng chờ hiện đủ để duyệt luôn: số tiền, nơi chi, danh mục gợi ý, hai nút Ghi vào sổ / Bỏ qua. Người dùng làm việc thật ngay trên tab, không cần mở màn duyệt.',
+    h: `<section class="cf-card">${QH}<div class="cf-h">84 khoản đang chờ bạn duyệt</div>
+      <div class="qc" style="margin-top:14px">${''}<div class="qc-amt">−65.000 ₫</div><div class="qc-m">Highlands Coffee</div><div class="qc-s">15/09 · 09:12 · VIB ••5140 · thẻ ghi nợ</div>
+        <div class="qc-chips"><span class="qc-chip on">☕ Cà phê</span><span class="qc-chip">🍜 Ăn uống</span><span class="qc-chip">Khác…</span></div>
+        <div style="display:flex;gap:8px;margin-top:12px"><button class="btn-line" style="margin:0;padding:11px;font-size:14px">Bỏ qua</button><button class="cta" style="margin:0;padding:11px;font-size:14px">Ghi vào sổ</button></div></div>
+      <div class="q-count"><span>Khoản 1 / 84</span><span>Sau đó: Grab −86.000 ₫</span></div>
+      <button class="textlink">Mở hàng chờ đầy đủ</button></section>`,
+  },
+  {
+    k: 'D', t: 'Dải ngang',
+    why: 'Các khoản mới nhất chạy ngang như dải ảnh trong thẻ gia đình, mỗi ô một khoản. Lướt được, chiếm ít chiều cao, ô cuối là "+81". CTA vẫn là một nút duyệt cả lượt.',
+    h: `<section class="cf-card">${QH}<div class="cf-h">84 khoản đang chờ bạn duyệt</div><p class="cf-p">Mới nhất bên trái. Chưa duyệt thì chưa tính vào sổ.</p>
+      <div class="qstrip"><div class="qt"><div class="e">☕</div><div class="a">−65.000 ₫</div><div class="m">Highlands Coffee</div><div class="d">15/09 · VIB</div></div><div class="qt"><div class="e">🚕</div><div class="a">−86.000 ₫</div><div class="m">Grab</div><div class="d">14/09 · VIB</div></div><div class="qt"><div class="e">💰</div><div class="a pos">+18.000.000 ₫</div><div class="m">Chuyển lương</div><div class="d">10/09 · VCB</div></div><div class="qt more">+81</div></div>${QCTA()}</section>`,
+  },
+  {
+    k: 'E', t: 'Tóm tắt trước, chi tiết sau',
+    why: 'Không liệt kê khoản. Thẻ kể email đã tìm thấy gì: bao nhiêu khoản chi, thu, chuyển khoản, tổng tiền, các nơi hay gặp. Người dùng thấy giá trị của 90 ngày trước khi bấm duyệt.',
+    h: `<section class="cf-card">${QH}<div class="cf-h">84 khoản trong 90 ngày, chờ bạn duyệt</div>
+      <div class="q-sum"><div><div class="l">Chi</div><div class="v">22,4tr ₫</div><div class="n">61 khoản</div></div><div><div class="l">Thu</div><div class="v pos">54,0tr ₫</div><div class="n">6 khoản</div></div><div><div class="l">Chuyển</div><div class="v">17</div><div class="n">giữa tài khoản</div></div></div>
+      <div class="chips" style="margin-top:12px"><span class="chip">🚕 Grab ×9</span><span class="chip">☕ Highlands ×6</span><span class="chip">🛒 Shopee ×5</span><span class="chip">+14 nơi khác</span></div>${QCTA()}</section>`,
+  },
+  {
+    k: 'F', t: 'Theo ngày',
+    why: 'Khoản mới nhất gom theo ngày ngay trong thẻ: Hôm nay, Hôm qua, rồi "Tuần trước · 12 khoản". Đọc như một nhật ký đang chờ ký, hợp với người muốn duyệt theo ngày.',
+    h: `<section class="cf-card">${QH}<div class="cf-h">84 khoản đang chờ bạn duyệt</div>
+      <div class="q-list"><div class="q-day"><span>Hôm nay</span><span>1 khoản</span></div>${QROW(...R1)}<div class="q-day"><span>Hôm qua</span><span>2 khoản</span></div>${QROW(...R2)}${QROW('🛒', 'Bách Hoá Xanh', '14/09 · 11:05 · VIB ••5140', '−312.000 ₫', 'Mua sắm · gợi ý')}${QMORE('Tuần trước · 12 khoản')}${QMORE('Trước đó · 69 khoản')}</div>${QCTA()}</section>`,
+  },
+  {
+    k: 'G', t: 'Duyệt nhanh ba khoản',
+    why: 'Ba khoản mới nhất kèm nút chọn ngay trong thẻ; danh mục đã gợi ý sẵn. Bấm CTA là ghi những khoản đã tick, phần còn lại vào hàng chờ đầy đủ. Cho người muốn thấy kết quả sau ba chạm.',
+    h: `<section class="cf-card">${QH}<div class="cf-h">84 khoản đang chờ bạn duyệt</div><p class="cf-p m">Tick khoản đúng, sửa nếu cần, rồi ghi. Ba khoản mới nhất ở đây, số còn lại trong hàng chờ.</p>
+      <div class="q-list">${QROW('☕', 'Highlands Coffee · Cà phê', '15/09 · −65.000 ₫ · VIB ••5140', '', '', 0, { cls: 'picked', right: `<div class="qa"><button class="ok">${I('check')}</button></div>` })}${QROW('🚕', 'Grab · Đi lại', '14/09 · −86.000 ₫ · VIB ••5140', '', '', 0, { cls: 'picked', right: `<div class="qa"><button class="ok">${I('check')}</button></div>` })}${QROW('💰', 'Chuyển lương · Thu nhập', '10/09 · +18.000.000 ₫ · VCB ••2291', '', '', 0, { right: `<div class="qa"><button>${I('check')}</button></div>` })}</div>
+      ${QCTA('Ghi 2 khoản đã chọn')}<button class="textlink">Mở hàng chờ 84 khoản</button></section>`,
+  },
+  {
+    k: 'H', t: 'Theo tài khoản',
+    why: 'Hàng chờ gom theo nguồn tiền: mỗi tài khoản một hàng, kèm số khoản và khoản mới nhất. Người dùng thấy email đã đọc được những tài khoản nào, và đây cũng là mồi cho bước cài đặt tài khoản sau này.',
+    h: `<section class="cf-card">${QH}<div class="cf-h">84 khoản từ 3 tài khoản, chờ bạn duyệt</div>
+      <div class="q-list">${QROW('🏦', 'VIB ••5140', 'Mới nhất: Highlands Coffee −65.000 ₫', '', '', 0, { right: '<span class="cc-badge">46</span>' })}${QROW('🏦', 'VCB ••2291', 'Mới nhất: Chuyển lương +18.000.000 ₫', '', '', 0, { right: '<span class="cc-badge">31</span>' })}${QROW('💳', 'VIB Visa ••4512', 'Mới nhất: Shopee −540.000 ₫', '', '', 0, { right: '<span class="cc-badge">7</span>' })}</div>${QCTA()}</section>`,
+  },
+];
+
+
+/* ═══ A × 8 (in-card list) and B × 8 (deck) ═══ */
+const CK = (on) => `<div class="q-cb${on ? ' on' : ''}">${on ? I('check') : ''}</div>`;
+const AR = (e, m, s2, a, pos, right) => `<div class="q-row amt1"><div class="q-amtL${pos ? ' pos' : ''}">${a}</div><div class="q-b"><div class="q-t">${m}</div><div class="q-s">${s2}</div></div>${right || `<div class="q-ico">${e}</div>`}</div>`;
+const ST = (k) => k === 'ok' ? `<span class="q-st ok">${I('check')}Chắc</span>` : `<span class="q-st look">Cần xem</span>`;
+const A8 = [
+  { k: 'A1', t: 'Chuẩn', why: 'Bản gốc: lời dẫn, ba hàng mới nhất, hàng "còn 81", CTA. Mọi biến thể sau là một thay đổi so với đây.',
+    h: `<section class="cf-card">${QH}<div class="cf-h">84 khoản đang chờ bạn duyệt</div><p class="cf-p">Xem từng khoản, sửa danh mục nếu cần, rồi ghi vào sổ. Chưa duyệt thì chưa tính.</p><div class="q-list">${QROW(...R1)}${QROW(...R2)}${QROW(...R3)}${QMORE('Còn 81 khoản nữa')}</div>${QCTA()}</section>` },
+  { k: 'A2', t: 'Không lời dẫn', why: 'Bỏ đoạn giải thích. Tiêu đề, ba hàng, CTA. Câu "chưa duyệt thì chưa tính" dọn xuống hàng cuối làm phụ đề. Ít chữ hơn, thẻ ngắn hơn một dòng rưỡi.',
+    h: `<section class="cf-card">${QH}<div class="cf-h">84 khoản đang chờ bạn duyệt</div><div class="q-list" style="margin-top:12px">${QROW(...R1)}${QROW(...R2)}${QROW(...R3)}<div class="q-more"><div><div>Còn 81 khoản nữa</div><div style="font-size:11.5px;font-weight:400;color:var(--muted);margin-top:2px">Chưa duyệt thì chưa tính vào sổ</div></div>${I('chev')}</div></div>${QCTA()}</section>` },
+  { k: 'A3', t: 'Số tiền dẫn', why: 'Hàng xoay lại theo thẻ duyệt đã thu gọn của màn duyệt: số tiền đứng đầu hàng, nơi chi và ngày làm phụ, dấu danh mục lùi sang phải. Con số là thứ người ta quét trước.',
+    h: `<section class="cf-card">${QH}<div class="cf-h">84 khoản đang chờ bạn duyệt</div><p class="cf-p m">Mới nhất trước. Chưa duyệt thì chưa tính.</p><div class="q-list">${AR('☕', 'Highlands Coffee', '15/09 · VIB ••5140', '−65.000 ₫')}${AR('🚕', 'Grab', '14/09 · VIB ••5140', '−86.000 ₫')}${AR('💰', 'Chuyển lương', '10/09 · VCB ••2291', '+18.000.000 ₫', 1)}${QMORE('Còn 81 khoản nữa')}</div>${QCTA()}</section>` },
+  { k: 'A4', t: 'Chắc và cần xem', why: 'Mỗi hàng mang trạng thái của màn duyệt: "Chắc" (đủ ngày, tiền, danh mục) hay "Cần xem". Tiêu đề đếm hai loại, CTA ưu tiên phần cần người: mười hai khoản trước, bảy mươi hai khoản còn lại một chạm.',
+    h: `<section class="cf-card">${QH}<div class="cf-h">72 khoản chắc, 12 khoản cần bạn xem</div><div class="q-list" style="margin-top:12px">${QROW('☕', 'Highlands Coffee', '15/09 · 09:12 · VIB ••5140', '', '', 0, { right: ST('ok') })}${QROW('🏧', 'NGUYEN VAN A chuyen tien', '14/09 · 20:15 · VCB ••2291 · thiếu danh mục', '', '', 0, { right: ST('look'), cls: 'look' })}${QROW('💰', 'Chuyển lương', '10/09 · VCB ••2291', '', '', 0, { right: ST('ok') })}${QMORE('Còn 81 khoản nữa')}</div>${QCTA('Xem 12 khoản cần xem')}<button class="textlink">Ghi luôn 72 khoản chắc</button></section>` },
+  { k: 'A5', t: 'Hai nhóm', why: 'Danh sách trong thẻ chia đúng hai xô của màn duyệt: "Cần bạn xem" ở trên với vạch hổ phách, "Sẵn sàng" ở dưới. Thấy ngay việc phải làm tay là bao nhiêu.',
+    h: `<section class="cf-card">${QH}<div class="cf-h">84 khoản đang chờ bạn duyệt</div><div class="q-list" style="margin-top:12px"><div class="q-grp look"><span>Cần bạn xem</span><span>12</span></div>${QROW('🏧', 'NGUYEN VAN A chuyen tien', '14/09 · VCB ••2291 · thiếu danh mục', '−2.000.000 ₫', '', 0, { cls: 'look' })}${QROW('🛍️', 'SHOPEE*2291', '12/09 · VIB Visa · có thể trùng', '−540.000 ₫', '', 0, { cls: 'look' })}<div class="q-grp"><span>Sẵn sàng</span><span>72</span></div>${QROW(...R1)}${QMORE('Xem cả 72 khoản sẵn sàng')}</div>${QCTA('Ghi 72 khoản sẵn sàng')}<button class="textlink">Xem 12 khoản cần xem</button></section>` },
+  { k: 'A6', t: 'Có dòng tổng', why: 'Sau ba hàng là một dòng tổng trên nền surface: tổng chi, tổng thu của cả 84 khoản. Ba hàng cho cảm giác cụ thể, dòng tổng cho cảm giác quy mô, CTA ở dưới.',
+    h: `<section class="cf-card">${QH}<div class="cf-h">84 khoản đang chờ bạn duyệt</div><div class="q-list" style="margin-top:12px">${QROW(...R1)}${QROW(...R2)}${QROW(...R3)}<div class="q-sumrow"><span>Cả 84 khoản</span><span><b>−22,4tr</b> · <b class="pos">+54,0tr</b></span></div></div>${QCTA()}</section>` },
+  { k: 'A7', t: 'Lọc theo tài khoản', why: 'Ba chip tài khoản với số khoản đứng trên danh sách, chạm để đổi nguồn ngay trong thẻ. Người dùng thấy email đã đọc được những tài khoản nào và có thể duyệt từng nguồn.',
+    h: `<section class="cf-card">${QH}<div class="cf-h">84 khoản đang chờ bạn duyệt</div><div class="q-filters"><span class="q-f on">VIB ••5140<small>46</small></span><span class="q-f">VCB ••2291<small>31</small></span><span class="q-f">Visa ••4512<small>7</small></span></div><div class="q-list">${QROW(...R1)}${QROW(...R2)}${QROW('🛒', 'Bách Hoá Xanh', '14/09 · 11:05 · VIB ••5140', '−312.000 ₫', 'Mua sắm · gợi ý')}${QMORE('Còn 43 khoản VIB ••5140')}</div>${QCTA('Duyệt 46 khoản VIB')}</section>` },
+  { k: 'A8', t: 'Chọn để ghi', why: 'Mỗi hàng có ô chọn, mặc định chọn sẵn những khoản chắc. CTA ghi số đã chọn; người dùng bỏ chọn khoản sai thay vì duyệt từng cái. Vẫn là người chạm mới ghi, nhưng là một chạm cho nhiều khoản.',
+    h: `<section class="cf-card">${QH}<div class="cf-h">84 khoản đang chờ bạn duyệt</div><p class="cf-p m">Đã chọn sẵn 72 khoản chắc. Bỏ chọn khoản nào chưa đúng.</p><div class="q-list">${QROW('☕', 'Highlands Coffee', '15/09 · −65.000 ₫ · Cà phê', '', '', 0, { right: CK(1) })}${QROW('🚕', 'Grab', '14/09 · −86.000 ₫ · Đi lại', '', '', 0, { right: CK(1) })}${QROW('🏧', 'NGUYEN VAN A chuyen tien', '14/09 · −2.000.000 ₫ · chưa rõ', '', '', 0, { right: CK(0), cls: 'look' })}${QMORE('Xem cả 84 khoản')}</div>${QCTA('Ghi 72 khoản đã chọn')}</section>` },
+];
+const DAYCARD = (k, day, n, rowsHtml) => `<div class="qc ${k}"><div class="qc-h"><span>${day}</span><span>${n} khoản</span></div>${rowsHtml}</div>`;
+const ACCCARD = (k, acc, n, rowsHtml) => `<div class="qc ${k}"><div class="qc-h"><span>${acc}</span><span>${n} khoản</span></div>${rowsHtml}</div>`;
+const B8 = [
+  { k: 'B1', t: 'Chuẩn', why: 'Bản gốc: thẻ mới nhất ở trên, hai thẻ sau ló ra, đếm 1/84 gắn vào xấp, CTA "Bắt đầu duyệt".',
+    h: `<section class="cf-card">${QH}<div class="cf-h">84 khoản đang chờ bạn duyệt</div><div class="deck">${QC('k1', '−65.000 ₫', 0, 'Highlands Coffee', '15/09 · 09:12 · VIB ••5140', '<span class="qc-chip on">☕ Cà phê</span><span class="qc-chip">Đổi danh mục</span>')}${QC('k2', '−86.000 ₫', 0, 'Grab', '14/09 · VIB ••5140', '<span class="qc-chip on">🚕 Đi lại</span>')}${QC('k3', '+18.000.000 ₫', 1, 'Chuyển lương', '10/09', '')}</div><div class="q-count"><span>1 / 84 · mới nhất trước</span><span>Vuốt để xem tiếp</span></div>${QCTA('Bắt đầu duyệt')}</section>` },
+  { k: 'B2', t: 'Xoè quạt', why: 'Hai thẻ sau xoè nhẹ hai bên như một tay bài, huy hiệu "84" ở góc thẻ trên. Đọc là "một xấp", không phải một danh sách, và vui hơn một chút mà không thêm màu.',
+    h: `<section class="cf-card">${QH}<div class="cf-h">Một xấp 84 khoản, chờ bạn lật</div><div class="deck fan"><span class="badge84">84</span>${QC('k1', '−65.000 ₫', 0, 'Highlands Coffee', '15/09 · 09:12 · VIB ••5140', '<span class="qc-chip on">☕ Cà phê</span><span class="qc-chip">Đổi danh mục</span>')}${QC('k2', '−86.000 ₫', 0, 'Grab', '14/09', '')}${QC('k3', '+18.000.000 ₫', 1, 'Chuyển lương', '10/09', '')}</div>${QCTA('Bắt đầu duyệt')}</section>` },
+  { k: 'B3', t: 'Vuốt để duyệt', why: 'Thẻ trên mang hai nút Bỏ qua / Ghi vào sổ và gợi ý vuốt trái phải. Xấp là một trò lật thẻ: mỗi lần vuốt, thẻ sau nổi lên. CTA lớn lùi thành link "Mở hàng chờ đầy đủ".',
+    h: `<section class="cf-card">${QH}<div class="cf-h">84 khoản đang chờ bạn duyệt</div><div class="deck" style="height:184px">${QC('k1', '−65.000 ₫', 0, 'Highlands Coffee', '15/09 · 09:12 · VIB ••5140', '<span class="qc-chip on">☕ Cà phê</span><span class="qc-chip">🍜 Ăn uống</span>') .replace('</div></div>', `</div><div style="display:flex;gap:8px;margin-top:12px"><button class="btn-line" style="margin:0;padding:10px;font-size:14px">Bỏ qua</button><button class="cta" style="margin:0;padding:10px;font-size:14px;box-shadow:none">Ghi vào sổ</button></div></div>`)}${QC('k2', '−86.000 ₫', 0, 'Grab', '14/09', '')}${QC('k3', '+18.000.000 ₫', 1, 'Chuyển lương', '10/09', '')}</div><div class="swipe-hint"><span>Vuốt trái để bỏ qua</span><span class="r">Vuốt phải để ghi vào sổ</span></div><div class="q-count"><span>1 / 84</span><span>Sau đó: Grab −86.000 ₫</span></div><button class="textlink">Mở hàng chờ đầy đủ</button></section>` },
+  { k: 'B4', t: 'Ló bên phải', why: 'Xấp xếp ngang thay vì dọc: thẻ trên chiếm gần hết chiều rộng, thẻ sau ló ra ở mép phải như băng chuyền. Gợi ý lướt ngang, tiết kiệm chiều cao hơn xấp dọc.',
+    h: `<section class="cf-card">${QH}<div class="cf-h">84 khoản đang chờ bạn duyệt</div><div class="deck peek">${QC('k1', '−65.000 ₫', 0, 'Highlands Coffee', '15/09 · 09:12 · VIB ••5140', '<span class="qc-chip on">☕ Cà phê</span><span class="qc-chip">Đổi danh mục</span>')}${QC('k2', '', 0, '', '', '')}</div><div class="q-count"><span>1 / 84</span><span class="dots"><i class="on"></i><i></i><i></i><i></i></span></div>${QCTA('Bắt đầu duyệt')}</section>` },
+  { k: 'B5', t: 'Mỗi thẻ một ngày', why: 'Thẻ trong xấp là ngày, không phải khoản: thẻ trên "Hôm nay" liệt kê khoản của ngày đó, thẻ sau là "Hôm qua". Đếm chuyển thành ngày 1/23. Hợp người quen duyệt theo ngày.',
+    h: `<section class="cf-card">${QH}<div class="cf-h">84 khoản trong 23 ngày, chờ bạn duyệt</div><div class="deck day">${DAYCARD('k1', 'Hôm nay · 15/09', 1, QROW(...R1))}${DAYCARD('k2', 'Hôm qua · 14/09', 2, QROW(...R2))}${DAYCARD('k3', '13/09', 4, QROW('🛒', 'Bách Hoá Xanh', '13/09', '−312.000 ₫', ''))}</div><div class="q-count"><span>Ngày 1 / 23</span><span>Vuốt để xem ngày trước</span></div>${QCTA('Duyệt từ hôm nay')}</section>` },
+  { k: 'B6', t: 'Mỗi thẻ một tài khoản', why: 'Xấp có ba thẻ, mỗi thẻ một tài khoản với số khoản và hai khoản mới nhất. Cho thấy email đã đọc được nguồn nào, và mỗi tài khoản trở thành một xấp con để duyệt riêng.',
+    h: `<section class="cf-card">${QH}<div class="cf-h">84 khoản từ 3 tài khoản</div><div class="deck acc">${ACCCARD('k1', 'VIB ••5140', 46, QROW(...R1) + QROW(...R2))}${ACCCARD('k2', 'VCB ••2291', 31, QROW(...R3))}${ACCCARD('k3', 'VIB Visa ••4512', 7, QROW('🛍️', 'Shopee', '12/09', '−540.000 ₫', ''))}</div><div class="q-count"><span>Tài khoản 1 / 3</span><span>Vuốt để đổi tài khoản</span></div>${QCTA('Duyệt 46 khoản VIB')}</section>` },
+  { k: 'B7', t: 'Xấp nhỏ, số lớn', why: 'Xấp thu thành biểu tượng số lượng bên trái, con số 84 đứng lớn bên phải với tổng chi, thu. Xấp không cần đọc được, chỉ cần nói "có một chồng". Thẻ ngắn nhất trong nhóm B.',
+    h: `<section class="cf-card">${QH}<div style="display:flex;align-items:center;gap:16px;margin-top:12px"><div class="mini-deck"><i></i><i></i><i></i></div><div><div class="big84">84<small>khoản</small></div><div class="cf-p m" style="margin-top:4px">90 ngày · −22,4tr chi · +54,0tr thu</div></div></div><p class="cf-p">Mới nhất: Highlands Coffee −65.000 ₫, sáng nay. Chưa duyệt thì chưa tính vào sổ.</p>${QCTA()}</section>` },
+  { k: 'B8', t: 'Hai chồng', why: 'Hai ô: chồng "chờ" bên phải còn đầy, ô "đã ghi" bên trái đang trống. Mỗi lần duyệt, thẻ đi từ phải sang trái. Mô hình chuyển thẻ giữa hai chồng khiến tiến độ thành thứ nhìn thấy được ở mọi lần mở tab.',
+    h: `<section class="cf-card">${QH}<div class="cf-h">84 khoản đang chờ bạn duyệt</div><div class="piles"><div class="pile"><span class="n">0</span><span>đã ghi vào sổ</span></div><svg class="pile-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg><div class="pile wait"><div class="mini-deck"><i></i><i></i><i></i></div><span><b style="font-family:var(--disp);color:var(--ink)">84</b> chờ duyệt</span></div></div><p class="cf-p m" style="margin-top:12px">Thẻ trên cùng: Highlands Coffee −65.000 ₫, sáng nay.</p>${QCTA('Lật thẻ đầu tiên')}</section>` },
+];
+
+
+/* ═══ B1 × 8: the card inside the stack ═══ */
+const DECK = (cardHtml) => `<div class="deck simple">${cardHtml}<div class="qc k2"></div><div class="qc k3"></div></div>`;
+const BWRAP = (card) => `<section class="cf-card">${QH}<div class="cf-h">84 khoản đang chờ bạn duyệt</div>${DECK(card)}<div class="q-count"><span>1 / 84 · mới nhất trước</span><span>Vuốt để xem tiếp</span></div>${QCTA('Bắt đầu duyệt')}</section>`;
+const C8 = [
+  { k: 'C1', t: 'Số tiền trên, tên dưới', why: 'Bản gốc gọt lại: số tiền, tên nơi chi, một dòng ngày và tài khoản, một chip danh mục. Bỏ chip "Đổi danh mục", chạm vào chip là đổi.',
+    h: BWRAP(`<div class="qc k1"><div class="c-amt" style="font-size:24px">−65.000 ₫</div><div class="c-name" style="margin-top:2px">Highlands Coffee</div><div class="c-meta">15/09 · 09:12 · VIB ••5140</div><div style="margin-top:10px"><span class="c-chip">☕ Cà phê <small>gợi ý</small></span></div></div>`) },
+  { k: 'C2', t: 'Một hàng', why: 'Thẻ là một hàng danh sách: ô emoji danh mục, tên và ngày, số tiền bên phải. Thấp nhất trong nhóm, đọc giống mọi hàng giao dịch khác trong app.',
+    h: BWRAP(`<div class="qc k1"><div class="c-row"><div class="c-tile">☕</div><div style="flex:1;min-width:0"><div class="c-name">Highlands Coffee</div><div class="c-meta">15/09 · 09:12 · VIB ••5140</div></div><div style="text-align:right"><div class="c-amt" style="font-size:16px">−65.000 ₫</div><div class="c-meta">Cà phê · gợi ý</div></div></div></div>`) },
+  { k: 'C3', t: 'Hai cột', why: 'Trái là ai, khi nào, bằng gì; phải là bao nhiêu và xếp vào đâu. Hai cột thẳng hàng trên, không chip, không ô emoji. Gọn và rất "bảng".',
+    h: BWRAP(`<div class="qc k1"><div class="c-cols"><div style="min-width:0"><div class="c-name">Highlands Coffee</div><div class="c-meta" style="margin-top:2px">15/09 · 09:12</div><div class="c-meta">VIB ••5140 · thẻ ghi nợ</div></div><div style="text-align:right;flex-shrink:0"><div class="c-amt" style="font-size:20px">−65.000 ₫</div><div class="c-meta" style="margin-top:2px">☕ Cà phê</div><div class="c-meta">gợi ý</div></div></div></div>`) },
+  { k: 'C4', t: 'Thời gian dẫn', why: 'Dòng đầu là eyebrow "Hôm nay · 09:12 · VIB ••5140", rồi tên, rồi số tiền lớn ở dưới. Trả lời "khi nào" trước, hợp với cách người ta nhớ lại một khoản chi.',
+    h: BWRAP(`<div class="qc k1"><div class="c-eyebrow">Hôm nay · 09:12 · VIB ••5140</div><div class="c-name" style="font-size:16px;margin-top:4px">Highlands Coffee</div><div class="c-line" style="margin-top:8px"><div class="c-amt" style="font-size:24px">−65.000 ₫</div><span class="c-chip">☕ Cà phê</span></div></div>`) },
+  { k: 'C5', t: 'Số tiền ở giữa', why: 'Mọi thứ canh giữa, số tiền là tâm. Thẻ đọc như một tấm biên lai nhỏ và hợp với xấp thẻ lật từng cái. Chip danh mục canh giữa dưới cùng.',
+    h: BWRAP(`<div class="qc k1 c-center" style="padding:16px 14px 14px"><div class="c-amt" style="font-size:28px;letter-spacing:-1px">−65.000 ₫</div><div class="c-name" style="margin-top:4px">Highlands Coffee</div><div class="c-meta">15/09 · 09:12 · VIB ••5140</div><div style="margin-top:12px"><span class="c-chip">☕ Cà phê <small>gợi ý</small></span></div></div>`) },
+  { k: 'C6', t: 'Danh mục dẫn', why: 'Ô emoji to bên trái, tên danh mục là tiêu đề, nơi chi là phụ, số tiền bên phải. Đưa điều cần xác nhận (xếp vào đâu) lên trước, vì số tiền và nơi chi thì email đã chắc.',
+    h: BWRAP(`<div class="qc k1"><div class="c-row"><div class="c-tile lg">☕</div><div style="flex:1;min-width:0"><div class="c-name" style="font-size:16px">Cà phê <small style="font-size:11px;font-weight:600;color:var(--muted)">gợi ý</small></div><div class="c-meta" style="margin-top:2px">Highlands Coffee · 15/09 · VIB ••5140</div></div><div class="c-amt" style="font-size:18px">−65.000 ₫</div></div></div>`) },
+  { k: 'C7', t: 'Ba dòng thẳng', why: 'Ba dòng, mỗi dòng một việc: tên và số tiền, ngày và tài khoản, danh mục và trạng thái. Lưới chặt, dễ quét bằng mắt, không có ô hay khối nào nổi lên.',
+    h: BWRAP(`<div class="qc k1"><div class="c-line"><div class="c-name">Highlands Coffee</div><div class="c-amt" style="font-size:18px">−65.000 ₫</div></div><div class="c-line" style="margin-top:6px"><div class="c-meta">15/09 · 09:12</div><div class="c-meta">VIB ••5140</div></div><div class="c-div"></div><div class="c-line"><span class="c-chip">☕ Cà phê</span><span class="c-meta">gợi ý, chạm để đổi</span></div></div>`) },
+  { k: 'C8', t: 'Biên nhận', why: 'Một dải trên cùng ghi nguồn tiền như dòng "Nguồn tiền" trên chi tiết giao dịch, gạch đứt phía dưới, rồi tên và số tiền, rồi danh mục. Thẻ mang dáng của một biên nhận thật.',
+    h: BWRAP(`<div class="qc k1"><div class="c-band"><span><b>VIB</b> · thẻ ghi nợ ••5140</span><span>15/09 · 09:12</span></div><div class="c-line"><div class="c-name" style="font-size:16px">Highlands Coffee</div><div class="c-amt" style="font-size:20px">−65.000 ₫</div></div><div style="margin-top:10px"><span class="c-chip">☕ Cà phê <small>gợi ý</small></span></div></div>`) },
+];
+
+
+/* ═══ C7 × 8: the footer line ═══ */
+const C7_TOP = `<div class="c-line"><div class="c-name">Highlands Coffee</div><div class="c-amt" style="font-size:18px">−65.000 ₫</div></div><div class="c-line" style="margin-top:6px"><div class="c-meta">15/09 · 09:12</div><div class="c-meta">VIB ••5140</div></div>`;
+const C7CARD = (footer, noDiv) => `<div class="qc k1">${C7_TOP}${noDiv ? '<div style="height:10px"></div>' : '<div class="c-div"></div>'}${footer}</div>`;
+const D8 = [
+  { k: 'D1', t: 'Chỉ một chip', why: 'Bỏ hết chữ, bỏ cả vạch chia. Chip danh mục đứng một mình dưới hai dòng. Chạm vào chip là đổi; không cần ai nói điều đó.',
+    h: BWRAP(C7CARD(`<div><span class="c-chip">☕ Cà phê</span></div>`, true)) },
+  { k: 'D2', t: 'Chip có mũi tên', why: 'Chip mang một mũi tên xuống nhỏ như một ô chọn. Mũi tên là lời "chạm để đổi", nên không cần câu đó nữa. Vẫn một phần tử.',
+    h: BWRAP(C7CARD(`<div><span class="c-chip">☕ Cà phê ${I('down')}</span></div>`)) },
+  { k: 'D3', t: 'Gợi ý nằm trong chip', why: 'Chữ "gợi ý" đi vào trong chip, nhỏ và mờ, thay vì lơ lửng ở cuối dòng. Người dùng biết đây là đoán của app, và chip vẫn là thứ duy nhất trên dòng.',
+    h: BWRAP(C7CARD(`<div><span class="c-chip">☕ Cà phê <small>gợi ý</small></span></div>`)) },
+  { k: 'D4', t: 'Hàng cài đặt', why: 'Dòng cuối là một hàng cài đặt như thẻ duyệt đã đổi sang: nhãn "Danh mục" bên trái, giá trị và chevron bên phải. Cùng ngữ pháp với chi tiết giao dịch, mở sheet chọn khi chạm.',
+    h: BWRAP(C7CARD(`<div class="c-line"><span class="c-lbl">Danh mục</span><span class="c-val">☕ Cà phê ${I('chev')}</span></div>`)) },
+  { k: 'D5', t: 'Hai lựa chọn', why: 'Chip đang chọn và một chip thay thế khả dĩ, thêm ô "+" cho danh mục khác. Đổi danh mục là một chạm ngay trên thẻ, không mở gì cả.',
+    h: BWRAP(C7CARD(`<div style="display:flex;gap:6px;flex-wrap:wrap"><span class="c-chip">☕ Cà phê</span><span class="c-chip ghost">🍜 Ăn uống</span><span class="c-chip more">${I('plus')}</span></div>`)) },
+  { k: 'D6', t: 'Chip và trạng thái', why: 'Bên phải là trạng thái của khoản thay cho lời nhắc: "Chắc" với dấu tick xanh khi đủ ngày, tiền, danh mục. Dòng cuối kể điều màn duyệt sẽ làm với khoản này.',
+    h: BWRAP(C7CARD(`<div class="c-line"><span class="c-chip">☕ Cà phê</span><span class="c-ok">${I('check')}Chắc</span></div>`)) },
+  { k: 'D7', t: 'Chip và một động từ', why: 'Bên phải là một chữ "Đổi" màu brand, vùng chạm 44px. Một động từ thay cho một câu, và chip giữ nguyên vai giá trị.',
+    h: BWRAP(C7CARD(`<div class="c-line"><span class="c-chip">☕ Cà phê</span><span class="c-act">Đổi</span></div>`)) },
+  { k: 'D8', t: 'Chip và nút ghi', why: 'Dòng cuối là chỗ hành động: chip bên trái, nút "Ghi" nhỏ bên phải. Thẻ trên cùng của xấp duyệt được ngay tại chỗ; CTA lớn phía dưới vẫn mở cả hàng chờ.',
+    h: BWRAP(C7CARD(`<div class="c-line" style="align-items:center"><span class="c-chip">☕ Cà phê</span><span class="c-mini">Ghi vào sổ</span></div>`)) },
+];
+
+
+/* ═══ C7 info-only × 8: the card is a preview; tapping anywhere opens the queue ═══ */
+const L1 = (name, amt, pos) => `<div class="c-line"><div class="c-name">${name}</div><div class="c-amt${pos ? ' pos' : ''}" style="font-size:18px">${amt}</div></div>`;
+const L2 = (l, r) => `<div class="c-line" style="margin-top:6px"><div class="c-meta">${l}</div><div class="c-meta">${r}</div></div>`;
+const BWRAP2 = (card, count) => `<section class="cf-card">${QH}<div class="cf-h">84 khoản đang chờ bạn duyệt</div>${DECK(card)}${count === false ? '' : `<div class="q-count"><span>1 / 84 · mới nhất trước</span><span>Chạm thẻ để mở hàng chờ</span></div>`}${QCTA('Duyệt 84 khoản')}</section>`;
+const E8 = [
+  { k: 'E1', t: 'Danh mục là chữ', why: 'Dòng ba là chữ thường, mờ: "Cà phê · gợi ý". Không chip, không vạch. Thẻ hết mọi dấu hiệu bấm được ở từng phần; chạm cả thẻ là mở hàng chờ.',
+    h: BWRAP2(`<div class="qc k1 tap">${L1('Highlands Coffee', '−65.000 ₫')}${L2('15/09 · 09:12', 'VIB ••5140')}<div class="c-cat" style="margin-top:8px">☕ Cà phê · gợi ý</div></div>`) },
+  { k: 'E2', t: 'Hai dòng', why: 'Bỏ hẳn dòng ba. Danh mục gộp vào cuối dòng hai, sau tài khoản. Thẻ chỉ còn hai dòng thẳng, thấp nhất có thể mà vẫn đủ bốn thông tin.',
+    h: BWRAP2(`<div class="qc k1 tap">${L1('Highlands Coffee', '−65.000 ₫')}${L2('15/09 · 09:12', 'VIB ••5140 · ☕ Cà phê')}</div>`) },
+  { k: 'E3', t: 'Danh mục dưới tên', why: 'Danh mục làm phụ đề của tên nơi chi, ngay dòng một; số tiền bên phải; dòng hai vẫn là ngày và tài khoản. Đọc từ trên xuống: ở đâu, thuộc gì, bao nhiêu, khi nào.',
+    h: BWRAP2(`<div class="qc k1 tap"><div class="c-line"><div style="min-width:0"><div class="c-name">Highlands Coffee</div><div class="c-sub">☕ Cà phê · gợi ý</div></div><div class="c-amt" style="font-size:18px">−65.000 ₫</div></div>${L2('15/09 · 09:12', 'VIB ••5140')}</div>`) },
+  { k: 'E4', t: 'Chỉ trạng thái', why: 'Dòng ba không nói danh mục mà nói màn duyệt sẽ làm gì với khoản này: "Sẵn sàng để ghi" xanh, hoặc "Cần bạn xem" hổ phách. Thông tin, không phải nút.',
+    h: BWRAP2(`<div class="qc k1 tap">${L1('Highlands Coffee', '−65.000 ₫')}${L2('15/09 · 09:12', 'VIB ••5140')}<div class="c-div"></div><div class="c-line"><span class="c-cat">☕ Cà phê</span><span class="c-ok">${I('check')}Sẵn sàng để ghi</span></div></div>`) },
+  { k: 'E5', t: 'Nguồn tin', why: 'Dòng ba kể khoản này từ đâu ra: "Email VIB, nhận lúc 09:14". Người dùng thấy app đọc được gì và tin vào đâu, không cần chạm gì trên thẻ.',
+    h: BWRAP2(`<div class="qc k1 tap">${L1('Highlands Coffee', '−65.000 ₫')}${L2('15/09 · 09:12', '☕ Cà phê · gợi ý')}<div class="c-div"></div><div class="c-line"><span class="c-cat">Từ email <b>VIB</b> · nhận lúc 09:14</span></div></div>`) },
+  { k: 'E6', t: 'Đếm nằm trong thẻ', why: 'Dòng ba mang số thứ tự "1 / 84 · mới nhất" bên phải và danh mục bên trái; dòng đếm dưới xấp bỏ đi. Thẻ tự nói nó là thẻ đầu của một xấp.',
+    h: BWRAP2(`<div class="qc k1 tap">${L1('Highlands Coffee', '−65.000 ₫')}${L2('15/09 · 09:12', 'VIB ••5140')}<div class="c-div"></div><div class="c-line"><span class="c-cat">☕ Cà phê</span><span class="c-cat">1 / 84 · mới nhất</span></div></div>`, false) },
+  { k: 'E7', t: 'Emoji dẫn tên', why: 'Emoji danh mục đứng trước tên nơi chi ngay dòng một, không có dòng ba. Danh mục vẫn hiện, nhưng là một dấu, không phải một khối. Hai dòng, rất nhẹ.',
+    h: BWRAP2(`<div class="qc k1 tap"><div class="c-line"><div class="c-name"><span class="c-emo">☕</span>Highlands Coffee</div><div class="c-amt" style="font-size:18px">−65.000 ₫</div></div>${L2('15/09 · 09:12', 'VIB ••5140')}</div>`) },
+  { k: 'E8', t: 'Chevron mở hàng chờ', why: 'Dòng ba là danh mục bên trái và một chevron mờ bên phải, dấu hiệu duy nhất rằng thẻ dẫn đi đâu đó. Đi đâu thì chỉ có một chỗ: màn duyệt.',
+    h: BWRAP2(`<div class="qc k1 tap">${L1('Highlands Coffee', '−65.000 ₫')}${L2('15/09 · 09:12', 'VIB ••5140')}<div class="c-div"></div><div class="c-line" style="align-items:center"><span class="c-cat">☕ Cà phê · gợi ý</span><span class="c-chev">${I('chev')}</span></div></div>`) },
+];
+
+const STATES = ['1 · Chưa thiết lập', '2 · Đã nối email · 84 chờ duyệt', '3 · Đã có giao dịch', '4 · Kích hoạt đủ'];
+const VAR_BLOCK = (title, arr) => `<div class="divider">${title}</div><div class="s2grid">${arr.map((o) => `<div class="opt"><div class="opt-tag"><span class="opt-k">${o.k}</span><span class="opt-t">${o.t}</span></div><div class="opt-why">${o.why}</div>${phone(o.h + WILL_SEE)}</div>`).join('')}</div>`;
+const S2_BLOCK = `<div class="divider">Trạng thái 2 · hàng chờ nằm trong thẻ, 8 cách</div><div class="s2grid">${S2.map((o) => `<div class="opt"><div class="opt-tag"><span class="opt-k">${o.k}</span><span class="opt-t">${o.t}</span></div><div class="opt-why">${o.why}</div>${phone(o.h + WILL_SEE)}</div>`).join('')}</div>`;
+document.getElementById('root').innerHTML = OPTIONS.map((o, idx) => `${idx === 1 ? S2_BLOCK + VAR_BLOCK('A · Danh sách trong thẻ, 8 biến thể', A8) + VAR_BLOCK('B · Xếp chồng, 8 biến thể', B8) + VAR_BLOCK('B1 · bố cục thẻ trong xấp, 8 biến thể', C8) + VAR_BLOCK('C7 · dòng cuối của thẻ, 8 biến thể', D8) + VAR_BLOCK('C7 · thẻ chỉ hiển thị, chạm là mở hàng chờ, 8 biến thể', E8) + '<div class="divider">Tám hướng gốc, để đối chiếu</div>' : ''}<div class="orow${idx === 0 ? ' chosen' : ''}">
+  <div class="opt-tag"><span class="opt-k">${o.k}</span><span class="opt-t">${o.t}</span></div>
+  <div class="opt-why">${o.why}</div>
+  <div class="states">${o.s.map((html, i) => `<div class="state"><div class="st-lbl">${STATES[i]}</div>${phone(typeof html === 'function' ? html() : html)}<div class="st-note">${o.n[i]}</div></div>`).join('')}</div>
+</div>`).join('');
+</script>
+</body>
+</html>

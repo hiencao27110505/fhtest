@@ -149,6 +149,218 @@ window.persRetryBoot = function(){
   try{ renderPersonal(); }catch(e){}
 };
 
+/* ═══ Activation states (personal-activation-spec) ═══════════════════════════
+   The tab used to render the full dashboard with zero data: six empty
+   sections, three 0 ₫ figures and a blank chart. Now it reads the ledger and
+   picks one of four states:
+     1  nothing yet            → one start card (connect email), then "sau đó bạn sẽ thấy"
+     2  mail on, queue waiting → the same card, the newest staged row as the top of a
+                                 deck; tapping the card opens the review queue
+     3  rows exist, setup open → three-step widget above the real dashboard, and the
+                                 feature sections' empty states built from the rows
+     4  all set (or hidden)    → the dashboard as before, no widget
+   Every input is data the app already holds: the hydrated ledger, the staged
+   badge count, the mailbox state, anchors, the budget row. Only the "Ẩn" of
+   the widget is a stored flag. Vietnamese-only like the rest of the tab. */
+var _PI = {
+  mail:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3.5 7.5 12 13l8.5-5.5"/></svg>',
+  list:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1" fill="currentColor"/><circle cx="4" cy="12" r="1" fill="currentColor"/><circle cx="4" cy="18" r="1" fill="currentColor"/></svg>',
+  bars:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>',
+  card:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="6" width="18" height="12" rx="3"/><path d="M3 10h18"/></svg>',
+  trend:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l5-6 4 3 7-8"/><path d="M15 6h5v5"/></svg>',
+  flame:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c1 4 5 5.5 5 10a5 5 0 0 1-10 0c0-2 1-3.5 2-4.5 0 2 1 3 2 3 0-3 0-6 1-8.5z"/></svg>',
+  check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>'
+};
+var _persMail = null, _persMailAt = 0, _persMailBusy = false;
+/* both transports, like fhEmailTxnCta: either one means "mail is on" */
+function persMailProbe(){
+  if(_persMailBusy || (Date.now() - _persMailAt) < 60000) return;
+  _persMailBusy = true;
+  var fwd=false, oauth=false;
+  Promise.all([
+    (async function(){ try{ var st = window.fhMailboxState ? await fhMailboxState() : null; fwd = !!(st && st.forwarding_alias); }catch(e){} })(),
+    (async function(){ try{ var c = window.fhAutoTxnConnection ? await fhAutoTxnConnection() : null; oauth = !!c; }catch(e){} })()
+  ]).then(function(){
+    var next = { fwd: fwd, oauth: oauth };
+    var changed = !_persMail || _persMail.fwd !== fwd || _persMail.oauth !== oauth;
+    _persMail = next; _persMailAt = Date.now(); _persMailBusy = false;
+    if(changed) try{ renderPersonal(); }catch(e){}
+  });
+}
+function persSetupHiddenKey(P){ return 'fh-pers-setup-hide:' + (P && P.uid || ''); }
+function persSetupHidden(P){ try{ return localStorage.getItem(persSetupHiddenKey(P)) === '1'; }catch(e){ return false; } }
+window.persSetupHide = function(){
+  var P = window.fhPersonalData ? fhPersonalData() : null;
+  try{ localStorage.setItem(persSetupHiddenKey(P), '1'); }catch(e){}
+  renderPersonal();
+};
+/* the three steps, each derived from live data */
+function persSetupSteps(P){
+  var accts = (P.accounts||[]).filter(function(a){ return a.kind!=='investment'; });
+  var need = accts.filter(function(a){ return a.anchorK==null && !a.setupSkippedAt; });
+  var nm = function(a){ return a.name || (a.provider ? String(a.provider).toUpperCase() : 'Tài khoản') + (a.tail ? ' ••'+a.tail : ''); };
+  var s2 = accts.length>0 && need.length===0;
+  return [
+    { n:1, done:true, t:'Có khoản đầu tiên', s:'Sổ đã có giao dịch', act:'expense' },
+    { n:2, done:s2, t:'Cài đặt tài khoản, thẻ', act:'acct', needIds: need.map(function(a){ return a.id; }),
+      s: accts.length ? (need.length ? need.slice(0,3).map(nm).join(', ') + (need.length>3 ? ' và '+(need.length-3)+' nữa' : '') : 'Đã chốt số dư')
+                      : 'Kết nối email để app nhận diện tài khoản' },
+    { n:3, done:P.budget>0, t:'Lập ngân sách tháng', s:'Biết mỗi ngày còn tiêu được bao nhiêu', act:'budget' }
+  ];
+}
+window.persStepTap = function(act){
+  var P = window.fhPersonalData ? fhPersonalData() : null; if(!P) return;
+  if(act==='expense'){ if(typeof openPersonalExpense==='function') openPersonalExpense(); return; }
+  if(act==='budget'){ if(typeof openPersonalBudget==='function') openPersonalBudget(); return; }
+  if(act==='acct'){
+    var st = persSetupSteps(P)[1];
+    if(st.needIds.length && window.fhAcctSetupWizard){ fhAcctSetupWizard(st.needIds, { intro: true }); return; }
+    if(window.fhEmailTxnCta) fhEmailTxnCta({ scope:'personal' });
+  }
+};
+function persActivation(P, SL){
+  var hasTx = (P.txns||[]).length>0 || (P.debts||[]).length>0 || (P.unreadable||0)>0
+    || !!(SL && SL.rows && SL.rows.length) || ((P.txnsOld||[]).length>0);
+  var queue = window.fhStagedCount||0;
+  if(!hasTx){
+    persMailProbe();
+    var mailOn = !!(_persMail && (_persMail.fwd || _persMail.oauth));
+    return { state: (queue>0 || mailOn) ? 2 : 1, queue: queue, mail: _persMail };
+  }
+  var steps = persSetupSteps(P);
+  var open = steps.filter(function(x){ return !x.done; });
+  return { state: (!open.length || persSetupHidden(P)) ? 4 : 3, steps: steps, open: open, queue: queue };
+}
+/* state 1 + 2: the one card */
+function persActCard(act, mon){
+  var lbl = 'Sổ cá nhân · ' + persMonLabel(mon,false);
+  var link = '<button class="ob-textlink pact-link" onclick="openPersonalExpense()">Hoặc ghi tay một khoản</button>';
+  if(act.state===1){
+    return '<section class="cf-card"><div class="cf-lbl">'+lbl+'</div><div class="pact-h">Bắt đầu sổ của bạn</div>'
+      + '<p class="pact-p">Kết nối email ngân hàng, app tự ghi lại 90 ngày giao dịch gần nhất. Bạn chỉ duyệt, không nhập tay.</p>'
+      + '<button class="cta pact-cta" onclick="fhEmailTxnCta({scope:\'personal\'})">'+_PI.mail+'Kết nối email ngân hàng</button>'+link+'</section>';
+  }
+  var rx = (typeof window.fhReauthState==='function') ? fhReauthState() : null;
+  var pg = (typeof window.fhBackfillProgress==='function') ? fhBackfillProgress() : null;
+  if(rx){
+    return '<section class="cf-card"><div class="cf-lbl">Email ngân hàng</div><div class="pact-h">Kết nối email cần làm mới</div>'
+      + '<p class="pact-p">Ngân hàng vẫn gửi email, nhưng app không đọc được nữa cho tới khi bạn kết nối lại.</p>'
+      + '<button class="cta pact-cta" onclick="fhEmailTxnCta({scope:\'personal\'})">'+_PI.mail+'Làm mới kết nối</button>'+link+'</section>';
+  }
+  if(!act.queue && pg && pg.phase==='reading'){
+    var pct = pg.windowDays>0 ? Math.min(100, Math.round(pg.daysRead/pg.windowDays*100)) : 0;
+    return '<section class="cf-card"><div class="cf-lbl">Email ngân hàng · đang đọc</div><div class="pact-h">Đang dò hộp thư của bạn</div>'
+      + '<p class="pact-p">'+(pg.front ? 'Đã đọc tới '+esc(fmtDayMon(new Date(pg.front)))+'. ' : '')+'Xong là mọi khoản tìm thấy về đây để bạn duyệt.</p>'
+      + '<span class="cc-prog" style="margin-top:14px"><i style="width:'+pct+'%"></i></span>'
+      + '<button class="ob-textlink pact-link" onclick="fhEmailTxnCta({scope:\'personal\'})">Xem tiến độ</button></section>';
+  }
+  if(!act.queue){
+    return '<section class="cf-card"><div class="cf-lbl">Email ngân hàng · đã kết nối</div><div class="pact-h">Chưa thấy giao dịch nào trong email</div>'
+      + '<p class="pact-p">Khi ngân hàng gửi email báo giao dịch, khoản sẽ tự về đây để bạn duyệt.</p>'
+      + '<button class="cta pact-cta" onclick="openPersonalExpense()">Ghi tay một khoản</button>'
+      + '<button class="ob-textlink pact-link m" onclick="fhEmailTxnCta({scope:\'personal\'})">Kiểm tra kết nối</button></section>';
+  }
+  /* the queue: newest row on top of a small deck (read-only; the tap opens the queue) */
+  var n = act.queue;
+  var pk = window.fhStagedPeekCached ? fhStagedPeekCached() : null;
+  if(window.fhStagedPeek && (!pk || window._persPeekFor !== n)){
+    window._persPeekFor = n;
+    fhStagedPeek(n).then(function(){ try{ renderPersonal(); }catch(e){} });
+  }
+  var top;
+  if(pk && pk.id && !pk.foreign){
+    var mult = (typeof curMult==='function') ? curMult() : 1000;
+    var pos = pk.flow==='income';
+    var amt = fmt(pk.amount/mult);
+    var when = (pk.dateIso ? pk.dateIso.slice(8,10)+'/'+pk.dateIso.slice(5,7) : '') + (pk.time ? ' · '+pk.time : '');
+    var prov = pk.provider ? ((typeof window.fhProviderName==='function' && fhProviderName(pk.provider)) || String(pk.provider).toUpperCase()) : '';
+    var src = prov + (pk.tail ? ' ••'+pk.tail : '');
+    top = '<button class="pq-card" onclick="fhEmailTxnCta({scope:\'personal\'})">'
+      + '<div class="pq-line"><div class="pq-name"><span class="pq-emo">'+(pk.emoji||'🗂️')+'</span>'+esc(pk.desc || (pos?'Tiền vào':'Giao dịch'))+'</div>'
+      + '<div class="pq-amt'+(pos?' pos':'')+'">'+(pos?'+':'−')+amt+'</div></div>'
+      + '<div class="pq-meta"><span>'+esc(when)+'</span><span>'+esc(src)+'</span></div></button>';
+  } else {
+    top = '<button class="pq-card" aria-label="Mở hàng chờ duyệt" onclick="fhEmailTxnCta({scope:\'personal\'})"><div class="pq-line"><span class="pq-sk" style="width:52%"></span><span class="pq-sk" style="width:24%"></span></div>'
+      + '<div class="pq-meta"><span class="pq-sk" style="width:30%;height:10px"></span><span class="pq-sk" style="width:22%;height:10px"></span></div></button>';
+  }
+  return '<section class="cf-card"><div class="cf-lbl">Email ngân hàng · đã đọc xong</div><div class="pact-h">'+n+' khoản đang chờ bạn duyệt</div>'
+    + '<div class="pq-deck">'+top+'<i class="k2"></i><i class="k3"></i></div>'
+    + '<div class="pq-count"><span>1 / '+n+' · mới nhất trước</span><span>Chạm thẻ để mở hàng chờ</span></div>'
+    + '<button class="cta pact-cta" onclick="fhEmailTxnCta({scope:\'personal\'})">'+_PI.list+'Duyệt '+n+' khoản</button>'+link+'</section>';
+}
+function persWillSeeHTML(){
+  var row = function(ic, t, s2){ return '<div class="row"><div class="r-ico personal-ico">'+ic+'</div><div class="r-body"><div class="r-t">'+t+'</div><div class="r-s">'+s2+'</div></div></div>'; };
+  return '<div class="section-h"><span class="t">Sau đó bạn sẽ thấy</span></div><div class="rows pact-rows">'
+    + row(_PI.bars, 'Tiền đi đâu mỗi tháng', 'Theo danh mục, theo tuần')
+    + row(_PI.card, 'Thẻ tín dụng và khoản nợ', 'Đang nợ bao nhiêu, đến hạn khi nào')
+    + row(_PI.trend, 'Đầu tư', 'Crypto, vàng, chứng khoán')
+    + row(_PI.flame, 'Chuỗi thói quen', '7 ngày không Grab, app tự đếm')
+    + '</div>';
+}
+/* state 3: the widget, remaining steps only */
+function persSetupWidgetHTML(act){
+  var done = act.steps.filter(function(x){ return x.done; }).length;
+  var h = '<section class="cf-card psu-card"><div class="cf-lblrow"><div class="cf-lbl">Thiết lập · '+done+' / 3</div><button class="psu-hide" onclick="persSetupHide()">Ẩn</button></div>'
+    + '<div class="psu-segs">'+act.steps.map(function(x){ return '<i class="'+(x.done?'on':'')+'"></i>'; }).join('')+'</div><div class="psu-steps">';
+  act.open.forEach(function(x, i){
+    h += '<button class="psu-step'+(i===0?' now':'')+'" onclick="persStepTap(\''+x.act+'\')"><div class="psu-ring">'+x.n+'</div>'
+      + '<div class="psu-b"><div class="psu-t">'+x.t+'</div><div class="psu-s">'+esc(x.s)+'</div></div>'+_ccChev+'</button>';
+  });
+  return h + '</div></section>';
+}
+/* state 3: empty states that name something from the person's own rows */
+function _persMonRows(P, mon){
+  return (P.txns||[]).filter(function(t){ return (t.date||'').slice(0,7)===mon && t.kind==='expense' && !t._unreadable && !t.spaceId; });
+}
+function _persFold(s2){ return String(s2||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/đ/g,'d'); }
+function persStreakDriven(P, mon){
+  var base = window.persStreakSection ? persStreakSection() : '';
+  var cnt = window.fhStreakDefsCount ? fhStreakDefsCount() : null;
+  if(cnt !== 0) return base;
+  var seen = {};
+  _persMonRows(P, mon).forEach(function(t){
+    var w = _persFold(t.note).replace(/[^a-z ]/g,' ').trim().split(/\s+/)[0] || '';
+    if(w.length<3) return;
+    var g = seen[w] || (seen[w] = { n:0, sum:0, label:(t.note||'').trim().split(/\s+/)[0] });
+    g.n++; g.sum += (t.amt||0);
+  });
+  var top = Object.keys(seen).map(function(k){ return seen[k]; }).sort(function(a,b){ return b.n-a.n; })[0];
+  if(!top || top.n<3) return base;
+  var lab = esc(top.label);
+  return '<div class="section-h"><span class="t">Chuỗi thói quen</span><a onclick="fhStreakNewSheet()">＋ Thêm</a></div>'
+    + '<section class="cf-card pact-empty"><div style="display:flex;align-items:center;gap:12px"><span class="pact-emo">🎯</span><div style="flex:1;min-width:0">'
+    + '<div class="pact-h">'+lab+' '+top.n+' lần tháng này, '+fmt(top.sum)+'</div>'
+    + '<p class="pact-p">Thử 7 ngày không '+lab+'? App tự đếm từ sổ của bạn.</p></div></div>'
+    + '<div class="dbt-empty-cta"><button onclick="fhStreakNewSheet()">Bắt đầu chuỗi 7 ngày</button></div></section>';
+}
+var _PERS_INV_RE = /binance|okx|bybit|mexc|remitano|coinbase|kucoin|huobi|gate ?io|usdt|\bbtc\b|\beth\b|\bsjc\b|\bpnj\b|\bdoji\b|\bvang\b|chung khoan|vndirect|tcbs|\bssi\b|\bvps\b|fmarket|dragon capital|\bccq\b/;
+function persInvestDriven(P, mon){
+  var base = window.persInvestSection ? persInvestSection() : '';
+  var v = window.fhInvPositions ? fhInvPositions() : null;
+  if(!v || (v.positions||[]).length) return base;
+  var hits = _persMonRows(P, mon).filter(function(t){ return _PERS_INV_RE.test(_persFold(t.note)); });
+  if(!hits.length) return base;
+  var sum = hits.reduce(function(a,t){ return a+(t.amt||0); },0);
+  return '<div class="section-h"><span class="t">Đầu tư</span><a onclick="fhInvNewPositionSheet()">＋ Vị thế</a></div>'
+    + '<section class="cf-card pact-empty"><div class="pact-h">'+hits.length+' khoản có thể là đầu tư tháng này</div>'
+    + '<p class="pact-p">Nếu là mua coin, vàng hay cổ phiếu, chuyển thành đầu tư để '+fmt(sum)+' không bị tính là chi tiêu.</p>'
+    + '<div class="dbt-empty-cta"><button onclick="openPersonalTxDetail(\''+hits[0].id+'\')">Xem khoản</button>'
+    + '<button onclick="fhInvNewPositionSheet()">Thêm vị thế</button></div></section>';
+}
+/* shared paint: skip the innerHTML swap when nothing changed (flicker) */
+function _persCommit(host, h, isCur, full){
+  if(h === window._persLastHTML){
+    if(full){ persChartAfterRender(isCur); if(window.persDebtAfterRender) persDebtAfterRender(); }
+    return;
+  }
+  window._persLastHTML = h;
+  window._persHadReady = true;
+  host.innerHTML = h;
+  if(!full) return;
+  persChartAfterRender(isCur);   // strip scroll + auto label + (current month) guide & sync note
+  if(window.persDebtAfterRender) persDebtAfterRender();   // async space balances → section refreshes in place
+  if(window.persInvestAfterRender) persInvestAfterRender();   // throttled price refresh → bento redraws in place
+}
 function renderPersonal(){
   var host = document.getElementById('pers-body'); if(!host) return;
   persRenderAvatar();     // header disc — independent of personal-ledger state
@@ -208,6 +420,13 @@ function renderPersonal(){
      below degrades to a quiet loading note until it lands. */
   if(isAll || !inWin || persZoom()==='month') persEnsureSlice();
   var slReady = inWin || !!SL;
+  /* activation (spec): states 1 and 2 replace the dashboard with one card */
+  var act = persActivation(P, SL);
+  if(act.state<=2){
+    if(!SL) persEnsureSlice();   // rows older than the 2-month cache still count as "has transactions"
+    _persCommit(host, persActCard(act, mon) + persWillSeeHTML(), isCur, false);
+    return;
+  }
   /* _unreadable rows are EXCLUDED from every total rather than counted as 0.
      `t.amt||0` used to fold a row we could not decrypt into the month at zero,
      so a wrong key understated spending instead of saying so (19-personal).
@@ -266,7 +485,7 @@ function renderPersonal(){
       + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M6 9l6 6 6-6"/></svg></button>';
   var cfLbl = 'Còn lại · cá nhân';
 
-  var h = '';
+  var h = act.state===3 ? persSetupWidgetHTML(act) : '';
   h += '<section class="cf-card'+(persMaskIs('cf')?' sec-masked':'')+'">'
      + '<div class="cf-lblrow"><div class="cf-lbl">'+cfLbl+'</div>'+persEyeHTML('cf')+moCaret+'</div>'
      + '<div class="cf-big num'+(left<0&&slReady?' neg':'')+'">'+(slReady?fmt(left):'…')+'</div>'
@@ -368,7 +587,7 @@ function _persEmailRow(){
      Built by 27-streaks.js (js-data); counts derive from the ledger + the
      email review queue, so this section may re-render itself once the async
      compute lands. ── */
-  h += (window.persStreakSection ? persStreakSection() : '');
+  h += act.state===3 ? persStreakDriven(P, mon) : (window.persStreakSection ? persStreakSection() : '');
 
 /* ── Nợ & cho vay — the balance-sheet dimension (stocks, not flows), between
      the month's cash-flow card and the month's spending cards. Built by
@@ -377,7 +596,7 @@ function _persEmailRow(){
 
   /* ── Đầu tư — the asset dimension, the debts bento's sibling (0123). Built
      by 26-investment-ui.js (js-data) for the same modal-helper reason. ── */
-  h += (window.persInvestSection ? persInvestSection() : '');
+  h += act.state===3 ? persInvestDriven(P, mon) : (window.persInvestSection ? persInvestSection() : '');
 
   /* ── Tiền đi đâu tháng này — one card per space, that space's categories
      nested inside (the old "Các nhóm của tôi" roll-up and the separate
@@ -575,17 +794,7 @@ function _persEmailRow(){
      count). When nothing in the template changed, skip the innerHTML swap —
      a rebuild of identical markup is pure flicker, and it would also wipe the
      debt section's in-place async updates. */
-  if(h === window._persLastHTML){
-    persChartAfterRender(isCur);
-    if(window.persDebtAfterRender) persDebtAfterRender();
-    return;
-  }
-  window._persLastHTML = h;
-  window._persHadReady = true;
-  host.innerHTML = h;
-  persChartAfterRender(isCur);   // strip scroll + auto label + (current month) guide & sync note
-  if(window.persDebtAfterRender) persDebtAfterRender();   // async space balances → section refreshes in place
-  if(window.persInvestAfterRender) persInvestAfterRender();   // throttled price refresh → bento redraws in place
+  _persCommit(host, h, isCur, true);
 }
 function persScrollTx(){ _persScrollTo('pers-tx'); }
 function persScrollCats(){ _persScrollTo('pers-cats'); }

@@ -326,7 +326,7 @@
         + '<span class="acts">' + (window.persEyeHTML ? persEyeHTML('invest') : '')
         + '<a onclick="fhInvNewPositionSheet()">＋ Vị thế</a></span></div>';
       if (!v.positions.length) {
-        h += '<section class="dbt-empty"><div class="dbt-empty-t">Theo dõi crypto, vàng, chứng khoán — tiền mua không tính là chi tiêu.</div>'
+        h += '<section class="dbt-empty"><div class="dbt-empty-t">Theo dõi crypto, vàng, chứng khoán. Tiền mua không tính là chi tiêu.</div>'
           + '<button class="dbt-empty-cta" onclick="fhInvNewPositionSheet()">＋ Vị thế đầu tư</button></section></div>';
         return h;
       }

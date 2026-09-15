@@ -377,6 +377,8 @@
       return nm + band + _cardCal(r) + '<div class="stk-medals stk-card-medals">' + _cardMedals(d, r, hasMoney) + '</div>' + _cardWarn(r);
     }
 
+    /* for the tab's activation branch: null until the defs have loaded */
+    window.fhStreakDefsCount = function () { return S.defs === null ? null : (S.defs || []).length; };
     window.persStreakSection = function () {
       const P = _P(); if (!P || !P.uid || !P.key) return '';
       window.fhStreaksEnsure();

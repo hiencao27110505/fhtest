@@ -1313,7 +1313,16 @@
       if (_mirroring) return;
       if (!P.uid || !P.key) return;
       const fid = window.DB && DB.fid, myMem = window.DB && DB.ownerMemberId;
-      if (!fid || !myMem || !window.fhKeyReady || !fhKeyReady()) { if (_mirrorTries++ < 5) _mirrorSoon(4000); return; }
+      /* No family, or nothing this account authored there: there is nothing to
+         mirror, and the tab's "Đang đồng bộ…" note must not wait for a pass
+         that will never come. Only a family key still warming up earns retries;
+         when those run out the note clears too (it stayed forever before). */
+      if (!fid || !myMem) { if (!P.mirrorRan) { P.mirrorRan = true; if (P.state === 'ready') _setState('ready'); } return; }
+      if (!window.fhKeyReady || !fhKeyReady()) {
+        if (_mirrorTries++ < 5) { _mirrorSoon(4000); return; }
+        if (!P.mirrorRan) { P.mirrorRan = true; if (P.state === 'ready') _setState('ready'); }
+        return;
+      }
       _mirroring = true;
       try {
         /* Cross-ledger move journal repair (0114 spec §8.3) — this is the one

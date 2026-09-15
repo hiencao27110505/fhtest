@@ -812,4 +812,37 @@
       if (a === 'lib') { _qrStopCam(); var l = document.getElementById('qr-file-lib'); l && l.click(); return; }
       if (a === 'files') { _qrStopCam(); _qrFilesToDataUris(v, function (uris) { _qrPhotos(uris); }); return; }
     };
+
+    /* ---- peek: the newest pending personal row, for the tab's activation card
+       (personal-activation-spec). Same fetch + unseal as the sheet above, but
+       read-only: the card only SHOWS the row (two lines, no controls) and a tap
+       opens the full queue. Cached for a minute and keyed on the badge count so
+       a promote re-fetches; a locked ledger or an unopenable row yields the
+       count alone and the card degrades to a blank deck. Never throws. */
+    var _peek = null, _peekAt = 0, _peekFor = -1, _peekBusy = false;
+    window.fhStagedPeekCached = function () { return _peek; };
+    window.fhStagedPeek = async function (forCount) {
+      if (_peekBusy) return _peek;
+      if (_peek && _peekFor === forCount && Date.now() - _peekAt < 60000) return _peek;
+      _peekBusy = true;
+      try {
+        if (!window.fhPersonalKeyReady || !fhPersonalKeyReady()) { _peek = { n: 0 }; return _peek; }
+        var rows = await _qrFetch();
+        if (!rows.length) { _peek = { n: 0 }; return _peek; }
+        var row = rows[0];
+        var re = await _qrOpen(row);
+        if (!re) { _peek = { n: rows.length }; return _peek; }
+        var flow = re.flow || (re.direction === 'credit' ? 'income' : 'expense');
+        var desc = _qrDesc(re) || String(re.counterparty || '') || '';
+        var cat = flow !== 'income' ? _qrSuggestCat(re, desc) : '';
+        var emoji = (cat && window.catStyle && window.catStyle[cat] && window.catStyle[cat][0]) || (flow === 'income' ? '💰' : '🗂️');
+        var acct = _qrAcct(re);
+        var oa = row.occurred_at ? new Date(row.occurred_at) : null;
+        _peek = { n: rows.length, id: row.id, flow: flow, amount: Number(re.amount) || 0, desc: desc, cat: cat, emoji: emoji,
+          time: _qrTime(row.occurred_at), dateIso: (oa && !isNaN(oa.getTime())) ? _qrLocalIso(oa) : null,
+          provider: re.source_provider || null, tail: (acct && acct.tail) || null, foreign: !!(re.currency && re.currency !== 'VND') };
+        return _peek;
+      } catch (e) { _peek = _peek || { n: 0 }; return _peek; }
+      finally { _peekAt = Date.now(); _peekFor = forCount; _peekBusy = false; }
+    };
   })();

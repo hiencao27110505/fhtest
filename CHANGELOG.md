@@ -18,6 +18,23 @@ Going forward, add an entry here when a feature area changes meaningfully — se
 
 ---
 
+## 2026-09-15
+
+### Personal tab: four activation states instead of an empty dashboard
+
+A first-time user opened "Tài Chính" to three 0 ₫ figures, a blank chart, a sync note that never
+cleared and six empty sections. The tab now derives one of four states from data it already holds
+(`docs/specs/personal-activation-spec.md`): nothing yet → one start card with "Kết nối email ngân
+hàng"; mail connected with rows queued → the same card with the newest staged row on top of a small
+deck, read-only, tap = the review queue; rows logged but setup open → a three-step widget ("Có khoản
+đầu tiên", "Cài đặt tài khoản, thẻ", "Lập ngân sách tháng") above the real dashboard, with the
+streak and investment empty states naming a trigger from the month's own rows; everything set → the
+dashboard as before. `fhStagedPeek` (76-quick-review) exposes the newest personal staged row for the
+deck; `fhStreakDefsCount` (27-streaks) tells the tab whether streaks exist. The mirror now flips
+`mirrorRan` when there is nothing to mirror, so "Đang đồng bộ…" no longer stays forever for a
+person with no family. Mockups: `mockups/personal-activation.html`. Guard:
+`tools/personal-activation.test.js`. SW v525.
+
 ## 2026-09-14
 
 ### Danger red: crimson, one step louder
