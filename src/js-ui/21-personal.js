@@ -286,11 +286,11 @@ function persActCard(act, mon){
   var n = act.queue;
   return '<section class="cf-card"><div class="cf-lbl">Email ngân hàng · đã đọc xong</div><div class="pact-h">'+n+' khoản đang chờ bạn duyệt</div>'
     + persQueueDeckHTML(n)
-    + '<button class="cta pact-cta" onclick="fhEmailTxnCta({scope:\'personal\'})">'+_PI.list+'Duyệt '+n+' khoản</button>'+link+'</section>';
+    + '<button class="cta pact-cta" onclick="fhEmailTxnCta({scope:\'personal\'})">'+_PI.list+'Kiểm tra '+n+' giao dịch</button>'+link+'</section>';
 }
 /* The queue as a deck: the newest staged row on top (two lines, read-only,
-   the tap opens the review queue), two blank cards behind, a count line.
-   Shared by the state 2 card and the standalone widget below. */
+   the tap opens the review queue), two blank cards behind. Shared by the
+   state 2 card and the standalone widget below. */
 function persQueueDeckHTML(n){
   var pk = window.fhStagedPeekCached ? fhStagedPeekCached() : null;
   if(window.fhStagedPeek && (!pk || window._persPeekFor !== n)){
@@ -313,12 +313,12 @@ function persQueueDeckHTML(n){
     top = '<button class="pq-card" aria-label="Mở hàng chờ duyệt" onclick="fhEmailTxnCta({scope:\'personal\'})"><div class="pq-line"><span class="pq-sk" style="width:52%"></span><span class="pq-sk" style="width:24%"></span></div>'
       + '<div class="pq-meta"><span class="pq-sk" style="width:30%;height:10px"></span><span class="pq-sk" style="width:22%;height:10px"></span></div></button>';
   }
-  return '<div class="pq-deck">'+top+'<i class="k2"></i><i class="k3"></i></div>'
-    + '<div class="pq-count"><span>1 / '+n+' · mới nhất trước</span><span>Chạm thẻ để mở hàng chờ</span></div>';
+  return '<div class="pq-deck">'+top+'<i class="k2"></i><i class="k3"></i></div>';
 }
 /* States 3 and 4: the same deck as a standalone card whenever rows are
    waiting, right under the first widget. The review door people already
-   learned in state 2 stays where they learned it. Hidden while a first read
+   learned in state 2 stays where they learned it. "Kiểm tra N giao dịch":
+   a check, not a chore. Hidden while a first read
    is still running (the queue is held then) and while the grant is dead (the
    email row carries that warning); the tinted button is a secondary action,
    the screen's one primary stays with the dashboard. */
@@ -328,7 +328,7 @@ function persQueueWidgetHTML(act){
   if(typeof window.fhReauthState==='function' && fhReauthState()) return '';
   return '<section class="cf-card pq-widget"><div class="cf-lbl">Email ngân hàng</div><div class="pact-h sm">'+n+' khoản đang chờ bạn duyệt</div>'
     + persQueueDeckHTML(n)
-    + '<div class="dbt-empty-cta"><button onclick="fhEmailTxnCta({scope:\'personal\'})">Duyệt '+n+' khoản</button></div></section>';
+    + '<div class="dbt-empty-cta"><button onclick="fhEmailTxnCta({scope:\'personal\'})">Kiểm tra '+n+' giao dịch</button></div></section>';
 }
 function persWillSeeHTML(){
   var row = function(ic, t, s2){ return '<div class="row"><div class="r-ico personal-ico">'+ic+'</div><div class="r-body"><div class="r-t">'+t+'</div><div class="r-s">'+s2+'</div></div></div>'; };
@@ -380,7 +380,7 @@ function persStreakDriven(P, mon){
   var top = Object.keys(seen).map(function(k){ return seen[k]; }).sort(function(a,b){ return b.n-a.n; })[0];
   if(!top || top.n<3) return base;
   var lab = esc(top.label);
-  return '<div class="section-h"><span class="t">Chuỗi thói quen</span><a onclick="fhStreakNewSheet()">＋ Thêm</a></div>'
+  return '<div class="section-h"><span class="t">Chuỗi thói quen</span><span class="acts"><a onclick="fhStreakNewSheet()">＋ Thêm</a></span></div>'
     + fhEmptyCard({ e:'🎯', t: lab+' '+top.n+' lần tháng này, '+fmt(top.sum), s: 'Thử 7 ngày không '+lab+'? App tự đếm từ sổ của bạn.',
         btns: [{ t:'Bắt đầu chuỗi 7 ngày', on:'fhStreakNewSheet()' }] });
 }
@@ -392,7 +392,7 @@ function persInvestDriven(P, mon){
   var hits = _persMonRows(P, mon).filter(function(t){ return _PERS_INV_RE.test(_persFold(t.note)); });
   if(!hits.length) return base;
   var sum = hits.reduce(function(a,t){ return a+(t.amt||0); },0);
-  return '<div class="section-h"><span class="t">Đầu tư</span><a onclick="fhInvNewPositionSheet()">＋ Vị thế</a></div>'
+  return '<div class="section-h"><span class="tl"><span class="t">Đầu tư</span>'+persEyeHTML('invest')+'</span><span class="acts"><a onclick="fhInvNewPositionSheet()">＋ Vị thế</a></span></div>'
     + fhEmptyCard({ e:'📈', t: hits.length+' khoản có thể là đầu tư tháng này', s: 'Nếu là mua coin, vàng hay cổ phiếu, chuyển thành đầu tư để '+fmt(sum)+' không bị tính là chi tiêu.',
         btns: [{ t:'Xem khoản', on:"openPersonalTxDetail('"+hits[0].id+"')" }, { t:'Thêm vị thế', on:'fhInvNewPositionSheet()' }] });
 }
@@ -536,7 +536,7 @@ function renderPersonal(){
 
   var h = act.state===3 ? persSetupWidgetHTML(act) + persQueueWidgetHTML(act) : '';
   h += '<section class="cf-card'+(persMaskIs('cf')?' sec-masked':'')+'">'
-     + '<div class="cf-lblrow"><div class="cf-lbl">'+cfLbl+'</div>'+persEyeHTML('cf')+moCaret+'</div>'
+     + '<div class="cf-lblrow"><span class="tl"><div class="cf-lbl">'+cfLbl+'</div>'+persEyeHTML('cf')+'</span>'+moCaret+'</div>'
      + '<div class="cf-big num'+(left<0&&slReady?' neg':'')+'">'+(slReady?fmt(left):'…')+'</div>'
      + '<div class="cf-tiles">'
      +   '<button class="cf-tile" onclick="fhIncome(\'personal\')"><span class="cf-tl"><span class="cf-ar up">↑</span> Vào</span><span class="cf-tv num">'+(slReady?fmt(inc):'…')+'</span></button>'
@@ -683,8 +683,8 @@ function _persEmailRow(){
       + (amt!=null ? '<div class="psp-pass-r"><div class="psp-pass-amt num">'+fmt(amt)+'</div><div class="psp-pass-al">bạn đã góp</div></div>' : '')
       + '</div>'+(strip||'')+'</div>';
   }
-  h += '<div class="section-h" id="pers-cats"><span class="t">'+(isAll?'Tiền đi đâu':'Tiền đi đâu tháng này')+'</span>'
-     + '<span class="acts">'+persEyeHTML('cats')+'<a onclick="openPersonalBudget()">'+(P.budget>0?'Ngân sách':'Lập ngân sách')+'</a></span></div>';
+  h += '<div class="section-h" id="pers-cats"><span class="tl"><span class="t">'+(isAll?'Tiền đi đâu':'Tiền đi đâu tháng này')+'</span>'+persEyeHTML('cats')+'</span>'
+     + '<span class="acts"><a onclick="openPersonalBudget()">'+(P.budget>0?'Ngân sách':'Lập ngân sách')+'</a></span></div>';
   h += '<div id="pers-cats-wrap"'+(persMaskIs('cats')?' class="sec-masked"':'')+'>';
   if(!slReady){
     h += '<section class="psp-card"><div class="empty-note">Đang tải lịch sử chi tiêu…</div></section>';
@@ -745,8 +745,7 @@ function _persEmailRow(){
   };
   var monUnread = (!inWin && SL) ? SL.unreadable : txList.filter(function(t){ return t._unreadable; }).length;
   h += '</div>';   // /#pers-cats-wrap
-  h += '<div class="section-h" id="pers-tx"><span class="t">'+(isAll?'Giao dịch gần đây':'Giao dịch của bạn')+'</span>'
-     + '<span class="acts">'+persEyeHTML('txns')+'</span></div>'
+  h += '<div class="section-h" id="pers-tx"><span class="tl"><span class="t">'+(isAll?'Giao dịch gần đây':'Giao dịch của bạn')+'</span>'+persEyeHTML('txns')+'</span></div>'
      + '<div class="rows'+(persMaskIs('txns')?' sec-masked':'')+'">';
   /* Say it before the list, not inside it. A count kept out of the totals has to
      be visible or the totals are quietly wrong -- which is the whole reason this

@@ -1624,6 +1624,12 @@ input{font-family:inherit}
 .sec-eye.on{color:var(--brand-ink)}
 .cf-lblrow .cf-lbl{flex:1}                       /* label left, eye + caret right */
 .cf-lblrow .sec-eye{min-height:0;margin:0}
+/* the eye sits by the title it hides, not by the action link (it toggles
+   the section, so it belongs to the section's name) */
+.section-h .tl{display:inline-flex;align-items:center;gap:6px;min-width:0}
+.section-h .tl .sec-eye{margin:-13px 0}
+.cf-lblrow .tl{display:inline-flex;align-items:center;gap:6px}
+.as-menu{margin:6px -20px -4px}
 .sec-masked .cf-big,.sec-masked .cf-tv,.sec-masked .cf-lend,
 .sec-masked .cf-note,.sec-masked .cf-daily,.sec-masked .cf-duealert,
 .sec-masked .dbt-tv,.sec-masked .dbt-ts,.sec-masked .dbt-lv,
@@ -1664,7 +1670,6 @@ input{font-family:inherit}
 .pq-amt{font-family:var(--disp);font-weight:700;font-size:18px;letter-spacing:-.5px;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
 .pq-amt.pos{color:var(--good)}
 .pq-meta{display:flex;justify-content:space-between;gap:12px;font-size:11.5px;color:var(--muted);margin-top:6px}
-.pq-count{display:flex;align-items:center;justify-content:space-between;margin-top:10px;font-size:12px;font-weight:600;color:var(--muted)}
 .pq-sk{display:block;height:14px;border-radius:7px;background:var(--fill-neutral)}
 /* the three-step setup widget */
 .psu-card{padding:13px 16px 12px}
@@ -4840,7 +4845,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   <div class="cd-nav">
     <button class="cd-back" onclick="closeDebt()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg><span>Tài Chính</span></button>
   </div>
-  <h1 class="txn-title" id="dbt-title">Nợ &amp; cho vay</h1>
+  <h1 class="txn-title" id="dbt-title">Tài sản</h1>
   <div class="cd-scroll" id="dbt-scroll">
     <div id="dbt-body"></div>
     <div class="spacer"></div>
@@ -7313,11 +7318,11 @@ function persActCard(act, mon){
   var n = act.queue;
   return '<section class="cf-card"><div class="cf-lbl">Email ngân hàng · đã đọc xong</div><div class="pact-h">'+n+' khoản đang chờ bạn duyệt</div>'
     + persQueueDeckHTML(n)
-    + '<button class="cta pact-cta" onclick="fhEmailTxnCta({scope:\'personal\'})">'+_PI.list+'Duyệt '+n+' khoản</button>'+link+'</section>';
+    + '<button class="cta pact-cta" onclick="fhEmailTxnCta({scope:\'personal\'})">'+_PI.list+'Kiểm tra '+n+' giao dịch</button>'+link+'</section>';
 }
 /* The queue as a deck: the newest staged row on top (two lines, read-only,
-   the tap opens the review queue), two blank cards behind, a count line.
-   Shared by the state 2 card and the standalone widget below. */
+   the tap opens the review queue), two blank cards behind. Shared by the
+   state 2 card and the standalone widget below. */
 function persQueueDeckHTML(n){
   var pk = window.fhStagedPeekCached ? fhStagedPeekCached() : null;
   if(window.fhStagedPeek && (!pk || window._persPeekFor !== n)){
@@ -7340,12 +7345,12 @@ function persQueueDeckHTML(n){
     top = '<button class="pq-card" aria-label="Mở hàng chờ duyệt" onclick="fhEmailTxnCta({scope:\'personal\'})"><div class="pq-line"><span class="pq-sk" style="width:52%"></span><span class="pq-sk" style="width:24%"></span></div>'
       + '<div class="pq-meta"><span class="pq-sk" style="width:30%;height:10px"></span><span class="pq-sk" style="width:22%;height:10px"></span></div></button>';
   }
-  return '<div class="pq-deck">'+top+'<i class="k2"></i><i class="k3"></i></div>'
-    + '<div class="pq-count"><span>1 / '+n+' · mới nhất trước</span><span>Chạm thẻ để mở hàng chờ</span></div>';
+  return '<div class="pq-deck">'+top+'<i class="k2"></i><i class="k3"></i></div>';
 }
 /* States 3 and 4: the same deck as a standalone card whenever rows are
    waiting, right under the first widget. The review door people already
-   learned in state 2 stays where they learned it. Hidden while a first read
+   learned in state 2 stays where they learned it. "Kiểm tra N giao dịch":
+   a check, not a chore. Hidden while a first read
    is still running (the queue is held then) and while the grant is dead (the
    email row carries that warning); the tinted button is a secondary action,
    the screen's one primary stays with the dashboard. */
@@ -7355,7 +7360,7 @@ function persQueueWidgetHTML(act){
   if(typeof window.fhReauthState==='function' && fhReauthState()) return '';
   return '<section class="cf-card pq-widget"><div class="cf-lbl">Email ngân hàng</div><div class="pact-h sm">'+n+' khoản đang chờ bạn duyệt</div>'
     + persQueueDeckHTML(n)
-    + '<div class="dbt-empty-cta"><button onclick="fhEmailTxnCta({scope:\'personal\'})">Duyệt '+n+' khoản</button></div></section>';
+    + '<div class="dbt-empty-cta"><button onclick="fhEmailTxnCta({scope:\'personal\'})">Kiểm tra '+n+' giao dịch</button></div></section>';
 }
 function persWillSeeHTML(){
   var row = function(ic, t, s2){ return '<div class="row"><div class="r-ico personal-ico">'+ic+'</div><div class="r-body"><div class="r-t">'+t+'</div><div class="r-s">'+s2+'</div></div></div>'; };
@@ -7407,7 +7412,7 @@ function persStreakDriven(P, mon){
   var top = Object.keys(seen).map(function(k){ return seen[k]; }).sort(function(a,b){ return b.n-a.n; })[0];
   if(!top || top.n<3) return base;
   var lab = esc(top.label);
-  return '<div class="section-h"><span class="t">Chuỗi thói quen</span><a onclick="fhStreakNewSheet()">＋ Thêm</a></div>'
+  return '<div class="section-h"><span class="t">Chuỗi thói quen</span><span class="acts"><a onclick="fhStreakNewSheet()">＋ Thêm</a></span></div>'
     + fhEmptyCard({ e:'🎯', t: lab+' '+top.n+' lần tháng này, '+fmt(top.sum), s: 'Thử 7 ngày không '+lab+'? App tự đếm từ sổ của bạn.',
         btns: [{ t:'Bắt đầu chuỗi 7 ngày', on:'fhStreakNewSheet()' }] });
 }
@@ -7419,7 +7424,7 @@ function persInvestDriven(P, mon){
   var hits = _persMonRows(P, mon).filter(function(t){ return _PERS_INV_RE.test(_persFold(t.note)); });
   if(!hits.length) return base;
   var sum = hits.reduce(function(a,t){ return a+(t.amt||0); },0);
-  return '<div class="section-h"><span class="t">Đầu tư</span><a onclick="fhInvNewPositionSheet()">＋ Vị thế</a></div>'
+  return '<div class="section-h"><span class="tl"><span class="t">Đầu tư</span>'+persEyeHTML('invest')+'</span><span class="acts"><a onclick="fhInvNewPositionSheet()">＋ Vị thế</a></span></div>'
     + fhEmptyCard({ e:'📈', t: hits.length+' khoản có thể là đầu tư tháng này', s: 'Nếu là mua coin, vàng hay cổ phiếu, chuyển thành đầu tư để '+fmt(sum)+' không bị tính là chi tiêu.',
         btns: [{ t:'Xem khoản', on:"openPersonalTxDetail('"+hits[0].id+"')" }, { t:'Thêm vị thế', on:'fhInvNewPositionSheet()' }] });
 }
@@ -7563,7 +7568,7 @@ function renderPersonal(){
 
   var h = act.state===3 ? persSetupWidgetHTML(act) + persQueueWidgetHTML(act) : '';
   h += '<section class="cf-card'+(persMaskIs('cf')?' sec-masked':'')+'">'
-     + '<div class="cf-lblrow"><div class="cf-lbl">'+cfLbl+'</div>'+persEyeHTML('cf')+moCaret+'</div>'
+     + '<div class="cf-lblrow"><span class="tl"><div class="cf-lbl">'+cfLbl+'</div>'+persEyeHTML('cf')+'</span>'+moCaret+'</div>'
      + '<div class="cf-big num'+(left<0&&slReady?' neg':'')+'">'+(slReady?fmt(left):'…')+'</div>'
      + '<div class="cf-tiles">'
      +   '<button class="cf-tile" onclick="fhIncome(\'personal\')"><span class="cf-tl"><span class="cf-ar up">↑</span> Vào</span><span class="cf-tv num">'+(slReady?fmt(inc):'…')+'</span></button>'
@@ -7710,8 +7715,8 @@ function _persEmailRow(){
       + (amt!=null ? '<div class="psp-pass-r"><div class="psp-pass-amt num">'+fmt(amt)+'</div><div class="psp-pass-al">bạn đã góp</div></div>' : '')
       + '</div>'+(strip||'')+'</div>';
   }
-  h += '<div class="section-h" id="pers-cats"><span class="t">'+(isAll?'Tiền đi đâu':'Tiền đi đâu tháng này')+'</span>'
-     + '<span class="acts">'+persEyeHTML('cats')+'<a onclick="openPersonalBudget()">'+(P.budget>0?'Ngân sách':'Lập ngân sách')+'</a></span></div>';
+  h += '<div class="section-h" id="pers-cats"><span class="tl"><span class="t">'+(isAll?'Tiền đi đâu':'Tiền đi đâu tháng này')+'</span>'+persEyeHTML('cats')+'</span>'
+     + '<span class="acts"><a onclick="openPersonalBudget()">'+(P.budget>0?'Ngân sách':'Lập ngân sách')+'</a></span></div>';
   h += '<div id="pers-cats-wrap"'+(persMaskIs('cats')?' class="sec-masked"':'')+'>';
   if(!slReady){
     h += '<section class="psp-card"><div class="empty-note">Đang tải lịch sử chi tiêu…</div></section>';
@@ -7772,8 +7777,7 @@ function _persEmailRow(){
   };
   var monUnread = (!inWin && SL) ? SL.unreadable : txList.filter(function(t){ return t._unreadable; }).length;
   h += '</div>';   // /#pers-cats-wrap
-  h += '<div class="section-h" id="pers-tx"><span class="t">'+(isAll?'Giao dịch gần đây':'Giao dịch của bạn')+'</span>'
-     + '<span class="acts">'+persEyeHTML('txns')+'</span></div>'
+  h += '<div class="section-h" id="pers-tx"><span class="tl"><span class="t">'+(isAll?'Giao dịch gần đây':'Giao dịch của bạn')+'</span>'+persEyeHTML('txns')+'</span></div>'
      + '<div class="rows'+(persMaskIs('txns')?' sec-masked':'')+'">';
   /* Say it before the list, not inside it. A count kept out of the totals has to
      be visible or the totals are quietly wrong -- which is the whole reason this
@@ -21002,7 +21006,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v528';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v530';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -24686,10 +24690,8 @@ window.obGoogle = async function () {
       const balAccts = (P.accounts || []).filter((a) => a.kind !== 'credit_card' && a.kind !== 'investment');
       const hasAny = t.d.cards.length || t.d.people.length || t.spaces.length || _spaceInvites.length || balAccts.length;
       let h = '<div id="pers-debts-wrap"' + (window.persMaskIs && persMaskIs('debts') ? ' class="sec-masked"' : '') + '>'
-        + '<div class="section-h" id="pers-debts-h"><span class="t">Nợ &amp; cho vay</span>'
-        + '<span class="acts">' + (window.persEyeHTML ? persEyeHTML('debts') : '')
-        + '<a onclick="fhXferSheet()">Chuyển tiền</a>'
-        + '<a onclick="fhDebtLoanSheet()">Ghi khoản vay</a></span></div>';
+        + '<div class="section-h" id="pers-debts-h"><span class="tl"><span class="t">Tài sản</span>' + (window.persEyeHTML ? persEyeHTML('debts') : '') + '</span>'
+        + '<span class="acts"><a onclick="fhAssetsAddSheet()">＋ Thêm</a></span></div>';
       /* pending space invites — above everything, they need a decision */
       _spaceInvites.forEach(function (inv) {
         h += '<section class="dbt-empty dbt-invite"><div class="dbt-empty-t"><b>' + _e(inv.invited_by || 'Bạn của bạn') + '</b> mời bạn vào nhóm chia tiền <b>' + _e(inv.family_name || 'Nhóm') + '</b>.</div>'
@@ -25299,6 +25301,47 @@ window.obGoogle = async function () {
     const _amtIn = (id, ph) => '<div class="field"><label>Số tiền</label><input class="num" id="' + id + '" inputmode="numeric" placeholder="' + (ph || '0 ₫') + '" oninput="fhModalDirty()"></div>';
     const _amtOf = (id) => window.parseAmtBase ? parseAmtBase((document.getElementById(id) || {}).value || '') : 0;
 
+    /* "＋ Thêm" on the Tài sản section: one door, three ways in. The two old
+       header links (Chuyển tiền, Ghi khoản vay) and the "＋ Tài khoản mới"
+       buried in the transfer form all live here now, so the header fits on
+       one line with the title and the eye. */
+    const _AS_IC = {
+      xfer: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13l-3-3M20 16H7l3 3"/></svg>',
+      hands: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l4-4 5 5"/><path d="M21 12l-4-4-5 5"/><path d="M8 13l4 4 4-4"/></svg>',
+      wallet: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H19v3"/><rect x="4" y="8" width="17" height="11" rx="2.5"/><circle cx="16.5" cy="13.5" r="1.2" fill="currentColor"/></svg>',
+      chev: '<svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg>',
+    };
+    const _asRow = (ic, t, sub, on) => '<button class="cc-row" onclick="_closeOv();' + on + '"><span class="cc-ic">' + _AS_IC[ic] + '</span><span class="cc-t">' + t + '<span class="cc-sub">' + sub + '</span></span>' + _AS_IC.chev + '</button>';
+    window.fhAssetsAddSheet = function () {
+      _fhSheet('<div class="fh-s-h">Thêm vào tài sản</div><div class="as-menu">'
+        + _asRow('xfer', 'Chuyển giữa tài khoản', 'VIB sang VCB, rút tiền mặt', 'fhXferSheet()')
+        + _asRow('hands', 'Ghi cho vay / mượn', 'Ai nợ bạn, bạn nợ ai', 'fhDebtLoanSheet()')
+        + _asRow('wallet', 'Thêm tài khoản, thẻ', 'Ngân hàng không gửi email, sổ tiết kiệm, thẻ', 'fhAcctNewSheet()')
+        + '</div>');
+    };
+    /* A manual account: name + kind, then straight into its settings screen so
+       the balance can be set. The name is the identity (fhPersonalAccountCreate,
+       0109): two manual accounts never collapse into one. */
+    window.fhAcctNewSheet = function () {
+      _fhModal({
+        title: 'Thêm tài khoản, thẻ', saveLabel: 'Thêm', reqMsg: 'Đặt tên cho tài khoản nhé',
+        body: '<div class="field"><label>Tên</label><input id="acn-name" placeholder="vd. Sổ tiết kiệm VPBank" oninput="fhModalDirty()"></div>'
+          + '<div class="field"><label>Loại</label><div class="choices" id="acn-kind">'
+          + '<button class="choice on" data-v="deposit" onclick="pick(\'acn-kind\',this)">🏦 Ngân hàng</button>'
+          + '<button class="choice" data-v="ewallet" onclick="pick(\'acn-kind\',this)">📱 Ví điện tử</button>'
+          + '<button class="choice" data-v="credit_card" onclick="pick(\'acn-kind\',this)">💳 Thẻ tín dụng</button>'
+          + '<button class="choice" data-v="cash" onclick="pick(\'acn-kind\',this)">💵 Tiền mặt</button></div></div>',
+        required: function () { return [{ el: document.getElementById('acn-name'), ok: !!((document.getElementById('acn-name') || {}).value || '').trim() }]; },
+        save: async function () {
+          const name = ((document.getElementById('acn-name') || {}).value || '').trim();
+          const kind = (typeof chosen === 'function' ? chosen('acn-kind') : 'deposit') || 'deposit';
+          const id = await fhPersonalAccountCreate(name, kind);
+          if (!id) throw new Error('save_failed');
+          window.toast && toast('Đã thêm ' + name);
+          return function () { if (window.renderPersonal) renderPersonal(); setTimeout(() => { if (window.fhAcctEditSheet) fhAcctEditSheet(id); }, 320); };
+        },
+      });
+    };
     window.fhDebtLoanSheet = function (presetWho) {
       _fhModal({
         title: 'Cho vay / mượn', saveLabel: 'Ghi lại', reqMsg: 'Điền tên và số tiền nhé',
@@ -26517,9 +26560,8 @@ window.obGoogle = async function () {
       const v = fhInvPositions(); if (!v) return '';
       const fl = fhInvMonthFlows((new Date()).getFullYear() + '-' + String((new Date()).getMonth() + 1).padStart(2, '0'));
       let h = '<div id="pers-invest-wrap"' + (window.persMaskIs && persMaskIs('invest') ? ' class="sec-masked"' : '') + '>';
-      h += '<div class="section-h" id="pers-invest-h"><span class="t">Đầu tư</span>'
-        + '<span class="acts">' + (window.persEyeHTML ? persEyeHTML('invest') : '')
-        + '<a onclick="fhInvNewPositionSheet()">＋ Vị thế</a></span></div>';
+      h += '<div class="section-h" id="pers-invest-h"><span class="tl"><span class="t">Đầu tư</span>' + (window.persEyeHTML ? persEyeHTML('invest') : '') + '</span>'
+        + '<span class="acts"><a onclick="fhInvNewPositionSheet()">＋ Vị thế</a></span></div>';
       if (!v.positions.length) {
         h += (window.fhEmptyCard
           ? fhEmptyCard({ e: '📈', t: 'Có mua crypto, vàng, cổ phiếu?', s: 'Ghi vị thế để tiền mua không bị tính là chi tiêu.',

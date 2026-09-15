@@ -41,10 +41,8 @@
       const balAccts = (P.accounts || []).filter((a) => a.kind !== 'credit_card' && a.kind !== 'investment');
       const hasAny = t.d.cards.length || t.d.people.length || t.spaces.length || _spaceInvites.length || balAccts.length;
       let h = '<div id="pers-debts-wrap"' + (window.persMaskIs && persMaskIs('debts') ? ' class="sec-masked"' : '') + '>'
-        + '<div class="section-h" id="pers-debts-h"><span class="t">Nợ &amp; cho vay</span>'
-        + '<span class="acts">' + (window.persEyeHTML ? persEyeHTML('debts') : '')
-        + '<a onclick="fhXferSheet()">Chuyển tiền</a>'
-        + '<a onclick="fhDebtLoanSheet()">Ghi khoản vay</a></span></div>';
+        + '<div class="section-h" id="pers-debts-h"><span class="tl"><span class="t">Tài sản</span>' + (window.persEyeHTML ? persEyeHTML('debts') : '') + '</span>'
+        + '<span class="acts"><a onclick="fhAssetsAddSheet()">＋ Thêm</a></span></div>';
       /* pending space invites — above everything, they need a decision */
       _spaceInvites.forEach(function (inv) {
         h += '<section class="dbt-empty dbt-invite"><div class="dbt-empty-t"><b>' + _e(inv.invited_by || 'Bạn của bạn') + '</b> mời bạn vào nhóm chia tiền <b>' + _e(inv.family_name || 'Nhóm') + '</b>.</div>'
@@ -654,6 +652,47 @@
     const _amtIn = (id, ph) => '<div class="field"><label>Số tiền</label><input class="num" id="' + id + '" inputmode="numeric" placeholder="' + (ph || '0 ₫') + '" oninput="fhModalDirty()"></div>';
     const _amtOf = (id) => window.parseAmtBase ? parseAmtBase((document.getElementById(id) || {}).value || '') : 0;
 
+    /* "＋ Thêm" on the Tài sản section: one door, three ways in. The two old
+       header links (Chuyển tiền, Ghi khoản vay) and the "＋ Tài khoản mới"
+       buried in the transfer form all live here now, so the header fits on
+       one line with the title and the eye. */
+    const _AS_IC = {
+      xfer: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13l-3-3M20 16H7l3 3"/></svg>',
+      hands: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l4-4 5 5"/><path d="M21 12l-4-4-5 5"/><path d="M8 13l4 4 4-4"/></svg>',
+      wallet: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H19v3"/><rect x="4" y="8" width="17" height="11" rx="2.5"/><circle cx="16.5" cy="13.5" r="1.2" fill="currentColor"/></svg>',
+      chev: '<svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg>',
+    };
+    const _asRow = (ic, t, sub, on) => '<button class="cc-row" onclick="_closeOv();' + on + '"><span class="cc-ic">' + _AS_IC[ic] + '</span><span class="cc-t">' + t + '<span class="cc-sub">' + sub + '</span></span>' + _AS_IC.chev + '</button>';
+    window.fhAssetsAddSheet = function () {
+      _fhSheet('<div class="fh-s-h">Thêm vào tài sản</div><div class="as-menu">'
+        + _asRow('xfer', 'Chuyển giữa tài khoản', 'VIB sang VCB, rút tiền mặt', 'fhXferSheet()')
+        + _asRow('hands', 'Ghi cho vay / mượn', 'Ai nợ bạn, bạn nợ ai', 'fhDebtLoanSheet()')
+        + _asRow('wallet', 'Thêm tài khoản, thẻ', 'Ngân hàng không gửi email, sổ tiết kiệm, thẻ', 'fhAcctNewSheet()')
+        + '</div>');
+    };
+    /* A manual account: name + kind, then straight into its settings screen so
+       the balance can be set. The name is the identity (fhPersonalAccountCreate,
+       0109): two manual accounts never collapse into one. */
+    window.fhAcctNewSheet = function () {
+      _fhModal({
+        title: 'Thêm tài khoản, thẻ', saveLabel: 'Thêm', reqMsg: 'Đặt tên cho tài khoản nhé',
+        body: '<div class="field"><label>Tên</label><input id="acn-name" placeholder="vd. Sổ tiết kiệm VPBank" oninput="fhModalDirty()"></div>'
+          + '<div class="field"><label>Loại</label><div class="choices" id="acn-kind">'
+          + '<button class="choice on" data-v="deposit" onclick="pick(\'acn-kind\',this)">🏦 Ngân hàng</button>'
+          + '<button class="choice" data-v="ewallet" onclick="pick(\'acn-kind\',this)">📱 Ví điện tử</button>'
+          + '<button class="choice" data-v="credit_card" onclick="pick(\'acn-kind\',this)">💳 Thẻ tín dụng</button>'
+          + '<button class="choice" data-v="cash" onclick="pick(\'acn-kind\',this)">💵 Tiền mặt</button></div></div>',
+        required: function () { return [{ el: document.getElementById('acn-name'), ok: !!((document.getElementById('acn-name') || {}).value || '').trim() }]; },
+        save: async function () {
+          const name = ((document.getElementById('acn-name') || {}).value || '').trim();
+          const kind = (typeof chosen === 'function' ? chosen('acn-kind') : 'deposit') || 'deposit';
+          const id = await fhPersonalAccountCreate(name, kind);
+          if (!id) throw new Error('save_failed');
+          window.toast && toast('Đã thêm ' + name);
+          return function () { if (window.renderPersonal) renderPersonal(); setTimeout(() => { if (window.fhAcctEditSheet) fhAcctEditSheet(id); }, 320); };
+        },
+      });
+    };
     window.fhDebtLoanSheet = function (presetWho) {
       _fhModal({
         title: 'Cho vay / mượn', saveLabel: 'Ghi lại', reqMsg: 'Điền tên và số tiền nhé',

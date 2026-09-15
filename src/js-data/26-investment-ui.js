@@ -322,9 +322,8 @@
       const v = fhInvPositions(); if (!v) return '';
       const fl = fhInvMonthFlows((new Date()).getFullYear() + '-' + String((new Date()).getMonth() + 1).padStart(2, '0'));
       let h = '<div id="pers-invest-wrap"' + (window.persMaskIs && persMaskIs('invest') ? ' class="sec-masked"' : '') + '>';
-      h += '<div class="section-h" id="pers-invest-h"><span class="t">Đầu tư</span>'
-        + '<span class="acts">' + (window.persEyeHTML ? persEyeHTML('invest') : '')
-        + '<a onclick="fhInvNewPositionSheet()">＋ Vị thế</a></span></div>';
+      h += '<div class="section-h" id="pers-invest-h"><span class="tl"><span class="t">Đầu tư</span>' + (window.persEyeHTML ? persEyeHTML('invest') : '') + '</span>'
+        + '<span class="acts"><a onclick="fhInvNewPositionSheet()">＋ Vị thế</a></span></div>';
       if (!v.positions.length) {
         h += (window.fhEmptyCard
           ? fhEmptyCard({ e: '📈', t: 'Có mua crypto, vàng, cổ phiếu?', s: 'Ghi vị thế để tiền mua không bị tính là chi tiêu.',

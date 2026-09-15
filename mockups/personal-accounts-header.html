@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sổ cá nhân · tên và đầu mục của phần tài khoản</title>
+<style>
+:root{
+  --sage-50:#ebfbf6; --sage-500:#149d83; --sage-600:#007c65;
+  --stone-50:#f6f9f8; --stone-100:#f0f5f3; --stone-150:#ecf1f0; --stone-200:#e3eae7; --stone-300:#c3cdca; --stone-600:#626b68; --stone-800:#2e3835; --stone-900:#0e1613;
+  --red-ink:#a41b3b; --red-tint:#ffeaeb; --amber-tint:#fdefe0; --amber-ink:#915200;
+  --brand:var(--sage-500); --brand-ink:var(--sage-600); --brand-tint:var(--sage-50); --danger:var(--red-ink); --good:var(--sage-600);
+  --ink:var(--stone-900); --ink-2:var(--stone-800); --muted:var(--stone-600); --white:#fff; --canvas:var(--stone-100); --hairline:var(--stone-200); --divider:var(--stone-150); --fill-neutral:rgba(127,137,134,.14); --chev:var(--stone-300);
+  --shadow-card:0 1px 3px rgba(14,22,19,.05),0 8px 24px rgba(14,22,19,.04); --shadow-focal:0 1px 3px rgba(14,22,19,.05),0 12px 30px rgba(14,22,19,.09); --r-card-lg:22px;
+  --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif; --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--text);background:#e6ebe9;color:var(--ink);padding:34px 22px 80px;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;font-size:inherit;color:inherit;border:0;background:none;cursor:pointer;text-align:left}
+svg{display:block}
+.page-h{max-width:1700px;margin:0 auto 10px}
+.page-h h1{font-family:var(--disp);font-size:26px;font-weight:800;letter-spacing:-.6px}
+.page-h p{font-size:14px;color:var(--muted);margin-top:8px;max-width:900px;line-height:1.6}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:40px 30px;max-width:1700px;margin:26px auto 0}
+.opt{display:flex;flex-direction:column;align-items:center;gap:12px;min-width:0}
+.opt-tag{align-self:flex-start;display:flex;align-items:baseline;gap:9px}
+.opt-k{font-family:var(--disp);font-weight:800;font-size:13px;letter-spacing:.4px;color:var(--brand-ink);background:var(--brand-tint);border-radius:7px;padding:3px 9px}
+.opt-k.cur{background:var(--fill-neutral);color:var(--muted)}
+.opt-t{font-family:var(--disp);font-weight:700;font-size:17px;letter-spacing:-.3px}
+.opt-why{align-self:flex-start;font-size:13px;line-height:1.55;color:var(--muted);min-height:92px}
+.opt-why b{color:var(--ink-2);font-weight:600}
+.phone{width:100%;max-width:392px;height:640px;background:var(--canvas);border-radius:44px;box-shadow:0 2px 8px rgba(14,22,19,.10),0 30px 70px rgba(14,22,19,.16);overflow:hidden;position:relative;border:1px solid rgba(14,22,19,.06)}
+.scroll{height:100%;overflow:hidden;padding:18px 0}
+.section-h{display:flex;align-items:baseline;justify-content:space-between;margin:22px 22px 13px}
+.section-h .t{font-family:var(--disp);font-weight:700;font-size:22px;letter-spacing:-.6px;color:var(--ink)}
+.section-h .acts{display:flex;align-items:baseline;gap:14px}
+.section-h a{font-size:15px;font-weight:600;color:var(--brand-ink);white-space:nowrap}
+.eye{width:18px;height:18px;color:var(--brand-ink);align-self:center;flex-shrink:0}
+.plus{width:34px;height:34px;border-radius:50%;background:var(--brand-tint);color:var(--brand-ink);display:flex;align-items:center;justify-content:center;align-self:center}
+.plus svg{width:18px;height:18px}
+.bento{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:2px 16px 12px}
+.tile{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-focal);padding:14px 15px}
+.tile.wide{grid-column:1/-1}
+.tk{font-size:13px;font-weight:600;color:var(--ink)}
+.tv{font-family:var(--disp);font-size:21px;font-weight:700;letter-spacing:-.5px;margin-top:6px;color:var(--ink);font-variant-numeric:tabular-nums}
+.tv.owe{color:var(--danger)}.tv.owed{color:var(--good)}
+.ts{font-size:11.5px;font-weight:600;color:var(--muted);margin-top:5px}
+.due{display:inline-flex;font-size:10.5px;font-weight:700;border-radius:9999px;padding:2px 8px;background:var(--amber-tint);color:var(--amber-ink);margin-top:8px}
+.sec-lbl{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding:8px 26px 6px}
+/* sheet */
+.scrim{position:absolute;inset:0;background:rgba(14,22,19,.32)}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--white);border-radius:24px 24px 0 0;padding:12px 20px 28px;box-shadow:0 -12px 44px rgba(14,22,19,.22)}
+.sheet-grab{width:36px;height:5px;border-radius:3px;background:var(--hairline);margin:0 auto 14px}
+.sheet-h{font-family:var(--disp);font-weight:700;font-size:22px;letter-spacing:-.6px;color:var(--ink);margin-bottom:6px}
+.srow{display:flex;align-items:center;gap:13px;padding:13px 0;border-bottom:1px solid var(--divider)}
+.srow:last-child{border-bottom:0}
+.sic{width:40px;height:40px;border-radius:12px;background:var(--brand-tint);color:var(--brand-ink);display:flex;align-items:center;justify-content:center}
+.sic svg{width:20px;height:20px}
+.st{font-size:16px;font-weight:500;color:var(--ink)} .ss{font-size:13px;color:var(--muted);margin-top:2px}
+.chev{margin-left:auto;width:18px;height:18px;color:var(--chev)}
+</style>
+</head>
+<body>
+<div class="page-h">
+  <h1>Phần "Nợ &amp; cho vay": tên và đầu mục</h1>
+  <p>Từ 0109 phần này chứa cả tài khoản ngân hàng, ví, tiền mặt (số dư) lẫn thẻ và khoản vay (nợ), nên "Nợ &amp; cho vay" gọi thiếu một nửa. Đầu mục hiện có tiêu đề dài, con mắt và hai link, nên gãy thành hai dòng. Ba tên ứng viên và hai cách gom hành động.</p>
+</div>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z"/><circle cx="12" cy="12" r="2.6"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-xfer" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13l-3-3M20 16H7l3 3"/></symbol>
+  <symbol id="i-hands" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l4-4 5 5"/><path d="M21 12l-4-4-5 5"/><path d="M8 13l4 4 4-4"/></symbol>
+  <symbol id="i-wallet" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H19v3"/><rect x="4" y="8" width="17" height="11" rx="2.5"/><circle cx="16.5" cy="13.5" r="1.2" fill="currentColor"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></symbol>
+</svg>
+<div id="root" class="grid"></div>
+<script>
+const I = (id) => `<svg><use href="#i-${id}"/></svg>`;
+const EYE = `<svg class="eye"><use href="#i-eye"/></svg>`;
+const BENTO = `<div class="bento">
+  <div class="tile"><div class="tk">Tôi nợ</div><div class="tv owe">4.820.000 ₫</div><div class="ts">1 thẻ tín dụng</div></div>
+  <div class="tile"><div class="tk">Được nợ</div><div class="tv owed">2.000.000 ₫</div><div class="ts">Minh · hẹn trả 20/09</div></div>
+  <div class="tile"><div class="tk">VIB ••5140</div><div class="tv">12.400.000 ₫</div><div class="ts">Số dư</div></div>
+  <div class="tile"><div class="tk">VCB ••2291</div><div class="tv">8.120.000 ₫</div><div class="ts">Số dư</div></div>
+  <div class="tile wide"><div class="tk">VIB Visa · tín dụng ••4512</div><div class="tv owe">Đang nợ 4.820.000 ₫</div><span class="due">đến hạn 25/09</span></div>
+</div>`;
+const HDR = (t, acts) => `<div class="section-h"><span class="t">${t}</span><span class="acts">${acts}</span></div>`;
+const phone = (inner, overlay) => `<div class="phone"><div class="scroll">${inner}</div>${overlay || ''}</div>`;
+const SHEET = `<div class="scrim"></div><div class="sheet"><div class="sheet-grab"></div><div class="sheet-h">Thêm vào tài khoản &amp; nợ</div>
+  <div class="srow"><span class="sic">${I('xfer')}</span><div><div class="st">Chuyển giữa tài khoản</div><div class="ss">VIB sang VCB, rút tiền mặt</div></div><svg class="chev"><use href="#i-chev"/></svg></div>
+  <div class="srow"><span class="sic">${I('hands')}</span><div><div class="st">Ghi cho vay / mượn</div><div class="ss">Ai nợ bạn, bạn nợ ai</div></div><svg class="chev"><use href="#i-chev"/></svg></div>
+  <div class="srow"><span class="sic">${I('wallet')}</span><div><div class="st">Thêm tài khoản, thẻ</div><div class="ss">Ngân hàng không gửi email, sổ tiết kiệm</div></div><svg class="chev"><use href="#i-chev"/></svg></div></div>`;
+const OPTS = [
+  { k: 'Hiện tại', cur: true, t: 'Nợ & cho vay + hai link', why: 'Tiêu đề hai từ ghép dài, con mắt, "Chuyển tiền", "Ghi khoản vay": bốn thứ trên một dòng 360px, gãy làm hai. Tên chỉ nói nửa nội dung.',
+    h: HDR('Nợ &amp; cho vay', EYE + '<a>Chuyển tiền</a><a>Ghi khoản vay</a>') + BENTO },
+  { k: 'A1', t: '"Tài khoản & nợ", một link Thêm', why: '<b>Tên gọi đủ cả hai nửa</b> bằng hai chữ ngắn: tài khoản (ngân hàng, ví, tiền mặt, thẻ) và nợ (thẻ, cho vay, mượn). Đầu mục còn con mắt và một link "＋ Thêm" như Chuỗi thói quen và Đầu tư; link mở sheet ba việc (xem A1 có sheet).',
+    h: HDR('Tài khoản &amp; nợ', EYE + '<a>＋ Thêm</a>') + BENTO },
+  { k: 'A1 · sheet', t: 'Sheet của "＋ Thêm"', why: 'Ba việc mà hai link cũ và nút "＋ Tài khoản khác" trong form chuyển tiền đang gánh: chuyển giữa tài khoản, ghi cho vay / mượn, thêm tài khoản, thẻ. Một cửa, ba đường.',
+    h: HDR('Tài khoản &amp; nợ', EYE + '<a>＋ Thêm</a>') + BENTO, o: SHEET },
+  { k: 'A2', t: '"Tài khoản & nợ", nút ＋ tròn', why: 'Cùng tên, hành động là một nút ＋ tròn tint thay cho chữ, như nút thêm của nhiều app iOS. Ngắn nhất, nhưng khác ngữ pháp với "＋ Thêm" ở hai mục kia.',
+    h: HDR('Tài khoản &amp; nợ', EYE + `<span class="plus">${I('plus')}</span>`) + BENTO },
+  { k: 'B1', t: '"Tài sản & nợ"', why: '"Tài sản" gộp số dư tài khoản và, về sau, cả đầu tư. Đúng kế toán, nhưng nặng và Đầu tư đang là mục riêng nên dễ gây thắc mắc.',
+    h: HDR('Tài sản &amp; nợ', EYE + '<a>＋ Thêm</a>') + BENTO },
+  { k: 'B2', t: '"Số dư & nợ"', why: '"Số dư" là chữ người ta quen từ email ngân hàng, gọi thẳng con số trên ô. Ngắn, dễ hiểu, nhưng thẻ tín dụng thì không phải "số dư".',
+    h: HDR('Số dư &amp; nợ', EYE + '<a>＋ Thêm</a>') + BENTO },
+];
+document.getElementById('root').innerHTML = OPTS.map((o) => `<div class="opt"><div class="opt-tag"><span class="opt-k${o.cur ? ' cur' : ''}">${o.k}</span><span class="opt-t">${o.t}</span></div><div class="opt-why">${o.why}</div>${phone(o.h, o.o)}</div>`).join('');
+</script>
+</body>
+</html>

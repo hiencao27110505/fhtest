@@ -444,6 +444,12 @@
 .sec-eye.on{color:var(--brand-ink)}
 .cf-lblrow .cf-lbl{flex:1}                       /* label left, eye + caret right */
 .cf-lblrow .sec-eye{min-height:0;margin:0}
+/* the eye sits by the title it hides, not by the action link (it toggles
+   the section, so it belongs to the section's name) */
+.section-h .tl{display:inline-flex;align-items:center;gap:6px;min-width:0}
+.section-h .tl .sec-eye{margin:-13px 0}
+.cf-lblrow .tl{display:inline-flex;align-items:center;gap:6px}
+.as-menu{margin:6px -20px -4px}
 .sec-masked .cf-big,.sec-masked .cf-tv,.sec-masked .cf-lend,
 .sec-masked .cf-note,.sec-masked .cf-daily,.sec-masked .cf-duealert,
 .sec-masked .dbt-tv,.sec-masked .dbt-ts,.sec-masked .dbt-lv,
@@ -484,7 +490,6 @@
 .pq-amt{font-family:var(--disp);font-weight:700;font-size:18px;letter-spacing:-.5px;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
 .pq-amt.pos{color:var(--good)}
 .pq-meta{display:flex;justify-content:space-between;gap:12px;font-size:11.5px;color:var(--muted);margin-top:6px}
-.pq-count{display:flex;align-items:center;justify-content:space-between;margin-top:10px;font-size:12px;font-weight:600;color:var(--muted)}
 .pq-sk{display:block;height:14px;border-radius:7px;background:var(--fill-neutral)}
 /* the three-step setup widget */
 .psu-card{padding:13px 16px 12px}

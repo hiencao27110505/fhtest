@@ -68,6 +68,20 @@ t('the widget keeps the screen to one primary: its action is the tinted button',
 t('quick review never auto-pops while the first read is running', /if \(!opts\.force\) \{[\s\S]{0,300}fhBackfillHolds\(\)\) return;/.test(quick));
 t('quick review never auto-pops while the deck is on screen', /\(window\.fhStagedCount\|\|0\)>0\) return; window\.fhQuickReviewMaybe\(\)/.test(R('src/js-ui/10-nav-model.js')));
 
+t('the deck has no count line and its action reads "Kiểm tra N giao dịch"', !/pq-count/.test(ui) && !/\.pq-count\{/.test(css) && (ui.match(/Kiểm tra '\+n\+' giao dịch/g) || []).length === 2 && !/Duyệt '\+n\+' khoản/.test(ui));
+
+console.log('\n-- Tài sản: name, one action, the eye by the title --');
+{
+  const debts = R('src/js-data/23-debts-ui.js'), inv = R('src/js-data/26-investment-ui.js');
+  t('the section is named Tài sản and its header has one action that opens the three-door sheet',
+    /id="pers-debts-h"><span class="tl"><span class="t">Tài sản<\/span>/.test(debts) && /<a onclick="fhAssetsAddSheet\(\)">＋ Thêm<\/a>/.test(debts) && !/onclick="fhXferSheet\(\)">Chuyển tiền/.test(debts)
+    && /window\.fhAssetsAddSheet = function/.test(debts) && /'fhXferSheet\(\)'\)/.test(debts) && /'fhDebtLoanSheet\(\)'\)/.test(debts) && /'fhAcctNewSheet\(\)'\)/.test(debts) && /window\.fhAcctNewSheet = function/.test(debts));
+  t('the eye sits beside the title on every masked section, the cash-flow label included',
+    /class="tl"><span class="t">[^<]*<\/span>'\+persEyeHTML\('cats'\)/.test(ui) && /class="tl"><span class="t">[^<]*<\/span>'\+persEyeHTML\('txns'\)/.test(ui)
+    && /class="tl"><div class="cf-lbl">'\+cfLbl\+'<\/div>'\+persEyeHTML\('cf'\)/.test(ui) && /class="tl"><span class="t">Đầu tư<\/span>' \+ \(window\.persEyeHTML/.test(inv)
+    && !/<span class="acts">'\+persEyeHTML/.test(ui) && /\.section-h \.tl\{/.test(css));
+}
+
 console.log('\n-- exports the tab leans on --');
 t('quick review exports a cached, never-throwing peek at the newest personal row',
   /window\.fhStagedPeek = async function \(forCount\)/.test(quick) && /window\.fhStagedPeekCached = function/.test(quick)
