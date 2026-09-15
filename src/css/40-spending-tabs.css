@@ -510,7 +510,3 @@
 /* "sau đó bạn sẽ thấy" rows and the data-driven empty states (actions reuse .dbt-empty-cta) */
 .pact-rows .r-ico{color:var(--muted)}
 .pact-rows .r-ico svg{width:20px;height:20px}
-.pact-empty{padding:14px 16px 14px}
-.pact-empty .pact-h{font-size:18px;letter-spacing:-.4px;margin-top:0}
-.pact-empty .pact-p{color:var(--muted);font-size:13px;margin-top:6px}
-.pact-emo{font-size:26px;line-height:1;flex-shrink:0}

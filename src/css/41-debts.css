@@ -34,6 +34,14 @@
 .dbt-empty-cta button{flex:1;min-height:42px;border:0;border-radius:12px;background:var(--brand-tint);color:var(--brand-ink);
   font:inherit;font-size:13px;font-weight:600;cursor:pointer}
 .dbt-empty-cta button:active{transform:scale(.98)}
+/* the shared empty-state card (mockups/personal-empty-states.html, E3):
+   centered mark + question + why + the action row above; first button filled */
+.emp{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-card);margin:2px 16px 12px;padding:20px 18px 16px;text-align:center}
+.emp-mark{font-size:26px;line-height:1}
+.emp-t{font-size:16px;font-weight:600;letter-spacing:-.01em;color:var(--ink);margin-top:8px;line-height:1.3}
+.emp-s{font-size:13px;line-height:1.45;color:var(--muted);margin-top:3px}
+.emp .dbt-empty-cta{margin-top:14px}
+.emp .dbt-empty-cta button.pri{background:var(--brand);color:var(--white)}
 
 /* overlay internals */
 #debt-overlay .txn-title{padding-bottom:4px}

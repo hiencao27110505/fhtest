@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sổ cá nhân · ô trống của ba mục</title>
+<style>
+:root{
+  --sage-50:#ebfbf6; --sage-300:#7ad5bd; --sage-400:#4abba1; --sage-500:#149d83; --sage-600:#007c65;
+  --stone-25:#fafcfc; --stone-50:#f6f9f8; --stone-100:#f0f5f3; --stone-150:#ecf1f0; --stone-200:#e3eae7; --stone-300:#c3cdca; --stone-500:#6f7674; --stone-600:#626b68; --stone-800:#2e3835; --stone-900:#0e1613;
+  --brand:var(--sage-500); --brand-ink:var(--sage-600); --brand-tint:var(--sage-50);
+  --ink:var(--stone-900); --ink-2:var(--stone-800); --muted:var(--stone-600); --muted-soft:var(--stone-500);
+  --white:#fff; --canvas:var(--stone-100); --hairline:var(--stone-200); --divider:var(--stone-150); --surface:var(--stone-50); --fill-neutral:rgba(127,137,134,.14); --chev:var(--stone-300);
+  --shadow-card:0 1px 3px rgba(14,22,19,.05),0 8px 24px rgba(14,22,19,.04);
+  --shadow-focal:0 1px 3px rgba(14,22,19,.05),0 12px 30px rgba(14,22,19,.09);
+  --r-card-lg:22px;
+  --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--text);background:#e6ebe9;color:var(--ink);padding:34px 22px 80px;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;font-size:inherit;color:inherit;border:0;background:none;cursor:pointer;text-align:left}
+svg{display:block}
+.page-h{max-width:1700px;margin:0 auto 10px}
+.page-h h1{font-family:var(--disp);font-size:26px;font-weight:800;letter-spacing:-.6px}
+.page-h p{font-size:14px;color:var(--muted);margin-top:8px;max-width:900px;line-height:1.6}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:40px 30px;max-width:1700px;margin:26px auto 0}
+.opt{display:flex;flex-direction:column;align-items:center;gap:12px;min-width:0}
+.opt-tag{align-self:flex-start;display:flex;align-items:baseline;gap:9px}
+.opt-k{font-family:var(--disp);font-weight:800;font-size:13px;letter-spacing:.4px;color:var(--brand-ink);background:var(--brand-tint);border-radius:7px;padding:3px 9px}
+.opt-k.cur{background:var(--fill-neutral);color:var(--muted)}
+.opt-t{font-family:var(--disp);font-weight:700;font-size:17px;letter-spacing:-.3px}
+.opt-why{align-self:flex-start;font-size:13px;line-height:1.55;color:var(--muted);min-height:92px}
+.opt-why b{color:var(--ink-2);font-weight:600}
+.phone{width:100%;max-width:392px;height:820px;background:var(--canvas);border-radius:44px;box-shadow:0 2px 8px rgba(14,22,19,.10),0 30px 70px rgba(14,22,19,.16);overflow:hidden;display:flex;flex-direction:column;position:relative;border:1px solid rgba(14,22,19,.06)}
+.scroll{flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;padding:14px 0 110px}
+.scroll::-webkit-scrollbar{display:none}
+.section-h{display:flex;align-items:baseline;justify-content:space-between;margin:22px 22px 13px}
+.section-h .t{font-family:var(--disp);font-weight:700;font-size:22px;letter-spacing:-.6px;color:var(--ink)}
+.section-h .acts{display:flex;gap:14px}
+.section-h a{font-size:15px;font-weight:600;color:var(--brand-ink)}
+.eye{width:18px;height:18px;color:var(--brand-ink);align-self:center}
+/* current recipes */
+.card{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-card);margin:2px 16px 12px}
+.stk-empty{padding:20px 18px;text-align:center}
+.stk-empty-e{font-size:26px}.stk-empty-t{font-size:15px;font-weight:600;color:var(--ink);margin-top:6px}.stk-empty-s{font-size:13px;color:var(--muted);margin-top:3px}
+.dbt-empty{padding:16px}
+.dbt-empty-t{font-size:13.5px;line-height:1.5;color:var(--ink-2)}
+.dbt-empty-cta{display:flex;gap:8px;margin-top:12px}
+.dbt-empty-cta button{flex:1;min-height:42px;border-radius:12px;background:var(--brand-tint);color:var(--brand-ink);font-size:13px;font-weight:600;text-align:center}
+.inv-bare{display:block;margin-top:12px;font-size:14px;color:var(--ink)}
+/* the shared component, three variants */
+.emp{padding:16px}
+.emp-row{display:flex;align-items:center;gap:12px}
+.emp-mark{font-size:26px;line-height:1;flex-shrink:0;width:42px;text-align:center}
+.emp-ic{width:42px;height:42px;border-radius:12px;background:var(--brand-tint);color:var(--brand-ink);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.emp-ic svg{width:21px;height:21px}
+.emp-ic.q{background:var(--fill-neutral);color:var(--muted)}
+.emp-b{flex:1;min-width:0}
+.emp-t{font-size:15.5px;font-weight:600;letter-spacing:-.01em;color:var(--ink);line-height:1.3}
+.emp-s{font-size:13px;line-height:1.45;color:var(--muted);margin-top:3px}
+.emp.center{text-align:center;padding:20px 18px 16px}
+.emp.center .emp-row{flex-direction:column;gap:8px}
+.emp.center .emp-t{font-size:16px}
+.emp .dbt-empty-cta{margin-top:14px}
+.emp .dbt-empty-cta button.pri{background:var(--brand);color:#fff}
+.emp.arrow{padding:14px 16px}
+.emp.arrow .emp-row{cursor:pointer}
+.chev{width:18px;height:18px;color:var(--chev);flex-shrink:0}
+.emp-link{display:inline-flex;align-items:center;gap:4px;margin-top:10px;font-size:14px;font-weight:600;color:var(--brand-ink)}
+.emp-link svg{width:14px;height:14px}
+</style>
+</head>
+<body>
+<div class="page-h">
+  <h1>Ô trống của ba mục: một khuôn, ba biến thể</h1>
+  <p>Hiện tại ba mục ba kiểu: Chuỗi thói quen là emoji canh giữa không nút; Nợ &amp; cho vay là một câu và hai nút tint; Đầu tư là một câu và một dòng chữ "+ Vị thế đầu tư" trần. Ba biến thể dưới đây dùng chung một khuôn: một dấu, một tiêu đề có động từ, một dòng giải thích, và nút. Khuôn này cũng sẽ thay cho các ô "biết nói" ở trạng thái 3 (Grab 9 lần, 2 khoản Binance), chỉ đổi chữ.</p>
+</div>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-card" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="6" width="18" height="12" rx="3"/><path d="M3 10h18"/></symbol>
+  <symbol id="i-trend" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l5-6 4 3 7-8"/><path d="M15 6h5v5"/></symbol>
+  <symbol id="i-flame" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c1 4 5 5.5 5 10a5 5 0 0 1-10 0c0-2 1-3.5 2-4.5 0 2 1 3 2 3 0-3 0-6 1-8.5z"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z"/><circle cx="12" cy="12" r="2.6"/></symbol>
+</svg>
+<div id="root" class="grid"></div>
+<script>
+const I = (id) => `<svg><use href="#i-${id}"/></svg>`;
+const SEC = (t, links) => `<div class="section-h"><span class="t">${t}</span><span class="acts"><svg class="eye"><use href="#i-eye"/></svg>${links.map((l) => `<a>${l}</a>`).join('')}</span></div>`;
+const S = {
+  streak: { t: 'Chuỗi thói quen', links: ['＋ Thêm'], e: '🎯', ic: 'flame', title: 'Thử nhịn một thói quen?', s: 'Ví dụ 7 ngày không Grab. App tự đếm từ sổ của bạn.', btns: ['Bắt đầu một chuỗi'] },
+  debts:  { t: 'Nợ &amp; cho vay', links: ['Chuyển tiền', 'Ghi khoản vay'], e: '🤝', ic: 'card', title: 'Bạn đang nợ ai, ai nợ bạn?', s: 'Thẻ tín dụng, cho vay, chia tiền nhóm, cùng một chỗ.', btns: ['Ghi cho vay / mượn', 'Tạo nhóm chia tiền'] },
+  invest: { t: 'Đầu tư', links: ['＋ Vị thế'], e: '📈', ic: 'trend', title: 'Có mua crypto, vàng, cổ phiếu?', s: 'Ghi vị thế để tiền mua không bị tính là chi tiêu.', btns: ['Thêm vị thế'] },
+};
+const phone = (inner) => `<div class="phone"><div class="scroll">${inner}</div></div>`;
+const CUR = SEC(S.streak.t, S.streak.links) + `<div class="card stk-empty"><div class="stk-empty-e">🎯</div><div class="stk-empty-t">Thử nhịn một thói quen?</div><div class="stk-empty-s">Ví dụ: 7 ngày không Grab. App tự đếm từ sổ của bạn.</div></div>`
+  + SEC(S.debts.t, S.debts.links) + `<div class="card dbt-empty"><div class="dbt-empty-t">Thẻ tín dụng, cho vay, chia tiền nhóm. Bức tranh nợ của bạn nằm ở đây.</div><div class="dbt-empty-cta"><button>Ghi cho vay / mượn</button><button>Tạo nhóm chia tiền</button></div></div>`
+  + SEC(S.invest.t, S.invest.links) + `<div class="card dbt-empty"><div class="dbt-empty-t">Theo dõi crypto, vàng, chứng khoán. Tiền mua không tính là chi tiêu.</div><span class="inv-bare">＋ Vị thế đầu tư</span></div>`;
+const btns = (b, pri) => `<div class="dbt-empty-cta">${b.map((x, i) => `<button class="${pri && i === 0 ? 'pri' : ''}">${x}</button>`).join('')}</div>`;
+const V1 = Object.values(S).map((o) => SEC(o.t, o.links) + `<div class="card emp"><div class="emp-row"><span class="emp-mark">${o.e}</span><div class="emp-b"><div class="emp-t">${o.title}</div><div class="emp-s">${o.s}</div></div></div>${btns(o.btns)}</div>`).join('');
+const V2 = Object.values(S).map((o) => SEC(o.t, o.links) + `<div class="card emp"><div class="emp-row"><span class="emp-ic">${I(o.ic)}</span><div class="emp-b"><div class="emp-t">${o.title}</div><div class="emp-s">${o.s}</div></div></div>${btns(o.btns)}</div>`).join('');
+const V3 = Object.values(S).map((o) => SEC(o.t, o.links) + `<div class="card emp center"><div class="emp-row"><span class="emp-mark">${o.e}</span><div class="emp-b"><div class="emp-t">${o.title}</div><div class="emp-s">${o.s}</div></div></div>${btns(o.btns, true)}</div>`).join('');
+const V4 = Object.values(S).map((o) => SEC(o.t, o.links) + `<div class="card emp arrow"><div class="emp-row"><span class="emp-ic">${I(o.ic)}</span><div class="emp-b"><div class="emp-t">${o.title}</div><div class="emp-s">${o.s}</div></div><svg class="chev"><use href="#i-chev"/></svg></div>${o.btns.length > 1 ? btns(o.btns) : ''}</div>`).join('');
+const OPTS = [
+  { k: 'Hiện tại', cur: true, t: 'Ba mục, ba kiểu', why: 'Bản đang live. Ba cách trình bày khác nhau cho cùng một việc, và Đầu tư gần như không có nút.', h: CUR },
+  { k: 'E1', t: 'Dấu emoji, nút tint', why: '<b>Khuôn chung, giữ dấu emoji.</b> Emoji làm dấu nội dung bên trái như ô danh mục, tiêu đề là một câu hỏi có động từ, một dòng giải thích, hàng nút tint đã có sẵn của app (dbt-empty-cta). Ít thay đổi nhất so với thẻ Nợ & cho vay hiện tại.', h: V1 },
+  { k: 'E2', t: 'Ô icon SVG, nút tint', why: '<b>Cùng khuôn, dấu là ô icon brand-tint</b> như ô icon của hàng cc-row và hàng "sau đó bạn sẽ thấy". Nhất quán hơn với kit vì icon chức năng là SVG; emoji để dành cho danh mục và thói quen thật.', h: V2 },
+  { k: 'E3', t: 'Canh giữa, nút đầu đậm', why: '<b>Kiểu thẻ Chuỗi thói quen hiện tại, thêm nút.</b> Dấu, tiêu đề, dòng giải thích canh giữa, nút đầu tô brand đặc để kêu gọi rõ hơn, nút hai (nếu có) tint. Đọc như một lời mời, nhưng nhiều nút đặc trên một màn.', h: V3 },
+  { k: 'E4', t: 'Hàng chạm được, nút chỉ khi cần', why: '<b>Cả thẻ là một hàng bấm được</b> với chevron, mở đúng sheet của mục. Chỉ Nợ & cho vay có hàng nút vì nó có hai cửa. Gọn nhất, và giống hàng hành động trong thẻ dòng tiền.', h: V4 },
+];
+document.getElementById('root').innerHTML = OPTS.map((o) => `<div class="opt"><div class="opt-tag"><span class="opt-k${o.cur ? ' cur' : ''}">${o.k}</span><span class="opt-t">${o.t}</span></div><div class="opt-why">${o.why}</div>${phone(o.h)}</div>`).join('');
+</script>
+</body>
+</html>

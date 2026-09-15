@@ -8,7 +8,7 @@ of four states, each with one job.
 
 > **Status, 2026-09-15.** Designed through eight rounds of mockups
 > (`mockups/personal-activation.html`, the "Phương án chốt" row) and BUILT the
-> same day, big bang, in the client only. No migration. SW **v527**. Every
+> same day, big bang, in the client only. No migration. SW **v528**. Every
 > input is data the app already holds; the only stored flag is the widget's
 > "Ẩn".
 
@@ -92,6 +92,15 @@ its own at 3 / 3.
   first such row, add a position. Otherwise the section's own empty card.
 - **Nợ & cho vay** keeps its existing behaviour: the un-anchored account tiles
   from 0134 are already the trigger.
+
+## 4a. One empty-state card
+
+Every empty section on the tab, and both data-driven cards above, render
+through `fhEmptyCard` (mockups/personal-empty-states.html, E3): a centered
+mark, a question with a verb ("Thử nhịn một thói quen?", "Bạn đang nợ ai, ai
+nợ bạn?", "Có mua crypto, vàng, cổ phiếu?"), one line of why, and the tinted
+action row with the first button filled brand. Before this the three sections
+used three recipes and the investment card had no button at all.
 
 ## 5. The sync note
 

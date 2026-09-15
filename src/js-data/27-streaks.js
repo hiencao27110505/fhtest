@@ -387,9 +387,11 @@
       h += '</div>';
       if (S.defs === null) return h + '<div class="card stk-empty"><div class="stk-empty-s">' + _L('Đang tính chuỗi…', 'Computing…') + '</div></div>';
       if (!S.defs.length) {
-        h += '<div class="card stk-empty" onclick="fhStreakNewSheet()"><div class="stk-empty-e">🎯</div>'
-          + '<div class="stk-empty-t">' + _L('Thử nhịn một thói quen?', 'Try quitting a habit?') + '</div>'
-          + '<div class="stk-empty-s">' + _L('Ví dụ: 7 ngày không Grab. App tự đếm từ sổ của bạn.', 'e.g. 7 days without Grab. Counted from your ledger.') + '</div></div>';
+        h += window.fhEmptyCard
+          ? fhEmptyCard({ e: '🎯', t: _L('Thử nhịn một thói quen?', 'Try quitting a habit?'),
+              s: _L('Ví dụ 7 ngày không Grab. App tự đếm từ sổ của bạn.', 'For example 7 days without Grab. Counted from your ledger.'),
+              btns: [{ t: _L('Bắt đầu một chuỗi', 'Start a streak'), on: 'fhStreakNewSheet()' }] })
+          : '<div class="card stk-empty" onclick="fhStreakNewSheet()"><div class="stk-empty-e">🎯</div><div class="stk-empty-t">' + _L('Thử nhịn một thói quen?', 'Try quitting a habit?') + '</div></div>';
       } else for (const d of S.defs) {
         h += '<div class="card stk-card" onclick="fhStreakDetail(\'' + d.id + '\')">' + _cardBody(d, (S.res || {})[d.id], false, '') + '</div>';
       }

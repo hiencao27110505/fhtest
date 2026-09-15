@@ -326,8 +326,11 @@
         + '<span class="acts">' + (window.persEyeHTML ? persEyeHTML('invest') : '')
         + '<a onclick="fhInvNewPositionSheet()">＋ Vị thế</a></span></div>';
       if (!v.positions.length) {
-        h += '<section class="dbt-empty"><div class="dbt-empty-t">Theo dõi crypto, vàng, chứng khoán. Tiền mua không tính là chi tiêu.</div>'
-          + '<button class="dbt-empty-cta" onclick="fhInvNewPositionSheet()">＋ Vị thế đầu tư</button></section></div>';
+        h += (window.fhEmptyCard
+          ? fhEmptyCard({ e: '📈', t: 'Có mua crypto, vàng, cổ phiếu?', s: 'Ghi vị thế để tiền mua không bị tính là chi tiêu.',
+              btns: [{ t: 'Thêm vị thế', on: 'fhInvNewPositionSheet()' }] })
+          : '<section class="dbt-empty"><div class="dbt-empty-cta"><button onclick="fhInvNewPositionSheet()">Thêm vị thế</button></div></section>')
+          + '</div>';
         return h;
       }
       /* hero: best-effort total + lãi/lỗ over priced positions only (I12).

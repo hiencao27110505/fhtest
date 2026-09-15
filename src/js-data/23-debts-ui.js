@@ -51,11 +51,11 @@
           + '<div class="dbt-empty-cta"><button onclick="fhSpaceAcceptInvite(\'' + inv.family_id + '\')">Tham gia nhóm</button></div></section>';
       });
       if (!hasAny) {
-        h += '<section class="dbt-empty"><div class="dbt-empty-t">Thẻ tín dụng, cho vay, chia tiền nhóm. Bức tranh nợ của bạn nằm ở đây.</div>'
-          + '<div class="dbt-empty-cta">'
-          + '<button onclick="fhDebtLoanSheet()">Ghi cho vay / mượn</button>'
-          + '<button onclick="fhSpaceCreateSheet()">Tạo nhóm chia tiền</button>'
-          + '</div></section></div>';
+        h += (window.fhEmptyCard
+          ? fhEmptyCard({ e: '🤝', t: 'Bạn đang nợ ai, ai nợ bạn?', s: 'Thẻ tín dụng, cho vay, chia tiền nhóm, cùng một chỗ.',
+              btns: [{ t: 'Ghi cho vay / mượn', on: 'fhDebtLoanSheet()' }, { t: 'Tạo nhóm chia tiền', on: 'fhSpaceCreateSheet()' }] })
+          : '<section class="dbt-empty"><div class="dbt-empty-cta"><button onclick="fhDebtLoanSheet()">Ghi cho vay / mượn</button><button onclick="fhSpaceCreateSheet()">Tạo nhóm chia tiền</button></div></section>')
+          + '</div>';
         return h;
       }
       /* hero — dual concentric rings; frac against max side so the fuller ring closes.

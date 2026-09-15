@@ -1690,10 +1690,6 @@ input{font-family:inherit}
 /* "sau đó bạn sẽ thấy" rows and the data-driven empty states (actions reuse .dbt-empty-cta) */
 .pact-rows .r-ico{color:var(--muted)}
 .pact-rows .r-ico svg{width:20px;height:20px}
-.pact-empty{padding:14px 16px 14px}
-.pact-empty .pact-h{font-size:18px;letter-spacing:-.4px;margin-top:0}
-.pact-empty .pact-p{color:var(--muted);font-size:13px;margin-top:6px}
-.pact-emo{font-size:26px;line-height:1;flex-shrink:0}
 
 /* ── Nợ & cho vay — bento + zoom-in overlay (23-debts-ui.js) ─────────────────
    Design: mockups/borrowing-lending-ring.html variant 01 (Concentric), on the
@@ -1731,6 +1727,14 @@ input{font-family:inherit}
 .dbt-empty-cta button{flex:1;min-height:42px;border:0;border-radius:12px;background:var(--brand-tint);color:var(--brand-ink);
   font:inherit;font-size:13px;font-weight:600;cursor:pointer}
 .dbt-empty-cta button:active{transform:scale(.98)}
+/* the shared empty-state card (mockups/personal-empty-states.html, E3):
+   centered mark + question + why + the action row above; first button filled */
+.emp{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-card);margin:2px 16px 12px;padding:20px 18px 16px;text-align:center}
+.emp-mark{font-size:26px;line-height:1}
+.emp-t{font-size:16px;font-weight:600;letter-spacing:-.01em;color:var(--ink);margin-top:8px;line-height:1.3}
+.emp-s{font-size:13px;line-height:1.45;color:var(--muted);margin-top:3px}
+.emp .dbt-empty-cta{margin-top:14px}
+.emp .dbt-empty-cta button.pri{background:var(--brand);color:var(--white)}
 
 /* overlay internals */
 #debt-overlay .txn-title{padding-bottom:4px}
@@ -7373,6 +7377,17 @@ function persSetupWidgetHTML(act){
   });
   return h + '</div></section>';
 }
+/* The one empty-state card every section on this tab uses (mockups/
+   personal-empty-states.html, E3): a mark, a question with a verb, one line
+   of why, and the tinted action row the debts card already had; the first
+   button is filled brand so the invitation is unmistakable. Centered, like
+   the streak card was. `btns`: [{t, on, pri}], `on` is the inline onclick. */
+window.fhEmptyCard = function(o){
+  var b = (o.btns||[]).map(function(x, i){ return '<button class="'+(x.pri || (i===0 && x.pri!==false) ? 'pri' : '')+'" onclick="'+x.on+'">'+x.t+'</button>'; }).join('');
+  return '<section class="emp">'+(o.e ? '<div class="emp-mark">'+o.e+'</div>' : '')
+    + '<div class="emp-t">'+o.t+'</div>'+(o.s ? '<div class="emp-s">'+o.s+'</div>' : '')
+    + (b ? '<div class="dbt-empty-cta">'+b+'</div>' : '')+'</section>';
+};
 /* state 3: empty states that name something from the person's own rows */
 function _persMonRows(P, mon){
   return (P.txns||[]).filter(function(t){ return (t.date||'').slice(0,7)===mon && t.kind==='expense' && !t._unreadable && !t.spaceId; });
@@ -7393,10 +7408,8 @@ function persStreakDriven(P, mon){
   if(!top || top.n<3) return base;
   var lab = esc(top.label);
   return '<div class="section-h"><span class="t">Chuỗi thói quen</span><a onclick="fhStreakNewSheet()">＋ Thêm</a></div>'
-    + '<section class="cf-card pact-empty"><div style="display:flex;align-items:center;gap:12px"><span class="pact-emo">🎯</span><div style="flex:1;min-width:0">'
-    + '<div class="pact-h">'+lab+' '+top.n+' lần tháng này, '+fmt(top.sum)+'</div>'
-    + '<p class="pact-p">Thử 7 ngày không '+lab+'? App tự đếm từ sổ của bạn.</p></div></div>'
-    + '<div class="dbt-empty-cta"><button onclick="fhStreakNewSheet()">Bắt đầu chuỗi 7 ngày</button></div></section>';
+    + fhEmptyCard({ e:'🎯', t: lab+' '+top.n+' lần tháng này, '+fmt(top.sum), s: 'Thử 7 ngày không '+lab+'? App tự đếm từ sổ của bạn.',
+        btns: [{ t:'Bắt đầu chuỗi 7 ngày', on:'fhStreakNewSheet()' }] });
 }
 var _PERS_INV_RE = /binance|okx|bybit|mexc|remitano|coinbase|kucoin|huobi|gate ?io|usdt|\bbtc\b|\beth\b|\bsjc\b|\bpnj\b|\bdoji\b|\bvang\b|chung khoan|vndirect|tcbs|\bssi\b|\bvps\b|fmarket|dragon capital|\bccq\b/;
 function persInvestDriven(P, mon){
@@ -7407,10 +7420,8 @@ function persInvestDriven(P, mon){
   if(!hits.length) return base;
   var sum = hits.reduce(function(a,t){ return a+(t.amt||0); },0);
   return '<div class="section-h"><span class="t">Đầu tư</span><a onclick="fhInvNewPositionSheet()">＋ Vị thế</a></div>'
-    + '<section class="cf-card pact-empty"><div class="pact-h">'+hits.length+' khoản có thể là đầu tư tháng này</div>'
-    + '<p class="pact-p">Nếu là mua coin, vàng hay cổ phiếu, chuyển thành đầu tư để '+fmt(sum)+' không bị tính là chi tiêu.</p>'
-    + '<div class="dbt-empty-cta"><button onclick="openPersonalTxDetail(\''+hits[0].id+'\')">Xem khoản</button>'
-    + '<button onclick="fhInvNewPositionSheet()">Thêm vị thế</button></div></section>';
+    + fhEmptyCard({ e:'📈', t: hits.length+' khoản có thể là đầu tư tháng này', s: 'Nếu là mua coin, vàng hay cổ phiếu, chuyển thành đầu tư để '+fmt(sum)+' không bị tính là chi tiêu.',
+        btns: [{ t:'Xem khoản', on:"openPersonalTxDetail('"+hits[0].id+"')" }, { t:'Thêm vị thế', on:'fhInvNewPositionSheet()' }] });
 }
 /* shared paint: skip the innerHTML swap when nothing changed (flicker) */
 function _persCommit(host, h, isCur, full){
@@ -20991,7 +21002,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v527';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v528';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -24685,11 +24696,11 @@ window.obGoogle = async function () {
           + '<div class="dbt-empty-cta"><button onclick="fhSpaceAcceptInvite(\'' + inv.family_id + '\')">Tham gia nhóm</button></div></section>';
       });
       if (!hasAny) {
-        h += '<section class="dbt-empty"><div class="dbt-empty-t">Thẻ tín dụng, cho vay, chia tiền nhóm. Bức tranh nợ của bạn nằm ở đây.</div>'
-          + '<div class="dbt-empty-cta">'
-          + '<button onclick="fhDebtLoanSheet()">Ghi cho vay / mượn</button>'
-          + '<button onclick="fhSpaceCreateSheet()">Tạo nhóm chia tiền</button>'
-          + '</div></section></div>';
+        h += (window.fhEmptyCard
+          ? fhEmptyCard({ e: '🤝', t: 'Bạn đang nợ ai, ai nợ bạn?', s: 'Thẻ tín dụng, cho vay, chia tiền nhóm, cùng một chỗ.',
+              btns: [{ t: 'Ghi cho vay / mượn', on: 'fhDebtLoanSheet()' }, { t: 'Tạo nhóm chia tiền', on: 'fhSpaceCreateSheet()' }] })
+          : '<section class="dbt-empty"><div class="dbt-empty-cta"><button onclick="fhDebtLoanSheet()">Ghi cho vay / mượn</button><button onclick="fhSpaceCreateSheet()">Tạo nhóm chia tiền</button></div></section>')
+          + '</div>';
         return h;
       }
       /* hero — dual concentric rings; frac against max side so the fuller ring closes.
@@ -26510,8 +26521,11 @@ window.obGoogle = async function () {
         + '<span class="acts">' + (window.persEyeHTML ? persEyeHTML('invest') : '')
         + '<a onclick="fhInvNewPositionSheet()">＋ Vị thế</a></span></div>';
       if (!v.positions.length) {
-        h += '<section class="dbt-empty"><div class="dbt-empty-t">Theo dõi crypto, vàng, chứng khoán. Tiền mua không tính là chi tiêu.</div>'
-          + '<button class="dbt-empty-cta" onclick="fhInvNewPositionSheet()">＋ Vị thế đầu tư</button></section></div>';
+        h += (window.fhEmptyCard
+          ? fhEmptyCard({ e: '📈', t: 'Có mua crypto, vàng, cổ phiếu?', s: 'Ghi vị thế để tiền mua không bị tính là chi tiêu.',
+              btns: [{ t: 'Thêm vị thế', on: 'fhInvNewPositionSheet()' }] })
+          : '<section class="dbt-empty"><div class="dbt-empty-cta"><button onclick="fhInvNewPositionSheet()">Thêm vị thế</button></div></section>')
+          + '</div>';
         return h;
       }
       /* hero: best-effort total + lãi/lỗ over priced positions only (I12).
@@ -27226,9 +27240,11 @@ window.obGoogle = async function () {
       h += '</div>';
       if (S.defs === null) return h + '<div class="card stk-empty"><div class="stk-empty-s">' + _L('Đang tính chuỗi…', 'Computing…') + '</div></div>';
       if (!S.defs.length) {
-        h += '<div class="card stk-empty" onclick="fhStreakNewSheet()"><div class="stk-empty-e">🎯</div>'
-          + '<div class="stk-empty-t">' + _L('Thử nhịn một thói quen?', 'Try quitting a habit?') + '</div>'
-          + '<div class="stk-empty-s">' + _L('Ví dụ: 7 ngày không Grab. App tự đếm từ sổ của bạn.', 'e.g. 7 days without Grab. Counted from your ledger.') + '</div></div>';
+        h += window.fhEmptyCard
+          ? fhEmptyCard({ e: '🎯', t: _L('Thử nhịn một thói quen?', 'Try quitting a habit?'),
+              s: _L('Ví dụ 7 ngày không Grab. App tự đếm từ sổ của bạn.', 'For example 7 days without Grab. Counted from your ledger.'),
+              btns: [{ t: _L('Bắt đầu một chuỗi', 'Start a streak'), on: 'fhStreakNewSheet()' }] })
+          : '<div class="card stk-empty" onclick="fhStreakNewSheet()"><div class="stk-empty-e">🎯</div><div class="stk-empty-t">' + _L('Thử nhịn một thói quen?', 'Try quitting a habit?') + '</div></div>';
       } else for (const d of S.defs) {
         h += '<div class="card stk-card" onclick="fhStreakDetail(\'' + d.id + '\')">' + _cardBody(d, (S.res || {})[d.id], false, '') + '</div>';
       }

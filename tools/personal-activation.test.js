@@ -82,8 +82,12 @@ t('a family key that never warms up gives up after the retries and clears the no
 
 console.log('\n-- kit --');
 t('the activation styles use tokens only (no raw hex)', !/\.p(act|q|su)-[^{]*\{[^}]*#[0-9a-fA-F]{3,6}/.test(css));
-t('the cards reuse the app kit: .cta, .ob-textlink, .dbt-empty-cta, .cf-lbl, .personal-ico',
-  /class="cta pact-cta"/.test(ui) && /class="ob-textlink pact-link/.test(ui) && /class="dbt-empty-cta"><button onclick="fhStreakNewSheet\(\)"/.test(ui) && /class="cf-lbl"/.test(ui) && /class="r-ico personal-ico"/.test(ui) && !/\.pact-lbl\{|\.pact-chip\{/.test(css));
+t('the cards reuse the app kit: .cta, .ob-textlink, .cf-lbl, .personal-ico',
+  /class="cta pact-cta"/.test(ui) && /class="ob-textlink pact-link/.test(ui) && /class="cf-lbl"/.test(ui) && /class="r-ico personal-ico"/.test(ui) && !/\.pact-lbl\{|\.pact-chip\{|\.pact-empty\{/.test(css));
+t('one empty-state card for every section: streaks, debts, investment and the two driven cards all go through fhEmptyCard',
+  /window\.fhEmptyCard = function\(o\)/.test(ui) && (ui.match(/fhEmptyCard\(\{/g) || []).length === 2
+  && /fhEmptyCard\(\{ e: '🎯'/.test(streaks) && /fhEmptyCard\(\{ e: '🤝'/.test(R('src/js-data/23-debts-ui.js')) && /fhEmptyCard\(\{ e: '📈'/.test(R('src/js-data/26-investment-ui.js'))
+  && /\.emp\{[^}]*text-align:center/.test(R('src/css/41-debts.css')) && /\.emp \.dbt-empty-cta button\.pri\{background:var\(--brand\)/.test(R('src/css/41-debts.css')));
 t('every tappable activation element is a real button', /\.pq-card\{[^}]*cursor:pointer/.test(css) && /<button class="pq-card"/.test(ui) && /<button class="psu-step/.test(ui));
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');

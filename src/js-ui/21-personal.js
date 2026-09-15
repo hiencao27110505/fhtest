@@ -350,6 +350,17 @@ function persSetupWidgetHTML(act){
   });
   return h + '</div></section>';
 }
+/* The one empty-state card every section on this tab uses (mockups/
+   personal-empty-states.html, E3): a mark, a question with a verb, one line
+   of why, and the tinted action row the debts card already had; the first
+   button is filled brand so the invitation is unmistakable. Centered, like
+   the streak card was. `btns`: [{t, on, pri}], `on` is the inline onclick. */
+window.fhEmptyCard = function(o){
+  var b = (o.btns||[]).map(function(x, i){ return '<button class="'+(x.pri || (i===0 && x.pri!==false) ? 'pri' : '')+'" onclick="'+x.on+'">'+x.t+'</button>'; }).join('');
+  return '<section class="emp">'+(o.e ? '<div class="emp-mark">'+o.e+'</div>' : '')
+    + '<div class="emp-t">'+o.t+'</div>'+(o.s ? '<div class="emp-s">'+o.s+'</div>' : '')
+    + (b ? '<div class="dbt-empty-cta">'+b+'</div>' : '')+'</section>';
+};
 /* state 3: empty states that name something from the person's own rows */
 function _persMonRows(P, mon){
   return (P.txns||[]).filter(function(t){ return (t.date||'').slice(0,7)===mon && t.kind==='expense' && !t._unreadable && !t.spaceId; });
@@ -370,10 +381,8 @@ function persStreakDriven(P, mon){
   if(!top || top.n<3) return base;
   var lab = esc(top.label);
   return '<div class="section-h"><span class="t">Chuỗi thói quen</span><a onclick="fhStreakNewSheet()">＋ Thêm</a></div>'
-    + '<section class="cf-card pact-empty"><div style="display:flex;align-items:center;gap:12px"><span class="pact-emo">🎯</span><div style="flex:1;min-width:0">'
-    + '<div class="pact-h">'+lab+' '+top.n+' lần tháng này, '+fmt(top.sum)+'</div>'
-    + '<p class="pact-p">Thử 7 ngày không '+lab+'? App tự đếm từ sổ của bạn.</p></div></div>'
-    + '<div class="dbt-empty-cta"><button onclick="fhStreakNewSheet()">Bắt đầu chuỗi 7 ngày</button></div></section>';
+    + fhEmptyCard({ e:'🎯', t: lab+' '+top.n+' lần tháng này, '+fmt(top.sum), s: 'Thử 7 ngày không '+lab+'? App tự đếm từ sổ của bạn.',
+        btns: [{ t:'Bắt đầu chuỗi 7 ngày', on:'fhStreakNewSheet()' }] });
 }
 var _PERS_INV_RE = /binance|okx|bybit|mexc|remitano|coinbase|kucoin|huobi|gate ?io|usdt|\bbtc\b|\beth\b|\bsjc\b|\bpnj\b|\bdoji\b|\bvang\b|chung khoan|vndirect|tcbs|\bssi\b|\bvps\b|fmarket|dragon capital|\bccq\b/;
 function persInvestDriven(P, mon){
@@ -384,10 +393,8 @@ function persInvestDriven(P, mon){
   if(!hits.length) return base;
   var sum = hits.reduce(function(a,t){ return a+(t.amt||0); },0);
   return '<div class="section-h"><span class="t">Đầu tư</span><a onclick="fhInvNewPositionSheet()">＋ Vị thế</a></div>'
-    + '<section class="cf-card pact-empty"><div class="pact-h">'+hits.length+' khoản có thể là đầu tư tháng này</div>'
-    + '<p class="pact-p">Nếu là mua coin, vàng hay cổ phiếu, chuyển thành đầu tư để '+fmt(sum)+' không bị tính là chi tiêu.</p>'
-    + '<div class="dbt-empty-cta"><button onclick="openPersonalTxDetail(\''+hits[0].id+'\')">Xem khoản</button>'
-    + '<button onclick="fhInvNewPositionSheet()">Thêm vị thế</button></div></section>';
+    + fhEmptyCard({ e:'📈', t: hits.length+' khoản có thể là đầu tư tháng này', s: 'Nếu là mua coin, vàng hay cổ phiếu, chuyển thành đầu tư để '+fmt(sum)+' không bị tính là chi tiêu.',
+        btns: [{ t:'Xem khoản', on:"openPersonalTxDetail('"+hits[0].id+"')" }, { t:'Thêm vị thế', on:'fhInvNewPositionSheet()' }] });
 }
 /* shared paint: skip the innerHTML swap when nothing changed (flicker) */
 function _persCommit(host, h, isCur, full){
