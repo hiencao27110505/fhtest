@@ -66,8 +66,9 @@ function renderBudget(){
 /* Widget A — cash flow: what's LEFT this month (income − spent), the In/Out pair, and a
    swipeable chart + guide. On the current live month it becomes three periods — Day (buổi),
    Week (7 ngày), Month (4 tuần) — sharing one bar language and one guide tile; swipe or tap
-   the dots to switch. Closed / past months keep the classic week chart + week-over-week note
-   (no periods). Reuses renderBudget's month model + the same per-day spend source. */
+   the dots to switch. Every live view carries a grey "before" bar chosen by
+   19-period-compare.js (period-comparison-spec.md). Closed / past months keep the classic
+   week chart + week-over-week note (no periods). Reuses renderBudget's month model. */
 function renderCashflow(){
   var host=document.getElementById('cf-left'); if(!host) return;
   var m=M(), spent=m.spent||0, income=window.monthIncome||0, left=income-spent;
@@ -100,7 +101,7 @@ function renderCashflow(){
   var period = window.cfPeriod|0;                        // 0 Day · 1 Week · 2 Month
   if(period===0) cfRenderDay(m, daily);
   else if(period===2) cfRenderMonth(m, daily);
-  else cfRenderWeek(m, daily, done, dom, dim);
+  else cfRenderWeek(m, daily);
   cfSetDots(period);
   renderRequestsCta(); renderCashflowEmailCta();
 }
@@ -193,71 +194,96 @@ function cfWowNote(d){                                     // classic week-over-
   var cfn=document.getElementById('cf-note');
   if(cfn){ cfn.className='cf-note'+(st?' '+st:''); if(cfn.innerHTML!==note) cfn.innerHTML=note; }
 }
-function cfRenderWeek(m, daily, done, dom, dim){
-  var d=cfWeekData(m, daily, done, dom, dim);
-  setHTMLIf('cf-wow', cfWeekChartHTML(d, done));
+/* ── The three LIVE-month views share one date-keyed map and one column
+   renderer, and take their "before" from 19-period-compare.js (spec:
+   period-comparison-spec.md). Everything is looked up by calendar date, never
+   by the family month key: that key is a bare 'Sep' with no year, so
+   `t.month==='Aug'` matches every August the ledger holds and January's
+   comparison with December would read the wrong year. ── */
+
+/* Realized family spend by 'YYYY-MM-DD', the four buổi of each date (rows
+   whose clock time is known — own time first, else the logged moment when
+   it was the same day), the untimed remainder per date, and the ledger's
+   first date (coverage yardstick). One pass over window.txns per render. */
+function cfDayMap(){
+  var byDay={}, buoi={}, untimed={}, first=null;
+  (window.txns||[]).forEach(function(t){
+    if(t.future || !t._d) return;
+    var k=fhDateStr(t._d), a=t.amt||0;
+    byDay[k]=(byDay[k]||0)+a;
+    if(first==null || k<first) first=k;
+    var b=fhBuoiOf(k, t.time, t._ts);
+    if(b==null) untimed[k]=(untimed[k]||0)+a;
+    else { var arr=buoi[k]||(buoi[k]=[0,0,0,0]); arr[b]+=a; }
+  });
+  return {byDay:byDay, buoi:buoi, untimed:untimed, first:first};
+}
+/* cols: [{cur: number | null (a slot still ahead → no cur bar),
+           prev: number | null (not covered → no grey bar), label, on}].
+   Grey + cur overlap in one column (see .wb in 40-spending-tabs.css); the
+   scale counts both. Red = passed a NON-zero grey (a zero grey has nothing
+   to pass). */
+function cfColsHTML(cols){
+  var maxV=1;
+  cols.forEach(function(c){ if(c.cur!=null && c.cur>maxV) maxV=c.cur; if(c.prev!=null && c.prev>maxV) maxV=c.prev; });
+  var h='';
+  cols.forEach(function(c){
+    var fut=c.cur==null, cur=c.cur||0;
+    var over=!fut && c.prev!=null && c.prev>0 && cur>c.prev;
+    var ch=fut?0:(cur>0?Math.max(Math.round(cur/maxV*100),4):0);
+    h+='<div class="wcol"><span class="wbars">'
+      +(c.prev!=null ? '<i class="wb prev" style="height:'+Math.round(c.prev/maxV*100)+'%"></i>' : '')
+      +(fut?'':'<i class="wb cur'+(over?' over':'')+'" style="height:'+ch+'%"></i>')
+      +'</span><span class="wd'+(c.on?' on':'')+'">'+c.label+'</span></div>';
+  });
+  return h;
+}
+/* ----- Week (period 1): Mon–Sun of this week, each day vs the same weekday last week ----- */
+function cfRenderWeek(m, daily){
+  var D=cfDayMap(), today=fhDateStr(TODAY), mon=fhMondayOf(today);
+  var DAYS=isVi()?['T2','T3','T4','T5','T6','T7','CN']:['M','T','W','T','F','S','S'], cols=[];
+  for(var k=0;k<7;k++){
+    var d=fhAddDays(mon,k), p=fhCmpDay(d);
+    cols.push({ cur: d<=today ? (D.byDay[d]||0) : null,
+                prev: fhCovered(p, D.first) ? (D.byDay[p]||0) : null,
+                label: DAYS[k], on: d===today });
+  }
+  setHTMLIf('cf-wow', cfColsHTML(cols));
   cfPeriodGuide(m, daily, 'week');
 }
-/* ----- Day (period 0 = buổi breakdown: today vs yesterday) ----- */
-function cfBuoiIdx(h){ return (h>=5&&h<11)?0:(h>=11&&h<14)?1:(h>=14&&h<18)?2:3; }   // Sáng·Trưa·Chiều·Tối
+/* ----- Day (period 0): today's four buổi vs the same buổi of the same weekday last week ----- */
+function cfBuoiIdx(h){ return fhBuoiIdx(h); }
 function cfRenderDay(m, daily){
-  var dom=m.dom, yday=dom-1, curB=cfBuoiIdx(new Date().getHours());
-  var cur=[0,0,0,0], prev=[0,0,0,0];                       // today's buổi vs yesterday's (same faint reference as Week/Month)
-  (window.txns||[]).forEach(function(t){
-    if(t.future || t.month!==window.selMonth || !t._d) return;
-    var d=t._d.getDate(); if(d!==dom && d!==yday) return;
-    var h=t._ts ? t._ts.getHours() : null, b=(h==null?curB:cfBuoiIdx(h));   // logged-time proxy; unknown → current buổi
-    if(d===dom) cur[b]+=t.amt; else prev[b]+=t.amt;
-  });
-  var LB=isVi()?['Sáng','Trưa','Chiều','Tối']:['Morning','Midday','Afternoon','Evening'];
-  var maxV=1; for(var i=0;i<4;i++){ if(cur[i]>maxV) maxV=cur[i]; if(prev[i]>maxV) maxV=prev[i]; }
-  var cols='';
+  var D=cfDayMap(), today=fhDateStr(TODAY), prevD=fhCmpDay(today), curB=fhBuoiIdx(new Date().getHours());
+  var cur=D.buoi[today]||[0,0,0,0], covered=fhCovered(prevD, D.first), prev=D.buoi[prevD]||[0,0,0,0];
+  var LB=fhBuoiLabels(), cols=[];
   for(var j=0;j<4;j++){
-    var ph=Math.round(prev[j]/maxV*100), fut=j>curB;       // a buổi still ahead today → yesterday's bar only (no cur)
-    var over=!fut && prev[j]>0 && cur[j]>prev[j];          // more than the same buổi yesterday
-    var ch=fut?0:(cur[j]>0?Math.max(Math.round(cur[j]/maxV*100),4):0);
-    cols+='<div class="wcol"><span class="wbars">'
-      +'<i class="wb prev" style="height:'+ph+'%"></i>'
-      +(fut?'':'<i class="wb cur'+(over?' over':'')+'" style="height:'+ch+'%"></i>')
-      +'</span><span class="wd'+(j===curB?' on':'')+'">'+LB[j]+'</span></div>';
+    cols.push({ cur: j>curB ? null : cur[j],            // a buổi still ahead today → grey only
+                prev: covered ? prev[j] : null,
+                label: LB[j], on: j===curB });
   }
-  setHTMLIf('cf-wow', cols);
+  setHTMLIf('cf-wow', cfColsHTML(cols));
+  /* rows without a clock time are in today's total but in none of the four
+     bars — said out loud so the bars and the Ra tile do not look at odds */
+  var un=D.untimed[today]||0, cfn=document.getElementById('cf-note');
+  if(cfn && Math.round(un)>=1){ cfn.className='cf-note flat'; cfn.innerHTML='<b>'+fmt(un)+'</b> '+L('hôm nay chưa rõ giờ','today with no time'); }
   cfPeriodGuide(m, daily, 'day');
 }
-/* ----- Month (period 2 = 4 tuần, this month vs last) ----- */
-function cfMonthBuckets(daily, dim){
-  var b=[0,0,0,0], hi=[7,14,21,dim];
-  for(var i=0;i<4;i++){ var lo=[1,8,15,22][i]; for(var d=lo; d<=hi[i]; d++){ if(daily[d]) b[i]+=daily[d]; } }
-  return b;
-}
-function cfPrevMonthDaily(m){                              // last calendar month's per-day spend (for faint bars)
-  var iso=m._iso||((m.short||curMonthKey())+'-01');
-  var d0=new Date(iso.slice(0,7)+'-01T00:00:00'), pd=new Date(d0.getFullYear(), d0.getMonth()-1, 1);
-  var pkey=_MOA[pd.getMonth()], pmObj=months[pkey];
-  var pdim=pmObj?pmObj.dim:new Date(pd.getFullYear(), pd.getMonth()+1, 0).getDate();
-  var arr=[]; for(var i=0;i<=pdim;i++) arr[i]=0;
-  (window.txns||[]).forEach(function(t){ if(!t.future && t.month===pkey && t._d){ var dd=t._d.getDate(); if(dd>=1&&dd<=pdim) arr[dd]+=t.amt; } });
-  return {arr:arr, dim:pdim};
-}
+/* ----- Month (period 2): four day-of-month buckets (1–7 · 8–14 · 15–21 · 22–end) vs the same buckets last month ----- */
 function cfRenderMonth(m, daily){
-  var dim=m.dim, dom=m.dom;
-  var cur=cfMonthBuckets(daily, dim);
-  var pv=cfPrevMonthDaily(m), prev=cfMonthBuckets(pv.arr, pv.dim);
-  var curW=dom<=7?0:dom<=14?1:dom<=21?2:3, starts=[1,8,15,22];
-  var LB=isVi()?['Tuần 1','Tuần 2','Tuần 3','Tuần 4']:['W1','W2','W3','W4'];
-  var maxV=1; for(var i=0;i<4;i++){ if(cur[i]>maxV) maxV=cur[i]; if(prev[i]>maxV) maxV=prev[i]; }
-  var cols='';
+  var D=cfDayMap(), now=TODAY, y=now.getFullYear(), mo=now.getMonth(), dom=now.getDate();
+  var dim=new Date(y,mo+1,0).getDate(), pdim=new Date(y,mo,0).getDate();
+  var pm0=fhDateStr(new Date(y,mo-1,1)), covered=fhCovered(pm0, D.first);
+  var sum=function(yy,mm,lo,hi){ var s=0; for(var d=lo; d<=hi; d++){ s+=D.byDay[fhDateStr(new Date(yy,mm,d))]||0; } return s; };
+  var starts=[1,8,15,22], curW=dom<=7?0:dom<=14?1:dom<=21?2:3;
+  var LB=isVi()?['Tuần 1','Tuần 2','Tuần 3','Tuần 4']:['W1','W2','W3','W4'], cols=[];
   for(var j=0;j<4;j++){
-    var fut=starts[j]>dom;                                 // a week that hasn't started yet → no cur bar
-    var ph=Math.round(prev[j]/maxV*100);
-    var over=!fut && prev[j]>0 && cur[j]>prev[j];
-    var ch=fut?0:(cur[j]>0?Math.max(Math.round(cur[j]/maxV*100),4):0);
-    cols+='<div class="wcol"><span class="wbars">'
-      +'<i class="wb prev" style="height:'+ph+'%"></i>'
-      +(fut?'':'<i class="wb cur'+(over?' over':'')+'" style="height:'+ch+'%"></i>')
-      +'</span><span class="wd'+(j===curW?' on':'')+'">'+LB[j]+'</span></div>';
+    var lo=starts[j], hi=j<3?lo+6:dim, phi=j<3?lo+6:pdim;
+    cols.push({ cur: lo>dom ? null : sum(y,mo,lo,hi),     // a bucket that hasn't started → grey only
+                prev: covered ? sum(y,mo-1,lo,phi) : null,
+                label: LB[j], on: j===curW });
   }
-  setHTMLIf('cf-wow', cols);
+  setHTMLIf('cf-wow', cfColsHTML(cols));
   cfPeriodGuide(m, daily, 'month');
 }
 /* Daily guide — "Hôm nay còn tiêu được": a per-day allowance minus what's been spent today.

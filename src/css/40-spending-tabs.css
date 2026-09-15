@@ -420,12 +420,28 @@
 .pst-c{flex:0 0 auto;width:40px;display:flex;flex-direction:column;align-items:center;gap:5px;-webkit-tap-highlight-color:transparent;cursor:pointer}
 .pst-bars{position:relative;height:72px;width:100%}
 .pst-b{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:min(26px,62%);border-radius:7px 7px 0 0;background:var(--good);transition:height .25s ease}
-@media (prefers-reduced-motion:reduce){ .pst-b{transition:none} }
+/* The grey "before" (period-comparison-spec.md) sits BEHIND the coloured bar
+   — same width, same centre, earlier in the DOM — so an underspend lets the
+   grey top peek out and an overspend covers it (and turns the bar red). The
+   last-year tick is a thin line across the column at that month's height. */
+.pst-p{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:min(26px,62%);border-radius:7px 7px 0 0;background:var(--fill-neutral);transition:height .25s ease}
+.pst-b.over{background:var(--danger-base)}
+.pst-y{position:absolute;left:50%;transform:translateX(-50%);width:min(32px,78%);height:0;border-top:2px solid var(--muted-soft);z-index:1;transition:bottom .25s ease}
+@media (prefers-reduced-motion:reduce){ .pst-b,.pst-p,.pst-y{transition:none} }
 .pst-l{font-size:9px;font-weight:600;color:var(--muted-soft);white-space:nowrap}
 .pst-l.on{color:var(--ink);font-weight:700}
 .pst-l.sel{color:var(--brand-ink);font-weight:800}
 .pst-val{position:absolute;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;color:var(--ink);white-space:nowrap;opacity:0;transition:opacity .2s}
-.pst-pin{position:absolute;left:50%;transform:translateX(-50%);font-size:10px;font-weight:800;color:var(--ink);background:var(--white);border:1px solid var(--divider);border-radius:99px;padding:3px 8px;white-space:nowrap;box-shadow:0 2px 8px rgba(14,22,19,.12);z-index:2}
+.pst-pin{position:absolute;left:50%;transform:translateX(-50%);font-size:10px;font-weight:800;color:var(--ink);background:var(--white);border:1px solid var(--divider);border-radius:12px;padding:3px 9px;white-space:nowrap;box-shadow:0 2px 8px rgba(14,22,19,.12);z-index:2;text-align:center}
+.pst-pin small{display:block;font-size:9px;font-weight:600;color:var(--muted);margin-top:1px}   /* the comparison, named */
+/* Buổi zoom: four narrow columns a day, a wider gap between days, the date
+   once under each group; the current buổi's column on a faint surface. */
+.pst.buoi{gap:12px}
+.pst-g{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:5px}
+.pst-gr{display:flex;align-items:flex-end;gap:3px}
+.pst.buoi .pst-c{width:22px}
+.pst.buoi .pst-b,.pst.buoi .pst-p{width:16px;border-radius:5px 5px 0 0}
+.pst-c.now .pst-bars{background:var(--surface);border-radius:6px}
 .pst-load{padding:22px 4px 8px;font-size:12.5px;font-weight:600;color:var(--muted)}
 
 /* ── Lending flow in the personal cash-flow card (0122) ─────────────────── */

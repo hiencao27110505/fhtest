@@ -862,11 +862,18 @@ function _persScrollTo(id){ var el=document.getElementById(id), sc=document.getE
    its place in the tiles and in a bar's tap label. Tap a bar to pin its ↑↓
    figures; the auto label rides the tallest bar in view. The strip owns
    horizontal drag, so the old card-wide swipe-to-switch-period is retired —
-   zoom is a tap. The this-vs-last comparison left the bars and lives on in
-   the guide's words ("so với tuần trước"), current month only. */
+   zoom is a tap.
+   Every bar carries a grey "before" bar behind it (period-comparison-spec.md;
+   the rules live in 19-period-compare.js and are shared with the family
+   deck): a day vs the same weekday last week, a week vs the matching week of
+   last month, a month vs the previous month plus a tick for the same month
+   last year, a buổi vs the same buổi a week earlier. Red = passed the grey.
+   Slots still ahead in the current period show grey only. A fourth zoom,
+   Buổi, splits each day of the selected month into Sáng·Trưa·Chiều·Tối
+   (month scope only — a whole history at four bars a day is noise). */
 try{ window.persZoomM = localStorage.getItem('fh-pzoom-m') || 'week'; }catch(e){ window.persZoomM = 'week'; }
 try{ window.persZoomA = localStorage.getItem('fh-pzoom-all') || 'month'; }catch(e){ window.persZoomA = 'month'; }
-if(['day','week','month'].indexOf(window.persZoomM)<0) window.persZoomM='week';
+if(['buoi','day','week','month'].indexOf(window.persZoomM)<0) window.persZoomM='week';
 if(['day','week','month'].indexOf(window.persZoomA)<0) window.persZoomA='month';
 var persStripScroll = null;   // strip scrollLeft; null = pin to the scope's "now"
 var persPinKey = null;        // tapped bar key ('YYYY-MM-DD' | week Monday | 'YYYY-MM')
@@ -922,35 +929,87 @@ function persGuideParts(periodKey){
   return {spentToday:spentToday, budgetAllow:budgetAllow, spentPTD:spentPTD, prevPTD:prevPTD};
 }
 
-/* Day-keyed {chi,thu} over the best source for the job: the 2-month cache for
-   an in-window month at Ngày/Tuần zoom (free), the slice everywhere else.
-   Unreadable amounts never reach here — the cache filters them, the slice
-   excluded them at decrypt; the banner by the list carries the count. */
-function persFlowByDay(P, SL, useSlice){
-  var map={};
-  var add=function(date,kind,amt){ if(!date) return; var e=map[date]||(map[date]={chi:0,thu:0}); if(kind==='income') e.thu+=amt; else e.chi+=amt; };
-  if(useSlice && SL) SL.rows.forEach(function(r){ add(r.date, r.kind, r.amt); });
-  else (P.txns||[]).forEach(function(t){ if(t._unreadable) return; if(t.kind==='expense'||t.kind==='income') add(t.date,t.kind,t.amt||0); });
-  return map;
+/* Cache window start ('YYYY-MM-01' of last month) — mirrors _winFrom in 19-personal.js. */
+function _persWinFrom(){ var d=new Date(); d.setDate(1); d.setMonth(d.getMonth()-1); return _pDate(d); }
+var _persOldMap=null;   // last derived old-history map — kept while the slice is being re-fetched after a write, so old greys don't blink
+/* Day-keyed {chi,thu}, the four buổi of each date, the untimed remainder per
+   date, and the ledger's first date — over the WIDEST data we hold: the
+   2-month cache for its window (fresh on every write), the full slice for
+   everything older. Unreadable amounts never reach here — the cache filters
+   them, the slice excluded them at decrypt; the banner by the list carries
+   the count. `first` is the coverage yardstick (fhCovered): while the slice
+   has not landed it is the cache's earliest date, so any comparison that
+   starts before the window reads as not covered until the history is in.
+   `complete` = old history is in (or a kept copy of it). */
+function persCmpData(P, SL){
+  var win=_persWinFrom(), byDay={}, buoi={}, untimed={}, first=null;
+  var addTo=function(M, date, kind, amt, time, ts){
+    if(!date) return;
+    if(M.first==null || date<M.first) M.first=date;
+    var e=M.byDay[date]||(M.byDay[date]={chi:0,thu:0});
+    if(kind==='income'){ e.thu+=amt; return; }
+    e.chi+=amt;
+    var b=fhBuoiOf(date, time, ts);
+    if(b==null) M.untimed[date]=(M.untimed[date]||0)+amt;
+    else (M.buoi[date]||(M.buoi[date]=[0,0,0,0]))[b]+=amt;
+  };
+  var cur={byDay:byDay, buoi:buoi, untimed:untimed, first:null};
+  (P.txns||[]).forEach(function(t){
+    if(t._unreadable || (t.kind!=='expense' && t.kind!=='income') || !t.date || t.date<win) return;
+    addTo(cur, t.date, t.kind, t.amt||0, t.time, t.ts);
+  });
+  var old=null;
+  if(SL){
+    old={byDay:{}, buoi:{}, untimed:{}, first:null};
+    SL.rows.forEach(function(r){
+      if(!r.date) return;
+      if(old.first==null || r.date<old.first) old.first=r.date;   // first over the WHOLE ledger
+      if(r.date<win) addTo(old, r.date, r.kind, r.amt, r.time, r.ts);
+    });
+    _persOldMap=old;
+  } else old=_persOldMap;
+  if(old){
+    Object.keys(old.byDay).forEach(function(k){ byDay[k]=old.byDay[k]; });
+    Object.keys(old.buoi).forEach(function(k){ buoi[k]=old.buoi[k]; });
+    Object.keys(old.untimed).forEach(function(k){ untimed[k]=old.untimed[k]; });
+    first=old.first;
+  }
+  if(cur.first!=null && (first==null || cur.first<first)) first=cur.first;
+  return {byDay:byDay, buoi:buoi, untimed:untimed, first:first, complete:!!old};
 }
-/* → [{k,label,chi,thu,on,sel}] for the active zoom+scope, zero slots kept so
-   the axis stays honest; null while the needed slice is still loading. */
+var _NO_DATA_LBL=function(){ return L('chưa có dữ liệu','no data yet'); };
+/* → [{k,label,chi,thu,prev,ly,fut,on,sel,cmpLabel,(buổi: day,b,now,untimed)}]
+   for the active zoom+scope, zero slots kept so the axis stays honest; null
+   while the needed slice is still loading. prev/ly null = not covered → no
+   grey bar. fut = a slot still ahead → grey only. cmpLabel names the "before"
+   for the tap label. */
 function persSeries(P, SL, mon, isAll, inWin){
   var z=persZoom(), curMonK=_pMonKey(new Date()), today=_pDate(new Date());
   var useSlice = isAll || !inWin || z==='month';
   if(useSlice && !SL) return null;
-  var byDay=persFlowByDay(P, SL, useSlice), keys=Object.keys(byDay).sort();
+  var D=persCmpData(P, SL);
+  if(!D.complete) persEnsureSlice();   // a comparison may reach past the cache — greys land on the re-render
+  var byDay=D.byDay, keys=Object.keys(byDay).sort();
+  var chiOf=function(k){ var e=byDay[k]; return e?e.chi:0; };
+  var rangeChi=function(a,b){ var s=0; keys.forEach(function(dk){ if(dk>=a && dk<=b) s+=byDay[dk].chi; }); return s; };
+  var amtOr=function(v){ return v==null ? _NO_DATA_LBL() : fmtK(v); };
+  var live = isAll || mon===curMonK;   // the range ends today → upcoming slots show grey only
   var bars=[];
   if(z==='month'){
     var firstK = keys.length ? keys[0].slice(0,7) : curMonK;
     var d=new Date(+firstK.slice(0,4), +firstK.slice(5,7)-1, 1);
     var end=new Date(); end.setDate(1);
     var curY=new Date().getFullYear();
+    var monChi=function(mk){ var s=0; keys.forEach(function(dk){ if(dk.slice(0,7)===mk) s+=byDay[dk].chi; }); return s; };
     while(d<=end){
       var mk=_pMonKey(d), chi=0, thu=0;
       keys.forEach(function(dk){ if(dk.slice(0,7)===mk){ chi+=byDay[dk].chi; thu+=byDay[dk].thu; } });
-      bars.push({ k:mk, chi:chi, thu:thu, on:mk===curMonK, sel:!isAll && mk===mon,
-        label: d.getFullYear()===curY ? moAbbr(d.getMonth()) : moAbbr(d.getMonth())+' '+String(d.getFullYear()).slice(2) });
+      var c=fhCmpMonth(mk);
+      var prev = fhCovered(c.prev+'-01', D.first) ? monChi(c.prev) : null;
+      var ly   = fhCovered(c.ly+'-01',   D.first) ? monChi(c.ly)   : null;
+      bars.push({ k:mk, chi:chi, thu:thu, prev:prev, ly:ly, fut:false, on:mk===curMonK, sel:!isAll && mk===mon,
+        label: d.getFullYear()===curY ? moAbbr(d.getMonth()) : moAbbr(d.getMonth())+' '+String(d.getFullYear()).slice(2),
+        cmpLabel: 'T'+(+c.prev.slice(5,7))+': '+amtOr(prev) + (ly!=null ? ' · T'+(+c.ly.slice(5,7))+'/'+c.ly.slice(2,4)+': '+fmtK(ly) : '') });
       d.setMonth(d.getMonth()+1);
     }
   } else {
@@ -961,22 +1020,43 @@ function persSeries(P, SL, mon, isAll, inWin){
       b = (mon===curMonK) ? new Date() : new Date(+mon.slice(0,4), +mon.slice(5,7), 0);
     }
     if(z==='day'){
-      var d2=new Date(a);
-      while(d2<=b){
-        var dk2=_pDate(d2), e=byDay[dk2]||{chi:0,thu:0};
-        bars.push({ k:dk2, label:d2.getDate()+'/'+(d2.getMonth()+1), chi:e.chi, thu:e.thu, on:dk2===today, sel:false });
+      var d2=new Date(a), bEnd=_pDate(b);
+      if(live) bEnd=fhAddDays(fhMondayOf(today), 6);   // through Sunday of this week, grey only past today
+      while(_pDate(d2)<=bEnd){
+        var dk2=_pDate(d2), e=byDay[dk2]||{chi:0,thu:0}, fut=dk2>today, p=fhCmpDay(dk2);
+        var pv = fhCovered(p, D.first) ? chiOf(p) : null;
+        bars.push({ k:dk2, label:d2.getDate()+'/'+(d2.getMonth()+1), chi:fut?0:e.chi, thu:fut?0:e.thu, prev:pv, ly:null, fut:fut, on:dk2===today, sel:false,
+          cmpLabel: fhWdShort(p)+' '+fhDM(p)+': '+amtOr(pv) });
         d2.setDate(d2.getDate()+1);
       }
-    } else {
+    } else if(z==='week'){
       var wm=new Date(a); wm.setDate(wm.getDate()-((wm.getDay()+6)%7));   // Monday of the first week
-      var tw=new Date(); tw.setDate(tw.getDate()-((tw.getDay()+6)%7));
-      var thisWeekK=_pDate(tw);
-      while(wm<=b){
-        var ws=_pDate(wm), weD=new Date(wm); weD.setDate(weD.getDate()+6);
-        var we=_pDate(weD), c2=0, t2=0;
-        keys.forEach(function(dk){ if(dk>=ws && dk<=we){ c2+=byDay[dk].chi; t2+=byDay[dk].thu; } });
-        bars.push({ k:ws, label:wm.getDate()+'/'+(wm.getMonth()+1), chi:c2, thu:t2, on:ws===thisWeekK, sel:false });
+      var thisWeekK=fhMondayOf(today);
+      var wEnd=_pDate(b);
+      if(live){ var me=new Date(); me.setMonth(me.getMonth()+1); me.setDate(0); wEnd=_pDate(me); }   // through the last week that starts this month
+      while(_pDate(wm)<=wEnd){
+        var ws=_pDate(wm), we=fhAddDays(ws,6), futW=ws>thisWeekK, pw=fhCmpWeek(ws);
+        var pvw = fhCovered(pw, D.first) ? rangeChi(pw, fhAddDays(pw,6)) : null;
+        var c2=0, t2=0;
+        if(!futW) keys.forEach(function(dk){ if(dk>=ws && dk<=we){ c2+=byDay[dk].chi; t2+=byDay[dk].thu; } });
+        bars.push({ k:ws, label:wm.getDate()+'/'+(wm.getMonth()+1), chi:c2, thu:t2, prev:pvw, ly:null, fut:futW, on:ws===thisWeekK, sel:false,
+          cmpLabel: L('tuần ','week of ')+fhDM(pw)+': '+amtOr(pvw) });
         wm.setDate(wm.getDate()+7);
+      }
+    } else {   // buổi — the selected month, four bars a day, today's remaining buổi grey only
+      var LB=fhBuoiLabels(), curB=fhBuoiIdx(new Date().getHours()), Z4=[0,0,0,0];
+      var d3=new Date(a), dEnd=_pDate(b);
+      while(_pDate(d3)<=dEnd){
+        var dk3=_pDate(d3), pd=fhCmpDay(dk3), covered=fhCovered(pd, D.first);
+        var curA=D.buoi[dk3]||Z4, prevA=D.buoi[pd]||Z4, un=D.untimed[dk3]||0;
+        for(var bb=0; bb<4; bb++){
+          var futB = dk3===today && bb>curB;
+          var pvb = covered ? prevA[bb] : null;
+          bars.push({ k:dk3+'#'+bb, day:dk3, b:bb, title:LB[bb], label:fhDM(dk3), chi:futB?0:curA[bb], thu:0, prev:pvb, ly:null, fut:futB,
+            on:dk3===today, now:dk3===today && bb===curB, sel:false, untimed:un,
+            cmpLabel: fhWdShort(pd)+' '+fhDM(pd)+' '+LB[bb].toLowerCase()+': '+amtOr(pvb) + (un>0 ? ' · '+L('chưa rõ giờ: ','no time: ')+fmtK(un) : '') });
+        }
+        d3.setDate(d3.getDate()+1);
       }
     }
   }
@@ -985,25 +1065,47 @@ function persSeries(P, SL, mon, isAll, inWin){
 function persZoomRowHTML(){
   var z=persZoom();
   var b=function(k,vi,en){ return '<button class="'+(z===k?'on':'')+'" onclick="persSetZoom(\''+k+'\')">'+L(vi,en)+'</button>'; };
-  return b('day','Ngày','Day')+b('week','Tuần','Week')+b('month','Tháng','Month');
+  return (window.persSelMon==='all' ? '' : b('buoi','Buổi','Daypart'))+b('day','Ngày','Day')+b('week','Tuần','Week')+b('month','Tháng','Month');
+}
+/* One column: grey "before" behind, the coloured bar on top (red when it has
+   passed a non-zero grey), the last-year tick line across, and the amount
+   label riding the tallest of the three. Heights are a first paint at the
+   whole-strip max; persStripLabelSync re-scales to what is in view. */
+function _persColHTML(b, max, z){
+  var hc=b.chi>0?Math.max(Math.round(b.chi/max*100),4):0;
+  var hp=b.prev!=null?Math.round(b.prev/max*100):null;
+  var hy=b.ly!=null?Math.round(b.ly/max*100):null;
+  var over=!b.fut && b.prev!=null && b.prev>0 && b.chi>b.prev;
+  var top='bottom:calc('+Math.max(hc, hp||0, hy||0)+'% + 3px)';
+  var line1 = z==='buoi' ? b.title+': '+fmtK(b.chi) : '↓'+fmtK(b.chi)+(b.thu>0?' ↑'+fmtK(b.thu):'');
+  return '<div class="pst-c'+(b.now?' now':'')+'" data-k="'+b.k+'" data-chi="'+b.chi+'" data-prev="'+(b.prev==null?'':b.prev)+'" data-ly="'+(b.ly==null?'':b.ly)+'" onclick="persBarTap(\''+b.k+'\')">'
+    +'<span class="pst-bars">'
+    +(persPinKey===b.k
+        ? '<span class="pst-pin num" style="'+top+'">'+line1+'<small>'+esc(b.cmpLabel)+'</small></span>'
+        : (b.chi>0 ? '<span class="pst-val num" style="'+top+'">'+fmtK(b.chi)+'</span>' : ''))
+    +(hp!=null ? '<i class="pst-p" style="height:'+hp+'%"></i>' : '')
+    +(hc && !b.fut ? '<i class="pst-b'+(over?' over':'')+'" style="height:'+hc+'%"></i>' : '')
+    +(hy!=null ? '<i class="pst-y" style="bottom:'+hy+'%"></i>' : '')
+    +'</span>'
+    +(z==='buoi' ? '' : '<span class="pst-l'+(b.on?' on':'')+(b.sel?' sel':'')+'">'+b.label+'</span>')
+    +'</div>';
 }
 function persStripHTML(P, SL, mon, isAll, inWin){
   var bars = persSeries(P, SL, mon, isAll, inWin);
   if(!bars) return '<div class="pst-load">Đang tải lịch sử…</div>';
   if(!bars.length) return '';
-  var max=1; bars.forEach(function(b){ if(b.chi>max) max=b.chi; });
-  var h='<div class="pst" id="pcf-strip" onscroll="persStripOnScroll(this)">';
-  bars.forEach(function(b){
-    var hc=b.chi>0?Math.max(Math.round(b.chi/max*100),4):0;
-    var top='bottom:calc('+hc+'% + 3px)';
-    h+='<div class="pst-c" data-k="'+b.k+'" data-chi="'+b.chi+'" onclick="persBarTap(\''+b.k+'\')">'
-      +'<span class="pst-bars">'
-      +(persPinKey===b.k
-          ? '<span class="pst-pin num" style="'+top+'">↓'+fmtK(b.chi)+(b.thu>0?' ↑'+fmtK(b.thu):'')+'</span>'
-          : (b.chi>0 ? '<span class="pst-val num" style="'+top+'">'+fmtK(b.chi)+'</span>' : ''))
-      +(hc?'<i class="pst-b" style="height:'+hc+'%"></i>':'')
-      +'</span><span class="pst-l'+(b.on?' on':'')+(b.sel?' sel':'')+'">'+b.label+'</span></div>';
-  });
+  var z=persZoom(), max=1;
+  bars.forEach(function(b){ if(b.chi>max) max=b.chi; if(b.prev!=null && b.prev>max) max=b.prev; if(b.ly!=null && b.ly>max) max=b.ly; });
+  var h='<div class="pst'+(z==='buoi'?' buoi':'')+'" id="pcf-strip" onscroll="persStripOnScroll(this)">';
+  if(z==='buoi'){
+    /* four narrow columns per day, the date once under the group */
+    var i=0;
+    while(i<bars.length){
+      var day=bars[i].day, g='';
+      while(i<bars.length && bars[i].day===day){ g+=_persColHTML(bars[i], max, z); i++; }
+      h+='<div class="pst-g"><div class="pst-gr">'+g+'</div><span class="pst-l'+(bars[i-1].on?' on':'')+'">'+bars[i-1].label+'</span></div>';
+    }
+  } else bars.forEach(function(b){ h+=_persColHTML(b, max, z); });
   return h+'</div>';
 }
 /* Tap pins a bar's ↑↓ figures; the same tap lets go. The strip keeps its
@@ -1030,24 +1132,29 @@ function persStripOnScroll(el){
    tapped bar holds a pinned label, so the two never talk over each other. */
 function persStripLabelSync(){
   var el=document.getElementById('pcf-strip'); if(!el) return;
-  var x0=el.scrollLeft, x1=x0+el.clientWidth, kids=el.children, i, c;
-  var visMax=0;
+  var sr=el.getBoundingClientRect(), kids=el.querySelectorAll('.pst-c'), i, c;
+  var num=function(c,a){ var s=c.getAttribute(a); return (s==null||s==='')?null:(Number(s)||0); };
+  var vis=[], visMax=0;
   for(i=0;i<kids.length;i++){
-    c=kids[i];
-    if(c.offsetLeft+c.offsetWidth<x0 || c.offsetLeft>x1) continue;
-    var v=Number(c.getAttribute('data-chi'))||0;
-    if(v>visMax) visMax=v;
+    c=kids[i]; var r=c.getBoundingClientRect();
+    vis[i]=(r.right>sr.left && r.left<sr.right);   // any overlap counts — an outlier starts driving the scale at the edge
+    if(!vis[i]) continue;
+    var v=num(c,'data-chi')||0, p=num(c,'data-prev'), y=num(c,'data-ly');   // greys + ticks count toward the scale
+    if(v>visMax) visMax=v; if(p!=null && p>visMax) visMax=p; if(y!=null && y>visMax) visMax=y;
   }
   if(!(visMax>0)) visMax=1;
   var best=null, bestV=0;
   for(i=0;i<kids.length;i++){
     c=kids[i];
-    var chi=Number(c.getAttribute('data-chi'))||0;
-    var hp=chi>0?Math.min(100,Math.max(4,Math.round(chi/visMax*100))):0;
-    var bar=c.querySelector('.pst-b'); if(bar) bar.style.height=hp+'%';
-    var lab=c.querySelector('.pst-val, .pst-pin'); if(lab) lab.style.bottom='calc('+hp+'% + 3px)';
-    var vis=!(c.offsetLeft+c.offsetWidth<x0 || c.offsetLeft>x1);
-    if(vis && chi>bestV){ bestV=chi; best=c; }
+    var chi=num(c,'data-chi')||0, prev=num(c,'data-prev'), ly=num(c,'data-ly');
+    var hc=chi>0?Math.min(100,Math.max(4,Math.round(chi/visMax*100))):0;
+    var hp=prev!=null?Math.min(100,Math.round(prev/visMax*100)):0;
+    var hy=ly!=null?Math.min(100,Math.round(ly/visMax*100)):0;
+    var bar=c.querySelector('.pst-b'); if(bar) bar.style.height=hc+'%';
+    var pb=c.querySelector('.pst-p'); if(pb) pb.style.height=hp+'%';
+    var yb=c.querySelector('.pst-y'); if(yb) yb.style.bottom=hy+'%';
+    var lab=c.querySelector('.pst-val, .pst-pin'); if(lab) lab.style.bottom='calc('+Math.max(hc,hp,hy)+'% + 3px)';
+    if(vis[i] && chi>bestV){ bestV=chi; best=c; }
   }
   for(i=0;i<kids.length;i++){
     var s=kids[i].querySelector('.pst-val');
@@ -1075,6 +1182,7 @@ function persChartAfterRender(isCur){
      all-time is a history view (the guide's whole job is now) */
   if(isCur){
     var pk=persZoom(), blockWin=false;
+    if(pk==='buoi') pk='day';   // the guide has no buổi granularity: today is its unit (spec: guide unchanged)
     if(pk!=='month' && typeof fhGuideCompute==='function'){ var gm=fhGuideCompute(persGuideParts('month'), 1); blockWin=!!(gm && gm.state==='worse' && gm.hasBudget); }   // MoM gate: month failing ⇒ no day/week win
     if(typeof fhGuideRender==='function') fhGuideRender('pcf-daily', pk, persGuideParts(pk), 1, blockWin);
     var note=document.getElementById('pcf-note');

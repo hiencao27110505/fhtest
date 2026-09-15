@@ -609,8 +609,11 @@
       if (!P.uid || !P.key) return null;
       if (_statsSlice) return _statsSlice;
       try {
+        /* occurred_time_enc + created_at ride along so the Buổi zoom works on
+           any month (period-comparison-spec.md §6): the time is decrypted only
+           for rows that have one, created_at is plain. */
         const r = await _pageAll(() => _sb().from('personal_transactions')
-          .select('amount_enc,cat_name_enc,cat_emoji,txn_date,kind,space_id')
+          .select('amount_enc,cat_name_enc,cat_emoji,txn_date,kind,space_id,occurred_time_enc,created_at')
           .eq('owner_user_id', P.uid)
           .in('kind', ['expense', 'income'])
           .order('txn_date', { ascending: false }).order('id'));
@@ -620,7 +623,8 @@
           if (a === _DEC_FAILED) { unreadable++; continue; }
           if (a == null) continue;
           rows.push({ date: t.txn_date, kind: t.kind, amt: Number(a),
-            cat: await _decTxt(t.cat_name_enc), emoji: t.cat_emoji, spaceId: t.space_id });
+            cat: await _decTxt(t.cat_name_enc), emoji: t.cat_emoji, spaceId: t.space_id,
+            time: t.occurred_time_enc ? await _decTxt(t.occurred_time_enc) : null, ts: t.created_at || null });
         }
         // Paged to the _pageAll hard ceiling (30k rows — decades). If that ever
         // fills, the OLDEST months are the ones missing — flagged so the view

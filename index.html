@@ -1600,12 +1600,28 @@ input{font-family:inherit}
 .pst-c{flex:0 0 auto;width:40px;display:flex;flex-direction:column;align-items:center;gap:5px;-webkit-tap-highlight-color:transparent;cursor:pointer}
 .pst-bars{position:relative;height:72px;width:100%}
 .pst-b{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:min(26px,62%);border-radius:7px 7px 0 0;background:var(--good);transition:height .25s ease}
-@media (prefers-reduced-motion:reduce){ .pst-b{transition:none} }
+/* The grey "before" (period-comparison-spec.md) sits BEHIND the coloured bar
+   — same width, same centre, earlier in the DOM — so an underspend lets the
+   grey top peek out and an overspend covers it (and turns the bar red). The
+   last-year tick is a thin line across the column at that month's height. */
+.pst-p{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:min(26px,62%);border-radius:7px 7px 0 0;background:var(--fill-neutral);transition:height .25s ease}
+.pst-b.over{background:var(--danger-base)}
+.pst-y{position:absolute;left:50%;transform:translateX(-50%);width:min(32px,78%);height:0;border-top:2px solid var(--muted-soft);z-index:1;transition:bottom .25s ease}
+@media (prefers-reduced-motion:reduce){ .pst-b,.pst-p,.pst-y{transition:none} }
 .pst-l{font-size:9px;font-weight:600;color:var(--muted-soft);white-space:nowrap}
 .pst-l.on{color:var(--ink);font-weight:700}
 .pst-l.sel{color:var(--brand-ink);font-weight:800}
 .pst-val{position:absolute;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;color:var(--ink);white-space:nowrap;opacity:0;transition:opacity .2s}
-.pst-pin{position:absolute;left:50%;transform:translateX(-50%);font-size:10px;font-weight:800;color:var(--ink);background:var(--white);border:1px solid var(--divider);border-radius:99px;padding:3px 8px;white-space:nowrap;box-shadow:0 2px 8px rgba(14,22,19,.12);z-index:2}
+.pst-pin{position:absolute;left:50%;transform:translateX(-50%);font-size:10px;font-weight:800;color:var(--ink);background:var(--white);border:1px solid var(--divider);border-radius:12px;padding:3px 9px;white-space:nowrap;box-shadow:0 2px 8px rgba(14,22,19,.12);z-index:2;text-align:center}
+.pst-pin small{display:block;font-size:9px;font-weight:600;color:var(--muted);margin-top:1px}   /* the comparison, named */
+/* Buổi zoom: four narrow columns a day, a wider gap between days, the date
+   once under each group; the current buổi's column on a faint surface. */
+.pst.buoi{gap:12px}
+.pst-g{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:5px}
+.pst-gr{display:flex;align-items:flex-end;gap:3px}
+.pst.buoi .pst-c{width:22px}
+.pst.buoi .pst-b,.pst.buoi .pst-p{width:16px;border-radius:5px 5px 0 0}
+.pst-c.now .pst-bars{background:var(--surface);border-radius:6px}
 .pst-load{padding:22px 4px 8px;font-size:12.5px;font-weight:600;color:var(--muted)}
 
 /* ── Lending flow in the personal cash-flow card (0122) ─────────────────── */
@@ -6101,6 +6117,72 @@ function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){ ret
 function escAttr(s){ return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
 window.esc=esc; window.escAttr=escAttr;
 
+/* ── Period comparison — which earlier period does a bar compare with?
+   (docs/specs/period-comparison-spec.md)
+
+   The ONE place that decides the "before" behind every bar of both cash-flow
+   charts: the family deck (20-budget.js) and the personal strip
+   (21-personal.js). Pure date math over 'YYYY-MM-DD' strings and buổi
+   indexes — no data access, no DOM — so the two charts can only agree.
+
+   Rules:  buổi ↔ same buổi 7 days earlier · day ↔ 7 days earlier ·
+           week ↔ its Monday shifted one month back, snapped to that Monday ·
+           month ↔ the previous month (+ same month last year as a tick).
+   Covered: the comparison period starts on/after the ledger's first row —
+           otherwise there is NO grey bar (which is not the same as a zero one). */
+
+/* Sáng 5–10 · Trưa 11–13 · Chiều 14–17 · Tối 18–4. Hours 0–4 are Tối of the
+   SAME calendar date, so a day's buổi never disagree with its day bar. */
+function fhBuoiIdx(h){ return (h>=5&&h<11)?0:(h>=11&&h<14)?1:(h>=14&&h<18)?2:3; }
+function fhBuoiLabels(){ return (typeof isVi==='function' && !isVi()) ? ['Morning','Midday','Afternoon','Evening'] : ['Sáng','Trưa','Chiều','Tối']; }
+/* Buổi of one row, or null when its clock time is unknown:
+   1. its own occurred time ('HH:MM' / 'HH:MM:SS');
+   2. else the moment it was logged — only if logged on the SAME calendar day;
+   3. else null: the row stays in the day's total and out of the buổi bars. */
+function fhBuoiOf(date, time, ts){
+  if(typeof time==='string' && /^\d{1,2}:\d{2}/.test(time)) return fhBuoiIdx(parseInt(time,10));
+  if(ts){
+    var d=(ts instanceof Date)?ts:new Date(ts);
+    if(!isNaN(d.getTime()) && fhDateStr(d)===date) return fhBuoiIdx(d.getHours());
+  }
+  return null;
+}
+/* Local 'YYYY-MM-DD' (never toISOString: UTC+7 would shift the date). */
+function fhDateStr(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function fhParseDate(s){ return new Date(+s.slice(0,4), +s.slice(5,7)-1, +s.slice(8,10)); }
+function fhAddDays(s, n){ var d=fhParseDate(s); d.setDate(d.getDate()+n); return fhDateStr(d); }
+function fhMondayOf(s){ var d=fhParseDate(s); d.setDate(d.getDate()-((d.getDay()+6)%7)); return fhDateStr(d); }
+/* Day ↔ the same weekday last week. */
+function fhCmpDay(s){ return fhAddDays(s, -7); }
+/* Week ↔ "the same week of last month": shift the Monday one calendar month
+   back (clamped to that month's length: 30 Mar → 28 Feb), then snap to the
+   Monday of the week that date falls in. Weekdays stay aligned; the week
+   lands within three days of the same point in the pay cycle; and there is
+   always a partner — a fifth week too. */
+function fhCmpWeek(mondayStr){
+  var d=fhParseDate(mondayStr), y=d.getFullYear(), m=d.getMonth()-1;
+  var dimPrev=new Date(y, m+1, 0).getDate();
+  var p=new Date(y, m, Math.min(d.getDate(), dimPrev));
+  return fhMondayOf(fhDateStr(p));
+}
+/* Month ↔ {prev: previous month, ly: same month last year}, 'YYYY-MM'. */
+function fhCmpMonth(monKey){
+  var y=+monKey.slice(0,4), m=+monKey.slice(5,7);
+  var pm = m===1 ? (y-1)+'-12' : y+'-'+String(m-1).padStart(2,'0');
+  return { prev: pm, ly: (y-1)+'-'+monKey.slice(5,7) };
+}
+/* Is a comparison period covered by the ledger? Its START must be on/after
+   the first row's date. `first` null = the ledger's start is not known yet
+   (personal: the full slice has not landed) → not covered. */
+function fhCovered(periodStartStr, first){ return !!first && periodStartStr>=first; }
+/* 'T2'…'CN' / 'Mon'…'Sun' for a date string. */
+function fhWdShort(s){
+  var wd=fhParseDate(s).getDay();   // 0=Sun
+  return (typeof isVi==='function' && !isVi()) ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][wd] : (wd===0?'CN':'T'+(wd+1));
+}
+/* 'd/m' for a date string. */
+function fhDM(s){ return (+s.slice(8,10))+'/'+(+s.slice(5,7)); }
+
 /* ---------- budget + run-rate ---------- */
 function renderBudget(){
   syncFallbackBudget();                                  // catch-all always holds the unallocated remainder
@@ -6169,8 +6251,9 @@ function renderBudget(){
 /* Widget A — cash flow: what's LEFT this month (income − spent), the In/Out pair, and a
    swipeable chart + guide. On the current live month it becomes three periods — Day (buổi),
    Week (7 ngày), Month (4 tuần) — sharing one bar language and one guide tile; swipe or tap
-   the dots to switch. Closed / past months keep the classic week chart + week-over-week note
-   (no periods). Reuses renderBudget's month model + the same per-day spend source. */
+   the dots to switch. Every live view carries a grey "before" bar chosen by
+   19-period-compare.js (period-comparison-spec.md). Closed / past months keep the classic
+   week chart + week-over-week note (no periods). Reuses renderBudget's month model. */
 function renderCashflow(){
   var host=document.getElementById('cf-left'); if(!host) return;
   var m=M(), spent=m.spent||0, income=window.monthIncome||0, left=income-spent;
@@ -6203,7 +6286,7 @@ function renderCashflow(){
   var period = window.cfPeriod|0;                        // 0 Day · 1 Week · 2 Month
   if(period===0) cfRenderDay(m, daily);
   else if(period===2) cfRenderMonth(m, daily);
-  else cfRenderWeek(m, daily, done, dom, dim);
+  else cfRenderWeek(m, daily);
   cfSetDots(period);
   renderRequestsCta(); renderCashflowEmailCta();
 }
@@ -6296,71 +6379,96 @@ function cfWowNote(d){                                     // classic week-over-
   var cfn=document.getElementById('cf-note');
   if(cfn){ cfn.className='cf-note'+(st?' '+st:''); if(cfn.innerHTML!==note) cfn.innerHTML=note; }
 }
-function cfRenderWeek(m, daily, done, dom, dim){
-  var d=cfWeekData(m, daily, done, dom, dim);
-  setHTMLIf('cf-wow', cfWeekChartHTML(d, done));
+/* ── The three LIVE-month views share one date-keyed map and one column
+   renderer, and take their "before" from 19-period-compare.js (spec:
+   period-comparison-spec.md). Everything is looked up by calendar date, never
+   by the family month key: that key is a bare 'Sep' with no year, so
+   `t.month==='Aug'` matches every August the ledger holds and January's
+   comparison with December would read the wrong year. ── */
+
+/* Realized family spend by 'YYYY-MM-DD', the four buổi of each date (rows
+   whose clock time is known — own time first, else the logged moment when
+   it was the same day), the untimed remainder per date, and the ledger's
+   first date (coverage yardstick). One pass over window.txns per render. */
+function cfDayMap(){
+  var byDay={}, buoi={}, untimed={}, first=null;
+  (window.txns||[]).forEach(function(t){
+    if(t.future || !t._d) return;
+    var k=fhDateStr(t._d), a=t.amt||0;
+    byDay[k]=(byDay[k]||0)+a;
+    if(first==null || k<first) first=k;
+    var b=fhBuoiOf(k, t.time, t._ts);
+    if(b==null) untimed[k]=(untimed[k]||0)+a;
+    else { var arr=buoi[k]||(buoi[k]=[0,0,0,0]); arr[b]+=a; }
+  });
+  return {byDay:byDay, buoi:buoi, untimed:untimed, first:first};
+}
+/* cols: [{cur: number | null (a slot still ahead → no cur bar),
+           prev: number | null (not covered → no grey bar), label, on}].
+   Grey + cur overlap in one column (see .wb in 40-spending-tabs.css); the
+   scale counts both. Red = passed a NON-zero grey (a zero grey has nothing
+   to pass). */
+function cfColsHTML(cols){
+  var maxV=1;
+  cols.forEach(function(c){ if(c.cur!=null && c.cur>maxV) maxV=c.cur; if(c.prev!=null && c.prev>maxV) maxV=c.prev; });
+  var h='';
+  cols.forEach(function(c){
+    var fut=c.cur==null, cur=c.cur||0;
+    var over=!fut && c.prev!=null && c.prev>0 && cur>c.prev;
+    var ch=fut?0:(cur>0?Math.max(Math.round(cur/maxV*100),4):0);
+    h+='<div class="wcol"><span class="wbars">'
+      +(c.prev!=null ? '<i class="wb prev" style="height:'+Math.round(c.prev/maxV*100)+'%"></i>' : '')
+      +(fut?'':'<i class="wb cur'+(over?' over':'')+'" style="height:'+ch+'%"></i>')
+      +'</span><span class="wd'+(c.on?' on':'')+'">'+c.label+'</span></div>';
+  });
+  return h;
+}
+/* ----- Week (period 1): Mon–Sun of this week, each day vs the same weekday last week ----- */
+function cfRenderWeek(m, daily){
+  var D=cfDayMap(), today=fhDateStr(TODAY), mon=fhMondayOf(today);
+  var DAYS=isVi()?['T2','T3','T4','T5','T6','T7','CN']:['M','T','W','T','F','S','S'], cols=[];
+  for(var k=0;k<7;k++){
+    var d=fhAddDays(mon,k), p=fhCmpDay(d);
+    cols.push({ cur: d<=today ? (D.byDay[d]||0) : null,
+                prev: fhCovered(p, D.first) ? (D.byDay[p]||0) : null,
+                label: DAYS[k], on: d===today });
+  }
+  setHTMLIf('cf-wow', cfColsHTML(cols));
   cfPeriodGuide(m, daily, 'week');
 }
-/* ----- Day (period 0 = buổi breakdown: today vs yesterday) ----- */
-function cfBuoiIdx(h){ return (h>=5&&h<11)?0:(h>=11&&h<14)?1:(h>=14&&h<18)?2:3; }   // Sáng·Trưa·Chiều·Tối
+/* ----- Day (period 0): today's four buổi vs the same buổi of the same weekday last week ----- */
+function cfBuoiIdx(h){ return fhBuoiIdx(h); }
 function cfRenderDay(m, daily){
-  var dom=m.dom, yday=dom-1, curB=cfBuoiIdx(new Date().getHours());
-  var cur=[0,0,0,0], prev=[0,0,0,0];                       // today's buổi vs yesterday's (same faint reference as Week/Month)
-  (window.txns||[]).forEach(function(t){
-    if(t.future || t.month!==window.selMonth || !t._d) return;
-    var d=t._d.getDate(); if(d!==dom && d!==yday) return;
-    var h=t._ts ? t._ts.getHours() : null, b=(h==null?curB:cfBuoiIdx(h));   // logged-time proxy; unknown → current buổi
-    if(d===dom) cur[b]+=t.amt; else prev[b]+=t.amt;
-  });
-  var LB=isVi()?['Sáng','Trưa','Chiều','Tối']:['Morning','Midday','Afternoon','Evening'];
-  var maxV=1; for(var i=0;i<4;i++){ if(cur[i]>maxV) maxV=cur[i]; if(prev[i]>maxV) maxV=prev[i]; }
-  var cols='';
+  var D=cfDayMap(), today=fhDateStr(TODAY), prevD=fhCmpDay(today), curB=fhBuoiIdx(new Date().getHours());
+  var cur=D.buoi[today]||[0,0,0,0], covered=fhCovered(prevD, D.first), prev=D.buoi[prevD]||[0,0,0,0];
+  var LB=fhBuoiLabels(), cols=[];
   for(var j=0;j<4;j++){
-    var ph=Math.round(prev[j]/maxV*100), fut=j>curB;       // a buổi still ahead today → yesterday's bar only (no cur)
-    var over=!fut && prev[j]>0 && cur[j]>prev[j];          // more than the same buổi yesterday
-    var ch=fut?0:(cur[j]>0?Math.max(Math.round(cur[j]/maxV*100),4):0);
-    cols+='<div class="wcol"><span class="wbars">'
-      +'<i class="wb prev" style="height:'+ph+'%"></i>'
-      +(fut?'':'<i class="wb cur'+(over?' over':'')+'" style="height:'+ch+'%"></i>')
-      +'</span><span class="wd'+(j===curB?' on':'')+'">'+LB[j]+'</span></div>';
+    cols.push({ cur: j>curB ? null : cur[j],            // a buổi still ahead today → grey only
+                prev: covered ? prev[j] : null,
+                label: LB[j], on: j===curB });
   }
-  setHTMLIf('cf-wow', cols);
+  setHTMLIf('cf-wow', cfColsHTML(cols));
+  /* rows without a clock time are in today's total but in none of the four
+     bars — said out loud so the bars and the Ra tile do not look at odds */
+  var un=D.untimed[today]||0, cfn=document.getElementById('cf-note');
+  if(cfn && Math.round(un)>=1){ cfn.className='cf-note flat'; cfn.innerHTML='<b>'+fmt(un)+'</b> '+L('hôm nay chưa rõ giờ','today with no time'); }
   cfPeriodGuide(m, daily, 'day');
 }
-/* ----- Month (period 2 = 4 tuần, this month vs last) ----- */
-function cfMonthBuckets(daily, dim){
-  var b=[0,0,0,0], hi=[7,14,21,dim];
-  for(var i=0;i<4;i++){ var lo=[1,8,15,22][i]; for(var d=lo; d<=hi[i]; d++){ if(daily[d]) b[i]+=daily[d]; } }
-  return b;
-}
-function cfPrevMonthDaily(m){                              // last calendar month's per-day spend (for faint bars)
-  var iso=m._iso||((m.short||curMonthKey())+'-01');
-  var d0=new Date(iso.slice(0,7)+'-01T00:00:00'), pd=new Date(d0.getFullYear(), d0.getMonth()-1, 1);
-  var pkey=_MOA[pd.getMonth()], pmObj=months[pkey];
-  var pdim=pmObj?pmObj.dim:new Date(pd.getFullYear(), pd.getMonth()+1, 0).getDate();
-  var arr=[]; for(var i=0;i<=pdim;i++) arr[i]=0;
-  (window.txns||[]).forEach(function(t){ if(!t.future && t.month===pkey && t._d){ var dd=t._d.getDate(); if(dd>=1&&dd<=pdim) arr[dd]+=t.amt; } });
-  return {arr:arr, dim:pdim};
-}
+/* ----- Month (period 2): four day-of-month buckets (1–7 · 8–14 · 15–21 · 22–end) vs the same buckets last month ----- */
 function cfRenderMonth(m, daily){
-  var dim=m.dim, dom=m.dom;
-  var cur=cfMonthBuckets(daily, dim);
-  var pv=cfPrevMonthDaily(m), prev=cfMonthBuckets(pv.arr, pv.dim);
-  var curW=dom<=7?0:dom<=14?1:dom<=21?2:3, starts=[1,8,15,22];
-  var LB=isVi()?['Tuần 1','Tuần 2','Tuần 3','Tuần 4']:['W1','W2','W3','W4'];
-  var maxV=1; for(var i=0;i<4;i++){ if(cur[i]>maxV) maxV=cur[i]; if(prev[i]>maxV) maxV=prev[i]; }
-  var cols='';
+  var D=cfDayMap(), now=TODAY, y=now.getFullYear(), mo=now.getMonth(), dom=now.getDate();
+  var dim=new Date(y,mo+1,0).getDate(), pdim=new Date(y,mo,0).getDate();
+  var pm0=fhDateStr(new Date(y,mo-1,1)), covered=fhCovered(pm0, D.first);
+  var sum=function(yy,mm,lo,hi){ var s=0; for(var d=lo; d<=hi; d++){ s+=D.byDay[fhDateStr(new Date(yy,mm,d))]||0; } return s; };
+  var starts=[1,8,15,22], curW=dom<=7?0:dom<=14?1:dom<=21?2:3;
+  var LB=isVi()?['Tuần 1','Tuần 2','Tuần 3','Tuần 4']:['W1','W2','W3','W4'], cols=[];
   for(var j=0;j<4;j++){
-    var fut=starts[j]>dom;                                 // a week that hasn't started yet → no cur bar
-    var ph=Math.round(prev[j]/maxV*100);
-    var over=!fut && prev[j]>0 && cur[j]>prev[j];
-    var ch=fut?0:(cur[j]>0?Math.max(Math.round(cur[j]/maxV*100),4):0);
-    cols+='<div class="wcol"><span class="wbars">'
-      +'<i class="wb prev" style="height:'+ph+'%"></i>'
-      +(fut?'':'<i class="wb cur'+(over?' over':'')+'" style="height:'+ch+'%"></i>')
-      +'</span><span class="wd'+(j===curW?' on':'')+'">'+LB[j]+'</span></div>';
+    var lo=starts[j], hi=j<3?lo+6:dim, phi=j<3?lo+6:pdim;
+    cols.push({ cur: lo>dom ? null : sum(y,mo,lo,hi),     // a bucket that hasn't started → grey only
+                prev: covered ? sum(y,mo-1,lo,phi) : null,
+                label: LB[j], on: j===curW });
   }
-  setHTMLIf('cf-wow', cols);
+  setHTMLIf('cf-wow', cfColsHTML(cols));
   cfPeriodGuide(m, daily, 'month');
 }
 /* Daily guide — "Hôm nay còn tiêu được": a per-day allowance minus what's been spent today.
@@ -7894,11 +8002,18 @@ function _persScrollTo(id){ var el=document.getElementById(id), sc=document.getE
    its place in the tiles and in a bar's tap label. Tap a bar to pin its ↑↓
    figures; the auto label rides the tallest bar in view. The strip owns
    horizontal drag, so the old card-wide swipe-to-switch-period is retired —
-   zoom is a tap. The this-vs-last comparison left the bars and lives on in
-   the guide's words ("so với tuần trước"), current month only. */
+   zoom is a tap.
+   Every bar carries a grey "before" bar behind it (period-comparison-spec.md;
+   the rules live in 19-period-compare.js and are shared with the family
+   deck): a day vs the same weekday last week, a week vs the matching week of
+   last month, a month vs the previous month plus a tick for the same month
+   last year, a buổi vs the same buổi a week earlier. Red = passed the grey.
+   Slots still ahead in the current period show grey only. A fourth zoom,
+   Buổi, splits each day of the selected month into Sáng·Trưa·Chiều·Tối
+   (month scope only — a whole history at four bars a day is noise). */
 try{ window.persZoomM = localStorage.getItem('fh-pzoom-m') || 'week'; }catch(e){ window.persZoomM = 'week'; }
 try{ window.persZoomA = localStorage.getItem('fh-pzoom-all') || 'month'; }catch(e){ window.persZoomA = 'month'; }
-if(['day','week','month'].indexOf(window.persZoomM)<0) window.persZoomM='week';
+if(['buoi','day','week','month'].indexOf(window.persZoomM)<0) window.persZoomM='week';
 if(['day','week','month'].indexOf(window.persZoomA)<0) window.persZoomA='month';
 var persStripScroll = null;   // strip scrollLeft; null = pin to the scope's "now"
 var persPinKey = null;        // tapped bar key ('YYYY-MM-DD' | week Monday | 'YYYY-MM')
@@ -7954,35 +8069,87 @@ function persGuideParts(periodKey){
   return {spentToday:spentToday, budgetAllow:budgetAllow, spentPTD:spentPTD, prevPTD:prevPTD};
 }
 
-/* Day-keyed {chi,thu} over the best source for the job: the 2-month cache for
-   an in-window month at Ngày/Tuần zoom (free), the slice everywhere else.
-   Unreadable amounts never reach here — the cache filters them, the slice
-   excluded them at decrypt; the banner by the list carries the count. */
-function persFlowByDay(P, SL, useSlice){
-  var map={};
-  var add=function(date,kind,amt){ if(!date) return; var e=map[date]||(map[date]={chi:0,thu:0}); if(kind==='income') e.thu+=amt; else e.chi+=amt; };
-  if(useSlice && SL) SL.rows.forEach(function(r){ add(r.date, r.kind, r.amt); });
-  else (P.txns||[]).forEach(function(t){ if(t._unreadable) return; if(t.kind==='expense'||t.kind==='income') add(t.date,t.kind,t.amt||0); });
-  return map;
+/* Cache window start ('YYYY-MM-01' of last month) — mirrors _winFrom in 19-personal.js. */
+function _persWinFrom(){ var d=new Date(); d.setDate(1); d.setMonth(d.getMonth()-1); return _pDate(d); }
+var _persOldMap=null;   // last derived old-history map — kept while the slice is being re-fetched after a write, so old greys don't blink
+/* Day-keyed {chi,thu}, the four buổi of each date, the untimed remainder per
+   date, and the ledger's first date — over the WIDEST data we hold: the
+   2-month cache for its window (fresh on every write), the full slice for
+   everything older. Unreadable amounts never reach here — the cache filters
+   them, the slice excluded them at decrypt; the banner by the list carries
+   the count. `first` is the coverage yardstick (fhCovered): while the slice
+   has not landed it is the cache's earliest date, so any comparison that
+   starts before the window reads as not covered until the history is in.
+   `complete` = old history is in (or a kept copy of it). */
+function persCmpData(P, SL){
+  var win=_persWinFrom(), byDay={}, buoi={}, untimed={}, first=null;
+  var addTo=function(M, date, kind, amt, time, ts){
+    if(!date) return;
+    if(M.first==null || date<M.first) M.first=date;
+    var e=M.byDay[date]||(M.byDay[date]={chi:0,thu:0});
+    if(kind==='income'){ e.thu+=amt; return; }
+    e.chi+=amt;
+    var b=fhBuoiOf(date, time, ts);
+    if(b==null) M.untimed[date]=(M.untimed[date]||0)+amt;
+    else (M.buoi[date]||(M.buoi[date]=[0,0,0,0]))[b]+=amt;
+  };
+  var cur={byDay:byDay, buoi:buoi, untimed:untimed, first:null};
+  (P.txns||[]).forEach(function(t){
+    if(t._unreadable || (t.kind!=='expense' && t.kind!=='income') || !t.date || t.date<win) return;
+    addTo(cur, t.date, t.kind, t.amt||0, t.time, t.ts);
+  });
+  var old=null;
+  if(SL){
+    old={byDay:{}, buoi:{}, untimed:{}, first:null};
+    SL.rows.forEach(function(r){
+      if(!r.date) return;
+      if(old.first==null || r.date<old.first) old.first=r.date;   // first over the WHOLE ledger
+      if(r.date<win) addTo(old, r.date, r.kind, r.amt, r.time, r.ts);
+    });
+    _persOldMap=old;
+  } else old=_persOldMap;
+  if(old){
+    Object.keys(old.byDay).forEach(function(k){ byDay[k]=old.byDay[k]; });
+    Object.keys(old.buoi).forEach(function(k){ buoi[k]=old.buoi[k]; });
+    Object.keys(old.untimed).forEach(function(k){ untimed[k]=old.untimed[k]; });
+    first=old.first;
+  }
+  if(cur.first!=null && (first==null || cur.first<first)) first=cur.first;
+  return {byDay:byDay, buoi:buoi, untimed:untimed, first:first, complete:!!old};
 }
-/* → [{k,label,chi,thu,on,sel}] for the active zoom+scope, zero slots kept so
-   the axis stays honest; null while the needed slice is still loading. */
+var _NO_DATA_LBL=function(){ return L('chưa có dữ liệu','no data yet'); };
+/* → [{k,label,chi,thu,prev,ly,fut,on,sel,cmpLabel,(buổi: day,b,now,untimed)}]
+   for the active zoom+scope, zero slots kept so the axis stays honest; null
+   while the needed slice is still loading. prev/ly null = not covered → no
+   grey bar. fut = a slot still ahead → grey only. cmpLabel names the "before"
+   for the tap label. */
 function persSeries(P, SL, mon, isAll, inWin){
   var z=persZoom(), curMonK=_pMonKey(new Date()), today=_pDate(new Date());
   var useSlice = isAll || !inWin || z==='month';
   if(useSlice && !SL) return null;
-  var byDay=persFlowByDay(P, SL, useSlice), keys=Object.keys(byDay).sort();
+  var D=persCmpData(P, SL);
+  if(!D.complete) persEnsureSlice();   // a comparison may reach past the cache — greys land on the re-render
+  var byDay=D.byDay, keys=Object.keys(byDay).sort();
+  var chiOf=function(k){ var e=byDay[k]; return e?e.chi:0; };
+  var rangeChi=function(a,b){ var s=0; keys.forEach(function(dk){ if(dk>=a && dk<=b) s+=byDay[dk].chi; }); return s; };
+  var amtOr=function(v){ return v==null ? _NO_DATA_LBL() : fmtK(v); };
+  var live = isAll || mon===curMonK;   // the range ends today → upcoming slots show grey only
   var bars=[];
   if(z==='month'){
     var firstK = keys.length ? keys[0].slice(0,7) : curMonK;
     var d=new Date(+firstK.slice(0,4), +firstK.slice(5,7)-1, 1);
     var end=new Date(); end.setDate(1);
     var curY=new Date().getFullYear();
+    var monChi=function(mk){ var s=0; keys.forEach(function(dk){ if(dk.slice(0,7)===mk) s+=byDay[dk].chi; }); return s; };
     while(d<=end){
       var mk=_pMonKey(d), chi=0, thu=0;
       keys.forEach(function(dk){ if(dk.slice(0,7)===mk){ chi+=byDay[dk].chi; thu+=byDay[dk].thu; } });
-      bars.push({ k:mk, chi:chi, thu:thu, on:mk===curMonK, sel:!isAll && mk===mon,
-        label: d.getFullYear()===curY ? moAbbr(d.getMonth()) : moAbbr(d.getMonth())+' '+String(d.getFullYear()).slice(2) });
+      var c=fhCmpMonth(mk);
+      var prev = fhCovered(c.prev+'-01', D.first) ? monChi(c.prev) : null;
+      var ly   = fhCovered(c.ly+'-01',   D.first) ? monChi(c.ly)   : null;
+      bars.push({ k:mk, chi:chi, thu:thu, prev:prev, ly:ly, fut:false, on:mk===curMonK, sel:!isAll && mk===mon,
+        label: d.getFullYear()===curY ? moAbbr(d.getMonth()) : moAbbr(d.getMonth())+' '+String(d.getFullYear()).slice(2),
+        cmpLabel: 'T'+(+c.prev.slice(5,7))+': '+amtOr(prev) + (ly!=null ? ' · T'+(+c.ly.slice(5,7))+'/'+c.ly.slice(2,4)+': '+fmtK(ly) : '') });
       d.setMonth(d.getMonth()+1);
     }
   } else {
@@ -7993,22 +8160,43 @@ function persSeries(P, SL, mon, isAll, inWin){
       b = (mon===curMonK) ? new Date() : new Date(+mon.slice(0,4), +mon.slice(5,7), 0);
     }
     if(z==='day'){
-      var d2=new Date(a);
-      while(d2<=b){
-        var dk2=_pDate(d2), e=byDay[dk2]||{chi:0,thu:0};
-        bars.push({ k:dk2, label:d2.getDate()+'/'+(d2.getMonth()+1), chi:e.chi, thu:e.thu, on:dk2===today, sel:false });
+      var d2=new Date(a), bEnd=_pDate(b);
+      if(live) bEnd=fhAddDays(fhMondayOf(today), 6);   // through Sunday of this week, grey only past today
+      while(_pDate(d2)<=bEnd){
+        var dk2=_pDate(d2), e=byDay[dk2]||{chi:0,thu:0}, fut=dk2>today, p=fhCmpDay(dk2);
+        var pv = fhCovered(p, D.first) ? chiOf(p) : null;
+        bars.push({ k:dk2, label:d2.getDate()+'/'+(d2.getMonth()+1), chi:fut?0:e.chi, thu:fut?0:e.thu, prev:pv, ly:null, fut:fut, on:dk2===today, sel:false,
+          cmpLabel: fhWdShort(p)+' '+fhDM(p)+': '+amtOr(pv) });
         d2.setDate(d2.getDate()+1);
       }
-    } else {
+    } else if(z==='week'){
       var wm=new Date(a); wm.setDate(wm.getDate()-((wm.getDay()+6)%7));   // Monday of the first week
-      var tw=new Date(); tw.setDate(tw.getDate()-((tw.getDay()+6)%7));
-      var thisWeekK=_pDate(tw);
-      while(wm<=b){
-        var ws=_pDate(wm), weD=new Date(wm); weD.setDate(weD.getDate()+6);
-        var we=_pDate(weD), c2=0, t2=0;
-        keys.forEach(function(dk){ if(dk>=ws && dk<=we){ c2+=byDay[dk].chi; t2+=byDay[dk].thu; } });
-        bars.push({ k:ws, label:wm.getDate()+'/'+(wm.getMonth()+1), chi:c2, thu:t2, on:ws===thisWeekK, sel:false });
+      var thisWeekK=fhMondayOf(today);
+      var wEnd=_pDate(b);
+      if(live){ var me=new Date(); me.setMonth(me.getMonth()+1); me.setDate(0); wEnd=_pDate(me); }   // through the last week that starts this month
+      while(_pDate(wm)<=wEnd){
+        var ws=_pDate(wm), we=fhAddDays(ws,6), futW=ws>thisWeekK, pw=fhCmpWeek(ws);
+        var pvw = fhCovered(pw, D.first) ? rangeChi(pw, fhAddDays(pw,6)) : null;
+        var c2=0, t2=0;
+        if(!futW) keys.forEach(function(dk){ if(dk>=ws && dk<=we){ c2+=byDay[dk].chi; t2+=byDay[dk].thu; } });
+        bars.push({ k:ws, label:wm.getDate()+'/'+(wm.getMonth()+1), chi:c2, thu:t2, prev:pvw, ly:null, fut:futW, on:ws===thisWeekK, sel:false,
+          cmpLabel: L('tuần ','week of ')+fhDM(pw)+': '+amtOr(pvw) });
         wm.setDate(wm.getDate()+7);
+      }
+    } else {   // buổi — the selected month, four bars a day, today's remaining buổi grey only
+      var LB=fhBuoiLabels(), curB=fhBuoiIdx(new Date().getHours()), Z4=[0,0,0,0];
+      var d3=new Date(a), dEnd=_pDate(b);
+      while(_pDate(d3)<=dEnd){
+        var dk3=_pDate(d3), pd=fhCmpDay(dk3), covered=fhCovered(pd, D.first);
+        var curA=D.buoi[dk3]||Z4, prevA=D.buoi[pd]||Z4, un=D.untimed[dk3]||0;
+        for(var bb=0; bb<4; bb++){
+          var futB = dk3===today && bb>curB;
+          var pvb = covered ? prevA[bb] : null;
+          bars.push({ k:dk3+'#'+bb, day:dk3, b:bb, title:LB[bb], label:fhDM(dk3), chi:futB?0:curA[bb], thu:0, prev:pvb, ly:null, fut:futB,
+            on:dk3===today, now:dk3===today && bb===curB, sel:false, untimed:un,
+            cmpLabel: fhWdShort(pd)+' '+fhDM(pd)+' '+LB[bb].toLowerCase()+': '+amtOr(pvb) + (un>0 ? ' · '+L('chưa rõ giờ: ','no time: ')+fmtK(un) : '') });
+        }
+        d3.setDate(d3.getDate()+1);
       }
     }
   }
@@ -8017,25 +8205,47 @@ function persSeries(P, SL, mon, isAll, inWin){
 function persZoomRowHTML(){
   var z=persZoom();
   var b=function(k,vi,en){ return '<button class="'+(z===k?'on':'')+'" onclick="persSetZoom(\''+k+'\')">'+L(vi,en)+'</button>'; };
-  return b('day','Ngày','Day')+b('week','Tuần','Week')+b('month','Tháng','Month');
+  return (window.persSelMon==='all' ? '' : b('buoi','Buổi','Daypart'))+b('day','Ngày','Day')+b('week','Tuần','Week')+b('month','Tháng','Month');
+}
+/* One column: grey "before" behind, the coloured bar on top (red when it has
+   passed a non-zero grey), the last-year tick line across, and the amount
+   label riding the tallest of the three. Heights are a first paint at the
+   whole-strip max; persStripLabelSync re-scales to what is in view. */
+function _persColHTML(b, max, z){
+  var hc=b.chi>0?Math.max(Math.round(b.chi/max*100),4):0;
+  var hp=b.prev!=null?Math.round(b.prev/max*100):null;
+  var hy=b.ly!=null?Math.round(b.ly/max*100):null;
+  var over=!b.fut && b.prev!=null && b.prev>0 && b.chi>b.prev;
+  var top='bottom:calc('+Math.max(hc, hp||0, hy||0)+'% + 3px)';
+  var line1 = z==='buoi' ? b.title+': '+fmtK(b.chi) : '↓'+fmtK(b.chi)+(b.thu>0?' ↑'+fmtK(b.thu):'');
+  return '<div class="pst-c'+(b.now?' now':'')+'" data-k="'+b.k+'" data-chi="'+b.chi+'" data-prev="'+(b.prev==null?'':b.prev)+'" data-ly="'+(b.ly==null?'':b.ly)+'" onclick="persBarTap(\''+b.k+'\')">'
+    +'<span class="pst-bars">'
+    +(persPinKey===b.k
+        ? '<span class="pst-pin num" style="'+top+'">'+line1+'<small>'+esc(b.cmpLabel)+'</small></span>'
+        : (b.chi>0 ? '<span class="pst-val num" style="'+top+'">'+fmtK(b.chi)+'</span>' : ''))
+    +(hp!=null ? '<i class="pst-p" style="height:'+hp+'%"></i>' : '')
+    +(hc && !b.fut ? '<i class="pst-b'+(over?' over':'')+'" style="height:'+hc+'%"></i>' : '')
+    +(hy!=null ? '<i class="pst-y" style="bottom:'+hy+'%"></i>' : '')
+    +'</span>'
+    +(z==='buoi' ? '' : '<span class="pst-l'+(b.on?' on':'')+(b.sel?' sel':'')+'">'+b.label+'</span>')
+    +'</div>';
 }
 function persStripHTML(P, SL, mon, isAll, inWin){
   var bars = persSeries(P, SL, mon, isAll, inWin);
   if(!bars) return '<div class="pst-load">Đang tải lịch sử…</div>';
   if(!bars.length) return '';
-  var max=1; bars.forEach(function(b){ if(b.chi>max) max=b.chi; });
-  var h='<div class="pst" id="pcf-strip" onscroll="persStripOnScroll(this)">';
-  bars.forEach(function(b){
-    var hc=b.chi>0?Math.max(Math.round(b.chi/max*100),4):0;
-    var top='bottom:calc('+hc+'% + 3px)';
-    h+='<div class="pst-c" data-k="'+b.k+'" data-chi="'+b.chi+'" onclick="persBarTap(\''+b.k+'\')">'
-      +'<span class="pst-bars">'
-      +(persPinKey===b.k
-          ? '<span class="pst-pin num" style="'+top+'">↓'+fmtK(b.chi)+(b.thu>0?' ↑'+fmtK(b.thu):'')+'</span>'
-          : (b.chi>0 ? '<span class="pst-val num" style="'+top+'">'+fmtK(b.chi)+'</span>' : ''))
-      +(hc?'<i class="pst-b" style="height:'+hc+'%"></i>':'')
-      +'</span><span class="pst-l'+(b.on?' on':'')+(b.sel?' sel':'')+'">'+b.label+'</span></div>';
-  });
+  var z=persZoom(), max=1;
+  bars.forEach(function(b){ if(b.chi>max) max=b.chi; if(b.prev!=null && b.prev>max) max=b.prev; if(b.ly!=null && b.ly>max) max=b.ly; });
+  var h='<div class="pst'+(z==='buoi'?' buoi':'')+'" id="pcf-strip" onscroll="persStripOnScroll(this)">';
+  if(z==='buoi'){
+    /* four narrow columns per day, the date once under the group */
+    var i=0;
+    while(i<bars.length){
+      var day=bars[i].day, g='';
+      while(i<bars.length && bars[i].day===day){ g+=_persColHTML(bars[i], max, z); i++; }
+      h+='<div class="pst-g"><div class="pst-gr">'+g+'</div><span class="pst-l'+(bars[i-1].on?' on':'')+'">'+bars[i-1].label+'</span></div>';
+    }
+  } else bars.forEach(function(b){ h+=_persColHTML(b, max, z); });
   return h+'</div>';
 }
 /* Tap pins a bar's ↑↓ figures; the same tap lets go. The strip keeps its
@@ -8062,24 +8272,29 @@ function persStripOnScroll(el){
    tapped bar holds a pinned label, so the two never talk over each other. */
 function persStripLabelSync(){
   var el=document.getElementById('pcf-strip'); if(!el) return;
-  var x0=el.scrollLeft, x1=x0+el.clientWidth, kids=el.children, i, c;
-  var visMax=0;
+  var sr=el.getBoundingClientRect(), kids=el.querySelectorAll('.pst-c'), i, c;
+  var num=function(c,a){ var s=c.getAttribute(a); return (s==null||s==='')?null:(Number(s)||0); };
+  var vis=[], visMax=0;
   for(i=0;i<kids.length;i++){
-    c=kids[i];
-    if(c.offsetLeft+c.offsetWidth<x0 || c.offsetLeft>x1) continue;
-    var v=Number(c.getAttribute('data-chi'))||0;
-    if(v>visMax) visMax=v;
+    c=kids[i]; var r=c.getBoundingClientRect();
+    vis[i]=(r.right>sr.left && r.left<sr.right);   // any overlap counts — an outlier starts driving the scale at the edge
+    if(!vis[i]) continue;
+    var v=num(c,'data-chi')||0, p=num(c,'data-prev'), y=num(c,'data-ly');   // greys + ticks count toward the scale
+    if(v>visMax) visMax=v; if(p!=null && p>visMax) visMax=p; if(y!=null && y>visMax) visMax=y;
   }
   if(!(visMax>0)) visMax=1;
   var best=null, bestV=0;
   for(i=0;i<kids.length;i++){
     c=kids[i];
-    var chi=Number(c.getAttribute('data-chi'))||0;
-    var hp=chi>0?Math.min(100,Math.max(4,Math.round(chi/visMax*100))):0;
-    var bar=c.querySelector('.pst-b'); if(bar) bar.style.height=hp+'%';
-    var lab=c.querySelector('.pst-val, .pst-pin'); if(lab) lab.style.bottom='calc('+hp+'% + 3px)';
-    var vis=!(c.offsetLeft+c.offsetWidth<x0 || c.offsetLeft>x1);
-    if(vis && chi>bestV){ bestV=chi; best=c; }
+    var chi=num(c,'data-chi')||0, prev=num(c,'data-prev'), ly=num(c,'data-ly');
+    var hc=chi>0?Math.min(100,Math.max(4,Math.round(chi/visMax*100))):0;
+    var hp=prev!=null?Math.min(100,Math.round(prev/visMax*100)):0;
+    var hy=ly!=null?Math.min(100,Math.round(ly/visMax*100)):0;
+    var bar=c.querySelector('.pst-b'); if(bar) bar.style.height=hc+'%';
+    var pb=c.querySelector('.pst-p'); if(pb) pb.style.height=hp+'%';
+    var yb=c.querySelector('.pst-y'); if(yb) yb.style.bottom=hy+'%';
+    var lab=c.querySelector('.pst-val, .pst-pin'); if(lab) lab.style.bottom='calc('+Math.max(hc,hp,hy)+'% + 3px)';
+    if(vis[i] && chi>bestV){ bestV=chi; best=c; }
   }
   for(i=0;i<kids.length;i++){
     var s=kids[i].querySelector('.pst-val');
@@ -8107,6 +8322,7 @@ function persChartAfterRender(isCur){
      all-time is a history view (the guide's whole job is now) */
   if(isCur){
     var pk=persZoom(), blockWin=false;
+    if(pk==='buoi') pk='day';   // the guide has no buổi granularity: today is its unit (spec: guide unchanged)
     if(pk!=='month' && typeof fhGuideCompute==='function'){ var gm=fhGuideCompute(persGuideParts('month'), 1); blockWin=!!(gm && gm.state==='worse' && gm.hasBudget); }   // MoM gate: month failing ⇒ no day/week win
     if(typeof fhGuideRender==='function') fhGuideRender('pcf-daily', pk, persGuideParts(pk), 1, blockWin);
     var note=document.getElementById('pcf-note');
@@ -21006,7 +21222,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v530';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v531';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -23126,8 +23342,11 @@ window.obGoogle = async function () {
       if (!P.uid || !P.key) return null;
       if (_statsSlice) return _statsSlice;
       try {
+        /* occurred_time_enc + created_at ride along so the Buổi zoom works on
+           any month (period-comparison-spec.md §6): the time is decrypted only
+           for rows that have one, created_at is plain. */
         const r = await _pageAll(() => _sb().from('personal_transactions')
-          .select('amount_enc,cat_name_enc,cat_emoji,txn_date,kind,space_id')
+          .select('amount_enc,cat_name_enc,cat_emoji,txn_date,kind,space_id,occurred_time_enc,created_at')
           .eq('owner_user_id', P.uid)
           .in('kind', ['expense', 'income'])
           .order('txn_date', { ascending: false }).order('id'));
@@ -23137,7 +23356,8 @@ window.obGoogle = async function () {
           if (a === _DEC_FAILED) { unreadable++; continue; }
           if (a == null) continue;
           rows.push({ date: t.txn_date, kind: t.kind, amt: Number(a),
-            cat: await _decTxt(t.cat_name_enc), emoji: t.cat_emoji, spaceId: t.space_id });
+            cat: await _decTxt(t.cat_name_enc), emoji: t.cat_emoji, spaceId: t.space_id,
+            time: t.occurred_time_enc ? await _decTxt(t.occurred_time_enc) : null, ts: t.created_at || null });
         }
         // Paged to the _pageAll hard ceiling (30k rows — decades). If that ever
         // fills, the OLDEST months are the ones missing — flagged so the view
