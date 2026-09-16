@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chi tiết giao dịch ghép thẻ duyệt</title>
+<style>
+/* ── tokens: verbatim from src/css/10-tokens.css (Sage) ───────────────────── */
+:root{
+  --sage-50:#ebfbf6; --sage-100:#d6f5eb; --sage-200:#afe9d8; --sage-300:#7ad5bd; --sage-400:#4abba1; --sage-500:#149d83; --sage-600:#007c65;
+  --sage-wash:rgba(20,157,131,0.18);
+  --stone-25:#fafcfc; --stone-50:#f6f9f8; --stone-100:#f0f5f3; --stone-150:#ecf1f0; --stone-200:#e3eae7; --stone-300:#c3cdca; --stone-400:#7f8986; --stone-500:#6f7674; --stone-600:#626b68; --stone-800:#2e3835; --stone-900:#0e1613;
+  --red-tint:#ffeaeb; --red-base:#d63053; --red-ink:#a41b3b;
+  --amber-tint:#fdefe0; --amber-base:#be7200; --amber-ink:#915200;
+  --id-1:#0b67a9; --id-3:#9e5cd1; --id-6:#bc6d24;
+  --brand:var(--sage-500); --brand-ink:var(--sage-600); --brand-2:var(--sage-300); --brand-tint:var(--sage-50);
+  --grad-brand:linear-gradient(135deg,var(--sage-500),var(--sage-400)); --brand-glow:rgba(20,157,131,.32);
+  --danger:var(--red-ink); --danger-base:var(--red-base); --danger-tint:var(--red-tint);
+  --amber:var(--amber-ink); --good:var(--sage-600); --good-tint:var(--sage-50);
+  --ink:var(--stone-900); --ink-2:var(--stone-800); --muted:var(--stone-600); --muted-soft:var(--stone-500);
+  --white:#fff; --canvas:var(--stone-100); --pearl:var(--stone-25); --hairline:var(--stone-200); --divider:var(--stone-150);
+  --surface:var(--stone-50); --fill-neutral:rgba(127,137,134,.14); --chev:var(--stone-300);
+  --shadow-card:0 1px 3px rgba(14,22,19,.05),0 8px 24px rgba(14,22,19,.04);
+  --shadow-focal:0 1px 3px rgba(14,22,19,.05),0 12px 30px rgba(14,22,19,.09);
+  --r-card-lg:22px;
+  --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:var(--text);background:#e6ebe9;color:var(--ink);padding:34px 22px 90px;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;font-size:inherit;color:inherit;border:0;background:none;cursor:pointer;text-align:left}
+input,textarea{font-family:inherit}
+svg{display:block}
+.num{font-family:var(--disp);font-variant-numeric:tabular-nums}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ── page chrome (same frame as the other option galleries) ── */
+.page-h{max-width:1720px;margin:0 auto}
+.page-h .eyebrow{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--brand-ink)}
+.page-h h1{font-family:var(--disp);font-size:26px;font-weight:800;letter-spacing:-.6px;margin-top:6px;text-wrap:balance}
+.page-h p{font-size:14px;color:var(--muted);margin-top:8px;max-width:940px;line-height:1.6}
+.cols2{max-width:1720px;margin:20px auto 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:12px 26px}
+.bad,.law{font-size:13px;line-height:1.55;color:var(--ink-2);background:var(--white);border-radius:14px;padding:13px 16px;box-shadow:var(--shadow-card)}
+.bad b,.law b{display:block;font-family:var(--disp);font-size:13.5px;font-weight:800;margin-bottom:6px;letter-spacing:-.2px}
+.bad ul,.law ul{margin:0;padding-left:16px}
+.bad li,.law li{margin:3px 0}
+.bad b{color:var(--danger)} .law b{color:var(--brand-ink)}
+.bad i,.law i{font-style:normal;font-weight:700;color:var(--ink)}
+.gap{max-width:1720px;margin:14px auto 0;background:var(--white);border-radius:14px;box-shadow:var(--shadow-card);overflow-x:auto}
+.gap table{width:100%;border-collapse:collapse;font-size:13px;min-width:640px}
+.gap th{font-family:var(--disp);font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);text-align:left;padding:12px 16px;border-bottom:1px solid var(--divider)}
+.gap td{padding:10px 16px;border-bottom:1px solid var(--divider);vertical-align:top;line-height:1.45}
+.gap tr:last-child td{border-bottom:0}
+.gap td:first-child{font-weight:700;color:var(--ink)}
+.gap .ok{color:var(--good);font-weight:700} .gap .no{color:var(--danger);font-weight:700} .gap .mid{color:var(--amber);font-weight:700}
+
+.grid{max-width:1720px;margin:40px auto 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(400px,1fr));gap:40px 30px}
+.opt{display:flex;flex-direction:column}
+.ohead{margin:0 4px 14px}
+.ohead .n{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:99px;background:var(--ink);color:#fff;font-family:var(--disp);font-size:12px;font-weight:800;margin-right:8px;vertical-align:2px}
+.ohead b{font-family:var(--disp);font-size:16.5px;font-weight:800;letter-spacing:-.3px}
+.ohead p{font-size:13px;color:var(--muted);line-height:1.55;margin-top:7px}
+.ohead p .fix{color:var(--brand-ink);font-weight:700}
+.ohead p .cost{color:var(--amber);font-weight:700}
+
+/* ── phone + the push-overlay chrome the detail screens ride ── */
+.phone{width:100%;max-width:392px;margin:0 auto;background:var(--canvas);border-radius:42px;border:9px solid #0b1512;box-shadow:0 24px 50px rgba(10,20,17,.24);overflow:hidden;display:flex;flex-direction:column}
+.sb{display:flex;justify-content:space-between;align-items:center;padding:12px 24px 0;font-size:13px;font-weight:700}
+.sb i{font-style:normal;font-size:11px;font-weight:800;background:var(--ink);color:#fff;border-radius:5px;padding:1px 5px}
+.hdr{display:flex;align-items:center;gap:2px;padding:8px 16px 4px;font-size:17px;font-weight:600;letter-spacing:-.02em;color:var(--ink)}
+.hdr svg{width:22px;height:22px;margin-left:-4px}
+.scroll{flex:1;padding-bottom:18px}
+.ctabar{display:flex;align-items:center;gap:8px;padding:10px 16px 16px;border-top:1px solid var(--divider);background:var(--canvas)}
+
+/* focal read-out (46-expense-detail.css) */
+.exd-focal{display:flex;flex-direction:column;align-items:center;text-align:center;padding:10px 24px 2px}
+.exd-ico{width:64px;height:64px;border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:32px;line-height:1;background:var(--fill-neutral);position:relative}
+.exd-ico.sm{width:48px;height:48px;border-radius:15px;font-size:24px}
+.exd-amt{font-family:var(--disp);font-variant-numeric:tabular-nums;font-weight:700;font-size:34px;letter-spacing:-1.2px;color:var(--ink);margin-top:16px;line-height:1}
+.exd-note{font-size:17px;font-weight:600;letter-spacing:-.02em;color:var(--ink-2);margin-top:9px;overflow-wrap:anywhere}
+.exd-prov{font-size:11.5px;font-weight:500;color:var(--muted-soft);margin-top:8px}
+.exd-prov .sep{margin:0 5px;color:var(--chev)}
+.exd-eyebrow{font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--muted-soft);margin-top:12px}
+/* option 2: the hero itself is the editor. Same metrics, a hairline under the value on focus. */
+.exd-amt.edit,.exd-note.edit{background:none;border:0;border-bottom:2px solid transparent;text-align:center;width:100%;max-width:260px;outline:none;padding-bottom:2px}
+.exd-amt.edit:focus,.exd-note.edit:focus{border-bottom-color:var(--brand)}
+.exd-hint{display:inline-flex;align-items:center;gap:5px;margin-top:10px;font-size:11px;font-weight:700;color:var(--muted-soft)}
+.exd-hint svg{width:12px;height:12px}
+
+/* the meta card + the review card's settings rows (74-mailbox.css) */
+.exd-meta{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-card);margin:24px 16px 0;overflow:hidden;padding:2px 16px}
+.exd-meta.tight{margin-top:14px}
+.exd-meta.top{margin-top:8px;padding-top:16px}
+.csv-srows{margin-top:2px}
+.csv-srow{display:flex;width:100%;align-items:center;justify-content:space-between;gap:10px;padding:12px 2px;min-height:46px;border:0;border-bottom:1px solid var(--divider);background:none;font:inherit;text-align:left;color:inherit}
+.csv-srows .csv-srow:last-child{border-bottom:0}
+.csv-srow small{font-size:13px;font-weight:600;color:var(--muted);flex:none}
+.csv-sval{display:flex;align-items:center;gap:5px;min-width:0}
+.csv-sval b{font-size:14px;font-weight:650;color:var(--ink);letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.csv-schev{width:15px;height:15px;color:var(--chev);flex:none}
+.csv-srow.ro .csv-sval b{color:var(--muted);font-weight:600}
+.csv-srow.soft .csv-sval b{color:var(--muted-soft);font-weight:600}
+.csv-srow.hot{background:var(--brand-tint);margin:0 -6px;padding:12px 8px;border-radius:11px;border-bottom-color:transparent}
+.csv-srow.hot small,.csv-srow.hot .csv-sval b,.csv-srow.hot .csv-schev{color:var(--brand-ink)}
+.csv-srow.chg .csv-sval b{color:var(--brand-ink)}
+.csv-srow.chg small::after{content:"•";color:var(--brand);margin-left:5px;font-size:14px;line-height:0}
+.csv-sclear{flex:none;width:22px;height:22px;border-radius:50%;background:var(--fill-neutral);color:var(--muted);font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;margin-left:2px}
+
+/* the queue card's two top fields (74-mailbox.css staged) */
+.fld{margin:0 0 14px}
+.fld label{display:block;font-size:13px;font-weight:700;color:var(--muted);letter-spacing:.02em;text-transform:uppercase;margin-bottom:8px}
+.fld .in{width:100%;background:var(--canvas);border:2px solid transparent;border-radius:13px;padding:12px 14px;font-size:16px;font-weight:700;letter-spacing:-.01em;color:var(--ink);outline:none}
+.fld .in:focus{border-color:var(--brand);background:var(--white)}
+.fld .in.note{font-weight:400;font-size:14.5px;line-height:1.45;resize:none;display:block;height:47px}
+.fld .in.big{font-family:var(--disp);font-size:30px;letter-spacing:-1.2px;padding:14px 15px}
+
+/* option 4: the collapsed queue card as the hero (74-mailbox.css .scv-*) */
+.scv{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-focal);margin:8px 16px 0;padding:14px 16px 13px}
+.scv-scope{display:block;font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--muted-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.scv-money{display:flex;align-items:center;gap:9px;margin-top:5px}
+.scv-amt{font-family:var(--disp);font-size:22px;font-weight:800;letter-spacing:-.5px;color:var(--ink);font-variant-numeric:tabular-nums}
+.scv-cat{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--ink-2);padding:4px 10px;background:var(--fill-neutral);border-radius:9999px;white-space:nowrap}
+.scv-memo{margin-top:5px;font-size:12.5px;font-weight:500;color:var(--muted);line-height:1.35}
+.scv-foot{display:block;margin-top:6px;font-size:11px;font-weight:500;color:var(--muted-soft)}
+.scv-sep{margin:0 5px;color:var(--chev)}
+
+/* option 7: grouped inset lists with eyebrows, iOS Settings voice */
+.grp{margin:22px 16px 0}
+.grp .ey{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 6px 8px}
+.grp .exd-meta{margin:0}
+.grp .note{font-size:12px;color:var(--muted-soft);line-height:1.45;margin:8px 6px 0}
+
+/* option 8: a row expanded in place (the edit modal's accordion) */
+.acc{padding:6px 0 14px;border-bottom:1px solid var(--divider)}
+.choices{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.choice{padding:8px 13px;border-radius:9999px;background:var(--white);border:1.5px solid var(--hairline);font-size:13.5px;font-weight:500;letter-spacing:-.01em;color:var(--ink)}
+.choice.on{border-color:var(--brand);border-width:2px;padding:7px 12px;color:var(--brand);font-weight:700;background:var(--brand-tint)}
+
+/* section head + photos (46-expense-detail.css) */
+.exd-sec-h{display:flex;align-items:baseline;justify-content:space-between;margin:26px 20px 12px}
+.exd-sec-h .t{font-family:var(--disp);font-weight:700;font-size:20px;letter-spacing:-.4px;color:var(--ink)}
+.exd-sec-h .c{font-size:14px;font-weight:600;color:var(--muted)}
+.exd-photos{display:flex;gap:10px;overflow-x:auto;padding:2px 16px 4px;scrollbar-width:none}
+.exd-photos::-webkit-scrollbar{display:none}
+.exd-photo{flex:0 0 auto;width:96px;height:96px;border-radius:16px;box-shadow:var(--shadow-card);display:flex;align-items:center;justify-content:center;font-size:30px}
+.exd-photo.rc{background:linear-gradient(160deg,#f7f3ea,#e8e1d3);color:#9a8f7a}
+.exd-photo.add{background:var(--white);font-size:26px;color:var(--muted-soft)}
+/* option 6: photos inside the receipt block */
+.hero-ph{display:flex;gap:8px;justify-content:center;margin-top:14px}
+.hero-ph .exd-photo{width:72px;height:72px;border-radius:14px;font-size:24px}
+.exd-ico .badge{position:absolute;right:-6px;bottom:-6px;width:26px;height:26px;border-radius:9px;background:var(--white);box-shadow:var(--shadow-card);font-size:14px;display:flex;align-items:center;justify-content:center}
+.exd-ico.photo{background:linear-gradient(160deg,#f7f3ea,#e8e1d3);color:#9a8f7a;font-size:28px}
+
+/* CTA bar (46-expense-detail.css + the queue's ghost) */
+.exd-cta-del{flex:0 0 auto;min-width:44px;height:48px;display:flex;align-items:center;justify-content:center;border:1.5px solid var(--hairline);border-radius:13px;background:var(--white);color:var(--muted);padding:0 12px}
+.exd-cta-del svg{width:18px;height:18px}
+.exd-ghost{flex:1;min-height:48px;border:1.5px solid var(--hairline);border-radius:9999px;background:var(--white);font-size:13px;font-weight:700;color:var(--ink-2);padding:0 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
+.exd-go{flex:1;min-height:48px;border:0;border-radius:9999px;background:var(--grad-brand);color:#fff;font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 5px 14px var(--brand-glow)}
+.exd-go.quiet{background:var(--brand-tint);color:var(--brand-ink);box-shadow:none}
+
+/* ── gallery 2: the photo door ── */
+.sect{max-width:1720px;margin:70px auto 0;padding-top:34px;border-top:1px solid rgba(14,22,19,.12)}
+.cam{width:20px;height:20px}
+/* P1: a photo field inside the form card, third after the two inputs */
+.ph-field{display:flex;gap:8px}
+.ph-tile{width:64px;height:64px;border-radius:13px;background:var(--canvas);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:10.5px;font-weight:700;color:var(--muted);border:2px solid transparent}
+.ph-tile svg{width:18px;height:18px;color:var(--ink-2)}
+.ph-tile.has{background:linear-gradient(160deg,#f7f3ea,#e8e1d3);color:#9a8f7a;font-size:24px}
+/* P2: the settings row carries a camera glyph in the value slot */
+.csv-sval .cam{width:16px;height:16px;color:var(--muted-soft)}
+/* P3: camera badge on the hero icon */
+.exd-ico .cam-b{position:absolute;right:-7px;bottom:-7px;width:28px;height:28px;border-radius:50%;background:var(--grad-brand);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 10px var(--brand-glow)}
+.exd-ico .cam-b svg{width:14px;height:14px}
+/* P4: ghost in the CTA bar (icon + word) */
+.exd-ghost.ic{display:inline-flex;align-items:center;justify-content:center;gap:6px;flex:0 0 auto;padding:0 14px}
+.exd-ghost.ic svg{width:16px;height:16px}
+/* P5: the section moved up, add tile with an invitation line */
+.ph-up{display:flex;align-items:center;gap:12px;margin:14px 16px 0;background:var(--white);border-radius:16px;box-shadow:var(--shadow-card);padding:12px 14px 12px 12px}
+.ph-up .exd-photo{width:56px;height:56px;border-radius:12px;font-size:22px;box-shadow:none;background:var(--canvas)}
+.ph-up .t{flex:1;min-width:0}
+.ph-up .t b{display:block;font-size:14px;font-weight:700;letter-spacing:-.01em}
+.ph-up .t span{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+/* P6: two big tiles */
+.two{display:flex;gap:10px;margin:0 16px}
+.two button{flex:1;min-height:92px;background:var(--white);border-radius:16px;box-shadow:var(--shadow-card);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:13px;font-weight:700;color:var(--ink-2)}
+.two button svg{width:24px;height:24px;color:var(--brand-ink)}
+.two button.pri{background:var(--brand-tint);color:var(--brand-ink)}
+/* P7: floating camera button above the CTA bar */
+.phone{position:relative}
+.fab-cam{position:absolute;right:18px;bottom:88px;width:52px;height:52px;border-radius:50%;background:var(--grad-brand);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 22px rgba(14,22,19,.14),0 12px 28px var(--brand-glow)}
+.fab-cam svg{width:22px;height:22px}
+/* P8: the app's own empty-state recipe (fhEmptyCard, E3) */
+.empty{margin:14px 16px 0;background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-card);padding:20px 18px 16px;text-align:center}
+.empty .mk{font-size:30px;line-height:1}
+.empty .q{font-family:var(--disp);font-size:17px;font-weight:700;letter-spacing:-.3px;margin-top:10px}
+.empty .w{font-size:13px;color:var(--muted);margin-top:5px;line-height:1.45}
+.empty .acts{display:flex;gap:8px;margin-top:14px}
+.empty .acts button{flex:1;min-height:42px;border-radius:9999px;font-size:13.5px;font-weight:700;background:var(--brand-tint);color:var(--brand-ink);display:flex;align-items:center;justify-content:center;gap:6px}
+.empty .acts button:first-child{background:var(--grad-brand);color:#fff;box-shadow:0 5px 14px var(--brand-glow)}
+.empty .acts button svg{width:16px;height:16px}
+</style>
+</head>
+<body>
+
+<div class="page-h">
+  <div class="eyebrow">Sổ cá nhân · chi tiết giao dịch</div>
+  <h1>Chi tiết giao dịch ghép với thẻ duyệt · 8 hướng</h1>
+  <p>Thẻ trong hàng chờ duyệt và màn chi tiết cùng nói về một khoản, nhưng hôm nay hai bên khác bộ thuộc tính và khác cách sửa.
+  Tám hướng dưới đây giữ nguyên bộ tokens Sage, hàng label/value <i>csv-srow</i>, ô nhập của thẻ duyệt và thanh CTA hai nút,
+  nên hướng nào cũng nhìn như cùng một người vẽ với thẻ duyệt. Chúng chỉ khác nhau ở ba câu hỏi: khối hoá đơn giữ hay bỏ,
+  số tiền và ghi chú sửa ở đâu, và loại khoản đứng đâu. Dữ liệu mẫu là khoản Foody 253.900 ₫ trong ảnh chụp.</p>
+</div>
+
+<div class="cols2">
+  <div class="bad"><b>Hôm nay lệch gì</b><ul>
+    <li><i>Loại khoản</i> không có trên chi tiết. Thẻ duyệt có Chi tiêu · Trả nợ thẻ · Chuyển khoản nội bộ · Cho vay · Đầu tư và các hàng đi kèm; chi tiết chỉ biết "khoản chi".</li>
+    <li><i>Số tiền và ghi chú</i> gộp thành một hàng mở sheet; thẻ duyệt để hai ô nhập ngay trên đầu.</li>
+    <li>Nhãn khác nhau cho cùng một việc: "Ghi vào" và "Ghi vào đâu"; "ghi chú" và "Chi cho gì?".</li>
+    <li><i>Nguồn tiền</i> là hàng sửa được trên chi tiết, nhưng ở thẻ duyệt lại nằm ở dòng đầu như thông tin cố định.</li>
+    <li>Chi tiết có <i>Ảnh</i>, thẻ duyệt không. Thẻ duyệt có "Áp cho N khoản giống", chi tiết không.</li>
+  </ul></div>
+  <div class="law"><b>Luật chung cho cả tám hướng</b><ul>
+    <li>Một bộ nhãn: <i>Số tiền · Chi cho gì? · Ghi vào đâu · Loại khoản · Danh mục · Ngày · Giờ · Nguồn tiền</i>, đúng thứ tự thẻ duyệt.</li>
+    <li>Nhãn theo loại khoản, như thẻ duyệt: Cho vay thêm "Cho ai mượn" và "Hẹn trả", Chuyển khoản thêm "Chuyển đến đâu", Đầu tư thêm "Vị thế" và "Số lượng"; các loại này không có Danh mục.</li>
+    <li>Sửa là staged: giá trị vừa đổi mang chấm xanh, "Cập nhật" chỉ đậm khi có gì để lưu. Xoá là nút thùng rác hai chạm.</li>
+    <li>Không tô nền màu, không gradient ngoài nút chính. Chưa điền là xám (soft), không bao giờ vàng vì chi tiết không có trạng thái chặn.</li>
+    <li>Ngày và Giờ là picker row: chạm mở lịch hoặc đồng hồ hệ thống, ✕ để xoá giờ.</li>
+  </ul></div>
+</div>
+
+<div class="gap"><table>
+  <tr><th>Thuộc tính</th><th>Thẻ duyệt (hàng chờ)</th><th>Chi tiết hôm nay</th><th>Sau khi ghép</th></tr>
+  <tr><td>Số tiền</td><td>Ô nhập trên đầu</td><td>Hàng "Số tiền &amp; ghi chú" mở sheet</td><td class="ok">Có, cách nhập tuỳ hướng</td></tr>
+  <tr><td>Chi cho gì?</td><td>Ô nhập 1–2 dòng</td><td>Gộp với số tiền</td><td class="ok">Tách riêng, cùng nhãn</td></tr>
+  <tr><td>Ghi vào đâu</td><td>Hàng, mở sheet</td><td>Hàng "Ghi vào"</td><td class="ok">Cùng nhãn "Ghi vào đâu"</td></tr>
+  <tr><td>Loại khoản + hàng đi kèm</td><td>Hàng, 6 loại</td><td class="no">Không có</td><td class="ok">Thêm, cùng picker</td></tr>
+  <tr><td>Danh mục</td><td>Hàng</td><td>Hàng</td><td class="ok">Giữ</td></tr>
+  <tr><td>Ngày · Giờ</td><td>Picker row</td><td>Picker row</td><td class="ok">Giữ</td></tr>
+  <tr><td>Nguồn tiền</td><td>Dòng đầu, cố định</td><td>Hàng sửa được</td><td class="mid">Hàng sửa được; hướng 3, 4 nhắc lại ở dòng đầu</td></tr>
+  <tr><td>Ảnh</td><td class="no">Không</td><td>Mục riêng</td><td class="ok">Giữ; hướng 6 đưa vào khối hoá đơn</td></tr>
+  <tr><td>Áp cho N khoản giống</td><td>Nút ghost ở CTA</td><td class="no">Không</td><td class="mid">Tuỳ chọn, hướng 1 thử</td></tr>
+</table></div>
+
+<div class="grid" id="grid"></div>
+
+<div class="sect">
+  <div class="page-h">
+    <div class="eyebrow">Sổ cá nhân · chi tiết giao dịch · ảnh</div>
+    <h1>Cửa thêm ảnh · 8 hướng</h1>
+    <p>Hôm nay mục Ảnh nằm cuối màn với một ô ＋ trắng, sau khi cuộn qua mọi hàng; ít người tới được và ô ＋ không nói mình để làm gì.
+    Tám hướng dưới đây đặt cùng một màn nền (hoá đơn + thẻ duyệt) và chỉ đổi chỗ đứng, hình dạng và lời mời của cửa thêm ảnh.
+    Mỗi hướng được chấm theo ba tiêu chí trong đề bài: dễ hiểu, trong tầm tay, và có mời gọi.</p>
+  </div>
+  <div class="cols2">
+    <div class="law"><b>Luật chung cho cả tám hướng</b><ul>
+      <li>Hai cách vào ảnh luôn là <i>Chụp</i> và <i>Thư viện</i>; biểu tượng là SVG nét 2px, không dùng emoji làm nút.</li>
+      <li>Trạng thái có ảnh và chưa có ảnh khác nhau: chưa có thì mời, có rồi thì chỉ còn ô ＋ nhỏ.</li>
+      <li>Ảnh vẫn đi qua pipeline hiện có: đọc EXIF trước, nén sau, mã hoá bằng khoá cá nhân.</li>
+      <li>Không dùng viền gạch đứt; ô trống dùng nền canvas hoặc trắng với bóng thẻ, như mọi ô khác của app.</li>
+    </ul></div>
+    <div class="bad"><b>Đọc nhanh</b><ul>
+      <li>Trong tầm tay nhất: <i>4</i> (thanh CTA) và <i>7</i> (nút nổi).</li>
+      <li>Mời gọi nhất: <i>5</i> (lời mời dưới hoá đơn) và <i>8</i> (thẻ trống theo công thức app).</li>
+      <li>Đồng bộ với thẻ duyệt nhất: <i>1</i> (ô trong form) và <i>2</i> (một hàng).</li>
+      <li>Ghép được với nhau: 3 + 4, 1 + 7, 8 + 2 (thẻ trống khi chưa có, hàng khi đã có).</li>
+    </ul></div>
+  </div>
+  <div class="grid" id="grid2"></div>
+</div>
+
+<script>
+/* ── shared parts: one builder per component so all eight read as one kit ── */
+const CHEV = '<svg class="csv-schev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>';
+const TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6"/></svg>';
+const BACK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg>';
+const PEN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+
+const D = { amt:'253.900', note:'Foody', scope:'🔒 Cá nhân', kind:'Chi tiêu', cat:'🛒 Ăn uống',
+  date:'30/08', dateLong:'Thứ Bảy, 30 thg 8', time:'10:17', src:'VIB · tín dụng ••4512', via:'Trực tiếp' };
+
+function row(lbl, val, m={}){
+  const cls = 'csv-srow'+(m.ro?' ro':'')+(m.soft?' soft':'')+(m.hot?' hot':'')+(m.chg?' chg':'');
+  const clear = m.clear ? '<span class="csv-sclear">×</span>' : '';
+  const inner = `<small>${lbl}</small><span class="csv-sval"><b>${val}</b>${clear}${m.ro?'':CHEV}</span>`;
+  return m.ro ? `<div class="${cls}">${inner}</div>` : `<button type="button" class="${cls}">${inner}</button>`;
+}
+function rows(list){ return `<div class="csv-srows">${list.join('')}</div>`; }
+function fld(lbl, val, kind='in'){
+  if(kind==='note') return `<div class="fld"><label>${lbl}</label><textarea class="in note" rows="1">${val}</textarea></div>`;
+  return `<div class="fld"><label>${lbl}</label><input class="in num${kind==='big'?' big':''}" inputmode="numeric" value="${val}"></div>`;
+}
+function hero({ico=D.ico||'🛒', amt=D.amt, note=D.note, prov=`${D.dateLong}<span class="sep">·</span>${D.time}`, eyebrow='', icoCls='', extra=''}={}){
+  return `<div class="exd-focal"><div class="exd-ico ${icoCls}">${ico}</div>`
+    + (eyebrow?`<div class="exd-eyebrow">${eyebrow}</div>`:'')
+    + `<div class="exd-amt num">${amt} ₫</div><div class="exd-note">${note}</div><div class="exd-prov">${prov}</div>${extra}</div>`;
+}
+function sec(t,c){ return `<div class="exd-sec-h"><span class="t">${t}</span><span class="c">${c}</span></div>`; }
+function photos(n=0){
+  let h='<div class="exd-photos">';
+  for(let i=0;i<n;i++) h+='<div class="exd-photo rc">🧾</div>';
+  return h+'<button type="button" class="exd-photo add" aria-label="Thêm ảnh">＋</button></div>';
+}
+function cta({dirty=false, ghost=''}={}){
+  return `<div class="ctabar"><button type="button" class="exd-cta-del" aria-label="Xoá khoản này">${TRASH}</button>`
+    + (ghost?`<button type="button" class="exd-ghost">${ghost}</button>`:'')
+    + `<button type="button" class="exd-go${dirty?'':' quiet'}">Cập nhật</button></div>`;
+}
+function phone(body, ctaHtml){
+  return `<div class="phone"><div class="sb"><span>11:16</span><i>94</i></div>`
+    + `<div class="hdr">${BACK}Cá nhân</div><div class="scroll">${body}</div>${ctaHtml}</div>`;
+}
+
+/* the standard row set every hướng shares (order = the queue card's) */
+const STD = () => [
+  row('Ghi vào đâu', D.scope), row('Loại khoản', D.kind), row('Danh mục', D.cat),
+  row('Ngày', `<span class="num">${D.date}</span>`), row('Giờ', `<span class="num">${D.time}</span>`, {clear:true}),
+  row('Nguồn tiền', D.src) ];
+
+const OPTS = [
+{ n:1, t:'Thẻ duyệt mở sẵn', d:'Màn chi tiết chính là thẻ duyệt ở trạng thái mở, không thêm không bớt: hai ô nhập trên đầu, sáu hàng bên dưới, thanh CTA hai nút. Bỏ khối hoá đơn. Thử luôn "Áp cho 3 khoản Foody" ở CTA. <span class="fix">Ghép 1:1, không có từ mới nào để học.</span> <span class="cost">Mở ra là thấy form, kể cả khi chỉ muốn xem.</span>',
+  body: `<div class="exd-meta top">${fld('Số tiền',D.amt)}${fld('Chi cho gì?',D.note,'note')}${rows(STD())}</div>${sec('Ảnh','Thêm')}${photos(0)}`,
+  cta: cta({ghost:'Áp cho 3 khoản'}) },
+
+{ n:2, t:'Hoá đơn sửa tại chỗ', d:'Giữ khối hoá đơn Wallet, nhưng số tiền và ghi chú trên đó là ô nhập: chạm vào là gõ, một gạch xanh mỏng hiện dưới giá trị. Hàng "Số tiền &amp; ghi chú" biến mất; các hàng còn lại đủ bộ. Danh mục vừa đổi mang chấm xanh, Cập nhật đậm lên. <span class="fix">Đọc trước, sửa sau, không thêm chiều cao.</span> <span class="cost">Người dùng phải đoán là số tiền chạm được; dòng gợi ý nhỏ phải gánh việc đó.</span>',
+  body: hero({amt:'', note:'', extra:''}).replace('<div class="exd-amt num"> ₫</div><div class="exd-note"></div>',
+      `<input class="exd-amt num edit" inputmode="numeric" value="${D.amt} ₫"><input class="exd-note edit" value="${D.note}">`)
+    + `<div class="exd-focal" style="padding-top:0"><span class="exd-hint">${PEN} Chạm để sửa</span></div>`
+    + `<div class="exd-meta tight">${rows([row('Ghi vào đâu',D.scope), row('Loại khoản',D.kind), row('Danh mục','🍜 Ăn ngoài',{chg:true}),
+        row('Ngày',`<span class="num">${D.date}</span>`), row('Giờ',`<span class="num">${D.time}</span>`,{clear:true}), row('Nguồn tiền',D.src)])}</div>${sec('Ảnh','Thêm')}${photos(0)}`,
+  cta: cta({dirty:true}) },
+
+{ n:3, t:'Hoá đơn gọn, thẻ đủ', d:'Khối hoá đơn rút lại còn biểu tượng và hai dòng ngữ cảnh cố định, đúng dòng đầu của thẻ duyệt: sổ · ngân hàng · thẻ, rồi ngày giờ · cách nhập. Số tiền chỉ xuất hiện một lần, trong ô nhập. Bên dưới là thẻ duyệt nguyên vẹn. <span class="fix">Vừa có ngữ cảnh đọc nhanh vừa không lặp số tiền hai chỗ.</span> <span class="cost">Mất con số lớn ở giữa màn, thứ làm chi tiết hôm nay đẹp.</span>',
+  body: `<div class="exd-focal"><div class="exd-ico sm">🛒</div><div class="exd-eyebrow">Cá nhân · VIB · tín dụng ••4512</div>
+      <div class="exd-prov">${D.dateLong}<span class="sep">·</span>${D.time}<span class="sep">·</span>${D.via}</div></div>`
+    + `<div class="exd-meta tight" style="padding-top:16px">${fld('Số tiền',D.amt)}${fld('Chi cho gì?',D.note,'note')}${rows(STD())}</div>${sec('Ảnh','Thêm')}${photos(0)}`,
+  cta: cta() },
+
+{ n:4, t:'Thẻ thu gọn làm đầu', d:'Đầu màn là thẻ duyệt ở trạng thái thu gọn, y nguyên: dòng phạm vi, số tiền cạnh chip danh mục, memo, dòng ngày giờ và cách nhập. Mọi thứ sửa được đều là hàng, kể cả Số tiền và Chi cho gì?, mở sheet như các hàng khác. <span class="fix">Hai màn là cùng một vật ở hai trạng thái; nhìn hàng chờ rồi nhìn chi tiết không cần đổi mắt.</span> <span class="cost">Sửa số tiền hay ghi chú đi qua sheet, chậm hơn một chạm so với ô nhập.</span>',
+  body: `<div class="scv"><span class="scv-scope">Cá nhân · VIB · tín dụng ••4512</span>
+      <div class="scv-money"><span class="scv-amt">${D.amt} ₫</span><span class="scv-cat">${D.cat}</span></div>
+      <div class="scv-memo">${D.note}</div><span class="scv-foot">Thứ 7, ${D.date}<span class="scv-sep">·</span>${D.time}<span class="scv-sep">·</span>${D.via}</span></div>`
+    + `<div class="exd-meta tight">${rows([row('Số tiền',`<span class="num">${D.amt} ₫</span>`), row('Chi cho gì?',D.note), ...STD()])}</div>${sec('Ảnh','Thêm')}${photos(0)}`,
+  cta: cta() },
+
+{ n:5, t:'Loại khoản dẫn đầu', d:'Cùng bố cục hướng 2 nhưng Loại khoản là hàng đầu tiên, vì nó quyết định các hàng phía sau y như trên thẻ duyệt. Minh hoạ bằng một khoản Cho vay: biểu tượng đổi thành 🤝, nhãn ô ghi chú đổi thành "Ghi chú", xuất hiện "Cho ai mượn" và "Hẹn trả", Danh mục biến mất. <span class="fix">Cho thấy chi tiết gánh được cả sáu loại khoản, không chỉ khoản chi.</span> <span class="cost">Với khoản chi thường, hàng đầu tiên là hàng ít ai chạm.</span>',
+  body: hero({ico:'🤝', amt:'2.000.000', note:'Chuyển cho Minh', prov:`Thứ Năm, 28 thg 8<span class="sep">·</span>16:35`})
+    + `<div class="exd-meta tight" style="padding-top:16px">${fld('Số tiền','2.000.000')}${fld('Ghi chú','Chuyển cho Minh','note')}${rows([
+        row('Loại khoản','🤝 Cho vay'), row('Cho ai mượn','Minh'), row('Hẹn trả',`<span class="num">15/09</span>`,{clear:true}),
+        row('Ghi vào đâu',D.scope), row('Ngày',`<span class="num">28/08</span>`), row('Giờ',`<span class="num">16:35</span>`,{clear:true}),
+        row('Nguồn tiền','VIB · ••1234')])}</div>${sec('Ảnh','Thêm')}${photos(0)}`,
+  cta: cta() },
+
+{ n:6, t:'Ảnh trong hoá đơn', d:'Ảnh là thứ thẻ duyệt không có, nên đưa nó vào khối hoá đơn thay vì một mục riêng: có ảnh thì ô biểu tượng thành ảnh với huy hiệu danh mục, dải ảnh nhỏ nằm ngay dưới ngày giờ. Phần hàng bên dưới giữ đúng bộ thẻ duyệt, không thêm mục nào. <span class="fix">Từ khối hoá đơn xuống hết màn, chi tiết và thẻ duyệt giống nhau từng hàng.</span> <span class="cost">Khối hoá đơn cao thêm khoảng 90px khi có ảnh.</span>',
+  body: hero({ico:'🧾<span class="badge">🛒</span>', icoCls:'photo', extra:`<div class="hero-ph"><div class="exd-photo rc">🧾</div><div class="exd-photo rc">🧾</div><button type="button" class="exd-photo add" aria-label="Thêm ảnh">＋</button></div>`})
+    + `<div class="exd-meta tight" style="padding-top:16px">${fld('Số tiền',D.amt)}${fld('Chi cho gì?',D.note,'note')}${rows(STD())}</div>`,
+  cta: cta() },
+
+{ n:7, t:'Hai nhóm hàng', d:'Không có khối hoá đơn. Toàn bộ là hàng, chia hai nhóm có tiêu đề nhỏ: "Khoản này" (Số tiền, Chi cho gì?, Loại khoản, Danh mục) và "Khi nào, từ đâu" (Ngày, Giờ, Nguồn tiền, Ghi vào đâu), một dòng chú thích dưới nhóm hai. Giọng iOS Settings. <span class="fix">Khi Loại khoản kéo theo ba bốn hàng, nhóm giữ danh sách không thành một cột dài.</span> <span class="cost">Số tiền và ghi chú không còn là ô nhập; hai màn khác cách sửa hai trường quan trọng nhất.</span>',
+  body: `<div class="grp"><div class="ey">Khoản này</div><div class="exd-meta">${rows([row('Số tiền',`<span class="num">${D.amt} ₫</span>`), row('Chi cho gì?',D.note), row('Loại khoản',D.kind), row('Danh mục',D.cat)])}</div></div>`
+    + `<div class="grp"><div class="ey">Khi nào, từ đâu</div><div class="exd-meta">${rows([row('Ngày',`<span class="num">${D.date}</span>`), row('Giờ',`<span class="num">${D.time}</span>`,{clear:true}), row('Nguồn tiền',D.src), row('Ghi vào đâu',D.scope)])}</div>
+      <div class="note">Đổi "Ghi vào đâu" sẽ hỏi lại trước khi chuyển sổ. Cả nhà sẽ thấy khoản này.</div></div>${sec('Ảnh','Thêm')}${photos(0)}`,
+  cta: cta() },
+
+{ n:8, t:'Mở tại chỗ', d:'Bố cục thẻ duyệt, nhưng hàng nào chạm cũng mở ngay dưới nó thành chip hoặc ô nhập, thay vì gọi sheet. Đây là accordion của modal "Sửa khoản chi" đã có; ở đây Danh mục đang mở. <span class="fix">Sửa trong ngữ cảnh, không có lớp sheet phủ lên.</span> <span class="cost">Thẻ cao lên khi mở; và hai màn dùng hai cách chọn, sheet ở hàng chờ và accordion ở chi tiết.</span>',
+  body: `<div class="exd-meta top">${fld('Số tiền',D.amt)}${fld('Chi cho gì?',D.note,'note')}<div class="csv-srows">${row('Ghi vào đâu',D.scope)}${row('Loại khoản',D.kind)}${row('Danh mục',D.cat,{hot:true})}
+      <div class="acc"><div class="choices"><button type="button" class="choice on">🛒 Ăn uống</button><button type="button" class="choice">🍜 Ăn ngoài</button><button type="button" class="choice">🚗 Đi lại</button><button type="button" class="choice">🏠 Nhà ở</button><button type="button" class="choice">🎁 Quà</button><button type="button" class="choice">🏷️ Khác</button></div></div>
+      ${row('Ngày',`<span class="num">${D.date}</span>`)}${row('Giờ',`<span class="num">${D.time}</span>`,{clear:true})}${row('Nguồn tiền',D.src)}</div></div>${sec('Ảnh','Thêm')}${photos(0)}`,
+  cta: cta() }
+];
+
+document.getElementById('grid').innerHTML = OPTS.map(o =>
+  `<div class="opt"><div class="ohead"><span class="n">${o.n}</span><b>${o.t}</b><p>${o.d}</p></div>${phone(o.body, o.cta)}</div>`).join('');
+
+/* ── gallery 2: the photo door, 8 hướng on one base screen (hero + queue card) ── */
+const CAM = '<svg class="cam" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.2"/></svg>';
+const LIB = '<svg class="cam" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m4 17 5-5 4 4 3-3 4 4"/><circle cx="16" cy="9.5" r="1.4"/></svg>';
+const BASE_CARD = (extraTop='') => `<div class="exd-meta tight" style="padding-top:16px">${fld('Số tiền',D.amt)}${fld('Chi cho gì?',D.note,'note')}${extraTop}${rows(STD())}</div>`;
+const BASE_HERO = (o={}) => hero(o);
+
+const PH = [
+{ n:1, t:'Ô ảnh trong thẻ', d:'Ảnh là ô thứ ba của form, ngay dưới "Chi cho gì?", cùng nhãn viết hoa và cùng nền canvas với hai ô nhập: một ô Chụp, một ô Thư viện, ảnh đã có xếp trước. <span class="fix">Nằm đúng nhịp đọc form, tay đang ở đó.</span> <span class="cost">Thẻ duyệt không có ô này, hai màn lệch nhau một ô.</span>',
+  body: BASE_HERO() + BASE_CARD(`<div class="fld"><label>Ảnh</label><div class="ph-field"><button type="button" class="ph-tile">${CAM}Chụp</button><button type="button" class="ph-tile">${LIB}Thư viện</button></div></div>`),
+  cta: cta() },
+
+{ n:2, t:'Hàng Ảnh', d:'Ảnh là một hàng như mọi hàng khác, cuối danh sách: nhãn "Ảnh", giá trị "Chưa có" kèm biểu tượng máy ảnh, chevron. Chạm mở sheet Chụp hoặc Thư viện. Có ảnh thì giá trị là "2 ảnh". <span class="fix">Không thêm kiểu thành phần nào; đồng bộ tuyệt đối với thẻ duyệt.</span> <span class="cost">Kém mời gọi nhất trong tám hướng; một hàng xám dễ bị lướt qua.</span>',
+  body: BASE_HERO() + `<div class="exd-meta tight" style="padding-top:16px">${fld('Số tiền',D.amt)}${fld('Chi cho gì?',D.note,'note')}${rows([...STD(), `<button type="button" class="csv-srow soft"><small>Ảnh</small><span class="csv-sval">${CAM}<b>Chưa có</b>${CHEV}</span></button>`])}</div>`,
+  cta: cta() },
+
+{ n:3, t:'Biểu tượng chạm được', d:'Ô biểu tượng của hoá đơn đeo một huy hiệu máy ảnh xanh. Chạm vào ô là thêm ảnh; có ảnh rồi thì ô thành ảnh, huy hiệu vẫn còn để thêm nữa. Một dòng gợi ý nhỏ dưới ngày giờ. <span class="fix">Điểm nhìn đầu tiên của màn cũng là điểm chạm; nhìn ra ngay hoá đơn "thiếu ảnh".</span> <span class="cost">Ô 64px là mục tiêu nhỏ; huy hiệu phải đủ to để không hụt.</span>',
+  body: BASE_HERO({ico:`🛒<span class="cam-b">${CAM}</span>`, extra:`<span class="exd-hint">Chạm biểu tượng để thêm ảnh hoá đơn</span>`}) + BASE_CARD(),
+  cta: cta() },
+
+{ n:4, t:'Máy ảnh ở thanh CTA', d:'Thanh dưới có ba nút: thùng rác, máy ảnh (ghost, có chữ "Ảnh"), Cập nhật. Luôn trong tầm ngón cái, dù đang cuộn tới đâu. Đây là chỗ thẻ duyệt để "Áp cho N khoản giống". <span class="fix">Reachable nhất: một chạm, không cuộn, không tìm.</span> <span class="cost">Thanh CTA gánh ba việc; Cập nhật hẹp lại.</span>',
+  body: BASE_HERO() + BASE_CARD() + sec('Ảnh','Chưa có') + photos(0),
+  cta: `<div class="ctabar"><button type="button" class="exd-cta-del" aria-label="Xoá khoản này">${TRASH}</button><button type="button" class="exd-ghost ic">${CAM}Ảnh</button><button type="button" class="exd-go quiet">Cập nhật</button></div>` },
+
+{ n:5, t:'Mục Ảnh lên trên, có lời mời', d:'Mục Ảnh rời khỏi cuối màn và đứng ngay dưới hoá đơn, trước các hàng: một thẻ ngang với ô ＋, tiêu đề "Thêm ảnh hoá đơn" và một dòng lý do. Có ảnh thì thẻ thành dải ảnh. <span class="fix">Xuất hiện trong khung nhìn đầu tiên, và nói vì sao nên chụp.</span> <span class="cost">Đẩy các hàng xuống một khối; với người không chụp bao giờ, đó là 80px thừa.</span>',
+  body: BASE_HERO() + `<button type="button" class="ph-up"><span class="exd-photo add">＋</span><span class="t"><b>Thêm ảnh hoá đơn</b><span>Để tháng sau còn nhớ đã mua gì</span></span>${CHEV}</button>` + BASE_CARD(),
+  cta: cta() },
+
+{ n:6, t:'Hai ô lớn Chụp và Thư viện', d:'Mục Ảnh giữ chỗ cũ nhưng trạng thái trống là hai ô lớn cạnh nhau, Chụp ảnh nền brand-tint, Thư viện nền trắng, biểu tượng 24px và nhãn. Có ảnh rồi thì hai ô thu về một ô ＋ như hiện tại. <span class="fix">Hai cách thêm ảnh đều thấy ngay, không qua sheet trung gian.</span> <span class="cost">Vẫn ở cuối màn, phải cuộn qua các hàng mới thấy.</span>',
+  body: BASE_HERO() + BASE_CARD() + sec('Ảnh','') + `<div class="two"><button type="button" class="pri">${CAM}Chụp ảnh</button><button type="button">${LIB}Thư viện</button></div>`,
+  cta: cta() },
+
+{ n:7, t:'Nút nổi máy ảnh', d:'Một nút tròn máy ảnh nổi ở góc dưới phải, phía trên thanh CTA, đúng ngôn ngữ FAB của tab Gia đình. Cuộn tới đâu nó cũng ở đó. Mục Ảnh dưới cùng vẫn giữ để xem ảnh đã có. <span class="fix">Triggering nhất: gradient brand ở góc là thứ mắt bắt đầu tiên.</span> <span class="cost">Hai điểm brand trên một màn (FAB và Cập nhật); FAB che một phần hàng cuối.</span>',
+  body: BASE_HERO() + BASE_CARD() + sec('Ảnh','Chưa có') + photos(0) + `<button type="button" class="fab-cam" aria-label="Chụp ảnh hoá đơn">${CAM}</button>`,
+  cta: cta() },
+
+{ n:8, t:'Thẻ trống theo công thức app', d:'Trạng thái chưa có ảnh dùng đúng thẻ trống của tab Tài chính (fhEmptyCard): dấu ở giữa, một câu hỏi có động từ, một dòng lý do, hàng hai nút với nút đầu tô brand. Đứng ngay dưới hoá đơn. Có ảnh thì thẻ nhường chỗ cho dải ảnh. <span class="fix">Cùng giọng với các mục trống khác của sổ, nên người dùng đã quen cách đọc nó.</span> <span class="cost">Thẻ cao nhất trong tám hướng; chỉ hợp khi thật sự chưa có ảnh.</span>',
+  body: BASE_HERO() + `<div class="empty"><div class="mk">🧾</div><div class="q">Có hoá đơn giấy không?</div><div class="w">Chụp lại để khỏi phải nhớ đã mua gì.</div><div class="acts"><button type="button">${CAM}Chụp ảnh</button><button type="button">${LIB}Thư viện</button></div></div>` + BASE_CARD(),
+  cta: cta() }
+];
+document.getElementById('grid2').innerHTML = PH.map(o =>
+  `<div class="opt"><div class="ohead"><span class="n">${o.n}</span><b>${o.t}</b><p>${o.d}</p></div>${phone(o.body, o.cta)}</div>`).join('');
+</script>
+</body>
+</html>

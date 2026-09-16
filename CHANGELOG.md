@@ -18,6 +18,37 @@ Going forward, add an entry here when a feature area changes meaningfully — se
 
 ---
 
+## 2026-09-17
+
+### Sổ cá nhân: the transaction detail opens to look, then to edit (SW v535)
+
+The personal detail (`renderPersonalTxDetail`, 61-expense-detail) used to be an editor
+with a Cập nhật button and a row set that did not match the review queue card: no Loại
+khoản, amount and note folded into one sheet row, "Ghi vào" where the queue says "Ghi vào
+đâu". Now the screen has two states and the queue card's vocabulary
+(mockups/txn-detail-view-edit.html option 1):
+
+- **View** (default): the receipt block, then read-only rows in the queue's order (Ghi vào
+  đâu · Loại khoản · Danh mục · Ngày · Giờ · Nguồn tiền), no chevrons, no inputs, no delete.
+  Nav: ‹ Cá nhân · **Sửa**.
+- **Edit**: the queue card itself, Số tiền and Chi cho gì? as top inputs over the same rows
+  as pickers. Nav: Huỷ · Sửa khoản chi · **Lưu**. Staged in PXD, one `fhPersonalUpdateExpense`
+  on Lưu; typed fields are read back before every re-render so a category pick never drops
+  a half-typed note. Delete is the muted foot line, arm-then-confirm. The bottom CTA bar is
+  gone in both states.
+- **Loại khoản** on a committed row opens a kind sheet (`#sheet-exd-kind`) whose picks are
+  the two conversions that already exist for a booked expense: 🤝 Cho vay
+  (`fhExpenseToLoanSheet`, 0122) and 📈 Đầu tư (`fhExpenseToInvestSheet`, 0123). They save
+  on their own, so the detail closes first, as the composer's links did.
+- **The photo door** (mockups/photo-door-contextual.html option 1): when a row has no
+  photos, the tab's empty-card recipe sits under the receipt in both states. SVG marks only.
+  `pexdDoorCopy(t)` writes the question from the row: category and note name the receipt,
+  5.000.000 ₫ and up talks about warranty, email-captured or older rows lead with Thư viện,
+  today's hand-logged row leads with Chụp ảnh (a `capture` input). Photos go through
+  `readPhoto` (EXIF first) and `fhPersonalUploadTxnPhotos`; removing one is staged and
+  reconciled on Lưu via `fhPersonalSyncTxnPhotos`.
+- Guard: `tools/txn-detail-view-edit.test.js`.
+
 ## 2026-09-16
 
 ### Duplicate detection: one engine, two verdicts (not yet deployed)

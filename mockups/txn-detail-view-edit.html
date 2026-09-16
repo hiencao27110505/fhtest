@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chi tiết giao dịch · xem và sửa</title>
+<style>
+/* ── tokens: verbatim from src/css/10-tokens.css (Sage) ───────────────────── */
+:root{
+  --sage-50:#ebfbf6; --sage-100:#d6f5eb; --sage-200:#afe9d8; --sage-300:#7ad5bd; --sage-400:#4abba1; --sage-500:#149d83; --sage-600:#007c65;
+  --stone-25:#fafcfc; --stone-50:#f6f9f8; --stone-100:#f0f5f3; --stone-150:#ecf1f0; --stone-200:#e3eae7; --stone-300:#c3cdca; --stone-400:#7f8986; --stone-500:#6f7674; --stone-600:#626b68; --stone-800:#2e3835; --stone-900:#0e1613;
+  --red-tint:#ffeaeb; --red-base:#d63053; --red-ink:#a41b3b;
+  --amber-tint:#fdefe0; --amber-ink:#915200;
+  --brand:var(--sage-500); --brand-ink:var(--sage-600); --brand-tint:var(--sage-50);
+  --grad-brand:linear-gradient(135deg,var(--sage-500),var(--sage-400)); --brand-glow:rgba(20,157,131,.32);
+  --danger:var(--red-ink); --amber:var(--amber-ink); --good:var(--sage-600);
+  --ink:var(--stone-900); --ink-2:var(--stone-800); --muted:var(--stone-600); --muted-soft:var(--stone-500);
+  --white:#fff; --canvas:var(--stone-100); --hairline:var(--stone-200); --divider:var(--stone-150);
+  --surface:var(--stone-50); --fill-neutral:rgba(127,137,134,.14); --chev:var(--stone-300);
+  --shadow-card:0 1px 3px rgba(14,22,19,.05),0 8px 24px rgba(14,22,19,.04);
+  --r-card-lg:22px;
+  --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:var(--text);background:#e6ebe9;color:var(--ink);padding:34px 22px 90px;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;font-size:inherit;color:inherit;border:0;background:none;cursor:pointer;text-align:left}
+input,textarea{font-family:inherit}
+svg{display:block}
+.num{font-family:var(--disp);font-variant-numeric:tabular-nums}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ── page chrome ── */
+.page-h{max-width:1720px;margin:0 auto}
+.page-h .eyebrow{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--brand-ink)}
+.page-h h1{font-family:var(--disp);font-size:26px;font-weight:800;letter-spacing:-.6px;margin-top:6px;text-wrap:balance}
+.page-h p{font-size:14px;color:var(--muted);margin-top:8px;max-width:940px;line-height:1.6}
+.cols2{max-width:1720px;margin:20px auto 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:12px 26px}
+.bad,.law{font-size:13px;line-height:1.55;color:var(--ink-2);background:var(--white);border-radius:14px;padding:13px 16px;box-shadow:var(--shadow-card)}
+.bad b,.law b{display:block;font-family:var(--disp);font-size:13.5px;font-weight:800;margin-bottom:6px;letter-spacing:-.2px}
+.bad ul,.law ul{margin:0;padding-left:16px}
+.bad li,.law li{margin:3px 0}
+.bad b{color:var(--danger)} .law b{color:var(--brand-ink)}
+.bad i,.law i{font-style:normal;font-weight:700;color:var(--ink)}
+
+.grid{max-width:1720px;margin:40px auto 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(640px,1fr));gap:44px 34px}
+@media (max-width:720px){.grid{grid-template-columns:1fr}}
+.opt{display:flex;flex-direction:column}
+.ohead{margin:0 4px 14px}
+.ohead .n{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:99px;background:var(--ink);color:#fff;font-family:var(--disp);font-size:12px;font-weight:800;margin-right:8px;vertical-align:2px}
+.ohead b{font-family:var(--disp);font-size:16.5px;font-weight:800;letter-spacing:-.3px}
+.ohead p{font-size:13px;color:var(--muted);line-height:1.55;margin-top:7px}
+.ohead p .fix{color:var(--brand-ink);font-weight:700}
+.ohead p .cost{color:var(--amber);font-weight:700}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+@media (max-width:480px){.pair{grid-template-columns:1fr}}
+.state{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 8px 6px}
+.state i{font-style:normal;color:var(--brand-ink)}
+
+/* ── phone ── */
+.phone{width:100%;max-width:392px;margin:0 auto;background:var(--canvas);border-radius:38px;border:8px solid #0b1512;box-shadow:0 24px 50px rgba(10,20,17,.24);overflow:hidden;display:flex;flex-direction:column;position:relative}
+.sb{display:flex;justify-content:space-between;align-items:center;padding:12px 24px 0;font-size:13px;font-weight:700}
+.sb i{font-style:normal;font-size:11px;font-weight:800;background:var(--ink);color:#fff;border-radius:5px;padding:1px 5px}
+.nav{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:8px 16px 4px;min-height:40px}
+.nav .l{display:inline-flex;align-items:center;gap:2px;font-size:17px;font-weight:600;letter-spacing:-.02em;color:var(--ink);justify-self:start}
+.nav .l svg{width:22px;height:22px;margin-left:-4px}
+.nav .l.txt{color:var(--brand-ink);font-weight:600}
+.nav .c{font-family:var(--disp);font-size:16px;font-weight:700;letter-spacing:-.2px}
+.nav .r{justify-self:end;font-size:17px;font-weight:700;color:var(--brand-ink);letter-spacing:-.02em}
+.nav .r.ic{width:36px;height:36px;border-radius:50%;background:var(--white);box-shadow:var(--shadow-card);display:flex;align-items:center;justify-content:center;color:var(--ink-2)}
+.nav .r.ic svg{width:17px;height:17px}
+.scroll{flex:1;padding-bottom:18px}
+.ctabar{display:flex;align-items:center;gap:8px;padding:10px 16px 16px;border-top:1px solid var(--divider);background:var(--canvas)}
+
+/* focal read-out */
+.exd-focal{display:flex;flex-direction:column;align-items:center;text-align:center;padding:10px 24px 2px;position:relative}
+.exd-ico{width:64px;height:64px;border-radius:20px;display:flex;align-items:center;justify-content:center;background:var(--fill-neutral);color:var(--ink-2)}
+.exd-ico svg{width:30px;height:30px}
+.exd-amt{font-family:var(--disp);font-variant-numeric:tabular-nums;font-weight:700;font-size:34px;letter-spacing:-1.2px;color:var(--ink);margin-top:16px;line-height:1}
+.exd-note{font-size:17px;font-weight:600;letter-spacing:-.02em;color:var(--ink-2);margin-top:9px}
+.exd-prov{font-size:11.5px;font-weight:500;color:var(--muted-soft);margin-top:8px}
+.exd-prov .sep{margin:0 5px;color:var(--chev)}
+.exd-amt.edit,.exd-note.edit{background:none;border:0;border-bottom:2px solid var(--brand);text-align:center;width:100%;max-width:240px;outline:none;padding-bottom:2px}
+.exd-note.edit{border-bottom-color:var(--hairline)}
+.pen{position:absolute;right:22px;top:14px;width:36px;height:36px;border-radius:50%;background:var(--white);box-shadow:var(--shadow-card);display:flex;align-items:center;justify-content:center;color:var(--ink-2)}
+.pen svg{width:16px;height:16px}
+
+/* settings rows */
+.exd-meta{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-card);margin:14px 16px 0;overflow:hidden;padding:2px 16px}
+.exd-meta.top{padding-top:16px}
+.csv-srows{margin-top:2px}
+.csv-srow{display:flex;width:100%;align-items:center;justify-content:space-between;gap:10px;padding:12px 2px;min-height:46px;border:0;border-bottom:1px solid var(--divider);background:none;font:inherit;text-align:left;color:inherit}
+.csv-srows .csv-srow:last-child{border-bottom:0}
+.csv-srow small{font-size:13px;font-weight:600;color:var(--muted);flex:none}
+.csv-sval{display:flex;align-items:center;gap:5px;min-width:0}
+.csv-sval b{font-size:14px;font-weight:650;color:var(--ink);letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.csv-schev{width:15px;height:15px;color:var(--chev);flex:none}
+.csv-srow.soft .csv-sval b{color:var(--muted-soft);font-weight:600}
+.csv-srow.hot{background:var(--brand-tint);margin:0 -6px;padding:12px 8px;border-radius:11px;border-bottom-color:transparent}
+.csv-srow.hot small,.csv-srow.hot .csv-sval b,.csv-srow.hot .csv-schev{color:var(--brand-ink)}
+.csv-srow.chg .csv-sval b{color:var(--brand-ink)}
+.csv-srow.chg small::after{content:"•";color:var(--brand);margin-left:5px;font-size:14px;line-height:0}
+.csv-sclear{flex:none;width:22px;height:22px;border-radius:50%;background:var(--fill-neutral);color:var(--muted);font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;margin-left:2px}
+/* view mode: same rows, no chevron, no tap; the label column stays, values stay ink */
+.view .csv-srow{cursor:default}
+
+/* queue-card fields */
+.fld{margin:0 0 14px}
+.fld label{display:block;font-size:13px;font-weight:700;color:var(--muted);letter-spacing:.02em;text-transform:uppercase;margin-bottom:8px}
+.fld .in{width:100%;background:var(--canvas);border:2px solid transparent;border-radius:13px;padding:12px 14px;font-size:16px;font-weight:700;letter-spacing:-.01em;color:var(--ink);outline:none}
+.fld .in.note{font-weight:400;font-size:14.5px;line-height:1.45;resize:none;display:block;height:47px}
+
+/* section head + photos */
+.exd-sec-h{display:flex;align-items:baseline;justify-content:space-between;margin:24px 20px 12px}
+.exd-sec-h .t{font-family:var(--disp);font-weight:700;font-size:20px;letter-spacing:-.4px;color:var(--ink)}
+.exd-sec-h .c{font-size:14px;font-weight:600;color:var(--muted)}
+.exd-photos{display:flex;gap:10px;overflow-x:auto;padding:2px 16px 4px;scrollbar-width:none}
+.exd-photo{flex:0 0 auto;width:88px;height:88px;border-radius:16px;box-shadow:var(--shadow-card);display:flex;align-items:center;justify-content:center;color:#9a8f7a;background:linear-gradient(160deg,#f7f3ea,#e8e1d3)}
+.exd-photo svg{width:28px;height:28px}
+.exd-photo.add{background:var(--white);font-size:26px;color:var(--muted-soft)}
+
+/* CTA pieces */
+.exd-cta-del{flex:0 0 auto;min-width:44px;height:48px;display:flex;align-items:center;justify-content:center;border:1.5px solid var(--hairline);border-radius:13px;background:var(--white);color:var(--muted);padding:0 12px}
+.exd-cta-del svg{width:18px;height:18px}
+.exd-go{flex:1;min-height:48px;border:0;border-radius:9999px;background:var(--grad-brand);color:#fff;font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 5px 14px var(--brand-glow)}
+.exd-go.quiet{background:var(--brand-tint);color:var(--brand-ink);box-shadow:none}
+.btn-line{flex:1;min-height:48px;border:1.5px solid var(--brand);border-radius:9999px;background:var(--white);color:var(--brand-ink);font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:7px}
+.btn-line svg{width:17px;height:17px}
+.exd-del{display:block;width:fit-content;margin:26px auto 4px;color:var(--muted);font-size:14px;font-weight:500;padding:8px 16px}
+
+/* 4: the edit modal over the dimmed view */
+.scrim{position:absolute;inset:0;background:rgba(14,22,19,.38);z-index:5}
+.modal{position:absolute;left:0;right:0;bottom:0;top:64px;background:var(--canvas);border-radius:22px 22px 0 0;box-shadow:0 -12px 44px rgba(14,22,19,.22);z-index:6;display:flex;flex-direction:column;overflow:hidden}
+.modal .grab{width:36px;height:5px;border-radius:3px;background:var(--chev);margin:8px auto 0}
+.modal .nav{padding-top:4px}
+/* 6: the printed-receipt facts list */
+.rc{margin:18px 24px 0}
+.rc-line{display:flex;align-items:baseline;gap:8px;padding:9px 0;border-bottom:1px dashed var(--hairline);font-size:14px}
+.rc-line:last-child{border-bottom:0}
+.rc-line small{font-size:12.5px;font-weight:600;color:var(--muted);flex:none}
+.rc-line .dots{flex:1;border-bottom:1px dotted var(--chev);transform:translateY(-4px)}
+.rc-line b{font-weight:650;color:var(--ink);letter-spacing:-.01em;white-space:nowrap}
+/* 8: the compact summary block */
+.sum{margin:14px 16px 0;background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-card);padding:12px 16px}
+.sum .ln{display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:600;color:var(--ink-2);padding:6px 0}
+.sum .ln+.ln{border-top:1px solid var(--divider)}
+.sum .ln svg{width:16px;height:16px;color:var(--muted-soft);flex:none}
+.sum .ln .sep{color:var(--chev)}
+/* 5: the "saved" toast */
+.toast{position:absolute;left:50%;bottom:86px;transform:translateX(-50%);background:var(--ink);color:#fff;font-size:13px;font-weight:600;border-radius:9999px;padding:9px 14px;display:flex;align-items:center;gap:6px;box-shadow:0 8px 22px rgba(14,22,19,.24);white-space:nowrap}
+.toast svg{width:14px;height:14px}
+</style>
+</head>
+<body>
+
+<div class="page-h">
+  <div class="eyebrow">Sổ cá nhân · chi tiết giao dịch</div>
+  <h1>Chi tiết giao dịch · xem rồi mới sửa · 8 hướng</h1>
+  <p>Màn chi tiết không còn nút "Cập nhật". Nó mở ở trạng thái <i>xem</i>: hoá đơn và các dữ kiện, không có gì để lỡ tay đổi.
+  Một nút <i>Sửa</i> đưa sang trạng thái <i>sửa</i>, nơi bộ trường đúng bằng thẻ duyệt (Số tiền, Chi cho gì?, Ghi vào đâu, Loại khoản,
+  Danh mục, Ngày, Giờ, Nguồn tiền) và mọi thay đổi chờ một lần <i>Lưu</i>. Tám hướng khác nhau ở chỗ đặt nút Sửa, trạng thái xem
+  trông ra sao, và trạng thái sửa hiện ra cách nào. Mỗi hướng có hai điện thoại: trái là xem, phải là sửa.</p>
+</div>
+
+<div class="cols2">
+  <div class="law"><b>Luật chung cho cả tám hướng</b><ul>
+    <li>Xem: không ô nhập, không chevron, không thùng rác. Không có gì trên màn xem làm đổi dữ liệu.</li>
+    <li>Sửa: bộ trường của thẻ duyệt, cùng nhãn, cùng thứ tự, cùng picker sheet. Thay đổi mang chấm xanh, chờ "Lưu". "Huỷ" bỏ hết.</li>
+    <li>Xoá chỉ có ở trạng thái sửa, dạng thùng rác hai chạm hoặc dòng chữ mờ cuối màn. Không bao giờ là nút đỏ lớn.</li>
+    <li>Ảnh xem được ở cả hai trạng thái; thêm hay bỏ ảnh là việc của trạng thái sửa (cửa thêm ảnh ở file photo-door-contextual.html).</li>
+    <li>Hàng gương của gia đình vẫn không có Sửa: chỉ có "Mở bên sổ gia đình", như hôm nay.</li>
+  </ul></div>
+  <div class="bad"><b>Đọc nhanh</b><ul>
+    <li>Ít thay đổi so với hôm nay: <i>1</i> (Sửa ở thanh trên) và <i>2</i> (Sửa ở đáy).</li>
+    <li>Sửa nhanh một trường mà không vào chế độ: <i>5</i> (lưu ngay từng hàng) và <i>7</i> (chạm hàng là sửa).</li>
+    <li>Tách bạch nhất giữa xem và sửa: <i>4</i> (modal), <i>6</i> (màn riêng), <i>8</i> (xem gọn, sửa đầy).</li>
+    <li>Giữ khối hoá đơn làm chỗ sửa: <i>3</i> (bút chì cạnh số tiền).</li>
+  </ul></div>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<script>
+const G = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const I = {
+  cup: G('<path d="M5 8h11v6a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5z"/><path d="M16 9h2a2 2 0 0 1 0 4h-2"/><path d="M8 4v2M11 4v2M14 4v2"/>'),
+  pen: G('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>'),
+  receipt: G('<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>'),
+  lock: G('<rect x="5" y="10" width="14" height="10" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>'),
+  tag: G('<path d="M3 12V4h8l9 9-8 8z"/><circle cx="7.5" cy="8.5" r="1.3"/>'),
+  cal: G('<path d="M4 6h16v14H4z"/><path d="M4 10h16M8 3v4M16 3v4"/>'),
+  card: G('<rect x="3" y="6" width="18" height="12" rx="2.5"/><path d="M3 10h18"/>'),
+  check: G('<path d="m5 12.5 4.5 4.5L19 7"/>'),
+};
+const CHEV = '<svg class="csv-schev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>';
+const BACK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg>';
+const TRASH = G('<path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6"/>');
+
+const D = { amt:'253.900', note:'Foody', scope:'🔒 Cá nhân', kind:'Chi tiêu', cat:'🛒 Ăn uống', date:'30/08', dateLong:'Thứ Bảy, 30 thg 8', time:'10:17', src:'VIB · tín dụng ••4512' };
+
+/* rows: view = no chevron, static div; edit = button + chevron */
+function row(lbl, val, m={}, edit=true){
+  const cls='csv-srow'+(m.soft?' soft':'')+(m.hot?' hot':'')+(m.chg?' chg':'');
+  const clear = (edit&&m.clear)?'<span class="csv-sclear">×</span>':'';
+  const inner=`<small>${lbl}</small><span class="csv-sval"><b>${val}</b>${clear}${edit?CHEV:''}</span>`;
+  return edit?`<button type="button" class="${cls}">${inner}</button>`:`<div class="${cls}">${inner}</div>`;
+}
+const STD = (edit, o={}) => [
+  row('Ghi vào đâu',D.scope,{},edit), row('Loại khoản',D.kind,{},edit),
+  row('Danh mục', o.catVal||D.cat, {hot:o.hot==='cat', chg:o.chg==='cat'}, edit),
+  row('Ngày',`<span class="num">${D.date}</span>`,{},edit), row('Giờ',`<span class="num">${D.time}</span>`,{clear:true},edit),
+  row('Nguồn tiền',D.src,{},edit) ].join('');
+const rows = (edit,o) => `<div class="exd-meta"><div class="csv-srows">${STD(edit,o)}</div></div>`;
+const fld = (lbl,val,note) => note
+  ? `<div class="fld"><label>${lbl}</label><textarea class="in note" rows="1">${val}</textarea></div>`
+  : `<div class="fld"><label>${lbl}</label><input class="in num" inputmode="numeric" value="${val}"></div>`;
+const queueCard = (o={}) => `<div class="exd-meta top">${fld('Số tiền',D.amt)}${fld('Chi cho gì?',D.note,true)}<div class="csv-srows">${STD(true,o)}</div></div>`;
+const hero = (o={}) => `<div class="exd-focal">${o.pen?`<button type="button" class="pen" aria-label="Sửa">${I.pen}</button>`:''}<div class="exd-ico">${I.cup}</div>`
+  + (o.edit ? `<input class="exd-amt num edit" value="${D.amt} ₫"><input class="exd-note edit" value="${D.note}">`
+            : `<div class="exd-amt num">${D.amt} ₫</div><div class="exd-note">${D.note}</div>`)
+  + `<div class="exd-prov">${D.dateLong}<span class="sep">·</span>${D.time}</div></div>`;
+const sec = (t,c) => `<div class="exd-sec-h"><span class="t">${t}</span><span class="c">${c}</span></div>`;
+const photos = (add) => `<div class="exd-photos"><div class="exd-photo">${I.receipt}</div>${add?'<button type="button" class="exd-photo add">＋</button>':''}</div>`;
+const nav = (l, c, r) => `<div class="nav">${l}<span class="c">${c||''}</span>${r||'<span></span>'}</div>`;
+const L_BACK = `<span class="l">${BACK}Cá nhân</span>`, L_CANCEL = `<span class="l txt">Huỷ</span>`;
+const R_EDIT = `<button type="button" class="r">Sửa</button>`, R_SAVE = `<button type="button" class="r">Lưu</button>`, R_DONE = `<button type="button" class="r">Xong</button>`;
+const bar = (inner) => inner ? `<div class="ctabar">${inner}</div>` : '';
+const DEL = `<button type="button" class="exd-cta-del" aria-label="Xoá">${TRASH}</button>`;
+const SAVE = `<button type="button" class="exd-go">Lưu</button>`;
+function phone(o){
+  return `<div class="phone ${o.cls||''}"><div class="sb"><span>11:16</span><i>94</i></div>${o.nav}<div class="scroll">${o.body}</div>${bar(o.bar)}${o.over||''}</div>`;
+}
+const pair = (v, e) => `<div class="pair"><div><div class="state">1 · Xem</div>${phone(v)}</div><div><div class="state"><i>2 · Sửa</i></div>${phone(e)}</div></div>`;
+
+const OPTS = [
+{ n:1, t:'Sửa ở thanh trên', d:'Xem: thanh trên "‹ Cá nhân" và chữ "Sửa" bên phải, như iOS Contacts. Hàng không chevron, không thanh dưới. Sửa: thanh trên thành Huỷ · Sửa khoản chi · Lưu, thân màn là thẻ duyệt với hai ô nhập, xoá là dòng chữ mờ cuối màn. <span class="fix">Ít thay đổi nhất so với hôm nay; quy ước iOS ai cũng biết.</span> <span class="cost">"Sửa" ở góc trên xa ngón cái; "Lưu" cũng vậy.</span>',
+  v:{ cls:'view', nav:nav(L_BACK,'',R_EDIT), body: hero()+rows(false)+sec('Ảnh','1')+photos(false) },
+  e:{ nav:nav(L_CANCEL,'Sửa khoản chi',R_SAVE), body: queueCard({chg:'cat',catVal:'🍜 Ăn ngoài'})+sec('Ảnh','1')+photos(true)+`<button type="button" class="exd-del">Xoá khoản này</button>` } },
+
+{ n:2, t:'Sửa ở đáy, đúng chỗ Cập nhật cũ', d:'Xem: thanh dưới có một nút viền "Sửa" với bút chì, chỗ hôm nay là "Cập nhật". Sửa: cùng màn, hàng có chevron, số tiền và ghi chú thành ô nhập, thanh dưới thành thùng rác + "Lưu", thanh trên có "Huỷ". <span class="fix">Nút ở đúng chỗ tay đã quen; hai trạng thái nhìn là phân biệt ngay nhờ thanh dưới.</span> <span class="cost">Thanh dưới chiếm chỗ ngay cả khi chỉ xem.</span>',
+  v:{ cls:'view', nav:nav(L_BACK), body: hero()+rows(false)+sec('Ảnh','1')+photos(false), bar:`<button type="button" class="btn-line">${I.pen}Sửa</button>` },
+  e:{ nav:nav(L_CANCEL,'Sửa khoản chi'), body: queueCard()+sec('Ảnh','1')+photos(true), bar: DEL+SAVE } },
+
+{ n:3, t:'Bút chì cạnh hoá đơn', d:'Xem: một nút tròn bút chì ở góc trên phải của khối hoá đơn, không có nút nào khác. Sửa: số tiền và ghi chú trở thành ô nhập ngay trên hoá đơn (gạch dưới xanh), hàng có chevron, thanh dưới thùng rác + "Lưu". <span class="fix">Con số lớn vẫn là ngôi sao ở cả hai trạng thái; sửa tại chính chỗ đang nhìn.</span> <span class="cost">Bút chì 36px là mục tiêu nhỏ; người dùng phải thấy nó.</span>',
+  v:{ cls:'view', nav:nav(L_BACK), body: hero({pen:true})+rows(false)+sec('Ảnh','1')+photos(false) },
+  e:{ nav:nav(L_CANCEL,'Sửa khoản chi'), body: hero({edit:true})+rows(true)+sec('Ảnh','1')+photos(true), bar: DEL+SAVE } },
+
+{ n:4, t:'Sửa mở modal', d:'Xem: như hướng 1, chữ "Sửa" trên thanh. Sửa: một modal dâng lên phủ màn xem đang mờ đi, thanh modal Huỷ · Sửa khoản chi · Lưu, thân là thẻ duyệt, kéo xuống để huỷ. Đây là lớp "form → modal" theo DESIGN.md §4. <span class="fix">Xem và sửa là hai lớp vật lý; không thể nhầm đang ở trạng thái nào.</span> <span class="cost">Thêm một lớp chuyển cảnh; ảnh phải cuộn xuống trong modal mới thấy.</span>',
+  v:{ cls:'view', nav:nav(L_BACK,'',R_EDIT), body: hero()+rows(false)+sec('Ảnh','1')+photos(false) },
+  e:{ cls:'view', nav:nav(L_BACK,'',R_EDIT), body: hero()+rows(false),
+      over:`<div class="scrim"></div><div class="modal"><div class="grab"></div>${nav(L_CANCEL,'Sửa khoản chi',R_SAVE)}<div class="scroll">${queueCard()}<button type="button" class="exd-del">Xoá khoản này</button></div></div>` } },
+
+{ n:5, t:'Sửa từng hàng, lưu ngay', d:'Xem: như hướng 1. Sửa: "Sửa" đổi thành "Xong"; mỗi hàng chạm mở picker và <b>lưu ngay khi chọn</b>, có toast "Đã lưu", không có nút Lưu. Thanh dưới chỉ còn thùng rác. Hàng vừa đổi sáng xanh một nhịp. <span class="fix">Đổi một trường là một chạm rưỡi, không có bước xác nhận; không có gì để "quên lưu".</span> <span class="cost">Không có Huỷ cho cả lượt; lỡ chọn sai phải chọn lại. Khác cơ chế staged của thẻ duyệt.</span>',
+  v:{ cls:'view', nav:nav(L_BACK,'',R_EDIT), body: hero()+rows(false)+sec('Ảnh','1')+photos(false) },
+  e:{ nav:nav(L_BACK,'',R_DONE), body: queueCard({hot:'cat',catVal:'🍜 Ăn ngoài'})+sec('Ảnh','1')+photos(true), bar: DEL+`<span style="flex:1"></span>`,
+      over:`<div class="toast">${I.check}Đã lưu danh mục</div>` } },
+
+{ n:6, t:'Hoá đơn thuần, form là màn riêng', d:'Xem: một tờ biên lai. Khối hoá đơn rồi các dữ kiện xếp thành dòng có chấm dẫn, không thẻ trắng, không hàng; ảnh ở dưới. Sửa: "Sửa" đẩy sang màn mới từ phải, "‹ Chi tiết" để quay lại, thân là thẻ duyệt đầy đủ, thanh dưới thùng rác + "Lưu". <span class="fix">Trạng thái xem đẹp và yên nhất trong tám hướng; form không phải giả làm màn xem.</span> <span class="cost">Hai màn để bảo trì; dữ kiện dạng dòng không cuộn ngang được với giá trị dài.</span>',
+  v:{ cls:'view', nav:nav(L_BACK,'',R_EDIT), body: hero()+`<div class="rc">${[['Ghi vào đâu',D.scope],['Loại khoản',D.kind],['Danh mục',D.cat],['Ngày',D.date+' · '+D.time],['Nguồn tiền',D.src]].map(([k,v])=>`<div class="rc-line"><small>${k}</small><span class="dots"></span><b>${v}</b></div>`).join('')}</div>`+sec('Ảnh','1')+photos(false) },
+  e:{ nav:nav(`<span class="l">${BACK}Chi tiết</span>`,'Sửa khoản chi'), body: queueCard()+sec('Ảnh','1')+photos(true), bar: DEL+SAVE } },
+
+{ n:7, t:'Chạm hàng là sửa', d:'Xem: các hàng vẫn có chevron. Chạm một hàng vào thẳng trạng thái sửa với hàng đó đang sáng và picker của nó mở; "Sửa" trên thanh vẫn có cho ai muốn vào hẳn. Sửa: thẻ duyệt đầy đủ, hàng Danh mục sáng, thanh dưới thùng rác + "Lưu". <span class="fix">Không bắt người dùng tìm nút Sửa để đổi một danh mục; vẫn giữ Lưu để xác nhận.</span> <span class="cost">Màn xem có chevron nên không "thuần xem"; ranh giới hai trạng thái mờ hơn.</span>',
+  v:{ nav:nav(L_BACK,'',R_EDIT), body: hero()+rows(true)+sec('Ảnh','1')+photos(false) },
+  e:{ nav:nav(L_CANCEL,'Sửa khoản chi'), body: queueCard({hot:'cat'})+sec('Ảnh','1')+photos(true), bar: DEL+SAVE } },
+
+{ n:8, t:'Xem gọn, sửa đầy', d:'Xem: không có hàng nào. Dưới hoá đơn là một khối tóm tắt hai dòng với biểu tượng nhỏ: sổ · loại · danh mục, rồi ngày · giờ · nguồn tiền. Ảnh ngay dưới. Thanh dưới có nút viền "Sửa". Sửa: thẻ duyệt đầy đủ bung ra, thùng rác + "Lưu". <span class="fix">Màn xem ngắn nhất, ảnh lên cao; màn sửa đầy đủ nhất. Hai trạng thái không thể nhầm.</span> <span class="cost">Người muốn đọc kỹ từng dữ kiện phải vào Sửa; tóm tắt hai dòng cắt bớt khi giá trị dài.</span>',
+  v:{ cls:'view', nav:nav(L_BACK), body: hero()+`<div class="sum"><div class="ln">${I.lock}<span>Cá nhân</span><span class="sep">·</span><span>Chi tiêu</span><span class="sep">·</span><span>Ăn uống</span></div><div class="ln">${I.card}<span>VIB · tín dụng ••4512</span></div></div>`+sec('Ảnh','1')+photos(false), bar:`<button type="button" class="btn-line">${I.pen}Sửa</button>` },
+  e:{ nav:nav(L_CANCEL,'Sửa khoản chi'), body: queueCard()+sec('Ảnh','1')+photos(true), bar: DEL+SAVE } },
+];
+
+document.getElementById('grid').innerHTML = OPTS.map(o =>
+  `<div class="opt"><div class="ohead"><span class="n">${o.n}</span><b>${o.t}</b><p>${o.d}</p></div>${pair(o.v,o.e)}</div>`).join('');
+</script>
+</body>
+</html>

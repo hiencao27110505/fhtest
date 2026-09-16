@@ -378,17 +378,24 @@ function exdSave(){
 }
 window.exdSave=exdSave;
 
-/* ═══ the PERSONAL expense detail — a private row's own receipt screen ═══
-   Entry for list taps (replaces the straight-to-editor door); the composer
-   remains reachable through the photo tile for photo work. Staged commit:
-   Cập nhật fires ONE fhPersonalUpdateExpense with the merged row. */
-var _pexdId=null, PXD={}, _pexdDelArmed=false, _pexdDelT=null;
+/* ═══ the PERSONAL expense detail — view first, edit second (2026-09-17) ═══
+   Entry for list taps. The screen opens in VIEW: the receipt read large, the
+   row facts with no chevron and no tap, the photos, and nothing that changes
+   data. "Sửa" in the nav flips it to EDIT: the review card's own top fields
+   (Số tiền, Chi cho gì?) over the same rows now tappable, the nav reads
+   Huỷ · Sửa khoản chi · Lưu, and delete is the muted foot line. Everything
+   staged in PXD lands in ONE fhPersonalUpdateExpense on Lưu; Huỷ drops it.
+   The row set is the review card's, same labels, same order — a queue card and
+   a detail are the same object in two states (mockups/txn-detail-view-edit.html
+   option 1). The photo door is the tab's empty-card recipe with copy written
+   from the row itself (mockups/photo-door-contextual.html option 1). */
+var _pexdId=null, PXD={}, _pexdEdit=false, _pexdDelArmed=false, _pexdDelT=null;
 function _pxdDirty(){ return Object.keys(PXD).length>0; }
 function openPersonalTxDetail(id){
   var t=(typeof _pTxById==='function')?_pTxById(id):null;
   if(!t || t._unreadable || t.spaceId || t.linkId) return;         // private, readable rows only
   if(t.kind && t.kind!=='expense'){ if(typeof openPersonalTxEdit==='function') openPersonalTxEdit(id); return; }   // kinds keep their own sheets
-  _pexdId=id; PXD={};
+  _pexdId=id; PXD={}; _pexdEdit=false;
   renderPersonalTxDetail();
   document.getElementById('pexd-overlay').classList.add('on');
   var sc=document.querySelector('#pexd-overlay .cd-scroll'); if(sc) sc.scrollTop=0;
@@ -397,18 +404,114 @@ window.openPersonalTxDetail=openPersonalTxDetail;
 function closePersonalTxDetail(){
   _pxdResetDel();
   var o=document.getElementById('pexd-overlay'); if(o) o.classList.remove('on');
-  _pexdId=null; PXD={};
+  _pexdId=null; PXD={}; _pexdEdit=false;
 }
 window.closePersonalTxDetail=closePersonalTxDetail;
+function pexdEdit(){ if(_pexdId==null) return; PXD={}; _pexdEdit=true; renderPersonalTxDetail(); }
+function pexdCancel(){ PXD={}; _pexdEdit=false; _pxdResetDel(); renderPersonalTxDetail(); }
 function _pexdDateLong(iso){
   if(!iso) return '';
   var d=new Date(iso+'T00:00:00');
   return (typeof fmtDateLong==='function')?fmtDateLong(d):iso;
 }
+/* The two top inputs are read into PXD before every re-render and before Lưu,
+   so a category pick (which re-renders) never drops a half-typed note. A value
+   equal to the row's own is not a change. */
+function pexdReadFields(){
+  var t=(typeof _pTxById==='function')?_pTxById(_pexdId):null; if(!t) return;
+  var a=document.getElementById('pexd-amt'), n=document.getElementById('pexd-note');
+  if(a){ var v=a.value.trim(), base=(typeof amtToInput==='function')?amtToInput(t.amt):String(t.amt||''); if(v && v!==base) PXD.amtDisp=v; else delete PXD.amtDisp; }
+  if(n){ var nv=n.value.trim(); if(nv!==(t.note||'')) PXD.note=nv; else delete PXD.note; }
+}
+window.pexdReadFields=pexdReadFields;
+var _PEXD_BACK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg>';
+function _pexdNavHTML(){
+  if(!_pexdEdit) return '<button type="button" class="cd-back" onclick="closePersonalTxDetail()">'+_PEXD_BACK+'<span>Cá nhân</span></button><span></span>'
+    +'<button type="button" class="cd-act" onclick="pexdEdit()">Sửa</button>';
+  return '<button type="button" class="cd-act cancel" onclick="pexdCancel()">Huỷ</button><span class="cd-navtitle">Sửa khoản chi</span>'
+    +'<button type="button" class="cd-act" id="pexd-save" onclick="pexdSave()">Lưu</button>';
+}
+/* ── the photo door: copy from the row, no emoji, SVG marks (DESIGN.md §2.6) ── */
+function _pexdSvg(d){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">'+d+'</svg>'; }
+var _PEXD_ICO={
+  receipt:_pexdSvg('<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>'),
+  cam:_pexdSvg('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.2"/>'),
+  lib:_pexdSvg('<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m4 17 5-5 4 4 3-3 4 4"/><circle cx="16" cy="9.5" r="1.4"/>')
+};
+function _pexdFold(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/đ/g,'d'); }
+/* What the card asks depends on the row: the category and note write the
+   question, the amount changes the tone above 5.000.000 ₫ (warranty, not
+   memory), and the likelier button leads — an email-captured or older row's
+   photo is probably already in the library; today's hand-logged one is still
+   in the pocket. */
+function pexdDoorCopy(t){
+  var cat=_pexdFold(t.cat), note=String(t.note||'').trim();
+  var name=(note?note.split(/\s+[-·|]\s+/)[0].slice(0,28):'')||t.cat||'';
+  var amt=Number(t.amt)||0, big=amt>=5000;              // base units of 1.000đ
+  var q,w;
+  if(big){ q='Giữ hoá đơn '+(name||'khoản này')+' để bảo hành?'; w='Khoản '+fmt(amt)+' đáng có chứng từ, đỡ phải tìm sau này.'; }
+  else if(/\b(an uong|an ngoai|cafe|ca phe|do an|nha hang|tra sua|food)\b/.test(cat)){ q='Hoá đơn '+(name||'quán')+' đâu?'; w='Chụp lại để nhớ đã gọi gì cho ai.'; }
+  else if(/\b(nha o|dien|nuoc|internet|thue nha|hoa don)\b/.test(cat)){ q='Giữ biên lai '+(name||'khoản này')+'?'; w='Để khớp số khi cần tra lại.'; }
+  else if(/\b(di lai|xang|grab|taxi|xe|ve)\b/.test(cat)){ q='Có vé hay biên lai '+(name||'chuyến này')+'?'; w='Một tấm ảnh là đủ nhớ chuyến đi.'; }
+  else if(/\b(suc khoe|thuoc|benh|kham|y te)\b/.test(cat)){ q='Giữ toa thuốc hay hoá đơn?'; w='Lần khám sau tìm lại rất nhanh.'; }
+  else if(/\b(mua sam|quan ao|do dung|dien tu|shopping|gia dung)\b/.test(cat)){ q='Giữ hoá đơn '+(name||'khoản này')+'?'; w='Đổi trả hay bảo hành đều cần nó.'; }
+  else { q='Có hoá đơn cho khoản này?'; w='Chụp lại để tháng sau còn nhớ đã mua gì.'; }
+  var d=new Date(), today=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');   // local, never toISOString
+  var pri=(t.src || t.date!==today)?'lib':'cam';
+  return {q:q, w:w, pri:pri};
+}
+window.pexdDoorCopy=pexdDoorCopy;
+function _pexdPickInput(cam){
+  return '<input type="file" accept="image/*"'+(cam?' capture="environment"':' multiple')+' onchange="pexdDoorPick(this)" hidden>';
+}
+function _pexdDoorHTML(t){
+  var c=pexdDoorCopy(t);
+  var cam='<label class="pdoor-btn'+(c.pri==='cam'?' pri':'')+'">'+_PEXD_ICO.cam+'Chụp ảnh'+_pexdPickInput(true)+'</label>';
+  var lib='<label class="pdoor-btn'+(c.pri==='lib'?' pri':'')+'">'+_PEXD_ICO.lib+'Thư viện'+_pexdPickInput(false)+'</label>';
+  return '<div class="pdoor"><span class="pdoor-mk">'+_PEXD_ICO.receipt+'</span>'
+    +'<div class="pdoor-q">'+esc(c.q)+'</div><div class="pdoor-w">'+esc(c.w)+'</div>'
+    +'<div class="pdoor-acts">'+(c.pri==='cam'?cam+lib:lib+cam)+'</div></div>';
+}
+/* Adding photos is its own write, not a staged field: the person tapped a
+   button that says Chụp ảnh. Read EXIF first (readPhoto), then the personal
+   upload path encrypts under the personal key. */
+function pexdDoorPick(input){
+  var files=Array.prototype.slice.call(input.files||[]); input.value='';
+  var id=_pexdId; if(!files.length || id==null) return;
+  if(!(window.fhPersonalKeyReady && fhPersonalKeyReady())){ toast('Mở khoá sổ cá nhân trước đã'); return; }
+  if(navigator.onLine===false){ toast('Cần mạng để thêm ảnh'); return; }
+  var t=(typeof _pTxById==='function')?_pTxById(id):null;
+  var room=10-((t&&t.photos)||[]).length;
+  if(room<=0){ toast('Tối đa 10 ảnh'); return; }
+  if(files.length>room){ toast('Tối đa 10 ảnh'); files=files.slice(0,room); }
+  var srcs=[], left=files.length;
+  files.forEach(function(f){ readPhoto(f, function(src){ if(src) srcs.push(src); if(--left===0) _pexdDoorUpload(id, srcs); }); });
+}
+window.pexdDoorPick=pexdDoorPick;
+async function _pexdDoorUpload(id, srcs){
+  if(!srcs.length) return;
+  var ok=false;
+  try{ ok=await window.fhPersonalUploadTxnPhotos(id, srcs); await window.fhPersonalHydrate(); }catch(e){}
+  if(_pexdId===id) renderPersonalTxDetail();
+  if(typeof renderPersonal==='function'){ try{ renderPersonal(); }catch(e){} }
+  if(typeof refreshPersonalTxnOverlay==='function') refreshPersonalTxnOverlay();
+  toast(ok?'Đã thêm ảnh':'Chưa lưu được ảnh, thử lại nhé');
+}
+/* removing a photo is staged like a field: the strip shows the kept set, Lưu
+   reconciles through fhPersonalSyncTxnPhotos (rows + storage objects). */
+function pexdPhotoRemove(i){
+  var t=(typeof _pTxById==='function')?_pTxById(_pexdId):null; if(!t) return;
+  var cur=(PXD.photos!==undefined?PXD.photos:(t.photos||[])).slice();
+  cur.splice(i,1); PXD.photos=cur;
+  renderPersonalTxDetail();
+}
+window.pexdPhotoRemove=pexdPhotoRemove;
 function renderPersonalTxDetail(){
   var t=(typeof _pTxById==='function')?_pTxById(_pexdId):null;
   if(!t){ closePersonalTxDetail(); return; }
   var body=document.getElementById('pexd-body'); if(!body) return;
+  if(_pexdEdit) pexdReadFields();
+  var nav=document.getElementById('pexd-nav'); if(nav) nav.innerHTML=_pexdNavHTML();
   var vCat=PXD.cat!=null?PXD.cat:(t.cat||'');
   var vAmtDisp=PXD.amtDisp!=null?PXD.amtDisp:((typeof amtToInput==='function')?amtToInput(t.amt):String(t.amt||''));
   var vNote=PXD.note!=null?PXD.note:(t.note||'');
@@ -418,38 +521,57 @@ function renderPersonalTxDetail(){
   var pd=window.fhPersonalData?fhPersonalData():null;
   var acctId=PXD.hasOwnProperty('accountId')?PXD.accountId:(t.accountId||null);
   var acct=acctId&&pd?((pd.accounts||[]).find(function(a){ return a.id===acctId; })||null):null;
-  var html='<div class="exd-focal">'
-    +'<div class="exd-ico" style="background:var(--fill-neutral)">'+esc(em)+'</div>'
-    +'<div class="exd-amt num">'+esc(vAmtDisp)+(CUR==='VND'?' ₫':'')+'</div>'
-    +'<div class="exd-note">'+esc(vNote||vCat||'Khoản chi')+'</div>'
-    +'<div class="exd-prov">'+esc(_pexdDateLong(vDate))+(vTime?'<span class="sep">·</span>'+esc(vTime):'')+'</div>'
-    +'</div>';
-  var rows='';
-  // Ghi vào — the cross-ledger door: never a silent re-scope, the confirm sheet
-  // names every consequence (M4) before the one tap that commits.
-  rows+=_exdRow({label:'Ghi vào', val:'<b>🔒 Cá nhân</b>', fn:'pexdMove()'});
-  rows+=_exdRow({label:'Danh mục', chg:PXD.cat!=null,
-    val:'<b>'+esc(em)+' '+esc(vCat||'Chưa rõ')+'</b>', soft:!vCat, fn:"exdSheetCat('pers')"});
-  rows+=_exdRow({label:'Số tiền & ghi chú', chg:(PXD.amtDisp!=null||PXD.note!=null),
-    val:'<b class="num">'+esc(vAmtDisp)+(CUR==='VND'?' ₫':'')+'</b>', fn:"exdSheetAmt('pers')"});
-  // Ngày / Giờ as picker rows — the tap opens the OS picker itself (fhPickRow)
-  rows+=fhPickRow({label:'Ngày', type:'date', value:vDate||'', on:'exdPickDate', arg:'pers', chg:PXD.dateIso!=null,
-    val:'<b class="num">'+esc(vDate?vDate.slice(8,10)+'/'+vDate.slice(5,7):'')+'</b>'});
-  rows+=fhPickRow({label:'Giờ', type:'time', value:vTime||'', on:'exdPickTime', arg:'pers', clear:true, chg:PXD.timeStr!==undefined, soft:!vTime,
-    val:'<b class="num">'+(vTime?esc(vTime):'Chỉ tính theo ngày')+'</b>'});
-  rows+=_exdRow({label:'Nguồn tiền', chg:PXD.hasOwnProperty('accountId'), soft:!acctId,
-    val:'<b>'+(acct?esc(acct.name||'Tài khoản'):(acctId?'Tài khoản':'Chưa rõ'))+'</b>', fn:'pexdSheetAcct()'});
-  html+='<div class="exd-meta srows"><div class="csv-srows">'+rows+'</div></div>';
-  var ph=t.photos||[];
-  html+=_exdSecH('Ảnh', ph.length||'Thêm')
-    +'<div class="exd-photos">'+ph.map(function(src){ return '<div class="exd-photo" style="background-image:url('+src+')"></div>'; }).join('')
-    +'<button type="button" class="exd-photo add" onclick="pexdPhotoDoor()" aria-label="Thêm ảnh">＋</button></div>';
-  body.innerHTML=html;
-  var cta=document.getElementById('pexd-cta');
-  if(cta){
-    cta.innerHTML='<button type="button" class="exd-cta-del" id="pexd-del" onclick="pexdDelete()" aria-label="Xoá khoản này">'+_exdTrash()+'</button>'
-      +'<button type="button" class="exd-go'+(_pxdDirty()?'':' quiet')+'" id="pexd-go" onclick="pexdSave()">Cập nhật</button>';
+  var acctVal=acct?esc(acct.name||'Tài khoản'):(acctId?'Tài khoản':'Chưa rõ');
+  var dateVal=vDate?vDate.slice(8,10)+'/'+vDate.slice(5,7):'';
+  var ph=(PXD.photos!==undefined)?PXD.photos:(t.photos||[]);
+  var html, rows='';
+  if(!_pexdEdit){
+    /* VIEW — the receipt, read-only rows in the review card's vocabulary,
+       the photo door when the row has none, the strip when it has some. */
+    html='<div class="exd-view"><div class="exd-focal">'
+      +'<div class="exd-ico" style="background:var(--fill-neutral)">'+esc(em)+'</div>'
+      +'<div class="exd-amt num">'+esc(vAmtDisp)+(CUR==='VND'?' ₫':'')+'</div>'
+      +'<div class="exd-note">'+esc(vNote||vCat||'Khoản chi')+'</div>'
+      +'<div class="exd-prov">'+esc(_pexdDateLong(vDate))+(vTime?'<span class="sep">·</span>'+esc(vTime):'')+'</div>'
+      +'</div>'
+      +(ph.length?'':_pexdDoorHTML(t));
+    rows+=_exdRow({label:'Ghi vào đâu', ro:true, val:'<b>🔒 Cá nhân</b>'});
+    rows+=_exdRow({label:'Loại khoản', ro:true, val:'<b>Chi tiêu</b>'});
+    rows+=_exdRow({label:'Danh mục', ro:true, soft:!vCat, val:'<b>'+esc(em)+' '+esc(vCat||'Chưa rõ')+'</b>'});
+    rows+=_exdRow({label:'Ngày', ro:true, val:'<b class="num">'+esc(dateVal)+'</b>'});
+    rows+=_exdRow({label:'Giờ', ro:true, soft:!vTime, val:'<b class="num">'+(vTime?esc(vTime):'Chỉ tính theo ngày')+'</b>'});
+    rows+=_exdRow({label:'Nguồn tiền', ro:true, soft:!acctId, val:'<b>'+acctVal+'</b>'});
+    html+='<div class="exd-meta srows"><div class="csv-srows">'+rows+'</div></div>';
+    if(ph.length){
+      html+=_exdSecH('Ảnh', ph.length)
+        +'<div class="exd-photos">'+ph.map(function(src){ return '<div class="exd-photo" style="background-image:url('+src+')"></div>'; }).join('')+'</div>';
+    }
+    html+='</div>';
+  } else {
+    /* EDIT — the review card: Số tiền and Chi cho gì? as top inputs, then the
+       rows as pickers. Ghi vào đâu is the cross-ledger door (never a silent
+       re-scope, M4); Loại khoản opens the kind sheet. */
+    html='<div class="exd-edit"><div class="exd-meta srows top">'
+      +'<div class="field"><label>Số tiền</label><input class="num" id="pexd-amt" inputmode="numeric" onblur="snapAmtInput(this);pexdReadFields()" placeholder="'+escAttr((typeof amtPlaceholder==='function')?amtPlaceholder():'')+'" value="'+escAttr(vAmtDisp)+'"></div>'
+      +'<div class="field"><label>Chi cho gì?</label><textarea id="pexd-note" rows="2" onblur="pexdReadFields()">'+esc(vNote)+'</textarea></div>';
+    rows+=_exdRow({label:'Ghi vào đâu', val:'<b>🔒 Cá nhân</b>', fn:'pexdMove()'});
+    rows+=_exdRow({label:'Loại khoản', val:'<b>Chi tiêu</b>', fn:'pexdSheetKind()'});
+    rows+=_exdRow({label:'Danh mục', chg:PXD.cat!=null, soft:!vCat, val:'<b>'+esc(em)+' '+esc(vCat||'Chưa rõ')+'</b>', fn:"exdSheetCat('pers')"});
+    rows+=fhPickRow({label:'Ngày', type:'date', value:vDate||'', on:'exdPickDate', arg:'pers', chg:PXD.dateIso!=null,
+      val:'<b class="num">'+esc(dateVal)+'</b>'});
+    rows+=fhPickRow({label:'Giờ', type:'time', value:vTime||'', on:'exdPickTime', arg:'pers', clear:true, chg:PXD.timeStr!==undefined, soft:!vTime,
+      val:'<b class="num">'+(vTime?esc(vTime):'Chỉ tính theo ngày')+'</b>'});
+    rows+=_exdRow({label:'Nguồn tiền', chg:PXD.hasOwnProperty('accountId'), soft:!acctId, val:'<b>'+acctVal+'</b>', fn:'pexdSheetAcct()'});
+    html+='<div class="csv-srows">'+rows+'</div></div>';
+    if(ph.length){
+      html+=_exdSecH('Ảnh', ph.length)
+        +'<div class="exd-photos">'+ph.map(function(src,i){ return '<div class="exd-photo" style="background-image:url('+src+')"><button type="button" class="x" onclick="pexdPhotoRemove('+i+')" aria-label="Bỏ ảnh này">✕</button></div>'; }).join('')
+        +'<label class="exd-photo add" aria-label="Thêm ảnh">＋'+_pexdPickInput(false)+'</label></div>';
+    } else html+=_pexdDoorHTML(t);
+    html+='<button type="button" class="exd-del" id="pexd-del" onclick="pexdDelete()">Xoá khoản này</button></div>';
   }
+  body.innerHTML=html;
+  var cta=document.getElementById('pexd-cta'); if(cta) cta.innerHTML='';
   _pxdResetDel();
 }
 window.renderPersonalTxDetail=renderPersonalTxDetail;
@@ -458,7 +580,7 @@ function pexdSheetAcct(){
   var pd=window.fhPersonalData?fhPersonalData():null;
   var cur=PXD.hasOwnProperty('accountId')?PXD.accountId:(t.accountId||null);
   setTxt('exdacct-h', 'Nguồn tiền');
-  setTxt('exdacct-sub', 'Gắn để số dư tài khoản tính được · thay đổi chờ Cập nhật');
+  setTxt('exdacct-sub', 'Gắn để số dư tài khoản tính được · thay đổi chờ Lưu');
   var ico={deposit:'🏦',ewallet:'📱',credit_card:'💳',cash:'💵'};
   var h='<button type="button" class="choice'+(cur?'':' on')+'" onclick="pexdPickAcct(&#39;&#39;)">Chưa gắn</button>';
   ((pd&&pd.accounts)||[]).forEach(function(a){
@@ -468,7 +590,27 @@ function pexdSheetAcct(){
   openSheet('sheet-exd-acct');
 }
 function pexdPickAcct(id){ closeSheet(); PXD.accountId=id||null; renderPersonalTxDetail(); }
-/* Ghi vào → the existing move confirm (59-ledger-move-ui): same sheet, same
+/* Loại khoản — the review card's kind control, for a committed row. The two
+   conversions that exist for a booked expense (0122 loan, 0123 investment)
+   are in-place flips with their own follow-up sheet, so they save on their
+   own; the detail closes first, as the composer's "Đây là khoản…" links do. */
+function pexdSheetKind(){
+  var t=(typeof _pTxById==='function')?_pTxById(_pexdId):null; if(!t) return;
+  setTxt('exdkind-h', 'Loại khoản');
+  setTxt('exdkind-sub', 'Đổi loại sẽ lưu ngay, không chờ Lưu. Cho vay và Đầu tư hỏi thêm một bước.');
+  setHTML('exdkind-list',
+    '<button type="button" class="choice on" onclick="closeSheet()">Chi tiêu</button>'
+    +'<button type="button" class="choice" onclick="pexdPickKind(&#39;loan&#39;)">🤝 Cho vay</button>'
+    +'<button type="button" class="choice" onclick="pexdPickKind(&#39;invest&#39;)">📈 Đầu tư</button>');
+  openSheet('sheet-exd-kind');
+}
+function pexdPickKind(k){
+  closeSheet(); var id=_pexdId; if(id==null) return;
+  closePersonalTxDetail();
+  if(k==='loan' && window.fhExpenseToLoanSheet) fhExpenseToLoanSheet(id);
+  else if(k==='invest' && window.fhExpenseToInvestSheet) fhExpenseToInvestSheet(id);
+}
+/* Ghi vào đâu → the existing move confirm (59-ledger-move-ui): same sheet, same
    consequences, same engine — only the entrance moved from the chip flip. */
 function pexdMove(){
   if(_pexdId==null) return;
@@ -477,18 +619,14 @@ function pexdMove(){
   _mvCtx={dir:'p2f', pid:_pexdId, cur:'personal'};
   fhMoveSheetOpen();
 }
-function pexdPhotoDoor(){   // photos keep riding the composer (EXIF/encrypt pipeline lives there)
-  if(_pexdId==null) return;
-  var id=_pexdId;
-  if(typeof openPersonalTxEdit==='function') openPersonalTxEdit(id);
-}
 async function pexdSave(){
-  if(!_pxdDirty()) return;
   var t=(typeof _pTxById==='function')?_pTxById(_pexdId):null; if(!t) return;
+  pexdReadFields();
+  if(!_pxdDirty()){ _pexdEdit=false; renderPersonalTxDetail(); return; }   // nothing changed: Lưu just leaves edit
   var p=PXD;
   var amtBase=p.amtDisp!=null?parseAmtBase(p.amtDisp):t.amt;
-  if(!(amtBase>0)){ toast('Nhập số tiền trước đã'); return; }
-  var go=document.getElementById('pexd-go');
+  if(!(amtBase>0)){ toast('Nhập số tiền trước đã'); var ai=document.getElementById('pexd-amt'); if(ai) ai.focus(); return; }
+  var go=document.getElementById('pexd-save');
   if(go){ if(go.disabled) return; go.disabled=true; go.textContent='Đang lưu…'; }
   var fields={ amt:amtBase,
     note:(p.note!=null?p.note:(t.note||'')),
@@ -497,25 +635,29 @@ async function pexdSave(){
     time:(p.timeStr!==undefined?p.timeStr:(t.time||'')),
     dateIso:(p.dateIso!=null?p.dateIso:t.date) };
   if(p.hasOwnProperty('accountId')) fields.accountId=p.accountId;
+  var fieldsChanged=Object.keys(p).some(function(k){ return k!=='photos'; });
   var ok=false;
-  try{ ok=await window.fhPersonalUpdateExpense(_pexdId, fields); }catch(e){}
-  if(go){ go.disabled=false; go.textContent='Cập nhật'; }
+  try{
+    ok=fieldsChanged?await window.fhPersonalUpdateExpense(_pexdId, fields):true;
+    if(ok && p.photos!==undefined && window.fhPersonalSyncTxnPhotos){ ok=await fhPersonalSyncTxnPhotos(_pexdId, p.photos); await window.fhPersonalHydrate(); }
+  }catch(e){ ok=false; }
+  if(go){ go.disabled=false; go.textContent='Lưu'; }
   if(!ok){ toast('Chưa lưu được, thử lại nhé'); return; }
-  PXD={};
+  PXD={}; _pexdEdit=false;
   if(typeof renderPersonal==='function'){ try{ renderPersonal(); }catch(e){} }
   if(typeof refreshPersonalTxnOverlay==='function') refreshPersonalTxnOverlay();
   renderPersonalTxDetail();
-  toast('Đã cập nhật');
+  toast('Đã lưu');
 }
 window.pexdSave=pexdSave;
 function _pxdResetDel(){
   _pexdDelArmed=false; clearTimeout(_pexdDelT);
-  var b=document.getElementById('pexd-del'); if(b){ b.classList.remove('armed'); b.innerHTML=_exdTrash(); }
+  var b=document.getElementById('pexd-del'); if(b){ b.classList.remove('armed'); b.textContent='Xoá khoản này'; }
 }
 async function pexdDelete(){
   var b=document.getElementById('pexd-del');
   if(!_pexdDelArmed){
-    _pexdDelArmed=true; if(b){ b.classList.add('armed'); b.textContent='Xoá?'; }
+    _pexdDelArmed=true; if(b){ b.classList.add('armed'); b.textContent='Chạm lần nữa để xoá'; }
     clearTimeout(_pexdDelT); _pexdDelT=setTimeout(_pxdResetDel,3000); return;
   }
   _pxdResetDel();

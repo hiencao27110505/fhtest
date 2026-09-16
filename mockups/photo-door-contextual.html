@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cửa thêm ảnh theo ngữ cảnh</title>
+<style>
+/* ── tokens: verbatim from src/css/10-tokens.css (Sage) ───────────────────── */
+:root{
+  --sage-50:#ebfbf6; --sage-100:#d6f5eb; --sage-200:#afe9d8; --sage-300:#7ad5bd; --sage-400:#4abba1; --sage-500:#149d83; --sage-600:#007c65;
+  --stone-25:#fafcfc; --stone-50:#f6f9f8; --stone-100:#f0f5f3; --stone-150:#ecf1f0; --stone-200:#e3eae7; --stone-300:#c3cdca; --stone-400:#7f8986; --stone-500:#6f7674; --stone-600:#626b68; --stone-800:#2e3835; --stone-900:#0e1613;
+  --red-tint:#ffeaeb; --red-base:#d63053; --red-ink:#a41b3b;
+  --amber-tint:#fdefe0; --amber-base:#be7200; --amber-ink:#915200;
+  --id-1:#0b67a9; --id-1-tint:#e5f4ff; --id-1-text:#13619d;
+  --id-3:#9e5cd1; --id-3-tint:#f6eeff; --id-3-text:#704891;
+  --id-6:#bc6d24; --id-6-tint:#ffeee2; --id-6-text:#8e4900;
+  --brand:var(--sage-500); --brand-ink:var(--sage-600); --brand-tint:var(--sage-50);
+  --grad-brand:linear-gradient(135deg,var(--sage-500),var(--sage-400)); --brand-glow:rgba(20,157,131,.32);
+  --danger:var(--red-ink); --amber:var(--amber-ink); --good:var(--sage-600); --good-tint:var(--sage-50);
+  --ink:var(--stone-900); --ink-2:var(--stone-800); --muted:var(--stone-600); --muted-soft:var(--stone-500);
+  --white:#fff; --canvas:var(--stone-100); --hairline:var(--stone-200); --divider:var(--stone-150);
+  --surface:var(--stone-50); --fill-neutral:rgba(127,137,134,.14); --chev:var(--stone-300);
+  --shadow-card:0 1px 3px rgba(14,22,19,.05),0 8px 24px rgba(14,22,19,.04);
+  --r-card-lg:22px;
+  --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:var(--text);background:#e6ebe9;color:var(--ink);padding:34px 22px 90px;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;font-size:inherit;color:inherit;border:0;background:none;cursor:pointer;text-align:left}
+svg{display:block}
+.num{font-family:var(--disp);font-variant-numeric:tabular-nums}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ── page chrome ── */
+.page-h{max-width:1720px;margin:0 auto}
+.page-h .eyebrow{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--brand-ink)}
+.page-h h1{font-family:var(--disp);font-size:26px;font-weight:800;letter-spacing:-.6px;margin-top:6px;text-wrap:balance}
+.page-h p{font-size:14px;color:var(--muted);margin-top:8px;max-width:940px;line-height:1.6}
+.cols2{max-width:1720px;margin:20px auto 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:12px 26px}
+.bad,.law{font-size:13px;line-height:1.55;color:var(--ink-2);background:var(--white);border-radius:14px;padding:13px 16px;box-shadow:var(--shadow-card)}
+.bad b,.law b{display:block;font-family:var(--disp);font-size:13.5px;font-weight:800;margin-bottom:6px;letter-spacing:-.2px}
+.bad ul,.law ul{margin:0;padding-left:16px}
+.bad li,.law li{margin:3px 0}
+.bad b{color:var(--danger)} .law b{color:var(--brand-ink)}
+.bad i,.law i{font-style:normal;font-weight:700;color:var(--ink)}
+.gap{max-width:1720px;margin:14px auto 0;background:var(--white);border-radius:14px;box-shadow:var(--shadow-card);overflow-x:auto}
+.gap table{width:100%;border-collapse:collapse;font-size:13px;min-width:760px}
+.gap th{font-family:var(--disp);font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);text-align:left;padding:12px 16px;border-bottom:1px solid var(--divider)}
+.gap td{padding:10px 16px;border-bottom:1px solid var(--divider);vertical-align:top;line-height:1.45}
+.gap tr:last-child td{border-bottom:0}
+.gap td:first-child{font-weight:700;color:var(--ink);white-space:nowrap}
+.gap td i{font-style:normal;color:var(--brand-ink);font-weight:700}
+
+.grid{max-width:1720px;margin:40px auto 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(400px,1fr));gap:40px 30px}
+.opt{display:flex;flex-direction:column}
+.ohead{margin:0 4px 14px}
+.ohead .n{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:99px;background:var(--ink);color:#fff;font-family:var(--disp);font-size:12px;font-weight:800;margin-right:8px;vertical-align:2px}
+.ohead b{font-family:var(--disp);font-size:16.5px;font-weight:800;letter-spacing:-.3px}
+.ohead p{font-size:13px;color:var(--muted);line-height:1.55;margin-top:7px}
+.ohead p .fix{color:var(--brand-ink);font-weight:700}
+.ohead p .cost{color:var(--amber);font-weight:700}
+.ohead .ctx{display:inline-block;margin-top:8px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);background:var(--white);border-radius:7px;padding:3px 8px;box-shadow:var(--shadow-card)}
+
+/* ── phone ── */
+.phone{width:100%;max-width:392px;margin:0 auto;background:var(--canvas);border-radius:42px;border:9px solid #0b1512;box-shadow:0 24px 50px rgba(10,20,17,.24);overflow:hidden;display:flex;flex-direction:column;position:relative}
+.sb{display:flex;justify-content:space-between;align-items:center;padding:12px 24px 0;font-size:13px;font-weight:700}
+.sb i{font-style:normal;font-size:11px;font-weight:800;background:var(--ink);color:#fff;border-radius:5px;padding:1px 5px}
+.hdr{display:flex;align-items:center;gap:2px;padding:8px 16px 4px;font-size:17px;font-weight:600;letter-spacing:-.02em;color:var(--ink)}
+.hdr svg{width:22px;height:22px;margin-left:-4px}
+.scroll{flex:1;padding-bottom:18px}
+.ctabar{display:flex;align-items:center;gap:8px;padding:10px 16px 16px;border-top:1px solid var(--divider);background:var(--canvas)}
+
+/* focal read-out */
+.exd-focal{display:flex;flex-direction:column;align-items:center;text-align:center;padding:10px 24px 2px}
+.exd-ico{width:64px;height:64px;border-radius:20px;display:flex;align-items:center;justify-content:center;background:var(--fill-neutral);color:var(--ink-2)}
+.exd-ico svg{width:30px;height:30px}
+.exd-amt{font-family:var(--disp);font-variant-numeric:tabular-nums;font-weight:700;font-size:34px;letter-spacing:-1.2px;color:var(--ink);margin-top:16px;line-height:1}
+.exd-note{font-size:17px;font-weight:600;letter-spacing:-.02em;color:var(--ink-2);margin-top:9px}
+.exd-prov{font-size:11.5px;font-weight:500;color:var(--muted-soft);margin-top:8px}
+.exd-prov .sep{margin:0 5px;color:var(--chev)}
+
+/* settings rows */
+.exd-meta{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-card);margin:14px 16px 0;overflow:hidden;padding:2px 16px}
+.csv-srows{margin-top:2px}
+.csv-srow{display:flex;width:100%;align-items:center;justify-content:space-between;gap:10px;padding:12px 2px;min-height:46px;border:0;border-bottom:1px solid var(--divider);background:none;font:inherit;text-align:left;color:inherit}
+.csv-srows .csv-srow:last-child{border-bottom:0}
+.csv-srow small{font-size:13px;font-weight:600;color:var(--muted);flex:none}
+.csv-sval{display:flex;align-items:center;gap:5px;min-width:0}
+.csv-sval b{font-size:14px;font-weight:650;color:var(--ink);letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.csv-schev{width:15px;height:15px;color:var(--chev);flex:none}
+.csv-srow.soft .csv-sval b{color:var(--muted-soft);font-weight:600}
+.csv-sclear{flex:none;width:22px;height:22px;border-radius:50%;background:var(--fill-neutral);color:var(--muted);font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;margin-left:2px}
+.exd-go{flex:1;min-height:48px;border-radius:9999px;background:var(--brand-tint);color:var(--brand-ink);font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.exd-cta-del{flex:0 0 auto;min-width:44px;height:48px;display:flex;align-items:center;justify-content:center;border:1.5px solid var(--hairline);border-radius:13px;background:var(--white);color:var(--muted)}
+.exd-cta-del svg{width:18px;height:18px}
+
+/* ── the empty card (fhEmptyCard, E3) and its eight variants ── */
+.empty{margin:14px 16px 0;background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-card);padding:20px 18px 16px;text-align:center}
+.mk{width:46px;height:46px;border-radius:15px;display:inline-flex;align-items:center;justify-content:center;background:var(--fill-neutral);color:var(--ink-2)}
+.mk svg{width:24px;height:24px}
+.mk.tint{background:var(--brand-tint);color:var(--brand-ink)}
+.mk.id6{background:var(--id-6-tint);color:var(--id-6-text)} .mk.id1{background:var(--id-1-tint);color:var(--id-1-text)} .mk.id3{background:var(--id-3-tint);color:var(--id-3-text)}
+.empty .q{font-family:var(--disp);font-size:17px;font-weight:700;letter-spacing:-.3px;margin-top:10px;text-wrap:balance}
+.empty .w{font-size:13px;color:var(--muted);margin-top:5px;line-height:1.45;text-wrap:balance}
+.empty .w b{color:var(--ink);font-weight:700}
+.empty .acts{display:flex;gap:8px;margin-top:14px}
+.empty .acts button{flex:1;min-height:42px;border-radius:9999px;font-size:13.5px;font-weight:700;background:var(--brand-tint);color:var(--brand-ink);display:flex;align-items:center;justify-content:center;gap:6px;padding:0 10px;white-space:nowrap}
+.empty .acts button.pri{background:var(--grad-brand);color:#fff;box-shadow:0 5px 14px var(--brand-glow)}
+.empty .acts button svg{width:16px;height:16px;flex:none}
+.empty .link{display:inline-block;margin-top:12px;font-size:13px;font-weight:600;color:var(--brand-ink)}
+.empty .ey{font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted-soft);margin-bottom:8px}
+/* 2: the mark is the category's own glyph, in its identity tint, sitting on a receipt */
+.mk.stack{position:relative;overflow:visible}
+.mk.stack .sub{position:absolute;right:-8px;bottom:-8px;width:24px;height:24px;border-radius:8px;background:var(--white);box-shadow:var(--shadow-card);display:flex;align-items:center;justify-content:center;color:var(--ink-2)}
+.mk.stack .sub svg{width:13px;height:13px}
+/* 4: the quiet horizontal card for kinds that seldom need a photo */
+.empty.row{display:flex;align-items:center;gap:12px;text-align:left;padding:12px 12px 12px 14px}
+.empty.row .mk{width:38px;height:38px;border-radius:12px;flex:none}
+.empty.row .mk svg{width:19px;height:19px}
+.empty.row .t{flex:1;min-width:0}
+.empty.row .q{font-size:14px;margin:0}
+.empty.row .w{font-size:12px;margin-top:2px}
+.empty.row .go{flex:none;min-height:36px;padding:0 14px;border-radius:9999px;background:var(--brand-tint);color:var(--brand-ink);font-size:13px;font-weight:700}
+/* 6: a data line, chips of the rows it counted */
+.empty .fact{display:inline-flex;align-items:center;gap:6px;margin-top:10px;font-size:12px;font-weight:700;color:var(--ink-2);background:var(--surface);border-radius:9999px;padding:5px 11px}
+.empty .fact svg{width:13px;height:13px;color:var(--muted)}
+/* 7: date chip inside the primary */
+.empty .acts button .num{font-weight:800}
+/* 8: the bank line and a matched amount */
+.empty .src{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:10px;font-size:12px;color:var(--muted)}
+.empty .src svg{width:14px;height:14px;color:var(--muted-soft)}
+.empty .src b{color:var(--ink);font-weight:700}
+</style>
+</head>
+<body>
+
+<div class="page-h">
+  <div class="eyebrow">Sổ cá nhân · chi tiết giao dịch · ảnh</div>
+  <h1>Cửa thêm ảnh theo ngữ cảnh · 8 hướng</h1>
+  <p>Hướng 8 của vòng trước (thẻ trống theo công thức app, đứng ngay dưới hoá đơn) đi tiếp: dấu ở giữa là SVG nét, không emoji;
+  câu hỏi, dòng lý do và nút chính đổi theo thuộc tính của khoản đang mở. Tám hướng dưới đây là tám cách vẽ cùng một thẻ đó,
+  mỗi hướng minh hoạ trên một khoản khác nhau để thấy luật ngữ cảnh làm việc. Có ảnh rồi thì thẻ nhường chỗ cho dải ảnh, ở mọi hướng.</p>
+</div>
+
+<div class="cols2">
+  <div class="law"><b>Luật ngữ cảnh: khoản nào, thẻ nói gì</b><ul>
+    <li><i>Danh mục và ghi chú</i> viết câu hỏi: "Hoá đơn Foody đâu?", "Giữ hoá đơn máy giặt để bảo hành?".</li>
+    <li><i>Loại khoản</i> đổi thứ cần giữ: khoản chi là hoá đơn, cho vay là giấy hẹn hay tin nhắn, đầu tư là lệnh khớp, thu nhập là phiếu lương, chuyển khoản nội bộ gần như không cần.</li>
+    <li><i>Số tiền</i> đổi giọng: từ 5.000.000 ₫ trở lên nói về bảo hành và chứng từ, dưới đó nói về nhớ đã mua gì.</li>
+    <li><i>Nguồn</i> đổi nút chính: khoản từ email ngân hàng ưu tiên Thư viện (ảnh app ngân hàng đã có sẵn), khoản ghi tay ưu tiên Chụp.</li>
+    <li><i>Thời điểm</i> đổi nút chính: ghi trong vài giờ qua thì "hoá đơn còn trong túi", cũ hơn thì tìm thư viện theo ngày chụp (EXIF).</li>
+  </ul></div>
+  <div class="bad"><b>Giữ nguyên ở mọi hướng</b><ul>
+    <li>Thẻ trắng, bóng thẻ, không nền màu, không viền gạch đứt. Dấu là SVG nét 1.9px trong ô bo 15px.</li>
+    <li>Tối đa hai nút, nút đầu tô brand. Hai cách vào ảnh luôn là Chụp và Thư viện, dù nhãn có thêm ngữ cảnh.</li>
+    <li>Ảnh vẫn đi qua đường có sẵn: đọc EXIF trước, nén, mã hoá bằng khoá cá nhân.</li>
+    <li>Không có chữ "ảnh minh hoạ", không có dòng "tuỳ chọn": thẻ mời, không xin lỗi.</li>
+  </ul></div>
+</div>
+
+<div class="gap"><table>
+  <tr><th>Khoản</th><th>Câu hỏi</th><th>Vì sao</th><th>Nút chính · nút phụ</th></tr>
+  <tr><td>Foody · Ăn uống · 253.900 ₫ · từ email</td><td>Hoá đơn Foody đâu?</td><td>Chụp lại để nhớ đã gọi gì cho ai.</td><td><i>Chụp ảnh</i> · Thư viện</td></tr>
+  <tr><td>Máy giặt · Mua sắm · 12.500.000 ₫</td><td>Giữ hoá đơn máy giặt để bảo hành?</td><td>Khoản lớn, có chứng từ đỡ phải tìm sau này.</td><td><i>Chụp ảnh</i> · Thư viện</td></tr>
+  <tr><td>Tiền nhà · Nhà ở · 20.000.000 ₫ · từ email</td><td>Giữ biên lai chuyển tiền nhà?</td><td>VIB đã báo số. Biên lai hay hợp đồng giúp khớp về sau.</td><td><i>Thư viện</i> · Chụp ảnh</td></tr>
+  <tr><td>Cho vay Minh · 2.000.000 ₫ · hẹn 15/09</td><td>Có giấy hẹn hay tin nhắn với Minh?</td><td>Một ảnh lời hứa trả giúp nhắc nợ nhẹ nhàng hơn.</td><td><i>Thư viện</i> · Chụp ảnh</td></tr>
+  <tr><td>Đầu tư BTC · 6.500.000 ₫ · từ email</td><td>Lưu lệnh mua BTC?</td><td>Ảnh khớp lệnh giữ lại giá và số lượng đã mua.</td><td><i>Thư viện</i> · Chụp ảnh</td></tr>
+  <tr><td>Lương · Thu nhập · 32.000.000 ₫</td><td>Có phiếu lương tháng này?</td><td>Để cuối năm khỏi lục lại từng tháng.</td><td><i>Thư viện</i> · Chụp ảnh</td></tr>
+  <tr><td>VIB → VCB · Chuyển khoản nội bộ</td><td>Chuyển khoản nội bộ ít khi cần ảnh</td><td>Vẫn thêm được nếu bạn muốn giữ biên lai.</td><td>Thêm (một nút, nhỏ)</td></tr>
+  <tr><td>Khoản cũ hơn một ngày</td><td>Có ảnh nào chụp hôm 30/08 không?</td><td>Tụi mình lọc thư viện đúng ngày đó cho bạn.</td><td><i>Xem ảnh ngày 30/08</i> · Chụp ảnh</td></tr>
+</table></div>
+
+<div class="grid" id="grid"></div>
+
+<script>
+/* ── glyphs: SVG only, stroke 1.9, round caps (DESIGN.md §2.6) ── */
+const G = (d, extra='') => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${d}${extra}</svg>`;
+const I = {
+  receipt: G('<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>'),
+  iou:     G('<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6"/><path d="M9 13c1-1.5 2 1.5 3 0s2 1.5 3 0"/>'),
+  cup:     G('<path d="M5 8h11v6a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5z"/><path d="M16 9h2a2 2 0 0 1 0 4h-2"/><path d="M8 4v2M11 4v2M14 4v2"/>'),
+  bag:     G('<path d="M6 8h12l1 13H5z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>'),
+  house:   G('<path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>'),
+  chart:   G('<path d="M4 19h16"/><path d="M6 15l4-4 3 3 5-6"/>'),
+  wallet:  G('<path d="M3 7h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 7l12-3v3"/><path d="M16 14h3"/>'),
+  swap:    G('<path d="M4 8h13l-3-3"/><path d="M20 16H7l3 3"/>'),
+  cam:     G('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.2"/>'),
+  lib:     G('<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m4 17 5-5 4 4 3-3 4 4"/><circle cx="16" cy="9.5" r="1.4"/>'),
+  cal:     G('<path d="M4 6h16v14H4z"/><path d="M4 10h16M8 3v4M16 3v4"/>'),
+  bank:    G('<path d="M3 9 12 4l9 5"/><path d="M5 9v9M10 9v9M14 9v9M19 9v9"/><path d="M3 20h18"/>'),
+  repeat:  G('<path d="M4 12a8 8 0 0 1 14-5l2 2"/><path d="M20 4v5h-5"/><path d="M20 12a8 8 0 0 1-14 5l-2-2"/><path d="M4 20v-5h5"/>'),
+  clock:   G('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>'),
+  pen:     G('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>'),
+};
+const CHEV = '<svg class="csv-schev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>';
+const BACK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg>';
+const TRASH = G('<path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6"/>');
+
+function row(lbl, val, m={}){
+  const cls='csv-srow'+(m.soft?' soft':'');
+  return `<button type="button" class="${cls}"><small>${lbl}</small><span class="csv-sval"><b>${val}</b>${m.clear?'<span class="csv-sclear">×</span>':''}${CHEV}</span></button>`;
+}
+function hero(t){
+  return `<div class="exd-focal"><div class="exd-ico">${t.glyph}</div><div class="exd-amt num">${t.amt} ₫</div><div class="exd-note">${t.note}</div><div class="exd-prov">${t.when}${t.src?`<span class="sep">·</span>${t.src}`:''}</div></div>`;
+}
+function rowsOf(t){
+  return `<div class="exd-meta"><div class="csv-srows">${row('Ghi vào đâu','🔒 Cá nhân')}${row('Loại khoản',t.kind)}${t.rows||''}${t.cat?row('Danh mục',t.cat):''}${row('Ngày',`<span class="num">${t.date}</span>`)}${row('Giờ',`<span class="num">${t.time}</span>`,{clear:true})}${row('Nguồn tiền',t.acct)}</div></div>`;
+}
+function phone(t, card){
+  return `<div class="phone"><div class="sb"><span>11:16</span><i>94</i></div><div class="hdr">${BACK}Cá nhân</div>`
+    + `<div class="scroll">${hero(t)}${card}${rowsOf(t)}</div>`
+    + `<div class="ctabar"><button type="button" class="exd-cta-del">${TRASH}</button><button type="button" class="exd-go">Sửa</button></div></div>`;
+}
+const act = (lbl, ic, pri) => `<button type="button"${pri?' class="pri"':''}>${ic}${lbl}</button>`;
+
+/* ── the transactions each hướng is shown on ── */
+const T = {
+  foody: { glyph:I.cup, amt:'253.900', note:'Foody', when:'Thứ Bảy, 30 thg 8 · 10:17', src:'Trực tiếp', kind:'Chi tiêu', cat:'Ăn uống', date:'30/08', time:'10:17', acct:'VIB · tín dụng ••4512' },
+  washer:{ glyph:I.bag, amt:'12.500.000', note:'Máy giặt Electrolux', when:'Chủ Nhật, 14 thg 9 · 15:40', src:'', kind:'Chi tiêu', cat:'Mua sắm', date:'14/09', time:'15:40', acct:'VIB · tín dụng ••4512' },
+  rent:  { glyph:I.house, amt:'20.000.000', note:'Kính gửi: CAO THÁI DUY HIỂN', when:'Thứ Năm, 20 thg 8 · 16:35', src:'Trực tiếp', kind:'Chi tiêu', cat:'Nhà ở', date:'20/08', time:'16:35', acct:'VIB · ••1234' },
+  loan:  { glyph:I.iou, amt:'2.000.000', note:'Chuyển cho Minh', when:'Thứ Năm, 28 thg 8 · 16:35', src:'', kind:'Cho vay', cat:'', date:'28/08', time:'16:35', acct:'VIB · ••1234',
+           rows: row('Cho ai mượn','Minh') + row('Hẹn trả','<span class="num">15/09</span>',{clear:true}) },
+  btc:   { glyph:I.chart, amt:'6.500.000', note:'Mua BTC · OTC Remitano', when:'Thứ Ba, 9 thg 9 · 21:02', src:'Trực tiếp', kind:'Đầu tư', cat:'', date:'09/09', time:'21:02', acct:'VCB · ••8871',
+           rows: row('Vị thế','BTC') + row('Số lượng','<span class="num">0,0025</span>') },
+  salary:{ glyph:I.wallet, amt:'32.000.000', note:'Lương tháng 8', when:'Thứ Sáu, 5 thg 9 · 09:12', src:'Trực tiếp', kind:'Thu nhập', cat:'Lương', date:'05/09', time:'09:12', acct:'VCB · ••8871' },
+  xfer:  { glyph:I.swap, amt:'5.000.000', note:'VIB → VCB', when:'Thứ Hai, 15 thg 9 · 08:30', src:'Trực tiếp', kind:'Chuyển khoản nội bộ', cat:'', date:'15/09', time:'08:30', acct:'VIB · ••1234',
+           rows: row('Chuyển đến đâu','VCB · ••8871') },
+  old:   { glyph:I.cup, amt:'253.900', note:'Foody', when:'Thứ Bảy, 30 thg 8 · 10:17', src:'Trực tiếp', kind:'Chi tiêu', cat:'Ăn uống', date:'30/08', time:'10:17', acct:'VIB · tín dụng ••4512' },
+};
+
+const OPTS = [
+{ n:1, t:'Công thức E3, dấu SVG', ctx:'Foody · Ăn uống · từ email', d:'Thẻ trống của tab Tài chính, đúng bốn phần: dấu, câu hỏi có động từ, một dòng vì sao, hàng hai nút. Dấu là biểu tượng hoá đơn nét mảnh trong ô xám. Câu hỏi lấy tên quán từ ghi chú. <span class="fix">Đường cơ sở: mọi hướng khác so với đây.</span> <span class="cost">Dấu hoá đơn giống nhau ở mọi khoản, chưa kể được loại khoản.</span>',
+  tx:T.foody, card:`<div class="empty"><span class="mk">${I.receipt}</span><div class="q">Hoá đơn Foody đâu?</div><div class="w">Chụp lại để nhớ đã gọi gì cho ai.</div><div class="acts">${act('Chụp ảnh',I.cam,1)}${act('Thư viện',I.lib)}</div></div>` },
+
+{ n:2, t:'Dấu theo danh mục', ctx:'Máy giặt · Mua sắm · 12.500.000 ₫', d:'Dấu chính là biểu tượng danh mục của khoản (túi mua sắm, tách cà phê, ngôi nhà), tô màu định danh của danh mục đó, với một hoá đơn nhỏ gắn góc. Số tiền lớn đổi giọng sang bảo hành. <span class="fix">Nhìn dấu là biết thẻ đang nói về khoản này, không phải thẻ chung.</span> <span class="cost">Cần một bộ glyph cho các danh mục; danh mục lạ rơi về hoá đơn.</span>',
+  tx:T.washer, card:`<div class="empty"><span class="mk id6 stack">${I.bag}<span class="sub">${I.receipt}</span></span><div class="q">Giữ hoá đơn máy giặt để bảo hành?</div><div class="w">Khoản <b>12.500.000 ₫</b>, có chứng từ đỡ phải tìm sau này.</div><div class="acts">${act('Chụp ảnh',I.cam,1)}${act('Thư viện',I.lib)}</div></div>` },
+
+{ n:3, t:'Một nút chính, một đường phụ', ctx:'Tiền nhà · Nhà ở · từ email', d:'Chỉ một nút tô brand; cách còn lại là một dòng liên kết dưới nút. Nút chính theo luật nguồn: khoản từ email ngân hàng ưu tiên Thư viện, vì ảnh biên lai trong app ngân hàng thường đã có. <span class="fix">Thẻ thấp và rõ một việc; nút chính đổi theo nguồn nên gần như luôn đúng.</span> <span class="cost">Đường phụ nhỏ, người muốn chụp phải nhìn kỹ hơn.</span>',
+  tx:T.rent, card:`<div class="empty"><span class="mk id1">${I.house}</span><div class="q">Giữ biên lai chuyển tiền nhà?</div><div class="w">VIB đã báo số. Biên lai hay hợp đồng giúp khớp về sau.</div><div class="acts">${act('Chọn từ thư viện',I.lib,1)}</div><span class="link">hoặc chụp ảnh</span></div>` },
+
+{ n:4, t:'Thẻ ngang, cho khoản ít cần ảnh', ctx:'VIB → VCB · Chuyển khoản nội bộ', d:'Loại khoản quyết định cả kích cỡ thẻ: chuyển khoản nội bộ, trả nợ thẻ và các khoản máy tự ghép hầu như không cần ảnh, nên thẻ thu về một hàng ngang: dấu, một câu, một nút nhỏ. Với khoản chi, thẻ vẫn là dạng đứng như hướng 1. <span class="fix">Thẻ biết lùi lại khi ảnh không quan trọng; không xin ảnh cho một cú chuyển tiền giữa hai tài khoản của mình.</span> <span class="cost">Hai hình dạng thẻ trên cùng một màn, tuỳ khoản.</span>',
+  tx:T.xfer, card:`<div class="empty row"><span class="mk">${I.swap}</span><span class="t"><div class="q">Chuyển khoản nội bộ ít khi cần ảnh</div><div class="w">Vẫn thêm được nếu bạn muốn giữ biên lai.</div></span><button type="button" class="go">Thêm</button></div>` },
+
+{ n:5, t:'Dòng tiêu đề theo loại khoản', ctx:'Cho vay Minh · hẹn 15/09', d:'Một dòng chữ nhỏ viết hoa trên đầu thẻ nói thẻ đang xin loại chứng từ gì: "Chứng từ · Cho vay". Câu hỏi gọi tên người mượn và ngày hẹn từ chính hàng của khoản. <span class="fix">Loại khoản đọc được ngay cả khi lướt; câu hỏi có tên riêng nên rất khó lờ đi.</span> <span class="cost">Thêm một dòng chữ; với khoản chi thường, dòng "Chứng từ · Chi tiêu" hơi thừa.</span>',
+  tx:T.loan, card:`<div class="empty"><div class="ey">Chứng từ · Cho vay</div><span class="mk id3">${I.iou}</span><div class="q">Có giấy hẹn hay tin nhắn với Minh?</div><div class="w">Một ảnh lời hứa trả trước <b>15/09</b> giúp nhắc nợ nhẹ nhàng hơn.</div><div class="acts">${act('Thư viện',I.lib,1)}${act('Chụp ảnh',I.cam)}</div></div>` },
+
+{ n:6, t:'Lý do từ dữ liệu của bạn', ctx:'Foody · 4 lần tháng này', d:'Dòng vì sao là một con số thật, đếm từ sổ: bao nhiêu khoản cùng quán trong tháng chưa có ảnh nào. Cùng công thức với thẻ trống của Chuỗi thói quen ("Grab 9 lần tháng này"). Không có mẫu lặp thì rơi về hướng 1. <span class="fix">Lý do không thể chung chung, vì nó là số của chính người dùng.</span> <span class="cost">Cần đếm trên lát cắt tháng; khoản đầu tiên của một quán mới không có gì để nói.</span>',
+  tx:T.foody, card:`<div class="empty"><span class="mk">${I.cup}</span><div class="q">Hoá đơn Foody đâu?</div><span class="fact">${I.repeat} 4 lần tháng này, chưa khoản nào có ảnh</span><div class="acts">${act('Chụp ảnh',I.cam,1)}${act('Thư viện',I.lib)}</div></div>` },
+
+{ n:7, t:'Theo thời điểm, nút chính mang ngày', ctx:'Foody · ghi 30/08, mở hôm nay', d:'Khoản ghi trong vài giờ qua hỏi "hoá đơn còn trong túi?" và nút chính là Chụp. Khoản cũ hơn một ngày, như ở đây, hỏi về hôm đó và nút chính mở thư viện đã lọc đúng ngày chụp nhờ EXIF, điều app đã làm ở công cụ gán ảnh. <span class="fix">Nút chính làm sẵn việc tìm; thẻ nói đúng cái người dùng đang nghĩ ("chắc mình có chụp hôm đó").</span> <span class="cost">Lọc theo ngày cần quyền thư viện đầy đủ; thiếu quyền thì rơi về Thư viện thường.</span>',
+  tx:T.old, card:`<div class="empty"><span class="mk">${I.cal}</span><div class="q">Có ảnh nào chụp hôm 30/08 không?</div><div class="w">Tụi mình lọc thư viện đúng ngày đó cho bạn.</div><div class="acts">${act('Ảnh ngày <span class="num">30/08</span>',I.lib,1)}${act('Chụp ảnh',I.cam)}</div></div>` },
+
+{ n:8, t:'Ghép với nguồn ngân hàng', ctx:'Mua BTC · Đầu tư · từ email', d:'Khoản đến từ email ngân hàng mang một dòng nguồn ngay dưới câu hỏi: ngân hàng nào đã báo, số bao nhiêu. Thẻ xin ảnh để khớp: lệnh mua cho đầu tư, hoá đơn cửa hàng cho khoản chi. Nút chính là Thư viện vì ảnh khớp lệnh thường được chụp màn hình sẵn. <span class="fix">Nói rõ vì sao còn cần ảnh dù ngân hàng đã báo: ngân hàng biết số, không biết giá và số lượng.</span> <span class="cost">Khoản ghi tay không có dòng nguồn, thẻ ngắn hơn một dòng.</span>',
+  tx:T.btc, card:`<div class="empty"><span class="mk tint">${I.chart}</span><div class="q">Lưu lệnh mua BTC?</div><div class="w">Ảnh khớp lệnh giữ lại giá và số lượng đã mua.</div><div class="src">${I.bank}<span>VCB đã báo <b>6.500.000 ₫</b> · 21:02</span></div><div class="acts">${act('Thư viện',I.lib,1)}${act('Chụp ảnh',I.cam)}</div></div>` },
+];
+
+document.getElementById('grid').innerHTML = OPTS.map(o =>
+  `<div class="opt"><div class="ohead"><span class="n">${o.n}</span><b>${o.t}</b><p>${o.d}</p><span class="ctx">${o.ctx}</span></div>${phone(o.tx, o.card)}</div>`).join('');
+</script>
+</body>
+</html>

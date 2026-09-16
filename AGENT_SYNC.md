@@ -143,6 +143,13 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-09-17 (Hien's session) — personal transaction detail: view/edit states +
+  contextual photo door. Client only, no migration, no Edge deploy.** `61-expense-detail.js`
+  personal block rewritten (`_pexdEdit`, `pexdReadFields`, `pexdSheetKind`, `pexdDoorCopy`,
+  `pexdDoorPick`), `#pexd-nav` mount + `#sheet-exd-kind` in the shell, styles appended to
+  `46-expense-detail.css` (`.pexd-nav`, `.exd-view`, `.exd-edit`, `.pdoor`). SW **v535**.
+  Guard: `tools/txn-detail-view-edit.test.js`. The family detail (Cập nhật) is untouched.
+
 - **2026-09-16 (Hien's session) — DONE, committed: dedup engine (Phase 1 of
   `docs/specs/dedup-flaws-review.md`). Client only, no migration, no Edge deploy.** New
   `src/js-ui/58-dedup-engine.js`; `bucketCsvCandidates` (57) now calls it and lost

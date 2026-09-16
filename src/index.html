@@ -439,9 +439,8 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
      the review card's settings-rows, edits stage until Cập nhật. -->
 <div class="overlay" id="pexd-overlay">
   <div class="safe"></div>
-  <div class="cd-nav">
-    <button class="cd-back" onclick="closePersonalTxDetail()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg><span>Cá nhân</span></button>
-  </div>
+  <!-- rendered by renderPersonalTxDetail: view = ‹ Cá nhân · Sửa; edit = Huỷ · Sửa khoản chi · Lưu -->
+  <div class="cd-nav pexd-nav" id="pexd-nav"></div>
   <div class="cd-scroll">
     <div id="pexd-body"></div>
     <div class="spacer"></div>
@@ -991,6 +990,13 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   <div class="sheet-h" id="exdacct-h">Nguồn tiền</div>
   <div class="sheet-sub" id="exdacct-sub"></div>
   <div class="choices" id="exdacct-list"></div>
+</div>
+
+<div class="sheet" id="sheet-exd-kind">
+  <div class="grab"></div>
+  <div class="sheet-h" id="exdkind-h">Loại khoản</div>
+  <div class="sheet-sub" id="exdkind-sub"></div>
+  <div class="choices" id="exdkind-list"></div>
 </div>
 
 <div class="modal" id="sheet-budget">

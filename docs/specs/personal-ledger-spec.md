@@ -535,6 +535,15 @@ sheets:
 - **Income** — `fhIncome('personal')` lists/adds/deletes (spine rows,
   `kind='income'`, since 0109), guarded on `state === 'ready'`; rows tap into
   `fhIncomeRowSheet` → `fhPersonalUpdateIncome` for edits.
+- **Transaction detail** (2026-09-17) — a private expense row opens
+  `openPersonalTxDetail` in a **view** state (receipt block, read-only rows in
+  the review card's order and labels, photos) with "Sửa" in the nav; edit is the
+  review card itself (Số tiền · Chi cho gì? as inputs, Ghi vào đâu · Loại
+  khoản · Danh mục · Ngày · Giờ · Nguồn tiền as pickers) with Huỷ / Lưu, one
+  staged write. Loại khoản offers the committed-row conversions (loan,
+  investment). A row with no photos shows the contextual photo door under the
+  receipt in both states (`pexdDoorCopy`). Mockups:
+  `mockups/txn-detail-view-edit.html`, `mockups/photo-door-contextual.html`.
 - **Transactions drill-in** — `openTxns('personal')` ("Giao dịch cá nhân")
   lists **every kind** since 2026-09-06 (pairs folded to one row, kind filter
   chips), each row opening its kind's edit sheet.
