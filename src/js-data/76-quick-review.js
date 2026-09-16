@@ -263,12 +263,46 @@
         try { rows = await _qrFetch(); } catch (e) { return; }
         if (!rows.length) { if (opts.force && window.fhTxnReviewSheet) window.fhTxnReviewSheet(); return; }
         var seen = _qrSeenGet();
-        var row = opts.force ? rows[0]
-          : rows.find(function (r) { return seen.indexOf(r.id) === -1 && !_qrSessionSkip[r.id]; });
-        if (!row) return;
+        var pool = opts.force ? rows.slice(0, 1)
+          : rows.filter(function (r) { return seen.indexOf(r.id) === -1 && !_qrSessionSkip[r.id]; });
+        if (!pool.length) return;
 
-        var re = await _qrOpen(row);
-        if (!re) { if (opts.force && window.fhTxnReviewSheet) window.fhTxnReviewSheet(); return; }
+        /* THE DUPLICATE GATE (58-dedup-engine). This sheet used to run none of
+           the review screen's duplicate checks — one tap could book a purchase
+           the ledger already held, the one thing the full queue exists to
+           catch. Every row now passes the same engine, against the same two
+           books, before it is offered: any verdict sends it to the full queue
+           (where the chip and the evidence live) and the next clean row is
+           tried instead. Locked or failing ledgers degrade to no index, which
+           the engine reads as "nothing to match" — the teaser still works. */
+        var row = null, re = null, dupIndex = null;
+        for (var pi = 0; pi < pool.length && pi < 6; pi++) {
+          var cand = pool[pi];
+          var opened = await _qrOpen(cand);
+          if (!opened) { if (opts.force && window.fhTxnReviewSheet) window.fhTxnReviewSheet(); return; }
+          if (window.fhDedupAssess && window.fhDedupLedgerIndex) {
+            try {
+              if (dupIndex === null) {
+                try { window._fhPersonalMatchSlice = window.fhPersonalMatchSlice ? await window.fhPersonalMatchSlice() : null; } catch (eS) {}
+                dupIndex = window.fhDedupLedgerIndex();
+              }
+              var oa0 = cand.occurred_at ? new Date(cand.occurred_at) : null;
+              var f0 = opened.flow || (opened.direction === 'credit' ? 'income' : 'expense');
+              var v = window.fhDedupAssess([{
+                amount: Number(opened.amount) || 0, date: oa0, dateDisplay: oa0 && !isNaN(oa0.getTime()) ? _qrLocalIso(oa0) : '',
+                time: _qrTime(cand.occurred_at) || '', description: _qrDesc(opened), counterparty: opened.counterparty || '',
+                isIncome: f0 === 'income', isTransfer: f0 === 'transfer', accountKind: opened.account_kind || null,
+                provider: cand.source_provider || '', currency: opened.currency || 'VND' }], dupIndex)[0];
+              if (v) {
+                _qrSessionSkip[cand.id] = true;
+                if (opts.force) { if (window.fhTxnReviewSheet) window.fhTxnReviewSheet(); return; }
+                continue;
+              }
+            } catch (eD) {}
+          }
+          row = cand; re = opened; break;
+        }
+        if (!row) return;
 
         var flow = re.flow || (re.direction === 'credit' ? 'income' : 'expense');
         var foreign = re.currency && re.currency !== 'VND';

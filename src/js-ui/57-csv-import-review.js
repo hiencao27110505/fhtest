@@ -1034,133 +1034,14 @@ function csvCanonicalProvider(name) {
   return s;
 }
 
-/* Cross-source dedup, client side. One purchase can be reported twice -- the
-   bank emails a debit, the merchant emails a receipt -- and the two share only
-   an amount. They will NOT share a description, which is exactly why the
-   description-keyed in-batch check above cannot see them, and why the pipeline
-   computes duplicate_of_id at all.
-
-   The client can run the same rule, and with better evidence: it holds the
-   DECRYPTED amount plus source_provider (never sealed, because a hash matches
-   only exactly and bank names need fuzzy matching). What it adds over the
-   pipeline is timing -- it runs in front of the person who made the purchase,
-   every time the screen opens, so a wrong guess costs one tap instead of
-   silently deleting a row.
-
-   Same-provider pairs are NEVER duplicates: a bank does not report one debit
-   twice, so two MB emails are two real transactions. Unknown on either side
-   refuses to guess, for the reason the pipeline gives and this screen exists to
-   honour -- a missed duplicate costs one tap to skip; a false one hides real
-   money behind a decision nobody asked for. */
-function csvStagedCrossSourceDup(c, provider, currency, kind, priors) {
-  var mine = csvCanonicalProvider(provider);
-  if (!mine || !c.date) return null;
-  var cur = (currency || '').toUpperCase();
-  for (var i = 0; i < priors.length; i++) {
-    var p = priors[i];
-    if (!p.provider || !p.c.date) continue;
-    if (p.provider === mine) continue;                       // same bank -> two real transactions
-    // Two DIFFERENT banks are also two real transactions: each sees only its own
-    // account, so equal amounts are a coincidence, not one event twice. The real
-    // duplicate is a bank plus a non-bank reporting one swipe.
-    if (kind === 'bank' && p.kind === 'bank') continue;
-    // Currency before amount: dedup_fp hashes 'amount|direction|currency', and
-    // comparing the number alone made 200 USD and 200 VND one event. Direction
-    // needs no check here -- credits are deferred out before this runs.
-    if (p.currency !== cur) continue;
-    if (Math.abs(Number(p.c.amount) - Number(c.amount)) >= 1) continue;
-    if (Math.abs(p.c.date.getTime() - c.date.getTime()) / 86400000 > 3) continue;
-    return p.c;
-  }
-  return null;
-}
-
-/* Merchant identity for the near-miss tier: deburred, lowercased, stripped to
-   alphanumerics — the same flattening the provider canon uses, because "AEON
-   Nguyen Van Linh" hand-typed and "AEON NGUYEN VAN LINH" from a bank mail are
-   one place. Too-short keys refuse to match: "ck" is not an identity. */
-function _csvNameKey(s) {
-  return deburr(String(s || '')).toLowerCase().replace(/[^a-z0-9]/g, '');
-}
-function csvNearMissDup(c, existing) {
-  if (!c.date || c.amount == null) return null;
-  var name = _csvNameKey(c.counterparty) || _csvNameKey(c.description);
-  if (name.length < 4) return null;
-  for (var i = 0; i < existing.length; i++) {
-    var t = existing[i];
-    if (t.kind !== 'expense') continue;
-    if (Math.abs(t._d.getTime() - c.date.getTime()) / 86400000 >= 1) continue;  // same calendar day only
-    var diff = Math.abs(t.amtD - c.amount);
-    if (diff < 1 || diff >= 1000) continue;   // <1 is the exact tier's; ≥1000đ is a different purchase
-    var tn = _csvNameKey(t.note);
-    if (tn.length < 4) continue;
-    if (tn.indexOf(name) < 0 && name.indexOf(tn) < 0) continue;
-    return t;
-  }
-  return null;
-}
-
-/* Buckets: ready / needsCategory (grouped by merchant) / possibleDuplicate /
-   deferred. Self-dedup and cross-source dedup both happen here, before
-   bucketing, so a row can't land in "ready" while also being a duplicate. */
+/* Ledger, near-miss, pipeline and cross-source matching moved to
+   58-dedup-engine.js (dedup-flaws-review.md Part E): one engine, one verdict
+   per row, evidence attached. This function keeps only the FACT tiers that
+   need the raw staged row — richest-copy merge, resolved_before, in-batch —
+   and the bucket assignment. */
 function bucketCsvCandidates(candidates, mixedSigns) {
-  var seen = {}; // normDesc+amount -> first candidate seen
-  /* THE LEDGER THIS IMPORT WILL LAND IN — both of them, when both are in play.
-
-     `window.txns` is the FAMILY ledger, and for a long time it was the only
-     thing a candidate was cross-matched against. Since Model Y a staged row can
-     just as easily be written to the person's own book (and since the mailbox
-     grant defaults to personal, most of them are) — so a personal import was
-     checked against a ledger it was never going to touch, and re-importing the
-     same batch stacked it silently. Nothing anywhere said so: the rows are
-     ciphertext on the server, so no query notices either.
-
-     Both books are now offered to the cross-match. That is deliberately wider
-     than "the book this row is going to": destination is per-row and editable
-     right up until Import, so narrowing it would make the check depend on a
-     decision the person has not finished making. A hit in either book is worth
-     the same one tap.
-
-     EVERY ENTRY IS NORMALISED TO RAW ĐỒNG (`amtD`). Ledger rows store amounts
-     in base units (đồng ÷ curMult — fmt() multiplies back for display) while a
-     candidate's `c.amount` is the raw đồng the bank mail stated. The old code
-     compared the two raw — |92.5 − 92500| is never < 1 — so the against-the-
-     ledger check silently matched NOTHING for VND, ever, in either book. Two
-     exact SHOPEE repeats sat ticked in ready to prove it (2026-09-03). One
-     shape, one unit, carrying the evidence fields the flagged card shows. */
-  var existingTxns = (function(){
-    var mult = (typeof curMult === 'function' ? curMult() : 1) || 1;
-    var out = [];
-    (window.txns || []).forEach(function(t){
-      if (!t._d || t.amt == null) return;
-      out.push({ amtD: Number(t.amt) * mult, _d: t._d, kind: 'expense', book: 'family',
-                 note: t.note || '', cat: t.cat || '', who: t.who || '' });
-    });
-    /* Personal side: the review-time slice (fhPersonalMatchSlice, fetched to
-       the mailbox backfill horizon) when it is there, else the ~2-month tab
-       cache. The slice exists because a re-staged card can carry an occurred_at
-       far older than the cache window — matched against a ledger that short, an
-       old import came back clean. Income rides along since 0109 put it on the
-       spine: an income candidate is matched against income rows ONLY (kind is
-       checked in the matcher), never against a same-magnitude expense. */
-    var mine = window._fhPersonalMatchSlice;
-    if (!mine || !mine.length) {
-      var pd = (typeof window.fhPersonalData === 'function') ? window.fhPersonalData() : null;
-      mine = (pd && pd.txns) || [];
-    }
-    mine.forEach(function(t){
-      if (t.amt == null || !t.date) return;
-      if (t.kind !== 'expense' && t.kind !== 'income') return;
-      var d = new Date(t.date + 'T00:00:00');
-      if (isNaN(d.getTime())) return;
-      out.push({ amtD: Number(t.amt) * mult, _d: d, kind: t.kind, book: 'personal',
-                 note: t.note || '', cat: t.cat || '', who: '' });
-    });
-    return out;
-  })();
+  var seen = {}; // ident|amount|day|time -> first candidate seen
   var staged = !!window.csvStagedMode;
-  var priors = [];   // staged rows already bucketed, for the cross-source check
-
   var ready = [], needsCategoryGroups = {}, possibleDuplicate = [], deferred = [], merged = 0;
 
   /* ONE PAYMENT, THE RICHEST COPY — decided before anything else is bucketed.
@@ -1179,15 +1060,17 @@ function bucketCsvCandidates(candidates, mixedSigns) {
      never the other way round, and never "first one wins", because arrival
      order is an accident and the person is left reading whichever it picked.
 
-     Requires a real instant: a day-only date would collapse two honest
-     same-amount purchases, so those fall through to the text rule below, as do
-     all file-import rows. */
+     Requires a real instant: a day-only date (a UTC-midnight placeholder) would
+     collapse two honest same-amount purchases, so those fall through to the
+     text rule below, as do all file-import rows. */
   if (staged) {
     var richest = {};
     candidates.forEach(function(c){
       var srow = (window._fhStagedRows || [])[c.rowIndex];
       var inst = srow && srow.occurred_at;
       if (!inst || !c.amount) return;
+      var dt = new Date(inst);
+      if (!isNaN(dt.getTime()) && dt.getUTCHours() === 0 && dt.getUTCMinutes() === 0 && dt.getUTCSeconds() === 0) return;  // date-only: no instant to key on
       var k = inst + '|' + c.amount;
       var held = richest[k];
       if (!held) { richest[k] = c; return; }
@@ -1196,142 +1079,100 @@ function bucketCsvCandidates(candidates, mixedSigns) {
     });
   }
 
+  var rest = [];   // rows the fact tiers below did not settle — the engine's turn
   candidates.forEach(function(c) {
     /* A poorer copy of a payment already kept in this batch. MERGED AWAY, not
-       shown: the duplicates section exists for SUSPICIONS a person should rule
-       on — a cross-source pair within three days, where only they know if it
-       was one purchase. This is not that. Same amount to the second is one
-       payment by construction, and asking someone to confirm it is asking a
-       question with no second answer.
-
-       Not silent, though: they are counted and the header says how many were
-       merged, because a row that vanishes without a word is the one failure
-       this screen exists to prevent. And they are still RETIRED on import —
-       being in none of ready/groups/dup/deferred, fhStagedIdsForResolved reads
-       them as finished, which they are: the payment they describe is going in
-       under its better copy. */
+       shown: "same amount to the second" is one payment by construction, and
+       asking someone to confirm it is asking a question with no second answer.
+       Not silent, though: counted, and the header says how many were merged.
+       And still RETIRED on import — being in none of ready/groups/dup/deferred,
+       fhStagedIdsForResolved reads them as finished, which they are. */
     if (c._mergedCopy) { merged++; return; }
 
     /* CERTAIN, not suspected: the server re-staged this mail knowing its id was
        already promoted or dismissed in a previous connection (resolved_before,
-       0113). Message-id equality is not a guess, so this outranks every fuzzy
-       tier below and the card says "đã nhập trước đó" rather than "có thể
-       trùng". Still a flag and a tap, never a deletion — the ledger is the
+       0113). Message-id equality is not a guess, so this outranks every tier
+       below. Still a flag and a tap, never a deletion — the ledger is the
        anchor, and only the person knows whether they since removed the row. */
     if (staged) {
       var srowRB = (window._fhStagedRows || [])[c.rowIndex];
       if (srowRB && srowRB.resolved_before) {
-        c.duplicateResolvedBefore = true; possibleDuplicate.push(c); return;
+        c.duplicateResolvedBefore = true; c._dupTier = 'sure'; c._dupWhy = 'resolved_before';
+        possibleDuplicate.push(c); return;
       }
     }
 
     /* A card payment is a real thing to import now — a TRANSFER that draws a
-       card's balance down (Borrowing & Lending). So in staged (bank-email)
-       mode it is a normal, checkable, importable card, not something set aside.
-       Only CSV-file transfers stay deferred, where importing a card statement
-       AND a bank statement genuinely double-counts. Since 0109 the same goes
-       for money IN: a staged credit row is a normal card with a 3-way Kind
-       control (income / internal transfer / repayment received) — only
-       CSV-file income stays deferred, because the file importer still writes
-       expenses only. */
+       card's balance down. So in staged (bank-email) mode it is a normal,
+       checkable, importable card. Only CSV-file transfers stay deferred, where
+       importing a card statement AND a bank statement genuinely double-counts.
+       Since 0109 the same goes for money IN: a staged credit row is a normal
+       card with a 3-way Kind control — only CSV-file income stays deferred. */
     if (mixedSigns || (c.isIncome && !staged) || (c.isTransfer && !staged) || c.flags.indexOf('date_missing') >= 0 || c.flags.indexOf('amount_missing') >= 0) {
       deferred.push(c); return;
     }
 
-    /* Within one file, the same description and amount on the SAME DAY is a
-       double entry. On different days it's a habit -- the same coffee at the
-       same place three times a month is the most ordinary row a Vietnamese
-       spending file contains, and flagging those as duplicates buries real
-       spending under a decision nobody should have to make. The date is what
-       separates the two, so it belongs in the key. */
-    /* Identify the row by what it says, or failing that by who it was with. A
-       p2p transfer deliberately has NO description (72-txn-review: a pre-filled
-       wrong answer is worse than a blank field), and the blank is then replaced
-       by a placeholder that reads the same on every such row. Keyed on that, two
-       unrelated transfers of the same amount on the same day looked like one
-       entry made twice, and the second was hidden in the duplicates section.
-
-       With neither a description nor a counterparty there is nothing to compare,
-       so the row is simply not deduped. A missed duplicate costs one tap to skip;
-       a false one hides a real transaction behind a decision nobody asked for. */
+    /* IN-BATCH: the same words, the same amount, the same day — and, for rows
+       that carry a bank time, the same MINUTE (two topups to the same person on
+       one day are how people actually move money; Trang's queue held 44 of
+       them, all parked as "duplicates" nobody asked about). A staged row with
+       NO time (a date-only bank) needs the bank's own reference to agree
+       instead — a reference is unique per transaction, so equality is a fact
+       and inequality clears the pair; without either, the pair is not judged.
+       Identity is what the row says, or failing that who it was with; a row
+       with neither is simply not deduped here (a placeholder made two unrelated
+       transfers "identical" once). */
     var ident = (c._hasDesc ? normDescForDedup(c.description) : '') ||
                 normDescForDedup(c.counterparty || '');
     if (ident) {
-      /* Bank-email rows carry a TIME, and it belongs in the key: two topups to
-         the same person for the same amount on the same DAY are how people
-         actually move money (Trang's queue held 44 of them, all parked as
-         "duplicates" nobody asked about). Same minute, same words, same amount
-         is a mail staged twice; a different minute is a different transfer.
-         File rows have no time, so for them the key is unchanged. */
-      var key = ident + '|' + c.amount + '|' + (c.dateDisplay || '')
-              + '|' + ((typeof csvStagedMode !== 'undefined' && csvStagedMode
-                        && typeof csvRowTime === 'function') ? (csvRowTime(c) || '') : '');
-      if (seen[key]) { c.duplicateOfBatch = true; possibleDuplicate.push(c); return; }
-      seen[key] = c;
-    }
-    // No identity: skip the in-batch check ONLY. The row still goes through the
-    // cross-match against the ledger and the needs-a-category grouping below —
-    // returning early here would file an uncategorised row straight into ready.
-
-    /* Kind must agree before amount is even looked at: a +5tr credit beside a
-       −5tr purchase is a coincidence of magnitude, not one event twice. An
-       income candidate therefore hunts income rows only (personal book — the
-       family table carries no income), an expense hunts expenses in both. */
-    var wantKind = c.isIncome ? 'income' : 'expense';
-    var crossMatch = existingTxns.find(function(t) {
-      if (t.kind !== wantKind || !c.date) return false;
-      var daysApart = Math.abs(t._d.getTime() - c.date.getTime()) / 86400000;
-      return daysApart <= 3 && Math.abs(t.amtD - c.amount) < 1;
-    });
-    if (crossMatch) { c.duplicateOfExisting = crossMatch; possibleDuplicate.push(c); return; }
-
-    /* NEAR-MISS tier, weaker on purpose: a hand-logged row is routinely rounded
-       ("467.000đ" against the bank's 467.290đ — a real pair from the ledger
-       that exact matching waved through). Amount alone would flag constantly,
-       so the gate is all three of: same calendar day, same merchant identity,
-       and a gap under 1.000đ that exact matching didn't already catch. The
-       card copy must read as a weaker guess than an exact hit. */
-    if (!c.isIncome) {
-      var nearMiss = csvNearMissDup(c, existingTxns);
-      if (nearMiss) { c.duplicateNearMiss = nearMiss; possibleDuplicate.push(c); return; }
-    }
-
-    /* Staged email rows only, and last, so the most concrete reason wins: a
-       match against a transaction already in the ledger beats a suspicion about
-       another email in the same queue. */
-    if (staged) {
-      var meta = window.fhStagedMeta && window.fhStagedMeta(c.rowIndex);
-      var provider = (meta && meta.provider) || '';
-
-      /* The pipeline's verdict, demoted from delete order to suspicion. It sees
-         a pair this screen cannot -- two unreviewed emails, same amount,
-         different wording -- so the detection is kept. What it no longer gets
-         is the power to act alone. */
-      var currency = (meta && meta.currency) || '';
-      var kind = (meta && meta.kind) || '';
-      var prior = { c: c, provider: csvCanonicalProvider(provider), currency: currency, kind: kind };
-
-      /* The pipeline cannot read transaction_type on the rows it compares (they
-         are sealed), so it flags bank-vs-bank pairs it has no way to rule out.
-         The screen can read both, so it drops a suspicion it can PROVE wrong
-         rather than passing the tap on to a person. Only when both kinds are
-         known: an unknown kind leaves the flag standing. */
-      if (meta && meta.pipelineDup) {
-        var matchedKind = window.fhStagedKindById && window.fhStagedKindById(meta.dupOfId);
-        if (!(kind === 'bank' && matchedKind === 'bank')) {
-          c.duplicateOfPipeline = true; possibleDuplicate.push(c);
-          priors.push(prior);
-          return;
-        }
-        c.pipelineDupOverruled = true;   // two banks; falls through to the normal path
+      var tm = (staged && typeof csvRowTime === 'function') ? (csvRowTime(c) || '') : '';
+      var ref = '';
+      if (staged && !tm && typeof window.fhStagedRawX === 'function') {
+        var rx0 = window.fhStagedRawX(c.rowIndex);
+        ref = (rx0 && rx0.reference_number) ? String(rx0.reference_number) : '';
       }
+      var key = ident + '|' + c.amount + '|' + (c.dateDisplay || '') + '|' + tm + '|' + ref;
+      var judge = !staged || tm || ref;             // staged, no time, no reference: not judged
+      if (judge && seen[key]) {
+        c.duplicateOfBatch = true; c._dupTier = (staged && tm) ? 'sure' : 'likely'; c._dupWhy = 'in_batch';
+        c._dupTwin = seen[key]; c._dupTwinKind = 'queue';
+        possibleDuplicate.push(c); return;
+      }
+      if (judge) seen[key] = c;
+    }
+    rest.push(c);
+  });
 
-      /* Cross-source dedup hunts one PURCHASE reported by a bank and a
-         merchant; a credit row is not a purchase, so it never joins that hunt
-         (its magnitude beside a debit's is coincidence, not identity). */
-      var sourceMatch = c.isIncome ? null : csvStagedCrossSourceDup(c, provider, currency, kind, priors);
-      if (!c.isIncome) priors.push(prior);
-      if (sourceMatch) { c.duplicateOfSource = sourceMatch; possibleDuplicate.push(c); return; }
+  /* THE ENGINE (58-dedup-engine.js): every remaining row against both books
+     at once, then against the rest of the queue. It returns a verdict it can
+     show evidence for, or nothing. The legacy flag names are kept on the row
+     for the chips, the filters and the tests that read them. */
+  var index = (typeof fhDedupLedgerIndex === 'function') ? fhDedupLedgerIndex() : { rows: [], byAmt: {} };
+  var ecs = rest.map(function(c){
+    var meta = (staged && window.fhStagedMeta) ? window.fhStagedMeta(c.rowIndex) : null;
+    var rx = (staged && typeof window.fhStagedRawX === 'function') ? window.fhStagedRawX(c.rowIndex) : null;
+    return { amount: c.amount, date: c.date, dateDisplay: c.dateDisplay,
+             time: (staged && typeof csvRowTime === 'function') ? (csvRowTime(c) || '') : '',
+             description: c._hasDesc ? c.description : '', counterparty: c.counterparty || '',
+             isIncome: !!c.isIncome, isTransfer: !!(c.isTransfer || c._xfer || c._repay || c._loan || c._invest),
+             accountKind: (rx && rx.account_kind) || null, shape: (rx && rx.transaction_type) || '',
+             provider: (meta && meta.provider) || '', kind: (meta && meta.kind) || '',
+             currency: (meta && meta.currency) || '', pipelineDupOf: (meta && meta.pipelineDup) ? meta.dupOfId : '' };
+  });
+  var verdicts = (typeof fhDedupAssess === 'function')
+    ? fhDedupAssess(ecs, index, { kindById: window.fhStagedKindById })
+    : ecs.map(function(){ return null; });
+
+  rest.forEach(function(c, i) {
+    var v = verdicts[i];
+    if (ecs[i].pipelineDupOverruled) c.pipelineDupOverruled = true;   // two banks; falls through to the normal path
+    if (v) {
+      c._dupTier = v.tier; c._dupWhy = v.why; c._dupTwin = v.twin; c._dupTwinKind = v.twinKind; c._dupShared = v.shared || '';
+      if (v.twinKind === 'ledger') {
+        if (v.why === 'rounded_merchant') c.duplicateNearMiss = v.twin; else c.duplicateOfExisting = v.twin;
+      } else if (v.why === 'cross_source' || v.why === 'same_bank_pair') { c.duplicateOfSource = v.twin; }
+      else if (v.why === 'pipeline') { c.duplicateOfPipeline = true; }
+      possibleDuplicate.push(c); return;
     }
 
     /* A transfer (card payment) has no category and needs none — it is not
@@ -1350,3 +1191,4 @@ function bucketCsvCandidates(candidates, mixedSigns) {
 
   return { ready: ready, needsCategoryGroups: needsCategoryGroups, possibleDuplicate: possibleDuplicate, deferred: deferred, mergedCount: merged };
 }
+

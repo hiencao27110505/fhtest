@@ -576,18 +576,22 @@
       try {
         const d = new Date(); d.setDate(d.getDate() - 365);
         const from = _localDate(d);
+        /* Every kind, and the mirror link: the dedup engine (58) gates on kind
+           itself and DROPS mirrors — a family row the person authored is copied
+           here with link_id set, and indexing both let two staged copies of one
+           purchase each claim "their own" booked row. */
         const r = await _pageAll(() => _sb().from('personal_transactions')
-          .select('id,amount_enc,note_enc,cat_name_enc,txn_date,kind')
+          .select('id,amount_enc,note_enc,cat_name_enc,txn_date,kind,link_id,occurred_time_enc,source')
           .eq('owner_user_id', P.uid)
-          .in('kind', ['expense', 'income'])
           .gte('txn_date', from)
           .order('txn_date', { ascending: false }).order('id'));
         const out = [];
         for (const t of r.rows) {
           const a = await _decP(t.amount_enc);
           if (a == null || a === _DEC_FAILED) continue;   // unreadable amount → cannot match, skip (fail closed)
-          out.push({ id: t.id, date: t.txn_date, kind: t.kind, amt: Number(a),
-            note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc) });
+          out.push({ id: t.id, date: t.txn_date, kind: t.kind, amt: Number(a), link: t.link_id || null, src: t.source || null,
+            note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc),
+            time: t.occurred_time_enc ? (await _decTxt(t.occurred_time_enc)) : '' });
         }
         _matchSlice = out;
         return out;

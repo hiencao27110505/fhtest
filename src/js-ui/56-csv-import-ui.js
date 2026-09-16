@@ -975,14 +975,15 @@ function csvCollapsedCard(c, opts){
        wrong firing at a glance" story. */
     var learnHtml = c._lessonWhy==='learned' ? '<span class="scv-dup soft">'+L('đã học từ bạn','learned from you')+'</span>'
       : (c._lessonWhy==='owe'||c._lessonWhy==='owed') ? '<span class="scv-dup soft">'+L('khớp sổ nợ','matches your ledger')+'</span>' : '';
-    /* Three chips, three degrees of belief: message-id equality is a FACT and
-       wears the strong chip; a rounded-amount neighbour is the weakest guess
-       and says so; everything between keeps the familiar "lặp lại". */
-    var dupHtml = c.duplicateResolvedBefore
-      ? '<span class="scv-dup sure">'+L('đã nhập trước đó','imported before')+'</span>'
-      : c.duplicateNearMiss && !c.duplicateOfExisting
-      ? '<span class="scv-dup soft">'+L('gần trùng','near match')+'</span>'
-      : r._dup ? '<span class="scv-dup">'+L('lặp lại','repeat')+'</span>' : '';
+    /* Two chips, two things the app can back with evidence (58-dedup-engine):
+       "đã có trong sổ" is a fact it can show — the booked row, who logged it,
+       when; "có thể trùng" is a same-amount same-day neighbour it cannot read
+       the words of, and the person decides. Nothing weaker gets a chip. */
+    var dupHtml = c._dupTier === 'sure'
+      ? '<span class="scv-dup booked">'+L('đã có trong sổ','already booked')+'</span>'
+      : c._dupTier === 'likely'
+      ? '<span class="scv-dup ask">'+L('có thể trùng','possible duplicate')+'</span>'
+      : r._dup ? '<span class="scv-dup ask">'+L('có thể trùng','possible duplicate')+'</span>' : '';
     var amtHtml = (c.amount!=null)
       ? '<span class="scv-amt num">'+esc(csvAmtDisp(c))+'</span>'
       : '<span class="scv-amt num warn">'+L('Thiếu số tiền','No amount')+'</span>';
@@ -1952,9 +1953,10 @@ function csvIsOpen(kind, idx){ return csvExpand && csvExpand.kind===kind && csvE
    predicate, because the chip, the evidence note, the header count and the
    filter must all agree on what "trùng" means or the counts read as lies. */
 function csvIsFlaggedDup(c){
-  return !!(c && (c.duplicateOfBatch || c.duplicateOfExisting || c.duplicateOfPipeline
+  return !!(c && (c._dupTier || c.duplicateOfBatch || c.duplicateOfExisting || c.duplicateOfPipeline
                   || c.duplicateOfSource || c.duplicateResolvedBefore || c.duplicateNearMiss));
 }
+function csvDupTier(c){ return (c && c._dupTier) || (csvIsFlaggedDup(c) ? 'likely' : ''); }
 
 /* The WHY behind a flag, with the evidence attached. "Is this the same
    purchase?" is unanswerable from memory — the card must show the other
@@ -1965,39 +1967,62 @@ function csvIsFlaggedDup(c){
 function csvDupWhy(c){
   var mult = (typeof curMult === 'function' ? curMult() : 1) || 1;
   var ev = function(t){
-    if(!t || !t._d) return '';
-    var bits = [];
-    var label = String(t.note || t.cat || '').trim();
-    if(label) bits.push('“' + label + '”');
-    if(t.amtD != null) bits.push(fmt(t.amtD / mult));
-    if(typeof fmtDayMon === 'function') bits.push(fmtDayMon(t._d));
-    bits.push(t.book === 'personal' ? L('sổ Riêng tư','Personal book') : L('sổ Gia đình','Family book'));
-    if(t.book === 'family' && t.who && t.who !== 'Shared') bits.push(L(t.who + ' đã ghi', 'logged by ' + t.who));
-    return bits.join(' · ');
+    if(!t) return '';
+    if(t._d){                                                   // a ledger row
+      var bits = [];
+      var label = String(t.note || t.cat || '').trim();
+      if(label) bits.push('“' + label + '”');
+      if(t.amtD != null) bits.push(fmt(t.amtD / mult));
+      if(typeof fmtDayMon === 'function') bits.push(fmtDayMon(t._d) + (t.time ? ' ' + t.time : ''));
+      bits.push(t.book === 'personal' ? L('sổ Riêng tư','Personal book') : L('sổ Gia đình','Family book'));
+      if(t.book === 'family' && t.who && t.who !== 'Shared') bits.push(L(t.who + ' đã ghi', 'logged by ' + t.who));
+      return bits.join(' · ');
+    }
+    // another row of this queue
+    var qb = [];
+    if(t.description) qb.push('“' + t.description + '”');
+    if(t.amount != null) qb.push(fmt(Number(t.amount) / mult));
+    if(t.date && typeof fmtDayMon === 'function') qb.push(fmtDayMon(t.date) + (typeof csvRowTime === 'function' && csvRowTime(t) ? ' ' + csvRowTime(t) : ''));
+    var prov = (typeof csvStagedProvider === 'function' && csvStagedProvider(t)) || '';
+    if(prov) qb.push(prov);
+    return qb.join(' · ');
   };
-  if(c.duplicateResolvedBefore)
-    return L('Đúng email này đã được nhập hoặc bỏ qua trong lần kết nối trước — chắc chắn, vì trùng từng email. Nếu bạn đã xoá giao dịch đó khỏi sổ thì cứ nhập lại.',
-             'This exact email was imported or dismissed in a previous connection — certain, same message. If you have since deleted that transaction, just import it again.');
-  if(c.duplicateOfExisting){
-    var e1 = ev(c.duplicateOfExisting);
-    return L('Trùng với một giao dịch đã có trong sổ (cùng số tiền, trong vòng 3 ngày)','Matches a transaction already in your ledger (same amount, within 3 days)')
-      + (e1 ? ': ' + e1 : '.');
+  var twin = c._dupTwin || c.duplicateOfExisting || c.duplicateNearMiss || c.duplicateOfSource || null;
+  var e = ev(twin);
+  switch(c._dupWhy || ''){
+    case 'resolved_before':
+      return L('Đúng email này đã được nhập hoặc bỏ qua trong lần kết nối trước — chắc chắn, vì trùng từng email. Nếu bạn đã xoá giao dịch đó khỏi sổ thì cứ nhập lại.',
+               'This exact email was imported or dismissed in a previous connection — certain, same message. If you have since deleted that transaction, just import it again.');
+    case 'exact_merchant':
+      return L('Đã có trong sổ: cùng số tiền, cùng ngày, cùng nơi chi (“' + (c._dupShared || '') + '”)', 'Already booked: same amount, same day, same merchant (“' + (c._dupShared || '') + '”)') + (e ? ': ' + e : '.');
+    case 'exact_minute':
+      return L('Đã có trong sổ: cùng số tiền, cùng ngày, cùng phút', 'Already booked: same amount, same day, same minute') + (e ? ': ' + e : '.');
+    case 'rounded_merchant': {
+      var d2 = twin && twin.amtD != null ? Math.round(Math.abs(twin.amtD - Number(c.amount))) : 0;
+      return L('Đã có trong sổ, ghi tay làm tròn: cùng nơi chi, cùng ngày, lệch ' + d2.toLocaleString('vi-VN') + 'đ', 'Already booked, hand-rounded: same merchant, same day, ' + d2.toLocaleString('en-US') + 'đ apart') + (e ? ': ' + e : '.');
+    }
+    case 'exact_day':
+      return L('Cùng số tiền, cùng ngày, nhưng nội dung khác nhau — bạn xem có phải một khoản không', 'Same amount, same day, different wording — is this the same purchase?') + (e ? ': ' + e : '.');
+    case 'card_posting':
+      return L('Cùng số tiền với một khoản email đã nhập vài ngày trước — có thể là thông báo thẻ của cùng một lần chi', 'Same amount as an email row imported a few days earlier — possibly the card-side notice of one purchase') + (e ? ': ' + e : '.');
+    case 'kind_conflict':
+      return L('Cùng nội dung, cùng số tiền, cùng ngày — nhưng lần trước được ghi ngược chiều (thu/chi). Bạn quyết định.', 'Same text, amount and day — but the earlier entry was filed the other way round (income vs spending). Your call.') + (e ? ': ' + e : '.');
+    case 'cross_source':
+      return L('Có một email khác cùng số tiền, từ nguồn khác, trong vòng 3 ngày. Có thể là một lần chi được báo hai lần', 'There is another email for the same amount, from a different source, within 3 days. This may be one purchase reported twice') + (e ? ': ' + e : '.');
+    case 'same_bank_pair':
+      return L('Cùng ngân hàng báo hai email cùng số tiền, khác mẫu — có thể là một lần chi', 'The same bank sent two emails for one amount, in two formats — possibly one purchase') + (e ? ': ' + e : '.');
+    case 'pipeline':
+      return L('Hệ thống thấy một email khác cùng số tiền, từ nguồn khác, trong vòng 3 ngày. Có thể là một lần chi được báo hai lần.',
+               'The pipeline saw another email for the same amount, from a different source, within 3 days. This may be one purchase reported twice.');
+    case 'in_batch':
+      return (window.csvStagedMode
+        ? L('Xuất hiện 2 lần với cùng nội dung, số tiền và thời gian', 'Appears twice with the same description, amount and time')
+        : L('Xuất hiện 2 lần trong file này với cùng nội dung và số tiền', 'Appears twice in this file with the same description and amount')) + (e ? ': ' + e : '.');
   }
-  if(c.duplicateNearMiss){
-    var t2 = c.duplicateNearMiss;
-    var d2 = Math.round(Math.abs(t2.amtD - Number(c.amount)));
-    var e2 = ev(t2);
-    return L('Gần trùng — cùng nơi chi, cùng ngày, lệch ' + d2.toLocaleString('vi-VN') + 'đ (có thể do làm tròn khi ghi tay)',
-             'Near match — same place, same day, ' + d2.toLocaleString('en-US') + 'đ apart (possibly a rounded manual entry)')
-      + (e2 ? ': ' + e2 : '.');
-  }
-  if(c.duplicateOfPipeline || c.duplicateOfSource)
-    return L('Có một email khác cùng số tiền, từ nguồn khác, trong vòng 3 ngày. Có thể là một lần chi được báo hai lần.',
-             'There is another email for the same amount, from a different source, within 3 days. This may be one purchase reported twice.');
-  if(c.duplicateOfBatch)
-    return window.csvStagedMode
-      ? L('Xuất hiện 2 lần với cùng nội dung và số tiền.','Appears twice with the same description and amount.')
-      : L('Xuất hiện 2 lần trong file này với cùng nội dung và số tiền.','Appears twice in this file with the same description and amount.');
+  if(c.duplicateResolvedBefore) return csvDupWhy(Object.assign({}, c, { _dupWhy: 'resolved_before' }));
+  if(c.duplicateOfExisting) return L('Trùng với một giao dịch đã có trong sổ (cùng số tiền, trong vòng 3 ngày)','Matches a transaction already in your ledger (same amount, within 3 days)') + (e ? ': ' + e : '.');
+  if(c.duplicateOfPipeline || c.duplicateOfSource) return csvDupWhy(Object.assign({}, c, { _dupWhy: 'cross_source' }));
+  if(c.duplicateOfBatch) return csvDupWhy(Object.assign({}, c, { _dupWhy: 'in_batch' }));
   return '';
 }
 
@@ -2205,6 +2230,36 @@ function csvSumTap(col){
   body.scrollTo({ top:Math.max(0,y), behavior:'smooth' });
 }
 
+/* A flagged staged row's card, in whichever section its tier sends it to.
+   Same collapsed/expanded cards and the same verbs as the dated list — tick
+   (import anyway), tap (open, with the evidence), ✕ (retire) — so a row never
+   changes behaviour by changing section. */
+function csvStagedDupCard(c, i, tier, pickOn, pickWk){
+  var o = { label: tier === 'sure' ? L('Đã có trong sổ','Already in your ledger') : L('Có thể trùng','Possible duplicate'),
+            dateIso: c.dateDisplay, timeStr: csvRowTime(c), attn: tier !== 'sure', repeat: true,
+            tapFn: "csvToggleExpand('ready',"+i+")", removeFn: "csvReadyRemove("+i+")",
+            checkFn: "csvStagedToggle("+i+")", checked: !c._skipImport,
+            armed: (csvArmedRemove === i), dim: pickOn && !csvPickMatch(c, pickWk) };
+  return csvIsOpen('ready', i)
+    ? csvActiveCard(c, Object.assign({}, o, { fields:true, ctaIdx:i, note: esc(csvDupWhy(c)) }))
+    : csvCollapsedCard(c, o);
+}
+/* Retire every "đã có trong sổ" row at once — one RPC, local-first (72's
+   fhStagedDropMany). They leave the list right away; the ledger already holds
+   each one, so nothing is lost and nothing is written. */
+function csvSureSkipAll(){
+  if(!csvReview || !csvStagedMode) return;
+  var rows = csvReview.ready.filter(function(c){ return csvDupTier(c) === 'sure'; });
+  if(!rows.length) return;
+  csvReview.ready = csvReview.ready.filter(function(c){ return csvDupTier(c) !== 'sure'; });
+  csvExpand = null; csvDisarmRemove();
+  renderCsvReview();
+  if(typeof csvTxrHeadSync === 'function') csvTxrHeadSync();
+  var done = function(n){ if(typeof toast === 'function') toast(L('Đã bỏ qua '+n+' khoản đã có trong sổ','Skipped '+n+' already-booked rows')); };
+  if(window.fhStagedDropMany) window.fhStagedDropMany(rows).then(done).catch(function(){ done(rows.length); });
+  else done(rows.length);
+}
+
 function renderCsvReview(){
   var out=document.getElementById('csv-result'); if(!out || !csvReview) return;
   var r = csvReview;
@@ -2287,6 +2342,8 @@ function renderCsvReview(){
      handledHtml is the middle ground: money in and duplicates, both decided
      for the user and both reversible, shown so neither disappears quietly. */
   var attnHtml = '', handledHtml = '';
+  var pickOnStaged = csvStagedMode && csvPickCount() > 0;
+  var pickWkStaged = pickOnStaged ? csvPickWeekMax() : 0;
   r.groups.forEach(function(g, gi){
     var head = g.items[0].description + (g.items.length>1 ? ' · '+g.items.length+' '+L('khoản','items') : '');
     var proxy = { description:g.items[0].description, amount:g.items.reduce(function(s,it){return s+it.amount;},0), categoryName:null, dateDisplay:g.items[0].dateDisplay, rowIndex:g.items[0] && g.items[0].rowIndex };
@@ -2298,7 +2355,8 @@ function renderCsvReview(){
   });
   r.dup.forEach(function(d, di){
     if(d.resolved!==null) return;
-    var o = { label:L('Có thể trùng','Possible duplicate'), dateIso:d.c.dateDisplay, attn:true, isDup:true,
+    var o = { label: csvDupTier(d.c) === 'sure' ? L('Đã có trong sổ','Already in your ledger') : L('Có thể trùng','Possible duplicate'),
+              dateIso:d.c.dateDisplay, attn:true, isDup:true,
               _handled:true,
               tapFn:"csvToggleExpand('dup',"+di+")", removeFn:"csvDupSkip("+di+")" };
     /* The tick is the ONE include verb, parked rows included: on a duplicate it
@@ -2372,6 +2430,18 @@ function renderCsvReview(){
   var decisionCount = r.groups.length + blockedCount;
   var inflowCount = r.deferred.filter(function(c){ return c.isIncome || c.isTransfer; }).length;
   var handledCount = unresolvedDup.length + (r.deferred.length - blockedCount - inflowCount);
+  /* Staged mode: the engine's verdicts (58-dedup-engine) shape the list. Rows
+     already in the ledger leave the dated list for their own section; rows the
+     app cannot decide join "Cần bạn xem". Both stay in r.ready (unticked) so
+     Chọn nhanh, Chỉnh sửa, the tick and the ✕ keep working on them. */
+  var sureRows = [], likelyRows = [];
+  if(csvStagedMode){
+    r.ready.forEach(function(c, i){
+      var tier = csvDupTier(c);
+      if(tier === 'sure') sureRows.push({ c:c, i:i }); else if(tier === 'likely') likelyRows.push({ c:c, i:i });
+    });
+    decisionCount += likelyRows.length;
+  }
 
   // Lead with the win, not the workload.
   // In staged mode this is what will ACTUALLY be written, so the top summary, the
@@ -2398,8 +2468,21 @@ function renderCsvReview(){
   // naturally leaves the viewport, like the personal tab's own card.
   html += csvSumHTML();
 
+  if(csvStagedMode){
+    likelyRows.forEach(function(e){ attnHtml += csvStagedDupCard(e.c, e.i, 'likely', pickOnStaged, pickWkStaged); });
+  }
   if(attnHtml){
     html += '<div class="group-h attn">'+L('Cần bạn xem','Needs a look')+'</div><div class="csv-cards">'+attnHtml+'</div>';
+  }
+  /* Already booked: a fact, shown with its evidence, out of the way. Unticked,
+     so nothing double-imports; the tick is "nhập vẫn", ✕ retires one, and the
+     header's button retires them all at once. */
+  if(csvStagedMode && sureRows.length){
+    var sureHtml = '';
+    sureRows.forEach(function(e){ sureHtml += csvStagedDupCard(e.c, e.i, 'sure', pickOnStaged, pickWkStaged); });
+    html += '<div class="group-h csv-sure-h"><span>'+L('Đã có trong sổ','Already in your ledger')+' · '+sureRows.length+'</span>'
+          + '<button type="button" class="csv-linkbtn" onclick="csvSureSkipAll()">'+esc(L('Bỏ qua cả '+sureRows.length,'Skip all '+sureRows.length))+'</button></div>'
+          + '<div class="csv-cards">'+sureHtml+'</div>';
   }
   /* Decided, not asked: money in and duplicates stay out of the import, and
      each card still offers the way back in. */
@@ -2481,6 +2564,7 @@ function renderCsvReview(){
        only sat between the toolbox and the list (removed 2026-09-16). */
     var dateBuckets = {};
     r.ready.forEach(function(c, i){
+      if(csvStagedMode && csvDupTier(c)) return;         // rendered in their own sections above
       var k = c.dateDisplay || ''; (dateBuckets[k] = dateBuckets[k] || []).push({ c:c, i:i });
     });
     var keys = Object.keys(dateBuckets).sort().reverse();
@@ -2903,6 +2987,8 @@ function csvPickMatch(c, weekMax){
   }
   if(csvPickF.dup === 'no' && csvIsFlaggedDup(c)) return false;
   if(csvPickF.dup === 'yes' && !csvIsFlaggedDup(c)) return false;
+  if(csvPickF.dup === 'sure' && csvDupTier(c) !== 'sure') return false;
+  if(csvPickF.dup === 'likely' && csvDupTier(c) !== 'likely') return false;
   if(csvPickF.nocat && c.categoryName) return false;
   if(csvPickF.week && !(c.date && (weekMax - +c.date) < 7 * 864e5)) return false;
   return true;
@@ -2979,6 +3065,8 @@ function csvPickSheetHTML(){
   var ready = (csvReview && csvReview.ready) || [];
   var g = csvTxrGroups(), ps = Object.keys(g).sort();
   var dupN = ready.filter(csvIsFlaggedDup).length;
+  var sureN = ready.filter(function(c){ return csvDupTier(c) === 'sure'; }).length;
+  var likelyN = ready.filter(function(c){ return csvDupTier(c) === 'likely'; }).length;
   var nocatN = ready.filter(function(c){ return !c.categoryName; }).length;
   var wk = csvPickWeekMax();
   var weekN = ready.filter(function(c){ return c.date && (wk - +c.date) < 7 * 864e5; }).length;
@@ -2995,7 +3083,8 @@ function csvPickSheetHTML(){
   if(dupN){
     h += '<div class="ctp-g"><div class="ctp-l">'+esc(L('Trùng lặp','Duplicates'))+'</div><div class="ctp-r">'
       + csvPickChip(csvPickF.dup === 'no', L('Không trùng','Not duplicates'), ready.length - dupN, "csvPickDupTgl('no')")
-      + csvPickChip(csvPickF.dup === 'yes', L('Có thể trùng','Possible duplicates'), dupN, "csvPickDupTgl('yes')")
+      + (sureN ? csvPickChip(csvPickF.dup === 'sure', L('Đã có trong sổ','Already booked'), sureN, "csvPickDupTgl('sure')") : '')
+      + (likelyN ? csvPickChip(csvPickF.dup === 'likely', L('Có thể trùng','Possible duplicates'), likelyN, "csvPickDupTgl('likely')") : '')
       + '</div></div>';
   }
   if(nocatN || weekN){

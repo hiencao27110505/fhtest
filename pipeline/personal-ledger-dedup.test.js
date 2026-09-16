@@ -21,21 +21,24 @@ const path = require('path');
 let pass = 0, fail = 0;
 const t = (n, ok, d) => { console.log((ok ? '  PASS  ' : '  FAIL  ') + n + (!ok && d ? '  -> ' + d : '')); ok ? pass++ : fail++; };
 
-const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'js-ui', '57-csv-import-review.js'), 'utf8');
+// The ledger index and the matcher moved into the engine (58-dedup-engine.js,
+// 2026-09-16); the same guarantees are pinned there.
+const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'js-ui', '58-dedup-engine.js'), 'utf8');
 
 console.log('\n-- the matcher is given both books --');
 t('the personal cache is consulted (as the fallback)', /window\.fhPersonalData/.test(src));
 t('the 365-day match slice is preferred over the short cache', /window\._fhPersonalMatchSlice/.test(src));
-t('the family ledger is still consulted', /window\.txns \|\| \[\]/.test(src));
+t('the family ledger is still consulted', /window\.txns\) \|\| \[\]/.test(src));
 t('every entry is normalised to đồng before matching (the units bug, 2026-09-03)',
   /amtD: Number\(t\.amt\) \* mult/.test(src));
 t('the comparison runs on the normalised amount, never the raw one',
-  /Math\.abs\(t\.amtD - c\.amount\) < 1/.test(src));
+  /var diff = Math\.abs\(t\.amtD - amount\)/.test(src) && /exact = diff < 1/.test(src));
 t('rows with no date or no amount are dropped rather than guessed at',
-  /if \(t\.amt == null \|\| !t\.date\) return;/.test(src));
+  /if\(t\.amt == null \|\| !t\.date\) return;/.test(src) && /if\(!t\._d \|\| t\.amt == null \|\| t\.future\) return;/.test(src));
 t('income candidates hunt income rows, expenses hunt expenses',
-  /wantKind = c\.isIncome \? 'income' : 'expense'/.test(src)
-  && /t\.kind !== wantKind/.test(src));
+  /want = c\.isIncome \? 'income' : 'expense'/.test(src)
+  && /if\(t\.kind === want\)/.test(src));
+t('a mirror of a family row is never a second twin', /if\(t\.link \|\| t\.linkId\) return;/.test(src));
 
 /* Behavioural model of the shipped rule: ledger rows arrive in base units
    (đồng ÷ 1000 for VND) from BOTH books, candidates carry raw đồng — the

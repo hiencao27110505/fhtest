@@ -143,6 +143,17 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-09-16 (Hien's session) — DONE, committed: dedup engine (Phase 1 of
+  `docs/specs/dedup-flaws-review.md`). Client only, no migration, no Edge deploy.** New
+  `src/js-ui/58-dedup-engine.js`; `bucketCsvCandidates` (57) now calls it and lost
+  `csvStagedCrossSourceDup` / `csvNearMissDup`; 56 renders two verdicts (Đã có trong sổ /
+  Có thể trùng) with a skip-all section; 76 quick review gated; 19's match slice fetches
+  every kind + `link_id` + time. SW **v534**. Tests: `tools/dedup-engine.test.js` (38) and
+  the four bucketing suites green; `pipeline/direct-persist-contract.test.js` fails on this
+  machine only because `earthy/serverless/.venv` is absent (pre-existing). Phase 2 (0139+:
+  FK set-null, `sender_kind`, `ref_fp`, owner scoping, tombstone root cause) not started —
+  say so here before claiming 0139.
+
 - **2026-09-15 (Trang's session) — `0137_staging_key_per_reader` + `0138_mailbox_many_readers`
   APPLIED live and verified; `mailbox-sync` v46 was ours. Next free migration is `0139`.**
   Lets one Gmail have more than one reader (kaoheen@: same person, second login). `0137` fills

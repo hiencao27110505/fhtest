@@ -20,6 +20,16 @@ Going forward, add an entry here when a feature area changes meaningfully — se
 
 ## 2026-09-16
 
+### Duplicate detection: one engine, two verdicts (not yet deployed)
+
+- New `src/js-ui/58-dedup-engine.js`: `fhDedupAssess(candidates, index)` returns, per row, a verdict it can show evidence for or nothing. **sure** ("đã có trong sổ"): same amount, same calendar day, and a shared merchant word or the same minute; or a rounded hand-log (<1.000đ) with the merchant word. **likely** ("có thể trùng"): same amount, same day, no text agreement, on the person's own row; a card posting ≤3.5 days after an email row; a kind conflict on an identical long text; two shapes of one purchase in the queue; a pipeline flag the screen cannot overrule. Everything else: no chip, row stays ticked. Two passes over an amount-bucketed ledger index; ledger rows are claimed one-to-one; the ledger beats the queue.
+- `fhDedupLedgerIndex()` replaces the inline index in `bucketCsvCandidates`: planned rows excluded, another member's row cannot confirm on amount and day alone, family mirrors in the personal book dropped (the slice now carries `link_id`, every kind, and the time).
+- `bucketCsvCandidates` (57) keeps only the fact tiers (richest-copy merge, `resolved_before`, in-batch — now reference-keyed when a staged row has no time) and hands the rest to the engine. `csvStagedCrossSourceDup`, `csvNearMissDup` removed.
+- Review screen (56): sure rows leave the dated list for an "Đã có trong sổ · N" section with a "Bỏ qua cả N" button (one RPC via `fhStagedDropMany`); likely rows join "Cần bạn xem"; both stay in `ready` unticked so Chọn nhanh, Chỉnh sửa, the tick and the ✕ keep working. Chọn nhanh's duplicate chips are now Không trùng / Đã có trong sổ / Có thể trùng. `csvDupWhy` names the twin (book, who logged it, when, the shared word).
+- Quick review (76) runs the engine before offering a row; any verdict sends the row to the full queue.
+- Measured on a real 105-row queue: 70 sure (70 correct), 9 likely (8 correct), 0 false chips, 0 misses; the previous logic showed one identical chip on 86 rows, 10 of them wrong.
+- Tests: `tools/dedup-engine.test.js` (36); `dup-advisory`, `review-bucketing`, `staged-bulk-select`, `personal-ledger-dedup` follow the engine. Analysis: `docs/specs/dedup-flaws-review.md`.
+
 ### Transaction review: six rough edges on the bulk queue
 
 - The "Đã đối chiếu N thẻ với sổ chi tiêu" line and its duplicate filter are gone (`csvDupStrip`, `csvDupFilter`). "Chọn nhanh" already counts and picks the suspects.

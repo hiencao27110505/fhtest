@@ -559,6 +559,20 @@ personal rows always leave it null.
 
 ### F. Duplicate detection
 
+> **2026-09-16 — duplicate detection moved to one engine.** The layers described
+> below (in-batch, against-the-ledger, near-miss, cross-source, pipeline flag) are now
+> one pass in `src/js-ui/58-dedup-engine.js` returning two user-facing verdicts:
+> **Đã có trong sổ** (sure: same amount, same day, and a shared merchant word or the
+> same minute; or a rounded hand-log with the merchant word) and **Có thể trùng**
+> (likely: same amount and day with no text agreement on the person's own row, a card
+> posting within 3.5 days of an email row, a kind conflict, two shapes of one purchase in
+> the queue, an unoverruled pipeline flag). Amount-only matches and another member's
+> same-amount row no longer flag. Sure rows sit in their own section with "Bỏ qua cả N";
+> likely rows join "Cần bạn xem"; both stay unticked in the list so Chọn nhanh and
+> Chỉnh sửa keep working. Rationale, measurements and the remaining phases:
+> `dedup-flaws-review.md`.
+
+
 **The ledger is the sole anchor of truth** (decided 2026-09-03): email-reading
 history informs, but what decides whether a card is suspect is comparison
 against what is actually in the books. The pipeline computes `duplicate_of_id`,

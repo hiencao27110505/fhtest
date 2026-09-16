@@ -1318,6 +1318,8 @@ The result sets `duplicate_of_id`. **Nothing is deleted** (§7).
 
 ### 18.3 The client's second opinion
 
+> Superseded 2026-09-16 by the engine (`58-dedup-engine.js`); see Part 3 and `dedup-flaws-review.md`. The paragraphs below describe the pre-engine layering.
+
 The review screen re-runs the rule (`csvStagedCrossSourceDup`) with strictly
 more evidence: the decrypted amount, the unsealed provider,
 `transaction_type` — which the pipeline cannot read on sealed rows — and the
@@ -1368,6 +1370,8 @@ sequence.)
   spending — which routes credits into the money-in holdback below.
 
 ### 19.2 The bucket decision, in order
+
+> Steps 3 and 4 below are the pre-engine layering; since 2026-09-16 the duplicate verdict comes from `58-dedup-engine.js` (two tiers, evidence attached). See Part 3.
 
 1. **Richest-copy merge (staged rows only, before anything else).** One
    payment can reach the queue twice — both transports live, a bank that
@@ -1888,6 +1892,32 @@ as — or the same day as — the deploy. A deploy announced only in
 `AGENT_SYNC.md` is coordination; this is the record.
 
 ## 28. Releases (newest first)
+
+### 2026-09-16 — client only (review, quick review) — duplicates become two verdicts with evidence (pending deploy)
+
+- **For product:** the review queue stops wearing one "lặp lại" chip on every
+  suspicion. A row the app can prove is already booked says **"Đã có trong sổ"**,
+  shows the booked row (which book, who logged it, when), sits in its own section
+  and can be skipped all at once. A row the app cannot decide says **"Có thể
+  trùng"** in "Cần bạn xem" with the candidate twin. Everything else shows no
+  chip and stays ticked. On a real 105-row queue: 86 identical chips (10 wrong)
+  became 70 sure (0 wrong) and 9 asks (1 wrong), nothing missed. Quick review now runs the same
+  check before offering a row.
+- **Under the hood:** new `src/js-ui/58-dedup-engine.js` (`fhDedupAssess`,
+  `fhDedupLedgerIndex`; amount-bucketed index, one-to-one claiming, ledger beats
+  queue, currency synonyms folded, bank-named counterparty = posting notice);
+  `bucketCsvCandidates` keeps merge / `resolved_before` / in-batch (reference-keyed
+  without a time) and calls the engine; `csvStagedCrossSourceDup`, `csvNearMissDup`
+  removed; the personal match slice carries `link_id` (mirrors dropped), every kind
+  and the time; quick review gated; Chọn nhanh chips Không trùng / Đã có trong sổ /
+  Có thể trùng. SW v534. No pipeline or schema change.
+- **Spec sections updated:** §18.3, §19.2 now point to `dedup-flaws-review.md`
+  Part E and `transaction-review-spec.md`'s dated note; the layer order in those
+  sections is historical.
+- **Watch for:** the 45 already-imported purchases that returned badge-less (no
+  tombstone under the owner) are caught as *sure* by evidence, not by message id;
+  Phase 2 finds why they were not tombstoned. The refund-as-expense case is a
+  *likely* (kind conflict), not a sure.
 
 ### 2026-09-15 — mailbox-sync + migrations 0137, 0138 (not deployed) — a mailbox may have more than one reader
 

@@ -69,6 +69,7 @@ function csvFxUnresolved(c){ return !!(c && c._fx); }
 function csvFxInfo(){ return null; }
 // duplicate suspicion is a per-row flag in the fixture
 function csvIsFlaggedDup(c){ return !!(c && c._dupFlag); }
+function csvDupTier(c){ return (c && c._dupFlag) ? 'likely' : ''; }   // the engine's tier, stubbed like the flag
 var csvRowSheet = null;
 global.window = {
   catStyle: { 'Ăn uống': ['🍜'], 'Đi lại': ['🚌'] },

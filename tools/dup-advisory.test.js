@@ -40,9 +40,8 @@ const NOISE = src.match(/var CSV_PROVIDER_NOISE = \[[\s\S]*?\];/);
 if (!NOISE) { console.error('CSV_PROVIDER_NOISE not found'); process.exit(1); }
 eval(NOISE[0]);
 eval(grab('csvCanonicalProvider'));
-eval(grab('csvStagedCrossSourceDup'));
-eval(grab('_csvNameKey'));
-eval(grab('csvNearMissDup'));
+// The cross-source / near-miss rules live in the engine now (58); load it whole.
+eval(fs.readFileSync(path.join(__dirname, '..', 'src', 'js-ui', '58-dedup-engine.js'), 'utf8'));
 
 var window = { txns: [], csvStagedMode: false };
 eval(grab('bucketCsvCandidates'));
@@ -63,42 +62,10 @@ t('different banks stay different', csvCanonicalProvider('Vietcombank') !== mb);
 t('accents fold', csvCanonicalProvider('Kỹ Thương') === csvCanonicalProvider('Ky Thuong'));
 t('empty is empty, never a match key', csvCanonicalProvider('') === '' && csvCanonicalProvider(null) === '');
 
-/* ------------------------------------------------------------ 2. the rule */
-console.log('\n-- cross-source rule in isolation --');
-const cand = (amount, day) => ({ amount: amount, date: new Date(day), dateDisplay: day });
-const prior = (amount, day, provider, cur, kind) => ({ c: cand(amount, day), provider: csvCanonicalProvider(provider), currency: (cur||'VND'), kind: (kind||'other') });
-
-t('same bank twice is NOT a duplicate',
-  csvStagedCrossSourceDup(cand(2000, '2026-08-16'), 'MB Bank', 'VND', 'other', [prior(2000, '2026-08-16', 'MBBank')]) === null);
-t('different source, same amount, same day IS flagged',
-  csvStagedCrossSourceDup(cand(2000, '2026-08-16'), 'MB Bank', 'VND', 'other', [prior(2000, '2026-08-16', 'Grab')]) !== null);
-t('within 3 days still flagged',
-  csvStagedCrossSourceDup(cand(2000, '2026-08-19'), 'MB Bank', 'VND', 'other', [prior(2000, '2026-08-16', 'Grab')]) !== null);
-t('4 days apart is not',
-  csvStagedCrossSourceDup(cand(2000, '2026-08-20'), 'MB Bank', 'VND', 'other', [prior(2000, '2026-08-16', 'Grab')]) === null);
-t('different amount is not',
-  csvStagedCrossSourceDup(cand(3000, '2026-08-16'), 'MB Bank', 'VND', 'other', [prior(2000, '2026-08-16', 'Grab')]) === null);
-t('unknown provider on MY side refuses to guess',
-  csvStagedCrossSourceDup(cand(2000, '2026-08-16'), '', 'VND', 'other', [prior(2000, '2026-08-16', 'Grab')]) === null);
-t('unknown provider on THEIR side refuses to guess',
-  csvStagedCrossSourceDup(cand(2000, '2026-08-16'), 'MB Bank', 'VND', 'other', [prior(2000, '2026-08-16', '')]) === null);
-t('no date refuses to guess',
-  csvStagedCrossSourceDup({ amount: 2000, date: null }, 'MB Bank', 'VND', 'other', [prior(2000, '2026-08-16', 'Grab')]) === null);
-t('200 USD is not 200 VND',
-  csvStagedCrossSourceDup(cand(200, '2026-08-16'), 'Anthropic', 'USD', 'other', [prior(200, '2026-08-16', 'MB Bank', 'VND')]) === null);
-t('but 200 USD twice, from two sources, still matches',
-  csvStagedCrossSourceDup(cand(200, '2026-08-16'), 'Anthropic', 'USD', 'other', [prior(200, '2026-08-16', 'MB Bank', 'USD')]) !== null);
-
-console.log('\n-- two banks are two accounts, never one event (Trang, 2026-08-23) --');
-t('Vietcombank vs MB, same amount, same day -> NOT a duplicate',
-  csvStagedCrossSourceDup(cand(2000, '2026-08-16'), 'Vietcombank', 'VND', 'bank',
-    [prior(2000, '2026-08-16', 'MBBank', 'VND', 'bank')]) === null);
-t('a bank and a merchant for one swipe still IS a duplicate',
-  csvStagedCrossSourceDup(cand(2000, '2026-08-16'), 'Grab', 'VND', 'other',
-    [prior(2000, '2026-08-16', 'MBBank', 'VND', 'bank')]) !== null);
-t('unknown kind on one side leaves the match standing',
-  csvStagedCrossSourceDup(cand(2000, '2026-08-16'), 'Vietcombank', 'VND', 'bank',
-    [prior(2000, '2026-08-16', 'MBBank', 'VND', '')]) !== null);
+/* ----------------------------------------------------- 2. the rule itself */
+/* Moved: the cross-source rule is the engine's (58-dedup-engine.js), pinned
+   case by case in tools/dedup-engine.test.js. Section 3 keeps its shape in the
+   screen. */
 
 /* --------------------------------------------------------- 3. in the screen */
 const row = (desc, amount, day, i) => ({

@@ -30,11 +30,13 @@ const fx = (name) => {
   if (j < 0) { console.error(name + ' not found — renamed?'); process.exit(1); }
   return src.slice(j, src.indexOf('\n}', j) + 2);
 };
-eval(fx('_csvNameKey'));
-eval(fx('csvNearMissDup'));
+// The ledger / near-miss / cross-source tiers live in the engine now (58);
+// load it whole — plain globals, same scope the app gives them.
+eval(fs.readFileSync(path.join(__dirname, '..', 'src', 'js-ui', '58-dedup-engine.js'), 'utf8'));
 const i = src.indexOf('function bucketCsvCandidates');
 if (i < 0) { console.error('bucketCsvCandidates not found — renamed?'); process.exit(1); }
 var window = { txns: [] };
+var curMult;
 eval(src.slice(i, src.indexOf('\n}', src.indexOf('return { ready: ready', i)) + 2));
 
 let pass = 0, fail = 0;
