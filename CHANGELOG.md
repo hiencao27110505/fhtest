@@ -30,6 +30,25 @@ Going forward, add an entry here when a feature area changes meaningfully — se
 - "Chi cho gì?" starts at one line and grows to two (`csvNoteFit`), and flushes on blur like the amount.
 - SW v532.
 
+### Sổ cá nhân: the spending chart gets a header instead of a floating label
+
+The zoom row (Buổi · Ngày · Tuần · Tháng) sat between the Vào/Ra tiles and the bars,
+belonging to neither, and a tapped bar raised a card that overlapped the bar labels and was
+clipped by the strip's top edge. Both were the same gap: the chart had no header. Direction
+picked from `mockups/personal-chart-options.html` (option 2).
+
+- `persChartHTML` (21-personal) now owns title, readout and period control, and hands the
+  series it already computed to `persStripHTML(bars)` — one `persSeries` walk per render
+  instead of two.
+- The readout (`.pch-s`) speaks for the tapped bar, else the live slot, else the last one
+  that happened; a tapped bar keeps its own figure via `.pst-val.pin` and `fhStripSync`
+  honours it. `.pst-pin` markup is gone from the strip (the CSS stays: 60-transactions uses it).
+- The period is a menu button opening `sheet-pzoom`, whose rows name their own comparison
+  (`persCmpName`); a legend under the strip says the same for the grey bars. `.pz` stays for
+  the transaction review's summary strip.
+- Bars stand on a baseline (`.pst::after`), which the review summary inherits too.
+- Masking covers the new readout. SW v533. Guard: `tools/period-compare.test.js`.
+
 ## 2026-09-15
 
 ### A mailbox may have more than one reader (0137, 0138)

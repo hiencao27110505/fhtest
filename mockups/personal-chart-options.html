@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sổ cá nhân · biểu đồ + bộ chuyển kỳ — 8 hướng</title>
+<style>
+/* ── tokens: verbatim from src/css/10-tokens.css (Sage) ───────────────────── */
+:root{
+  --sage-50:#ebfbf6; --sage-100:#d6f5eb; --sage-200:#afe9d8; --sage-300:#7ad5bd; --sage-400:#4abba1; --sage-500:#149d83; --sage-600:#007c65;
+  --sage-wash:rgba(20,157,131,0.18);
+  --stone-25:#fafcfc; --stone-50:#f6f9f8; --stone-100:#f0f5f3; --stone-150:#ecf1f0; --stone-200:#e3eae7; --stone-300:#c3cdca; --stone-400:#7f8986; --stone-500:#6f7674; --stone-600:#626b68; --stone-800:#2e3835; --stone-900:#0e1613;
+  --red-tint:#ffeaeb; --red-light:#ff939c; --red-base:#d63053; --red-ink:#a41b3b;
+  --amber-tint:#fdefe0; --amber-base:#be7200; --amber-ink:#915200;
+  --guide-ok-mut:#107460;
+  --brand:var(--sage-500); --brand-ink:var(--sage-600); --brand-2:var(--sage-300); --brand-tint:var(--sage-50);
+  --grad-brand:linear-gradient(135deg,var(--sage-500),var(--sage-400)); --brand-glow:rgba(20,157,131,.32);
+  --danger:var(--red-ink); --danger-base:var(--red-base); --danger-tint:var(--red-tint);
+  --amber:var(--amber-ink); --good:var(--sage-600); --good-tint:var(--sage-50);
+  --ink:var(--stone-900); --ink-2:var(--stone-800); --muted:var(--stone-600); --muted-soft:var(--stone-500);
+  --white:#fff; --canvas:var(--stone-100); --pearl:var(--stone-25); --hairline:var(--stone-200); --divider:var(--stone-150);
+  --surface:var(--stone-50); --fill-neutral:rgba(127,137,134,.14); --chev:var(--stone-300);
+  --shadow-card:0 1px 3px rgba(14,22,19,.05),0 8px 24px rgba(14,22,19,.04);
+  --shadow-focal:0 1px 3px rgba(14,22,19,.05),0 12px 30px rgba(14,22,19,.09);
+  --guide-ok:var(--sage-500); --guide-ok-bg:var(--sage-50); --guide-ok-trk:var(--sage-wash);
+  --r-card-lg:22px;
+  --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --ease:cubic-bezier(.32,.72,0,1);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:var(--text);background:#e6ebe9;color:var(--ink);padding:34px 22px 90px;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;font-size:inherit;color:inherit;border:0;background:none;cursor:pointer;text-align:left}
+svg{display:block}
+.num{font-family:var(--disp);font-variant-numeric:tabular-nums}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ── page chrome ── */
+.page-h{max-width:1720px;margin:0 auto}
+.page-h h1{font-family:var(--disp);font-size:26px;font-weight:800;letter-spacing:-.6px}
+.page-h p{font-size:14px;color:var(--muted);margin-top:8px;max-width:940px;line-height:1.6}
+.cols2{max-width:1720px;margin:20px auto 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:12px 26px}
+.bad,.law{font-size:13px;line-height:1.55;color:var(--ink-2);background:var(--white);border-radius:14px;padding:13px 16px;box-shadow:var(--shadow-card)}
+.bad b,.law b{display:block;font-family:var(--disp);font-size:13.5px;font-weight:800;margin-bottom:6px;letter-spacing:-.2px}
+.bad ul,.law ul{margin:0;padding-left:16px}
+.bad li,.law li{margin:3px 0}
+.bad b{color:var(--danger)}
+.law b{color:var(--brand-ink)}
+
+.grid{max-width:1720px;margin:40px auto 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(400px,1fr));gap:40px 30px}
+.opt{display:flex;flex-direction:column}
+.ohead{margin:0 4px 14px}
+.ohead .n{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:99px;background:var(--ink);color:#fff;font-family:var(--disp);font-size:12px;font-weight:800;margin-right:8px;vertical-align:2px}
+.ohead b{font-family:var(--disp);font-size:16.5px;font-weight:800;letter-spacing:-.3px}
+.ohead p{font-size:13px;color:var(--muted);line-height:1.55;margin-top:7px}
+.ohead p .fix{color:var(--brand-ink);font-weight:700}
+.ohead p .cost{color:var(--amber);font-weight:700}
+
+/* ── phone ── */
+.phone{width:100%;max-width:392px;margin:0 auto;background:var(--canvas);border-radius:42px;border:9px solid #0b1512;box-shadow:0 24px 50px rgba(10,20,17,.24);overflow:hidden;padding:14px 0 18px}
+.tt{display:flex;align-items:baseline;justify-content:space-between;padding:6px 20px 12px}
+.tt h2{font-family:var(--disp);font-size:27px;font-weight:800;letter-spacing:-.8px}
+.tt .av{width:34px;height:34px;border-radius:99px;background:var(--id-1,#0b67a9);color:#fff;font-family:var(--disp);font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center}
+
+/* ── the card, as it ships (40-spending-tabs.css) ── */
+.card{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-focal);padding:16px 16px 14px;margin:2px 16px 12px;overflow:hidden}
+.lblrow{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.lbl{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.eye{width:15px;height:15px;color:var(--muted-soft);display:inline-block;vertical-align:-3px;margin-left:5px}
+.mp{display:inline-flex;align-items:center;gap:4px;padding:2px 0 2px 8px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--brand-ink)}
+.mp svg{width:12px;height:12px}
+.big{font-family:var(--disp);font-size:34px;font-weight:700;letter-spacing:-1.2px;line-height:1.04;font-variant-numeric:tabular-nums;margin-top:4px}
+.big.neg{color:var(--danger)}
+.tiles{display:flex;gap:8px;margin-top:13px}
+.tile{flex:1;display:flex;flex-direction:column;align-items:flex-start;gap:3px;background:var(--surface);border-radius:12px;padding:10px 12px}
+.tl{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--muted)}
+.ar{font-weight:700} .ar.up{color:var(--good)} .ar.dn{color:var(--ink-2)}
+.tv{font-family:var(--disp);font-size:16px;font-weight:700;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.guide{--g-main:var(--guide-ok);--g-mut:var(--guide-ok-mut);--g-bg:var(--guide-ok-bg);--g-trk:var(--guide-ok-trk);
+  display:grid;grid-template-columns:1fr auto;align-items:center;gap:0 12px;width:100%;border-radius:14px;padding:14px;margin-top:15px;background:var(--g-bg)}
+.dg-lbl{grid-column:1;grid-row:1;font-size:12px;font-weight:600;letter-spacing:-.01em;color:var(--g-mut)}
+.dg-amt{grid-column:1;grid-row:2;font-family:var(--disp);font-size:24px;font-weight:700;letter-spacing:-.03em;line-height:1;margin-top:5px;font-variant-numeric:tabular-nums;color:var(--g-main)}
+.dg-vis{grid-column:2;grid-row:1 / span 2;width:46px;height:46px;color:var(--g-main)}
+.dg-vis circle.trk{fill:var(--g-trk)}
+.cta{margin:15px -16px -14px;border-top:1px solid var(--divider)}
+.crow{display:flex;align-items:center;gap:11px;width:100%;padding:13px 16px;border-bottom:1px solid var(--divider);font-size:13.5px;font-weight:600}
+.crow:last-child{border-bottom:0}
+.cic{width:30px;height:30px;border-radius:9px;background:var(--brand-tint);color:var(--brand-ink);display:flex;align-items:center;justify-content:center}
+.cic svg{width:17px;height:17px}
+.crow .t{flex:1}
+.chev{width:16px;height:16px;color:var(--chev)}
+
+/* ── shipped-today reference (the screenshot) ── */
+.pz{display:inline-flex;background:var(--fill-neutral);border-radius:10px;padding:2px;margin-top:14px}
+.pz button{font-size:11.5px;font-weight:700;color:var(--muted);padding:5px 13px;border-radius:8px}
+.pz button.on{background:var(--white);color:var(--ink);box-shadow:0 1px 3px rgba(14,22,19,.12)}
+.pst{display:flex;align-items:flex-end;gap:7px;padding:20px 2px 2px;margin-top:4px;position:relative}
+.pst-c{flex:0 0 auto;width:40px;display:flex;flex-direction:column;align-items:center;gap:5px}
+.pst-bars{position:relative;height:72px;width:100%}
+.pst-b{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:min(26px,62%);border-radius:7px 7px 0 0;background:var(--good)}
+.pst-b.over{background:var(--red-base)}
+.pst-p{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:min(26px,62%);border-radius:7px 7px 0 0;background:var(--fill-neutral)}
+.pst-l{font-size:9px;font-weight:600;color:var(--muted-soft)}
+.pst-l.on{color:var(--ink);font-weight:700}
+.pst-pin{position:absolute;left:50%;transform:translateX(-50%);font-size:10px;font-weight:800;color:var(--ink);background:var(--white);border:1px solid var(--divider);border-radius:12px;padding:3px 9px;white-space:nowrap;box-shadow:0 2px 8px rgba(14,22,19,.12);z-index:2;text-align:center}
+.pst-val{position:absolute;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;white-space:nowrap}
+
+/* ══ shared parts of the 8 proposals ══════════════════════════════════════ */
+/* segmented control — full width, 44px row, one selected pill */
+.seg{display:flex;gap:2px;background:var(--fill-neutral);border-radius:11px;padding:3px}
+.seg button{flex:1;min-height:34px;display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:650;color:var(--muted);border-radius:9px;letter-spacing:-.01em}
+.seg button.on{background:var(--white);color:var(--ink);font-weight:750;box-shadow:0 1px 3px rgba(14,22,19,.12)}
+/* underline tabs */
+.tabs{display:flex;gap:18px;border-bottom:1px solid var(--divider)}
+.tabs button{padding:8px 0 9px;font-size:13px;font-weight:650;color:var(--muted);position:relative}
+.tabs button.on{color:var(--ink);font-weight:750}
+.tabs button.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;border-radius:2px;background:var(--brand)}
+/* period menu button (opens a sheet) */
+.menu{display:inline-flex;align-items:center;gap:4px;min-height:30px;padding:0 4px 0 10px;border-radius:9999px;background:var(--surface);font-size:12.5px;font-weight:700;color:var(--ink-2)}
+.menu svg{width:13px;height:13px;color:var(--muted-soft)}
+/* section title row above a chart */
+.secrow{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:16px}
+.secrow .st{font-family:var(--disp);font-size:15px;font-weight:750;letter-spacing:-.25px}
+.secrow .sub{font-size:11px;font-weight:600;color:var(--muted-soft);margin-top:2px}
+/* the fixed readout: what a floating tooltip used to say, in a slot that always exists */
+.ro{display:flex;align-items:baseline;gap:9px;min-height:26px;margin-top:12px;white-space:nowrap}
+.ro .d{font-size:11.5px;font-weight:700;color:var(--muted);letter-spacing:-.01em;flex:none}
+.ro .v{font-family:var(--disp);font-size:19px;font-weight:750;letter-spacing:-.5px;font-variant-numeric:tabular-nums;flex:none}
+.ro .cmp{font-size:11.5px;font-weight:700;margin-left:auto;border-radius:9999px;padding:3px 9px;flex:none}
+.ro .cmp.down{color:var(--brand-ink);background:var(--brand-tint)} .ro .cmp.up{color:var(--danger);background:var(--danger-tint)}
+/* legend */
+.leg{display:flex;align-items:center;gap:12px;margin-top:9px;font-size:10.5px;font-weight:600;color:var(--muted-soft)}
+.leg i{display:inline-block;width:9px;height:9px;border-radius:3px;background:var(--fill-neutral);margin-right:5px;vertical-align:-1px}
+.leg i.now{background:var(--good)} .leg i.over{background:var(--red-base)}
+.leg .rule{display:inline-block;width:12px;height:0;border-top:2px dashed var(--stone-300);margin-right:5px;vertical-align:3px}
+
+/* ══ chart engine (one component, variant modifiers) ═════════════════════ */
+.ch{display:flex;align-items:flex-end;gap:6px;margin-top:10px;padding-top:22px;position:relative}
+.ch .c{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:6px;position:relative;z-index:1}
+.ch .bars{position:relative;width:100%;height:84px}
+.ch .b{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:26px;border-radius:8px 8px 0 0;background:var(--good);transition:height .3s var(--ease)}
+.ch .b.over{background:var(--red-base)}
+.ch .p{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:26px;border-radius:8px 8px 0 0;background:var(--fill-neutral)}
+.ch .lb{font-size:10px;font-weight:600;line-height:13px;height:13px;color:var(--muted-soft);letter-spacing:-.01em}
+.ch .c.today .lb{color:var(--ink);font-weight:750}
+.ch .c.fut .b,.ch .c.fut .p{opacity:.55}
+.ch .val{position:absolute;left:50%;transform:translateX(-50%);font-size:10px;font-weight:750;color:var(--ink);white-space:nowrap;font-variant-numeric:tabular-nums;background:var(--white);border-radius:4px;padding:0 3px}
+/* baseline: bars stand on a rule instead of floating */
+.ch.base::after{content:"";position:absolute;left:0;right:0;bottom:19px;height:1px;background:var(--divider)}
+/* selected column */
+.ch .c.sel .lb{color:var(--brand-ink);font-weight:800}
+.ch .c.sel .b{box-shadow:0 0 0 3px var(--brand-tint)}
+/* framed plot */
+.plot{background:var(--surface);border-radius:16px;padding:14px 10px 10px;margin-top:12px}
+.plot .ch{margin-top:0;padding-top:20px}
+.plot .ch.base::after{background:var(--stone-200)}
+/* gridline + its caption */
+.gridmax{position:absolute;left:0;right:0;top:20px;height:0;border-top:1px dashed var(--stone-200)}
+.gridcap{position:absolute;right:0;top:9px;font-size:9.5px;font-weight:700;color:var(--muted-soft);font-variant-numeric:tabular-nums}
+/* comparison drawn as a marker, not a ghost bar */
+.ch.mark .p{border-top:2px solid var(--stone-300);border-radius:0;width:30px;background:none}
+/* comparison drawn as a track the bar sits inside */
+.ch.track .p{background:var(--stone-150);box-shadow:inset 0 0 0 1px var(--stone-200);width:28px;border-radius:9px 9px 0 0}
+.ch.track .b{width:18px;border-radius:6px 6px 0 0}
+/* scrub guide line */
+.ch .guideline{position:absolute;top:18px;bottom:22px;width:2px;border-radius:2px;background:var(--brand-tint);z-index:0}
+/* compact */
+.ch.mini .bars{height:52px}
+.ch.mini .b,.ch.mini .p{width:20px;border-radius:6px 6px 0 0}
+.ch.mini .lb{font-size:9px}
+/* readout pill floating above the chart (own row, never over a bar) */
+.pill{display:inline-flex;align-items:center;gap:8px;background:var(--white);border:1px solid var(--divider);border-radius:9999px;padding:6px 12px;box-shadow:var(--shadow-card);font-size:12px;font-weight:700}
+.pill .v{font-family:var(--disp);font-variant-numeric:tabular-nums;font-size:13px;font-weight:800}
+.pill .dl{color:var(--muted)}
+.delta{display:inline-flex;align-items:center;gap:3px;font-size:11.5px;font-weight:700;border-radius:9999px;padding:3px 8px}
+.delta.down{color:var(--brand-ink);background:var(--brand-tint)}
+.delta.up{color:var(--danger);background:var(--danger-tint)}
+.cap{font-size:11px;font-weight:600;color:var(--muted-soft);margin-top:9px;letter-spacing:-.01em}
+.sep{height:1px;background:var(--divider);margin:16px -16px 0}
+.note{font-size:11.5px;font-weight:600;color:var(--muted);margin-top:10px}
+</style>
+</head>
+<body>
+
+<div class="page-h">
+  <h1>Sổ cá nhân — biểu đồ chi tiêu &amp; bộ chuyển kỳ</h1>
+  <p>Tám hướng dựng lại phần biểu đồ trong thẻ “Còn lại · cá nhân”. Cùng một dữ liệu, cùng token màu và thang chữ của app (DESIGN.md §2), chỉ khác cách sắp xếp. Chạm một cột ở bất kỳ hướng nào để xem trạng thái đã chọn.</p>
+</div>
+
+<div class="cols2">
+  <div class="bad"><b>Đang gợn ở bản hiện tại</b>
+    <ul>
+      <li>Nhãn nổi khi chạm cột đè lên nhãn số tiền và bị cắt mất nửa trên.</li>
+      <li>Bộ chuyển kỳ nằm lơ lửng giữa ô Vào/Ra và biểu đồ, lệch trái, không thuộc về khối nào.</li>
+      <li>Cột không có đường chân, trông như trôi trong khoảng trắng.</li>
+      <li>Không có chú giải: cột xám là “kỳ trước” hay “ngày chưa tới” thì không ai đoán được.</li>
+      <li>Bốn khối xếp liên tiếp (số lớn → ô → bộ chuyển → biểu đồ) không có nhịp nghỉ.</li>
+    </ul>
+  </div>
+  <div class="law"><b>Giữ nguyên trong mọi hướng</b>
+    <ul>
+      <li>Chỉ dùng token màu; xanh = tiêu, đỏ = vượt kỳ trước, xám = kỳ trước.</li>
+      <li>Vùng chạm ≥ 44px; số tiền dùng <b>.num</b> và định dạng <b>fmtK</b> (828k ₫ · 2.1tr ₫).</li>
+      <li>Một điểm nhấn mỗi màn; không nền màu cho thẻ thông tin.</li>
+      <li>Nhãn kỳ đã chọn luôn có chỗ cố định, không phải bong bóng nổi.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<script>
+/* ── one fake week, in đồng. today = 16/9. prev = the comparison period ── */
+var DAYS = [
+  { d:'14/9', wd:'T2', chi:1284000, prev:1520000 },
+  { d:'15/9', wd:'T3', chi:2140000, prev:1180000 },
+  { d:'16/9', wd:'T4', chi:828000,  prev:1640000, today:true },
+  { d:'17/9', wd:'T5', chi:0, prev:410000,  fut:true },
+  { d:'18/9', wd:'T6', chi:0, prev:1960000, fut:true },
+  { d:'19/9', wd:'T7', chi:0, prev:2010000, fut:true },
+  { d:'20/9', wd:'CN', chi:0, prev:640000,  fut:true }
+];
+var MAX = 2140000;
+function fmtK(v){ return (v>=1000000 ? (v/1000000).toFixed(1).replace(/\.0$/,'')+'tr' : Math.round(v/1000)+'k') + ' ₫'; }
+function fmt(v){ return v.toLocaleString('vi-VN') + ' ₫'; }
+function pct(v){ return v>0 ? Math.max(Math.round(v/MAX*100),5) : 0; }
+function deltaTxt(x){
+  if(!x.prev || x.fut) return null;
+  var p = Math.round((x.chi-x.prev)/x.prev*100);
+  return { up:p>0, short:(p>0?'↑ ':'↓ ')+Math.abs(p)+'%' };
+}
+
+/* one chart, rendered per variant with modifier classes */
+function chart(v, o){
+  o = o || {};
+  var h = '<div class="ch '+(o.mod||'')+'" data-v="'+v+'">';
+  if(o.gridmax) h += '<div class="gridmax"></div><div class="gridcap num">'+fmtK(MAX)+'</div>';
+  DAYS.forEach(function(x, i){
+    var sel = (o.sel===i);
+    h += '<button class="c'+(x.today?' today':'')+(x.fut?' fut':'')+(sel?' sel':'')+'" data-i="'+i+'">'
+      + '<span class="bars">'
+      + (o.valueOn && sel && x.chi ? '<span class="val" style="bottom:calc('+pct(x.chi)+'% + 5px)">'+fmtK(x.chi)+'</span>' : '')
+      + (x.prev ? '<i class="p" style="height:'+pct(x.prev)+'%"></i>' : '')
+      + (x.chi ? '<i class="b'+(x.prev && x.chi>x.prev ? ' over' : '')+'" style="height:'+pct(x.chi)+'%"></i>' : '')
+      + '</span>'
+      + '<span class="lb">'+(o.wd ? x.wd+'<br>' : '')+x.d+'</span></button>';
+  });
+  return h + '</div>';
+}
+function seg(active, items){
+  return '<div class="seg">' + items.map(function(t){
+    return '<button class="'+(t===active?'on':'')+'">'+t+'</button>';
+  }).join('') + '</div>';
+}
+function tabs(active, items){
+  return '<div class="tabs">' + items.map(function(t){
+    return '<button class="'+(t===active?'on':'')+'">'+t+'</button>';
+  }).join('') + '</div>';
+}
+var CHEV = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+var EYE = '<svg class="eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>';
+/* a fresh clipPath id per instance: eight phones on one page would otherwise
+   share one id, and the first definition would win for all of them */
+var _wcN = 0;
+function WATERSVG(){
+  var id = 'wc' + (++_wcN);
+  return '<svg class="dg-vis" viewBox="0 0 46 46" width="46" height="46"><defs><clipPath id="' + id + '"><circle cx="23" cy="23" r="22"/></clipPath></defs>'
+  + '<circle class="trk" cx="23" cy="23" r="22"/><g clip-path="url(#' + id + ')"><path d="M0 14 Q 11.5 11 23 14 T 46 14 L 46 46 L 0 46 Z" fill="currentColor"/>'
+  + '<path d="M0 17 Q 11.5 14 23 17 T 46 17 L 46 46 L 0 46 Z" fill="currentColor" opacity=".5"/></g>'
+  + '<circle cx="23" cy="23" r="22" fill="none" stroke="currentColor" stroke-opacity=".35" stroke-width="1.5"/></svg>';
+}
+
+function head(){
+  return '<div class="lblrow"><span><span class="lbl">Còn lại · cá nhân</span>'+EYE+'</span>'
+    + '<span class="mp">Thg 9 '+CHEV+'</span></div>'
+    + '<div class="big neg num">-25.674.658 ₫</div>'
+    + '<div class="tiles">'
+    +   '<div class="tile"><span class="tl"><span class="ar up">↑</span> Vào</span><span class="tv num">0 ₫</span></div>'
+    +   '<div class="tile"><span class="tl"><span class="ar dn">↓</span> Ra</span><span class="tv num">25.674.658 ₫</span></div>'
+    + '</div>';
+}
+function guide(){
+  return '<div class="guide"><span class="dg-lbl">Đang tiêu ít hơn thường ngày</span>'
+    + '<span class="dg-amt num">2.014.194 ₫</span>' + WATERSVG() + '</div>';
+}
+function rows(){
+  return '<div class="cta">'
+    + '<div class="crow"><span class="cic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19V9M9 19V5M14 19v-7M19 19v-11"/></svg></span><span class="t">Lập ngân sách cá nhân</span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="m9 6 6 6-6 6"/></svg></div>'
+    + '<div class="crow"><span class="cic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></span><span class="t">Xem giao dịch</span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="m9 6 6 6-6 6"/></svg></div>'
+    + '</div>';
+}
+function legend(o){
+  o = o || {};
+  return '<div class="leg"><span><i class="now"></i>Kỳ này</span>'
+    + '<span>' + (o.rule ? '<span class="rule"></span>' : '<i></i>') + 'Cùng ngày tuần trước</span>'
+    + (o.over ? '<span><i class="over"></i>Vượt</span>' : '') + '</div>';
+}
+function readout(i, o){
+  o = o || {};
+  var x = DAYS[i], dl = deltaTxt(x);
+  return '<div class="ro"><span class="d">'+x.wd+', '+x.d+(x.today?' · hôm nay':'')+'</span>'
+    + '<b class="v num">'+(x.fut ? '—' : fmt(x.chi))+'</b>'
+    + (dl ? '<span class="cmp '+(dl.up?'up':'down')+'">'+dl.short+'</span>' : '')
+    + '</div>';
+}
+
+/* ── the eight proposals ─────────────────────────────────────────────────── */
+var OPTS = [
+{ n:'Đầu đọc cố định', p:'<span class="fix">Sửa:</span> bong bóng nổi biến mất — kỳ đang chọn hiện ở một dòng cố định ngay trên biểu đồ, nên không bao giờ đè hay bị cắt. Bộ chuyển kỳ thành segmented full-width ngay dưới ô Vào/Ra, gắn liền với biểu đồ. <span class="cost">Đổi lại:</span> tốn thêm một dòng chiều cao.',
+  body:function(s){ return head() + seg('Ngày',['Buổi','Ngày','Tuần','Tháng']).replace('<div class="seg"','<div class="seg" style="margin-top:14px"')
+    + readout(s) + chart(0,{ sel:s, mod:'base' }) + legend() + guide(); } },
+
+{ n:'Hàng tiêu đề + trình đơn kỳ', p:'<span class="fix">Sửa:</span> bốn ô segmented nhường chỗ cho một nút “Ngày ▾” mở sheet, nên hàng tiêu đề nói rõ biểu đồ này là gì và số liệu chọn nằm ngay bên phải. <span class="cost">Đổi lại:</span> đổi kỳ mất hai chạm.',
+  body:function(s){ var x=DAYS[s];
+    return head() + '<div class="secrow"><span><span class="st">Chi tiêu</span><div class="sub">'+x.wd+', '+x.d+' · '+(x.fut?'chưa tới':fmt(x.chi))+'</div></span><button class="menu">Ngày '+CHEV+'</button></div>'
+    + chart(1,{ sel:s, mod:'base', valueOn:true }) + legend() + guide(); } },
+
+{ n:'Khung nền', p:'<span class="fix">Sửa:</span> biểu đồ đứng trong một khung nền riêng có đường chân và đường trần, nên cột không còn trôi và nhãn nổi luôn nằm gọn trong khung. Segmented đặt dưới khung như một chân đế. <span class="cost">Đổi lại:</span> thêm một lớp nền trong thẻ vốn đã trắng.',
+  body:function(s){ return head()
+    + '<div class="plot">' + chart(2,{ sel:s, mod:'base', valueOn:true, gridmax:true }) + '</div>'
+    + seg('Ngày',['Buổi','Ngày','Tuần','Tháng']).replace('<div class="seg"','<div class="seg" style="margin-top:10px"')
+    + legend() + guide(); } },
+
+{ n:'So sánh bằng vạch', p:'<span class="fix">Sửa:</span> kỳ trước không còn là cột xám dễ nhầm với “ngày chưa tới”, mà là một vạch ngang — mắt đọc ngay cột nào vượt vạch. Tabs gạch chân thay segmented, nhẹ hơn. <span class="cost">Đổi lại:</span> vạch mảnh hơn nên khó thấy ở giá trị rất nhỏ.',
+  body:function(s){ return head() + tabs('Ngày',['Buổi','Ngày','Tuần','Tháng']).replace('<div class="tabs"','<div class="tabs" style="margin-top:14px"')
+    + readout(s) + chart(3,{ sel:s, mod:'base mark' }) + legend({rule:true,over:true}) + guide(); } },
+
+{ n:'Rãnh nền', p:'<span class="fix">Sửa:</span> mỗi ngày có một rãnh nền cao bằng kỳ trước, cột kỳ này đổ đầy vào trong — đầy rãnh nghĩa là đang bằng tuần trước, tràn rãnh là vượt. Ngày chưa tới chỉ còn rãnh rỗng, không thể đọc nhầm thành dữ liệu. <span class="cost">Đổi lại:</span> rãnh chiếm chỗ nên cột trông mảnh hơn.',
+  body:function(s){ return head() + seg('Ngày',['Buổi','Ngày','Tuần','Tháng']).replace('<div class="seg"','<div class="seg" style="margin-top:14px"')
+    + readout(s) + chart(4,{ sel:s, mod:'track' }) + legend() + guide(); } },
+
+{ n:'Vạch chỉ + thẻ số nổi', p:'<span class="fix">Sửa:</span> chạm hoặc vuốt dọc biểu đồ, một vạch chỉ chạy theo ngón tay và thẻ số nằm ở hàng riêng phía trên — đúng cách Apple Fitness làm, không bao giờ che cột. <span class="cost">Đổi lại:</span> cần thêm xử lý vuốt.',
+  body:function(s){ var x=DAYS[s], dl=deltaTxt(x);
+    return head() + tabs('Ngày',['Buổi','Ngày','Tuần','Tháng']).replace('<div class="tabs"','<div class="tabs" style="margin-top:14px"')
+    + '<div style="margin-top:12px;display:flex;align-items:center;gap:8px"><span class="pill"><span class="dl">'+x.wd+', '+x.d+'</span><span class="v">'+(x.fut?'—':fmtK(x.chi))+'</span></span>'
+    + (dl ? '<span class="delta '+(dl.up?'up':'down')+'">'+dl.short+'</span>' : '') + '</div>'
+    + chart(5,{ sel:s, mod:'base', line:true }) + legend() + guide(); } },
+
+{ n:'Gọn một hàng', p:'<span class="fix">Sửa:</span> biểu đồ thấp lại và bộ chuyển kỳ thu vào hàng tiêu đề, nên thẻ trả lại chiều cao cho ô “tiêu ít hơn thường ngày” — thứ người ta thật sự đọc mỗi ngày. <span class="cost">Đổi lại:</span> cột thấp nên khác biệt giữa các ngày khó thấy hơn.',
+  body:function(s){ var x=DAYS[s];
+    return head() + '<div class="secrow"><span class="st">Chi tiêu theo ngày</span><button class="menu">Ngày '+CHEV+'</button></div>'
+    + chart(6,{ sel:s, mod:'base mini' })
+    + '<div class="cap">'+x.wd+', '+x.d+' · '+(x.fut?'chưa tới':fmt(x.chi))+' · cột xám là tuần trước</div>'
+    + guide(); } },
+
+{ n:'Tách thẻ riêng', p:'<span class="fix">Sửa:</span> thẻ số dư kết thúc ở ô Vào/Ra, biểu đồ sang thẻ riêng có tiêu đề và segmented của chính nó — mỗi thẻ một câu hỏi, hết cảnh bốn khối chen nhau. <span class="cost">Đổi lại:</span> màn hình dài thêm một thẻ.',
+  body:function(s){ return head() + rows(); },
+  extra:function(s){ return '<div class="card">'
+    + '<div class="lblrow"><span class="lbl">Chi tiêu · tháng 9</span><span class="mp">Ngày '+CHEV+'</span></div>'
+    + readout(s) + chart(7,{ sel:s, mod:'base', valueOn:true }) + legend()
+    + seg('Ngày',['Buổi','Ngày','Tuần','Tháng']).replace('<div class="seg"','<div class="seg" style="margin-top:14px"')
+    + '</div>' + '<div style="margin:0 16px">' + guide() + '</div>'; } }
+];
+
+var SEL = OPTS.map(function(){ return 2; });   // today selected by default
+
+function paint(){
+  document.getElementById('grid').innerHTML = OPTS.map(function(o, i){
+    return '<div class="opt"><div class="ohead"><span class="n">'+(i+1)+'</span><b>'+o.n+'</b><p>'+o.p+'</p></div>'
+      + '<div class="phone" data-v="'+i+'">'
+      + '<div class="tt"><h2>Tài Chính</h2><span class="av">HC</span></div>'
+      + '<div class="card">' + o.body(SEL[i]) + '</div>'
+      + (o.extra ? o.extra(SEL[i]) : '')
+      + '</div></div>';
+  }).join('');
+  /* the scrub guide line (option 6) needs a measured position */
+  document.querySelectorAll('.ch[data-v="5"]').forEach(function(ch){
+    var sel = ch.querySelector('.c.sel'); if(!sel) return;
+    var g = document.createElement('i'); g.className = 'guideline';
+    g.style.left = (sel.offsetLeft + sel.offsetWidth/2 - 1) + 'px';
+    ch.appendChild(g);
+  });
+}
+document.addEventListener('click', function(e){
+  var c = e.target.closest('.ch .c'); if(!c) return;
+  var v = +c.closest('.ch').getAttribute('data-v');
+  SEL[v] = +c.getAttribute('data-i');
+  paint();
+});
+paint();
+</script>
+</body>
+</html>

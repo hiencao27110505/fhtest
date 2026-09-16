@@ -125,19 +125,40 @@ them too, so a tall grey last week is never clipped.
 **Colour.** Green under, red over (`cur > prev` with `prev > 0`). In Tháng
 zoom "over" is measured against the previous month, not the tick.
 
-**Tap label (personal only).** The pinned label keeps its first line
-(`↓1,2tr ↑5tr`) and gains a second naming the comparison:
+**The readout (personal only).** Until 2026-09-16 a tapped bar raised a
+floating two-line card over the strip. It collided with the bar labels and the
+strip's top edge clipped it, so the figure moved into the chart's header
+(`.pch-s`, `persChartHTML`) where it always has a line of its own:
 
-| Zoom | Second line |
+```
+Chi tiêu                                    [ Ngày ⌄ ]
+T4, 16/9 · 828.000 ₫ · T4 9/9: 1,6tr
+```
+
+It speaks for the tapped bar; with nothing tapped, for the live slot (today /
+this week / this month); failing that, for the last slot that has happened. A
+future slot shows `—`. The comparison half is the same `cmpLabel` the old card
+carried, unchanged per zoom:
+
+| Zoom | Comparison text |
 |---|---|
 | Buổi | `T2 8/9 trưa: 90k` (+ ` · chưa rõ giờ: 300k` when there is any) |
 | Ngày | `T2 8/9: 90k` |
 | Tuần | `tuần 11/8: 900k` |
 | Tháng | `T8: 900k · T9/25: 1,1tr` (the year part only when covered) |
 
-An uncovered comparison reads `chưa có dữ liệu` in place of the amount. The
-family deck has no tap label and stays that way: its three views each carry
-one comparison and the dots row already names the period.
+An uncovered comparison reads `chưa có dữ liệu` in place of the amount. A
+tapped bar also keeps its own `fmtK` figure on screen (`.pst-val.pin`); every
+other bar's figure rides the tallest-in-view rule. The family deck has no
+readout and stays that way: its three views each carry one comparison and the
+dots row already names the period.
+
+**Choosing the zoom (personal only).** The four-up segmented row is gone. The
+header's right side is a menu button naming the current zoom, and it opens the
+`sheet-pzoom` sheet where each period states what it compares against
+(`persCmpName`) — the same sentence the legend under the strip carries, so the
+grey bar is never an unexplained shape. Buổi is omitted from the sheet in
+Toàn thời gian, as the segmented row omitted it.
 
 **Buổi zoom on the personal strip.** Columns about 22px wide, four to a day,
 a wider gap between days, the date shown once under each group. The current

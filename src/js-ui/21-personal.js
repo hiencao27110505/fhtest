@@ -556,8 +556,7 @@ function renderPersonal(){
      /* One chart for every scope: the pannable stacked Thu/Chi strip with its
         zoom row. The note + guide stay current-month only — the guide's whole
         job is today, and an old month (or all of history) has none. */
-     + '<div class="pz" id="pcf-zoom">'+persZoomRowHTML()+'</div>'
-     + persStripHTML(P, SL, mon, isAll, inWin)
+     + persChartHTML(P, SL, mon, isAll, inWin)
      + (isCur ? ('<div class="cf-note" id="pcf-note"></div>'
                + '<div class="cf-daily" id="pcf-daily" style="display:none"></div>') : '')
      /* "Hẹn trả" heads-up (0122, spec Q19ii): fires on the due day and stays
@@ -1062,11 +1061,86 @@ function persSeries(P, SL, mon, isAll, inWin){
   }
   return bars;
 }
-function persZoomRowHTML(){
-  var z=persZoom();
-  var b=function(k,vi,en){ return '<button class="'+(z===k?'on':'')+'" onclick="persSetZoom(\''+k+'\')">'+L(vi,en)+'</button>'; };
-  return (window.persSelMon==='all' ? '' : b('buoi','Buổi','Daypart'))+b('day','Ngày','Day')+b('week','Tuần','Week')+b('month','Tháng','Month');
+/* ── the chart's own header: title, readout, period menu ───────────────────
+   The four-up segmented row (Buổi · Ngày · Tuần · Tháng) sat between the
+   Vào/Ra tiles and the bars belonging to neither, and the tapped-bar figure
+   floated over the strip where it collided with the bar labels and was clipped
+   by the strip's own top edge. Both are one problem: the chart had no header.
+   It has one now — a title that says what the bars are, the focused slot's
+   figure in a fixed line under it (never floating), and the period as a menu
+   button that opens a sheet, which also gives the four periods room to explain
+   what each compares against. Direction chosen from
+   mockups/personal-chart-options.html (option 2). */
+var PERS_ZOOMS = [['buoi','Buổi','Daypart'],['day','Ngày','Day'],['week','Tuần','Week'],['month','Tháng','Month']];
+function persZoomLabel(z){
+  var hit=null; PERS_ZOOMS.forEach(function(r){ if(r[0]===z) hit=r; });
+  return hit ? L(hit[1],hit[2]) : '';
 }
+/* What the grey bar behind each column is, named per zoom — the legend says it
+   in words instead of leaving a grey shape to be guessed at. Mirrors the rules
+   in 19-period-compare.js; change both together. */
+function persCmpName(z){
+  return z==='month' ? L('Tháng trước','Last month')
+    : z==='week' ? L('Tuần cùng kỳ tháng trước','Same week last month')
+    : z==='buoi' ? L('Cùng buổi tuần trước','Same daypart last week')
+    : L('Cùng ngày tuần trước','Same day last week');
+}
+/* Which slot the readout speaks for: the tapped one, else the live one
+   ("now" — today / this week / this month), else the last slot that has
+   actually happened. A future slot has nothing to report. */
+function persBarPick(bars){
+  var pinned=null, now=null, last=null;
+  bars.forEach(function(b){
+    if(persPinKey===b.k) pinned=b;
+    if(b.now || (b.on && !b.fut)) now=b;
+    if(!b.fut) last=b;
+  });
+  return pinned || now || last || bars[bars.length-1] || null;
+}
+function persBarLead(b){
+  var z=persZoom();
+  if(z==='buoi') return b.title+', '+fhDM(b.day);
+  if(z==='month') return b.label;
+  if(z==='week') return L('Tuần ','Week of ')+fhDM(b.k);
+  return fhWdShort(b.k)+', '+fhDM(b.k);
+}
+function persZoomBtn(){
+  return '<button class="pch-menu" onclick="openSheet(\'sheet-pzoom\')" aria-label="'+L('Đổi khoảng thời gian','Change period')+'">'
+    + esc(persZoomLabel(persZoom()))
+    + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M6 9l6 6 6-6"/></svg></button>';
+}
+function persChartHTML(P, SL, mon, isAll, inWin){
+  var bars = persSeries(P, SL, mon, isAll, inWin);
+  var head = '<div class="pchead"><div class="pch-l"><div class="pch-t">'+L('Chi tiêu','Spending')+'</div>';
+  if(!bars) return head + '</div>'+persZoomBtn()+'</div><div class="pst-load">'+L('Đang tải lịch sử…','Loading history…')+'</div>';
+  if(!bars.length) return '';
+  /* Two lines, not one wrapped one: the slot and its figure read first, the
+     comparison sits under them in a quieter weight. Together they are long
+     enough to wrap on a 390px screen, and a wrapped line broke the alignment
+     with the menu button beside it. */
+  var f = persBarPick(bars);
+  var sub = f ? ('<div class="pch-s">' + esc(persBarLead(f)) + ' · <b class="num">'
+                 + (f.fut ? '—' : fmt(f.chi)) + '</b></div>'
+                 + (f.cmpLabel ? '<div class="pch-c">' + esc(f.cmpLabel) + '</div>' : '')) : '';
+  return head + sub + '</div>' + persZoomBtn() + '</div>'
+    + persStripHTML(bars)
+    + '<div class="pleg"><span><i class="now"></i>'+L('Kỳ này','This period')+'</span>'
+    + '<span><i></i>'+esc(persCmpName(persZoom()))+'</span></div>';
+}
+/* The period sheet: one row per zoom, each naming its own comparison, so the
+   choice explains itself instead of being four words in a segmented control. */
+window.buildPZoomChoices = function(){
+  var box=document.getElementById('pzoom-list'); if(!box) return;
+  var cur=persZoom(), allTime=(window.persSelMon==='all'), html='';
+  PERS_ZOOMS.forEach(function(z){
+    if(z[0]==='buoi' && allTime) return;   // a whole history at four bars a day is noise
+    html += '<button class="qa" onclick="persPickZoom(\''+z[0]+'\')"><div>'
+      + '<div class="qt">'+L(z[1],z[2])+(cur===z[0]?'  ✓':'')+'</div>'
+      + '<div class="qs">'+esc(persCmpName(z[0]))+'</div></div></button>';
+  });
+  box.innerHTML=html;
+};
+window.persPickZoom = function(z){ closeSheet(); persSetZoom(z); };
 /* One column: grey "before" behind, the coloured bar on top (red when it has
    passed a non-zero grey), the last-year tick line across, and the amount
    label riding the tallest of the three. Heights are a first paint at the
@@ -1077,12 +1151,12 @@ function _persColHTML(b, max, z){
   var hy=b.ly!=null?Math.round(b.ly/max*100):null;
   var over=!b.fut && b.prev!=null && b.prev>0 && b.chi>b.prev;
   var top='bottom:calc('+Math.max(hc, hp||0, hy||0)+'% + 3px)';
-  var line1 = z==='buoi' ? b.title+': '+fmtK(b.chi) : '↓'+fmtK(b.chi)+(b.thu>0?' ↑'+fmtK(b.thu):'');
   return '<div class="pst-c'+(b.now?' now':'')+'" data-k="'+b.k+'" data-chi="'+b.chi+'" data-prev="'+(b.prev==null?'':b.prev)+'" data-ly="'+(b.ly==null?'':b.ly)+'" onclick="persBarTap(\''+b.k+'\')">'
     +'<span class="pst-bars">'
-    +(persPinKey===b.k
-        ? '<span class="pst-pin num" style="'+top+'">'+line1+'<small>'+esc(b.cmpLabel)+'</small></span>'
-        : (b.chi>0 ? '<span class="pst-val num" style="'+top+'">'+fmtK(b.chi)+'</span>' : ''))
+    /* One label shape for every bar. A tapped bar keeps its figure on screen
+       (.pin); the rest ride the in-view rule in fhStripSync. The old floating
+       card with the comparison inside it moved to the header (.pch-s). */
+    +(b.chi>0 ? '<span class="pst-val num'+(persPinKey===b.k?' pin':'')+'" style="'+top+'">'+fmtK(b.chi)+'</span>' : '')
     +(hp!=null ? '<i class="pst-p" style="height:'+hp+'%"></i>' : '')
     +(hc && !b.fut ? '<i class="pst-b'+(over?' over':'')+'" style="height:'+hc+'%"></i>' : '')
     +(hy!=null ? '<i class="pst-y" style="bottom:'+hy+'%"></i>' : '')
@@ -1090,10 +1164,9 @@ function _persColHTML(b, max, z){
     +(z==='buoi' ? '' : '<span class="pst-l'+(b.on?' on':'')+(b.sel?' sel':'')+'">'+b.label+'</span>')
     +'</div>';
 }
-function persStripHTML(P, SL, mon, isAll, inWin){
-  var bars = persSeries(P, SL, mon, isAll, inWin);
-  if(!bars) return '<div class="pst-load">Đang tải lịch sử…</div>';
-  if(!bars.length) return '';
+/* Takes the series persChartHTML already computed — the header and the bars
+   must describe the same slots, and persSeries walks the whole ledger. */
+function persStripHTML(bars){
   var z=persZoom(), max=1;
   bars.forEach(function(b){ if(b.chi>max) max=b.chi; if(b.prev!=null && b.prev>max) max=b.prev; if(b.ly!=null && b.ly>max) max=b.ly; });
   var h='<div class="pst'+(z==='buoi'?' buoi':'')+'" id="pcf-strip" onscroll="persStripOnScroll(this)">';
@@ -1160,9 +1233,14 @@ function fhStripSync(el, pinned){
     var lab=c.querySelector('.pst-val, .pst-pin'); if(lab) lab.style.bottom='calc('+Math.max(hc,hp,hy)+'% + 3px)';
     if(vis[i] && chi>bestV){ bestV=chi; best=c; }
   }
+  /* A tapped bar holds its own figure; otherwise the label rides the tallest
+     bar in view. `.pin` is set by the personal strip only, so the review
+     summary (which shares this markup) keeps the in-view rule. */
+  var hasPin = !!el.querySelector('.pst-val.pin');
   for(i=0;i<kids.length;i++){
     var s=kids[i].querySelector('.pst-val');
-    if(s) s.style.opacity=(!pinned && kids[i]===best)?'1':'0';
+    if(!s) continue;
+    s.style.opacity = (hasPin ? s.classList.contains('pin') : (!pinned && kids[i]===best)) ? '1' : '0';
   }
 }
 function persChartAfterRender(isCur){

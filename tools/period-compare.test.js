@@ -97,7 +97,9 @@ t('personal strip: grey + tick + red, upcoming slots, all four zooms', () => {
   assert.ok(/class="pst-p"/.test(pers) && /class="pst-y"/.test(pers) && /pst-b'\+\(over\?' over'/.test(pers));
   assert.ok(/\['buoi','day','week','month'\]\.indexOf\(window\.persZoomM\)/.test(pers));
   assert.ok(/\['day','week','month'\]\.indexOf\(window\.persZoomA\)/.test(pers), 'all-time never offers buổi');
-  assert.ok(/b\('buoi','Buổi'/.test(pers));
+  assert.ok(/\['buoi','Buổi','Daypart'\]/.test(pers));
+  assert.ok(/sheet-pzoom/.test(pers) && /buildPZoomChoices/.test(pers), 'the period picker is a sheet, not a segmented row');
+  assert.ok(/function persCmpName/.test(pers), 'the legend names the comparison per zoom');
   assert.ok(/if\(pk==='buoi'\) pk='day'/.test(pers), 'guide stays per-day under buổi zoom');
 });
 t('personal strip: comparisons never wait on the slice, and the slice carries the time', () => {
@@ -107,7 +109,8 @@ t('personal strip: comparisons never wait on the slice, and the slice carries th
   assert.ok(/time: t\.occurred_time_enc \? await _decTxt\(t\.occurred_time_enc\) : null, ts: t\.created_at/.test(data));
 });
 t('CSS: grey behind, red over, tick, buổi groups', () => {
-  for (const s of ['.pst-p{', '.pst-b.over{', '.pst-y{', '.pst.buoi{', '.pst-g{', '.pst-c.now .pst-bars{', '.pst-pin small{']) assert.ok(css.includes(s), s);
+  for (const s of ['.pst-p{', '.pst-b.over{', '.pst-y{', '.pst.buoi{', '.pst-g{', '.pst-c.now .pst-bars{', '.pst-pin small{',
+                   '.pchead{', '.pch-menu{', '.pch-c{', '.pleg{', '.pst::after{']) assert.ok(css.includes(s), s);
 });
 
 console.log(`period-compare: ${n} checks passed`);

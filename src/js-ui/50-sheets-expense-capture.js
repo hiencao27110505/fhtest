@@ -5,6 +5,7 @@ function openSheet(id){
   if(id==='sheet-fund') buildFundChoices();
   if(id==='sheet-month') buildMonthChoices();
   if(id==='sheet-pmonth' && window.buildPMonthChoices) buildPMonthChoices();
+  if(id==='sheet-pzoom' && window.buildPZoomChoices) buildPZoomChoices();
   if(id==='sheet-savegoal') buildSaveGoalChoices();
   if(id==='sheet-catpick') buildCatPicker();
   if(id==='sheet-budget'){ window.budgetScope='family'; if(window.loadFamilyData){ window.loadFamilyData().then(fillBudgetSheet); } else fillBudgetSheet(); }

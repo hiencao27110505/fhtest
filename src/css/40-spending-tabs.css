@@ -412,10 +412,33 @@
    the old chart wore; income shows in the tiles and in a bar's tap label.
    The zoom row replaced the period dots; the strip owns horizontal drag (the
    card-wide swipe is gone). Top padding gives the amount label headroom. */
+/* The chart's header row (21-personal persChartHTML): title + the focused
+   slot's figure on a fixed line, with the period as a menu button on the right.
+   It replaced the .pz segmented row here; .pz stays because the transaction
+   review's summary strip still wears it (56-csv-import-ui). */
+.pchead{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-top:16px}
+.pch-l{min-width:0}
+.pch-t{font-family:var(--disp);font-size:15px;font-weight:750;letter-spacing:-.25px;color:var(--ink)}
+.pch-s{font-size:11.5px;font-weight:600;color:var(--muted);margin-top:2px;letter-spacing:-.01em;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pch-s b{font-weight:800;color:var(--ink-2)}
+/* the comparison, one step quieter — it answers "against what", not "how much" */
+.pch-c{font-size:10.5px;font-weight:600;color:var(--muted-soft);margin-top:1px;letter-spacing:-.01em;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pch-menu{display:inline-flex;align-items:center;gap:4px;flex:none;min-height:34px;padding:0 8px 0 12px;border:0;border-radius:9999px;background:var(--surface);font:inherit;font-size:12.5px;font-weight:700;color:var(--ink-2);cursor:pointer}
+.pch-menu svg{width:13px;height:13px;color:var(--muted-soft)}
+.pch-menu:active{opacity:.6}
+/* what the grey bar is, in words (persCmpName) */
+.pleg{display:flex;align-items:center;gap:12px;margin-top:8px;font-size:10.5px;font-weight:600;color:var(--muted-soft)}
+.pleg i{display:inline-block;width:9px;height:9px;border-radius:3px;background:var(--fill-neutral);margin-right:5px;vertical-align:-1px}
+.pleg i.now{background:var(--good)}
 .pz{display:inline-flex;background:var(--fill-neutral);border-radius:10px;padding:2px;margin-top:14px}
 .pz button{font-size:11.5px;font-weight:700;color:var(--muted);padding:5px 13px;border-radius:8px;border:0;background:none}
 .pz button.on{background:var(--white);color:var(--ink);box-shadow:0 1px 3px rgba(14,22,19,.12)}
-.pst{display:flex;align-items:flex-end;gap:7px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:20px 2px 2px;margin-top:4px;scrollbar-width:none}
+.pst{position:relative;display:flex;align-items:flex-end;gap:7px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:20px 2px 2px;margin-top:4px;scrollbar-width:none}
+/* Bars stand on a rule instead of floating. 19px = the strip's 2px bottom
+   padding + the 12px label line + its 5px gap, which is the same distance in
+   buổi groups, so one offset serves every zoom. The rule is positioned against
+   the scroller, so it spans what is in view and never scrolls away. */
+.pst::after{content:"";position:absolute;left:0;right:0;bottom:19px;height:1px;background:var(--divider);pointer-events:none}
 .pst::-webkit-scrollbar{display:none}
 .pst-c{flex:0 0 auto;width:40px;display:flex;flex-direction:column;align-items:center;gap:5px;-webkit-tap-highlight-color:transparent;cursor:pointer}
 .pst-bars{position:relative;height:72px;width:100%}
@@ -428,7 +451,7 @@
 .pst-b.over{background:var(--danger-base)}
 .pst-y{position:absolute;left:50%;transform:translateX(-50%);width:min(32px,78%);height:0;border-top:2px solid var(--muted-soft);z-index:1;transition:bottom .25s ease}
 @media (prefers-reduced-motion:reduce){ .pst-b,.pst-p,.pst-y{transition:none} }
-.pst-l{font-size:9px;font-weight:600;color:var(--muted-soft);white-space:nowrap}
+.pst-l{font-size:9px;font-weight:600;line-height:12px;height:12px;color:var(--muted-soft);white-space:nowrap}
 .pst-l.on{color:var(--ink);font-weight:700}
 .pst-l.sel{color:var(--brand-ink);font-weight:800}
 .pst-val{position:absolute;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;color:var(--ink);white-space:nowrap;opacity:0;transition:opacity .2s}
@@ -469,7 +492,7 @@
 .sec-masked .cf-big,.sec-masked .cf-tv,.sec-masked .cf-lend,
 .sec-masked .cf-note,.sec-masked .cf-daily,.sec-masked .cf-duealert,
 .sec-masked .dbt-tv,.sec-masked .dbt-ts,.sec-masked .dbt-lv,
-.sec-masked .psp-mval,.sec-masked .psp-amt,.sec-masked .psp-pass-amt,
+.sec-masked .psp-mval,.sec-masked .psp-amt,.sec-masked .psp-pass-amt,.sec-masked .pch-s,.sec-masked .pch-c,
 .sec-masked .r-amt{-webkit-text-security:disc;text-security:disc;user-select:none;-webkit-user-select:none}
 .sec-masked .pst,.sec-masked .dbt-hero svg,.sec-masked .dbt-ms{filter:blur(7px)}
 
