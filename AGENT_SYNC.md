@@ -148,7 +148,10 @@ hand-merging `index.html`. Both replaced vigilance with structure.
   personal block rewritten (`_pexdEdit`, `pexdReadFields`, `pexdSheetKind`, `pexdDoorCopy`,
   `pexdDoorPick`), `#pexd-nav` mount + `#sheet-exd-kind` in the shell, styles appended to
   `46-expense-detail.css` (`.pexd-nav`, `.exd-view`, `.exd-edit`, `.pdoor`). SW **v535**.
-  Guard: `tools/txn-detail-view-edit.test.js`. The family detail (Cập nhật) is untouched.
+  Guard: `tools/txn-detail-view-edit.test.js`. **Then the family detail (`renderExpenseDetail`,
+  `#exd-nav`) moved to the same two states** — Cập nhật and the trash square are gone from
+  both; `exdSave` reads the top inputs and leaves edit when nothing changed; `paApply` is the
+  family door's photo write. SW **v536**.
 
 - **2026-09-16 (Hien's session) — DONE, committed: dedup engine (Phase 1 of
   `docs/specs/dedup-flaws-review.md`). Client only, no migration, no Edge deploy.** New

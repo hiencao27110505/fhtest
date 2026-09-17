@@ -111,7 +111,7 @@
   .gld-meter i{transition:none}
 }
 
-/* ---- personal detail: view first, edit second (2026-09-17) ----
+/* ---- expense detail, both ledgers: view first, edit second (2026-09-17) ----
    View: the receipt, the review card's rows read-only (no chevron, no tap),
    photos, nothing that changes data. Edit: the review card's own top fields
    (Số tiền, Chi cho gì?) over the same rows as pickers; the nav reads
@@ -123,7 +123,7 @@
 .pexd-nav .cd-act.cancel{justify-self:start;font-weight:600}
 .pexd-nav .cd-act:disabled{color:var(--muted-soft)}
 .pexd-nav .cd-navtitle{font-family:var(--disp);font-size:16px;font-weight:700;letter-spacing:-.2px;color:var(--ink)}
-#pexd-cta:empty{display:none}
+#pexd-cta:empty,#exd-cta:empty{display:none}
 /* view mode: a read-only row keeps ink values (it is the fact, not a disabled control) */
 .exd-view .csv-srow.ro .csv-sval b{color:var(--ink);font-weight:650}
 .exd-view .csv-srow.ro.soft .csv-sval b{color:var(--muted-soft);font-weight:600}

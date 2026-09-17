@@ -424,9 +424,8 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
 <!-- EXPENSE DETAIL — view an expense + its reactions first; Update / Delete from here -->
 <div class="overlay" id="exp-overlay">
   <div class="safe"></div>
-  <div class="cd-nav">
-    <button class="cd-back" onclick="closeExpenseDetail()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg><span data-t="back">Back</span></button>
-  </div>
+  <!-- rendered by renderExpenseDetail: view = ‹ Quay lại · Sửa; edit = Huỷ · Sửa khoản chi · Lưu -->
+  <div class="cd-nav pexd-nav" id="exd-nav"></div>
   <div class="cd-scroll">
     <div id="exd-body"></div>
     <div class="spacer"></div>

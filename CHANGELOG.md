@@ -47,6 +47,18 @@ khoản, amount and note folded into one sheet row, "Ghi vào" where the queue s
   today's hand-logged row leads with Chụp ảnh (a `capture` input). Photos go through
   `readPhoto` (EXIF first) and `fhPersonalUploadTxnPhotos`; removing one is staged and
   reconciled on Lưu via `fhPersonalSyncTxnPhotos`.
+- **Same day, the family detail** (`renderExpenseDetail`) joined the pattern, so every
+  ledger's detail is one screen with two states. View: receipt (with the plan badge for a
+  proposal), the photo door when photo-less, read-only rows Ghi vào đâu · Loại khoản · Danh
+  mục · Ai trả (Đề xuất bởi on a proposal) · Ngày · Giờ · Nguồn tiền, then the reactions
+  block or the review block as before; nav ‹ Quay lại · Sửa, no Sửa on someone else's
+  proposal (Duyệt stays its only action). Edit: Số tiền and Chi cho gì? as inputs, the
+  pickers (category, payer, date, time, the author's account tag), Ghi vào đâu as the
+  author-only door to the private book through the existing move confirm, Loại khoản a
+  read-only fact (liabilities and portfolios are personal), photos with staged ✕, delete as
+  the foot line. Lưu still goes through the composer's wrapped `saveExpenseEdit`; staged
+  photo removals ride `exPhotos`. Adding a photo from the door uses `paApply` (encrypts,
+  refuses on a locked device). The trash square and Cập nhật are gone from both details.
 - Guard: `tools/txn-detail-view-edit.test.js`.
 
 ## 2026-09-16

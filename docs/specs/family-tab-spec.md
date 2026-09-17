@@ -442,7 +442,7 @@ client *is* the calculator.
 | `src/js-ui/10-nav-model.js` | Tab routing, month model `months`/`M()`, reserve math (`monthReserved`, `_entAlignedBy`), currency/format, trend |
 | `src/js-ui/20-budget.js` | `renderBudget`/`renderCashflow` fan-out, the three-period chart, daily guide (`cfPerDay`, `fhGuideCompute`), budget sheet, "Others" invariant, CTAs |
 | `src/js-ui/60-transactions.js` | `txns` ledger, `addExpense()` (the single write path), tab feed, full list overlay, `openCat` drill-in |
-| `src/js-ui/61-expense-detail.js` | Read-first expense detail; reactions block vs review block |
+| `src/js-ui/61-expense-detail.js` | Expense detail in two states (2026-09-17): view = receipt + read-only rows in the review card's order + photo door + reactions/review block; edit = the review card (inputs + pickers) with Huỷ / Lưu. Same pattern as the personal detail |
 | `src/js-ui/50-sheets-expense-capture.js` | Expense sheet: bulk rows, NL parsing, drafts, EXIF, sheet plumbing (`openSheet`) |
 | `src/js-ui/55-expense-photos-writes.js` | Photo cap/upload, `saveExpenseEdit`/`deleteExpense` (reversal math), photo-assign, `submitExpense` router |
 | `src/js-ui/35-goals.js` · `36-goal-detail.js` | Tích lũy card, goal create/fund, read-first goal detail |
