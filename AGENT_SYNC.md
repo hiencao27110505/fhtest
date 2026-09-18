@@ -143,6 +143,16 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-09-18 (Hien's session) — every personal kind on the one transaction detail.
+  Client only, no migration.** `61-expense-detail.js` personal block rewritten as a per-kind
+  renderer (`_pexdEntry`, `_pexdKindOf`, `openPersonalTransferDetail`, slots `_pexdAskHTML` /
+  `_pexdCtxHTML`, 2B `_pexdRepairPair`); writers extended in `19-personal.js`
+  (`fhPersonalUpdateIncome`, `fhPersonalDebtRowUpdate`, `fhPersonalUpdateTransferPair`) and
+  `26-investment-ui.js` (`fhInvRowUpdate`); row taps rewired in 21 / 60 / 55 / 23 / 26 / 70;
+  `#sheet-exd-photo`, `#sheet-exd-txt` in the shell; `#pexd-overlay` z-index 50 (above the
+  debt overlay). `fhDebtRowSheet` / `fhXferPairSheet` / `fhInvRowSheet` / `fhIncomeRowSheet`
+  still exist, no longer entry points. SW **v537**. Guard: `tools/txn-detail-view-edit.test.js`.
+
 - **2026-09-17 (Hien's session) — personal transaction detail: view/edit states +
   contextual photo door. Client only, no migration, no Edge deploy.** `61-expense-detail.js`
   personal block rewritten (`_pexdEdit`, `pexdReadFields`, `pexdSheetKind`, `pexdDoorCopy`,

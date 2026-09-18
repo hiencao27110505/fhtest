@@ -829,6 +829,8 @@
         note_enc: fields.note ? await _encP(fields.note) : null };
       if (fields.dateIso) row.txn_date = fields.dateIso;
       if (fields.hasOwnProperty('accountId')) row.account_id = fields.accountId || null;
+      if (fields.hasOwnProperty('time')) row.occurred_time_enc = fields.time ? await _encP(fields.time) : null;   // detail screen (2026-09-18)
+      if (fields.hasOwnProperty('cat')) { row.cat_name_enc = fields.cat ? await _encP(fields.cat) : null; row.cat_emoji = fields.emoji || null; }
       const r = await _sb().from('personal_transactions').update(row).eq('id', id).eq('owner_user_id', P.uid).eq('kind', 'income').is('link_id', null);
       if (r.error) { console.warn('personal income update failed', r.error); return false; }
       if (!quiet) await window.fhPersonalHydrate();   // bulk batches hydrate once at the end
@@ -936,6 +938,9 @@
       if (fields.hasOwnProperty('note')) row.note_enc = fields.note ? await _encP(fields.note) : null;
       if (fields.dateIso) row.txn_date = fields.dateIso;
       if (fields.hasOwnProperty('dueDate')) row.due_date = fields.dueDate || null;
+      if (fields.hasOwnProperty('who')) row.counterparty_enc = fields.who ? await _encP(fields.who) : null;        // detail screen (2026-09-18)
+      if (fields.hasOwnProperty('accountId')) row.account_id = fields.accountId || null;
+      if (fields.hasOwnProperty('time')) row.occurred_time_enc = fields.time ? await _encP(fields.time) : null;
       const r = await _sb().from('personal_transactions').update(row).eq('id', id).eq('owner_user_id', P.uid).is('link_id', null);
       if (r.error) { console.warn('debt row update failed', r.error); return false; }
       await window.fhPersonalHydrate(); return true;
@@ -1024,6 +1029,9 @@
         if (fields.amtK > 0) row.amount_enc = await _encP((leg.amt != null && leg.amt < 0 ? -1 : 1) * Number(fields.amtK));
         if (fields.hasOwnProperty('note')) row.note_enc = fields.note ? await _encP(fields.note) : null;
         if (fields.dateIso) row.txn_date = fields.dateIso;
+        if (fields.hasOwnProperty('time')) row.occurred_time_enc = fields.time ? await _encP(fields.time) : null;   // detail screen (2026-09-18): one time for both legs
+        const legAcct = (leg.amt != null && leg.amt < 0) ? fields.fromAccountId : fields.toAccountId;   // the debit leg is "from", the credit leg is "to"
+        if (legAcct) row.account_id = legAcct;
         const r = await _sb().from('personal_transactions').update(row).eq('id', leg.id).eq('owner_user_id', P.uid).is('link_id', null);
         if (r.error) { console.warn('transfer pair update failed', r.error); return false; }
       }

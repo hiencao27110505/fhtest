@@ -270,6 +270,9 @@
       if (fields.hasOwnProperty('qty')) row.quantity_enc = (fields.qty > 0) ? await _enc((sell ? -1 : 1) * Number(fields.qty)) : null;
       if (fields.hasOwnProperty('note')) row.note_enc = fields.note ? await _enc(fields.note) : null;
       if (fields.dateIso) row.txn_date = fields.dateIso;
+      if (fields.hasOwnProperty('positionId')) row.position_account_id = fields.positionId || null;   // detail screen (2026-09-18)
+      if (fields.hasOwnProperty('accountId')) row.account_id = fields.accountId || null;
+      if (fields.hasOwnProperty('time')) row.occurred_time_enc = fields.time ? await _enc(fields.time) : null;
       const r = await _sbi().from('personal_transactions').update(row).eq('id', id).eq('owner_user_id', P.uid).eq('kind', 'investment').is('link_id', null);
       if (r.error) { console.warn('investment row update failed', r.error); return false; }
       await window.fhPersonalHydrate(); return true;
@@ -429,7 +432,7 @@
         const rows = p.rows.slice().sort((a, c) => (c.date + (c.ts || '')).localeCompare(a.date + (a.ts || '')));
         for (const r of rows) {
           const sell = r.amt != null && r.amt > 0;
-          b += '<div class="dbt-li tap" onclick="fhInvRowSheet(\'' + r.id + '\')">'
+          b += '<div class="dbt-li tap" onclick="openPersonalTxDetail(\'' + r.id + '\',{from:\'zoom\',back:\'' + _e(String(p.name || '').replace(/'/g, '')) + '\',reopen:[\'pos\',\'' + p.id + '\']})">'
             + '<div class="dbt-lib"><div class="dbt-lin">' + (sell ? 'Bán' : 'Mua') + (r.qty != null ? ' · ' + _fmtQty(Math.abs(r.qty)) + (p.unit ? ' ' + _e(p.unit) : '') : '') + '</div>'
             + '<div class="dbt-lis">' + _dmy(r.date) + (r.accountId ? ' · ' + _e(acctName(r.accountId)) : '') + (r.note ? ' · ' + _e(r.note) : '') + '</div></div>'
             + '<div class="dbt-liv ' + (sell ? 'owed' : '') + '">' + (r.amt == null ? '—' : (sell ? '+' : '−') + fmt(Math.abs(r.amt))) + '</div></div>';

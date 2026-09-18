@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chi tiết giao dịch · ba khe, mỗi khe ba cách</title>
+<style>
+/* ── tokens: verbatim from src/css/10-tokens.css (Sage) ── */
+:root{
+  --sage-50:#ebfbf6; --sage-300:#7ad5bd; --sage-400:#4abba1; --sage-500:#149d83; --sage-600:#007c65;
+  --stone-25:#fafcfc; --stone-50:#f6f9f8; --stone-100:#f0f5f3; --stone-150:#ecf1f0; --stone-200:#e3eae7; --stone-300:#c3cdca; --stone-400:#7f8986; --stone-500:#6f7674; --stone-600:#626b68; --stone-800:#2e3835; --stone-900:#0e1613;
+  --red-ink:#a41b3b; --amber-tint:#fdefe0; --amber-ink:#915200;
+  --id-1-tint:#e5f4ff; --id-1-text:#13619d; --id-3-tint:#f6eeff; --id-3-text:#704891;
+  --brand:var(--sage-500); --brand-ink:var(--sage-600); --brand-tint:var(--sage-50);
+  --danger:var(--red-ink); --amber:var(--amber-ink); --good:var(--sage-600);
+  --ink:var(--stone-900); --ink-2:var(--stone-800); --muted:var(--stone-600); --muted-soft:var(--stone-500);
+  --white:#fff; --canvas:var(--stone-100); --hairline:var(--stone-200); --divider:var(--stone-150);
+  --surface:var(--stone-50); --fill-neutral:rgba(127,137,134,.14); --chev:var(--stone-300);
+  --shadow-card:0 1px 3px rgba(14,22,19,.05),0 8px 24px rgba(14,22,19,.04);
+  --shadow-focal:0 1px 3px rgba(14,22,19,.05),0 12px 30px rgba(14,22,19,.09);
+  --r-card-lg:22px;
+  --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:var(--text);background:#e6ebe9;color:var(--ink);padding:34px 22px 90px;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;font-size:inherit;color:inherit;border:0;background:none;cursor:pointer;text-align:left}
+svg{display:block}
+.num{font-family:var(--disp);font-variant-numeric:tabular-nums}
+
+/* page */
+.wrap{max-width:1240px;margin:0 auto}
+.eyebrow{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--brand-ink)}
+h1{font-family:var(--disp);font-size:26px;font-weight:800;letter-spacing:-.6px;margin-top:6px}
+.lead{font-size:14px;color:var(--muted);margin-top:8px;line-height:1.6;max-width:620px}
+h2{font-family:var(--disp);font-size:19px;font-weight:800;letter-spacing:-.4px;margin:52px 0 4px;padding-top:26px;border-top:1px solid rgba(14,22,19,.10)}
+h2 span{font-size:13px;font-weight:600;color:var(--muted);letter-spacing:0;margin-left:8px}
+.trio{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:30px 26px;margin-top:20px}
+.v-h{display:flex;align-items:baseline;gap:8px;margin:0 6px 10px}
+.v-h b{font-family:var(--disp);font-size:15px;font-weight:800;letter-spacing:-.2px}
+.v-h i{font-style:normal;display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:20px;padding:0 6px;border-radius:6px;background:var(--ink);color:#fff;font-family:var(--disp);font-size:11px;font-weight:800}
+.v-h small{font-size:12.5px;color:var(--muted)}
+
+/* phone */
+.phone{width:100%;max-width:372px;margin:0 auto;background:var(--canvas);border-radius:40px;border:8px solid #0b1512;box-shadow:0 24px 50px rgba(10,20,17,.22);overflow:hidden;padding-bottom:20px}
+.sb{display:flex;justify-content:space-between;align-items:center;padding:12px 26px 0;font-size:13px;font-weight:700}
+.sb i{font-style:normal;font-size:11px;font-weight:800;background:var(--ink);color:#fff;border-radius:5px;padding:1px 5px}
+.nav{display:flex;align-items:center;justify-content:space-between;padding:8px 18px 4px 12px}
+.nav .l{display:inline-flex;align-items:center;gap:1px;font-size:17px;font-weight:600;letter-spacing:-.02em}
+.nav .l svg{width:22px;height:22px}
+.nav .r{font-size:17px;font-weight:700;color:var(--brand-ink);letter-spacing:-.02em}
+
+/* receipt (46-expense-detail.css) */
+.exd-focal{display:flex;flex-direction:column;align-items:center;text-align:center;padding:10px 24px 2px}
+.exd-ico{width:64px;height:64px;border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:32px;line-height:1;background:var(--fill-neutral);color:var(--ink-2)}
+.exd-ico svg{width:30px;height:30px}
+.exd-ico.id1{background:var(--id-1-tint);color:var(--id-1-text)} .exd-ico.id3{background:var(--id-3-tint);color:var(--id-3-text)}
+.exd-amt{font-family:var(--disp);font-variant-numeric:tabular-nums;font-weight:700;font-size:34px;letter-spacing:-1.2px;margin-top:16px;line-height:1}
+.exd-note{font-size:17px;font-weight:600;letter-spacing:-.02em;color:var(--ink-2);margin-top:9px}
+.exd-prov{font-size:11.5px;font-weight:500;color:var(--muted-soft);margin-top:8px}
+.exd-plan{display:inline-flex;align-items:center;gap:5px;margin-top:12px;border-radius:9999px;padding:5px 12px;font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase}
+.exd-plan.wait{background:var(--amber-tint);color:var(--amber)}
+.exd-plan svg{width:12px;height:12px}
+
+/* cards + rows (46 + 74-mailbox.css) */
+.exd-meta{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-card);margin:16px 16px 0;overflow:hidden;padding:2px 16px}
+.exd-meta.flush{padding:0}
+.csv-srow{display:flex;width:100%;align-items:center;justify-content:space-between;gap:10px;padding:12px 2px;min-height:46px;border-bottom:1px solid var(--divider);font:inherit;color:inherit}
+.csv-srow:last-child{border-bottom:0}
+.csv-srow small{font-size:13px;font-weight:600;color:var(--muted);flex:none}
+.csv-sval{display:flex;align-items:center;gap:5px;min-width:0}
+.csv-sval b{font-size:14px;font-weight:650;color:var(--ink);letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.csv-schev{width:15px;height:15px;color:var(--chev);flex:none}
+.csv-srow.act .csv-sval b{color:var(--brand-ink)}
+.csv-srow.miss .csv-sval b{color:var(--amber)}
+.csv-srow.good .csv-sval b{color:var(--good)}
+
+/* the cash-flow card's action row (40-spending-tabs.css .cc-row) */
+.cc-row{display:flex;align-items:center;gap:11px;width:100%;padding:13px 16px;border-bottom:1px solid var(--divider);font-size:13.5px;font-weight:600;color:var(--ink)}
+.cc-row:last-child{border-bottom:0}
+.cc-ic{width:30px;height:30px;flex-shrink:0;border-radius:9px;background:var(--brand-tint);color:var(--brand-ink);display:flex;align-items:center;justify-content:center}
+.cc-ic svg{width:17px;height:17px}
+.cc-ic.amber{background:var(--amber-tint);color:var(--amber)}
+.cc-t{flex:1;min-width:0}
+.cc-sub{display:block;margin-top:3px;font-size:12px;font-weight:400;line-height:1.45;color:var(--muted)}
+.cc-row .csv-schev{width:16px;height:16px}
+
+/* Vào / Ra tiles (.cf-tile) */
+.cf-tiles{display:flex;gap:8px}
+.cf-tile{flex:1;display:flex;flex-direction:column;align-items:flex-start;gap:3px;background:var(--surface);border-radius:12px;padding:10px 12px}
+.cf-tl{font-size:11px;font-weight:600;color:var(--muted)}
+.cf-tv{font-family:var(--disp);font-size:16px;font-weight:700;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.cf-tv.good{color:var(--good)}
+
+/* Tài sản bento tile (41-debts.css .dbt-tile) */
+.dbt-tile{display:block;width:calc(100% - 32px);margin:0 16px;background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-focal);padding:14px 15px;position:relative}
+.dbt-tk{font-size:13px;font-weight:600;letter-spacing:-.01em}
+.dbt-tv{font-family:var(--disp);font-size:21px;font-weight:700;letter-spacing:-.5px;margin-top:6px;font-variant-numeric:tabular-nums}
+.dbt-tv.owed{color:var(--good)}
+.dbt-ts{font-size:11px;font-weight:600;color:var(--muted);margin-top:5px}
+.dbt-due{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;border-radius:9999px;padding:2px 8px;background:var(--amber-tint);color:var(--amber);margin-left:6px}
+.dbt-tile .csv-schev{position:absolute;right:14px;top:50%;transform:translateY(-50%);width:16px;height:16px}
+
+/* section head + photo tiles (46-expense-detail.css) */
+.exd-sec-h{display:flex;align-items:baseline;justify-content:space-between;margin:24px 20px 12px}
+.exd-sec-h .t{font-family:var(--disp);font-weight:700;font-size:20px;letter-spacing:-.4px}
+.exd-photos{display:flex;gap:10px;padding:2px 16px 4px}
+.exd-photo{flex:0 0 auto;width:84px;height:84px;border-radius:16px;background:var(--white);box-shadow:var(--shadow-card);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-size:11.5px;font-weight:600;color:var(--muted)}
+.exd-photo svg{width:22px;height:22px;color:var(--ink-2)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Chi tiết giao dịch · các khe</div>
+  <h1>Ba khe, mỗi khe ba cách</h1>
+  <p class="lead">Mọi cách dưới đây chỉ ghép từ những phần app đang có: hàng hành động của thẻ dòng tiền, hàng của thẻ duyệt, ô Vào/Ra, ô bento của Tài sản, huy hiệu trên hoá đơn, ô ảnh.</p>
+
+  <h2>1 · Thêm ảnh <span>khoản chi Foody, chưa có ảnh</span></h2>
+  <div class="trio" id="a"></div>
+
+  <h2>2 · Việc cần làm <span>chuyển khoản thiếu tài khoản nhận</span></h2>
+  <div class="trio" id="b"></div>
+
+  <h2>3 · Khối ngữ cảnh <span>khoản cho Minh vay, mở từ danh sách</span></h2>
+  <div class="trio" id="c"></div>
+</div>
+
+<script>
+const G=(d)=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const I={
+  cam:G('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.2"/>'),
+  lib:G('<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m4 17 5-5 4 4 3-3 4 4"/><circle cx="16" cy="9.5" r="1.4"/>'),
+  swap:G('<path d="M4 8h13l-3-3"/><path d="M20 16H7l3 3"/>'),
+  iou:G('<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6"/><path d="M9 13c1-1.5 2 1.5 3 0s2 1.5 3 0"/>'),
+  alert:G('<path d="M12 4 3 19h18z"/><path d="M12 10v4M12 17h.01"/>'),
+  bell:G('<path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 21h4"/>'),
+  user:G('<circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/>'),
+};
+const CHEV='<svg class="csv-schev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>';
+const BACK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg>';
+const N=(v)=>`<span class="num">${v}</span>`;
+const row=(l,v,cls='',chev=false)=>`<div class="csv-srow ${cls}"><small>${l}</small><span class="csv-sval"><b>${v}</b>${chev?CHEV:''}</span></div>`;
+const rows=(list)=>`<div class="exd-meta">${list.join('')}</div>`;
+const cc=(ico,t,sub,cls='')=>`<div class="cc-row"><span class="cc-ic ${cls}">${ico}</span><span class="cc-t">${t}${sub?`<span class="cc-sub">${sub}</span>`:''}</span>${CHEV}</div>`;
+const ccCard=(inner)=>`<div class="exd-meta flush">${inner}</div>`;
+const hero=(ico,cls,amt,note,when,badge='')=>`<div class="exd-focal"><div class="exd-ico ${cls}">${ico}</div><div class="exd-amt num">${amt} ₫</div><div class="exd-note">${note}</div><div class="exd-prov">${when}</div>${badge}</div>`;
+const phone=(body)=>`<div class="phone"><div class="sb"><span>11:16</span><i>94</i></div><div class="nav"><span class="l">${BACK}Cá nhân</span><span class="r">Sửa</span></div>${body}</div>`;
+const V=(code,name,note,body)=>`<div><div class="v-h"><i>${code}</i><b>${name}</b><small>${note}</small></div>${phone(body)}</div>`;
+
+/* 1 · photo entry, on the Foody expense */
+const foodyHero=hero('🛒','','253.900','Foody','Thứ Bảy, 30 thg 8 · 10:17');
+const foodyRows=(extra=[])=>rows([row('Ghi vào đâu','🔒 Cá nhân'),row('Loại khoản','Chi tiêu'),row('Danh mục','🛒 Ăn uống'),row('Ngày',N('30/08')),row('Giờ',N('10:17')),row('Nguồn tiền','VIB · tín dụng ••4512'),...extra]);
+document.getElementById('a').innerHTML=[
+  V('1A','Hàng hành động','Chạm mở sheet Chụp · Thư viện', foodyHero+ccCard(cc(I.cam,'Thêm ảnh hoá đơn'))+foodyRows()),
+  V('1B','Một hàng trong thẻ','Không thêm thẻ nào', foodyHero+foodyRows([row('Ảnh','Thêm','act',true)])),
+  V('1C','Hai ô ảnh','Ô ảnh sẵn có, đưa lên trên', foodyHero+`<div class="exd-photos" style="margin-top:16px;justify-content:center"><div class="exd-photo">${I.cam}Chụp</div><div class="exd-photo">${I.lib}Thư viện</div></div>`+foodyRows()),
+].join('');
+
+/* 2 · a task, on the broken transfer pair */
+const xHero=(badge='')=>hero(I.swap,'id1','5.000.000','VIB → VCB','Thứ Hai, 15 thg 9 · 08:30',badge);
+const xRows=(toRow)=>rows([row('Ghi vào đâu','🔒 Cá nhân'),row('Loại khoản','🔁 Chuyển khoản nội bộ'),row('Từ tài khoản','VIB · ••1234'),toRow,row('Ngày',N('15/09')),row('Giờ',N('08:30'))]);
+document.getElementById('b').innerHTML=[
+  V('2A','Hàng hành động, màu hổ phách','Cùng hàng với 1A', xHero()+ccCard(cc(I.alert,'Thiếu tài khoản nhận','Chọn để số dư hai bên khớp','amber'))+xRows(row('Đến tài khoản','Chưa có','',false))),
+  V('2B','Ngay trên hàng bị thiếu','Trạng thái "cần điền" của thẻ duyệt', xHero()+xRows(row('Đến tài khoản','Chọn tài khoản','miss',true))),
+  V('2C','Huy hiệu trên hoá đơn','Như "chờ bạn duyệt" của đề xuất', xHero(`<div class="exd-plan wait">${I.alert}Thiếu tài khoản nhận</div>`)+xRows(row('Đến tài khoản','Chọn tài khoản','miss',true))),
+].join('');
+
+/* 3 · context block, on the loan to Minh */
+const lHero=hero(I.iou,'id3','2.000.000','Chuyển cho Minh','Thứ Năm, 28 thg 8 · 16:35');
+const lRows=rows([row('Ghi vào đâu','🔒 Cá nhân'),row('Loại khoản','🤝 Cho vay'),row('Cho ai mượn','Minh'),row('Hẹn trả',N('15/09')),row('Ngày',N('28/08')),row('Giờ',N('16:35')),row('Nguồn tiền','VIB · ••1234')]);
+const secH=`<div class="exd-sec-h"><span class="t">Minh</span></div>`;
+document.getElementById('c').innerHTML=[
+  V('3A','Ô bento của Tài sản','Chạm mở trang của Minh', lHero+lRows+secH+`<div class="dbt-tile"><div class="dbt-tk">Minh còn nợ bạn<span class="dbt-due">hẹn 15/09</span></div><div class="dbt-tv owed num">1.500.000 ₫</div><div class="dbt-ts">Đã trả 500.000 ₫ ngày 02/09</div>${CHEV}</div>`),
+  V('3B','Thẻ hàng thứ hai','Cùng loại hàng với phía trên', lHero+lRows+secH+`<div class="exd-meta flush" style="margin-top:0"><div style="padding:2px 16px">${row('Còn nợ bạn',N('1.500.000 ₫'),'good')}${row('Đã trả',N('500.000 ₫'))}</div><div style="border-top:1px solid var(--divider)">${cc(I.bell,'Nhắc Minh trả')}</div></div>`),
+  V('3C','Hai ô số liệu','Như Vào · Ra của thẻ dòng tiền', lHero+lRows+secH+`<div class="exd-meta flush" style="margin-top:0"><div style="padding:14px 14px 12px"><div class="cf-tiles"><div class="cf-tile"><span class="cf-tl">Còn nợ bạn</span><span class="cf-tv good">1.500.000 ₫</span></div><div class="cf-tile"><span class="cf-tl">Hẹn trả</span><span class="cf-tv">15/09</span></div></div></div><div style="border-top:1px solid var(--divider)">${cc(I.user,'Mở trang của Minh')}</div></div>`),
+].join('');
+</script>
+</body>
+</html>

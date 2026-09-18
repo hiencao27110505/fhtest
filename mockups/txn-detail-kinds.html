@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chi tiết giao dịch · khung và khe</title>
+<style>
+/* ── tokens: verbatim from src/css/10-tokens.css (Sage) ───────────────────── */
+:root{
+  --sage-50:#ebfbf6; --sage-100:#d6f5eb; --sage-200:#afe9d8; --sage-300:#7ad5bd; --sage-400:#4abba1; --sage-500:#149d83; --sage-600:#007c65;
+  --stone-25:#fafcfc; --stone-50:#f6f9f8; --stone-100:#f0f5f3; --stone-150:#ecf1f0; --stone-200:#e3eae7; --stone-300:#c3cdca; --stone-400:#7f8986; --stone-500:#6f7674; --stone-600:#626b68; --stone-800:#2e3835; --stone-900:#0e1613;
+  --red-tint:#ffeaeb; --red-base:#d63053; --red-ink:#a41b3b;
+  --amber-tint:#fdefe0; --amber-ink:#915200;
+  --id-1:#0b67a9; --id-1-tint:#e5f4ff; --id-1-text:#13619d; --id-3:#9e5cd1; --id-3-tint:#f6eeff; --id-3-text:#704891; --id-6:#bc6d24; --id-6-tint:#ffeee2; --id-6-text:#8e4900;
+  --brand:var(--sage-500); --brand-ink:var(--sage-600); --brand-tint:var(--sage-50);
+  --grad-brand:linear-gradient(135deg,var(--sage-500),var(--sage-400)); --brand-glow:rgba(20,157,131,.32);
+  --danger:var(--red-ink); --amber:var(--amber-ink); --good:var(--sage-600); --good-tint:var(--sage-50);
+  --ink:var(--stone-900); --ink-2:var(--stone-800); --muted:var(--stone-600); --muted-soft:var(--stone-500);
+  --white:#fff; --canvas:var(--stone-100); --hairline:var(--stone-200); --divider:var(--stone-150);
+  --surface:var(--stone-50); --fill-neutral:rgba(127,137,134,.14); --chev:var(--stone-300);
+  --shadow-card:0 1px 3px rgba(14,22,19,.05),0 8px 24px rgba(14,22,19,.04);
+  --r-card-lg:22px;
+  --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:var(--text);background:#e6ebe9;color:var(--ink);padding:34px 22px 90px;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;font-size:inherit;color:inherit;border:0;background:none;cursor:pointer;text-align:left}
+input,textarea{font-family:inherit}
+svg{display:block}
+.num{font-family:var(--disp);font-variant-numeric:tabular-nums}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ── page chrome ── */
+.page-h{max-width:1720px;margin:0 auto}
+.page-h .eyebrow{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--brand-ink)}
+.page-h h1{font-family:var(--disp);font-size:26px;font-weight:800;letter-spacing:-.6px;margin-top:6px;text-wrap:balance}
+.page-h p{font-size:14px;color:var(--muted);margin-top:8px;max-width:940px;line-height:1.6}
+.page-h p i{font-style:normal;font-weight:700;color:var(--ink)}
+.cols2{max-width:1720px;margin:20px auto 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:12px 26px}
+.bad,.law{font-size:13px;line-height:1.55;color:var(--ink-2);background:var(--white);border-radius:14px;padding:13px 16px;box-shadow:var(--shadow-card)}
+.bad b,.law b{display:block;font-family:var(--disp);font-size:13.5px;font-weight:800;margin-bottom:6px;letter-spacing:-.2px}
+.bad ul,.law ul{margin:0;padding-left:16px}
+.bad li,.law li{margin:3px 0}
+.bad b{color:var(--danger)} .law b{color:var(--brand-ink)}
+.bad i,.law i{font-style:normal;font-weight:700;color:var(--ink)}
+.gap{max-width:1720px;margin:14px auto 0;background:var(--white);border-radius:14px;box-shadow:var(--shadow-card);overflow-x:auto}
+.gap table{width:100%;border-collapse:collapse;font-size:12.5px;min-width:900px}
+.gap th{font-family:var(--disp);font-size:11.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);text-align:left;padding:12px 14px;border-bottom:1px solid var(--divider);white-space:nowrap}
+.gap td{padding:9px 14px;border-bottom:1px solid var(--divider);vertical-align:top;line-height:1.45}
+.gap tr:last-child td{border-bottom:0}
+.gap td:first-child{font-weight:700;color:var(--ink);white-space:nowrap}
+.gap td.ro{color:var(--muted-soft)}
+.gap td .k{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--brand-ink);background:var(--brand-tint);border-radius:6px;padding:2px 6px}
+
+.grid{max-width:1720px;margin:40px auto 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(640px,1fr));gap:44px 34px}
+@media (max-width:720px){.grid{grid-template-columns:1fr}}
+.opt{display:flex;flex-direction:column}
+.ohead{margin:0 4px 14px}
+.ohead .n{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:99px;background:var(--ink);color:#fff;font-family:var(--disp);font-size:12px;font-weight:800;margin-right:8px;vertical-align:2px}
+.ohead b{font-family:var(--disp);font-size:16.5px;font-weight:800;letter-spacing:-.3px}
+.ohead p{font-size:13px;color:var(--muted);line-height:1.55;margin-top:7px}
+.ohead p .fix{color:var(--brand-ink);font-weight:700}
+.ohead p .cost{color:var(--amber);font-weight:700}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+@media (max-width:480px){.pair{grid-template-columns:1fr}}
+.state{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 8px 6px}
+.state i{font-style:normal;color:var(--brand-ink)}
+
+/* ── phone ── */
+.phone{width:100%;max-width:392px;margin:0 auto;background:var(--canvas);border-radius:38px;border:8px solid #0b1512;box-shadow:0 24px 50px rgba(10,20,17,.24);overflow:hidden;display:flex;flex-direction:column;position:relative}
+.sb{display:flex;justify-content:space-between;align-items:center;padding:12px 24px 0;font-size:13px;font-weight:700}
+.sb i{font-style:normal;font-size:11px;font-weight:800;background:var(--ink);color:#fff;border-radius:5px;padding:1px 5px}
+.nav{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:8px 16px 4px;min-height:40px}
+.nav .l{display:inline-flex;align-items:center;gap:2px;font-size:17px;font-weight:600;letter-spacing:-.02em;color:var(--ink);justify-self:start}
+.nav .l svg{width:22px;height:22px;margin-left:-4px}
+.nav .l.txt{color:var(--brand-ink)}
+.nav .c{font-family:var(--disp);font-size:16px;font-weight:700;letter-spacing:-.2px}
+.nav .r{justify-self:end;font-size:17px;font-weight:700;color:var(--brand-ink);letter-spacing:-.02em}
+.scroll{flex:1;padding-bottom:18px}
+
+/* focal read-out */
+.exd-focal{display:flex;flex-direction:column;align-items:center;text-align:center;padding:10px 24px 2px}
+.exd-ico{width:64px;height:64px;border-radius:20px;display:flex;align-items:center;justify-content:center;background:var(--fill-neutral);color:var(--ink-2)}
+.exd-ico svg{width:30px;height:30px}
+.exd-ico.id1{background:var(--id-1-tint);color:var(--id-1-text)} .exd-ico.id3{background:var(--id-3-tint);color:var(--id-3-text)} .exd-ico.id6{background:var(--id-6-tint);color:var(--id-6-text)} .exd-ico.good{background:var(--good-tint);color:var(--good)}
+.exd-amt{font-family:var(--disp);font-variant-numeric:tabular-nums;font-weight:700;font-size:34px;letter-spacing:-1.2px;color:var(--ink);margin-top:16px;line-height:1}
+.exd-amt.in{color:var(--good)}
+.exd-note{font-size:17px;font-weight:600;letter-spacing:-.02em;color:var(--ink-2);margin-top:9px}
+.exd-prov{font-size:11.5px;font-weight:500;color:var(--muted-soft);margin-top:8px}
+.exd-prov .sep{margin:0 5px;color:var(--chev)}
+.exd-plan{display:inline-flex;align-items:center;gap:5px;margin-top:12px;background:var(--brand-tint);color:var(--brand-ink);border-radius:9999px;padding:5px 12px;font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase}
+.exd-plan.wait{background:var(--amber-tint);color:var(--amber)}
+
+/* settings rows */
+.exd-meta{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-card);margin:14px 16px 0;overflow:hidden;padding:2px 16px}
+.exd-meta.top{padding-top:16px}
+.csv-srows{margin-top:2px}
+.csv-srow{display:flex;width:100%;align-items:center;justify-content:space-between;gap:10px;padding:12px 2px;min-height:46px;border:0;border-bottom:1px solid var(--divider);background:none;font:inherit;text-align:left;color:inherit}
+.csv-srows .csv-srow:last-child{border-bottom:0}
+.csv-srow small{font-size:13px;font-weight:600;color:var(--muted);flex:none}
+.csv-sval{display:flex;align-items:center;gap:5px;min-width:0}
+.csv-sval b{font-size:14px;font-weight:650;color:var(--ink);letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.csv-schev{width:15px;height:15px;color:var(--chev);flex:none}
+.csv-srow.soft .csv-sval b{color:var(--muted-soft);font-weight:600}
+.csv-srow.ro.dim .csv-sval b{color:var(--muted);font-weight:600}
+.csv-sclear{flex:none;width:22px;height:22px;border-radius:50%;background:var(--fill-neutral);color:var(--muted);font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;margin-left:2px}
+.exd-hint{font-size:12px;color:var(--muted-soft);line-height:1.45;margin:8px 22px 0;text-align:center}
+
+/* queue-card fields */
+.fld{margin:0 0 14px}
+.fld label{display:block;font-size:13px;font-weight:700;color:var(--muted);letter-spacing:.02em;text-transform:uppercase;margin-bottom:8px}
+.fld .in{width:100%;background:var(--canvas);border:2px solid transparent;border-radius:13px;padding:12px 14px;font-size:16px;font-weight:700;letter-spacing:-.01em;color:var(--ink);outline:none}
+.fld .in.note{font-weight:400;font-size:14.5px;line-height:1.45;resize:none;display:block;height:47px}
+
+/* the kind block: what this kind adds under the rows (reactions on family, balance on a loan…) */
+.exd-sec-h{display:flex;align-items:baseline;justify-content:space-between;margin:24px 20px 12px}
+.exd-sec-h .t{font-family:var(--disp);font-weight:700;font-size:20px;letter-spacing:-.4px;color:var(--ink)}
+.exd-sec-h .c{font-size:14px;font-weight:600;color:var(--muted)}
+.kb{margin:0 16px;background:var(--white);border-radius:16px;box-shadow:var(--shadow-card);padding:14px 16px}
+.kb .l{font-size:12px;font-weight:600;color:var(--muted)}
+.kb .v{font-family:var(--disp);font-size:22px;font-weight:700;letter-spacing:-.5px;margin-top:3px;font-variant-numeric:tabular-nums}
+.kb .v.good{color:var(--good)} .kb .v.bad{color:var(--danger)}
+.kb .s{font-size:12.5px;color:var(--muted);margin-top:4px;line-height:1.4}
+.kb .s b{color:var(--ink);font-weight:700}
+.kb .acts{display:flex;gap:8px;margin-top:12px}
+.kb .acts button{flex:1;min-height:38px;border-radius:9999px;font-size:13px;font-weight:700;background:var(--brand-tint);color:var(--brand-ink);display:flex;align-items:center;justify-content:center;gap:6px}
+.kb .acts button svg{width:15px;height:15px}
+.kb .legs{display:flex;gap:10px;margin-top:10px}
+.kb .leg{flex:1;background:var(--surface);border-radius:12px;padding:10px 12px}
+.kb .leg .l{font-size:11px}
+.kb .leg .v{font-size:16px;margin-top:2px}
+.kb .meter{height:8px;border-radius:5px;background:var(--divider);overflow:hidden;margin-top:10px}
+.kb .meter i{display:block;height:100%;background:var(--brand);border-radius:5px}
+
+/* photo door */
+.pdoor{margin:14px 16px 0;background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-card);padding:20px 18px 16px;text-align:center}
+.pdoor-mk{width:46px;height:46px;border-radius:15px;display:inline-flex;align-items:center;justify-content:center;background:var(--fill-neutral);color:var(--ink-2)}
+.pdoor-mk svg{width:24px;height:24px}
+.pdoor-q{font-family:var(--disp);font-size:17px;font-weight:700;letter-spacing:-.3px;margin-top:10px;text-wrap:balance}
+.pdoor-w{font-size:13px;color:var(--muted);margin-top:5px;line-height:1.45;text-wrap:balance}
+.pdoor-acts{display:flex;gap:8px;margin-top:14px}
+.pdoor-btn{flex:1;min-height:42px;border-radius:9999px;font-size:13.5px;font-weight:700;background:var(--brand-tint);color:var(--brand-ink);display:flex;align-items:center;justify-content:center;gap:6px;padding:0 10px;white-space:nowrap}
+.pdoor-btn.pri{background:var(--grad-brand);color:#fff;box-shadow:0 5px 14px var(--brand-glow)}
+.pdoor-btn svg{width:16px;height:16px;flex:none}
+.pdoor.quiet{display:flex;align-items:center;gap:12px;text-align:left;padding:12px 12px 12px 14px}
+.pdoor.quiet .pdoor-mk{width:38px;height:38px;border-radius:12px;flex:none}
+.pdoor.quiet .pdoor-mk svg{width:19px;height:19px}
+.pdoor.quiet .t{flex:1;min-width:0}
+.pdoor.quiet .pdoor-q{font-size:14px;margin:0}
+.pdoor.quiet .pdoor-w{font-size:12px;margin-top:2px}
+.pdoor.quiet .pdoor-btn{flex:none;min-height:36px;padding:0 14px;font-size:13px}
+
+.exd-del{display:block;width:fit-content;margin:26px auto 4px;color:var(--muted);font-size:14px;font-weight:500;padding:8px 16px}
+
+/* ── v2: slots. kinds stack in one column; phones sit in a wrapping row ── */
+.grid{display:flex;flex-direction:column;gap:54px;margin-top:44px}
+.opt{display:grid;grid-template-columns:minmax(280px,360px) 1fr;gap:20px 34px;align-items:start;padding-top:30px;border-top:1px solid rgba(14,22,19,.10)}
+@media (max-width:900px){.opt{grid-template-columns:1fr}}
+.ohead{margin:0}
+.phones{display:flex;flex-wrap:wrap;gap:22px 20px;align-items:flex-start}
+.ph{width:100%;max-width:330px}
+.phone{max-width:330px;border-radius:36px}
+.state{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.state .from{font-weight:800;color:var(--ink)}
+.state .lands{color:var(--brand-ink)}
+/* the slot sheet under each kind's description */
+.slots{margin-top:14px;background:var(--white);border-radius:14px;box-shadow:var(--shadow-card);padding:4px 14px}
+.slots div{display:grid;grid-template-columns:104px 1fr;gap:10px;padding:9px 0;border-bottom:1px solid var(--divider);font-size:12.5px;line-height:1.45;color:var(--ink-2)}
+.slots div:last-child{border-bottom:0}
+.slots small{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding-top:1px}
+.slots em{font-style:normal;color:var(--muted-soft)}
+/* anatomy: one phone, regions outlined, callouts beside it */
+.anat{max-width:1720px;margin:34px auto 0;display:grid;grid-template-columns:minmax(300px,350px) 1fr;gap:26px 40px;align-items:start}
+@media (max-width:820px){.anat{grid-template-columns:1fr}}
+.anat h2{font-family:var(--disp);font-size:19px;font-weight:800;letter-spacing:-.4px}
+.anat .sub{font-size:13.5px;color:var(--muted);line-height:1.6;margin-top:6px;max-width:760px}
+.zone{position:relative;border-radius:16px;margin:6px 8px 0;padding:2px 0 6px}
+.zone.fx{outline:1.5px solid var(--hairline);outline-offset:0}
+.zone.sl{outline:1.5px dashed var(--brand);outline-offset:0;background:rgba(20,157,131,.035)}
+.zone>.tag{position:absolute;top:-9px;left:12px;font-size:9.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;border-radius:6px;padding:2px 7px;z-index:2}
+.zone.fx>.tag{background:var(--stone-200);color:var(--stone-600)}
+.zone.sl>.tag{background:var(--brand);color:#fff}
+.zone .exd-meta,.zone .pdoor,.zone .kb{margin-left:8px;margin-right:8px}
+.zone .exd-sec-h{margin:14px 12px 10px}
+.rowzone{position:relative}
+.rowzone.sl{outline:1.5px dashed var(--brand);border-radius:10px;background:rgba(20,157,131,.05);margin:0 -8px;padding:0 8px}
+.rowzone>.tag{position:absolute;top:-8px;right:8px;font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;border-radius:6px;padding:1px 6px;background:var(--brand);color:#fff;z-index:2}
+.calls{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px 22px;margin-top:18px}
+.call{background:var(--white);border-radius:14px;box-shadow:var(--shadow-card);padding:13px 16px;font-size:13px;line-height:1.55;color:var(--ink-2)}
+.call b{display:flex;align-items:center;gap:7px;font-family:var(--disp);font-size:13.5px;font-weight:800;letter-spacing:-.2px;margin-bottom:5px;color:var(--ink)}
+.call b i{font-style:normal;font-size:9.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;border-radius:6px;padding:2px 7px}
+.call.sl b i{background:var(--brand);color:#fff} .call.fx b i{background:var(--stone-200);color:var(--stone-600)}
+/* the ask slot's other tenants */
+.pdoor-mk.amber{background:var(--amber-tint);color:var(--amber)}
+.pdoor-btn.solo{flex:none;padding:0 18px;margin:0 auto}
+.nav .l.ctx{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ── v3: less text, compact ask row ── */
+.page-h p{max-width:640px}
+.opt{grid-template-columns:minmax(200px,260px) 1fr}
+.ohead p{font-size:13px;margin-top:6px}
+.state{gap:8px}
+.state .lands{background:var(--white);border-radius:6px;padding:1px 7px;box-shadow:var(--shadow-card)}
+.legend{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:var(--muted)}
+.legend .lg{display:inline-block;width:22px;height:12px;border-radius:4px;margin-left:10px}
+.legend .lg:first-child{margin-left:0}
+.legend .lg.fx{outline:1.5px solid var(--stone-300)} .legend .lg.sl{outline:1.5px dashed var(--brand);background:rgba(20,157,131,.06)}
+table.mini{margin-top:14px;border-collapse:collapse;font-size:13px;background:var(--white);border-radius:14px;box-shadow:var(--shadow-card);overflow:hidden;max-width:720px;width:100%}
+table.mini td{padding:9px 12px;border-bottom:1px solid var(--divider);vertical-align:top;line-height:1.45;color:var(--ink-2)}
+table.mini tr:last-child td{border-bottom:0}
+table.mini td:nth-child(2){font-weight:700;color:var(--ink);white-space:nowrap}
+.pill{display:inline-block;font-size:9.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;border-radius:6px;padding:2px 7px}
+.pill.fx{background:var(--stone-200);color:var(--stone-600)} .pill.sl{background:var(--brand);color:#fff}
+/* the ask slot: one row, 60px. icon · short line · icon buttons (44px targets) */
+.askrow{display:flex;align-items:center;gap:8px;margin:14px 16px 0;background:var(--white);border-radius:16px;box-shadow:var(--shadow-card);padding:8px 8px 8px 12px;min-height:60px}
+.ar-mk{width:30px;height:30px;border-radius:10px;flex:none;display:flex;align-items:center;justify-content:center;background:var(--fill-neutral);color:var(--ink-2)}
+.ar-mk svg{width:18px;height:18px}
+.ar-mk.amber{background:var(--amber-tint);color:var(--amber)}
+.ar-t{flex:1;min-width:0;font-size:14px;font-weight:650;letter-spacing:-.01em;line-height:1.25;color:var(--ink);text-wrap:balance}
+.ar-ib{flex:none;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--brand-tint);color:var(--brand-ink)}
+.ar-ib svg{width:19px;height:19px}
+.ar-ib.pri{background:var(--grad-brand);color:#fff;box-shadow:0 4px 12px var(--brand-glow)}
+.ar-b{flex:none;min-height:40px;padding:0 16px;border-radius:9999px;background:var(--brand-tint);color:var(--brand-ink);font-size:13.5px;font-weight:700}
+.zone .askrow{margin-left:8px;margin-right:8px}
+</style>
+</head>
+<body>
+
+<div class="page-h">
+  <div class="eyebrow">Chi tiết giao dịch · mọi loại khoản · bản 3</div>
+  <h1>Một khung, nhiều khe</h1>
+  <p>Khung giữ nguyên ở mọi loại khoản. Khe đổi theo loại khoản và theo nơi mở.</p>
+</div>
+
+<div class="anat">
+  <div id="anat-phone"></div>
+  <div>
+    <div class="legend"><span class="lg fx"></span>Giữ nguyên<span class="lg sl"></span>Khe</div>
+    <table class="mini">
+      <tr><td><span class="pill fx">Khung</span></td><td>Thanh trên</td><td>‹ nơi vừa rời · Sửa. Khi sửa: Huỷ · tên loại · Lưu.</td></tr>
+      <tr><td><span class="pill fx">Khung</span></td><td>Hoá đơn</td><td>Biểu tượng, số tiền, ghi chú, ngày giờ.</td></tr>
+      <tr><td><span class="pill fx">Khung</span></td><td>Hàng đầu, hàng cuối</td><td>Ghi vào đâu · Loại khoản … Ngày · Giờ · Nguồn tiền.</td></tr>
+      <tr><td><span class="pill sl">Khe</span></td><td>Lời mời</td><td>Một hàng gọn. Thêm ảnh, hoặc một việc cần làm. Không có thì bỏ trống.</td></tr>
+      <tr><td><span class="pill sl">Khe</span></td><td>Hàng theo loại</td><td>Cho ai mượn, Vị thế, Từ và Đến tài khoản…</td></tr>
+      <tr><td><span class="pill sl">Khe</span></td><td>Khối ngữ cảnh</td><td>Số dư người mượn, vị thế, dư nợ thẻ. Ẩn nếu màn trước đã có.</td></tr>
+      <tr><td><span class="pill sl">Khe</span></td><td>Mở ở đâu</td><td>Xem, hoặc Sửa luôn khi mở từ màn của chính nó.</td></tr>
+      <tr><td><span class="pill sl">Khe</span></td><td>Mức sửa</td><td>Sửa đủ, hoặc chỉ xem và xoá.</td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="gap" style="margin-top:30px"><table>
+  <tr><th>Loại khoản</th><th>Lời mời</th><th>Hàng theo loại</th><th>Khối ngữ cảnh</th><th>Mở từ danh sách</th><th>Mở từ màn riêng</th><th>Mức sửa</th></tr>
+  <tr><td>Chi tiêu <span class="k">đã có</span></td><td>Thêm ảnh hoá đơn</td><td>Danh mục</td><td>Gia đình: cảm xúc</td><td>Xem</td><td class="ro">–</td><td>Đủ</td></tr>
+  <tr><td>Thu nhập</td><td>Thêm phiếu lương</td><td>Danh mục thu nhập</td><td class="ro">–</td><td>Xem</td><td>Xem</td><td>Đủ</td></tr>
+  <tr><td>Chuyển khoản nội bộ</td><td class="ro">– · cặp thiếu đầu: chọn tài khoản</td><td>Từ · Đến tài khoản</td><td>Số dư hai tài khoản</td><td>Xem</td><td>Sửa</td><td>Đủ, cả hai đầu</td></tr>
+  <tr><td>Trả nợ thẻ</td><td class="ro">–</td><td>Trả cho thẻ</td><td>Dư nợ thẻ</td><td>Xem</td><td>Sửa</td><td>Đủ</td></tr>
+  <tr><td>Cho vay</td><td>Thêm giấy hẹn</td><td>Cho ai mượn · Hẹn trả</td><td>Số dư người mượn</td><td>Xem</td><td>Xem, ẩn khối</td><td>Đủ</td></tr>
+  <tr><td>Thu nợ / Trả nợ</td><td class="ro">–</td><td>Ai trả bạn</td><td>Số dư sau khoản này</td><td>Xem</td><td>Sửa</td><td>Đủ</td></tr>
+  <tr><td>Đầu tư</td><td>Thêm ảnh lệnh mua</td><td>Vị thế · Số lượng</td><td>Vị thế</td><td>Xem</td><td>Xem, ẩn khối</td><td>Đủ</td></tr>
+  <tr><td>Điều chỉnh dư nợ</td><td>Mở thẻ để sửa</td><td>Thẻ</td><td class="ro">–</td><td>Xem</td><td>Xem</td><td>Chỉ xem, xoá</td></tr>
+</table></div>
+
+<div class="page-h"><div class="grid" id="grid"></div></div>
+
+<script>
+const G = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const I = {
+  wallet: G('<path d="M3 7h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 7l12-3v3"/><path d="M16 14h3"/>'),
+  swap: G('<path d="M4 8h13l-3-3"/><path d="M20 16H7l3 3"/>'),
+  card: G('<rect x="3" y="6" width="18" height="12" rx="2.5"/><path d="M3 10h18"/>'),
+  iou: G('<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6"/><path d="M9 13c1-1.5 2 1.5 3 0s2 1.5 3 0"/>'),
+  hand: G('<path d="M12 3v9"/><path d="M8 7l4-4 4 4"/><path d="M4 14h3l3 3h4l3-3h3"/><path d="M4 14v6h16v-6"/>'),
+  chart: G('<path d="M4 19h16"/><path d="M6 15l4-4 3 3 5-6"/>'),
+  scale: G('<path d="M12 4v16"/><path d="M6 20h12"/><path d="M5 8h14"/><path d="M5 8l-2 6h4z"/><path d="M19 8l-2 6h4z"/>'),
+  receipt: G('<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>'),
+  cam: G('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.2"/>'),
+  lib: G('<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m4 17 5-5 4 4 3-3 4 4"/><circle cx="16" cy="9.5" r="1.4"/>'),
+  bell: G('<path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 21h4"/>'),
+  qr: G('<rect x="4" y="4" width="6" height="6"/><rect x="14" y="4" width="6" height="6"/><rect x="4" y="14" width="6" height="6"/><path d="M14 14h2v2h-2zM18 14h2M14 18h2M18 18h2v2"/>'),
+  refresh: G('<path d="M4 12a8 8 0 0 1 14-5l2 2"/><path d="M20 4v5h-5"/>'),
+  alert: G('<path d="M12 4 3 19h18z"/><path d="M12 10v4M12 17h.01"/>'),
+};
+const CHEV = '<svg class="csv-schev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>';
+const BACK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg>';
+
+function row(lbl, val, m={}, edit=true){
+  const tappable = edit && !m.ro;
+  const cls='csv-srow'+(m.soft?' soft':'')+(m.ro&&edit?' ro dim':'');
+  const clear=(tappable&&m.clear)?'<span class="csv-sclear">×</span>':'';
+  const inner=`<small>${lbl}</small><span class="csv-sval"><b>${val}</b>${clear}${tappable?CHEV:''}</span>`;
+  return tappable?`<button type="button" class="${cls}">${inner}</button>`:`<div class="${cls}">${inner}</div>`;
+}
+const N = (v) => `<span class="num">${v}</span>`;
+const fld=(lbl,val,note)=>note?`<div class="fld"><label>${lbl}</label><textarea class="in note" rows="1">${val}</textarea></div>`:`<div class="fld"><label>${lbl}</label><input class="in num" inputmode="numeric" value="${val}"></div>`;
+const hero=(h)=>`<div class="exd-focal"><div class="exd-ico ${h.icoCls||''}">${h.glyph}</div><div class="exd-amt num${h.in?' in':''}">${h.in?'+':''}${h.amt} ₫</div><div class="exd-note">${h.note}</div><div class="exd-prov">${h.when}</div></div>`;
+/* the ask slot is ONE compact row. Photo: a short line + two icon buttons
+   (the likelier one filled). Other asks: a short line + one small button. */
+const photoRow=(txt,pri)=>`<div class="askrow"><span class="ar-mk">${I.receipt}</span><span class="ar-t">${txt}</span>`
+  +(pri==='lib'?`<button class="ar-ib pri" aria-label="Thư viện">${I.lib}</button><button class="ar-ib" aria-label="Chụp ảnh">${I.cam}</button>`
+               :`<button class="ar-ib pri" aria-label="Chụp ảnh">${I.cam}</button><button class="ar-ib" aria-label="Thư viện">${I.lib}</button>`)+`</div>`;
+const taskRow=(ico,cls,txt,btn)=>`<div class="askrow"><span class="ar-mk ${cls}">${ico}</span><span class="ar-t">${txt}</span><button class="ar-b">${btn}</button></div>`;
+const navView=(back,canEdit=true)=>`<div class="nav"><span class="l ctx">${BACK}${back}</span><span class="c"></span>${canEdit?'<button type="button" class="r">Sửa</button>':'<span></span>'}</div>`;
+const navEdit=(title)=>`<div class="nav"><span class="l txt">Huỷ</span><span class="c">${title}</span><button type="button" class="r">Lưu</button></div>`;
+const card=(rs, top='')=>`<div class="exd-meta${top?' top':''}">${top}<div class="csv-srows">${rs.join('')}</div></div>`;
+const sec=(t,c)=>`<div class="exd-sec-h"><span class="t">${t}</span><span class="c">${c||''}</span></div>`;
+const del=(t)=>`<button type="button" class="exd-del">${t}</button>`;
+const hint=(t)=>`<div class="exd-hint">${t}</div>`;
+const phone=(nav,body)=>`<div class="phone"><div class="sb"><span>11:16</span><i>94</i></div>${nav}<div class="scroll">${body}</div></div>`;
+const PH=(from,lands,nav,body)=>`<div class="ph"><div class="state"><span class="from">${from}</span><span class="lands">${lands}</span></div>${phone(nav,body)}</div>`;
+const editBody=(k,rows,extra='')=>card(rows, fld('Số tiền',k.h.amt)+fld(k.noteLbl||'Ghi chú',k.h.note,true))+extra+del(k.delLbl);
+
+const KB = {
+  minh: sec('Minh')+`<div class="kb"><div class="l">Còn nợ bạn</div><div class="v good num">1.500.000 ₫</div><div class="s">Đã trả 500.000 ₫ · hẹn trả 15/09</div><div class="acts"><button>${I.bell}Nhắc trả</button><button>${I.qr}VietQR</button></div></div>`,
+  minhAfter: sec('Minh')+`<div class="kb"><div class="l">Còn nợ bạn</div><div class="v good num">1.500.000 ₫</div><div class="s">Mượn 2.000.000 ₫ ngày 28/08</div></div>`,
+  btc: sec('BTC')+`<div class="kb"><div class="l">Đang giữ 0,0125 BTC</div><div class="v good num">36.100.000 ₫</div><div class="s">Vốn 32.500.000 ₫ · lãi +3.600.000 ₫ (+11%)</div><div class="acts"><button>${I.refresh}Cập nhật giá</button></div></div>`,
+  xfer: sec('Số dư')+`<div class="kb"><div class="legs" style="margin-top:0"><div class="leg"><div class="l">VIB · ••1234</div><div class="v num">6.800.000 ₫</div></div><div class="leg"><div class="l">VCB · ••8871</div><div class="v num">17.250.000 ₫</div></div></div></div>`,
+  vibcard: sec('Thẻ VIB ••4512')+`<div class="kb"><div class="l">Còn nợ</div><div class="v bad num">2.350.000 ₫</div><div class="s">Đến hạn 25/09</div></div>`,
+};
+
+const income={ h:{glyph:I.wallet, icoCls:'good', in:true, amt:'32.000.000', note:'Lương tháng 8', when:'Thứ Sáu, 5 thg 9 · 09:12'}, noteLbl:'Tiền gì vậy?', delLbl:'Xoá khoản thu này',
+  rows:(e)=>[row('Ghi vào đâu','🔒 Cá nhân',{ro:true},e), row('Loại khoản','Thu nhập',{ro:true},e), row('Danh mục','Lương',{},e), row('Ngày',N('05/09'),{},e), row('Giờ',N('09:12'),{clear:true},e), row('Vào tài khoản nào','VCB · ••8871',{},e)] };
+const xfer={ h:{glyph:I.swap, icoCls:'id1', amt:'5.000.000', note:'VIB → VCB', when:'Thứ Hai, 15 thg 9 · 08:30'}, delLbl:'Xoá cả hai đầu',
+  rows:(e)=>[row('Ghi vào đâu','🔒 Cá nhân',{ro:true},e), row('Loại khoản','🔁 Chuyển khoản nội bộ',{ro:true},e), row('Từ tài khoản','VIB · ••1234',{},e), row('Đến tài khoản','VCB · ••8871',{},e), row('Ngày',N('15/09'),{},e), row('Giờ',N('08:30'),{clear:true},e)],
+  rowsBroken:(e)=>[row('Ghi vào đâu','🔒 Cá nhân',{ro:true},e), row('Loại khoản','🔁 Chuyển khoản nội bộ',{ro:true},e), row('Từ tài khoản','VIB · ••1234',{},e), row('Đến tài khoản','Chưa có',{soft:true},e), row('Ngày',N('15/09'),{},e), row('Giờ',N('08:30'),{clear:true},e)] };
+const cardpay={ h:{glyph:I.card, icoCls:'id6', amt:'4.200.000', note:'Thanh toán thẻ VIB', when:'Thứ Bảy, 6 thg 9 · 20:41'}, delLbl:'Xoá khoản trả thẻ này',
+  rows:(e)=>[row('Ghi vào đâu','🔒 Cá nhân',{ro:true},e), row('Loại khoản','💳 Trả nợ thẻ',{ro:true},e), row('Trả cho thẻ','VIB · tín dụng ••4512',{},e), row('Ngày',N('06/09'),{},e), row('Giờ',N('20:41'),{clear:true},e), row('Từ tài khoản','Chưa rõ',{soft:true},e)] };
+const loan={ h:{glyph:I.iou, icoCls:'id3', amt:'2.000.000', note:'Chuyển cho Minh', when:'Thứ Năm, 28 thg 8 · 16:35'}, delLbl:'Xoá khoản cho vay này',
+  rows:(e)=>[row('Ghi vào đâu','🔒 Cá nhân',{ro:true},e), row('Loại khoản','🤝 Cho vay',{},e), row('Cho ai mượn','Minh',{},e), row('Hẹn trả',N('15/09'),{clear:true},e), row('Ngày',N('28/08'),{},e), row('Giờ',N('16:35'),{clear:true},e), row('Nguồn tiền','VIB · ••1234',{},e)],
+  door: photoRow('Thêm giấy hẹn','lib') };
+const repay={ h:{glyph:I.hand, icoCls:'good', in:true, amt:'500.000', note:'Minh trả một phần', when:'Thứ Ba, 2 thg 9 · 11:05'}, delLbl:'Xoá khoản thu nợ này',
+  rows:(e)=>[row('Ghi vào đâu','🔒 Cá nhân',{ro:true},e), row('Loại khoản','🤝 Thu nợ',{ro:true},e), row('Ai trả bạn','Minh',{},e), row('Ngày',N('02/09'),{},e), row('Giờ',N('11:05'),{clear:true},e), row('Vào tài khoản nào','VIB · ••1234',{},e)] };
+const invest={ h:{glyph:I.chart, icoCls:'id1', amt:'6.500.000', note:'Mua BTC', when:'Thứ Ba, 9 thg 9 · 21:02'}, delLbl:'Xoá khoản mua này',
+  rows:(e)=>[row('Ghi vào đâu','🔒 Cá nhân',{ro:true},e), row('Loại khoản','📈 Đầu tư',{},e), row('Vị thế','BTC',{},e), row('Số lượng',N('0,0025'),{},e), row('Ngày',N('09/09'),{},e), row('Giờ',N('21:02'),{clear:true},e), row('Nguồn tiền','VCB · ••8871',{},e)],
+  door: photoRow('Thêm ảnh lệnh mua','lib') };
+const adjust={ h:{glyph:I.scale, amt:'350.000', note:'Điều chỉnh dư nợ', when:'Thứ Bảy, 6 thg 9 · 21:10'},
+  rows:(e)=>[row('Ghi vào đâu','🔒 Cá nhân',{ro:true},e), row('Loại khoản','Điều chỉnh dư nợ',{ro:true},e), row('Thẻ','VIB · tín dụng ••4512',{ro:true},e), row('Ngày',N('06/09'),{ro:true},e)] };
+
+const K=[
+{ n:1, t:'Thu nhập', d:'Hai trạng thái như khoản chi.',
+  phones:[ PH('Từ danh sách','Xem', navView('Cá nhân'), hero(income.h)+photoRow('Thêm phiếu lương','lib')+card(income.rows(false))),
+           PH('Chạm Sửa','Sửa', navEdit('Sửa khoản thu'), editBody(income, income.rows(true))) ] },
+{ n:2, t:'Chuyển khoản nội bộ', d:'Một cặp, mở chung một màn. Không mời thêm ảnh. Từ màn tài khoản thì vào Sửa luôn.',
+  phones:[ PH('Từ danh sách','Xem', navView('Cá nhân'), hero(xfer.h)+card(xfer.rows(false))+KB.xfer),
+           PH('Từ màn VIB ••1234','Sửa luôn', navEdit('Sửa chuyển khoản'), editBody(xfer, xfer.rows(true), hint('Sửa sẽ đổi cả hai đầu.'))),
+           PH('Cặp thiếu một đầu','Xem', navView('Cá nhân'), hero(xfer.h)+taskRow(I.alert,'amber','Thiếu tài khoản nhận','Chọn')+card(xfer.rowsBroken(false))) ] },
+{ n:3, t:'Trả nợ thẻ', d:'Từ danh sách có dư nợ thẻ. Từ màn thẻ thì vào Sửa luôn.',
+  phones:[ PH('Từ danh sách','Xem', navView('Cá nhân'), hero(cardpay.h)+card(cardpay.rows(false))+KB.vibcard),
+           PH('Từ màn thẻ VIB','Sửa luôn', navEdit('Sửa khoản trả thẻ'), editBody(cardpay, cardpay.rows(true))) ] },
+{ n:4, t:'Cho vay', d:'Luôn mở ở Xem. Từ màn của Minh thì ẩn khối Minh.',
+  phones:[ PH('Từ danh sách','Xem', navView('Cá nhân'), hero(loan.h)+loan.door+card(loan.rows(false))+KB.minh),
+           PH('Từ màn Minh','Xem, ẩn khối', navView('Minh'), hero(loan.h)+loan.door+card(loan.rows(false))),
+           PH('Chạm Sửa','Sửa', navEdit('Sửa khoản cho vay'), editBody(loan, loan.rows(true))) ] },
+{ n:5, t:'Thu nợ', d:'Từ danh sách có số dư của Minh. Từ màn của Minh thì vào Sửa luôn.',
+  phones:[ PH('Từ danh sách','Xem', navView('Cá nhân'), hero(repay.h)+card(repay.rows(false))+KB.minhAfter),
+           PH('Từ màn Minh','Sửa luôn', navEdit('Sửa khoản thu nợ'), editBody(repay, repay.rows(true))) ] },
+{ n:6, t:'Đầu tư', d:'Như khoản cho vay. Từ màn BTC thì ẩn khối BTC.',
+  phones:[ PH('Từ danh sách','Xem', navView('Cá nhân'), hero(invest.h)+invest.door+card(invest.rows(false))+KB.btc),
+           PH('Từ màn BTC','Xem, ẩn khối', navView('BTC'), hero(invest.h)+invest.door+card(invest.rows(false))),
+           PH('Chạm Sửa','Sửa', navEdit('Sửa khoản mua'), editBody(invest, invest.rows(true))) ] },
+{ n:7, t:'Điều chỉnh dư nợ', d:'Không có Sửa. Muốn đổi thì đặt lại dư nợ ở thẻ.',
+  phones:[ PH('Từ mọi nơi','Chỉ xem', navView('Cá nhân', false), hero(adjust.h)+taskRow(I.card,'','Sửa ở màn thẻ','Mở thẻ')+card(adjust.rows(false))+del('Bỏ điều chỉnh này')) ] },
+];
+
+document.getElementById('grid').innerHTML = K.map(k =>
+  `<div class="opt"><div class="ohead"><span class="n">${k.n}</span><b>${k.t}</b><p>${k.d}</p></div><div class="phones">${k.phones.join('')}</div></div>`).join('');
+
+const rzone=(tag,inner)=>`<div class="rowzone sl"><span class="tag">${tag}</span>${inner}</div>`;
+const aRows=[row('Ghi vào đâu','🔒 Cá nhân',{},false), row('Loại khoản','🤝 Cho vay',{},false),
+  rzone('Hàng theo loại', row('Cho ai mượn','Minh',{},false)+row('Hẹn trả',N('15/09'),{},false)),
+  row('Ngày',N('28/08'),{},false), row('Giờ',N('16:35'),{},false), row('Nguồn tiền','VIB · ••1234',{},false)];
+document.getElementById('anat-phone').innerHTML = phone(
+  `<div class="zone fx" style="margin-top:4px"><span class="tag">Thanh trên</span>${navView('Cá nhân')}</div>`,
+  `<div class="zone fx" style="margin-top:16px"><span class="tag">Hoá đơn</span>${hero(loan.h)}</div>`
+  +`<div class="zone sl" style="margin-top:18px"><span class="tag">Lời mời</span>${loan.door}</div>`
+  +`<div class="zone fx" style="margin-top:18px"><span class="tag">Hàng</span>${card(aRows)}</div>`
+  +`<div class="zone sl" style="margin-top:18px"><span class="tag">Khối ngữ cảnh</span>${KB.minh}</div>`);
+</script>
+</body>
+</html>

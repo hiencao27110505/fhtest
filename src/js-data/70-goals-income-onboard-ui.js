@@ -204,7 +204,7 @@
        (family income has no edit surface). */
     const list = inc.map((r) => {
       const an = personal && r.account_id ? acctName(r.account_id) : null;
-      const tap = personal ? ' tap" onclick="fhIncomeRowSheet(\'' + r.id + '\',\'sheet\')"' : '"';
+      const tap = personal ? ' tap" onclick="openPersonalTxDetail(\'' + r.id + '\',{from:\'zoom\',back:\'Thu nhập\'})"' : '"';
       return '<div class="fh-s-row' + tap + '>'
       + '<div class="fh-s-grow"><div class="fh-s-name">' + _esc(r.note || L('Thu nhập','Income')) + '</div><div class="fh-s-meta">' + _esc(r.income_date) + (an ? ' · ' + _esc(an) : '') + '</div></div>'
       + '<span class="num" style="color:var(--good);font-weight:700;flex:none">+' + f(Number(r.amount)) + '</span>'

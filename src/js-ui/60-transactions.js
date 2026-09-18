@@ -89,7 +89,7 @@ function _pBuildTxnCtx(){
     else if(t.kind==='investment'){ kg='dautu'; }
     if(t.kind==='income'){
       kcat=K_INC; note=t.note||t.cat||K_INC; sign='+'; cls='pos'; ico=t.emoji||'💰';
-      open="fhIncomeRowSheet('"+t.id+"')";
+      open="openPersonalTxDetail('"+t.id+"')";
     } else if(t.kind==='transfer'){
       kcat=K_XFER;
       if(t.transferGroupId){
@@ -100,7 +100,7 @@ function _pBuildTxnCtx(){
         txs.forEach(function(x){ if(x.kind==='transfer'&&x.transferGroupId===t.transferGroupId){ if((x.amt||0)<0) from=x.accountId; else to=x.accountId; } });
         var fn=acctName(from), tn=acctName(to);
         note=(fn&&tn)?(fn+' → '+tn):(t.note||K_XFER);
-        open="fhXferPairSheet('"+t.transferGroupId+"')";
+        open="openPersonalTransferDetail('"+t.transferGroupId+"')";
       } else {
         // legacy one-leg transfer = a card payment tagged to the card (0105) — no pair sheet
         var cn=acctName(t.accountId);
@@ -111,12 +111,12 @@ function _pBuildTxnCtx(){
       var dR=(P&&P.debts||[]).filter(function(d){ return d.id===t.id; })[0];
       var who=(dR&&dR.who)?(' · '+dR.who):'';
       note=(t.note||(t.kind==='loan'?((t.amt||0)>0?L('Cho vay','Lent'):L('Đi mượn','Borrowed')):L('Trả nợ','Repayment')))+who;
-      open="fhDebtRowSheet('"+t.id+"')";
+      open="openPersonalTxDetail('"+t.id+"')";
     } else if(t.kind==='investment'){
       kcat=K_INV;
       var pos=(P&&P.accounts||[]).find(function(a){ return a.id===t.positionId; });
       note=((t.amt||0)>0?L('Bán','Sell'):L('Mua','Buy'))+(pos&&pos.name?' '+pos.name:L(' đầu tư',' investment'));
-      open="fhInvRowSheet('"+t.id+"')";
+      open="openPersonalTxDetail('"+t.id+"')";
     } else return;
     if(!kseen[kcat]){ kseen[kcat]=1; kindOrder.push(kcat); }
     rows.push({ id:t.id, cat:kcat, note:note, amt:Math.abs(t.amt||0), _d:_d, ico:ico||kstyle[kcat][0], who:null, _style:kstyle[kcat], _open:open, _sign:sign, _amtCls:cls, time:t.time||null,

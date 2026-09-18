@@ -269,8 +269,7 @@ function openPersonalTxEdit(id){
      opens its own row sheet (edit · hẹn trả · convert-back), a transfer pair
      its pair sheet — saving a loan through the expense form would silently
      write a category onto a receivable. */
-  if(t.kind==='loan'||t.kind==='repayment'){ if(window.fhDebtRowSheet) fhDebtRowSheet(id); return; }
-  if(t.kind==='transfer'){ if(t.transferGroupId && window.fhXferPairSheet) fhXferPairSheet(t.transferGroupId); return; }
+  if(t.kind==='loan'||t.kind==='repayment'||t.kind==='transfer'||t.kind==='investment'||t.kind==='income'){ if(typeof openPersonalTxDetail==='function') openPersonalTxDetail(id,{edit:true}); return; }   // every kind edits on the one detail screen (2026-09-18)
   if(t.kind && t.kind!=='expense') return;
   editingPTx=id; editingTx=null;
   openExpense();                                           // fillPersonalExpenseFromTx() runs inside

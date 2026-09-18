@@ -777,7 +777,7 @@ function _persEmailRow(){
       if(t.kind==='income'){
         // taps into the income edit sheet — amount · date · note · receiving account
         var _inAcct = acctName(t.accountId);
-        h += '<div class="row tap" onclick="fhIncomeRowSheet(\''+t.id+'\')"><div class="r-ico personal-ico">'+(t.emoji||'💰')+'</div>'
+        h += '<div class="row tap" onclick="openPersonalTxDetail(\''+t.id+'\')"><div class="r-ico personal-ico">'+(t.emoji||'💰')+'</div>'
            + '<div class="r-body"><div class="r-t">'+((t.note||t.cat||'Thu nhập').replace(/</g,'&lt;'))+'</div>'
            + '<div class="r-s">'+meta+(_inAcct?' · '+_inAcct.replace(/</g,'&lt;'):'')+'</div></div>'
            + right({v:'+'+fmt(t.amt||0), cls:'pos'}, 'Thu nhập');
@@ -786,7 +786,7 @@ function _persEmailRow(){
         var xt = ends && ends.from && ends.to ? (ends.from+' → '+ends.to) : ((t.note||'Chuyển khoản').replace(/</g,'&lt;'));
         // a pair taps into its edit sheet (both legs in lockstep); a legacy
         // one-leg card payment has no pair sheet and stays inert
-        var xTap = t.transferGroupId ? ' tap" onclick="fhXferPairSheet(\''+t.transferGroupId+'\')"' : '"';
+        var xTap = ' tap" onclick="openPersonalTxDetail(\''+t.id+'\')"';   // pair or one-leg card payment: the detail resolves the entry
         h += '<div class="row'+xTap+'><div class="r-ico personal-ico">🔁</div>'
            + '<div class="r-body"><div class="r-t">'+xt+'</div>'
            + '<div class="r-s">'+meta+' · không tính thu chi</div></div>'
@@ -796,7 +796,7 @@ function _persEmailRow(){
            into the same row sheet the position zoom-in uses. */
         var _iP = (P.accounts||[]).find(function(a){ return a.id===t.positionId; });
         var _sell = (t.amt||0) > 0;
-        h += '<div class="row tap" onclick="fhInvRowSheet(\''+t.id+'\')"><div class="r-ico personal-ico">📈</div>'
+        h += '<div class="row tap" onclick="openPersonalTxDetail(\''+t.id+'\')"><div class="r-ico personal-ico">📈</div>'
            + '<div class="r-body"><div class="r-t">'+((_sell?'Bán':'Mua')+(_iP&&_iP.name?' '+_iP.name:' đầu tư')).replace(/</g,'&lt;')+'</div>'
            + '<div class="r-s">'+meta+' · không tính thu chi</div></div>'
            + right({v:(_sell?'+':'−')+fmt(Math.abs(t.amt||0)), cls:'xfer'}, 'Đầu tư');
@@ -809,7 +809,7 @@ function _persEmailRow(){
         var _who = (_dR && _dR.who) ? ' · '+_dR.who.replace(/</g,'&lt;') : '';
         var _due = (_dR && t.kind==='loan' && _dR.due) ? ' · hẹn trả '+_dR.due.slice(8,10)+'/'+_dR.due.slice(5,7) : '';
         var _lbl = t.kind==='loan' ? ((t.amt||0)>0?'Cho vay':'Đi mượn') : 'Trả nợ';
-        h += '<div class="row tap" onclick="fhDebtRowSheet(\''+t.id+'\')"><div class="r-ico personal-ico">'+(t.kind==='loan'?'💵':'✅')+'</div>'
+        h += '<div class="row tap" onclick="openPersonalTxDetail(\''+t.id+'\')"><div class="r-ico personal-ico">'+(t.kind==='loan'?'💵':'✅')+'</div>'
            + '<div class="r-body"><div class="r-t">'+((t.note||(t.kind==='loan'?'Cho vay / mượn':'Trả nợ')).replace(/</g,'&lt;'))+_who+'</div>'
            + '<div class="r-s">'+meta+_due+'</div></div>'
            + right({v:fmt(Math.abs(t.amt||0)), cls:'xfer'}, _lbl);

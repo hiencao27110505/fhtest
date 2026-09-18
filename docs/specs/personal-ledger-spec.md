@@ -535,6 +535,13 @@ sheets:
 - **Income** — `fhIncome('personal')` lists/adds/deletes (spine rows,
   `kind='income'`, since 0109), guarded on `state === 'ready'`; rows tap into
   `fhIncomeRowSheet` → `fhPersonalUpdateIncome` for edits.
+- **Transaction detail, every kind** (2026-09-18) — income, transfer pairs
+  (by group id, both legs), card payments, loans, repayments, investments and
+  reconcile adjustments open the same detail; the kind supplies its rows, its
+  writer, an ask slot (photo action row), a fix slot (a broken pair's amber
+  account row) and a context card (balance, position, card debt) that hides
+  when opened from the zoom-in showing it. Mockups:
+  `mockups/txn-detail-kinds.html`, `mockups/txn-detail-slot-variants.html`.
 - **Transaction detail** (2026-09-17) — a private expense row opens
   `openPersonalTxDetail` in a **view** state (receipt block, read-only rows in
   the review card's order and labels, photos) with "Sửa" in the nav; edit is the

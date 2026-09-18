@@ -18,6 +18,46 @@ Going forward, add an entry here when a feature area changes meaningfully — se
 
 ---
 
+## 2026-09-18
+
+### Chi tiết giao dịch: một màn cho mọi loại khoản (SW v537)
+
+Income, transfer pairs, card payments, loans, repayments, investments and reconcile
+adjustments no longer open their own sheets. Every personal row opens the one detail
+(`renderPersonalTxDetail`, 61-expense-detail): the receipt, the review card's rows
+(Ghi vào đâu · Loại khoản · the kind's own rows · Ngày · Giờ · Nguồn tiền), view first,
+Sửa into the queue card's edit, one Lưu per kind through that kind's own writer.
+Design: mockups/txn-detail-kinds.html (frame + slots) and
+mockups/txn-detail-slot-variants.html (1A · 2B · 3B chosen).
+
+- **Entries, not rows.** A pair opens by `transfer_group_id` anchored on the debit leg
+  (`openPersonalTransferDetail`); edit writes both legs, delete removes both. A one-leg
+  transfer is a card payment, or an adjustment when its note starts with "Điều chỉnh"
+  (view and delete only, with "Sửa ở màn thẻ" as the way out). Rows are found across the
+  window, the all-time debt read and older history (`_pexdRow`), merged.
+- **Slots.** Ask (1A): the cash-flow card's `.cc-row` under the receipt, "Thêm ảnh hoá
+  đơn / phiếu lương / giấy hẹn / ảnh lệnh mua", opening `#sheet-exd-photo` (Chụp ảnh with
+  `capture`, Thư viện); empty on transfers, card payments, repayments. Fix (2B): a broken
+  pair's missing leg is the amber "Chọn tài khoản" row itself, tappable in view, and the
+  pick writes the counterpart at once (`_pexdRepairPair` → `fhPersonalAddTransfer` with
+  the group id). Context (3B): a second rows card under the rows — the person's balance
+  with "Nhắc … trả", the position with "Cập nhật giá", the pair's two balances, the
+  card's debt with "Mở thẻ" — hidden in edit and when opened from the zoom-in that already
+  shows it (`opts.from===zoom`).
+- **Landing.** View, except a transfer, card payment or repayment opened from its own
+  zoom-in lands in edit and Huỷ returns there; the zoom-in re-renders through a structured
+  `reopen` hook (person / acct / pos). The back label names where you came from.
+- **Writers extended:** `fhPersonalUpdateIncome` (time, category), `fhPersonalDebtRowUpdate`
+  (who, account, time), `fhInvRowUpdate` (position, account, time),
+  `fhPersonalUpdateTransferPair` (per-leg account, one time). No migration.
+- **Callers rewired:** the personal tab rows, the Giao dịch cá nhân drill-in, the composer's
+  kind routing, the person / card / account zoom-ins (every row tappable now, card rows
+  included), the position screen, the income list. The old sheets remain defined but are
+  no longer entry points.
+- **Family detail** photo ask moved to the same action row and sheet. The large photo card
+  is gone from both details.
+- Guard: `tools/txn-detail-view-edit.test.js` (41).
+
 ## 2026-09-17
 
 ### Sổ cá nhân: the transaction detail opens to look, then to edit (SW v535)

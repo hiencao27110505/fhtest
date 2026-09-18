@@ -303,7 +303,7 @@
       all.slice(0, 120).forEach(function (r) {
         const pay = r.kind === 'transfer';
         const adj = pay && (r.note || '').indexOf('Điều chỉnh') === 0;
-        h += '<div class="dbt-li" data-k="' + (pay ? 'pay' : 'spend') + '"><span class="dbt-lic">' + (adj ? '⚖️' : (pay ? '💳' : (r.emoji || '🗂️'))) + '</span>'
+        h += '<div class="dbt-li tap" data-k="' + (pay ? 'pay' : 'spend') + '" onclick="openPersonalTxDetail(\'' + r.id + '\',{from:\'zoom\',back:\'' + _e(String(acct.name || 'Thẻ').replace(/'/g, '')) + '\',reopen:[\'acct\',\'' + acct.id + '\']})"><span class="dbt-lic">' + (adj ? '⚖️' : (pay ? '💳' : (r.emoji || '🗂️'))) + '</span>'
           + '<span class="dbt-lib"><span class="dbt-lin">' + _e(pay ? (r.note || 'Thanh toán thẻ') : (r.note || r.cat || 'Khoản chi'))
           + (pay ? '<i class="dbt-tag' + (adj ? ' adj' : '') + '">' + (adj ? 'điều chỉnh' : 'trả nợ') + '</i>' : '') + '</span>'
           + '<span class="dbt-lis">' + _dmy(r.date) + (!pay && r.cat ? ' · ' + _e(r.cat) : '') + '</span></span>'
@@ -348,7 +348,7 @@
         const label = loan ? (lent ? 'Bạn cho mượn' : 'Bạn mượn') : (lent ? _e(p.who) + ' trả bạn' : 'Bạn trả');
         const dueTxt = (loan && r.due)
           ? ' · <span class="' + (r.due < today && p.balance > 0.5 ? 'dbt-overtxt' : '') + '">hẹn trả ' + _dmy(r.due) + '</span>' : '';
-        h += '<div class="dbt-li tap" onclick="fhDebtRowSheet(\'' + r.id + '\',' + idx + ')"><span class="dbt-lic">' + (loan ? '💵' : '✅') + '</span>'
+        h += '<div class="dbt-li tap" onclick="openPersonalTxDetail(\'' + r.id + '\',{from:\'zoom\',back:\'' + _e(String(p.who || '').replace(/'/g, '')) + '\',reopen:[\'person\',' + idx + ']})"><span class="dbt-lic">' + (loan ? '💵' : '✅') + '</span>'
           + '<span class="dbt-lib"><span class="dbt-lin">' + label + (r.note ? ' · ' + _e(r.note) : '') + '</span>'
           + '<span class="dbt-lis">' + _dmy(r.date) + dueTxt + '</span></span>'
           + '<span class="dbt-liv num">' + fmt(Math.abs(r.amt || 0)) + '</span></div>';
@@ -1066,8 +1066,8 @@
         const xfer = r.kind === 'transfer', inc = r.kind === 'income';
         const signed = xfer ? (r.amt || 0) : (inc ? (r.amt || 0) : -(r.amt || 0));
         const isPair = xfer && r.transferGroupId;
-        const tap = isPair ? ' onclick="fhXferPairSheet(\'' + r.transferGroupId + '\')"' : '';
-        h += '<div class="dbt-li' + (isPair ? ' tap' : '') + '"' + tap + '><span class="dbt-lic">' + (xfer ? '🔁' : (inc ? '💰' : (r.emoji || '🗂️'))) + '</span>'
+        const tap = ' onclick="openPersonalTxDetail(\'' + r.id + '\',{from:\'zoom\',back:\'' + _e(String(acct.name || 'Tài khoản').replace(/'/g, '')) + '\',reopen:[\'acct\',\'' + acctId + '\']})"';   // every row opens the detail (2026-09-18)
+        h += '<div class="dbt-li tap"' + tap + '><span class="dbt-lic">' + (xfer ? '🔁' : (inc ? '💰' : (r.emoji || '🗂️'))) + '</span>'
           + '<span class="dbt-lib"><span class="dbt-lin">' + _e(r.note || r.cat || (xfer ? 'Chuyển khoản' : (inc ? 'Thu nhập' : 'Khoản chi')))
           + (xfer ? '<i class="dbt-tag">chuyển khoản</i>' : '') + '</span>'
           + '<span class="dbt-lis">' + _dmy(r.date) + '</span></span>'

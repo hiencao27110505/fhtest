@@ -136,17 +136,28 @@
 .exd-photo .x{position:absolute;top:-3px;right:-3px;width:30px;height:30px;border-radius:50%;border:0;background:var(--ink);color:var(--white);font:inherit;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-card);cursor:pointer}
 .exd-photo .x::after{content:"";position:absolute;top:50%;left:50%;width:44px;height:44px;transform:translate(-50%,-50%)}
 label.exd-photo.add{cursor:pointer}
-/* the photo door — the tab's empty-card recipe (fhEmptyCard, E3): an SVG mark,
-   a question written from the row (category, note, amount), one line of why,
-   Chụp / Thư viện with the likelier one filled. Spec:
-   mockups/photo-door-contextual.html option 1. */
-.pdoor{margin:14px 16px 0;background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-card);padding:20px 18px 16px;text-align:center}
-.pdoor-mk{width:46px;height:46px;border-radius:15px;display:inline-flex;align-items:center;justify-content:center;background:var(--fill-neutral);color:var(--ink-2)}
-.pdoor-mk svg{width:24px;height:24px}
-.pdoor-q{font-family:var(--disp);font-size:17px;font-weight:700;letter-spacing:-.3px;color:var(--ink);margin-top:10px;text-wrap:balance}
-.pdoor-w{font-size:13px;color:var(--muted);margin-top:5px;line-height:1.45;text-wrap:balance}
-.pdoor-acts{display:flex;gap:8px;margin-top:14px}
-.pdoor-btn{flex:1;min-height:42px;border-radius:9999px;font-size:13.5px;font-weight:700;background:var(--brand-tint);color:var(--brand-ink);display:flex;align-items:center;justify-content:center;gap:6px;padding:0 10px;white-space:nowrap;cursor:pointer}
-.pdoor-btn.pri{background:var(--grad-brand);color:var(--white);box-shadow:0 5px 14px var(--brand-glow)}
-.pdoor-btn svg{width:16px;height:16px;flex:none}
-.pdoor-btn:active{opacity:.75}
+/* every kind, one screen (2026-09-18): kind glyph tiles on the receipt, money in
+   green with a +, the review card's amber "needs filling" row for a broken pair,
+   the cash-flow card's action row (.cc-row, 40-spending-tabs.css) as the ask
+   slot, and a second rows card as the context slot. */
+.exd-ico.svg{color:var(--ink-2)}
+.exd-ico.svg svg{width:30px;height:30px}
+.exd-ico.svg.good{background:var(--good-tint);color:var(--good)}
+.exd-ico.svg.id1{background:var(--id-1-tint);color:var(--id-1-text)}
+.exd-ico.svg.id3{background:var(--id-3-tint);color:var(--id-3-text)}
+.exd-ico.svg.id6{background:var(--id-6-tint);color:var(--id-6-text)}
+.exd-amt.in{color:var(--good)}
+.exd-meta.flush{padding:0}
+.exd-meta.flush .csv-srows.pad{padding:2px 16px}
+.exd-meta.flush .cc-row{border-top:1px solid var(--divider);border-bottom:0}
+.exd-meta.flush .cc-row:first-child{border-top:0}
+.exd-view .csv-srow.ro.good .csv-sval b,.exd-meta .csv-srow.good .csv-sval b{color:var(--good)}
+.exd-view .csv-srow.ro.bad .csv-sval b,.exd-meta .csv-srow.bad .csv-sval b{color:var(--danger)}
+.exd-view .csv-srow.miss .csv-sval b{color:var(--amber);font-weight:650}
+.exd-hint{font-size:12px;color:var(--muted-soft);line-height:1.45;margin:8px 24px 0;text-align:center}
+.exd-photo-choices label.choice{display:inline-flex;align-items:center;gap:8px;cursor:pointer}
+.exd-photo-choices label.choice svg{width:18px;height:18px}
+/* the personal detail may open over the debt overlay (person, card, position
+   zoom-ins share its band); one step above so it paints on top, still under
+   sheets and modals */
+#pexd-overlay{z-index:50}
