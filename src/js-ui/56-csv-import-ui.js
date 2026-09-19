@@ -2005,8 +2005,8 @@ function csvDupWhy(c){
     case 'fx_final': {
       /* The ledger holds our estimate; the statement holds what the bank charged. */
       var d3 = twin && twin.amtD != null ? Math.round(Number(c.amount) - twin.amtD) : 0;
-      return L('Đã có trong sổ với số tiền ước tính. Sao kê ghi số ngân hàng thực thu, lệch ' + (d3 > 0 ? '+' : '') + d3.toLocaleString('vi-VN') + 'đ',
-               'Already booked at our estimate. The statement has what the bank actually charged, ' + (d3 > 0 ? '+' : '') + d3.toLocaleString('en-US') + 'đ apart') + (e ? ': ' + e : '.');
+      return L('Đã có trong sổ theo số ước tính; sao kê ghi số thực thu, lệch ' + (d3 > 0 ? '+' : '') + d3.toLocaleString('vi-VN') + 'đ',
+               'Booked at the estimate; the statement has the real charge, ' + (d3 > 0 ? '+' : '') + d3.toLocaleString('en-US') + 'đ apart') + (e ? ': ' + e : '.');
     }
     case 'exact_day':
       return L('Cùng số tiền, cùng ngày, nhưng nội dung khác nhau — bạn xem có phải một khoản không', 'Same amount, same day, different wording — is this the same purchase?') + (e ? ': ' + e : '.');
@@ -2017,7 +2017,7 @@ function csvDupWhy(c){
     case 'cross_source':
       return L('Có một email khác cùng số tiền, từ nguồn khác, trong vòng 3 ngày. Có thể là một lần chi được báo hai lần', 'There is another email for the same amount, from a different source, within 3 days. This may be one purchase reported twice') + (e ? ': ' + e : '.');
     case 'statement_echo':
-      return L('Sao kê và email của cùng ngân hàng báo cùng số tiền, cùng ngày. Có thể là một lần chi được báo hai lần', 'The statement and an email from the same bank report one amount on one day. This may be one purchase reported twice') + (e ? ': ' + e : '.');
+      return L('Sao kê và email cùng ngân hàng báo cùng số tiền, cùng ngày. Có thể một khoản báo hai lần', 'A statement and an email from one bank, same amount, same day. May be one purchase reported twice') + (e ? ': ' + e : '.');
     case 'same_bank_pair':
       return L('Cùng ngân hàng báo hai email cùng số tiền, khác mẫu — có thể là một lần chi', 'The same bank sent two emails for one amount, in two formats — possibly one purchase') + (e ? ': ' + e : '.');
     case 'pipeline':
@@ -2454,7 +2454,7 @@ function renderCsvReview(){
   var lowConfLabel = {};
   lowConf.forEach(function(e){
     lowConfLabel[e.i] = e.c._stmtAttn
-      ? L('Chuyển giữa tài khoản của bạn?','A move between your own accounts?')
+      ? L('Chuyển giữa tài khoản của mình?','A move between your own accounts?')
       : e.c.catSource === 'fallback'
       ? L('Chưa rõ danh mục','No clear category')
       : L('Đoán theo thói quen','Guessed from your habits');

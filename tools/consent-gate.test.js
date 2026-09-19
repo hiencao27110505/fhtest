@@ -248,7 +248,7 @@ console.log('\n-- the gate asks exactly when it should --');
   /* v5 (statement capture): a statement FILE is now stored, sealed, until opened.
      Someone holding v4 is told exactly that, and only that. */
   t('and the change is stated plainly, as what now happens',
-    re.indexOf('niêm phong bằng khoá riêng của bạn') >= 0 && re.indexOf('tối đa 90 ngày') >= 0);
+    re.indexOf('niêm phong file bằng khoá riêng của bạn') >= 0 && re.indexOf('tối đa 90 ngày') >= 0);
   t('...including what may reach a model, and what never does',
     re.indexOf('tên cửa hàng') >= 0 && re.indexOf('không kèm số tiền, ngày hay tên người') >= 0);
   t('a change they already agreed to is not repeated to them',

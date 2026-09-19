@@ -667,43 +667,51 @@ button.csv-srow:active{background:var(--surface)}
 .txr-lmsg{font-size:13px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
 @keyframes txr-spin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.txr-spin{animation:none}}
-/* ── statement capture: the locked card + its unlock flow (77-statement-capture.js) ──
-   One neutral card per statement. No fill, no accent: it is a thing waiting, not an
-   alarm. The flow reuses .csv-unlock from the file import's password step. */
-.stm-card{display:flex;align-items:center;gap:12px;border:1.5px solid var(--hairline);border-radius:13px;background:var(--white);padding:12px 12px 12px 14px}
-.stm-main{flex:1;min-width:0}
-.stm-title{font-size:14px;font-weight:700;color:var(--ink);letter-spacing:-.1px}
-.stm-sub{font-size:12px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.stm-actions{display:flex;align-items:center;gap:6px;flex:none}
-.stm-open{min-height:44px;padding:0 16px;white-space:nowrap;background:var(--white);color:var(--brand);border:1.5px solid var(--brand);border-radius:9999px;font-size:13.5px;font-weight:700;letter-spacing:-.01em;cursor:pointer}
-.stm-open:active{transform:scale(.98)}
-.stm-x{min-width:44px;min-height:44px;border:0;background:none;color:var(--muted);font-size:15px;cursor:pointer;border-radius:10px}
-.stm-x.armed{color:var(--danger);font-size:12.5px;font-weight:700}
-.stm-remember{display:flex;align-items:flex-start;gap:10px;margin-top:12px;font-size:13px;color:var(--ink-2);line-height:1.4;cursor:pointer}
-.stm-remember input{width:20px;height:20px;flex:none;margin:0;accent-color:var(--brand)}
+
+/* ── statement capture (77-statement-capture.js) ─────────────────────────────
+   Cards are tappable ROWS in the queue's own card frame (hairline, radius 13, the
+   shared ✕), not buttons on a card: one accent per view, and the accent here is the
+   one primary CTA at the end of the flow. Preview rows borrow the money-in strip's
+   metrics (12.5px, 44px date column, muted amounts) so they read as the same list
+   language, and nothing in them looks tappable, because nothing is. */
+.stm-card{display:flex;align-items:center;border:1.5px solid var(--hairline);border-radius:13px;background:var(--white);overflow:hidden}
+.stm-card.dim .stm-title{color:var(--muted)}
+.stm-tap{flex:1;min-width:0;display:flex;align-items:center;gap:10px;min-height:56px;padding:10px 4px 10px 14px;background:none;border:0;text-align:left;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.stm-tap:active{background:var(--canvas)}
+.stm-tap:disabled{cursor:default}
+.stm-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.stm-title{font-size:14.5px;font-weight:700;color:var(--ink);letter-spacing:-.1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stm-sub{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stm-tap .chev{color:var(--chev);flex-shrink:0}
+.stm-provs{margin:-2px 2px 10px}
+.stm-old-h{margin-top:6px}
+.stm-flow .csv-unlock-go{margin-top:14px}
+.stm-wait{display:flex;align-items:center;gap:10px;margin-top:14px;font-size:13.5px;color:var(--muted)}
+.stm-spin{width:16px;height:16px;border-radius:50%;border:2px solid var(--hairline);border-top-color:var(--brand);animation:fhspin2 .7s linear infinite;flex:none}
+@media (prefers-reduced-motion:reduce){.stm-spin{animation-duration:2s}}
+.stm-rem{margin-top:12px}
+.stm-rem .choice{font-size:13.5px;padding:9px 13px}
+.stm-rem .choice.on{padding:8px 12px}
 .stm-map{margin-top:12px;border-top:1px solid var(--hairline)}
 .stm-maprow{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--hairline);font-size:13px;color:var(--muted)}
 .stm-maprow b{color:var(--ink);font-weight:600;text-align:right;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.stm-bits{font-size:12.5px;color:var(--muted);margin-top:6px}
+.stm-preview{margin-top:14px;background:var(--canvas);border-radius:14px;padding:2px 0}
+.stm-prow{display:flex;align-items:baseline;gap:8px;padding:9px 14px;border-top:1px solid var(--divider);font-size:12.5px}
+.stm-prow:first-child{border-top:0}
+.stm-prow.known{opacity:.5}
+.stm-pwhen{flex:0 0 44px;color:var(--muted);font-variant-numeric:tabular-nums}
+.stm-pwhat{flex:1;min-width:0;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stm-pwhat i{font-style:normal;color:var(--muted)}
+.stm-pwhat i::before{content:" · "}
+.stm-pamt{color:var(--ink-2);font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
+.stm-pamt.in{color:var(--good)}
+.stm-pmore{display:block;width:100%;min-height:44px;background:none;border:0;border-top:1px solid var(--divider);color:var(--brand-ink);font-size:13px;font-weight:700;cursor:pointer}
+.stm-gobar{position:sticky;bottom:0;background:var(--white);padding:12px 0 2px;margin-top:8px}
+.stm-gobar .csv-unlock-note{margin:0 0 10px;text-align:center}
+.stm-gobar .cta{margin-top:0}
+.stm-gobar .cta:disabled,.stm-gobar .cta.busy{opacity:.75;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:none}
+.stm-gobar .cta .stm-spin{border-color:var(--brand-tint);border-top-color:var(--white);opacity:.9}
+.stm-gobar .csv-unlock-skip{text-align:center;width:100%}
 .csv-fxfix-row{margin-top:8px}
 .csv-fxfix{min-height:44px;font-size:13px}
-/* statement capture, round two (first real use, 2026-09-19): the bank filter over the
-   cards, the read-only preview of what is about to be queued, and a call to action
-   that visibly works once. The preview rows are deliberately NOT review cards: nothing
-   here is editable, so nothing here should look tappable. */
-.stm-provs{margin:0 2px 10px}
-.stm-preview{margin-top:14px;border-top:1px solid var(--hairline)}
-.stm-prow{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--hairline)}
-.stm-prow.known{opacity:.55}
-.stm-pwhen{flex:none;width:46px;font-size:12px;font-weight:600;color:var(--ink-2);line-height:1.35}
-.stm-pwhen span{display:block;font-weight:400;color:var(--muted)}
-.stm-pwhat{flex:1;min-width:0}
-.stm-ptxt{font-size:13.5px;color:var(--ink);line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word}
-.stm-ptag{font-size:11.5px;color:var(--muted);margin-top:2px}
-.stm-pamt{flex:none;font-size:13.5px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
-.stm-pamt.in{color:var(--good)}
-.stm-pmore{display:block;margin:12px auto 0;min-height:44px}
-.stm-gobar{position:sticky;bottom:0;background:var(--white);padding:10px 0 2px;margin-top:6px}
-.stm-flow .btn-line{width:100%;margin:0}
-.stm-flow .btn-line.busy,.stm-flow .btn-line:disabled{opacity:.7;cursor:default;display:flex;align-items:center;justify-content:center;gap:10px}
-.stm-spin{width:16px;height:16px;border-radius:50%;border:2px solid var(--hairline);border-top-color:var(--brand);animation:fhspin2 .7s linear infinite;flex:none}
-@media (prefers-reduced-motion:reduce){.stm-spin{animation-duration:2s}}

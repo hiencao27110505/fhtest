@@ -4424,46 +4424,54 @@ button.csv-srow:active{background:var(--surface)}
 .txr-lmsg{font-size:13px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
 @keyframes txr-spin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.txr-spin{animation:none}}
-/* ── statement capture: the locked card + its unlock flow (77-statement-capture.js) ──
-   One neutral card per statement. No fill, no accent: it is a thing waiting, not an
-   alarm. The flow reuses .csv-unlock from the file import's password step. */
-.stm-card{display:flex;align-items:center;gap:12px;border:1.5px solid var(--hairline);border-radius:13px;background:var(--white);padding:12px 12px 12px 14px}
-.stm-main{flex:1;min-width:0}
-.stm-title{font-size:14px;font-weight:700;color:var(--ink);letter-spacing:-.1px}
-.stm-sub{font-size:12px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.stm-actions{display:flex;align-items:center;gap:6px;flex:none}
-.stm-open{min-height:44px;padding:0 16px;white-space:nowrap;background:var(--white);color:var(--brand);border:1.5px solid var(--brand);border-radius:9999px;font-size:13.5px;font-weight:700;letter-spacing:-.01em;cursor:pointer}
-.stm-open:active{transform:scale(.98)}
-.stm-x{min-width:44px;min-height:44px;border:0;background:none;color:var(--muted);font-size:15px;cursor:pointer;border-radius:10px}
-.stm-x.armed{color:var(--danger);font-size:12.5px;font-weight:700}
-.stm-remember{display:flex;align-items:flex-start;gap:10px;margin-top:12px;font-size:13px;color:var(--ink-2);line-height:1.4;cursor:pointer}
-.stm-remember input{width:20px;height:20px;flex:none;margin:0;accent-color:var(--brand)}
+
+/* ── statement capture (77-statement-capture.js) ─────────────────────────────
+   Cards are tappable ROWS in the queue's own card frame (hairline, radius 13, the
+   shared ✕), not buttons on a card: one accent per view, and the accent here is the
+   one primary CTA at the end of the flow. Preview rows borrow the money-in strip's
+   metrics (12.5px, 44px date column, muted amounts) so they read as the same list
+   language, and nothing in them looks tappable, because nothing is. */
+.stm-card{display:flex;align-items:center;border:1.5px solid var(--hairline);border-radius:13px;background:var(--white);overflow:hidden}
+.stm-card.dim .stm-title{color:var(--muted)}
+.stm-tap{flex:1;min-width:0;display:flex;align-items:center;gap:10px;min-height:56px;padding:10px 4px 10px 14px;background:none;border:0;text-align:left;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.stm-tap:active{background:var(--canvas)}
+.stm-tap:disabled{cursor:default}
+.stm-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.stm-title{font-size:14.5px;font-weight:700;color:var(--ink);letter-spacing:-.1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stm-sub{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stm-tap .chev{color:var(--chev);flex-shrink:0}
+.stm-provs{margin:-2px 2px 10px}
+.stm-old-h{margin-top:6px}
+.stm-flow .csv-unlock-go{margin-top:14px}
+.stm-wait{display:flex;align-items:center;gap:10px;margin-top:14px;font-size:13.5px;color:var(--muted)}
+.stm-spin{width:16px;height:16px;border-radius:50%;border:2px solid var(--hairline);border-top-color:var(--brand);animation:fhspin2 .7s linear infinite;flex:none}
+@media (prefers-reduced-motion:reduce){.stm-spin{animation-duration:2s}}
+.stm-rem{margin-top:12px}
+.stm-rem .choice{font-size:13.5px;padding:9px 13px}
+.stm-rem .choice.on{padding:8px 12px}
 .stm-map{margin-top:12px;border-top:1px solid var(--hairline)}
 .stm-maprow{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--hairline);font-size:13px;color:var(--muted)}
 .stm-maprow b{color:var(--ink);font-weight:600;text-align:right;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.stm-bits{font-size:12.5px;color:var(--muted);margin-top:6px}
+.stm-preview{margin-top:14px;background:var(--canvas);border-radius:14px;padding:2px 0}
+.stm-prow{display:flex;align-items:baseline;gap:8px;padding:9px 14px;border-top:1px solid var(--divider);font-size:12.5px}
+.stm-prow:first-child{border-top:0}
+.stm-prow.known{opacity:.5}
+.stm-pwhen{flex:0 0 44px;color:var(--muted);font-variant-numeric:tabular-nums}
+.stm-pwhat{flex:1;min-width:0;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stm-pwhat i{font-style:normal;color:var(--muted)}
+.stm-pwhat i::before{content:" · "}
+.stm-pamt{color:var(--ink-2);font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
+.stm-pamt.in{color:var(--good)}
+.stm-pmore{display:block;width:100%;min-height:44px;background:none;border:0;border-top:1px solid var(--divider);color:var(--brand-ink);font-size:13px;font-weight:700;cursor:pointer}
+.stm-gobar{position:sticky;bottom:0;background:var(--white);padding:12px 0 2px;margin-top:8px}
+.stm-gobar .csv-unlock-note{margin:0 0 10px;text-align:center}
+.stm-gobar .cta{margin-top:0}
+.stm-gobar .cta:disabled,.stm-gobar .cta.busy{opacity:.75;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:none}
+.stm-gobar .cta .stm-spin{border-color:var(--brand-tint);border-top-color:var(--white);opacity:.9}
+.stm-gobar .csv-unlock-skip{text-align:center;width:100%}
 .csv-fxfix-row{margin-top:8px}
 .csv-fxfix{min-height:44px;font-size:13px}
-/* statement capture, round two (first real use, 2026-09-19): the bank filter over the
-   cards, the read-only preview of what is about to be queued, and a call to action
-   that visibly works once. The preview rows are deliberately NOT review cards: nothing
-   here is editable, so nothing here should look tappable. */
-.stm-provs{margin:0 2px 10px}
-.stm-preview{margin-top:14px;border-top:1px solid var(--hairline)}
-.stm-prow{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--hairline)}
-.stm-prow.known{opacity:.55}
-.stm-pwhen{flex:none;width:46px;font-size:12px;font-weight:600;color:var(--ink-2);line-height:1.35}
-.stm-pwhen span{display:block;font-weight:400;color:var(--muted)}
-.stm-pwhat{flex:1;min-width:0}
-.stm-ptxt{font-size:13.5px;color:var(--ink);line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word}
-.stm-ptag{font-size:11.5px;color:var(--muted);margin-top:2px}
-.stm-pamt{flex:none;font-size:13.5px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
-.stm-pamt.in{color:var(--good)}
-.stm-pmore{display:block;margin:12px auto 0;min-height:44px}
-.stm-gobar{position:sticky;bottom:0;background:var(--white);padding:10px 0 2px;margin-top:6px}
-.stm-flow .btn-line{width:100%;margin:0}
-.stm-flow .btn-line.busy,.stm-flow .btn-line:disabled{opacity:.7;cursor:default;display:flex;align-items:center;justify-content:center;gap:10px}
-.stm-spin{width:16px;height:16px;border-radius:50%;border:2px solid var(--hairline);border-top-color:var(--brand);animation:fhspin2 .7s linear infinite;flex:none}
-@media (prefers-reduced-motion:reduce){.stm-spin{animation-duration:2s}}
 /* ---- settings sheet/modal internals (family, members, savings, income) ----
    Tokens only: these screens must re-theme with the rest of the app. */
 .fh-s-cta{width:100%;background:var(--grad-brand);color:#fff;font-size:16px;font-weight:700;letter-spacing:-.02em;padding:15px;border-radius:9999px;box-shadow:0 8px 20px var(--brand-glow);margin-top:6px}
@@ -14901,8 +14909,8 @@ function csvDupWhy(c){
     case 'fx_final': {
       /* The ledger holds our estimate; the statement holds what the bank charged. */
       var d3 = twin && twin.amtD != null ? Math.round(Number(c.amount) - twin.amtD) : 0;
-      return L('Đã có trong sổ với số tiền ước tính. Sao kê ghi số ngân hàng thực thu, lệch ' + (d3 > 0 ? '+' : '') + d3.toLocaleString('vi-VN') + 'đ',
-               'Already booked at our estimate. The statement has what the bank actually charged, ' + (d3 > 0 ? '+' : '') + d3.toLocaleString('en-US') + 'đ apart') + (e ? ': ' + e : '.');
+      return L('Đã có trong sổ theo số ước tính; sao kê ghi số thực thu, lệch ' + (d3 > 0 ? '+' : '') + d3.toLocaleString('vi-VN') + 'đ',
+               'Booked at the estimate; the statement has the real charge, ' + (d3 > 0 ? '+' : '') + d3.toLocaleString('en-US') + 'đ apart') + (e ? ': ' + e : '.');
     }
     case 'exact_day':
       return L('Cùng số tiền, cùng ngày, nhưng nội dung khác nhau — bạn xem có phải một khoản không', 'Same amount, same day, different wording — is this the same purchase?') + (e ? ': ' + e : '.');
@@ -14913,7 +14921,7 @@ function csvDupWhy(c){
     case 'cross_source':
       return L('Có một email khác cùng số tiền, từ nguồn khác, trong vòng 3 ngày. Có thể là một lần chi được báo hai lần', 'There is another email for the same amount, from a different source, within 3 days. This may be one purchase reported twice') + (e ? ': ' + e : '.');
     case 'statement_echo':
-      return L('Sao kê và email của cùng ngân hàng báo cùng số tiền, cùng ngày. Có thể là một lần chi được báo hai lần', 'The statement and an email from the same bank report one amount on one day. This may be one purchase reported twice') + (e ? ': ' + e : '.');
+      return L('Sao kê và email cùng ngân hàng báo cùng số tiền, cùng ngày. Có thể một khoản báo hai lần', 'A statement and an email from one bank, same amount, same day. May be one purchase reported twice') + (e ? ': ' + e : '.');
     case 'same_bank_pair':
       return L('Cùng ngân hàng báo hai email cùng số tiền, khác mẫu — có thể là một lần chi', 'The same bank sent two emails for one amount, in two formats — possibly one purchase') + (e ? ': ' + e : '.');
     case 'pipeline':
@@ -15350,7 +15358,7 @@ function renderCsvReview(){
   var lowConfLabel = {};
   lowConf.forEach(function(e){
     lowConfLabel[e.i] = e.c._stmtAttn
-      ? L('Chuyển giữa tài khoản của bạn?','A move between your own accounts?')
+      ? L('Chuyển giữa tài khoản của mình?','A move between your own accounts?')
       : e.c.catSource === 'fallback'
       ? L('Chưa rõ danh mục','No clear category')
       : L('Đoán theo thói quen','Guessed from your habits');
@@ -22568,7 +22576,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v540';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v541';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -38924,8 +38932,8 @@ window.classifyAmount = classifyAmount;
     bank_email: {
       4: ['Lần đầu gặp một mẫu email của ngân hàng, email đó được gửi nguyên văn cho AI của Google một lần, để học cách đọc mẫu. Những email sau cùng mẫu không được gửi đi nữa.',
           'The first time we meet a new email format from a bank, that email is sent to Google’s AI as written, once, so it can learn how to read the format. Later emails in the same format are not sent at all.'],
-      5: ['Khi ngân hàng hoặc ví gửi file sao kê (Excel/CSV) kèm email, tụi mình lấy file đó, niêm phong bằng khoá riêng của bạn và giữ đến khi bạn mở, tối đa 90 ngày; mở xong là xoá. File chỉ được mở và đọc trên máy của bạn, mật khẩu file không rời khỏi máy. Để gợi ý danh mục, máy bạn có thể gửi tên cửa hàng cho AI của Google, không kèm số tiền, ngày hay tên người.',
-          'When a bank or wallet emails a statement file (Excel/CSV), we take that file, seal it with your own key and keep it until you open it, for at most 90 days; it is deleted once opened. The file is only opened and read on your device, and its password never leaves your device. To suggest categories, your device may send merchant names to Google’s AI, with no amount, date or person’s name.'],
+      5: ['Khi ngân hàng hoặc ví gửi file sao kê (Excel/CSV) kèm email, tụi mình niêm phong file bằng khoá riêng của bạn và giữ tối đa 90 ngày, mở xong là xoá. File chỉ mở trên máy bạn; mật khẩu không rời khỏi máy. Để gợi ý danh mục, máy bạn có thể gửi tên cửa hàng cho AI của Google, không kèm số tiền, ngày hay tên người.',
+          'When a bank or wallet emails a statement file (Excel/CSV), we seal it with your own key and keep it for at most 90 days; it is deleted once opened. The file only opens on your device, and its password never leaves it. To suggest categories, your device may send merchant names to Google’s AI, never an amount, a date or a person’s name.'],
     },
     app_data: {},
   };
@@ -39423,8 +39431,8 @@ window.classifyAmount = classifyAmount;
           'Lần đầu gặp một mẫu email của ngân hàng, tụi mình gửi email đó cho AI của Google một lần, để học cách đọc mẫu đó. Những email sau cùng mẫu được đọc ngay tại hệ thống, không gửi đi đâu nữa. Email trong hộp thư trung gian tự xoá sau 7 ngày; email không đọc được giữ tối đa 90 ngày rồi cũng xoá. Giao dịch chờ duyệt giữ đến khi bạn duyệt hoặc ngắt kết nối.',
           'The first time we meet a new email format from a bank, we send that one email to Google’s AI once, to learn how to read that format. Every later email in the same format is read on our own systems and goes nowhere. Emails in the relay inbox delete themselves after 7 days; ones we could not read are kept at most 90 days, then deleted too. Pending transactions are kept until you review them or disconnect.'))) +
         _cstRow(L('Còn file sao kê ngân hàng gửi kèm email?', 'What about statement files attached to an email?'), _esc(L(
-          'Tụi mình lấy file đó, niêm phong bằng khoá riêng của bạn và giữ đến khi bạn mở, tối đa 90 ngày; mở xong là xoá. File chỉ được mở và đọc trên máy của bạn, mật khẩu file không rời khỏi máy. Để gợi ý danh mục, máy bạn có thể gửi tên cửa hàng cho AI của Google, không kèm số tiền, ngày hay tên người.',
-          'We take the file, seal it with your own key and keep it until you open it, for at most 90 days; it is deleted once opened. The file is only opened and read on your device, and its password never leaves your device. To suggest categories, your device may send merchant names to Google’s AI, with no amount, date or person’s name.'))) +
+          'Tụi mình niêm phong file bằng khoá riêng của bạn và giữ tối đa 90 ngày, mở xong là xoá. File chỉ mở trên máy bạn; mật khẩu không rời khỏi máy. Để gợi ý danh mục, máy bạn có thể gửi tên cửa hàng cho AI của Google, không kèm số tiền, ngày hay tên người.',
+          'We seal the file with your own key and keep it for at most 90 days; it is deleted once opened. The file only opens on your device, and its password never leaves it. To suggest categories, your device may send merchant names to Google’s AI, never an amount, a date or a person’s name.'))) +
         _cstRow(L('Ai mở được các giao dịch này?', 'Who can open these transactions?'), _esc(L(
           'Mỗi giao dịch được niêm phong ngay khi đến, như thư bỏ vào két đã khoá: máy chủ giữ két, còn chìa chỉ nằm trên điện thoại của gia đình bạn.',
           'Each transaction is sealed the moment it arrives, like a letter dropped into a locked safe: the server holds the safe, and the key lives only on your family’s phones.'))) +
@@ -40691,21 +40699,25 @@ window.classifyAmount = classifyAmount;
       else when = _stmDM(String(card.received_at).slice(0, 10));
       return L('Sao kê ', 'Statement · ') + bank + (when ? ' · ' + when : '');
     }
+    function _stmSub(card) {
+      if (card.keyLocked) return L('Mở khoá sổ cá nhân để xem', 'Unlock your personal ledger to view');
+      if (card.status === 'expired') return L('Hết hạn lưu file · chọn lại từ máy', 'Stored file expired · pick it from your device');
+      const m = card.meta || {}, bits = [];
+      const kind = _stmKindWord(card); if (kind) bits.push(kind.charAt(0).toUpperCase() + kind.slice(1));
+      if (m.account_tail) bits.push('••' + m.account_tail);
+      return bits.join(' ');
+    }
     function _stmCardHTML(card) {
-      const expired = card.status === 'expired';
-      const sub = card.keyLocked ? L('Mở khoá sổ cá nhân ở tab Cá nhân để mở sao kê này.', 'Unlock your personal ledger on the Personal tab to open this.')
-        : expired ? L('File đã hết hạn lưu. Chọn file từ máy để mở.', 'The stored file has expired. Pick the file from your device.')
-        : ((card.meta && card.meta.filename) || '') ;
-      const armed = _stmArmed === card.id;
-      return '<div class="stm-card">' +
-        '<div class="stm-main"><div class="stm-title">' + _esc(_stmTitle(card)) + '</div>' +
-        (sub ? '<div class="stm-sub">' + _esc(sub) + '</div>' : '') + '</div>' +
-        '<div class="stm-actions">' +
-        (card.keyLocked ? '' : '<button type="button" class="stm-open" onclick="fhStmtOpen(\'' + card.id + '\')">' +
-          _esc(expired ? L('Chọn file', 'Pick file') : L('Mở sao kê', 'Open')) + '</button>') +
-        '<button type="button" class="stm-x' + (armed ? ' armed' : '') + '" aria-label="' + _escAttr(L('Bỏ sao kê này', 'Remove this statement')) + '" onclick="fhStmtDismiss(\'' + card.id + '\')">' +
+      const armed = _stmArmed === card.id, dead = !!card.keyLocked, sub = _stmSub(card);
+      return '<div class="stm-card' + (dead ? ' dim' : '') + '">' +
+        '<button type="button" class="stm-tap"' + (dead ? ' disabled' : ' onclick="fhStmtOpen(\'' + card.id + '\')"') + '>' +
+          '<span class="stm-txt"><span class="stm-title">' + _esc(_stmTitle(card)) + '</span>' +
+          (sub ? '<span class="stm-sub">' + _esc(sub) + '</span>' : '') + '</span>' +
+          (dead ? '' : '<svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>') +
+        '</button>' +
+        '<button type="button" class="bulk-x' + (armed ? ' armed' : '') + '" aria-label="' + _escAttr(L('Bỏ sao kê', 'Remove statement')) + '" onclick="fhStmtDismiss(\'' + card.id + '\')">' +
           (armed ? _esc(L('Bỏ?', 'Remove?')) : '✕') + '</button>' +
-        '</div></div>';
+        '</div>';
     }
     /* Filter by bank. Six statements from two banks is already a list worth narrowing,
        and a year of history is thirty. Chips appear only when there is a choice to make;
@@ -40725,10 +40737,10 @@ window.classifyAmount = classifyAmount;
       const chips = _stmProvChips();
       const shown = _stmCards.filter((c) => !_stmProvF || _stmProvOf(c) === _stmProvF);
       const fresh = shown.filter((c) => !c.backfill), old = shown.filter((c) => c.backfill);
-      let html = chips ? '<div class="group-h attn">' + _esc(L('Sao kê', 'Statements')) + ' · ' + _stmCards.length + '</div>' + chips : '';
-      if (fresh.length) html += '<div class="group-h attn">' + _esc(L('Sao kê chờ mở', 'Statements to open')) + ' · ' + fresh.length + '</div><div class="csv-cards">' + fresh.map(_stmCardHTML).join('') + '</div>';
+      let html = '<div class="group-h attn">' + _esc(L('Sao kê', 'Statements')) + ' · ' + _stmCards.length + '</div>' + chips;
+      if (fresh.length) html += '<div class="csv-cards">' + fresh.map(_stmCardHTML).join('') + '</div>';
       if (old.length) {
-        html += '<div class="group-h csv-sure-h"><span>' + _esc(L('Sao kê cũ', 'Older statements')) + ' · ' + old.length + '</span>' +
+        html += '<div class="group-h csv-sure-h stm-old-h"><span>' + _esc(L('Sao kê cũ', 'Older')) + ' · ' + old.length + '</span>' +
           '<button type="button" class="csv-linkbtn" onclick="fhStmtToggleOld()">' + _esc(_stmOldOpen ? L('Thu gọn', 'Hide') : L('Xem', 'Show')) + '</button></div>';
         if (_stmOldOpen) html += '<div class="csv-cards">' + old.map(_stmCardHTML).join('') + '</div>';
       }
@@ -40745,7 +40757,7 @@ window.classifyAmount = classifyAmount;
         if (card && card.object_path) { try { await window.sb.storage.from(STM_BUCKET).remove([card.object_path]); } catch (e) {} }
         _stmCards = _stmCards.filter((c) => c.id !== id);
         window.fhRefreshStagedCount && window.fhRefreshStagedCount();
-      } catch (e) { window.toast && window.toast(L('Chưa bỏ được sao kê, thử lại nhé', 'Could not remove it, try again')); }
+      } catch (e) { window.toast && window.toast(L('Chưa bỏ được, thử lại nhé', 'Could not remove it, try again')); }
       window.renderCsvReview && window.renderCsvReview();
     };
 
@@ -40772,6 +40784,8 @@ window.classifyAmount = classifyAmount;
     let S = null;
     const _stmHost = () => document.getElementById('csv-result');
     function _stmPaint(inner) { const h = _stmHost(); if (h) h.innerHTML = '<div class="csv-unlock stm-flow">' + inner + '</div>'; }
+    function _stmHead(title, sub) { return '<div class="csv-unlock-title">' + _esc(title) + '</div>' + (sub ? '<div class="csv-unlock-sub">' + _esc(sub) + '</div>' : ''); }
+    function _stmBusyLine(txt) { return '<div class="stm-wait"><span class="stm-spin" aria-hidden="true"></span>' + _esc(txt) + '</div>'; }
     function _stmBackBtn() { return '<button type="button" class="csv-linkbtn csv-unlock-skip" onclick="fhStmtCancel()">' + _esc(L('Để sau', 'Not now')) + '</button>'; }
     window.fhStmtCancel = function () { S = null; window.renderCsvReview && window.renderCsvReview(); };
 
@@ -40779,7 +40793,7 @@ window.classifyAmount = classifyAmount;
       const card = _stmCards.find((c) => c.id === id); if (!card) return;
       S = { card: card, bytes: null, password: '', remember: false, parsed: null, acct: null };
       if (card.status === 'expired') return _stmAskFile();
-      _stmPaint('<div class="csv-unlock-title">' + _esc(_stmTitle(card)) + '</div><div class="csv-unlock-sub">' + _esc(L('Đang tải file…', 'Fetching the file…')) + '</div>');
+      _stmPaint(_stmHead(_stmTitle(card)) + _stmBusyLine(L('Đang tải file…', 'Fetching the file…')));
       try {
         const dl = await window.sb.storage.from(STM_BUCKET).download(card.object_path);
         if (dl.error || !dl.data) throw new Error('download');
@@ -40795,20 +40809,19 @@ window.classifyAmount = classifyAmount;
         S.bytes = opened;
       } catch (e) {
         return _stmFail(e && e.message === 'identity'
-          ? L('File này không khớp với sao kê. Tụi mình không mở để an toàn.', 'This file does not match its statement, so it was not opened.')
-          : L('Chưa tải được file. Kiểm tra mạng rồi thử lại, hoặc chọn file từ máy.', 'Could not fetch the file. Check your connection, or pick the file from your device.'), true);
+          ? L('File không khớp với sao kê này nên tụi mình không mở.', 'The file does not match this statement, so it stays closed.')
+          : L('Chưa tải được file. Thử lại, hoặc chọn file từ máy.', 'Could not fetch the file. Try again, or pick it from your device.'), true);
       }
       S.password = await _stmPwGet(card.source_provider);
       return _stmParse();
     };
 
     function _stmFail(msg, offerFile) {
-      _stmPaint('<div class="csv-unlock-title">' + _esc(_stmTitle(S.card)) + '</div><div class="csv-unlock-err">' + _esc(msg) + '</div>' +
-        (offerFile ? '<button type="button" class="btn-line csv-unlock-go" onclick="fhStmtAskFile()">' + _esc(L('Chọn file từ máy', 'Pick the file from your device')) + '</button>' : '') + _stmBackBtn());
+      _stmPaint(_stmHead(_stmTitle(S.card)) + '<div class="csv-unlock-err">' + _esc(msg) + '</div>' +
+        (offerFile ? '<button type="button" class="btn-line csv-unlock-go" onclick="fhStmtAskFile()">' + _esc(L('Chọn file từ máy', 'Pick file from device')) + '</button>' : '') + _stmBackBtn());
     }
     function _stmAskFile() {
-      _stmPaint('<div class="csv-unlock-title">' + _esc(_stmTitle(S.card)) + '</div>' +
-        '<div class="csv-unlock-sub">' + _esc(L('Chọn đúng file sao kê này từ máy của bạn.', 'Pick this statement\'s file from your device.')) + '</div>' +
+      _stmPaint(_stmHead(_stmTitle(S.card), L('Chọn file sao kê này từ máy.', 'Pick this statement\'s file from your device.')) +
         '<input type="file" id="stm-file" accept=".xlsx,.csv" hidden onchange="fhStmtFilePicked(this)">' +
         '<button type="button" class="btn-line csv-unlock-go" onclick="document.getElementById(\'stm-file\').click()">' + _esc(L('Chọn file', 'Pick file')) + '</button>' + _stmBackBtn());
     }
@@ -40842,8 +40855,8 @@ window.classifyAmount = classifyAmount;
           if (code === 'bad_password' && S.password && !wrong) { await _stmPwSet(S.card.source_provider, ''); }   // a remembered password stopped working
           return _stmAskPassword(code === 'bad_password' && (wrong || S.password));
         }
-        if (code === 'xlsx_enc_unsupported' || code === 'xls_legacy') return _stmFail(L('File này được khoá bằng một kiểu mã hoá tụi mình chưa mở được.', 'This file is locked with a scheme we cannot open yet.'), false);
-        if (code === 'xlsx_unsupported') return _stmFail(L('Trình duyệt này chưa đọc được file Excel. Cập nhật trình duyệt rồi thử lại nhé.', 'This browser cannot read Excel files yet. Update it and try again.'), false);
+        if (code === 'xlsx_enc_unsupported' || code === 'xls_legacy') return _stmFail(L('Kiểu khoá của file này tụi mình chưa mở được.', 'This file is locked in a way we cannot open yet.'), false);
+        if (code === 'xlsx_unsupported') return _stmFail(L('Trình duyệt chưa đọc được file Excel. Cập nhật rồi thử lại nhé.', 'This browser cannot read Excel files. Update it and try again.'), false);
         return _stmFail(L('Chưa đọc được file này.', 'Could not read this file.'), false);
       }
       if (S.remember && S.password) await _stmPwSet(S.card.source_provider, S.password);
@@ -40856,31 +40869,30 @@ window.classifyAmount = classifyAmount;
         if (kept && !parsed.proof.ok) parsed = window.fhStmtParse(grid, kept);
       }
       S.parsed = parsed; S.grid = grid;
-      if (!parsed.table || !parsed.rows.length) return _stmFail(L('Tụi mình chưa tìm thấy bảng giao dịch trong file này.', 'We could not find a transaction table in this file.'), false);
+      if (!parsed.table || !parsed.rows.length) return _stmFail(L('Không thấy bảng giao dịch trong file này.', 'No transaction table found in this file.'), false);
       if (!parsed.proof.ok) return _stmAskMapping();
       return _stmSummary();
     }
 
     function _stmAskPassword(wrong) {
       const bank = window.fhProviderName ? window.fhProviderName(S.card.source_provider) : S.card.source_provider;
-      _stmPaint('<div class="csv-unlock-title">' + _esc(L('File này có mật khẩu', 'This file needs a password')) + '</div>' +
-        '<div class="csv-unlock-sub">' + _esc(_stmTitle(S.card)) + '</div>' +
-        '<input id="stm-pw" type="password" class="csv-pw" autocomplete="off" placeholder="' + _escAttr(L('Nhập mật khẩu mở file', 'Enter the password')) + '" onkeydown="if(event.key===\'Enter\'){fhStmtUnlock();}">' +
+      _stmPaint(_stmHead(L('File này có mật khẩu', 'This file needs a password'), _stmTitle(S.card)) +
+        '<input id="stm-pw" type="password" class="csv-pw" autocomplete="off" placeholder="' + _escAttr(L('Nhập mật khẩu mở file', 'Enter the password')) + '" onkeydown="if(event.key===\'Enter\'){event.preventDefault();fhStmtUnlock();}">' +
         (wrong ? '<div class="csv-unlock-err">' + _esc(L('Mật khẩu chưa đúng, thử lại nhé', 'That password didn\'t work, try again')) + '</div>' : '') +
-        '<label class="stm-remember"><input type="checkbox" id="stm-rem"' + (S.remember ? ' checked' : '') + '> <span>' + _esc(L('Nhớ mật khẩu cho sao kê ' + bank + ' trên máy này', 'Remember the password for ' + bank + ' statements on this device')) + '</span></label>' +
-        '<button type="button" class="btn-line csv-unlock-go" onclick="fhStmtUnlock()">' + _esc(L('Mở file', 'Open file')) + '</button>' +
-        '<div class="csv-unlock-note">' + _esc(L('Mật khẩu chỉ dùng ngay trên máy bạn để mở file. Nếu bạn chọn nhớ, tụi mình lưu nó trên máy này, có mã hoá, và không gửi đi đâu.', 'The password is only used on your device to open the file. If you choose to remember it, it is kept on this device, encrypted, and never sent anywhere.')) + '</div>' + _stmBackBtn());
+        '<div class="choices stm-rem"><button type="button" class="choice' + (S.remember ? ' on' : '') + '" onclick="fhStmtRememberTgl(this)">' + _esc(L('Nhớ mật khẩu sao kê ' + bank + ' trên máy này', 'Remember ' + bank + ' statement password on this device')) + '</button></div>' +
+        '<button type="button" class="btn-line csv-unlock-go" onclick="fhStmtUnlock()">' + _esc(L('Mở file', 'Unlock')) + '</button>' +
+        '<div class="csv-unlock-note">' + _esc(L('Mật khẩu chỉ dùng trên máy bạn, không gửi đi đâu. Nếu chọn nhớ, tụi mình giữ nó trên máy này, có mã hoá.', 'The password stays on your device and is never sent anywhere. If you choose to remember it, it is kept on this device, encrypted.')) + '</div>' + _stmBackBtn());
       const el = document.getElementById('stm-pw'); if (el) { try { el.focus(); } catch (e) {} }
     }
+    window.fhStmtRememberTgl = function (btn) { if (!S) return; S.remember = !S.remember; if (btn && btn.classList) btn.classList.toggle('on', S.remember); };
     window.fhStmtUnlock = function () {
       if (!S) return;
-      const el = document.getElementById('stm-pw'), rem = document.getElementById('stm-rem');
-      S.password = el ? el.value : ''; S.remember = !!(rem && rem.checked);
-      if (!S.password) return;
-      _stmPaint('<div class="csv-unlock-title">' + _esc(_stmTitle(S.card)) + '</div><div class="csv-unlock-sub">' + _esc(L('Đang mở file…', 'Opening the file…')) + '</div>');
+      const el = document.getElementById('stm-pw');
+      S.password = el ? el.value : '';
+      if (!S.password) { if (el) { try { el.focus(); } catch (e) {} } return; }
+      _stmPaint(_stmHead(_stmTitle(S.card)) + _stmBusyLine(L('Đang mở file…', 'Opening the file…')));
       setTimeout(() => { _stmParse(true); }, 30);     // let the line above paint: the key derivation blocks for a second
     };
-
     /* The proof could not pass: say what was read and let the person decide. The
        arithmetic is shown, not hidden -- "9 of 40 rows add up" is the reason to doubt. */
     function _stmAskMapping() {
@@ -40888,10 +40900,10 @@ window.classifyAmount = classifyAmount;
       const names = { date: L('Ngày', 'Date'), description: L('Nội dung', 'Description'), amount: L('Số tiền', 'Amount'), debit: L('Tiền ra', 'Money out'), credit: L('Tiền vào', 'Money in'), balance: L('Số dư', 'Balance') };
       const rowsHtml = Object.keys(names).filter((k) => R[k] !== undefined).map((k) =>
         '<div class="stm-maprow"><span>' + _esc(names[k]) + '</span><b>' + _esc(String(H[R[k]] || '').replace(/\s+/g, ' ').slice(0, 40)) + '</b></div>').join('');
-      _stmPaint('<div class="csv-unlock-title">' + _esc(L('Bạn xem giúp tụi mình đọc cột đúng chưa', 'Check that we read the columns right')) + '</div>' +
-        '<div class="csv-unlock-sub">' + _esc(L('File này không có số dư hoặc tổng để tụi mình tự kiểm tra, nên cần bạn xác nhận.', 'This file has no balance or totals for us to check against, so we need you to confirm.')) + '</div>' +
+      _stmPaint(_stmHead(L('Tụi mình đọc cột thế này, đúng chưa?', 'Did we read the columns right?'),
+          L('File không có số dư hay tổng để tự kiểm, nên nhờ bạn xem qua.', 'This file has no balance or totals to check against, so please take a look.')) +
         '<div class="stm-map">' + rowsHtml + '</div>' +
-        '<div class="csv-unlock-note">' + _esc(p.rows.length + L(' giao dịch tìm được', ' transactions found')) + '</div>' +
+        '<div class="csv-unlock-note">' + _esc(p.rows.length + L(' giao dịch', ' transactions')) + '</div>' +
         '<button type="button" class="btn-line csv-unlock-go" onclick="fhStmtMappingOk()">' + _esc(L('Đúng rồi', 'Looks right')) + '</button>' + _stmBackBtn());
     }
     window.fhStmtMappingOk = function () { if (S && S.parsed) { S.confirmedMap = true; _stmSummary(); } };
@@ -40921,22 +40933,23 @@ window.classifyAmount = classifyAmount;
       if (!list.length) return '';
       const money = (n) => (typeof csvFmt === 'function' ? csvFmt(Math.abs(n)) : String(Math.abs(n)));
       const rows = list.slice(0, _stmPreviewN).map((x) => {
-        const r = x.r, c = r.cls || {}, v = x.verdict;
+        const r = x.r, c = r.cls || {}, v = x.verdict, known = !!(v && v.tier === 'sure');
         const what = c.counterparty || c.memo || r.description || '';
-        const tag = (v && v.tier === 'sure') ? L('đã có trong sổ', 'already booked')
+        const tag = known ? L('đã có trong sổ', 'already booked')
           : c.flow === 'cardpay' ? L('trả nợ thẻ', 'card payment')
           : (c.flow === 'topup' || c.selfTransfer) ? L('chuyển nội bộ?', 'own transfer?')
-          : c.fundedElsewhere ? L('trả từ ngân hàng liên kết', 'paid from a linked bank') : '';
-        return '<div class="stm-prow' + (v && v.tier === 'sure' ? ' known' : '') + '">' +
-          '<div class="stm-pwhen">' + _esc(_stmDM(r.date)) + (r.time ? '<span>' + _esc(r.time) + '</span>' : '') + '</div>' +
-          '<div class="stm-pwhat"><div class="stm-ptxt">' + _esc(what || L('(chưa có nội dung)', '(no description)')) + '</div>' + (tag ? '<div class="stm-ptag">' + _esc(tag) + '</div>' : '') + '</div>' +
-          '<div class="stm-pamt' + (r.amt > 0 ? ' in' : '') + '">' + (r.amt > 0 ? '+' : '−') + _esc(money(r.amt)) + '</div></div>';
+          : c.fundedElsewhere ? L('qua ngân hàng liên kết', 'via a linked bank') : '';
+        return '<div class="stm-prow' + (known ? ' known' : '') + '">' +
+          '<span class="stm-pwhen">' + _esc(_stmDM(r.date)) + '</span>' +
+          '<span class="stm-pwhat">' + _esc(what || L('(không có nội dung)', '(no description)')) + (tag ? '<i>' + _esc(tag) + '</i>' : '') + '</span>' +
+          '<span class="stm-pamt' + (r.amt > 0 ? ' in' : '') + '">' + (r.amt > 0 ? '+' : '−') + _esc(money(r.amt)) + '</span></div>';
       }).join('');
       const left = list.length - Math.min(list.length, _stmPreviewN);
-      return '<div class="stm-preview">' + rows + '</div>' +
-        (left > 0 ? '<button type="button" class="csv-linkbtn stm-pmore" onclick="fhStmtPreviewMore()">' + _esc(L('Xem thêm ' + left + ' khoản', 'Show ' + left + ' more')) + '</button>' : '');
+      return '<div class="stm-preview">' + rows +
+        (left > 0 ? '<button type="button" class="stm-pmore" onclick="fhStmtPreviewMore()">' + _esc(L('Xem thêm ' + left + ' khoản', 'Show ' + left + ' more')) + '</button>' : '') + '</div>';
     }
-
+    /* Which kind of account the statement belongs to: a wallet by provider, a card when
+       the summary block speaks of debt, otherwise a deposit account. */
     function _stmAcctKind() {
       const prov = String(S.card.source_provider || '').toLowerCase();
       if (/momo|zalopay|shopeepay|viettel|vnpay/.test(prov)) return 'ewallet';
@@ -40977,24 +40990,22 @@ window.classifyAmount = classifyAmount;
 
     function _stmRenderSummary() {
       const p = S.parsed, fresh = S.fresh, known = S.known, tail = S.acct.tail;
-
       const bank = window.fhProviderName ? window.fhProviderName(S.card.source_provider) : S.card.source_provider;
-      const kindLabel = { ewallet: L('Ví điện tử', 'E-wallet'), credit_card: L('Thẻ tín dụng', 'Credit card'), deposit: L('Tài khoản', 'Account') }[S.acct.kind];
-      const parts = [p.rows.length + L(' giao dịch', ' transactions')];
-      if (known !== null) { parts.push((fresh.length - known) + L(' mới', ' new')); if (known) parts.push(known + L(' đã có trong sổ', ' already in your ledger')); }
-      if (S.decidedCount) parts.push(S.decidedCount + L(' bạn đã xử lý trước đó', ' you already handled'));
-      if (p.failed) parts.push(p.failed + L(' thất bại đã bỏ qua', ' failed, skipped'));
-      _stmPaint('<div class="csv-unlock-title">' + _esc(L('Tìm được ', 'Found ') + parts.join(' · ')) + '</div>' +
-        '<div class="csv-unlock-sub">' + _esc(_stmTitle(S.card)) + '</div>' +
+      const kindLabel = { ewallet: L('Ví', 'Wallet'), credit_card: L('Thẻ tín dụng', 'Credit card'), deposit: L('Tài khoản', 'Account') }[S.acct.kind];
+      const bits = [];
+      if (known !== null) { bits.push((fresh.length - known) + L(' mới', ' new')); if (known) bits.push(known + L(' đã có trong sổ', ' already booked')); }
+      else if (fresh.length) bits.push(fresh.length + L(' khoản', ' rows'));
+      if (S.decidedCount) bits.push(S.decidedCount + L(' đã xử lý', ' handled before'));
+      if (p.failed) bits.push(p.failed + L(' thất bại', ' failed'));
+      _stmPaint(_stmHead(p.rows.length + L(' giao dịch', ' transactions'), _stmTitle(S.card)) +
+        (bits.length ? '<div class="stm-bits">' + _esc(bits.join(' · ')) + '</div>' : '') +
         '<div class="stm-map"><div class="stm-maprow"><span>' + _esc(L('Thuộc về', 'Belongs to')) + '</span><b>' + _esc(kindLabel + ' · ' + bank + (tail ? ' ••' + tail : '')) + '</b></div></div>' +
-        '<div class="csv-unlock-note">' + _esc(fresh.length
-          ? L('Các khoản sẽ vào "Duyệt giao dịch" để bạn xem từng khoản. Chưa có gì được ghi vào sổ.', 'The rows go to your review queue. Nothing is written to a ledger yet.')
-          : L('Bạn đã xử lý hết các khoản trong sao kê này rồi.', 'You have already handled every row in this statement.')) + '</div>' +
         _stmPreviewHTML() +
-        '<div class="stm-gobar"><button type="button" class="btn-line csv-unlock-go" id="stm-go" onclick="fhStmtCommit()">' + _esc(fresh.length ? L('Đưa vào hàng chờ duyệt', 'Add to the review queue') : L('Xong', 'Done')) + '</button>' +
-        '<div id="stm-back">' + _stmBackBtn() + '</div></div>');
+        '<div class="stm-gobar">' +
+          (fresh.length ? '<div class="csv-unlock-note">' + _esc(L('Vào hàng chờ duyệt, chưa ghi vào sổ.', 'Goes to the review queue, not to the ledger.')) + '</div>' : '') +
+          '<button type="button" class="cta" id="stm-go" onclick="fhStmtCommit()">' + _esc(fresh.length ? L('Đưa vào hàng chờ duyệt', 'Add to review queue') : L('Xong', 'Done')) + '</button>' +
+          '<div id="stm-back">' + _stmBackBtn() + '</div></div>');
     }
-
     /* Merchant names only -- never a person, an amount or a date -- to the
        merchant-concepts function. Best-effort: a limited model just means those rows
        arrive without a category. */
@@ -41017,7 +41028,7 @@ window.classifyAmount = classifyAmount;
          A button that just sits there gets tapped again, so it goes busy at once, says
          what it is doing, counts as it goes, and the way out is hidden until it ends. */
       const busy = (txt) => { if (btn) { btn.disabled = true; btn.classList.add('busy'); btn.innerHTML = '<span class="stm-spin" aria-hidden="true"></span>' + _esc(txt); } };
-      busy(L('Đang chuẩn bị…', 'Preparing…'));
+      busy(L('Đang chuẩn bị…', 'Getting ready…'));
       if (back) back.hidden = true;
       const card = S.card;
       try {
@@ -41047,13 +41058,13 @@ window.classifyAmount = classifyAmount;
            account with no anchor is asked for one by the post-import setup, and one
            with an anchor shows the drift badge with its two resolutions. */
         S = null;
-        window.toast && window.toast(L('Đã đưa ' + rows.length + ' khoản vào hàng chờ duyệt', rows.length + ' rows added to your review queue'));
+        window.toast && window.toast(L('Đã thêm ' + rows.length + ' khoản vào hàng chờ', rows.length + ' rows added to the queue'));
         window.fhTxnReviewSheet && window.fhTxnReviewSheet(window.csvEntryScope);
       } catch (e) {
         if (S) S.committing = false;
-        if (btn) { btn.disabled = false; btn.classList.remove('busy'); btn.textContent = L('Đưa vào hàng chờ duyệt', 'Add to the review queue'); }
+        if (btn) { btn.disabled = false; btn.classList.remove('busy'); btn.textContent = L('Đưa vào hàng chờ duyệt', 'Add to review queue'); }
         if (back) back.hidden = false;
-        window.toast && window.toast(L('Chưa lưu được, thử lại nhé. Chưa có gì thay đổi.', 'Could not save, try again. Nothing was changed.'));
+        window.toast && window.toast(L('Chưa lưu được, thử lại nhé', 'Could not save, try again'));
       }
     };
 

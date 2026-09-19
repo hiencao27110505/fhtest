@@ -58,7 +58,7 @@ const nodeCrypto = require('crypto');
   const html = window.fhStmtCardsHTML();
   t('the title carries the statement PERIOD, not the day the mail arrived', /Sao kê MoMo ví · 20\/06 – 18\/09/.test(html), html.match(/Sao kê MoMo[^<]*/));
   t('a month-only statement says the month', /Sao kê VIB · tháng 09\/2026/.test(html), html.match(/Sao kê VIB[^<]*/));
-  t('the file name is shown under it', html.indexOf('0900000001_2430.xlsx') >= 0);
+  t('the file name stays off the card: the row says kind and tail instead', html.indexOf('0900000001_2430.xlsx') < 0 && /Ví ••0001/.test(html), html.match(/stm-sub">[^<]*/g));
   t('details sealed for ANOTHER person are refused: no details, no open button', other.meta === null && other.keyLocked === true);
 
   console.log('\n' + (fail ? fail + ' FAILED, ' : 'ALL ') + pass + ' PASSED');

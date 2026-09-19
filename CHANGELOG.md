@@ -71,6 +71,12 @@ consent v5.
   a Sao kê group: Từ sao kê / Từ email, and one chip per statement. Each row now carries
   its statement's title. Tests: `tools/statement-flow.test.js` (the whole unlock path with
   real sealing, incl. four taps → one write), `tools/statement-quick-select.test.js`.
+- **Design and copy pass (SW v541).** The statement card is a tappable row in the queue's
+  own frame (title, kind and tail, chevron, the shared ✕) instead of a pill button on
+  every card, so the flow's one brand accent is its final CTA (`.cta`). "Remember the
+  password" is a `.choice` chip, not a checkbox. The preview borrows the money-in strip's
+  metrics. Copy shortened everywhere: the summary title is the count ("145 giao dịch"),
+  the rest a muted line; error and note text lost their explanations.
 - **Not built:** the model as a column-reading fallback, an editable mapping check,
   the correction button for family-ledger twins, a card's closing debt. Spec §6.
 
