@@ -20,6 +20,32 @@ Going forward, add an entry here when a feature area changes meaningfully — se
 
 ## 2026-09-19
 
+### Quét hóa đơn: ảnh thành khoản chi (preview)
+
+The third capture channel, next to typing and bank email. A person photographs receipts or
+picks screenshots (up to 10 in one pass), the images go to Gemini through a serverless
+function, and the reads land in the app's own bulk review before anything is written.
+Brief: `docs/briefs/receipt-scan.md`. Feature doc: `docs/features/receipt-scan.md`.
+
+- **The model reads, the rules check.** `api/receipt-extract.js` (Vercel, JWT + rate limit,
+  strict `responseSchema` at temperature 0) returns amount, date, merchant, a per-field
+  confidence and the raw text it read. `validate()` then re-parses the amount through the
+  email pipeline's own `parseAmountCell`, rejects a date in the future or older than two
+  years, and cross-checks the amount's digits against that raw text. A field that fails is
+  blanked and named, never guessed. `raw_text` is dropped before the response leaves the
+  function; the image is never stored server-side.
+- **One capture surface, one review.** `src/js-data/78-receipt-scan.js` drives the camera
+  (`.scan-cam`, DESIGN §4 layer 66) and hands the batch to the existing bulk review, so a
+  scanned row is edited by the same form as a typed one. Photos ride with their own row and
+  are tagged `rcpt_` so `buildMemRecords` keeps receipts out of Kỷ niệm and the event mirror
+  skips a photo-only receipt expense. Saved rows carry `.scan-new` in the ledger briefly.
+- **Consent before the first image leaves the phone.** A `receipt_scan` consent (PDPL's
+  seven items, reviewable in Settings) is asked once and cached; `receipt_scan_withdraw`
+  records a withdrawal.
+- **Fixed on the way.** `submitBulk` called `loadRow(k)` without moving `bulkActive`, so
+  `_syncExTime` read row 0 and stamped its time on every row of a batch. That bug was also
+  live for CSV import and bank-email review.
+
 ### Sao kê ngân hàng thành giao dịch chờ duyệt (SW v538) — LIVE
 
 A bank or e-wallet statement (`.xlsx`/`.csv`, usually password-locked) attached to an

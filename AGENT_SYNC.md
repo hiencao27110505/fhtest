@@ -143,6 +143,26 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-09-19 (Trang — receipt scan) — on `preview/receipt-scan`, NOT merged. No migration, no
+  Edge Function, no SW bump.** Photograph receipts or pick screenshots (max 10 a pass), Gemini
+  reads them through a new Vercel function, the reads land in the existing bulk review. Brief:
+  `docs/briefs/receipt-scan.md`. Worktree `../fh-receipt-scan`.
+  - **New:** `api/receipt-extract.js`, `src/js-data/78-receipt-scan.js`, `src/css/76-receipt-scan.css`,
+    `tools/receipt-scan.test.js`, `tools/receipt-extract.test.js`, `tools/receipt-bench.js`,
+    `docs/features/receipt-scan.md`. Tools that are mine and new: `tools/feature-state.js`,
+    `tools/ui-harness/*`, `docs/WORKFLOW.md`, `.claude/skills/feature/SKILL.md`.
+  - **Touched (say so if you are in these):** `src/index.html` (add sheet + two new surfaces),
+    `src/js-ui/{21-personal,40-memories,50-sheets-expense-capture,55-expense-photos-writes,60-transactions,70-theme-i18n,90-release-notes}.js`,
+    `src/js-data/{40-txn-writes-outbox,71-mailbox-ui,75-consent-ui}.js`, `src/css/10-tokens.css`
+    (new `--cam-*` tokens), `DESIGN.md` §3 §4.
+  - **Read this if you touch bulk review:** `submitBulk` called `loadRow(k)` without moving
+    `bulkActive`, so `_syncExTime` read `bulkRows[0]` and stamped row 0's time onto every row of
+    a batch. That was live for CSV import and bank-email review too; the fix is in this branch
+    and is worth cherry-picking if this branch sits unmerged for long.
+  - **Needs before main:** `GEMINI_API_KEY` scoped to the Vercel Preview environment, the
+    accuracy gate (`node tools/receipt-bench.js`) run against 20-30 real Vietnamese receipts
+    with known answers, and a phone pass on the preview URL. — Trang
+
 - **2026-09-19 (Hien — statement capture) — MERGED to `main`. Migrations `0139_statement_capture`,
   `0140_statement_shapes_seed`, `0141_statement_shapes_revoke` APPLIED live and verified
   (tables, RLS, grants, bucket, seeds checked by query). `push-send` DEPLOYED (v21; live v20 was
