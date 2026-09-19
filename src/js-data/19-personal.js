@@ -754,6 +754,22 @@
     /* `quiet` (bulk edit, txn-listing revamp): skip the per-call re-hydrate so a
        batch of N edits costs one hydrate at the end, not N — the caller MUST
        await fhPersonalHydrate() itself after the batch. */
+    /* The AMOUNT only, every other field left exactly as it is. fhPersonalUpdateExpense
+       below rewrites the whole row from `fields` -- hand it just an amount and it nulls
+       the note, the category and the time. This exists for the one caller that has
+       nothing but a better number: a card statement's final figure replacing the
+       estimate a foreign purchase was booked at (56 csvFxAdopt). Private rows only,
+       like every personal write; returns false when nothing matched (a mirror row). */
+    window.fhPersonalSetAmount = async function (id, amt) {
+      if (!P.uid || !P.key || !id || !(Number(amt) > 0)) return false;
+      const r = await _sb().from('personal_transactions').update({ amount_enc: await _encP(Number(amt)) })
+        .eq('id', id).eq('owner_user_id', P.uid).is('link_id', null).select('id');
+      if (r.error) { console.warn('personal amount update failed', r.error); return false; }
+      if (!r.data || !r.data.length) return false;
+      await window.fhPersonalHydrate();
+      return true;
+    };
+
     window.fhPersonalUpdateExpense = async function (id, fields, quiet) {
       if (!P.uid || !P.key || !id) return false;
       fields = fields || {};

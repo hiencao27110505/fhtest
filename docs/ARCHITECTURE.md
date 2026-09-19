@@ -76,6 +76,7 @@ covered table. Check the target table against `_ENC_TABLES` in
 | Key Card auth | [`key-card-auth.md`](features/key-card-auth.md) | 128-bit card replacing the 6-digit passcode as the "safe" secret |
 | CSV import | [`csv-import.md`](features/csv-import.md) | Spreadsheet → auto-mapped, masked, reviewed, promoted via the normal expense-write path |
 | Bank-email pipeline | [`bank-email-pipeline.md`](features/bank-email-pipeline.md) | Forwarded bank emails → extracted transactions. **Live end to end for allowlisted members** (pipeline `v2026-08-17-d`, sealed staging on, review UI shipped). |
+| Statement capture | [`statement-capture-spec.md`](specs/statement-capture-spec.md) | A bank's statement FILE → one locked card → N review rows after the owner unlocks it on the device. **Built 2026-09-19, not deployed.** |
 | Budget & run-rate | [`budget.md`](features/budget.md) | Monthly budget vs. actual + pace signal, "Others" catch-all invariant |
 | Saving goals | [`goals.md`](features/goals.md) | Save toward a thing, funded from a shared pool, optional link to a Memories occasion |
 | Transactions & expenses | [`transactions.md`](features/transactions.md) | The core ledger; realized vs. planned (proposal) status |
@@ -165,6 +166,9 @@ Scenarios the model has to hold, and which question each exercises:
 | Card spend, then card repayment | booked | handled by the `cardpay` kind at review |
 | Declined, cancelled or reversed attempt | processed | direct read drops it at extraction (`labeltable.mjs` status words); the Cloud Run ingest filter is on `main` but not live, see debt below |
 | Refund | none: a new offsetting event | booked as income `Hoàn tiền`, never matched against the purchase |
+| A statement re-reports a purchase an email already captured | booked · same | imported already → the ledger tiers; still pending → same second merges (the statement row spells its instant as the database does), seconds apart → `statement_echo` flags the later one |
+| A card statement's final figure vs the estimate booked from the email | booked, by **near-sameness** | `fx_final`: only a statement row, only against a note that says `est.`, same merchant word, 4.5 days, 6%. One tap sets the booked amount |
+| The same statement sent twice, or overlapping periods | decided | an on-device fingerprint (`resolved_statement_rows`), exact when the file carries the bank's own transaction id |
 | Two identical purchases the same day | same | must stay two rows; why guesses only flag |
 | Split bill, or a personal → family move (`0114`) | booked | one event allocated or moved, never copied |
 | A second account starts reading a mailbox | decided | **decisions are per owner**: mail the first account already imported is staged again for the second; review flags it against the family ledger, not against the other account's personal ledger |

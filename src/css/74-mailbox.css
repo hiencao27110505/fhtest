@@ -667,3 +667,22 @@ button.csv-srow:active{background:var(--surface)}
 .txr-lmsg{font-size:13px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
 @keyframes txr-spin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.txr-spin{animation:none}}
+/* ── statement capture: the locked card + its unlock flow (77-statement-capture.js) ──
+   One neutral card per statement. No fill, no accent: it is a thing waiting, not an
+   alarm. The flow reuses .csv-unlock from the file import's password step. */
+.stm-card{display:flex;align-items:center;gap:12px;border:1.5px solid var(--hairline);border-radius:13px;background:var(--white);padding:12px 12px 12px 14px}
+.stm-main{flex:1;min-width:0}
+.stm-title{font-size:14px;font-weight:700;color:var(--ink);letter-spacing:-.1px}
+.stm-sub{font-size:12px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stm-actions{display:flex;align-items:center;gap:6px;flex:none}
+.stm-open{min-height:44px;padding:0 16px;white-space:nowrap;background:var(--white);color:var(--brand);border:1.5px solid var(--brand);border-radius:9999px;font-size:13.5px;font-weight:700;letter-spacing:-.01em;cursor:pointer}
+.stm-open:active{transform:scale(.98)}
+.stm-x{min-width:44px;min-height:44px;border:0;background:none;color:var(--muted);font-size:15px;cursor:pointer;border-radius:10px}
+.stm-x.armed{color:var(--danger);font-size:12.5px;font-weight:700}
+.stm-remember{display:flex;align-items:flex-start;gap:10px;margin-top:12px;font-size:13px;color:var(--ink-2);line-height:1.4;cursor:pointer}
+.stm-remember input{width:20px;height:20px;flex:none;margin:0;accent-color:var(--brand)}
+.stm-map{margin-top:12px;border-top:1px solid var(--hairline)}
+.stm-maprow{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--hairline);font-size:13px;color:var(--muted)}
+.stm-maprow b{color:var(--ink);font-weight:600;text-align:right;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.csv-fxfix-row{margin-top:8px}
+.csv-fxfix{min-height:44px;font-size:13px}

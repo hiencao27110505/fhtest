@@ -372,3 +372,14 @@ export function digestBody(count, lang) {
     ? { title: '🙂', body: `Found ${n} past transactions, review whenever you like!` }
     : { title: '🙂', body: `Đã tìm thấy ${n} giao dịch cũ, xem lúc rảnh nha!` };
 }
+
+/* A statement arrived. Its own line because it asks for something different: a
+ * transaction push asks for one tap, this asks for a few minutes and perhaps a
+ * password, and a generic "something is waiting" followed by a password prompt
+ * reads as a bait-and-switch (statement-capture-spec.md, decision S26). Carries
+ * NOTHING: no bank (where someone banks is itself private), no count, no period. */
+export function statementBody(lang) {
+  return lang === 'en'
+    ? { title: '📄', body: 'A new statement is waiting for you to open!' }
+    : { title: '📄', body: 'Có sao kê mới chờ bạn mở!' };
+}

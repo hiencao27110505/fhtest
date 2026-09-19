@@ -142,6 +142,9 @@
   window.fhRefreshStagedCount = async function () {
     try { var rows = await fhFetchStagedTxns(); window.fhStagedCount = (typeof window.fhStagedTotal === 'number') ? window.fhStagedTotal : (rows || []).length; }
     catch (e) { window.fhStagedCount = 0; }
+    // Statement rows and unopened statement cards wait in the same queue, so the
+    // same badge counts them. Head-only, and never allowed to zero the email count.
+    try { if (window.fhStmtPendingCount) window.fhStagedCount += (await window.fhStmtPendingCount()) || 0; } catch (e) {}
     try { if (typeof window.renderCashflowEmailCta === 'function') window.renderCashflowEmailCta(); } catch (e) {}
     // The Cá nhân tab carries the same CTA and the same badge; it has to hear
     // the count change too, or one of the two goes stale after every promote.
@@ -153,6 +156,11 @@
        • linked           → the review sheet, which itself shows an empty modal
                             when there is nothing, or the list of cards. */
   window.fhEmailTxnCta = async function (preset) {
+    /* Consent moved on (v5: statement files)? Offer it here, once a session, without
+       blocking: both answers carry on into this same function (75-consent-ui.js). */
+    if (window.fhConsentOffer) {
+      try { if (!(await window.fhConsentOffer(function () { window.fhEmailTxnCta(preset); }))) return; } catch (e) {}
+    }
     /* The entry SOURCE is the context. Opening from the Cá nhân tab means "these
        are mine" and defaults the cards to the personal ledger — the same affordance
        openPersonalExpense() gives the expense modal; opening from a space (family)
@@ -731,10 +739,24 @@
   /* Retire specific staged rows by id — local-first (survives a failed server
      delete), so a row assigned to a card from the detail screen cannot also
      reappear in the review to be imported twice. */
+  /* Retire staged rows on the server. The queue holds two kinds since statement
+     capture (77-statement-capture.js): sealed email rows, deleted by
+     resolve_email_transactions, and statement rows, which live in their own table
+     and remember a fingerprint so a re-sent statement does not ask twice. Every
+     call site hands over ONE list and this splits it; the count returned is the
+     total actually removed, which is what the "matched 0 rows" warnings read. */
+  async function _stagedResolve(ids) {
+    var split = window.fhStmtSplitIds ? window.fhStmtSplitIds(ids) : { email: ids || [], stmt: [] };
+    var n = 0;
+    if (split.email.length) n += Number(await _rpc('resolve_email_transactions', { p_ids: split.email })) || 0;
+    if (split.stmt.length && window.fhStmtRetire) n += Number(await window.fhStmtRetire(split.stmt)) || 0;
+    return n;
+  }
+
   window.fhStagedRetireIds = async function (ids) {
     if (!ids || !ids.length) return false;
     _stagedRetiredAdd(ids);
-    try { await _rpc('resolve_email_transactions', { p_ids: ids }); return true; }
+    try { await _stagedResolve(ids); return true; }
     catch (e) { console.warn('staged retire (targeted) failed', e, { ids: ids }); return false; }
   };
 
@@ -747,6 +769,7 @@
     var rows = window._fhStagedRows;
     var r = (c && typeof c.rowIndex === 'number' && rows) ? rows[c.rowIndex] : null;
     var tr = r && r.raw_extracted && r.raw_extracted._transport;
+    if (tr === 'statement') return 'statement-email';   // parsed from a statement file (statement-capture-spec.md)
     return tr === 'oauth_direct' ? 'direct-email' : 'forwarding-email';
   };
 
@@ -837,7 +860,22 @@
       }
     }
 
-    if (!readable.length) {
+    /* Statement capture (77-statement-capture.js): rows already parsed from a
+       statement join the SAME array, shaped exactly like an opened email row, so
+       every accessor below that indexes _fhStagedRows by rowIndex reads them with
+       no second code path. Unopened statements ride beside as cards. A failure
+       here costs the statements, never the email queue. */
+    var stmtCards = 0;
+    if (window.fhStmtLoad) {
+      try {
+        var stmt = await window.fhStmtLoad();
+        readable = readable.concat(stmt.rows || []);
+        locked += stmt.locked || 0;
+        stmtCards = (stmt.cards || []).length;
+      } catch (eS) { console.warn('statement load failed', eS); }
+    }
+
+    if (!readable.length && !stmtCards) {
       _txrLoadHide();
       _fhSheet('<div class="mbx-hero">' + _mbxGlyph('mail') + '</div>' +
         '<div class="sheet-h">' + _esc(L('Chưa có giao dịch mới', 'Nothing to review')) + '</div>' +
@@ -1045,7 +1083,7 @@
     if (!id) return;
     _stagedRetiredAdd([id]);
     try {
-      var removed = await _rpc('resolve_email_transactions', { p_ids: [id] });
+      var removed = await _stagedResolve([id]);
       if (!removed) console.warn('staged drop: matched 0 rows', { ids: [id] });
     } catch (e) {
       console.warn('staged drop failed', e, { ids: [id] });
@@ -1073,7 +1111,7 @@
     if (!ids.length) return 0;
     _stagedRetiredAdd(ids);
     try {
-      var removed = await _rpc('resolve_email_transactions', { p_ids: ids });
+      var removed = await _stagedResolve(ids);
       if (!removed) console.warn('staged drop: matched 0 rows', { ids: ids });
     } catch (e) {
       console.warn('staged bulk drop failed', e, { ids: ids });
@@ -1457,7 +1495,7 @@
            the duplicate. Exactness is why chunks never split a candidate. */
         var doneIds = doneCands.map(stagedIdOf).filter(Boolean);
         if (doneIds.length) {
-          try { await _rpc('resolve_email_transactions', { p_ids: doneIds }); }
+          try { await _stagedResolve(doneIds); }
           catch (eRp) { console.warn('partial retire failed', eRp, { ids: doneIds }); }
         }
         // Zero written is not a partial save — it is a plain failure (locked
@@ -1573,7 +1611,7 @@
        detail, because this is the one place a person cannot see what went wrong
        and the queue now looks correct either way. */
     try {
-      var removed = await _rpc('resolve_email_transactions', { p_ids: ids });   // 0060
+      var removed = await _stagedResolve(ids);   // 0060
       window._fhStagedRows = [];
       if (!removed) {
         console.warn('staged retire: matched 0 rows', { ids: ids });

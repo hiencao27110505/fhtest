@@ -152,6 +152,59 @@ export function sealForFamily(payload, familyPubB64, scopeId, gmailMessageId, de
 }
 
 /**
+ * Seals raw BYTES -- a statement file -- to a staging public key.
+ *
+ * sealForFamily cannot carry a file: it JSON-stringifies its payload, and a 5 MB
+ * spreadsheet pushed through JSON, then b64() one character at a time, is three
+ * extra copies and a very long loop. This takes the bytes as they are and returns
+ * ONE self-describing blob, so the stored object needs no sidecar columns:
+ *
+ *     eph_pub (32)  ||  nonce (24)  ||  nacl.box(bytes)
+ *
+ * Same curve, same cipher, same ephemeral-then-zeroed discipline as a sealed row.
+ * What it does NOT do is bind identity: bytes have no field to put an owner in.
+ * The binding lives in the statement's sealed METADATA (sealForFamily, which binds
+ * owner_user_id + gmail_message_id) and that metadata carries the SHA-256 of these
+ * plaintext bytes. The client checks the hash after opening, so a blob moved under
+ * another row is detected, not silently parsed (statement-capture-spec.md section 8.1).
+ */
+export function sealBytes(bytes, pubB64, deps) {
+  const nacl = deps && deps.nacl;
+  if (!nacl || !nacl.box) throw new Error('SEALED_BOX_NO_NACL');
+  if (!(bytes instanceof Uint8Array) || !bytes.length) throw new Error('SEALED_BOX_NO_BYTES');
+  if (!pubB64) throw new Error('SEALED_BOX_NO_PUB');
+  const pub = unb64(pubB64);
+  if (pub.length !== KEY_BYTES) throw new Error('SEALED_BOX_BAD_PUB_LENGTH');
+
+  const ephSecret = randomBytes(KEY_BYTES, deps.rng);
+  const eph = nacl.box.keyPair.fromSecretKey(ephSecret);
+  const nonce = randomBytes(NONCE_BYTES, deps.rng);
+  const box = nacl.box(bytes, nonce, pub, eph.secretKey);
+  ephSecret.fill(0);
+  eph.secretKey.fill(0);
+
+  const out = new Uint8Array(KEY_BYTES + NONCE_BYTES + box.length);
+  out.set(eph.publicKey, 0);
+  out.set(nonce, KEY_BYTES);
+  out.set(box, KEY_BYTES + NONCE_BYTES);
+  return out;
+}
+
+/** The inverse, for TESTS and verification only -- the worker holds no private
+ *  key. Mirrors fhStmtOpenBlob in src/js-data/77-statement-capture.js. */
+export function openSealedBytes(blob, priv, deps) {
+  const nacl = deps && deps.nacl;
+  if (!nacl || !nacl.box) throw new Error('SEALED_BOX_NO_NACL');
+  if (!(blob instanceof Uint8Array) || blob.length <= KEY_BYTES + NONCE_BYTES) throw new Error('staging_open_failed');
+  const opened = nacl.box.open(
+    blob.subarray(KEY_BYTES + NONCE_BYTES), blob.subarray(KEY_BYTES, KEY_BYTES + NONCE_BYTES),
+    blob.subarray(0, KEY_BYTES), priv,
+  );
+  if (!opened) throw new Error('staging_open_failed');
+  return opened;
+}
+
+/**
  * Opens a sealed row. Present for TESTS and for operational verification, not
  * for the worker: the worker holds no family private key and must not be able
  * to acquire one, which is the property the whole design rests on.

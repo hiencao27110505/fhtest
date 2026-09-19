@@ -143,6 +143,38 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-09-19 (Hien — statement capture) — BUILT on `feat/statement-capture`, NOTHING applied
+  or deployed. Migrations `0139_statement_capture` + `0140_statement_shapes_seed` are WRITTEN and
+  CLAIMED; `0141` is released — next free is `0141`.** A bank/e-wallet statement
+  (`.xlsx`/`.csv` attachment, usually password-locked) becomes one locked card in "Duyệt giao
+  dịch", then N rows after the owner unlocks it on the device. Spec + decision log:
+  `docs/specs/statement-capture-spec.md`. Worktree `.worktrees/statement-capture`. SW **v538**.
+  - **New:** `_shared/mailbox/statement.mjs`, `functions/merchant-concepts/`,
+    `src/js-data/77-statement-capture.js`, `src/js-ui/59-statement-table.js`, seven test files,
+    `tools/make-statement-fixtures.py` + `tools/fixtures/statements/` (SYNTHETIC).
+  - **Edited:** `_shared/mailbox/{gmail,sealed-box,db,worker,classify,notify-copy}.mjs`,
+    `functions/{push-send,mailbox-sync}/index.ts`, `src/js-data/{19-personal,72-txn-review,74-autotxn-ui,75-consent-ui}.js`,
+    `src/js-ui/{56-csv-import-ui,57-csv-import-review,58-dedup-engine}.js`, `src/css/74-mailbox.css`.
+  - **"A second of something" (§3), posted as asked:** `_fhStagedRows` now holds TWO kinds of row
+    (email + statement, discriminator `_stmt`). I grepped every reader: the accessors index by
+    `rowIndex` and read fields both kinds carry; the ONE assumption that broke was retirement
+    (`resolve_email_transactions` deletes from `email_transactions` only) — all five call sites
+    now go through `_stagedResolve`, which splits the list. `76-quick-review.js` queries
+    `email_transactions` directly, so statement rows cannot reach it. `58-dedup-engine.js` gains
+    two tiers (`statement_echo`, `fx_final`); its 38 existing tests pass unchanged.
+  - **`worker.mjs` / `db.mjs` were edited minimally on purpose** (one import, one lane call, one
+    filter clause, one sweep; db methods appended as ONE block at the end) because the
+    backfill-cursor patch touches the same files. The lane reads its own cursor with its own
+    query and never touches `dueGrants`/`grantById`/`grantsByEmail`'s select lists.
+  - ⚠️ **`mailbox-sync` deploy is BLOCKED on the backfill-cursor patch** (live in v47 with
+    `0136_backfill_cursor`, not in `main`). Whoever holds it: please commit it so this branch
+    can rebase onto it. I will not deploy `mailbox-sync` from a tree that lacks it.
+  - **Consent is now v5** (`FH_CONSENT_V`), and `STATEMENT_CONSENT_V` in `statement.mjs` must
+    equal it (a test pins this). `tools/consent-gate.test.js` was updated: someone holding v4 is
+    shown the v5 change only; two versions behind sees both.
+  - Open, for whoever runs account deletion: sealed objects under `statement-files/{user_id}/`
+    are not removed by the row cascade. `docs/PDPL-COMPLIANCE.md` §5d.
+
 - **2026-09-18 (Hien's session) — every personal kind on the one transaction detail.
   Client only, no migration.** `61-expense-detail.js` personal block rewritten as a per-kind
   renderer (`_pexdEntry`, `_pexdKindOf`, `openPersonalTransferDetail`, slots `_pexdAskHTML` /

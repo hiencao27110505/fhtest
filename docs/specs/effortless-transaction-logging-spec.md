@@ -460,6 +460,8 @@ Cite by filename — the numeric sequence has documented collisions.
 | `0102_grant_default_scope_read` | Adds `default_scope` to the client's column-level grant — a column added after `0087`'s explicit grant list was invisible to the app, which read "no scope" as "not set up" and sent a connected user back to setup |
 | `0103_one_grant_per_mailbox` | Unique on the (fold-normalised) mailbox address itself — one mailbox, one reader, across *accounts*, not just per account |
 | `0104_strip_status_statics` | Deletes the `static.status` key from every already-stored template (a cache), leaving working anchors intact — `status` is the outcome of one mail, not a property of the shape, so freezing it staticised every later success (or decline) as the first mail's verdict. Both writers stop emitting it in the same change (§16.2). A strip, not a purge: an absent key contributes nothing at `apply()`, so no relearn and no model-call cost |
+| `0139_statement_capture` | **Not applied.** `statement_files`, `statement_rows`, `resolved_statement_rows`, `statement_shapes`, private bucket `statement-files`, `mailbox_grants.stmt_rescan_at`, and the statement RPCs. Touches nothing that exists: `email_transactions` and its `0137` key are left alone (`statement-capture-spec.md` §8) |
+| `0140_statement_shapes_seed` | **Not applied.** Three statement mail formats verified by hand, so they cost no model call |
 
 ## 13. Transport A — forwarding (Apps Script)
 
@@ -1892,6 +1894,34 @@ as — or the same day as — the deploy. A deploy announced only in
 `AGENT_SYNC.md` is coordination; this is the record.
 
 ## 28. Releases (newest first)
+
+### 2026-09-19 — statement capture: mailbox-sync + push-send + new merchant-concepts + migrations 0139, 0140 + client (BUILT, NOT DEPLOYED)
+
+- **For product:** when a bank or e-wallet emails a statement file, it shows up in
+  "Duyệt giao dịch" as one card, "Sao kê MoMo · 20/06 – 18/09". Open it (typing the
+  file's password if it has one, remembered on this device if you choose) and its
+  transactions join the queue like any other, with rows you already have set aside
+  under "Đã có trong sổ". Wallets and banks that never email per transaction are
+  no longer invisible. Nothing reaches a ledger without "Nhập", as always.
+- **Under the hood:** a second LANE in the worker (`statement.mjs`), not a tier in the
+  extraction cascade: the header pass reads `format=metadata` and cannot see an
+  attachment. Own listing, own cursor (`stmt_rescan_at`), own tombstone
+  (`statement_files`), own model allowance (2 verdict calls a run; verdicts cached
+  per format for all users in `statement_shapes`). The file is sealed to the
+  **personal** key regardless of `default_scope`. Parsing, the arithmetic proof and
+  the row writes happen on the device (`59-statement-table.js`,
+  `77-statement-capture.js`); rows are shaped like opened `email_transactions` rows
+  and ride the same `_fhStagedRows`. `bank_email` consent **v5**, checked on the
+  server for the first time. Full design: `statement-capture-spec.md`.
+- **Spec sections updated:** §12.4 (ledger rows above). §16's cascade is unchanged:
+  the lane sits beside it. §24 "internal transfers double-count" gains a partial
+  answer for wallet top-ups (statement evidence, level 2).
+- **Watch for:** ⚠️ `mailbox-sync` must be deployed from a tree that carries the
+  backfill-cursor patch live in v47 (`0136_backfill_cursor`), which is not in `main`;
+  this change edits the same two files. Migrations first, then the worker. After
+  deploy: `statements` in each grant's run summary, `statement_verdict` and
+  `classify_merchant_batch` in `llm_usage_daily`, and `parse_failures` rows with
+  `statement_rejected:` for a wrong "not a statement".
 
 ### 2026-09-16 — client only (review, quick review) — duplicates become two verdicts with evidence (pending deploy)
 

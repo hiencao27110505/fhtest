@@ -19,7 +19,7 @@
    verify_jwt=true; the user's JWT is also parsed here to resolve family. */
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import * as webpush from "jsr:@negrel/webpush@0.3";
-import { reviewBody, digestBody } from "../_shared/mailbox/notify-copy.mjs";
+import { reviewBody, digestBody, statementBody } from "../_shared/mailbox/notify-copy.mjs";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -198,7 +198,11 @@ Deno.serve(async (req: Request) => {
     // ── service-role entrance: the bank-email pipeline, notifying one member ──
     if (isServiceRole(jwt)) {
       const b = await req.json().catch(() => ({}));
-      if (String(b.kind || "") !== "txn_review") return json({ error: "bad kind" }, 400);
+      // Two kinds come from the pipeline: a transaction waiting for review, and a
+      // statement FILE waiting to be opened (statement-capture-spec.md). Both go to
+      // one member's own devices only, both carry nothing.
+      const svcKind = String(b.kind || "");
+      if (svcKind !== "txn_review" && svcKind !== "stmt_new") return json({ error: "bad kind" }, 400);
       const memberId = typeof b.member_id === "string" ? b.member_id : "";
       if (!/^[0-9a-f-]{36}$/i.test(memberId)) return json({ error: "bad member" }, 400);
       const count = Math.max(1, Math.min(99, Number(b.count) || 1));
@@ -226,15 +230,18 @@ Deno.serve(async (req: Request) => {
       const backfill = b.backfill === true;
       const meta = (b.copy && typeof b.copy === "object") ? b.copy : null;
       const scope = b.scope === "personal" ? "personal" : null;
-      const c2 = buildReviewBody(meta, backfill, count, lg);
+      const c2 = svcKind === "stmt_new" ? statementBody(lg) : buildReviewBody(meta, backfill, count, lg);
       // tag collapses a burst: three emails in one run replace each other in the
       // tray rather than stacking three identical rows (latest voice wins).
       // title = one face emoji (the reaction), body = text; sw.js renders the
       // title as-is. nav.s='personal' routes the tap to the personal quick-review
       // sheet; family scope keeps the classic full-queue landing.
       const pl = JSON.stringify({
-        title: c2.title, body: c2.body, tag: "fh-txn_review", url: "./",
-        nav: { k: "txn_review", ...(scope ? { s: "personal" } : {}) },
+        // A statement keeps its own tag so it never replaces, or is replaced by, a
+        // transaction banner in the tray. Its tap opens the full queue (no `s`):
+        // the quick-review sheet has nothing to show for a locked file.
+        title: c2.title, body: c2.body, tag: svcKind === "stmt_new" ? "fh-stmt_new" : "fh-txn_review", url: "./",
+        nav: { k: "txn_review", ...(scope && svcKind !== "stmt_new" ? { s: "personal" } : {}) },
       });
 
       let n = 0; const gone: string[] = [];

@@ -22,7 +22,7 @@
      docs/PDPL-COMPLIANCE.md §5: bump the version constant when either
      changes, and everyone re-consents to the new text. */
 
-  var FH_CONSENT_V = 4;
+  var FH_CONSENT_V = 5;   // 5 = statement FILES are stored (sealed) until opened. Must equal STATEMENT_CONSENT_V in _shared/mailbox/statement.mjs.
   var FH_CONSENT_KIND = 'bank_email';
   var FH_APPDATA_CONSENT_V = 1;
   var FH_APPDATA_KIND = 'app_data';
@@ -49,6 +49,8 @@
     bank_email: {
       4: ['Lần đầu gặp một mẫu email của ngân hàng, email đó được gửi nguyên văn cho AI của Google một lần, để học cách đọc mẫu. Những email sau cùng mẫu không được gửi đi nữa.',
           'The first time we meet a new email format from a bank, that email is sent to Google’s AI as written, once, so it can learn how to read the format. Later emails in the same format are not sent at all.'],
+      5: ['Khi ngân hàng hoặc ví gửi file sao kê (Excel/CSV) kèm email, tụi mình lấy file đó, niêm phong bằng khoá riêng của bạn và giữ đến khi bạn mở, tối đa 90 ngày; mở xong là xoá. File chỉ được mở và đọc trên máy của bạn, mật khẩu file không rời khỏi máy. Để gợi ý danh mục, máy bạn có thể gửi tên cửa hàng cho AI của Google, không kèm số tiền, ngày hay tên người.',
+          'When a bank or wallet emails a statement file (Excel/CSV), we take that file, seal it with your own key and keep it until you open it, for at most 90 days; it is deleted once opened. The file is only opened and read on your device, and its password never leaves your device. To suggest categories, your device may send merchant names to Google’s AI, with no amount, date or person’s name.'],
     },
     app_data: {},
   };
@@ -545,6 +547,9 @@
         _cstRow(L('Có ai đọc được email của tôi không?', 'Can anyone read my emails?'), _esc(L(
           'Lần đầu gặp một mẫu email của ngân hàng, tụi mình gửi email đó cho AI của Google một lần, để học cách đọc mẫu đó. Những email sau cùng mẫu được đọc ngay tại hệ thống, không gửi đi đâu nữa. Email trong hộp thư trung gian tự xoá sau 7 ngày; email không đọc được giữ tối đa 90 ngày rồi cũng xoá. Giao dịch chờ duyệt giữ đến khi bạn duyệt hoặc ngắt kết nối.',
           'The first time we meet a new email format from a bank, we send that one email to Google’s AI once, to learn how to read that format. Every later email in the same format is read on our own systems and goes nowhere. Emails in the relay inbox delete themselves after 7 days; ones we could not read are kept at most 90 days, then deleted too. Pending transactions are kept until you review them or disconnect.'))) +
+        _cstRow(L('Còn file sao kê ngân hàng gửi kèm email?', 'What about statement files attached to an email?'), _esc(L(
+          'Tụi mình lấy file đó, niêm phong bằng khoá riêng của bạn và giữ đến khi bạn mở, tối đa 90 ngày; mở xong là xoá. File chỉ được mở và đọc trên máy của bạn, mật khẩu file không rời khỏi máy. Để gợi ý danh mục, máy bạn có thể gửi tên cửa hàng cho AI của Google, không kèm số tiền, ngày hay tên người.',
+          'We take the file, seal it with your own key and keep it until you open it, for at most 90 days; it is deleted once opened. The file is only opened and read on your device, and its password never leaves your device. To suggest categories, your device may send merchant names to Google’s AI, with no amount, date or person’s name.'))) +
         _cstRow(L('Ai mở được các giao dịch này?', 'Who can open these transactions?'), _esc(L(
           'Mỗi giao dịch được niêm phong ngay khi đến, như thư bỏ vào két đã khoá: máy chủ giữ két, còn chìa chỉ nằm trên điện thoại của gia đình bạn.',
           'Each transaction is sealed the moment it arrives, like a letter dropped into a locked safe: the server holds the safe, and the key lives only on your family’s phones.'))) +
@@ -571,7 +576,7 @@
         footer = smallPrint +
           '<button class="cta" id="cst-agree" onclick="fhConsentAgree(this)">' +
             _esc(L('Tôi hiểu và đồng ý', 'I understand and agree')) + '</button>' +
-          '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Để sau', 'Not now')) + '</button>';
+          '<button class="btn-skip" onclick="fhConsentLater()">' + _esc(L('Để sau', 'Not now')) + '</button>';
       }
 
       var changed = ro ? '' : _cstChangedBlock(FH_CONSENT_KIND, accepted, FH_CONSENT_V);
@@ -583,6 +588,34 @@
         footer);
 
       window._cstThen = ro ? null : (opts.then || null);
+      window._cstLater = ro ? null : (opts.later || null);
+    };
+
+    /* "Để sau". On the blocking gate this only closes the sheet, as it always has.
+       On the soft offer below it also carries on to where the person was going. */
+    window.fhConsentLater = function () {
+      var later = window._cstLater; window._cstLater = null; window._cstThen = null;
+      _closeOv();
+      if (typeof later === 'function') later();
+    };
+
+    /* The SOFT offer, for someone already connected under an older text.
+       A new version that adds processing (v5: statement files are stored) must not
+       switch off what they already agreed to -- bank-email capture carries on under
+       their existing consent -- but the new part stays off until they say yes. So the
+       sheet is shown once per session on the way into the email review, with what
+       changed at the top, and BOTH answers continue to the review. The statement
+       lane on the server checks the recorded version itself (statement.mjs), so
+       "Để sau" genuinely means no statement is captured.
+       Returns true = nothing to offer, carry on now; false = the sheet is up and
+       `go` runs after either answer. */
+    window.fhConsentOffer = async function (go) {
+      var rec = null;
+      try { rec = await _cstFetch(); } catch (e) { return true; }
+      if (!rec || rec.version >= FH_CONSENT_V) return true;        // never consented: the connect flow asks; current: nothing to say
+      try { if (sessionStorage.getItem('fh-cst-offered') === String(FH_CONSENT_V)) return true; sessionStorage.setItem('fh-cst-offered', String(FH_CONSENT_V)); } catch (e) {}
+      window.fhConsentSheet({ then: go, later: go, prior: rec, priorKnown: true });
+      return false;
     };
 
     window.fhConsentAgree = async function (btn) {
@@ -613,6 +646,9 @@
       }
       btn.disabled = true; btn.textContent = L('Đang ngắt…', 'Disconnecting…');
       try {
+        /* Statement capture stores more than rows: sealed files, parsed statement rows,
+           a remembered password. All of it goes with the connection (77-statement-capture.js). */
+        try { if (window.fhStmtPurge) await window.fhStmtPurge(); } catch (eP) {}
         await _rpc('disconnect_my_mailbox', {});
       } catch (e) {
         btn.disabled = false; delete btn.dataset.armed;

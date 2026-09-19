@@ -33,3 +33,8 @@ __pycache__/
 # LIVE family database. Every session on this machine shares one checkout, so
 # committing it would hand unprompted write access to the live DB to everyone.
 .claude/settings.local.json
+
+# Real bank / e-wallet statement files used to test statement capture. Real
+# names, account numbers and a month of transactions each. Vercel serves the
+# repo root, so a commit would publish them. Local-only, always.
+research/statements/

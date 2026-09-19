@@ -701,5 +701,149 @@ export function createDb(url, serviceKey, fetchImpl) {
         // Triage must never be able to fail a run.
       }
     },
+
+    /* ── statement capture (statement.mjs, docs/specs/statement-capture-spec.md) ──
+       Appended as one block on purpose: every method here is new, none changes an
+       existing one, and a run whose `db` lacks them (every test written before
+       2026-09-19) simply has no statement lane. */
+
+    /**
+     * The newest version of a consent kind this person has affirmed, or 0.
+     *
+     * The FIRST server-side read of `user_consents`. Transaction mail never needed
+     * one: the client refuses to create a grant without consent, so a grant's
+     * existence was the proof. A statement is different -- the grant already
+     * exists under v4, and v4 never said a file would be stored. So the worker
+     * asks. A failed read is 0 (no consent), the closed direction.
+     */
+    async consentVersion(userId, kind) {
+      if (!userId) return 0;
+      try {
+        const rows = await rest('/user_consents?select=version&user_id=eq.' + encodeURIComponent(userId) +
+          '&kind=eq.' + encodeURIComponent(kind) + '&order=version.desc&limit=1');
+        return rows && rows[0] ? Number(rows[0].version) || 0 : 0;
+      } catch { return 0; }
+    },
+
+    /**
+     * Which of these messages this OWNER already has a statement decision for --
+     * captured, opened, dismissed, expired or rejected alike. The row is never
+     * deleted on success, so it is its own tombstone. Must THROW when unreachable:
+     * "not known" would fetch, seal and store every attachment again.
+     */
+    async statementKnown(messageIds, ownerUserId) {
+      const known = new Set();
+      if (!messageIds || !messageIds.length || !ownerUserId) return known;
+      for (let i = 0; i < messageIds.length; i += 150) {
+        const chunk = messageIds.slice(i, i + 150);
+        const rows = await rest('/statement_files?select=gmail_message_id&owner_user_id=eq.' + encodeURIComponent(ownerUserId) +
+          '&gmail_message_id=in.(' + chunk.map(inValue).join(',') + ')');
+        for (const r of rows || []) known.add(r.gmail_message_id);
+      }
+      return known;
+    },
+
+    /** The cached "is this mail format a statement?" verdict, or null when the
+     *  format has never been judged. Global: one judgement serves every user. */
+    async statementShape(sender, shape) {
+      const rows = await rest('/statement_shapes?select=is_statement&sender_address=eq.' + encodeURIComponent(sender) +
+        '&shape=eq.' + encodeURIComponent(shape) + '&limit=1');
+      return rows && rows[0] ? { is_statement: rows[0].is_statement === true } : null;
+    },
+
+    async saveStatementShape(sender, shape, isStatement, source) {
+      await rest('/statement_shapes?on_conflict=sender_address,shape', {
+        method: 'POST',
+        headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+        body: JSON.stringify({ sender_address: sender, shape, is_statement: !!isStatement, source: source || 'llm' }),
+      });
+    },
+
+    /** One captured attachment. A unique violation is `false`, not a throw: two
+     *  runs racing on one message is the idempotency guard doing its job. */
+    async insertStatementFile(row) {
+      try {
+        await rest('/statement_files', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(row) });
+        return true;
+      } catch (e) {
+        if (e.isUniqueViolation) return false;
+        throw e;
+      }
+    },
+
+    /**
+     * The first server-side Storage write in this codebase. Same service-role
+     * headers, different root (`/storage/v1`), raw bytes as the body. `x-upsert`
+     * so a retry after a crash between upload and insert overwrites its own
+     * orphan instead of failing on it.
+     */
+    async uploadStatementObject(path, bytes) {
+      const res = await doFetch(url.replace(/\/$/, '') + '/storage/v1/object/statement-files/' + path.split('/').map(encodeURIComponent).join('/'), {
+        method: 'POST',
+        headers: { apikey: serviceKey, Authorization: 'Bearer ' + serviceKey, 'Content-Type': 'application/octet-stream', 'x-upsert': 'true' },
+        body: bytes,
+      });
+      if (!res.ok) throw new Error('storage_' + res.status + ': ' + (await res.text()).slice(0, 200));
+    },
+
+    /** Best-effort by design: a delete that fails is retried by the next sweep. */
+    async deleteStatementObjects(paths) {
+      if (!paths || !paths.length) return false;
+      try {
+        const res = await doFetch(url.replace(/\/$/, '') + '/storage/v1/object/statement-files', {
+          method: 'DELETE',
+          headers: { apikey: serviceKey, Authorization: 'Bearer ' + serviceKey, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prefixes: paths }),
+        });
+        return res.ok;
+      } catch { return false; }
+    },
+
+    /** Files whose sealed object should no longer exist: opened or dismissed (the
+     *  device deletes its own, this is the net), past their 90 days, or owned by
+     *  someone who no longer has a mailbox connected. Picked by the RPC so the rule
+     *  lives in one place (0140). */
+    async statementSweepList(limit) {
+      try { return (await rpc('statement_sweep_list', { p_limit: limit || 20 })) || []; } catch { return []; }
+    },
+
+    async statementSweepDone(ids) {
+      if (!ids || !ids.length) return;
+      try { await rpc('statement_sweep_done', { p_ids: ids }); } catch { /* next sweep */ }
+    },
+
+    /** Pending statement cards for one owner -- the count the push is allowed to
+     *  act on (never shown: the push carries no number). */
+    async pendingStatementCount(ownerUserId) {
+      if (!ownerUserId) return 0;
+      const res = await doFetch(base + '/statement_files?select=id&status=eq.pending&owner_user_id=eq.' + encodeURIComponent(ownerUserId), {
+        method: 'HEAD', headers: { ...headers, Prefer: 'count=exact' },
+      });
+      const range = res.headers && res.headers.get ? res.headers.get('content-range') : '';
+      const n = Number(String(range || '').split('/')[1]);
+      return Number.isFinite(n) ? n : 0;
+    },
+
+    /**
+     * Whether this grant still owes its one-time statement re-scan of history.
+     * Its OWN query, not a column added to dueGrants/grantById/grantsByEmail: those
+     * three select lists are edited by other work in flight, and a lane that reads
+     * its own cursor cannot be broken by, or break, a change to theirs. A failed
+     * read is "done" -- the closed direction is "do not re-read a year of mail".
+     */
+    async statementRescanOwed(grantId) {
+      try {
+        const rows = await rest('/mailbox_grants?select=stmt_rescan_at&id=eq.' + encodeURIComponent(grantId) + '&limit=1');
+        return !!(rows && rows[0] && rows[0].stmt_rescan_at == null);
+      } catch { return false; }
+    },
+
+    /** The one-time history re-scan is done for this grant. */
+    async markStatementRescanned(grantId) {
+      await rest('/mailbox_grants?id=eq.' + encodeURIComponent(grantId), {
+        method: 'PATCH', headers: { Prefer: 'return=minimal' },
+        body: JSON.stringify({ stmt_rescan_at: new Date().toISOString() }),
+      });
+    },
   };
 }

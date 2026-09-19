@@ -163,6 +163,29 @@ function fhDedupLedgerOptions(c, index){
                  score: (tier === 'sure' ? 300 : 200) + (minute ? 3 : 0) + (shared ? 2 : 0) + (exact ? 1 : 0) - dd });
     }
   }
+  /* A card STATEMENT's final figure for a foreign purchase (statement-capture-spec.md
+     section 3.4). The email that booked this purchase carried our ESTIMATE in VND --
+     the promote step says so in the note, "[111 USD @26,350 +3% est.]" -- and the
+     statement carries what the bank actually charged. They differ by the rate and
+     the fee, which is far outside the 1.000d window above, so without this tier the
+     same purchase would arrive a second time as a new row and be counted twice.
+     Narrow on purpose: only a statement row, only against a ledger row that SAYS it
+     is an estimate, the same merchant word, a few days, and within 6%. */
+  if(!out.length && c.statement && !c.isIncome){
+    var lo = fhDedupBucket(amount * 0.94), hi = fhDedupBucket(amount * 1.06);
+    for(var fb = lo; fb <= hi; fb++){
+      var frows = index.byAmt[fb]; if(!frows) continue;
+      for(var fi = 0; fi < frows.length; fi++){
+        var ft = frows[fi];
+        if(ft.kind !== 'expense' || !/\[[\d.,]+ [A-Z]{3}[^\]]*est\.\]/.test(String(ft.note || ''))) continue;
+        var fdd = Math.abs(ft._d.getTime() - c.date.getTime()) / 864e5;
+        if(fdd > 4.5) continue;
+        var fshared = fhDedupShared(ctok, fhDedupTokens(String(ft.note || '').replace(/\[[^\]]*\]/g, ' ')));
+        if(!fshared) continue;
+        out.push({ tier: 'sure', why: 'fx_final', twin: ft, twinKind: 'ledger', shared: fshared, score: 300 - fdd });
+      }
+    }
+  }
   out.sort(function(a, b){ return b.score - a.score; });
   return out;
 }
@@ -223,6 +246,21 @@ function fhDedupAssess(cands, index, opts){
         // card posting after the account-side alert). The same shape is two
         // real transfers, however close — Trang's 44 same-day topups.
         if(dd2 > 3.5) continue;
+        /* A STATEMENT row and an EMAIL row from the same bank: the statement re-reports
+           what the alert already reported, so the pair differs by SOURCE even when its
+           shape is identical -- and would otherwise both import (statement-capture-spec
+           section 11). Tighter than the shape rule because nothing else vouches for it:
+           the same calendar day, and within five minutes when both carry a clock. Two
+           statement rows are still two purchases; so are two emails. */
+        if(!!a2.statement !== !!b2.statement){
+          if((a2.dateDisplay || fhDedupDay(a2.date)) !== (b2.dateDisplay || fhDedupDay(b2.date))) continue;
+          if(a2.time && b2.time){
+            var ma = (+a2.time.slice(0, 2)) * 60 + (+a2.time.slice(3, 5)), mb = (+b2.time.slice(0, 2)) * 60 + (+b2.time.slice(3, 5));
+            if(Math.abs(ma - mb) > 5) continue;
+          }
+          found = ai; foundWhy = 'statement_echo';
+          continue;
+        }
         var shapeDiff = (a2.shape || '') !== (b2.shape || '') || (a2.accountKind || '') !== (b2.accountKind || '')
                      || fhDedupBankNamed(a2.counterparty) !== fhDedupBankNamed(b2.counterparty);
         if(!shapeDiff) continue;

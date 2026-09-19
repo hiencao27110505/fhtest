@@ -150,6 +150,7 @@ export async function getMessage(id, token, fetchImpl, mailtext) {
     headers,
     body: mailtext.toText(mailtext.decodeBase64Url(_bodyData(payload))),
     dkim: dkimVerdict(headers, headers.from || ''),
+    attachments: _attachments(payload),
   };
 }
 
@@ -208,6 +209,64 @@ function _bodyData(payload) {
   const found = { plain: '', html: '' };
   _walk(payload, found);
   return found.plain || found.html;
+}
+
+/**
+ * The FILES on a message: every MIME part that carries a filename and lives
+ * outside the message body (`attachmentId`), in tree order.
+ *
+ * `_walk` above reads only text parts and discards everything else, which was
+ * the whole of what a transaction email needed. A statement arrives as an
+ * attachment (statement-capture-spec.md), so the parts `_walk` drops are listed
+ * here instead -- names and sizes only. The bytes are fetched separately and only
+ * for a file that is going to be kept: see getAttachment.
+ *
+ * `partIndex` is the position in THIS list. It is the second half of the
+ * statement's identity, `(gmail_message_id, part_index)`, so it must be stable
+ * for a given message: tree order is, and Gmail does not reorder a stored MIME tree.
+ */
+function _attachments(payload) {
+  const out = [];
+  const visit = (part) => {
+    if (!part) return;
+    const id = part.body && part.body.attachmentId;
+    if (part.filename && id) {
+      out.push({
+        partIndex: out.length,
+        filename: String(part.filename),
+        mimeType: part.mimeType || '',
+        attachmentId: id,
+        size: Number(part.body.size) || 0,
+      });
+    }
+    for (const child of part.parts || []) visit(child);
+  };
+  visit(payload);
+  return out;
+}
+
+/**
+ * The bytes of one attachment.
+ *
+ * Gmail answers with base64url in a JSON envelope, never raw bytes. Decoded here
+ * in one pass into a Uint8Array -- deliberately NOT through mailtext.decodeBase64Url,
+ * which decodes to TEXT and would mangle a binary file. A 404 is null for the same
+ * reason getMessage's is: the mail was deleted between the list and the get.
+ */
+export async function getAttachment(messageId, attachmentId, token, fetchImpl) {
+  let data;
+  try {
+    data = await _get('/messages/' + encodeURIComponent(messageId) + '/attachments/' + encodeURIComponent(attachmentId), token, fetchImpl);
+  } catch (e) {
+    if (e instanceof GmailError && e.status === 404) return null;
+    throw e;
+  }
+  const b64 = String(data && data.data || '').replace(/-/g, '+').replace(/_/g, '/');
+  if (!b64) return null;
+  const bin = atob(b64 + '==='.slice((b64.length + 3) % 4));
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
 }
 
 function _walk(part, found) {

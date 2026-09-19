@@ -218,7 +218,7 @@ function baseCtx(
     notify: (
       grant: { user_id: string; member_id: string },
       count: number,
-      meta?: { backfill?: boolean; copy?: { c: string; t: number; p?: string }; scope?: string },
+      meta?: { backfill?: boolean; copy?: { c: string; t: number; p?: string }; scope?: string; statement?: boolean },
     ) => notifyReview(supabaseUrl, serviceKey, grant, count, meta),
   };
 }
@@ -243,7 +243,7 @@ async function notifyReview(
   serviceKey: string,
   grant: { user_id: string; member_id: string },
   count: number,
-  meta?: { backfill?: boolean; copy?: { c: string; t: number; p?: string }; scope?: string },
+  meta?: { backfill?: boolean; copy?: { c: string; t: number; p?: string }; scope?: string; statement?: boolean },
 ) {
   /* `backfill: true` marks the ONE notification a first read is allowed to
      send, after it has finished; push-send voices it as the digest.
@@ -258,7 +258,9 @@ async function notifyReview(
     method: "POST",
     headers: { Authorization: "Bearer " + serviceKey, "Content-Type": "application/json" },
     body: JSON.stringify({
-      kind: "txn_review",
+      // `statement: true` comes from the statement lane (statement.mjs): a FILE is
+      // waiting to be opened, which push-send voices with its own line and tag.
+      kind: meta && meta.statement ? "stmt_new" : "txn_review",
       member_id: grant.member_id,
       count,
       ...(meta && meta.backfill ? { backfill: true } : {}),

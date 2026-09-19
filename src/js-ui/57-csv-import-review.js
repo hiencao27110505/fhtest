@@ -774,6 +774,15 @@ function buildCsvCandidates(parsed, result) {
        asks which account, not which card. Reads the staged memo (the counterparty
        tail lives there) and falls back to the description for CSV rows. */
     var _xfer = false;
+    /* A statement row carries the file's OWN evidence of an internal transfer
+       (statement-capture-spec.md section 11, level 2): the wallet's funding column
+       names a bank on a top-up, or the bank memo's recipient is the holder. That is
+       structured evidence, so the row is pre-set to "Chuyển khoản nội bộ" -- and
+       flagged for a look rather than dropped into the ready list, because one side
+       of a transfer is still a claim the person should see. A holder-name memo
+       alone never sets this (the parser does not raise it). */
+    var _stmtHint = (window.csvStagedMode && typeof window.fhStagedRawX === 'function') ? ((window.fhStagedRawX(i) || {}).stmt || null) : null;
+    if (_stmtHint && _stmtHint.xfer) { _xfer = true; isTransfer = false; isIncome = false; }
     if (isTransfer) {
       var _selfMemo = '';
       if (window.csvStagedMode && typeof window.fhStagedRawX === 'function') {
@@ -899,6 +908,7 @@ function buildCsvCandidates(parsed, result) {
       categoryGuess: catGuess, categoryName: catName, catSource: catSource,
       counterparty: party, who: who, isIncome: isIncome, isTransfer: isTransfer, _xfer: _xfer,
       _payCardId: _payCardId,
+      _stmtAttn: !!(_stmtHint && _stmtHint.attn) || undefined,
     };
   });
 }
@@ -1157,7 +1167,8 @@ function bucketCsvCandidates(candidates, mixedSigns) {
              isIncome: !!c.isIncome, isTransfer: !!(c.isTransfer || c._xfer || c._repay || c._loan || c._invest),
              accountKind: (rx && rx.account_kind) || null, shape: (rx && rx.transaction_type) || '',
              provider: (meta && meta.provider) || '', kind: (meta && meta.kind) || '',
-             currency: (meta && meta.currency) || '', pipelineDupOf: (meta && meta.pipelineDup) ? meta.dupOfId : '' };
+             currency: (meta && meta.currency) || '', pipelineDupOf: (meta && meta.pipelineDup) ? meta.dupOfId : '',
+             statement: !!(rx && rx._transport === 'statement') };
   });
   var verdicts = (typeof fhDedupAssess === 'function')
     ? fhDedupAssess(ecs, index, { kindById: window.fhStagedKindById })

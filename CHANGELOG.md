@@ -18,6 +18,43 @@ Going forward, add an entry here when a feature area changes meaningfully — se
 
 ---
 
+## 2026-09-19
+
+### Sao kê ngân hàng thành giao dịch chờ duyệt (SW v538) — built, NOT deployed
+
+A bank or e-wallet statement (`.xlsx`/`.csv`, usually password-locked) attached to an
+email becomes one locked card in "Duyệt giao dịch", and N ordinary rows once its owner
+opens it on the device. Spec and decision log: `docs/specs/statement-capture-spec.md`.
+Branch `feat/statement-capture`; migrations `0139`/`0140` written, not applied; no
+Edge Function deployed.
+
+- **The password is why the shape differs.** The server cannot open a locked file, so
+  it only takes custody: `statement.mjs` runs its own lane (own Gmail listing — the
+  metadata pass cannot see attachments — own cursor, own model allowance), seals the
+  bytes to the PERSONAL key (`sealBytes`), stores them in the private
+  `statement-files` bucket and queues a `statement_files` card. Parsing is on the
+  device, after a tap.
+- **One review, not two.** `fhStmtAsStaged` shapes a parsed row exactly like an opened
+  `email_transactions` row and 72 loads it into `_fhStagedRows`, so kinds, dedup,
+  import and the account tag are the existing code. Retirement is the one branch
+  (`_stagedResolve` splits a mixed id list; statement rows remember a fingerprint).
+- **The reading is proved, not trusted.** `59-statement-table.js` finds the table
+  (header on row 25, sub-header rows inside it, totals after it, credits printed
+  negative, newest-first) and reconciles the file's own running balance or totals.
+  All three real layouts prove; a swapped column reconciles nothing.
+- **Two dedup tiers** in `58-dedup-engine.js`: `statement_echo` (a statement row and a
+  pending email from one bank, same day, within five minutes when both carry a clock)
+  and `fx_final` (a card statement's final figure vs the booked estimate, with "Cập
+  nhật theo sao kê" → `fhPersonalSetAmount`, amount only).
+- **Free-tier discipline.** One verdict per mail FORMAT across all users
+  (`statement_shapes`, three formats seeded), two verdict calls a run, merchant
+  categories in ONE batched call (`merchant-concepts`), and "could not ask" is never
+  cached as "no".
+- **Consent v5**, offered not forced (`fhConsentOffer`); the server checks the recorded
+  version itself. Erasure on disconnect via `purge_my_statements()`.
+- **Not built:** the model as a column-reading fallback, an editable mapping check,
+  the correction button for family-ledger twins, a card's closing debt. Spec §6.
+
 ## 2026-09-18
 
 ### Chi tiết giao dịch: một màn cho mọi loại khoản (SW v537)

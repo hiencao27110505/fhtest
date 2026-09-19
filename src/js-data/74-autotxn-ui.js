@@ -961,6 +961,9 @@
 
          Deleting nothing is success, not a 404: the state they asked for is the
          state that already holds. */
+      /* Statement capture stores more than rows: sealed files, parsed statement rows,
+         a remembered password. All of it goes with the connection (77-statement-capture.js). */
+      try { if (window.fhStmtPurge) await window.fhStmtPurge(); } catch (eP) {}
       _stopped = await _rpc('disconnect_my_mailbox', {});
     } catch (e) {
       window.toast && window.toast(window._fhFriendly ? window._fhFriendly(e)

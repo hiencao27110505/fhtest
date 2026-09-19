@@ -4424,6 +4424,25 @@ button.csv-srow:active{background:var(--surface)}
 .txr-lmsg{font-size:13px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
 @keyframes txr-spin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.txr-spin{animation:none}}
+/* ── statement capture: the locked card + its unlock flow (77-statement-capture.js) ──
+   One neutral card per statement. No fill, no accent: it is a thing waiting, not an
+   alarm. The flow reuses .csv-unlock from the file import's password step. */
+.stm-card{display:flex;align-items:center;gap:12px;border:1.5px solid var(--hairline);border-radius:13px;background:var(--white);padding:12px 12px 12px 14px}
+.stm-main{flex:1;min-width:0}
+.stm-title{font-size:14px;font-weight:700;color:var(--ink);letter-spacing:-.1px}
+.stm-sub{font-size:12px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stm-actions{display:flex;align-items:center;gap:6px;flex:none}
+.stm-open{min-height:44px;padding:0 16px;white-space:nowrap;background:var(--white);color:var(--brand);border:1.5px solid var(--brand);border-radius:9999px;font-size:13.5px;font-weight:700;letter-spacing:-.01em;cursor:pointer}
+.stm-open:active{transform:scale(.98)}
+.stm-x{min-width:44px;min-height:44px;border:0;background:none;color:var(--muted);font-size:15px;cursor:pointer;border-radius:10px}
+.stm-x.armed{color:var(--danger);font-size:12.5px;font-weight:700}
+.stm-remember{display:flex;align-items:flex-start;gap:10px;margin-top:12px;font-size:13px;color:var(--ink-2);line-height:1.4;cursor:pointer}
+.stm-remember input{width:20px;height:20px;flex:none;margin:0;accent-color:var(--brand)}
+.stm-map{margin-top:12px;border-top:1px solid var(--hairline)}
+.stm-maprow{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--hairline);font-size:13px;color:var(--muted)}
+.stm-maprow b{color:var(--ink);font-weight:600;text-align:right;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.csv-fxfix-row{margin-top:8px}
+.csv-fxfix{min-height:44px;font-size:13px}
 /* ---- settings sheet/modal internals (family, members, savings, income) ----
    Tokens only: these screens must re-theme with the rest of the app. */
 .fh-s-cta{width:100%;background:var(--grad-brand);color:#fff;font-size:16px;font-weight:700;letter-spacing:-.02em;padding:15px;border-radius:9999px;box-shadow:0 8px 20px var(--brand-glow);margin-top:6px}
@@ -13741,6 +13760,7 @@ function csvStagedProvider(c){
 function csvStagedSourceTag(c){
   if(!window.csvStagedMode || !window.fhStagedSource || !c || typeof c.rowIndex!=='number') return '';
   var s = window.fhStagedSource(c);
+  if(s==='statement-email') return L('Sao kê','Statement');
   return s==='direct-email' ? L('Trực tiếp','Direct') : (s==='forwarding-email' ? L('Chuyển tiếp','Forwarded') : '');
 }
 /* Instrument chip (0105): the classifier's verdict, quiet plain text in the meta
@@ -14857,6 +14877,12 @@ function csvDupWhy(c){
       var d2 = twin && twin.amtD != null ? Math.round(Math.abs(twin.amtD - Number(c.amount))) : 0;
       return L('Đã có trong sổ, ghi tay làm tròn: cùng nơi chi, cùng ngày, lệch ' + d2.toLocaleString('vi-VN') + 'đ', 'Already booked, hand-rounded: same merchant, same day, ' + d2.toLocaleString('en-US') + 'đ apart') + (e ? ': ' + e : '.');
     }
+    case 'fx_final': {
+      /* The ledger holds our estimate; the statement holds what the bank charged. */
+      var d3 = twin && twin.amtD != null ? Math.round(Number(c.amount) - twin.amtD) : 0;
+      return L('Đã có trong sổ với số tiền ước tính. Sao kê ghi số ngân hàng thực thu, lệch ' + (d3 > 0 ? '+' : '') + d3.toLocaleString('vi-VN') + 'đ',
+               'Already booked at our estimate. The statement has what the bank actually charged, ' + (d3 > 0 ? '+' : '') + d3.toLocaleString('en-US') + 'đ apart') + (e ? ': ' + e : '.');
+    }
     case 'exact_day':
       return L('Cùng số tiền, cùng ngày, nhưng nội dung khác nhau — bạn xem có phải một khoản không', 'Same amount, same day, different wording — is this the same purchase?') + (e ? ': ' + e : '.');
     case 'card_posting':
@@ -14865,6 +14891,8 @@ function csvDupWhy(c){
       return L('Cùng nội dung, cùng số tiền, cùng ngày — nhưng lần trước được ghi ngược chiều (thu/chi). Bạn quyết định.', 'Same text, amount and day — but the earlier entry was filed the other way round (income vs spending). Your call.') + (e ? ': ' + e : '.');
     case 'cross_source':
       return L('Có một email khác cùng số tiền, từ nguồn khác, trong vòng 3 ngày. Có thể là một lần chi được báo hai lần', 'There is another email for the same amount, from a different source, within 3 days. This may be one purchase reported twice') + (e ? ': ' + e : '.');
+    case 'statement_echo':
+      return L('Sao kê và email của cùng ngân hàng báo cùng số tiền, cùng ngày. Có thể là một lần chi được báo hai lần', 'The statement and an email from the same bank report one amount on one day. This may be one purchase reported twice') + (e ? ': ' + e : '.');
     case 'same_bank_pair':
       return L('Cùng ngân hàng báo hai email cùng số tiền, khác mẫu — có thể là một lần chi', 'The same bank sent two emails for one amount, in two formats — possibly one purchase') + (e ? ': ' + e : '.');
     case 'pipeline':
@@ -15096,9 +15124,32 @@ function csvStagedDupCard(c, i, tier, pickOn, pickWk){
             tapFn: "csvToggleExpand('ready',"+i+")", removeFn: "csvReadyRemove("+i+")",
             checkFn: "csvStagedToggle("+i+")", checked: !c._skipImport,
             armed: (csvArmedRemove === i), dim: pickOn && !csvPickMatch(c, pickWk) };
+  /* fx_final: one button that makes the booked row match the statement, then retires
+     this one. Personal-book twins only -- a family row's amount is shared state with
+     its own edit path, so there the difference is shown and the person edits it. */
+  var fix = (c._dupWhy === 'fx_final' && c._dupTwin && c._dupTwin.book === 'personal')
+    ? '<button type="button" class="csv-linkbtn csv-fxfix" onclick="event.stopPropagation();csvFxAdopt('+i+')">'+esc(L('Cập nhật theo sao kê','Update from the statement'))+'</button>' : '';
   return csvIsOpen('ready', i)
-    ? csvActiveCard(c, Object.assign({}, o, { fields:true, ctaIdx:i, note: esc(csvDupWhy(c)) }))
+    ? csvActiveCard(c, Object.assign({}, o, { fields:true, ctaIdx:i, note: esc(csvDupWhy(c)) + (fix ? '<div class="csv-fxfix-row">'+fix+'</div>' : '') }))
     : csvCollapsedCard(c, o);
+}
+/* "Cập nhật theo sao kê": the booked personal row takes the statement's amount (the
+   bank's final figure replaces our estimate), and the statement row is retired --
+   one money event, counted once, now at the right number. */
+async function csvFxAdopt(i){
+  var c = csvReview && csvReview.ready[i]; if(!c || c._dupWhy !== 'fx_final' || !c._dupTwin) return;
+  if(typeof window.fhPersonalSetAmount !== 'function') return;
+  try {
+    // Amount ONLY: the general expense writer rewrites the whole row and would blank
+    // the note, category and time of the row being corrected.
+    var ok = await window.fhPersonalSetAmount(c._dupTwin.id, csvBaseAmt(c.amount));
+    if(!ok) throw new Error('update');
+    if(window.fhPersonalMatchSliceInvalidate) window.fhPersonalMatchSliceInvalidate();
+    if(window.fhStagedDropOne) await window.fhStagedDropOne(c);
+    csvReview.ready.splice(i, 1); csvExpand = null;
+    toast(L('Đã cập nhật theo sao kê','Updated from the statement'));
+  } catch (e) { toast(L('Chưa cập nhật được, thử lại nhé','Could not update, try again')); }
+  renderCsvReview();
 }
 /* Retire every "đã có trong sổ" row at once — one RPC, local-first (72's
    fhStagedDropMany). They leave the list right away; the ledger already holds
@@ -15271,11 +15322,15 @@ function renderCsvReview(){
      Confidence decides WHERE a row renders, never whether it imports. */
   var lowConf = [];
   r.ready.forEach(function(c, i){
-    if(c.catSource === 'fallback' || c.catSource === 'pattern') lowConf.push({ c:c, i:i });
+    // _stmtAttn: a statement row pre-set to "Chuyển khoản nội bộ" on the file's own
+    // one-sided evidence (57). It imports as-is, but it is a claim worth a glance.
+    if(c.catSource === 'fallback' || c.catSource === 'pattern' || c._stmtAttn) lowConf.push({ c:c, i:i });
   });
   var lowConfLabel = {};
   lowConf.forEach(function(e){
-    lowConfLabel[e.i] = e.c.catSource === 'fallback'
+    lowConfLabel[e.i] = e.c._stmtAttn
+      ? L('Chuyển giữa tài khoản của bạn?','A move between your own accounts?')
+      : e.c.catSource === 'fallback'
       ? L('Chưa rõ danh mục','No clear category')
       : L('Đoán theo thói quen','Guessed from your habits');
   });
@@ -15317,6 +15372,11 @@ function renderCsvReview(){
     html += '<div class="review-summary">'+summaryLine+'</div>';
     html += csvSpendPanel(r);   // the file breakdown panel is import-only
   }
+
+  // Statement files waiting to be opened (77-statement-capture.js): one locked
+  // card each, above everything else. Opening one turns it into ordinary rows in
+  // the buckets below, so this is the only statement-specific thing on the screen.
+  if(csvStagedMode && typeof window.fhStmtCardsHTML === 'function') html += window.fhStmtCardsHTML();
 
   // In-review summary — above the first bucket in both flows (top of the list
   // in staged mode, after the file chrome in import mode). Non-sticky by
@@ -17049,6 +17109,15 @@ function buildCsvCandidates(parsed, result) {
        asks which account, not which card. Reads the staged memo (the counterparty
        tail lives there) and falls back to the description for CSV rows. */
     var _xfer = false;
+    /* A statement row carries the file's OWN evidence of an internal transfer
+       (statement-capture-spec.md section 11, level 2): the wallet's funding column
+       names a bank on a top-up, or the bank memo's recipient is the holder. That is
+       structured evidence, so the row is pre-set to "Chuyển khoản nội bộ" -- and
+       flagged for a look rather than dropped into the ready list, because one side
+       of a transfer is still a claim the person should see. A holder-name memo
+       alone never sets this (the parser does not raise it). */
+    var _stmtHint = (window.csvStagedMode && typeof window.fhStagedRawX === 'function') ? ((window.fhStagedRawX(i) || {}).stmt || null) : null;
+    if (_stmtHint && _stmtHint.xfer) { _xfer = true; isTransfer = false; isIncome = false; }
     if (isTransfer) {
       var _selfMemo = '';
       if (window.csvStagedMode && typeof window.fhStagedRawX === 'function') {
@@ -17174,6 +17243,7 @@ function buildCsvCandidates(parsed, result) {
       categoryGuess: catGuess, categoryName: catName, catSource: catSource,
       counterparty: party, who: who, isIncome: isIncome, isTransfer: isTransfer, _xfer: _xfer,
       _payCardId: _payCardId,
+      _stmtAttn: !!(_stmtHint && _stmtHint.attn) || undefined,
     };
   });
 }
@@ -17432,7 +17502,8 @@ function bucketCsvCandidates(candidates, mixedSigns) {
              isIncome: !!c.isIncome, isTransfer: !!(c.isTransfer || c._xfer || c._repay || c._loan || c._invest),
              accountKind: (rx && rx.account_kind) || null, shape: (rx && rx.transaction_type) || '',
              provider: (meta && meta.provider) || '', kind: (meta && meta.kind) || '',
-             currency: (meta && meta.currency) || '', pipelineDupOf: (meta && meta.pipelineDup) ? meta.dupOfId : '' };
+             currency: (meta && meta.currency) || '', pipelineDupOf: (meta && meta.pipelineDup) ? meta.dupOfId : '',
+             statement: !!(rx && rx._transport === 'statement') };
   });
   var verdicts = (typeof fhDedupAssess === 'function')
     ? fhDedupAssess(ecs, index, { kindById: window.fhStagedKindById })
@@ -17633,6 +17704,29 @@ function fhDedupLedgerOptions(c, index){
                  score: (tier === 'sure' ? 300 : 200) + (minute ? 3 : 0) + (shared ? 2 : 0) + (exact ? 1 : 0) - dd });
     }
   }
+  /* A card STATEMENT's final figure for a foreign purchase (statement-capture-spec.md
+     section 3.4). The email that booked this purchase carried our ESTIMATE in VND --
+     the promote step says so in the note, "[111 USD @26,350 +3% est.]" -- and the
+     statement carries what the bank actually charged. They differ by the rate and
+     the fee, which is far outside the 1.000d window above, so without this tier the
+     same purchase would arrive a second time as a new row and be counted twice.
+     Narrow on purpose: only a statement row, only against a ledger row that SAYS it
+     is an estimate, the same merchant word, a few days, and within 6%. */
+  if(!out.length && c.statement && !c.isIncome){
+    var lo = fhDedupBucket(amount * 0.94), hi = fhDedupBucket(amount * 1.06);
+    for(var fb = lo; fb <= hi; fb++){
+      var frows = index.byAmt[fb]; if(!frows) continue;
+      for(var fi = 0; fi < frows.length; fi++){
+        var ft = frows[fi];
+        if(ft.kind !== 'expense' || !/\[[\d.,]+ [A-Z]{3}[^\]]*est\.\]/.test(String(ft.note || ''))) continue;
+        var fdd = Math.abs(ft._d.getTime() - c.date.getTime()) / 864e5;
+        if(fdd > 4.5) continue;
+        var fshared = fhDedupShared(ctok, fhDedupTokens(String(ft.note || '').replace(/\[[^\]]*\]/g, ' ')));
+        if(!fshared) continue;
+        out.push({ tier: 'sure', why: 'fx_final', twin: ft, twinKind: 'ledger', shared: fshared, score: 300 - fdd });
+      }
+    }
+  }
   out.sort(function(a, b){ return b.score - a.score; });
   return out;
 }
@@ -17693,6 +17787,21 @@ function fhDedupAssess(cands, index, opts){
         // card posting after the account-side alert). The same shape is two
         // real transfers, however close — Trang's 44 same-day topups.
         if(dd2 > 3.5) continue;
+        /* A STATEMENT row and an EMAIL row from the same bank: the statement re-reports
+           what the alert already reported, so the pair differs by SOURCE even when its
+           shape is identical -- and would otherwise both import (statement-capture-spec
+           section 11). Tighter than the shape rule because nothing else vouches for it:
+           the same calendar day, and within five minutes when both carry a clock. Two
+           statement rows are still two purchases; so are two emails. */
+        if(!!a2.statement !== !!b2.statement){
+          if((a2.dateDisplay || fhDedupDay(a2.date)) !== (b2.dateDisplay || fhDedupDay(b2.date))) continue;
+          if(a2.time && b2.time){
+            var ma = (+a2.time.slice(0, 2)) * 60 + (+a2.time.slice(3, 5)), mb = (+b2.time.slice(0, 2)) * 60 + (+b2.time.slice(3, 5));
+            if(Math.abs(ma - mb) > 5) continue;
+          }
+          found = ai; foundWhy = 'statement_echo';
+          continue;
+        }
         var shapeDiff = (a2.shape || '') !== (b2.shape || '') || (a2.accountKind || '') !== (b2.accountKind || '')
                      || fhDedupBankNamed(a2.counterparty) !== fhDedupBankNamed(b2.counterparty);
         if(!shapeDiff) continue;
@@ -17992,6 +18101,334 @@ function fhMirrorRowTap(pid){
   }).catch(function(){ toast('Chưa mở được, thử lại nhé'); });
 }
 
+/* ═══ Statement table reader (docs/specs/statement-capture-spec.md §10, §11) ═══
+   A statement file is not a tidy export. The table header sits on row 25 under a
+   merged-cell preamble; sub-header rows interrupt the table ("Số thẻ/Số tài khoản:
+   …"); totals rows follow it; credits are printed as negative numbers; rows run
+   newest-first; a wallet lists failed attempts with their amounts. This file turns
+   the raw cell grid from the spreadsheet reader into rows, and PROVES the column
+   reading with the file's own arithmetic before anyone is shown a thing.
+
+   Pure on purpose: no DOM, no network, no app globals. tools/statement-table.test.js
+   drives it under Node against synthetic copies of three real layouts.
+
+   The proof is about the COLUMNS, not about each row. A wrong reading (balance
+   taken for amount, debit for credit, the wrong row order) reconciles roughly
+   nothing; a right one reconciles nearly everything. Rows that break a proven
+   reading are information: in a wallet they are payments funded from elsewhere. */
+
+var STMT_PROOF_MIN = 0.9;          // share of consecutive rows that must reconcile
+var STMT_STRICT_MIN = 0.6;         // ...of which this share must reconcile to the đồng
+var STMT_TOL = 1;                  // đồng of slack for float noise
+
+function stmtDeburr(s){
+  return String(s == null ? '' : s).normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
+}
+/* A header or label cell, reduced to spaced plain words so vocabulary is matched
+   as whole phrases: "Ghi nợ/Debit\n(VND)" -> " ghi no debit vnd ". */
+function stmtWords(s){
+  return ' ' + stmtDeburr(s).replace(/[^a-z0-9]+/g, ' ').trim() + ' ';
+}
+function _stmtHas(words, list){
+  for (var i = 0; i < list.length; i++) { if (words.indexOf(' ' + list[i] + ' ') >= 0) return true; }
+  return false;
+}
+
+/* "185000", "-2150000.0", ": 6,636,000 VND", "6.636.000", "1.519.522,00" -> number.
+   Both separators present: the LAST one is the decimal point. One kind only: it is
+   a thousands separator when it repeats or is followed by exactly three digits. */
+function fhStmtNum(v){
+  if (typeof v === 'number') return isFinite(v) ? v : null;
+  var s = String(v == null ? '' : v).replace(/[^\d.,\-()]/g, '');
+  if (!/\d/.test(s)) return null;
+  var neg = /^\(.*\)$/.test(s) || s.indexOf('-') >= 0;
+  s = s.replace(/[()\-]/g, '');
+  var ld = s.lastIndexOf('.'), lc = s.lastIndexOf(',');
+  if (ld >= 0 && lc >= 0) {
+    var dec = ld > lc ? '.' : ',', tho = dec === '.' ? ',' : '.';
+    s = s.split(tho).join('').replace(dec, '.');
+  } else if (ld >= 0 || lc >= 0) {
+    var ch = ld >= 0 ? '.' : ',', parts = s.split(ch);
+    var thousands = parts.length > 2 || (parts.length === 2 && parts[1].length === 3 && parts[0].length <= 3 && parts[0] !== '0');
+    s = thousands ? parts.join('') : parts.join('.');
+  }
+  var n = parseFloat(s);
+  return isFinite(n) ? (neg ? -n : n) : null;
+}
+
+/* "dd/mm/yyyy", "dd/mm/yyyy HH:MM:SS", "dd-mm-yyyy HH:MM", ISO. Statements here are
+   Vietnamese: day comes first. Returns { date, time, key } or null; `key` orders
+   rows in time and is only ever compared, never shown. A row with no clock gets
+   time '' -- the app never invents a time it was not given. */
+function fhStmtDate(v){
+  var s = String(v == null ? '' : v).trim(), m, d, mo, y, hh = '', mi = '', ss = '00';
+  if ((m = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(s))) {
+    y = +m[1]; mo = +m[2]; d = +m[3]; hh = m[4] || ''; mi = m[5] || ''; ss = m[6] || '00';
+  } else if ((m = /^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})(?:[ T,]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/.exec(s))) {
+    d = +m[1]; mo = +m[2]; y = +m[3]; hh = m[4] || ''; mi = m[5] || ''; ss = m[6] || '00';
+  } else return null;
+  if (mo < 1 || mo > 12 || d < 1 || d > 31 || y < 2000 || y > 2100) return null;
+  var p2 = function(n){ n = String(n); return n.length < 2 ? '0' + n : n; };
+  var date = y + '-' + p2(mo) + '-' + p2(d);
+  var time = hh !== '' ? p2(hh) + ':' + p2(mi) : '';
+  return { date: date, time: time, key: date + ' ' + (time || '00:00') + ':' + p2(ss) };
+}
+
+/* Column roles, by header vocabulary. Order is priority: a cell takes the FIRST
+   role it matches and a role takes the first cell that claims it, so the names
+   ("Tên định danh tài khoản chuyển") are tried before the accounts they contain,
+   the post date before the date, and the balance before the amount. */
+var STMT_ROLES = [
+  ['fromName',    ['ten dinh danh tai khoan chuyen', 'ten nguoi chuyen', 'sender name']],
+  ['toName',      ['ten dinh danh tai khoan nhan', 'ten nguoi nhan', 'ten nguoi thu huong', 'beneficiary name', 'receiver name']],
+  ['fromAcct',    ['tai khoan chuyen', 'tai khoan nguon', 'from account']],
+  ['toAcct',      ['tai khoan nhan', 'tai khoan thu huong', 'to account', 'beneficiary account']],
+  ['postDate',    ['ngay hach toan', 'ngay ghi so', 'post date', 'posting date', 'value date', 'ngay hieu luc']],
+  ['date',        ['ngay giao dich', 'ngay gd', 'thoi gian giao dich', 'thoi gian', 'transaction date', 'trans date', 'ngay', 'date']],
+  ['balance',     ['so du', 'balance', 'du no']],
+  ['debit',       ['ghi no', 'debit', 'phat sinh no', 'rut ra', 'so tien ghi no', 'tien ra', 'withdrawal']],
+  ['credit',      ['ghi co', 'credit', 'phat sinh co', 'gui vao', 'so tien ghi co', 'tien vao', 'deposit']],
+  ['amount',      ['so tien', 'amount', 'gia tri']],
+  ['ref',         ['ma giao dich', 'ma gd', 'so tham chieu', 'so but toan', 'so ct', 'so chung tu', 'reference', 'transaction id', 'ref no', 'ref']],
+  ['mcc',         ['mcc']],
+  ['status',      ['trang thai', 'status']],
+  ['description', ['noi dung', 'dien giai', 'mo ta', 'loai giao dich', 'ghi chu', 'description', 'details', 'remark', 'narrative']]
+];
+function fhStmtRoles(headerCells){
+  var roles = {};
+  for (var c = 0; c < headerCells.length; c++) {
+    var w = stmtWords(headerCells[c]);
+    if (w.trim() === '') continue;
+    for (var r = 0; r < STMT_ROLES.length; r++) {
+      if (_stmtHas(w, STMT_ROLES[r][1])) { if (roles[STMT_ROLES[r][0]] === undefined) roles[STMT_ROLES[r][0]] = c; break; }
+    }
+  }
+  return roles;
+}
+function _stmtRolesUsable(roles){
+  return roles.date !== undefined && (roles.amount !== undefined || roles.debit !== undefined || roles.credit !== undefined);
+}
+/* A signature of the header row: the key a confirmed mapping is remembered under.
+   Header labels only -- no value from any row. */
+function fhStmtHeaderSig(headerCells){
+  return (headerCells || []).map(function(h){ return stmtWords(h).trim(); }).join('|');
+}
+
+/* grid (array of rows, each an array of cell strings) -> the table.
+   The header is the first row, within the first 80, whose cells name a date and an
+   amount. Body rows are the rows under it whose date cell is a date; everything
+   else (preamble, sub-headers, totals) is kept as `notes` for the summary reader. */
+function fhStmtFindTable(grid, rolesOverride){
+  var headerIdx = -1, roles = null;
+  for (var i = 0; i < grid.length && i < 80; i++) {
+    var r = fhStmtRoles(grid[i] || []);
+    if (_stmtRolesUsable(r)) { headerIdx = i; roles = r; break; }
+  }
+  if (headerIdx < 0) return null;
+  if (rolesOverride) roles = rolesOverride;
+  var body = [], notes = [];
+  for (var j = 0; j < grid.length; j++) {
+    if (j === headerIdx) continue;
+    var cells = grid[j] || [];
+    if (j > headerIdx && fhStmtDate(cells[roles.date])) body.push({ i: j, cells: cells });
+    else if (cells.some(function(x){ return String(x == null ? '' : x).trim() !== ''; })) notes.push(cells);
+  }
+  return { headerIdx: headerIdx, headers: (grid[headerIdx] || []).map(String), roles: roles, body: body, notes: notes };
+}
+
+/* The summary block: label cell, then the first cell to its right that reads as
+   what the label promises. A row may hold two label/value pairs side by side. */
+var STMT_LABELS = [
+  ['opening',     ['so du dau ky', 'so du dau', 'opening balance']],
+  ['closing',     ['so du cuoi ky', 'closing balance', 'ending balance']],
+  ['prevDebt',    ['du no ky truoc', 'previous balance']],
+  ['endDebt',     ['du no cuoi ky', 'end balance']],
+  ['totalDebit',  ['phat sinh no', 'tong ghi no', 'total debit']],
+  ['totalCredit', ['phat sinh co', 'tong ghi co', 'total credit']],
+  ['holder',      ['chu tai khoan', 'account holder', 'ten chu the', 'cardholder']],
+  ['period',      ['thoi gian sao ke', 'ky sao ke', 'period covered', 'statement period']],
+  ['account',     ['so tai khoan', 'account number', 'so the chinh', 'primary card number', 'so vi']]
+];
+function fhStmtSummary(notes){
+  var out = {};
+  (notes || []).forEach(function(cells){
+    for (var c = 0; c < cells.length; c++) {
+      var w = stmtWords(cells[c]); if (w.trim() === '') continue;
+      for (var k = 0; k < STMT_LABELS.length; k++) {
+        var key = STMT_LABELS[k][0];
+        if (out[key] !== undefined || !_stmtHas(w, STMT_LABELS[k][1])) continue;
+        for (var v = c + 1; v < cells.length; v++) {
+          var raw = String(cells[v] == null ? '' : cells[v]).replace(/^\s*:\s*/, '').trim();
+          if (raw === '') continue;
+          if (key === 'holder') out.holder = raw;
+          else if (key === 'period') {
+            var ds = raw.match(/\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{4}/g) || [];
+            var a = fhStmtDate(ds[0]), b = fhStmtDate(ds[1]);
+            if (a && b) out.period = { from: a.date, to: b.date };
+          } else if (key === 'account') {
+            /* Only the masked tail is ever kept. The full number stays in the file. */
+            var dg = raw.replace(/\D/g, ''); if (dg.length >= 4) out.accountTail = dg.slice(-4);
+          } else { var n = fhStmtNum(raw); if (n !== null) out[key] = Math.abs(n); }
+          break;
+        }
+        break;
+      }
+    }
+  });
+  return out;
+}
+
+var STMT_FAILED = ['that bai', 'khong thanh cong', 'failed', 'fail', 'da huy', 'bi huy', 'cancelled', 'canceled', 'declined', 'tu choi', 'rejected'];
+
+/* Body rows -> neutral row objects, in FILE order. `amt` is signed: money out is
+   negative. Two-column files print a credit as a positive OR a negative number
+   (one real card statement does the latter), so both columns are read by
+   magnitude and the column decides the sign. */
+function fhStmtRead(table){
+  var R = table.roles, rows = [], failed = 0;
+  var cell = function(cells, role){ return R[role] === undefined ? '' : String(cells[R[role]] == null ? '' : cells[R[role]]).trim(); };
+  table.body.forEach(function(b){
+    var when = fhStmtDate(b.cells[R.date]); if (!when) return;
+    var amt = null;
+    if (R.amount !== undefined) amt = fhStmtNum(b.cells[R.amount]);
+    else {
+      var db = Math.abs(fhStmtNum(b.cells[R.debit]) || 0), cr = Math.abs(fhStmtNum(b.cells[R.credit]) || 0);
+      if (db || cr) amt = cr - db;
+    }
+    if (amt === null || amt === 0) return;
+    if (R.status !== undefined && _stmtHas(stmtWords(b.cells[R.status]), STMT_FAILED)) { failed++; return; }
+    var bal = R.balance !== undefined ? fhStmtNum(b.cells[R.balance]) : null;
+    rows.push({
+      i: b.i, date: when.date, time: when.time, key: when.key, amt: amt, bal: bal,
+      description: cell(b.cells, 'description').replace(/\s+/g, ' '),
+      ref: cell(b.cells, 'ref'), mcc: (cell(b.cells, 'mcc').match(/\d{4}/) || [''])[0],
+      fromAcct: cell(b.cells, 'fromAcct'), fromName: cell(b.cells, 'fromName'),
+      toAcct: cell(b.cells, 'toAcct'), toName: cell(b.cells, 'toName')
+    });
+  });
+  return { rows: rows, failed: failed };
+}
+
+/* The proof. Returns { ok, how, ratio, order, totals, oldestFirst } and marks each
+   row that broke a proven running balance: `unmoved` when the balance simply did
+   not change (paid from somewhere else), `broken` otherwise. */
+function fhStmtProve(rows, summary){
+  summary = summary || {};
+  var out = { ok: false, how: '', ratio: 0, order: 'file', totals: false, oldestFirst: rows.slice() };
+  if (!rows.length) return out;
+  var withBal = rows.filter(function(r){ return r.bal !== null; });
+  /* `strict` = the balance moved by exactly the amount. `soft` also accepts a DEBIT
+     after which the balance did not move at all: a wallet payment funded from a
+     linked bank. That pattern is real (9 of 141 rows in one real statement), so it
+     must not sink the proof -- but it only counts once most rows reconcile
+     strictly, or a constant column mistaken for the balance would "prove" itself. */
+  var score = function(list){
+    var hit = 0, still = 0, n = 0;
+    for (var i = 1; i < list.length; i++) {
+      n++;
+      if (Math.abs(list[i - 1].bal + list[i].amt - list[i].bal) <= STMT_TOL) hit++;
+      else if (list[i].amt < 0 && Math.abs(list[i].bal - list[i - 1].bal) <= STMT_TOL) still++;
+    }
+    return { strict: n ? hit / n : 0, soft: n ? (hit + still) / n : 0 };
+  };
+  if (withBal.length >= 3) {
+    var fwd = score(withBal), rev = score(withBal.slice().reverse());
+    var best = rev.strict > fwd.strict ? rev : fwd;
+    out.strict = best.strict;
+    out.ratio = best.strict >= STMT_STRICT_MIN ? best.soft : best.strict;
+    out.order = rev.strict > fwd.strict ? 'newest-first' : 'oldest-first';
+  } else {
+    /* No balance column: the dates say which way the file runs. */
+    out.order = rows[0].key > rows[rows.length - 1].key ? 'newest-first' : 'oldest-first';
+  }
+  out.oldestFirst = out.order === 'newest-first' ? rows.slice().reverse() : rows.slice();
+
+  var db = 0, cr = 0;
+  rows.forEach(function(r){ if (r.amt < 0) db += -r.amt; else cr += r.amt; });
+  var near = function(a, b){ return Math.abs(a - b) <= STMT_TOL; };
+  var checks = [];
+  if (summary.totalDebit !== undefined) checks.push(near(db, summary.totalDebit));
+  if (summary.totalCredit !== undefined) checks.push(near(cr, summary.totalCredit));
+  if (summary.opening !== undefined && summary.closing !== undefined) checks.push(near(summary.opening + cr - db, summary.closing));
+  /* A card's balance is a debt: spending raises it, a payment lowers it. */
+  if (summary.prevDebt !== undefined && summary.endDebt !== undefined) checks.push(near(summary.prevDebt + db - cr, summary.endDebt));
+  out.totals = checks.length >= 2 && checks.every(Boolean);
+
+  if (out.ratio >= STMT_PROOF_MIN) { out.ok = true; out.how = 'running'; }
+  else if (out.totals) { out.ok = true; out.how = 'totals'; }
+
+  if (out.how === 'running' || (out.ok && withBal.length >= 3)) {
+    var seq = out.oldestFirst.filter(function(r){ return r.bal !== null; });
+    for (var i = 1; i < seq.length; i++) {
+      if (Math.abs(seq[i - 1].bal + seq[i].amt - seq[i].bal) <= STMT_TOL) continue;
+      if (Math.abs(seq[i].bal - seq[i - 1].bal) <= STMT_TOL) seq[i].unmoved = true; else seq[i].broken = true;
+    }
+  }
+  return out;
+}
+
+/* What a row is, from the statement's own words. These are HINTS for the review
+   card's Kind control and description, and every one stays overridable there.
+   Transfers need evidence (spec §11): a holder-name memo alone is never one. */
+var STMT_BANK_WORDS = ['vietcombank', 'vcb', 'vib', 'techcombank', 'tcb', 'mb bank', 'mbbank', 'acb', 'bidv', 'vietinbank', 'vpbank', 'tpbank', 'sacombank', 'hdbank', 'ocb', 'shb', 'msb', 'agribank', 'ngan hang', 'bank'];
+function _stmtIsPersonAcct(a){ a = String(a || '').trim(); return /^\*+\d{2,4}$/.test(a) || /^0\d{8,10}$/.test(a); }
+function fhStmtClassify(row, ctx){
+  ctx = ctx || {};
+  var w = stmtWords(row.description), out = { flow: '', counterparty: '', person: false, funding: '', holderMemo: false, memo: row.description };
+  var isOut = row.amt < 0;
+  out.counterparty = isOut ? (row.toName || '') : (row.fromName || '');
+  out.person = _stmtIsPersonAcct(isOut ? row.toAcct : row.fromAcct);
+  if (isOut && row.fromName) out.funding = row.fromName;
+
+  if (_stmtHas(w, ['thanh toan sao ke the', 'thanh toan the tin dung', 'tra no the', 'thanh toan du no the', 'credit card payment'])) out.flow = 'cardpay';
+  else if (!isOut && (_stmtHas(w, ['hoan tien', 'refund', 'thu hoi tien hoan']) || /^ hoan /.test(w))) out.flow = 'refund';
+  else if (!isOut && _stmtHas(w, ['luong', 'salary', 'nhan luong'])) out.flow = 'salary';
+  else if (_stmtHas(w, ['nap tien vao vi', 'nap tien vi', 'nap vi', 'top up wallet', 'wallet top up']) ||
+           (!isOut && row.fromName && _stmtHas(stmtWords(row.fromName), STMT_BANK_WORDS) && _stmtHas(w, ['nap tien']))) out.flow = 'topup';
+  else if (isOut && (_stmtHas(w, ['phi']) || /^ phi /.test(w)) && !_stmtHas(w, ['hoc phi'])) out.flow = 'fee';
+
+  /* "<HOLDER> chuyen tien den <RECIPIENT> - <account>": the bank's auto-fill for an
+     outgoing transfer. It names who sent and who received, never what for -- so the
+     purpose is left blank for the person to fill, exactly as a p2p email is. Only
+     when the recipient IS the holder does the memo say "between my own accounts". */
+  var tm = /^(.+?) chuyen (?:tien|khoan)(?: (?:den|toi|cho|sang) (.+))?$/.exec(w.trim());
+  if (tm && ctx.holder) {
+    var h = stmtWords(ctx.holder).trim(), sender = tm[1].trim();
+    var recip = (tm[2] || '').replace(/(?: \d+)+$/, '').trim();
+    if (h && sender === h) {
+      out.holderMemo = true; out.memo = '';
+      if (recip) { out.counterparty = recip.toUpperCase(); out.person = true; }
+      if (recip && recip.length >= 6 && recip === h) { out.selfTransfer = true; out.person = false; }
+    }
+  }
+  /* A wallet debit after which the wallet balance did not move was paid from a
+     linked bank: it belongs to that bank's account, and the bank has its own row. */
+  out.fundedElsewhere = !!(isOut && row.unmoved);
+  out.fundingIsBank = !!(out.funding && _stmtHas(stmtWords(out.funding), STMT_BANK_WORDS));
+  return out;
+}
+
+/* One call for the whole file. `rolesOverride` is a remembered or hand-confirmed
+   mapping. Never throws on a strange file: `table: null` means "no table found". */
+function fhStmtParse(grid, rolesOverride){
+  var table = fhStmtFindTable(grid || [], rolesOverride);
+  if (!table) return { table: null, rows: [], failed: 0, summary: {}, proof: { ok: false, how: '', ratio: 0 } };
+  var summary = fhStmtSummary(table.notes);
+  var read = fhStmtRead(table);
+  var proof = fhStmtProve(read.rows, summary);
+  var rows = proof.oldestFirst.map(function(r){
+    var c = fhStmtClassify(r, { holder: summary.holder });
+    return Object.assign({}, r, { cls: c });
+  });
+  return { table: table, sig: fhStmtHeaderSig(table.headers), rows: rows, failed: read.failed, summary: summary, proof: proof };
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { fhStmtNum: fhStmtNum, fhStmtDate: fhStmtDate, fhStmtRoles: fhStmtRoles, fhStmtFindTable: fhStmtFindTable,
+    fhStmtSummary: fhStmtSummary, fhStmtRead: fhStmtRead, fhStmtProve: fhStmtProve, fhStmtClassify: fhStmtClassify,
+    fhStmtParse: fhStmtParse, fhStmtHeaderSig: fhStmtHeaderSig };
+}
 /* ---------- expense ---------- */
 var catStyle={};
 /* ---------- transactions (with spender avatar) ---------- */
@@ -22078,7 +22515,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v537';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v538';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -24343,6 +24780,22 @@ window.obGoogle = async function () {
     /* `quiet` (bulk edit, txn-listing revamp): skip the per-call re-hydrate so a
        batch of N edits costs one hydrate at the end, not N — the caller MUST
        await fhPersonalHydrate() itself after the batch. */
+    /* The AMOUNT only, every other field left exactly as it is. fhPersonalUpdateExpense
+       below rewrites the whole row from `fields` -- hand it just an amount and it nulls
+       the note, the category and the time. This exists for the one caller that has
+       nothing but a better number: a card statement's final figure replacing the
+       estimate a foreign purchase was booked at (56 csvFxAdopt). Private rows only,
+       like every personal write; returns false when nothing matched (a mirror row). */
+    window.fhPersonalSetAmount = async function (id, amt) {
+      if (!P.uid || !P.key || !id || !(Number(amt) > 0)) return false;
+      const r = await _sb().from('personal_transactions').update({ amount_enc: await _encP(Number(amt)) })
+        .eq('id', id).eq('owner_user_id', P.uid).is('link_id', null).select('id');
+      if (r.error) { console.warn('personal amount update failed', r.error); return false; }
+      if (!r.data || !r.data.length) return false;
+      await window.fhPersonalHydrate();
+      return true;
+    };
+
     window.fhPersonalUpdateExpense = async function (id, fields, quiet) {
       if (!P.uid || !P.key || !id) return false;
       fields = fields || {};
@@ -34928,6 +35381,9 @@ window.classifyAmount = classifyAmount;
   window.fhRefreshStagedCount = async function () {
     try { var rows = await fhFetchStagedTxns(); window.fhStagedCount = (typeof window.fhStagedTotal === 'number') ? window.fhStagedTotal : (rows || []).length; }
     catch (e) { window.fhStagedCount = 0; }
+    // Statement rows and unopened statement cards wait in the same queue, so the
+    // same badge counts them. Head-only, and never allowed to zero the email count.
+    try { if (window.fhStmtPendingCount) window.fhStagedCount += (await window.fhStmtPendingCount()) || 0; } catch (e) {}
     try { if (typeof window.renderCashflowEmailCta === 'function') window.renderCashflowEmailCta(); } catch (e) {}
     // The Cá nhân tab carries the same CTA and the same badge; it has to hear
     // the count change too, or one of the two goes stale after every promote.
@@ -34939,6 +35395,11 @@ window.classifyAmount = classifyAmount;
        • linked           → the review sheet, which itself shows an empty modal
                             when there is nothing, or the list of cards. */
   window.fhEmailTxnCta = async function (preset) {
+    /* Consent moved on (v5: statement files)? Offer it here, once a session, without
+       blocking: both answers carry on into this same function (75-consent-ui.js). */
+    if (window.fhConsentOffer) {
+      try { if (!(await window.fhConsentOffer(function () { window.fhEmailTxnCta(preset); }))) return; } catch (e) {}
+    }
     /* The entry SOURCE is the context. Opening from the Cá nhân tab means "these
        are mine" and defaults the cards to the personal ledger — the same affordance
        openPersonalExpense() gives the expense modal; opening from a space (family)
@@ -35517,10 +35978,24 @@ window.classifyAmount = classifyAmount;
   /* Retire specific staged rows by id — local-first (survives a failed server
      delete), so a row assigned to a card from the detail screen cannot also
      reappear in the review to be imported twice. */
+  /* Retire staged rows on the server. The queue holds two kinds since statement
+     capture (77-statement-capture.js): sealed email rows, deleted by
+     resolve_email_transactions, and statement rows, which live in their own table
+     and remember a fingerprint so a re-sent statement does not ask twice. Every
+     call site hands over ONE list and this splits it; the count returned is the
+     total actually removed, which is what the "matched 0 rows" warnings read. */
+  async function _stagedResolve(ids) {
+    var split = window.fhStmtSplitIds ? window.fhStmtSplitIds(ids) : { email: ids || [], stmt: [] };
+    var n = 0;
+    if (split.email.length) n += Number(await _rpc('resolve_email_transactions', { p_ids: split.email })) || 0;
+    if (split.stmt.length && window.fhStmtRetire) n += Number(await window.fhStmtRetire(split.stmt)) || 0;
+    return n;
+  }
+
   window.fhStagedRetireIds = async function (ids) {
     if (!ids || !ids.length) return false;
     _stagedRetiredAdd(ids);
-    try { await _rpc('resolve_email_transactions', { p_ids: ids }); return true; }
+    try { await _stagedResolve(ids); return true; }
     catch (e) { console.warn('staged retire (targeted) failed', e, { ids: ids }); return false; }
   };
 
@@ -35533,6 +36008,7 @@ window.classifyAmount = classifyAmount;
     var rows = window._fhStagedRows;
     var r = (c && typeof c.rowIndex === 'number' && rows) ? rows[c.rowIndex] : null;
     var tr = r && r.raw_extracted && r.raw_extracted._transport;
+    if (tr === 'statement') return 'statement-email';   // parsed from a statement file (statement-capture-spec.md)
     return tr === 'oauth_direct' ? 'direct-email' : 'forwarding-email';
   };
 
@@ -35623,7 +36099,22 @@ window.classifyAmount = classifyAmount;
       }
     }
 
-    if (!readable.length) {
+    /* Statement capture (77-statement-capture.js): rows already parsed from a
+       statement join the SAME array, shaped exactly like an opened email row, so
+       every accessor below that indexes _fhStagedRows by rowIndex reads them with
+       no second code path. Unopened statements ride beside as cards. A failure
+       here costs the statements, never the email queue. */
+    var stmtCards = 0;
+    if (window.fhStmtLoad) {
+      try {
+        var stmt = await window.fhStmtLoad();
+        readable = readable.concat(stmt.rows || []);
+        locked += stmt.locked || 0;
+        stmtCards = (stmt.cards || []).length;
+      } catch (eS) { console.warn('statement load failed', eS); }
+    }
+
+    if (!readable.length && !stmtCards) {
       _txrLoadHide();
       _fhSheet('<div class="mbx-hero">' + _mbxGlyph('mail') + '</div>' +
         '<div class="sheet-h">' + _esc(L('Chưa có giao dịch mới', 'Nothing to review')) + '</div>' +
@@ -35831,7 +36322,7 @@ window.classifyAmount = classifyAmount;
     if (!id) return;
     _stagedRetiredAdd([id]);
     try {
-      var removed = await _rpc('resolve_email_transactions', { p_ids: [id] });
+      var removed = await _stagedResolve([id]);
       if (!removed) console.warn('staged drop: matched 0 rows', { ids: [id] });
     } catch (e) {
       console.warn('staged drop failed', e, { ids: [id] });
@@ -35859,7 +36350,7 @@ window.classifyAmount = classifyAmount;
     if (!ids.length) return 0;
     _stagedRetiredAdd(ids);
     try {
-      var removed = await _rpc('resolve_email_transactions', { p_ids: ids });
+      var removed = await _stagedResolve(ids);
       if (!removed) console.warn('staged drop: matched 0 rows', { ids: ids });
     } catch (e) {
       console.warn('staged bulk drop failed', e, { ids: ids });
@@ -36243,7 +36734,7 @@ window.classifyAmount = classifyAmount;
            the duplicate. Exactness is why chunks never split a candidate. */
         var doneIds = doneCands.map(stagedIdOf).filter(Boolean);
         if (doneIds.length) {
-          try { await _rpc('resolve_email_transactions', { p_ids: doneIds }); }
+          try { await _stagedResolve(doneIds); }
           catch (eRp) { console.warn('partial retire failed', eRp, { ids: doneIds }); }
         }
         // Zero written is not a partial save — it is a plain failure (locked
@@ -36359,7 +36850,7 @@ window.classifyAmount = classifyAmount;
        detail, because this is the one place a person cannot see what went wrong
        and the queue now looks correct either way. */
     try {
-      var removed = await _rpc('resolve_email_transactions', { p_ids: ids });   // 0060
+      var removed = await _stagedResolve(ids);   // 0060
       window._fhStagedRows = [];
       if (!removed) {
         console.warn('staged retire: matched 0 rows', { ids: ids });
@@ -37438,6 +37929,9 @@ window.classifyAmount = classifyAmount;
 
          Deleting nothing is success, not a 404: the state they asked for is the
          state that already holds. */
+      /* Statement capture stores more than rows: sealed files, parsed statement rows,
+         a remembered password. All of it goes with the connection (77-statement-capture.js). */
+      try { if (window.fhStmtPurge) await window.fhStmtPurge(); } catch (eP) {}
       _stopped = await _rpc('disconnect_my_mailbox', {});
     } catch (e) {
       window.toast && window.toast(window._fhFriendly ? window._fhFriendly(e)
@@ -38350,7 +38844,7 @@ window.classifyAmount = classifyAmount;
      docs/PDPL-COMPLIANCE.md §5: bump the version constant when either
      changes, and everyone re-consents to the new text. */
 
-  var FH_CONSENT_V = 4;
+  var FH_CONSENT_V = 5;   // 5 = statement FILES are stored (sealed) until opened. Must equal STATEMENT_CONSENT_V in _shared/mailbox/statement.mjs.
   var FH_CONSENT_KIND = 'bank_email';
   var FH_APPDATA_CONSENT_V = 1;
   var FH_APPDATA_KIND = 'app_data';
@@ -38377,6 +38871,8 @@ window.classifyAmount = classifyAmount;
     bank_email: {
       4: ['Lần đầu gặp một mẫu email của ngân hàng, email đó được gửi nguyên văn cho AI của Google một lần, để học cách đọc mẫu. Những email sau cùng mẫu không được gửi đi nữa.',
           'The first time we meet a new email format from a bank, that email is sent to Google’s AI as written, once, so it can learn how to read the format. Later emails in the same format are not sent at all.'],
+      5: ['Khi ngân hàng hoặc ví gửi file sao kê (Excel/CSV) kèm email, tụi mình lấy file đó, niêm phong bằng khoá riêng của bạn và giữ đến khi bạn mở, tối đa 90 ngày; mở xong là xoá. File chỉ được mở và đọc trên máy của bạn, mật khẩu file không rời khỏi máy. Để gợi ý danh mục, máy bạn có thể gửi tên cửa hàng cho AI của Google, không kèm số tiền, ngày hay tên người.',
+          'When a bank or wallet emails a statement file (Excel/CSV), we take that file, seal it with your own key and keep it until you open it, for at most 90 days; it is deleted once opened. The file is only opened and read on your device, and its password never leaves your device. To suggest categories, your device may send merchant names to Google’s AI, with no amount, date or person’s name.'],
     },
     app_data: {},
   };
@@ -38873,6 +39369,9 @@ window.classifyAmount = classifyAmount;
         _cstRow(L('Có ai đọc được email của tôi không?', 'Can anyone read my emails?'), _esc(L(
           'Lần đầu gặp một mẫu email của ngân hàng, tụi mình gửi email đó cho AI của Google một lần, để học cách đọc mẫu đó. Những email sau cùng mẫu được đọc ngay tại hệ thống, không gửi đi đâu nữa. Email trong hộp thư trung gian tự xoá sau 7 ngày; email không đọc được giữ tối đa 90 ngày rồi cũng xoá. Giao dịch chờ duyệt giữ đến khi bạn duyệt hoặc ngắt kết nối.',
           'The first time we meet a new email format from a bank, we send that one email to Google’s AI once, to learn how to read that format. Every later email in the same format is read on our own systems and goes nowhere. Emails in the relay inbox delete themselves after 7 days; ones we could not read are kept at most 90 days, then deleted too. Pending transactions are kept until you review them or disconnect.'))) +
+        _cstRow(L('Còn file sao kê ngân hàng gửi kèm email?', 'What about statement files attached to an email?'), _esc(L(
+          'Tụi mình lấy file đó, niêm phong bằng khoá riêng của bạn và giữ đến khi bạn mở, tối đa 90 ngày; mở xong là xoá. File chỉ được mở và đọc trên máy của bạn, mật khẩu file không rời khỏi máy. Để gợi ý danh mục, máy bạn có thể gửi tên cửa hàng cho AI của Google, không kèm số tiền, ngày hay tên người.',
+          'We take the file, seal it with your own key and keep it until you open it, for at most 90 days; it is deleted once opened. The file is only opened and read on your device, and its password never leaves your device. To suggest categories, your device may send merchant names to Google’s AI, with no amount, date or person’s name.'))) +
         _cstRow(L('Ai mở được các giao dịch này?', 'Who can open these transactions?'), _esc(L(
           'Mỗi giao dịch được niêm phong ngay khi đến, như thư bỏ vào két đã khoá: máy chủ giữ két, còn chìa chỉ nằm trên điện thoại của gia đình bạn.',
           'Each transaction is sealed the moment it arrives, like a letter dropped into a locked safe: the server holds the safe, and the key lives only on your family’s phones.'))) +
@@ -38899,7 +39398,7 @@ window.classifyAmount = classifyAmount;
         footer = smallPrint +
           '<button class="cta" id="cst-agree" onclick="fhConsentAgree(this)">' +
             _esc(L('Tôi hiểu và đồng ý', 'I understand and agree')) + '</button>' +
-          '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Để sau', 'Not now')) + '</button>';
+          '<button class="btn-skip" onclick="fhConsentLater()">' + _esc(L('Để sau', 'Not now')) + '</button>';
       }
 
       var changed = ro ? '' : _cstChangedBlock(FH_CONSENT_KIND, accepted, FH_CONSENT_V);
@@ -38911,6 +39410,34 @@ window.classifyAmount = classifyAmount;
         footer);
 
       window._cstThen = ro ? null : (opts.then || null);
+      window._cstLater = ro ? null : (opts.later || null);
+    };
+
+    /* "Để sau". On the blocking gate this only closes the sheet, as it always has.
+       On the soft offer below it also carries on to where the person was going. */
+    window.fhConsentLater = function () {
+      var later = window._cstLater; window._cstLater = null; window._cstThen = null;
+      _closeOv();
+      if (typeof later === 'function') later();
+    };
+
+    /* The SOFT offer, for someone already connected under an older text.
+       A new version that adds processing (v5: statement files are stored) must not
+       switch off what they already agreed to -- bank-email capture carries on under
+       their existing consent -- but the new part stays off until they say yes. So the
+       sheet is shown once per session on the way into the email review, with what
+       changed at the top, and BOTH answers continue to the review. The statement
+       lane on the server checks the recorded version itself (statement.mjs), so
+       "Để sau" genuinely means no statement is captured.
+       Returns true = nothing to offer, carry on now; false = the sheet is up and
+       `go` runs after either answer. */
+    window.fhConsentOffer = async function (go) {
+      var rec = null;
+      try { rec = await _cstFetch(); } catch (e) { return true; }
+      if (!rec || rec.version >= FH_CONSENT_V) return true;        // never consented: the connect flow asks; current: nothing to say
+      try { if (sessionStorage.getItem('fh-cst-offered') === String(FH_CONSENT_V)) return true; sessionStorage.setItem('fh-cst-offered', String(FH_CONSENT_V)); } catch (e) {}
+      window.fhConsentSheet({ then: go, later: go, prior: rec, priorKnown: true });
+      return false;
     };
 
     window.fhConsentAgree = async function (btn) {
@@ -38941,6 +39468,9 @@ window.classifyAmount = classifyAmount;
       }
       btn.disabled = true; btn.textContent = L('Đang ngắt…', 'Disconnecting…');
       try {
+        /* Statement capture stores more than rows: sealed files, parsed statement rows,
+           a remembered password. All of it goes with the connection (77-statement-capture.js). */
+        try { if (window.fhStmtPurge) await window.fhStmtPurge(); } catch (eP) {}
         await _rpc('disconnect_my_mailbox', {});
       } catch (e) {
         btn.disabled = false; delete btn.dataset.armed;
@@ -39857,6 +40387,542 @@ window.classifyAmount = classifyAmount;
     };
   })();
 
+  (function () {
+    /* ═══ Statement capture, on the device (docs/specs/statement-capture-spec.md) ═══
+       A bank's statement arrives by email as a spreadsheet, usually locked with a
+       password. The server's whole part is custody: it seals the file to THIS
+       person's personal key and queues one locked card. Everything that needs the
+       file's contents happens here, after a tap:
+
+         card -> download -> open the seal -> (password) -> read the table ->
+         prove the column reading -> pick the account -> write N encrypted rows
+
+       From that last step on, a statement row is an ordinary staged row. It is
+       shaped exactly like an opened email_transactions row (fhStmtAsStaged), so the
+       review screen, the kinds, the dedup engine, import and retirement are the
+       ones in 72 / 56 / 57 / 58 -- this file adds no second review.
+
+       ALWAYS PERSONAL (decision S24). The file and the rows are under the personal
+       key whatever the mailbox default is: a real statement carries an ID number, a
+       home address and a full account number. A locked personal ledger therefore
+       means a statement cannot be opened on this device, and the card says so.
+
+       The password is used here and thrown away, unless the person opts to have it
+       remembered -- then it is kept on THIS device only, encrypted under the
+       personal key, and never sent anywhere. */
+
+    const STM_BUCKET = 'statement-files';
+    const STM_ROW_PAGE = 1000;
+    const STM_SOURCE = 'statement-email';            // 0100 provenance stamp on imported rows
+
+    const _stmU8 = (b64) => { const bin = atob(b64); const o = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) o[i] = bin.charCodeAt(i); return o; };
+    const _stmB64 = (u8) => { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); };
+    const _stmUid = () => (window.fhUser && window.fhUser.id) || null;
+
+    async function _stmEncJson(obj) { return _stmB64(await window.fhPersonalEncBytes(new TextEncoder().encode(JSON.stringify(obj)))); }
+    async function _stmDecJson(b64) { return JSON.parse(new TextDecoder().decode(await window.fhPersonalDecBytes(_stmU8(b64)))); }
+
+    /* ── locally retired rows ────────────────────────────────────────────────
+       Same reason as 72's set: the ledger write lands first and the server delete
+       second, so a failed delete must not put an imported row back in the queue.
+       Its OWN key: 72 prunes its set against email ids only, which would drop
+       statement ids the moment it ran. */
+    const _stmRetKey = () => { const u = _stmUid(); return u ? 'fh-stmt-retired:' + u : ''; };
+    function _stmRetGet() { try { return JSON.parse(localStorage.getItem(_stmRetKey()) || '[]'); } catch (e) { return []; } }
+    function _stmRetAdd(ids) { const k = _stmRetKey(); if (!k || !ids || !ids.length) return; const s = new Set(_stmRetGet()); ids.forEach((i) => s.add(i)); try { localStorage.setItem(k, JSON.stringify([...s].slice(-4000))); } catch (e) {} }
+    function _stmRetPrune(serverIds) { const k = _stmRetKey(); if (!k) return; const live = new Set(serverIds); try { localStorage.setItem(k, JSON.stringify(_stmRetGet().filter((i) => live.has(i)))); } catch (e) {} }
+
+    /* ── fingerprints: "already decided", unreadable by the server ───────────
+       HMAC under a key derived (HKDF) from the personal staging PRIVATE key, which
+       only this person's devices can unwrap. The canonical string is the bank's own
+       transaction id when the file has one -- an exact key -- else the row's facts. */
+    let _stmFpKeyCache = null;
+    async function _stmFpKey() {
+      if (_stmFpKeyCache) return _stmFpKeyCache;
+      const priv = await window.fhPersonalStagingPrivKey();
+      const base = await crypto.subtle.importKey('raw', priv, 'HKDF', false, ['deriveKey']);
+      _stmFpKeyCache = await crypto.subtle.deriveKey(
+        { name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(32), info: new TextEncoder().encode('stmt-row-fp-v1') },
+        base, { name: 'HMAC', hash: 'SHA-256', length: 256 }, false, ['sign']);
+      return _stmFpKeyCache;
+    }
+    function fhStmtCanonical(provider, tail, row) {
+      const p = String(provider || '').toLowerCase().replace(/\s+/g, '');
+      if (row.ref) return 'v1|ref|' + p + '|' + String(row.ref).trim();
+      return 'v1|row|' + p + '|' + (tail || '') + '|' + row.date + '|' + Math.round(row.amt) + '|' +
+        String(row.description || '').toLowerCase().replace(/\s+/g, ' ').trim().slice(0, 80);
+    }
+    async function _stmFp(canonical) {
+      const sig = await crypto.subtle.sign('HMAC', await _stmFpKey(), new TextEncoder().encode(canonical));
+      return _stmB64(new Uint8Array(sig));
+    }
+    window.fhStmtCanonical = fhStmtCanonical;
+
+    /* ── a parsed row -> the shape of an OPENED email_transactions row ────────
+       Everything downstream reads these fields (72's accessors index
+       _fhStagedRows by rowIndex), so matching the shape exactly is what makes a
+       statement row reviewable with no second code path. `_stmt` is the only
+       discriminator, and only retirement looks at it. */
+    function fhStmtAsStaged(id, p) {
+      return {
+        id: id, _stmt: true, statement_id: p.sid, row_fp: p.fp || null,
+        member_id: null, source_provider: p.provider,
+        /* A day-only row is stored at UTC midnight -- the convention fhStagedRowTime
+           and the richest-copy merge already read as "no clock", so neither invents
+           a time nor merges two honest same-amount purchases of one day. */
+        /* A timed row is written the way PostgREST writes a timestamptz
+           ("...T01:29:06+00:00"), not as VN local text: the review's richest-copy merge
+           keys on this STRING plus the amount, so a statement row and a still-pending
+           email for the same second collapse into one card only if both spell the
+           instant identically. Statements here are Vietnamese: the clock is +07:00. */
+        occurred_at: p.time
+          ? new Date(p.date + 'T' + p.time + ':' + (p.sec || '00') + '+07:00').toISOString().replace('.000Z', '+00:00')
+          : (p.date + 'T00:00:00Z'),
+        amount: Math.abs(p.amt), currency: 'VND', direction: p.amt < 0 ? 'debit' : 'credit',
+        counterparty: p.counterparty || '',
+        duplicate_of_id: null, resolved_before: false,
+        raw_extracted: {
+          memo: p.memo, memo_display: p.memo,
+          transaction_type: p.person ? 'p2p_transfer' : (p.accountKind === 'ewallet' ? 'ecommerce_receipt' : 'bank_txn'),
+          flow: p.flow === 'cardpay' ? 'transfer' : (p.amt < 0 ? 'expense' : 'income'),
+          account_kind: p.accountKind || null, account_masked: p.tail || '',
+          reference_number: p.ref || '', balance: p.bal == null ? null : p.bal,
+          category_hint: p.concept || '', direction: p.amt < 0 ? 'debit' : 'credit',
+          counterparty: p.counterparty || '', _transport: 'statement',
+          stmt: { xfer: !!p.xfer, attn: !!p.attn, incomeCat: p.incomeCat || '', fundedElsewhere: !!p.fundedElsewhere }
+        }
+      };
+    }
+    window.fhStmtAsStaged = fhStmtAsStaged;
+
+    /* What one parsed row becomes. Pure: no network, no key -- unit-tested.
+       `acct` = { provider, kind, tail } of the account the statement belongs to. */
+    const STM_MCC = () => (typeof CSV_MCC_CONCEPT === 'object' && CSV_MCC_CONCEPT) || {};
+    function fhStmtRowPayload(row, acct, sid) {
+      const c = row.cls || {};
+      let provider = acct.provider, kind = acct.kind, tail = acct.tail || '';
+      /* A wallet payment that did not move the wallet balance was paid from a linked
+         bank. It belongs to THAT bank's account -- named when the file names it,
+         otherwise left unplaced rather than booked against the wallet, which would
+         pull the wallet's balance away from the real one with every such payment. */
+      if (c.fundedElsewhere) {
+        tail = '';
+        if (c.fundingIsBank && !/ngan hang lien ket/i.test(String(c.funding).normalize('NFD').replace(/[\u0300-\u036f]/g, ''))) { provider = c.funding; kind = 'deposit'; }
+        else { kind = null; }
+      }
+      /* Transfer evidence (spec section 11). Level 2 only: structured evidence on one
+         side -- the file's own funding column names a bank on a top-up, or the memo
+         says recipient == holder. Both are pre-set AND sent to "Cần bạn xem". A
+         holder-name memo alone sets nothing. Level 1 (both legs) is the review's own
+         pair matcher, which needs no hint. */
+      const xfer = c.flow === 'topup' || !!c.selfTransfer;
+      const incomeCat = c.flow === 'salary' ? 'Lương' : (c.flow === 'refund' ? 'Hoàn tiền' : '');
+      return {
+        sid: sid, date: row.date, time: row.time || '', sec: (row.key || '').slice(17, 19) || '00',
+        amt: row.amt, bal: (c.fundedElsewhere ? null : row.bal), ref: row.ref || '',
+        memo: c.memo == null ? '' : c.memo, counterparty: c.counterparty || '', person: !!c.person,
+        flow: c.flow || '', xfer: xfer, attn: xfer, incomeCat: incomeCat, fundedElsewhere: !!c.fundedElsewhere,
+        concept: (row.mcc && STM_MCC()[row.mcc]) || '',
+        provider: provider, accountKind: kind, tail: tail
+      };
+    }
+    window.fhStmtRowPayload = fhStmtRowPayload;
+
+    /* ── load: cards + rows, for the review queue ──────────────────────────── */
+    let _stmCards = [];
+    window.fhStmtCards = () => _stmCards;
+
+    async function _stmOpenMeta(f, priv) {
+      return window.fhStagingOpenRow({ sealed: f.meta_sealed, nonce: f.meta_nonce, eph_pub: f.meta_eph_pub, enc_v: f.enc_v,
+        owner_user_id: _stmUid(), gmail_message_id: f.gmail_message_id }, priv);
+    }
+
+    window.fhStmtLoad = async function () {
+      const out = { rows: [], cards: [], locked: 0 };
+      if (!window.sb || !_stmUid()) return out;
+      const ready = !!(window.fhPersonalKeyReady && window.fhPersonalKeyReady());
+
+      const fres = await window.sb.from('statement_files')
+        .select('id,gmail_message_id,part_index,source_provider,received_at,file_ext,byte_size,object_path,meta_sealed,meta_eph_pub,meta_nonce,enc_v,status,backfill,expires_at')
+        .in('status', ['pending', 'expired']).order('received_at', { ascending: false }).limit(60);
+      if (fres.error) throw fres.error;
+      let priv = null;
+      if (ready && (fres.data || []).length) { try { priv = await window.fhPersonalStagingPrivKey(); } catch (e) { priv = null; } }
+      out.cards = (fres.data || []).map((f) => {
+        const card = Object.assign({}, f, { meta: null, keyLocked: !priv });
+        if (priv && f.meta_sealed) { try { card.meta = _stmOpenMeta(f, priv); } catch (e) { card.keyLocked = true; } }
+        return card;
+      });
+      _stmCards = out.cards;
+
+      const rres = await window.sb.from('statement_rows')
+        .select('id,statement_id,row_index,txn_date,payload_enc').order('txn_date', { ascending: false }).limit(STM_ROW_PAGE);
+      if (rres.error) throw rres.error;
+      const server = rres.data || [];
+      _stmRetPrune(server.map((r) => r.id));
+      const gone = new Set(_stmRetGet());
+      for (const r of server) {
+        if (gone.has(r.id)) continue;
+        if (!ready) { out.locked++; continue; }
+        try { out.rows.push(fhStmtAsStaged(r.id, await _stmDecJson(r.payload_enc))); } catch (e) { out.locked++; }
+      }
+      return out;
+    };
+
+    /* How many statement things are waiting: every row plus every locked card
+       (decision S15: the badge counts everything). Head-only, no decrypt. */
+    window.fhStmtPendingCount = async function () {
+      if (!window.sb || !_stmUid()) return 0;
+      try {
+        const a = await window.sb.from('statement_rows').select('id', { count: 'exact', head: true });
+        const b = await window.sb.from('statement_files').select('id', { count: 'exact', head: true }).eq('status', 'pending');
+        return Math.max(0, (a.count || 0) - _stmRetGet().length) + (b.count || 0);
+      } catch (e) { return 0; }
+    };
+
+    /* ── retirement ────────────────────────────────────────────────────────── */
+    /* ids -> the statement rows among them (looked up in the live queue). */
+    function _stmPick(ids) {
+      const byId = {}; (window._fhStagedRows || []).forEach((r) => { if (r && r._stmt) byId[r.id] = r; });
+      return (ids || []).map((i) => byId[i]).filter(Boolean);
+    }
+    /* Splits a mixed id list. 72 calls this wherever it used to hand every id to
+       resolve_email_transactions: email ids go on to that RPC, statement ids are
+       retired here -- local record first, then fingerprints + delete in one RPC. */
+    window.fhStmtSplitIds = function (ids) {
+      const mine = new Set(_stmPick(ids).map((r) => r.id));
+      return { email: (ids || []).filter((i) => !mine.has(i)), stmt: [...mine] };
+    };
+    window.fhStmtRetire = async function (ids) {
+      const rows = _stmPick(ids); if (!rows.length) return 0;
+      _stmRetAdd(rows.map((r) => r.id));
+      return _rpc('resolve_statement_rows', { p_ids: rows.map((r) => r.id), p_fps: rows.map((r) => r.row_fp).filter(Boolean) });
+    };
+
+    /* ── the locked cards, rendered at the top of the review ─────────────────
+       Called from renderCsvReview (56) in staged mode. Statements found while
+       reading history fold under "Sao kê cũ" so a first connect does not open on a
+       wall of backlog. */
+    let _stmOldOpen = false, _stmArmed = null;
+    const _stmDM = (iso) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ''); return m ? m[3] + '/' + m[2] : ''; };
+    function _stmTitle(card) {
+      const bank = window.fhProviderName ? window.fhProviderName(card.source_provider) : card.source_provider;
+      const m = card.meta || {};
+      let when = '';
+      if (m.period_from && m.period_to) when = _stmDM(m.period_from) + ' – ' + _stmDM(m.period_to);
+      else if (m.period_month) when = L('tháng ', '') + m.period_month.slice(5) + '/' + m.period_month.slice(0, 4);
+      else when = _stmDM(String(card.received_at).slice(0, 10));
+      return L('Sao kê ', 'Statement · ') + bank + (when ? ' · ' + when : '');
+    }
+    function _stmCardHTML(card) {
+      const expired = card.status === 'expired';
+      const sub = card.keyLocked ? L('Mở khoá sổ cá nhân ở tab Cá nhân để mở sao kê này.', 'Unlock your personal ledger on the Personal tab to open this.')
+        : expired ? L('File đã hết hạn lưu. Chọn file từ máy để mở.', 'The stored file has expired. Pick the file from your device.')
+        : ((card.meta && card.meta.filename) || '') ;
+      const armed = _stmArmed === card.id;
+      return '<div class="stm-card">' +
+        '<div class="stm-main"><div class="stm-title">' + _esc(_stmTitle(card)) + '</div>' +
+        (sub ? '<div class="stm-sub">' + _esc(sub) + '</div>' : '') + '</div>' +
+        '<div class="stm-actions">' +
+        (card.keyLocked ? '' : '<button type="button" class="stm-open" onclick="fhStmtOpen(\'' + card.id + '\')">' +
+          _esc(expired ? L('Chọn file', 'Pick file') : L('Mở sao kê', 'Open')) + '</button>') +
+        '<button type="button" class="stm-x' + (armed ? ' armed' : '') + '" aria-label="' + _escAttr(L('Bỏ sao kê này', 'Remove this statement')) + '" onclick="fhStmtDismiss(\'' + card.id + '\')">' +
+          (armed ? _esc(L('Bỏ?', 'Remove?')) : '✕') + '</button>' +
+        '</div></div>';
+    }
+    window.fhStmtCardsHTML = function () {
+      if (!_stmCards.length) return '';
+      const fresh = _stmCards.filter((c) => !c.backfill), old = _stmCards.filter((c) => c.backfill);
+      let html = '';
+      if (fresh.length) html += '<div class="group-h attn">' + _esc(L('Sao kê chờ mở', 'Statements to open')) + ' · ' + fresh.length + '</div><div class="csv-cards">' + fresh.map(_stmCardHTML).join('') + '</div>';
+      if (old.length) {
+        html += '<div class="group-h csv-sure-h"><span>' + _esc(L('Sao kê cũ', 'Older statements')) + ' · ' + old.length + '</span>' +
+          '<button type="button" class="csv-linkbtn" onclick="fhStmtToggleOld()">' + _esc(_stmOldOpen ? L('Thu gọn', 'Hide') : L('Xem', 'Show')) + '</button></div>';
+        if (_stmOldOpen) html += '<div class="csv-cards">' + old.map(_stmCardHTML).join('') + '</div>';
+      }
+      return html;
+    };
+    window.fhStmtToggleOld = function () { _stmOldOpen = !_stmOldOpen; window.renderCsvReview && window.renderCsvReview(); };
+
+    window.fhStmtDismiss = async function (id) {
+      if (_stmArmed !== id) { _stmArmed = id; window.renderCsvReview && window.renderCsvReview(); setTimeout(() => { if (_stmArmed === id) { _stmArmed = null; window.renderCsvReview && window.renderCsvReview(); } }, 3500); return; }
+      _stmArmed = null;
+      const card = _stmCards.find((c) => c.id === id);
+      try {
+        await _rpc('dismiss_statement_file', { p_statement_id: id });
+        if (card && card.object_path) { try { await window.sb.storage.from(STM_BUCKET).remove([card.object_path]); } catch (e) {} }
+        _stmCards = _stmCards.filter((c) => c.id !== id);
+        window.fhRefreshStagedCount && window.fhRefreshStagedCount();
+      } catch (e) { window.toast && window.toast(L('Chưa bỏ được sao kê, thử lại nhé', 'Could not remove it, try again')); }
+      window.renderCsvReview && window.renderCsvReview();
+    };
+
+    /* ── the remembered password: opt-in, this device only ─────────────────── */
+    const _stmPwKey = () => 'fh-stmt-pw:' + (_stmUid() || '');
+    async function _stmPwAll() { try { const raw = localStorage.getItem(_stmPwKey()); return raw ? await _stmDecJson(raw) : {}; } catch (e) { return {}; } }
+    async function _stmPwGet(provider) { return (await _stmPwAll())[String(provider || '').toLowerCase()] || ''; }
+    async function _stmPwSet(provider, pw) {
+      const all = await _stmPwAll(); const k = String(provider || '').toLowerCase();
+      if (pw) all[k] = pw; else delete all[k];
+      try { localStorage.setItem(_stmPwKey(), await _stmEncJson(all)); } catch (e) {}
+    }
+    window.fhStmtForgetPasswords = function () { try { localStorage.removeItem(_stmPwKey()); } catch (e) {} };
+
+    /* ── the remembered column reading: per sender + header shape, this device ── */
+    const _stmMapKey = () => 'fh-stmt-map:' + (_stmUid() || '');
+    function _stmMapGet(provider, sig) { try { return (JSON.parse(localStorage.getItem(_stmMapKey()) || '{}'))[String(provider).toLowerCase() + '|' + sig] || null; } catch (e) { return null; } }
+    function _stmMapSet(provider, sig, roles) { try { const all = JSON.parse(localStorage.getItem(_stmMapKey()) || '{}'); all[String(provider).toLowerCase() + '|' + sig] = roles; localStorage.setItem(_stmMapKey(), JSON.stringify(all)); } catch (e) {} }
+
+    /* ── the unlock flow ───────────────────────────────────────────────────────
+       Painted INTO the review's own body (#csv-result), like the file import's
+       password step: the global sheet layer sits under this modal. `S` is the one
+       statement being opened. */
+    let S = null;
+    const _stmHost = () => document.getElementById('csv-result');
+    function _stmPaint(inner) { const h = _stmHost(); if (h) h.innerHTML = '<div class="csv-unlock stm-flow">' + inner + '</div>'; }
+    function _stmBackBtn() { return '<button type="button" class="csv-linkbtn csv-unlock-skip" onclick="fhStmtCancel()">' + _esc(L('Để sau', 'Not now')) + '</button>'; }
+    window.fhStmtCancel = function () { S = null; window.renderCsvReview && window.renderCsvReview(); };
+
+    window.fhStmtOpen = async function (id) {
+      const card = _stmCards.find((c) => c.id === id); if (!card) return;
+      S = { card: card, bytes: null, password: '', remember: false, parsed: null, acct: null };
+      if (card.status === 'expired') return _stmAskFile();
+      _stmPaint('<div class="csv-unlock-title">' + _esc(_stmTitle(card)) + '</div><div class="csv-unlock-sub">' + _esc(L('Đang tải file…', 'Fetching the file…')) + '</div>');
+      try {
+        const dl = await window.sb.storage.from(STM_BUCKET).download(card.object_path);
+        if (dl.error || !dl.data) throw new Error('download');
+        const blob = new Uint8Array(await dl.data.arrayBuffer());
+        const priv = await window.fhPersonalStagingPrivKey();
+        const opened = window.nacl.box.open(blob.subarray(56), blob.subarray(32, 56), blob.subarray(0, 32), priv);
+        if (!opened) throw new Error('open');
+        /* The blob carries no identity of its own. The sealed METADATA does (owner +
+           message, checked in fhStagingOpenRow) and names this file's hash -- so a
+           blob moved under another card is refused here rather than parsed. */
+        const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', opened))).map((b) => b.toString(16).padStart(2, '0')).join('');
+        if (!card.meta || card.meta.file_sha256 !== hash) throw new Error('identity');
+        S.bytes = opened;
+      } catch (e) {
+        return _stmFail(e && e.message === 'identity'
+          ? L('File này không khớp với sao kê. Tụi mình không mở để an toàn.', 'This file does not match its statement, so it was not opened.')
+          : L('Chưa tải được file. Kiểm tra mạng rồi thử lại, hoặc chọn file từ máy.', 'Could not fetch the file. Check your connection, or pick the file from your device.'), true);
+      }
+      S.password = await _stmPwGet(card.source_provider);
+      return _stmParse();
+    };
+
+    function _stmFail(msg, offerFile) {
+      _stmPaint('<div class="csv-unlock-title">' + _esc(_stmTitle(S.card)) + '</div><div class="csv-unlock-err">' + _esc(msg) + '</div>' +
+        (offerFile ? '<button type="button" class="btn-line csv-unlock-go" onclick="fhStmtAskFile()">' + _esc(L('Chọn file từ máy', 'Pick the file from your device')) + '</button>' : '') + _stmBackBtn());
+    }
+    function _stmAskFile() {
+      _stmPaint('<div class="csv-unlock-title">' + _esc(_stmTitle(S.card)) + '</div>' +
+        '<div class="csv-unlock-sub">' + _esc(L('Chọn đúng file sao kê này từ máy của bạn.', 'Pick this statement\'s file from your device.')) + '</div>' +
+        '<input type="file" id="stm-file" accept=".xlsx,.csv" hidden onchange="fhStmtFilePicked(this)">' +
+        '<button type="button" class="btn-line csv-unlock-go" onclick="document.getElementById(\'stm-file\').click()">' + _esc(L('Chọn file', 'Pick file')) + '</button>' + _stmBackBtn());
+    }
+    window.fhStmtAskFile = _stmAskFile;
+    window.fhStmtFilePicked = async function (input) {
+      const f = input && input.files && input.files[0]; if (!f || !S) return;
+      S.bytes = new Uint8Array(await f.arrayBuffer());
+      S.localExt = /\.csv$/i.test(f.name) ? 'csv' : 'xlsx';
+      return _stmParse();
+    };
+
+    async function _stmGrid() {
+      const ext = S.localExt || S.card.file_ext;
+      if (ext === 'csv') {
+        const u = S.bytes; let text;
+        if (u[0] === 0xFF && u[1] === 0xFE) text = new TextDecoder('utf-16le').decode(u);
+        else if (u[0] === 0xFE && u[1] === 0xFF) text = new TextDecoder('utf-16be').decode(u);
+        else text = new TextDecoder('utf-8').decode(u);
+        const p = window.fhParseCsvFile(text);
+        return [p.headers].concat(p.rows);
+      }
+      return fhParseXlsxBuffer(S.bytes.buffer.slice(S.bytes.byteOffset, S.bytes.byteOffset + S.bytes.byteLength), S.password || undefined);
+    }
+
+    async function _stmParse(wrong) {
+      let grid;
+      try { grid = await _stmGrid(); }
+      catch (e) {
+        const code = String(e && e.message || '');
+        if (code === 'xlsx_encrypted' || code === 'bad_password') {
+          if (code === 'bad_password' && S.password && !wrong) { await _stmPwSet(S.card.source_provider, ''); }   // a remembered password stopped working
+          return _stmAskPassword(code === 'bad_password' && (wrong || S.password));
+        }
+        if (code === 'xlsx_enc_unsupported' || code === 'xls_legacy') return _stmFail(L('File này được khoá bằng một kiểu mã hoá tụi mình chưa mở được.', 'This file is locked with a scheme we cannot open yet.'), false);
+        if (code === 'xlsx_unsupported') return _stmFail(L('Trình duyệt này chưa đọc được file Excel. Cập nhật trình duyệt rồi thử lại nhé.', 'This browser cannot read Excel files yet. Update it and try again.'), false);
+        return _stmFail(L('Chưa đọc được file này.', 'Could not read this file.'), false);
+      }
+      if (S.remember && S.password) await _stmPwSet(S.card.source_provider, S.password);
+
+      /* Reading order: a confirmed reading for this sender and header shape, else the
+         vocabulary. The proof below decides whether either is believed. */
+      let parsed = window.fhStmtParse(grid);
+      if (parsed.table) {
+        const kept = _stmMapGet(S.card.source_provider, parsed.sig);
+        if (kept && !parsed.proof.ok) parsed = window.fhStmtParse(grid, kept);
+      }
+      S.parsed = parsed; S.grid = grid;
+      if (!parsed.table || !parsed.rows.length) return _stmFail(L('Tụi mình chưa tìm thấy bảng giao dịch trong file này.', 'We could not find a transaction table in this file.'), false);
+      if (!parsed.proof.ok) return _stmAskMapping();
+      return _stmSummary();
+    }
+
+    function _stmAskPassword(wrong) {
+      const bank = window.fhProviderName ? window.fhProviderName(S.card.source_provider) : S.card.source_provider;
+      _stmPaint('<div class="csv-unlock-title">' + _esc(L('File này có mật khẩu', 'This file needs a password')) + '</div>' +
+        '<div class="csv-unlock-sub">' + _esc(_stmTitle(S.card)) + '</div>' +
+        '<input id="stm-pw" type="password" class="csv-pw" autocomplete="off" placeholder="' + _escAttr(L('Nhập mật khẩu mở file', 'Enter the password')) + '" onkeydown="if(event.key===\'Enter\'){fhStmtUnlock();}">' +
+        (wrong ? '<div class="csv-unlock-err">' + _esc(L('Mật khẩu chưa đúng, thử lại nhé', 'That password didn\'t work, try again')) + '</div>' : '') +
+        '<label class="stm-remember"><input type="checkbox" id="stm-rem"' + (S.remember ? ' checked' : '') + '> <span>' + _esc(L('Nhớ mật khẩu cho sao kê ' + bank + ' trên máy này', 'Remember the password for ' + bank + ' statements on this device')) + '</span></label>' +
+        '<button type="button" class="btn-line csv-unlock-go" onclick="fhStmtUnlock()">' + _esc(L('Mở file', 'Open file')) + '</button>' +
+        '<div class="csv-unlock-note">' + _esc(L('Mật khẩu chỉ dùng ngay trên máy bạn để mở file. Nếu bạn chọn nhớ, tụi mình lưu nó trên máy này, có mã hoá, và không gửi đi đâu.', 'The password is only used on your device to open the file. If you choose to remember it, it is kept on this device, encrypted, and never sent anywhere.')) + '</div>' + _stmBackBtn());
+      const el = document.getElementById('stm-pw'); if (el) { try { el.focus(); } catch (e) {} }
+    }
+    window.fhStmtUnlock = function () {
+      if (!S) return;
+      const el = document.getElementById('stm-pw'), rem = document.getElementById('stm-rem');
+      S.password = el ? el.value : ''; S.remember = !!(rem && rem.checked);
+      if (!S.password) return;
+      _stmPaint('<div class="csv-unlock-title">' + _esc(_stmTitle(S.card)) + '</div><div class="csv-unlock-sub">' + _esc(L('Đang mở file…', 'Opening the file…')) + '</div>');
+      setTimeout(() => { _stmParse(true); }, 30);     // let the line above paint: the key derivation blocks for a second
+    };
+
+    /* The proof could not pass: say what was read and let the person decide. The
+       arithmetic is shown, not hidden -- "9 of 40 rows add up" is the reason to doubt. */
+    function _stmAskMapping() {
+      const p = S.parsed, R = p.table.roles, H = p.table.headers;
+      const names = { date: L('Ngày', 'Date'), description: L('Nội dung', 'Description'), amount: L('Số tiền', 'Amount'), debit: L('Tiền ra', 'Money out'), credit: L('Tiền vào', 'Money in'), balance: L('Số dư', 'Balance') };
+      const rowsHtml = Object.keys(names).filter((k) => R[k] !== undefined).map((k) =>
+        '<div class="stm-maprow"><span>' + _esc(names[k]) + '</span><b>' + _esc(String(H[R[k]] || '').replace(/\s+/g, ' ').slice(0, 40)) + '</b></div>').join('');
+      _stmPaint('<div class="csv-unlock-title">' + _esc(L('Bạn xem giúp tụi mình đọc cột đúng chưa', 'Check that we read the columns right')) + '</div>' +
+        '<div class="csv-unlock-sub">' + _esc(L('File này không có số dư hoặc tổng để tụi mình tự kiểm tra, nên cần bạn xác nhận.', 'This file has no balance or totals for us to check against, so we need you to confirm.')) + '</div>' +
+        '<div class="stm-map">' + rowsHtml + '</div>' +
+        '<div class="csv-unlock-note">' + _esc(p.rows.length + L(' giao dịch tìm được', ' transactions found')) + '</div>' +
+        '<button type="button" class="btn-line csv-unlock-go" onclick="fhStmtMappingOk()">' + _esc(L('Đúng rồi', 'Looks right')) + '</button>' + _stmBackBtn());
+    }
+    window.fhStmtMappingOk = function () { if (S && S.parsed) { S.confirmedMap = true; _stmSummary(); } };
+
+    /* Which of the parsed rows the ledger already has -- the same engine the review
+       uses, run early so the summary can say "16 mới". A count for the person, never
+       a filter: every row is still written (decision S15). */
+    async function _stmKnownCount(rows) {
+      try {
+        if (!window.fhDedupAssess || !window.fhDedupLedgerIndex) return null;
+        if (!window._fhPersonalMatchSlice && window.fhPersonalMatchSlice) window._fhPersonalMatchSlice = await window.fhPersonalMatchSlice();
+        const cands = rows.map((r) => ({ amount: Math.abs(r.amt), date: new Date(r.date + 'T00:00:00'), dateDisplay: r.date, time: r.time || '',
+          description: (r.cls && r.cls.memo) || r.description || '', counterparty: (r.cls && r.cls.counterparty) || '', isIncome: r.amt > 0, isTransfer: false, currency: 'VND', kind: 'bank', provider: S.card.source_provider }));
+        const v = window.fhDedupAssess(cands, window.fhDedupLedgerIndex(), {});
+        return v.filter((x) => x && x.tier === 'sure').length;
+      } catch (e) { return null; }
+    }
+
+    function _stmAcctKind() {
+      const prov = String(S.card.source_provider || '').toLowerCase();
+      if (/momo|zalopay|shopeepay|viettel|vnpay/.test(prov)) return 'ewallet';
+      const sum = S.parsed.summary || {};
+      return (sum.prevDebt !== undefined || sum.endDebt !== undefined) ? 'credit_card' : 'deposit';
+    }
+
+    async function _stmSummary() {
+      const p = S.parsed, sum = p.summary || {};
+      const tail = sum.accountTail || (S.card.meta && S.card.meta.account_tail) || '';
+      S.acct = { provider: S.card.source_provider, kind: _stmAcctKind(), tail: tail };
+
+      /* Rows this person already decided on (imported or removed) are not written
+         again -- the one place a statement row is dropped unseen, allowed because the
+         key is exact and the decision was theirs. */
+      S.payloads = [];
+      const fps = [];
+      for (const r of p.rows) { const fp = await _stmFp(fhStmtCanonical(S.card.source_provider, tail, r)); fps.push(fp); }
+      let decided = new Set();
+      try {
+        for (let i = 0; i < fps.length; i += 200) {
+          const q = await window.sb.from('resolved_statement_rows').select('row_fp').in('row_fp', fps.slice(i, i + 200));
+          (q.data || []).forEach((x) => decided.add(x.row_fp));
+        }
+      } catch (e) { decided = new Set(); }
+      const fresh = [];
+      p.rows.forEach((r, i) => { if (!decided.has(fps[i])) fresh.push({ r: r, fp: fps[i] }); });
+      S.fresh = fresh; S.decidedCount = p.rows.length - fresh.length;
+      const known = await _stmKnownCount(fresh.map((x) => x.r));
+
+      const bank = window.fhProviderName ? window.fhProviderName(S.card.source_provider) : S.card.source_provider;
+      const kindLabel = { ewallet: L('Ví điện tử', 'E-wallet'), credit_card: L('Thẻ tín dụng', 'Credit card'), deposit: L('Tài khoản', 'Account') }[S.acct.kind];
+      const parts = [p.rows.length + L(' giao dịch', ' transactions')];
+      if (known !== null) { parts.push((fresh.length - known) + L(' mới', ' new')); if (known) parts.push(known + L(' đã có trong sổ', ' already in your ledger')); }
+      if (S.decidedCount) parts.push(S.decidedCount + L(' bạn đã xử lý trước đó', ' you already handled'));
+      if (p.failed) parts.push(p.failed + L(' thất bại đã bỏ qua', ' failed, skipped'));
+      _stmPaint('<div class="csv-unlock-title">' + _esc(L('Tìm được ', 'Found ') + parts.join(' · ')) + '</div>' +
+        '<div class="csv-unlock-sub">' + _esc(_stmTitle(S.card)) + '</div>' +
+        '<div class="stm-map"><div class="stm-maprow"><span>' + _esc(L('Thuộc về', 'Belongs to')) + '</span><b>' + _esc(kindLabel + ' · ' + bank + (tail ? ' ••' + tail : '')) + '</b></div></div>' +
+        '<div class="csv-unlock-note">' + _esc(fresh.length
+          ? L('Các khoản sẽ vào "Duyệt giao dịch" để bạn xem từng khoản. Chưa có gì được ghi vào sổ.', 'The rows go to your review queue. Nothing is written to a ledger yet.')
+          : L('Bạn đã xử lý hết các khoản trong sao kê này rồi.', 'You have already handled every row in this statement.')) + '</div>' +
+        '<button type="button" class="btn-line csv-unlock-go" id="stm-go" onclick="fhStmtCommit()">' + _esc(fresh.length ? L('Đưa vào hàng chờ duyệt', 'Add to the review queue') : L('Xong', 'Done')) + '</button>' + _stmBackBtn());
+    }
+
+    /* Merchant names only -- never a person, an amount or a date -- to the
+       merchant-concepts function. Best-effort: a limited model just means those rows
+       arrive without a category. */
+    async function _stmConcepts(payloads) {
+      const names = [...new Set(payloads.filter((p) => !p.person && !p.concept && p.amt < 0 && p.flow !== 'cardpay' && !p.xfer && (p.counterparty || p.memo))
+        .map((p) => String(p.counterparty || p.memo).slice(0, 80)))].slice(0, 60);
+      if (!names.length) return;
+      try {
+        const res = await window.sb.functions.invoke('merchant-concepts', { body: { merchants: names } });
+        const map = (res && res.data && res.data.concepts) || {};
+        payloads.forEach((p) => { const c = map[String(p.counterparty || p.memo).slice(0, 80)]; if (c && !p.concept) p.concept = c; });
+      } catch (e) { /* rows simply arrive without a hint */ }
+    }
+
+    window.fhStmtCommit = async function () {
+      if (!S || !S.fresh) return;
+      const btn = document.getElementById('stm-go'); if (btn) btn.disabled = true;
+      const card = S.card;
+      try {
+        if (S.confirmedMap && S.parsed.table) _stmMapSet(card.source_provider, S.parsed.sig, S.parsed.table.roles);
+        if (S.acct && window.fhPersonalAccountEnsure) { try { await window.fhPersonalAccountEnsure({ kind: S.acct.kind, provider: S.acct.provider, tail: S.acct.tail,
+          name: (window.fhProviderName ? window.fhProviderName(S.acct.provider) : S.acct.provider) + (S.acct.tail ? ' ••' + S.acct.tail : '') }); } catch (e) {} }
+        const payloads = S.fresh.map((x) => Object.assign(fhStmtRowPayload(x.r, S.acct, card.id), { fp: x.fp }));
+        await _stmConcepts(payloads);
+        const rows = [];
+        for (let i = 0; i < payloads.length; i++) {
+          rows.push({ id: crypto.randomUUID(), row_index: i, txn_date: payloads[i].date, payload_enc: await _stmEncJson(payloads[i]) });
+        }
+        /* ONE transaction: every row, and the card marked opened. A dropped connection
+           leaves the card as it was and no partial rows. */
+        await _rpc('stage_statement_rows', { p_statement_id: card.id, p_rows: rows });
+        /* The rows are in. The sealed file has no job left, so it goes NOW (decision
+           S13); the worker's sweep is only the net for a delete that fails here. */
+        if (card.object_path) { try { await window.sb.storage.from(STM_BUCKET).remove([card.object_path]); } catch (e) {} }
+        /* The statement's balance needs no step of its own here. Every row carries its
+           running balance (raw_extracted.balance), and the import already records the
+           newest one per account as the bank-stated balance (72 _recBal ->
+           fhPersonalExtBalanceSet). From there the existing surfaces take over: an
+           account with no anchor is asked for one by the post-import setup, and one
+           with an anchor shows the drift badge with its two resolutions. */
+        S = null;
+        window.toast && window.toast(L('Đã đưa ' + rows.length + ' khoản vào hàng chờ duyệt', rows.length + ' rows added to your review queue'));
+        window.fhTxnReviewSheet && window.fhTxnReviewSheet(window.csvEntryScope);
+      } catch (e) {
+        if (btn) btn.disabled = false;
+        window.toast && window.toast(L('Chưa lưu được, thử lại nhé. Chưa có gì thay đổi.', 'Could not save, try again. Nothing was changed.'));
+      }
+    };
+
+    /* Disconnecting the mailbox deletes what capture stored: the parsed rows, the
+       cards, the sealed files, and the two on-device memories. */
+    window.fhStmtPurge = async function () {
+      try {
+        const paths = await _rpc('purge_my_statements', {});
+        if (paths && paths.length) { try { await window.sb.storage.from(STM_BUCKET).remove(paths); } catch (e) {} }
+      } catch (e) {}
+      try { localStorage.removeItem(_stmPwKey()); localStorage.removeItem(_stmMapKey()); localStorage.removeItem(_stmRetKey()); } catch (e) {}
+      _stmCards = [];
+    };
+  })();
 </script>
 </body>
 </html>

@@ -120,6 +120,42 @@ miss, so **one email per new format is sent, once**, and every later email in
 that format is read locally. Minimisation by frequency rather than by
 redaction. Policy Bản 3 and consent v4 both say this.
 
+### 5d. Consent sheet v5 — statement files are STORED (2026-09-19, not yet live)
+
+Statement capture (`docs/specs/statement-capture-spec.md`) is the first processing
+that **keeps mail content at rest**: a bank's statement attachment, sealed to the
+person's own key, until they open it. v4 never said that, so v5 does, and it is a new
+version rather than an edit in place — the change is one of substance.
+
+What the v5 text commits to, and where each claim is enforced:
+
+| The sheet says | Enforced by |
+|---|---|
+| The file is sealed with your own key | `statement.mjs` seals to `personal_keys.staging_pub`, always — even on a family-scoped mailbox. No key is a hold, never a plaintext or family-key fallback |
+| Kept until you open it, 90 days at most | `statement_files.expires_at`; the sweep RPC expires the card and the worker deletes the object |
+| Deleted once opened | The device removes the object right after `stage_statement_rows` returns; the sweep is the net |
+| Opened and read only on your device; the password never leaves it | No server code path accepts a password. The opt-in memory is `localStorage`, encrypted under the personal DEK |
+| Your device may send merchant names to Google's AI, never an amount, a date or a person's name | `_stmConcepts` in `77-statement-capture.js` filters to merchant rows before calling `merchant-concepts` |
+
+**Consent gates the processing on the SERVER, for the first time.** Transaction-mail
+capture never needed a server-side check: the client refuses to create a grant
+without consent, so a grant's existence was the proof. A statement is different —
+the grant already exists under v4. `db.consentVersion()` is asked before any Gmail
+call, and a failed read is 0 (no consent): the closed direction.
+
+**Not a blocking re-consent.** Someone connected under v4 keeps what they agreed to:
+bank-email capture carries on. The v5 sheet is *offered* once a session on the way
+into the email review (`fhConsentOffer`), what changed at the top, and "Để sau"
+genuinely means no statement is captured. A new connect asks for v5 as usual.
+
+**Erasure.** Disconnect (both paths) calls `purge_my_statements()` first: parsed rows
+deleted, cards dismissed, sealed paths returned and removed by the device. The sweep
+also drops capture data for any owner who no longer has a mailbox grant.
+⚠️ **Open:** an account deletion (`request_my_deletion`) cascades the ROWS
+(`on delete cascade` from `auth.users`) but leaves the sealed OBJECTS in the
+`statement-files` bucket with no row pointing at them. Whoever runs the deletion job
+must also remove `statement-files/{user_id}/`. Not automated yet.
+
 ### 5c. The seven the sheet must carry (quyền được biết)
 
 A consent screen is not free to be only reassuring. The law's notification

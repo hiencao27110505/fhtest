@@ -1,0 +1,33 @@
+{
+  "note": "SYNTHETIC. Layouts copied from real statements; every value invented.",
+  "fixtures": [
+    {
+      "file": "bank-account.xlsx",
+      "rows": 12,
+      "opening": 12500000,
+      "closing": 23987250,
+      "total_debit": 6636000,
+      "total_credit": 18123250,
+      "order": "newest-first"
+    },
+    {
+      "file": "credit-card.locked.xlsx",
+      "password": "01011990",
+      "rows": 8,
+      "previous_debt": 2150000,
+      "closing_debt": 1519522.0,
+      "total_debit": 1519522.0,
+      "total_credit": 2150000.0,
+      "credit_sign": "negative"
+    },
+    {
+      "file": "ewallet.locked.xlsx",
+      "password": "01011990",
+      "rows": 14,
+      "failed": 1,
+      "bank_funded": 2,
+      "order": "newest-first",
+      "closing": 2615000.0
+    }
+  ]
+}

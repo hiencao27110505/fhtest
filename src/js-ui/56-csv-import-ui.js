@@ -885,6 +885,7 @@ function csvStagedProvider(c){
 function csvStagedSourceTag(c){
   if(!window.csvStagedMode || !window.fhStagedSource || !c || typeof c.rowIndex!=='number') return '';
   var s = window.fhStagedSource(c);
+  if(s==='statement-email') return L('Sao kê','Statement');
   return s==='direct-email' ? L('Trực tiếp','Direct') : (s==='forwarding-email' ? L('Chuyển tiếp','Forwarded') : '');
 }
 /* Instrument chip (0105): the classifier's verdict, quiet plain text in the meta
@@ -2001,6 +2002,12 @@ function csvDupWhy(c){
       var d2 = twin && twin.amtD != null ? Math.round(Math.abs(twin.amtD - Number(c.amount))) : 0;
       return L('Đã có trong sổ, ghi tay làm tròn: cùng nơi chi, cùng ngày, lệch ' + d2.toLocaleString('vi-VN') + 'đ', 'Already booked, hand-rounded: same merchant, same day, ' + d2.toLocaleString('en-US') + 'đ apart') + (e ? ': ' + e : '.');
     }
+    case 'fx_final': {
+      /* The ledger holds our estimate; the statement holds what the bank charged. */
+      var d3 = twin && twin.amtD != null ? Math.round(Number(c.amount) - twin.amtD) : 0;
+      return L('Đã có trong sổ với số tiền ước tính. Sao kê ghi số ngân hàng thực thu, lệch ' + (d3 > 0 ? '+' : '') + d3.toLocaleString('vi-VN') + 'đ',
+               'Already booked at our estimate. The statement has what the bank actually charged, ' + (d3 > 0 ? '+' : '') + d3.toLocaleString('en-US') + 'đ apart') + (e ? ': ' + e : '.');
+    }
     case 'exact_day':
       return L('Cùng số tiền, cùng ngày, nhưng nội dung khác nhau — bạn xem có phải một khoản không', 'Same amount, same day, different wording — is this the same purchase?') + (e ? ': ' + e : '.');
     case 'card_posting':
@@ -2009,6 +2016,8 @@ function csvDupWhy(c){
       return L('Cùng nội dung, cùng số tiền, cùng ngày — nhưng lần trước được ghi ngược chiều (thu/chi). Bạn quyết định.', 'Same text, amount and day — but the earlier entry was filed the other way round (income vs spending). Your call.') + (e ? ': ' + e : '.');
     case 'cross_source':
       return L('Có một email khác cùng số tiền, từ nguồn khác, trong vòng 3 ngày. Có thể là một lần chi được báo hai lần', 'There is another email for the same amount, from a different source, within 3 days. This may be one purchase reported twice') + (e ? ': ' + e : '.');
+    case 'statement_echo':
+      return L('Sao kê và email của cùng ngân hàng báo cùng số tiền, cùng ngày. Có thể là một lần chi được báo hai lần', 'The statement and an email from the same bank report one amount on one day. This may be one purchase reported twice') + (e ? ': ' + e : '.');
     case 'same_bank_pair':
       return L('Cùng ngân hàng báo hai email cùng số tiền, khác mẫu — có thể là một lần chi', 'The same bank sent two emails for one amount, in two formats — possibly one purchase') + (e ? ': ' + e : '.');
     case 'pipeline':
@@ -2240,9 +2249,32 @@ function csvStagedDupCard(c, i, tier, pickOn, pickWk){
             tapFn: "csvToggleExpand('ready',"+i+")", removeFn: "csvReadyRemove("+i+")",
             checkFn: "csvStagedToggle("+i+")", checked: !c._skipImport,
             armed: (csvArmedRemove === i), dim: pickOn && !csvPickMatch(c, pickWk) };
+  /* fx_final: one button that makes the booked row match the statement, then retires
+     this one. Personal-book twins only -- a family row's amount is shared state with
+     its own edit path, so there the difference is shown and the person edits it. */
+  var fix = (c._dupWhy === 'fx_final' && c._dupTwin && c._dupTwin.book === 'personal')
+    ? '<button type="button" class="csv-linkbtn csv-fxfix" onclick="event.stopPropagation();csvFxAdopt('+i+')">'+esc(L('Cập nhật theo sao kê','Update from the statement'))+'</button>' : '';
   return csvIsOpen('ready', i)
-    ? csvActiveCard(c, Object.assign({}, o, { fields:true, ctaIdx:i, note: esc(csvDupWhy(c)) }))
+    ? csvActiveCard(c, Object.assign({}, o, { fields:true, ctaIdx:i, note: esc(csvDupWhy(c)) + (fix ? '<div class="csv-fxfix-row">'+fix+'</div>' : '') }))
     : csvCollapsedCard(c, o);
+}
+/* "Cập nhật theo sao kê": the booked personal row takes the statement's amount (the
+   bank's final figure replaces our estimate), and the statement row is retired --
+   one money event, counted once, now at the right number. */
+async function csvFxAdopt(i){
+  var c = csvReview && csvReview.ready[i]; if(!c || c._dupWhy !== 'fx_final' || !c._dupTwin) return;
+  if(typeof window.fhPersonalSetAmount !== 'function') return;
+  try {
+    // Amount ONLY: the general expense writer rewrites the whole row and would blank
+    // the note, category and time of the row being corrected.
+    var ok = await window.fhPersonalSetAmount(c._dupTwin.id, csvBaseAmt(c.amount));
+    if(!ok) throw new Error('update');
+    if(window.fhPersonalMatchSliceInvalidate) window.fhPersonalMatchSliceInvalidate();
+    if(window.fhStagedDropOne) await window.fhStagedDropOne(c);
+    csvReview.ready.splice(i, 1); csvExpand = null;
+    toast(L('Đã cập nhật theo sao kê','Updated from the statement'));
+  } catch (e) { toast(L('Chưa cập nhật được, thử lại nhé','Could not update, try again')); }
+  renderCsvReview();
 }
 /* Retire every "đã có trong sổ" row at once — one RPC, local-first (72's
    fhStagedDropMany). They leave the list right away; the ledger already holds
@@ -2415,11 +2447,15 @@ function renderCsvReview(){
      Confidence decides WHERE a row renders, never whether it imports. */
   var lowConf = [];
   r.ready.forEach(function(c, i){
-    if(c.catSource === 'fallback' || c.catSource === 'pattern') lowConf.push({ c:c, i:i });
+    // _stmtAttn: a statement row pre-set to "Chuyển khoản nội bộ" on the file's own
+    // one-sided evidence (57). It imports as-is, but it is a claim worth a glance.
+    if(c.catSource === 'fallback' || c.catSource === 'pattern' || c._stmtAttn) lowConf.push({ c:c, i:i });
   });
   var lowConfLabel = {};
   lowConf.forEach(function(e){
-    lowConfLabel[e.i] = e.c.catSource === 'fallback'
+    lowConfLabel[e.i] = e.c._stmtAttn
+      ? L('Chuyển giữa tài khoản của bạn?','A move between your own accounts?')
+      : e.c.catSource === 'fallback'
       ? L('Chưa rõ danh mục','No clear category')
       : L('Đoán theo thói quen','Guessed from your habits');
   });
@@ -2461,6 +2497,11 @@ function renderCsvReview(){
     html += '<div class="review-summary">'+summaryLine+'</div>';
     html += csvSpendPanel(r);   // the file breakdown panel is import-only
   }
+
+  // Statement files waiting to be opened (77-statement-capture.js): one locked
+  // card each, above everything else. Opening one turns it into ordinary rows in
+  // the buckets below, so this is the only statement-specific thing on the screen.
+  if(csvStagedMode && typeof window.fhStmtCardsHTML === 'function') html += window.fhStmtCardsHTML();
 
   // In-review summary — above the first bucket in both flows (top of the list
   // in staged mode, after the file chrome in import mode). Non-sticky by
