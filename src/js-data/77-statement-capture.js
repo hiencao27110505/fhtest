@@ -76,7 +76,7 @@
        discriminator, and only retirement looks at it. */
     function fhStmtAsStaged(id, p) {
       return {
-        id: id, _stmt: true, statement_id: p.sid, row_fp: p.fp || null,
+        id: id, _stmt: true, statement_id: p.sid, statement_title: p.stitle || '', row_fp: p.fp || null,
         member_id: null, source_provider: p.provider,
         /* A day-only row is stored at UTC midnight -- the convention fhStagedRowTime
            and the richest-copy merge already read as "no clock", so neither invents
@@ -210,6 +210,14 @@
       const mine = new Set(_stmPick(ids).map((r) => r.id));
       return { email: (ids || []).filter((i) => !mine.has(i)), stmt: [...mine] };
     };
+    /* For "Chọn nhanh" (56): which statement, if any, a review candidate came from.
+       Rows written before the title rode along fall back to the bank's name. */
+    window.fhStmtOfCand = function (c) {
+      const r = (c && typeof c.rowIndex === 'number' && window._fhStagedRows) ? window._fhStagedRows[c.rowIndex] : null;
+      if (!r || !r._stmt) return null;
+      return { id: r.statement_id, title: r.statement_title || (L('Sao kê ', 'Statement · ') + (window.fhProviderName ? window.fhProviderName(r.source_provider) : r.source_provider)) };
+    };
+
     window.fhStmtRetire = async function (ids) {
       const rows = _stmPick(ids); if (!rows.length) return 0;
       _stmRetAdd(rows.map((r) => r.id));
@@ -222,8 +230,18 @@
        wall of backlog. */
     let _stmOldOpen = false, _stmArmed = null;
     const _stmDM = (iso) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ''); return m ? m[3] + '/' + m[2] : ''; };
+    /* What the statement is OF, from the mail's own subject: a bank sends a card
+       statement and an account statement on the same morning, and "Sao kê VIB · 13/07"
+       twice tells the person nothing. Empty when the subject does not say. */
+    function _stmKindWord(card) {
+      const subj = String((card.meta && card.meta.subject) || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      if (/the tin dung|credit card/.test(subj)) return L('thẻ tín dụng', 'credit card');
+      if (/tai khoan|account/.test(subj)) return L('tài khoản', 'account');
+      if (/momo|zalopay|shopeepay|vi dien tu|wallet/.test(subj + ' ' + String(card.source_provider).toLowerCase())) return L('ví', 'wallet');
+      return '';
+    }
     function _stmTitle(card) {
-      const bank = window.fhProviderName ? window.fhProviderName(card.source_provider) : card.source_provider;
+      const bank = (window.fhProviderName ? window.fhProviderName(card.source_provider) : card.source_provider) + (_stmKindWord(card) ? ' ' + _stmKindWord(card) : '');
       const m = card.meta || {};
       let when = '';
       if (m.period_from && m.period_to) when = _stmDM(m.period_from) + ' – ' + _stmDM(m.period_to);
@@ -247,10 +265,25 @@
           (armed ? _esc(L('Bỏ?', 'Remove?')) : '✕') + '</button>' +
         '</div></div>';
     }
+    /* Filter by bank. Six statements from two banks is already a list worth narrowing,
+       and a year of history is thirty. Chips appear only when there is a choice to make;
+       the same chip style as "Chọn nhanh", so it reads as the same kind of control. */
+    let _stmProvF = null;
+    const _stmProvOf = (c) => (window.fhProviderName ? window.fhProviderName(c.source_provider) : c.source_provider) || L('Khác', 'Other');
+    window.fhStmtProvTgl = function (p) { _stmProvF = (_stmProvF === p || p === '') ? null : p; window.renderCsvReview && window.renderCsvReview(); };
+    function _stmProvChips() {
+      const n = {}; _stmCards.forEach((c) => { const p = _stmProvOf(c); n[p] = (n[p] || 0) + 1; });
+      const ps = Object.keys(n).sort(); if (ps.length < 2) { _stmProvF = null; return ''; }
+      if (_stmProvF && !n[_stmProvF]) _stmProvF = null;
+      const chip = (on, label, cnt, arg) => '<button type="button" class="ctp-chip' + (on ? ' on' : '') + '" onclick="fhStmtProvTgl(\'' + _escAttr(arg) + '\')">' + _esc(label) + ' <span class="ctp-n">' + cnt + '</span></button>';
+      return '<div class="ctp-r stm-provs">' + chip(!_stmProvF, L('Tất cả', 'All'), _stmCards.length, '') + ps.map((p) => chip(_stmProvF === p, p, n[p], p)).join('') + '</div>';
+    }
     window.fhStmtCardsHTML = function () {
       if (!_stmCards.length) return '';
-      const fresh = _stmCards.filter((c) => !c.backfill), old = _stmCards.filter((c) => c.backfill);
-      let html = '';
+      const chips = _stmProvChips();
+      const shown = _stmCards.filter((c) => !_stmProvF || _stmProvOf(c) === _stmProvF);
+      const fresh = shown.filter((c) => !c.backfill), old = shown.filter((c) => c.backfill);
+      let html = chips ? '<div class="group-h attn">' + _esc(L('Sao kê', 'Statements')) + ' · ' + _stmCards.length + '</div>' + chips : '';
       if (fresh.length) html += '<div class="group-h attn">' + _esc(L('Sao kê chờ mở', 'Statements to open')) + ' · ' + fresh.length + '</div><div class="csv-cards">' + fresh.map(_stmCardHTML).join('') + '</div>';
       if (old.length) {
         html += '<div class="group-h csv-sure-h"><span>' + _esc(L('Sao kê cũ', 'Older statements')) + ' · ' + old.length + '</span>' +
@@ -424,15 +457,42 @@
     /* Which of the parsed rows the ledger already has -- the same engine the review
        uses, run early so the summary can say "16 mới". A count for the person, never
        a filter: every row is still written (decision S15). */
-    async function _stmKnownCount(rows) {
+    async function _stmVerdicts(rows) {
       try {
         if (!window.fhDedupAssess || !window.fhDedupLedgerIndex) return null;
         if (!window._fhPersonalMatchSlice && window.fhPersonalMatchSlice) window._fhPersonalMatchSlice = await window.fhPersonalMatchSlice();
         const cands = rows.map((r) => ({ amount: Math.abs(r.amt), date: new Date(r.date + 'T00:00:00'), dateDisplay: r.date, time: r.time || '',
           description: (r.cls && r.cls.memo) || r.description || '', counterparty: (r.cls && r.cls.counterparty) || '', isIncome: r.amt > 0, isTransfer: false, currency: 'VND', kind: 'bank', provider: S.card.source_provider }));
-        const v = window.fhDedupAssess(cands, window.fhDedupLedgerIndex(), {});
-        return v.filter((x) => x && x.tier === 'sure').length;
+        return window.fhDedupAssess(cands, window.fhDedupLedgerIndex(), {});
       } catch (e) { return null; }
+    }
+
+    /* The rows about to be written, newest first, so the person sees WHAT before they
+       agree to it: a summary line alone asks for trust in a parser they have never
+       watched work. Read-only on purpose -- editing belongs to the review, where every
+       row gets the full card. */
+    const STM_PREVIEW_STEP = 40;
+    let _stmPreviewN = STM_PREVIEW_STEP;
+    window.fhStmtPreviewMore = function () { _stmPreviewN += 200; _stmRenderSummary(); };
+    function _stmPreviewHTML() {
+      const list = (S.fresh || []).slice().reverse();
+      if (!list.length) return '';
+      const money = (n) => (typeof csvFmt === 'function' ? csvFmt(Math.abs(n)) : String(Math.abs(n)));
+      const rows = list.slice(0, _stmPreviewN).map((x) => {
+        const r = x.r, c = r.cls || {}, v = x.verdict;
+        const what = c.counterparty || c.memo || r.description || '';
+        const tag = (v && v.tier === 'sure') ? L('đã có trong sổ', 'already booked')
+          : c.flow === 'cardpay' ? L('trả nợ thẻ', 'card payment')
+          : (c.flow === 'topup' || c.selfTransfer) ? L('chuyển nội bộ?', 'own transfer?')
+          : c.fundedElsewhere ? L('trả từ ngân hàng liên kết', 'paid from a linked bank') : '';
+        return '<div class="stm-prow' + (v && v.tier === 'sure' ? ' known' : '') + '">' +
+          '<div class="stm-pwhen">' + _esc(_stmDM(r.date)) + (r.time ? '<span>' + _esc(r.time) + '</span>' : '') + '</div>' +
+          '<div class="stm-pwhat"><div class="stm-ptxt">' + _esc(what || L('(chưa có nội dung)', '(no description)')) + '</div>' + (tag ? '<div class="stm-ptag">' + _esc(tag) + '</div>' : '') + '</div>' +
+          '<div class="stm-pamt' + (r.amt > 0 ? ' in' : '') + '">' + (r.amt > 0 ? '+' : '−') + _esc(money(r.amt)) + '</div></div>';
+      }).join('');
+      const left = list.length - Math.min(list.length, _stmPreviewN);
+      return '<div class="stm-preview">' + rows + '</div>' +
+        (left > 0 ? '<button type="button" class="csv-linkbtn stm-pmore" onclick="fhStmtPreviewMore()">' + _esc(L('Xem thêm ' + left + ' khoản', 'Show ' + left + ' more')) + '</button>' : '');
     }
 
     function _stmAcctKind() {
@@ -466,7 +526,15 @@
       const fresh = [];
       p.rows.forEach((r, i) => { if (!decided.has(fps[i])) fresh.push({ r: r, fp: fps[i] }); });
       S.fresh = fresh; S.decidedCount = p.rows.length - fresh.length;
-      const known = await _stmKnownCount(fresh.map((x) => x.r));
+      const verdicts = await _stmVerdicts(fresh.map((x) => x.r));
+      if (verdicts) fresh.forEach((x, i) => { x.verdict = verdicts[i] || null; });
+      S.known = verdicts ? verdicts.filter((x) => x && x.tier === 'sure').length : null;
+      _stmPreviewN = STM_PREVIEW_STEP;
+      _stmRenderSummary();
+    }
+
+    function _stmRenderSummary() {
+      const p = S.parsed, fresh = S.fresh, known = S.known, tail = S.acct.tail;
 
       const bank = window.fhProviderName ? window.fhProviderName(S.card.source_provider) : S.card.source_provider;
       const kindLabel = { ewallet: L('Ví điện tử', 'E-wallet'), credit_card: L('Thẻ tín dụng', 'Credit card'), deposit: L('Tài khoản', 'Account') }[S.acct.kind];
@@ -480,7 +548,9 @@
         '<div class="csv-unlock-note">' + _esc(fresh.length
           ? L('Các khoản sẽ vào "Duyệt giao dịch" để bạn xem từng khoản. Chưa có gì được ghi vào sổ.', 'The rows go to your review queue. Nothing is written to a ledger yet.')
           : L('Bạn đã xử lý hết các khoản trong sao kê này rồi.', 'You have already handled every row in this statement.')) + '</div>' +
-        '<button type="button" class="btn-line csv-unlock-go" id="stm-go" onclick="fhStmtCommit()">' + _esc(fresh.length ? L('Đưa vào hàng chờ duyệt', 'Add to the review queue') : L('Xong', 'Done')) + '</button>' + _stmBackBtn());
+        _stmPreviewHTML() +
+        '<div class="stm-gobar"><button type="button" class="btn-line csv-unlock-go" id="stm-go" onclick="fhStmtCommit()">' + _esc(fresh.length ? L('Đưa vào hàng chờ duyệt', 'Add to the review queue') : L('Xong', 'Done')) + '</button>' +
+        '<div id="stm-back">' + _stmBackBtn() + '</div></div>');
     }
 
     /* Merchant names only -- never a person, an amount or a date -- to the
@@ -498,19 +568,30 @@
     }
 
     window.fhStmtCommit = async function () {
-      if (!S || !S.fresh) return;
-      const btn = document.getElementById('stm-go'); if (btn) btn.disabled = true;
+      if (!S || !S.fresh || S.committing) return;      // a second tap while the first is in flight does nothing
+      S.committing = true;
+      const btn = document.getElementById('stm-go'), back = document.getElementById('stm-back');
+      /* Encrypting a hundred-odd rows and one round trip take a few seconds on a phone.
+         A button that just sits there gets tapped again, so it goes busy at once, says
+         what it is doing, counts as it goes, and the way out is hidden until it ends. */
+      const busy = (txt) => { if (btn) { btn.disabled = true; btn.classList.add('busy'); btn.innerHTML = '<span class="stm-spin" aria-hidden="true"></span>' + _esc(txt); } };
+      busy(L('Đang chuẩn bị…', 'Preparing…'));
+      if (back) back.hidden = true;
       const card = S.card;
       try {
         if (S.confirmedMap && S.parsed.table) _stmMapSet(card.source_provider, S.parsed.sig, S.parsed.table.roles);
         if (S.acct && window.fhPersonalAccountEnsure) { try { await window.fhPersonalAccountEnsure({ kind: S.acct.kind, provider: S.acct.provider, tail: S.acct.tail,
           name: (window.fhProviderName ? window.fhProviderName(S.acct.provider) : S.acct.provider) + (S.acct.tail ? ' ••' + S.acct.tail : '') }); } catch (e) {} }
-        const payloads = S.fresh.map((x) => Object.assign(fhStmtRowPayload(x.r, S.acct, card.id), { fp: x.fp }));
+        const stitle = _stmTitle(card);
+        const payloads = S.fresh.map((x) => Object.assign(fhStmtRowPayload(x.r, S.acct, card.id), { fp: x.fp, stitle: stitle }));
+        busy(L('Đang gợi ý danh mục…', 'Suggesting categories…'));
         await _stmConcepts(payloads);
         const rows = [];
         for (let i = 0; i < payloads.length; i++) {
           rows.push({ id: crypto.randomUUID(), row_index: i, txn_date: payloads[i].date, payload_enc: await _stmEncJson(payloads[i]) });
+          if (i % 10 === 0) { busy(L('Đang mã hoá ' + (i + 1) + '/' + payloads.length + '…', 'Encrypting ' + (i + 1) + '/' + payloads.length + '…')); await new Promise((r) => setTimeout(r, 0)); }
         }
+        busy(L('Đang đưa vào hàng chờ…', 'Adding to the queue…'));
         /* ONE transaction: every row, and the card marked opened. A dropped connection
            leaves the card as it was and no partial rows. */
         await _rpc('stage_statement_rows', { p_statement_id: card.id, p_rows: rows });
@@ -527,7 +608,9 @@
         window.toast && window.toast(L('Đã đưa ' + rows.length + ' khoản vào hàng chờ duyệt', rows.length + ' rows added to your review queue'));
         window.fhTxnReviewSheet && window.fhTxnReviewSheet(window.csvEntryScope);
       } catch (e) {
-        if (btn) btn.disabled = false;
+        if (S) S.committing = false;
+        if (btn) { btn.disabled = false; btn.classList.remove('busy'); btn.textContent = L('Đưa vào hàng chờ duyệt', 'Add to the review queue'); }
+        if (back) back.hidden = false;
         window.toast && window.toast(L('Chưa lưu được, thử lại nhé. Chưa có gì thay đổi.', 'Could not save, try again. Nothing was changed.'));
       }
     };

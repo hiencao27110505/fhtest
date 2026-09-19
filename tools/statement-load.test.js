@@ -56,7 +56,7 @@ const nodeCrypto = require('crypto');
   t('the owner and message are bound inside', momo.meta.owner_user_id === OWNER && momo.meta.gmail_message_id === 'm1');
   t('the card is openable', momo.keyLocked === false);
   const html = window.fhStmtCardsHTML();
-  t('the title carries the statement PERIOD, not the day the mail arrived', /Sao kê MoMo · 20\/06 – 18\/09/.test(html), html.match(/Sao kê MoMo[^<]*/));
+  t('the title carries the statement PERIOD, not the day the mail arrived', /Sao kê MoMo ví · 20\/06 – 18\/09/.test(html), html.match(/Sao kê MoMo[^<]*/));
   t('a month-only statement says the month', /Sao kê VIB · tháng 09\/2026/.test(html), html.match(/Sao kê VIB[^<]*/));
   t('the file name is shown under it', html.indexOf('0900000001_2430.xlsx') >= 0);
   t('details sealed for ANOTHER person are refused: no details, no open button', other.meta === null && other.keyLocked === true);

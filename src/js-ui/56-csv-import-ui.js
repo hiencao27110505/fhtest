@@ -2849,7 +2849,7 @@ var csvSelTouched = false;
 function csvBulkReset(){
   csvBulkArmed = false; csvSelTouched = false;
   csvToolSheet = null; csvEditRow = null;
-  csvPickF = { src:{}, dup:null, nocat:false, week:false };
+  csvPickF = csvPickBlank();
 }
 
 function csvStagedSelectAll(on){
@@ -3006,11 +3006,17 @@ var csvEditRow = null;     // ②'s open accordion row: null | 'cat' | 'scope' |
 /* ①'s conditions. src is a set (OR between its keys); dup is three-valued
    (null = either, 'no' = only clean, 'yes' = only suspects); the rest are
    plain toggles. AND between the groups is just every check having to pass. */
-var csvPickF = { src:{}, dup:null, nocat:false, week:false };
+/* via: how the row was captured -- null = either, 'stmt' = parsed from a statement
+   file, 'email' = a transaction email. stmt: a SET of statement ids (OR between them),
+   so one statement's rows can be ticked, or left, as a block: a statement is mostly
+   rows the ledger already has, and the person reviews it as a unit. */
+function csvPickBlank(){ return { src:{}, dup:null, nocat:false, week:false, via:null, stmt:{} }; }
+var csvPickF = csvPickBlank();
 
 function csvPickCount(){
   return Object.keys(csvPickF.src).length + (csvPickF.dup ? 1 : 0)
-    + (csvPickF.nocat ? 1 : 0) + (csvPickF.week ? 1 : 0);
+    + (csvPickF.nocat ? 1 : 0) + (csvPickF.week ? 1 : 0)
+    + (csvPickF.via ? 1 : 0) + Object.keys(csvPickF.stmt || {}).length;
 }
 /* "Tuần này" is anchored to the QUEUE's newest row, not the wall clock — a
    backfill reviewed on Monday is all last week, and a clock-anchored week
@@ -3032,7 +3038,21 @@ function csvPickMatch(c, weekMax){
   if(csvPickF.dup === 'likely' && csvDupTier(c) !== 'likely') return false;
   if(csvPickF.nocat && c.categoryName) return false;
   if(csvPickF.week && !(c.date && (weekMax - +c.date) < 7 * 864e5)) return false;
+  var st = csvStmtOf(c);
+  if(csvPickF.via === 'stmt' && !st) return false;
+  if(csvPickF.via === 'email' && st) return false;
+  var sids = Object.keys(csvPickF.stmt || {});
+  if(sids.length && !(st && csvPickF.stmt[st.id])) return false;
   return true;
+}
+/* The statement a candidate was parsed from, or null for an email row
+   (77-statement-capture.js owns the lookup; absent = no statements at all). */
+function csvStmtOf(c){ return (typeof window.fhStmtOfCand === 'function') ? window.fhStmtOfCand(c) : null; }
+function csvPickViaTgl(v){ csvPickF.via = (csvPickF.via === v) ? null : v; if(v === 'email') csvPickF.stmt = {}; renderCsvReview(); }
+function csvPickStmtTgl(id){
+  if(csvPickF.stmt[id]) delete csvPickF.stmt[id]; else csvPickF.stmt[id] = 1;
+  if(csvPickF.via === 'email') csvPickF.via = null;     // picking a statement and "email only" cannot both hold
+  renderCsvReview();
 }
 function csvPickMatches(){
   var wk = csvPickWeekMax();
@@ -3048,7 +3068,7 @@ function csvPickSrcTgl(p){
 function csvPickDupTgl(v){ csvPickF.dup = (csvPickF.dup === v) ? null : v; renderCsvReview(); }
 function csvPickNocatTgl(){ csvPickF.nocat = !csvPickF.nocat; renderCsvReview(); }
 function csvPickWeekTgl(){ csvPickF.week = !csvPickF.week; renderCsvReview(); }
-function csvPickClear(){ csvPickF = { src:{}, dup:null, nocat:false, week:false }; renderCsvReview(); }
+function csvPickClear(){ csvPickF = csvPickBlank(); renderCsvReview(); }
 
 /* The three verbs. 'set' replaces the ticks with the matched set, 'add' unions
    it in, 'sub' takes it out — run twice with different conditions they compose
@@ -3121,6 +3141,18 @@ function csvPickSheetHTML(){
   h += '<div class="ctp-g"><div class="ctp-l">'+esc(L('Nguồn','Source'))+'</div><div class="ctp-r">'
     + ps.map(function(p){ return csvPickChip(!!csvPickF.src[p], p, g[p].n, "csvPickSrcTgl('"+escAttr(p)+"')"); }).join('')
     + '</div></div>';
+  /* Sao kê: shown only when the queue actually holds statement rows. First the
+     two-way split, then one chip per statement when there is more than one. */
+  var stmts = {}, stmtN = 0;
+  ready.forEach(function(c){ var st = csvStmtOf(c); if(!st) return; stmtN++; (stmts[st.id] = stmts[st.id] || { title: st.title, n: 0 }).n++; });
+  if(stmtN){
+    var sk = Object.keys(stmts).sort(function(a, b){ return stmts[a].title < stmts[b].title ? -1 : 1; });
+    h += '<div class="ctp-g"><div class="ctp-l">'+esc(L('Sao kê','Statements'))+'</div><div class="ctp-r">'
+      + csvPickChip(csvPickF.via === 'stmt', L('Từ sao kê','From a statement'), stmtN, "csvPickViaTgl('stmt')")
+      + (ready.length - stmtN ? csvPickChip(csvPickF.via === 'email', L('Từ email','From an email'), ready.length - stmtN, "csvPickViaTgl('email')") : '')
+      + (sk.length > 1 ? sk.map(function(id){ return csvPickChip(!!csvPickF.stmt[id], stmts[id].title, stmts[id].n, "csvPickStmtTgl('"+escAttr(id)+"')"); }).join('') : '')
+      + '</div></div>';
+  }
   if(dupN){
     h += '<div class="ctp-g"><div class="ctp-l">'+esc(L('Trùng lặp','Duplicates'))+'</div><div class="ctp-r">'
       + csvPickChip(csvPickF.dup === 'no', L('Không trùng','Not duplicates'), ready.length - dupN, "csvPickDupTgl('no')")

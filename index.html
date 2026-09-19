@@ -4443,6 +4443,27 @@ button.csv-srow:active{background:var(--surface)}
 .stm-maprow b{color:var(--ink);font-weight:600;text-align:right;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .csv-fxfix-row{margin-top:8px}
 .csv-fxfix{min-height:44px;font-size:13px}
+/* statement capture, round two (first real use, 2026-09-19): the bank filter over the
+   cards, the read-only preview of what is about to be queued, and a call to action
+   that visibly works once. The preview rows are deliberately NOT review cards: nothing
+   here is editable, so nothing here should look tappable. */
+.stm-provs{margin:0 2px 10px}
+.stm-preview{margin-top:14px;border-top:1px solid var(--hairline)}
+.stm-prow{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--hairline)}
+.stm-prow.known{opacity:.55}
+.stm-pwhen{flex:none;width:46px;font-size:12px;font-weight:600;color:var(--ink-2);line-height:1.35}
+.stm-pwhen span{display:block;font-weight:400;color:var(--muted)}
+.stm-pwhat{flex:1;min-width:0}
+.stm-ptxt{font-size:13.5px;color:var(--ink);line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word}
+.stm-ptag{font-size:11.5px;color:var(--muted);margin-top:2px}
+.stm-pamt{flex:none;font-size:13.5px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
+.stm-pamt.in{color:var(--good)}
+.stm-pmore{display:block;margin:12px auto 0;min-height:44px}
+.stm-gobar{position:sticky;bottom:0;background:var(--white);padding:10px 0 2px;margin-top:6px}
+.stm-flow .btn-line{width:100%;margin:0}
+.stm-flow .btn-line.busy,.stm-flow .btn-line:disabled{opacity:.7;cursor:default;display:flex;align-items:center;justify-content:center;gap:10px}
+.stm-spin{width:16px;height:16px;border-radius:50%;border:2px solid var(--hairline);border-top-color:var(--brand);animation:fhspin2 .7s linear infinite;flex:none}
+@media (prefers-reduced-motion:reduce){.stm-spin{animation-duration:2s}}
 /* ---- settings sheet/modal internals (family, members, savings, income) ----
    Tokens only: these screens must re-theme with the rest of the app. */
 .fh-s-cta{width:100%;background:var(--grad-brand);color:#fff;font-size:16px;font-weight:700;letter-spacing:-.02em;padding:15px;border-radius:9999px;box-shadow:0 8px 20px var(--brand-glow);margin-top:6px}
@@ -15724,7 +15745,7 @@ var csvSelTouched = false;
 function csvBulkReset(){
   csvBulkArmed = false; csvSelTouched = false;
   csvToolSheet = null; csvEditRow = null;
-  csvPickF = { src:{}, dup:null, nocat:false, week:false };
+  csvPickF = csvPickBlank();
 }
 
 function csvStagedSelectAll(on){
@@ -15881,11 +15902,17 @@ var csvEditRow = null;     // ②'s open accordion row: null | 'cat' | 'scope' |
 /* ①'s conditions. src is a set (OR between its keys); dup is three-valued
    (null = either, 'no' = only clean, 'yes' = only suspects); the rest are
    plain toggles. AND between the groups is just every check having to pass. */
-var csvPickF = { src:{}, dup:null, nocat:false, week:false };
+/* via: how the row was captured -- null = either, 'stmt' = parsed from a statement
+   file, 'email' = a transaction email. stmt: a SET of statement ids (OR between them),
+   so one statement's rows can be ticked, or left, as a block: a statement is mostly
+   rows the ledger already has, and the person reviews it as a unit. */
+function csvPickBlank(){ return { src:{}, dup:null, nocat:false, week:false, via:null, stmt:{} }; }
+var csvPickF = csvPickBlank();
 
 function csvPickCount(){
   return Object.keys(csvPickF.src).length + (csvPickF.dup ? 1 : 0)
-    + (csvPickF.nocat ? 1 : 0) + (csvPickF.week ? 1 : 0);
+    + (csvPickF.nocat ? 1 : 0) + (csvPickF.week ? 1 : 0)
+    + (csvPickF.via ? 1 : 0) + Object.keys(csvPickF.stmt || {}).length;
 }
 /* "Tuần này" is anchored to the QUEUE's newest row, not the wall clock — a
    backfill reviewed on Monday is all last week, and a clock-anchored week
@@ -15907,7 +15934,21 @@ function csvPickMatch(c, weekMax){
   if(csvPickF.dup === 'likely' && csvDupTier(c) !== 'likely') return false;
   if(csvPickF.nocat && c.categoryName) return false;
   if(csvPickF.week && !(c.date && (weekMax - +c.date) < 7 * 864e5)) return false;
+  var st = csvStmtOf(c);
+  if(csvPickF.via === 'stmt' && !st) return false;
+  if(csvPickF.via === 'email' && st) return false;
+  var sids = Object.keys(csvPickF.stmt || {});
+  if(sids.length && !(st && csvPickF.stmt[st.id])) return false;
   return true;
+}
+/* The statement a candidate was parsed from, or null for an email row
+   (77-statement-capture.js owns the lookup; absent = no statements at all). */
+function csvStmtOf(c){ return (typeof window.fhStmtOfCand === 'function') ? window.fhStmtOfCand(c) : null; }
+function csvPickViaTgl(v){ csvPickF.via = (csvPickF.via === v) ? null : v; if(v === 'email') csvPickF.stmt = {}; renderCsvReview(); }
+function csvPickStmtTgl(id){
+  if(csvPickF.stmt[id]) delete csvPickF.stmt[id]; else csvPickF.stmt[id] = 1;
+  if(csvPickF.via === 'email') csvPickF.via = null;     // picking a statement and "email only" cannot both hold
+  renderCsvReview();
 }
 function csvPickMatches(){
   var wk = csvPickWeekMax();
@@ -15923,7 +15964,7 @@ function csvPickSrcTgl(p){
 function csvPickDupTgl(v){ csvPickF.dup = (csvPickF.dup === v) ? null : v; renderCsvReview(); }
 function csvPickNocatTgl(){ csvPickF.nocat = !csvPickF.nocat; renderCsvReview(); }
 function csvPickWeekTgl(){ csvPickF.week = !csvPickF.week; renderCsvReview(); }
-function csvPickClear(){ csvPickF = { src:{}, dup:null, nocat:false, week:false }; renderCsvReview(); }
+function csvPickClear(){ csvPickF = csvPickBlank(); renderCsvReview(); }
 
 /* The three verbs. 'set' replaces the ticks with the matched set, 'add' unions
    it in, 'sub' takes it out — run twice with different conditions they compose
@@ -15996,6 +16037,18 @@ function csvPickSheetHTML(){
   h += '<div class="ctp-g"><div class="ctp-l">'+esc(L('Nguồn','Source'))+'</div><div class="ctp-r">'
     + ps.map(function(p){ return csvPickChip(!!csvPickF.src[p], p, g[p].n, "csvPickSrcTgl('"+escAttr(p)+"')"); }).join('')
     + '</div></div>';
+  /* Sao kê: shown only when the queue actually holds statement rows. First the
+     two-way split, then one chip per statement when there is more than one. */
+  var stmts = {}, stmtN = 0;
+  ready.forEach(function(c){ var st = csvStmtOf(c); if(!st) return; stmtN++; (stmts[st.id] = stmts[st.id] || { title: st.title, n: 0 }).n++; });
+  if(stmtN){
+    var sk = Object.keys(stmts).sort(function(a, b){ return stmts[a].title < stmts[b].title ? -1 : 1; });
+    h += '<div class="ctp-g"><div class="ctp-l">'+esc(L('Sao kê','Statements'))+'</div><div class="ctp-r">'
+      + csvPickChip(csvPickF.via === 'stmt', L('Từ sao kê','From a statement'), stmtN, "csvPickViaTgl('stmt')")
+      + (ready.length - stmtN ? csvPickChip(csvPickF.via === 'email', L('Từ email','From an email'), ready.length - stmtN, "csvPickViaTgl('email')") : '')
+      + (sk.length > 1 ? sk.map(function(id){ return csvPickChip(!!csvPickF.stmt[id], stmts[id].title, stmts[id].n, "csvPickStmtTgl('"+escAttr(id)+"')"); }).join('') : '')
+      + '</div></div>';
+  }
   if(dupN){
     h += '<div class="ctp-g"><div class="ctp-l">'+esc(L('Trùng lặp','Duplicates'))+'</div><div class="ctp-r">'
       + csvPickChip(csvPickF.dup === 'no', L('Không trùng','Not duplicates'), ready.length - dupN, "csvPickDupTgl('no')")
@@ -22515,7 +22568,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v539';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v540';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -40465,7 +40518,7 @@ window.classifyAmount = classifyAmount;
        discriminator, and only retirement looks at it. */
     function fhStmtAsStaged(id, p) {
       return {
-        id: id, _stmt: true, statement_id: p.sid, row_fp: p.fp || null,
+        id: id, _stmt: true, statement_id: p.sid, statement_title: p.stitle || '', row_fp: p.fp || null,
         member_id: null, source_provider: p.provider,
         /* A day-only row is stored at UTC midnight -- the convention fhStagedRowTime
            and the richest-copy merge already read as "no clock", so neither invents
@@ -40599,6 +40652,14 @@ window.classifyAmount = classifyAmount;
       const mine = new Set(_stmPick(ids).map((r) => r.id));
       return { email: (ids || []).filter((i) => !mine.has(i)), stmt: [...mine] };
     };
+    /* For "Chọn nhanh" (56): which statement, if any, a review candidate came from.
+       Rows written before the title rode along fall back to the bank's name. */
+    window.fhStmtOfCand = function (c) {
+      const r = (c && typeof c.rowIndex === 'number' && window._fhStagedRows) ? window._fhStagedRows[c.rowIndex] : null;
+      if (!r || !r._stmt) return null;
+      return { id: r.statement_id, title: r.statement_title || (L('Sao kê ', 'Statement · ') + (window.fhProviderName ? window.fhProviderName(r.source_provider) : r.source_provider)) };
+    };
+
     window.fhStmtRetire = async function (ids) {
       const rows = _stmPick(ids); if (!rows.length) return 0;
       _stmRetAdd(rows.map((r) => r.id));
@@ -40611,8 +40672,18 @@ window.classifyAmount = classifyAmount;
        wall of backlog. */
     let _stmOldOpen = false, _stmArmed = null;
     const _stmDM = (iso) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ''); return m ? m[3] + '/' + m[2] : ''; };
+    /* What the statement is OF, from the mail's own subject: a bank sends a card
+       statement and an account statement on the same morning, and "Sao kê VIB · 13/07"
+       twice tells the person nothing. Empty when the subject does not say. */
+    function _stmKindWord(card) {
+      const subj = String((card.meta && card.meta.subject) || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      if (/the tin dung|credit card/.test(subj)) return L('thẻ tín dụng', 'credit card');
+      if (/tai khoan|account/.test(subj)) return L('tài khoản', 'account');
+      if (/momo|zalopay|shopeepay|vi dien tu|wallet/.test(subj + ' ' + String(card.source_provider).toLowerCase())) return L('ví', 'wallet');
+      return '';
+    }
     function _stmTitle(card) {
-      const bank = window.fhProviderName ? window.fhProviderName(card.source_provider) : card.source_provider;
+      const bank = (window.fhProviderName ? window.fhProviderName(card.source_provider) : card.source_provider) + (_stmKindWord(card) ? ' ' + _stmKindWord(card) : '');
       const m = card.meta || {};
       let when = '';
       if (m.period_from && m.period_to) when = _stmDM(m.period_from) + ' – ' + _stmDM(m.period_to);
@@ -40636,10 +40707,25 @@ window.classifyAmount = classifyAmount;
           (armed ? _esc(L('Bỏ?', 'Remove?')) : '✕') + '</button>' +
         '</div></div>';
     }
+    /* Filter by bank. Six statements from two banks is already a list worth narrowing,
+       and a year of history is thirty. Chips appear only when there is a choice to make;
+       the same chip style as "Chọn nhanh", so it reads as the same kind of control. */
+    let _stmProvF = null;
+    const _stmProvOf = (c) => (window.fhProviderName ? window.fhProviderName(c.source_provider) : c.source_provider) || L('Khác', 'Other');
+    window.fhStmtProvTgl = function (p) { _stmProvF = (_stmProvF === p || p === '') ? null : p; window.renderCsvReview && window.renderCsvReview(); };
+    function _stmProvChips() {
+      const n = {}; _stmCards.forEach((c) => { const p = _stmProvOf(c); n[p] = (n[p] || 0) + 1; });
+      const ps = Object.keys(n).sort(); if (ps.length < 2) { _stmProvF = null; return ''; }
+      if (_stmProvF && !n[_stmProvF]) _stmProvF = null;
+      const chip = (on, label, cnt, arg) => '<button type="button" class="ctp-chip' + (on ? ' on' : '') + '" onclick="fhStmtProvTgl(\'' + _escAttr(arg) + '\')">' + _esc(label) + ' <span class="ctp-n">' + cnt + '</span></button>';
+      return '<div class="ctp-r stm-provs">' + chip(!_stmProvF, L('Tất cả', 'All'), _stmCards.length, '') + ps.map((p) => chip(_stmProvF === p, p, n[p], p)).join('') + '</div>';
+    }
     window.fhStmtCardsHTML = function () {
       if (!_stmCards.length) return '';
-      const fresh = _stmCards.filter((c) => !c.backfill), old = _stmCards.filter((c) => c.backfill);
-      let html = '';
+      const chips = _stmProvChips();
+      const shown = _stmCards.filter((c) => !_stmProvF || _stmProvOf(c) === _stmProvF);
+      const fresh = shown.filter((c) => !c.backfill), old = shown.filter((c) => c.backfill);
+      let html = chips ? '<div class="group-h attn">' + _esc(L('Sao kê', 'Statements')) + ' · ' + _stmCards.length + '</div>' + chips : '';
       if (fresh.length) html += '<div class="group-h attn">' + _esc(L('Sao kê chờ mở', 'Statements to open')) + ' · ' + fresh.length + '</div><div class="csv-cards">' + fresh.map(_stmCardHTML).join('') + '</div>';
       if (old.length) {
         html += '<div class="group-h csv-sure-h"><span>' + _esc(L('Sao kê cũ', 'Older statements')) + ' · ' + old.length + '</span>' +
@@ -40813,15 +40899,42 @@ window.classifyAmount = classifyAmount;
     /* Which of the parsed rows the ledger already has -- the same engine the review
        uses, run early so the summary can say "16 mới". A count for the person, never
        a filter: every row is still written (decision S15). */
-    async function _stmKnownCount(rows) {
+    async function _stmVerdicts(rows) {
       try {
         if (!window.fhDedupAssess || !window.fhDedupLedgerIndex) return null;
         if (!window._fhPersonalMatchSlice && window.fhPersonalMatchSlice) window._fhPersonalMatchSlice = await window.fhPersonalMatchSlice();
         const cands = rows.map((r) => ({ amount: Math.abs(r.amt), date: new Date(r.date + 'T00:00:00'), dateDisplay: r.date, time: r.time || '',
           description: (r.cls && r.cls.memo) || r.description || '', counterparty: (r.cls && r.cls.counterparty) || '', isIncome: r.amt > 0, isTransfer: false, currency: 'VND', kind: 'bank', provider: S.card.source_provider }));
-        const v = window.fhDedupAssess(cands, window.fhDedupLedgerIndex(), {});
-        return v.filter((x) => x && x.tier === 'sure').length;
+        return window.fhDedupAssess(cands, window.fhDedupLedgerIndex(), {});
       } catch (e) { return null; }
+    }
+
+    /* The rows about to be written, newest first, so the person sees WHAT before they
+       agree to it: a summary line alone asks for trust in a parser they have never
+       watched work. Read-only on purpose -- editing belongs to the review, where every
+       row gets the full card. */
+    const STM_PREVIEW_STEP = 40;
+    let _stmPreviewN = STM_PREVIEW_STEP;
+    window.fhStmtPreviewMore = function () { _stmPreviewN += 200; _stmRenderSummary(); };
+    function _stmPreviewHTML() {
+      const list = (S.fresh || []).slice().reverse();
+      if (!list.length) return '';
+      const money = (n) => (typeof csvFmt === 'function' ? csvFmt(Math.abs(n)) : String(Math.abs(n)));
+      const rows = list.slice(0, _stmPreviewN).map((x) => {
+        const r = x.r, c = r.cls || {}, v = x.verdict;
+        const what = c.counterparty || c.memo || r.description || '';
+        const tag = (v && v.tier === 'sure') ? L('đã có trong sổ', 'already booked')
+          : c.flow === 'cardpay' ? L('trả nợ thẻ', 'card payment')
+          : (c.flow === 'topup' || c.selfTransfer) ? L('chuyển nội bộ?', 'own transfer?')
+          : c.fundedElsewhere ? L('trả từ ngân hàng liên kết', 'paid from a linked bank') : '';
+        return '<div class="stm-prow' + (v && v.tier === 'sure' ? ' known' : '') + '">' +
+          '<div class="stm-pwhen">' + _esc(_stmDM(r.date)) + (r.time ? '<span>' + _esc(r.time) + '</span>' : '') + '</div>' +
+          '<div class="stm-pwhat"><div class="stm-ptxt">' + _esc(what || L('(chưa có nội dung)', '(no description)')) + '</div>' + (tag ? '<div class="stm-ptag">' + _esc(tag) + '</div>' : '') + '</div>' +
+          '<div class="stm-pamt' + (r.amt > 0 ? ' in' : '') + '">' + (r.amt > 0 ? '+' : '−') + _esc(money(r.amt)) + '</div></div>';
+      }).join('');
+      const left = list.length - Math.min(list.length, _stmPreviewN);
+      return '<div class="stm-preview">' + rows + '</div>' +
+        (left > 0 ? '<button type="button" class="csv-linkbtn stm-pmore" onclick="fhStmtPreviewMore()">' + _esc(L('Xem thêm ' + left + ' khoản', 'Show ' + left + ' more')) + '</button>' : '');
     }
 
     function _stmAcctKind() {
@@ -40855,7 +40968,15 @@ window.classifyAmount = classifyAmount;
       const fresh = [];
       p.rows.forEach((r, i) => { if (!decided.has(fps[i])) fresh.push({ r: r, fp: fps[i] }); });
       S.fresh = fresh; S.decidedCount = p.rows.length - fresh.length;
-      const known = await _stmKnownCount(fresh.map((x) => x.r));
+      const verdicts = await _stmVerdicts(fresh.map((x) => x.r));
+      if (verdicts) fresh.forEach((x, i) => { x.verdict = verdicts[i] || null; });
+      S.known = verdicts ? verdicts.filter((x) => x && x.tier === 'sure').length : null;
+      _stmPreviewN = STM_PREVIEW_STEP;
+      _stmRenderSummary();
+    }
+
+    function _stmRenderSummary() {
+      const p = S.parsed, fresh = S.fresh, known = S.known, tail = S.acct.tail;
 
       const bank = window.fhProviderName ? window.fhProviderName(S.card.source_provider) : S.card.source_provider;
       const kindLabel = { ewallet: L('Ví điện tử', 'E-wallet'), credit_card: L('Thẻ tín dụng', 'Credit card'), deposit: L('Tài khoản', 'Account') }[S.acct.kind];
@@ -40869,7 +40990,9 @@ window.classifyAmount = classifyAmount;
         '<div class="csv-unlock-note">' + _esc(fresh.length
           ? L('Các khoản sẽ vào "Duyệt giao dịch" để bạn xem từng khoản. Chưa có gì được ghi vào sổ.', 'The rows go to your review queue. Nothing is written to a ledger yet.')
           : L('Bạn đã xử lý hết các khoản trong sao kê này rồi.', 'You have already handled every row in this statement.')) + '</div>' +
-        '<button type="button" class="btn-line csv-unlock-go" id="stm-go" onclick="fhStmtCommit()">' + _esc(fresh.length ? L('Đưa vào hàng chờ duyệt', 'Add to the review queue') : L('Xong', 'Done')) + '</button>' + _stmBackBtn());
+        _stmPreviewHTML() +
+        '<div class="stm-gobar"><button type="button" class="btn-line csv-unlock-go" id="stm-go" onclick="fhStmtCommit()">' + _esc(fresh.length ? L('Đưa vào hàng chờ duyệt', 'Add to the review queue') : L('Xong', 'Done')) + '</button>' +
+        '<div id="stm-back">' + _stmBackBtn() + '</div></div>');
     }
 
     /* Merchant names only -- never a person, an amount or a date -- to the
@@ -40887,19 +41010,30 @@ window.classifyAmount = classifyAmount;
     }
 
     window.fhStmtCommit = async function () {
-      if (!S || !S.fresh) return;
-      const btn = document.getElementById('stm-go'); if (btn) btn.disabled = true;
+      if (!S || !S.fresh || S.committing) return;      // a second tap while the first is in flight does nothing
+      S.committing = true;
+      const btn = document.getElementById('stm-go'), back = document.getElementById('stm-back');
+      /* Encrypting a hundred-odd rows and one round trip take a few seconds on a phone.
+         A button that just sits there gets tapped again, so it goes busy at once, says
+         what it is doing, counts as it goes, and the way out is hidden until it ends. */
+      const busy = (txt) => { if (btn) { btn.disabled = true; btn.classList.add('busy'); btn.innerHTML = '<span class="stm-spin" aria-hidden="true"></span>' + _esc(txt); } };
+      busy(L('Đang chuẩn bị…', 'Preparing…'));
+      if (back) back.hidden = true;
       const card = S.card;
       try {
         if (S.confirmedMap && S.parsed.table) _stmMapSet(card.source_provider, S.parsed.sig, S.parsed.table.roles);
         if (S.acct && window.fhPersonalAccountEnsure) { try { await window.fhPersonalAccountEnsure({ kind: S.acct.kind, provider: S.acct.provider, tail: S.acct.tail,
           name: (window.fhProviderName ? window.fhProviderName(S.acct.provider) : S.acct.provider) + (S.acct.tail ? ' ••' + S.acct.tail : '') }); } catch (e) {} }
-        const payloads = S.fresh.map((x) => Object.assign(fhStmtRowPayload(x.r, S.acct, card.id), { fp: x.fp }));
+        const stitle = _stmTitle(card);
+        const payloads = S.fresh.map((x) => Object.assign(fhStmtRowPayload(x.r, S.acct, card.id), { fp: x.fp, stitle: stitle }));
+        busy(L('Đang gợi ý danh mục…', 'Suggesting categories…'));
         await _stmConcepts(payloads);
         const rows = [];
         for (let i = 0; i < payloads.length; i++) {
           rows.push({ id: crypto.randomUUID(), row_index: i, txn_date: payloads[i].date, payload_enc: await _stmEncJson(payloads[i]) });
+          if (i % 10 === 0) { busy(L('Đang mã hoá ' + (i + 1) + '/' + payloads.length + '…', 'Encrypting ' + (i + 1) + '/' + payloads.length + '…')); await new Promise((r) => setTimeout(r, 0)); }
         }
+        busy(L('Đang đưa vào hàng chờ…', 'Adding to the queue…'));
         /* ONE transaction: every row, and the card marked opened. A dropped connection
            leaves the card as it was and no partial rows. */
         await _rpc('stage_statement_rows', { p_statement_id: card.id, p_rows: rows });
@@ -40916,7 +41050,9 @@ window.classifyAmount = classifyAmount;
         window.toast && window.toast(L('Đã đưa ' + rows.length + ' khoản vào hàng chờ duyệt', rows.length + ' rows added to your review queue'));
         window.fhTxnReviewSheet && window.fhTxnReviewSheet(window.csvEntryScope);
       } catch (e) {
-        if (btn) btn.disabled = false;
+        if (S) S.committing = false;
+        if (btn) { btn.disabled = false; btn.classList.remove('busy'); btn.textContent = L('Đưa vào hàng chờ duyệt', 'Add to the review queue'); }
+        if (back) back.hidden = false;
         window.toast && window.toast(L('Chưa lưu được, thử lại nhé. Chưa có gì thay đổi.', 'Could not save, try again. Nothing was changed.'));
       }
     };

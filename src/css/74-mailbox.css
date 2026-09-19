@@ -686,3 +686,24 @@ button.csv-srow:active{background:var(--surface)}
 .stm-maprow b{color:var(--ink);font-weight:600;text-align:right;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .csv-fxfix-row{margin-top:8px}
 .csv-fxfix{min-height:44px;font-size:13px}
+/* statement capture, round two (first real use, 2026-09-19): the bank filter over the
+   cards, the read-only preview of what is about to be queued, and a call to action
+   that visibly works once. The preview rows are deliberately NOT review cards: nothing
+   here is editable, so nothing here should look tappable. */
+.stm-provs{margin:0 2px 10px}
+.stm-preview{margin-top:14px;border-top:1px solid var(--hairline)}
+.stm-prow{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--hairline)}
+.stm-prow.known{opacity:.55}
+.stm-pwhen{flex:none;width:46px;font-size:12px;font-weight:600;color:var(--ink-2);line-height:1.35}
+.stm-pwhen span{display:block;font-weight:400;color:var(--muted)}
+.stm-pwhat{flex:1;min-width:0}
+.stm-ptxt{font-size:13.5px;color:var(--ink);line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word}
+.stm-ptag{font-size:11.5px;color:var(--muted);margin-top:2px}
+.stm-pamt{flex:none;font-size:13.5px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
+.stm-pamt.in{color:var(--good)}
+.stm-pmore{display:block;margin:12px auto 0;min-height:44px}
+.stm-gobar{position:sticky;bottom:0;background:var(--white);padding:10px 0 2px;margin-top:6px}
+.stm-flow .btn-line{width:100%;margin:0}
+.stm-flow .btn-line.busy,.stm-flow .btn-line:disabled{opacity:.7;cursor:default;display:flex;align-items:center;justify-content:center;gap:10px}
+.stm-spin{width:16px;height:16px;border-radius:50%;border:2px solid var(--hairline);border-top-color:var(--brand);animation:fhspin2 .7s linear infinite;flex:none}
+@media (prefers-reduced-motion:reduce){.stm-spin{animation-duration:2s}}

@@ -61,6 +61,16 @@ consent v5.
   name, a hash that could never match. Every other statement test passed because none
   went through the load; `tools/statement-load.test.js` now does, with a card sealed by
   the server's `sealForFamily` and opened by the app's own `fhStagingOpenRow`.
+- **First real use, four asks (SW v540).** (1) The cards carry a bank filter (chips, only
+  when there is more than one bank) and say what they are OF — "Sao kê VIB thẻ tín dụng"
+  vs "Sao kê VIB tài khoản" — since a bank sends both on one morning. (2) The summary
+  now SHOWS every row about to be queued (when · what · how much, newest first, "đã có
+  trong sổ" dimmed), read-only: editing belongs to the review. (3) "Đưa vào hàng chờ
+  duyệt" goes busy at once, says what it is doing ("Đang mã hoá 40/145…"), hides the way
+  out, and a second tap while the first is in flight does nothing. (4) "Chọn nhanh" gains
+  a Sao kê group: Từ sao kê / Từ email, and one chip per statement. Each row now carries
+  its statement's title. Tests: `tools/statement-flow.test.js` (the whole unlock path with
+  real sealing, incl. four taps → one write), `tools/statement-quick-select.test.js`.
 - **Not built:** the model as a column-reading fallback, an editable mapping check,
   the correction button for family-ledger twins, a card's closing debt. Spec §6.
 
