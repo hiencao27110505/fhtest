@@ -1,5 +1,5 @@
 # Receipt scan  (brief, 2026-09-15)
-Status: storyboard-sent
+Status: shipped-preview
 
 Supersedes the 2026-09-14 draft. Written end first, per `docs/WORKFLOW.md`. Why the feature is shaped this way: `research/jtbd-individual-finance.md`, Part 4.
 
