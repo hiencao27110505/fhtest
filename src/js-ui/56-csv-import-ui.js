@@ -3354,7 +3354,7 @@ function csvReadyRemove(i){
     if(csvArmedRemove !== i){ csvArmedRemove = i; renderCsvReview(); return; }
     csvArmedRemove = null;
     var gone = csvReview.ready[i];
-    csvStmtTagTwin(gone);
+    if(typeof csvStmtTagTwin === 'function') csvStmtTagTwin(gone);
     csvReview.ready.splice(i,1); csvExpand = null; renderCsvReview();
     // Retire it now, not at the next Import that may never come.
     if(window.fhStagedDropOne) window.fhStagedDropOne(gone);
