@@ -87,6 +87,14 @@ consent v5.
   statement now corrects a guessed account kind (the email classifier had filed the
   real VIB account, ••5140, as a credit card). Remember-password is a checkbox again;
   the summary's CTA sits in the flow, not sticky.
+- **Why the app pre-selected the wrong instrument (mailbox-sync v51, migration 0143).**
+  `deriveAccountKind` read any 15–16 digit number as a card PAN, and VIB account numbers
+  are 15 digits: every VIB account notice froze `credit_card` into its template, so the
+  real account (••5140, 341 rows) was materialized as a credit card and every "which
+  card / which account" pre-selection built on that was wrong. Also, "dư nợ" anywhere
+  meant card, which filed the account-side "Thanh toán thẻ tín dụng thành công" as the
+  card. Fixed in both copies of the rule; 0143 strips the frozen `account_kind` from all
+  nine templates that carried it, so the kind is derived per mail under the fixed rule.
 - **Not built:** the model as a column-reading fallback, an editable mapping check,
   the correction button for family-ledger twins, a card's closing debt. Spec §6.
 

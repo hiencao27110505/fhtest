@@ -246,8 +246,17 @@ function deriveAccountKind(input) {
   var body = _akNorm(input && input.bodyText);
   var subject = _akNorm(input && input.subject);
   var provider = _akNorm(input && input.provider).replace(/[^a-z0-9]/g, '');
-  // 1. a credit limit or an outstanding balance — deposit accounts have neither
-  if (/\bhan muc kha dung\b/.test(body) || /\bdu no\b/.test(body)) return 'credit_card';
+  // 1. a credit limit or an outstanding balance — deposit accounts have neither.
+  //    EXCEPT a card PAYMENT reported from the account side: "Thanh toán thẻ tín
+  //    dụng … thành công" shows the card's dư nợ after payment AND the account's
+  //    số dư, and the money moved on the account. A card statement prints a
+  //    balance too, so the payment wording is what tells them apart.
+  //    Reading it as a card filed every VIB card payment against the card's own
+  //    debt and a real VIB account ended up kinded credit_card (2026-09-19).
+  if (/\bhan muc kha dung\b/.test(body) || /\bdu no\b/.test(body)) {
+    var payingCard = /\b(thanh toan|tra no) (the|sao ke)\b/.test(subject + ' ' + body) && /\bso du\b/.test(body);
+    if (!payingCard) return 'credit_card';
+  }
   // 2. the wallet providers are e-wallets whatever the body says about balances
   for (var i = 0; i < _AK_EWALLETS.length; i++) {
     if (provider.indexOf(_AK_EWALLETS[i]) >= 0) return 'ewallet';
@@ -257,10 +266,12 @@ function deriveAccountKind(input) {
   // 4. the subject names the product where a terse body does not
   if (/\bthe tin dung\b/.test(subject)) return 'credit_card';
   if (/\bso du tai khoan\b/.test(subject) || /\bbien dong so du\b/.test(subject)) return 'deposit';
-  // 5. tiebreaker: a 16-digit masked PAN is a card; bank account numbers are shorter
-  var pan = String(input && input.accountMasked != null ? input.accountMasked : '').replace(/[\s.-]/g, '');
-  if (/^[0-9Xx*\u2022\u2026]{15,16}$/.test(pan) && /[0-9]/.test(pan)) return 'credit_card';
-  // 6. unknown stays unknown — null, never a guessed debt
+  // 5. (removed 2026-09-19) a 15–16 digit number was read as a card PAN. VIB
+  //    account numbers are 15 digits, so every number-bearing account notice
+  //    froze `credit_card` into its template and the person's real account was
+  //    materialized as a card. The client dropped the same heuristic on
+  //    2026-09-02 (full-ledger-spec T12); the server kept it. A number says
+  //    nothing about kind — unknown stays unknown, never a guessed debt.
   return null;
 }
 

@@ -149,7 +149,12 @@ hand-merging `index.html`. Both replaced vigilance with structure.
   byte-identical to `main`). `merchant-concepts` v1 and `mailbox-sync` **v50** DEPLOYED the same
   day from `.deploy/statement-capture/` (see ⚠️ below); first ticks on v50 clean (200s, no holds).
   `0142_statement_orphan_objects` APPLIED too (account deletion no longer strands a sealed file).
-  Next free migration is `0143`.** A bank/e-wallet statement
+  `0143_strip_account_kind_statics` APPLIED and `mailbox-sync` **v51** deployed (same deploy tree +
+  the classifier fix): `deriveAccountKind` no longer reads a 15–16 digit number as a card PAN (VIB
+  account numbers are 15 digits; the real ••5140 account was materialized as a credit card) and
+  reads an account-side card payment (thanh toán thẻ + số dư) as the account. Both copies edited
+  (`templates.mjs` + `bank-email-pipeline.gs`); ⚠️ the .gs twin is deployed by paste and is NOT
+  pasted yet. Next free migration is `0144`.** A bank/e-wallet statement
   (`.xlsx`/`.csv` attachment, usually password-locked) becomes one locked card in "Duyệt giao
   dịch", then N rows after the owner unlocks it on the device. Spec + decision log:
   `docs/specs/statement-capture-spec.md`. Worktree `.worktrees/statement-capture`. SW **v538**.
