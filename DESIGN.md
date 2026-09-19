@@ -166,6 +166,19 @@ Soft, layered, low-opacity — never a hard drop shadow. Use the token, not a ra
 
 ## 3. Components
 
+### Reuse before inventing
+Before designing a screen, **name the screen in this app that already does the same job, and copy its
+grammar.** A review list commits from the **nav bar**, with the count in the Save label and grey until
+something is ready — that is what the CSV import review does (`csv-save`, "Nhập 3"). Sheets commit from
+a bottom `.cta`; modals do not. A genuinely new component is allowed, but it gets a name and a line in
+this file **in the same change**. Accidental novelty is the defect, not novelty itself.
+
+### Spacing composes, so don't stack it
+`.card` and `.rows` already carry `margin:0 16px`. Never nest them in a container that adds side padding
+(`.modal-body` adds 20px) or they land at 36px while the nav, the section header and the buttons stay at
+16px — the screen reads as if the list is floating. When a surface needs flush rows, zero the container's
+side padding; never strip the component's own margin.
+
 ### Buttons
 - **Primary CTA** (`.cta`): full-width pill, `--grad-brand` fill, white 17/700, `padding:17px`,
   `radius:9999px`, brand glow shadow. One per screen, bottom-anchored in modals/onboarding.
@@ -282,6 +295,18 @@ live changes during the session, never on the reopen replay. All these cards are
 give them `width:calc(100% - 32px)` (buttons shrink-to-fit; `width:100%` plus
 margins overflows).
 
+### Receipt scan (`.scan-*`)
+- **Capture surface** (`.scan-cam`): Apple's document-scanner skeleton — a full-screen camera with
+  corner brackets (`.scan-frame i`), one narrator line (`.scan-say`), a three-column bar
+  (`.scan-bar`) so the shutter (`.scan-shutter`, 74px) never moves: library on the left
+  (`.scan-lib`, 44px), a tray on the right (`.scan-tray`) counting captures with `.n`, and one commit
+  verb. It is a photographic surface, so it carries its own two tokens, `--scan-bg` / `--scan-fg`,
+  instead of the page palette.
+- **Review list** (`#scan-review`): a `.modal` whose body drops its side padding so the ledger's own
+  `.rows` / `.row` sit at the app gutter; receipt as the row tile; commit from the nav Save with the
+  count in its label, as the CSV import review does. States: `.scan-skel` placeholder while reading,
+  `.scan-warn` (amber) for a doubtful amount, `.scan-act` (brand ink) for "tap to type it in".
+
 ### Photo / memory system
 - **Mosaic** (`.photo-mosaic`): 6-col grid, dynamic collage by count (1 hero / 2 halves / 3 big+2 /
   4-up / 5+ hero+grid), tiny 2px gaps, rounded inset card, container-query sized so cells stay square.
@@ -297,7 +322,9 @@ margins overflows).
 |---|---|---|---|
 | **Tab views** (`.view`) | base | The 3 primary tabs (Nhà / Tài Chính / Khoảnh Khắc — Home merges nothing; the former Events + Memories are unified under Khoảnh Khắc) | Tab bar |
 | **Push overlay** (`.overlay`) | 45–49 | Read/drill-in detail that keeps context (category detail, event, memory, photos-by-date) | Back chevron (top-left), slides right |
+| **Scan review** (`#scan-review`) | 61 | The receipt review list: above sheets, below the expense form it drills into | Nav Cancel (arm-then-confirm), nav Save |
 | **Full-screen modal** (`.modal`) | 62 | **Create/edit forms** with several inputs (log expense, new event, add memory, suggest, settings/budget) and **long self-contained tasks holding unsaved state** (bulk photo assign). Nav bar = Cancel · Title · Save | Cancel, or **drag down**; rises from bottom |
+| **Scan capture** (`.scan-cam`) | 66 | The live camera; above every modal and sheet, below the photo viewer (68) | Huỷ, or Xong into the review |
 | **Bottom sheet** (`.sheet`) | 60 | **Quick pickers / menus** (add menu, month, category filter, theme) | Tap scrim, or drag down; rises from bottom |
 
 - **Form → modal. Quick pick → sheet.** Don't put a multi-field form in a sheet, and don't make a
@@ -492,6 +519,8 @@ Money inputs are `inputmode="numeric"` (never `type="number"` — the values are
 ## 7. Quick checklist for any new feature
 
 - [ ] Right layer? (tab / overlay / modal / sheet — §4)
+- [ ] Every element traces to a component named in §3, composed the way an existing screen composes it; anything new is named here in the same change.
+- [ ] One gutter per screen: `.card` / `.rows` keep their own margin and never sit inside a padded container.
 - [ ] Semantic color tokens only; one accent per view; no colored info-card fills.
 - [ ] Type from the scale; `--disp` + tabular nums for money.
 - [ ] 16px gutters, pill buttons, 13px input radius, soft layered shadows.

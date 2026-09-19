@@ -45,6 +45,8 @@
       // device holds no key we can't produce '.enc' bytes, so refuse rather than
       // silently store the face/photo in the clear.
       if (window.fhEncState && window.fhEncState() === 'enc' && !(window.fhKeyReady && window.fhKeyReady())) return null;
+      // Decide receipt-or-not on the ORIGINAL string: compression mints a new data URI the receipt set has never seen.
+      const rcpt = (window.fhIsReceiptSrc && window.fhIsReceiptSrc(dataUri)) ? 'rcpt_' : '';
       dataUri = await _compressImage(dataUri);
       const m = dataUri.match(/^data:([^;]+);base64,(.*)$/); if (!m) return null;
       const mime = m[1]; const bin = atob(m[2]); let arr = new Uint8Array(bin.length);
@@ -57,7 +59,9 @@
          the key, not from hiding the address, and the immutable-cache model
          (below) keeps working unchanged. */
       if (_fhPhotoEncOn()) { arr = await fhEncBytes(arr); ext += '.enc'; ctype = 'application/octet-stream'; enc = true; }
-      const path = fid + '/' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.' + ext;
+      // 'rcpt_' marks a scanned receipt. The snapshot carries only this path, so the
+      // memories feed on every device can skip it without a column (docs/briefs/receipt-scan.md §8).
+      const path = fid + '/' + rcpt + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.' + ext;
       // Paths embed a timestamp + random suffix and are never overwritten, so the
       // bytes at a given URL are immutable — cache them for a year instead of
       // Supabase's 1h default, which would otherwise force a revalidation round
@@ -109,7 +113,9 @@
       }
     } catch (e) { console.warn('txn photos failed', e); failed++; }
     finally { try { window.fhUploadBusy && window.fhUploadBusy(-photos.length); } catch (e) {} }
-    _uploadOutcome(failed, photos.length);
+    // A receipt batch already announced itself once; a success toast per row would bury it. Failures still speak.
+    const quiet = !failed && photos.length && photos.every((p) => window.fhIsReceiptSrc && window.fhIsReceiptSrc(p));
+    if (!quiet) _uploadOutcome(failed, photos.length);
   }
   async function _dbUploadEventMemories(eventId, memories, baseSort) {
     baseSort = baseSort || 0; let failed = 0;
