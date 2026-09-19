@@ -77,6 +77,16 @@ consent v5.
   password" is a `.choice` chip, not a checkbox. The preview borrows the money-in strip's
   metrics. Copy shortened everywhere: the summary title is the count ("145 giao dịch"),
   the rest a muted line; error and note text lost their explanations.
+- **Ghost accounts (SW v542).** Two tail-less accounts, "VIB" (75 rows, from emails) and
+  "MoMo" (7 rows, from a statement), sat beside the real "VIB ••5140" / "MoMo ••1217".
+  Root cause, one rule in two places: `fhPersonalAccountEnsure` minted a tail-less
+  account whenever a number-less row named a provider that already had several
+  accounts. It now returns null there (an untagged row is one tap from right; a ghost
+  is a wrong balance). The statement path also stopped handing the WALLET's name to a
+  row paid from an unnamed linked bank, which is what tripped that rule. And a
+  statement now corrects a guessed account kind (the email classifier had filed the
+  real VIB account, ••5140, as a credit card). Remember-password is a checkbox again;
+  the summary's CTA sits in the flow, not sticky.
 - **Not built:** the model as a column-reading fallback, an editable mapping check,
   the correction button for family-ledger twins, a card's closing debt. Spec §6.
 

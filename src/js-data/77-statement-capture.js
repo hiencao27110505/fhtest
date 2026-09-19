@@ -119,7 +119,11 @@
       if (c.fundedElsewhere) {
         tail = '';
         if (c.fundingIsBank && !/ngan hang lien ket/i.test(String(c.funding).normalize('NFD').replace(/[\u0300-\u036f]/g, ''))) { provider = c.funding; kind = 'deposit'; }
-        else { kind = null; }
+        /* The file only says "a linked bank". The row must not keep the WALLET's name:
+           72's account resolver reads a wallet provider as kind ewallet even with no
+           number, and that minted a tail-less "MoMo" beside "MoMo ••1217" on the first
+           real run. The file's own words, and no kind, leave the row untagged. */
+        else { provider = c.funding || L('Ngân hàng liên kết', 'Linked bank'); kind = null; }
       }
       /* Transfer evidence (spec section 11). Level 2 only: structured evidence on one
          side -- the file's own funding column names a bank on a top-up, or the memo
@@ -429,16 +433,15 @@
       _stmPaint(_stmHead(L('File này có mật khẩu', 'This file needs a password'), _stmTitle(S.card)) +
         '<input id="stm-pw" type="password" class="csv-pw" autocomplete="off" placeholder="' + _escAttr(L('Nhập mật khẩu mở file', 'Enter the password')) + '" onkeydown="if(event.key===\'Enter\'){event.preventDefault();fhStmtUnlock();}">' +
         (wrong ? '<div class="csv-unlock-err">' + _esc(L('Mật khẩu chưa đúng, thử lại nhé', 'That password didn\'t work, try again')) + '</div>' : '') +
-        '<div class="choices stm-rem"><button type="button" class="choice' + (S.remember ? ' on' : '') + '" onclick="fhStmtRememberTgl(this)">' + _esc(L('Nhớ mật khẩu sao kê ' + bank + ' trên máy này', 'Remember ' + bank + ' statement password on this device')) + '</button></div>' +
+        '<label class="stm-remember"><input type="checkbox" id="stm-rem"' + (S.remember ? ' checked' : '') + '> <span>' + _esc(L('Nhớ mật khẩu sao kê ' + bank + ' trên máy này', 'Remember ' + bank + ' statement password on this device')) + '</span></label>' +
         '<button type="button" class="btn-line csv-unlock-go" onclick="fhStmtUnlock()">' + _esc(L('Mở file', 'Unlock')) + '</button>' +
         '<div class="csv-unlock-note">' + _esc(L('Mật khẩu chỉ dùng trên máy bạn, không gửi đi đâu. Nếu chọn nhớ, tụi mình giữ nó trên máy này, có mã hoá.', 'The password stays on your device and is never sent anywhere. If you choose to remember it, it is kept on this device, encrypted.')) + '</div>' + _stmBackBtn());
       const el = document.getElementById('stm-pw'); if (el) { try { el.focus(); } catch (e) {} }
     }
-    window.fhStmtRememberTgl = function (btn) { if (!S) return; S.remember = !S.remember; if (btn && btn.classList) btn.classList.toggle('on', S.remember); };
     window.fhStmtUnlock = function () {
       if (!S) return;
-      const el = document.getElementById('stm-pw');
-      S.password = el ? el.value : '';
+      const el = document.getElementById('stm-pw'), rem = document.getElementById('stm-rem');
+      S.password = el ? el.value : ''; S.remember = !!(rem && rem.checked);
       if (!S.password) { if (el) { try { el.focus(); } catch (e) {} } return; }
       _stmPaint(_stmHead(_stmTitle(S.card)) + _stmBusyLine(L('Đang mở file…', 'Opening the file…')));
       setTimeout(() => { _stmParse(true); }, 30);     // let the line above paint: the key derivation blocks for a second
@@ -583,8 +586,20 @@
       const card = S.card;
       try {
         if (S.confirmedMap && S.parsed.table) _stmMapSet(card.source_provider, S.parsed.sig, S.parsed.table.roles);
-        if (S.acct && window.fhPersonalAccountEnsure) { try { await window.fhPersonalAccountEnsure({ kind: S.acct.kind, provider: S.acct.provider, tail: S.acct.tail,
-          name: (window.fhProviderName ? window.fhProviderName(S.acct.provider) : S.acct.provider) + (S.acct.tail ? ' ••' + S.acct.tail : '') }); } catch (e) {} }
+        if (S.acct && window.fhPersonalAccountEnsure) {
+          try {
+            const acctId = await window.fhPersonalAccountEnsure({ kind: S.acct.kind, provider: S.acct.provider, tail: S.acct.tail,
+              name: (window.fhProviderName ? window.fhProviderName(S.acct.provider) : S.acct.provider) + (S.acct.tail ? ' ••' + S.acct.tail : '') });
+            /* A statement KNOWS what its account is: a running balance is a deposit
+               account, a debt summary is a card. The email classifier only guessed, and
+               it filed a real VIB account as a credit card. Correct a guessed kind; leave
+               one the person set themselves (human_verified) alone. */
+            const acct = acctId && window.fhPersonalData ? (window.fhPersonalData().accounts || []).find((a) => a.id === acctId) : null;
+            if (acct && acct.kind !== S.acct.kind && !acct.humanVerified && window.fhPersonalAccountUpdate) {
+              try { await window.fhPersonalAccountUpdate(acctId, { kind: S.acct.kind }); acct.kind = S.acct.kind; } catch (e) {}
+            }
+          } catch (e) {}
+        }
         const stitle = _stmTitle(card);
         const payloads = S.fresh.map((x) => Object.assign(fhStmtRowPayload(x.r, S.acct, card.id), { fp: x.fp, stitle: stitle }));
         busy(L('Đang gợi ý danh mục…', 'Suggesting categories…'));

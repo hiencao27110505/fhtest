@@ -1100,6 +1100,13 @@
         if (byTail.length === 1) hit = byTail[0];
       }
       if (hit) return hit.id;
+      /* No tail, and the provider already has SEVERAL accounts: this row cannot say
+         which one it belongs to, and the old answer -- mint a tail-less "VIB" beside
+         "VIB ••4751" and "VIB ••5140" -- was a ghost that collected 75 rows nobody
+         could place (2026-09-19). An untagged row is one tap from right; a ghost
+         account is a wrong balance and a picker entry that means nothing. So: no
+         account. The census and every import path already treat null as "untagged". */
+      if (!tail && prov && P.accounts.some((a) => (a.provider || '') === prov && a.kind !== 'investment')) return null;
       const name = info.name || ((prov ? prov.charAt(0).toUpperCase() + prov.slice(1) : 'Tài khoản') + (tail ? ' ••' + tail : ''));
       const r = await _sb().from('personal_accounts').insert({ owner_user_id: P.uid, kind: info.kind,
         provider: prov, tail: tail, name_enc: await _encP(name) }).select('id').single();

@@ -689,9 +689,8 @@ button.csv-srow:active{background:var(--surface)}
 .stm-wait{display:flex;align-items:center;gap:10px;margin-top:14px;font-size:13.5px;color:var(--muted)}
 .stm-spin{width:16px;height:16px;border-radius:50%;border:2px solid var(--hairline);border-top-color:var(--brand);animation:fhspin2 .7s linear infinite;flex:none}
 @media (prefers-reduced-motion:reduce){.stm-spin{animation-duration:2s}}
-.stm-rem{margin-top:12px}
-.stm-rem .choice{font-size:13.5px;padding:9px 13px}
-.stm-rem .choice.on{padding:8px 12px}
+.stm-remember{display:flex;align-items:flex-start;gap:10px;margin-top:12px;font-size:13.5px;color:var(--ink-2);line-height:1.4;cursor:pointer}
+.stm-remember input{width:20px;height:20px;flex:none;margin:1px 0 0;accent-color:var(--brand)}
 .stm-map{margin-top:12px;border-top:1px solid var(--hairline)}
 .stm-maprow{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--hairline);font-size:13px;color:var(--muted)}
 .stm-maprow b{color:var(--ink);font-weight:600;text-align:right;min-width:0;overflow:hidden;text-overflow:ellipsis}
@@ -707,7 +706,7 @@ button.csv-srow:active{background:var(--surface)}
 .stm-pamt{color:var(--ink-2);font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
 .stm-pamt.in{color:var(--good)}
 .stm-pmore{display:block;width:100%;min-height:44px;background:none;border:0;border-top:1px solid var(--divider);color:var(--brand-ink);font-size:13px;font-weight:700;cursor:pointer}
-.stm-gobar{position:sticky;bottom:0;background:var(--white);padding:12px 0 2px;margin-top:8px}
+.stm-gobar{padding:14px 0 2px}
 .stm-gobar .csv-unlock-note{margin:0 0 10px;text-align:center}
 .stm-gobar .cta{margin-top:0}
 .stm-gobar .cta:disabled,.stm-gobar .cta.busy{opacity:.75;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:none}

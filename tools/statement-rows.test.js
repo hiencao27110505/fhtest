@@ -74,7 +74,7 @@ t('the wallet\'s own transaction id is the reference', Wt.every((r) => /^\d{11}$
 var named = Wt.find((r) => /Dong Tay/.test(r.raw_extracted.memo)), unnamed = Wt.find((r) => /SUKIYA/.test(r.raw_extracted.memo));
 t('paid through the wallet from a NAMED bank: tagged to that bank', named.source_provider === 'VIB' && named.raw_extracted.account_kind === 'deposit' && named.raw_extracted.account_masked === '', named);
 t('...and its wallet balance is NOT recorded against the bank', named.raw_extracted.balance === null);
-t('from an UNNAMED linked bank: left unplaced, never booked to the wallet', unnamed.raw_extracted.account_kind === null);
+t('from an UNNAMED linked bank: left unplaced, never booked to the wallet', unnamed.raw_extracted.account_kind === null && !/momo/i.test(unnamed.source_provider), unnamed.source_provider);
 var topups = Wt.filter((r) => r.raw_extracted.stmt.xfer);
 t('top-ups from a bank are pre-set as transfers INTO the wallet', topups.length === 2 && topups.every((r) => r.direction === 'credit'));
 t('an ordinary wallet purchase is an expense on the wallet', Wt.find((r) => /REVI/.test(r.raw_extracted.memo)).raw_extracted.account_kind === 'ewallet' && !Wt.find((r) => /REVI/.test(r.raw_extracted.memo)).raw_extracted.stmt.xfer);

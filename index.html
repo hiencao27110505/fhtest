@@ -4446,9 +4446,8 @@ button.csv-srow:active{background:var(--surface)}
 .stm-wait{display:flex;align-items:center;gap:10px;margin-top:14px;font-size:13.5px;color:var(--muted)}
 .stm-spin{width:16px;height:16px;border-radius:50%;border:2px solid var(--hairline);border-top-color:var(--brand);animation:fhspin2 .7s linear infinite;flex:none}
 @media (prefers-reduced-motion:reduce){.stm-spin{animation-duration:2s}}
-.stm-rem{margin-top:12px}
-.stm-rem .choice{font-size:13.5px;padding:9px 13px}
-.stm-rem .choice.on{padding:8px 12px}
+.stm-remember{display:flex;align-items:flex-start;gap:10px;margin-top:12px;font-size:13.5px;color:var(--ink-2);line-height:1.4;cursor:pointer}
+.stm-remember input{width:20px;height:20px;flex:none;margin:1px 0 0;accent-color:var(--brand)}
 .stm-map{margin-top:12px;border-top:1px solid var(--hairline)}
 .stm-maprow{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--hairline);font-size:13px;color:var(--muted)}
 .stm-maprow b{color:var(--ink);font-weight:600;text-align:right;min-width:0;overflow:hidden;text-overflow:ellipsis}
@@ -4464,7 +4463,7 @@ button.csv-srow:active{background:var(--surface)}
 .stm-pamt{color:var(--ink-2);font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
 .stm-pamt.in{color:var(--good)}
 .stm-pmore{display:block;width:100%;min-height:44px;background:none;border:0;border-top:1px solid var(--divider);color:var(--brand-ink);font-size:13px;font-weight:700;cursor:pointer}
-.stm-gobar{position:sticky;bottom:0;background:var(--white);padding:12px 0 2px;margin-top:8px}
+.stm-gobar{padding:14px 0 2px}
 .stm-gobar .csv-unlock-note{margin:0 0 10px;text-align:center}
 .stm-gobar .cta{margin-top:0}
 .stm-gobar .cta:disabled,.stm-gobar .cta.busy{opacity:.75;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:none}
@@ -22576,7 +22575,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v541';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v542';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -25187,6 +25186,13 @@ window.obGoogle = async function () {
         if (byTail.length === 1) hit = byTail[0];
       }
       if (hit) return hit.id;
+      /* No tail, and the provider already has SEVERAL accounts: this row cannot say
+         which one it belongs to, and the old answer -- mint a tail-less "VIB" beside
+         "VIB ••4751" and "VIB ••5140" -- was a ghost that collected 75 rows nobody
+         could place (2026-09-19). An untagged row is one tap from right; a ghost
+         account is a wrong balance and a picker entry that means nothing. So: no
+         account. The census and every import path already treat null as "untagged". */
+      if (!tail && prov && P.accounts.some((a) => (a.provider || '') === prov && a.kind !== 'investment')) return null;
       const name = info.name || ((prov ? prov.charAt(0).toUpperCase() + prov.slice(1) : 'Tài khoản') + (tail ? ' ••' + tail : ''));
       const r = await _sb().from('personal_accounts').insert({ owner_user_id: P.uid, kind: info.kind,
         provider: prov, tail: tail, name_enc: await _encP(name) }).select('id').single();
@@ -40569,7 +40575,11 @@ window.classifyAmount = classifyAmount;
       if (c.fundedElsewhere) {
         tail = '';
         if (c.fundingIsBank && !/ngan hang lien ket/i.test(String(c.funding).normalize('NFD').replace(/[\u0300-\u036f]/g, ''))) { provider = c.funding; kind = 'deposit'; }
-        else { kind = null; }
+        /* The file only says "a linked bank". The row must not keep the WALLET's name:
+           72's account resolver reads a wallet provider as kind ewallet even with no
+           number, and that minted a tail-less "MoMo" beside "MoMo ••1217" on the first
+           real run. The file's own words, and no kind, leave the row untagged. */
+        else { provider = c.funding || L('Ngân hàng liên kết', 'Linked bank'); kind = null; }
       }
       /* Transfer evidence (spec section 11). Level 2 only: structured evidence on one
          side -- the file's own funding column names a bank on a top-up, or the memo
@@ -40879,16 +40889,15 @@ window.classifyAmount = classifyAmount;
       _stmPaint(_stmHead(L('File này có mật khẩu', 'This file needs a password'), _stmTitle(S.card)) +
         '<input id="stm-pw" type="password" class="csv-pw" autocomplete="off" placeholder="' + _escAttr(L('Nhập mật khẩu mở file', 'Enter the password')) + '" onkeydown="if(event.key===\'Enter\'){event.preventDefault();fhStmtUnlock();}">' +
         (wrong ? '<div class="csv-unlock-err">' + _esc(L('Mật khẩu chưa đúng, thử lại nhé', 'That password didn\'t work, try again')) + '</div>' : '') +
-        '<div class="choices stm-rem"><button type="button" class="choice' + (S.remember ? ' on' : '') + '" onclick="fhStmtRememberTgl(this)">' + _esc(L('Nhớ mật khẩu sao kê ' + bank + ' trên máy này', 'Remember ' + bank + ' statement password on this device')) + '</button></div>' +
+        '<label class="stm-remember"><input type="checkbox" id="stm-rem"' + (S.remember ? ' checked' : '') + '> <span>' + _esc(L('Nhớ mật khẩu sao kê ' + bank + ' trên máy này', 'Remember ' + bank + ' statement password on this device')) + '</span></label>' +
         '<button type="button" class="btn-line csv-unlock-go" onclick="fhStmtUnlock()">' + _esc(L('Mở file', 'Unlock')) + '</button>' +
         '<div class="csv-unlock-note">' + _esc(L('Mật khẩu chỉ dùng trên máy bạn, không gửi đi đâu. Nếu chọn nhớ, tụi mình giữ nó trên máy này, có mã hoá.', 'The password stays on your device and is never sent anywhere. If you choose to remember it, it is kept on this device, encrypted.')) + '</div>' + _stmBackBtn());
       const el = document.getElementById('stm-pw'); if (el) { try { el.focus(); } catch (e) {} }
     }
-    window.fhStmtRememberTgl = function (btn) { if (!S) return; S.remember = !S.remember; if (btn && btn.classList) btn.classList.toggle('on', S.remember); };
     window.fhStmtUnlock = function () {
       if (!S) return;
-      const el = document.getElementById('stm-pw');
-      S.password = el ? el.value : '';
+      const el = document.getElementById('stm-pw'), rem = document.getElementById('stm-rem');
+      S.password = el ? el.value : ''; S.remember = !!(rem && rem.checked);
       if (!S.password) { if (el) { try { el.focus(); } catch (e) {} } return; }
       _stmPaint(_stmHead(_stmTitle(S.card)) + _stmBusyLine(L('Đang mở file…', 'Opening the file…')));
       setTimeout(() => { _stmParse(true); }, 30);     // let the line above paint: the key derivation blocks for a second
@@ -41033,8 +41042,20 @@ window.classifyAmount = classifyAmount;
       const card = S.card;
       try {
         if (S.confirmedMap && S.parsed.table) _stmMapSet(card.source_provider, S.parsed.sig, S.parsed.table.roles);
-        if (S.acct && window.fhPersonalAccountEnsure) { try { await window.fhPersonalAccountEnsure({ kind: S.acct.kind, provider: S.acct.provider, tail: S.acct.tail,
-          name: (window.fhProviderName ? window.fhProviderName(S.acct.provider) : S.acct.provider) + (S.acct.tail ? ' ••' + S.acct.tail : '') }); } catch (e) {} }
+        if (S.acct && window.fhPersonalAccountEnsure) {
+          try {
+            const acctId = await window.fhPersonalAccountEnsure({ kind: S.acct.kind, provider: S.acct.provider, tail: S.acct.tail,
+              name: (window.fhProviderName ? window.fhProviderName(S.acct.provider) : S.acct.provider) + (S.acct.tail ? ' ••' + S.acct.tail : '') });
+            /* A statement KNOWS what its account is: a running balance is a deposit
+               account, a debt summary is a card. The email classifier only guessed, and
+               it filed a real VIB account as a credit card. Correct a guessed kind; leave
+               one the person set themselves (human_verified) alone. */
+            const acct = acctId && window.fhPersonalData ? (window.fhPersonalData().accounts || []).find((a) => a.id === acctId) : null;
+            if (acct && acct.kind !== S.acct.kind && !acct.humanVerified && window.fhPersonalAccountUpdate) {
+              try { await window.fhPersonalAccountUpdate(acctId, { kind: S.acct.kind }); acct.kind = S.acct.kind; } catch (e) {}
+            }
+          } catch (e) {}
+        }
         const stitle = _stmTitle(card);
         const payloads = S.fresh.map((x) => Object.assign(fhStmtRowPayload(x.r, S.acct, card.id), { fp: x.fp, stitle: stitle }));
         busy(L('Đang gợi ý danh mục…', 'Suggesting categories…'));
