@@ -143,9 +143,11 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
-- **2026-09-19 (Hien — statement capture) — BUILT on `feat/statement-capture`, NOTHING applied
-  or deployed. Migrations `0139_statement_capture` + `0140_statement_shapes_seed` are WRITTEN and
-  CLAIMED; `0141` is released — next free is `0141`.** A bank/e-wallet statement
+- **2026-09-19 (Hien — statement capture) — MERGED to `main`. Migrations `0139_statement_capture`,
+  `0140_statement_shapes_seed`, `0141_statement_shapes_revoke` APPLIED live and verified
+  (tables, RLS, grants, bucket, seeds checked by query). `push-send` DEPLOYED (v21; live v20 was
+  byte-identical to `main`). `merchant-concepts` + `mailbox-sync` NOT deployed yet — see ⚠️ below.
+  Next free migration is `0142`.** A bank/e-wallet statement
   (`.xlsx`/`.csv` attachment, usually password-locked) becomes one locked card in "Duyệt giao
   dịch", then N rows after the owner unlocks it on the device. Spec + decision log:
   `docs/specs/statement-capture-spec.md`. Worktree `.worktrees/statement-capture`. SW **v538**.
@@ -166,9 +168,18 @@ hand-merging `index.html`. Both replaced vigilance with structure.
     filter clause, one sweep; db methods appended as ONE block at the end) because the
     backfill-cursor patch touches the same files. The lane reads its own cursor with its own
     query and never touches `dueGrants`/`grantById`/`grantsByEmail`'s select lists.
-  - ⚠️ **`mailbox-sync` deploy is BLOCKED on the backfill-cursor patch** (live in v47 with
-    `0136_backfill_cursor`, not in `main`). Whoever holds it: please commit it so this branch
-    can rebase onto it. I will not deploy `mailbox-sync` from a tree that lacks it.
+  - ⚠️ **LIVE `mailbox-sync` IS v49 AND IS NOT `main`. Do not deploy it from `main`.** I
+    downloaded the live source (`supabase functions download`) and diffed it: `worker.mjs` +225
+    lines, `db.mjs` +61, `extract.mjs` +54, `senders.mjs` +19, plus `ingest`/`dedup`/`gmail`/`stage`
+    — the backfill cursor AND a reader lease (`mailbox_grants.reader_lease_until/_id`,
+    `backfill_before/_started_at/_requested_at/_moved_at` are live columns). The migration ledger
+    also stops at 0134: 0135–0138 were applied outside it. **Whoever owns that work: please commit
+    it.** Until then, the statement-capture deploy tree is `.deploy/statement-capture/` in the
+    main checkout (git-excluded): LIVE v49 source + only this feature's delta (`patches/`), and
+    `deploy.sh` runs the two remaining deploys. Proof it changes nothing else: the pipeline suite
+    gives identical results on the live baseline and on that tree, except the two new statement
+    tests. When you commit the live worker, re-apply `patches/*.patch` — they applied to v49 with
+    no rejects.
   - **Consent is now v5** (`FH_CONSENT_V`), and `STATEMENT_CONSENT_V` in `statement.mjs` must
     equal it (a test pins this). `tools/consent-gate.test.js` was updated: someone holding v4 is
     shown the v5 change only; two versions behind sees both.

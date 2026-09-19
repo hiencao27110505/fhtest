@@ -20,13 +20,15 @@ Going forward, add an entry here when a feature area changes meaningfully — se
 
 ## 2026-09-19
 
-### Sao kê ngân hàng thành giao dịch chờ duyệt (SW v538) — built, NOT deployed
+### Sao kê ngân hàng thành giao dịch chờ duyệt (SW v538) — client + migrations live, worker deploy pending
 
 A bank or e-wallet statement (`.xlsx`/`.csv`, usually password-locked) attached to an
 email becomes one locked card in "Duyệt giao dịch", and N ordinary rows once its owner
 opens it on the device. Spec and decision log: `docs/specs/statement-capture-spec.md`.
-Branch `feat/statement-capture`; migrations `0139`/`0140` written, not applied; no
-Edge Function deployed.
+Migrations `0139`–`0141` applied and `push-send` deployed 2026-09-19; `mailbox-sync`
+and `merchant-concepts` still to deploy, from `.deploy/statement-capture/` and never
+from `main` (live `mailbox-sync` v49 carries uncommitted work). Until then the feature
+is inert.
 
 - **The password is why the shape differs.** The server cannot open a locked file, so
   it only takes custody: `statement.mjs` runs its own lane (own Gmail listing — the

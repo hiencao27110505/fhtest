@@ -460,8 +460,9 @@ Cite by filename — the numeric sequence has documented collisions.
 | `0102_grant_default_scope_read` | Adds `default_scope` to the client's column-level grant — a column added after `0087`'s explicit grant list was invisible to the app, which read "no scope" as "not set up" and sent a connected user back to setup |
 | `0103_one_grant_per_mailbox` | Unique on the (fold-normalised) mailbox address itself — one mailbox, one reader, across *accounts*, not just per account |
 | `0104_strip_status_statics` | Deletes the `static.status` key from every already-stored template (a cache), leaving working anchors intact — `status` is the outcome of one mail, not a property of the shape, so freezing it staticised every later success (or decline) as the first mail's verdict. Both writers stop emitting it in the same change (§16.2). A strip, not a purge: an absent key contributes nothing at `apply()`, so no relearn and no model-call cost |
-| `0139_statement_capture` | **Not applied.** `statement_files`, `statement_rows`, `resolved_statement_rows`, `statement_shapes`, private bucket `statement-files`, `mailbox_grants.stmt_rescan_at`, and the statement RPCs. Touches nothing that exists: `email_transactions` and its `0137` key are left alone (`statement-capture-spec.md` §8) |
-| `0140_statement_shapes_seed` | **Not applied.** Three statement mail formats verified by hand, so they cost no model call |
+| `0139_statement_capture` | Applied 2026-09-19. `statement_files`, `statement_rows`, `resolved_statement_rows`, `statement_shapes`, private bucket `statement-files`, `mailbox_grants.stmt_rescan_at`, and the statement RPCs. Touches nothing that exists: `email_transactions` and its `0137` key are left alone (`statement-capture-spec.md` §8) |
+| `0140_statement_shapes_seed` | Applied 2026-09-19. Three statement mail formats verified by hand, so they cost no model call |
+| `0141_statement_shapes_revoke` | Applied 2026-09-19. Removes the default anon/authenticated table grants from `statement_shapes` (RLS already hid the rows) |
 
 ## 13. Transport A — forwarding (Apps Script)
 
@@ -1895,7 +1896,7 @@ as — or the same day as — the deploy. A deploy announced only in
 
 ## 28. Releases (newest first)
 
-### 2026-09-19 — statement capture: mailbox-sync + push-send + new merchant-concepts + migrations 0139, 0140 + client (BUILT, NOT DEPLOYED)
+### 2026-09-19 — statement capture: migrations 0139–0141 APPLIED · push-send DEPLOYED · client live · mailbox-sync + merchant-concepts PENDING
 
 - **For product:** when a bank or e-wallet emails a statement file, it shows up in
   "Duyệt giao dịch" as one card, "Sao kê MoMo · 20/06 – 18/09". Open it (typing the
@@ -1916,9 +1917,9 @@ as — or the same day as — the deploy. A deploy announced only in
 - **Spec sections updated:** §12.4 (ledger rows above). §16's cascade is unchanged:
   the lane sits beside it. §24 "internal transfers double-count" gains a partial
   answer for wallet top-ups (statement evidence, level 2).
-- **Watch for:** ⚠️ `mailbox-sync` must be deployed from a tree that carries the
-  backfill-cursor patch live in v47 (`0136_backfill_cursor`), which is not in `main`;
-  this change edits the same two files. Migrations first, then the worker. After
+- **Watch for:** ⚠️ live `mailbox-sync` is **v49 and is not `main`** (uncommitted
+  backfill cursor + reader lease). Deploy it only from `.deploy/statement-capture/`
+  (live source + this feature's delta); see `statement-capture-spec.md` §14. After
   deploy: `statements` in each grant's run summary, `statement_verdict` and
   `classify_merchant_batch` in `llm_usage_daily`, and `parse_failures` rows with
   `statement_rejected:` for a wrong "not a statement".

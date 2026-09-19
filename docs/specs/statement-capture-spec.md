@@ -8,8 +8,11 @@ rows captured from ordinary transaction emails.
 > **Status, 2026-09-19.** Design agreed after a design interview (decision log,
 > §16) and **built the same day** on branch `feat/statement-capture` (worktree
 > `.worktrees/statement-capture`), one release (big bang, decision S22). **Nothing
-> is live**: migrations `0139` and `0140` are written, not applied; no Edge Function
-> is deployed; the branch is not merged. §14 is the deploy order and its one blocker.
+> is live end to end yet.** Done 2026-09-19: merged to `main` (client live on Vercel);
+> migrations `0139`, `0140`, `0141` applied and verified; `push-send` deployed. **Still
+> to do: deploy `merchant-concepts` and `mailbox-sync`** — until the worker is live no
+> statement is captured, and everything already shipped is inert. §14 has the order,
+> the state, and why `mailbox-sync` must NOT be deployed from `main`.
 > §6 lists what is built and what is not, plainly.
 
 > **Audience & layering.** Part 1 (Behaviour) is for everyone. Part 2 (Technical
@@ -481,14 +484,22 @@ throughput ceiling.
 Everyone on the mailbox allowlist, one release. The order matters because the
 database and the Edge Functions are shared singletons (`AGENT_SYNC.md` §1):
 
-1. Migrations `0139_statement_capture` and `0140_statement_shapes_seed` (additive:
-   nothing existing reads the new objects).
-2. `mailbox-sync`, built from `main` **plus the backfill-cursor patch that is live
-   in v47 but not yet in `main`**. Deploying from `main` alone would drop that
-   patch. This step is blocked until that patch is committed.
-3. `merchant-concepts` (new; `verify_jwt=true`), `push-send`.
-4. Client (SW bump). Until a person accepts consent v5 nothing is captured for
-   them, so an early client is harmless.
+1. ✅ Migrations `0139_statement_capture`, `0140_statement_shapes_seed`,
+   `0141_statement_shapes_revoke` — applied 2026-09-19 and checked by query (RLS on all
+   four tables, owner-only SELECT, RPC grants, private bucket, seeds). `0141` exists
+   because that check found Supabase's default grants still on `statement_shapes`.
+2. ✅ `push-send` — deployed 2026-09-19. Live v20 was byte-identical to `main`.
+3. ⏳ `merchant-concepts` (new; `verify_jwt=true`).
+4. ⏳ `mailbox-sync` (`--no-verify-jwt`). **Never from `main`.** Live is v49 and carries
+   a backfill cursor and a reader lease that were never committed (`worker.mjs` +225
+   lines against `main`, five other files differ). The deploy tree is
+   `.deploy/statement-capture/` in the main checkout: the live v49 source, downloaded
+   byte for byte, with only this feature's delta applied (`patches/`, no rejects).
+   The pipeline suite gives identical results on the live baseline and on that tree,
+   apart from the two new statement tests. `sh .deploy/statement-capture/deploy.sh`
+   runs steps 3 and 4.
+5. ✅ Client (SW v538), live on merge. Until the worker is deployed and a person
+   accepts consent v5, nothing is captured, so the early client is inert.
 
 Tests use **synthetic** files that copy the three real layouts, two of them locked
 with a known password (`tools/make-statement-fixtures.py` →
