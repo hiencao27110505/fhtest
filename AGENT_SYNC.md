@@ -146,8 +146,10 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 - **2026-09-19 (Hien — statement capture) — MERGED to `main`. Migrations `0139_statement_capture`,
   `0140_statement_shapes_seed`, `0141_statement_shapes_revoke` APPLIED live and verified
   (tables, RLS, grants, bucket, seeds checked by query). `push-send` DEPLOYED (v21; live v20 was
-  byte-identical to `main`). `merchant-concepts` + `mailbox-sync` NOT deployed yet — see ⚠️ below.
-  Next free migration is `0142`.** A bank/e-wallet statement
+  byte-identical to `main`). `merchant-concepts` v1 and `mailbox-sync` **v50** DEPLOYED the same
+  day from `.deploy/statement-capture/` (see ⚠️ below); first ticks on v50 clean (200s, no holds).
+  `0142_statement_orphan_objects` APPLIED too (account deletion no longer strands a sealed file).
+  Next free migration is `0143`.** A bank/e-wallet statement
   (`.xlsx`/`.csv` attachment, usually password-locked) becomes one locked card in "Duyệt giao
   dịch", then N rows after the owner unlocks it on the device. Spec + decision log:
   `docs/specs/statement-capture-spec.md`. Worktree `.worktrees/statement-capture`. SW **v538**.

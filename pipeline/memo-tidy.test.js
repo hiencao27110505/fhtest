@@ -31,7 +31,7 @@ const MB_BODY = [
 ].join('\n');
 const MB_HUMAN_BODY = [
   'Tai khoan trich no NGUYEN THU TRANG - 3510146052001 (VND)',
-  'Nguoi thu huong CAO THAI DUY HIEN - 0904911217',
+  'Nguoi thu huong CAO THAI DUY HIEN - 0900000001',
   'Noi dung chuyen tien email trans live  iu anh',
 ].join('\n');
 const MB_ZALO_BODY = [

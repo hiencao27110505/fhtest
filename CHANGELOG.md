@@ -20,15 +20,16 @@ Going forward, add an entry here when a feature area changes meaningfully — se
 
 ## 2026-09-19
 
-### Sao kê ngân hàng thành giao dịch chờ duyệt (SW v538) — client + migrations live, worker deploy pending
+### Sao kê ngân hàng thành giao dịch chờ duyệt (SW v538) — LIVE
 
 A bank or e-wallet statement (`.xlsx`/`.csv`, usually password-locked) attached to an
 email becomes one locked card in "Duyệt giao dịch", and N ordinary rows once its owner
 opens it on the device. Spec and decision log: `docs/specs/statement-capture-spec.md`.
-Migrations `0139`–`0141` applied and `push-send` deployed 2026-09-19; `mailbox-sync`
-and `merchant-concepts` still to deploy, from `.deploy/statement-capture/` and never
-from `main` (live `mailbox-sync` v49 carries uncommitted work). Until then the feature
-is inert.
+Live 2026-09-19: migrations `0139`–`0142`, `push-send` v21, `merchant-concepts` v1,
+`mailbox-sync` v50. The worker was deployed from `.deploy/statement-capture/` (the live
+v49 source + this feature's delta) and must never be deployed from `main`, which lacks
+the live backfill cursor and reader lease. Capture starts for a person once they accept
+consent v5.
 
 - **The password is why the shape differs.** The server cannot open a locked file, so
   it only takes custody: `statement.mjs` runs its own lane (own Gmail listing — the

@@ -151,10 +151,12 @@ genuinely means no statement is captured. A new connect asks for v5 as usual.
 **Erasure.** Disconnect (both paths) calls `purge_my_statements()` first: parsed rows
 deleted, cards dismissed, sealed paths returned and removed by the device. The sweep
 also drops capture data for any owner who no longer has a mailbox grant.
-⚠️ **Open:** an account deletion (`request_my_deletion`) cascades the ROWS
-(`on delete cascade` from `auth.users`) but leaves the sealed OBJECTS in the
-`statement-files` bucket with no row pointing at them. Whoever runs the deletion job
-must also remove `statement-files/{user_id}/`. Not automated yet.
+**Account deletion** cascades the rows (`on delete cascade` from `auth.users`), and
+SQL cannot delete Storage bytes — so `0142` adds a `BEFORE DELETE` trigger on
+`statement_files` that queues each sealed path in `statement_orphan_objects`, and the
+worker's existing sweep deletes the objects through the Storage API. Closed
+2026-09-19, the same day it was found; rehearsed in a rolled-back transaction against
+the live database first.
 
 ### 5c. The seven the sheet must carry (quyền được biết)
 

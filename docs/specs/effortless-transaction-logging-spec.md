@@ -462,6 +462,7 @@ Cite by filename — the numeric sequence has documented collisions.
 | `0104_strip_status_statics` | Deletes the `static.status` key from every already-stored template (a cache), leaving working anchors intact — `status` is the outcome of one mail, not a property of the shape, so freezing it staticised every later success (or decline) as the first mail's verdict. Both writers stop emitting it in the same change (§16.2). A strip, not a purge: an absent key contributes nothing at `apply()`, so no relearn and no model-call cost |
 | `0139_statement_capture` | Applied 2026-09-19. `statement_files`, `statement_rows`, `resolved_statement_rows`, `statement_shapes`, private bucket `statement-files`, `mailbox_grants.stmt_rescan_at`, and the statement RPCs. Touches nothing that exists: `email_transactions` and its `0137` key are left alone (`statement-capture-spec.md` §8) |
 | `0140_statement_shapes_seed` | Applied 2026-09-19. Three statement mail formats verified by hand, so they cost no model call |
+| `0142_statement_orphan_objects` | Applied 2026-09-19. A deleted `statement_files` row queues its sealed path for the sweep, so account deletion cannot strand a file in Storage |
 | `0141_statement_shapes_revoke` | Applied 2026-09-19. Removes the default anon/authenticated table grants from `statement_shapes` (RLS already hid the rows) |
 
 ## 13. Transport A — forwarding (Apps Script)
@@ -1896,7 +1897,7 @@ as — or the same day as — the deploy. A deploy announced only in
 
 ## 28. Releases (newest first)
 
-### 2026-09-19 — statement capture: migrations 0139–0141 APPLIED · push-send DEPLOYED · client live · mailbox-sync + merchant-concepts PENDING
+### 2026-09-19 — statement capture: migrations 0139–0142 APPLIED · push-send v21, merchant-concepts v1, mailbox-sync v50 DEPLOYED · client live
 
 - **For product:** when a bank or e-wallet emails a statement file, it shows up in
   "Duyệt giao dịch" as one card, "Sao kê MoMo · 20/06 – 18/09". Open it (typing the

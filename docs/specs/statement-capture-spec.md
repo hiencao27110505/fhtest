@@ -8,11 +8,12 @@ rows captured from ordinary transaction emails.
 > **Status, 2026-09-19.** Design agreed after a design interview (decision log,
 > §16) and **built the same day** on branch `feat/statement-capture` (worktree
 > `.worktrees/statement-capture`), one release (big bang, decision S22). **Nothing
-> is live end to end yet.** Done 2026-09-19: merged to `main` (client live on Vercel);
-> migrations `0139`, `0140`, `0141` applied and verified; `push-send` deployed. **Still
-> to do: deploy `merchant-concepts` and `mailbox-sync`** — until the worker is live no
-> statement is captured, and everything already shipped is inert. §14 has the order,
-> the state, and why `mailbox-sync` must NOT be deployed from `main`.
+> **LIVE since 2026-09-19**: client on Vercel (SW v538); migrations `0139`–`0142`
+> applied and verified by query; `push-send` v21, `merchant-concepts` v1 and
+> `mailbox-sync` v50 deployed, first ticks clean. **Not yet exercised by a real
+> person**: capture starts for someone only after they accept consent v5 in the app,
+> and no one has. §14 has the deploy record and why `mailbox-sync` must never be
+> deployed from `main`.
 > §6 lists what is built and what is not, plainly.
 
 > **Audience & layering.** Part 1 (Behaviour) is for everyone. Part 2 (Technical
@@ -319,7 +320,7 @@ server (§12).
 | `dismiss_statement_file(p_statement_id)` | `pending` → `dismissed` |
 | `resolve_statement_rows(p_ids uuid[], p_fps text[])` | Records the fingerprints **first**, then deletes the rows: the same ordering as `resolve_email_transactions` |
 | `purge_my_statements()` | Erasure: drops the caller's parsed rows, dismisses their cards, returns the sealed paths to delete. Called by both disconnect paths before `disconnect_my_mailbox` |
-| `statement_sweep_list(p_limit)` / `statement_sweep_done(p_ids)` | `service_role` only. Expires cards past 90 days, drops capture data for owners with no mailbox, lists sealed files for the worker to delete through the Storage API |
+| `statement_sweep_list(p_limit)` / `statement_sweep_done(p_ids)` | `service_role` only. Expires cards past 90 days, drops capture data for owners with no mailbox, lists sealed files for the worker to delete through the Storage API — including, since `0142`, files whose row was deleted outright (`statement_orphan_objects`, fed by a `BEFORE DELETE` trigger, so an account deletion cannot strand a sealed file) |
 
 The device deletes the sealed object right after `stage_statement_rows` returns.
 A sweep in the sync tick removes any object whose file row is no longer `pending`,
@@ -489,8 +490,8 @@ database and the Edge Functions are shared singletons (`AGENT_SYNC.md` §1):
    four tables, owner-only SELECT, RPC grants, private bucket, seeds). `0141` exists
    because that check found Supabase's default grants still on `statement_shapes`.
 2. ✅ `push-send` — deployed 2026-09-19. Live v20 was byte-identical to `main`.
-3. ⏳ `merchant-concepts` (new; `verify_jwt=true`).
-4. ⏳ `mailbox-sync` (`--no-verify-jwt`). **Never from `main`.** Live is v49 and carries
+3. ✅ `merchant-concepts` v1 (new; `verify_jwt=true`) — deployed 2026-09-19.
+4. ✅ `mailbox-sync` **v50** (`--no-verify-jwt`) — deployed 2026-09-19; first scheduled ticks and Gmail pushes returned 200 with no holds. **Never from `main`.** Live is v49 and carries
    a backfill cursor and a reader lease that were never committed (`worker.mjs` +225
    lines against `main`, five other files differ). The deploy tree is
    `.deploy/statement-capture/` in the main checkout: the live v49 source, downloaded
