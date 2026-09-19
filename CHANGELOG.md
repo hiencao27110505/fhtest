@@ -95,6 +95,13 @@ consent v5.
   meant card, which filed the account-side "Thanh toán thẻ tín dụng thành công" as the
   card. Fixed in both copies of the rule; 0143 strips the frozen `account_kind` from all
   nine templates that carried it, so the kind is derived per mail under the fixed rule.
+- **A statement tags what an email could not (SW v543).** Email rows with no account
+  number were booked untagged, or onto a tail-less ghost; a cross-check of one real ghost
+  against the real account statement showed a MIX of card and account rows, so no bulk
+  rule could place them. Now, skipping a statement row that is "đã có trong sổ" fills the
+  twin's blank account with the statement's (`csvStmtTagTwin` → `fhPersonalSetAccount`,
+  account only, blanks only, personal book only). Open the statements, skip the known
+  rows, and the history tags itself.
 - **Not built:** the model as a column-reading fallback, an editable mapping check,
   the correction button for family-ledger twins, a card's closing debt. Spec §6.
 

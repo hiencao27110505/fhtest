@@ -2279,10 +2279,28 @@ async function csvFxAdopt(i){
 /* Retire every "đã có trong sổ" row at once — one RPC, local-first (72's
    fhStagedDropMany). They leave the list right away; the ledger already holds
    each one, so nothing is lost and nothing is written. */
+/* A statement row that is "đã có trong sổ" knows one thing the booked row may not:
+   which ACCOUNT the money moved on. Email rows with no account number were booked
+   untagged (or, before 2026-09-19, onto a tail-less ghost account); the statement
+   that lists the same purchase names its account with certainty. So skipping such a
+   row fills the twin's blank -- and only a blank: a tag set by hand or by an earlier
+   import is never overruled. Personal book only; fire-and-forget, the skip itself
+   does not wait on it. */
+function csvStmtTagTwin(c){
+  try {
+    if(!csvStagedMode || !c || csvDupTier(c) !== 'sure' || c._dupTwinKind !== 'ledger') return;
+    var tw = c._dupTwin; if(!tw || tw.book !== 'personal' || tw.acct) return;
+    if(typeof window.fhStmtOfCand !== 'function' || !window.fhStmtOfCand(c)) return;
+    var ai = window.fhStagedAcct ? window.fhStagedAcct(c) : null;
+    if(!ai || !ai.kind || typeof window.fhPersonalAccountEnsure !== 'function' || typeof window.fhPersonalSetAccount !== 'function') return;
+    window.fhPersonalAccountEnsure(ai).then(function(id){ if(id) return window.fhPersonalSetAccount(tw.id, id); }).catch(function(){});
+  } catch(e) {}
+}
 function csvSureSkipAll(){
   if(!csvReview || !csvStagedMode) return;
   var rows = csvReview.ready.filter(function(c){ return csvDupTier(c) === 'sure'; });
   if(!rows.length) return;
+  rows.forEach(csvStmtTagTwin);
   csvReview.ready = csvReview.ready.filter(function(c){ return csvDupTier(c) !== 'sure'; });
   csvExpand = null; csvDisarmRemove();
   renderCsvReview();
@@ -3336,6 +3354,7 @@ function csvReadyRemove(i){
     if(csvArmedRemove !== i){ csvArmedRemove = i; renderCsvReview(); return; }
     csvArmedRemove = null;
     var gone = csvReview.ready[i];
+    csvStmtTagTwin(gone);
     csvReview.ready.splice(i,1); csvExpand = null; renderCsvReview();
     // Retire it now, not at the next Import that may never come.
     if(window.fhStagedDropOne) window.fhStagedDropOne(gone);

@@ -581,7 +581,7 @@
            here with link_id set, and indexing both let two staged copies of one
            purchase each claim "their own" booked row. */
         const r = await _pageAll(() => _sb().from('personal_transactions')
-          .select('id,amount_enc,note_enc,cat_name_enc,txn_date,kind,link_id,occurred_time_enc,source')
+          .select('id,amount_enc,note_enc,cat_name_enc,txn_date,kind,link_id,occurred_time_enc,source,account_id')
           .eq('owner_user_id', P.uid)
           .gte('txn_date', from)
           .order('txn_date', { ascending: false }).order('id'));
@@ -589,7 +589,7 @@
         for (const t of r.rows) {
           const a = await _decP(t.amount_enc);
           if (a == null || a === _DEC_FAILED) continue;   // unreadable amount → cannot match, skip (fail closed)
-          out.push({ id: t.id, date: t.txn_date, kind: t.kind, amt: Number(a), link: t.link_id || null, src: t.source || null,
+          out.push({ id: t.id, date: t.txn_date, kind: t.kind, amt: Number(a), link: t.link_id || null, src: t.source || null, acct: t.account_id || null,
             note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc),
             time: t.occurred_time_enc ? (await _decTxt(t.occurred_time_enc)) : '' });
         }
@@ -760,6 +760,21 @@
        nothing but a better number: a card statement's final figure replacing the
        estimate a foreign purchase was booked at (56 csvFxAdopt). Private rows only,
        like every personal write; returns false when nothing matched (a mirror row). */
+    /* The ACCOUNT only, and only where there was none. A statement row that the
+       review proves is already booked knows what the booked row could not: which
+       account it moved on (56 csvStmtTagTwin). Rows tagged by hand or by an earlier
+       import keep their tag; this fills blanks, it never overrules. Private rows only. */
+    window.fhPersonalSetAccount = async function (id, accountId) {
+      if (!P.uid || !P.key || !id || !accountId) return false;
+      const r = await _sb().from('personal_transactions').update({ account_id: accountId })
+        .eq('id', id).eq('owner_user_id', P.uid).is('link_id', null).is('account_id', null).select('id');
+      if (r.error) { console.warn('personal account tag failed', r.error); return false; }
+      if (!r.data || !r.data.length) return false;
+      const t = (P.txns || []).find((x) => x.id === id); if (t) t.accountId = accountId;
+      if (window.fhPersonalMatchSliceInvalidate) window.fhPersonalMatchSliceInvalidate();
+      return true;
+    };
+
     window.fhPersonalSetAmount = async function (id, amt) {
       if (!P.uid || !P.key || !id || !(Number(amt) > 0)) return false;
       const r = await _sb().from('personal_transactions').update({ amount_enc: await _encP(Number(amt)) })

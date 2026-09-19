@@ -119,7 +119,7 @@ function fhDedupLedgerIndex(){
     if(isNaN(d.getTime())) return;
     add({ id: t.id, amtD: Number(t.amt) * mult, _d: d, day: fhDedupDay(d), kind: t.kind || 'expense',
           book: 'personal', note: t.note || '', cat: t.cat || '', who: '', mine: true,
-          inst: '', src: t.src || '', time: t.time || '' });
+          inst: '', src: t.src || '', time: t.time || '', acct: t.acct || null });
   });
   return { rows: rows, byAmt: byAmt };
 }

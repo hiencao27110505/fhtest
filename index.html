@@ -15182,10 +15182,28 @@ async function csvFxAdopt(i){
 /* Retire every "đã có trong sổ" row at once — one RPC, local-first (72's
    fhStagedDropMany). They leave the list right away; the ledger already holds
    each one, so nothing is lost and nothing is written. */
+/* A statement row that is "đã có trong sổ" knows one thing the booked row may not:
+   which ACCOUNT the money moved on. Email rows with no account number were booked
+   untagged (or, before 2026-09-19, onto a tail-less ghost account); the statement
+   that lists the same purchase names its account with certainty. So skipping such a
+   row fills the twin's blank -- and only a blank: a tag set by hand or by an earlier
+   import is never overruled. Personal book only; fire-and-forget, the skip itself
+   does not wait on it. */
+function csvStmtTagTwin(c){
+  try {
+    if(!csvStagedMode || !c || csvDupTier(c) !== 'sure' || c._dupTwinKind !== 'ledger') return;
+    var tw = c._dupTwin; if(!tw || tw.book !== 'personal' || tw.acct) return;
+    if(typeof window.fhStmtOfCand !== 'function' || !window.fhStmtOfCand(c)) return;
+    var ai = window.fhStagedAcct ? window.fhStagedAcct(c) : null;
+    if(!ai || !ai.kind || typeof window.fhPersonalAccountEnsure !== 'function' || typeof window.fhPersonalSetAccount !== 'function') return;
+    window.fhPersonalAccountEnsure(ai).then(function(id){ if(id) return window.fhPersonalSetAccount(tw.id, id); }).catch(function(){});
+  } catch(e) {}
+}
 function csvSureSkipAll(){
   if(!csvReview || !csvStagedMode) return;
   var rows = csvReview.ready.filter(function(c){ return csvDupTier(c) === 'sure'; });
   if(!rows.length) return;
+  rows.forEach(csvStmtTagTwin);
   csvReview.ready = csvReview.ready.filter(function(c){ return csvDupTier(c) !== 'sure'; });
   csvExpand = null; csvDisarmRemove();
   renderCsvReview();
@@ -16239,6 +16257,7 @@ function csvReadyRemove(i){
     if(csvArmedRemove !== i){ csvArmedRemove = i; renderCsvReview(); return; }
     csvArmedRemove = null;
     var gone = csvReview.ready[i];
+    csvStmtTagTwin(gone);
     csvReview.ready.splice(i,1); csvExpand = null; renderCsvReview();
     // Retire it now, not at the next Import that may never come.
     if(window.fhStagedDropOne) window.fhStagedDropOne(gone);
@@ -17720,7 +17739,7 @@ function fhDedupLedgerIndex(){
     if(isNaN(d.getTime())) return;
     add({ id: t.id, amtD: Number(t.amt) * mult, _d: d, day: fhDedupDay(d), kind: t.kind || 'expense',
           book: 'personal', note: t.note || '', cat: t.cat || '', who: '', mine: true,
-          inst: '', src: t.src || '', time: t.time || '' });
+          inst: '', src: t.src || '', time: t.time || '', acct: t.acct || null });
   });
   return { rows: rows, byAmt: byAmt };
 }
@@ -22575,7 +22594,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v542';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v543';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -24667,7 +24686,7 @@ window.obGoogle = async function () {
            here with link_id set, and indexing both let two staged copies of one
            purchase each claim "their own" booked row. */
         const r = await _pageAll(() => _sb().from('personal_transactions')
-          .select('id,amount_enc,note_enc,cat_name_enc,txn_date,kind,link_id,occurred_time_enc,source')
+          .select('id,amount_enc,note_enc,cat_name_enc,txn_date,kind,link_id,occurred_time_enc,source,account_id')
           .eq('owner_user_id', P.uid)
           .gte('txn_date', from)
           .order('txn_date', { ascending: false }).order('id'));
@@ -24675,7 +24694,7 @@ window.obGoogle = async function () {
         for (const t of r.rows) {
           const a = await _decP(t.amount_enc);
           if (a == null || a === _DEC_FAILED) continue;   // unreadable amount → cannot match, skip (fail closed)
-          out.push({ id: t.id, date: t.txn_date, kind: t.kind, amt: Number(a), link: t.link_id || null, src: t.source || null,
+          out.push({ id: t.id, date: t.txn_date, kind: t.kind, amt: Number(a), link: t.link_id || null, src: t.source || null, acct: t.account_id || null,
             note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc),
             time: t.occurred_time_enc ? (await _decTxt(t.occurred_time_enc)) : '' });
         }
@@ -24846,6 +24865,21 @@ window.obGoogle = async function () {
        nothing but a better number: a card statement's final figure replacing the
        estimate a foreign purchase was booked at (56 csvFxAdopt). Private rows only,
        like every personal write; returns false when nothing matched (a mirror row). */
+    /* The ACCOUNT only, and only where there was none. A statement row that the
+       review proves is already booked knows what the booked row could not: which
+       account it moved on (56 csvStmtTagTwin). Rows tagged by hand or by an earlier
+       import keep their tag; this fills blanks, it never overrules. Private rows only. */
+    window.fhPersonalSetAccount = async function (id, accountId) {
+      if (!P.uid || !P.key || !id || !accountId) return false;
+      const r = await _sb().from('personal_transactions').update({ account_id: accountId })
+        .eq('id', id).eq('owner_user_id', P.uid).is('link_id', null).is('account_id', null).select('id');
+      if (r.error) { console.warn('personal account tag failed', r.error); return false; }
+      if (!r.data || !r.data.length) return false;
+      const t = (P.txns || []).find((x) => x.id === id); if (t) t.accountId = accountId;
+      if (window.fhPersonalMatchSliceInvalidate) window.fhPersonalMatchSliceInvalidate();
+      return true;
+    };
+
     window.fhPersonalSetAmount = async function (id, amt) {
       if (!P.uid || !P.key || !id || !(Number(amt) > 0)) return false;
       const r = await _sb().from('personal_transactions').update({ amount_enc: await _encP(Number(amt)) })
