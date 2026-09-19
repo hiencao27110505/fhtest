@@ -36,6 +36,9 @@
   --shadow-card:0 1px 3px rgba(14,22,19,.05),0 8px 24px rgba(14,22,19,.04);
   --shadow-focal:0 1px 3px rgba(14,22,19,.05),0 12px 30px rgba(14,22,19,.09);
   --shadow-raised:0 2px 6px rgba(14,22,19,.06),0 16px 34px rgba(14,22,19,.12);
+  /* camera chrome: a viewfinder stays dark in every theme, like the phone's own camera, so these five do NOT re-theme */
+  --cam-bg:#0b0d0c; --cam-fg:#ffffff; --cam-edge:rgba(255,255,255,.78); --cam-edge-soft:rgba(255,255,255,.35);
+  --shadow-lifted:0 14px 44px rgba(0,0,0,.55);
   --r-card-lg:22px;
   /* finance progress-ring status arcs (light stop → base stop): the same two steps for all three, so the arcs weigh equal */
   --ring-ok-1:var(--sage-300); --ring-ok-2:var(--sage-600); --ring-pace-1:var(--amber-light); --ring-pace-2:var(--amber-base); --ring-over-1:var(--red-light); --ring-over-2:var(--red-base);

@@ -145,6 +145,7 @@ function buildMemRecords(){
     if(t.future) return;                                  // a planned expense's photo is a preview, not a memory yet
     var d=(typeof txPhotoDate==='function')?txPhotoDate(t):null, ico=t.ico||'📸';
     t.photos.forEach(function(src){
+      if(window.fhIsReceiptSrc && fhIsReceiptSrc(src)) return;   // a scanned receipt is evidence for its expense, never a memory
       memRecords.push({src:src||'',cls:src?'':'ph-park',emoji:ico,cap:t.note||L('Khoản chi','Expense'),meta:fmt(t.amt),type:'expense',ref:t.id,d:d,who:(t.who||'')});
     });
   });

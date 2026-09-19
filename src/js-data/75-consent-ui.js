@@ -331,6 +331,7 @@
     var _CST_LABELS = {
       app_data:   ['Dữ liệu ứng dụng', 'App data', 'lock'],
       bank_email: ['Email ngân hàng', 'Bank email', 'mail'],
+      receipt_scan: ['Quét hóa đơn', 'Receipt scan', 'cam'],   // sheet + withdrawal live in 78-receipt-scan.js
     };
 
     window.fhPrivacySheet = async function () {
@@ -410,6 +411,7 @@
     /* Read the exact text a given consent was given against. */
     window.fhConsentReview = function (kind) {
       if (kind === FH_CONSENT_KIND) return window.fhConsentSheet({ readOnly: true });
+      if (kind === 'receipt_scan' && window.fhScanConsentSheet) return window.fhScanConsentSheet({ readOnly: true });
       return window.fhAppDataConsentSheet({ readOnly: true });
     };
 

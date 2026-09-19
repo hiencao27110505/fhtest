@@ -177,7 +177,7 @@ function txRow(t){
   var subTxt=_dm==='time' ? (t.time?esc(t.time):dstr)
            : dstr+(t.time?' · '+esc(t.time):'');
   if(t.inst) subTxt+=' · '+esc(t.inst);            // 0131 money source, quiet, same voice
-  return '<div class="row'+tapCls+selCls+(chip?' has-rx':'')+'"'+rxid+open+'>'+selTick+'<div class="r-ico-wrap">'+tile+av+'</div>'
+  return '<div class="row'+tapCls+selCls+(chip?' has-rx':'')+((window.fhScanIsNew&&fhScanIsNew(t))?' scan-new':'')+'"'+rxid+open+'>'+selTick+'<div class="r-ico-wrap">'+tile+av+'</div>'
     +'<div class="r-body"><div class="r-t">'+esc(t.note)+'</div><div class="r-s">'+subTxt+'</div></div>'
     +'<div class="r-right">'+amtHtml+'<div class="r-cat">'+esc(t.cat)+'</div></div>'+chip+'</div>';
 }
@@ -1101,7 +1101,7 @@ function addExpense(){
   }
   var who=chosen('ex-who')||'Emma'; lastWho=who;
   var mkey=who==='Both'?'Shared':who, whoStore=who==='Both'?'both':who;
-  var hadPhoto=exPhotos.length>0;
+  var hadPhoto=exPhotos.length>0 && !(window.fhIsReceiptSrc && exPhotos.every(function(s){ return fhIsReceiptSrc(s); }));   // receipts skip the Kỷ niệm mirror
   txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,_d:dObj,_ts:new Date(),who:whoStore,amt:amt,time:_time,month:curMonthKey(),photos:exPhotos.length?exPhotos.slice():undefined});
   if(hadPhoto) syncExpenseEvent(txns[0]);                   // photos → a linked event for Events + Memories
   renderTxns();

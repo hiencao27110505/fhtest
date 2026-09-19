@@ -1,0 +1,49 @@
+/* ═══ Receipt scan — capture surface + review list ═══════════════════════════
+   DESIGN §3 "Receipt scan": the capture surface is Apple's document-scanner
+   skeleton (full-screen camera, corner brackets, a tray that counts, one commit
+   verb). It is a photographic surface, so it paints in the --cam-* tokens
+   (10-tokens.css) rather than the page palette: a viewfinder is dark in every theme. Layers (DESIGN §4): capture 66,
+   above modals (62) and sheets (60), below the photo viewer (68); the review
+   list is a .modal at 61 so the expense form it drills into (62) paints above.
+   Logic: src/js-data/78-receipt-scan.js. */
+.scan-cam{position:absolute;inset:0;z-index:66;background:var(--cam-bg);color:var(--cam-fg);
+  display:flex;flex-direction:column;visibility:hidden;opacity:0;transition:opacity .2s ease}
+.scan-cam.on{visibility:visible;opacity:1}
+.scan-nav{display:flex;align-items:center;justify-content:space-between;padding:calc(env(safe-area-inset-top) + 16px) 18px 10px}
+.scan-nav button{background:none;border:0;color:var(--cam-fg);font-size:17px;min-height:44px;min-width:44px;padding:0 8px;cursor:pointer}
+.scan-nav button.off{visibility:hidden}   /* no torch: keep the column so the title stays centred */
+.scan-nav .t{font-weight:600;font-size:17px;letter-spacing:-.01em}
+.scan-stage{flex:1;position:relative;display:flex;align-items:center;justify-content:center;padding:8px 26px;min-height:0}
+.scan-frame{position:relative;max-width:100%}
+.scan-frame video[hidden]{display:none}
+.scan-frame video,.scan-frame img{display:block;max-width:100%;max-height:52vh;border-radius:12px;object-fit:contain;background:var(--cam-bg);box-shadow:var(--shadow-lifted)}
+.scan-frame i{position:absolute;width:26px;height:26px;border:0 solid var(--brand);pointer-events:none}
+.scan-frame i:nth-of-type(1){top:-10px;left:-10px;border-top-width:3px;border-left-width:3px}
+.scan-frame i:nth-of-type(2){top:-10px;right:-10px;border-top-width:3px;border-right-width:3px}
+.scan-frame i:nth-of-type(3){bottom:-10px;left:-10px;border-bottom-width:3px;border-left-width:3px}
+.scan-frame i:nth-of-type(4){bottom:-10px;right:-10px;border-bottom-width:3px;border-right-width:3px}
+.scan-say{position:absolute;left:0;right:0;bottom:6px;text-align:center;font-size:14px;font-weight:500;line-height:1.4;opacity:.92;padding:0 16px}
+/* three fixed columns so the shutter never moves when the tray appears */
+.scan-bar{display:grid;grid-template-columns:1fr 1fr 1fr;align-items:center;padding:14px 26px calc(env(safe-area-inset-bottom) + 26px)}
+.scan-lib{justify-self:start;width:44px;height:44px;border-radius:12px;border:2px solid var(--cam-edge);background:none;color:var(--cam-fg);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.scan-lib svg{width:22px;height:22px}
+.scan-shutter{justify-self:center;width:74px;height:74px;border-radius:50%;background:var(--cam-fg);border:4px solid var(--cam-edge-soft);box-shadow:0 0 0 3px var(--cam-bg) inset;cursor:pointer;transition:transform .12s ease}
+.scan-shutter:active{transform:scale(.94)}
+.scan-shutter:disabled{opacity:.4}
+.scan-tray{justify-self:end;display:flex;align-items:center;gap:8px;background:none;border:0;color:var(--cam-fg);font-weight:600;font-size:16px;min-height:44px;cursor:pointer}
+.scan-tray:empty{visibility:hidden}
+.scan-tray .th{position:relative;display:block;width:42px;height:54px;border-radius:10px;border:2px solid var(--cam-edge);background:center/cover no-repeat}
+.scan-tray .n{position:absolute;top:-8px;right:-8px;min-width:22px;height:22px;border-radius:11px;background:var(--brand);color:var(--white);font-size:12px;font-weight:700;line-height:22px;text-align:center;font-variant-numeric:tabular-nums}
+@media (prefers-reduced-motion:reduce){.scan-cam,.scan-shutter{transition:none}}
+
+/* review list: the ledger's own .rows/.row, so the body drops its side padding (DESIGN §3 "Spacing composes") */
+#scan-review{z-index:61}
+#scan-review .modal-body{padding-left:0;padding-right:0}
+#scan-review .section-h{margin-top:6px}
+.scan-skel{display:inline-block;border-radius:10px;background:var(--fill-neutral)}
+.scan-warn{color:var(--amber)}
+.scan-act{color:var(--brand-ink)}
+.scan-note{margin:10px 22px 0}
+.scan-note:empty{display:none}
+/* the rows a scan just saved, marked briefly in the ledger */
+.row.scan-new{box-shadow:inset 3px 0 0 var(--brand)}

@@ -27,6 +27,7 @@ function closeModals(){
   var keepPa = (typeof paBatch !== 'undefined') && paBatch.length > 0;
   document.querySelectorAll('.modal.on').forEach(function(m){
     if(keepPa && m.id === 'photo-assign') return;
+    if(m.id === 'scan-review' && window.fhScanHasBatch && fhScanHasBatch()) return;   // the scan batch lives only in memory too
     m.classList.remove('on'); m.style.transform=''; m.style.transition='';
   });
   if(!keepPa) document.getElementById('scrim').classList.remove('on');
@@ -955,8 +956,14 @@ function submitBulk(opts){
   var total=0, n=rows.length;
   var savedPhotos=exPhotos.slice();                 // photos only ride the first row (single-row is the only way to attach them)
   for(var k=0;k<rows.length;k++){
+    /* bulkActive has to follow the loop: loadRow() ends in _syncExTime(), which reads
+       bulkRows[bulkActive]. Left pinned at 0, every prepared row carrying its own time
+       (receipt scan, CSV import, bank-email review — all _timeAuto:false) was saved with
+       the FIRST row's time. Caught by the receipt-scan flow: three receipts at 08:12,
+       09:40 and 16:05 all landed at 08:12. */
+    bulkActive=k;
     loadRow(k);                                     // push this row into the #ex-* fields addExpense reads
-    exPhotos = (k===0) ? savedPhotos.slice() : [];
+    exPhotos = (rows[k] && rows[k].photos) ? rows[k].photos.slice() : ((k===0) ? savedPhotos.slice() : []);   // a row's own photos win (receipt scan); else the strip rides row 0
     total+=parseAmtBase(rows[k].amt||'');
     window._fhImportSrc = (rows[k] && rows[k].source) || null;   // 0100 provenance for this row; the writethrough stamps it on the txn
     window._fhImportInst = (rows[k] && rows[k].inst) || null;    // 0131 money source ("VIB · tín dụng ••4512"), same handoff
@@ -969,6 +976,7 @@ function submitBulk(opts){
   window._fhImportInst=null;
   window._fhImportAcct=null;
   window._fhImportLink=null;
+  bulkActive=0;
   exPhotos=[];
   // One nudge for the whole batch — each row's own addExpense() stayed silent under
   // BULK_SAVING. A lone surviving row is a single expense, not a batch (the composer

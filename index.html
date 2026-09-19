@@ -96,6 +96,9 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   --shadow-card:0 1px 3px rgba(14,22,19,.05),0 8px 24px rgba(14,22,19,.04);
   --shadow-focal:0 1px 3px rgba(14,22,19,.05),0 12px 30px rgba(14,22,19,.09);
   --shadow-raised:0 2px 6px rgba(14,22,19,.06),0 16px 34px rgba(14,22,19,.12);
+  /* camera chrome: a viewfinder stays dark in every theme, like the phone's own camera, so these five do NOT re-theme */
+  --cam-bg:#0b0d0c; --cam-fg:#ffffff; --cam-edge:rgba(255,255,255,.78); --cam-edge-soft:rgba(255,255,255,.35);
+  --shadow-lifted:0 14px 44px rgba(0,0,0,.55);
   --r-card-lg:22px;
   /* finance progress-ring status arcs (light stop → base stop): the same two steps for all three, so the arcs weigh equal */
   --ring-ok-1:var(--sage-300); --ring-ok-2:var(--sage-600); --ring-pace-1:var(--amber-light); --ring-pace-2:var(--amber-base); --ring-over-1:var(--red-light); --ring-over-2:var(--red-base);
@@ -4443,6 +4446,55 @@ button.csv-srow:active{background:var(--surface)}
 .stm-maprow b{color:var(--ink);font-weight:600;text-align:right;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .csv-fxfix-row{margin-top:8px}
 .csv-fxfix{min-height:44px;font-size:13px}
+/* ═══ Receipt scan — capture surface + review list ═══════════════════════════
+   DESIGN §3 "Receipt scan": the capture surface is Apple's document-scanner
+   skeleton (full-screen camera, corner brackets, a tray that counts, one commit
+   verb). It is a photographic surface, so it paints in the --cam-* tokens
+   (10-tokens.css) rather than the page palette: a viewfinder is dark in every theme. Layers (DESIGN §4): capture 66,
+   above modals (62) and sheets (60), below the photo viewer (68); the review
+   list is a .modal at 61 so the expense form it drills into (62) paints above.
+   Logic: src/js-data/78-receipt-scan.js. */
+.scan-cam{position:absolute;inset:0;z-index:66;background:var(--cam-bg);color:var(--cam-fg);
+  display:flex;flex-direction:column;visibility:hidden;opacity:0;transition:opacity .2s ease}
+.scan-cam.on{visibility:visible;opacity:1}
+.scan-nav{display:flex;align-items:center;justify-content:space-between;padding:calc(env(safe-area-inset-top) + 16px) 18px 10px}
+.scan-nav button{background:none;border:0;color:var(--cam-fg);font-size:17px;min-height:44px;min-width:44px;padding:0 8px;cursor:pointer}
+.scan-nav button.off{visibility:hidden}   /* no torch: keep the column so the title stays centred */
+.scan-nav .t{font-weight:600;font-size:17px;letter-spacing:-.01em}
+.scan-stage{flex:1;position:relative;display:flex;align-items:center;justify-content:center;padding:8px 26px;min-height:0}
+.scan-frame{position:relative;max-width:100%}
+.scan-frame video[hidden]{display:none}
+.scan-frame video,.scan-frame img{display:block;max-width:100%;max-height:52vh;border-radius:12px;object-fit:contain;background:var(--cam-bg);box-shadow:var(--shadow-lifted)}
+.scan-frame i{position:absolute;width:26px;height:26px;border:0 solid var(--brand);pointer-events:none}
+.scan-frame i:nth-of-type(1){top:-10px;left:-10px;border-top-width:3px;border-left-width:3px}
+.scan-frame i:nth-of-type(2){top:-10px;right:-10px;border-top-width:3px;border-right-width:3px}
+.scan-frame i:nth-of-type(3){bottom:-10px;left:-10px;border-bottom-width:3px;border-left-width:3px}
+.scan-frame i:nth-of-type(4){bottom:-10px;right:-10px;border-bottom-width:3px;border-right-width:3px}
+.scan-say{position:absolute;left:0;right:0;bottom:6px;text-align:center;font-size:14px;font-weight:500;line-height:1.4;opacity:.92;padding:0 16px}
+/* three fixed columns so the shutter never moves when the tray appears */
+.scan-bar{display:grid;grid-template-columns:1fr 1fr 1fr;align-items:center;padding:14px 26px calc(env(safe-area-inset-bottom) + 26px)}
+.scan-lib{justify-self:start;width:44px;height:44px;border-radius:12px;border:2px solid var(--cam-edge);background:none;color:var(--cam-fg);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.scan-lib svg{width:22px;height:22px}
+.scan-shutter{justify-self:center;width:74px;height:74px;border-radius:50%;background:var(--cam-fg);border:4px solid var(--cam-edge-soft);box-shadow:0 0 0 3px var(--cam-bg) inset;cursor:pointer;transition:transform .12s ease}
+.scan-shutter:active{transform:scale(.94)}
+.scan-shutter:disabled{opacity:.4}
+.scan-tray{justify-self:end;display:flex;align-items:center;gap:8px;background:none;border:0;color:var(--cam-fg);font-weight:600;font-size:16px;min-height:44px;cursor:pointer}
+.scan-tray:empty{visibility:hidden}
+.scan-tray .th{position:relative;display:block;width:42px;height:54px;border-radius:10px;border:2px solid var(--cam-edge);background:center/cover no-repeat}
+.scan-tray .n{position:absolute;top:-8px;right:-8px;min-width:22px;height:22px;border-radius:11px;background:var(--brand);color:var(--white);font-size:12px;font-weight:700;line-height:22px;text-align:center;font-variant-numeric:tabular-nums}
+@media (prefers-reduced-motion:reduce){.scan-cam,.scan-shutter{transition:none}}
+
+/* review list: the ledger's own .rows/.row, so the body drops its side padding (DESIGN §3 "Spacing composes") */
+#scan-review{z-index:61}
+#scan-review .modal-body{padding-left:0;padding-right:0}
+#scan-review .section-h{margin-top:6px}
+.scan-skel{display:inline-block;border-radius:10px;background:var(--fill-neutral)}
+.scan-warn{color:var(--amber)}
+.scan-act{color:var(--brand-ink)}
+.scan-note{margin:10px 22px 0}
+.scan-note:empty{display:none}
+/* the rows a scan just saved, marked briefly in the ledger */
+.row.scan-new{box-shadow:inset 3px 0 0 var(--brand)}
 /* ---- settings sheet/modal internals (family, members, savings, income) ----
    Tokens only: these screens must re-theme with the rest of the app. */
 .fh-s-cta{width:100%;background:var(--grad-brand);color:#fff;font-size:16px;font-weight:700;letter-spacing:-.02em;padding:15px;border-radius:9999px;box-shadow:0 8px 20px var(--brand-glow);margin-top:6px}
@@ -4992,6 +5044,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   <div class="sheet-sub" data-t="addSheetSub">Log money, or save a moment.</div>
   <div class="qa-group" data-t="grpFinance">Finance</div>
   <button class="qa" onclick="closeSheet();go('spending');openExpense()"><div class="qi" style="background:var(--grad-brand)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 7h16v13H4zM4 7l2-3h12l2 3M9 12h6"/></svg></div><div><div class="qt" data-t="qaExpenseT">Log a transaction</div><div class="qs" data-t="qaExpenseS">Money in or out</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+  <button class="qa" onclick="closeSheet();fhScanStart('family')"><div class="qi" style="background:var(--grad-brand)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4.5h8.5L19 10v9.5H5z"/><path d="M13.5 4.5V10H19"/><path d="M8 13h7M8 16.2h4.5"/></svg></div><div><div class="qt" data-t="qaScanT">Scan receipts</div><div class="qs" data-t="qaScanS">Snap or pick up to 10 photos</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
   <button class="qa" onclick="closeSheet();go('spending');openCsvImport()"><div class="qi" style="background:linear-gradient(135deg,var(--brand-2),var(--brand))"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M12 4l-4 4M12 4l4 4"/><path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg></div><div><div class="qt" data-t="qaCsvT">Import from file</div><div class="qs" data-t="qaCsvS">Bring in a CSV from your bank or another app</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
   <button class="qa" onclick="closeSheet();openExpense({type:'income'})"><div class="qi" style="background:var(--grad-brand)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg></div><div><div class="qt" data-t="qaIncomeT">Log income</div><div class="qs" data-t="qaIncomeS">Money coming into the family</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
   <button class="qa" onclick="closeSheet();go('spending');fhSavings()"><div class="qi" style="background:linear-gradient(135deg,#F0B450,#DB8A24)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10a5 5 0 015-5h5a6 6 0 016 6 6 6 0 01-3 5.2V20h-3v-2h-2v2H7v-3a6 6 0 01-4-5zM8 9h.01"/></svg></div><div><div class="qt" data-t="qaSaveT">Add to savings</div><div class="qs" data-t="qaSaveS">Add to the family pool</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>  <button class="qa" onclick="closeSheet();go('spending');openGoal()"><div class="qi" style="background:var(--grad-brand)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.6"/><circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none"/></svg></div><div><div class="qt" data-t="qaGoalT">Create a goal</div><div class="qs" data-t="qaGoalS">Save for something you want to buy or do</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
@@ -5634,6 +5687,38 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     <div class="peek-actions" id="peek-actions">
       <button class="ex-del peek-del" id="peek-del" onclick="peekDelete(this)" data-t="deletePhoto">Delete photo</button>
     </div>
+  </div>
+</div>
+
+<!-- RECEIPT SCAN — capture surface (layer 66) + review list (layer 61). Logic: src/js-data/78-receipt-scan.js; DESIGN §3 "Receipt scan" -->
+<div class="scan-cam" id="scan-cam" role="dialog" aria-modal="true" aria-label="Scan receipts" data-ta="scanTitle">
+  <div class="scan-nav">
+    <button type="button" onclick="fhScanCancel()" data-t="cancel">Cancel</button>
+    <span class="t" data-t="scanTitle">Scan receipts</span>
+    <button type="button" id="scan-flash" class="off" onclick="fhScanFlash()" data-t="scanFlash">Flash</button>
+  </div>
+  <div class="scan-stage">
+    <div class="scan-frame" id="scan-frame"><video id="scan-video" autoplay playsinline muted></video><i></i><i></i><i></i><i></i></div>
+    <div class="scan-say" id="scan-say"></div>
+  </div>
+  <div class="scan-bar">
+    <button type="button" class="scan-lib" onclick="fhScanLibrary()" aria-label="Photo library" data-ta="ariaScanLibrary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3 15l5-4 4 3 3-2 6 5"/></svg></button>
+    <button type="button" class="scan-shutter" id="scan-shutter" onclick="fhScanCapture()" aria-label="Capture" data-ta="ariaScanCapture"></button>
+    <button type="button" class="scan-tray" id="scan-tray" onclick="fhScanDone()"></button>
+  </div>
+  <input type="file" id="scan-file" accept="image/*" multiple onchange="fhScanFiles(this)" hidden>
+</div>
+<div class="modal" id="scan-review">
+  <div class="modal-grip"></div>
+  <div class="modal-nav">
+    <button class="modal-cancel" id="scan-cancel" onclick="fhScanReviewCancel()" data-t="cancel">Cancel</button>
+    <div class="modal-title" data-t="scanTitle">Scan receipts</div>
+    <button class="modal-save" id="scan-save" onclick="fhScanSave(this)" disabled data-t="save">Save</button>
+  </div>
+  <div class="modal-body">
+    <div class="section-h"><span class="t" id="scan-head"></span><span class="sh-note" id="scan-dest"></span></div>
+    <div class="rows" id="scan-rows"></div>
+    <div class="field-hint scan-note" id="scan-note"></div>
   </div>
 </div>
 
@@ -7267,6 +7352,7 @@ function setBudget(){
 var PIC = {
   house: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>',
   lock:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2.3"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>',
+  scan:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4.5h8.5L19 10v9.5H5z"/><path d="M13.5 4.5V10H19"/><path d="M8 13h7M8 16.2h4.5"/></svg>',
   plus:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
   mail:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18v14H3z"/><path d="M3 6l9 7 9-7"/></svg>',
   chev:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg>',
@@ -7837,6 +7923,7 @@ function renderPersonal(){
      +   '<button class="cc-row" onclick="openPersonalBudget()"><span class="cc-ic">'+PIC.chart+'</span><span class="cc-t">'+(P.budget>0?'Ngân sách cá nhân':'Lập ngân sách cá nhân')+'</span>'+_ccChev+'</button>'
      +   '<button class="cc-row" onclick="openTxns(\'personal\')"><span class="cc-ic">'+PIC.list+'</span><span class="cc-t">Xem giao dịch</span>'+_ccChev+'</button>'
      +   '<button class="cc-row" onclick="openPersonalExpense()"><span class="cc-ic">'+PIC.plus+'</span><span class="cc-t">Ghi giao dịch</span>'+_ccChev+'</button>'
+     +   '<button class="cc-row" onclick="fhScanStart(\'personal\')"><span class="cc-ic">'+PIC.scan+'</span><span class="cc-t">'+L('Quét hóa đơn','Scan receipts')+'</span>'+_ccChev+'</button>'
      /* Fourth row of the SAME list, not a card of its own — it is one of the
         things you can do from here, and floating it outside the card made it
         read as a stray. Last on purpose: the three above are what you do with
@@ -10730,6 +10817,7 @@ function buildMemRecords(){
     if(t.future) return;                                  // a planned expense's photo is a preview, not a memory yet
     var d=(typeof txPhotoDate==='function')?txPhotoDate(t):null, ico=t.ico||'📸';
     t.photos.forEach(function(src){
+      if(window.fhIsReceiptSrc && fhIsReceiptSrc(src)) return;   // a scanned receipt is evidence for its expense, never a memory
       memRecords.push({src:src||'',cls:src?'':'ph-park',emoji:ico,cap:t.note||L('Khoản chi','Expense'),meta:fmt(t.amt),type:'expense',ref:t.id,d:d,who:(t.who||'')});
     });
   });
@@ -11049,6 +11137,7 @@ function closeModals(){
   var keepPa = (typeof paBatch !== 'undefined') && paBatch.length > 0;
   document.querySelectorAll('.modal.on').forEach(function(m){
     if(keepPa && m.id === 'photo-assign') return;
+    if(m.id === 'scan-review' && window.fhScanHasBatch && fhScanHasBatch()) return;   // the scan batch lives only in memory too
     m.classList.remove('on'); m.style.transform=''; m.style.transition='';
   });
   if(!keepPa) document.getElementById('scrim').classList.remove('on');
@@ -11977,8 +12066,14 @@ function submitBulk(opts){
   var total=0, n=rows.length;
   var savedPhotos=exPhotos.slice();                 // photos only ride the first row (single-row is the only way to attach them)
   for(var k=0;k<rows.length;k++){
+    /* bulkActive has to follow the loop: loadRow() ends in _syncExTime(), which reads
+       bulkRows[bulkActive]. Left pinned at 0, every prepared row carrying its own time
+       (receipt scan, CSV import, bank-email review — all _timeAuto:false) was saved with
+       the FIRST row's time. Caught by the receipt-scan flow: three receipts at 08:12,
+       09:40 and 16:05 all landed at 08:12. */
+    bulkActive=k;
     loadRow(k);                                     // push this row into the #ex-* fields addExpense reads
-    exPhotos = (k===0) ? savedPhotos.slice() : [];
+    exPhotos = (rows[k] && rows[k].photos) ? rows[k].photos.slice() : ((k===0) ? savedPhotos.slice() : []);   // a row's own photos win (receipt scan); else the strip rides row 0
     total+=parseAmtBase(rows[k].amt||'');
     window._fhImportSrc = (rows[k] && rows[k].source) || null;   // 0100 provenance for this row; the writethrough stamps it on the txn
     window._fhImportInst = (rows[k] && rows[k].inst) || null;    // 0131 money source ("VIB · tín dụng ••4512"), same handoff
@@ -11991,6 +12086,7 @@ function submitBulk(opts){
   window._fhImportInst=null;
   window._fhImportAcct=null;
   window._fhImportLink=null;
+  bulkActive=0;
   exPhotos=[];
   // One nudge for the whole batch — each row's own addExpense() stayed silent under
   // BULK_SAVING. A lone surviving row is a single expense, not a batch (the composer
@@ -12502,7 +12598,11 @@ function renderExPhoto(){
   if(!strip)return;
   strip.innerHTML = exPhotos.map(function(src,i){
     return '<div class="photo-thumb" style="background-image:url('+src+')"><button type="button" class="x" onclick="removeExPhoto('+i+')">✕</button></div>';
-  }).join('') + (exPhotos.length ? '<div class="photo-strip-note">'+exPhotos.length+L(' ảnh',' photo'+(exPhotos.length!==1?'s':''))+L(' · lưu thành kỷ niệm',' · saved as '+(exPhotos.length!==1?'memories':'a memory'))+' 📸</div>' : '');
+  }).join('') + (exPhotos.length ? '<div class="photo-strip-note">'+exPhotos.length+L(' ảnh',' photo'+(exPhotos.length!==1?'s':''))
+    // a scanned receipt is evidence for its expense, never a memory — the note must not promise Kỷ niệm
+    +((window.fhIsReceiptSrc && exPhotos.every(function(s){ return fhIsReceiptSrc(s); }))
+      ? L(' · hóa đơn kèm khoản chi',' · receipt kept with the expense')+' 🧾'
+      : L(' · lưu thành kỷ niệm',' · saved as '+(exPhotos.length!==1?'memories':'a memory'))+' 📸')+'</div>' : '');
 }
 function exFormState(){                                     // snapshot used to detect edits
   return document.getElementById('ex-note').value.trim()
@@ -12627,6 +12727,8 @@ function fillExpenseFromTx(){
   refreshExCta();                                          // Save stays disabled until the first edit
 }
 function submitExpense(){
+  // A receipt-scan row being edited: hand the fields back to the review, which owns the commit.
+  if(window.fhScanCollectEdit && fhScanCollectEdit()) return;
   // Private personal edit takes precedence over every add path below.
   if(editingPTx){ savePersonalTxEdit(); return; }
   // Income (Thu): a single amount · when · note write to the income book of the
@@ -12680,12 +12782,14 @@ async function _submitPersonalExpense(){
     var emoji=(window.catStyle&&catStyle[r.cat]&&catStyle[r.cat][0])||'🗂️';
     // Model Y: category is denormalised on the personal row (name + emoji) — no personal-category table.
     // Per-row time (commitActiveRow flushed the active row; the rest already hold theirs).
-    var rid=await window.fhPersonalAddExpense(amt, r.note||'', r.cat||null, emoji, r.date||undefined, r.time||undefined, undefined, {accountId:acctId});
+    var rid=await window.fhPersonalAddExpense(amt, r.note||'', r.cat||null, emoji, r.date||undefined, r.time||undefined, r.source||undefined, {accountId:acctId});
     if(rid){
       ok++;
       // Photos (0114): encrypted under the personal DEK, attached to the new row.
-      if(i===0 && _pPhotos.length && typeof rid==='string' && window.fhPersonalUploadTxnPhotos){
-        await fhPersonalUploadTxnPhotos(rid, _pPhotos);
+      // A row's own photos win (receipt scan: one receipt per row); else the strip rides row 0.
+      var rowPhotos=(r.photos&&r.photos.length)? r.photos : ((i===0)? _pPhotos : []);
+      if(rowPhotos.length && typeof rid==='string' && window.fhPersonalUploadTxnPhotos){
+        await fhPersonalUploadTxnPhotos(rid, rowPhotos);
         await window.fhPersonalHydrate();
       }
     }
@@ -18608,7 +18712,7 @@ function txRow(t){
   var subTxt=_dm==='time' ? (t.time?esc(t.time):dstr)
            : dstr+(t.time?' · '+esc(t.time):'');
   if(t.inst) subTxt+=' · '+esc(t.inst);            // 0131 money source, quiet, same voice
-  return '<div class="row'+tapCls+selCls+(chip?' has-rx':'')+'"'+rxid+open+'>'+selTick+'<div class="r-ico-wrap">'+tile+av+'</div>'
+  return '<div class="row'+tapCls+selCls+(chip?' has-rx':'')+((window.fhScanIsNew&&fhScanIsNew(t))?' scan-new':'')+'"'+rxid+open+'>'+selTick+'<div class="r-ico-wrap">'+tile+av+'</div>'
     +'<div class="r-body"><div class="r-t">'+esc(t.note)+'</div><div class="r-s">'+subTxt+'</div></div>'
     +'<div class="r-right">'+amtHtml+'<div class="r-cat">'+esc(t.cat)+'</div></div>'+chip+'</div>';
 }
@@ -19532,7 +19636,7 @@ function addExpense(){
   }
   var who=chosen('ex-who')||'Emma'; lastWho=who;
   var mkey=who==='Both'?'Shared':who, whoStore=who==='Both'?'both':who;
-  var hadPhoto=exPhotos.length>0;
+  var hadPhoto=exPhotos.length>0 && !(window.fhIsReceiptSrc && exPhotos.every(function(s){ return fhIsReceiptSrc(s); }));   // receipts skip the Kỷ niệm mirror
   txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,_d:dObj,_ts:new Date(),who:whoStore,amt:amt,time:_time,month:curMonthKey(),photos:exPhotos.length?exPhotos.slice():undefined});
   if(hadPhoto) syncExpenseEvent(txns[0]);                   // photos → a linked event for Events + Memories
   renderTxns();
@@ -21727,6 +21831,8 @@ var EN_DEFAULT={
   cancel:'Cancel', save:'Save', add:'Add', done:'Done', create:'Create', send:'Send', back:'Back', close:'Close',
   setWhatsNew:"What's new", whatsNewTitle:"What's new", whatsNewSub:"The latest updates for your family.",
   whatsNewAsk:"Wish it did something more? Tell us.", whatsNewCur:"You're on version",
+  qaScanT:'Scan receipts', qaScanS:'Snap or pick up to 10 photos', scanTitle:'Scan receipts', scanFlash:'Flash',
+  ariaScanLibrary:'Photo library', ariaScanCapture:'Capture',
   /* add sheet */
   addSheetTitle:'Add something', addSheetSub:'Log money, or save a moment.', grpFinance:'Finance', grpMoments:'Moments',
   qaExpenseT:'Log a transaction', qaExpenseS:'Money in or out',
@@ -21838,6 +21944,8 @@ var I18N={
     cancel:'Huỷ', save:'Lưu', add:'Thêm', done:'Xong', create:'Tạo', send:'Gửi', back:'Quay lại', close:'Đóng',
     setWhatsNew:'Có gì mới', whatsNewTitle:'Có gì mới', whatsNewSub:'Những cập nhật mới nhất cho nhà bạn.',
     whatsNewAsk:'Mong app có thêm gì đó? Kể tụi mình nghe.', whatsNewCur:'Bạn đang dùng phiên bản',
+    qaScanT:'Quét hóa đơn', qaScanS:'Chụp hoặc chọn tới 10 ảnh', scanTitle:'Quét hóa đơn', scanFlash:'Đèn',
+    ariaScanLibrary:'Thư viện ảnh', ariaScanCapture:'Chụp',
     /* add sheet */
     addSheetTitle:'Thêm mới', addSheetSub:'Ghi lại tiền bạc, hoặc lưu một khoảnh khắc.', grpFinance:'Tài chính', grpMoments:'Khoảnh khắc',
     qaExpenseT:'Ghi giao dịch', qaExpenseS:'Tiền vào hoặc ra',
@@ -29783,6 +29891,8 @@ window.obGoogle = async function () {
       // device holds no key we can't produce '.enc' bytes, so refuse rather than
       // silently store the face/photo in the clear.
       if (window.fhEncState && window.fhEncState() === 'enc' && !(window.fhKeyReady && window.fhKeyReady())) return null;
+      // Decide receipt-or-not on the ORIGINAL string: compression mints a new data URI the receipt set has never seen.
+      const rcpt = (window.fhIsReceiptSrc && window.fhIsReceiptSrc(dataUri)) ? 'rcpt_' : '';
       dataUri = await _compressImage(dataUri);
       const m = dataUri.match(/^data:([^;]+);base64,(.*)$/); if (!m) return null;
       const mime = m[1]; const bin = atob(m[2]); let arr = new Uint8Array(bin.length);
@@ -29795,7 +29905,9 @@ window.obGoogle = async function () {
          the key, not from hiding the address, and the immutable-cache model
          (below) keeps working unchanged. */
       if (_fhPhotoEncOn()) { arr = await fhEncBytes(arr); ext += '.enc'; ctype = 'application/octet-stream'; enc = true; }
-      const path = fid + '/' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.' + ext;
+      // 'rcpt_' marks a scanned receipt. The snapshot carries only this path, so the
+      // memories feed on every device can skip it without a column (docs/briefs/receipt-scan.md §8).
+      const path = fid + '/' + rcpt + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.' + ext;
       // Paths embed a timestamp + random suffix and are never overwritten, so the
       // bytes at a given URL are immutable — cache them for a year instead of
       // Supabase's 1h default, which would otherwise force a revalidation round
@@ -29847,7 +29959,9 @@ window.obGoogle = async function () {
       }
     } catch (e) { console.warn('txn photos failed', e); failed++; }
     finally { try { window.fhUploadBusy && window.fhUploadBusy(-photos.length); } catch (e) {} }
-    _uploadOutcome(failed, photos.length);
+    // A receipt batch already announced itself once; a success toast per row would bury it. Failures still speak.
+    const quiet = !failed && photos.length && photos.every((p) => window.fhIsReceiptSrc && window.fhIsReceiptSrc(p));
+    if (!quiet) _uploadOutcome(failed, photos.length);
   }
   async function _dbUploadEventMemories(eventId, memories, baseSort) {
     baseSort = baseSort || 0; let failed = 0;
@@ -34912,6 +35026,7 @@ window.classifyAmount = classifyAmount;
     copy:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2.4"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></svg>',
     done:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4 4 10-10.5"/></svg>',
     bell:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15.4V11a6 6 0 1 0-12 0v4.4L4.6 17.9h14.8z"/><path d="M10 20.4a2.2 2.2 0 0 0 4 0"/></svg>',
+    cam:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 8.6h3L9.2 6h5.6l1.7 2.6h3v9.8h-15z"/><circle cx="12" cy="13.2" r="3.1"/></svg>',
   };
   const _mbxGlyph = (k) => _MBX_SVG[k] || '';
 
@@ -39153,6 +39268,7 @@ window.classifyAmount = classifyAmount;
     var _CST_LABELS = {
       app_data:   ['Dữ liệu ứng dụng', 'App data', 'lock'],
       bank_email: ['Email ngân hàng', 'Bank email', 'mail'],
+      receipt_scan: ['Quét hóa đơn', 'Receipt scan', 'cam'],   // sheet + withdrawal live in 78-receipt-scan.js
     };
 
     window.fhPrivacySheet = async function () {
@@ -39232,6 +39348,7 @@ window.classifyAmount = classifyAmount;
     /* Read the exact text a given consent was given against. */
     window.fhConsentReview = function (kind) {
       if (kind === FH_CONSENT_KIND) return window.fhConsentSheet({ readOnly: true });
+      if (kind === 'receipt_scan' && window.fhScanConsentSheet) return window.fhScanConsentSheet({ readOnly: true });
       return window.fhAppDataConsentSheet({ readOnly: true });
     };
 
@@ -40932,6 +41049,533 @@ window.classifyAmount = classifyAmount;
       _stmCards = [];
     };
   })();
+/* ═══ Receipt scan — capture → read → review → commit ═══════════════════════
+   docs/briefs/receipt-scan.md. Capture is Apple's document-scanner skeleton;
+   review reuses the ledger row; the commit goes through the EXISTING save paths
+   (submitBulk / _submitPersonalExpense) so write-through, provenance (0100
+   `source`) and photo upload stay exactly as they are.
+
+   Scope (CLAUDE.md §3): this is the js-data MODULE — every inline-handler target
+   is assigned on window. `sb`, `_friendly`, `fhField` are module-scope siblings
+   (all js-data files concatenate into one <script type="module">); `L`, `toast`,
+   `fmt`, `amtToInput`, `parseAmtBase`, `curMult`, `familyCatForConcept`,
+   `readPhoto`, `openExpense`, `closeExpense`, `submitBulk`, … are js-ui globals.
+
+   Privacy: NOTHING is sent before a `receipt_scan` consent row is confirmed. What
+   is sent is the compressed copy (fhCompressImage strips EXIF/GPS). The reply is
+   fields only; the model's transcription never reaches this file. */
+(function () {
+  const KIND = 'receipt_scan', KIND_WD = 'receipt_scan_withdraw', VERSION = 1;
+  // Per-device memo of an accepted consent, so a later scan can acquire the
+  // camera synchronously inside the tap (iOS drops the gesture across an await).
+  // Re-verified against the table on every use; a withdrawal anywhere clears it.
+  const CACHE_KEY = 'fh-scan-consent-v' + VERSION;
+  const MAX = 10, CONC = 3, ENDPOINT = '/api/receipt-extract';
+  const S = { scope: 'family', items: [], open: false, editing: null, stream: null, pending: null,
+              camArmed: false, camTimer: null, cancelArmed: false, cancelTimer: null, receipt: new Set(),
+              peekRestore: null, filesPending: 0, newSig: [] };
+
+  const $ = (id) => document.getElementById(id);
+  const vi = () => (typeof isVi === 'function' ? isVi() : true);
+  const isoToday = () => (typeof isoDate === 'function' && typeof TODAY !== 'undefined') ? isoDate(TODAY) : new Date().toISOString().slice(0, 10);
+
+  /* ── receipts are evidence, never memories ─────────────────────────────── */
+  // Before upload a receipt is a data URI held in this set; after upload its
+  // storage path starts with rcpt_ (40-txn-writes-outbox.js), so every device
+  // can tell it apart from a memory with no column.
+  window.fhIsReceiptSrc = function (src) {
+    if (!src) return false;
+    if (S.receipt.has(src)) return true;
+    return /\/rcpt_[^/?]*(\?|$)/.test(String(src));
+  };
+  window.fhScanHasBatch = () => S.open && S.items.length > 0;
+  window.fhScanIsNew = (t) => !!(S.newSig && S.newSig.length && t && S.newSig.indexOf((t.note || '') + '|' + (t.amt || 0)) >= 0);
+
+  /* ── consent ────────────────────────────────────────────────────────────── */
+  function cachedOk() { try { return localStorage.getItem(CACHE_KEY) === '1'; } catch (e) { return false; } }
+  function cache(v) { try { if (v) localStorage.setItem(CACHE_KEY, '1'); else localStorage.removeItem(CACHE_KEY); } catch (e) {} }
+  async function consentOk() {
+    try {
+      const r = await sb.from('user_consents').select('kind,version,consented_at')
+        .in('kind', [KIND, KIND_WD]).order('consented_at', { ascending: false }).limit(1);
+      const row = r && r.data && r.data[0];
+      const ok = !!(row && row.kind === KIND && row.version >= VERSION);
+      cache(ok);
+      return ok;
+    } catch (e) { return cachedOk(); }   // unreadable (offline): trust the device memo
+  }
+  function esc2(s) { return (typeof esc === 'function') ? esc(String(s == null ? '' : s)) : String(s == null ? '' : s); }
+  function cstRow(q, a) { return '<div class="cst-row"><div class="cst-rt">' + esc2(q) + '</div><div class="cst-rs">' + esc2(a) + '</div></div>'; }
+  function openSheet(html) {
+    const b = $('fh-sheet-body'); if (!b) return;
+    b.innerHTML = html;
+    $('scrim').classList.add('on'); $('fh-sheet').classList.add('on');
+  }
+  // The seven items the law requires (docs/PDPL-COMPLIANCE.md §5c): purpose ·
+  // data types · processing method · third parties · rights · retention ·
+  // controller + contact. tools/receipt-scan.test.js asserts each one.
+  function consentBody() {
+    return '<div class="cst-body">'
+      + cstRow(L('Gửi đi những gì?', 'What is sent?'), L('Một bản sao nhỏ của từng ảnh, đã xoá vị trí và thông tin máy chụp.', 'A smaller copy of each photo, with location and camera details removed.'))
+      + cstRow(L('Để làm gì?', 'What for?'), L('Chỉ để đọc số tiền, ngày và nơi mua, rồi điền sẵn khoản chi. Không bán, không quảng cáo.', 'Only to read the amount, date and shop, then prefill an expense. Never sold, never ads.'))
+      + cstRow(L('Ai đọc ảnh?', 'Who reads the photo?'), L('AI của Google đọc tự động. Máy chủ Earthy chuyển đi, không giữ lại.', 'Google’s AI reads it automatically. Earthy’s server passes it on and keeps nothing.'))
+      + cstRow(L('Có tự vào sổ không?', 'Does anything save by itself?'), L('Không. Bạn xem lại từng khoản rồi mới lưu.', 'No. You check every item before it is saved.'))
+      + cstRow(L('Giữ bao lâu?', 'How long is it kept?'), L('Earthy không giữ bản gửi đi. Google xử lý theo điều khoản của gói đang dùng.', 'Earthy keeps no copy. Google handles it under the terms of the plan in use.'))
+      + '</div>';
+  }
+  function consentMeta(withDecline) {
+    return '<div class="cst-meta">' + esc2(L(
+      'Muốn dừng: Cài đặt, Quyền riêng tư, Quét hóa đơn. Vận hành: Trang và Hiên · gichisreading@gmail.com · Chi tiết: Chính sách quyền riêng tư.' + (withDecline ? ' Nếu không đồng ý, chỉ tính năng này không bật.' : ''),
+      'To stop: Settings, Privacy, Receipt scan. Operated by Trang and Hien · gichisreading@gmail.com · Details: Privacy Policy.' + (withDecline ? ' If you decline, only this feature stays off.' : ''))) + '</div>';
+  }
+  window.fhScanConsentSheet = async function (opts) {
+    opts = opts || {};
+    const ro = !!opts.readOnly;
+    let status = '';
+    if (ro) {
+      let when = null;
+      try {
+        const r = await sb.from('user_consents').select('consented_at').eq('kind', KIND).order('consented_at', { ascending: false }).limit(1);
+        when = r && r.data && r.data[0] ? new Date(r.data[0].consented_at) : null;
+      } catch (e) {}
+      const camSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 8.6h3L9.2 6h5.6l1.7 2.6h3v9.8h-15z"/><circle cx="12" cy="13.2" r="3.1"/></svg>';
+      status = '<div class="cst-group"><div class="cst-lrow"><span class="cst-ic">' + camSvg + '</span>'
+        + '<span class="cst-ltxt"><span class="cst-lt">' + esc2(L('Đang gửi ảnh cho AI', 'Sending photos to AI')) + '</span>'
+        + '<span class="cst-ls">' + esc2(when ? L('Bạn đã đồng ý ngày ', 'You agreed on ') + fmtDayMon(when) : L('Chưa có xác nhận nào được ghi nhận.', 'No confirmation on record.')) + '</span></span>'
+        + '<button type="button" class="cst-stop" onclick="fhScanStop(this)">' + esc2(L('Dừng', 'Stop')) + '</button></div></div>';
+    }
+    openSheet(
+      '<div class="cst-kicker">' + esc2(ro ? L('QUÉT HÓA ĐƠN', 'RECEIPT SCAN') : L('ĐỒNG Ý XỬ LÝ DỮ LIỆU CÁ NHÂN · QUÉT HÓA ĐƠN', 'PERSONAL DATA CONSENT · RECEIPT SCAN')) + '</div>'
+      + '<div class="sheet-h">' + esc2(L('Bạn chụp, AI đọc, bạn xem lại.', 'You snap it, AI reads it, you check it.')) + '</div>'
+      + status + consentBody() + consentMeta(!ro)
+      + (ro
+        ? '<button class="btn-skip" onclick="_closeOv()">' + esc2(L('Đóng', 'Close')) + '</button>'
+        : '<button class="cta" id="scan-agree" onclick="fhScanConsentAgree(this)">' + esc2(L('Đồng ý và mở máy ảnh', 'Agree and open the camera')) + '</button>'
+          + '<button class="btn-skip" onclick="_closeOv()">' + esc2(L('Để sau', 'Not now')) + '</button>'));
+  };
+  window.fhScanConsentAgree = async function (btn) {
+    preacquire();                                  // inside the tap, before any await (iOS)
+    if (btn) { btn.disabled = true; btn.textContent = L('Đang ghi nhận…', 'Recording…'); }
+    let res;
+    try { res = await sb.from('user_consents').insert({ kind: KIND, version: VERSION }); } catch (e) { res = { error: e }; }
+    const dup = res && res.error && /duplicate key|already exists/i.test(res.error.message || '');
+    if (res && res.error && !dup) {
+      // The record IS the consent: no row, no camera, nothing sent.
+      stopCam();
+      if (btn) { btn.disabled = false; btn.textContent = L('Đồng ý và mở máy ảnh', 'Agree and open the camera'); }
+      toast(_friendly(res.error));
+      return;
+    }
+    cache(true);
+    window._closeOv && _closeOv();
+    showCam();
+  };
+  window.fhScanStop = async function (btn) {
+    if (!btn) return;
+    if (!btn.dataset.armed) {
+      btn.dataset.armed = '1';
+      btn.textContent = L('Chắc chắn dừng? Bấm lần nữa', 'Sure? Tap again to stop');
+      setTimeout(function () { if (btn && btn.dataset) { delete btn.dataset.armed; btn.textContent = L('Dừng', 'Stop'); } }, 10000);
+      return;
+    }
+    btn.disabled = true; btn.textContent = L('Đang dừng…', 'Stopping…');
+    let res;
+    try { res = await sb.from('user_consents').insert({ kind: KIND_WD, version: VERSION }); } catch (e) { res = { error: e }; }
+    if (res && res.error && !/duplicate key|already exists/i.test(res.error.message || '')) {
+      btn.disabled = false; delete btn.dataset.armed; btn.textContent = L('Dừng', 'Stop');
+      toast(_friendly(res.error)); return;
+    }
+    cache(false);
+    window._closeOv && _closeOv();
+    toast(L('Đã dừng gửi ảnh cho AI', 'Stopped sending photos to AI'));
+  };
+
+  /* ── camera ─────────────────────────────────────────────────────────────── */
+  const CONSTRAINTS = { video: { facingMode: { ideal: 'environment' }, width: { ideal: 2560 }, height: { ideal: 1920 } }, audio: false };
+  function preacquire() {
+    if (S.pending || S.stream) return;
+    if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) return;
+    try { S.pending = navigator.mediaDevices.getUserMedia(CONSTRAINTS); S.pending.catch(function () {}); }
+    catch (e) { S.pending = null; }
+  }
+  function say(t) { const e = $('scan-say'); if (e) e.textContent = t; }
+  async function startCam() {
+    const v = $('scan-video'); if (!v) return;
+    let stream = null; const p = S.pending; S.pending = null;
+    try {
+      stream = p ? await p : ((navigator.mediaDevices && navigator.mediaDevices.getUserMedia) ? await navigator.mediaDevices.getUserMedia(CONSTRAINTS) : null);
+    } catch (e) { stream = null; }
+    if (!stream) { camFail(); return; }
+    S.stream = stream; v.hidden = false;
+    try { v.srcObject = stream; await v.play(); } catch (e) {}
+    try {
+      const t = stream.getVideoTracks()[0];
+      const caps = t && t.getCapabilities ? t.getCapabilities() : {};
+      const fb = $('scan-flash'); if (fb) fb.classList.toggle('off', !caps.torch);
+    } catch (e) {}
+    const sh = $('scan-shutter'); if (sh) sh.hidden = false;
+    narrate();
+  }
+  function camFail() {
+    const sh = $('scan-shutter'); if (sh) sh.hidden = true;
+    const v = $('scan-video'); if (v) v.hidden = true;
+    say(L('Máy ảnh không dùng được ở đây. Chọn ảnh từ thư viện.', 'The camera is not available here. Pick from the library.'));
+  }
+  function stopCam() {
+    try { if (S.stream) S.stream.getTracks().forEach(function (t) { try { t.stop(); } catch (e) {} }); } catch (e) {}
+    S.stream = null;
+    const p = S.pending; S.pending = null;
+    if (p) p.then(function (s) { try { s.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {} }, function () {});
+    const v = $('scan-video'); if (v) { try { v.srcObject = null; } catch (e) {} }
+  }
+  function showCam() {
+    const c = $('scan-cam'); if (!c) return;
+    S.camArmed = false;
+    c.classList.add('on');
+    renderTray();
+    startCam();
+  }
+  function hideCam() { const c = $('scan-cam'); if (c) c.classList.remove('on'); stopCam(); }
+  function narrate() {
+    const n = S.items.length;
+    if (!S.stream) return;
+    if (n >= MAX) say(L('Đủ ' + MAX + ' ảnh, tối đa một lần · chạm Xong', MAX + ' photos, the most for one batch · tap Done'));
+    else if (n) say(L('Đã chụp ' + n + ' · chụp tiếp hoặc chạm Xong', n + ' captured · keep going or tap Done'));
+    else say(L('Đưa hóa đơn vào khung', 'Line the receipt up in the frame'));
+  }
+  function renderTray() {
+    const t = $('scan-tray'); if (!t) return;
+    const n = S.items.length;
+    t.innerHTML = n
+      ? '<span class="th" style="background-image:url(' + S.items[n - 1].src + ')"><span class="n">' + n + '</span></span>' + esc2(L('Xong', 'Done'))
+      : '';
+    const sh = $('scan-shutter'); if (sh) sh.disabled = n >= MAX;
+    narrate();
+  }
+  function add(src) {
+    if (!src) return false;
+    if (S.items.length >= MAX) { toast(L('Tối đa ' + MAX + ' ảnh một lần', 'Up to ' + MAX + ' photos at a time')); return false; }
+    S.receipt.add(src);
+    S.items.push({ src: src, taken: (window.fhPhotoTakenOn ? window.fhPhotoTakenOn(src) : null) || null, state: 'new',
+                   amt: '', readAmt: 0, note: '', cat: '', date: '', time: '', edited: false });
+    renderTray();
+    return true;
+  }
+  window.fhScanCapture = function () {
+    const v = $('scan-video');
+    if (!v || !S.stream || !v.videoWidth) { toast(L('Máy ảnh chưa sẵn sàng', 'Camera not ready yet')); return; }
+    try {
+      const c = document.createElement('canvas'); c.width = v.videoWidth; c.height = v.videoHeight;
+      c.getContext('2d').drawImage(v, 0, 0);
+      add(c.toDataURL('image/jpeg', 0.92));
+    } catch (e) { toast(L('Chụp chưa được, thử lại', 'Could not capture, try again')); }
+  };
+  window.fhScanFlash = async function () {
+    try {
+      const t = S.stream && S.stream.getVideoTracks()[0]; if (!t) return;
+      const on = !!(t.getSettings && t.getSettings().torch);
+      await t.applyConstraints({ advanced: [{ torch: !on }] });
+    } catch (e) {}
+  };
+  window.fhScanLibrary = function () { const f = $('scan-file'); if (f) f.click(); };
+  window.fhScanFiles = function (input) {
+    const files = Array.prototype.slice.call((input && input.files) || []);
+    if (input) input.value = '';
+    if (!files.length) return;
+    const room = Math.max(0, MAX - S.items.length);
+    if (files.length > room) toast(L('Chỉ thêm được ' + room + ' ảnh nữa', 'Only ' + room + ' more will fit'));
+    const take = files.slice(0, room);
+    S.filesPending += take.length;
+    take.forEach(function (f) {
+      readPhoto(f, function (src) {
+        if (src) add(src);
+        S.filesPending--;
+        // No live camera here (a desktop, or a blocked camera): a library pick is the whole batch.
+        if (S.filesPending === 0 && !S.stream && S.items.length) window.fhScanDone();
+      });
+    });
+  };
+  window.fhScanDone = function () {
+    if (!S.items.length) { toast(L('Chưa có ảnh nào', 'No photos yet')); return; }
+    hideCam();
+    openReview();
+    readAll();
+  };
+  window.fhScanCancel = function () {
+    const fresh = S.items.filter(function (i) { return i.state === 'new'; }).length;
+    if (fresh && !S.camArmed) {
+      S.camArmed = true;
+      toast(L('Chạm lần nữa để bỏ ' + fresh + ' ảnh vừa chụp', 'Tap again to discard the ' + fresh + (fresh === 1 ? ' photo' : ' photos') + ' you just captured'));
+      clearTimeout(S.camTimer); S.camTimer = setTimeout(function () { S.camArmed = false; }, 3500);
+      return;
+    }
+    S.camArmed = false;
+    S.items = S.items.filter(function (i) { return i.state !== 'new'; });   // an in-progress review keeps its rows
+    hideCam();
+    if (S.open) render();
+  };
+
+  /* ── start ──────────────────────────────────────────────────────────────── */
+  window.fhScanStart = function (scope) {
+    S.scope = scope === 'personal' ? 'personal' : 'family';
+    if (S.scope === 'personal') {
+      const pd = window.fhPersonalData && fhPersonalData();
+      if (!pd || !pd.key) { toast(L('Mở khoá sổ cá nhân ở tab Cá nhân trước', 'Unlock your personal ledger in the Cá nhân tab first')); return; }
+    }
+    if (S.open && S.items.length) { openReview(); return; }   // a batch in progress: back to it
+    S.items = []; S.open = false;
+    if (cachedOk()) {
+      preacquire();                                // inside the tap
+      showCam();
+      consentOk().then(function (ok) { if (!ok) { hideCam(); window.fhScanConsentSheet({}); } });   // withdrawn elsewhere: ask again
+      return;
+    }
+    consentOk().then(function (ok) { if (ok) showCam(); else window.fhScanConsentSheet({}); });
+  };
+  window.fhScanMore = function () { preacquire(); showCam(); };
+
+  /* ── review ─────────────────────────────────────────────────────────────── */
+  function openReview() {
+    S.open = true; S.cancelArmed = false;
+    const m = $('scan-review'); if (!m) return;
+    $('scrim').classList.add('on');
+    m.classList.add('on'); m.style.transform = ''; m.style.transition = '';
+    const b = m.querySelector('.modal-body'); if (b) b.scrollTop = 0;
+    render();
+  }
+  function closeReview() {
+    S.open = false; S.items = []; S.cancelArmed = false;
+    if (typeof closeModals === 'function') closeModals();
+  }
+  function isReady(it) { return (it.state === 'ok' || it.state === 'flag') && parseAmtBase(it.amt || '') > 0 && (typeof catValid !== 'function' || catValid(it.cat)); }
+  function total(list) { return list.reduce(function (a, it) { return a + (parseAmtBase(it.amt || '') || 0); }, 0); }
+  function rowHtml(it, i) {
+    const tile = '<div class="r-ico ph" style="background-image:url(' + it.src + ')' + (it.state === 'reading' || it.state === 'new' ? ';opacity:.5' : '') + '" onclick="event.stopPropagation();fhScanPeek(' + i + ')"></div>';
+    let title, sub, right;
+    if (it.state === 'reading' || it.state === 'new') {
+      title = '<div class="r-t" style="color:var(--muted)">' + esc2(L('Đang đọc…', 'Reading…')) + '</div>';
+      sub = '<div class="r-s"><span class="scan-skel" style="width:92px;height:13px"></span></div>';
+      right = '<div class="r-amt num"><span class="scan-skel" style="min-width:78px;height:17px"></span></div>';
+    } else if (it.state === 'bad' || it.state === 'offline') {
+      title = '<div class="r-t" style="color:var(--muted)">' + esc2(it.state === 'offline' ? L('Chưa gửi được', 'Not sent yet') : L('Chưa đọc được', 'Not read yet')) + '</div>';
+      sub = '<div class="r-s scan-act">' + esc2(L('Chạm để nhập tay', 'Tap to type it in')) + '</div>';
+      right = '<div class="r-amt num" style="color:var(--muted-soft)">—</div>';
+    } else {
+      title = '<div class="r-t">' + esc2(it.note || L('Khoản chi', 'Expense')) + '</div>';
+      const noCat = typeof catValid === 'function' && !catValid(it.cat);
+      sub = it.state === 'flag'
+        ? '<div class="r-s scan-warn">' + esc2(L('Kiểm tra lại số tiền', 'Check the amount')) + '</div>'
+        : (noCat ? '<div class="r-s scan-act">' + esc2(L('Chạm để chọn danh mục', 'Tap to pick a category')) + '</div>'
+                 : '<div class="r-s">' + esc2(fmtDayMon(new Date(it.date + 'T00:00:00')) + (it.time ? ' · ' + it.time : '')) + '</div>');
+      right = '<div class="r-amt num">' + fmt(parseAmtBase(it.amt || '')) + '</div>' + (noCat ? '' : '<div class="r-cat">' + esc2(it.cat) + '</div>');
+    }
+    return '<div class="row tap" onclick="fhScanRowTap(' + i + ')"><div class="r-ico-wrap">' + tile + '</div><div class="r-body">' + title + sub + '</div><div class="r-right">' + right + '</div></div>';
+  }
+  function render() {
+    if (!S.open) return;
+    const items = S.items, n = items.length;
+    const reading = items.filter(function (i) { return i.state === 'reading' || i.state === 'new'; }).length;
+    const ready = items.filter(isReady);
+    const head = $('scan-head'), dest = $('scan-dest'), rows = $('scan-rows'), note = $('scan-note'), save = $('scan-save');
+    if (head) head.textContent = reading ? L('Đang đọc ' + n + ' ảnh…', 'Reading ' + n + ' photos…')
+      : (items.some(function (i) { return i.state === 'offline'; }) ? L('Đang ngoại tuyến', 'Offline') : L('Đã đọc ' + ready.length + '/' + n, 'Read ' + ready.length + ' of ' + n));
+    if (dest) dest.textContent = (S.scope === 'personal' ? L('Sổ cá nhân', 'Personal book') : L('Sổ gia đình', 'Family book')) + (ready.length ? ' · ' + fmt(total(ready)) : '');
+    if (rows) rows.innerHTML = items.map(rowHtml).join('')
+      + '<div class="row tap" onclick="fhScanMore()"><div class="r-ico-wrap"><div class="pers-r-ico"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></div></div>'
+      + '<div class="r-body"><div class="r-t scan-act">' + esc2(L('Chụp thêm ảnh', 'Capture more')) + '</div></div></div>';
+    if (note) {
+      const left = items.filter(function (i) { return !isReady(i) && i.state !== 'reading' && i.state !== 'new'; }).length;
+      note.textContent = items.some(function (i) { return i.state === 'offline'; })
+        ? L('Không có mạng nên chưa gửi ảnh nào đi. Ảnh vẫn ở đây, chạm từng khoản để nhập tay.', 'No connection, so nothing was sent. The photos are still here. Tap each one to type it in.')
+        : (left && !reading ? L('Ảnh chưa đọc được vẫn ở đây sau khi lưu, chạm để nhập tay.', 'Photos we could not read stay here after saving. Tap one to type it in.') : '');
+    }
+    if (save) { save.disabled = ready.length === 0; save.textContent = ready.length ? L('Lưu ' + ready.length, 'Save ' + ready.length) : L('Lưu', 'Save'); }
+    const c = $('scan-cancel'); if (c && !S.cancelArmed) { c.classList.remove('armed'); c.textContent = L('Huỷ', 'Cancel'); }
+  }
+
+  /* ── reading ────────────────────────────────────────────────────────────── */
+  async function token() {
+    try { const r = await sb.auth.getSession(); return r && r.data && r.data.session ? r.data.session.access_token : null; } catch (e) { return null; }
+  }
+  function readAll() {
+    const todo = S.items.filter(function (i) { return i.state === 'new'; });
+    if (!navigator.onLine) { todo.forEach(function (i) { i.state = 'offline'; }); render(); return; }
+    todo.forEach(function (i) { i.state = 'reading'; });
+    render();
+    let idx = 0;
+    const next = async function () {
+      while (idx < todo.length) { const it = todo[idx++]; await readOne(it); render(); }
+    };
+    const lanes = []; for (let k = 0; k < Math.min(CONC, todo.length); k++) lanes.push(next());
+    Promise.all(lanes).then(render, render);
+  }
+  async function readOne(it) {
+    try {
+      const cmp = await window.fhCompressImage(it.src);
+      const m = String(cmp || '').match(/^data:([^;]+);base64,(.*)$/); if (!m) throw new Error('no image');
+      const tk = await token(); if (!tk) throw new Error('no session');
+      const r = await fetch(ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tk },
+        body: JSON.stringify({ image: m[2], mime: m[1], lang: vi() ? 'vi' : 'en' }) });
+      if (!r.ok) throw new Error('http ' + r.status);
+      apply(it, await r.json());
+    } catch (e) { it.state = 'bad'; }
+  }
+  // Everything below is the ONLY place read values become form values.
+  function apply(it, j) {
+    if (!j || !j.is_transaction || !(j.amount > 0)) { it.state = 'bad'; return; }
+    const cur = (typeof CUR !== 'undefined') ? CUR : 'VND';
+    if (j.currency && j.currency !== cur) { it.state = 'bad'; return; }            // a foreign figure is typed by hand, never guessed into ₫
+    it.readAmt = j.amount / curMult();                                            // raw units → base units, exactly once
+    it.amt = amtToInput(it.readAmt);
+    it.note = (j.counterparty || j.memo || '').trim();
+    it.cat = (j.category && typeof familyCatForConcept === 'function') ? familyCatForConcept(j.category) : '';
+    it.date = j.date || it.taken || isoToday();
+    it.time = j.time || '';
+    it.state = (j.flags && j.flags.amount_unverified) ? 'flag' : 'ok';
+  }
+
+  /* ── a row opens the existing expense form, which hands its fields back ─── */
+  window.fhScanRowTap = function (i) {
+    const it = S.items[i]; if (!it) return;
+    S.editing = i;
+    openExpense({ scope: S.scope, date: it.date || isoToday(), photos: [it.src] });
+    setTimeout(function () {
+      const n = $('ex-note'), a = $('ex-amt'), t = $('ex-time');
+      if (n) n.value = it.note || '';
+      if (a) a.value = it.amt || '';
+      if (it.cat && typeof selectChipByVal === 'function') selectChipByVal('ex-cat', it.cat);
+      const tf = $('ex-timefield'); if (tf) tf.style.display = '';
+      if (t) t.value = it.time || '';
+      if (typeof setTxt === 'function') setTxt('ex-title', L('Sửa khoản ' + (i + 1) + '/' + S.items.length, 'Edit ' + (i + 1) + ' of ' + S.items.length));
+      // the card header numbers rows within its own list; this row is item i of the batch
+      const idx = document.querySelector('#bulk-list .bulk-idx');
+      if (idx) idx.textContent = L('Khoản chi ' + (i + 1), 'Expense ' + (i + 1));
+      const del = $('ex-del'); if (del) del.style.display = 'none';
+      const add = $('bulk-add'); if (add) add.style.display = 'none';
+      if (typeof refreshExCta === 'function') refreshExCta();
+      const em = $('expense-modal');
+      if (em && typeof MutationObserver !== 'undefined') {
+        const obs = new MutationObserver(function () { if (!em.classList.contains('on')) { S.editing = null; obs.disconnect(); if (S.open) openReview(); } });
+        obs.observe(em, { attributes: true, attributeFilter: ['class'] });
+      }
+    }, 60);
+  };
+  window.fhScanCollectEdit = function () {
+    if (S.editing == null) return false;
+    const it = S.items[S.editing]; S.editing = null;
+    if (!it) return false;
+    const amt = parseAmtBase(($('ex-amt') || {}).value || '');
+    it.note = (($('ex-note') || {}).value || '').trim();
+    it.amt = amt > 0 ? amtToInput(amt) : '';
+    it.cat = (typeof chosen === 'function' && chosen('ex-cat')) || it.cat || '';
+    it.date = (($('ex-date') || {}).value) || it.date || isoToday();
+    it.time = (($('ex-time') || {}).value) || '';
+    if (amt > 0 && Math.abs(amt - (it.readAmt || 0)) > 1e-9) it.edited = true;
+    it.state = amt > 0 ? 'ok' : 'bad';
+    if (typeof closeExpense === 'function') closeExpense();
+    openReview();
+    return true;
+  };
+
+  /* ── the receipt, large, with retake (never delete: this is not an expense yet) ─ */
+  window.fhScanPeek = function (i) {
+    const it = S.items[i]; if (!it) return;
+    const frame = $('peek-frame'), img = $('peek-img'), peek = $('peek');
+    if (!frame || !img || !peek) return;
+    frame.className = 'peek-frame'; img.src = it.src; img.alt = it.note || L('Hóa đơn', 'Receipt');
+    if (typeof setTxt === 'function') setTxt('peek-cap', (it.note ? it.note + ' · ' : '') + (parseAmtBase(it.amt || '') > 0 ? fmt(parseAmtBase(it.amt)) : L('Hóa đơn ' + (i + 1), 'Receipt ' + (i + 1))));
+    if (typeof peekHideActions === 'function') peekHideActions();
+    const del = peek.querySelector('.peek-del');
+    if (del) {
+      S.peekRestore = { text: del.textContent, onclick: del.getAttribute('onclick') };
+      del.textContent = L('Chụp lại', 'Retake'); del.classList.remove('armed');
+      del.setAttribute('onclick', 'event.stopPropagation();fhScanRetake(' + i + ')');
+      const obs = new MutationObserver(function () {
+        if (!peek.classList.contains('on')) {
+          if (S.peekRestore) { del.textContent = S.peekRestore.text; if (S.peekRestore.onclick) del.setAttribute('onclick', S.peekRestore.onclick); S.peekRestore = null; }
+          obs.disconnect();
+        }
+      });
+      obs.observe(peek, { attributes: true, attributeFilter: ['class'] });
+    }
+    peek.classList.add('on');
+  };
+  window.fhScanRetake = function (i) {
+    if (typeof closePeek === 'function') closePeek();
+    const it = S.items[i]; if (!it) return;
+    S.items.splice(i, 1); S.receipt.delete(it.src);
+    render();
+    window.fhScanMore();
+  };
+
+  /* ── cancel (armed) and commit ──────────────────────────────────────────── */
+  window.fhScanReviewCancel = function () {
+    const b = $('scan-cancel');
+    if (S.items.length && !S.cancelArmed) {
+      S.cancelArmed = true;
+      if (b) { b.classList.add('armed'); b.textContent = L('Bỏ ' + S.items.length + ' ảnh?', 'Discard ' + S.items.length + '?'); }
+      toast(L('Chạm lần nữa để bỏ cả loạt ảnh này', 'Tap again to discard this whole batch'));
+      clearTimeout(S.cancelTimer); S.cancelTimer = setTimeout(function () { S.cancelArmed = false; render(); }, 3500);
+      return;
+    }
+    S.items.forEach(function (i) { S.receipt.delete(i.src); });
+    closeReview();
+  };
+  window.fhScanSave = async function (btn) {
+    const ready = S.items.filter(isReady);
+    if (!ready.length) return;
+    if (btn) { btn.disabled = true; btn.textContent = L('Đang lưu…', 'Saving…'); }
+    const rest = S.items.filter(function (i) { return !isReady(i); });
+    const rows = ready.map(function (it) {
+      return { note: it.note, amt: it.amt, cat: it.cat, date: it.date, time: it.time, _catTouched: true, _timeAuto: false,
+               photos: [it.src], source: it.edited ? 'scan-edited' : 'scan' };
+    });
+    const n = rows.length, sum = total(ready);
+    S.items = rest;                                    // what is left stays in the review; an empty rest lets closeModals close it
+    window.bulkRows = rows; window.bulkActive = 0; window.exType = 'expense';
+    if (typeof buildExCatChips === 'function') buildExCatChips();   // addExpense reads the chips; a scan may never have opened the form
+    let ok = true;
+    try {
+      if (S.scope === 'personal') { await _submitPersonalExpense(); }
+      else { submitBulk({ prepared: true, stay: true }); }
+    } catch (e) { ok = false; toast(_friendly(e)); }
+    if (!ok) { S.items = ready.concat(rest); render(); if (btn) btn.disabled = false; return; }
+    // landing: the list, with the rows this batch just wrote marked briefly
+    if (S.scope === 'personal') { if (typeof go === 'function') go('personal'); }
+    else {
+      if (typeof go === 'function') go('spending');
+      if (typeof segTo === 'function') segTo('activity');
+      // hydrate rebuilds rows 700ms after a write, so the mark keys on what survives it: note + amount
+      S.newSig = rows.map(function (r) { return r.note + '|' + parseAmtBase(r.amt || ''); });
+      if (typeof renderTxns === 'function') renderTxns();
+      setTimeout(function () { S.newSig = []; if (typeof renderTxns === 'function') renderTxns(); }, 4000);
+    }
+    toast(L('Đã ghi ' + n + ' khoản từ hóa đơn · ' + fmt(sum), 'Logged ' + n + ' from receipts · ' + fmt(sum)));
+    if (rest.length) openReview(); else closeReview();
+  };
+
+  /* ── harness seam (tools/ui-harness only): render states without a camera or a network ── */
+  window.__fhScanSeed = function (o) {
+    o = o || {};
+    S.scope = o.scope === 'personal' ? 'personal' : 'family';
+    S.items = (o.items || []).map(function (it) {
+      S.receipt.add(it.src);
+      const amt = it.amt != null ? Number(it.amt) : 0;
+      return { src: it.src, taken: (window.fhPhotoTakenOn ? window.fhPhotoTakenOn(it.src) : null) || null, state: it.state || 'ok', amt: amt ? amtToInput(amt) : '', readAmt: amt, note: it.note || '', cat: it.cat || '', date: it.date || isoToday(), time: it.time || '', edited: false };
+    });
+    if (o.camera) {
+      const c = $('scan-cam'), v = $('scan-video'), f = $('scan-frame');
+      if (v) v.hidden = true;
+      if (f && o.still && !f.querySelector('img')) { const im = document.createElement('img'); im.src = o.still; f.insertBefore(im, f.firstChild); }
+      if (c) c.classList.add('on');
+      renderTray();
+      say(o.say || L('Đưa hóa đơn vào khung', 'Line the receipt up in the frame'));
+      return;
+    }
+    openReview();
+  };
+})();
+
 </script>
 </body>
 </html>

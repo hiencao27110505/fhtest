@@ -219,7 +219,11 @@ function renderExPhoto(){
   if(!strip)return;
   strip.innerHTML = exPhotos.map(function(src,i){
     return '<div class="photo-thumb" style="background-image:url('+src+')"><button type="button" class="x" onclick="removeExPhoto('+i+')">✕</button></div>';
-  }).join('') + (exPhotos.length ? '<div class="photo-strip-note">'+exPhotos.length+L(' ảnh',' photo'+(exPhotos.length!==1?'s':''))+L(' · lưu thành kỷ niệm',' · saved as '+(exPhotos.length!==1?'memories':'a memory'))+' 📸</div>' : '');
+  }).join('') + (exPhotos.length ? '<div class="photo-strip-note">'+exPhotos.length+L(' ảnh',' photo'+(exPhotos.length!==1?'s':''))
+    // a scanned receipt is evidence for its expense, never a memory — the note must not promise Kỷ niệm
+    +((window.fhIsReceiptSrc && exPhotos.every(function(s){ return fhIsReceiptSrc(s); }))
+      ? L(' · hóa đơn kèm khoản chi',' · receipt kept with the expense')+' 🧾'
+      : L(' · lưu thành kỷ niệm',' · saved as '+(exPhotos.length!==1?'memories':'a memory'))+' 📸')+'</div>' : '');
 }
 function exFormState(){                                     // snapshot used to detect edits
   return document.getElementById('ex-note').value.trim()
@@ -344,6 +348,8 @@ function fillExpenseFromTx(){
   refreshExCta();                                          // Save stays disabled until the first edit
 }
 function submitExpense(){
+  // A receipt-scan row being edited: hand the fields back to the review, which owns the commit.
+  if(window.fhScanCollectEdit && fhScanCollectEdit()) return;
   // Private personal edit takes precedence over every add path below.
   if(editingPTx){ savePersonalTxEdit(); return; }
   // Income (Thu): a single amount · when · note write to the income book of the
@@ -397,12 +403,14 @@ async function _submitPersonalExpense(){
     var emoji=(window.catStyle&&catStyle[r.cat]&&catStyle[r.cat][0])||'🗂️';
     // Model Y: category is denormalised on the personal row (name + emoji) — no personal-category table.
     // Per-row time (commitActiveRow flushed the active row; the rest already hold theirs).
-    var rid=await window.fhPersonalAddExpense(amt, r.note||'', r.cat||null, emoji, r.date||undefined, r.time||undefined, undefined, {accountId:acctId});
+    var rid=await window.fhPersonalAddExpense(amt, r.note||'', r.cat||null, emoji, r.date||undefined, r.time||undefined, r.source||undefined, {accountId:acctId});
     if(rid){
       ok++;
       // Photos (0114): encrypted under the personal DEK, attached to the new row.
-      if(i===0 && _pPhotos.length && typeof rid==='string' && window.fhPersonalUploadTxnPhotos){
-        await fhPersonalUploadTxnPhotos(rid, _pPhotos);
+      // A row's own photos win (receipt scan: one receipt per row); else the strip rides row 0.
+      var rowPhotos=(r.photos&&r.photos.length)? r.photos : ((i===0)? _pPhotos : []);
+      if(rowPhotos.length && typeof rid==='string' && window.fhPersonalUploadTxnPhotos){
+        await fhPersonalUploadTxnPhotos(rid, rowPhotos);
         await window.fhPersonalHydrate();
       }
     }
