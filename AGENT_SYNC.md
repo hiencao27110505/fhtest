@@ -143,6 +143,18 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-09-20 (Hien's session — category tree, big bang) — `0144_category_tree` APPLIED live and verified** (6 objects: transactions.node/node_enc, categories.claims/claims_enc, personal_transactions.node_enc/label_id, new personal_labels, merchant_concepts.node + merchant_corrections.node, snapshot RPC + seed_default_categories + scrub + enc-state abort re-created). SW **v545**. `mailbox-sync` v52 and `mailbox-dryrun` deploy with this change. **Next free migration is `0145`.**
+  Epic: one system category tree per transaction kind (`taxonomy/taxonomy.json`, generated
+  into `src/js-ui/11-taxonomy.js` + `_shared/mailbox/taxonomy.mjs` + the Python list by
+  `tools/gen-taxonomy.js`, run by `build.js`) under the user's own labels; spec
+  `docs/specs/category-tree-spec.md`, page `research/category-tree.html`. Additive only:
+  `transactions.node/node_enc`, `categories.claims/claims_enc`, `personal_transactions.node_enc
+  + label_id`, new `personal_labels`, `merchant_concepts.node`, `merchant_corrections.node`,
+  snapshot RPC re-created with the new columns, `seed_default_categories` gains claims. Will
+  apply 0144 live and deploy `mailbox-sync` **v52** (replaces v51; same tree, classifier now
+  emits node codes alongside the legacy concept/pool). New evaluation function
+  `mailbox-dryrun` is deployed (secret-gated, stages nothing). Next free after this: `0145`.
+
 - **2026-09-19 (Hien — statement capture) — MERGED to `main`. Migrations `0139_statement_capture`,
   `0140_statement_shapes_seed`, `0141_statement_shapes_revoke` APPLIED live and verified
   (tables, RLS, grants, bucket, seeds checked by query). `push-send` DEPLOYED (v21; live v20 was

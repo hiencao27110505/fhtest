@@ -888,6 +888,11 @@ function _toReading(x, message) {
        live: VIB "Số thẻ …4751" mail staged card-less). */
     cardMasked: x.card_masked ?? null,
     category: x.category || null,
+    /* The category-tree node (0144), from the model or the cascade in
+       classify.mjs. This mapping IS the wire, exactly like cardMasked above:
+       stage.mjs reads reading.node, and leaving it out here would null it on
+       every sealed row while the classifier filled it perfectly. */
+    node: x.node || null,
     flow: x.flow || null,
     senderAuth: message.dkim,
   };

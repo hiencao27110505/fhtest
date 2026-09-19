@@ -18,6 +18,10 @@
     // capturing after midnight in UTC+7.
     const _localDate = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
     window.fhPersonalData = function () { return P; };
+    /* 0144 — a node code is kept only when the running tree knows it; a decrypt
+       failure or a code from a newer tree reads as "no node" (rollup rule). */
+    function _okNode(v) { return (typeof v === 'string' && window.FH_TAX && window.FH_TAX.get(v)) ? v : null; }
+    P.labels = P.labels || [];
     const _sb = () => window.sb;
     async function _uid() { try { const s = await _sb().auth.getSession(); return s.data.session ? s.data.session.user.id : null; } catch (e) { return null; } }
 
@@ -112,7 +116,7 @@
         if (!rec || !rec.key || (rec.at && Date.now() - rec.at > _SNAP_TTL)) return false;
         const s = JSON.parse(await FHCrypto.decVal(P.key, rec.key));
         if (!s || s.v !== 1 || s.uid !== P.uid || !Array.isArray(s.txns)) return false;
-        P.txns = s.txns; P.debts = s.debts || []; P.accounts = s.accounts || []; P.memory = s.memory || [];
+        P.txns = s.txns; P.debts = s.debts || []; P.accounts = s.accounts || []; P.memory = s.memory || []; P.labels = s.labels || [];
         P.budget = s.budget || 0; P.catBudget = s.catBudget || {};
         P.unreadable = s.unreadable || 0; P.debtsComplete = s.debtsComplete !== false;
         P.incomes = _incomesView(P.txns);
@@ -130,7 +134,7 @@
           const s = { v: 1, uid: P.uid, unreadable: P.unreadable || 0, debtsComplete: P.debtsComplete !== false,
             budget: P.budget || 0, catBudget: P.catBudget || {},
             txns: (P.txns || []).slice(0, 4000), accounts: P.accounts || [],
-            debts: (P.debts || []).slice(0, 8000), memory: P.memory || [] };
+            debts: (P.debts || []).slice(0, 8000), memory: P.memory || [], labels: P.labels || [] };
           const ct = await FHCrypto.encVal(P.key, JSON.stringify(s));
           if (ct) await _kPut('psnap:' + P.uid, ct);
         } catch (e) {}                                          // a failed save only costs the next warm start
@@ -392,13 +396,17 @@
            tab waited on before 'ready', for data that is decorative. Both are
            failure-tolerant (a lost photo strip or pre-selection never costs the
            ledger), so they resolve to empty on error instead of failing the all. */
-        const [tr, bd, ac, dr, pp, mm] = await Promise.all([
-          _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,occurred_time_enc,txn_date,kind,space_id,link_id,version,updated_at,created_at,account_id,transfer_group_id,position_account_id,quantity_enc,source').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }).order('id')),
+        const [tr, bd, ac, dr, pp, mm, lb] = await Promise.all([
+          _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,occurred_time_enc,txn_date,kind,space_id,link_id,version,updated_at,created_at,account_id,transfer_group_id,position_account_id,quantity_enc,source,node_enc,label_id').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }).order('id')),
           _sb().from('personal_budgets').select('total_enc,cats_enc').eq('owner_user_id', P.uid).eq('month', _monISO()).maybeSingle(),
           _sb().from('personal_accounts').select('id,kind,name_enc,tail,provider,credit_limit_enc,human_verified,statement_day,due_day,anchor_balance_enc,anchor_at,ext_balance_enc,ext_balance_date,account_number_enc,asset_symbol_enc,asset_unit_enc,asset_class_enc,manual_price_enc,manual_price_at,setup_skipped_at').eq('owner_user_id', P.uid).is('archived_at', null),
-          _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,counterparty_enc,cat_name_enc,cat_emoji,txn_date,kind,account_id,transfer_group_id,position_account_id,quantity_enc,due_date,created_at').eq('owner_user_id', P.uid).or('kind.neq.expense,account_id.not.is.null').order('txn_date', { ascending: false }).order('id')),
+          _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,counterparty_enc,cat_name_enc,cat_emoji,txn_date,kind,account_id,transfer_group_id,position_account_id,quantity_enc,due_date,created_at,node_enc,label_id').eq('owner_user_id', P.uid).or('kind.neq.expense,account_id.not.is.null').order('txn_date', { ascending: false }).order('id')),
           _sb().from('personal_transaction_photos').select('transaction_id,photo_url,sort_order').eq('owner_user_id', P.uid).order('sort_order').limit(800).then((r) => r, () => ({ data: null })),
           _sb().from('personal_review_memory').select('id,key_enc,position_account_id').eq('owner_user_id', P.uid).limit(500).then((r) => r, () => ({ data: null })),
+          /* 0144 — the person's own labels (the L2 partition of the category tree).
+             Best-effort like photos: a ledger must still load for someone whose
+             labels row read failed, and an empty list simply means "not set up yet". */
+          _sb().from('personal_labels').select('id,name_enc,emoji,sort_order,claims_enc').eq('owner_user_id', P.uid).is('archived_at', null).order('sort_order').limit(200).then((r) => r, () => ({ data: null })),
         ]);
         if (gen !== _bootGen) return;   // a newer boot owns P now — abandon before touching anything
         /* Ceiling honesty, same stance as the stats slice's `truncated`: a
@@ -438,8 +446,17 @@
             positionId: t.position_account_id || null,
             qty: (qRaw == null || qRaw === _DEC_FAILED) ? null : (Number(qRaw) || null),
             amt: bad ? null : Number(a), _unreadable: bad,
-            note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc), emoji: t.cat_emoji,
+            note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc), node: _okNode(await _decTxt(t.node_enc)), labelId: t.label_id || null, emoji: t.cat_emoji,
             time: await _decTxt(t.occurred_time_enc) });   // local "HH:MM" if the time was known, else null (day-only)
+        }
+        /* 0144 — labels decode like every other personal value: fail-closed, and
+           an unreadable claims blob costs the label its claims, never the label. */
+        const labels = [];
+        for (const l of (lb && lb.data) || []) {
+          let claims = [];
+          const cRaw = l.claims_enc ? await _decTxt(l.claims_enc) : null;
+          if (cRaw) { try { const arr = JSON.parse(cRaw); if (Array.isArray(arr)) claims = arr.filter((x) => typeof x === 'string'); } catch (e) {} }
+          labels.push({ id: l.id, name: await _decTxt(l.name_enc), emoji: l.emoji || '🏷️', sortOrder: l.sort_order || 0, claims: claims });
         }
         /* Photos (0114): attach public URLs to the window's rows; the photo
            observer decrypts /personal-media/ bytes in place. One owner-scoped
@@ -489,7 +506,7 @@
             positionId: t.position_account_id || null,
             qty: (qRaw == null || qRaw === _DEC_FAILED) ? null : (Number(qRaw) || null),
             amt: bad ? null : Number(a), _unreadable: bad,
-            note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc), emoji: t.cat_emoji,
+            note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc), node: _okNode(await _decTxt(t.node_enc)), labelId: t.label_id || null, emoji: t.cat_emoji,
             who: await _decTxt(t.counterparty_enc) });
         }
         /* Review memory (0122): counterparty → position pre-selection for the
@@ -507,11 +524,16 @@
            as a derived view so every existing reader (the income sheet, the
            month totals, the month picker) keeps its shape without knowing. */
         P.incomes = _incomesView(txns);
-        P.accounts = accounts; P.debts = debts; P.memory = memory;
+        P.accounts = accounts; P.debts = debts; P.memory = memory; P.labels = labels;
         P.fromSnapshot = false;                    // this is fresh data —
         _snapSave();                               // — worth caching for the next cold open
         _setState('ready');
         _accountHealSoon();                        // once per session: fold tail-less twins, canonical names
+        /* 0144 — the tree, after the ledger is up and never before it: seed the
+           person's labels on their first hydrate, then let the idle sweep give
+           old rows a node. Both are best-effort; neither may cost a hydrate. */
+        try { if (window.fhPersonalLabelsEnsureDefaults) window.fhPersonalLabelsEnsureDefaults(); } catch (e) {}
+        try { if (window.fhTreeBackfill) window.fhTreeBackfill('personal'); } catch (e) {}
 
       } catch (e) {
         console.warn('personal hydrate failed', e);
@@ -541,7 +563,7 @@
         const d = new Date(); d.setMonth(d.getMonth() - 5); d.setDate(1);
         const from = _localDate(d);
         const tr = await _pageAll(() => _sb().from('personal_transactions')
-          .select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,occurred_time_enc,txn_date,kind,space_id,link_id,account_id,transfer_group_id,position_account_id,source')
+          .select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,occurred_time_enc,txn_date,kind,space_id,link_id,account_id,transfer_group_id,position_account_id,source,node_enc,label_id')
           .eq('owner_user_id', P.uid).gte('txn_date', from).lt('txn_date', to)
           .order('txn_date', { ascending: false }).order('id'));
         const old = [];
@@ -551,7 +573,7 @@
             src: t.source || null, accountId: t.account_id, transferGroupId: t.transfer_group_id,
             positionId: t.position_account_id || null, qty: null,
             amt: bad ? null : Number(a), _unreadable: bad,
-            note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc), emoji: t.cat_emoji,
+            note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc), node: _okNode(await _decTxt(t.node_enc)), labelId: t.label_id || null, emoji: t.cat_emoji,
             time: await _decTxt(t.occurred_time_enc) });
         }
         P.txnsOld = old;
@@ -581,7 +603,7 @@
            here with link_id set, and indexing both let two staged copies of one
            purchase each claim "their own" booked row. */
         const r = await _pageAll(() => _sb().from('personal_transactions')
-          .select('id,amount_enc,note_enc,cat_name_enc,txn_date,kind,link_id,occurred_time_enc,source,account_id')
+          .select('id,amount_enc,note_enc,cat_name_enc,txn_date,kind,link_id,occurred_time_enc,source,account_id,node_enc,label_id')
           .eq('owner_user_id', P.uid)
           .gte('txn_date', from)
           .order('txn_date', { ascending: false }).order('id'));
@@ -590,7 +612,7 @@
           const a = await _decP(t.amount_enc);
           if (a == null || a === _DEC_FAILED) continue;   // unreadable amount → cannot match, skip (fail closed)
           out.push({ id: t.id, date: t.txn_date, kind: t.kind, amt: Number(a), link: t.link_id || null, src: t.source || null, acct: t.account_id || null,
-            note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc),
+            note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc), node: _okNode(await _decTxt(t.node_enc)), labelId: t.label_id || null,
             time: t.occurred_time_enc ? (await _decTxt(t.occurred_time_enc)) : '' });
         }
         _matchSlice = out;
@@ -617,7 +639,7 @@
            any month (period-comparison-spec.md §6): the time is decrypted only
            for rows that have one, created_at is plain. */
         const r = await _pageAll(() => _sb().from('personal_transactions')
-          .select('amount_enc,cat_name_enc,cat_emoji,txn_date,kind,space_id,occurred_time_enc,created_at')
+          .select('amount_enc,cat_name_enc,cat_emoji,txn_date,kind,space_id,occurred_time_enc,created_at,node_enc,label_id')
           .eq('owner_user_id', P.uid)
           .in('kind', ['expense', 'income'])
           .order('txn_date', { ascending: false }).order('id'));
@@ -627,7 +649,7 @@
           if (a === _DEC_FAILED) { unreadable++; continue; }
           if (a == null) continue;
           rows.push({ date: t.txn_date, kind: t.kind, amt: Number(a),
-            cat: await _decTxt(t.cat_name_enc), emoji: t.cat_emoji, spaceId: t.space_id,
+            cat: await _decTxt(t.cat_name_enc), node: _okNode(await _decTxt(t.node_enc)), labelId: t.label_id || null, emoji: t.cat_emoji, spaceId: t.space_id,
             time: t.occurred_time_enc ? await _decTxt(t.occurred_time_enc) : null, ts: t.created_at || null });
         }
         // Paged to the _pageAll hard ceiling (30k rows — decades). If that ever
@@ -738,7 +760,9 @@
       const row = { owner_user_id: P.uid, txn_date: dateIso || _localDate(new Date()), kind: 'expense', space_id: null, link_id: null,
         amount_enc: await _encP(Number(amt)), note_enc: note ? await _encP(note) : null, cat_name_enc: catName ? await _encP(catName) : null, cat_emoji: catEmoji || null,
         occurred_time_enc: t ? await _encP(t) : null, source: source || null,   // 0100 provenance ('direct-email' | 'forwarding-email'); null = hand-entered
-        account_id: (opts && opts.accountId) || null };
+        account_id: (opts && opts.accountId) || null,
+        node_enc: (opts && _okNode(opts.node)) ? await _encP(opts.node) : null,   // 0144: tree node
+        label_id: (opts && opts.labelId) || null };
       // Returns the new row's id (truthy — every boolean caller keeps working);
       // the photo path needs it to attach personal_transaction_photos rows.
       const r = await _sb().from('personal_transactions').insert(row).select('id').single();
@@ -798,6 +822,9 @@
       // accountId (M9): undefined = leave untouched, null = clear, id = set —
       // this is what makes a row that landed untagged taggable at all.
       if (fields.hasOwnProperty('accountId')) row.account_id = fields.accountId || null;
+      // 0144: node / labelId follow the same undefined = untouched, null = clear rule
+      if (fields.hasOwnProperty('node')) row.node_enc = _okNode(fields.node) ? await _encP(fields.node) : null;
+      if (fields.hasOwnProperty('labelId')) row.label_id = fields.labelId || null;
       const r = await _sb().from('personal_transactions').update(row).eq('id', id).eq('owner_user_id', P.uid).is('link_id', null);
       if (r.error) { console.warn('personal expense update failed', r.error); return false; }
       if (!quiet) await window.fhPersonalHydrate();
@@ -862,6 +889,7 @@
       if (fields.hasOwnProperty('accountId')) row.account_id = fields.accountId || null;
       if (fields.hasOwnProperty('time')) row.occurred_time_enc = fields.time ? await _encP(fields.time) : null;   // detail screen (2026-09-18)
       if (fields.hasOwnProperty('cat')) { row.cat_name_enc = fields.cat ? await _encP(fields.cat) : null; row.cat_emoji = fields.emoji || null; }
+      if (fields.hasOwnProperty('node')) row.node_enc = _okNode(fields.node) ? await _encP(fields.node) : null;   // 0144
       const r = await _sb().from('personal_transactions').update(row).eq('id', id).eq('owner_user_id', P.uid).eq('kind', 'income').is('link_id', null);
       if (r.error) { console.warn('personal income update failed', r.error); return false; }
       if (!quiet) await window.fhPersonalHydrate();   // bulk batches hydrate once at the end
@@ -1032,6 +1060,8 @@
           due_date: s.dueDate || null,
           position_account_id: s.positionId || null,
           quantity_enc: (s.qty != null && isFinite(s.qty)) ? await _encP(Number(s.qty)) : null,
+          node_enc: _okNode(s.node) ? await _encP(s.node) : null,   // 0144: the tree node the review decided
+          label_id: s.labelId || null,
           source: s.source || null });
       }
       const CHUNK = 50;
@@ -1387,7 +1417,7 @@
         const famCat = {}; for (const c of (fc.data || [])) famCat[c.id] = { name: c.name != null ? c.name : await fhDecStr(c.name_enc), emoji: c.emoji };
         const from = _winFrom();
 
-        const un = await _sb().from('transactions').select('id,txn_date,category_id,amount,amount_enc,note,note_enc,occurred_time,occurred_time_enc').eq('family_id', fid).eq('created_by', myMem).eq('status', 'realized').eq('kind', 'expense').is('link_id', null).gte('txn_date', from).limit(100);
+        const un = await _sb().from('transactions').select('id,txn_date,category_id,amount,amount_enc,note,note_enc,occurred_time,occurred_time_enc,node,node_enc').eq('family_id', fid).eq('created_by', myMem).eq('status', 'realized').eq('kind', 'expense').is('link_id', null).gte('txn_date', from).limit(100);
         for (const rr of (un.data || [])) {
           const amtS = rr.amount != null ? String(rr.amount) : await fhDecStr(rr.amount_enc);
           if (amtS == null || amtS === '') continue;
@@ -1398,10 +1428,10 @@
           const linkId = crypto.randomUUID();
           const u = await _sb().from('transactions').update({ link_id: linkId }).eq('id', rr.id).is('link_id', null).select('id');
           if (u.error || !u.data || u.data.length !== 1) continue;
-          await _insertMaster(linkId, fid, rr.txn_date, amt, note, fc2.name, fc2.emoji, time);
+          await _insertMaster(linkId, fid, rr.txn_date, amt, note, fc2.name, fc2.emoji, time, null, await _famNode(rr));
         }
 
-        const ln = await _sb().from('transactions').select('id,link_id,txn_date,category_id,amount,amount_enc,note,note_enc,occurred_time,occurred_time_enc,updated_at').eq('family_id', fid).eq('created_by', myMem).not('link_id', 'is', null).gte('txn_date', from).limit(400);
+        const ln = await _sb().from('transactions').select('id,link_id,txn_date,category_id,amount,amount_enc,note,note_enc,occurred_time,occurred_time_enc,updated_at,node,node_enc').eq('family_id', fid).eq('created_by', myMem).not('link_id', 'is', null).gte('txn_date', from).limit(400);
         const famBy = {}; (ln.data || []).forEach((r) => { famBy[r.link_id] = r; });
         const mq = await _sb().from('personal_transactions').select('id,link_id,txn_date,amount_enc,note_enc,occurred_time_enc,updated_at,version,created_at').eq('owner_user_id', P.uid).eq('space_id', fid).not('link_id', 'is', null).gte('txn_date', from).order('created_at');
         const mastersBy = {};
@@ -1417,9 +1447,9 @@
           const note = f.note != null ? f.note : await fhDecStr(f.note_enc);
           const time = await _famTime(f);
           const fc2 = (f.category_id && famCat[f.category_id]) || {};
-          if (!m) { await _insertMaster(lid, fid, f.txn_date, amt, note, fc2.name, fc2.emoji, time); }
+          if (!m) { await _insertMaster(lid, fid, f.txn_date, amt, note, fc2.name, fc2.emoji, time, null, await _famNode(f)); }
           else if (f.updated_at > m.updatedAt && (amt !== m.amt || (note || '') !== (m.note || '') || (time || '') !== (m.time || ''))) {
-            await _sb().from('personal_transactions').update({ amount_enc: await _encP(amt), note_enc: note ? await _encP(note) : null, cat_name_enc: fc2.name ? await _encP(fc2.name) : null, cat_emoji: fc2.emoji || null, txn_date: f.txn_date, occurred_time_enc: time ? await _encP(time) : null, version: (m.version || 1) + 1 }).eq('id', m.id);
+            await _sb().from('personal_transactions').update({ amount_enc: await _encP(amt), note_enc: note ? await _encP(note) : null, cat_name_enc: fc2.name ? await _encP(fc2.name) : null, cat_emoji: fc2.emoji || null, txn_date: f.txn_date, occurred_time_enc: time ? await _encP(time) : null, node_enc: _okNode(await _famNode(f)) ? await _encP(await _famNode(f)) : null, version: (m.version || 1) + 1 }).eq('id', m.id);
           }
         }
         for (const lid of Object.keys(mastersBy)) { if (!famBy[lid]) await _sb().from('personal_transactions').delete().eq('id', mastersBy[lid].id); }   // tombstone
@@ -1456,15 +1486,20 @@
            limits, the 0109 anchor + bank-stated balance) and the budgets. A
            rotation that misses a field makes that field unreadable forever, so
            the list here must grow with every _enc column the schema gains. */
-        const tr = await _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,counterparty_enc,occurred_time_enc,quantity_enc').eq('owner_user_id', P.uid);
+        const tr = await _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,counterparty_enc,occurred_time_enc,quantity_enc,node_enc').eq('owner_user_id', P.uid);
+        const lb = await _sb().from('personal_labels').select('id,name_enc,claims_enc').eq('owner_user_id', P.uid);
         const ac = await _sb().from('personal_accounts').select('id,name_enc,credit_limit_enc,anchor_balance_enc,ext_balance_enc,account_number_enc,asset_symbol_enc,asset_unit_enc,asset_class_enc,manual_price_enc').eq('owner_user_id', P.uid);
         const bg = await _sb().from('personal_budgets').select('owner_user_id,month,total_enc,cats_enc').eq('owner_user_id', P.uid);
         const ls = await _sb().from('personal_lessons').select('owner_user_id,lessons_enc').eq('owner_user_id', P.uid);
         const rm = await _sb().from('personal_review_memory').select('id,key_enc').eq('owner_user_id', P.uid);
         const ph = await _sb().from('personal_transaction_photos').select('id,photo_url').eq('owner_user_id', P.uid);
-        const tot = (tr.data || []).length + (ac.data || []).length + (bg.data || []).length + (ls.data || []).length + (rm.data || []).length + (ph.data || []).length; let n = 0;
+        const tot = (tr.data || []).length + (ac.data || []).length + (bg.data || []).length + (ls.data || []).length + (rm.data || []).length + (ph.data || []).length + (lb.data || []).length; let n = 0;
+        for (const r of (lb.data || [])) {   // 0144: personal labels ride the same sweep
+          const u = await _sb().from('personal_labels').update({ name_enc: await reEnc(r.name_enc), claims_enc: await reEnc(r.claims_enc) }).eq('id', r.id);
+          if (u.error) throw u.error; n++; if (onProgress) onProgress(n, tot);
+        }
         for (const r of (tr.data || [])) {
-          const u = await _sb().from('personal_transactions').update({ amount_enc: await reEnc(r.amount_enc), note_enc: await reEnc(r.note_enc), cat_name_enc: await reEnc(r.cat_name_enc), counterparty_enc: await reEnc(r.counterparty_enc), occurred_time_enc: await reEnc(r.occurred_time_enc), quantity_enc: await reEnc(r.quantity_enc) }).eq('id', r.id);
+          const u = await _sb().from('personal_transactions').update({ amount_enc: await reEnc(r.amount_enc), note_enc: await reEnc(r.note_enc), cat_name_enc: await reEnc(r.cat_name_enc), node_enc: await reEnc(r.node_enc), counterparty_enc: await reEnc(r.counterparty_enc), occurred_time_enc: await reEnc(r.occurred_time_enc), quantity_enc: await reEnc(r.quantity_enc) }).eq('id', r.id);
           if (u.error) throw u.error; n++; if (onProgress) onProgress(n, tot);
         }
         for (const r of (ac.data || [])) {
@@ -1519,11 +1554,12 @@
       finally { _regenning = false; }
     };
 
-    async function _insertMaster(linkId, fid, dateIso, amt, note, catName, catEmoji, timeStr, accountId) {
+    async function _insertMaster(linkId, fid, dateIso, amt, note, catName, catEmoji, timeStr, accountId, node) {
       return _sb().from('personal_transactions').insert({ owner_user_id: P.uid, space_id: fid, link_id: linkId, txn_date: dateIso, kind: 'expense', version: 1,
         amount_enc: await _encP(amt), note_enc: note ? await _encP(note) : null, cat_name_enc: catName ? await _encP(catName) : null, cat_emoji: catEmoji || null,
         occurred_time_enc: timeStr ? await _encP(timeStr) : null,   // carry the family expense's time into the personal copy
-        account_id: accountId || null });   // 0134: the author's instrument, known only on their device
+        account_id: accountId || null,        // 0134: the author's instrument, known only on their device
+        node_enc: _okNode(node) ? await _encP(node) : null });   // 0144: the family row's tree node
     }
     /* Account tag on a mirror master (0134, account-setup-spec §6). A family
        expense paid with the author's card must reach that card's outstanding,
@@ -1533,11 +1569,70 @@
        then finds the master already there and leaves it alone. If this insert
        fails (offline, a race), the engine repairs a tag-less master later and
        the person can tag it by hand from the detail screen. */
-    window.fhPersonalInsertMaster = async function (linkId, fid, dateIso, amt, note, catName, catEmoji, timeStr, accountId) {
+    window.fhPersonalInsertMaster = async function (linkId, fid, dateIso, amt, note, catName, catEmoji, timeStr, accountId, node) {
       if (!P.uid || !P.key || !linkId || !fid || !dateIso || !(isFinite(amt))) return false;
-      const r = await _insertMaster(linkId, fid, dateIso, Number(amt), note, catName, catEmoji, timeStr, accountId);
+      const r = await _insertMaster(linkId, fid, dateIso, Number(amt), note, catName, catEmoji, timeStr, accountId, node);
       if (r.error) { console.warn('master insert failed', r.error); return false; }
       return true;
+    };
+    /* ── 0144: personal labels (the L2 partition) ───────────────────────────
+       A label is the person's own bucket: a name, an emoji, and the tree nodes
+       it claims. Names and claims are ciphertext like everything else here.
+       cat_name_enc on each row keeps holding the label's NAME, so every reader
+       written before labels existed keeps working unchanged. */
+    window.fhPersonalLabelSave = async function (spec) {
+      if (!P.uid || !P.key || !spec || !spec.name) return false;
+      const claims = (spec.claims || []).filter((c) => c === '*' || (window.FH_TAX && FH_TAX.get(c)));
+      const row = { name_enc: await _encP(String(spec.name)), emoji: spec.emoji || '🏷️',
+        claims_enc: await _encP(JSON.stringify(claims)) };
+      if (spec.hasOwnProperty('sortOrder')) row.sort_order = Number(spec.sortOrder) || 0;
+      let r;
+      if (spec.id) r = await _sb().from('personal_labels').update(row).eq('id', spec.id).eq('owner_user_id', P.uid);
+      else r = await _sb().from('personal_labels').insert(Object.assign({ owner_user_id: P.uid, sort_order: (P.labels || []).length }, row));
+      if (r.error) { console.warn('personal label save failed', r.error); return false; }
+      await window.fhPersonalHydrate(); return true;
+    };
+    /* Archived, never deleted: rows point at the label and history must stay
+       resolvable (the same rule the family categories follow). */
+    window.fhPersonalLabelArchive = async function (id) {
+      if (!P.uid || !P.key || !id) return false;
+      const r = await _sb().from('personal_labels').update({ archived_at: new Date().toISOString() }).eq('id', id).eq('owner_user_id', P.uid);
+      if (r.error) return false;
+      await window.fhPersonalHydrate(); return true;
+    };
+    /* First-run partition for a person who has no labels yet: one label per
+       distinct category name already on their rows (that IS their vocabulary),
+       each claiming what the tree says the name means, plus a catch-all. Runs
+       once, silently, and never overwrites a label the person already has. */
+    window.fhPersonalLabelsEnsureDefaults = async function () {
+      if (!P.uid || !P.key || (P.labels || []).length) return false;
+      const seen = {}, out = [];
+      for (const t of (P.txns || [])) {
+        const nm = (t.cat || '').trim();
+        if (!nm || seen[nm.toLowerCase()]) continue;
+        seen[nm.toLowerCase()] = 1;
+        out.push({ name: nm, emoji: t.emoji || '🏷️',
+          claims: (typeof fhDefaultClaimsFor === 'function') ? fhDefaultClaimsFor(nm, t.emoji) : [] });
+        if (out.length >= 24) break;
+      }
+      out.push({ name: 'Khác', emoji: '🗂️', claims: ['*'] });
+      const rows = [];
+      for (let i = 0; i < out.length; i++) {
+        rows.push({ owner_user_id: P.uid, sort_order: i, emoji: out[i].emoji,
+          name_enc: await _encP(out[i].name), claims_enc: await _encP(JSON.stringify(out[i].claims)) });
+      }
+      const r = await _sb().from('personal_labels').insert(rows);
+      if (r.error) { console.warn('personal labels seed failed', r.error); return false; }
+      await window.fhPersonalHydrate(); return true;
+    };
+    /* Patch ONLY the node of a personal row — the backfill's write. Private rows
+       and mirror masters alike: the node describes what was bought, which is true
+       of a master too, and it never touches the label or the amount. */
+    window.fhPersonalSetNode = async function (id, node) {
+      if (!P.uid || !P.key || !id) return false;
+      const r = await _sb().from('personal_transactions').update({ node_enc: _okNode(node) ? await _encP(node) : null })
+        .eq('id', id).eq('owner_user_id', P.uid);
+      return !r.error;
     };
     /* Edit the account tag on a MIRROR master (the one field the personal
        side owns on a machine-owned row: the family ledger has no accounts, so
@@ -1551,4 +1646,5 @@
     };
     // Resolve a family row's occurred_time (plaintext for off/dual, ciphertext for enc).
     async function _famTime(r) { return r.occurred_time != null ? r.occurred_time : (r.occurred_time_enc ? await fhDecStr(r.occurred_time_enc) : null); }
+    async function _famNode(r) { try { return _okNode(r.node != null ? r.node : (r.node_enc ? await fhDecStr(r.node_enc) : null)); } catch (e) { return null; } }
   })();

@@ -546,6 +546,23 @@
   }
   window.fhCurNorm = fhCurNorm;
 
+  /* 0144 — the tree node the pipeline decided, by row index. Same side-channel
+     shape as fhStagedFx: the review engine's five synthetic columns are a CSV
+     contract and widening them makes every one a field the column mapper must
+     reason about, so the node is fetched on demand instead. 'receipt' rides along
+     because the client's join needs to know the mail was a merchant's, not a
+     bank's — both live inside the sealed raw_extracted. */
+  window.fhStagedNode = function (rowIndex) {
+    var rows = window._fhStagedRows;
+    var r = (rows && typeof rowIndex === 'number') ? rows[rowIndex] : null;
+    if (!r || r._unreadable) return null;
+    var x = r.raw_extracted || {};
+    var code = x.node || null;
+    if (code && !(window.FH_TAX && FH_TAX.get(code))) code = null;   // a newer tree wrote it: unknown here
+    return { node: code, concept: x.category_hint || x.category || '',
+             source: x.txn_source || null, receipt: x.txn_source === 'receipt' };
+  };
+
   window.fhStagedFx = function (rowIndex) {
     var rows = window._fhStagedRows;
     var r = (rows && typeof rowIndex === 'number') ? rows[rowIndex] : null;
@@ -1238,6 +1255,14 @@
        common path. One candidate can span TWO specs (a transfer pair); ranges
        records the span so progress and retirement speak in candidates. */
     var pd = (window.fhPersonalData && window.fhPersonalData()) || { accounts: [] };
+    /* 0144 — the tree node for a personal spec. The review resolved it on the
+       candidate (_node); it is accepted only when it belongs to the kind being
+       written, so an expense node can never ride an income row. */
+    var _specNode = function (c, kind) {
+      var nd = c && c._node;
+      if (!nd || !window.FH_TAX || !FH_TAX.get(nd)) return null;
+      return FH_TAX.kindOf(nd) === kind ? nd : null;
+    };
     var specs = [], ranges = [], extBals = {}, lessonOps = [], invMemOps = [];
     /* 0134 — every account this import touches (a row landed on it, or the
        queue session materialized it) is what the setup wizard walks afterwards
@@ -1372,10 +1397,12 @@
           if (_ik) invMemOps.push({ key: _ik, posId: c._investPosId });
         } else if (invSell) {
           specs.push({ kind: 'income', amt: base, note: c.description || '',
+          node: _specNode(c, 'income'),
             catName: 'Khác', catEmoji: '💰',
             dateIso: c.dateDisplay || undefined, time: _t, accountId: invAcct, source: src });
         } else {
           specs.push({ kind: 'expense', amt: base, note: c.description || '',
+          node: _specNode(c, 'expense'),
             catName: null, catEmoji: '🗂️',
             dateIso: c.dateDisplay || undefined, time: _t, accountId: invAcct, source: src });
         }
@@ -1389,6 +1416,7 @@
           try { incAcct = await window.fhPersonalAccountEnsure(ai); } catch (e3) {}
         }
         specs.push({ kind: 'income', amt: base, note: c.description || '',
+          node: _specNode(c, 'income'),
           catName: c._incomeCat || 'Khác',
           catEmoji: ({ 'Lương': '💼', 'Thưởng': '🎁', 'Hoàn tiền': '💸' })[c._incomeCat] || '💰',
           dateIso: c.dateDisplay || undefined, time: _t, accountId: incAcct, source: src });
@@ -1454,6 +1482,7 @@
            counterparty rides; a description-only row stays null rather than
            duplicating the note into a second column. */
         specs.push({ kind: 'expense', amt: base, note: c.description || '',
+          node: _specNode(c, 'expense'),
           who: (c.counterparty && String(c.counterparty).trim()) || null,
           catName: c.categoryName || null,
           catEmoji: (window.catStyle && window.catStyle[c.categoryName] && window.catStyle[c.categoryName][0]) || '🗂️',

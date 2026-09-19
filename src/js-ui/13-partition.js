@@ -1,0 +1,111 @@
+/* ---- Category tree: the two layers (category-tree-spec.md) -------------------
+   L1 = the system tree (FH_TAX, generated). L2 = the person's/family's own labels,
+   each a PARTITION of L1: a label CLAIMS node codes (a claim covers the whole
+   subtree), the most specific claim wins, and the catch-all label claims '*'.
+   A row stores its L1 node (`node`) and, as today, its label (the family
+   category / the personal label); the node gives the label its default at
+   write time and the person can override the label per row.
+
+   Everything here is pure and global (js-ui): no DOM, no network, no key. Data
+   comes in as arguments or from the globals hydrate maintains:
+     window.catClaims   {categoryName: [codes]}     family partition (30-hydrate.js)
+     window.P.labels    [{id,name,emoji,claims:[codes]}] personal partition (19-personal.js)
+   Kill switch (C8): localStorage 'fh-tree' === 'off' hides every tree surface. */
+function fhTreeOn(){ try{ return localStorage.getItem('fh-tree')!=='off'; }catch(e){ return true; } }
+function fhNodeOk(code){ return !!(code && typeof FH_TAX!=='undefined' && FH_TAX.get(code)); }
+function fhNodeVi(code){ var n=fhNodeOk(code)?FH_TAX.get(code):null; return n?n.vi:''; }
+function fhNodePath(code){ return fhNodeOk(code)?FH_TAX.pathVi(code):[]; }
+function fhNodeKind(code){ return fhNodeOk(code)?FH_TAX.kindOf(code):null; }
+function fhNodeGroup(code){ return fhNodeOk(code)?FH_TAX.root(code):null; }
+/* Which label owns a node. `labels` = [{key, claims:[codes]}]; the label whose claim
+   is the closest ancestor (or the node itself) wins; '*' is the catch-all; null
+   when nothing claims it and there is no catch-all. */
+function fhLabelForNode(node, labels){
+  if(!labels||!labels.length) return null;
+  var chain=fhNodeOk(node)?[node].concat(FH_TAX.ancestors(node)):[];   // self, parent, …, root
+  var best=null, bestDepth=-1, star=null;
+  for(var i=0;i<labels.length;i++){
+    var L=labels[i], cl=L.claims||[];
+    for(var j=0;j<cl.length;j++){
+      if(cl[j]==='*'){ if(!star) star=L; continue; }
+      var d=chain.indexOf(cl[j]);                    // 0 = exact node, 1 = parent, …
+      if(d>=0){ var depth=chain.length-d; if(depth>bestDepth){ bestDepth=depth; best=L; } }
+    }
+  }
+  return best||star;
+}
+/* Family side: category NAME for a node, from window.catClaims. Falls back to the
+   catch-all category (CAT_FALLBACK) so a node never lands outside the budget. */
+function fhFamilyLabelFor(node){
+  var cc=window.catClaims||{}, arr=[], k;
+  for(k in cc) arr.push({key:k, claims:cc[k]});
+  var hit=fhLabelForNode(node, arr);
+  if(hit) return hit.key;
+  return (typeof CAT_FALLBACK==='string')?CAT_FALLBACK:'Others';
+}
+/* Personal side: the label OBJECT for a node from P.labels, or null (no labels yet). */
+function fhPersonalLabelFor(node){
+  var P=window.fhPersonalData?fhPersonalData():null, ls=(P&&P.labels)||[];
+  return fhLabelForNode(node, ls.map(function(l){ return {key:l.id, claims:l.claims||[], label:l}; })) ;
+}
+/* Default claims for an existing/new label from its name + emoji: the tree's own
+   labels and keywords resolve the name to a GROUP or CATEGORY code (never a leaf —
+   a label named "Ăn uống" should own the whole group). Returns [] when nothing
+   matches; the catch-all name returns ['*']. Used by the migration backfill of
+   today's categories and by "add a category" in the budget sheet. */
+function fhDefaultClaimsFor(name, emoji, kind){
+  kind=kind||'expense';
+  /* The catch-all owns the root. Recognised by NAME here as well as through
+     20-budget's helper: this file must answer correctly even when it is the only
+     thing loaded (the tests do exactly that), and "the catch-all claims
+     everything else" is a property of the partition, not of the budget sheet. */
+  var _fb=(typeof CAT_FALLBACK==='string')?CAT_FALLBACK:'Others';
+  if(String(name||'').trim().toLowerCase()===_fb.toLowerCase()) return ['*'];
+  if(typeof isFallbackCat==='function' && isFallbackCat(name)) return ['*'];
+  var d=FH_TAX.deburr(name||'').replace(/[^a-z0-9]+/g,' ').trim(), nodes=FH_TAX.nodes, i, best=null;
+  // 1. exact label match (vi or en), shallowest wins
+  for(i=0;i<nodes.length;i++){ var n=nodes[i]; if(n.kind!==kind||n.depth>2) continue;
+    if(FH_TAX.deburr(n.vi)===d||FH_TAX.deburr(n.en)===d){ if(!best||n.depth<best.depth) best=n; } }
+  if(best) return [best.code];
+  // 2. keyword hit, lifted to depth ≤ 2
+  var code=d?FH_TAX.keywordNode(d, kind):null;
+  if(code){ var n2=FH_TAX.get(code); while(n2&&n2.depth>2) n2=FH_TAX.get(n2.parent); if(n2) return [n2.code]; }
+  // 3. emoji match against the tree's default emojis for groups
+  var EM={'🏠':'home','🏡':'home','💡':'home','🧾':'home','🛒':'groceries','🥬':'groceries','🍽️':'eatout','🍜':'eatout','🍔':'eatout','☕':'drinks','🍲':'eatout','🚗':'transport','🚕':'transport','🛵':'transport','⛽':'transport','🛍️':'shopping','👕':'clothing','👗':'clothing','🎉':'leisure','🎮':'leisure','🎬':'leisure','💊':'health','🏥':'health','💄':'beauty','📚':'education','🎓':'education','🎁':'giving','🐶':'pets','🐱':'pets','💼':'work','✈️':'travel','🏋️':'fitness','🧾':'fees','🏦':'fees'};
+  if(emoji&&EM[emoji]&&FH_TAX.get(EM[emoji])) return [EM[emoji]];
+  return [];
+}
+/* The coarse node a LABEL implies (T6, "the label the person tapped"): its single
+   claimed group/category when it has exactly one non-star claim; null when the label
+   spans several groups (Con cái) or is the catch-all. */
+function fhNodeFromClaims(claims){
+  var real=(claims||[]).filter(function(c){ return c!=='*' && fhNodeOk(c); });
+  if(real.length!==1) return null;
+  return real[0];
+}
+/* Client-side node guess for one row. Tiers, in order (T3 registry is server-side):
+   T4 personal lesson (window.fhLessonNode, from 24-lessons.js) → T2 keywords on
+   note + counterparty + memo → T6 the label's implied group → null.
+   input: {kind, note, counterparty, memo, amount, labelClaims} */
+function fhNodeGuess(input){
+  input=input||{}; var kind=input.kind||'expense';
+  if(kind==='repayment') return null;                        // inherits the loan's node
+  try{ if(window.fhLessonNode){ var l=fhLessonNode(input); if(fhNodeOk(l)&&FH_TAX.kindOf(l)===kind) return l; } }catch(e){}
+  var text=[input.note, input.counterparty, input.memo].filter(Boolean).join(' | ');
+  var k=text?FH_TAX.keywordNode(text, kind):null;
+  if(k) return k;
+  var c=fhNodeFromClaims(input.labelClaims);
+  if(c && FH_TAX.kindOf(c)===kind) return c;
+  return null;
+}
+/* Siblings-first correction list for a picker: the node's siblings (and itself),
+   then its parent's siblings, then every group of the kind. */
+function fhNodeCorrections(code, kind){
+  kind=kind||fhNodeKind(code)||'expense';
+  var out=[], seen={}, push=function(c){ if(c&&!seen[c]){ seen[c]=1; out.push(c); } };
+  if(fhNodeOk(code)){ var p=FH_TAX.get(code).parent; if(p){ FH_TAX.children(p).forEach(push); push(p); var gp=FH_TAX.get(p).parent; if(gp) FH_TAX.children(gp).forEach(push); } }
+  FH_TAX.roots(kind).forEach(push);
+  return out;
+}
+/* Depth reached by a row, for the coverage metric: 3 leaf · 2 category · 1 group · 0 none. */
+function fhNodeDepth(code){ var n=fhNodeOk(code)?FH_TAX.get(code):null; if(!n) return 0; return FH_TAX.isLeaf(code)?3:n.depth; }

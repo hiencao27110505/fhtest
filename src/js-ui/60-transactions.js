@@ -177,9 +177,17 @@ function txRow(t){
   var subTxt=_dm==='time' ? (t.time?esc(t.time):dstr)
            : dstr+(t.time?' · '+esc(t.time):'');
   if(t.inst) subTxt+=' · '+esc(t.inst);            // 0131 money source, quiet, same voice
+  /* 0144 — the right-hand label follows the reader's chosen layer: their own
+     category by default, the tree's leaf when they are reading by "Loại chi
+     tiêu". A row with no node keeps its category, never an empty slot. */
+  var catTxt=t.cat;
+  if(typeof fhTreeOn==='function' && fhTreeOn() && typeof fhTreeLayer==='function'
+     && fhTreeLayer(personal?'personal':'family')==='tree' && t.node && typeof fhNodeShort==='function'){
+    catTxt=fhNodeShort(t.node)||t.cat;
+  }
   return '<div class="row'+tapCls+selCls+(chip?' has-rx':'')+'"'+rxid+open+'>'+selTick+'<div class="r-ico-wrap">'+tile+av+'</div>'
     +'<div class="r-body"><div class="r-t">'+esc(t.note)+'</div><div class="r-s">'+subTxt+'</div></div>'
-    +'<div class="r-right">'+amtHtml+'<div class="r-cat">'+esc(t.cat)+'</div></div>'+chip+'</div>';
+    +'<div class="r-right">'+amtHtml+'<div class="r-cat">'+esc(catTxt)+'</div></div>'+chip+'</div>';
 }
 var txFilter=null; // {type:'cat'|'mem', val:'Fun'|'Emma'}
 function txMatch(t){
@@ -1064,6 +1072,9 @@ function addExpense(){
   if(!amt){ document.getElementById('ex-amt').focus(); return; }
   var note=document.getElementById('ex-note').value.trim()||L('Khoản chi','Expense');
   var cat=chosen('ex-cat')||'Fun'; lastCat=cat;
+  // 0144: the tree node for this row — a human pick if there was one, else the
+  // guess from the note and the chosen label. Null is a fine answer.
+  var _node=(typeof exGuessNode==='function')?exGuessNode(note,cat):null;
   var s=catStyle[cat]||['🧾','var(--id-none-tint)','var(--id-none)'];
   var dObj=exDate(), dstr=(dObj.getTime()===TODAY.getTime())?'Today':(MONA[dObj.getMonth()]+' '+dObj.getDate());
   // Per-row time: in a bulk save, submitBulk loadRow(i)s each row into the fields
@@ -1088,7 +1099,7 @@ function addExpense(){
   if(dObj>TODAY){                                           // future date → a *proposal* (reserves nothing until the family aligns)
     var fwho=chosen('ex-who')||'Emma', fwhoStore=(fwho==='Both')?'Shared':fwho;
     var fby=(typeof _futMeId==='function')?_futMeId():((typeof _meName==='function')?_meName():fwhoStore);   // creator id (live) / name (demo)
-    txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,_d:dObj,who:fwhoStore,amt:amt,time:_time,future:true,by:fby,reviews:[],month:curMonthKey(),photos:exPhotos.length?exPhotos.slice():undefined});
+    txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,_d:dObj,who:fwhoStore,amt:amt,time:_time,node:_node,future:true,by:fby,reviews:[],month:curMonthKey(),photos:exPhotos.length?exPhotos.slice():undefined});
     renderTxns(); selMonth=curMonthKey(); renderAll();
     if(!BULK_SAVING){                                        // bulk loop → submitBulk() handles the tail
       if(typeof clearDrafts==='function') clearDrafts();
@@ -1102,7 +1113,7 @@ function addExpense(){
   var who=chosen('ex-who')||'Emma'; lastWho=who;
   var mkey=who==='Both'?'Shared':who, whoStore=who==='Both'?'both':who;
   var hadPhoto=exPhotos.length>0;
-  txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,_d:dObj,_ts:new Date(),who:whoStore,amt:amt,time:_time,month:curMonthKey(),photos:exPhotos.length?exPhotos.slice():undefined});
+  txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,_d:dObj,_ts:new Date(),who:whoStore,amt:amt,time:_time,node:_node,month:curMonthKey(),photos:exPhotos.length?exPhotos.slice():undefined});
   if(hadPhoto) syncExpenseEvent(txns[0]);                   // photos → a linked event for Events + Memories
   renderTxns();
   var jul=months[curMonthKey()];

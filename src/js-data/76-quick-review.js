@@ -193,6 +193,31 @@
             (csvMerchantConcept over counterparty + memo)
        Every arm resolves through the family's OWN category names and each is
        optional — a helper missing behind its wrapper just skips its turn. */
+    /* The node cascade, in the same order as the full review screen minus the
+       tiers that need a ledger scan: what the pipeline sealed, what this person
+       taught about this merchant, then the tree's own keywords. Null is a fine
+       answer — the row imports without a node and the sweep can refine it later. */
+    function _qrNodeFor(re, desc, kind) {
+      if (typeof FH_TAX === 'undefined') return null;
+      var ok = function (c) { return (c && FH_TAX.get(c) && FH_TAX.kindOf(c) === kind) ? c : null; };
+      var fromPipe = ok(re && re.node);
+      if (fromPipe) return fromPipe;
+      var party = (re && re.counterparty) || '';
+      try {
+        if (window.fhLessonNode) {
+          var l = ok(window.fhLessonNode({ counterparty: party, memo: desc, amount: Number(re && re.amount) || 0 }));
+          if (l) return l;
+        }
+      } catch (e) {}
+      try { return ok(fhNodeGuess({ kind: kind, note: desc, counterparty: party, amount: Number(re && re.amount) || 0 })); }
+      catch (e) { return null; }
+    }
+    function _qrNode(kind) {
+      if (!QR || typeof FH_TAX === 'undefined') return null;
+      var c = QR.node;
+      return (c && FH_TAX.get(c) && FH_TAX.kindOf(c) === kind) ? c : null;
+    }
+
     function _qrSuggestCat(re, desc) {
       try {
         var hint = re.category_hint && typeof familyCatForConcept === 'function'
@@ -332,6 +357,11 @@
           dateIso: _qrLocalIso(isNaN(oa.getTime()) ? new Date() : oa),
           time: _qrTime(row.occurred_at),
           queue: rows.length, txnId: null, busy: false,
+          /* 0144 — the tree node for this row. Resolved once when the sheet
+             opens (the sealed hint, this person's lesson, then the tree's
+             keywords) and carried into whichever ledger the person picks. */
+          node: _qrNodeFor(re, desc, flow === 'in' ? 'income' : 'expense'),
+          party: (re.counterparty || '').trim(),
         };
         _qrSessionSkip[row.id] = true;                          // shown this run — no re-pop on the next tab switch
         _qrRender();
@@ -646,10 +676,11 @@
             // income never lands on a credit card; keep the auto card-exclusion,
             // but honour an explicit account pick.
             ok = await window.fhPersonalAddIncome(base, QR.desc || '', QR.dateIso, src,
+              /* 0144: quick review runs the same node cascade as the full screen */
               { catName: 'Khác', catEmoji: '💰', accountId: QR.acctId ? QR.acctId : (autoIsCard ? null : acctId), time: QR.time });
           } else {
             var emoji = (window.catStyle && window.catStyle[QR.cat] && window.catStyle[QR.cat][0]) || '🗂️';
-            ok = await window.fhPersonalAddExpense(base, QR.desc || '', QR.cat || null, emoji, QR.dateIso, QR.time, src, { accountId: acctId });
+            ok = await window.fhPersonalAddExpense(base, QR.desc || '', QR.cat || null, emoji, QR.dateIso, QR.time, src, { accountId: acctId, node: _qrNode('expense') });
           }
         }
         if (!ok) throw new Error('write failed');

@@ -18,6 +18,8 @@
  * milk-tea pools, a daypart line (sáng/trưa/chiều/tối, from occurred_at) is used
  * when a real clock time is known; a date-only row falls back to the tier line. */
 
+import { conceptOf, poolOf } from './taxonomy.mjs';
+
 const CONCEPTS = ['Housing', 'Groceries', 'Clothing', 'Shopping', 'Transport', 'Dining', 'Fun', 'Others'];
 
 /* VND tiers. Tier 1 (≤30k) matches the client's photo-nudge floor. A non-VND
@@ -69,7 +71,7 @@ function deburr(s) {
     .replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-function poolOf(extraction) {
+function keywordPool(extraction) {
   const hay = ' ' + deburr((extraction.counterparty || '') + ' ' + (extraction.memo || '')) + ' ';
   for (const key of Object.keys(POOLS)) {
     for (const kw of POOLS[key]) {
@@ -79,8 +81,21 @@ function poolOf(extraction) {
   return undefined;
 }
 
+/* A pool name is only a pool if there are lines for it: a stale or unknown
+ * hint (or a tree attribute this copy has no voice for) can never name one. */
+function validPool(p) {
+  return p && POOLS[p] ? p : undefined;
+}
+
 /* The whole plaintext → the tiny enum that leaves this process.
- * c: concept | 'income' | 'unknown' · t: 1..4 · d: daypart | absent · p: pool. */
+ * c: concept | 'income' | 'unknown' · t: 1..4 · d: daypart | absent · p: pool.
+ *
+ * THE TREE NODE (0144, `extraction.node`) is read only to fill what the
+ * extractor left empty: a node's concept (conceptOf) stands in for a missing
+ * category, and its pool attribute (poolOf) for a missing pool. The payload
+ * shape does not change — still {c,t,d,p}, still no amount, no merchant, no
+ * category NAME, and no node code either: a code like 'coffee' is exactly the
+ * kind of specific claim this payload exists not to carry. */
 export function copyMeta(extraction) {
   if (!extraction) return { c: 'unknown', t: 2 };
   const flow = extraction.flow
@@ -89,15 +104,21 @@ export function copyMeta(extraction) {
   const d = dayPartOf(extraction.occurred_at);
   if (flow === 'income') { const m = { c: 'income', t }; if (d) m.d = d; return m; }
   if (flow === 'transfer') { const m = { c: 'unknown', t }; if (d) m.d = d; return m; }
-  const c = CONCEPTS.indexOf(extraction.category) >= 0 ? extraction.category : 'unknown';
+  const node = typeof extraction.node === 'string' ? extraction.node : null;
+  let c = CONCEPTS.indexOf(extraction.category) >= 0 ? extraction.category : 'unknown';
+  if (c === 'unknown' && node) {
+    const nc = conceptOf(node);                // null for an income or unknown code
+    if (CONCEPTS.indexOf(nc) >= 0) c = nc;
+  }
   const meta = { c, t };
   if (d) meta.d = d;
   // The fast keyword gate first (free, deterministic); then, only if it found
   // nothing, the finer pool the merchant classifier recognised and cached
   // (classify.mjs → extraction.pool) — this is how a café whose NAME carries no
-  // coffee keyword still earns the coffee voice. Validated against POOLS so a
-  // stale or unknown hint can never name a pool that has no lines.
-  const p = poolOf(extraction) || (extraction.pool && POOLS[extraction.pool] ? extraction.pool : undefined);
+  // coffee keyword still earns the coffee voice; then the node's own pool
+  // attribute. Validated against POOLS so a stale or unknown hint can never
+  // name a pool that has no lines.
+  const p = keywordPool(extraction) || validPool(extraction.pool) || (node ? validPool(poolOf(node)) : undefined);
   if (p) meta.p = p;
   return meta;
 }

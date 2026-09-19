@@ -840,6 +840,11 @@ function csvSpendPanel(r){
 function csvRowShape(c, isDup){
   var fx = csvFxInfo(c);
   return { note: c.description || '', amt: c.amount != null ? String(Math.round(c.amount)) : '',
+           /* 0144 — the reviewed row's tree node travels into the composer row,
+              so loadRow() hands it to addExpense() like every other field. A
+              node the person picked on the card is marked touched so the
+              composer's own guess cannot overwrite it. */
+           node: c._node || null, _nodeTouched: c._nodeSource === 'user' || undefined,
            cat: (c.isIncome && !c._xfer && !c._repay && !c._invest) ? (c._incomeCat || '') : (c.categoryName || ''),
            /* Foreign currency (foreign-currency-emails-spec.md): _fxAmt is the
               card's WHOLE amount only in the no-rate fallback ("$111", asks for

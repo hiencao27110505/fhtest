@@ -44,6 +44,13 @@ var ICO = {
 };
 
 var RELEASES = [
+  { id:'2026-09-20-loai-chi-tieu', date:'2026-09-20', time:'04:20', ver:'v545', icon:ICO.pie,
+    vi:{ t:'Biết rõ tiền đi vào việc gì',
+      problem:'Danh mục cũ gom quá nhiều thứ vào một chỗ. "Ăn uống" vừa là bữa cơm vừa là ly cà phê sáng vừa là chầu nhậu tối, nên nhìn vào chỉ thấy một con số to mà không biết mình thật sự tiêu cho cái gì. Khoản từ email ngân hàng thì hơn một nửa không xếp được vào đâu.',
+      sol:'App giờ tự nhận ra từng khoản là gì — cà phê, trà sữa, đi chợ, tiền điện, xăng xe — và xếp vào một cây phân loại có sẵn, chi tiết dần từ nhóm lớn tới từng món. Danh mục của bạn vẫn y nguyên, vẫn là thứ bạn đặt ngân sách. Trong màn chi tiêu có nút đổi cách xem giữa "Danh mục của tôi" và "Loại chi tiêu"; mở một khoản ra là thấy dòng "Loại chi tiêu", chạm để sửa nếu app đoán sai, và lần sau nó nhớ.' },
+    en:{ t:'See what the money actually went to',
+      problem:'The old categories lumped too much together. "Ăn uống" was dinner, the morning coffee and a night out all at once, so you saw one big number and not what you were really spending on. More than half of what came in from bank email could not be placed at all.',
+      sol:'The app now works out what each entry is — coffee, milk tea, groceries, electricity, fuel — and files it in a ready-made tree that goes from broad groups down to the specific thing. Your own categories are untouched and still what you budget by. The spending screen has a switch between "My categories" and "What it was", and opening an entry shows a "What it was" row you can correct. It remembers your correction next time.' } },
   { id:'2026-09-13-so-du-ban-chot', date:'2026-09-13', time:'13:55', ver:'v514', icon:ICO.shield,
     vi:{ t:'Số dư tài khoản, do bạn chốt',
       problem:'Kết nối email xong, thẻ và tài khoản hiện lên với những con số sai ngay từ đầu. Email chỉ kể được vài tháng gần đây, còn dư nợ và số dư trước đó thì không.',

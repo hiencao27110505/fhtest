@@ -437,6 +437,10 @@ async function _submitIncomeCapture(){
   else { window.toast&&toast(L('Chưa lưu được, thử lại','Couldn’t save, try again')); }
 }
 function saveExpenseEdit(){
+  /* 0144: an edit may change what the row IS ("cafe" → "taxi"), so the node is
+     re-guessed from the new wording — unless a human picked it, which
+     exGuessNode honours. The label is whatever the person left in the chip. */
+  var _editNode=(typeof exGuessNode==='function')?exGuessNode((document.getElementById('ex-note')||{}).value||'', chosen('ex-cat')||''):null;
   var t=txById(editingTx); if(!t){ closeExpense(); return; }
   var amt=parseAmtBase(document.getElementById('ex-amt').value);
   if(!amt){ document.getElementById('ex-amt').focus(); return; }
@@ -453,6 +457,7 @@ function saveExpenseEdit(){
   }
   // write the new values in place (keep the specific icon unless the category changed)
   t.ico=(cat===t.cat && t.ico)?t.ico:s[0]; t.cat=cat; t.note=note; t.amt=amt; t.who=whoStore; t.date=dstr; t._d=dObj; t.future=newFuture?true:undefined;
+  t.node=_editNode||t.node||null;   // 0144: a re-guess only ever ADDS a node; it never erases one the row already had
   t.time=newFuture ? null : ((document.getElementById('ex-time')||{}).value||null);   // future proposal has no clock; '' clears to day-only
   t.photos=exPhotos.slice(); delete t.photo;               // add / keep / remove the memory photos
   syncExpenseEvent(t);                                     // keep the linked event in sync (create/update/remove)

@@ -2068,6 +2068,71 @@ input{font-family:inherit}
 .stk-arch-badge{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);background:var(--fill-neutral);border-radius:9999px;padding:3px 10px;margin-top:8px}
 .stk-restore{margin-top:22px}
 
+/* ── 0144: category tree surfaces ───────────────────────────────────────────
+   The layer selector, the L1 breakdown, and the node picker. Tokens only; the
+   tree is information, not decoration, so it borrows the spending tabs' weights
+   rather than introducing a colour of its own. */
+
+/* Layer selector — two options, so a segmented control rather than chips. */
+.tl-sel{display:inline-flex;border:1px solid var(--hairline);border-radius:var(--r-sm);overflow:hidden;background:var(--card)}
+.tl-seg{appearance:none;border:0;background:transparent;font:inherit;font-size:12px;font-weight:600;color:var(--muted);
+  padding:7px 12px;min-height:34px;cursor:pointer;white-space:nowrap}
+.tl-seg + .tl-seg{border-left:1px solid var(--hairline)}
+.tl-seg.on{background:var(--brand-tint);color:var(--brand-ink)}
+.tl-seg:focus-visible{outline:2px solid var(--brand);outline-offset:-2px}
+
+/* The breakdown: one row per node, indented by depth, amounts right-aligned. */
+.tb-list{display:flex;flex-direction:column}
+.tb-row{display:grid;grid-template-columns:16px 1fr 56px auto;gap:8px;align-items:center;
+  width:100%;text-align:left;appearance:none;background:transparent;border:0;border-bottom:1px solid var(--hairline);
+  font:inherit;color:var(--ink);padding:11px 0;min-height:44px;cursor:default}
+.tb-row.has{cursor:pointer}
+.tb-row:last-child{border-bottom:0}
+.tb-row.d1{padding-left:18px}
+.tb-row.d2{padding-left:36px}
+.tb-row.d1 .tb-n,.tb-row.d2 .tb-n{font-size:13px;color:var(--ink-2)}
+.tb-row.rest .tb-n{color:var(--muted);font-style:italic}
+.tb-chev{color:var(--chev);font-size:11px;text-align:center}
+.tb-n{font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tb-row.d1 .tb-n,.tb-row.d2 .tb-n{font-weight:500}
+.tb-bar{height:4px;border-radius:2px;background:var(--hairline);overflow:hidden}
+.tb-bar i{display:block;height:100%;background:var(--brand);border-radius:2px}
+.tb-a{font-size:13px;font-weight:600;white-space:nowrap}
+.tb-empty{padding:18px 0;color:var(--muted);font-size:14px}
+
+/* The node picker sheet: a search field over a list that is already sorted
+   siblings-first, so the common correction is the first thing under the thumb. */
+#sheet-node-pick .npick-search{margin:0 16px 10px}
+#sheet-node-pick .npick-search input{width:100%;box-sizing:border-box}
+#npick-list{display:flex;flex-direction:column;gap:6px;max-height:52vh;overflow-y:auto}
+.choice.npick{display:flex;align-items:baseline;gap:8px;text-align:left}
+.npick-n{font-weight:600}
+.npick-p{font-size:11.5px;color:var(--muted)}
+.npick-empty{padding:14px 4px;color:var(--muted);font-size:14px}
+
+/* The node line on a detail row wraps rather than truncating: the path IS the
+   answer, and half a path ("Ăn uống ›") tells the reader nothing. */
+.exd-node-path{font-weight:600}
+.exd-node-path .sep{color:var(--chev);padding:0 3px}
+/* The selector sits above the breakdown rows, right-aligned so the rows keep
+   their left edge and the eye still lands on the first category first. */
+.fh-legend-head{display:flex;justify-content:flex-end;padding:0 0 10px}
+
+/* Regroup: one row per group/category, the owning label named on the right so
+   moving a claim never looks like it came from nowhere. */
+.cat-claims{display:block;width:100%;text-align:left;appearance:none;background:transparent;border:0;
+  font:inherit;font-size:11.5px;color:var(--muted);padding:2px 0 0;grid-column:1/-1;cursor:pointer}
+.cat-claims.ro{cursor:default}
+.claim-row{display:grid;grid-template-columns:1fr auto 18px;gap:8px;align-items:center;width:100%;
+  appearance:none;background:transparent;border:0;border-bottom:1px solid var(--hairline);
+  font:inherit;color:var(--ink);padding:10px 2px;min-height:44px;text-align:left;cursor:pointer}
+.claim-row.on .claim-n{color:var(--brand-ink);font-weight:700}
+.claim-n{font-size:14px;font-weight:600}
+.claim-n.sub{padding-left:14px;font-size:13px;font-weight:500;color:var(--ink-2)}
+.claim-by{font-size:11.5px;color:var(--muted)}
+.claim-tick{color:var(--brand);font-weight:700;text-align:center}
+#claims-list{max-height:52vh;overflow-y:auto}
+
 /* Savings goals — ONE grouped card: the brief (goal-gradient framing) is the header,
    the goal list its body. A single border + shadow makes the whole thing read as one object. */
 .goal-card{background:var(--white);border:1px solid var(--hairline);border-radius:18px;margin:0 16px 12px;overflow:hidden;box-shadow:var(--shadow-card)}
@@ -5499,6 +5564,20 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   <div class="sheet-sub" id="exdcat-sub"></div>
   <div class="choices" id="exdcat-list"></div>
 </div>
+<div class="sheet" id="sheet-claims">
+  <div class="grab"></div>
+  <div class="sheet-h" id="claims-h">Gồm những gì</div>
+  <div class="sheet-sub" id="claims-sub"></div>
+  <div class="choices" id="claims-list"></div>
+  <button type="button" class="cta" onclick="fhClaimsSave()" data-t="save">Lưu</button>
+</div>
+<div class="sheet" id="sheet-node-pick">
+  <div class="grab"></div>
+  <div class="sheet-h" id="npick-h">Loại chi tiêu</div>
+  <div class="sheet-sub" id="npick-sub"></div>
+  <div class="npick-search"><input id="npick-q" type="search" placeholder="Tìm: cà phê, xăng, tiền điện…" oninput="fhNodePickSearch(this)" autocomplete="off"></div>
+  <div class="choices" id="npick-list"></div>
+</div>
 <div class="sheet" id="sheet-exd-who">
   <div class="grab"></div>
   <div class="sheet-h" id="exdwho-h">Ai trả</div>
@@ -6104,6 +6183,71 @@ function renderTrend(){
     return '<div class="tr-m'+(k===selMonth?' sel':'')+'">'+(months[k]._iso?moAbbr(new Date(months[k]._iso+'T00:00:00').getMonth()):months[k].short.slice(0,3))+'</div>';
   }).join('');
 }
+/* GENERATED by tools/gen-taxonomy.js from taxonomy/taxonomy.json — do not edit.
+   window.FH_TAX: the category tree (one per kind) + lookup helpers. Version 1. */
+var FH_TAX = (function () {
+  var DATA = {"version":1,"kinds":[{"id":"expense","vi":"Chi tiêu","en":"Expense","note":"What the money bought. COICOP skeleton adapted to Vietnamese life. Eleven groups plus a root that only a person can file into. Deep where habits differ, shallow where they don’t."},{"id":"income","vi":"Thu nhập","en":"Income","note":"Where the money came from. Two levels are enough: the payer class is what insight needs (“lương về”, “được hoàn”). Repayments received are a kind, not income, so they never appear here."},{"id":"transfer","vi":"Chuyển khoản","en":"Transfer","note":"Money between the person’s own accounts, always a pair. The category is the shape of the move and is derived from the two account kinds. Nothing here is read from text; nothing here is spending."},{"id":"loan","vi":"Vay & cho vay","en":"Loan","note":"A debt being created, in either direction. The counterparty class is the category. Interest paid later is an expense; principal repaid later is the repayment kind and inherits this category."},{"id":"repayment","vi":"Trả nợ & thu nợ","en":"Repayment","note":"No tree of its own. A repayment settles a loan row and inherits that loan’s category; the sign says whether the person is paying (trả) or collecting (thu). Interest is never a repayment: it goes to Chi tiêu › Phí, thuế & bảo hiểm › Lãi vay."},{"id":"investment","vi":"Đầu tư","en":"Investment","note":"Buying or selling a position. The category is the asset class; buy/sell is the sign. Funding the brokerage account is a transfer; dividends and interest received are income."}],"nodes":[{"code":"food","kind":"expense","parent":null,"depth":1,"vi":"Ăn uống","en":"Food & drink","concept":"Dining"},{"code":"groceries","kind":"expense","parent":"food","depth":2,"vi":"Đi chợ & siêu thị","en":"Groceries","kw":["sieu thi","winmart","coopmart","bach hoa xanh","win mart","vinmart","co opmart","co.opmart","co op mart","big c","bigc","go bigc","aeon","emart","lotte mart","mega market","satra","kingfoodmart","king food","circle k","gs25","familymart","ministop","7 eleven","7-eleven","tap hoa","quick save","quick save market","nutri mart","di cho","cho bua"],"concept":"Groceries"},{"code":"fresh","kind":"expense","parent":"groceries","depth":3,"vi":"Thực phẩm tươi","en":"Fresh food","kw":["rau","thit","thit tuoi","hai san"],"concept":"Groceries"},{"code":"dry","kind":"expense","parent":"groceries","depth":3,"vi":"Đồ khô & gia vị","en":"Dry goods & spices","kw":["gao","mi goi","nuoc mam","dau an"],"concept":"Groceries"},{"code":"dairy","kind":"expense","parent":"groceries","depth":3,"vi":"Sữa & sản phẩm từ sữa","en":"Dairy","kw":["sua tuoi","sua chua","pho mai"],"concept":"Groceries"},{"code":"fruit","kind":"expense","parent":"groceries","depth":3,"vi":"Trái cây","en":"Fruit","kw":["trai cay","hoa qua","fruit"],"concept":"Groceries"},{"code":"snack","kind":"expense","parent":"groceries","depth":3,"vi":"Đồ ăn vặt & bánh kẹo","en":"Snacks & sweets","kw":["banh keo","snack","do an vat"],"concept":"Groceries"},{"code":"water","kind":"expense","parent":"groceries","depth":3,"vi":"Nước uống về nhà","en":"Bottled water & drinks for home","kw":["nuoc suoi","binh nuoc","nuoc ngot"],"concept":"Groceries"},{"code":"babyfood","kind":"expense","parent":"groceries","depth":3,"vi":"Sữa bột & đồ ăn trẻ em","en":"Formula & baby food","kw":["sua bot","bot an dam"],"concept":"Groceries"},{"code":"eatout","kind":"expense","parent":"food","depth":2,"vi":"Ăn ngoài","en":"Eating out","kw":["quan an","nha hang","an trua","an toi"],"concept":"Dining"},{"code":"breakfast","kind":"expense","parent":"eatout","depth":3,"vi":"Ăn sáng","en":"Breakfast","kw":["an sang","banh mi","xoi","pho"],"concept":"Dining"},{"code":"lunch","kind":"expense","parent":"eatout","depth":3,"vi":"Ăn trưa","en":"Lunch","kw":["an trua","com trua","com van phong"],"concept":"Dining"},{"code":"dinner","kind":"expense","parent":"eatout","depth":3,"vi":"Ăn tối","en":"Dinner","kw":["an toi","com toi"],"concept":"Dining"},{"code":"restaurant","kind":"expense","parent":"eatout","depth":3,"vi":"Nhà hàng","en":"Restaurant","kw":["nha hang","buffet","nuong","gogi","kichi","manwah","hotpot","sukiya","botejyu","golden gate","pho24","pho 24","com tam","bun bo","hu tieu","hu tiu","quan an","quan com"],"concept":"Dining"},{"code":"fastfood","kind":"expense","parent":"eatout","depth":3,"vi":"Đồ ăn nhanh","en":"Fast food","kw":["kfc","lotteria","mcdonald","jollibee","pizza","burger","burger king","popeyes","domino","texas chicken","chickita"],"concept":"Dining"},{"code":"delivery","kind":"expense","parent":"eatout","depth":3,"vi":"Giao đồ ăn","en":"Food delivery","kw":["grabfood","shopeefood","befood","baemin","giao do an","foody","ship do an"],"concept":"Dining"},{"code":"street","kind":"expense","parent":"eatout","depth":3,"vi":"Ăn vặt & quán vỉa hè","en":"Street food & snacks","kw":["an vat","via he","banh trang"],"concept":"Dining"},{"code":"dessert","kind":"expense","parent":"eatout","depth":3,"vi":"Tráng miệng & đồ ngọt","en":"Dessert","kw":["banh ngot","trang mieng","tlj","tous les jours","abc bakery","artisan bakery","tiem banh","bakery","tra tiem","paris baguette","marou","socola"],"concept":"Dining"},{"code":"drinks","kind":"expense","parent":"food","depth":2,"vi":"Đồ uống","en":"Drinks","kw":["quan nuoc"],"concept":"Dining"},{"code":"coffee","kind":"expense","parent":"drinks","depth":3,"vi":"Cà phê","en":"Coffee","kw":["ca phe","cafe","coffee","highlands","phuc long","katinat","the coffee house","starbucks","passio","wayne","waynes","waynescoffee","every half","revi","revicoffee","a c coffee","midori","midoricoffee","phe la","cheese coffee","guta","milano","aha cafe","ong bau","laha","la viet","phindeli","sips","artisan patina","tiem ca phe","quan ca phe","cong ca phe","trung nguyen"],"concept":"Dining","pool":"coffee"},{"code":"milktea","kind":"expense","parent":"drinks","depth":3,"vi":"Trà sữa","en":"Milk tea","kw":["tra sua","gong cha","tocotoco","mixue","phuc tea","boba","koi the","toco toco","bobapop","ding tea","tiger sugar","the alley","royaltea","maycha","tealive"],"concept":"Dining","pool":"milktea"},{"code":"juice","kind":"expense","parent":"drinks","depth":3,"vi":"Trà, nước ép, sinh tố","en":"Tea, juice, smoothies","kw":["nuoc ep","sinh to","tra chanh","tra dao","fruities"],"concept":"Dining"},{"code":"alcohol","kind":"expense","parent":"drinks","depth":3,"vi":"Bia rượu & nhậu","en":"Alcohol","kw":["ruou","nhau","quan nhau","bar","pub","belgo","heineken","tiger"],"concept":"Dining"},{"code":"tobacco","kind":"expense","parent":"drinks","depth":3,"vi":"Thuốc lá","en":"Tobacco","kw":["thuoc la","vape"],"concept":"Dining"},{"code":"home","kind":"expense","parent":null,"depth":1,"vi":"Nhà ở & hoá đơn","en":"Housing & bills","concept":"Housing"},{"code":"rent","kind":"expense","parent":"home","depth":2,"vi":"Tiền nhà","en":"Rent & building","kw":["tien nha","thue nha","tro"],"concept":"Housing"},{"code":"rentpay","kind":"expense","parent":"rent","depth":3,"vi":"Tiền thuê nhà","en":"Rent","kw":["tien thue","tien tro","tien phong","tien nha","tien thue nha","thue nha"],"concept":"Housing"},{"code":"mgmt","kind":"expense","parent":"rent","depth":3,"vi":"Phí quản lý & chung cư","en":"Building fees","kw":["phi quan ly","phi chung cu","ban quan ly","pql","nop tien phi","altara","vinhomes","phi dich vu chung cu"],"concept":"Housing"},{"code":"repair","kind":"expense","parent":"rent","depth":3,"vi":"Sửa chữa & bảo trì nhà","en":"Home repair","kw":["sua nha","sua chua","bao tri","tho sua","tho dien","tho nuoc"],"concept":"Housing"},{"code":"utilities","kind":"expense","parent":"home","depth":2,"vi":"Điện, nước & tiện ích","en":"Utilities","kw":["hoa don","tien dien","tien nuoc"],"concept":"Housing"},{"code":"electric","kind":"expense","parent":"utilities","depth":3,"vi":"Tiền điện","en":"Electricity","kw":["tien dien","evn","dien luc","hoa don dien"],"concept":"Housing"},{"code":"waterbill","kind":"expense","parent":"utilities","depth":3,"vi":"Tiền nước","en":"Water","kw":["tien nuoc","cap nuoc","sawaco","hoa don nuoc"],"concept":"Housing"},{"code":"gas","kind":"expense","parent":"utilities","depth":3,"vi":"Gas","en":"Cooking gas","kw":["binh gas","tien gas","petrogas","pgas","gas"],"concept":"Housing"},{"code":"trash","kind":"expense","parent":"utilities","depth":3,"vi":"Rác & vệ sinh","en":"Waste & sanitation","kw":["tien rac","ve sinh moi truong"],"concept":"Housing"},{"code":"telecom","kind":"expense","parent":"home","depth":2,"vi":"Điện thoại & internet","en":"Phone & internet","kw":["vnpt","viettel","mobifone","vinaphone"],"concept":"Housing"},{"code":"mobile","kind":"expense","parent":"telecom","depth":3,"vi":"Cước & nạp điện thoại","en":"Mobile top-up & plan","kw":["nap tien dien thoai","cuoc di dong","the cao","nap data","mobifone","vinaphone","viettel","mobile top up","topup","mua data","goi data"],"concept":"Housing"},{"code":"internet","kind":"expense","parent":"telecom","depth":3,"vi":"Internet & wifi","en":"Internet","kw":["internet","wifi","cap quang","fpt telecom","vnpt","viettel","fpt internet"],"concept":"Housing"},{"code":"tv","kind":"expense","parent":"telecom","depth":3,"vi":"Truyền hình","en":"TV subscription","kw":["truyen hinh","fpt play","vtvcab"],"concept":"Housing"},{"code":"household","kind":"expense","parent":"home","depth":2,"vi":"Đồ gia dụng & nội thất","en":"Household goods","kw":["dien may","noi that"],"concept":"Housing"},{"code":"appliance","kind":"expense","parent":"household","depth":3,"vi":"Đồ điện gia dụng","en":"Appliances","kw":["may giat","tu lanh","dien may xanh","nguyen kim","may lanh"],"concept":"Housing"},{"code":"furniture","kind":"expense","parent":"household","depth":3,"vi":"Nội thất","en":"Furniture","kw":["noi that","ban ghe","giuong","ikea"],"concept":"Housing"},{"code":"kitchenware","kind":"expense","parent":"household","depth":3,"vi":"Đồ dùng nhà bếp","en":"Kitchenware","kw":["chao","bat dia","do bep","noi com","noi chien","xoong noi"],"concept":"Housing"},{"code":"supplies","kind":"expense","parent":"household","depth":3,"vi":"Đồ dùng sinh hoạt","en":"Household consumables","kw":["giay ve sinh","nuoc giat","nuoc rua chen","tay rua"],"concept":"Housing"},{"code":"homeservice","kind":"expense","parent":"home","depth":2,"vi":"Dịch vụ nhà","en":"Home services","kw":["giup viec","don dep"],"concept":"Housing"},{"code":"maid","kind":"expense","parent":"homeservice","depth":3,"vi":"Giúp việc","en":"Domestic help","kw":["giup viec","o sin","btaskee"],"concept":"Housing"},{"code":"laundry","kind":"expense","parent":"homeservice","depth":3,"vi":"Giặt ủi","en":"Laundry","kw":["giat ui","giat say","tiem giat"],"concept":"Housing"},{"code":"cleaning","kind":"expense","parent":"homeservice","depth":3,"vi":"Dọn dẹp","en":"Cleaning","kw":["don dep","ve sinh nha","don nha"],"concept":"Housing"},{"code":"transport","kind":"expense","parent":null,"depth":1,"vi":"Đi lại","en":"Transport","concept":"Transport"},{"code":"vehicle","kind":"expense","parent":"transport","depth":2,"vi":"Xe cá nhân","en":"Own vehicle","kw":["xe may","o to"],"concept":"Transport"},{"code":"fuel","kind":"expense","parent":"vehicle","depth":3,"vi":"Xăng dầu","en":"Fuel","kw":["xang","do xang","petrolimex","pvoil","xang dau"],"concept":"Transport"},{"code":"parking","kind":"expense","parent":"vehicle","depth":3,"vi":"Gửi xe & đỗ xe","en":"Parking","kw":["gui xe","do xe","bai xe","ve xe","giu xe","parking"],"concept":"Transport"},{"code":"maintenance","kind":"expense","parent":"vehicle","depth":3,"vi":"Sửa & bảo dưỡng xe","en":"Vehicle maintenance","kw":["sua xe","bao duong","thay nhot","vo xe","lop"],"concept":"Transport"},{"code":"carwash","kind":"expense","parent":"vehicle","depth":3,"vi":"Rửa xe","en":"Car wash","kw":["rua xe"],"concept":"Transport"},{"code":"toll","kind":"expense","parent":"vehicle","depth":3,"vi":"Phí cầu đường","en":"Tolls","kw":["phi cau duong","vetc","epass","thu phi","cao toc"],"concept":"Transport"},{"code":"evcharge","kind":"expense","parent":"vehicle","depth":3,"vi":"Sạc xe điện","en":"EV charging","kw":["sac xe","tram sac","vinfast"],"concept":"Transport"},{"code":"ridehail","kind":"expense","parent":"transport","depth":2,"vi":"Xe công nghệ & taxi","en":"Ride-hailing & taxi","kw":["xanh sm","gojek","taxi"],"concept":"Transport"},{"code":"bikehail","kind":"expense","parent":"ridehail","depth":3,"vi":"Xe ôm công nghệ","en":"Motorbike ride","kw":["xe om","be bike","xanh sm bike","grabbike","grab bike"],"concept":"Transport","pool":"ride"},{"code":"carhail","kind":"expense","parent":"ridehail","depth":3,"vi":"Ô tô công nghệ & taxi","en":"Car ride & taxi","kw":["taxi","be car","xanh sm","vinasun","mai linh","grabcar","grab car","green sm","g7 taxi"],"concept":"Transport","pool":"ride"},{"code":"public","kind":"expense","parent":"transport","depth":2,"vi":"Phương tiện công cộng","en":"Public transport","kw":["xe buyt","metro"],"concept":"Transport"},{"code":"bus","kind":"expense","parent":"public","depth":3,"vi":"Xe buýt","en":"Bus","kw":["xe buyt","bus","ve xe buyt"],"concept":"Transport"},{"code":"metro","kind":"expense","parent":"public","depth":3,"vi":"Metro","en":"Metro","kw":["metro","tau dien"],"concept":"Transport"},{"code":"coach","kind":"expense","parent":"public","depth":3,"vi":"Xe khách","en":"Intercity coach","kw":["xe khach","xe do","phuong trang","futa","vexere"],"concept":"Transport"},{"code":"longdistance","kind":"expense","parent":"transport","depth":2,"vi":"Đi xa","en":"Long-distance travel","kw":["ve may bay","ve tau"],"concept":"Transport"},{"code":"flight","kind":"expense","parent":"longdistance","depth":3,"vi":"Vé máy bay","en":"Flights","kw":["ve may bay","vietjet","vietnam airlines","bamboo","traveloka","bamboo airways"],"concept":"Transport"},{"code":"train","kind":"expense","parent":"longdistance","depth":3,"vi":"Vé tàu","en":"Train","kw":["ve tau","duong sat"],"concept":"Transport"},{"code":"carrental","kind":"expense","parent":"longdistance","depth":3,"vi":"Thuê xe","en":"Car & bike rental","kw":["thue xe","xe tu lai"],"concept":"Transport"},{"code":"shopping","kind":"expense","parent":null,"depth":1,"vi":"Mua sắm","en":"Shopping","concept":"Shopping","kw":["vincom","aeon mall","crescent mall","sc vivocity","takashimaya","mall","tiki","lazada","sendo","tiktok shop","shopee","shopee vn","speepay","amazon","amazon mktplace"]},{"code":"clothing","kind":"expense","parent":"shopping","depth":2,"vi":"Quần áo & phụ kiện","en":"Clothing & accessories","kw":["quan ao","thoi trang","uniqlo","zara"],"concept":"Clothing"},{"code":"clothes","kind":"expense","parent":"clothing","depth":3,"vi":"Quần áo","en":"Clothes","kw":["quan ao","dam","ao thun","uniqlo","zara","muji","h&m","chan vay","vay dam"],"concept":"Clothing"},{"code":"shoes","kind":"expense","parent":"clothing","depth":3,"vi":"Giày dép","en":"Shoes","kw":["giay","sneaker","giay dep","crocs","biti","dep quai"],"concept":"Clothing"},{"code":"bags","kind":"expense","parent":"clothing","depth":3,"vi":"Túi xách & phụ kiện","en":"Bags & accessories","kw":["tui xach","balo","phu kien","non bao hiem","mu non"],"concept":"Clothing"},{"code":"jewelry","kind":"expense","parent":"clothing","depth":3,"vi":"Trang sức & đồng hồ","en":"Jewellery & watches","kw":["trang suc","dong ho","pnj","nhan cuoi","vang bac"],"concept":"Clothing"},{"code":"tech","kind":"expense","parent":"shopping","depth":2,"vi":"Điện tử & công nghệ","en":"Electronics","kw":["the gioi di dong","fpt shop","cellphones"],"concept":"Shopping"},{"code":"phone","kind":"expense","parent":"tech","depth":3,"vi":"Điện thoại","en":"Phones","kw":["dien thoai","iphone","samsung"],"concept":"Shopping"},{"code":"computer","kind":"expense","parent":"tech","depth":3,"vi":"Máy tính & thiết bị","en":"Computers & devices","kw":["may tinh","laptop","ipad","macbook","man hinh"],"concept":"Shopping"},{"code":"techacc","kind":"expense","parent":"tech","depth":3,"vi":"Phụ kiện công nghệ","en":"Tech accessories","kw":["tai nghe","op lung","chuot","ban phim"],"concept":"Shopping"},{"code":"kidsgoods","kind":"expense","parent":"shopping","depth":2,"vi":"Đồ trẻ em","en":"Kids’ goods","kw":["con nit","tre em","bibo mart","kids plaza"],"concept":"Shopping"},{"code":"diapers","kind":"expense","parent":"kidsgoods","depth":3,"vi":"Bỉm & đồ sơ sinh","en":"Diapers & baby care","kw":["bim","so sinh"],"concept":"Shopping"},{"code":"toys","kind":"expense","parent":"kidsgoods","depth":3,"vi":"Đồ chơi","en":"Toys","kw":["do choi","lego"],"concept":"Shopping"},{"code":"kidsclothes","kind":"expense","parent":"kidsgoods","depth":3,"vi":"Quần áo trẻ em","en":"Kids’ clothes","kw":["quan ao tre em","do be"],"concept":"Shopping"},{"code":"hobbygoods","kind":"expense","parent":"shopping","depth":2,"vi":"Sách & đồ sở thích","en":"Books & hobby goods","kw":["sach","fahasa"],"concept":"Shopping"},{"code":"books","kind":"expense","parent":"hobbygoods","depth":3,"vi":"Sách","en":"Books","kw":["sach","fahasa","nha sach","sach cu"],"concept":"Shopping"},{"code":"hobby","kind":"expense","parent":"hobbygoods","depth":3,"vi":"Đồ sở thích & thể thao","en":"Hobby & sports gear","kw":["do the thao","decathlon","may anh","nhac cu","supersports"],"concept":"Shopping"},{"code":"health","kind":"expense","parent":null,"depth":1,"vi":"Sức khỏe & làm đẹp","en":"Health & beauty","concept":"Others"},{"code":"medical","kind":"expense","parent":"health","depth":2,"vi":"Y tế","en":"Medical","kw":["benh vien","phong kham","y te"],"concept":"Others"},{"code":"pharmacy","kind":"expense","parent":"medical","depth":3,"vi":"Thuốc & nhà thuốc","en":"Pharmacy","kw":["thuoc","nha thuoc","pharmacity","long chau","an khang","fpt pharma"],"concept":"Others"},{"code":"clinic","kind":"expense","parent":"medical","depth":3,"vi":"Khám bệnh & bệnh viện","en":"Clinic & hospital","kw":["kham benh","benh vien","phong kham","vien phi","vinmec"],"concept":"Others"},{"code":"dental","kind":"expense","parent":"medical","depth":3,"vi":"Nha khoa","en":"Dental","kw":["nha khoa","rang","nieng rang"],"concept":"Others"},{"code":"lab","kind":"expense","parent":"medical","depth":3,"vi":"Xét nghiệm & chẩn đoán","en":"Tests & imaging","kw":["xet nghiem","sieu am","chup","medlatec"],"concept":"Others"},{"code":"supplements","kind":"expense","parent":"medical","depth":3,"vi":"Thực phẩm chức năng","en":"Supplements","kw":["thuc pham chuc nang","vitamin","tpcn"],"concept":"Others"},{"code":"eyewear","kind":"expense","parent":"medical","depth":3,"vi":"Mắt kính","en":"Eyewear","kw":["mat kinh","kinh can","kinh mat"],"concept":"Others"},{"code":"fitness","kind":"expense","parent":"health","depth":2,"vi":"Thể dục & thể thao","en":"Fitness","kw":["gym","the thao"],"concept":"Others"},{"code":"gym","kind":"expense","parent":"fitness","depth":3,"vi":"Gym & phòng tập","en":"Gym","kw":["gym","phong tap","yoga","california","citigym","fitness","elite fitness"],"concept":"Others"},{"code":"sports","kind":"expense","parent":"fitness","depth":3,"vi":"Sân bãi & thể thao","en":"Sports & courts","kw":["san bong","cau long","pickleball","boi","tennis"],"concept":"Others"},{"code":"beauty","kind":"expense","parent":"health","depth":2,"vi":"Làm đẹp","en":"Beauty & personal care","kw":["my pham","salon","spa"],"concept":"Others"},{"code":"cosmetics","kind":"expense","parent":"beauty","depth":3,"vi":"Mỹ phẩm & chăm sóc da","en":"Cosmetics & skincare","kw":["my pham","skincare","guardian","watsons","hasaki","son moi","kem chong nang","tay trang"],"concept":"Others"},{"code":"hair","kind":"expense","parent":"beauty","depth":3,"vi":"Cắt tóc & salon","en":"Hair","kw":["cat toc","salon","tiem toc","30shine","nhuom","barbershop","barber"],"concept":"Others"},{"code":"spa","kind":"expense","parent":"beauty","depth":3,"vi":"Spa, massage & nail","en":"Spa, massage, nails","kw":["spa","massage","nail","goi dau"],"concept":"Others"},{"code":"personalcare","kind":"expense","parent":"beauty","depth":3,"vi":"Đồ vệ sinh cá nhân","en":"Toiletries","kw":["dau goi","sua tam","kem danh rang","bang ve sinh"],"concept":"Others"},{"code":"leisure","kind":"expense","parent":null,"depth":1,"vi":"Giải trí","en":"Leisure","concept":"Fun"},{"code":"entertainment","kind":"expense","parent":"leisure","depth":2,"vi":"Giải trí & xem","en":"Entertainment","kw":["giai tri"],"concept":"Fun"},{"code":"cinema","kind":"expense","parent":"entertainment","depth":3,"vi":"Rạp phim","en":"Cinema","kw":["rap","cgv","lotte cinema","galaxy","phim","bhd star","galaxy cinema","cinestar","beta cinema","rap phim","ve xem phim","mua ve xem phim","betacinemas"],"concept":"Fun","pool":"cinema"},{"code":"streaming","kind":"expense","parent":"entertainment","depth":3,"vi":"Streaming & thuê bao số","en":"Streaming & digital subscriptions","kw":["netflix","spotify","youtube premium","apple","icloud","fpt play","apple.com/bill","apple com bill","google one","google"],"concept":"Fun"},{"code":"games","kind":"expense","parent":"entertainment","depth":3,"vi":"Game & app","en":"Games & apps","kw":["game","nap game","steam","app store","google play","garena","playstation"],"concept":"Fun"},{"code":"events","kind":"expense","parent":"entertainment","depth":3,"vi":"Sự kiện & concert","en":"Events & concerts","kw":["concert","ve xem","su kien","ticketbox","marathon","ve su kien"],"concept":"Fun"},{"code":"karaoke","kind":"expense","parent":"entertainment","depth":3,"vi":"Karaoke & bar","en":"Karaoke & nightlife","kw":["karaoke","bar","club","lounge"],"concept":"Fun"},{"code":"travel","kind":"expense","parent":"leisure","depth":2,"vi":"Du lịch","en":"Travel","kw":["du lich","khach san","tour"],"concept":"Fun"},{"code":"hotel","kind":"expense","parent":"travel","depth":3,"vi":"Khách sạn & lưu trú","en":"Accommodation","kw":["khach san","homestay","resort","booking","agoda","airbnb","booking com","booking.com"],"concept":"Fun"},{"code":"tour","kind":"expense","parent":"travel","depth":3,"vi":"Tour & vé tham quan","en":"Tours & attractions","kw":["tour","ve tham quan","ve vao cong","klook"],"concept":"Fun"},{"code":"pets","kind":"expense","parent":"leisure","depth":2,"vi":"Thú cưng","en":"Pets","kw":["thu cung","meo"],"concept":"Fun"},{"code":"petfood","kind":"expense","parent":"pets","depth":3,"vi":"Thức ăn thú cưng","en":"Pet food","kw":["thuc an cho","thuc an meo","pate"],"concept":"Fun"},{"code":"vet","kind":"expense","parent":"pets","depth":3,"vi":"Thú y","en":"Vet","kw":["tiem phong","kham thu cung","benh vien thu y","phong kham thu y","tiem phong cho","tiem phong meo"],"concept":"Fun"},{"code":"petsupplies","kind":"expense","parent":"pets","depth":3,"vi":"Phụ kiện & dịch vụ thú cưng","en":"Pet supplies & grooming","kw":["cat ve sinh","tam cho","spa thu cung","pet mart","petmart","pet shop"],"concept":"Fun"},{"code":"education","kind":"expense","parent":null,"depth":1,"vi":"Giáo dục","en":"Education","kw":["hoc"],"concept":"Others"},{"code":"tuition","kind":"expense","parent":"education","depth":2,"vi":"Học phí trường","en":"School tuition","kw":["hoc phi","mam non","dai hoc","hoc phi truong","tien truong","dong hoc phi"],"concept":"Others"},{"code":"courses","kind":"expense","parent":"education","depth":2,"vi":"Khoá học & kỹ năng","en":"Courses & skills","kw":["khoa hoc","tieng anh","ielts","udemy","coursera","trung tam"],"concept":"Others"},{"code":"extracurricular","kind":"expense","parent":"education","depth":2,"vi":"Lớp năng khiếu","en":"Extracurricular classes","kw":["nang khieu","piano","boi loi","lop mua","hoc mua","mua hat"],"concept":"Others"},{"code":"tutoring","kind":"expense","parent":"education","depth":2,"vi":"Gia sư & học thêm","en":"Tutoring","kw":["gia su","hoc them","day kem"],"concept":"Others"},{"code":"schoolsupplies","kind":"expense","parent":"education","depth":2,"vi":"Sách vở & dụng cụ học tập","en":"School supplies","kw":["sach giao khoa","dung cu hoc tap","but"],"concept":"Others"},{"code":"giving","kind":"expense","parent":null,"depth":1,"vi":"Biếu tặng & hiếu hỉ","en":"Gifts & social obligations","kw":["bieu","mung"],"concept":"Others"},{"code":"gifts","kind":"expense","parent":"giving","depth":2,"vi":"Quà tặng","en":"Gifts","kw":["qua tang","hoa giay","shop hoa","mua qua","tang qua"],"concept":"Others"},{"code":"familysupport","kind":"expense","parent":"giving","depth":2,"vi":"Biếu ba mẹ & người thân","en":"Family support","kw":["bieu","gui ba me","cho me","cho ba","chu cap"],"concept":"Others"},{"code":"wedding","kind":"expense","parent":"giving","depth":2,"vi":"Mừng cưới, thôi nôi, sinh nhật","en":"Weddings & celebrations","kw":["mung cuoi","dam cuoi","thoi noi","sinh nhat","day thang"],"concept":"Others"},{"code":"funeral","kind":"expense","parent":"giving","depth":2,"vi":"Phúng điếu","en":"Funerals","kw":["phung dieu","dam tang","vieng"],"concept":"Others"},{"code":"tet","kind":"expense","parent":"giving","depth":2,"vi":"Lì xì & Tết","en":"Tết & lucky money","kw":["li xi","mung tuoi","tet"],"concept":"Others"},{"code":"charity","kind":"expense","parent":"giving","depth":2,"vi":"Từ thiện & công đức","en":"Charity & temple","kw":["tu thien","cong duc","quyen gop","ung ho","di chua","cung chua","tien chua"],"concept":"Others"},{"code":"fees","kind":"expense","parent":null,"depth":1,"vi":"Phí, thuế & bảo hiểm","en":"Fees, tax & insurance","concept":"Others"},{"code":"bankfees","kind":"expense","parent":"fees","depth":2,"vi":"Phí ngân hàng & thẻ","en":"Bank & card fees","kw":["phi thuong nien","phi chuyen khoan","phi dich vu","phi sms","phi quan ly tai khoan"],"concept":"Others"},{"code":"annualfee","kind":"expense","parent":"bankfees","depth":3,"vi":"Phí thường niên","en":"Annual fee","kw":["phi thuong nien"],"concept":"Others"},{"code":"transferfee","kind":"expense","parent":"bankfees","depth":3,"vi":"Phí chuyển khoản & SMS","en":"Transfer & SMS fees","kw":["phi chuyen khoan","phi sms","phi dich vu"],"concept":"Others"},{"code":"interest","kind":"expense","parent":"fees","depth":2,"vi":"Lãi vay & lãi thẻ","en":"Interest","kw":["tien lai","lai suat","tra lai"],"concept":"Others"},{"code":"cardinterest","kind":"expense","parent":"interest","depth":3,"vi":"Lãi thẻ tín dụng","en":"Card interest","kw":["lai the tin dung","lai suat the"],"concept":"Others"},{"code":"loaninterest","kind":"expense","parent":"interest","depth":3,"vi":"Lãi khoản vay","en":"Loan interest","kw":["lai vay","tien lai"],"concept":"Others"},{"code":"latefee","kind":"expense","parent":"interest","depth":3,"vi":"Phí trả chậm","en":"Late fee","kw":["phi tra cham","phi phat"],"concept":"Others"},{"code":"insurance","kind":"expense","parent":"fees","depth":2,"vi":"Bảo hiểm","en":"Insurance","kw":["bao hiem"],"concept":"Others"},{"code":"lifeins","kind":"expense","parent":"insurance","depth":3,"vi":"Nhân thọ","en":"Life","kw":["nhan tho","prudential","manulife","dai-ichi","aia","dai ichi","bao viet"],"concept":"Others"},{"code":"healthins","kind":"expense","parent":"insurance","depth":3,"vi":"Sức khỏe & y tế","en":"Health","kw":["bao hiem suc khoe","bao hiem y te","bhyt"],"concept":"Others"},{"code":"vehicleins","kind":"expense","parent":"insurance","depth":3,"vi":"Xe","en":"Vehicle","kw":["bao hiem xe","tnds"],"concept":"Others"},{"code":"propertyins","kind":"expense","parent":"insurance","depth":3,"vi":"Nhà & tài sản","en":"Property","kw":["bao hiem nha","chay no"],"concept":"Others"},{"code":"taxfine","kind":"expense","parent":"fees","depth":2,"vi":"Thuế & phạt","en":"Tax & fines","kw":["nop phat","phat nguoi","phat giao thong","tien phat"],"concept":"Others"},{"code":"tax","kind":"expense","parent":"taxfine","depth":3,"vi":"Thuế","en":"Tax","kw":["thue tncn","thue dat","nop thue","tien thue nha nuoc"],"concept":"Others"},{"code":"fine","kind":"expense","parent":"taxfine","depth":3,"vi":"Phạt","en":"Fines","kw":["phat nguoi","phat giao thong","nop phat"],"concept":"Others"},{"code":"work","kind":"expense","parent":null,"depth":1,"vi":"Công việc & kinh doanh","en":"Work & business","concept":"Others"},{"code":"workexpense","kind":"expense","parent":"work","depth":2,"vi":"Chi phí công việc","en":"Work expenses","kw":["cong viec"],"concept":"Others"},{"code":"office","kind":"expense","parent":"workexpense","depth":3,"vi":"Văn phòng phẩm","en":"Office supplies","kw":["van phong pham","in an","photo"],"concept":"Others"},{"code":"software","kind":"expense","parent":"workexpense","depth":3,"vi":"Phần mềm & công cụ","en":"Software & tools","kw":["phan mem","subscription","saas","chatgpt","canva","notion","anthropic","claude","openai","figma","github","google cloud","google*cloud","aws","ux pilot","dzine","adobe"],"concept":"Others"},{"code":"client","kind":"expense","parent":"workexpense","depth":3,"vi":"Tiếp khách","en":"Client entertainment","kw":["tiep khach"],"concept":"Others"},{"code":"shipping","kind":"expense","parent":"workexpense","depth":3,"vi":"Vận chuyển & ship hàng","en":"Shipping","kw":["ship","giao hang","ghn","ghtk","viettel post","ninja van","vnpost","j&t","jt express","ship hang"],"concept":"Others"},{"code":"businesscost","kind":"expense","parent":"work","depth":2,"vi":"Chi phí kinh doanh","en":"Business costs","kw":[],"concept":"Others"},{"code":"goods","kind":"expense","parent":"businesscost","depth":3,"vi":"Nhập hàng","en":"Inventory","kw":["nhap hang","lay hang"],"concept":"Others"},{"code":"wages","kind":"expense","parent":"businesscost","depth":3,"vi":"Trả lương nhân viên","en":"Wages paid","kw":["tra luong","luong nhan vien"],"concept":"Others"},{"code":"marketing","kind":"expense","parent":"businesscost","depth":3,"vi":"Quảng cáo","en":"Advertising","kw":["quang cao","ads","facebook ads","google ads"],"concept":"Others"},{"code":"p2p","kind":"expense","parent":null,"depth":1,"vi":"Chuyển cho người khác","en":"Payments to people","rest":true,"concept":"Others"},{"code":"split","kind":"expense","parent":"p2p","depth":2,"vi":"Chia bill & góp chung","en":"Split bills & pooling","kw":["chia bill","share","tra tien an","tien chung","chuyen tien vao quy"],"concept":"Others"},{"code":"seller","kind":"expense","parent":"p2p","depth":2,"vi":"Mua từ người bán cá nhân","en":"Purchase from an individual seller","kw":["chuyen khoan mua","ck mua"],"concept":"Others"},{"code":"xunfiled","kind":"expense","parent":null,"depth":1,"vi":"Chưa rõ","en":"Unfiled","manual":true,"concept":"Others"},{"code":"salary","kind":"income","parent":null,"depth":1,"vi":"Lương & công việc","en":"Employment"},{"code":"wage","kind":"income","parent":"salary","depth":2,"vi":"Lương","en":"Salary","kw":["luong","salary","payroll","tra luong","thanh toan luong"]},{"code":"bonus","kind":"income","parent":"salary","depth":2,"vi":"Thưởng & hoa hồng","en":"Bonus & commission","kw":["hoa hong","thuong tet","kpi"]},{"code":"allowance","kind":"income","parent":"salary","depth":2,"vi":"Phụ cấp","en":"Allowances","kw":["phu cap","cong tac phi"]},{"code":"freelance","kind":"income","parent":"salary","depth":2,"vi":"Làm thêm & freelance","en":"Freelance & side work","kw":["freelance","lam them","du an","thanh toan hop dong","thu lao"]},{"code":"business","kind":"income","parent":null,"depth":1,"vi":"Kinh doanh","en":"Business"},{"code":"sales","kind":"income","parent":"business","depth":2,"vi":"Doanh thu bán hàng","en":"Sales revenue","kw":["ban hang","don hang","khach thanh toan"]},{"code":"profit","kind":"income","parent":"business","depth":2,"vi":"Lợi nhuận & chia lãi","en":"Profit share","kw":["chia lai","loi nhuan"]},{"code":"passive","kind":"income","parent":null,"depth":1,"vi":"Đầu tư & tài sản","en":"Investment & assets"},{"code":"savinterest","kind":"income","parent":"passive","depth":2,"vi":"Lãi tiết kiệm","en":"Savings interest","kw":["lai tiet kiem","tra lai","lai nhap goc"]},{"code":"dividend","kind":"income","parent":"passive","depth":2,"vi":"Cổ tức & lãi trái phiếu","en":"Dividends & coupons","kw":["co tuc","trai tuc","coupon"]},{"code":"rental","kind":"income","parent":"passive","depth":2,"vi":"Cho thuê","en":"Rental income","kw":["tien thue","cho thue","tien nha thang"]},{"code":"assetsale","kind":"income","parent":"passive","depth":2,"vi":"Bán đồ & tài sản","en":"Sale of belongings","kw":["ban xe","ban may","thanh ly"]},{"code":"received","kind":"income","parent":null,"depth":1,"vi":"Được cho & nhận","en":"Received"},{"code":"fromfamily","kind":"income","parent":"received","depth":2,"vi":"Người thân gửi","en":"From family","kw":["me gui","ba gui","chuyen cho con","gui con"]},{"code":"giftmoney","kind":"income","parent":"received","depth":2,"vi":"Quà & lì xì nhận","en":"Gift money","kw":["li xi","mung","thiep"]},{"code":"inheritance","kind":"income","parent":"received","depth":2,"vi":"Thừa kế","en":"Inheritance","kw":["thua ke"]},{"code":"refund","kind":"income","parent":null,"depth":1,"vi":"Hoàn & bồi hoàn","en":"Refunds & reimbursements"},{"code":"purchaserefund","kind":"income","parent":"refund","depth":2,"vi":"Hoàn tiền mua hàng","en":"Purchase refund","kw":["hoan tien","refund","hoan don","hoan tien giao dich"]},{"code":"cashback","kind":"income","parent":"refund","depth":2,"vi":"Cashback & hoàn thẻ","en":"Cashback","kw":["cashback","hoan the","hoan tien the","tra thuong","doi qua","diem thuong"]},{"code":"reimbursement","kind":"income","parent":"refund","depth":2,"vi":"Công ty hoàn chi phí","en":"Expense reimbursement","kw":["hoan chi phi","cong tac","thanh toan tam ung"]},{"code":"insurancepayout","kind":"income","parent":"refund","depth":2,"vi":"Bảo hiểm chi trả","en":"Insurance payout","kw":["bao hiem chi tra","boi thuong"]},{"code":"taxrefund","kind":"income","parent":"refund","depth":2,"vi":"Hoàn thuế","en":"Tax refund","kw":["hoan thue"]},{"code":"benefits","kind":"income","parent":null,"depth":1,"vi":"Trợ cấp & hưu trí","en":"Benefits & pension"},{"code":"pension","kind":"income","parent":"benefits","depth":2,"vi":"Lương hưu","en":"Pension","kw":["luong huu","bhxh"]},{"code":"welfare","kind":"income","parent":"benefits","depth":2,"vi":"Trợ cấp","en":"Welfare","kw":["tro cap","that nghiep","thai san"]},{"code":"scholarship","kind":"income","parent":"benefits","depth":2,"vi":"Học bổng","en":"Scholarship","kw":["hoc bong"]},{"code":"iunfiled","kind":"income","parent":null,"depth":1,"vi":"Chưa rõ","en":"Unfiled","manual":true},{"code":"cashout","kind":"transfer","parent":null,"depth":1,"vi":"Rút tiền mặt","en":"Cash withdrawal (ATM)","kw":["atm","rut tien","rut tien mat"],"derived":true},{"code":"cashin","kind":"transfer","parent":null,"depth":1,"vi":"Nộp tiền mặt","en":"Cash deposit","kw":["nop tien","cdm"],"derived":true},{"code":"bankbank","kind":"transfer","parent":null,"depth":1,"vi":"Giữa tài khoản ngân hàng","en":"Bank to bank","kw":["chuyen khoan noi bo","ck cho chinh minh"],"derived":true},{"code":"wallet","kind":"transfer","parent":null,"depth":1,"vi":"Nạp & rút ví điện tử","en":"E-wallet top-up / withdrawal","kw":["nap vi","momo","zalopay","vnpay","rut vi","nap tien vao vi","vi dien tu","shopeepay","viettel money","tui than tai","nap tien vao vi tu"],"derived":true},{"code":"cardpay","kind":"transfer","parent":null,"depth":1,"vi":"Trả nợ thẻ tín dụng","en":"Credit card repayment","kw":["thanh toan the tin dung","tra no the","sao ke the","thanh toan sao ke"],"derived":true},{"code":"savings","kind":"transfer","parent":null,"depth":1,"vi":"Gửi & rút tiết kiệm","en":"Savings in / out","kw":["gui tiet kiem","tat toan","so tiet kiem","tiet kiem online"],"derived":true},{"code":"investfund","kind":"transfer","parent":null,"depth":1,"vi":"Nạp & rút tài khoản đầu tư","en":"Fund brokerage account","kw":["nap tien chung khoan","rut tien chung khoan","ssi","vndirect","finhay","tcbs","vps","fmarket","dnse"],"derived":true},{"code":"fx","kind":"transfer","parent":null,"depth":1,"vi":"Đổi ngoại tệ","en":"Currency exchange","kw":["doi tien","usd","ngoai te"],"derived":true},{"code":"borrow","kind":"loan","parent":null,"depth":1,"vi":"Đi vay","en":"Borrowed"},{"code":"bankloan","kind":"loan","parent":"borrow","depth":2,"vi":"Vay ngân hàng","en":"Bank loan","kw":["giai ngan","vay","ngan hang"]},{"code":"mortgage","kind":"loan","parent":"bankloan","depth":3,"vi":"Vay mua nhà","en":"Mortgage","kw":["vay mua nha","the chap"]},{"code":"autoloan","kind":"loan","parent":"bankloan","depth":3,"vi":"Vay mua xe","en":"Auto loan","kw":["vay mua xe"]},{"code":"personalloan","kind":"loan","parent":"bankloan","depth":3,"vi":"Vay tín chấp","en":"Personal loan","kw":["vay tin chap","vay tieu dung"]},{"code":"bnpl","kind":"loan","parent":"borrow","depth":2,"vi":"Trả góp & mua trước trả sau","en":"Instalments & BNPL","kw":["tra gop","fundiin","kredivo","muadee","spaylater"]},{"code":"consumerfinance","kind":"loan","parent":"borrow","depth":2,"vi":"Công ty tài chính","en":"Consumer finance","kw":["fe credit","home credit","mirae","hd saison"]},{"code":"fromperson","kind":"loan","parent":"borrow","depth":2,"vi":"Vay người thân & bạn bè","en":"From a person","kw":["muon","vay ban","vay nguoi than"]},{"code":"lend","kind":"loan","parent":null,"depth":1,"vi":"Cho vay","en":"Lent"},{"code":"toperson","kind":"loan","parent":"lend","depth":2,"vi":"Cho người thân & bạn bè vay","en":"To a person","kw":["cho vay","cho muon"]},{"code":"advance","kind":"loan","parent":"lend","depth":2,"vi":"Ứng trước & trả hộ","en":"Paid on someone’s behalf","kw":["tra ho","ung truoc","dong ho","mua ho"]},{"code":"hui","kind":"loan","parent":"lend","depth":2,"vi":"Hụi & góp vốn","en":"Rotating savings & pooled capital","kw":["hui","gop von","choi hui"]},{"code":"pay","kind":"repayment","parent":null,"depth":1,"vi":"Trả nợ","en":"Paying back","kw":["inherits Đi vay › …"],"derived":true},{"code":"collect","kind":"repayment","parent":null,"depth":1,"vi":"Thu nợ","en":"Collecting","kw":["inherits Cho vay › …"],"derived":true},{"code":"stock","kind":"investment","parent":null,"depth":1,"vi":"Cổ phiếu","en":"Stocks","kw":["co phieu","chung khoan","ssi","vndirect","tcbs","vps"]},{"code":"fund","kind":"investment","parent":null,"depth":1,"vi":"Quỹ (ETF, quỹ mở)","en":"Funds","kw":["etf","quy mo","dragon capital","finhay","fmarket"]},{"code":"bond","kind":"investment","parent":null,"depth":1,"vi":"Trái phiếu","en":"Bonds","kw":["trai phieu"]},{"code":"gold","kind":"investment","parent":null,"depth":1,"vi":"Vàng","en":"Gold","kw":["vang","sjc","pnj","doji","vang nhan"]},{"code":"crypto","kind":"investment","parent":null,"depth":1,"vi":"Tiền mã hoá","en":"Crypto","kw":["crypto","bitcoin","binance","usdt"]},{"code":"realestate","kind":"investment","parent":null,"depth":1,"vi":"Bất động sản","en":"Real estate","kw":["bat dong san","can ho","mua dat","tien dat","lo dat","so do"]},{"code":"termdeposit","kind":"investment","parent":null,"depth":1,"vi":"Tiết kiệm có kỳ hạn","en":"Term deposit","kw":["tiet kiem ky han","gui ky han"]},{"code":"stake","kind":"investment","parent":null,"depth":1,"vi":"Góp vốn kinh doanh","en":"Business stake","kw":["gop von","hun von","co phan"]}]};
+  var NODES = DATA.nodes, BY = {}, KIDS = {}, i;
+  for (i = 0; i < NODES.length; i++) { BY[NODES[i].code] = NODES[i]; }
+  for (i = 0; i < NODES.length; i++) { var p = NODES[i].parent; if (p) { (KIDS[p] = KIDS[p] || []).push(NODES[i].code); } }
+  function get(code) { return BY[code] || null; }
+  function children(code) { return KIDS[code] ? KIDS[code].slice() : []; }
+  function isLeaf(code) { return !!BY[code] && !KIDS[code]; }
+  function ancestors(code) { var out = [], n = BY[code]; while (n && n.parent) { out.push(n.parent); n = BY[n.parent]; } return out; }
+  function root(code) { var n = BY[code]; while (n && n.parent) { n = BY[n.parent]; } return n ? n.code : null; }
+  function kindOf(code) { var n = BY[code]; return n ? n.kind : null; }
+  function roots(kind) { var out = [], j; for (j = 0; j < NODES.length; j++) { if (NODES[j].kind === kind && !NODES[j].parent) out.push(NODES[j].code); } return out; }
+  function leaves(kind) { var out = [], j; for (j = 0; j < NODES.length; j++) { if ((!kind || NODES[j].kind === kind) && !KIDS[NODES[j].code] && !NODES[j].manual) out.push(NODES[j].code); } return out; }
+  /* The legacy 8-concept for any node: its own, else the nearest ancestor's. */
+  function conceptOf(code) { var n = BY[code]; while (n) { if (n.concept) return n.concept; n = n.parent ? BY[n.parent] : null; } return null; }
+  function poolOf(code) { var n = BY[code]; return n && n.pool ? n.pool : null; }
+  /* Nearest known ancestor for a code this build does not know (a newer tree
+     wrote it): the rollup rule from the spec. Returns the code itself when known. */
+  function rollup(code) { return BY[code] ? code : null; }
+  /* Path of labels, top-down, for display: ["Ăn uống","Đồ uống","Cà phê"]. */
+  function pathVi(code) { var n = BY[code], out = []; while (n) { out.unshift(n.vi); n = n.parent ? BY[n.parent] : null; } return out; }
+  function deburr(s) { return String(s == null ? '' : s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'd').toLowerCase(); }
+  /* Keyword index per kind: [ [keyword, code], ... ] ordered deepest-first then
+     longest keyword first, so a specific leaf phrase wins over its group's word. */
+  var KWIDX = {};
+  function keywordIndex(kind) {
+    if (KWIDX[kind]) return KWIDX[kind];
+    var out = [], j, k;
+    for (j = 0; j < NODES.length; j++) {
+      var n = NODES[j]; if (n.kind !== kind || !n.kw) continue;
+      for (k = 0; k < n.kw.length; k++) out.push([deburr(n.kw[k]).trim(), n.code, n.depth]);
+    }
+    out.sort(function (a, b) { return (b[2] - a[2]) || (b[0].length - a[0].length); });
+    KWIDX[kind] = out; return out;
+  }
+  /* First keyword hit on deburred text. Two passes: word-boundary first (so "cho"
+     never fires inside "chuyen"), then a substring pass for keywords of 5+ letters
+     (brands glued to gateway prefixes: "WAYNESCOFFEE", "REVICOFFEEHCM"). Returns
+     the node code, or null. */
+  function keywordNode(text, kind) {
+    var raw = deburr(text).replace(/[^a-z0-9]+/g, ' ').trim();
+    if (raw.length < 2) return null;
+    var t = ' ' + raw + ' ', compact = raw.replace(/ /g, '');
+    var idx = keywordIndex(kind || 'expense'), j;
+    for (j = 0; j < idx.length; j++) { if (t.indexOf(' ' + idx[j][0] + ' ') >= 0) return idx[j][1]; }
+    /* Second pass for brands glued to a gateway prefix ("MPOS*WAYNESCOFFEE",
+       "PAYOO-REVICOFFEEHCM03"), where no word boundary survives. Restricted to
+       SINGLE-WORD keywords of 6+ letters: a multi-word keyword flattened to one
+       token matches things it never meant — "thu y" became "thuy" and filed a
+       person named THUY MY under the vet. */
+    for (j = 0; j < idx.length; j++) {
+      var k = idx[j][0];
+      if (k.length < 6 || k.indexOf(' ') >= 0) continue;
+      if (compact.indexOf(k) >= 0) return idx[j][1];
+    }
+    return null;
+  }
+  var API = { version: DATA.version, kinds: DATA.kinds, nodes: NODES, get: get, children: children, isLeaf: isLeaf,
+    ancestors: ancestors, root: root, kindOf: kindOf, roots: roots, leaves: leaves, conceptOf: conceptOf, poolOf: poolOf,
+    rollup: rollup, pathVi: pathVi, keywordIndex: keywordIndex, keywordNode: keywordNode, deburr: deburr };
+  return API;
+})();
+window.FH_TAX = FH_TAX;
 /* ---------- month name lookups (shared) ---------- */
 var MONF=['January','February','March','April','May','June','July','August','September','October','November','December'];
 var MONA=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -6264,6 +6408,117 @@ function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){ ret
 function escAttr(s){ return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
 window.esc=esc; window.escAttr=escAttr;
 
+/* ---- Category tree: the two layers (category-tree-spec.md) -------------------
+   L1 = the system tree (FH_TAX, generated). L2 = the person's/family's own labels,
+   each a PARTITION of L1: a label CLAIMS node codes (a claim covers the whole
+   subtree), the most specific claim wins, and the catch-all label claims '*'.
+   A row stores its L1 node (`node`) and, as today, its label (the family
+   category / the personal label); the node gives the label its default at
+   write time and the person can override the label per row.
+
+   Everything here is pure and global (js-ui): no DOM, no network, no key. Data
+   comes in as arguments or from the globals hydrate maintains:
+     window.catClaims   {categoryName: [codes]}     family partition (30-hydrate.js)
+     window.P.labels    [{id,name,emoji,claims:[codes]}] personal partition (19-personal.js)
+   Kill switch (C8): localStorage 'fh-tree' === 'off' hides every tree surface. */
+function fhTreeOn(){ try{ return localStorage.getItem('fh-tree')!=='off'; }catch(e){ return true; } }
+function fhNodeOk(code){ return !!(code && typeof FH_TAX!=='undefined' && FH_TAX.get(code)); }
+function fhNodeVi(code){ var n=fhNodeOk(code)?FH_TAX.get(code):null; return n?n.vi:''; }
+function fhNodePath(code){ return fhNodeOk(code)?FH_TAX.pathVi(code):[]; }
+function fhNodeKind(code){ return fhNodeOk(code)?FH_TAX.kindOf(code):null; }
+function fhNodeGroup(code){ return fhNodeOk(code)?FH_TAX.root(code):null; }
+/* Which label owns a node. `labels` = [{key, claims:[codes]}]; the label whose claim
+   is the closest ancestor (or the node itself) wins; '*' is the catch-all; null
+   when nothing claims it and there is no catch-all. */
+function fhLabelForNode(node, labels){
+  if(!labels||!labels.length) return null;
+  var chain=fhNodeOk(node)?[node].concat(FH_TAX.ancestors(node)):[];   // self, parent, …, root
+  var best=null, bestDepth=-1, star=null;
+  for(var i=0;i<labels.length;i++){
+    var L=labels[i], cl=L.claims||[];
+    for(var j=0;j<cl.length;j++){
+      if(cl[j]==='*'){ if(!star) star=L; continue; }
+      var d=chain.indexOf(cl[j]);                    // 0 = exact node, 1 = parent, …
+      if(d>=0){ var depth=chain.length-d; if(depth>bestDepth){ bestDepth=depth; best=L; } }
+    }
+  }
+  return best||star;
+}
+/* Family side: category NAME for a node, from window.catClaims. Falls back to the
+   catch-all category (CAT_FALLBACK) so a node never lands outside the budget. */
+function fhFamilyLabelFor(node){
+  var cc=window.catClaims||{}, arr=[], k;
+  for(k in cc) arr.push({key:k, claims:cc[k]});
+  var hit=fhLabelForNode(node, arr);
+  if(hit) return hit.key;
+  return (typeof CAT_FALLBACK==='string')?CAT_FALLBACK:'Others';
+}
+/* Personal side: the label OBJECT for a node from P.labels, or null (no labels yet). */
+function fhPersonalLabelFor(node){
+  var P=window.fhPersonalData?fhPersonalData():null, ls=(P&&P.labels)||[];
+  return fhLabelForNode(node, ls.map(function(l){ return {key:l.id, claims:l.claims||[], label:l}; })) ;
+}
+/* Default claims for an existing/new label from its name + emoji: the tree's own
+   labels and keywords resolve the name to a GROUP or CATEGORY code (never a leaf —
+   a label named "Ăn uống" should own the whole group). Returns [] when nothing
+   matches; the catch-all name returns ['*']. Used by the migration backfill of
+   today's categories and by "add a category" in the budget sheet. */
+function fhDefaultClaimsFor(name, emoji, kind){
+  kind=kind||'expense';
+  /* The catch-all owns the root. Recognised by NAME here as well as through
+     20-budget's helper: this file must answer correctly even when it is the only
+     thing loaded (the tests do exactly that), and "the catch-all claims
+     everything else" is a property of the partition, not of the budget sheet. */
+  var _fb=(typeof CAT_FALLBACK==='string')?CAT_FALLBACK:'Others';
+  if(String(name||'').trim().toLowerCase()===_fb.toLowerCase()) return ['*'];
+  if(typeof isFallbackCat==='function' && isFallbackCat(name)) return ['*'];
+  var d=FH_TAX.deburr(name||'').replace(/[^a-z0-9]+/g,' ').trim(), nodes=FH_TAX.nodes, i, best=null;
+  // 1. exact label match (vi or en), shallowest wins
+  for(i=0;i<nodes.length;i++){ var n=nodes[i]; if(n.kind!==kind||n.depth>2) continue;
+    if(FH_TAX.deburr(n.vi)===d||FH_TAX.deburr(n.en)===d){ if(!best||n.depth<best.depth) best=n; } }
+  if(best) return [best.code];
+  // 2. keyword hit, lifted to depth ≤ 2
+  var code=d?FH_TAX.keywordNode(d, kind):null;
+  if(code){ var n2=FH_TAX.get(code); while(n2&&n2.depth>2) n2=FH_TAX.get(n2.parent); if(n2) return [n2.code]; }
+  // 3. emoji match against the tree's default emojis for groups
+  var EM={'🏠':'home','🏡':'home','💡':'home','🧾':'home','🛒':'groceries','🥬':'groceries','🍽️':'eatout','🍜':'eatout','🍔':'eatout','☕':'drinks','🍲':'eatout','🚗':'transport','🚕':'transport','🛵':'transport','⛽':'transport','🛍️':'shopping','👕':'clothing','👗':'clothing','🎉':'leisure','🎮':'leisure','🎬':'leisure','💊':'health','🏥':'health','💄':'beauty','📚':'education','🎓':'education','🎁':'giving','🐶':'pets','🐱':'pets','💼':'work','✈️':'travel','🏋️':'fitness','🧾':'fees','🏦':'fees'};
+  if(emoji&&EM[emoji]&&FH_TAX.get(EM[emoji])) return [EM[emoji]];
+  return [];
+}
+/* The coarse node a LABEL implies (T6, "the label the person tapped"): its single
+   claimed group/category when it has exactly one non-star claim; null when the label
+   spans several groups (Con cái) or is the catch-all. */
+function fhNodeFromClaims(claims){
+  var real=(claims||[]).filter(function(c){ return c!=='*' && fhNodeOk(c); });
+  if(real.length!==1) return null;
+  return real[0];
+}
+/* Client-side node guess for one row. Tiers, in order (T3 registry is server-side):
+   T4 personal lesson (window.fhLessonNode, from 24-lessons.js) → T2 keywords on
+   note + counterparty + memo → T6 the label's implied group → null.
+   input: {kind, note, counterparty, memo, amount, labelClaims} */
+function fhNodeGuess(input){
+  input=input||{}; var kind=input.kind||'expense';
+  if(kind==='repayment') return null;                        // inherits the loan's node
+  try{ if(window.fhLessonNode){ var l=fhLessonNode(input); if(fhNodeOk(l)&&FH_TAX.kindOf(l)===kind) return l; } }catch(e){}
+  var text=[input.note, input.counterparty, input.memo].filter(Boolean).join(' | ');
+  var k=text?FH_TAX.keywordNode(text, kind):null;
+  if(k) return k;
+  var c=fhNodeFromClaims(input.labelClaims);
+  if(c && FH_TAX.kindOf(c)===kind) return c;
+  return null;
+}
+/* Siblings-first correction list for a picker: the node's siblings (and itself),
+   then its parent's siblings, then every group of the kind. */
+function fhNodeCorrections(code, kind){
+  kind=kind||fhNodeKind(code)||'expense';
+  var out=[], seen={}, push=function(c){ if(c&&!seen[c]){ seen[c]=1; out.push(c); } };
+  if(fhNodeOk(code)){ var p=FH_TAX.get(code).parent; if(p){ FH_TAX.children(p).forEach(push); push(p); var gp=FH_TAX.get(p).parent; if(gp) FH_TAX.children(gp).forEach(push); } }
+  FH_TAX.roots(kind).forEach(push);
+  return out;
+}
+/* Depth reached by a row, for the coverage metric: 3 leaf · 2 category · 1 group · 0 none. */
+function fhNodeDepth(code){ var n=fhNodeOk(code)?FH_TAX.get(code):null; if(!n) return 0; return FH_TAX.isLeaf(code)?3:n.depth; }
 /* ── Period comparison — which earlier period does a bar compare with?
    (docs/specs/period-comparison-spec.md)
 
@@ -6939,7 +7194,12 @@ function renderFinanceHero(){
         +'<span class="fh-bar"><i style="width:'+pct.toFixed(0)+'%"></i></span></span>'
         +'<svg class="fh-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>';
     }).join('');
-    setHTMLIf('fh-legend', pl);
+    setHTMLIf('fh-legend', _fhLegendWrap('personal', pl, function(){
+      var P=window.fhPersonalData?fhPersonalData():null;
+      return fhTreeRowsFor(((P&&P.txns)||[]).filter(function(t){ return t.kind==='expense'; }).map(function(t){
+        return { amt:t.amt, node:t.node, month:null, _unreadable:t._unreadable };
+      }));
+    }));
     return;
   }
   if(editEl) editEl.setAttribute('onclick',"openSheet('sheet-budget')");   // restore family target
@@ -6955,7 +7215,19 @@ function renderFinanceHero(){
       + '<span class="fh-bar"><i style="width:' + pct.toFixed(0) + '%"></i></span></span>'
       + '<svg class="fh-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>';
   }).join('');
-  setHTMLIf('fh-legend', legend);
+  setHTMLIf('fh-legend', _fhLegendWrap('family', legend, function(){
+    return fhTreeRowsFor(window.txns || [], selMonth);
+  }));
+}
+/* 0144 — one wrapper for both breakdowns: the layer selector, then either the
+   label rows the caller built or the tree's own view. Building the tree rows is
+   deferred behind a function so the label view never pays for it. */
+function _fhLegendWrap(scope, labelHTML, treeRows){
+  if(typeof fhTreeSelector!=='function' || typeof fhTreeOn!=='function' || !fhTreeOn()) return labelHTML;
+  var sel='<div class="fh-legend-head">'+fhTreeSelector(scope)+'</div>';
+  if(fhTreeLayer(scope)!=='tree') return sel+labelHTML;
+  var rows=[]; try{ rows=treeRows()||[]; }catch(e){}
+  return sel+'<div data-treehost="1">'+fhTreeBreakdownHTML(rows)+'</div>';
 }
 /* Curated, plain-language insights — the smart core of Spending. */
 function catFutureReserved(c){ return txns.reduce(function(s,t){ return (t.future && t.cat===c) ? s+t.amt : s; },0); }
@@ -7122,6 +7394,17 @@ function ensureFallbackCat(order,style,budget){
   if(budget && budget[CAT_FALLBACK]===undefined) budget[CAT_FALLBACK]=0;
   return order;
 }
+/* 0144 — "Gồm: …": which parts of the tree this label owns. The catch-all owns
+   whatever nobody else claimed, which is exactly what it has always meant. */
+function _catClaimsLine(name){
+  if(typeof fhTreeOn!=='function' || !fhTreeOn() || typeof FH_TAX==='undefined') return '';
+  if(isFallbackCat(name)) return '<div class="cat-claims ro">'+L('Gồm: mọi thứ còn lại','Includes: everything else')+'</div>';
+  var cl=((window.catClaims||{})[name]||[]).filter(function(c){ return c!=='*' && FH_TAX.get(c); });
+  var txt=cl.length?cl.map(function(c){ return FH_TAX.get(c).vi; }).join(', ')
+                   :L('chưa gắn phần nào','nothing yet');
+  return '<button type="button" class="cat-claims" onclick="fhClaimsOpen(this)">'
+    +L('Gồm: ','Includes: ')+esc(txt)+'</button>';
+}
 function catRowHTML(emoji,name,budget,orig){
   var lock=isFallbackCat(name);
   return '<div class="cat-row'+(lock?' cat-row-lock':'')+'" data-orig="'+(orig||'')+'">'
@@ -7137,6 +7420,7 @@ function catRowHTML(emoji,name,budget,orig){
     +(lock
       ? '<span class="cat-del cat-del-off" title="'+L('Mọi khoản chưa phân loại sẽ nằm ở đây','Everything uncategorised lands here')+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg></span>'
       : '<button class="cat-del" aria-label="'+L('Xoá danh mục','Remove category')+'" onclick="armCatDelete(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>')
+    +_catClaimsLine(name)
     +'</div>';
 }
 // The catch-all is not budgeted by hand — it absorbs whatever the named
@@ -11415,6 +11699,21 @@ function setV(id,v){ document.getElementById(id).value=v; }
 function pick(group,btn){ document.getElementById(group).querySelectorAll('.choice').forEach(function(c){ c.classList.remove('on'); }); btn.classList.add('on'); }
 function chosen(group){ var b=document.getElementById(group).querySelector('.choice.on'); return b?b.dataset.v:''; }
 /* ---- fast expense capture ---- */
+/* 0144 — the tree node for the expense being composed. The LABEL (the category
+   chip) stays the person's choice and is untouched; this is the machine's read
+   of what the money bought, and it rides beside it. `_nodeTouched` means a human
+   picked it, so no guess may overwrite it. */
+var exNode=null, _nodeTouched=false;
+window.fhSetExNode=function(code){ exNode=(code&&window.FH_TAX&&FH_TAX.get(code))?code:null; _nodeTouched=!!exNode; };
+/* Re-guess from what is typed so far, unless a human already answered. Called
+   from the same places the category guess runs; costs a keyword scan. */
+function exGuessNode(note, cat){
+  if(_nodeTouched) return exNode;
+  if(typeof fhNodeGuess!=='function') return null;
+  exNode=fhNodeGuess({ kind:'expense', note:note,
+    labelClaims: (window.catClaims||{})[cat] }) || null;
+  return exNode;
+}
 var lastCat='Groceries', lastWho='Emma';
 /* ---- bulk logging: multiple collapsible forms in one screen ------------------
    The expense modal scales from 1→N draft rows. One live editor (#ex-editor) is
@@ -11635,6 +11934,7 @@ function loadRow(i){
   document.getElementById('ex-date').value = iso;
   setDateFloor('ex-date', isoMonthStart(-24), iso);
   selectChipByVal('ex-cat', catValid(r.cat) ? r.cat : '');   // unclassified → no chip selected
+  exNode = r.node || null; _nodeTouched = !!r._nodeTouched;   // 0144: this row's own node travels with it
   selectChipByVal('ex-who', r.who||lastWho);
   var _t=document.getElementById('ex-time'); if(_t) _t.value = r.time||'';
   _syncExTime();                                             // auto rows → now/'' by date; manual rows keep their value
@@ -12748,6 +13048,10 @@ async function _submitIncomeCapture(){
   else { window.toast&&toast(L('Chưa lưu được, thử lại','Couldn’t save, try again')); }
 }
 function saveExpenseEdit(){
+  /* 0144: an edit may change what the row IS ("cafe" → "taxi"), so the node is
+     re-guessed from the new wording — unless a human picked it, which
+     exGuessNode honours. The label is whatever the person left in the chip. */
+  var _editNode=(typeof exGuessNode==='function')?exGuessNode((document.getElementById('ex-note')||{}).value||'', chosen('ex-cat')||''):null;
   var t=txById(editingTx); if(!t){ closeExpense(); return; }
   var amt=parseAmtBase(document.getElementById('ex-amt').value);
   if(!amt){ document.getElementById('ex-amt').focus(); return; }
@@ -12764,6 +13068,7 @@ function saveExpenseEdit(){
   }
   // write the new values in place (keep the specific icon unless the category changed)
   t.ico=(cat===t.cat && t.ico)?t.ico:s[0]; t.cat=cat; t.note=note; t.amt=amt; t.who=whoStore; t.date=dstr; t._d=dObj; t.future=newFuture?true:undefined;
+  t.node=_editNode||t.node||null;   // 0144: a re-guess only ever ADDS a node; it never erases one the row already had
   t.time=newFuture ? null : ((document.getElementById('ex-time')||{}).value||null);   // future proposal has no clock; '' clears to day-only
   t.photos=exPhotos.slice(); delete t.photo;               // add / keep / remove the memory photos
   syncExpenseEvent(t);                                     // keep the linked event in sync (create/update/remove)
@@ -13743,6 +14048,11 @@ function csvSpendPanel(r){
 function csvRowShape(c, isDup){
   var fx = csvFxInfo(c);
   return { note: c.description || '', amt: c.amount != null ? String(Math.round(c.amount)) : '',
+           /* 0144 — the reviewed row's tree node travels into the composer row,
+              so loadRow() hands it to addExpense() like every other field. A
+              node the person picked on the card is marked touched so the
+              composer's own guess cannot overwrite it. */
+           node: c._node || null, _nodeTouched: c._nodeSource === 'user' || undefined,
            cat: (c.isIncome && !c._xfer && !c._repay && !c._invest) ? (c._incomeCat || '') : (c.categoryName || ''),
            /* Foreign currency (foreign-currency-emails-spec.md): _fxAmt is the
               card's WHOLE amount only in the no-rate fallback ("$111", asks for
@@ -17099,6 +17409,34 @@ function buildCsvCandidates(parsed, result) {
   mapping.forEach(function(m){ if(colFor[m.field] === undefined) colFor[m.field] = m.column_index; });
   var convention = result.llm && result.llm.date_convention;
   var historyMap = csvHistoryCategoryMap();
+  /* 0144 — the same idea one layer down: what NODE did a human-categorised row
+     with this wording end up on? Built from the ledger the person already has,
+     so the second Highlands charge inherits the first one's leaf. */
+  /* The legacy 8 concepts are exactly one group's worth of confidence, so each
+     maps to the tree GROUP that carries it — never to a leaf. This is how a
+     pipeline row sealed before the tree existed (or by an older worker) still
+     lands somewhere true. Kept here rather than in the taxonomy file because it
+     describes the OLD vocabulary, which the tree is replacing. */
+  var CONCEPT_TREE_GROUP = { Housing: 'home', Groceries: 'groceries', Clothing: 'clothing',
+    Shopping: 'shopping', Transport: 'transport', Dining: 'food', Fun: 'leisure', Others: null };
+
+  var nodeHistoryMap = (function () {
+    var m = {};
+    try {
+      (window.txns || []).forEach(function (t) {
+        if (!t || !t.node || t.future) return;
+        var k = normDescForDedup(t.note || '');
+        if (k && !m[k]) m[k] = t.node;
+      });
+      var P = window.fhPersonalData ? fhPersonalData() : null;
+      ((P && P.txns) || []).forEach(function (t) {
+        if (!t || !t.node) return;
+        var k = normDescForDedup(t.note || '');
+        if (k && !m[k]) m[k] = t.node;
+      });
+    } catch (e) {}
+    return m;
+  })();
 
   return parsed.rows.map(function(row, i) {
     var flags = [];
@@ -17106,6 +17444,13 @@ function buildCsvCandidates(parsed, result) {
     var amtRaw = colFor.amount !== undefined ? row[colFor.amount] : '';
     var desc = colFor.description !== undefined ? (row[colFor.description] || '').trim() : '';
     var catGuess = colFor.category !== undefined ? (row[colFor.category] || '').trim() : '';
+    /* 0144 — what the pipeline sealed for THIS row: its tree node, its legacy
+       concept, and whether the mail came from a merchant (a receipt) rather than
+       a bank. Null for a file import, which has no pipeline behind it. */
+    var _pipe = (window.csvStagedMode && typeof window.fhStagedNode === 'function') ? window.fhStagedNode(i) : null;
+    var rowNodeHint = _pipe ? _pipe.node : null;
+    var catGuessConcept = _pipe ? _pipe.concept : '';
+    var isReceipt = !!(_pipe && _pipe.receipt);
 
     var dclass = classifyDate(dateRaw);
     var date = dclass.status === 'matched' ? parseCsvDateValue(dateRaw, dclass.format, convention) : null;
@@ -17287,6 +17632,47 @@ function buildCsvCandidates(parsed, result) {
     if (!catName && !isIncome && csvCatOk(CAT_FALLBACK)) { catName = CAT_FALLBACK; catSource = 'fallback'; }
     if (!catName) flags.push('needs_category');
 
+    /* ── 0144: the tree node, beside the label ──────────────────────────────
+       The label above answers "which of MY buckets"; the node answers "what did
+       the money buy". They are resolved from the same evidence and they are
+       allowed to disagree — the label is the person's, the node is the machine's.
+       Order is confidence, strongest first, and every tier is free but the first
+       (the pipeline already spent whatever it spent). */
+    var node = null, nodeSource = null;
+    var nodeKind = isIncome ? 'income' : (isTransfer || _xfer) ? 'transfer' : 'expense';
+    if (typeof FH_TAX !== 'undefined' && typeof fhNodeGuess === 'function') {
+      var _okN = function (c) { return (c && FH_TAX.get(c) && FH_TAX.kindOf(c) === nodeKind) ? c : null; };
+      // 1. the pipeline's own answer, sealed with the row (raw_extracted.node)
+      node = _okN(rowNodeHint); if (node) nodeSource = 'pipeline';
+      // 2. a ledger row with the same wording that already carries a node
+      if (!node) {
+        var hn = (desc && nodeHistoryMap[normDescForDedup(desc)]) || (party && nodeHistoryMap[normDescForDedup(party)]);
+        node = _okN(hn); if (node) nodeSource = 'history';
+      }
+      // 3. what this person taught about this merchant, at this size
+      if (!node && typeof window.fhLessonNode === 'function') {
+        try { node = _okN(window.fhLessonNode({ counterparty: party, memo: desc, amount: amount })); } catch (e) {}
+        if (node) nodeSource = 'learned';
+      }
+      // 4. the tree's own keywords over counterparty + memo
+      if (!node) {
+        node = _okN(fhNodeGuess({ kind: nodeKind, note: desc, counterparty: party, amount: amount }));
+        if (node) nodeSource = 'keyword';
+      }
+      /* 5. the legacy 8-concept hint, lifted to the tree GROUP that carries it.
+            A concept is exactly a group's worth of confidence, so it lands on the
+            group and never pretends to a leaf. */
+      if (!node && catGuessConcept && nodeKind === 'expense') {
+        var grp = CONCEPT_TREE_GROUP[catGuessConcept];
+        node = _okN(grp); if (node) nodeSource = 'concept';
+      }
+      // 6. the label the person's own partition implies, when it implies one thing
+      if (!node && catName && window.catClaims && typeof fhNodeFromClaims === 'function') {
+        node = _okN(fhNodeFromClaims(window.catClaims[catName]));
+        if (node) nodeSource = 'label';
+      }
+    }
+
     /* Income category default (0109): the small income-side set, guessed from
        wording, always overridable on the card. Never a family expense category. */
     var incomeCat = null;
@@ -17320,6 +17706,7 @@ function buildCsvCandidates(parsed, result) {
       // which the duplicate check must not read as them all being the same thing.
       _hasDesc: !!(desc || catGuess),
       categoryGuess: catGuess, categoryName: catName, catSource: catSource,
+      _node: node, _nodeSource: nodeSource, _nodeKind: nodeKind, _receipt: isReceipt || undefined,
       counterparty: party, who: who, isIncome: isIncome, isTransfer: isTransfer, _xfer: _xfer,
       _payCardId: _payCardId,
       _stmtAttn: !!(_stmtHint && _stmtHint.attn) || undefined,
@@ -17503,6 +17890,48 @@ function bucketCsvCandidates(candidates, mixedSigns) {
     });
   }
 
+  /* ── 0144: the RECEIPT JOIN ─────────────────────────────────────────────
+     A merchant's own mail (Grab, Shopee, Apple — senders.mjs RECEIPT_DOMAINS)
+     describes a purchase a bank or wallet ALREADY reported. Importing both
+     double-counts, and flagging it as a duplicate asks a question the person
+     cannot usefully answer ("which of these two is the real one?" — they are
+     one thing). So a receipt is not a candidate at all: it hands its node to
+     the bank row it matches and retires with the batch.
+
+     Matched on exact amount within ±2 days, which is the same evidence the
+     transfer matcher trusts, and for the same reason: a receipt and its bank
+     charge are the same money, and the merchant's clock and the bank's rarely
+     agree to the minute. The receipt's node WINS when it is deeper — the
+     merchant knows what it sold better than the bank's memo does. An unmatched
+     receipt stays an ordinary candidate: better one extra row to judge than a
+     purchase silently dropped. */
+  if (staged) {
+    var _recs = [], _banks = [];
+    candidates.forEach(function (c) {
+      if (c._mergedCopy) return;
+      (c._receipt ? _recs : _banks).push(c);
+    });
+    _recs.forEach(function (r) {
+      if (!r.amount || !r.date) return;
+      var hit = null;
+      for (var i = 0; i < _banks.length; i++) {
+        var b = _banks[i];
+        if (b._receiptJoined || !b.amount || !b.date) continue;
+        if (Math.round(b.amount) !== Math.round(r.amount)) continue;
+        if (Math.abs(b.date - r.date) > 2 * 864e5) continue;
+        hit = b; break;
+      }
+      if (!hit) return;
+      hit._receiptJoined = true;
+      r._joinedInto = hit.rowIndex;                       // retired with the batch, never imported
+      if (r._node && (!hit._node || fhNodeDepth(r._node) > fhNodeDepth(hit._node))) {
+        hit._node = r._node; hit._nodeSource = 'receipt';
+      }
+      /* The merchant's own wording beats a bank memo that says nothing. */
+      if (r.description && (!hit.description || /^\(kh/.test(hit.description))) hit.description = r.description;
+    });
+  }
+
   var rest = [];   // rows the fact tiers below did not settle — the engine's turn
   candidates.forEach(function(c) {
     /* A poorer copy of a payment already kept in this batch. MERGED AWAY, not
@@ -17512,6 +17941,10 @@ function bucketCsvCandidates(candidates, mixedSigns) {
        And still RETIRED on import — being in none of ready/groups/dup/deferred,
        fhStagedIdsForResolved reads them as finished, which they are. */
     if (c._mergedCopy) { merged++; return; }
+
+    /* A receipt that found its bank row: counted like a merged copy (it IS the
+       same purchase), retired on import, never shown as a second transaction. */
+    if (c._joinedInto !== undefined) { merged++; return; }
 
     /* CERTAIN, not suspected: the server re-staged this mail knowing its id was
        already promoted or dismissed in a previous connection (resolved_before,
@@ -18687,9 +19120,17 @@ function txRow(t){
   var subTxt=_dm==='time' ? (t.time?esc(t.time):dstr)
            : dstr+(t.time?' · '+esc(t.time):'');
   if(t.inst) subTxt+=' · '+esc(t.inst);            // 0131 money source, quiet, same voice
+  /* 0144 — the right-hand label follows the reader's chosen layer: their own
+     category by default, the tree's leaf when they are reading by "Loại chi
+     tiêu". A row with no node keeps its category, never an empty slot. */
+  var catTxt=t.cat;
+  if(typeof fhTreeOn==='function' && fhTreeOn() && typeof fhTreeLayer==='function'
+     && fhTreeLayer(personal?'personal':'family')==='tree' && t.node && typeof fhNodeShort==='function'){
+    catTxt=fhNodeShort(t.node)||t.cat;
+  }
   return '<div class="row'+tapCls+selCls+(chip?' has-rx':'')+'"'+rxid+open+'>'+selTick+'<div class="r-ico-wrap">'+tile+av+'</div>'
     +'<div class="r-body"><div class="r-t">'+esc(t.note)+'</div><div class="r-s">'+subTxt+'</div></div>'
-    +'<div class="r-right">'+amtHtml+'<div class="r-cat">'+esc(t.cat)+'</div></div>'+chip+'</div>';
+    +'<div class="r-right">'+amtHtml+'<div class="r-cat">'+esc(catTxt)+'</div></div>'+chip+'</div>';
 }
 var txFilter=null; // {type:'cat'|'mem', val:'Fun'|'Emma'}
 function txMatch(t){
@@ -19574,6 +20015,9 @@ function addExpense(){
   if(!amt){ document.getElementById('ex-amt').focus(); return; }
   var note=document.getElementById('ex-note').value.trim()||L('Khoản chi','Expense');
   var cat=chosen('ex-cat')||'Fun'; lastCat=cat;
+  // 0144: the tree node for this row — a human pick if there was one, else the
+  // guess from the note and the chosen label. Null is a fine answer.
+  var _node=(typeof exGuessNode==='function')?exGuessNode(note,cat):null;
   var s=catStyle[cat]||['🧾','var(--id-none-tint)','var(--id-none)'];
   var dObj=exDate(), dstr=(dObj.getTime()===TODAY.getTime())?'Today':(MONA[dObj.getMonth()]+' '+dObj.getDate());
   // Per-row time: in a bulk save, submitBulk loadRow(i)s each row into the fields
@@ -19598,7 +20042,7 @@ function addExpense(){
   if(dObj>TODAY){                                           // future date → a *proposal* (reserves nothing until the family aligns)
     var fwho=chosen('ex-who')||'Emma', fwhoStore=(fwho==='Both')?'Shared':fwho;
     var fby=(typeof _futMeId==='function')?_futMeId():((typeof _meName==='function')?_meName():fwhoStore);   // creator id (live) / name (demo)
-    txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,_d:dObj,who:fwhoStore,amt:amt,time:_time,future:true,by:fby,reviews:[],month:curMonthKey(),photos:exPhotos.length?exPhotos.slice():undefined});
+    txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,_d:dObj,who:fwhoStore,amt:amt,time:_time,node:_node,future:true,by:fby,reviews:[],month:curMonthKey(),photos:exPhotos.length?exPhotos.slice():undefined});
     renderTxns(); selMonth=curMonthKey(); renderAll();
     if(!BULK_SAVING){                                        // bulk loop → submitBulk() handles the tail
       if(typeof clearDrafts==='function') clearDrafts();
@@ -19612,7 +20056,7 @@ function addExpense(){
   var who=chosen('ex-who')||'Emma'; lastWho=who;
   var mkey=who==='Both'?'Shared':who, whoStore=who==='Both'?'both':who;
   var hadPhoto=exPhotos.length>0;
-  txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,_d:dObj,_ts:new Date(),who:whoStore,amt:amt,time:_time,month:curMonthKey(),photos:exPhotos.length?exPhotos.slice():undefined});
+  txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,_d:dObj,_ts:new Date(),who:whoStore,amt:amt,time:_time,node:_node,month:curMonthKey(),photos:exPhotos.length?exPhotos.slice():undefined});
   if(hadPhoto) syncExpenseEvent(txns[0]);                   // photos → a linked event for Events + Memories
   renderTxns();
   var jul=months[curMonthKey()];
@@ -19750,6 +20194,7 @@ function renderExpenseDetail(){
     rows+=_exdRow({label:L('Ghi vào đâu','Where to'), ro:true, val:'<b>🏡 '+esc(famName)+'</b>'});
     rows+=_exdRow({label:L('Loại khoản','Kind'), ro:true, val:'<b>'+(isFuture?L('Chi tiêu dự kiến','Planned expense'):L('Chi tiêu','Spending'))+'</b>'});
     rows+=_exdRow({label:L('Danh mục','Category'), ro:true, val:'<b>'+s[0]+' '+esc(vCat)+'</b>'});
+    rows+=_exdNodeRow(t, false);
     rows+=_exdRow({label:whoLbl, ro:true, val:whoVal});
     rows+=_exdRow({label:L('Ngày','Date'), ro:true, val:'<b class="num">'+esc(_exdDate(t))+'</b>'});
     rows+=_exdRow({label:L('Giờ','Time'), ro:true, soft:!vTime, val:'<b class="num">'+(vTime?esc(vTime):L('Chỉ tính theo ngày','Day only'))+'</b>'});
@@ -19782,6 +20227,7 @@ function renderExpenseDetail(){
     rows+=_exdRow({label:L('Ghi vào đâu','Where to'), ro:!canMove, val:'<b>🏡 '+esc(famName)+'</b>', fn:'exdMove()'});
     rows+=_exdRow({label:L('Loại khoản','Kind'), ro:true, val:'<b>'+(isFuture?L('Chi tiêu dự kiến','Planned expense'):L('Chi tiêu','Spending'))+'</b>'});
     rows+=_exdRow({label:L('Danh mục','Category'), chg:EXD.cat!=null, val:'<b>'+s[0]+' '+esc(vCat)+'</b>', fn:"exdSheetCat('fam')"});
+    rows+=_exdNodeRow(t, true);
     rows+=_exdRow({label:whoLbl, chg:EXD.who!=null, ro:isFuture, val:whoVal, fn:"exdSheetWho()"});
     rows+=fhPickRow({label:L('Ngày','Date'), type:'date', value:fIso, on:'exdPickDate', arg:'fam', chg:EXD.dateIso!=null,
       val:'<b class="num">'+esc(fDateLbl)+'</b>'});
@@ -20002,6 +20448,29 @@ function _exdRowOf(){
     ? ((typeof txById==='function')?txById(_expDetailId):null)
     : ((typeof _pTxById==='function')?_pTxById(_pexdId):null);
 }
+/* 0144 — "Loại chi tiêu": the tree's read of what the money bought. Read-only
+   in the view state, a picker in edit. Staged like every other edited field, so
+   Lưu is what commits it; a pick also teaches the merchant lesson after the save.
+   Hidden entirely while the tree is switched off (C8). */
+function _exdNodeRow(t, editable, mode){
+  if(typeof fhTreeOn!=='function' || !fhTreeOn() || typeof FH_TAX==='undefined') return '';
+  var staged=(mode==='pers')?PXD.node:EXD.node;
+  var cur=(staged!==undefined)?staged:(t.node||null);
+  var kind=(mode==='pers')?(t.kind==='income'?'income':'expense'):'expense';
+  var val=cur?('<span class="exd-node-path">'+FH_TAX.pathVi(cur).map(esc).join('<span class="sep">›</span>')+'</span>')
+             :('<b>'+L('Chưa rõ chi tiết','No detail yet')+'</b>');
+  return _exdRow({label:L('Loại chi tiêu','What it was'), ro:!editable, soft:!cur, chg:staged!==undefined,
+    val:val, fn:editable?("exdSheetNode(&#39;"+(mode==='pers'?'pers':'fam')+"&#39;,&#39;"+escAttr(kind)+"&#39;)"):''});
+}
+function exdSheetNode(mode, kind){
+  _exdMode=(mode==='pers')?'pers':'fam';
+  var t=_exdRowOf(); if(!t) return;
+  var staged=(mode==='pers')?PXD.node:EXD.node;
+  var cur=(staged!==undefined)?staged:(t.node||null);
+  fhNodePickOpen(cur, kind||'expense', 'exdPickNode');
+}
+function exdPickNode(code){ _exdStage('node', code||null); }
+
 function exdSheetCat(mode){
   _exdMode=mode; var t=_exdRowOf(); if(!t) return;
   var cur=_exdCur('cat', t.cat);
@@ -20087,6 +20556,13 @@ function exdSave(){
   if(p.dateIso!=null) document.getElementById('ex-date').value=p.dateIso;
   if(p.timeStr!==undefined){ var te=document.getElementById('ex-time'); if(te){ te.value=p.timeStr; if(typeof onExTimeTouched==='function') onExTimeTouched(); } }
   if(p.photos!==undefined){ exPhotos=p.photos.slice(); if(typeof renderExPhoto==='function') renderExPhoto(); }   // staged removals ride the composer's photo list
+  if(p.node!==undefined && typeof window.fhSetExNode==='function'){
+    window.fhSetExNode(p.node||'');                        // 0144: a human pick; the composer's own guess may not overwrite it
+    t.node=p.node||null;                                   // in-memory row shows it at once
+    if(p.node && typeof window.fhLessonLearnNode==='function'){
+      try{ window.fhLessonLearnNode({ note:(p.note!=null?p.note:t.note), amount:t.amt, node:p.node }); }catch(e){}
+    }
+  }
   saveExpenseEdit();                                       // wrapped → persists + renderExpenseDetailIfOpen
 }
 window.exdSave=exdSave;
@@ -20373,6 +20849,7 @@ function renderPersonalTxDetail(){
   rows+=R('Ghi vào đâu','🔒 Cá nhân',{ro:k!=='expense', fn:'pexdMove()'});
   rows+=R('Loại khoản',_pexdKindLbl(E),{ro:!(k==='expense'||k==='loan'||k==='invest'), fn:'pexdSheetKind()'});
   if(k==='expense') rows+=R('Danh mục',esc(em)+' '+esc(vCat||'Chưa rõ'),{chg:PXD.cat!=null, soft:!vCat, fn:"exdSheetCat('pers')"});
+  if(k==='expense'||k==='income') rows+=_exdNodeRow(t, !!ed, 'pers');
   if(k==='income') rows+=R('Danh mục',esc(vCat||'Khác'),{chg:PXD.cat!=null, fn:'pexdSheetIncCat()'});
   if(k==='loan'){
     rows+=R(E.lent?'Cho ai mượn':'Mượn của ai',vWho?esc(vWho):'Chọn',{chg:PXD.who!==undefined, soft:!vWho, fn:"pexdSheetText('who')"});
@@ -20578,12 +21055,19 @@ async function pexdSave(){
     else if(k==='expense'){
       var f={ amt:amtBase, note:note, cat:(p.cat!=null?p.cat:(t.cat||'')), emoji:(p.cat!=null?((catStyle[p.cat]||['🏷️'])[0]):(t.emoji||null)), time:(p.timeStr!==undefined?p.timeStr:(t.time||'')), dateIso:dateIso };
       if(p.hasOwnProperty('accountId')) f.accountId=p.accountId;
+      if(p.node!==undefined){                              // 0144: the tree node, staged like every other field
+        f.node=p.node||null;
+        if(p.node && typeof window.fhLessonLearnNode==='function'){
+          try{ window.fhLessonLearnNode({ note:note, amount:amtBase, node:p.node }); }catch(e){}
+        }
+      }
       ok=await window.fhPersonalUpdateExpense(E.id, f);
     } else if(k==='income'){
       var fi={ amt:amtBase, note:note, dateIso:dateIso };
       if(p.hasOwnProperty('accountId')) fi.accountId=p.accountId;
       if(p.timeStr!==undefined) fi.time=p.timeStr;
       if(p.cat!=null){ fi.cat=p.cat; fi.emoji=null; }
+      if(p.node!==undefined) fi.node=p.node||null;   // 0144: income rows carry a node too (Lương, Hoàn tiền…)
       ok=await window.fhPersonalUpdateIncome(E.id, fi);
     } else if(k==='loan'||k==='repay'||k==='cardpay'){
       var sign=(t.amt!=null&&t.amt<0)?-1:1;
@@ -20993,6 +21477,255 @@ window.closeRxArrive=closeRxArrive;
 /* run after every hydrate: refresh the wall + play any just-arrived moment */
 function rxAfterHydrate(){ try{ renderRxWall(); }catch(e){} try{ if(typeof renderExpenseDetailIfOpen==='function') renderExpenseDetailIfOpen(); }catch(e){} try{ if(typeof renderMemoryIfOpen==='function') renderMemoryIfOpen(); }catch(e){} try{ if(typeof renderMemoriesTabIfOpen==='function') renderMemoriesTabIfOpen(); }catch(e){} try{ rxCheckArrivals(); }catch(e){} }
 window.rxAfterHydrate=rxAfterHydrate;
+/* ── 0144: the category tree on screen ──────────────────────────────────────
+   Two surfaces, one rule: the person's LABEL is what they manage and budget by,
+   the tree NODE is what the app understood the money to be. Nothing here writes
+   a label; nothing here is shown at all while fhTreeOn() is false (the C8
+   rollback switch).
+
+   • fhNodeLine(code)      — "Ăn uống › Đồ uống › Cà phê", for a detail row
+   • fhNodePickOpen(...)   — the picker sheet: siblings first, then search
+   • fhTreeSelector(scope) — "Danh mục của tôi" / "Loại chi tiêu" segmented control
+   • fhTreeBreakdownHTML() — the L1 view of a month, group → category → leaf   */
+
+function fhNodeLine(code, fallback) {
+  if (!code || typeof FH_TAX === 'undefined' || !FH_TAX.get(code)) return fallback || '';
+  return FH_TAX.pathVi(code).join(' › ');
+}
+/* The short form for a dense row: the leaf's own name, with its group behind it
+   only when the leaf alone would be ambiguous out of context. */
+function fhNodeShort(code) {
+  var n = (code && typeof FH_TAX !== 'undefined') ? FH_TAX.get(code) : null;
+  return n ? n.vi : '';
+}
+
+/* ── the picker ─────────────────────────────────────────────────────────────
+   Opened from a detail row. `onPick` is the NAME of a global taking the chosen
+   code, so the sheet stays declarative like every other sheet here. */
+var _npKind = 'expense', _npCur = null, _npFn = '', _npQ = '';
+function fhNodePickOpen(cur, kind, onPick) {
+  _npCur = cur || null; _npKind = kind || fhNodeKind(cur) || 'expense'; _npFn = onPick || ''; _npQ = '';
+  var q = document.getElementById('npick-q'); if (q) q.value = '';
+  fhNodePickRender();
+  if (typeof openSheet === 'function') openSheet('sheet-node-pick');
+}
+function fhNodePickSearch(el) { _npQ = (el && el.value) || ''; fhNodePickRender(); }
+function fhNodePickRender() {
+  var list = document.getElementById('npick-list'); if (!list || typeof FH_TAX === 'undefined') return;
+  var head = document.getElementById('npick-h');
+  if (head) head.textContent = L('Loại chi tiêu', 'What it was');
+  var sub = document.getElementById('npick-sub');
+  if (sub) sub.textContent = L('Thay đổi chờ tới khi bấm Lưu', 'Waits for Save');
+  var codes, grouped = false;
+  var q = FH_TAX.deburr(_npQ).trim();
+  if (q) {
+    codes = FH_TAX.nodes.filter(function (n) {
+      if (n.kind !== _npKind || n.manual) return false;
+      if (FH_TAX.deburr(n.vi).indexOf(q) >= 0 || FH_TAX.deburr(n.en).indexOf(q) >= 0) return true;
+      return (n.kw || []).some(function (k) { return FH_TAX.deburr(k).indexOf(q) >= 0; });
+    }).map(function (n) { return n.code; }).slice(0, 60);
+    grouped = true;
+  } else {
+    codes = (typeof fhNodeCorrections === 'function') ? fhNodeCorrections(_npCur, _npKind) : FH_TAX.roots(_npKind);
+  }
+  if (!codes.length) { list.innerHTML = '<div class="npick-empty">' + L('Không tìm thấy', 'Nothing found') + '</div>'; return; }
+  list.innerHTML = codes.map(function (c) {
+    var n = FH_TAX.get(c); if (!n) return '';
+    var path = FH_TAX.pathVi(c), tail = path.slice(0, -1).join(' › ');
+    return '<button type="button" class="choice npick' + (c === _npCur ? ' on' : '') + '"'
+      + ' onclick="fhNodePicked(&#39;' + escAttr(c) + '&#39;)">'
+      + '<span class="npick-n">' + esc(n.vi) + '</span>'
+      + ((grouped && tail) ? '<span class="npick-p">' + esc(tail) + '</span>' : '')
+      + '</button>';
+  }).join('');
+}
+function fhNodePicked(code) {
+  if (typeof closeSheet === 'function') closeSheet();
+  var fn = _npFn && window[_npFn];
+  if (typeof fn === 'function') fn(code);
+}
+/* "I don't know" is a real answer: it clears the node without touching the label. */
+function fhNodePickClear() { fhNodePicked(''); }
+
+/* ── the layer selector ─────────────────────────────────────────────────────
+   Remembered per device, per scope, because someone who thinks in the tree on
+   their own ledger may still think in labels on the family's. */
+function fhTreeLayer(scope) {
+  try { return localStorage.getItem('fh-tree-layer:' + scope) === 'tree' ? 'tree' : 'label'; }
+  catch (e) { return 'label'; }
+}
+function fhTreeLayerSet(scope, layer) {
+  try { localStorage.setItem('fh-tree-layer:' + scope, layer); } catch (e) {}
+  if (scope === 'personal') { if (window.renderPersonal) renderPersonal(); }
+  else if (window.renderFinanceHero) renderFinanceHero();
+}
+function fhTreeSelector(scope) {
+  if (typeof fhTreeOn === 'function' && !fhTreeOn()) return '';
+  var cur = fhTreeLayer(scope);
+  var b = function (v, label) {
+    return '<button type="button" class="tl-seg' + (cur === v ? ' on' : '') + '"'
+      + ' aria-pressed="' + (cur === v ? 'true' : 'false') + '"'
+      + ' onclick="fhTreeLayerSet(&#39;' + scope + '&#39;,&#39;' + v + '&#39;)">' + label + '</button>';
+  };
+  return '<div class="tl-sel" role="group" aria-label="' + escAttr(L('Cách xem', 'View by')) + '">'
+    + b('label', L('Danh mục của tôi', 'My categories'))
+    + b('tree', L('Loại chi tiêu', 'What it was')) + '</div>';
+}
+
+/* ── the L1 breakdown ───────────────────────────────────────────────────────
+   `rows` is [{node, amt}] for the month. Sums roll up the tree: a leaf's amount
+   counts for its category and its group, so the top level always adds up to the
+   same total the label view shows. Rows with no node land in one honest
+   "Chưa phân loại" line rather than being spread over the groups. */
+var _tbOpen = {};
+function fhTreeToggle(code) { _tbOpen[code] = !_tbOpen[code]; var host = document.querySelector('[data-treehost]'); if (host) fhTreeBreakdownInto(host); }
+function fhTreeBreakdownInto(host) {
+  if (!host) return;
+  var rows = [];
+  try { rows = JSON.parse(host.getAttribute('data-treerows') || '[]'); } catch (e) {}
+  host.innerHTML = fhTreeBreakdownHTML(rows);
+}
+function fhTreeBreakdownHTML(rows) {
+  if (typeof FH_TAX === 'undefined') return '';
+  var sum = {}, none = 0, total = 0;
+  (rows || []).forEach(function (r) {
+    var amt = Number(r.amt) || 0; if (amt <= 0) return;
+    total += amt;
+    if (!r.node || !FH_TAX.get(r.node)) { none += amt; return; }
+    sum[r.node] = (sum[r.node] || 0) + amt;
+    FH_TAX.ancestors(r.node).forEach(function (a) { sum[a] = (sum[a] || 0) + amt; });
+  });
+  if (!total) return '<div class="tb-empty">' + L('Chưa có khoản nào tháng này', 'Nothing logged this month') + '</div>';
+  var out = '';
+  var line = function (code, depth) {
+    var n = FH_TAX.get(code), amt = sum[code] || 0;
+    if (!amt) return '';
+    var kids = FH_TAX.children(code).filter(function (c) { return sum[c]; });
+    var own = amt - kids.reduce(function (s, c) { return s + (sum[c] || 0); }, 0);
+    var open = !!_tbOpen[code];
+    var pct = Math.round(100 * amt / total);
+    var s = '<button type="button" class="tb-row d' + depth + (kids.length ? ' has' : '') + '"'
+      + (kids.length ? ' onclick="fhTreeToggle(&#39;' + escAttr(code) + '&#39;)" aria-expanded="' + (open ? 'true' : 'false') + '"' : ' disabled')
+      + '><span class="tb-chev">' + (kids.length ? (open ? '▾' : '▸') : '') + '</span>'
+      + '<span class="tb-n">' + esc(n.vi) + '</span>'
+      + '<span class="tb-bar"><i style="width:' + Math.max(2, pct) + '%"></i></span>'
+      + '<span class="tb-a num">' + fmt(amt) + '</span></button>';
+    if (kids.length && open) {
+      kids.sort(function (a, b) { return sum[b] - sum[a]; });
+      kids.forEach(function (c) { s += line(c, depth + 1); });
+      /* What sits ON this node and not under any child: the honest "we know it
+         was food, not which kind" amount. Never shown as a fake leaf. */
+      if (own > 0) s += '<div class="tb-row d' + (depth + 1) + ' rest"><span class="tb-chev"></span>'
+        + '<span class="tb-n">' + L('chưa rõ chi tiết', 'no detail yet') + '</span>'
+        + '<span class="tb-bar"></span><span class="tb-a num">' + fmt(own) + '</span></div>';
+    }
+    return s;
+  };
+  var roots = FH_TAX.roots('expense').filter(function (c) { return sum[c]; });
+  roots.sort(function (a, b) { return sum[b] - sum[a]; });
+  roots.forEach(function (c) { out += line(c, 0); });
+  if (none > 0) {
+    out += '<div class="tb-row d0 rest"><span class="tb-chev"></span>'
+      + '<span class="tb-n">' + L('Chưa phân loại', 'Not classified') + '</span>'
+      + '<span class="tb-bar"></span><span class="tb-a num">' + fmt(none) + '</span></div>';
+  }
+  return '<div class="tb-list">' + out + '</div>';
+}
+/* Build the [{node, amt}] rows for a month from an array of ledger rows. Shared
+   by both tabs so one definition decides what "this month's spending" means. */
+function fhTreeRowsFor(txnList, monthKey) {
+  var out = [];
+  (txnList || []).forEach(function (t) {
+    if (!t || t.future || t._unreadable) return;
+    if (monthKey && t.month && t.month !== monthKey) return;
+    var amt = Number(t.amt) || 0; if (amt <= 0) return;
+    out.push({ node: t.node || null, amt: amt });
+  });
+  return out;
+}
+/* ── the regroup sheet ("Gồm: …") ───────────────────────────────────────────
+   A label owns parts of the tree. This is where a person moves one: tap a group
+   or category and it belongs to THIS label instead of whichever had it. That is
+   the whole model — a partition, so a node has exactly one owner and nothing
+   can fall between two labels or be counted twice. */
+var _clLabel = '', _clPick = {};
+function fhClaimsOpen(btn) {
+  var row = btn && btn.closest ? btn.closest('.cat-row') : null;
+  var nameEl = row && row.querySelector('.cat-name');
+  _clLabel = (nameEl && nameEl.value || '').trim();
+  if (!_clLabel) return;
+  _clPick = {};
+  ((window.catClaims || {})[_clLabel] || []).forEach(function (c) { if (c !== '*') _clPick[c] = 1; });
+  fhClaimsRender();
+  if (typeof openSheet === 'function') openSheet('sheet-claims');
+}
+function fhClaimsRender() {
+  var box = document.getElementById('claims-list'); if (!box || typeof FH_TAX === 'undefined') return;
+  var h = document.getElementById('claims-h');
+  if (h) h.textContent = L('Gồm những gì', 'What it includes');
+  var sub = document.getElementById('claims-sub');
+  if (sub) sub.textContent = _clLabel + ' · ' + L('chạm để chuyển sang nhóm này', 'tap to move it here');
+  /* Depth ≤ 2 only: a label owns groups and categories, not individual leaves.
+     Someone who wants "Cà phê" as its own budget line makes it its own label. */
+  var nodes = FH_TAX.nodes.filter(function (n) { return n.kind === 'expense' && n.depth <= 2 && !n.manual; });
+  var owner = {};
+  var cc = window.catClaims || {};
+  for (var lab in cc) (cc[lab] || []).forEach(function (c) { if (c !== '*') owner[c] = lab; });
+  box.innerHTML = nodes.map(function (n) {
+    var mine = !!_clPick[n.code];
+    var held = owner[n.code];
+    var by = (held && held !== _clLabel) ? held : '';
+    return '<button type="button" class="claim-row' + (mine ? ' on' : '') + '"'
+      + ' onclick="fhClaimsToggle(&#39;' + escAttr(n.code) + '&#39;)">'
+      + '<span class="claim-n' + (n.depth === 2 ? ' sub' : '') + '">' + esc(n.vi) + '</span>'
+      + (by ? '<span class="claim-by">' + esc(by) + '</span>' : '')
+      + '<span class="claim-tick">' + (mine ? '✓' : '') + '</span></button>';
+  }).join('');
+}
+function fhClaimsToggle(code) {
+  if (_clPick[code]) delete _clPick[code]; else _clPick[code] = 1;
+  fhClaimsRender();
+}
+/* Saving a regroup asks before it touches history, because moving a claim moves
+   money between budget lines. Only rows the MACHINE filed are offered: a row
+   whose label a person chose is theirs, and a regroup is not consent to change
+   it. Closed months are never touched — their totals are settled. */
+function fhClaimsSave() {
+  if (!_clLabel) { if (typeof closeSheet === 'function') closeSheet(); return; }
+  var codes = Object.keys(_clPick);
+  var moved = [];
+  var cur = ((window.catClaims || {})[_clLabel] || []).filter(function (c) { return c !== '*'; });
+  codes.forEach(function (c) { if (cur.indexOf(c) < 0) moved.push(c); });
+  if (typeof window.fhSaveCatClaims === 'function') window.fhSaveCatClaims(_clLabel, codes);
+  var affected = (window.txns || []).filter(function (t) {
+    if (!t.node || t.future || t.cat === _clLabel) return false;
+    if (t.month !== curMonthKey()) return false;                 // this month only: closed months stay settled
+    if (t._catPicked) return false;                              // a human chose this label; not ours to move
+    var chain = [t.node].concat(FH_TAX.ancestors(t.node));
+    return moved.some(function (c) { return chain.indexOf(c) >= 0; });
+  });
+  if (typeof closeSheet === 'function') closeSheet();
+  if (!affected.length) { if (typeof fillBudgetSheet === 'function') fillBudgetSheet(); return; }
+  fhClaimsApply(affected);
+}
+function fhClaimsApply(rows) {
+  var em = (window.catStyle && catStyle[_clLabel] || ['🧾'])[0];
+  var catId = (window.DB && DB.catByName) ? DB.catByName[_clLabel] : null;
+  rows.forEach(function (t) {
+    var m = window.months && months[t.month];
+    if (m && !t.future) {                                   // the month's per-category totals follow the row
+      m.catSpent[t.cat] = (m.catSpent[t.cat] || 0) - t.amt;
+      m.catSpent[_clLabel] = (m.catSpent[_clLabel] || 0) + t.amt;
+    }
+    t.cat = _clLabel; t.ico = em;
+    if (t._dbId && catId && window.fhTxnBulkPatch) fhTxnBulkPatch(t._dbId, { category_id: catId });
+  });
+  if (typeof renderAll === 'function') renderAll();
+  if (typeof renderTxns === 'function') renderTxns();
+  if (typeof fillBudgetSheet === 'function') fillBudgetSheet();
+  if (typeof toast === 'function') toast(L('Đã chuyển ' + rows.length + ' khoản', 'Moved ' + rows.length + ' entries'));
+}
+
 /* ---------- collaborative requests ----------
    A proposal — a future EXPENSE, a saving GOAL, or a future OCCASION — must be
    reviewed and aligned by at least one OTHER family member before it counts. One
@@ -22594,7 +23327,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v544';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v545';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -22615,6 +23348,13 @@ var ICO = {
 };
 
 var RELEASES = [
+  { id:'2026-09-20-loai-chi-tieu', date:'2026-09-20', time:'04:20', ver:'v545', icon:ICO.pie,
+    vi:{ t:'Biết rõ tiền đi vào việc gì',
+      problem:'Danh mục cũ gom quá nhiều thứ vào một chỗ. "Ăn uống" vừa là bữa cơm vừa là ly cà phê sáng vừa là chầu nhậu tối, nên nhìn vào chỉ thấy một con số to mà không biết mình thật sự tiêu cho cái gì. Khoản từ email ngân hàng thì hơn một nửa không xếp được vào đâu.',
+      sol:'App giờ tự nhận ra từng khoản là gì — cà phê, trà sữa, đi chợ, tiền điện, xăng xe — và xếp vào một cây phân loại có sẵn, chi tiết dần từ nhóm lớn tới từng món. Danh mục của bạn vẫn y nguyên, vẫn là thứ bạn đặt ngân sách. Trong màn chi tiêu có nút đổi cách xem giữa "Danh mục của tôi" và "Loại chi tiêu"; mở một khoản ra là thấy dòng "Loại chi tiêu", chạm để sửa nếu app đoán sai, và lần sau nó nhớ.' },
+    en:{ t:'See what the money actually went to',
+      problem:'The old categories lumped too much together. "Ăn uống" was dinner, the morning coffee and a night out all at once, so you saw one big number and not what you were really spending on. More than half of what came in from bank email could not be placed at all.',
+      sol:'The app now works out what each entry is — coffee, milk tea, groceries, electricity, fuel — and files it in a ready-made tree that goes from broad groups down to the specific thing. Your own categories are untouched and still what you budget by. The spending screen has a switch between "My categories" and "What it was", and opening an entry shows a "What it was" row you can correct. It remembers your correction next time.' } },
   { id:'2026-09-13-so-du-ban-chot', date:'2026-09-13', time:'13:55', ver:'v514', icon:ICO.shield,
     vi:{ t:'Số dư tài khoản, do bạn chốt',
       problem:'Kết nối email xong, thẻ và tài khoản hiện lên với những con số sai ngay từ đầu. Email chỉ kể được vài tháng gần đây, còn dư nợ và số dư trước đó thì không.',
@@ -24123,6 +24863,10 @@ window.obGoogle = async function () {
     // capturing after midnight in UTC+7.
     const _localDate = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
     window.fhPersonalData = function () { return P; };
+    /* 0144 — a node code is kept only when the running tree knows it; a decrypt
+       failure or a code from a newer tree reads as "no node" (rollup rule). */
+    function _okNode(v) { return (typeof v === 'string' && window.FH_TAX && window.FH_TAX.get(v)) ? v : null; }
+    P.labels = P.labels || [];
     const _sb = () => window.sb;
     async function _uid() { try { const s = await _sb().auth.getSession(); return s.data.session ? s.data.session.user.id : null; } catch (e) { return null; } }
 
@@ -24217,7 +24961,7 @@ window.obGoogle = async function () {
         if (!rec || !rec.key || (rec.at && Date.now() - rec.at > _SNAP_TTL)) return false;
         const s = JSON.parse(await FHCrypto.decVal(P.key, rec.key));
         if (!s || s.v !== 1 || s.uid !== P.uid || !Array.isArray(s.txns)) return false;
-        P.txns = s.txns; P.debts = s.debts || []; P.accounts = s.accounts || []; P.memory = s.memory || [];
+        P.txns = s.txns; P.debts = s.debts || []; P.accounts = s.accounts || []; P.memory = s.memory || []; P.labels = s.labels || [];
         P.budget = s.budget || 0; P.catBudget = s.catBudget || {};
         P.unreadable = s.unreadable || 0; P.debtsComplete = s.debtsComplete !== false;
         P.incomes = _incomesView(P.txns);
@@ -24235,7 +24979,7 @@ window.obGoogle = async function () {
           const s = { v: 1, uid: P.uid, unreadable: P.unreadable || 0, debtsComplete: P.debtsComplete !== false,
             budget: P.budget || 0, catBudget: P.catBudget || {},
             txns: (P.txns || []).slice(0, 4000), accounts: P.accounts || [],
-            debts: (P.debts || []).slice(0, 8000), memory: P.memory || [] };
+            debts: (P.debts || []).slice(0, 8000), memory: P.memory || [], labels: P.labels || [] };
           const ct = await FHCrypto.encVal(P.key, JSON.stringify(s));
           if (ct) await _kPut('psnap:' + P.uid, ct);
         } catch (e) {}                                          // a failed save only costs the next warm start
@@ -24497,13 +25241,17 @@ window.obGoogle = async function () {
            tab waited on before 'ready', for data that is decorative. Both are
            failure-tolerant (a lost photo strip or pre-selection never costs the
            ledger), so they resolve to empty on error instead of failing the all. */
-        const [tr, bd, ac, dr, pp, mm] = await Promise.all([
-          _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,occurred_time_enc,txn_date,kind,space_id,link_id,version,updated_at,created_at,account_id,transfer_group_id,position_account_id,quantity_enc,source').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }).order('id')),
+        const [tr, bd, ac, dr, pp, mm, lb] = await Promise.all([
+          _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,occurred_time_enc,txn_date,kind,space_id,link_id,version,updated_at,created_at,account_id,transfer_group_id,position_account_id,quantity_enc,source,node_enc,label_id').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }).order('id')),
           _sb().from('personal_budgets').select('total_enc,cats_enc').eq('owner_user_id', P.uid).eq('month', _monISO()).maybeSingle(),
           _sb().from('personal_accounts').select('id,kind,name_enc,tail,provider,credit_limit_enc,human_verified,statement_day,due_day,anchor_balance_enc,anchor_at,ext_balance_enc,ext_balance_date,account_number_enc,asset_symbol_enc,asset_unit_enc,asset_class_enc,manual_price_enc,manual_price_at,setup_skipped_at').eq('owner_user_id', P.uid).is('archived_at', null),
-          _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,counterparty_enc,cat_name_enc,cat_emoji,txn_date,kind,account_id,transfer_group_id,position_account_id,quantity_enc,due_date,created_at').eq('owner_user_id', P.uid).or('kind.neq.expense,account_id.not.is.null').order('txn_date', { ascending: false }).order('id')),
+          _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,counterparty_enc,cat_name_enc,cat_emoji,txn_date,kind,account_id,transfer_group_id,position_account_id,quantity_enc,due_date,created_at,node_enc,label_id').eq('owner_user_id', P.uid).or('kind.neq.expense,account_id.not.is.null').order('txn_date', { ascending: false }).order('id')),
           _sb().from('personal_transaction_photos').select('transaction_id,photo_url,sort_order').eq('owner_user_id', P.uid).order('sort_order').limit(800).then((r) => r, () => ({ data: null })),
           _sb().from('personal_review_memory').select('id,key_enc,position_account_id').eq('owner_user_id', P.uid).limit(500).then((r) => r, () => ({ data: null })),
+          /* 0144 — the person's own labels (the L2 partition of the category tree).
+             Best-effort like photos: a ledger must still load for someone whose
+             labels row read failed, and an empty list simply means "not set up yet". */
+          _sb().from('personal_labels').select('id,name_enc,emoji,sort_order,claims_enc').eq('owner_user_id', P.uid).is('archived_at', null).order('sort_order').limit(200).then((r) => r, () => ({ data: null })),
         ]);
         if (gen !== _bootGen) return;   // a newer boot owns P now — abandon before touching anything
         /* Ceiling honesty, same stance as the stats slice's `truncated`: a
@@ -24543,8 +25291,17 @@ window.obGoogle = async function () {
             positionId: t.position_account_id || null,
             qty: (qRaw == null || qRaw === _DEC_FAILED) ? null : (Number(qRaw) || null),
             amt: bad ? null : Number(a), _unreadable: bad,
-            note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc), emoji: t.cat_emoji,
+            note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc), node: _okNode(await _decTxt(t.node_enc)), labelId: t.label_id || null, emoji: t.cat_emoji,
             time: await _decTxt(t.occurred_time_enc) });   // local "HH:MM" if the time was known, else null (day-only)
+        }
+        /* 0144 — labels decode like every other personal value: fail-closed, and
+           an unreadable claims blob costs the label its claims, never the label. */
+        const labels = [];
+        for (const l of (lb && lb.data) || []) {
+          let claims = [];
+          const cRaw = l.claims_enc ? await _decTxt(l.claims_enc) : null;
+          if (cRaw) { try { const arr = JSON.parse(cRaw); if (Array.isArray(arr)) claims = arr.filter((x) => typeof x === 'string'); } catch (e) {} }
+          labels.push({ id: l.id, name: await _decTxt(l.name_enc), emoji: l.emoji || '🏷️', sortOrder: l.sort_order || 0, claims: claims });
         }
         /* Photos (0114): attach public URLs to the window's rows; the photo
            observer decrypts /personal-media/ bytes in place. One owner-scoped
@@ -24594,7 +25351,7 @@ window.obGoogle = async function () {
             positionId: t.position_account_id || null,
             qty: (qRaw == null || qRaw === _DEC_FAILED) ? null : (Number(qRaw) || null),
             amt: bad ? null : Number(a), _unreadable: bad,
-            note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc), emoji: t.cat_emoji,
+            note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc), node: _okNode(await _decTxt(t.node_enc)), labelId: t.label_id || null, emoji: t.cat_emoji,
             who: await _decTxt(t.counterparty_enc) });
         }
         /* Review memory (0122): counterparty → position pre-selection for the
@@ -24612,11 +25369,16 @@ window.obGoogle = async function () {
            as a derived view so every existing reader (the income sheet, the
            month totals, the month picker) keeps its shape without knowing. */
         P.incomes = _incomesView(txns);
-        P.accounts = accounts; P.debts = debts; P.memory = memory;
+        P.accounts = accounts; P.debts = debts; P.memory = memory; P.labels = labels;
         P.fromSnapshot = false;                    // this is fresh data —
         _snapSave();                               // — worth caching for the next cold open
         _setState('ready');
         _accountHealSoon();                        // once per session: fold tail-less twins, canonical names
+        /* 0144 — the tree, after the ledger is up and never before it: seed the
+           person's labels on their first hydrate, then let the idle sweep give
+           old rows a node. Both are best-effort; neither may cost a hydrate. */
+        try { if (window.fhPersonalLabelsEnsureDefaults) window.fhPersonalLabelsEnsureDefaults(); } catch (e) {}
+        try { if (window.fhTreeBackfill) window.fhTreeBackfill('personal'); } catch (e) {}
 
       } catch (e) {
         console.warn('personal hydrate failed', e);
@@ -24646,7 +25408,7 @@ window.obGoogle = async function () {
         const d = new Date(); d.setMonth(d.getMonth() - 5); d.setDate(1);
         const from = _localDate(d);
         const tr = await _pageAll(() => _sb().from('personal_transactions')
-          .select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,occurred_time_enc,txn_date,kind,space_id,link_id,account_id,transfer_group_id,position_account_id,source')
+          .select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,occurred_time_enc,txn_date,kind,space_id,link_id,account_id,transfer_group_id,position_account_id,source,node_enc,label_id')
           .eq('owner_user_id', P.uid).gte('txn_date', from).lt('txn_date', to)
           .order('txn_date', { ascending: false }).order('id'));
         const old = [];
@@ -24656,7 +25418,7 @@ window.obGoogle = async function () {
             src: t.source || null, accountId: t.account_id, transferGroupId: t.transfer_group_id,
             positionId: t.position_account_id || null, qty: null,
             amt: bad ? null : Number(a), _unreadable: bad,
-            note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc), emoji: t.cat_emoji,
+            note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc), node: _okNode(await _decTxt(t.node_enc)), labelId: t.label_id || null, emoji: t.cat_emoji,
             time: await _decTxt(t.occurred_time_enc) });
         }
         P.txnsOld = old;
@@ -24686,7 +25448,7 @@ window.obGoogle = async function () {
            here with link_id set, and indexing both let two staged copies of one
            purchase each claim "their own" booked row. */
         const r = await _pageAll(() => _sb().from('personal_transactions')
-          .select('id,amount_enc,note_enc,cat_name_enc,txn_date,kind,link_id,occurred_time_enc,source,account_id')
+          .select('id,amount_enc,note_enc,cat_name_enc,txn_date,kind,link_id,occurred_time_enc,source,account_id,node_enc,label_id')
           .eq('owner_user_id', P.uid)
           .gte('txn_date', from)
           .order('txn_date', { ascending: false }).order('id'));
@@ -24695,7 +25457,7 @@ window.obGoogle = async function () {
           const a = await _decP(t.amount_enc);
           if (a == null || a === _DEC_FAILED) continue;   // unreadable amount → cannot match, skip (fail closed)
           out.push({ id: t.id, date: t.txn_date, kind: t.kind, amt: Number(a), link: t.link_id || null, src: t.source || null, acct: t.account_id || null,
-            note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc),
+            note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc), node: _okNode(await _decTxt(t.node_enc)), labelId: t.label_id || null,
             time: t.occurred_time_enc ? (await _decTxt(t.occurred_time_enc)) : '' });
         }
         _matchSlice = out;
@@ -24722,7 +25484,7 @@ window.obGoogle = async function () {
            any month (period-comparison-spec.md §6): the time is decrypted only
            for rows that have one, created_at is plain. */
         const r = await _pageAll(() => _sb().from('personal_transactions')
-          .select('amount_enc,cat_name_enc,cat_emoji,txn_date,kind,space_id,occurred_time_enc,created_at')
+          .select('amount_enc,cat_name_enc,cat_emoji,txn_date,kind,space_id,occurred_time_enc,created_at,node_enc,label_id')
           .eq('owner_user_id', P.uid)
           .in('kind', ['expense', 'income'])
           .order('txn_date', { ascending: false }).order('id'));
@@ -24732,7 +25494,7 @@ window.obGoogle = async function () {
           if (a === _DEC_FAILED) { unreadable++; continue; }
           if (a == null) continue;
           rows.push({ date: t.txn_date, kind: t.kind, amt: Number(a),
-            cat: await _decTxt(t.cat_name_enc), emoji: t.cat_emoji, spaceId: t.space_id,
+            cat: await _decTxt(t.cat_name_enc), node: _okNode(await _decTxt(t.node_enc)), labelId: t.label_id || null, emoji: t.cat_emoji, spaceId: t.space_id,
             time: t.occurred_time_enc ? await _decTxt(t.occurred_time_enc) : null, ts: t.created_at || null });
         }
         // Paged to the _pageAll hard ceiling (30k rows — decades). If that ever
@@ -24843,7 +25605,9 @@ window.obGoogle = async function () {
       const row = { owner_user_id: P.uid, txn_date: dateIso || _localDate(new Date()), kind: 'expense', space_id: null, link_id: null,
         amount_enc: await _encP(Number(amt)), note_enc: note ? await _encP(note) : null, cat_name_enc: catName ? await _encP(catName) : null, cat_emoji: catEmoji || null,
         occurred_time_enc: t ? await _encP(t) : null, source: source || null,   // 0100 provenance ('direct-email' | 'forwarding-email'); null = hand-entered
-        account_id: (opts && opts.accountId) || null };
+        account_id: (opts && opts.accountId) || null,
+        node_enc: (opts && _okNode(opts.node)) ? await _encP(opts.node) : null,   // 0144: tree node
+        label_id: (opts && opts.labelId) || null };
       // Returns the new row's id (truthy — every boolean caller keeps working);
       // the photo path needs it to attach personal_transaction_photos rows.
       const r = await _sb().from('personal_transactions').insert(row).select('id').single();
@@ -24903,6 +25667,9 @@ window.obGoogle = async function () {
       // accountId (M9): undefined = leave untouched, null = clear, id = set —
       // this is what makes a row that landed untagged taggable at all.
       if (fields.hasOwnProperty('accountId')) row.account_id = fields.accountId || null;
+      // 0144: node / labelId follow the same undefined = untouched, null = clear rule
+      if (fields.hasOwnProperty('node')) row.node_enc = _okNode(fields.node) ? await _encP(fields.node) : null;
+      if (fields.hasOwnProperty('labelId')) row.label_id = fields.labelId || null;
       const r = await _sb().from('personal_transactions').update(row).eq('id', id).eq('owner_user_id', P.uid).is('link_id', null);
       if (r.error) { console.warn('personal expense update failed', r.error); return false; }
       if (!quiet) await window.fhPersonalHydrate();
@@ -24967,6 +25734,7 @@ window.obGoogle = async function () {
       if (fields.hasOwnProperty('accountId')) row.account_id = fields.accountId || null;
       if (fields.hasOwnProperty('time')) row.occurred_time_enc = fields.time ? await _encP(fields.time) : null;   // detail screen (2026-09-18)
       if (fields.hasOwnProperty('cat')) { row.cat_name_enc = fields.cat ? await _encP(fields.cat) : null; row.cat_emoji = fields.emoji || null; }
+      if (fields.hasOwnProperty('node')) row.node_enc = _okNode(fields.node) ? await _encP(fields.node) : null;   // 0144
       const r = await _sb().from('personal_transactions').update(row).eq('id', id).eq('owner_user_id', P.uid).eq('kind', 'income').is('link_id', null);
       if (r.error) { console.warn('personal income update failed', r.error); return false; }
       if (!quiet) await window.fhPersonalHydrate();   // bulk batches hydrate once at the end
@@ -25137,6 +25905,8 @@ window.obGoogle = async function () {
           due_date: s.dueDate || null,
           position_account_id: s.positionId || null,
           quantity_enc: (s.qty != null && isFinite(s.qty)) ? await _encP(Number(s.qty)) : null,
+          node_enc: _okNode(s.node) ? await _encP(s.node) : null,   // 0144: the tree node the review decided
+          label_id: s.labelId || null,
           source: s.source || null });
       }
       const CHUNK = 50;
@@ -25492,7 +26262,7 @@ window.obGoogle = async function () {
         const famCat = {}; for (const c of (fc.data || [])) famCat[c.id] = { name: c.name != null ? c.name : await fhDecStr(c.name_enc), emoji: c.emoji };
         const from = _winFrom();
 
-        const un = await _sb().from('transactions').select('id,txn_date,category_id,amount,amount_enc,note,note_enc,occurred_time,occurred_time_enc').eq('family_id', fid).eq('created_by', myMem).eq('status', 'realized').eq('kind', 'expense').is('link_id', null).gte('txn_date', from).limit(100);
+        const un = await _sb().from('transactions').select('id,txn_date,category_id,amount,amount_enc,note,note_enc,occurred_time,occurred_time_enc,node,node_enc').eq('family_id', fid).eq('created_by', myMem).eq('status', 'realized').eq('kind', 'expense').is('link_id', null).gte('txn_date', from).limit(100);
         for (const rr of (un.data || [])) {
           const amtS = rr.amount != null ? String(rr.amount) : await fhDecStr(rr.amount_enc);
           if (amtS == null || amtS === '') continue;
@@ -25503,10 +26273,10 @@ window.obGoogle = async function () {
           const linkId = crypto.randomUUID();
           const u = await _sb().from('transactions').update({ link_id: linkId }).eq('id', rr.id).is('link_id', null).select('id');
           if (u.error || !u.data || u.data.length !== 1) continue;
-          await _insertMaster(linkId, fid, rr.txn_date, amt, note, fc2.name, fc2.emoji, time);
+          await _insertMaster(linkId, fid, rr.txn_date, amt, note, fc2.name, fc2.emoji, time, null, await _famNode(rr));
         }
 
-        const ln = await _sb().from('transactions').select('id,link_id,txn_date,category_id,amount,amount_enc,note,note_enc,occurred_time,occurred_time_enc,updated_at').eq('family_id', fid).eq('created_by', myMem).not('link_id', 'is', null).gte('txn_date', from).limit(400);
+        const ln = await _sb().from('transactions').select('id,link_id,txn_date,category_id,amount,amount_enc,note,note_enc,occurred_time,occurred_time_enc,updated_at,node,node_enc').eq('family_id', fid).eq('created_by', myMem).not('link_id', 'is', null).gte('txn_date', from).limit(400);
         const famBy = {}; (ln.data || []).forEach((r) => { famBy[r.link_id] = r; });
         const mq = await _sb().from('personal_transactions').select('id,link_id,txn_date,amount_enc,note_enc,occurred_time_enc,updated_at,version,created_at').eq('owner_user_id', P.uid).eq('space_id', fid).not('link_id', 'is', null).gte('txn_date', from).order('created_at');
         const mastersBy = {};
@@ -25522,9 +26292,9 @@ window.obGoogle = async function () {
           const note = f.note != null ? f.note : await fhDecStr(f.note_enc);
           const time = await _famTime(f);
           const fc2 = (f.category_id && famCat[f.category_id]) || {};
-          if (!m) { await _insertMaster(lid, fid, f.txn_date, amt, note, fc2.name, fc2.emoji, time); }
+          if (!m) { await _insertMaster(lid, fid, f.txn_date, amt, note, fc2.name, fc2.emoji, time, null, await _famNode(f)); }
           else if (f.updated_at > m.updatedAt && (amt !== m.amt || (note || '') !== (m.note || '') || (time || '') !== (m.time || ''))) {
-            await _sb().from('personal_transactions').update({ amount_enc: await _encP(amt), note_enc: note ? await _encP(note) : null, cat_name_enc: fc2.name ? await _encP(fc2.name) : null, cat_emoji: fc2.emoji || null, txn_date: f.txn_date, occurred_time_enc: time ? await _encP(time) : null, version: (m.version || 1) + 1 }).eq('id', m.id);
+            await _sb().from('personal_transactions').update({ amount_enc: await _encP(amt), note_enc: note ? await _encP(note) : null, cat_name_enc: fc2.name ? await _encP(fc2.name) : null, cat_emoji: fc2.emoji || null, txn_date: f.txn_date, occurred_time_enc: time ? await _encP(time) : null, node_enc: _okNode(await _famNode(f)) ? await _encP(await _famNode(f)) : null, version: (m.version || 1) + 1 }).eq('id', m.id);
           }
         }
         for (const lid of Object.keys(mastersBy)) { if (!famBy[lid]) await _sb().from('personal_transactions').delete().eq('id', mastersBy[lid].id); }   // tombstone
@@ -25561,15 +26331,20 @@ window.obGoogle = async function () {
            limits, the 0109 anchor + bank-stated balance) and the budgets. A
            rotation that misses a field makes that field unreadable forever, so
            the list here must grow with every _enc column the schema gains. */
-        const tr = await _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,counterparty_enc,occurred_time_enc,quantity_enc').eq('owner_user_id', P.uid);
+        const tr = await _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,counterparty_enc,occurred_time_enc,quantity_enc,node_enc').eq('owner_user_id', P.uid);
+        const lb = await _sb().from('personal_labels').select('id,name_enc,claims_enc').eq('owner_user_id', P.uid);
         const ac = await _sb().from('personal_accounts').select('id,name_enc,credit_limit_enc,anchor_balance_enc,ext_balance_enc,account_number_enc,asset_symbol_enc,asset_unit_enc,asset_class_enc,manual_price_enc').eq('owner_user_id', P.uid);
         const bg = await _sb().from('personal_budgets').select('owner_user_id,month,total_enc,cats_enc').eq('owner_user_id', P.uid);
         const ls = await _sb().from('personal_lessons').select('owner_user_id,lessons_enc').eq('owner_user_id', P.uid);
         const rm = await _sb().from('personal_review_memory').select('id,key_enc').eq('owner_user_id', P.uid);
         const ph = await _sb().from('personal_transaction_photos').select('id,photo_url').eq('owner_user_id', P.uid);
-        const tot = (tr.data || []).length + (ac.data || []).length + (bg.data || []).length + (ls.data || []).length + (rm.data || []).length + (ph.data || []).length; let n = 0;
+        const tot = (tr.data || []).length + (ac.data || []).length + (bg.data || []).length + (ls.data || []).length + (rm.data || []).length + (ph.data || []).length + (lb.data || []).length; let n = 0;
+        for (const r of (lb.data || [])) {   // 0144: personal labels ride the same sweep
+          const u = await _sb().from('personal_labels').update({ name_enc: await reEnc(r.name_enc), claims_enc: await reEnc(r.claims_enc) }).eq('id', r.id);
+          if (u.error) throw u.error; n++; if (onProgress) onProgress(n, tot);
+        }
         for (const r of (tr.data || [])) {
-          const u = await _sb().from('personal_transactions').update({ amount_enc: await reEnc(r.amount_enc), note_enc: await reEnc(r.note_enc), cat_name_enc: await reEnc(r.cat_name_enc), counterparty_enc: await reEnc(r.counterparty_enc), occurred_time_enc: await reEnc(r.occurred_time_enc), quantity_enc: await reEnc(r.quantity_enc) }).eq('id', r.id);
+          const u = await _sb().from('personal_transactions').update({ amount_enc: await reEnc(r.amount_enc), note_enc: await reEnc(r.note_enc), cat_name_enc: await reEnc(r.cat_name_enc), node_enc: await reEnc(r.node_enc), counterparty_enc: await reEnc(r.counterparty_enc), occurred_time_enc: await reEnc(r.occurred_time_enc), quantity_enc: await reEnc(r.quantity_enc) }).eq('id', r.id);
           if (u.error) throw u.error; n++; if (onProgress) onProgress(n, tot);
         }
         for (const r of (ac.data || [])) {
@@ -25624,11 +26399,12 @@ window.obGoogle = async function () {
       finally { _regenning = false; }
     };
 
-    async function _insertMaster(linkId, fid, dateIso, amt, note, catName, catEmoji, timeStr, accountId) {
+    async function _insertMaster(linkId, fid, dateIso, amt, note, catName, catEmoji, timeStr, accountId, node) {
       return _sb().from('personal_transactions').insert({ owner_user_id: P.uid, space_id: fid, link_id: linkId, txn_date: dateIso, kind: 'expense', version: 1,
         amount_enc: await _encP(amt), note_enc: note ? await _encP(note) : null, cat_name_enc: catName ? await _encP(catName) : null, cat_emoji: catEmoji || null,
         occurred_time_enc: timeStr ? await _encP(timeStr) : null,   // carry the family expense's time into the personal copy
-        account_id: accountId || null });   // 0134: the author's instrument, known only on their device
+        account_id: accountId || null,        // 0134: the author's instrument, known only on their device
+        node_enc: _okNode(node) ? await _encP(node) : null });   // 0144: the family row's tree node
     }
     /* Account tag on a mirror master (0134, account-setup-spec §6). A family
        expense paid with the author's card must reach that card's outstanding,
@@ -25638,11 +26414,70 @@ window.obGoogle = async function () {
        then finds the master already there and leaves it alone. If this insert
        fails (offline, a race), the engine repairs a tag-less master later and
        the person can tag it by hand from the detail screen. */
-    window.fhPersonalInsertMaster = async function (linkId, fid, dateIso, amt, note, catName, catEmoji, timeStr, accountId) {
+    window.fhPersonalInsertMaster = async function (linkId, fid, dateIso, amt, note, catName, catEmoji, timeStr, accountId, node) {
       if (!P.uid || !P.key || !linkId || !fid || !dateIso || !(isFinite(amt))) return false;
-      const r = await _insertMaster(linkId, fid, dateIso, Number(amt), note, catName, catEmoji, timeStr, accountId);
+      const r = await _insertMaster(linkId, fid, dateIso, Number(amt), note, catName, catEmoji, timeStr, accountId, node);
       if (r.error) { console.warn('master insert failed', r.error); return false; }
       return true;
+    };
+    /* ── 0144: personal labels (the L2 partition) ───────────────────────────
+       A label is the person's own bucket: a name, an emoji, and the tree nodes
+       it claims. Names and claims are ciphertext like everything else here.
+       cat_name_enc on each row keeps holding the label's NAME, so every reader
+       written before labels existed keeps working unchanged. */
+    window.fhPersonalLabelSave = async function (spec) {
+      if (!P.uid || !P.key || !spec || !spec.name) return false;
+      const claims = (spec.claims || []).filter((c) => c === '*' || (window.FH_TAX && FH_TAX.get(c)));
+      const row = { name_enc: await _encP(String(spec.name)), emoji: spec.emoji || '🏷️',
+        claims_enc: await _encP(JSON.stringify(claims)) };
+      if (spec.hasOwnProperty('sortOrder')) row.sort_order = Number(spec.sortOrder) || 0;
+      let r;
+      if (spec.id) r = await _sb().from('personal_labels').update(row).eq('id', spec.id).eq('owner_user_id', P.uid);
+      else r = await _sb().from('personal_labels').insert(Object.assign({ owner_user_id: P.uid, sort_order: (P.labels || []).length }, row));
+      if (r.error) { console.warn('personal label save failed', r.error); return false; }
+      await window.fhPersonalHydrate(); return true;
+    };
+    /* Archived, never deleted: rows point at the label and history must stay
+       resolvable (the same rule the family categories follow). */
+    window.fhPersonalLabelArchive = async function (id) {
+      if (!P.uid || !P.key || !id) return false;
+      const r = await _sb().from('personal_labels').update({ archived_at: new Date().toISOString() }).eq('id', id).eq('owner_user_id', P.uid);
+      if (r.error) return false;
+      await window.fhPersonalHydrate(); return true;
+    };
+    /* First-run partition for a person who has no labels yet: one label per
+       distinct category name already on their rows (that IS their vocabulary),
+       each claiming what the tree says the name means, plus a catch-all. Runs
+       once, silently, and never overwrites a label the person already has. */
+    window.fhPersonalLabelsEnsureDefaults = async function () {
+      if (!P.uid || !P.key || (P.labels || []).length) return false;
+      const seen = {}, out = [];
+      for (const t of (P.txns || [])) {
+        const nm = (t.cat || '').trim();
+        if (!nm || seen[nm.toLowerCase()]) continue;
+        seen[nm.toLowerCase()] = 1;
+        out.push({ name: nm, emoji: t.emoji || '🏷️',
+          claims: (typeof fhDefaultClaimsFor === 'function') ? fhDefaultClaimsFor(nm, t.emoji) : [] });
+        if (out.length >= 24) break;
+      }
+      out.push({ name: 'Khác', emoji: '🗂️', claims: ['*'] });
+      const rows = [];
+      for (let i = 0; i < out.length; i++) {
+        rows.push({ owner_user_id: P.uid, sort_order: i, emoji: out[i].emoji,
+          name_enc: await _encP(out[i].name), claims_enc: await _encP(JSON.stringify(out[i].claims)) });
+      }
+      const r = await _sb().from('personal_labels').insert(rows);
+      if (r.error) { console.warn('personal labels seed failed', r.error); return false; }
+      await window.fhPersonalHydrate(); return true;
+    };
+    /* Patch ONLY the node of a personal row — the backfill's write. Private rows
+       and mirror masters alike: the node describes what was bought, which is true
+       of a master too, and it never touches the label or the amount. */
+    window.fhPersonalSetNode = async function (id, node) {
+      if (!P.uid || !P.key || !id) return false;
+      const r = await _sb().from('personal_transactions').update({ node_enc: _okNode(node) ? await _encP(node) : null })
+        .eq('id', id).eq('owner_user_id', P.uid);
+      return !r.error;
     };
     /* Edit the account tag on a MIRROR master (the one field the personal
        side owns on a machine-owned row: the family ledger has no accounts, so
@@ -25656,6 +26491,7 @@ window.obGoogle = async function () {
     };
     // Resolve a family row's occurred_time (plaintext for off/dual, ciphertext for enc).
     async function _famTime(r) { return r.occurred_time != null ? r.occurred_time : (r.occurred_time_enc ? await fhDecStr(r.occurred_time_enc) : null); }
+    async function _famNode(r) { try { return _okNode(r.node != null ? r.node : (r.node_enc ? await fhDecStr(r.node_enc) : null)); } catch (e) { return null; } }
   })();
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -27681,7 +28517,7 @@ window.obGoogle = async function () {
   (function () {
     const _sb = () => window.sb;
     const _P = () => (window.fhPersonalData ? fhPersonalData() : null);
-    let L = { kind: {}, cat: {}, tomb: {} };
+    let L = { kind: {}, cat: {}, node: {}, tomb: {} };   // 0144: `node` joins kind/cat in the same encrypted blob
     let _loaded = false, _saveSeq = 0, _saveTimer = null;
 
     const _now = () => Date.now();
@@ -27694,6 +28530,41 @@ window.obGoogle = async function () {
       const tomb = L.tomb['kind|' + key];
       if (tomb && !(l.t > tomb.t)) return null;          // killed, not re-learned since
       return { who: l.who, n: l.n };
+    };
+
+    /* 0144 — the tree node this person taught for a merchant, at this SIZE.
+       Same key shape as the category lesson (merchant + amount band), because
+       the reason is the same: "… chuyen tien" covers a 35k coffee and a 7M rent,
+       and a lesson at one size must not relabel the other. The node is checked
+       against the running tree on the way out, so a code from a newer build
+       reads as "nothing taught" rather than a stray string. */
+    function _nodeKey(input) {
+      if (typeof csvPatternKey !== 'function' || typeof csvAmountBand !== 'function') return '';
+      const k = csvPatternKey({ counterparty: (input && input.counterparty) || '',
+        description: (input && (input.memo || input.note)) || '' });
+      if (!k || k.length < 6) return '';
+      return k + '|' + csvAmountBand((input && input.amount) || 0);
+    }
+    window.fhLessonNode = function (input) {
+      const key = _nodeKey(input); if (!key) return null;
+      const l = L.node[key]; if (!l || !l.node) return null;
+      const tomb = L.tomb['node|' + key];
+      if (tomb && !(l.t > tomb.t)) return null;
+      return (window.FH_TAX && FH_TAX.get(l.node)) ? l.node : null;
+    };
+    window.fhLessonLearnNode = function (input) {
+      const node = input && input.node;
+      if (!node || !(window.FH_TAX && FH_TAX.get(node))) return;
+      const key = _nodeKey(input); if (!key) return;
+      L.node[key] = { node: node, t: _now() };
+      delete L.tomb['node|' + key];
+      _saveSoon();
+    };
+    window.fhLessonForgetNode = function (input) {
+      const key = _nodeKey(input); if (!key) return;
+      delete L.node[key];
+      L.tomb['node|' + key] = { t: _now() };
+      _saveSoon();
     };
 
     /* ── write side ── */
@@ -27734,7 +28605,7 @@ window.obGoogle = async function () {
     async function _pull() {
       const P = _P(); if (!P || !P.uid || !P.key) return null;
       const r = await _sb().from('personal_lessons').select('lessons_enc').eq('owner_user_id', P.uid).maybeSingle();
-      if (r.error || !r.data || !r.data.lessons_enc) return r.error ? null : { kind: {}, cat: {}, tomb: {} };
+      if (r.error || !r.data || !r.data.lessons_enc) return r.error ? null : { kind: {}, cat: {}, node: {}, tomb: {} };
       try {
         const pt = await FHCrypto.decVal(P.key, r.data.lessons_enc);
         const d = JSON.parse(pt);
@@ -27753,6 +28624,12 @@ window.obGoogle = async function () {
       }
       for (const k in remote.cat) {
         if (L.cat[k] === undefined) { L.cat[k] = remote.cat[k]; changed = true; }
+      }
+      /* 0144 — node lessons merge newest-wins, like kind. An older blob has no
+         `node` map at all, which is simply "nothing taught yet". */
+      for (const k in (remote.node || {})) {
+        const r = remote.node[k], mine = L.node[k];
+        if (!mine || r.t > mine.t) { L.node[k] = r; changed = true; }
       }
       return changed;
     }
@@ -29341,6 +30218,134 @@ window.obGoogle = async function () {
     };
   })();
 
+  /* ── 0144: the tree backfill — old rows learn their node, on this device ───
+     Every row written before the category tree existed has a label and no node.
+     The server cannot fill that in: a personal row's category is ciphertext only
+     this person can open, and an encrypted family's is no different. So the
+     sweep runs HERE, in idle time, under whichever key is already loaded.
+
+     Two steps per row, and the order is the whole safety argument:
+       1. COARSE — the node the row's own label implies (a label that claims one
+          group means every row under it is at least that group). Never wrong,
+          because the person chose the label.
+       2. REFINE — the keyword/lesson guess from the note, accepted ONLY when it
+          falls under the coarse node's root. A guess that contradicts the label
+          is discarded rather than applied: the label is the human's answer and
+          this pass is not allowed to overrule it.
+     The LABEL IS NEVER TOUCHED. Totals, budgets and every screen read the label,
+     so a sweep that cannot move a label cannot move a number — which is what
+     "nothing visible changes on day one" means in code.
+
+     Resumable and cheap: 25 rows per idle slice, a cursor per scope in
+     localStorage, stop at the first write error and pick it up next boot. */
+  const _TBF_BATCH = 25;
+  const _tbfRunning = {};
+
+  function _tbfCursorKey(scope) {
+    if (scope === 'family') return 'fh-tree-bf:fam:' + ((window.DB && window.DB.fid) || '');
+    return 'fh-tree-bf:per:' + ((window.fhPersonalData && fhPersonalData().uid) || '');
+  }
+  function _tbfDone(scope) { try { return localStorage.getItem(_tbfCursorKey(scope)) === 'done'; } catch (e) { return false; } }
+  function _tbfMarkDone(scope) { try { localStorage.setItem(_tbfCursorKey(scope), 'done'); } catch (e) {} }
+
+  const _tbfIdle = (fn) => (window.requestIdleCallback ? requestIdleCallback(fn, { timeout: 4000 }) : setTimeout(fn, 900));
+
+  /* The coarse node for one row, from the claims of the label it already sits in.
+     A label that claims several groups ("Con cái") implies nothing, and that is
+     an honest null: the row keeps no node until a human or a receipt says more. */
+  function _tbfCoarse(scope, row) {
+    if (typeof fhNodeFromClaims !== 'function') return null;
+    let claims = null;
+    if (scope === 'family') {
+      claims = (window.catClaims || {})[row.cat];
+    } else {
+      const P = window.fhPersonalData ? fhPersonalData() : null;
+      const lab = row.labelId && (P.labels || []).find((l) => l.id === row.labelId);
+      claims = lab ? lab.claims : (typeof fhDefaultClaimsFor === 'function' ? fhDefaultClaimsFor(row.cat, row.emoji) : null);
+    }
+    return fhNodeFromClaims(claims || []);
+  }
+
+  /* The refined node, or the coarse one. `kind` comes from the row itself on the
+     personal side (income/transfer/loan rows have their own trees) and is always
+     'expense' on the family side, which has no other kind. */
+  function _tbfNodeFor(scope, row) {
+    const kind = (scope === 'personal' && row.kind) ? row.kind : 'expense';
+    if (kind === 'repayment' || kind === 'transfer') return null;   // derived from structure, not from text
+    const coarse = _tbfCoarse(scope, row);
+    let guess = null;
+    try {
+      guess = fhNodeGuess({ kind: kind, note: row.note, amount: row.amt,
+        labelClaims: scope === 'family' ? (window.catClaims || {})[row.cat] : null });
+    } catch (e) { guess = null; }
+    if (guess && (!coarse || fhNodeGroup(guess) === fhNodeGroup(coarse))) return guess;
+    return coarse;
+  }
+
+  /* One pass over one scope. Returns the number of rows written, or -1 when it
+     stopped early (no key, write refused) so the caller does not mark it done. */
+  async function _tbfSlice(scope) {
+    const rows = [];
+    if (scope === 'family') {
+      if (typeof _fhWriteLocked === 'function' && _fhWriteLocked()) return -1;
+      for (const t of (window.txns || [])) {
+        if (t.node || !t._dbId) continue;
+        rows.push(t);
+        if (rows.length >= _TBF_BATCH) break;
+      }
+    } else {
+      const P = window.fhPersonalData ? fhPersonalData() : null;
+      if (!P || !P.key || P.state !== 'ready') return -1;
+      for (const t of (P.txns || [])) {
+        if (t.node || t._unreadable) continue;
+        rows.push(t);
+        if (rows.length >= _TBF_BATCH) break;
+      }
+    }
+    if (!rows.length) return 0;
+    let wrote = 0;
+    for (const t of rows) {
+      const node = _tbfNodeFor(scope, t);
+      if (!node) { t.node = null; t._tbfSkip = 1; continue; }   // nothing to say about this row; never retried this session
+      let ok = false;
+      try {
+        ok = (scope === 'family')
+          ? await window.fhTxnSetNode(t._dbId, node)
+          : await window.fhPersonalSetNode(t.id, node);
+      } catch (e) { ok = false; }
+      if (!ok) return -1;                                       // stop at the first refusal; next boot retries
+      t.node = node; wrote++;
+    }
+    return wrote;
+  }
+
+  /* Public entry: called from the family hydrate tail and the personal one.
+     Idempotent, one run per scope at a time, and a no-op once the scope has
+     nothing left (the cursor) or the tree is switched off. */
+  window.fhTreeBackfill = function (scope) {
+    scope = (scope === 'personal') ? 'personal' : 'family';
+    if (typeof fhTreeOn === 'function' && !fhTreeOn()) return;
+    if (typeof FH_TAX === 'undefined') return;
+    if (_tbfRunning[scope] || _tbfDone(scope)) return;
+    _tbfRunning[scope] = true;
+    const step = () => {
+      _tbfSlice(scope).then((n) => {
+        if (n > 0) { _tbfIdle(step); return; }                  // more to do, next idle slice
+        _tbfRunning[scope] = false;
+        if (n === 0) _tbfMarkDone(scope);                       // nothing left: stop asking, this device is current
+        /* A skipped row (no node derivable) leaves the sweep "done" — it will be
+           retried the next time the person edits it or a newer tree knows more,
+           not by re-walking the ledger on every boot. */
+        if (n === 0 && scope === 'personal' && window.renderPersonal) { try { renderPersonal(); } catch (e) {} }
+      }).catch(() => { _tbfRunning[scope] = false; });
+    };
+    _tbfIdle(step);
+  };
+  /* Re-run a scope from scratch: used after a regroup changes what labels claim,
+     and available by hand when a tree version lands with new leaves. */
+  window.fhTreeBackfillReset = function (scope) {
+    try { localStorage.removeItem(_tbfCursorKey(scope === 'personal' ? 'personal' : 'family')); } catch (e) {}
+  };
   // ---- THE hydrate: pull the active family into the app's globals ----
   // opts.windowed → R6 windowed refresh (recent slice merged onto the baseline);
   // no opts / {} → full ledger (the default every existing caller keeps using).
@@ -29417,10 +30422,10 @@ window.obGoogle = async function () {
           sb.from('families').select('name,currency,default_language').eq('id', fid).maybeSingle(),
           sb.from('members').select('id,name,name_enc,color,is_shared,user_id,created_at,key_unlocked_at,avatar_url').eq('family_id', fid).is('archived_at', null).order('created_at'),
           // archived ones come along so old transactions still resolve their name; they're kept out of catOrder below
-          sb.from('categories').select('id,name,name_enc,emoji,color,sort_order,archived_at').eq('family_id', fid).order('sort_order'),
+          sb.from('categories').select('id,name,name_enc,emoji,color,sort_order,archived_at,claims,claims_enc').eq('family_id', fid).order('sort_order'),
           sb.from('category_budgets').select('category_id,amount,amount_enc,month').eq('family_id', fid),
           sb.from('monthly_budgets').select('month,budget_total,budget_total_enc,closed').eq('family_id', fid),
-          sb.from('transactions').select('id,category_id,member_id,note,note_enc,amount,amount_enc,occurred_time,occurred_time_enc,txn_date,status,created_by,created_at,source,instrument').eq('family_id', fid).order('txn_date', { ascending: false }),
+          sb.from('transactions').select('id,category_id,member_id,note,note_enc,amount,amount_enc,occurred_time,occurred_time_enc,txn_date,status,created_by,created_at,source,instrument,node,node_enc').eq('family_id', fid).order('txn_date', { ascending: false }),
           sb.from('events').select('id,name,name_enc,emoji,cover,target_amount,target_amount_enc,target_date,achieved,sort_order,source_txn_id,created_by').eq('family_id', fid).is('archived_at', null).order('sort_order'),
           sb.from('event_fundings').select('id,event_id,goal_id,amount,amount_enc,source,month,member_id').eq('family_id', fid),
           sb.from('savings_entries').select('kind,amount,amount_enc,entry_date').eq('family_id', fid),
@@ -29478,7 +30483,7 @@ window.obGoogle = async function () {
         }));
       }
       await Promise.all([
-        _decRows(tx, ['amount', 'note', 'occurred_time']),
+        _decRows(tx, ['amount', 'note', 'occurred_time', 'node']),   // 0144: tree node
         _decRows(cb, ['amount']),
         _decRows(mb, ['budget_total']),
         _decRows(ev, ['name', 'target_amount']),
@@ -29487,7 +30492,7 @@ window.obGoogle = async function () {
         _decRows(inc, ['amount']),
         _decRows(sg, ['name', 'target_amount', 'note']),
         _decRows(mem, ['name']),                             // 0038: member names
-        _decRows(cat, ['name']),                             // 0038: category names
+        _decRows(cat, ['name', 'claims']),                   // 0038: category names · 0144: claimed tree nodes
         _decRows(em, ['caption'])                            // 0038: photo captions
       ]);
       /* a member/category the device can't decrypt yet must not render as blank —
@@ -29592,6 +30597,20 @@ window.obGoogle = async function () {
       });
       window.catStyle = style;
       window.catOrder = ensureFallbackCat(order, style, null);   // the catch-all is always present
+      /* 0144 — the family partition of the category tree: which tree nodes each
+         label (category) claims. Stored as a JSON array string (claims/claims_enc);
+         a category with none yet gets a default derived from its name + emoji, in
+         memory only, and the catch-all claims '*'. Nothing is written here. */
+      const claims = {};
+      cat.forEach((c) => {
+        if (c.archived_at) return;
+        let arr = null;
+        if (c.claims) { try { arr = JSON.parse(c.claims); } catch (e) { arr = null; } }
+        if (!Array.isArray(arr) || !arr.length) arr = (typeof fhDefaultClaimsFor === 'function') ? fhDefaultClaimsFor(c.name, c.emoji) : [];
+        claims[c.name] = arr.filter((x) => typeof x === 'string');
+      });
+      claims[CAT_FALLBACK] = ['*'];
+      window.catClaims = claims;
 
       // category budgets for the current month → catBudget
       const cbud = {}; window.catOrder.forEach((n) => { cbud[n] = 0; });
@@ -29636,7 +30655,7 @@ window.obGoogle = async function () {
         const who = mrec ? (mrec.is_shared ? 'Shared' : mrec.name) : 'Shared';
         const realized = (t.status !== 'planned') && (dt <= now);
         const amt = Number(t.amount);
-        newTxns.push({ id: 'db_' + t.id, _dbId: t.id, _d: dt, _ts: (t.created_at ? new Date(t.created_at) : null), _catId: t.category_id, _memberId: t.member_id, _createdBy: t.created_by || null, ico: (c && c.emoji) || '🧾', cat: catName, note: t.note || '', date: (_isoDate(dt) === _isoDate(now)) ? 'Today' : (MO[dt.getMonth()] + ' ' + dt.getDate()), who: who, amt: amt, time: t.occurred_time || null, src: t.source || null, inst: t.instrument || null, month: mkey, future: realized ? undefined : true, photos: photosByTx[t.id] });
+        newTxns.push({ id: 'db_' + t.id, _dbId: t.id, _d: dt, _ts: (t.created_at ? new Date(t.created_at) : null), _catId: t.category_id, _memberId: t.member_id, _createdBy: t.created_by || null, ico: (c && c.emoji) || '🧾', cat: catName, note: t.note || '', date: (_isoDate(dt) === _isoDate(now)) ? 'Today' : (MO[dt.getMonth()] + ' ' + dt.getDate()), who: who, amt: amt, time: t.occurred_time || null, src: t.source || null, inst: t.instrument || null, node: t.node || null, month: mkey, future: realized ? undefined : true, photos: photosByTx[t.id] });
         if (realized) { m.spent += amt; m.catSpent[catName] = (m.catSpent[catName] || 0) + amt; m.memberSpent[who] = (m.memberSpent[who] || 0) + amt; }
       });
       newTxns.sort(function(a,b){ var ta=a._d?a._d.getTime():Infinity, tb=b._d?b._d.getTime():Infinity; return tb-ta; }); // newest first, globally
@@ -29784,6 +30803,7 @@ window.obGoogle = async function () {
       try { if (window.rxAfterHydrate) window.rxAfterHydrate(); } catch (e) {}   // reactions: refresh the wall + play any just-arrived reaction moment
       try { if (window.reqAfterHydrate) window.reqAfterHydrate(); } catch (e) {}   // future-expense requests: refresh mounts/hub + play any just-arrived decision
       try { if (window.fhPersonalBoot) window.fhPersonalBoot(); } catch (e) {}     // personal ledger (0082): provision/unlock, hydrate, mirror my authored rows
+      try { if (window.fhTreeBackfill) window.fhTreeBackfill('family'); } catch (e) {}   // 0144: idle-time node backfill for rows that predate the tree
       window.DB._hydrated = true;                       // later hydrates are background refreshes, not cold starts
       if (window.fhSaveSnapshot) window.fhSaveSnapshot();   // cache it for the next cold start
       /* committed-enc family with the key: once per session, quietly retire any
@@ -30077,7 +31097,7 @@ window.obGoogle = async function () {
             const row = it.payload.row;
             if (fhEncState() !== 'off' && row.amount_enc == null && row.amount != null) {
               if (!fhKeyReady()) break;                      // resume after fhUnlockPrompt succeeds
-              Object.assign(row, await fhField('amount', Number(row.amount)), await fhField('note', row.note));
+              Object.assign(row, await fhField('amount', Number(row.amount)), await fhField('note', row.note), await fhField('node', _okNode(row.node)));
             }
             // photos queued encrypted need the key back before they can upload
             let photos = it.payload.photos || [];
@@ -30126,6 +31146,15 @@ window.obGoogle = async function () {
   // Only a real local "HH:MM" is persisted; anything else → null (day-only), never
   // a fabricated clock time.
   function _okTxnTime(v) { return (typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v)) ? v : null; }
+  // 0144: a node code is stored only when the running tree knows it (never a stray string).
+  function _okNode(v) { return (typeof v === 'string' && window.FH_TAX && window.FH_TAX.get(v)) ? v : null; }
+  /* 0144: patch ONLY the node of a family row (the backfill's write). Encryption-correct
+     via fhField; a locked key or a missing id is a silent no-op so the sweep never throws. */
+  window.fhTxnSetNode = async function (dbId, node) {
+    if (!dbId || _fhWriteLocked()) return false;
+    try { await _w(sb.from('transactions').update(await fhField('node', _okNode(node))).eq('id', dbId), 'write transactions'); return true; }
+    catch (e) { return false; }
+  };
   async function _dbInsertTxn(t, exD) {
     const fid = window.DB.fid; if (!fid) return;
     if (_fhWriteLocked()) return;
@@ -30151,7 +31180,8 @@ window.obGoogle = async function () {
         instrument: t.inst || null,   // 0131 money source string; email-staged rows + a tagged manual log (0134)
         link_id: linkId },            // 0134: pre-reserved so the tagged master below is THE master
       await fhField('amount', t.amt), await fhField('note', t.note),
-      await fhField('occurred_time', _okTxnTime(t.time)));   // local "HH:MM" or null (day-only)
+      await fhField('occurred_time', _okTxnTime(t.time)),   // local "HH:MM" or null (day-only)
+      await fhField('node', _okNode(t.node)));               // 0144: tree node code, or null
     // Offline → queue durably instead of losing the write.
     if (navigator.onLine === false) { await _obQueueTxn(row, t); return; }
     try {
@@ -30161,7 +31191,7 @@ window.obGoogle = async function () {
       // the tagged mirror master, before the mirror engine's next pass can
       // adopt the row tag-less; a failure here is repaired by that pass
       if (res.data && linkId && window.fhPersonalInsertMaster) {
-        try { await window.fhPersonalInsertMaster(linkId, fid, row.txn_date, t.amt, t.note, t.cat, t.ico, _okTxnTime(t.time), pAcct); } catch (e) {}
+        try { await window.fhPersonalInsertMaster(linkId, fid, row.txn_date, t.amt, t.note, t.cat, t.ico, _okTxnTime(t.time), pAcct, _okNode(t.node)); } catch (e) {}
       }
       _syncSoon();
     } catch (e) {
@@ -30184,7 +31214,8 @@ window.obGoogle = async function () {
       const patch = Object.assign(
         { category_id: catId, member_id: _memberIdForWho(t.who), txn_date: _txnIso(t, exD), status: t.future ? 'planned' : 'realized' },
         await fhField('amount', t.amt), await fhField('note', t.note),
-        await fhField('occurred_time', _okTxnTime(t.time)));   // clearing the time drops back to day-only
+        await fhField('occurred_time', _okTxnTime(t.time)),   // clearing the time drops back to day-only
+        await fhField('node', _okNode(t.node)));               // 0144: tree node code, or null
       await _w(sb.from('transactions').update(patch).eq('id', dbId), 'write transactions');
       await _dbSyncTxnPhotos(dbId, t.photos);
       _syncSoon(true);   // edit may target/move an out-of-window row → full hydrate (edits are infrequent)
@@ -35886,6 +36917,23 @@ window.classifyAmount = classifyAmount;
   }
   window.fhCurNorm = fhCurNorm;
 
+  /* 0144 — the tree node the pipeline decided, by row index. Same side-channel
+     shape as fhStagedFx: the review engine's five synthetic columns are a CSV
+     contract and widening them makes every one a field the column mapper must
+     reason about, so the node is fetched on demand instead. 'receipt' rides along
+     because the client's join needs to know the mail was a merchant's, not a
+     bank's — both live inside the sealed raw_extracted. */
+  window.fhStagedNode = function (rowIndex) {
+    var rows = window._fhStagedRows;
+    var r = (rows && typeof rowIndex === 'number') ? rows[rowIndex] : null;
+    if (!r || r._unreadable) return null;
+    var x = r.raw_extracted || {};
+    var code = x.node || null;
+    if (code && !(window.FH_TAX && FH_TAX.get(code))) code = null;   // a newer tree wrote it: unknown here
+    return { node: code, concept: x.category_hint || x.category || '',
+             source: x.txn_source || null, receipt: x.txn_source === 'receipt' };
+  };
+
   window.fhStagedFx = function (rowIndex) {
     var rows = window._fhStagedRows;
     var r = (rows && typeof rowIndex === 'number') ? rows[rowIndex] : null;
@@ -36578,6 +37626,14 @@ window.classifyAmount = classifyAmount;
        common path. One candidate can span TWO specs (a transfer pair); ranges
        records the span so progress and retirement speak in candidates. */
     var pd = (window.fhPersonalData && window.fhPersonalData()) || { accounts: [] };
+    /* 0144 — the tree node for a personal spec. The review resolved it on the
+       candidate (_node); it is accepted only when it belongs to the kind being
+       written, so an expense node can never ride an income row. */
+    var _specNode = function (c, kind) {
+      var nd = c && c._node;
+      if (!nd || !window.FH_TAX || !FH_TAX.get(nd)) return null;
+      return FH_TAX.kindOf(nd) === kind ? nd : null;
+    };
     var specs = [], ranges = [], extBals = {}, lessonOps = [], invMemOps = [];
     /* 0134 — every account this import touches (a row landed on it, or the
        queue session materialized it) is what the setup wizard walks afterwards
@@ -36712,10 +37768,12 @@ window.classifyAmount = classifyAmount;
           if (_ik) invMemOps.push({ key: _ik, posId: c._investPosId });
         } else if (invSell) {
           specs.push({ kind: 'income', amt: base, note: c.description || '',
+          node: _specNode(c, 'income'),
             catName: 'Khác', catEmoji: '💰',
             dateIso: c.dateDisplay || undefined, time: _t, accountId: invAcct, source: src });
         } else {
           specs.push({ kind: 'expense', amt: base, note: c.description || '',
+          node: _specNode(c, 'expense'),
             catName: null, catEmoji: '🗂️',
             dateIso: c.dateDisplay || undefined, time: _t, accountId: invAcct, source: src });
         }
@@ -36729,6 +37787,7 @@ window.classifyAmount = classifyAmount;
           try { incAcct = await window.fhPersonalAccountEnsure(ai); } catch (e3) {}
         }
         specs.push({ kind: 'income', amt: base, note: c.description || '',
+          node: _specNode(c, 'income'),
           catName: c._incomeCat || 'Khác',
           catEmoji: ({ 'Lương': '💼', 'Thưởng': '🎁', 'Hoàn tiền': '💸' })[c._incomeCat] || '💰',
           dateIso: c.dateDisplay || undefined, time: _t, accountId: incAcct, source: src });
@@ -36794,6 +37853,7 @@ window.classifyAmount = classifyAmount;
            counterparty rides; a description-only row stays null rather than
            duplicating the note into a second column. */
         specs.push({ kind: 'expense', amt: base, note: c.description || '',
+          node: _specNode(c, 'expense'),
           who: (c.counterparty && String(c.counterparty).trim()) || null,
           catName: c.categoryName || null,
           catEmoji: (window.catStyle && window.catStyle[c.categoryName] && window.catStyle[c.categoryName][0]) || '🗂️',
@@ -39790,6 +40850,31 @@ window.classifyAmount = classifyAmount;
             (csvMerchantConcept over counterparty + memo)
        Every arm resolves through the family's OWN category names and each is
        optional — a helper missing behind its wrapper just skips its turn. */
+    /* The node cascade, in the same order as the full review screen minus the
+       tiers that need a ledger scan: what the pipeline sealed, what this person
+       taught about this merchant, then the tree's own keywords. Null is a fine
+       answer — the row imports without a node and the sweep can refine it later. */
+    function _qrNodeFor(re, desc, kind) {
+      if (typeof FH_TAX === 'undefined') return null;
+      var ok = function (c) { return (c && FH_TAX.get(c) && FH_TAX.kindOf(c) === kind) ? c : null; };
+      var fromPipe = ok(re && re.node);
+      if (fromPipe) return fromPipe;
+      var party = (re && re.counterparty) || '';
+      try {
+        if (window.fhLessonNode) {
+          var l = ok(window.fhLessonNode({ counterparty: party, memo: desc, amount: Number(re && re.amount) || 0 }));
+          if (l) return l;
+        }
+      } catch (e) {}
+      try { return ok(fhNodeGuess({ kind: kind, note: desc, counterparty: party, amount: Number(re && re.amount) || 0 })); }
+      catch (e) { return null; }
+    }
+    function _qrNode(kind) {
+      if (!QR || typeof FH_TAX === 'undefined') return null;
+      var c = QR.node;
+      return (c && FH_TAX.get(c) && FH_TAX.kindOf(c) === kind) ? c : null;
+    }
+
     function _qrSuggestCat(re, desc) {
       try {
         var hint = re.category_hint && typeof familyCatForConcept === 'function'
@@ -39929,6 +41014,11 @@ window.classifyAmount = classifyAmount;
           dateIso: _qrLocalIso(isNaN(oa.getTime()) ? new Date() : oa),
           time: _qrTime(row.occurred_at),
           queue: rows.length, txnId: null, busy: false,
+          /* 0144 — the tree node for this row. Resolved once when the sheet
+             opens (the sealed hint, this person's lesson, then the tree's
+             keywords) and carried into whichever ledger the person picks. */
+          node: _qrNodeFor(re, desc, flow === 'in' ? 'income' : 'expense'),
+          party: (re.counterparty || '').trim(),
         };
         _qrSessionSkip[row.id] = true;                          // shown this run — no re-pop on the next tab switch
         _qrRender();
@@ -40243,10 +41333,11 @@ window.classifyAmount = classifyAmount;
             // income never lands on a credit card; keep the auto card-exclusion,
             // but honour an explicit account pick.
             ok = await window.fhPersonalAddIncome(base, QR.desc || '', QR.dateIso, src,
+              /* 0144: quick review runs the same node cascade as the full screen */
               { catName: 'Khác', catEmoji: '💰', accountId: QR.acctId ? QR.acctId : (autoIsCard ? null : acctId), time: QR.time });
           } else {
             var emoji = (window.catStyle && window.catStyle[QR.cat] && window.catStyle[QR.cat][0]) || '🗂️';
-            ok = await window.fhPersonalAddExpense(base, QR.desc || '', QR.cat || null, emoji, QR.dateIso, QR.time, src, { accountId: acctId });
+            ok = await window.fhPersonalAddExpense(base, QR.desc || '', QR.cat || null, emoji, QR.dateIso, QR.time, src, { accountId: acctId, node: _qrNode('expense') });
           }
         }
         if (!ok) throw new Error('write failed');

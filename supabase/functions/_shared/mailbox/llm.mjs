@@ -20,12 +20,23 @@
  * derive two shapes of template for the same bank.
  */
 
+import { TAX } from './taxonomy.mjs';
+
 /**
  * Free tier, no card, rate-limited well above what this worker needs given that
  * a learned template costs nothing. Model choice is per-deployment: the schema
  * and prompt do not change with it.
  */
 export const DEFAULT_MODEL = 'gemini-3.5-flash-lite';
+
+/* The category-tree codes the model may answer in `node` (0144, taxonomy.mjs):
+   every expense node (leaves and groups) and every income node. Built once at
+   module load from the generated tree, so a tree edit is one regeneration away
+   from the prompt and the schema alike. The two manual-only roots ('xunfiled',
+   'iunfiled') are a person's verdict, never a model's, and are left out. */
+export const EXPENSE_NODE_CODES = TAX.nodes.filter((n) => n.kind === 'expense' && !n.manual).map((n) => n.code);
+export const INCOME_NODE_CODES = TAX.nodes.filter((n) => n.kind === 'income' && !n.manual).map((n) => n.code);
+export const NODE_CODES = [...EXPENSE_NODE_CODES, ...INCOME_NODE_CODES];
 
 export const EXTRACTION_SYSTEM_PROMPT =
   'You classify and extract structured data from an email. The email may or may not represent ' +
@@ -105,7 +116,13 @@ export const EXTRACTION_SYSTEM_PROMPT =
   'is Fun. Use Others when the mail genuinely does not say what was bought — a ' +
   'bare transfer to a person, or an ATM withdrawal. NULL when it is money ' +
   'coming IN rather than going out: income is not a spending category, and ' +
-  'guessing one puts a salary under Shopping.';
+  'guessing one puts a salary under Shopping.\n\n' +
+  'node: the most specific category-tree code you are confident in, or null. For a ' +
+  'debit (money going out) use EXACTLY one of these expense codes — ' + EXPENSE_NODE_CODES.join(', ') + '. ' +
+  'For a credit (money coming in) use ONLY one of these income codes — ' + INCOME_NODE_CODES.join(', ') + '. ' +
+  'Prefer a leaf (coffee, fuel, electric, wage) when the mail says clearly what the money was for; ' +
+  'answer its group (drinks, vehicle, utilities, salary) when you know the area but not the exact kind; ' +
+  'null when the mail does not say. Never invent a code.';
 
 export const EXTRACTION_SCHEMA = {
   type: 'object',
@@ -181,6 +198,17 @@ export const EXTRACTION_SCHEMA = {
     category: {
       type: ['string', 'null'],
       enum: ['Housing', 'Groceries', 'Clothing', 'Shopping', 'Transport', 'Dining', 'Fun', 'Others', null],
+    },
+    /* THE TREE NODE (0144): the most specific taxonomy code the model is
+       confident in — a leaf when the mail says what was bought, a group when it
+       only says the area, null when it does not say. `category` stays exactly
+       as it was for old readers; the cascade in classify.mjs derives the
+       concept from the node when both are needed. Expense codes for debits,
+       income codes for credits, and NOT in `required`: an older .gs paste or a
+       model that omits it degrades to the concept-only path, never breaks. */
+    node: {
+      type: ['string', 'null'],
+      enum: [...NODE_CODES, null],
     },
   },
   required: [

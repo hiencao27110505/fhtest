@@ -149,7 +149,7 @@ async function run() {
   // ── pool (B): the classifier's finer sub-kind reaches the notification ────
   {
     let putC = null, putP = 'unset';
-    const ex = { counterparty: 'REVI TOWER', category: null };
+    const ex = { counterparty: 'QZX HOLDINGS 4471', category: null };
     const db = stubDb({ merchantConceptPut: async (h, c, p) => { putC = c; putP = p; } });
     await enrichCategory(ex, { user_id: 'u1' }, {
       db, subtle, llm: { apiKey: 'x' }, classifyBudget: { left: 1 }, fetch: fakeFetch('Dining', { pool: 'coffee' }),

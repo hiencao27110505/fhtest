@@ -33,7 +33,7 @@
   (function () {
     const _sb = () => window.sb;
     const _P = () => (window.fhPersonalData ? fhPersonalData() : null);
-    let L = { kind: {}, cat: {}, tomb: {} };
+    let L = { kind: {}, cat: {}, node: {}, tomb: {} };   // 0144: `node` joins kind/cat in the same encrypted blob
     let _loaded = false, _saveSeq = 0, _saveTimer = null;
 
     const _now = () => Date.now();
@@ -46,6 +46,41 @@
       const tomb = L.tomb['kind|' + key];
       if (tomb && !(l.t > tomb.t)) return null;          // killed, not re-learned since
       return { who: l.who, n: l.n };
+    };
+
+    /* 0144 — the tree node this person taught for a merchant, at this SIZE.
+       Same key shape as the category lesson (merchant + amount band), because
+       the reason is the same: "… chuyen tien" covers a 35k coffee and a 7M rent,
+       and a lesson at one size must not relabel the other. The node is checked
+       against the running tree on the way out, so a code from a newer build
+       reads as "nothing taught" rather than a stray string. */
+    function _nodeKey(input) {
+      if (typeof csvPatternKey !== 'function' || typeof csvAmountBand !== 'function') return '';
+      const k = csvPatternKey({ counterparty: (input && input.counterparty) || '',
+        description: (input && (input.memo || input.note)) || '' });
+      if (!k || k.length < 6) return '';
+      return k + '|' + csvAmountBand((input && input.amount) || 0);
+    }
+    window.fhLessonNode = function (input) {
+      const key = _nodeKey(input); if (!key) return null;
+      const l = L.node[key]; if (!l || !l.node) return null;
+      const tomb = L.tomb['node|' + key];
+      if (tomb && !(l.t > tomb.t)) return null;
+      return (window.FH_TAX && FH_TAX.get(l.node)) ? l.node : null;
+    };
+    window.fhLessonLearnNode = function (input) {
+      const node = input && input.node;
+      if (!node || !(window.FH_TAX && FH_TAX.get(node))) return;
+      const key = _nodeKey(input); if (!key) return;
+      L.node[key] = { node: node, t: _now() };
+      delete L.tomb['node|' + key];
+      _saveSoon();
+    };
+    window.fhLessonForgetNode = function (input) {
+      const key = _nodeKey(input); if (!key) return;
+      delete L.node[key];
+      L.tomb['node|' + key] = { t: _now() };
+      _saveSoon();
     };
 
     /* ── write side ── */
@@ -86,7 +121,7 @@
     async function _pull() {
       const P = _P(); if (!P || !P.uid || !P.key) return null;
       const r = await _sb().from('personal_lessons').select('lessons_enc').eq('owner_user_id', P.uid).maybeSingle();
-      if (r.error || !r.data || !r.data.lessons_enc) return r.error ? null : { kind: {}, cat: {}, tomb: {} };
+      if (r.error || !r.data || !r.data.lessons_enc) return r.error ? null : { kind: {}, cat: {}, node: {}, tomb: {} };
       try {
         const pt = await FHCrypto.decVal(P.key, r.data.lessons_enc);
         const d = JSON.parse(pt);
@@ -105,6 +140,12 @@
       }
       for (const k in remote.cat) {
         if (L.cat[k] === undefined) { L.cat[k] = remote.cat[k]; changed = true; }
+      }
+      /* 0144 — node lessons merge newest-wins, like kind. An older blob has no
+         `node` map at all, which is simply "nothing taught yet". */
+      for (const k in (remote.node || {})) {
+        const r = remote.node[k], mine = L.node[k];
+        if (!mine || r.t > mine.t) { L.node[k] = r; changed = true; }
       }
       return changed;
     }

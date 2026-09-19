@@ -972,6 +972,20 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   <div class="sheet-sub" id="exdcat-sub"></div>
   <div class="choices" id="exdcat-list"></div>
 </div>
+<div class="sheet" id="sheet-claims">
+  <div class="grab"></div>
+  <div class="sheet-h" id="claims-h">Gồm những gì</div>
+  <div class="sheet-sub" id="claims-sub"></div>
+  <div class="choices" id="claims-list"></div>
+  <button type="button" class="cta" onclick="fhClaimsSave()" data-t="save">Lưu</button>
+</div>
+<div class="sheet" id="sheet-node-pick">
+  <div class="grab"></div>
+  <div class="sheet-h" id="npick-h">Loại chi tiêu</div>
+  <div class="sheet-sub" id="npick-sub"></div>
+  <div class="npick-search"><input id="npick-q" type="search" placeholder="Tìm: cà phê, xăng, tiền điện…" oninput="fhNodePickSearch(this)" autocomplete="off"></div>
+  <div class="choices" id="npick-list"></div>
+</div>
 <div class="sheet" id="sheet-exd-who">
   <div class="grab"></div>
   <div class="sheet-h" id="exdwho-h">Ai trả</div>

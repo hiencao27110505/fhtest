@@ -101,7 +101,7 @@ export function transactionTypeFor(kind) {
  * @param {object} args.destination     {memberId, familyId, stagingPub} from identity.mjs
  * @param {object} args.reading         what the parser read off the mail
  * @param {string} args.sourceProvider  the sender label ('techcombank', 'momo')
- * @param {string} args.senderKind      'bank' | 'wallet' | undefined
+ * @param {string} args.senderKind      'bank' | 'wallet' | 'receipt' | undefined
  * @param {object} args.deps            {nacl, rng?, subtle?, dedupKey, db}
  * @return {Promise<object>} a row ready to insert, sealed
  * @throws on anything that would otherwise produce a readable or unowned row
@@ -180,6 +180,24 @@ export async function buildStagedRow(args) {
       transaction_type: transactionType,
       occurred_at: occurredAt,
       category_hint: reading.category || null,
+      /* The category-tree node (0144, taxonomy.mjs): the most specific code the
+         extractor or the cascade in classify.mjs decided — 'coffee', or a group
+         like 'utilities' — beside the legacy concept above, which old clients
+         keep reading unchanged. Inside the box like category_hint: a top-level
+         column would need 0068's CHECK to null it out, and the sealed row's
+         key set is pinned. Null = nothing decided. */
+      node: reading.node || null,
+      /* PROVENANCE OF THE FIGURES, for the client's receipt join. 'receipt'
+         means the sender is a merchant (senders.mjs RECEIPT_DOMAINS: Grab,
+         Shopee, Apple...) whose mail describes the SAME purchase a bank or
+         wallet notice also reports — the client joins it onto that row (memo,
+         items, node) instead of importing it as a second transaction. Inside
+         raw_extracted rather than a column: email_transactions has no
+         txn_source column (0100's `source` is on the ledger tables, written at
+         promote), and insertStaged posts the row verbatim, so an unknown
+         top-level key would be a 400 that holds the message forever. Null for
+         every bank and wallet row, which is every row today. */
+      txn_source: reading.txnSource || (senderKind === 'receipt' ? 'receipt' : null),
       status: reading.status || null,
 
       /* WHERE THE MONEY LANDS. The client routes on this now — a credit files

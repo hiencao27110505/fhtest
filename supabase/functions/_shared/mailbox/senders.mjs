@@ -219,6 +219,51 @@ const WALLETS = {
   'zalopay.vn': 'ZaloPay',
 };
 
+/** Merchant RECEIPT senders — the third kind, `'receipt'`.
+ *
+ * A Grab or Shopee mail is not a bank notice and not a wallet debit: it is the
+ * merchant's own account of a purchase that a bank or wallet mail ALSO reports
+ * (the card was charged; the ví was debited). Staging it as a transaction would
+ * double-count, so a row from one of these senders carries
+ * `raw_extracted.txn_source = 'receipt'` (stage.mjs) and the client JOINS it to
+ * the bank/wallet row — memo, items, the tree node — instead of importing it.
+ *
+ * NOT IN THE GMAIL QUERY YET. Every domain here is also a marketing firehose
+ * (the same `shopee.vn` sends "Flash sale 9.9" from a sibling address), and the
+ * query has no subject/label term that separates receipts from campaigns
+ * reliably across all seven — Grab titles receipts "Your Grab E-Receipt", Shopee
+ * "Đơn hàng ... đã được xác nhận", Apple "Your receipt from Apple.", and each has
+ * changed wording before. Fetching them unfiltered would spend the per-run
+ * staging cap and model budget on campaigns (see PROMO_TOKENS). So they live in
+ * `RECEIPT_DOMAINS`, exported and deliberately left out of `inboxQuery`; the
+ * receipt-join feature adds them to the query WITH a per-sender subject filter
+ * when it lands. `match` already recognises them, so a forwarded receipt (transport
+ * A) and the dry-run tooling stage with the right kind today.
+ *
+ * Kept small on purpose, and only the domain that actually SENDS the receipt
+ * (checked against each domain's SPF on 2026-09-20):
+ *   grab.com       no-reply@grab.com — ride + GrabFood e-receipts
+ *   shopeefood.vn  order confirmations (own IPs + SendGrid/Mailgun in SPF)
+ *   shopee.vn      order/delivery confirmations (noreply@ / info.shopee.vn)
+ *   foody.vn       Foody/ShopeeFood legacy receipt sender (shares ShopeeFood's IPs)
+ *   apple.com      no_reply@email.apple.com — App Store / iCloud receipts
+ *                  (a subdomain, so the dot-boundary rule matches it)
+ *   tiki.vn        order confirmations
+ *   lazada.vn      order confirmations (own IPs + Alibaba mail in SPF) */
+const RECEIPTS = {
+  'grab.com': 'Grab',
+  'shopeefood.vn': 'ShopeeFood',
+  'shopee.vn': 'Shopee',
+  'foody.vn': 'Foody',
+  'apple.com': 'Apple',
+  'tiki.vn': 'Tiki',
+  'lazada.vn': 'Lazada',
+};
+
+/** The receipt sender domains, for the receipt-join feature to put in the
+ *  query once it has a subject filter per sender. Not read by inboxQuery. */
+export const RECEIPT_DOMAINS = Object.keys(RECEIPTS);
+
 /** The address inside a From header, lower-cased. `"MB" <no-reply@mb.vn>`. */
 export function addressOf(fromHeader) {
   const s = String(fromHeader || '');
@@ -251,7 +296,7 @@ export function domainMatches(domain, parent) {
  *        rows from known_provider_domains, unioned in as banks when present.
  *        The table is empty today and this worker does not depend on it; it is
  *        read so that seeding it later widens both transports at once.
- * @return {{provider: string, kind: 'bank'|'wallet'}|null}
+ * @return {{provider: string, kind: 'bank'|'wallet'|'receipt'}|null}
  */
 export function match(fromHeader, extra) {
   const address = addressOf(fromHeader);
@@ -263,6 +308,9 @@ export function match(fromHeader, extra) {
   }
   for (const [d, provider] of Object.entries(WALLETS)) {
     if (domainMatches(domain, d)) return { provider, kind: 'wallet' };
+  }
+  for (const [d, provider] of Object.entries(RECEIPTS)) {
+    if (domainMatches(domain, d)) return { provider, kind: 'receipt' };
   }
   for (const row of extra || []) {
     const d = String(row.domain_or_address || '').toLowerCase();
@@ -311,6 +359,7 @@ export function match(fromHeader, extra) {
 export const PROMO_TOKENS = ['marketing', 'promotion'];
 
 export function inboxQuery(days, extra) {
+  // RECEIPT_DOMAINS are deliberately absent — see the note above RECEIPTS.
   const domains = [
     ...Object.keys(BANKS),
     ...Object.keys(WALLETS),
@@ -330,7 +379,7 @@ export function inboxQuery(days, extra) {
   return from + notPromo + ' newer_than:' + Math.max(1, Math.floor(days)) + 'd';
 }
 
-export const KNOWN_DOMAINS = { BANKS, WALLETS };
+export const KNOWN_DOMAINS = { BANKS, WALLETS, RECEIPTS };
 
 /* One display name per provider, whoever wrote it down.
 

@@ -685,6 +685,34 @@ function buildCsvCandidates(parsed, result) {
   mapping.forEach(function(m){ if(colFor[m.field] === undefined) colFor[m.field] = m.column_index; });
   var convention = result.llm && result.llm.date_convention;
   var historyMap = csvHistoryCategoryMap();
+  /* 0144 — the same idea one layer down: what NODE did a human-categorised row
+     with this wording end up on? Built from the ledger the person already has,
+     so the second Highlands charge inherits the first one's leaf. */
+  /* The legacy 8 concepts are exactly one group's worth of confidence, so each
+     maps to the tree GROUP that carries it — never to a leaf. This is how a
+     pipeline row sealed before the tree existed (or by an older worker) still
+     lands somewhere true. Kept here rather than in the taxonomy file because it
+     describes the OLD vocabulary, which the tree is replacing. */
+  var CONCEPT_TREE_GROUP = { Housing: 'home', Groceries: 'groceries', Clothing: 'clothing',
+    Shopping: 'shopping', Transport: 'transport', Dining: 'food', Fun: 'leisure', Others: null };
+
+  var nodeHistoryMap = (function () {
+    var m = {};
+    try {
+      (window.txns || []).forEach(function (t) {
+        if (!t || !t.node || t.future) return;
+        var k = normDescForDedup(t.note || '');
+        if (k && !m[k]) m[k] = t.node;
+      });
+      var P = window.fhPersonalData ? fhPersonalData() : null;
+      ((P && P.txns) || []).forEach(function (t) {
+        if (!t || !t.node) return;
+        var k = normDescForDedup(t.note || '');
+        if (k && !m[k]) m[k] = t.node;
+      });
+    } catch (e) {}
+    return m;
+  })();
 
   return parsed.rows.map(function(row, i) {
     var flags = [];
@@ -692,6 +720,13 @@ function buildCsvCandidates(parsed, result) {
     var amtRaw = colFor.amount !== undefined ? row[colFor.amount] : '';
     var desc = colFor.description !== undefined ? (row[colFor.description] || '').trim() : '';
     var catGuess = colFor.category !== undefined ? (row[colFor.category] || '').trim() : '';
+    /* 0144 — what the pipeline sealed for THIS row: its tree node, its legacy
+       concept, and whether the mail came from a merchant (a receipt) rather than
+       a bank. Null for a file import, which has no pipeline behind it. */
+    var _pipe = (window.csvStagedMode && typeof window.fhStagedNode === 'function') ? window.fhStagedNode(i) : null;
+    var rowNodeHint = _pipe ? _pipe.node : null;
+    var catGuessConcept = _pipe ? _pipe.concept : '';
+    var isReceipt = !!(_pipe && _pipe.receipt);
 
     var dclass = classifyDate(dateRaw);
     var date = dclass.status === 'matched' ? parseCsvDateValue(dateRaw, dclass.format, convention) : null;
@@ -873,6 +908,47 @@ function buildCsvCandidates(parsed, result) {
     if (!catName && !isIncome && csvCatOk(CAT_FALLBACK)) { catName = CAT_FALLBACK; catSource = 'fallback'; }
     if (!catName) flags.push('needs_category');
 
+    /* ── 0144: the tree node, beside the label ──────────────────────────────
+       The label above answers "which of MY buckets"; the node answers "what did
+       the money buy". They are resolved from the same evidence and they are
+       allowed to disagree — the label is the person's, the node is the machine's.
+       Order is confidence, strongest first, and every tier is free but the first
+       (the pipeline already spent whatever it spent). */
+    var node = null, nodeSource = null;
+    var nodeKind = isIncome ? 'income' : (isTransfer || _xfer) ? 'transfer' : 'expense';
+    if (typeof FH_TAX !== 'undefined' && typeof fhNodeGuess === 'function') {
+      var _okN = function (c) { return (c && FH_TAX.get(c) && FH_TAX.kindOf(c) === nodeKind) ? c : null; };
+      // 1. the pipeline's own answer, sealed with the row (raw_extracted.node)
+      node = _okN(rowNodeHint); if (node) nodeSource = 'pipeline';
+      // 2. a ledger row with the same wording that already carries a node
+      if (!node) {
+        var hn = (desc && nodeHistoryMap[normDescForDedup(desc)]) || (party && nodeHistoryMap[normDescForDedup(party)]);
+        node = _okN(hn); if (node) nodeSource = 'history';
+      }
+      // 3. what this person taught about this merchant, at this size
+      if (!node && typeof window.fhLessonNode === 'function') {
+        try { node = _okN(window.fhLessonNode({ counterparty: party, memo: desc, amount: amount })); } catch (e) {}
+        if (node) nodeSource = 'learned';
+      }
+      // 4. the tree's own keywords over counterparty + memo
+      if (!node) {
+        node = _okN(fhNodeGuess({ kind: nodeKind, note: desc, counterparty: party, amount: amount }));
+        if (node) nodeSource = 'keyword';
+      }
+      /* 5. the legacy 8-concept hint, lifted to the tree GROUP that carries it.
+            A concept is exactly a group's worth of confidence, so it lands on the
+            group and never pretends to a leaf. */
+      if (!node && catGuessConcept && nodeKind === 'expense') {
+        var grp = CONCEPT_TREE_GROUP[catGuessConcept];
+        node = _okN(grp); if (node) nodeSource = 'concept';
+      }
+      // 6. the label the person's own partition implies, when it implies one thing
+      if (!node && catName && window.catClaims && typeof fhNodeFromClaims === 'function') {
+        node = _okN(fhNodeFromClaims(window.catClaims[catName]));
+        if (node) nodeSource = 'label';
+      }
+    }
+
     /* Income category default (0109): the small income-side set, guessed from
        wording, always overridable on the card. Never a family expense category. */
     var incomeCat = null;
@@ -906,6 +982,7 @@ function buildCsvCandidates(parsed, result) {
       // which the duplicate check must not read as them all being the same thing.
       _hasDesc: !!(desc || catGuess),
       categoryGuess: catGuess, categoryName: catName, catSource: catSource,
+      _node: node, _nodeSource: nodeSource, _nodeKind: nodeKind, _receipt: isReceipt || undefined,
       counterparty: party, who: who, isIncome: isIncome, isTransfer: isTransfer, _xfer: _xfer,
       _payCardId: _payCardId,
       _stmtAttn: !!(_stmtHint && _stmtHint.attn) || undefined,
@@ -1089,6 +1166,48 @@ function bucketCsvCandidates(candidates, mixedSigns) {
     });
   }
 
+  /* ── 0144: the RECEIPT JOIN ─────────────────────────────────────────────
+     A merchant's own mail (Grab, Shopee, Apple — senders.mjs RECEIPT_DOMAINS)
+     describes a purchase a bank or wallet ALREADY reported. Importing both
+     double-counts, and flagging it as a duplicate asks a question the person
+     cannot usefully answer ("which of these two is the real one?" — they are
+     one thing). So a receipt is not a candidate at all: it hands its node to
+     the bank row it matches and retires with the batch.
+
+     Matched on exact amount within ±2 days, which is the same evidence the
+     transfer matcher trusts, and for the same reason: a receipt and its bank
+     charge are the same money, and the merchant's clock and the bank's rarely
+     agree to the minute. The receipt's node WINS when it is deeper — the
+     merchant knows what it sold better than the bank's memo does. An unmatched
+     receipt stays an ordinary candidate: better one extra row to judge than a
+     purchase silently dropped. */
+  if (staged) {
+    var _recs = [], _banks = [];
+    candidates.forEach(function (c) {
+      if (c._mergedCopy) return;
+      (c._receipt ? _recs : _banks).push(c);
+    });
+    _recs.forEach(function (r) {
+      if (!r.amount || !r.date) return;
+      var hit = null;
+      for (var i = 0; i < _banks.length; i++) {
+        var b = _banks[i];
+        if (b._receiptJoined || !b.amount || !b.date) continue;
+        if (Math.round(b.amount) !== Math.round(r.amount)) continue;
+        if (Math.abs(b.date - r.date) > 2 * 864e5) continue;
+        hit = b; break;
+      }
+      if (!hit) return;
+      hit._receiptJoined = true;
+      r._joinedInto = hit.rowIndex;                       // retired with the batch, never imported
+      if (r._node && (!hit._node || fhNodeDepth(r._node) > fhNodeDepth(hit._node))) {
+        hit._node = r._node; hit._nodeSource = 'receipt';
+      }
+      /* The merchant's own wording beats a bank memo that says nothing. */
+      if (r.description && (!hit.description || /^\(kh/.test(hit.description))) hit.description = r.description;
+    });
+  }
+
   var rest = [];   // rows the fact tiers below did not settle — the engine's turn
   candidates.forEach(function(c) {
     /* A poorer copy of a payment already kept in this batch. MERGED AWAY, not
@@ -1098,6 +1217,10 @@ function bucketCsvCandidates(candidates, mixedSigns) {
        And still RETIRED on import — being in none of ready/groups/dup/deferred,
        fhStagedIdsForResolved reads them as finished, which they are. */
     if (c._mergedCopy) { merged++; return; }
+
+    /* A receipt that found its bank row: counted like a merged copy (it IS the
+       same purchase), retired on import, never shown as a second transaction. */
+    if (c._joinedInto !== undefined) { merged++; return; }
 
     /* CERTAIN, not suspected: the server re-staged this mail knowing its id was
        already promoted or dismissed in a previous connection (resolved_before,

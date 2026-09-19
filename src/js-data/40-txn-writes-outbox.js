@@ -238,7 +238,7 @@
             const row = it.payload.row;
             if (fhEncState() !== 'off' && row.amount_enc == null && row.amount != null) {
               if (!fhKeyReady()) break;                      // resume after fhUnlockPrompt succeeds
-              Object.assign(row, await fhField('amount', Number(row.amount)), await fhField('note', row.note));
+              Object.assign(row, await fhField('amount', Number(row.amount)), await fhField('note', row.note), await fhField('node', _okNode(row.node)));
             }
             // photos queued encrypted need the key back before they can upload
             let photos = it.payload.photos || [];
@@ -287,6 +287,15 @@
   // Only a real local "HH:MM" is persisted; anything else → null (day-only), never
   // a fabricated clock time.
   function _okTxnTime(v) { return (typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v)) ? v : null; }
+  // 0144: a node code is stored only when the running tree knows it (never a stray string).
+  function _okNode(v) { return (typeof v === 'string' && window.FH_TAX && window.FH_TAX.get(v)) ? v : null; }
+  /* 0144: patch ONLY the node of a family row (the backfill's write). Encryption-correct
+     via fhField; a locked key or a missing id is a silent no-op so the sweep never throws. */
+  window.fhTxnSetNode = async function (dbId, node) {
+    if (!dbId || _fhWriteLocked()) return false;
+    try { await _w(sb.from('transactions').update(await fhField('node', _okNode(node))).eq('id', dbId), 'write transactions'); return true; }
+    catch (e) { return false; }
+  };
   async function _dbInsertTxn(t, exD) {
     const fid = window.DB.fid; if (!fid) return;
     if (_fhWriteLocked()) return;
@@ -312,7 +321,8 @@
         instrument: t.inst || null,   // 0131 money source string; email-staged rows + a tagged manual log (0134)
         link_id: linkId },            // 0134: pre-reserved so the tagged master below is THE master
       await fhField('amount', t.amt), await fhField('note', t.note),
-      await fhField('occurred_time', _okTxnTime(t.time)));   // local "HH:MM" or null (day-only)
+      await fhField('occurred_time', _okTxnTime(t.time)),   // local "HH:MM" or null (day-only)
+      await fhField('node', _okNode(t.node)));               // 0144: tree node code, or null
     // Offline → queue durably instead of losing the write.
     if (navigator.onLine === false) { await _obQueueTxn(row, t); return; }
     try {
@@ -322,7 +332,7 @@
       // the tagged mirror master, before the mirror engine's next pass can
       // adopt the row tag-less; a failure here is repaired by that pass
       if (res.data && linkId && window.fhPersonalInsertMaster) {
-        try { await window.fhPersonalInsertMaster(linkId, fid, row.txn_date, t.amt, t.note, t.cat, t.ico, _okTxnTime(t.time), pAcct); } catch (e) {}
+        try { await window.fhPersonalInsertMaster(linkId, fid, row.txn_date, t.amt, t.note, t.cat, t.ico, _okTxnTime(t.time), pAcct, _okNode(t.node)); } catch (e) {}
       }
       _syncSoon();
     } catch (e) {
@@ -345,7 +355,8 @@
       const patch = Object.assign(
         { category_id: catId, member_id: _memberIdForWho(t.who), txn_date: _txnIso(t, exD), status: t.future ? 'planned' : 'realized' },
         await fhField('amount', t.amt), await fhField('note', t.note),
-        await fhField('occurred_time', _okTxnTime(t.time)));   // clearing the time drops back to day-only
+        await fhField('occurred_time', _okTxnTime(t.time)),   // clearing the time drops back to day-only
+        await fhField('node', _okNode(t.node)));               // 0144: tree node code, or null
       await _w(sb.from('transactions').update(patch).eq('id', dbId), 'write transactions');
       await _dbSyncTxnPhotos(dbId, t.photos);
       _syncSoon(true);   // edit may target/move an out-of-window row → full hydrate (edits are infrequent)

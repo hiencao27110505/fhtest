@@ -30,6 +30,11 @@ export const MAX_GRANTS_PER_RUN = 25;
    from actual subject text, and this is punctuation only. */
 export const SENDER_SENTINEL = '*';
 
+/* Whether merchant_concepts has the tree `node` column (0144). Assumed yes;
+   flipped to false for the life of the process on the first put that the
+   database refuses for it. See merchantConceptPut. */
+let MERCHANT_NODE_COLUMN = true;
+
 /* One value inside a PostgREST `in.(…)` list.
  *
  * Quoted, because that is what lets a value carry a space or a comma; only a
@@ -351,25 +356,48 @@ export function createDb(url, serviceKey, fetchImpl) {
        gateway-normalized merchant key — no merchant name or amount lives in
        either table. All best-effort: the caller treats any throw as "no answer"
        and falls to generic copy, so a cache blip never blocks staging. */
+    /* Both reads select `*` rather than naming columns: the tree `node` column
+       (0144) may not be applied yet where this code runs first, and a named
+       select of a missing column is a 400 on EVERY lookup — which the caller
+       reads as "no answer" and pays a model call for, per merchant, per run.
+       `*` returns whatever columns exist; the caller reads `node` if present. */
     async merchantCorrectionGet(userId, hash) {
       const rows = await rest('/merchant_corrections?owner_user_id=eq.' + encodeURIComponent(userId) +
-        '&merchant_hash=eq.' + encodeURIComponent(hash) + '&select=concept&limit=1');
-      return rows && rows[0] ? rows[0].concept : null;
+        '&merchant_hash=eq.' + encodeURIComponent(hash) + '&select=*&limit=1');
+      if (!rows || !rows[0]) return null;
+      // {concept, node} — classify.mjs also still accepts the old bare string.
+      return { concept: rows[0].concept ?? null, node: rows[0].node ?? null };
     },
     async merchantConceptGet(hash) {
       // Returns the ROW (or null) so the caller can tell "no row = never tried"
       // apart from "row with null concept = tried and unknowable". `pool` is the
-      // finer sub-kind (coffee/milktea/ride/cinema) or null.
+      // finer sub-kind (coffee/milktea/ride/cinema) or null; `node` (0144) the
+      // tree code, or null / absent on a row (or schema) that predates it.
       const rows = await rest('/merchant_concepts?merchant_hash=eq.' + encodeURIComponent(hash) +
-        '&select=concept,pool&limit=1');
+        '&select=*&limit=1');
       return rows && rows.length ? rows[0] : null;
     },
-    async merchantConceptPut(hash, concept, pool) {
-      await rest('/merchant_concepts?on_conflict=merchant_hash', {
+    async merchantConceptPut(hash, concept, pool, node) {
+      const row = { merchant_hash: hash, concept: concept ?? null, pool: pool ?? null, source: 'llm', updated_at: new Date().toISOString() };
+      const put = (r) => rest('/merchant_concepts?on_conflict=merchant_hash', {
         method: 'POST',
         headers: { Prefer: 'resolution=merge-duplicates' },
-        body: JSON.stringify({ merchant_hash: hash, concept: concept, pool: pool ?? null, source: 'llm', updated_at: new Date().toISOString() }),
+        body: JSON.stringify(r),
       });
+      if (!MERCHANT_NODE_COLUMN) { await put(row); return; }
+      try { await put({ ...row, node: node ?? null }); }
+      catch (e) {
+        /* A 400 naming the column means 0144 is not applied here yet. Retry
+           without it — the concept/pool cache must keep working, or every
+           merchant pays a model call per run — and remember, so the rest of
+           this process does not pay a failed round-trip per put. */
+        if (e && e.status === 400 && /node/.test(String(e.message))) {
+          MERCHANT_NODE_COLUMN = false;
+          await put(row);
+          return;
+        }
+        throw e;
+      }
     },
 
     /* One usage row per LLM call (llm_calls, migration 0128). Content-free —

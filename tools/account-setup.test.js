@@ -94,7 +94,7 @@ t('family promote resolves the account and reserves a link_id',
 t('the quick sheet does the same for one row', /window\._fhImportAcct = idF; window\._fhImportLink = crypto\.randomUUID\(\)/.test(quick));
 t('the family writer pre-sets link_id and writes the tagged master',
   /link_id: linkId \}/.test(writes) && /fhPersonalInsertMaster\(linkId, fid, row\.txn_date/.test(writes));
-t('the master insert carries account_id', /account_id: accountId \|\| null \}\);\s*\/\/ 0134/.test(data));
+t('the master insert carries account_id', /account_id: accountId \|\| null,?\s*(\}\);)?\s*\/\/ 0134/.test(data));
 t('the family sheet reads the "Trả bằng gì?" chip for a manual log', /_famAcctPick\(\)/.test(wt));
 t('the family sheet shows the chips when the personal ledger is ready', /personal\|\|\(pReady&&!income\)/.test(sheet));
 t('the family row gets the same display string as an email import', /fhAccountInstString = function/.test(wt));

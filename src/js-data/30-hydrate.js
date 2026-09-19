@@ -74,10 +74,10 @@
           sb.from('families').select('name,currency,default_language').eq('id', fid).maybeSingle(),
           sb.from('members').select('id,name,name_enc,color,is_shared,user_id,created_at,key_unlocked_at,avatar_url').eq('family_id', fid).is('archived_at', null).order('created_at'),
           // archived ones come along so old transactions still resolve their name; they're kept out of catOrder below
-          sb.from('categories').select('id,name,name_enc,emoji,color,sort_order,archived_at').eq('family_id', fid).order('sort_order'),
+          sb.from('categories').select('id,name,name_enc,emoji,color,sort_order,archived_at,claims,claims_enc').eq('family_id', fid).order('sort_order'),
           sb.from('category_budgets').select('category_id,amount,amount_enc,month').eq('family_id', fid),
           sb.from('monthly_budgets').select('month,budget_total,budget_total_enc,closed').eq('family_id', fid),
-          sb.from('transactions').select('id,category_id,member_id,note,note_enc,amount,amount_enc,occurred_time,occurred_time_enc,txn_date,status,created_by,created_at,source,instrument').eq('family_id', fid).order('txn_date', { ascending: false }),
+          sb.from('transactions').select('id,category_id,member_id,note,note_enc,amount,amount_enc,occurred_time,occurred_time_enc,txn_date,status,created_by,created_at,source,instrument,node,node_enc').eq('family_id', fid).order('txn_date', { ascending: false }),
           sb.from('events').select('id,name,name_enc,emoji,cover,target_amount,target_amount_enc,target_date,achieved,sort_order,source_txn_id,created_by').eq('family_id', fid).is('archived_at', null).order('sort_order'),
           sb.from('event_fundings').select('id,event_id,goal_id,amount,amount_enc,source,month,member_id').eq('family_id', fid),
           sb.from('savings_entries').select('kind,amount,amount_enc,entry_date').eq('family_id', fid),
@@ -135,7 +135,7 @@
         }));
       }
       await Promise.all([
-        _decRows(tx, ['amount', 'note', 'occurred_time']),
+        _decRows(tx, ['amount', 'note', 'occurred_time', 'node']),   // 0144: tree node
         _decRows(cb, ['amount']),
         _decRows(mb, ['budget_total']),
         _decRows(ev, ['name', 'target_amount']),
@@ -144,7 +144,7 @@
         _decRows(inc, ['amount']),
         _decRows(sg, ['name', 'target_amount', 'note']),
         _decRows(mem, ['name']),                             // 0038: member names
-        _decRows(cat, ['name']),                             // 0038: category names
+        _decRows(cat, ['name', 'claims']),                   // 0038: category names · 0144: claimed tree nodes
         _decRows(em, ['caption'])                            // 0038: photo captions
       ]);
       /* a member/category the device can't decrypt yet must not render as blank —
@@ -249,6 +249,20 @@
       });
       window.catStyle = style;
       window.catOrder = ensureFallbackCat(order, style, null);   // the catch-all is always present
+      /* 0144 — the family partition of the category tree: which tree nodes each
+         label (category) claims. Stored as a JSON array string (claims/claims_enc);
+         a category with none yet gets a default derived from its name + emoji, in
+         memory only, and the catch-all claims '*'. Nothing is written here. */
+      const claims = {};
+      cat.forEach((c) => {
+        if (c.archived_at) return;
+        let arr = null;
+        if (c.claims) { try { arr = JSON.parse(c.claims); } catch (e) { arr = null; } }
+        if (!Array.isArray(arr) || !arr.length) arr = (typeof fhDefaultClaimsFor === 'function') ? fhDefaultClaimsFor(c.name, c.emoji) : [];
+        claims[c.name] = arr.filter((x) => typeof x === 'string');
+      });
+      claims[CAT_FALLBACK] = ['*'];
+      window.catClaims = claims;
 
       // category budgets for the current month → catBudget
       const cbud = {}; window.catOrder.forEach((n) => { cbud[n] = 0; });
@@ -293,7 +307,7 @@
         const who = mrec ? (mrec.is_shared ? 'Shared' : mrec.name) : 'Shared';
         const realized = (t.status !== 'planned') && (dt <= now);
         const amt = Number(t.amount);
-        newTxns.push({ id: 'db_' + t.id, _dbId: t.id, _d: dt, _ts: (t.created_at ? new Date(t.created_at) : null), _catId: t.category_id, _memberId: t.member_id, _createdBy: t.created_by || null, ico: (c && c.emoji) || '🧾', cat: catName, note: t.note || '', date: (_isoDate(dt) === _isoDate(now)) ? 'Today' : (MO[dt.getMonth()] + ' ' + dt.getDate()), who: who, amt: amt, time: t.occurred_time || null, src: t.source || null, inst: t.instrument || null, month: mkey, future: realized ? undefined : true, photos: photosByTx[t.id] });
+        newTxns.push({ id: 'db_' + t.id, _dbId: t.id, _d: dt, _ts: (t.created_at ? new Date(t.created_at) : null), _catId: t.category_id, _memberId: t.member_id, _createdBy: t.created_by || null, ico: (c && c.emoji) || '🧾', cat: catName, note: t.note || '', date: (_isoDate(dt) === _isoDate(now)) ? 'Today' : (MO[dt.getMonth()] + ' ' + dt.getDate()), who: who, amt: amt, time: t.occurred_time || null, src: t.source || null, inst: t.instrument || null, node: t.node || null, month: mkey, future: realized ? undefined : true, photos: photosByTx[t.id] });
         if (realized) { m.spent += amt; m.catSpent[catName] = (m.catSpent[catName] || 0) + amt; m.memberSpent[who] = (m.memberSpent[who] || 0) + amt; }
       });
       newTxns.sort(function(a,b){ var ta=a._d?a._d.getTime():Infinity, tb=b._d?b._d.getTime():Infinity; return tb-ta; }); // newest first, globally
@@ -441,6 +455,7 @@
       try { if (window.rxAfterHydrate) window.rxAfterHydrate(); } catch (e) {}   // reactions: refresh the wall + play any just-arrived reaction moment
       try { if (window.reqAfterHydrate) window.reqAfterHydrate(); } catch (e) {}   // future-expense requests: refresh mounts/hub + play any just-arrived decision
       try { if (window.fhPersonalBoot) window.fhPersonalBoot(); } catch (e) {}     // personal ledger (0082): provision/unlock, hydrate, mirror my authored rows
+      try { if (window.fhTreeBackfill) window.fhTreeBackfill('family'); } catch (e) {}   // 0144: idle-time node backfill for rows that predate the tree
       window.DB._hydrated = true;                       // later hydrates are background refreshes, not cold starts
       if (window.fhSaveSnapshot) window.fhSaveSnapshot();   // cache it for the next cold start
       /* committed-enc family with the key: once per session, quietly retire any

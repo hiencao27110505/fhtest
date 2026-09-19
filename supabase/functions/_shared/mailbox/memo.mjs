@@ -103,8 +103,20 @@ var MERCHANT_CITY_TAIL_RE = new RegExp(
   'HAI\\s*PHONG|NHA\\s*TRANG|DA\\s*LAT|DALAT|VUNG\\s*TAU|BIEN\\s*HOA|THU\\s*DUC|HUE))?\\s*(?:VIET\\s*NAM|VN)\\s*$',
   'i');
 
+/* A SALUTATION is not a counterparty. Two VIB shapes ("Thanh toán thẻ tín dụng
+   VIB thành công", "Chuyển tiền đến tài khoản VIB thành công") open with
+   "Kính gửi <the account holder>", and the learned template anchored on that
+   line — so 95 rows in one real mailbox arrived with the READER's own name where
+   the recipient belongs, and the review screen offered it as the merchant.
+   Stripped here rather than in the template, because the template is a cache:
+   dropping it would cost a model call per shape and the next derivation would
+   make the same mistake. Anything that is only a greeting collapses to empty,
+   which the callers already read as "no counterparty". */
+var SALUTATION_RE = /^\s*(k[ií]nh\s+g[uử]i|kinh\s+gui|dear|thân\s+g[uử]i|than\s+gui)\b[:\s]*/i;
 function tidyMerchant(raw) {
   var s = String(raw || '').replace(MERCHANT_AGGREGATOR_RE, '').replace(/\s+/g, ' ').trim();
+  if (SALUTATION_RE.test(s)) return '';
+  s = s.replace(SALUTATION_RE, '').trim();
   var stripped = s.replace(MERCHANT_CITY_TAIL_RE, '').trim();
   return stripped || s;
 }

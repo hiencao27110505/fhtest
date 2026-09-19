@@ -123,6 +123,7 @@ export function normaliseReading(raw, body) {
     cardMasked: r.card_masked ?? r.cardMasked ?? null,
     reference: r.reference ?? r.reference_number ?? null,
     category: r.category ?? null,
+    node: r.node ?? null,
     occurredAt: r.occurred_at ?? r.occurredAt ?? null,
     senderAuth: r.sender_auth ?? r.senderAuth ?? null,
     status: r.status ?? null,

@@ -607,7 +607,12 @@ function renderFinanceHero(){
         +'<span class="fh-bar"><i style="width:'+pct.toFixed(0)+'%"></i></span></span>'
         +'<svg class="fh-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>';
     }).join('');
-    setHTMLIf('fh-legend', pl);
+    setHTMLIf('fh-legend', _fhLegendWrap('personal', pl, function(){
+      var P=window.fhPersonalData?fhPersonalData():null;
+      return fhTreeRowsFor(((P&&P.txns)||[]).filter(function(t){ return t.kind==='expense'; }).map(function(t){
+        return { amt:t.amt, node:t.node, month:null, _unreadable:t._unreadable };
+      }));
+    }));
     return;
   }
   if(editEl) editEl.setAttribute('onclick',"openSheet('sheet-budget')");   // restore family target
@@ -623,7 +628,19 @@ function renderFinanceHero(){
       + '<span class="fh-bar"><i style="width:' + pct.toFixed(0) + '%"></i></span></span>'
       + '<svg class="fh-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>';
   }).join('');
-  setHTMLIf('fh-legend', legend);
+  setHTMLIf('fh-legend', _fhLegendWrap('family', legend, function(){
+    return fhTreeRowsFor(window.txns || [], selMonth);
+  }));
+}
+/* 0144 — one wrapper for both breakdowns: the layer selector, then either the
+   label rows the caller built or the tree's own view. Building the tree rows is
+   deferred behind a function so the label view never pays for it. */
+function _fhLegendWrap(scope, labelHTML, treeRows){
+  if(typeof fhTreeSelector!=='function' || typeof fhTreeOn!=='function' || !fhTreeOn()) return labelHTML;
+  var sel='<div class="fh-legend-head">'+fhTreeSelector(scope)+'</div>';
+  if(fhTreeLayer(scope)!=='tree') return sel+labelHTML;
+  var rows=[]; try{ rows=treeRows()||[]; }catch(e){}
+  return sel+'<div data-treehost="1">'+fhTreeBreakdownHTML(rows)+'</div>';
 }
 /* Curated, plain-language insights — the smart core of Spending. */
 function catFutureReserved(c){ return txns.reduce(function(s,t){ return (t.future && t.cat===c) ? s+t.amt : s; },0); }
@@ -790,6 +807,17 @@ function ensureFallbackCat(order,style,budget){
   if(budget && budget[CAT_FALLBACK]===undefined) budget[CAT_FALLBACK]=0;
   return order;
 }
+/* 0144 — "Gồm: …": which parts of the tree this label owns. The catch-all owns
+   whatever nobody else claimed, which is exactly what it has always meant. */
+function _catClaimsLine(name){
+  if(typeof fhTreeOn!=='function' || !fhTreeOn() || typeof FH_TAX==='undefined') return '';
+  if(isFallbackCat(name)) return '<div class="cat-claims ro">'+L('Gồm: mọi thứ còn lại','Includes: everything else')+'</div>';
+  var cl=((window.catClaims||{})[name]||[]).filter(function(c){ return c!=='*' && FH_TAX.get(c); });
+  var txt=cl.length?cl.map(function(c){ return FH_TAX.get(c).vi; }).join(', ')
+                   :L('chưa gắn phần nào','nothing yet');
+  return '<button type="button" class="cat-claims" onclick="fhClaimsOpen(this)">'
+    +L('Gồm: ','Includes: ')+esc(txt)+'</button>';
+}
 function catRowHTML(emoji,name,budget,orig){
   var lock=isFallbackCat(name);
   return '<div class="cat-row'+(lock?' cat-row-lock':'')+'" data-orig="'+(orig||'')+'">'
@@ -805,6 +833,7 @@ function catRowHTML(emoji,name,budget,orig){
     +(lock
       ? '<span class="cat-del cat-del-off" title="'+L('Mọi khoản chưa phân loại sẽ nằm ở đây','Everything uncategorised lands here')+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg></span>'
       : '<button class="cat-del" aria-label="'+L('Xoá danh mục','Remove category')+'" onclick="armCatDelete(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>')
+    +_catClaimsLine(name)
     +'</div>';
 }
 // The catch-all is not budgeted by hand — it absorbs whatever the named

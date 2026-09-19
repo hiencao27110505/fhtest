@@ -116,6 +116,7 @@ function renderExpenseDetail(){
     rows+=_exdRow({label:L('Ghi vào đâu','Where to'), ro:true, val:'<b>🏡 '+esc(famName)+'</b>'});
     rows+=_exdRow({label:L('Loại khoản','Kind'), ro:true, val:'<b>'+(isFuture?L('Chi tiêu dự kiến','Planned expense'):L('Chi tiêu','Spending'))+'</b>'});
     rows+=_exdRow({label:L('Danh mục','Category'), ro:true, val:'<b>'+s[0]+' '+esc(vCat)+'</b>'});
+    rows+=_exdNodeRow(t, false);
     rows+=_exdRow({label:whoLbl, ro:true, val:whoVal});
     rows+=_exdRow({label:L('Ngày','Date'), ro:true, val:'<b class="num">'+esc(_exdDate(t))+'</b>'});
     rows+=_exdRow({label:L('Giờ','Time'), ro:true, soft:!vTime, val:'<b class="num">'+(vTime?esc(vTime):L('Chỉ tính theo ngày','Day only'))+'</b>'});
@@ -148,6 +149,7 @@ function renderExpenseDetail(){
     rows+=_exdRow({label:L('Ghi vào đâu','Where to'), ro:!canMove, val:'<b>🏡 '+esc(famName)+'</b>', fn:'exdMove()'});
     rows+=_exdRow({label:L('Loại khoản','Kind'), ro:true, val:'<b>'+(isFuture?L('Chi tiêu dự kiến','Planned expense'):L('Chi tiêu','Spending'))+'</b>'});
     rows+=_exdRow({label:L('Danh mục','Category'), chg:EXD.cat!=null, val:'<b>'+s[0]+' '+esc(vCat)+'</b>', fn:"exdSheetCat('fam')"});
+    rows+=_exdNodeRow(t, true);
     rows+=_exdRow({label:whoLbl, chg:EXD.who!=null, ro:isFuture, val:whoVal, fn:"exdSheetWho()"});
     rows+=fhPickRow({label:L('Ngày','Date'), type:'date', value:fIso, on:'exdPickDate', arg:'fam', chg:EXD.dateIso!=null,
       val:'<b class="num">'+esc(fDateLbl)+'</b>'});
@@ -368,6 +370,29 @@ function _exdRowOf(){
     ? ((typeof txById==='function')?txById(_expDetailId):null)
     : ((typeof _pTxById==='function')?_pTxById(_pexdId):null);
 }
+/* 0144 — "Loại chi tiêu": the tree's read of what the money bought. Read-only
+   in the view state, a picker in edit. Staged like every other edited field, so
+   Lưu is what commits it; a pick also teaches the merchant lesson after the save.
+   Hidden entirely while the tree is switched off (C8). */
+function _exdNodeRow(t, editable, mode){
+  if(typeof fhTreeOn!=='function' || !fhTreeOn() || typeof FH_TAX==='undefined') return '';
+  var staged=(mode==='pers')?PXD.node:EXD.node;
+  var cur=(staged!==undefined)?staged:(t.node||null);
+  var kind=(mode==='pers')?(t.kind==='income'?'income':'expense'):'expense';
+  var val=cur?('<span class="exd-node-path">'+FH_TAX.pathVi(cur).map(esc).join('<span class="sep">›</span>')+'</span>')
+             :('<b>'+L('Chưa rõ chi tiết','No detail yet')+'</b>');
+  return _exdRow({label:L('Loại chi tiêu','What it was'), ro:!editable, soft:!cur, chg:staged!==undefined,
+    val:val, fn:editable?("exdSheetNode(&#39;"+(mode==='pers'?'pers':'fam')+"&#39;,&#39;"+escAttr(kind)+"&#39;)"):''});
+}
+function exdSheetNode(mode, kind){
+  _exdMode=(mode==='pers')?'pers':'fam';
+  var t=_exdRowOf(); if(!t) return;
+  var staged=(mode==='pers')?PXD.node:EXD.node;
+  var cur=(staged!==undefined)?staged:(t.node||null);
+  fhNodePickOpen(cur, kind||'expense', 'exdPickNode');
+}
+function exdPickNode(code){ _exdStage('node', code||null); }
+
 function exdSheetCat(mode){
   _exdMode=mode; var t=_exdRowOf(); if(!t) return;
   var cur=_exdCur('cat', t.cat);
@@ -453,6 +478,13 @@ function exdSave(){
   if(p.dateIso!=null) document.getElementById('ex-date').value=p.dateIso;
   if(p.timeStr!==undefined){ var te=document.getElementById('ex-time'); if(te){ te.value=p.timeStr; if(typeof onExTimeTouched==='function') onExTimeTouched(); } }
   if(p.photos!==undefined){ exPhotos=p.photos.slice(); if(typeof renderExPhoto==='function') renderExPhoto(); }   // staged removals ride the composer's photo list
+  if(p.node!==undefined && typeof window.fhSetExNode==='function'){
+    window.fhSetExNode(p.node||'');                        // 0144: a human pick; the composer's own guess may not overwrite it
+    t.node=p.node||null;                                   // in-memory row shows it at once
+    if(p.node && typeof window.fhLessonLearnNode==='function'){
+      try{ window.fhLessonLearnNode({ note:(p.note!=null?p.note:t.note), amount:t.amt, node:p.node }); }catch(e){}
+    }
+  }
   saveExpenseEdit();                                       // wrapped → persists + renderExpenseDetailIfOpen
 }
 window.exdSave=exdSave;
@@ -739,6 +771,7 @@ function renderPersonalTxDetail(){
   rows+=R('Ghi vào đâu','🔒 Cá nhân',{ro:k!=='expense', fn:'pexdMove()'});
   rows+=R('Loại khoản',_pexdKindLbl(E),{ro:!(k==='expense'||k==='loan'||k==='invest'), fn:'pexdSheetKind()'});
   if(k==='expense') rows+=R('Danh mục',esc(em)+' '+esc(vCat||'Chưa rõ'),{chg:PXD.cat!=null, soft:!vCat, fn:"exdSheetCat('pers')"});
+  if(k==='expense'||k==='income') rows+=_exdNodeRow(t, !!ed, 'pers');
   if(k==='income') rows+=R('Danh mục',esc(vCat||'Khác'),{chg:PXD.cat!=null, fn:'pexdSheetIncCat()'});
   if(k==='loan'){
     rows+=R(E.lent?'Cho ai mượn':'Mượn của ai',vWho?esc(vWho):'Chọn',{chg:PXD.who!==undefined, soft:!vWho, fn:"pexdSheetText('who')"});
@@ -944,12 +977,19 @@ async function pexdSave(){
     else if(k==='expense'){
       var f={ amt:amtBase, note:note, cat:(p.cat!=null?p.cat:(t.cat||'')), emoji:(p.cat!=null?((catStyle[p.cat]||['🏷️'])[0]):(t.emoji||null)), time:(p.timeStr!==undefined?p.timeStr:(t.time||'')), dateIso:dateIso };
       if(p.hasOwnProperty('accountId')) f.accountId=p.accountId;
+      if(p.node!==undefined){                              // 0144: the tree node, staged like every other field
+        f.node=p.node||null;
+        if(p.node && typeof window.fhLessonLearnNode==='function'){
+          try{ window.fhLessonLearnNode({ note:note, amount:amtBase, node:p.node }); }catch(e){}
+        }
+      }
       ok=await window.fhPersonalUpdateExpense(E.id, f);
     } else if(k==='income'){
       var fi={ amt:amtBase, note:note, dateIso:dateIso };
       if(p.hasOwnProperty('accountId')) fi.accountId=p.accountId;
       if(p.timeStr!==undefined) fi.time=p.timeStr;
       if(p.cat!=null){ fi.cat=p.cat; fi.emoji=null; }
+      if(p.node!==undefined) fi.node=p.node||null;   // 0144: income rows carry a node too (Lương, Hoàn tiền…)
       ok=await window.fhPersonalUpdateIncome(E.id, fi);
     } else if(k==='loan'||k==='repay'||k==='cardpay'){
       var sign=(t.amt!=null&&t.amt<0)?-1:1;

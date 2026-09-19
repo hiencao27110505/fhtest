@@ -365,6 +365,21 @@ function setV(id,v){ document.getElementById(id).value=v; }
 function pick(group,btn){ document.getElementById(group).querySelectorAll('.choice').forEach(function(c){ c.classList.remove('on'); }); btn.classList.add('on'); }
 function chosen(group){ var b=document.getElementById(group).querySelector('.choice.on'); return b?b.dataset.v:''; }
 /* ---- fast expense capture ---- */
+/* 0144 — the tree node for the expense being composed. The LABEL (the category
+   chip) stays the person's choice and is untouched; this is the machine's read
+   of what the money bought, and it rides beside it. `_nodeTouched` means a human
+   picked it, so no guess may overwrite it. */
+var exNode=null, _nodeTouched=false;
+window.fhSetExNode=function(code){ exNode=(code&&window.FH_TAX&&FH_TAX.get(code))?code:null; _nodeTouched=!!exNode; };
+/* Re-guess from what is typed so far, unless a human already answered. Called
+   from the same places the category guess runs; costs a keyword scan. */
+function exGuessNode(note, cat){
+  if(_nodeTouched) return exNode;
+  if(typeof fhNodeGuess!=='function') return null;
+  exNode=fhNodeGuess({ kind:'expense', note:note,
+    labelClaims: (window.catClaims||{})[cat] }) || null;
+  return exNode;
+}
 var lastCat='Groceries', lastWho='Emma';
 /* ---- bulk logging: multiple collapsible forms in one screen ------------------
    The expense modal scales from 1→N draft rows. One live editor (#ex-editor) is
@@ -585,6 +600,7 @@ function loadRow(i){
   document.getElementById('ex-date').value = iso;
   setDateFloor('ex-date', isoMonthStart(-24), iso);
   selectChipByVal('ex-cat', catValid(r.cat) ? r.cat : '');   // unclassified → no chip selected
+  exNode = r.node || null; _nodeTouched = !!r._nodeTouched;   // 0144: this row's own node travels with it
   selectChipByVal('ex-who', r.who||lastWho);
   var _t=document.getElementById('ex-time'); if(_t) _t.value = r.time||'';
   _syncExTime();                                             // auto rows → now/'' by date; manual rows keep their value
