@@ -6,7 +6,7 @@
 
    • fhNodeLine(code)      — "Ăn uống › Đồ uống › Cà phê", for a detail row
    • fhNodePickOpen(...)   — the picker sheet: siblings first, then search
-   • fhTreeSelector(scope) — "Danh mục của tôi" / "Loại chi tiêu" segmented control
+   • fhTreeSelector(scope) - "Danh mục của tôi" / "Tiêu vào gì" segmented control
    • fhTreeBreakdownHTML() — the L1 view of a month, group → category → leaf   */
 
 function fhNodeLine(code, fallback) {
@@ -34,7 +34,7 @@ function fhNodePickSearch(el) { _npQ = (el && el.value) || ''; fhNodePickRender(
 function fhNodePickRender() {
   var list = document.getElementById('npick-list'); if (!list || typeof FH_TAX === 'undefined') return;
   var head = document.getElementById('npick-h');
-  if (head) head.textContent = L('Loại chi tiêu', 'What it was');
+  if (head) head.textContent = L('Tiêu vào gì', 'What it was');
   var sub = document.getElementById('npick-sub');
   if (sub) sub.textContent = L('Thay đổi chờ tới khi bấm Lưu', 'Waits for Save');
   var codes, grouped = false;
@@ -90,14 +90,14 @@ function fhTreeSelector(scope) {
   };
   return '<div class="tl-sel" role="group" aria-label="' + escAttr(L('Cách xem', 'View by')) + '">'
     + b('label', L('Danh mục của tôi', 'My categories'))
-    + b('tree', L('Loại chi tiêu', 'What it was')) + '</div>';
+    + b('tree', L('Tiêu vào gì', 'What I bought')) + '</div>';
 }
 
 /* ── the L1 breakdown ───────────────────────────────────────────────────────
    `rows` is [{node, amt}] for the month. Sums roll up the tree: a leaf's amount
    counts for its category and its group, so the top level always adds up to the
    same total the label view shows. Rows with no node land in one honest
-   "Chưa phân loại" line rather than being spread over the groups. */
+   "Chưa rõ" line rather than being spread over the groups. */
 var _tbOpen = {};
 function fhTreeToggle(code) { _tbOpen[code] = !_tbOpen[code]; var host = document.querySelector('[data-treehost]'); if (host) fhTreeBreakdownInto(host); }
 function fhTreeBreakdownInto(host) {
@@ -137,7 +137,7 @@ function fhTreeBreakdownHTML(rows) {
       /* What sits ON this node and not under any child: the honest "we know it
          was food, not which kind" amount. Never shown as a fake leaf. */
       if (own > 0) s += '<div class="tb-row d' + (depth + 1) + ' rest"><span class="tb-chev"></span>'
-        + '<span class="tb-n">' + L('chưa rõ chi tiết', 'no detail yet') + '</span>'
+        + '<span class="tb-n">' + L('chưa rõ món', 'no detail') + '</span>'
         + '<span class="tb-bar"></span><span class="tb-a num">' + fmt(own) + '</span></div>';
     }
     return s;
@@ -147,7 +147,7 @@ function fhTreeBreakdownHTML(rows) {
   roots.forEach(function (c) { out += line(c, 0); });
   if (none > 0) {
     out += '<div class="tb-row d0 rest"><span class="tb-chev"></span>'
-      + '<span class="tb-n">' + L('Chưa phân loại', 'Not classified') + '</span>'
+      + '<span class="tb-n">' + L('Chưa rõ', 'Not sure yet') + '</span>'
       + '<span class="tb-bar"></span><span class="tb-a num">' + fmt(none) + '</span></div>';
   }
   return '<div class="tb-list">' + out + '</div>';

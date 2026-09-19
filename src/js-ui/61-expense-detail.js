@@ -370,7 +370,8 @@ function _exdRowOf(){
     ? ((typeof txById==='function')?txById(_expDetailId):null)
     : ((typeof _pTxById==='function')?_pTxById(_pexdId):null);
 }
-/* 0144 — "Loại chi tiêu": the tree's read of what the money bought. Read-only
+/* 0144 — "Tiêu vào gì" (income: "Tiền từ đâu"): the tree's read of what the
+   money bought. Read-only
    in the view state, a picker in edit. Staged like every other edited field, so
    Lưu is what commits it; a pick also teaches the merchant lesson after the save.
    Hidden entirely while the tree is switched off (C8). */
@@ -380,8 +381,9 @@ function _exdNodeRow(t, editable, mode){
   var cur=(staged!==undefined)?staged:(t.node||null);
   var kind=(mode==='pers')?(t.kind==='income'?'income':'expense'):'expense';
   var val=cur?('<span class="exd-node-path">'+FH_TAX.pathVi(cur).map(esc).join('<span class="sep">›</span>')+'</span>')
-             :('<b>'+L('Chưa rõ chi tiết','No detail yet')+'</b>');
-  return _exdRow({label:L('Loại chi tiêu','What it was'), ro:!editable, soft:!cur, chg:staged!==undefined,
+             :('<b>'+L('Chưa rõ','Not sure yet')+'</b>');
+  var lbl=(kind==='income')?L('Tiền từ đâu','Where it came from'):L('Tiêu vào gì','What it was');
+  return _exdRow({label:lbl, ro:!editable, soft:!cur, chg:staged!==undefined,
     val:val, fn:editable?("exdSheetNode(&#39;"+(mode==='pers'?'pers':'fam')+"&#39;,&#39;"+escAttr(kind)+"&#39;)"):''});
 }
 function exdSheetNode(mode, kind){

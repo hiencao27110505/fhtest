@@ -5573,7 +5573,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
 </div>
 <div class="sheet" id="sheet-node-pick">
   <div class="grab"></div>
-  <div class="sheet-h" id="npick-h">Loại chi tiêu</div>
+  <div class="sheet-h" id="npick-h">Tiêu vào gì</div>
   <div class="sheet-sub" id="npick-sub"></div>
   <div class="npick-search"><input id="npick-q" type="search" placeholder="Tìm: cà phê, xăng, tiền điện…" oninput="fhNodePickSearch(this)" autocomplete="off"></div>
   <div class="choices" id="npick-list"></div>
@@ -20448,7 +20448,8 @@ function _exdRowOf(){
     ? ((typeof txById==='function')?txById(_expDetailId):null)
     : ((typeof _pTxById==='function')?_pTxById(_pexdId):null);
 }
-/* 0144 — "Loại chi tiêu": the tree's read of what the money bought. Read-only
+/* 0144 — "Tiêu vào gì" (income: "Tiền từ đâu"): the tree's read of what the
+   money bought. Read-only
    in the view state, a picker in edit. Staged like every other edited field, so
    Lưu is what commits it; a pick also teaches the merchant lesson after the save.
    Hidden entirely while the tree is switched off (C8). */
@@ -20458,8 +20459,9 @@ function _exdNodeRow(t, editable, mode){
   var cur=(staged!==undefined)?staged:(t.node||null);
   var kind=(mode==='pers')?(t.kind==='income'?'income':'expense'):'expense';
   var val=cur?('<span class="exd-node-path">'+FH_TAX.pathVi(cur).map(esc).join('<span class="sep">›</span>')+'</span>')
-             :('<b>'+L('Chưa rõ chi tiết','No detail yet')+'</b>');
-  return _exdRow({label:L('Loại chi tiêu','What it was'), ro:!editable, soft:!cur, chg:staged!==undefined,
+             :('<b>'+L('Chưa rõ','Not sure yet')+'</b>');
+  var lbl=(kind==='income')?L('Tiền từ đâu','Where it came from'):L('Tiêu vào gì','What it was');
+  return _exdRow({label:lbl, ro:!editable, soft:!cur, chg:staged!==undefined,
     val:val, fn:editable?("exdSheetNode(&#39;"+(mode==='pers'?'pers':'fam')+"&#39;,&#39;"+escAttr(kind)+"&#39;)"):''});
 }
 function exdSheetNode(mode, kind){
@@ -21485,7 +21487,7 @@ window.rxAfterHydrate=rxAfterHydrate;
 
    • fhNodeLine(code)      — "Ăn uống › Đồ uống › Cà phê", for a detail row
    • fhNodePickOpen(...)   — the picker sheet: siblings first, then search
-   • fhTreeSelector(scope) — "Danh mục của tôi" / "Loại chi tiêu" segmented control
+   • fhTreeSelector(scope) - "Danh mục của tôi" / "Tiêu vào gì" segmented control
    • fhTreeBreakdownHTML() — the L1 view of a month, group → category → leaf   */
 
 function fhNodeLine(code, fallback) {
@@ -21513,7 +21515,7 @@ function fhNodePickSearch(el) { _npQ = (el && el.value) || ''; fhNodePickRender(
 function fhNodePickRender() {
   var list = document.getElementById('npick-list'); if (!list || typeof FH_TAX === 'undefined') return;
   var head = document.getElementById('npick-h');
-  if (head) head.textContent = L('Loại chi tiêu', 'What it was');
+  if (head) head.textContent = L('Tiêu vào gì', 'What it was');
   var sub = document.getElementById('npick-sub');
   if (sub) sub.textContent = L('Thay đổi chờ tới khi bấm Lưu', 'Waits for Save');
   var codes, grouped = false;
@@ -21569,14 +21571,14 @@ function fhTreeSelector(scope) {
   };
   return '<div class="tl-sel" role="group" aria-label="' + escAttr(L('Cách xem', 'View by')) + '">'
     + b('label', L('Danh mục của tôi', 'My categories'))
-    + b('tree', L('Loại chi tiêu', 'What it was')) + '</div>';
+    + b('tree', L('Tiêu vào gì', 'What I bought')) + '</div>';
 }
 
 /* ── the L1 breakdown ───────────────────────────────────────────────────────
    `rows` is [{node, amt}] for the month. Sums roll up the tree: a leaf's amount
    counts for its category and its group, so the top level always adds up to the
    same total the label view shows. Rows with no node land in one honest
-   "Chưa phân loại" line rather than being spread over the groups. */
+   "Chưa rõ" line rather than being spread over the groups. */
 var _tbOpen = {};
 function fhTreeToggle(code) { _tbOpen[code] = !_tbOpen[code]; var host = document.querySelector('[data-treehost]'); if (host) fhTreeBreakdownInto(host); }
 function fhTreeBreakdownInto(host) {
@@ -21616,7 +21618,7 @@ function fhTreeBreakdownHTML(rows) {
       /* What sits ON this node and not under any child: the honest "we know it
          was food, not which kind" amount. Never shown as a fake leaf. */
       if (own > 0) s += '<div class="tb-row d' + (depth + 1) + ' rest"><span class="tb-chev"></span>'
-        + '<span class="tb-n">' + L('chưa rõ chi tiết', 'no detail yet') + '</span>'
+        + '<span class="tb-n">' + L('chưa rõ món', 'no detail') + '</span>'
         + '<span class="tb-bar"></span><span class="tb-a num">' + fmt(own) + '</span></div>';
     }
     return s;
@@ -21626,7 +21628,7 @@ function fhTreeBreakdownHTML(rows) {
   roots.forEach(function (c) { out += line(c, 0); });
   if (none > 0) {
     out += '<div class="tb-row d0 rest"><span class="tb-chev"></span>'
-      + '<span class="tb-n">' + L('Chưa phân loại', 'Not classified') + '</span>'
+      + '<span class="tb-n">' + L('Chưa rõ', 'Not sure yet') + '</span>'
       + '<span class="tb-bar"></span><span class="tb-a num">' + fmt(none) + '</span></div>';
   }
   return '<div class="tb-list">' + out + '</div>';
@@ -23327,7 +23329,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v545';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v546';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -23348,13 +23350,13 @@ var ICO = {
 };
 
 var RELEASES = [
-  { id:'2026-09-20-loai-chi-tieu', date:'2026-09-20', time:'04:20', ver:'v545', icon:ICO.pie,
+  { id:'2026-09-20-tieu-vao-gi', date:'2026-09-20', time:'04:45', ver:'v546', icon:ICO.pie,
     vi:{ t:'Biết rõ tiền đi vào việc gì',
       problem:'Danh mục cũ gom quá nhiều thứ vào một chỗ. "Ăn uống" vừa là bữa cơm vừa là ly cà phê sáng vừa là chầu nhậu tối, nên nhìn vào chỉ thấy một con số to mà không biết mình thật sự tiêu cho cái gì. Khoản từ email ngân hàng thì hơn một nửa không xếp được vào đâu.',
-      sol:'App giờ tự nhận ra từng khoản là gì — cà phê, trà sữa, đi chợ, tiền điện, xăng xe — và xếp vào một cây phân loại có sẵn, chi tiết dần từ nhóm lớn tới từng món. Danh mục của bạn vẫn y nguyên, vẫn là thứ bạn đặt ngân sách. Trong màn chi tiêu có nút đổi cách xem giữa "Danh mục của tôi" và "Loại chi tiêu"; mở một khoản ra là thấy dòng "Loại chi tiêu", chạm để sửa nếu app đoán sai, và lần sau nó nhớ.' },
+      sol:'App giờ tự nhận ra từng khoản là gì. Cà phê, trà sữa, đi chợ, tiền điện, xăng xe, mỗi thứ về đúng chỗ của nó, từ nhóm lớn xuống tới từng món. Danh mục của bạn vẫn y nguyên, vẫn là thứ bạn đặt ngân sách. Trong màn chi tiêu có nút đổi cách xem giữa "Danh mục của tôi" và "Tiêu vào gì". Mở một khoản ra là thấy dòng "Tiêu vào gì", chạm để sửa nếu app đoán sai, lần sau nó nhớ.' },
     en:{ t:'See what the money actually went to',
       problem:'The old categories lumped too much together. "Ăn uống" was dinner, the morning coffee and a night out all at once, so you saw one big number and not what you were really spending on. More than half of what came in from bank email could not be placed at all.',
-      sol:'The app now works out what each entry is — coffee, milk tea, groceries, electricity, fuel — and files it in a ready-made tree that goes from broad groups down to the specific thing. Your own categories are untouched and still what you budget by. The spending screen has a switch between "My categories" and "What it was", and opening an entry shows a "What it was" row you can correct. It remembers your correction next time.' } },
+      sol:'The app now works out what each entry is. Coffee, milk tea, groceries, electricity, fuel, each one lands where it belongs, from the broad group down to the specific thing. Your own categories are untouched and still what you budget by. The spending screen has a switch between "My categories" and "What I bought". Open an entry and you see a "What it was" row you can correct, and it remembers next time.' } },
   { id:'2026-09-13-so-du-ban-chot', date:'2026-09-13', time:'13:55', ver:'v514', icon:ICO.shield,
     vi:{ t:'Số dư tài khoản, do bạn chốt',
       problem:'Kết nối email xong, thẻ và tài khoản hiện lên với những con số sai ngay từ đầu. Email chỉ kể được vài tháng gần đây, còn dư nợ và số dư trước đó thì không.',
