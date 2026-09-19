@@ -55,6 +55,12 @@ consent v5.
   cached as "no".
 - **Consent v5**, offered not forced (`fhConsentOffer`); the server checks the recorded
   version itself. Erasure on disconnect via `purge_my_statements()`.
+- **First real run, first bug (SW v539).** The six cards arrived but none would open:
+  "File này không khớp với sao kê". `_stmOpenMeta` was declared `async`, so each card
+  held a Promise where its sealed details should be — no period in the title, no file
+  name, a hash that could never match. Every other statement test passed because none
+  went through the load; `tools/statement-load.test.js` now does, with a card sealed by
+  the server's `sealForFamily` and opened by the app's own `fhStagingOpenRow`.
 - **Not built:** the model as a column-reading fallback, an editable mapping check,
   the correction button for family-ledger twins, a card's closing debt. Spec §6.
 

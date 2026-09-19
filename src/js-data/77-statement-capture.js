@@ -143,7 +143,13 @@
     let _stmCards = [];
     window.fhStmtCards = () => _stmCards;
 
-    async function _stmOpenMeta(f, priv) {
+    /* SYNCHRONOUS, and it must stay so: fhStagingOpenRow is. Declared `async` it
+       handed back a Promise, the caller stored that as `card.meta`, and every field
+       read off it was undefined -- no period in the title, no file name, and a
+       file hash that could never match, so every statement refused to open with
+       "File này không khớp với sao kê" (2026-09-19, the first real run).
+       tools/statement-load.test.js opens a really-sealed card to pin this. */
+    function _stmOpenMeta(f, priv) {
       return window.fhStagingOpenRow({ sealed: f.meta_sealed, nonce: f.meta_nonce, eph_pub: f.meta_eph_pub, enc_v: f.enc_v,
         owner_user_id: _stmUid(), gmail_message_id: f.gmail_message_id }, priv);
     }
@@ -449,8 +455,11 @@
       for (const r of p.rows) { const fp = await _stmFp(fhStmtCanonical(S.card.source_provider, tail, r)); fps.push(fp); }
       let decided = new Set();
       try {
-        for (let i = 0; i < fps.length; i += 200) {
-          const q = await window.sb.from('resolved_statement_rows').select('row_fp').in('row_fp', fps.slice(i, i + 200));
+        /* 50 at a time: a fingerprint is 44 base64 characters and rides in the URL
+           (`row_fp=in.(...)`), so a 145-row statement in one request is a ~9 KB query
+           string, which is where proxies start refusing. */
+        for (let i = 0; i < fps.length; i += 50) {
+          const q = await window.sb.from('resolved_statement_rows').select('row_fp').in('row_fp', fps.slice(i, i + 50));
           (q.data || []).forEach((x) => decided.add(x.row_fp));
         }
       } catch (e) { decided = new Set(); }
