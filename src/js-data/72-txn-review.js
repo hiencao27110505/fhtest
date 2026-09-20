@@ -733,7 +733,10 @@
       if (i % 25 === 0) { await new Promise(function (res) { setTimeout(res, 0); }); }   // yield, keep the tap alive
       if (!r || r._unreadable) continue;
       var re = r.raw_extracted || {};
-      var memo = String(re.memo_display != null ? re.memo_display : (re.memo || r.counterparty || '')).toLowerCase();
+      /* Same empty-string hazard as fhCardPayShaped: memo_display is "" on
+         Vietcombank/VIB card mails, so a != null test wins and the counterparty
+         is never read. The line right below already uses the || form. */
+      var memo = String(re.memo_display || re.memo || r.counterparty || '').toLowerCase();
       var flat = memo.normalize ? memo.normalize('NFD').replace(/[̀-ͯ]/g, '') : memo;
       var isPay = re.flow === 'transfer'
         || (re.account_kind === 'credit_card' && r.direction === 'credit')
