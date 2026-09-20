@@ -156,10 +156,8 @@ function fhNodeSelCode(){
 function fhNodeSelLabel(){
   var sel = window.fhNodeSel; if (!sel) return '';
   if (sel === '_none') return L('Chưa rõ', 'Not sure yet');
-  if (sel.charAt(0) === '=') {
-    var e = FH_TAX.get(sel.slice(1));
-    return e ? e.vi + ' · ' + L('chưa rõ chi tiết', 'no detail') : '';
-  }
+  /* Named at the level that IS known, same as the row it came from. */
+  if (sel.charAt(0) === '=') { var e = FH_TAX.get(sel.slice(1)); return e ? e.vi : ''; }
   var n = FH_TAX.get(sel); return n ? n.vi : '';
 }
 /* Same name on both sides of the bank's verb: "CAO THÁI DUY HIỂN chuyen tien

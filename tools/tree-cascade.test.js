@@ -23,6 +23,7 @@ vm.runInContext(fs.readFileSync(path.join(ROOT, 'src/js-ui/11-taxonomy.js'), 'ut
 vm.runInContext(fs.readFileSync(path.join(ROOT, 'src/js-ui/13-partition.js'), 'utf8')
   + ';globalThis.__P={fhLabelForNode,fhDefaultClaimsFor,fhNodeGuess,fhNodeCorrections,fhNodeDepth,fhNodeFromClaims,fhNodeGroup,fhTransferShape,fhLooksSelfTransfer,fhNodeSelMatch,fhNodeSelLabel,fhNodeSelCode};', ctx);
 const T = ctx.FH_TAX, P = ctx.__P;
+const FH_TAX_VI = (c) => T.get(c).vi;
 
 console.log('\n-- the tree is well formed --');
 {
@@ -331,7 +332,7 @@ console.log('\n-- the four ways v552 filtered nothing and swept nothing --');
     /_overlayUp/.test(tx));
 }
 
-console.log('\n-- "chưa rõ chi tiết" is a work queue, not a category --');
+console.log('\n-- a group-level row is named at its group, and is still a work queue --');
 {
   const W = ctx.window;
   /* A group-level answer is honest but it used to be a dead end: an inert grey
@@ -343,7 +344,7 @@ console.log('\n-- "chưa rõ chi tiết" is a work queue, not a category --');
   t('a plain selection still includes the children',
     (W.fhNodeSel = 'food', P.fhNodeSelMatch('groceries') && P.fhNodeSelMatch('food')));
   W.fhNodeSel = '=food';
-  t('the exact selection names itself apart from the group', /chưa rõ chi tiết/.test(P.fhNodeSelLabel()));
+  t('an exact selection is named at the known level too', P.fhNodeSelLabel() === FH_TAX_VI('food'));
   t('fhNodeSelCode unwraps either form',
     P.fhNodeSelCode() === 'food' && (W.fhNodeSel = 'food', P.fhNodeSelCode() === 'food'));
   W.fhNodeSel = '_none';
@@ -354,8 +355,12 @@ console.log('\n-- "chưa rõ chi tiết" is a work queue, not a category --');
   const tx = fs.readFileSync(path.join(ROOT, 'src/js-ui/60-transactions.js'), 'utf8');
   t('the rest row opens the rows it is made of', /go: 'fhTreeTapExact/.test(ui));
   t('it says how many rows that is', /cnt\[code\]/.test(ui) && /cnt\[r\.node\]/.test(ui));
-  t('it no longer shares a name with the top-level "Chưa rõ"',
-    !/'chưa rõ món'/.test(ui) && /Chưa rõ chi tiết/.test(ui));
+  t('rows the tree placed at group level are named at that group, not "unknown"',
+    !/'chưa rõ món'/.test(ui) && !/Chưa rõ chi tiết/.test(ui) && /name: n\.vi \+ \(oc \?/.test(ui));
+  t('only the genuinely un-placed top-level row keeps the muted "rest" look',
+    (ui.match(/rest: true/g) || []).length === 1);
+  t('the group row and its own-rows highlight separately',
+    /opts\.own \? window\.fhNodeSel === '=' \+ opts\.code/.test(ui));
   /* The queue has to be emptiable, or naming it just moves the complaint. */
   t('bulk select can assign a node', /txnBulkNodePick/.test(tx) && /txnBulkSheet\(&#39;node&#39;\)/.test(tx));
   t('the bulk picker is scoped to the group the queue came from', /_bulkNodeScope/.test(tx) && /fhNodeSelCode/.test(tx));
