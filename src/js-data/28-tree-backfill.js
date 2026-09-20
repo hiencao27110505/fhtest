@@ -29,8 +29,8 @@
     /* v3: v1 wrote the LABEL's group whenever a keyword
        disagreed, so those rows must be revisited. Bumping the key is what makes
        an already-swept device sweep again. */
-    if (scope === 'family') return 'fh-tree-bf:v3:fam:' + ((window.DB && window.DB.fid) || '');
-    return 'fh-tree-bf:v3:per:' + ((window.fhPersonalData && fhPersonalData().uid) || '');
+    if (scope === 'family') return 'fh-tree-bf:v5:fam:' + ((window.DB && window.DB.fid) || '');
+    return 'fh-tree-bf:v5:per:' + ((window.fhPersonalData && fhPersonalData().uid) || '');
   }
   function _tbfDone(scope) { try { return localStorage.getItem(_tbfCursorKey(scope)) === 'done'; } catch (e) { return false; } }
   function _tbfMarkDone(scope) { try { localStorage.setItem(_tbfCursorKey(scope), 'done'); } catch (e) {} }
@@ -69,6 +69,14 @@
        exists to improve, so letting one veto the other recorded every past
        mis-filing as fact ("QR2CK3U3TT SUPERSPORTS" under Ăn uống). The label
        only answers when the words say nothing at all. */
+    /* First: does the row say it was never spending at all? A self-transfer or
+       a card repayment sitting in the ledger as an expense gets its TRUE node,
+       which both names it and marks the kind as worth fixing. This has to be
+       asked before the guess, which reads "chuyen tien den <my own name>" as
+       money sent to another person. */
+    if (kind === 'expense') {
+      try { const xf = fhTransferShape(row.note); if (xf) return xf; } catch (e) {}
+    }
     let guess = null;
     try { guess = fhNodeGuess({ kind: kind, note: row.note, amount: row.amt }); }
     catch (e) { guess = null; }

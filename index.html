@@ -2119,9 +2119,45 @@ input{font-family:inherit}
 .cat-claims{display:block;width:100%;text-align:left;appearance:none;background:transparent;border:0;
   font:inherit;font-size:11.5px;color:var(--muted);padding:2px 0 0;grid-column:1/-1;cursor:pointer}
 .cat-claims.ro{cursor:default}
+/* A selected category: the row it was tapped on stays marked while everything
+   else on screen narrows to it. Tint only, no new geometry — the list must not
+   reflow when a selection turns on. */
+.tb-list .fh-lrow.tb-sel{ background:var(--id-1-tint,var(--surface-2)); }
+.tb-list .fh-lrow.tb-sel .fh-lname{ font-weight:640; }
+/* The not-spending heading: a rule and a total, not a card — it separates two
+   lists that are read the same way. */
+.tb-sect{ display:flex; align-items:baseline; justify-content:space-between; gap:10px;
+  margin:18px 0 2px; padding:12px 14px 0; border-top:1px solid var(--line);
+  font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-3); }
+.tb-sect b{ font-size:13px; letter-spacing:0; text-transform:none; color:var(--ink-2); }
+.tb-secthint{ margin:0 0 8px; padding:0 14px; font-size:12px; line-height:1.45; color:var(--ink-3); }
+.tb-selbar{ display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding:9px 14px; margin:0 0 6px; border-radius:11px;
+  background:var(--surface-2); color:var(--ink-2); font-size:13px; }
+.tb-selbar span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.tb-selbar button{ flex:0 0 auto; border:0; background:none; padding:0;
+  color:var(--accent); font:inherit; font-weight:600; cursor:pointer; }
 .claim-row{display:grid;grid-template-columns:1fr auto 18px;gap:8px;align-items:center;width:100%;
   appearance:none;background:transparent;border:0;border-bottom:1px solid var(--hairline);
   font:inherit;color:var(--ink);padding:10px 2px;min-height:44px;text-align:left;cursor:pointer}
+/* A selected category: the row it was tapped on stays marked while everything
+   else on screen narrows to it. Tint only, no new geometry — the list must not
+   reflow when a selection turns on. */
+.tb-list .fh-lrow.tb-sel{ background:var(--id-1-tint,var(--surface-2)); }
+.tb-list .fh-lrow.tb-sel .fh-lname{ font-weight:640; }
+/* The not-spending heading: a rule and a total, not a card — it separates two
+   lists that are read the same way. */
+.tb-sect{ display:flex; align-items:baseline; justify-content:space-between; gap:10px;
+  margin:18px 0 2px; padding:12px 14px 0; border-top:1px solid var(--line);
+  font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-3); }
+.tb-sect b{ font-size:13px; letter-spacing:0; text-transform:none; color:var(--ink-2); }
+.tb-secthint{ margin:0 0 8px; padding:0 14px; font-size:12px; line-height:1.45; color:var(--ink-3); }
+.tb-selbar{ display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding:9px 14px; margin:0 0 6px; border-radius:11px;
+  background:var(--surface-2); color:var(--ink-2); font-size:13px; }
+.tb-selbar span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.tb-selbar button{ flex:0 0 auto; border:0; background:none; padding:0;
+  color:var(--accent); font:inherit; font-weight:600; cursor:pointer; }
 .claim-row.on .claim-n{color:var(--brand-ink);font-weight:700}
 .claim-n{font-size:14px;font-weight:600}
 .claim-n.sub{padding-left:14px;font-size:13px;font-weight:500;color:var(--ink-2)}
@@ -5543,6 +5579,12 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   <div class="sheet-sub" data-t="txnCatSub">Narrowing shows only those expenses.</div>
   <div class="choices" id="txncat-list"></div>
 </div>
+<div class="sheet" id="sheet-txnnode">
+  <div class="grab"></div>
+  <div class="sheet-h" data-t="txnNodeH">What I bought</div>
+  <div class="sheet-sub" data-t="txnNodeSub">Picking a group shows only what went into it.</div>
+  <div id="txnnode-body"></div>
+</div>
 <!-- Bulk-verb picker (select mode) — one shell, title/body set per verb. -->
 <div class="sheet" id="sheet-txnbulk">
   <div class="grab"></div>
@@ -6535,6 +6577,47 @@ function fhLooksPersonToPerson(input){
      number, then the same person's name. The reference always carries digits,
      which is what separates it from a merchant ("AEON NGUYEN VAN LINH"). */
   return /^[a-z]*\d[a-z0-9]*\s+[a-z]+\s+[a-z]+(\s|$)/.test(text);
+}
+/* The tree row a person has tapped: null = everything, a code = that node and
+   everything under it, '_none' = the rows the tree could not place. Chart,
+   breakdown and transaction list all read this one variable, so the three can
+   never disagree about what is on screen. */
+window.fhNodeSel = null;
+function fhNodeSelMatch(node){
+  var sel = window.fhNodeSel; if (!sel) return true;
+  if (sel === '_none') return !node || !FH_TAX.get(node);
+  if (!node) return false;
+  return node === sel || FH_TAX.ancestors(node).indexOf(sel) >= 0;
+}
+/* What to call the current selection in a chip or a header. */
+function fhNodeSelLabel(){
+  var sel = window.fhNodeSel; if (!sel) return '';
+  if (sel === '_none') return L('Chưa rõ', 'Not sure yet');
+  var n = FH_TAX.get(sel); return n ? n.vi : '';
+}
+/* Same name on both sides of the bank's verb: "CAO THÁI DUY HIỂN chuyen tien
+   den CAO THAI DUY HIEN - 1046382279". Money between your own two accounts. */
+function fhLooksSelfTransfer(text){
+  var m=FH_TAX.deburr(String(text||'').toLowerCase());
+  var mm=m.match(/(.+?)\s+chuyen\s+(?:tien|khoan)\s+(?:den|toi|cho|sang)\s+(.+)/);
+  if(!mm) return false;
+  var norm=function(s){ return s.replace(/\s*[-–:|].*$/,'').replace(/\d+/g,' ').replace(/[^a-z ]+/g,' ').replace(/\s+/g,' ').trim(); };
+  var a=norm(mm[1]), b=norm(mm[2]);
+  return a.length>=6 && a===b;
+}
+/* A row whose words say "this was not spending" and which transfer node it is.
+   Only the shapes real mail actually produces, so nothing here guesses. */
+function fhTransferShape(text){
+  var t=' '+FH_TAX.deburr(String(text||'').toLowerCase()).replace(/[^a-z0-9]+/g,' ').trim()+' ';
+  if(fhLooksSelfTransfer(text)) return 'bankbank';
+  if(/ (thanh toan the tin dung|tra no the|thanh toan sao ke the|tt the tin dung) /.test(t)) return 'cardpay';
+  /* The bank's own payment-confirmation mail names the BANK as the counterparty
+     and carries no memo at all, which is how ten of them read as spending. */
+  if(/ (ngan hang tmcp|ngan hang thuong mai) /.test(t)) return 'cardpay';
+  if(/ (nap tien vao vi|nap vi|nap tien vao vi dien tu) /.test(t)) return 'wallet';
+  if(/ (rut tien mat|rut tien tai atm) /.test(t)) return 'cashout';
+  if(/ (gui tiet kiem|mo so tiet kiem|tat toan so) /.test(t)) return 'savings';
+  return null;
 }
 /* Siblings-first correction list for a picker: the node's siblings (and itself),
    then its parent's siblings, then every group of the kind. */
@@ -8524,6 +8607,7 @@ function persGuideParts(periodKey){
 
 /* Cache window start ('YYYY-MM-01' of last month) — mirrors _winFrom in 19-personal.js. */
 function _persWinFrom(){ var d=new Date(); d.setDate(1); d.setMonth(d.getMonth()-1); return _pDate(d); }
+var _persOldSel=null;   // the selection _persOldMap was built under
 var _persOldMap=null;   // last derived old-history map — kept while the slice is being re-fetched after a write, so old greys don't blink
 /* Day-keyed {chi,thu}, the four buổi of each date, the untimed remainder per
    date, and the ledger's first date — over the WIDEST data we hold: the
@@ -8547,8 +8631,14 @@ function persCmpData(P, SL){
     else (M.buoi[date]||(M.buoi[date]=[0,0,0,0]))[b]+=amt;
   };
   var cur={byDay:byDay, buoi:buoi, untimed:untimed, first:null};
+  /* 0144 — a tree row is selected: the bars narrow to it too, so the chart and
+     the breakdown under it are always describing the same money. Income steps
+     aside while a spending group is selected. */
+  var _sel=(typeof fhNodeSelMatch==='function') && window.fhNodeSel;
+  var _keep=function(t){ return !_sel || (t.kind==='expense' && fhNodeSelMatch(t.node)); };
   (P.txns||[]).forEach(function(t){
     if(t._unreadable || (t.kind!=='expense' && t.kind!=='income') || !t.date || t.date<win) return;
+    if(!_keep(t)) return;
     addTo(cur, t.date, t.kind, t.amt||0, t.time, t.ts);
   });
   var old=null;
@@ -8557,10 +8647,10 @@ function persCmpData(P, SL){
     SL.rows.forEach(function(r){
       if(!r.date) return;
       if(old.first==null || r.date<old.first) old.first=r.date;   // first over the WHOLE ledger
-      if(r.date<win) addTo(old, r.date, r.kind, r.amt, r.time, r.ts);
+      if(r.date<win && _keep(r)) addTo(old, r.date, r.kind, r.amt, r.time, r.ts);
     });
-    _persOldMap=old;
-  } else old=_persOldMap;
+    _persOldMap=old; _persOldSel=window.fhNodeSel||null;
+  } else old=((_persOldSel||null)===(window.fhNodeSel||null))?_persOldMap:null;
   if(old){
     Object.keys(old.byDay).forEach(function(k){ byDay[k]=old.byDay[k]; });
     Object.keys(old.buoi).forEach(function(k){ buoi[k]=old.buoi[k]; });
@@ -19295,7 +19385,7 @@ function clearFilter(){ txFilter=null; renderTxns(); }
    chart zoom (independent of the list grouping). Grouping/sort/zoom persist
    per scope; filters reset each open. */
 var txnSort='date';                                 // 'date' | 'amount' — order INSIDE a group
-var TXV={ grp:'day', cgrp:'day', pin:null, kinds:null, srcs:null, accts:null, cats:null, noNode:false, _stReset:false };
+var TXV={ grp:'day', cgrp:'day', pin:null, kinds:null, srcs:null, accts:null, cats:null, node:null, _stReset:false };
 function _txScopeKey(){ return _txnPersonal()?'personal':'family'; }
 function _txSavePrefs(){
   try{ localStorage.setItem('fh-txnview:'+_txScopeKey(), JSON.stringify({grp:TXV.grp,cgrp:TXV.cgrp,sort:txnSort})); }catch(_e){}
@@ -19310,6 +19400,7 @@ function _txInitFilters(){
   TXV.insts={_none:1};
   if(!_txnPersonal()) (_txList()||[]).forEach(function(t){ if(t.inst) TXV.insts[t.inst]=1; });
   TXV.cats={}; (_txCatOrder()||[]).forEach(function(c){ TXV.cats[c]=1; });
+  TXV.node=(typeof fhNodeSel!=='undefined')?(window.fhNodeSel||null):null;
   TXV.pin=null; TXV._stReset=true;
 }
 function openTxns(scope){
@@ -19423,6 +19514,7 @@ function _txFiltersActive(){
   var n=0, chk=function(g){ if(!g) return; Object.keys(g).forEach(function(k){ if(!g[k]) n++; }); };
   if(_txnPersonal()){ chk(TXV.kinds); chk(TXV.accts); } else chk(TXV.insts);
   chk(TXV.srcs); chk(TXV.cats);
+  if(TXV.node) n++;
   return n>0;
 }
 
@@ -19438,9 +19530,9 @@ function renderTxnScreen(){
     if(!personal && TXV.insts && !TXV.insts[t.inst||'_none']) return false;
     /* Danh mục narrowed ⇒ an expense view: other kinds step aside */
     if(catNarrow){ if(kg!=='chi') return false; if(!TXV.cats[t.cat]) return false; }
-    /* 0144 — "Chưa rõ" tapped: the rows the tree could not place. Spending only,
-       since a transfer is not meant to have one. */
-    if(TXV.noNode){ if(kg!=='chi') return false; if(t.node) return false; }
+    /* 0144 — a tree row is selected: that node and everything under it. Spending
+       only, since the selection came from the spending breakdown. */
+    if(TXV.node){ if(kg!=='chi') return false; if(!fhNodeSelMatch(t.node)) return false; }
     return true;
   });
   var ts=document.getElementById('txn-sum'); if(ts) ts.style.display='none';
@@ -19639,6 +19731,11 @@ function buildTxnToolChips(){
   var catDefs=(_txCatOrder()||[]).map(function(c){ return {k:c,lbl:c}; });
   var cl=_txChipLbl(L('Danh mục','Categories'), TXV.cats, catDefs);
   html+=chip(cl.t, cl.live, 'txnSheetCat()');
+  if(typeof fhTreeOn==='function' && fhTreeOn()){
+    var nl=L('Tiêu vào gì','What I bought');
+    if(TXV.node) nl+=' · '+fhNodeSelLabel();
+    html+=chip(nl, !!TXV.node, 'txnSheetNode()');
+  }
   setHTML('txn-chips', html);
 }
 /* One toggle for every filter chip in a sheet; the last ON option refuses to
@@ -19653,6 +19750,46 @@ function txnFiltTap(group,k){
   else if(group==='cats') txnSheetCat();
   else txnSheetSrc();
 }
+/* The "Tiêu vào gì" chip sheet. Only the groups this month actually has, so
+   the list is a picture of the month rather than the whole taxonomy; the
+   selected node's own group is always in it even when the tap came from a
+   deeper level. */
+function txnSheetNode(){
+  var b=document.getElementById('txnnode-body'); if(!b) return;
+  var seen={}, has=false;
+  (_txList()||[]).forEach(function(t){
+    if((t._kg||'chi')!=='chi') return;
+    if(!t.node || !FH_TAX.get(t.node)){ seen._none=1; has=true; return; }
+    var a=FH_TAX.ancestors(t.node); seen[a.length?a[a.length-1]:t.node]=1; has=true;
+  });
+  var opts=Object.keys(seen).filter(function(k){ return k!=='_none'; })
+    .map(function(c){ var x=FH_TAX.get(c); return {k:c, lbl:((x.emoji||'')+' '+x.vi).trim()}; })
+    .sort(function(x,y){ return x.lbl.localeCompare(y.lbl); });
+  if(seen._none) opts.push({k:'_none', lbl:'🗂️ '+L('Chưa rõ','Not sure yet')});
+  var h='<span class="crs-lbl">'+L('Nhóm chi tiêu','Spending group')+'</span><div class="choices">'
+    +'<button type="button" class="choice'+(TXV.node?'':' on')+'" onclick="setTxnNode(null)">'+L('Tất cả','Everything')+'</button>'
+    +opts.map(function(o){
+      var on=TXV.node===o.k||(TXV.node&&o.k!=='_none'&&FH_TAX.get(TXV.node)&&FH_TAX.ancestors(TXV.node).indexOf(o.k)>=0);
+      return '<button type="button" class="choice'+(on?' on':'')+'" onclick="setTxnNode(&#39;'+escAttr(o.k)+'&#39;)">'+esc(o.lbl)+'</button>';
+    }).join('')+'</div>';
+  if(!has) h='<span class="crs-lbl">'+L('Chưa có khoản chi nào để lọc','No spending to filter yet')+'</span>';
+  b.innerHTML=h;
+  openSheet('sheet-txnnode');
+}
+/* One way in and out of the selection, wherever it was tapped. Choosing the
+   node already chosen clears it, the same way a category row does. */
+function setTxnNode(code){
+  if(code && TXV.node===code) code=null;
+  window.fhNodeSel = code || null;
+  TXV.node = window.fhNodeSel;
+  TXV.pin=null;
+  renderTxnScreen();
+  if(typeof buildTxnToolChips==='function') buildTxnToolChips();
+  if(typeof renderFinanceHero==='function') renderFinanceHero();
+  if(_txnPersonal() && typeof renderPersonal==='function') renderPersonal();
+  if(document.getElementById('sheet-txnnode') && document.getElementById('sheet-txnnode').classList.contains('open')) txnSheetNode();
+}
+window.setTxnNode=setTxnNode;
 function txnSheetSort(){
   var b=document.getElementById('txnsort-body'); if(!b) return;
   function seg(on,fn,lbl){ return '<button type="button" class="atx-seg'+(on?' on':'')+'" onclick="'+fn+'">'+lbl+'</button>'; }
@@ -21695,30 +21832,61 @@ function fhTreeToggle(code) {
   var host = document.querySelector('[data-treehost]');
   if (host) host.innerHTML = fhTreeBreakdownHTML(_tbRows);
 }
+/* Tapping a category does the two things a person means by it at once: narrow
+   everything on screen to that part of the tree, and open it so the next level
+   down is right there. Tapping it again undoes both. */
+function fhTreeTap(code) {
+  var off = (window.fhNodeSel === code);
+  _tbOpen[code] = !off;
+  if (typeof setTxnNode === 'function') setTxnNode(off ? null : code);
+  else { window.fhNodeSel = off ? null : code; }
+  fhTreeRepaint();
+}
+/* Repaint the breakdown in place from the rows it was last built with. The
+   chart and the list are repainted by their own renderers. */
+function fhTreeRepaint() {
+  var host = document.querySelector('[data-treehost]');
+  if (host) host.innerHTML = fhTreeBreakdownHTML(_tbRows);
+}
+function fhTreeClearSel() {
+  if (typeof setTxnNode === 'function') setTxnNode(null);
+  else window.fhNodeSel = null;
+  fhTreeRepaint();
+}
+window.fhTreeTap = fhTreeTap; window.fhTreeClearSel = fhTreeClearSel;
 function fhTreeBreakdownHTML(rows) {
   if (typeof FH_TAX === 'undefined') return '';
   _tbRows = rows || [];               // what the visible list was built from, for the next expand
-  var sum = {}, none = 0, total = 0;
+  var sum = {}, none = 0, total = 0, xTotal = 0, xAny = false;
   (rows || []).forEach(function (r) {
     var amt = Number(r.amt) || 0; if (amt <= 0) return;
-    total += amt;
-    if (!r.node || !FH_TAX.get(r.node)) { none += amt; return; }
+    if (!r.node || !FH_TAX.get(r.node)) { total += amt; none += amt; return; }
+    /* A row whose node is a transfer is money that MOVED, not money spent: your
+       own account, a card paid off, a wallet topped up. The ledger still holds
+       it as an expense because that is how it arrived, so it is shown — but
+       below the spending, under its own heading, and out of the total the
+       percentages are drawn against. Otherwise a 7tr move between two of your
+       own accounts reads as the month's biggest purchase. */
+    if (FH_TAX.kindOf(r.node) !== 'expense') { xTotal += amt; xAny = true; }
+    else total += amt;
     sum[r.node] = (sum[r.node] || 0) + amt;
     FH_TAX.ancestors(r.node).forEach(function (a) { sum[a] = (sum[a] || 0) + amt; });
   });
-  if (!total) return '<div class="tb-empty">' + L('Chưa có khoản nào tháng này', 'Nothing logged this month') + '</div>';
+  if (!total && !xTotal) return '<div class="tb-empty">' + L('Chưa có khoản nào tháng này', 'Nothing logged this month') + '</div>';
   /* One row builder, and it is the LEGEND row the rest of the app already uses
      (.fh-lrow): same height, type, bar and chevron. Depth is a left inset, not
      a different component. */
   var row = function (opts) {
-    var pct = total ? Math.min(100, Math.max(1, 100 * opts.amt / total)) : 0;
+    var base = opts.xfer ? (xTotal || 1) : (total || 1);
+    var pct = Math.min(100, Math.max(1, 100 * opts.amt / base));
     var chev = (opts.kids || opts.go)
       ? '<svg class="fh-chev' + (opts.open ? ' open' : '') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>'
       : '<span class="fh-chev"></span>';
-    var tappable = opts.kids || opts.go;
-    return '<' + (tappable ? 'button type="button"' : 'div') + ' class="fh-lrow tb-l' + opts.depth + (opts.rest ? ' tb-rest' : '') + '"'
+    var tappable = opts.kids || opts.go || opts.code;
+    var sel = opts.code && window.fhNodeSel === opts.code;
+    return '<' + (tappable ? 'button type="button"' : 'div') + ' class="fh-lrow tb-l' + opts.depth + (opts.rest ? ' tb-rest' : '') + (sel ? ' tb-sel' : '') + '"'
       + (opts.go ? ' onclick="' + opts.go + '"'
-                 : (opts.kids ? ' onclick="fhTreeToggle(&#39;' + escAttr(opts.code) + '&#39;)" aria-expanded="' + (opts.open ? 'true' : 'false') + '"' : ''))
+                 : (opts.code ? ' onclick="fhTreeTap(&#39;' + escAttr(opts.code) + '&#39;)" aria-pressed="' + (sel ? 'true' : 'false') + '"' : ''))
       + '><span class="fh-ico">' + (opts.ico || '') + '</span>'
       + '<span class="fh-body"><span class="fh-l1"><span class="fh-lname">' + esc(opts.name) + '</span>'
       + '<span class="fh-lamt num"><b>' + fmtK(opts.amt) + '</b></span></span>'
@@ -21726,19 +21894,19 @@ function fhTreeBreakdownHTML(rows) {
       + chev + '</' + (tappable ? 'button' : 'div') + '>';
   };
   var out = '';
-  var line = function (code, depth) {
+  var line = function (code, depth, xfer) {
     var n = FH_TAX.get(code), amt = sum[code] || 0;
     if (!amt) return '';
     var kids = FH_TAX.children(code).filter(function (c) { return sum[c]; });
     var own = amt - kids.reduce(function (s, c) { return s + (sum[c] || 0); }, 0);
     var open = !!_tbOpen[code];
-    var s = row({ code: code, name: n.vi, amt: amt, depth: depth, kids: kids.length, open: open, ico: depth ? '' : (n.emoji || '') });
+    var s = row({ code: code, name: n.vi, amt: amt, depth: depth, kids: kids.length, open: open, xfer: xfer, ico: depth ? '' : (n.emoji || '') });
     if (kids.length && open) {
       kids.sort(function (a, b) { return sum[b] - sum[a]; });
-      kids.forEach(function (c) { s += line(c, depth + 1); });
+      kids.forEach(function (c) { s += line(c, depth + 1, xfer); });
       /* What sits ON this node and under none of its children: the honest "we
          know it was food, not which kind" amount. Never shown as a fake leaf. */
-      if (own > 0) s += row({ name: L('chưa rõ món', 'no detail'), amt: own, depth: depth + 1, rest: true });
+      if (own > 0) s += row({ name: L('chưa rõ món', 'no detail'), amt: own, depth: depth + 1, rest: true, xfer: xfer });
     }
     return s;
   };
@@ -21753,15 +21921,34 @@ function fhTreeBreakdownHTML(rows) {
     out += x.code ? line(x.code, 0)
       : row({ name: L('Chưa rõ', 'Not sure yet'), amt: x.amt, depth: 0, rest: true, ico: '🗂️', go: 'fhTreeOpenUnknown()' });
   });
-  return '<div class="tb-list">' + out + '</div>';
+  /* While a selection is on, say so above the list and give it one way off.
+     The old version narrowed silently, which read as data going missing. */
+  /* The not-spending section, and only when there is something in it. */
+  if (xAny) {
+    var xtops = [];
+    ['transfer', 'repayment', 'investment'].forEach(function (k) {
+      FH_TAX.roots(k).forEach(function (c) { if (sum[c]) xtops.push({ code: c, amt: sum[c] }); });
+    });
+    xtops.sort(function (a, b) { return b.amt - a.amt; });
+    out += '<div class="tb-sect">' + esc(L('Không tính là chi tiêu', 'Not spending'))
+      + '<b class="num">' + fmtK(xTotal) + '</b></div>'
+      + '<p class="tb-secthint">' + esc(L('Tiền chuyển giữa các tài khoản của bạn, hoặc trả nợ thẻ. Vẫn nằm trong sổ vì ngân hàng báo về như một khoản chi.',
+          'Money moved between your own accounts, or a card paid off. Still in the book because the bank reported it as spending.')) + '</p>';
+    xtops.forEach(function (x) { out += line(x.code, 0, true); });
+  }
+  var head = '';
+  if (window.fhNodeSel) {
+    head = '<div class="tb-selbar"><span>' + esc(L('Đang xem', 'Showing') + ': ' + fhNodeSelLabel()) + '</span>'
+      + '<button type="button" onclick="fhTreeClearSel()">' + L('Xem tất cả', 'Show all') + '</button></div>';
+  }
+  return head + '<div class="tb-list">' + out + '</div>';
 }
 /* Tapping "Chưa rõ" opens the transaction list narrowed to those rows. They are
    the ones worth a minute: a bare bank reference the tree cannot read is often
    not spending at all (money moved to a broker, a savings book), and the kind
    row on each one is where that gets corrected. */
 function fhTreeOpenUnknown(){
-  TXV.noNode = true;
-  TXV.cats = null;
+  window.fhNodeSel = '_none';
   if (typeof openTxns === 'function') openTxns(_txnPersonal && _txnPersonal() ? 'personal' : undefined);
   else if (typeof renderTxnScreen === 'function') renderTxnScreen();
 }
@@ -22739,6 +22926,7 @@ var EN_DEFAULT={
   txnKindH:'Kinds', txnKindSub:'What shows is what the totals count.',
   txnSrcH:'Source', txnSrcSub:'Where it came from, what paid for it.',
   txnCatH:'Categories', txnCatSub:'Narrowing shows only those expenses.',
+  txnNodeH:'What I bought', txnNodeSub:'Picking a group shows only what went into it.',
   /* category detail */
   cdSpentThisMonth:'Spent this month', cdTransactions:'Transactions', logExpenseBtn:'Log expense',
   /* status & misc */
@@ -22850,6 +23038,7 @@ var I18N={
     txnKindH:'Loại khoản', txnKindSub:'Hiện loại nào, tổng tính đúng loại đó.',
     txnSrcH:'Nguồn', txnSrcSub:'Khoản đến từ đâu, trả bằng gì.',
     txnCatH:'Danh mục', txnCatSub:'Thu hẹp là chỉ còn khoản chi của danh mục đó.',
+    txnNodeH:'Tiêu vào gì', txnNodeSub:'Chọn một nhóm là chỉ còn những khoản đã tiêu vào nhóm đó.',
     /* category detail */
     cdSpentThisMonth:'Đã chi tháng này', cdTransactions:'Giao dịch', logExpenseBtn:'Ghi khoản chi',
     /* status & misc */
@@ -23462,7 +23651,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v551';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v552';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -30441,8 +30630,8 @@ window.obGoogle = async function () {
     /* v3: v1 wrote the LABEL's group whenever a keyword
        disagreed, so those rows must be revisited. Bumping the key is what makes
        an already-swept device sweep again. */
-    if (scope === 'family') return 'fh-tree-bf:v3:fam:' + ((window.DB && window.DB.fid) || '');
-    return 'fh-tree-bf:v3:per:' + ((window.fhPersonalData && fhPersonalData().uid) || '');
+    if (scope === 'family') return 'fh-tree-bf:v5:fam:' + ((window.DB && window.DB.fid) || '');
+    return 'fh-tree-bf:v5:per:' + ((window.fhPersonalData && fhPersonalData().uid) || '');
   }
   function _tbfDone(scope) { try { return localStorage.getItem(_tbfCursorKey(scope)) === 'done'; } catch (e) { return false; } }
   function _tbfMarkDone(scope) { try { localStorage.setItem(_tbfCursorKey(scope), 'done'); } catch (e) {} }
@@ -30481,6 +30670,14 @@ window.obGoogle = async function () {
        exists to improve, so letting one veto the other recorded every past
        mis-filing as fact ("QR2CK3U3TT SUPERSPORTS" under Ăn uống). The label
        only answers when the words say nothing at all. */
+    /* First: does the row say it was never spending at all? A self-transfer or
+       a card repayment sitting in the ledger as an expense gets its TRUE node,
+       which both names it and marks the kind as worth fixing. This has to be
+       asked before the guess, which reads "chuyen tien den <my own name>" as
+       money sent to another person. */
+    if (kind === 'expense') {
+      try { const xf = fhTransferShape(row.note); if (xf) return xf; } catch (e) {}
+    }
     let guess = null;
     try { guess = fhNodeGuess({ kind: kind, note: row.note, amount: row.amt }); }
     catch (e) { guess = null; }

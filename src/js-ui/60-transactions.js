@@ -294,7 +294,7 @@ function clearFilter(){ txFilter=null; renderTxns(); }
    chart zoom (independent of the list grouping). Grouping/sort/zoom persist
    per scope; filters reset each open. */
 var txnSort='date';                                 // 'date' | 'amount' — order INSIDE a group
-var TXV={ grp:'day', cgrp:'day', pin:null, kinds:null, srcs:null, accts:null, cats:null, noNode:false, _stReset:false };
+var TXV={ grp:'day', cgrp:'day', pin:null, kinds:null, srcs:null, accts:null, cats:null, node:null, _stReset:false };
 function _txScopeKey(){ return _txnPersonal()?'personal':'family'; }
 function _txSavePrefs(){
   try{ localStorage.setItem('fh-txnview:'+_txScopeKey(), JSON.stringify({grp:TXV.grp,cgrp:TXV.cgrp,sort:txnSort})); }catch(_e){}
@@ -309,6 +309,7 @@ function _txInitFilters(){
   TXV.insts={_none:1};
   if(!_txnPersonal()) (_txList()||[]).forEach(function(t){ if(t.inst) TXV.insts[t.inst]=1; });
   TXV.cats={}; (_txCatOrder()||[]).forEach(function(c){ TXV.cats[c]=1; });
+  TXV.node=(typeof fhNodeSel!=='undefined')?(window.fhNodeSel||null):null;
   TXV.pin=null; TXV._stReset=true;
 }
 function openTxns(scope){
@@ -422,6 +423,7 @@ function _txFiltersActive(){
   var n=0, chk=function(g){ if(!g) return; Object.keys(g).forEach(function(k){ if(!g[k]) n++; }); };
   if(_txnPersonal()){ chk(TXV.kinds); chk(TXV.accts); } else chk(TXV.insts);
   chk(TXV.srcs); chk(TXV.cats);
+  if(TXV.node) n++;
   return n>0;
 }
 
@@ -437,9 +439,9 @@ function renderTxnScreen(){
     if(!personal && TXV.insts && !TXV.insts[t.inst||'_none']) return false;
     /* Danh mục narrowed ⇒ an expense view: other kinds step aside */
     if(catNarrow){ if(kg!=='chi') return false; if(!TXV.cats[t.cat]) return false; }
-    /* 0144 — "Chưa rõ" tapped: the rows the tree could not place. Spending only,
-       since a transfer is not meant to have one. */
-    if(TXV.noNode){ if(kg!=='chi') return false; if(t.node) return false; }
+    /* 0144 — a tree row is selected: that node and everything under it. Spending
+       only, since the selection came from the spending breakdown. */
+    if(TXV.node){ if(kg!=='chi') return false; if(!fhNodeSelMatch(t.node)) return false; }
     return true;
   });
   var ts=document.getElementById('txn-sum'); if(ts) ts.style.display='none';
@@ -638,6 +640,11 @@ function buildTxnToolChips(){
   var catDefs=(_txCatOrder()||[]).map(function(c){ return {k:c,lbl:c}; });
   var cl=_txChipLbl(L('Danh mục','Categories'), TXV.cats, catDefs);
   html+=chip(cl.t, cl.live, 'txnSheetCat()');
+  if(typeof fhTreeOn==='function' && fhTreeOn()){
+    var nl=L('Tiêu vào gì','What I bought');
+    if(TXV.node) nl+=' · '+fhNodeSelLabel();
+    html+=chip(nl, !!TXV.node, 'txnSheetNode()');
+  }
   setHTML('txn-chips', html);
 }
 /* One toggle for every filter chip in a sheet; the last ON option refuses to
@@ -652,6 +659,46 @@ function txnFiltTap(group,k){
   else if(group==='cats') txnSheetCat();
   else txnSheetSrc();
 }
+/* The "Tiêu vào gì" chip sheet. Only the groups this month actually has, so
+   the list is a picture of the month rather than the whole taxonomy; the
+   selected node's own group is always in it even when the tap came from a
+   deeper level. */
+function txnSheetNode(){
+  var b=document.getElementById('txnnode-body'); if(!b) return;
+  var seen={}, has=false;
+  (_txList()||[]).forEach(function(t){
+    if((t._kg||'chi')!=='chi') return;
+    if(!t.node || !FH_TAX.get(t.node)){ seen._none=1; has=true; return; }
+    var a=FH_TAX.ancestors(t.node); seen[a.length?a[a.length-1]:t.node]=1; has=true;
+  });
+  var opts=Object.keys(seen).filter(function(k){ return k!=='_none'; })
+    .map(function(c){ var x=FH_TAX.get(c); return {k:c, lbl:((x.emoji||'')+' '+x.vi).trim()}; })
+    .sort(function(x,y){ return x.lbl.localeCompare(y.lbl); });
+  if(seen._none) opts.push({k:'_none', lbl:'🗂️ '+L('Chưa rõ','Not sure yet')});
+  var h='<span class="crs-lbl">'+L('Nhóm chi tiêu','Spending group')+'</span><div class="choices">'
+    +'<button type="button" class="choice'+(TXV.node?'':' on')+'" onclick="setTxnNode(null)">'+L('Tất cả','Everything')+'</button>'
+    +opts.map(function(o){
+      var on=TXV.node===o.k||(TXV.node&&o.k!=='_none'&&FH_TAX.get(TXV.node)&&FH_TAX.ancestors(TXV.node).indexOf(o.k)>=0);
+      return '<button type="button" class="choice'+(on?' on':'')+'" onclick="setTxnNode(&#39;'+escAttr(o.k)+'&#39;)">'+esc(o.lbl)+'</button>';
+    }).join('')+'</div>';
+  if(!has) h='<span class="crs-lbl">'+L('Chưa có khoản chi nào để lọc','No spending to filter yet')+'</span>';
+  b.innerHTML=h;
+  openSheet('sheet-txnnode');
+}
+/* One way in and out of the selection, wherever it was tapped. Choosing the
+   node already chosen clears it, the same way a category row does. */
+function setTxnNode(code){
+  if(code && TXV.node===code) code=null;
+  window.fhNodeSel = code || null;
+  TXV.node = window.fhNodeSel;
+  TXV.pin=null;
+  renderTxnScreen();
+  if(typeof buildTxnToolChips==='function') buildTxnToolChips();
+  if(typeof renderFinanceHero==='function') renderFinanceHero();
+  if(_txnPersonal() && typeof renderPersonal==='function') renderPersonal();
+  if(document.getElementById('sheet-txnnode') && document.getElementById('sheet-txnnode').classList.contains('open')) txnSheetNode();
+}
+window.setTxnNode=setTxnNode;
 function txnSheetSort(){
   var b=document.getElementById('txnsort-body'); if(!b) return;
   function seg(on,fn,lbl){ return '<button type="button" class="atx-seg'+(on?' on':'')+'" onclick="'+fn+'">'+lbl+'</button>'; }

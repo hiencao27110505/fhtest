@@ -112,30 +112,61 @@ function fhTreeToggle(code) {
   var host = document.querySelector('[data-treehost]');
   if (host) host.innerHTML = fhTreeBreakdownHTML(_tbRows);
 }
+/* Tapping a category does the two things a person means by it at once: narrow
+   everything on screen to that part of the tree, and open it so the next level
+   down is right there. Tapping it again undoes both. */
+function fhTreeTap(code) {
+  var off = (window.fhNodeSel === code);
+  _tbOpen[code] = !off;
+  if (typeof setTxnNode === 'function') setTxnNode(off ? null : code);
+  else { window.fhNodeSel = off ? null : code; }
+  fhTreeRepaint();
+}
+/* Repaint the breakdown in place from the rows it was last built with. The
+   chart and the list are repainted by their own renderers. */
+function fhTreeRepaint() {
+  var host = document.querySelector('[data-treehost]');
+  if (host) host.innerHTML = fhTreeBreakdownHTML(_tbRows);
+}
+function fhTreeClearSel() {
+  if (typeof setTxnNode === 'function') setTxnNode(null);
+  else window.fhNodeSel = null;
+  fhTreeRepaint();
+}
+window.fhTreeTap = fhTreeTap; window.fhTreeClearSel = fhTreeClearSel;
 function fhTreeBreakdownHTML(rows) {
   if (typeof FH_TAX === 'undefined') return '';
   _tbRows = rows || [];               // what the visible list was built from, for the next expand
-  var sum = {}, none = 0, total = 0;
+  var sum = {}, none = 0, total = 0, xTotal = 0, xAny = false;
   (rows || []).forEach(function (r) {
     var amt = Number(r.amt) || 0; if (amt <= 0) return;
-    total += amt;
-    if (!r.node || !FH_TAX.get(r.node)) { none += amt; return; }
+    if (!r.node || !FH_TAX.get(r.node)) { total += amt; none += amt; return; }
+    /* A row whose node is a transfer is money that MOVED, not money spent: your
+       own account, a card paid off, a wallet topped up. The ledger still holds
+       it as an expense because that is how it arrived, so it is shown — but
+       below the spending, under its own heading, and out of the total the
+       percentages are drawn against. Otherwise a 7tr move between two of your
+       own accounts reads as the month's biggest purchase. */
+    if (FH_TAX.kindOf(r.node) !== 'expense') { xTotal += amt; xAny = true; }
+    else total += amt;
     sum[r.node] = (sum[r.node] || 0) + amt;
     FH_TAX.ancestors(r.node).forEach(function (a) { sum[a] = (sum[a] || 0) + amt; });
   });
-  if (!total) return '<div class="tb-empty">' + L('Chưa có khoản nào tháng này', 'Nothing logged this month') + '</div>';
+  if (!total && !xTotal) return '<div class="tb-empty">' + L('Chưa có khoản nào tháng này', 'Nothing logged this month') + '</div>';
   /* One row builder, and it is the LEGEND row the rest of the app already uses
      (.fh-lrow): same height, type, bar and chevron. Depth is a left inset, not
      a different component. */
   var row = function (opts) {
-    var pct = total ? Math.min(100, Math.max(1, 100 * opts.amt / total)) : 0;
+    var base = opts.xfer ? (xTotal || 1) : (total || 1);
+    var pct = Math.min(100, Math.max(1, 100 * opts.amt / base));
     var chev = (opts.kids || opts.go)
       ? '<svg class="fh-chev' + (opts.open ? ' open' : '') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>'
       : '<span class="fh-chev"></span>';
-    var tappable = opts.kids || opts.go;
-    return '<' + (tappable ? 'button type="button"' : 'div') + ' class="fh-lrow tb-l' + opts.depth + (opts.rest ? ' tb-rest' : '') + '"'
+    var tappable = opts.kids || opts.go || opts.code;
+    var sel = opts.code && window.fhNodeSel === opts.code;
+    return '<' + (tappable ? 'button type="button"' : 'div') + ' class="fh-lrow tb-l' + opts.depth + (opts.rest ? ' tb-rest' : '') + (sel ? ' tb-sel' : '') + '"'
       + (opts.go ? ' onclick="' + opts.go + '"'
-                 : (opts.kids ? ' onclick="fhTreeToggle(&#39;' + escAttr(opts.code) + '&#39;)" aria-expanded="' + (opts.open ? 'true' : 'false') + '"' : ''))
+                 : (opts.code ? ' onclick="fhTreeTap(&#39;' + escAttr(opts.code) + '&#39;)" aria-pressed="' + (sel ? 'true' : 'false') + '"' : ''))
       + '><span class="fh-ico">' + (opts.ico || '') + '</span>'
       + '<span class="fh-body"><span class="fh-l1"><span class="fh-lname">' + esc(opts.name) + '</span>'
       + '<span class="fh-lamt num"><b>' + fmtK(opts.amt) + '</b></span></span>'
@@ -143,19 +174,19 @@ function fhTreeBreakdownHTML(rows) {
       + chev + '</' + (tappable ? 'button' : 'div') + '>';
   };
   var out = '';
-  var line = function (code, depth) {
+  var line = function (code, depth, xfer) {
     var n = FH_TAX.get(code), amt = sum[code] || 0;
     if (!amt) return '';
     var kids = FH_TAX.children(code).filter(function (c) { return sum[c]; });
     var own = amt - kids.reduce(function (s, c) { return s + (sum[c] || 0); }, 0);
     var open = !!_tbOpen[code];
-    var s = row({ code: code, name: n.vi, amt: amt, depth: depth, kids: kids.length, open: open, ico: depth ? '' : (n.emoji || '') });
+    var s = row({ code: code, name: n.vi, amt: amt, depth: depth, kids: kids.length, open: open, xfer: xfer, ico: depth ? '' : (n.emoji || '') });
     if (kids.length && open) {
       kids.sort(function (a, b) { return sum[b] - sum[a]; });
-      kids.forEach(function (c) { s += line(c, depth + 1); });
+      kids.forEach(function (c) { s += line(c, depth + 1, xfer); });
       /* What sits ON this node and under none of its children: the honest "we
          know it was food, not which kind" amount. Never shown as a fake leaf. */
-      if (own > 0) s += row({ name: L('chưa rõ món', 'no detail'), amt: own, depth: depth + 1, rest: true });
+      if (own > 0) s += row({ name: L('chưa rõ món', 'no detail'), amt: own, depth: depth + 1, rest: true, xfer: xfer });
     }
     return s;
   };
@@ -170,15 +201,34 @@ function fhTreeBreakdownHTML(rows) {
     out += x.code ? line(x.code, 0)
       : row({ name: L('Chưa rõ', 'Not sure yet'), amt: x.amt, depth: 0, rest: true, ico: '🗂️', go: 'fhTreeOpenUnknown()' });
   });
-  return '<div class="tb-list">' + out + '</div>';
+  /* While a selection is on, say so above the list and give it one way off.
+     The old version narrowed silently, which read as data going missing. */
+  /* The not-spending section, and only when there is something in it. */
+  if (xAny) {
+    var xtops = [];
+    ['transfer', 'repayment', 'investment'].forEach(function (k) {
+      FH_TAX.roots(k).forEach(function (c) { if (sum[c]) xtops.push({ code: c, amt: sum[c] }); });
+    });
+    xtops.sort(function (a, b) { return b.amt - a.amt; });
+    out += '<div class="tb-sect">' + esc(L('Không tính là chi tiêu', 'Not spending'))
+      + '<b class="num">' + fmtK(xTotal) + '</b></div>'
+      + '<p class="tb-secthint">' + esc(L('Tiền chuyển giữa các tài khoản của bạn, hoặc trả nợ thẻ. Vẫn nằm trong sổ vì ngân hàng báo về như một khoản chi.',
+          'Money moved between your own accounts, or a card paid off. Still in the book because the bank reported it as spending.')) + '</p>';
+    xtops.forEach(function (x) { out += line(x.code, 0, true); });
+  }
+  var head = '';
+  if (window.fhNodeSel) {
+    head = '<div class="tb-selbar"><span>' + esc(L('Đang xem', 'Showing') + ': ' + fhNodeSelLabel()) + '</span>'
+      + '<button type="button" onclick="fhTreeClearSel()">' + L('Xem tất cả', 'Show all') + '</button></div>';
+  }
+  return head + '<div class="tb-list">' + out + '</div>';
 }
 /* Tapping "Chưa rõ" opens the transaction list narrowed to those rows. They are
    the ones worth a minute: a bare bank reference the tree cannot read is often
    not spending at all (money moved to a broker, a savings book), and the kind
    row on each one is where that gets corrected. */
 function fhTreeOpenUnknown(){
-  TXV.noNode = true;
-  TXV.cats = null;
+  window.fhNodeSel = '_none';
   if (typeof openTxns === 'function') openTxns(_txnPersonal && _txnPersonal() ? 'personal' : undefined);
   else if (typeof renderTxnScreen === 'function') renderTxnScreen();
 }

@@ -233,6 +233,7 @@ var EN_DEFAULT={
   txnKindH:'Kinds', txnKindSub:'What shows is what the totals count.',
   txnSrcH:'Source', txnSrcSub:'Where it came from, what paid for it.',
   txnCatH:'Categories', txnCatSub:'Narrowing shows only those expenses.',
+  txnNodeH:'What I bought', txnNodeSub:'Picking a group shows only what went into it.',
   /* category detail */
   cdSpentThisMonth:'Spent this month', cdTransactions:'Transactions', logExpenseBtn:'Log expense',
   /* status & misc */
@@ -344,6 +345,7 @@ var I18N={
     txnKindH:'Loại khoản', txnKindSub:'Hiện loại nào, tổng tính đúng loại đó.',
     txnSrcH:'Nguồn', txnSrcSub:'Khoản đến từ đâu, trả bằng gì.',
     txnCatH:'Danh mục', txnCatSub:'Thu hẹp là chỉ còn khoản chi của danh mục đó.',
+    txnNodeH:'Tiêu vào gì', txnNodeSub:'Chọn một nhóm là chỉ còn những khoản đã tiêu vào nhóm đó.',
     /* category detail */
     cdSpentThisMonth:'Đã chi tháng này', cdTransactions:'Giao dịch', logExpenseBtn:'Ghi khoản chi',
     /* status & misc */

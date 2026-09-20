@@ -130,6 +130,47 @@ function fhLooksPersonToPerson(input){
      which is what separates it from a merchant ("AEON NGUYEN VAN LINH"). */
   return /^[a-z]*\d[a-z0-9]*\s+[a-z]+\s+[a-z]+(\s|$)/.test(text);
 }
+/* The tree row a person has tapped: null = everything, a code = that node and
+   everything under it, '_none' = the rows the tree could not place. Chart,
+   breakdown and transaction list all read this one variable, so the three can
+   never disagree about what is on screen. */
+window.fhNodeSel = null;
+function fhNodeSelMatch(node){
+  var sel = window.fhNodeSel; if (!sel) return true;
+  if (sel === '_none') return !node || !FH_TAX.get(node);
+  if (!node) return false;
+  return node === sel || FH_TAX.ancestors(node).indexOf(sel) >= 0;
+}
+/* What to call the current selection in a chip or a header. */
+function fhNodeSelLabel(){
+  var sel = window.fhNodeSel; if (!sel) return '';
+  if (sel === '_none') return L('Chưa rõ', 'Not sure yet');
+  var n = FH_TAX.get(sel); return n ? n.vi : '';
+}
+/* Same name on both sides of the bank's verb: "CAO THÁI DUY HIỂN chuyen tien
+   den CAO THAI DUY HIEN - 1046382279". Money between your own two accounts. */
+function fhLooksSelfTransfer(text){
+  var m=FH_TAX.deburr(String(text||'').toLowerCase());
+  var mm=m.match(/(.+?)\s+chuyen\s+(?:tien|khoan)\s+(?:den|toi|cho|sang)\s+(.+)/);
+  if(!mm) return false;
+  var norm=function(s){ return s.replace(/\s*[-–:|].*$/,'').replace(/\d+/g,' ').replace(/[^a-z ]+/g,' ').replace(/\s+/g,' ').trim(); };
+  var a=norm(mm[1]), b=norm(mm[2]);
+  return a.length>=6 && a===b;
+}
+/* A row whose words say "this was not spending" and which transfer node it is.
+   Only the shapes real mail actually produces, so nothing here guesses. */
+function fhTransferShape(text){
+  var t=' '+FH_TAX.deburr(String(text||'').toLowerCase()).replace(/[^a-z0-9]+/g,' ').trim()+' ';
+  if(fhLooksSelfTransfer(text)) return 'bankbank';
+  if(/ (thanh toan the tin dung|tra no the|thanh toan sao ke the|tt the tin dung) /.test(t)) return 'cardpay';
+  /* The bank's own payment-confirmation mail names the BANK as the counterparty
+     and carries no memo at all, which is how ten of them read as spending. */
+  if(/ (ngan hang tmcp|ngan hang thuong mai) /.test(t)) return 'cardpay';
+  if(/ (nap tien vao vi|nap vi|nap tien vao vi dien tu) /.test(t)) return 'wallet';
+  if(/ (rut tien mat|rut tien tai atm) /.test(t)) return 'cashout';
+  if(/ (gui tiet kiem|mo so tiet kiem|tat toan so) /.test(t)) return 'savings';
+  return null;
+}
 /* Siblings-first correction list for a picker: the node's siblings (and itself),
    then its parent's siblings, then every group of the kind. */
 function fhNodeCorrections(code, kind){

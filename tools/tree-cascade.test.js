@@ -20,7 +20,7 @@ const ctx = { window: {}, localStorage: { getItem: () => null, setItem: () => {}
 vm.createContext(ctx);
 vm.runInContext(fs.readFileSync(path.join(ROOT, 'src/js-ui/11-taxonomy.js'), 'utf8'), ctx);
 vm.runInContext(fs.readFileSync(path.join(ROOT, 'src/js-ui/13-partition.js'), 'utf8')
-  + ';globalThis.__P={fhLabelForNode,fhDefaultClaimsFor,fhNodeGuess,fhNodeCorrections,fhNodeDepth,fhNodeFromClaims,fhNodeGroup};', ctx);
+  + ';globalThis.__P={fhLabelForNode,fhDefaultClaimsFor,fhNodeGuess,fhNodeCorrections,fhNodeDepth,fhNodeFromClaims,fhNodeGroup,fhTransferShape,fhLooksSelfTransfer,fhNodeSelMatch};', ctx);
 const T = ctx.FH_TAX, P = ctx.__P;
 
 console.log('\n-- the tree is well formed --');
@@ -226,6 +226,60 @@ console.log('\n-- decrypted from a real ledger: what 11tr of "Chưa rõ" was --'
   const rv = fs.readFileSync(path.join(ROOT, 'src/js-ui/57-csv-import-review.js'), 'utf8');
   t('the self-transfer check is not nested under isTransfer',
     !/if \(isTransfer\) \{[\s\S]{0,400}_isSelfTransfer/.test(rv) && /_isSelfTransfer\(_selfMemo \|\| desc\) \|\| _isSelfTransfer\(party\)/.test(rv));
+}
+
+console.log('\n-- money that moved is not money that was spent --');
+{
+  /* The 11tr of "Chưa rõ" in a real ledger was 8.2tr of this: transfers and card
+     repayments that the bank reported as spending. They are not unknown — they
+     are known and misfiled, and the tree already has their nodes. */
+  t('my own name on both sides is a transfer between my accounts',
+    P.fhTransferShape('CAO THÁI DUY HIỂN chuyen tien den CAO THAI DUY HIEN - 1046382279') === 'bankbank');
+  t('a different name on the other side is NOT',
+    P.fhTransferShape('CAO THAI DUY HIEN chuyen tien den VO DINH PHUC') === null);
+  t("the bank's own payment mail is a card repayment",
+    P.fhTransferShape('Ngân hàng TMCP Quốc tế Việt Nam') === 'cardpay');
+  t('so is the wording on a statement payment',
+    P.fhTransferShape('THANH TOAN THE TIN DUNG VIB') === 'cardpay');
+  t('a wallet top-up is a transfer, not a purchase',
+    P.fhTransferShape('Nap tien vao vi dien tu MOMO') === 'wallet');
+  t('an ordinary merchant is left alone',
+    P.fhTransferShape('AEON NGUYEN VAN LINH') === null && P.fhTransferShape('SUPERSPORTS VN') === null);
+  /* The order matters: fhNodeGuess reads "chuyen tien" as money sent to another
+     person, so the shape has to be asked FIRST or a self-transfer becomes p2p. */
+  const bf = fs.readFileSync(path.join(ROOT, 'src/js-data/28-tree-backfill.js'), 'utf8');
+  t('the sweep asks the transfer shape before the guess',
+    bf.indexOf('fhTransferShape') < bf.indexOf('guess = fhNodeGuess'));
+  /* And the rules changing is worthless if the sweep still thinks it is done. */
+  t('the sweep cursor moved with the rules', /fh-tree-bf:v5:/.test(bf) && !/fh-tree-bf:v[1-4]:/.test(bf));
+}
+
+console.log('\n-- one selection, read by every surface --');
+{
+  const W = ctx.window;
+  W.fhNodeSel = null;
+  t('no selection matches everything', P.fhNodeSelMatch('groceries') && P.fhNodeSelMatch(null));
+  W.fhNodeSel = 'food';
+  t('a group matches its descendants', P.fhNodeSelMatch('groceries'));
+  t('a group does not match a sibling group', !P.fhNodeSelMatch('transport'));
+  t('a group does not match rows with no node at all', !P.fhNodeSelMatch(null));
+  W.fhNodeSel = '_none';
+  t('"Chưa rõ" matches exactly the rows with no usable node',
+    P.fhNodeSelMatch(null) && P.fhNodeSelMatch('nonsense-code') && !P.fhNodeSelMatch('groceries'));
+  W.fhNodeSel = null;
+  /* The old TXV.noNode narrowed the list with nothing on screen saying so, and
+     openTxns never cleared it. */
+  const tx = fs.readFileSync(path.join(ROOT, 'src/js-ui/60-transactions.js'), 'utf8');
+  t('the sticky invisible noNode filter is gone', !/TXV\.noNode/.test(tx));
+  t('the selection is a counted, visible filter', /if\(TXV\.node\) n\+\+;/.test(tx));
+  t('there is a "Tiêu vào gì" chip', /txnSheetNode\(\)/.test(tx) && /sheet-txnnode/.test(tx));
+  t('the chip sheet has markup to open',
+    /id="sheet-txnnode"/.test(fs.readFileSync(path.join(ROOT, 'src/index.html'), 'utf8')));
+  /* Transfer nodes have to be rendered somewhere, or 8.2tr leaves the breakdown
+     while staying in the total and every percentage is quietly wrong. */
+  const ui = fs.readFileSync(path.join(ROOT, 'src/js-ui/63-tree-ui.js'), 'utf8');
+  t('not-spending gets its own section, out of the spending total',
+    /kindOf\(r\.node\) !== 'expense'/.test(ui) && /tb-sect/.test(ui));
 }
 
 console.log('\n-- the generated targets stay in lockstep with the JSON --');
