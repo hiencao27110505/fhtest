@@ -6513,7 +6513,22 @@ function fhNodeGuess(input){
   if(k) return k;
   var c=fhNodeFromClaims(input.labelClaims);
   if(c && FH_TAX.kindOf(c)===kind) return c;
+  if(kind==='expense' && fhLooksPersonToPerson(input)) return 'p2p';
   return null;
+}
+/* Transfer-to-a-human phrasing, kept deliberately narrow: the bank's own verb
+   ("chuyển tiền/chuyển khoản đến"), a QR payment marker, or a counterparty that
+   is a bare account-number-and-name pair. A merchant name never matches, and a
+   keyword hit has already answered before this runs. */
+var _P2P_RE=/\b(chuyen tien|chuyen khoan|chuyen qua|ck den|ck cho|thanh toan qr|qrcode|chuyen tien nhanh)\b/;
+function fhLooksPersonToPerson(input){
+  var text=FH_TAX.deburr([input.note,input.counterparty,input.memo].filter(Boolean).join(' '))
+    .replace(/[^a-z0-9]+/g,' ').trim();
+  if(!text) return false;
+  if(_P2P_RE.test(' '+text+' ')) return true;
+  /* "0111000158387 - CAO THAI MINH PHUONG": an account number followed by a
+     person's name, which is how every VN bank writes a p2p counterparty. */
+  return /^\d{6,}\s+[a-z]+(\s+[a-z]+){1,4}$/.test(text);
 }
 /* Siblings-first correction list for a picker: the node's siblings (and itself),
    then its parent's siblings, then every group of the kind. */
@@ -7201,12 +7216,7 @@ function renderFinanceHero(){
         +'<span class="fh-bar"><i style="width:'+pct.toFixed(0)+'%"></i></span></span>'
         +'<svg class="fh-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>';
     }).join('');
-    setHTMLIf('fh-legend', _fhLegendWrap('personal', pl, function(){
-      var P=window.fhPersonalData?fhPersonalData():null;
-      return fhTreeRowsFor(((P&&P.txns)||[]).filter(function(t){ return t.kind==='expense'; }).map(function(t){
-        return { amt:t.amt, node:t.node, month:null, _unreadable:t._unreadable };
-      }));
-    }));
+    setHTMLIf('fh-legend', _fhLegendWrap('personal', pl, function(){ return pc.treeRows || []; }));
     return;
   }
   if(editEl) editEl.setAttribute('onclick',"openSheet('sheet-budget')");   // restore family target
@@ -19047,7 +19057,7 @@ function _pBuildTxnCtx(){
   var acctName=function(id){ var a=id&&(P&&P.accounts||[]).find(function(x){ return x.id===id; }); return a?(a.name||L('Tài khoản','Account')):null; };
   var K_INC=L('Thu nhập','Income'), K_XFER=L('Chuyển khoản','Transfers'), K_DEBT=L('Cho vay & nợ','Loans & debts'), K_INV=L('Đầu tư','Investments');
   var kstyle={}; kstyle[K_INC]=['💰','#eefaf3','var(--good)']; kstyle[K_XFER]=['🔁','#eef4fb','var(--cat-other)']; kstyle[K_DEBT]=['💵','#fdf4e8','var(--cat-other)']; kstyle[K_INV]=['📈','#f6eefb','var(--cat-other)'];
-  var kindOrder=[], kseen={}, seenXfer={};
+  var kindOrder=[], kseen={}, seenXfer={}, treeRows=[];
   txs.forEach(function(t){
     if(t._unreadable) return;
     var _d=t.date?new Date(t.date+'T00:00:00'):null;
@@ -19062,7 +19072,10 @@ function _pBuildTxnCtx(){
          expense = money out (0109 stores it positive), so its cash flow is −amt. */
       rows.push({ id:t.id, cat:cat, note:t.note||cat, amt:t.amt||0, _d:_d, ico:t.emoji||'🗂️', who:null, _style:style[cat], _open:eOpen, photos:t.photos||undefined, time:t.time||null,
         _kg:'chi', _net:-(t.amt||0), _src:t.src||null, _acct:t.accountId||null, _mirror:!!(t.spaceId||t.linkId) });
-      if((t.date||'').slice(0,7)===ym) spent[cat]=(spent[cat]||0)+(t.amt||0);   // hero = this month only (parity with family M())
+      if((t.date||'').slice(0,7)===ym){
+        spent[cat]=(spent[cat]||0)+(t.amt||0);   // hero = this month only (parity with family M())
+        treeRows.push({ node:t.node||null, amt:t.amt||0 });   // 0144: the SAME rows, so both views of this card agree
+      }
       return;
     }
     var kcat, note, sign='', cls='xfer', open='', ico=null;
@@ -19112,7 +19125,7 @@ function _pBuildTxnCtx(){
   order.sort(function(a,b){ return (spent[b]||0)-(spent[a]||0); });
   /* account names for the Nguồn tiền filter section (personal only) */
   var acctDefs=((P&&P.accounts)||[]).map(function(a){ return { k:a.id, lbl:a.name||L('Tài khoản','Account') }; });
-  _pTxnCtx={ rows:rows, catOrder:order, catStyle:style, catSpent:spent, catBudget:(P&&P.catBudget)||{}, kindOrder:kindOrder, acctDefs:acctDefs };
+  _pTxnCtx={ rows:rows, catOrder:order, catStyle:style, catSpent:spent, catBudget:(P&&P.catBudget)||{}, kindOrder:kindOrder, acctDefs:acctDefs, treeRows:treeRows };
 }
 function txRow(t){
   // personal rows carry their own style + no member/reactions/detail screen;
@@ -23395,7 +23408,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v547';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v548';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -23416,7 +23429,7 @@ var ICO = {
 };
 
 var RELEASES = [
-  { id:'2026-09-20-tieu-vao-gi', date:'2026-09-20', time:'05:30', ver:'v547', icon:ICO.pie,
+  { id:'2026-09-20-tieu-vao-gi', date:'2026-09-20', time:'06:10', ver:'v548', icon:ICO.pie,
     vi:{ t:'Biết rõ tiền đi vào việc gì',
       problem:'Danh mục cũ gom quá nhiều thứ vào một chỗ. "Ăn uống" vừa là bữa cơm vừa là ly cà phê sáng vừa là chầu nhậu tối, nên nhìn vào chỉ thấy một con số to mà không biết mình thật sự tiêu cho cái gì. Khoản từ email ngân hàng thì hơn một nửa không xếp được vào đâu.',
       sol:'App giờ tự nhận ra từng khoản là gì. Cà phê, trà sữa, đi chợ, tiền điện, xăng xe, mỗi thứ về đúng chỗ của nó, từ nhóm lớn xuống tới từng món. Danh mục của bạn vẫn y nguyên, vẫn là thứ bạn đặt ngân sách. Trong màn chi tiêu có nút đổi cách xem giữa "Danh mục của tôi" và "Tiêu vào gì". Mở một khoản ra là thấy dòng "Tiêu vào gì", chạm để sửa nếu app đoán sai, lần sau nó nhớ.' },
@@ -30314,11 +30327,11 @@ window.obGoogle = async function () {
   const _tbfRunning = {};
 
   function _tbfCursorKey(scope) {
-    /* v2: the first version wrote the LABEL's group whenever a keyword
+    /* v3: v1 wrote the LABEL's group whenever a keyword
        disagreed, so those rows must be revisited. Bumping the key is what makes
        an already-swept device sweep again. */
-    if (scope === 'family') return 'fh-tree-bf:v2:fam:' + ((window.DB && window.DB.fid) || '');
-    return 'fh-tree-bf:v2:per:' + ((window.fhPersonalData && fhPersonalData().uid) || '');
+    if (scope === 'family') return 'fh-tree-bf:v3:fam:' + ((window.DB && window.DB.fid) || '');
+    return 'fh-tree-bf:v3:per:' + ((window.fhPersonalData && fhPersonalData().uid) || '');
   }
   function _tbfDone(scope) { try { return localStorage.getItem(_tbfCursorKey(scope)) === 'done'; } catch (e) { return false; } }
   function _tbfMarkDone(scope) { try { localStorage.setItem(_tbfCursorKey(scope), 'done'); } catch (e) {} }

@@ -194,7 +194,12 @@ export const CLASSIFY_SYSTEM = 'You label a Vietnamese bank-transaction merchant
 const CLASSIFY_SCHEMA = {
   type: 'object',
   properties: {
-    node: { type: ['string', 'null'], enum: [...CLASSIFY_NODES, null] },
+    /* A plain string, NOT an enum: 155 enum values is past what Gemini's
+       OpenAPI subset accepts and it answered every call with a hard 400.
+       The menu rides the prompt instead, and validNode() is the gate it
+       always really was: anything that is not a code this build knows
+       reads as null. */
+    node: { type: ['string', 'null'] },
     concept: { type: ['string', 'null'], enum: [...CLASSIFY_CONCEPTS, null] },
     pool: { type: ['string', 'null'], enum: [...CLASSIFY_POOLS, null] },
   },
@@ -340,7 +345,12 @@ const BATCH_SCHEMA = {
   type: 'object',
   properties: { items: { type: 'array', items: { type: 'object', properties: {
     i: { type: 'integer' },
-    node: { type: ['string', 'null'], enum: [...CLASSIFY_NODES, null] },
+    /* A plain string, NOT an enum: 155 enum values is past what Gemini's
+       OpenAPI subset accepts and it answered every call with a hard 400.
+       The menu rides the prompt instead, and validNode() is the gate it
+       always really was: anything that is not a code this build knows
+       reads as null. */
+    node: { type: ['string', 'null'] },
     concept: { type: ['string', 'null'], enum: [...CLASSIFY_CONCEPTS, null] },
     pool: { type: ['string', 'null'], enum: [...CLASSIFY_POOLS, null] },
   }, required: ['i'] } } },

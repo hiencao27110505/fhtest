@@ -26,11 +26,11 @@
   const _tbfRunning = {};
 
   function _tbfCursorKey(scope) {
-    /* v2: the first version wrote the LABEL's group whenever a keyword
+    /* v3: v1 wrote the LABEL's group whenever a keyword
        disagreed, so those rows must be revisited. Bumping the key is what makes
        an already-swept device sweep again. */
-    if (scope === 'family') return 'fh-tree-bf:v2:fam:' + ((window.DB && window.DB.fid) || '');
-    return 'fh-tree-bf:v2:per:' + ((window.fhPersonalData && fhPersonalData().uid) || '');
+    if (scope === 'family') return 'fh-tree-bf:v3:fam:' + ((window.DB && window.DB.fid) || '');
+    return 'fh-tree-bf:v3:per:' + ((window.fhPersonalData && fhPersonalData().uid) || '');
   }
   function _tbfDone(scope) { try { return localStorage.getItem(_tbfCursorKey(scope)) === 'done'; } catch (e) { return false; } }
   function _tbfMarkDone(scope) { try { localStorage.setItem(_tbfCursorKey(scope), 'done'); } catch (e) {} }

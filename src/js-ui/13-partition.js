@@ -107,7 +107,22 @@ function fhNodeGuess(input){
   if(k) return k;
   var c=fhNodeFromClaims(input.labelClaims);
   if(c && FH_TAX.kindOf(c)===kind) return c;
+  if(kind==='expense' && fhLooksPersonToPerson(input)) return 'p2p';
   return null;
+}
+/* Transfer-to-a-human phrasing, kept deliberately narrow: the bank's own verb
+   ("chuyển tiền/chuyển khoản đến"), a QR payment marker, or a counterparty that
+   is a bare account-number-and-name pair. A merchant name never matches, and a
+   keyword hit has already answered before this runs. */
+var _P2P_RE=/\b(chuyen tien|chuyen khoan|chuyen qua|ck den|ck cho|thanh toan qr|qrcode|chuyen tien nhanh)\b/;
+function fhLooksPersonToPerson(input){
+  var text=FH_TAX.deburr([input.note,input.counterparty,input.memo].filter(Boolean).join(' '))
+    .replace(/[^a-z0-9]+/g,' ').trim();
+  if(!text) return false;
+  if(_P2P_RE.test(' '+text+' ')) return true;
+  /* "0111000158387 - CAO THAI MINH PHUONG": an account number followed by a
+     person's name, which is how every VN bank writes a p2p counterparty. */
+  return /^\d{6,}\s+[a-z]+(\s+[a-z]+){1,4}$/.test(text);
 }
 /* Siblings-first correction list for a picker: the node's siblings (and itself),
    then its parent's siblings, then every group of the kind. */

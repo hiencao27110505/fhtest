@@ -607,12 +607,7 @@ function renderFinanceHero(){
         +'<span class="fh-bar"><i style="width:'+pct.toFixed(0)+'%"></i></span></span>'
         +'<svg class="fh-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>';
     }).join('');
-    setHTMLIf('fh-legend', _fhLegendWrap('personal', pl, function(){
-      var P=window.fhPersonalData?fhPersonalData():null;
-      return fhTreeRowsFor(((P&&P.txns)||[]).filter(function(t){ return t.kind==='expense'; }).map(function(t){
-        return { amt:t.amt, node:t.node, month:null, _unreadable:t._unreadable };
-      }));
-    }));
+    setHTMLIf('fh-legend', _fhLegendWrap('personal', pl, function(){ return pc.treeRows || []; }));
     return;
   }
   if(editEl) editEl.setAttribute('onclick',"openSheet('sheet-budget')");   // restore family target

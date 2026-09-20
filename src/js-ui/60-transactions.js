@@ -60,7 +60,7 @@ function _pBuildTxnCtx(){
   var acctName=function(id){ var a=id&&(P&&P.accounts||[]).find(function(x){ return x.id===id; }); return a?(a.name||L('Tài khoản','Account')):null; };
   var K_INC=L('Thu nhập','Income'), K_XFER=L('Chuyển khoản','Transfers'), K_DEBT=L('Cho vay & nợ','Loans & debts'), K_INV=L('Đầu tư','Investments');
   var kstyle={}; kstyle[K_INC]=['💰','#eefaf3','var(--good)']; kstyle[K_XFER]=['🔁','#eef4fb','var(--cat-other)']; kstyle[K_DEBT]=['💵','#fdf4e8','var(--cat-other)']; kstyle[K_INV]=['📈','#f6eefb','var(--cat-other)'];
-  var kindOrder=[], kseen={}, seenXfer={};
+  var kindOrder=[], kseen={}, seenXfer={}, treeRows=[];
   txs.forEach(function(t){
     if(t._unreadable) return;
     var _d=t.date?new Date(t.date+'T00:00:00'):null;
@@ -75,7 +75,10 @@ function _pBuildTxnCtx(){
          expense = money out (0109 stores it positive), so its cash flow is −amt. */
       rows.push({ id:t.id, cat:cat, note:t.note||cat, amt:t.amt||0, _d:_d, ico:t.emoji||'🗂️', who:null, _style:style[cat], _open:eOpen, photos:t.photos||undefined, time:t.time||null,
         _kg:'chi', _net:-(t.amt||0), _src:t.src||null, _acct:t.accountId||null, _mirror:!!(t.spaceId||t.linkId) });
-      if((t.date||'').slice(0,7)===ym) spent[cat]=(spent[cat]||0)+(t.amt||0);   // hero = this month only (parity with family M())
+      if((t.date||'').slice(0,7)===ym){
+        spent[cat]=(spent[cat]||0)+(t.amt||0);   // hero = this month only (parity with family M())
+        treeRows.push({ node:t.node||null, amt:t.amt||0 });   // 0144: the SAME rows, so both views of this card agree
+      }
       return;
     }
     var kcat, note, sign='', cls='xfer', open='', ico=null;
@@ -125,7 +128,7 @@ function _pBuildTxnCtx(){
   order.sort(function(a,b){ return (spent[b]||0)-(spent[a]||0); });
   /* account names for the Nguồn tiền filter section (personal only) */
   var acctDefs=((P&&P.accounts)||[]).map(function(a){ return { k:a.id, lbl:a.name||L('Tài khoản','Account') }; });
-  _pTxnCtx={ rows:rows, catOrder:order, catStyle:style, catSpent:spent, catBudget:(P&&P.catBudget)||{}, kindOrder:kindOrder, acctDefs:acctDefs };
+  _pTxnCtx={ rows:rows, catOrder:order, catStyle:style, catSpent:spent, catBudget:(P&&P.catBudget)||{}, kindOrder:kindOrder, acctDefs:acctDefs, treeRows:treeRows };
 }
 function txRow(t){
   // personal rows carry their own style + no member/reactions/detail screen;

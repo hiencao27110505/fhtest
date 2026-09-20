@@ -142,6 +142,34 @@ console.log('\n-- the guess, and what a label may contribute --');
     P.fhNodeDepth('coffee') === 3 && P.fhNodeDepth('drinks') === 2 && P.fhNodeDepth('food') === 1 && P.fhNodeDepth('zzz') === 0);
 }
 
+console.log('\n-- money to a person is classified, not unknown --');
+{
+  /* The spec's promise: a bare transfer to a human rests on "Chuyển cho người
+     khác", a real group, rather than on the root. We know the channel even when
+     we never learn the purpose, and saying so beats "Chưa rõ". */
+  t('a bank\'s own transfer verb lands on p2p',
+    P.fhNodeGuess({ note: 'CAO THÁI DUY HIỂN chuyen tien den NGUYEN DUC THIEN' }) === 'p2p');
+  t('an account-number-and-name counterparty lands on p2p',
+    P.fhNodeGuess({ note: '0111000158387 - CAO THAI MINH PHUONG' }) === 'p2p');
+  /* And it never steals a row real evidence already answered. */
+  t('a QR payment at a named shop stays with the shop',
+    P.fhNodeGuess({ note: 'CAO THAI DUY HIEN thanh toan QRCODE tai AEON' }) === 'groceries');
+  t('a label still outranks it',
+    P.fhNodeGuess({ note: 'chuyen tien den ai do', labelClaims: ['groceries'] }) === 'groceries');
+  t('genuinely silent text stays unanswered',
+    P.fhNodeGuess({ note: '22853744443228090368' }) === null);
+}
+
+console.log('\n-- no oversized enum reaches Gemini (the v52 hard 400) --');
+{
+  const llm = fs.readFileSync(path.join(ROOT, 'supabase/functions/_shared/mailbox/llm.mjs'), 'utf8');
+  const cls = fs.readFileSync(path.join(ROOT, 'supabase/functions/_shared/mailbox/classify.mjs'), 'utf8');
+  t('the extraction schema has no node enum', !/node:\s*\{[^}]*enum/.test(llm));
+  t('the classify schemas have no node enum', !/node:\s*\{[^}]*enum/.test(cls));
+  /* The small, proven enums stay: they worked for months. */
+  t('concept and pool keep their enums', /concept:\s*\{[^}]*enum/.test(cls) && /pool:\s*\{[^}]*enum/.test(cls));
+}
+
 console.log('\n-- the generated targets stay in lockstep with the JSON --');
 {
   const gen = require(path.join(ROOT, 'tools/gen-taxonomy.js'));

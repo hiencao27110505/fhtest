@@ -116,13 +116,7 @@ export const EXTRACTION_SYSTEM_PROMPT =
   'is Fun. Use Others when the mail genuinely does not say what was bought — a ' +
   'bare transfer to a person, or an ATM withdrawal. NULL when it is money ' +
   'coming IN rather than going out: income is not a spending category, and ' +
-  'guessing one puts a salary under Shopping.\n\n' +
-  'node: the most specific category-tree code you are confident in, or null. For a ' +
-  'debit (money going out) use EXACTLY one of these expense codes — ' + EXPENSE_NODE_CODES.join(', ') + '. ' +
-  'For a credit (money coming in) use ONLY one of these income codes — ' + INCOME_NODE_CODES.join(', ') + '. ' +
-  'Prefer a leaf (coffee, fuel, electric, wage) when the mail says clearly what the money was for; ' +
-  'answer its group (drinks, vehicle, utilities, salary) when you know the area but not the exact kind; ' +
-  'null when the mail does not say. Never invent a code.';
+  'guessing one puts a salary under Shopping.';
 
 export const EXTRACTION_SCHEMA = {
   type: 'object',
@@ -199,17 +193,11 @@ export const EXTRACTION_SCHEMA = {
       type: ['string', 'null'],
       enum: ['Housing', 'Groceries', 'Clothing', 'Shopping', 'Transport', 'Dining', 'Fun', 'Others', null],
     },
-    /* THE TREE NODE (0144): the most specific taxonomy code the model is
-       confident in — a leaf when the mail says what was bought, a group when it
-       only says the area, null when it does not say. `category` stays exactly
-       as it was for old readers; the cascade in classify.mjs derives the
-       concept from the node when both are needed. Expense codes for debits,
-       income codes for credits, and NOT in `required`: an older .gs paste or a
-       model that omits it degrades to the concept-only path, never breaks. */
-    node: {
-      type: ['string', 'null'],
-      enum: [...NODE_CODES, null],
-    },
+    /* NO `node` HERE, deliberately (0144). The tree code is decided by the
+       cascade in classify.mjs, which runs straight after extraction and holds
+       the merchant cache this call does not. Asking the extractor as well cost
+       a 1.4KB menu on every mail and, as a 182-value enum, was rejected by
+       Gemini's OpenAPI subset with a hard 400 on every call. */
   },
   required: [
     'is_transaction', 'transaction_type', 'source_provider', 'occurred_at',
