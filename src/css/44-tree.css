@@ -11,23 +11,19 @@
 .tl-seg.on{background:var(--brand-tint);color:var(--brand-ink)}
 .tl-seg:focus-visible{outline:2px solid var(--brand);outline-offset:-2px}
 
-/* The breakdown: one row per node, indented by depth, amounts right-aligned. */
+/* The breakdown reuses .fh-lrow (the legend row shipped with the Finance card),
+   so nothing here restates its type, height or bar. Depth is an inset; a row
+   that says "we only know this much" is muted, not decorated. */
 .tb-list{display:flex;flex-direction:column}
-.tb-row{display:grid;grid-template-columns:16px 1fr 56px auto;gap:8px;align-items:center;
-  width:100%;text-align:left;appearance:none;background:transparent;border:0;border-bottom:1px solid var(--hairline);
-  font:inherit;color:var(--ink);padding:11px 0;min-height:44px;cursor:default}
-.tb-row.has{cursor:pointer}
-.tb-row:last-child{border-bottom:0}
-.tb-row.d1{padding-left:18px}
-.tb-row.d2{padding-left:36px}
-.tb-row.d1 .tb-n,.tb-row.d2 .tb-n{font-size:13px;color:var(--ink-2)}
-.tb-row.rest .tb-n{color:var(--muted);font-style:italic}
-.tb-chev{color:var(--chev);font-size:11px;text-align:center}
-.tb-n{font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.tb-row.d1 .tb-n,.tb-row.d2 .tb-n{font-weight:500}
-.tb-bar{height:4px;border-radius:2px;background:var(--hairline);overflow:hidden}
-.tb-bar i{display:block;height:100%;background:var(--brand);border-radius:2px}
-.tb-a{font-size:13px;font-weight:600;white-space:nowrap}
+.tb-list .fh-lrow.tb-l1{padding-left:34px}
+.tb-list .fh-lrow.tb-l2{padding-left:56px}
+.tb-list .fh-lrow.tb-l1 .fh-lname,.tb-list .fh-lrow.tb-l2 .fh-lname{font-size:13px;font-weight:500;color:var(--ink-2)}
+.tb-list .fh-lrow.tb-l1 .fh-ico,.tb-list .fh-lrow.tb-l2 .fh-ico{display:none}
+.tb-list .fh-lrow.tb-rest .fh-lname{color:var(--muted)}
+.tb-list .fh-lrow.tb-rest .fh-bar i{background:var(--chev)}
+.tb-list .fh-lrow .fh-chev{transition:transform .18s ease}
+.tb-list .fh-lrow .fh-chev.open{transform:rotate(90deg)}
+@media (prefers-reduced-motion:reduce){.tb-list .fh-lrow .fh-chev{transition:none}}
 .tb-empty{padding:18px 0;color:var(--muted);font-size:14px}
 
 /* The node picker sheet: a search field over a list that is already sorted
@@ -40,10 +36,10 @@
 .npick-p{font-size:11.5px;color:var(--muted)}
 .npick-empty{padding:14px 4px;color:var(--muted);font-size:14px}
 
-/* The node line on a detail row wraps rather than truncating: the path IS the
-   answer, and half a path ("Ăn uống ›") tells the reader nothing. */
-.exd-node-path{font-weight:600}
-.exd-node-path .sep{color:var(--chev);padding:0 3px}
+/* On a detail row the LEAF is the answer and wears the row's normal bold; the
+   groups above it are context and sit in the same muted tone the card uses for
+   every other secondary word. */
+.exd-node-up{color:var(--muted);font-weight:500}
 /* The selector sits above the breakdown rows, right-aligned so the rows keep
    their left edge and the eye still lands on the first category first. */
 .fh-legend-head{display:flex;justify-content:flex-end;padding:0 0 10px}

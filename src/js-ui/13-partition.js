@@ -80,8 +80,19 @@ function fhDefaultClaimsFor(name, emoji, kind){
    spans several groups (Con cái) or is the catch-all. */
 function fhNodeFromClaims(claims){
   var real=(claims||[]).filter(function(c){ return c!=='*' && fhNodeOk(c); });
-  if(real.length!==1) return null;
-  return real[0];
+  if(!real.length) return null;                       // the catch-all, or a label that claims nothing
+  if(real.length===1) return real[0];
+  /* Several claims still say something when they share an ancestor: a label
+     claiming eatout + drinks means "food", which is a true if coarse answer.
+     Claims across different groups (a "Con cái" spanning food and school) share
+     nothing, and null is then the honest reply. */
+  var chain=[real[0]].concat(FH_TAX.ancestors(real[0]));
+  for(var i=1;i<real.length;i++){
+    var other=[real[i]].concat(FH_TAX.ancestors(real[i]));
+    chain=chain.filter(function(c){ return other.indexOf(c)>=0; });
+    if(!chain.length) return null;
+  }
+  return chain[0]||null;                              // deepest shared ancestor
 }
 /* Client-side node guess for one row. Tiers, in order (T3 registry is server-side):
    T4 personal lesson (window.fhLessonNode, from 24-lessons.js) → T2 keywords on

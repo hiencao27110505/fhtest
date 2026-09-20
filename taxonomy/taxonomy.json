@@ -47,7 +47,8 @@
    "depth": 1,
    "vi": "Ăn uống",
    "en": "Food & drink",
-   "concept": "Dining"
+   "concept": "Dining",
+   "emoji": "🍽️"
   },
   {
    "code": "groceries",
@@ -492,7 +493,8 @@
    "depth": 1,
    "vi": "Nhà ở & hoá đơn",
    "en": "Housing & bills",
-   "concept": "Housing"
+   "concept": "Housing",
+   "emoji": "🏠"
   },
   {
    "code": "rent",
@@ -841,7 +843,8 @@
    "depth": 1,
    "vi": "Đi lại",
    "en": "Transport",
-   "concept": "Transport"
+   "concept": "Transport",
+   "emoji": "🚗"
   },
   {
    "code": "vehicle",
@@ -1135,7 +1138,8 @@
     "speepay",
     "amazon",
     "amazon mktplace"
-   ]
+   ],
+   "emoji": "🛍️"
   },
   {
    "code": "clothing",
@@ -1385,7 +1389,8 @@
    "depth": 1,
    "vi": "Sức khỏe & làm đẹp",
    "en": "Health & beauty",
-   "concept": "Others"
+   "concept": "Others",
+   "emoji": "💊"
   },
   {
    "code": "medical",
@@ -1626,7 +1631,8 @@
    "depth": 1,
    "vi": "Giải trí",
    "en": "Leisure",
-   "concept": "Fun"
+   "concept": "Fun",
+   "emoji": "🎉"
   },
   {
    "code": "entertainment",
@@ -1855,7 +1861,8 @@
    "kw": [
     "hoc"
    ],
-   "concept": "Others"
+   "concept": "Others",
+   "emoji": "🎓"
   },
   {
    "code": "tuition",
@@ -1947,7 +1954,8 @@
     "bieu",
     "mung"
    ],
-   "concept": "Others"
+   "concept": "Others",
+   "emoji": "🎁"
   },
   {
    "code": "gifts",
@@ -2050,7 +2058,8 @@
    "depth": 1,
    "vi": "Phí, thuế & bảo hiểm",
    "en": "Fees, tax & insurance",
-   "concept": "Others"
+   "concept": "Others",
+   "emoji": "🧾"
   },
   {
    "code": "bankfees",
@@ -2268,7 +2277,8 @@
    "depth": 1,
    "vi": "Công việc & kinh doanh",
    "en": "Work & business",
-   "concept": "Others"
+   "concept": "Others",
+   "emoji": "💼"
   },
   {
    "code": "workexpense",
@@ -2416,7 +2426,8 @@
    "vi": "Chuyển cho người khác",
    "en": "Payments to people",
    "rest": true,
-   "concept": "Others"
+   "concept": "Others",
+   "emoji": "🤝"
   },
   {
    "code": "split",
@@ -2455,7 +2466,8 @@
    "vi": "Chưa rõ",
    "en": "Unfiled",
    "manual": true,
-   "concept": "Others"
+   "concept": "Others",
+   "emoji": "🗂️"
   },
   {
    "code": "salary",
@@ -2463,7 +2475,8 @@
    "parent": null,
    "depth": 1,
    "vi": "Lương & công việc",
-   "en": "Employment"
+   "en": "Employment",
+   "emoji": "💼"
   },
   {
    "code": "wage",
@@ -2526,7 +2539,8 @@
    "parent": null,
    "depth": 1,
    "vi": "Kinh doanh",
-   "en": "Business"
+   "en": "Business",
+   "emoji": "🏪"
   },
   {
    "code": "sales",
@@ -2559,7 +2573,8 @@
    "parent": null,
    "depth": 1,
    "vi": "Đầu tư & tài sản",
-   "en": "Investment & assets"
+   "en": "Investment & assets",
+   "emoji": "📈"
   },
   {
    "code": "savinterest",
@@ -2619,7 +2634,8 @@
    "parent": null,
    "depth": 1,
    "vi": "Được cho & nhận",
-   "en": "Received"
+   "en": "Received",
+   "emoji": "🎁"
   },
   {
    "code": "fromfamily",
@@ -2665,7 +2681,8 @@
    "parent": null,
    "depth": 1,
    "vi": "Hoàn & bồi hoàn",
-   "en": "Refunds & reimbursements"
+   "en": "Refunds & reimbursements",
+   "emoji": "💸"
   },
   {
    "code": "purchaserefund",
@@ -2739,7 +2756,8 @@
    "parent": null,
    "depth": 1,
    "vi": "Trợ cấp & hưu trí",
-   "en": "Benefits & pension"
+   "en": "Benefits & pension",
+   "emoji": "🏛️"
   },
   {
    "code": "pension",
@@ -2784,7 +2802,8 @@
    "depth": 1,
    "vi": "Chưa rõ",
    "en": "Unfiled",
-   "manual": true
+   "manual": true,
+   "emoji": "🗂️"
   },
   {
    "code": "cashout",
@@ -2798,7 +2817,8 @@
     "rut tien",
     "rut tien mat"
    ],
-   "derived": true
+   "derived": true,
+   "emoji": "🏧"
   },
   {
    "code": "cashin",
@@ -2811,7 +2831,8 @@
     "nop tien",
     "cdm"
    ],
-   "derived": true
+   "derived": true,
+   "emoji": "🏧"
   },
   {
    "code": "bankbank",
@@ -2824,7 +2845,8 @@
     "chuyen khoan noi bo",
     "ck cho chinh minh"
    ],
-   "derived": true
+   "derived": true,
+   "emoji": "🔁"
   },
   {
    "code": "wallet",
@@ -2846,7 +2868,8 @@
     "tui than tai",
     "nap tien vao vi tu"
    ],
-   "derived": true
+   "derived": true,
+   "emoji": "📱"
   },
   {
    "code": "cardpay",
@@ -2861,7 +2884,8 @@
     "sao ke the",
     "thanh toan sao ke"
    ],
-   "derived": true
+   "derived": true,
+   "emoji": "💳"
   },
   {
    "code": "savings",
@@ -2876,7 +2900,8 @@
     "so tiet kiem",
     "tiet kiem online"
    ],
-   "derived": true
+   "derived": true,
+   "emoji": "🏦"
   },
   {
    "code": "investfund",
@@ -2896,7 +2921,8 @@
     "fmarket",
     "dnse"
    ],
-   "derived": true
+   "derived": true,
+   "emoji": "📈"
   },
   {
    "code": "fx",
@@ -2910,7 +2936,8 @@
     "usd",
     "ngoai te"
    ],
-   "derived": true
+   "derived": true,
+   "emoji": "💱"
   },
   {
    "code": "borrow",
@@ -2918,7 +2945,8 @@
    "parent": null,
    "depth": 1,
    "vi": "Đi vay",
-   "en": "Borrowed"
+   "en": "Borrowed",
+   "emoji": "🏦"
   },
   {
    "code": "bankloan",
@@ -3016,7 +3044,8 @@
    "parent": null,
    "depth": 1,
    "vi": "Cho vay",
-   "en": "Lent"
+   "en": "Lent",
+   "emoji": "🤝"
   },
   {
    "code": "toperson",
@@ -3067,7 +3096,8 @@
    "kw": [
     "inherits Đi vay › …"
    ],
-   "derived": true
+   "derived": true,
+   "emoji": "💸"
   },
   {
    "code": "collect",
@@ -3079,7 +3109,8 @@
    "kw": [
     "inherits Cho vay › …"
    ],
-   "derived": true
+   "derived": true,
+   "emoji": "💰"
   },
   {
    "code": "stock",
@@ -3095,7 +3126,8 @@
     "vndirect",
     "tcbs",
     "vps"
-   ]
+   ],
+   "emoji": "📈"
   },
   {
    "code": "fund",
@@ -3110,7 +3142,8 @@
     "dragon capital",
     "finhay",
     "fmarket"
-   ]
+   ],
+   "emoji": "📊"
   },
   {
    "code": "bond",
@@ -3121,7 +3154,8 @@
    "en": "Bonds",
    "kw": [
     "trai phieu"
-   ]
+   ],
+   "emoji": "📜"
   },
   {
    "code": "gold",
@@ -3136,7 +3170,8 @@
     "pnj",
     "doji",
     "vang nhan"
-   ]
+   ],
+   "emoji": "🥇"
   },
   {
    "code": "crypto",
@@ -3150,7 +3185,8 @@
     "bitcoin",
     "binance",
     "usdt"
-   ]
+   ],
+   "emoji": "🪙"
   },
   {
    "code": "realestate",
@@ -3166,7 +3202,8 @@
     "tien dat",
     "lo dat",
     "so do"
-   ]
+   ],
+   "emoji": "🏘️"
   },
   {
    "code": "termdeposit",
@@ -3178,7 +3215,8 @@
    "kw": [
     "tiet kiem ky han",
     "gui ky han"
-   ]
+   ],
+   "emoji": "🏦"
   },
   {
    "code": "stake",
@@ -3191,7 +3229,8 @@
     "gop von",
     "hun von",
     "co phan"
-   ]
+   ],
+   "emoji": "🤝"
   }
  ]
 }

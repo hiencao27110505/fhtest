@@ -44,7 +44,7 @@ var ICO = {
 };
 
 var RELEASES = [
-  { id:'2026-09-20-tieu-vao-gi', date:'2026-09-20', time:'04:45', ver:'v546', icon:ICO.pie,
+  { id:'2026-09-20-tieu-vao-gi', date:'2026-09-20', time:'05:30', ver:'v547', icon:ICO.pie,
     vi:{ t:'Biết rõ tiền đi vào việc gì',
       problem:'Danh mục cũ gom quá nhiều thứ vào một chỗ. "Ăn uống" vừa là bữa cơm vừa là ly cà phê sáng vừa là chầu nhậu tối, nên nhìn vào chỉ thấy một con số to mà không biết mình thật sự tiêu cho cái gì. Khoản từ email ngân hàng thì hơn một nửa không xếp được vào đâu.',
       sol:'App giờ tự nhận ra từng khoản là gì. Cà phê, trà sữa, đi chợ, tiền điện, xăng xe, mỗi thứ về đúng chỗ của nó, từ nhóm lớn xuống tới từng món. Danh mục của bạn vẫn y nguyên, vẫn là thứ bạn đặt ngân sách. Trong màn chi tiêu có nút đổi cách xem giữa "Danh mục của tôi" và "Tiêu vào gì". Mở một khoản ra là thấy dòng "Tiêu vào gì", chạm để sửa nếu app đoán sai, lần sau nó nhớ.' },

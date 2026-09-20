@@ -77,8 +77,16 @@ function fhTreeLayer(scope) {
 }
 function fhTreeLayerSet(scope, layer) {
   try { localStorage.setItem('fh-tree-layer:' + scope, layer); } catch (e) {}
-  if (scope === 'personal') { if (window.renderPersonal) renderPersonal(); }
-  else if (window.renderFinanceHero) renderFinanceHero();
+  _tbOpen = {};                                    // a fresh view opens closed
+  /* renderFinanceHero owns the legend on BOTH surfaces (the Tài chính card and
+     the Giao dịch screen), so it is the one that always has to run. The tab
+     renderer only matters when the tab itself is what is on screen. */
+  if (window.renderFinanceHero) renderFinanceHero();
+  if (scope === 'personal' && window.renderPersonal) {
+    var tab = document.getElementById('v-personal');
+    if (tab && tab.classList.contains('on')) renderPersonal();
+  }
+  if (window.renderTxns) { try { renderTxns(); } catch (e) {} }   // the list's right-hand label follows the layer
 }
 function fhTreeSelector(scope) {
   if (typeof fhTreeOn === 'function' && !fhTreeOn()) return '';
@@ -117,6 +125,22 @@ function fhTreeBreakdownHTML(rows) {
     FH_TAX.ancestors(r.node).forEach(function (a) { sum[a] = (sum[a] || 0) + amt; });
   });
   if (!total) return '<div class="tb-empty">' + L('Chưa có khoản nào tháng này', 'Nothing logged this month') + '</div>';
+  /* One row builder, and it is the LEGEND row the rest of the app already uses
+     (.fh-lrow): same height, type, bar and chevron. Depth is a left inset, not
+     a different component. */
+  var row = function (opts) {
+    var pct = total ? Math.min(100, Math.max(1, 100 * opts.amt / total)) : 0;
+    var chev = opts.kids
+      ? '<svg class="fh-chev' + (opts.open ? ' open' : '') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>'
+      : '<span class="fh-chev"></span>';
+    return '<' + (opts.kids ? 'button type="button"' : 'div') + ' class="fh-lrow tb-l' + opts.depth + (opts.rest ? ' tb-rest' : '') + '"'
+      + (opts.kids ? ' onclick="fhTreeToggle(&#39;' + escAttr(opts.code) + '&#39;)" aria-expanded="' + (opts.open ? 'true' : 'false') + '"' : '')
+      + '><span class="fh-ico">' + (opts.ico || '') + '</span>'
+      + '<span class="fh-body"><span class="fh-l1"><span class="fh-lname">' + esc(opts.name) + '</span>'
+      + '<span class="fh-lamt num"><b>' + fmtK(opts.amt) + '</b></span></span>'
+      + '<span class="fh-bar"><i style="width:' + pct.toFixed(0) + '%"></i></span></span>'
+      + chev + '</' + (opts.kids ? 'button' : 'div') + '>';
+  };
   var out = '';
   var line = function (code, depth) {
     var n = FH_TAX.get(code), amt = sum[code] || 0;
@@ -124,32 +148,27 @@ function fhTreeBreakdownHTML(rows) {
     var kids = FH_TAX.children(code).filter(function (c) { return sum[c]; });
     var own = amt - kids.reduce(function (s, c) { return s + (sum[c] || 0); }, 0);
     var open = !!_tbOpen[code];
-    var pct = Math.round(100 * amt / total);
-    var s = '<button type="button" class="tb-row d' + depth + (kids.length ? ' has' : '') + '"'
-      + (kids.length ? ' onclick="fhTreeToggle(&#39;' + escAttr(code) + '&#39;)" aria-expanded="' + (open ? 'true' : 'false') + '"' : ' disabled')
-      + '><span class="tb-chev">' + (kids.length ? (open ? '▾' : '▸') : '') + '</span>'
-      + '<span class="tb-n">' + esc(n.vi) + '</span>'
-      + '<span class="tb-bar"><i style="width:' + Math.max(2, pct) + '%"></i></span>'
-      + '<span class="tb-a num">' + fmt(amt) + '</span></button>';
+    var s = row({ code: code, name: n.vi, amt: amt, depth: depth, kids: kids.length, open: open, ico: depth ? '' : (n.emoji || '') });
     if (kids.length && open) {
       kids.sort(function (a, b) { return sum[b] - sum[a]; });
       kids.forEach(function (c) { s += line(c, depth + 1); });
-      /* What sits ON this node and not under any child: the honest "we know it
-         was food, not which kind" amount. Never shown as a fake leaf. */
-      if (own > 0) s += '<div class="tb-row d' + (depth + 1) + ' rest"><span class="tb-chev"></span>'
-        + '<span class="tb-n">' + L('chưa rõ món', 'no detail') + '</span>'
-        + '<span class="tb-bar"></span><span class="tb-a num">' + fmt(own) + '</span></div>';
+      /* What sits ON this node and under none of its children: the honest "we
+         know it was food, not which kind" amount. Never shown as a fake leaf. */
+      if (own > 0) s += row({ name: L('chưa rõ món', 'no detail'), amt: own, depth: depth + 1, rest: true });
     }
     return s;
   };
-  var roots = FH_TAX.roots('expense').filter(function (c) { return sum[c]; });
-  roots.sort(function (a, b) { return sum[b] - sum[a]; });
-  roots.forEach(function (c) { out += line(c, 0); });
-  if (none > 0) {
-    out += '<div class="tb-row d0 rest"><span class="tb-chev"></span>'
-      + '<span class="tb-n">' + L('Chưa rõ', 'Not sure yet') + '</span>'
-      + '<span class="tb-bar"></span><span class="tb-a num">' + fmt(none) + '</span></div>';
-  }
+  /* "Chưa rõ" is a line like any other and sorts by size with the rest: pinning
+     the largest number to the bottom of the list reads as a footnote when it is
+     actually the biggest thing on the screen. */
+  var tops = FH_TAX.roots('expense').filter(function (c) { return sum[c]; })
+    .map(function (c) { return { code: c, amt: sum[c] }; });
+  if (none > 0) tops.push({ code: null, amt: none });
+  tops.sort(function (a, b) { return b.amt - a.amt; });
+  tops.forEach(function (x) {
+    out += x.code ? line(x.code, 0)
+      : row({ name: L('Chưa rõ', 'Not sure yet'), amt: x.amt, depth: 0, rest: true, ico: '🗂️' });
+  });
   return '<div class="tb-list">' + out + '</div>';
 }
 /* Build the [{node, amt}] rows for a month from an array of ledger rows. Shared

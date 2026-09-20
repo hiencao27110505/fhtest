@@ -380,8 +380,11 @@ function _exdNodeRow(t, editable, mode){
   var staged=(mode==='pers')?PXD.node:EXD.node;
   var cur=(staged!==undefined)?staged:(t.node||null);
   var kind=(mode==='pers')?(t.kind==='income'?'income':'expense'):'expense';
-  var val=cur?('<span class="exd-node-path">'+FH_TAX.pathVi(cur).map(esc).join('<span class="sep">›</span>')+'</span>')
-             :('<b>'+L('Chưa rõ','Not sure yet')+'</b>');
+  var val;
+  if(cur){
+    var path=FH_TAX.pathVi(cur), leaf=path[path.length-1], up=path.slice(0,-1).join(' › ');
+    val=(up?'<span class="exd-node-up">'+esc(up)+' › </span>':'')+'<b>'+esc(leaf)+'</b>';
+  } else val='<b>'+L('Chưa rõ','Not sure yet')+'</b>';
   var lbl=(kind==='income')?L('Tiền từ đâu','Where it came from'):L('Tiêu vào gì','What it was');
   return _exdRow({label:lbl, ro:!editable, soft:!cur, chg:staged!==undefined,
     val:val, fn:editable?("exdSheetNode(&#39;"+(mode==='pers'?'pers':'fam')+"&#39;,&#39;"+escAttr(kind)+"&#39;)"):''});

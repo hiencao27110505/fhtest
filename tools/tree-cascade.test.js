@@ -125,7 +125,17 @@ console.log('\n-- the guess, and what a label may contribute --');
   /* The label is evidence only when the words are not: "200k" says nothing, so
      the label's own claim answers — at GROUP level, never a leaf. */
   t('a silent note falls back to the label claim', P.fhNodeGuess({ note: '200k', labelClaims: ['groceries'] }) === 'groceries');
-  t('a label spanning two groups contributes nothing', P.fhNodeGuess({ note: 'xxx', labelClaims: ['eatout', 'drinks'] }) === null);
+  t('claims inside one group answer with that group',
+    P.fhNodeGuess({ note: 'xxx', labelClaims: ['eatout', 'drinks'] }) === 'food',
+    P.fhNodeGuess({ note: 'xxx', labelClaims: ['eatout', 'drinks'] }));
+  t('claims across two groups contribute nothing',
+    P.fhNodeGuess({ note: 'xxx', labelClaims: ['eatout', 'tuition'] }) === null,
+    P.fhNodeGuess({ note: 'xxx', labelClaims: ['eatout', 'tuition'] }));
+  /* The rule the SUPERSPORTS bug broke: a merchant the tree knows outranks the
+     label, even when the label says something else. */
+  t('evidence outranks a disagreeing label',
+    P.fhNodeGuess({ note: 'QR2CK3U3TT SUPERSPORTS', labelClaims: ['food'] }) === 'hobby',
+    P.fhNodeGuess({ note: 'QR2CK3U3TT SUPERSPORTS', labelClaims: ['food'] }));
   t('a repayment never guesses (it inherits its loan)', P.fhNodeGuess({ kind: 'repayment', note: 'cafe' }) === null);
   t('corrections are siblings first', P.fhNodeCorrections('coffee').slice(0, 3).every((c) => T.get(c).parent === 'drinks'));
   t('depth: leaf 3, category 2, group 1, unknown 0',

@@ -18,17 +18,29 @@
 
      Resumable and cheap: 25 rows per idle slice, a cursor per scope in
      localStorage, stop at the first write error and pick it up next boot. */
-  const _TBF_BATCH = 25;
+  const _TBF_BATCH = 12;          // rows per slice
+  const _TBF_LANES = 4;           // writes in flight
+  const _TBF_SESSION_MAX = 400;   // and then stop until the next launch
+  const _TBF_PAUSE = 1200;        // ms of quiet between slices
+  let _tbfDoneThisSession = 0;
   const _tbfRunning = {};
 
   function _tbfCursorKey(scope) {
-    if (scope === 'family') return 'fh-tree-bf:fam:' + ((window.DB && window.DB.fid) || '');
-    return 'fh-tree-bf:per:' + ((window.fhPersonalData && fhPersonalData().uid) || '');
+    /* v2: the first version wrote the LABEL's group whenever a keyword
+       disagreed, so those rows must be revisited. Bumping the key is what makes
+       an already-swept device sweep again. */
+    if (scope === 'family') return 'fh-tree-bf:v2:fam:' + ((window.DB && window.DB.fid) || '');
+    return 'fh-tree-bf:v2:per:' + ((window.fhPersonalData && fhPersonalData().uid) || '');
   }
   function _tbfDone(scope) { try { return localStorage.getItem(_tbfCursorKey(scope)) === 'done'; } catch (e) { return false; } }
   function _tbfMarkDone(scope) { try { localStorage.setItem(_tbfCursorKey(scope), 'done'); } catch (e) {} }
 
-  const _tbfIdle = (fn) => (window.requestIdleCallback ? requestIdleCallback(fn, { timeout: 4000 }) : setTimeout(fn, 900));
+  /* Deliberately lazy: the first slice waits out the hydrate's own render, and
+     every later one leaves a real gap. A sweep nobody asked for must never be
+     what the app is doing while someone is reading it. */
+  const _tbfIdle = (fn, ms) => setTimeout(function () {
+    if (window.requestIdleCallback) requestIdleCallback(fn, { timeout: 4000 }); else fn();
+  }, ms || _TBF_PAUSE);
 
   /* The coarse node for one row, from the claims of the label it already sits in.
      A label that claims several groups ("Con cái") implies nothing, and that is
@@ -52,24 +64,37 @@
   function _tbfNodeFor(scope, row) {
     const kind = (scope === 'personal' && row.kind) ? row.kind : 'expense';
     if (kind === 'repayment' || kind === 'transfer') return null;   // derived from structure, not from text
-    const coarse = _tbfCoarse(scope, row);
+    /* EVIDENCE FIRST. The note names a real merchant far more often than the
+       label is right about it — the old categories are exactly what this epic
+       exists to improve, so letting one veto the other recorded every past
+       mis-filing as fact ("QR2CK3U3TT SUPERSPORTS" under Ăn uống). The label
+       only answers when the words say nothing at all. */
     let guess = null;
-    try {
-      guess = fhNodeGuess({ kind: kind, note: row.note, amount: row.amt,
-        labelClaims: scope === 'family' ? (window.catClaims || {})[row.cat] : null });
-    } catch (e) { guess = null; }
-    if (guess && (!coarse || fhNodeGroup(guess) === fhNodeGroup(coarse))) return guess;
-    return coarse;
+    try { guess = fhNodeGuess({ kind: kind, note: row.note, amount: row.amt }); }
+    catch (e) { guess = null; }
+    if (guess) return guess;
+    return _tbfCoarse(scope, row);
   }
 
   /* One pass over one scope. Returns the number of rows written, or -1 when it
      stopped early (no key, write refused) so the caller does not mark it done. */
+  /* A row the sweep should look at: one with no node, or one still resting on a
+     bare GROUP, which is what the first version wrote whenever it preferred the
+     label over the words. A leaf or a mid-level node is left alone — it either
+     came from the pipeline, a person, or a keyword, and all three outrank this. */
+  function _tbfWants(t) {
+    if (t._tbfSkip) return false;
+    if (!t.node) return true;
+    const n = (typeof FH_TAX !== 'undefined') ? FH_TAX.get(t.node) : null;
+    return !!(n && n.depth === 1);
+  }
   async function _tbfSlice(scope) {
+    if (_tbfDoneThisSession >= _TBF_SESSION_MAX) return 0;
     const rows = [];
     if (scope === 'family') {
       if (typeof _fhWriteLocked === 'function' && _fhWriteLocked()) return -1;
       for (const t of (window.txns || [])) {
-        if (t.node || !t._dbId) continue;
+        if (!t._dbId || !_tbfWants(t)) continue;
         rows.push(t);
         if (rows.length >= _TBF_BATCH) break;
       }
@@ -77,26 +102,39 @@
       const P = window.fhPersonalData ? fhPersonalData() : null;
       if (!P || !P.key || P.state !== 'ready') return -1;
       for (const t of (P.txns || [])) {
-        if (t.node || t._unreadable) continue;
+        if (t._unreadable || !_tbfWants(t)) continue;
         rows.push(t);
         if (rows.length >= _TBF_BATCH) break;
       }
     }
     if (!rows.length) return 0;
-    let wrote = 0;
+    /* Decide first (pure, instant), then write what actually changed, a few at
+       a time. Sequential awaits over a whole ledger is what made the app feel
+       stuck on open. */
+    const work = [];
     for (const t of rows) {
       const node = _tbfNodeFor(scope, t);
-      if (!node) { t.node = null; t._tbfSkip = 1; continue; }   // nothing to say about this row; never retried this session
-      let ok = false;
-      try {
-        ok = (scope === 'family')
-          ? await window.fhTxnSetNode(t._dbId, node)
-          : await window.fhPersonalSetNode(t.id, node);
-      } catch (e) { ok = false; }
-      if (!ok) return -1;                                       // stop at the first refusal; next boot retries
-      t.node = node; wrote++;
+      if (!node || node === t.node) { t._tbfSkip = 1; continue; }
+      work.push({ t: t, node: node });
     }
-    return wrote;
+    if (!work.length) return 0;
+    let wrote = 0, refused = false;
+    for (let i = 0; i < work.length; i += _TBF_LANES) {
+      const lane = work.slice(i, i + _TBF_LANES);
+      const res = await Promise.all(lane.map(async function (w) {
+        try {
+          return (scope === 'family')
+            ? await window.fhTxnSetNode(w.t._dbId, w.node)
+            : await window.fhPersonalSetNode(w.t.id, w.node);
+        } catch (e) { return false; }
+      }));
+      for (let k = 0; k < lane.length; k++) {
+        if (res[k]) { lane[k].t.node = lane[k].node; wrote++; _tbfDoneThisSession++; }
+        else refused = true;
+      }
+      if (refused) break;                                       // next launch retries; the cursor stays put
+    }
+    return refused ? -1 : wrote;
   }
 
   /* Public entry: called from the family hydrate tail and the personal one.

@@ -1197,6 +1197,22 @@ function csvStagedRowsCard(c, opts){
   var sc = csvRowScope(c);
   rows += row('scope', L('Ghi vào đâu','Where to'),
     sc==='personal' ? L('🔒 Cá nhân','🔒 Personal') : L('🏡 Gia đình','🏡 Family'));
+  /* 0144 — "Tiêu vào gì": the tree's read of the purchase, editable here so a
+     wrong guess is fixed once, at the moment the person is already looking at
+     the row, rather than after it lands in the ledger. */
+  function csvNodeRow(mkRow, cand){
+    if(typeof fhTreeOn!=='function' || !fhTreeOn() || typeof FH_TAX==='undefined') return '';
+    var kind=cand._nodeKind || (cand.isIncome ? 'income' : 'expense');
+    if(kind!=='expense' && kind!=='income') return '';
+    var nd=cand._node && FH_TAX.get(cand._node) ? cand._node : null;
+    var lbl=(kind==='income')?L('Tiền từ đâu','Where it came from'):L('Tiêu vào gì','What it was');
+    var val;
+    if(nd){
+      var path=FH_TAX.pathVi(nd), leaf=path[path.length-1], up=path.slice(0,-1).join(' › ');
+      val=(up?'<span class="exd-node-up">'+esc(up)+' › </span>':'')+esc(leaf);
+    } else val=L('Chưa rõ','Not sure yet');
+    return mkRow('node', lbl, val, { soft: !nd });
+  }
   if(sc==='personal'){
     var cur = csvRowKindCur(c);
     var kindLbls = { expense:L('Chi tiêu','Spending'), cardpay:L('💳 Trả nợ thẻ','💳 Card payment'),
@@ -1249,6 +1265,7 @@ function csvStagedRowsCard(c, opts){
         c.categoryName ? (csvCatEmoji(c.categoryName)+' '+esc(c.categoryName)) : L('Chưa rõ','Not set'),
         { soft: !c.categoryName });
     }
+    rows += csvNodeRow(row, c);
   }
   var mems = (window.FAM && FAM.members) || [];
   if(mems.length && sc!=='personal' && !opts.isDup){
@@ -1312,6 +1329,13 @@ function csvSheetPick(f, v){
   if(f==='loanwho'){ csvPickLoanWho(v); return; }
   if(f==='invpos'){ csvPickInvPos(v); return; }
   var c = csvExpandedCandidate(); if(!c){ renderCsvReview(); return; }
+  if(f==='node'){
+    c._node = (v && window.FH_TAX && FH_TAX.get(v)) ? v : null;
+    c._nodeSource = 'user';
+    if(c._node && window.fhLessonLearnNode){
+      try{ fhLessonLearnNode({ counterparty:c.counterparty, memo:c.description, amount:c.amount, node:c._node }); }catch(e){}
+    }
+  }
   if(f==='cat'){ c.categoryName = v; c.catSource = 'user'; if(typeof csvLearnFrom === 'function') csvLearnFrom(c); }
   else if(f==='inccat'){ c._incomeCat = v; }
   else if(f==='who'){ c.who = v; }
@@ -1474,6 +1498,19 @@ function csvRowSheetHTML(c){
           var st = (window.catStyle && catStyle[name]) || ['🏷️'];
           return chip(c.categoryName===name, "csvSheetPick('cat','"+escAttr(name)+"')", st[0]+' '+esc(name));
         }).join('')
+      + '</div>';
+  } else if(f==='node'){
+    var nKind = c._nodeKind || (c.isIncome ? 'income' : 'expense');
+    title = (nKind==='income')?L('Tiền từ đâu','Where it came from'):L('Tiêu vào gì','What it was');
+    var opts = (typeof fhNodeCorrections==='function') ? fhNodeCorrections(c._node, nKind) : FH_TAX.roots(nKind);
+    body = '<div class="choices">'
+      + opts.map(function(code){
+          var nd = FH_TAX.get(code); if(!nd) return '';
+          var path = FH_TAX.pathVi(code), tail = path.slice(0,-1).join(' › ');
+          return chip(c._node===code, "csvSheetPick('node','"+escAttr(code)+"')",
+            esc(nd.vi) + (tail ? ' <span class="npick-p">'+esc(tail)+'</span>' : ''));
+        }).join('')
+      + chip(!c._node, "csvSheetPick('node','')", esc(L('Chưa rõ','Not sure yet')))
       + '</div>';
   } else if(f==='inccat'){
     title = L('Tiền gì vậy?','What money is this?');
