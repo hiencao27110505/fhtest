@@ -629,6 +629,11 @@
      credit-card "payment received" (credit into a card), or when its memo says
      so. Returns display-currency amounts, like the review's candidates. */
   var _CARD_PAY_RX = /thanh toan (sao ke |du no )?the|tt the tin dung|tra no the|thanh toan the (visa|master|jcb)|tra tien the tin dung/;
+  /* Who is on the other side of a repayment: the issuer. A repayment pays the
+     BANK, so there is no merchant to name — either the mail carries no memo at
+     all (VIB's "Thanh toán thẻ tín dụng thành công" template is memo:null) or
+     the counterparty is the bank itself. */
+  var _ISSUER_RX = /\bngan hang\b|\bnh tmcp\b|\btmcp\b/;
   /* Card-payment SHAPE of an unsealed payload — shared with the quick sheet and
      the staged parse. Two signals, either suffices:
      1. the memo says so ("thanh toan sao ke the…");
@@ -643,7 +648,17 @@
     if (!re) return false;
     var memo = String(re.memo_display != null ? re.memo_display : (re.memo || re.counterparty || '')).toLowerCase();
     var flat = memo.normalize ? memo.normalize('NFD').replace(/[̀-ͯ]/g, '') : memo;
-    if (re.card_masked) return true;
+    /* A CARD NUMBER IN THE MAIL IS NOT PROOF OF A REPAYMENT, and reading it as
+       one turned every card purchase into "Trả nợ thẻ" — APPLE.COM/BILL,
+       CO.OP MART, WAYNESCOFFEE. The reason is that two different extractors
+       fill this field: llm.mjs is told to set card_masked only on a repayment,
+       but the deterministic label table (labeltable.mjs) matches bare "số thẻ"
+       / "thẻ tín dụng số" lines, which EVERY card purchase alert prints. So on
+       the template path card_masked only means "this mail named a card".
+       What separates the two is the other side: a repayment names the issuer or
+       nobody, a purchase names the shop. The memo-less VIB confirmation this
+       rule exists for still passes, because flat is empty there. */
+    if (re.card_masked && (!flat.trim() || _ISSUER_RX.test(flat))) return true;
     if (_CARD_PAY_RX.test(flat)) return true;
     var tail = String(re.account_masked || '').replace(/\D/g, '').slice(-4);
     if (re.account_kind === 'credit_card' && tail && window.fhPersonalData) {

@@ -202,9 +202,33 @@ console.log('\n-- rows real mail proved we were getting wrong --');
     n('109876009159 - DAO THI TUOI | LGOINV2609020BJ7R519 HIEN CAO') === 'p2p');
   t('KOI through a payment gateway is milk tea', n('PAYOO-KOI CRM HO CHI MINH VN') === 'milktea');
   /* A card repayment is not spending and must never get an expense node; the
-     review keeps it out of the ledger as a transfer instead. */
+     review keeps it out of the ledger as a transfer instead.
+     This USED to be asserted by matching the source line `if (re.card_masked)
+     return true;` — which pinned a bug in place instead of catching it. Two
+     extractors fill card_masked: llm.mjs is told to set it only on a repayment,
+     but labeltable.mjs matches any "số thẻ" line, which every card PURCHASE
+     alert prints. So the rule turned Apple, Co.op Mart and Wayne's Coffee into
+     "Trả nợ thẻ". Run the real function instead. */
   const rv = fs.readFileSync(path.join(ROOT, 'src/js-data/72-txn-review.js'), 'utf8');
-  t('a row naming the card it repays is a card payment', /if \(re\.card_masked\) return true;/.test(rv));
+  {
+    const from = rv.indexOf('var _CARD_PAY_RX');
+    const to = rv.indexOf('};', rv.indexOf('window.fhCardPayShaped')) + 2;
+    const c2 = { window: {} };
+    vm.createContext(c2);
+    vm.runInContext(rv.slice(from, to) + ';globalThis.CP = window.fhCardPayShaped;', c2);
+    const cp = (re) => !!c2.CP(re);
+    t('a card PURCHASE is spending, however loudly the mail prints the card number',
+      !cp({ card_masked: '****5140', memo: 'APPLE.COM/BILL' })
+      && !cp({ card_masked: '****1234', memo: 'CO.OP MART NHIEU LOC' })
+      && !cp({ card_masked: '****1234', memo_display: 'WAYNESCOFFEE' }));
+    t("the memo-less VIB confirmation this rule exists for still reads as a repayment",
+      cp({ card_masked: '****5140', memo: null }));
+    t('so does one whose only counterparty is the issuer',
+      cp({ card_masked: '****5140', counterparty: 'Ngân hàng TMCP Quốc tế Việt Nam' }));
+    t('explicit repayment wording needs no card number at all',
+      cp({ memo: 'THANH TOAN THE TIN DUNG VIB' }) && cp({ memo: 'Tra no the 5140' }));
+    t('an ordinary merchant with no card is left alone', !cp({ memo: 'HIGHLANDS COFFEE' }));
+  }
   /* The greeting two VIB templates anchor on is not a counterparty. */
   const ex = fs.readFileSync(path.join(ROOT, 'supabase/functions/_shared/mailbox/extract.mjs'), 'utf8');
   t('a salutation is dropped, not just hidden', /if \(merchant === ''\) out\.counterparty = null;/.test(ex));
