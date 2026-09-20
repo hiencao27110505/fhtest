@@ -23,7 +23,7 @@
   const _TBF_SESSION_MAX = 400;   // and then stop until the next launch
   const _TBF_PAUSE = 1200;        // ms of quiet between slices
   let _tbfDoneThisSession = 0;
-  const _tbfRunning = {};
+  const _tbfRunning = {}, _tbfStarted = {};
 
   function _tbfCursorKey(scope) {
     /* v3: v1 wrote the LABEL's group whenever a keyword
@@ -90,6 +90,7 @@
   }
   async function _tbfSlice(scope) {
     if (_tbfDoneThisSession >= _TBF_SESSION_MAX) return 0;
+    if (typeof document !== 'undefined' && document.hidden) return -1;   // backgrounded: stop, resume next launch
     const rows = [];
     if (scope === 'family') {
       if (typeof _fhWriteLocked === 'function' && _fhWriteLocked()) return -1;
@@ -144,7 +145,11 @@
     scope = (scope === 'personal') ? 'personal' : 'family';
     if (typeof fhTreeOn === 'function' && !fhTreeOn()) return;
     if (typeof FH_TAX === 'undefined') return;
-    if (_tbfRunning[scope] || _tbfDone(scope)) return;
+    if (_tbfRunning[scope] || _tbfStarted[scope] || _tbfDone(scope)) return;
+    /* Once per page load. The hydrate tail is the trigger, and hydrate also runs
+       on realtime, on focus and after every write — without this latch a single
+       sweep could restart itself through its own writes. */
+    _tbfStarted[scope] = true;
     _tbfRunning[scope] = true;
     const step = () => {
       _tbfSlice(scope).then((n) => {
@@ -162,5 +167,7 @@
   /* Re-run a scope from scratch: used after a regroup changes what labels claim,
      and available by hand when a tree version lands with new leaves. */
   window.fhTreeBackfillReset = function (scope) {
-    try { localStorage.removeItem(_tbfCursorKey(scope === 'personal' ? 'personal' : 'family')); } catch (e) {}
+    scope = (scope === 'personal') ? 'personal' : 'family';
+    try { localStorage.removeItem(_tbfCursorKey(scope)); } catch (e) {}
+    _tbfStarted[scope] = false; _tbfDoneThisSession = 0;
   };

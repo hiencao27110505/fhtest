@@ -293,8 +293,15 @@
      via fhField; a locked key or a missing id is a silent no-op so the sweep never throws. */
   window.fhTxnSetNode = async function (dbId, node) {
     if (!dbId || _fhWriteLocked()) return false;
-    try { await _w(sb.from('transactions').update(await fhField('node', _okNode(node))).eq('id', dbId), 'write transactions'); return true; }
-    catch (e) { return false; }
+    /* Stamped BEFORE the write and again after: realtime suppresses ticks
+       within 2.5s of a local write, and a slow round trip must not let this
+       row's own echo land outside that window and trigger a re-hydrate. */
+    try { window.DB._lastLocalWrite = Date.now(); } catch (e) {}
+    try {
+      await _w(sb.from('transactions').update(await fhField('node', _okNode(node))).eq('id', dbId), 'write transactions');
+      try { window.DB._lastLocalWrite = Date.now(); } catch (e) {}
+      return true;
+    } catch (e) { return false; }
   };
   async function _dbInsertTxn(t, exD) {
     const fid = window.DB.fid; if (!fid) return;

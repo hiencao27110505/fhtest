@@ -170,6 +170,25 @@ console.log('\n-- no oversized enum reaches Gemini (the v52 hard 400) --');
   t('concept and pool keep their enums', /concept:\s*\{[^}]*enum/.test(cls) && /pool:\s*\{[^}]*enum/.test(cls));
 }
 
+console.log('\n-- the sweep cannot feed itself (the hot-phone loop) --');
+{
+  const bf = fs.readFileSync(path.join(ROOT, 'src/js-data/28-tree-backfill.js'), 'utf8');
+  const wr = fs.readFileSync(path.join(ROOT, 'src/js-data/40-txn-writes-outbox.js'), 'utf8');
+  /* Its own write must not read as a spouse's: realtime re-hydrates on any tick
+     that is not stamped as local, and the hydrate tail starts the sweep. */
+  t('fhTxnSetNode stamps _lastLocalWrite', /fhTxnSetNode[\s\S]{0,700}_lastLocalWrite/.test(wr));
+  t('the sweep starts once per page load', /_tbfStarted\[scope\]/.test(bf));
+  t('a backgrounded tab stops it', /document\.hidden/.test(bf));
+  t('and it stops for the session after a cap', /_TBF_SESSION_MAX/.test(bf));
+}
+
+console.log('\n-- a mirrored row keeps the same answer as its family copy --');
+{
+  const pers = fs.readFileSync(path.join(ROOT, 'src/js-data/19-personal.js'), 'utf8');
+  t('the mirror reads the master\'s node', /mastersBy\[r\.link_id\][\s\S]{0,260}node:/.test(pers));
+  t('and refreshes when the family node changed', /fNode \|\| ''\) !== \(m\.node \|\| ''\)/.test(pers));
+}
+
 console.log('\n-- the generated targets stay in lockstep with the JSON --');
 {
   const gen = require(path.join(ROOT, 'tools/gen-taxonomy.js'));

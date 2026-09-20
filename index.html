@@ -19291,7 +19291,7 @@ function clearFilter(){ txFilter=null; renderTxns(); }
    chart zoom (independent of the list grouping). Grouping/sort/zoom persist
    per scope; filters reset each open. */
 var txnSort='date';                                 // 'date' | 'amount' — order INSIDE a group
-var TXV={ grp:'day', cgrp:'day', pin:null, kinds:null, srcs:null, accts:null, cats:null, _stReset:false };
+var TXV={ grp:'day', cgrp:'day', pin:null, kinds:null, srcs:null, accts:null, cats:null, noNode:false, _stReset:false };
 function _txScopeKey(){ return _txnPersonal()?'personal':'family'; }
 function _txSavePrefs(){
   try{ localStorage.setItem('fh-txnview:'+_txScopeKey(), JSON.stringify({grp:TXV.grp,cgrp:TXV.cgrp,sort:txnSort})); }catch(_e){}
@@ -19434,6 +19434,9 @@ function renderTxnScreen(){
     if(!personal && TXV.insts && !TXV.insts[t.inst||'_none']) return false;
     /* Danh mục narrowed ⇒ an expense view: other kinds step aside */
     if(catNarrow){ if(kg!=='chi') return false; if(!TXV.cats[t.cat]) return false; }
+    /* 0144 — "Chưa rõ" tapped: the rows the tree could not place. Spending only,
+       since a transfer is not meant to have one. */
+    if(TXV.noNode){ if(kg!=='chi') return false; if(t.node) return false; }
     return true;
   });
   var ts=document.getElementById('txn-sum'); if(ts) ts.style.display='none';
@@ -21072,17 +21075,25 @@ function pexdSheetKind(){
   setTxt('exdkind-h','Loại khoản');
   setTxt('exdkind-sub','Đổi loại sẽ lưu ngay, không chờ Lưu.');
   var h='';
-  if(E.k==='expense') h='<button type="button" class="choice on" onclick="closeSheet()">Chi tiêu</button><button type="button" class="choice" onclick="pexdPickKind(&#39;loan&#39;)">🤝 Cho vay</button><button type="button" class="choice" onclick="pexdPickKind(&#39;invest&#39;)">📈 Đầu tư</button>';
+  if(E.k==='expense') h='<button type="button" class="choice on" onclick="closeSheet()">Chi tiêu</button><button type="button" class="choice" onclick="pexdPickKind(&#39;xfer&#39;)">🔁 Chuyển khoản nội bộ</button><button type="button" class="choice" onclick="pexdPickKind(&#39;loan&#39;)">🤝 Cho vay</button><button type="button" class="choice" onclick="pexdPickKind(&#39;invest&#39;)">📈 Đầu tư</button>';
   else if(E.k==='loan') h='<button type="button" class="choice on" onclick="closeSheet()">'+_pexdKindLbl(E)+'</button><button type="button" class="choice" onclick="pexdPickKind(&#39;expense&#39;)">Chi tiêu</button>';
   else if(E.k==='invest') h='<button type="button" class="choice on" onclick="closeSheet()">'+_pexdKindLbl(E)+'</button><button type="button" class="choice" onclick="pexdPickKind(&#39;expense&#39;)">Chi tiêu</button>';
+  /* A lone converted leg can go back too — the pair goes with it. */
+  else if(E.k==='xfer') h='<button type="button" class="choice on" onclick="closeSheet()">'+_pexdKindLbl(E)+'</button><button type="button" class="choice" onclick="pexdPickKind(&#39;expense&#39;)">Chi tiêu</button>';
   setHTML('exdkind-list', h);
   openSheet('sheet-exd-kind');
 }
 async function pexdPickKind(k){
   closeSheet(); var E=_pexdEntry(); if(!E) return; var id=E.id;
   if(k==='loan'||k==='invest'){ closePersonalTxDetail(); if(k==='loan'&&window.fhExpenseToLoanSheet) fhExpenseToLoanSheet(id); else if(window.fhExpenseToInvestSheet) fhExpenseToInvestSheet(id); return; }
+  if(k==='xfer'){ pexdToTransferSheet(id); return; }
   var ok=false;
-  try{ ok=E.k==='loan'?await window.fhPersonalConvertToExpense(id,'Khác','🗂️'):await window.fhPersonalConvertInvestmentToExpense(id,'Khác','🗂️'); if(ok) await window.fhPersonalHydrate(); }catch(e){}
+  try{
+    ok = E.k==='loan'  ? await window.fhPersonalConvertToExpense(id,'Khác','🗂️')
+       : E.k==='xfer'  ? await window.fhPersonalConvertTransferToExpense(id,'Khác','🗂️')
+       :                 await window.fhPersonalConvertInvestmentToExpense(id,'Khác','🗂️');
+    if(ok) await window.fhPersonalHydrate();
+  }catch(e){}
   if(!ok){ toast('Chưa chuyển được, thử lại nhé'); return; }
   PXD={}; renderPersonalTxDetail();
   if(typeof renderPersonal==='function'){ try{ renderPersonal(); }catch(e){} }
@@ -21090,6 +21101,33 @@ async function pexdPickKind(k){
   toast('Đã chuyển thành chi tiêu');
 }
 window.pexdSheetKind=pexdSheetKind; window.pexdPickKind=pexdPickKind;
+var _pexdXferId=null;
+function pexdToTransferSheet(id){
+  _pexdXferId=id;
+  var pd=(window.fhPersonalDebts&&fhPersonalDebts())||{accounts:[]};
+  var P=window.fhPersonalData?fhPersonalData():null;
+  var row=((P&&P.txns)||[]).find(function(t){ return t.id===id; });
+  var ico={deposit:'🏦',ewallet:'📱',credit_card:'💳',cash:'💵',investment:'📈'};
+  var list=((pd.accounts)||[]).filter(function(a){ return !a.archivedAt && a.id!==(row&&row.accountId); });
+  var h=list.map(function(a){
+    return '<button type="button" class="choice" onclick="pexdPickXferTo(&#39;'+escAttr(a.id)+'&#39;)">'
+      +(ico[a.kind]||'🏦')+' '+esc(a.name||'Tài khoản')+'</button>';
+  }).join('');
+  if(!h) h='<div class="exd-rx-empty">Chưa có tài khoản nào để chuyển tới. Thêm ở mục Tài sản trước nhé.</div>';
+  _pexdChoices('Tiền này đi đâu?', 'Chọn nơi nhận để hai bên số dư khớp nhau', h);
+}
+async function pexdPickXferTo(acctId){
+  closeSheet();
+  var id=_pexdXferId; _pexdXferId=null; if(!id||!acctId) return;
+  var ok=false;
+  try{ ok=await window.fhPersonalConvertToTransfer(id, acctId); }catch(e){}
+  if(!ok){ toast('Chưa chuyển được, thử lại nhé'); return; }
+  PXD={}; renderPersonalTxDetail();
+  if(typeof renderPersonal==='function'){ try{ renderPersonal(); }catch(e){} }
+  if(typeof refreshPersonalTxnOverlay==='function') refreshPersonalTxnOverlay();
+  toast('Đã chuyển thành chuyển khoản, không còn tính là chi tiêu');
+}
+window.pexdToTransferSheet=pexdToTransferSheet; window.pexdPickXferTo=pexdPickXferTo;
 /* Ghi vào đâu → the existing move confirm (59-ledger-move-ui) */
 function pexdMove(){
   if(_pexdId==null) return;
@@ -21671,16 +21709,18 @@ function fhTreeBreakdownHTML(rows) {
      a different component. */
   var row = function (opts) {
     var pct = total ? Math.min(100, Math.max(1, 100 * opts.amt / total)) : 0;
-    var chev = opts.kids
+    var chev = (opts.kids || opts.go)
       ? '<svg class="fh-chev' + (opts.open ? ' open' : '') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>'
       : '<span class="fh-chev"></span>';
-    return '<' + (opts.kids ? 'button type="button"' : 'div') + ' class="fh-lrow tb-l' + opts.depth + (opts.rest ? ' tb-rest' : '') + '"'
-      + (opts.kids ? ' onclick="fhTreeToggle(&#39;' + escAttr(opts.code) + '&#39;)" aria-expanded="' + (opts.open ? 'true' : 'false') + '"' : '')
+    var tappable = opts.kids || opts.go;
+    return '<' + (tappable ? 'button type="button"' : 'div') + ' class="fh-lrow tb-l' + opts.depth + (opts.rest ? ' tb-rest' : '') + '"'
+      + (opts.go ? ' onclick="' + opts.go + '"'
+                 : (opts.kids ? ' onclick="fhTreeToggle(&#39;' + escAttr(opts.code) + '&#39;)" aria-expanded="' + (opts.open ? 'true' : 'false') + '"' : ''))
       + '><span class="fh-ico">' + (opts.ico || '') + '</span>'
       + '<span class="fh-body"><span class="fh-l1"><span class="fh-lname">' + esc(opts.name) + '</span>'
       + '<span class="fh-lamt num"><b>' + fmtK(opts.amt) + '</b></span></span>'
       + '<span class="fh-bar"><i style="width:' + pct.toFixed(0) + '%"></i></span></span>'
-      + chev + '</' + (opts.kids ? 'button' : 'div') + '>';
+      + chev + '</' + (tappable ? 'button' : 'div') + '>';
   };
   var out = '';
   var line = function (code, depth) {
@@ -21708,10 +21748,21 @@ function fhTreeBreakdownHTML(rows) {
   tops.sort(function (a, b) { return b.amt - a.amt; });
   tops.forEach(function (x) {
     out += x.code ? line(x.code, 0)
-      : row({ name: L('Chưa rõ', 'Not sure yet'), amt: x.amt, depth: 0, rest: true, ico: '🗂️' });
+      : row({ name: L('Chưa rõ', 'Not sure yet'), amt: x.amt, depth: 0, rest: true, ico: '🗂️', go: 'fhTreeOpenUnknown()' });
   });
   return '<div class="tb-list">' + out + '</div>';
 }
+/* Tapping "Chưa rõ" opens the transaction list narrowed to those rows. They are
+   the ones worth a minute: a bare bank reference the tree cannot read is often
+   not spending at all (money moved to a broker, a savings book), and the kind
+   row on each one is where that gets corrected. */
+function fhTreeOpenUnknown(){
+  TXV.noNode = true;
+  TXV.cats = null;
+  if (typeof openTxns === 'function') openTxns(_txnPersonal && _txnPersonal() ? 'personal' : undefined);
+  else if (typeof renderTxnScreen === 'function') renderTxnScreen();
+}
+
 /* Build the [{node, amt}] rows for a month from an array of ledger rows. Shared
    by both tabs so one definition decides what "this month's spending" means. */
 function fhTreeRowsFor(txnList, monthKey) {
@@ -23408,7 +23459,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v548';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v549';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -23429,7 +23480,7 @@ var ICO = {
 };
 
 var RELEASES = [
-  { id:'2026-09-20-tieu-vao-gi', date:'2026-09-20', time:'06:10', ver:'v548', icon:ICO.pie,
+  { id:'2026-09-20-tieu-vao-gi', date:'2026-09-20', time:'06:55', ver:'v549', icon:ICO.pie,
     vi:{ t:'Biết rõ tiền đi vào việc gì',
       problem:'Danh mục cũ gom quá nhiều thứ vào một chỗ. "Ăn uống" vừa là bữa cơm vừa là ly cà phê sáng vừa là chầu nhậu tối, nên nhìn vào chỉ thấy một con số to mà không biết mình thật sự tiêu cho cái gì. Khoản từ email ngân hàng thì hơn một nửa không xếp được vào đâu.',
       sol:'App giờ tự nhận ra từng khoản là gì. Cà phê, trà sữa, đi chợ, tiền điện, xăng xe, mỗi thứ về đúng chỗ của nó, từ nhóm lớn xuống tới từng món. Danh mục của bạn vẫn y nguyên, vẫn là thứ bạn đặt ngân sách. Trong màn chi tiêu có nút đổi cách xem giữa "Danh mục của tôi" và "Tiêu vào gì". Mở một khoản ra là thấy dòng "Tiêu vào gì", chạm để sửa nếu app đoán sai, lần sau nó nhớ.' },
@@ -25953,6 +26004,62 @@ window.obGoogle = async function () {
       if (r.error) { console.warn('personal transfer pair failed', r.error); return false; }
       await window.fhPersonalHydrate(); return true;
     };
+    /* An expense that was never consumption: money moved to another account of
+       yours (a broker, a savings book, a second bank). The row is flipped IN
+       PLACE into the out-leg of a transfer pair and the in-leg is inserted, so
+       the money leaves the spending total and lands in the destination's
+       balance instead of vanishing — a lone leg is exactly how a balance rots
+       (full-ledger T4).
+
+       Why a repair path at all: these arrive from bank mail as debits with a
+       bare reference for a memo ("22853744443228090368"), which nothing can
+       read as anything but spending. Five of them in one real ledger were
+       ~200tr of investment funding counted as money spent. */
+    window.fhPersonalConvertToTransfer = async function (id, toAccountId) {
+      if (!P.uid || !P.key || !id || !toAccountId) return false;
+      const cur = (P.txns || []).find((t) => t.id === id);
+      if (!cur || cur.amt == null || cur._unreadable) return false;
+      if (cur.accountId && cur.accountId === toAccountId) return false;   // a transfer to itself is not a transfer
+      const amt = Math.abs(Number(cur.amt));
+      if (!(amt > 0)) return false;
+      const gid = crypto.randomUUID();
+      const note = cur.note || null;
+      /* Out-leg first and gated on kind='expense': if the in-leg insert then
+         fails we are left with a lone leg, which the pair-repair affordance
+         already knows how to show — never with a duplicate. */
+      const up = await _sb().from('personal_transactions').update({
+        kind: 'transfer', transfer_group_id: gid,
+        amount_enc: await _encP(-amt),
+        cat_name_enc: null, cat_emoji: null, node_enc: null,
+      }).eq('id', id).eq('owner_user_id', P.uid).eq('kind', 'expense').is('link_id', null).select('id');
+      if (up.error || !up.data || up.data.length !== 1) { console.warn('convert to transfer failed', up.error); return false; }
+      const ins = await _sb().from('personal_transactions').insert({
+        owner_user_id: P.uid, txn_date: cur.date, kind: 'transfer', space_id: null, link_id: null,
+        amount_enc: await _encP(amt), note_enc: note ? await _encP(note) : null,
+        account_id: toAccountId, transfer_group_id: gid, source: cur.src || null,
+      });
+      if (ins.error) console.warn('transfer in-leg failed', ins.error);   // the out-leg stands; the pair repairs
+      await window.fhPersonalHydrate();
+      return true;
+    };
+    /* And back: a transfer leg that was a plain expense after all. Removes the
+       partner leg with it, so the pair never half-survives. */
+    window.fhPersonalConvertTransferToExpense = async function (id, catName, catEmoji) {
+      if (!P.uid || !P.key || !id) return false;
+      const cur = (P.txns || []).find((t) => t.id === id);
+      if (!cur || cur.amt == null || cur._unreadable) return false;
+      if (cur.transferGroupId) {
+        await _sb().from('personal_transactions').delete()
+          .eq('owner_user_id', P.uid).eq('transfer_group_id', cur.transferGroupId).neq('id', id);
+      }
+      const r = await _sb().from('personal_transactions').update({
+        kind: 'expense', transfer_group_id: null,
+        amount_enc: await _encP(Math.abs(Number(cur.amt))),
+        cat_name_enc: catName ? await _encP(catName) : null, cat_emoji: catEmoji || null,
+      }).eq('id', id).eq('owner_user_id', P.uid).eq('kind', 'transfer').is('link_id', null);
+      if (r.error) { console.warn('convert transfer to expense failed', r.error); return false; }
+      await window.fhPersonalHydrate(); return true;
+    };
     /* Bulk write — the bank-email import's fast path. One row per spec
        ({kind, amt, note, catName, catEmoji, dateIso, time, who, accountId,
        transferGroupId, source}), encrypted locally and inserted in CHUNKS
@@ -26359,11 +26466,11 @@ window.obGoogle = async function () {
 
         const ln = await _sb().from('transactions').select('id,link_id,txn_date,category_id,amount,amount_enc,note,note_enc,occurred_time,occurred_time_enc,updated_at,node,node_enc').eq('family_id', fid).eq('created_by', myMem).not('link_id', 'is', null).gte('txn_date', from).limit(400);
         const famBy = {}; (ln.data || []).forEach((r) => { famBy[r.link_id] = r; });
-        const mq = await _sb().from('personal_transactions').select('id,link_id,txn_date,amount_enc,note_enc,occurred_time_enc,updated_at,version,created_at').eq('owner_user_id', P.uid).eq('space_id', fid).not('link_id', 'is', null).gte('txn_date', from).order('created_at');
+        const mq = await _sb().from('personal_transactions').select('id,link_id,txn_date,amount_enc,note_enc,occurred_time_enc,updated_at,version,created_at,node_enc').eq('owner_user_id', P.uid).eq('space_id', fid).not('link_id', 'is', null).gte('txn_date', from).order('created_at');
         const mastersBy = {};
         for (const r of (mq.data || [])) {
           if (mastersBy[r.link_id]) { await _sb().from('personal_transactions').delete().eq('id', r.id); continue; }   // self-heal dup
-          mastersBy[r.link_id] = { id: r.id, updatedAt: r.updated_at, version: r.version || 1, amt: Number(await _decP(r.amount_enc)), note: await _decP(r.note_enc), time: await _decTxt(r.occurred_time_enc) };
+          mastersBy[r.link_id] = { id: r.id, updatedAt: r.updated_at, version: r.version || 1, amt: Number(await _decP(r.amount_enc)), note: await _decP(r.note_enc), time: await _decTxt(r.occurred_time_enc), node: _okNode(await _decTxt(r.node_enc)) };
         }
         for (const lid of Object.keys(famBy)) {
           const f = famBy[lid], m = mastersBy[lid];
@@ -26373,9 +26480,10 @@ window.obGoogle = async function () {
           const note = f.note != null ? f.note : await fhDecStr(f.note_enc);
           const time = await _famTime(f);
           const fc2 = (f.category_id && famCat[f.category_id]) || {};
-          if (!m) { await _insertMaster(lid, fid, f.txn_date, amt, note, fc2.name, fc2.emoji, time, null, await _famNode(f)); }
-          else if (f.updated_at > m.updatedAt && (amt !== m.amt || (note || '') !== (m.note || '') || (time || '') !== (m.time || ''))) {
-            await _sb().from('personal_transactions').update({ amount_enc: await _encP(amt), note_enc: note ? await _encP(note) : null, cat_name_enc: fc2.name ? await _encP(fc2.name) : null, cat_emoji: fc2.emoji || null, txn_date: f.txn_date, occurred_time_enc: time ? await _encP(time) : null, node_enc: _okNode(await _famNode(f)) ? await _encP(await _famNode(f)) : null, version: (m.version || 1) + 1 }).eq('id', m.id);
+          const fNode = await _famNode(f);
+          if (!m) { await _insertMaster(lid, fid, f.txn_date, amt, note, fc2.name, fc2.emoji, time, null, fNode); }
+          else if (f.updated_at > m.updatedAt && (amt !== m.amt || (note || '') !== (m.note || '') || (time || '') !== (m.time || '') || (fNode || '') !== (m.node || ''))) {
+            await _sb().from('personal_transactions').update({ amount_enc: await _encP(amt), note_enc: note ? await _encP(note) : null, cat_name_enc: fc2.name ? await _encP(fc2.name) : null, cat_emoji: fc2.emoji || null, txn_date: f.txn_date, occurred_time_enc: time ? await _encP(time) : null, node_enc: _okNode(fNode) ? await _encP(fNode) : null, version: (m.version || 1) + 1 }).eq('id', m.id);
           }
         }
         for (const lid of Object.keys(mastersBy)) { if (!famBy[lid]) await _sb().from('personal_transactions').delete().eq('id', mastersBy[lid].id); }   // tombstone
@@ -30324,7 +30432,7 @@ window.obGoogle = async function () {
   const _TBF_SESSION_MAX = 400;   // and then stop until the next launch
   const _TBF_PAUSE = 1200;        // ms of quiet between slices
   let _tbfDoneThisSession = 0;
-  const _tbfRunning = {};
+  const _tbfRunning = {}, _tbfStarted = {};
 
   function _tbfCursorKey(scope) {
     /* v3: v1 wrote the LABEL's group whenever a keyword
@@ -30391,6 +30499,7 @@ window.obGoogle = async function () {
   }
   async function _tbfSlice(scope) {
     if (_tbfDoneThisSession >= _TBF_SESSION_MAX) return 0;
+    if (typeof document !== 'undefined' && document.hidden) return -1;   // backgrounded: stop, resume next launch
     const rows = [];
     if (scope === 'family') {
       if (typeof _fhWriteLocked === 'function' && _fhWriteLocked()) return -1;
@@ -30445,7 +30554,11 @@ window.obGoogle = async function () {
     scope = (scope === 'personal') ? 'personal' : 'family';
     if (typeof fhTreeOn === 'function' && !fhTreeOn()) return;
     if (typeof FH_TAX === 'undefined') return;
-    if (_tbfRunning[scope] || _tbfDone(scope)) return;
+    if (_tbfRunning[scope] || _tbfStarted[scope] || _tbfDone(scope)) return;
+    /* Once per page load. The hydrate tail is the trigger, and hydrate also runs
+       on realtime, on focus and after every write — without this latch a single
+       sweep could restart itself through its own writes. */
+    _tbfStarted[scope] = true;
     _tbfRunning[scope] = true;
     const step = () => {
       _tbfSlice(scope).then((n) => {
@@ -30463,7 +30576,9 @@ window.obGoogle = async function () {
   /* Re-run a scope from scratch: used after a regroup changes what labels claim,
      and available by hand when a tree version lands with new leaves. */
   window.fhTreeBackfillReset = function (scope) {
-    try { localStorage.removeItem(_tbfCursorKey(scope === 'personal' ? 'personal' : 'family')); } catch (e) {}
+    scope = (scope === 'personal') ? 'personal' : 'family';
+    try { localStorage.removeItem(_tbfCursorKey(scope)); } catch (e) {}
+    _tbfStarted[scope] = false; _tbfDoneThisSession = 0;
   };
   // ---- THE hydrate: pull the active family into the app's globals ----
   // opts.windowed → R6 windowed refresh (recent slice merged onto the baseline);
@@ -31271,8 +31386,15 @@ window.obGoogle = async function () {
      via fhField; a locked key or a missing id is a silent no-op so the sweep never throws. */
   window.fhTxnSetNode = async function (dbId, node) {
     if (!dbId || _fhWriteLocked()) return false;
-    try { await _w(sb.from('transactions').update(await fhField('node', _okNode(node))).eq('id', dbId), 'write transactions'); return true; }
-    catch (e) { return false; }
+    /* Stamped BEFORE the write and again after: realtime suppresses ticks
+       within 2.5s of a local write, and a slow round trip must not let this
+       row's own echo land outside that window and trigger a re-hydrate. */
+    try { window.DB._lastLocalWrite = Date.now(); } catch (e) {}
+    try {
+      await _w(sb.from('transactions').update(await fhField('node', _okNode(node))).eq('id', dbId), 'write transactions');
+      try { window.DB._lastLocalWrite = Date.now(); } catch (e) {}
+      return true;
+    } catch (e) { return false; }
   };
   async function _dbInsertTxn(t, exD) {
     const fid = window.DB.fid; if (!fid) return;

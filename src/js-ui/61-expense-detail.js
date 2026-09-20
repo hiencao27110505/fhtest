@@ -937,17 +937,25 @@ function pexdSheetKind(){
   setTxt('exdkind-h','Loại khoản');
   setTxt('exdkind-sub','Đổi loại sẽ lưu ngay, không chờ Lưu.');
   var h='';
-  if(E.k==='expense') h='<button type="button" class="choice on" onclick="closeSheet()">Chi tiêu</button><button type="button" class="choice" onclick="pexdPickKind(&#39;loan&#39;)">🤝 Cho vay</button><button type="button" class="choice" onclick="pexdPickKind(&#39;invest&#39;)">📈 Đầu tư</button>';
+  if(E.k==='expense') h='<button type="button" class="choice on" onclick="closeSheet()">Chi tiêu</button><button type="button" class="choice" onclick="pexdPickKind(&#39;xfer&#39;)">🔁 Chuyển khoản nội bộ</button><button type="button" class="choice" onclick="pexdPickKind(&#39;loan&#39;)">🤝 Cho vay</button><button type="button" class="choice" onclick="pexdPickKind(&#39;invest&#39;)">📈 Đầu tư</button>';
   else if(E.k==='loan') h='<button type="button" class="choice on" onclick="closeSheet()">'+_pexdKindLbl(E)+'</button><button type="button" class="choice" onclick="pexdPickKind(&#39;expense&#39;)">Chi tiêu</button>';
   else if(E.k==='invest') h='<button type="button" class="choice on" onclick="closeSheet()">'+_pexdKindLbl(E)+'</button><button type="button" class="choice" onclick="pexdPickKind(&#39;expense&#39;)">Chi tiêu</button>';
+  /* A lone converted leg can go back too — the pair goes with it. */
+  else if(E.k==='xfer') h='<button type="button" class="choice on" onclick="closeSheet()">'+_pexdKindLbl(E)+'</button><button type="button" class="choice" onclick="pexdPickKind(&#39;expense&#39;)">Chi tiêu</button>';
   setHTML('exdkind-list', h);
   openSheet('sheet-exd-kind');
 }
 async function pexdPickKind(k){
   closeSheet(); var E=_pexdEntry(); if(!E) return; var id=E.id;
   if(k==='loan'||k==='invest'){ closePersonalTxDetail(); if(k==='loan'&&window.fhExpenseToLoanSheet) fhExpenseToLoanSheet(id); else if(window.fhExpenseToInvestSheet) fhExpenseToInvestSheet(id); return; }
+  if(k==='xfer'){ pexdToTransferSheet(id); return; }
   var ok=false;
-  try{ ok=E.k==='loan'?await window.fhPersonalConvertToExpense(id,'Khác','🗂️'):await window.fhPersonalConvertInvestmentToExpense(id,'Khác','🗂️'); if(ok) await window.fhPersonalHydrate(); }catch(e){}
+  try{
+    ok = E.k==='loan'  ? await window.fhPersonalConvertToExpense(id,'Khác','🗂️')
+       : E.k==='xfer'  ? await window.fhPersonalConvertTransferToExpense(id,'Khác','🗂️')
+       :                 await window.fhPersonalConvertInvestmentToExpense(id,'Khác','🗂️');
+    if(ok) await window.fhPersonalHydrate();
+  }catch(e){}
   if(!ok){ toast('Chưa chuyển được, thử lại nhé'); return; }
   PXD={}; renderPersonalTxDetail();
   if(typeof renderPersonal==='function'){ try{ renderPersonal(); }catch(e){} }
@@ -955,6 +963,33 @@ async function pexdPickKind(k){
   toast('Đã chuyển thành chi tiêu');
 }
 window.pexdSheetKind=pexdSheetKind; window.pexdPickKind=pexdPickKind;
+var _pexdXferId=null;
+function pexdToTransferSheet(id){
+  _pexdXferId=id;
+  var pd=(window.fhPersonalDebts&&fhPersonalDebts())||{accounts:[]};
+  var P=window.fhPersonalData?fhPersonalData():null;
+  var row=((P&&P.txns)||[]).find(function(t){ return t.id===id; });
+  var ico={deposit:'🏦',ewallet:'📱',credit_card:'💳',cash:'💵',investment:'📈'};
+  var list=((pd.accounts)||[]).filter(function(a){ return !a.archivedAt && a.id!==(row&&row.accountId); });
+  var h=list.map(function(a){
+    return '<button type="button" class="choice" onclick="pexdPickXferTo(&#39;'+escAttr(a.id)+'&#39;)">'
+      +(ico[a.kind]||'🏦')+' '+esc(a.name||'Tài khoản')+'</button>';
+  }).join('');
+  if(!h) h='<div class="exd-rx-empty">Chưa có tài khoản nào để chuyển tới. Thêm ở mục Tài sản trước nhé.</div>';
+  _pexdChoices('Tiền này đi đâu?', 'Chọn nơi nhận để hai bên số dư khớp nhau', h);
+}
+async function pexdPickXferTo(acctId){
+  closeSheet();
+  var id=_pexdXferId; _pexdXferId=null; if(!id||!acctId) return;
+  var ok=false;
+  try{ ok=await window.fhPersonalConvertToTransfer(id, acctId); }catch(e){}
+  if(!ok){ toast('Chưa chuyển được, thử lại nhé'); return; }
+  PXD={}; renderPersonalTxDetail();
+  if(typeof renderPersonal==='function'){ try{ renderPersonal(); }catch(e){} }
+  if(typeof refreshPersonalTxnOverlay==='function') refreshPersonalTxnOverlay();
+  toast('Đã chuyển thành chuyển khoản, không còn tính là chi tiêu');
+}
+window.pexdToTransferSheet=pexdToTransferSheet; window.pexdPickXferTo=pexdPickXferTo;
 /* Ghi vào đâu → the existing move confirm (59-ledger-move-ui) */
 function pexdMove(){
   if(_pexdId==null) return;

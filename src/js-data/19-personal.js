@@ -1027,6 +1027,62 @@
       if (r.error) { console.warn('personal transfer pair failed', r.error); return false; }
       await window.fhPersonalHydrate(); return true;
     };
+    /* An expense that was never consumption: money moved to another account of
+       yours (a broker, a savings book, a second bank). The row is flipped IN
+       PLACE into the out-leg of a transfer pair and the in-leg is inserted, so
+       the money leaves the spending total and lands in the destination's
+       balance instead of vanishing — a lone leg is exactly how a balance rots
+       (full-ledger T4).
+
+       Why a repair path at all: these arrive from bank mail as debits with a
+       bare reference for a memo ("22853744443228090368"), which nothing can
+       read as anything but spending. Five of them in one real ledger were
+       ~200tr of investment funding counted as money spent. */
+    window.fhPersonalConvertToTransfer = async function (id, toAccountId) {
+      if (!P.uid || !P.key || !id || !toAccountId) return false;
+      const cur = (P.txns || []).find((t) => t.id === id);
+      if (!cur || cur.amt == null || cur._unreadable) return false;
+      if (cur.accountId && cur.accountId === toAccountId) return false;   // a transfer to itself is not a transfer
+      const amt = Math.abs(Number(cur.amt));
+      if (!(amt > 0)) return false;
+      const gid = crypto.randomUUID();
+      const note = cur.note || null;
+      /* Out-leg first and gated on kind='expense': if the in-leg insert then
+         fails we are left with a lone leg, which the pair-repair affordance
+         already knows how to show — never with a duplicate. */
+      const up = await _sb().from('personal_transactions').update({
+        kind: 'transfer', transfer_group_id: gid,
+        amount_enc: await _encP(-amt),
+        cat_name_enc: null, cat_emoji: null, node_enc: null,
+      }).eq('id', id).eq('owner_user_id', P.uid).eq('kind', 'expense').is('link_id', null).select('id');
+      if (up.error || !up.data || up.data.length !== 1) { console.warn('convert to transfer failed', up.error); return false; }
+      const ins = await _sb().from('personal_transactions').insert({
+        owner_user_id: P.uid, txn_date: cur.date, kind: 'transfer', space_id: null, link_id: null,
+        amount_enc: await _encP(amt), note_enc: note ? await _encP(note) : null,
+        account_id: toAccountId, transfer_group_id: gid, source: cur.src || null,
+      });
+      if (ins.error) console.warn('transfer in-leg failed', ins.error);   // the out-leg stands; the pair repairs
+      await window.fhPersonalHydrate();
+      return true;
+    };
+    /* And back: a transfer leg that was a plain expense after all. Removes the
+       partner leg with it, so the pair never half-survives. */
+    window.fhPersonalConvertTransferToExpense = async function (id, catName, catEmoji) {
+      if (!P.uid || !P.key || !id) return false;
+      const cur = (P.txns || []).find((t) => t.id === id);
+      if (!cur || cur.amt == null || cur._unreadable) return false;
+      if (cur.transferGroupId) {
+        await _sb().from('personal_transactions').delete()
+          .eq('owner_user_id', P.uid).eq('transfer_group_id', cur.transferGroupId).neq('id', id);
+      }
+      const r = await _sb().from('personal_transactions').update({
+        kind: 'expense', transfer_group_id: null,
+        amount_enc: await _encP(Math.abs(Number(cur.amt))),
+        cat_name_enc: catName ? await _encP(catName) : null, cat_emoji: catEmoji || null,
+      }).eq('id', id).eq('owner_user_id', P.uid).eq('kind', 'transfer').is('link_id', null);
+      if (r.error) { console.warn('convert transfer to expense failed', r.error); return false; }
+      await window.fhPersonalHydrate(); return true;
+    };
     /* Bulk write — the bank-email import's fast path. One row per spec
        ({kind, amt, note, catName, catEmoji, dateIso, time, who, accountId,
        transferGroupId, source}), encrypted locally and inserted in CHUNKS
@@ -1433,11 +1489,11 @@
 
         const ln = await _sb().from('transactions').select('id,link_id,txn_date,category_id,amount,amount_enc,note,note_enc,occurred_time,occurred_time_enc,updated_at,node,node_enc').eq('family_id', fid).eq('created_by', myMem).not('link_id', 'is', null).gte('txn_date', from).limit(400);
         const famBy = {}; (ln.data || []).forEach((r) => { famBy[r.link_id] = r; });
-        const mq = await _sb().from('personal_transactions').select('id,link_id,txn_date,amount_enc,note_enc,occurred_time_enc,updated_at,version,created_at').eq('owner_user_id', P.uid).eq('space_id', fid).not('link_id', 'is', null).gte('txn_date', from).order('created_at');
+        const mq = await _sb().from('personal_transactions').select('id,link_id,txn_date,amount_enc,note_enc,occurred_time_enc,updated_at,version,created_at,node_enc').eq('owner_user_id', P.uid).eq('space_id', fid).not('link_id', 'is', null).gte('txn_date', from).order('created_at');
         const mastersBy = {};
         for (const r of (mq.data || [])) {
           if (mastersBy[r.link_id]) { await _sb().from('personal_transactions').delete().eq('id', r.id); continue; }   // self-heal dup
-          mastersBy[r.link_id] = { id: r.id, updatedAt: r.updated_at, version: r.version || 1, amt: Number(await _decP(r.amount_enc)), note: await _decP(r.note_enc), time: await _decTxt(r.occurred_time_enc) };
+          mastersBy[r.link_id] = { id: r.id, updatedAt: r.updated_at, version: r.version || 1, amt: Number(await _decP(r.amount_enc)), note: await _decP(r.note_enc), time: await _decTxt(r.occurred_time_enc), node: _okNode(await _decTxt(r.node_enc)) };
         }
         for (const lid of Object.keys(famBy)) {
           const f = famBy[lid], m = mastersBy[lid];
@@ -1447,9 +1503,10 @@
           const note = f.note != null ? f.note : await fhDecStr(f.note_enc);
           const time = await _famTime(f);
           const fc2 = (f.category_id && famCat[f.category_id]) || {};
-          if (!m) { await _insertMaster(lid, fid, f.txn_date, amt, note, fc2.name, fc2.emoji, time, null, await _famNode(f)); }
-          else if (f.updated_at > m.updatedAt && (amt !== m.amt || (note || '') !== (m.note || '') || (time || '') !== (m.time || ''))) {
-            await _sb().from('personal_transactions').update({ amount_enc: await _encP(amt), note_enc: note ? await _encP(note) : null, cat_name_enc: fc2.name ? await _encP(fc2.name) : null, cat_emoji: fc2.emoji || null, txn_date: f.txn_date, occurred_time_enc: time ? await _encP(time) : null, node_enc: _okNode(await _famNode(f)) ? await _encP(await _famNode(f)) : null, version: (m.version || 1) + 1 }).eq('id', m.id);
+          const fNode = await _famNode(f);
+          if (!m) { await _insertMaster(lid, fid, f.txn_date, amt, note, fc2.name, fc2.emoji, time, null, fNode); }
+          else if (f.updated_at > m.updatedAt && (amt !== m.amt || (note || '') !== (m.note || '') || (time || '') !== (m.time || '') || (fNode || '') !== (m.node || ''))) {
+            await _sb().from('personal_transactions').update({ amount_enc: await _encP(amt), note_enc: note ? await _encP(note) : null, cat_name_enc: fc2.name ? await _encP(fc2.name) : null, cat_emoji: fc2.emoji || null, txn_date: f.txn_date, occurred_time_enc: time ? await _encP(time) : null, node_enc: _okNode(fNode) ? await _encP(fNode) : null, version: (m.version || 1) + 1 }).eq('id', m.id);
           }
         }
         for (const lid of Object.keys(mastersBy)) { if (!famBy[lid]) await _sb().from('personal_transactions').delete().eq('id', mastersBy[lid].id); }   // tombstone

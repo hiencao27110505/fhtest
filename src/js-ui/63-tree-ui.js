@@ -130,16 +130,18 @@ function fhTreeBreakdownHTML(rows) {
      a different component. */
   var row = function (opts) {
     var pct = total ? Math.min(100, Math.max(1, 100 * opts.amt / total)) : 0;
-    var chev = opts.kids
+    var chev = (opts.kids || opts.go)
       ? '<svg class="fh-chev' + (opts.open ? ' open' : '') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>'
       : '<span class="fh-chev"></span>';
-    return '<' + (opts.kids ? 'button type="button"' : 'div') + ' class="fh-lrow tb-l' + opts.depth + (opts.rest ? ' tb-rest' : '') + '"'
-      + (opts.kids ? ' onclick="fhTreeToggle(&#39;' + escAttr(opts.code) + '&#39;)" aria-expanded="' + (opts.open ? 'true' : 'false') + '"' : '')
+    var tappable = opts.kids || opts.go;
+    return '<' + (tappable ? 'button type="button"' : 'div') + ' class="fh-lrow tb-l' + opts.depth + (opts.rest ? ' tb-rest' : '') + '"'
+      + (opts.go ? ' onclick="' + opts.go + '"'
+                 : (opts.kids ? ' onclick="fhTreeToggle(&#39;' + escAttr(opts.code) + '&#39;)" aria-expanded="' + (opts.open ? 'true' : 'false') + '"' : ''))
       + '><span class="fh-ico">' + (opts.ico || '') + '</span>'
       + '<span class="fh-body"><span class="fh-l1"><span class="fh-lname">' + esc(opts.name) + '</span>'
       + '<span class="fh-lamt num"><b>' + fmtK(opts.amt) + '</b></span></span>'
       + '<span class="fh-bar"><i style="width:' + pct.toFixed(0) + '%"></i></span></span>'
-      + chev + '</' + (opts.kids ? 'button' : 'div') + '>';
+      + chev + '</' + (tappable ? 'button' : 'div') + '>';
   };
   var out = '';
   var line = function (code, depth) {
@@ -167,10 +169,21 @@ function fhTreeBreakdownHTML(rows) {
   tops.sort(function (a, b) { return b.amt - a.amt; });
   tops.forEach(function (x) {
     out += x.code ? line(x.code, 0)
-      : row({ name: L('Chưa rõ', 'Not sure yet'), amt: x.amt, depth: 0, rest: true, ico: '🗂️' });
+      : row({ name: L('Chưa rõ', 'Not sure yet'), amt: x.amt, depth: 0, rest: true, ico: '🗂️', go: 'fhTreeOpenUnknown()' });
   });
   return '<div class="tb-list">' + out + '</div>';
 }
+/* Tapping "Chưa rõ" opens the transaction list narrowed to those rows. They are
+   the ones worth a minute: a bare bank reference the tree cannot read is often
+   not spending at all (money moved to a broker, a savings book), and the kind
+   row on each one is where that gets corrected. */
+function fhTreeOpenUnknown(){
+  TXV.noNode = true;
+  TXV.cats = null;
+  if (typeof openTxns === 'function') openTxns(_txnPersonal && _txnPersonal() ? 'personal' : undefined);
+  else if (typeof renderTxnScreen === 'function') renderTxnScreen();
+}
+
 /* Build the [{node, amt}] rows for a month from an array of ledger rows. Shared
    by both tabs so one definition decides what "this month's spending" means. */
 function fhTreeRowsFor(txnList, monthKey) {

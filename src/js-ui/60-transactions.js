@@ -294,7 +294,7 @@ function clearFilter(){ txFilter=null; renderTxns(); }
    chart zoom (independent of the list grouping). Grouping/sort/zoom persist
    per scope; filters reset each open. */
 var txnSort='date';                                 // 'date' | 'amount' — order INSIDE a group
-var TXV={ grp:'day', cgrp:'day', pin:null, kinds:null, srcs:null, accts:null, cats:null, _stReset:false };
+var TXV={ grp:'day', cgrp:'day', pin:null, kinds:null, srcs:null, accts:null, cats:null, noNode:false, _stReset:false };
 function _txScopeKey(){ return _txnPersonal()?'personal':'family'; }
 function _txSavePrefs(){
   try{ localStorage.setItem('fh-txnview:'+_txScopeKey(), JSON.stringify({grp:TXV.grp,cgrp:TXV.cgrp,sort:txnSort})); }catch(_e){}
@@ -437,6 +437,9 @@ function renderTxnScreen(){
     if(!personal && TXV.insts && !TXV.insts[t.inst||'_none']) return false;
     /* Danh mục narrowed ⇒ an expense view: other kinds step aside */
     if(catNarrow){ if(kg!=='chi') return false; if(!TXV.cats[t.cat]) return false; }
+    /* 0144 — "Chưa rõ" tapped: the rows the tree could not place. Spending only,
+       since a transfer is not meant to have one. */
+    if(TXV.noNode){ if(kg!=='chi') return false; if(t.node) return false; }
     return true;
   });
   var ts=document.getElementById('txn-sum'); if(ts) ts.style.display='none';
