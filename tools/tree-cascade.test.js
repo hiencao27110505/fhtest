@@ -21,7 +21,7 @@ const ctx = { window: {}, localStorage: { getItem: () => null, setItem: () => {}
 vm.createContext(ctx);
 vm.runInContext(fs.readFileSync(path.join(ROOT, 'src/js-ui/11-taxonomy.js'), 'utf8'), ctx);
 vm.runInContext(fs.readFileSync(path.join(ROOT, 'src/js-ui/13-partition.js'), 'utf8')
-  + ';globalThis.__P={fhLabelForNode,fhDefaultClaimsFor,fhNodeGuess,fhNodeCorrections,fhNodeDepth,fhNodeFromClaims,fhNodeGroup,fhTransferShape,fhLooksSelfTransfer,fhNodeSelMatch,fhNodeSelLabel,fhNodeSelCode};', ctx);
+  + ';globalThis.__P={fhLabelForNode,fhDefaultClaimsFor,fhNodeGuess,fhNodeCorrections,fhNodeDepth,fhNodeFromClaims,fhNodeGroup,fhTransferShape,fhLooksSelfTransfer,fhNodeSelMatch,fhNodeSelLabel,fhNodeSelCode,fhCountsAsSpending,fhXferCashOut};', ctx);
 const T = ctx.FH_TAX, P = ctx.__P;
 const FH_TAX_VI = (c) => T.get(c).vi;
 
@@ -354,9 +354,10 @@ console.log('\n-- a group-level row is named at its group, and is still a work q
   const ui = fs.readFileSync(path.join(ROOT, 'src/js-ui/63-tree-ui.js'), 'utf8');
   const tx = fs.readFileSync(path.join(ROOT, 'src/js-ui/60-transactions.js'), 'utf8');
   t('the rest row opens the rows it is made of', /go: 'fhTreeTapExact/.test(ui));
-  t('it says how many rows that is', /cnt\[code\]/.test(ui) && /cnt\[r\.node\]/.test(ui));
+  t('no leftover counting machinery once the count came off the row',
+    !/cnt\[/.test(ui));
   t('rows the tree placed at group level are named at that group, not "unknown"',
-    !/'chưa rõ món'/.test(ui) && !/Chưa rõ chi tiết/.test(ui) && /name: n\.vi \+ \(oc \?/.test(ui));
+    !/'chưa rõ món'/.test(ui) && !/Chưa rõ chi tiết/.test(ui) && /row\(\{ name: n\.vi, amt: own/.test(ui));
   t('only the genuinely un-placed top-level row keeps the muted "rest" look',
     (ui.match(/rest: true/g) || []).length === 1);
   t('the group row and its own-rows highlight separately',
@@ -368,6 +369,57 @@ console.log('\n-- a group-level row is named at its group, and is still a work q
     /fhLessonLearnNode\(\{ note:raw\.note/.test(tx));
   t('bulk node writes go through the surgical writers, not a full row rewrite',
     /fhPersonalSetNode\(raw\.id, code\)/.test(tx) && /fhTxnSetNode\(raw\._dbId, code\)/.test(tx));
+}
+
+console.log('\n-- one definition of "spending", so the totals cannot drift apart --');
+{
+  t('an ordinary expense counts', P.fhCountsAsSpending('groceries') && P.fhCountsAsSpending('rentpay'));
+  t('a row with no node still counts, so nothing new is hidden', P.fhCountsAsSpending(null));
+  t('money moved to yourself does not', !P.fhCountsAsSpending('bankbank') && !P.fhCountsAsSpending('wallet'));
+  t('a card paid off does not', !P.fhCountsAsSpending('cardpay'));
+  t('money GIVEN to someone else still does', P.fhCountsAsSpending('p2p'));
+  /* "Còn lại" is money you can still spend. Paying a card down really took it;
+     shuffling between your own accounts did not. */
+  t('only the card repayment dents Còn lại',
+    P.fhXferCashOut('cardpay') && !P.fhXferCashOut('bankbank') && !P.fhXferCashOut('cashout')
+      && !P.fhXferCashOut('wallet') && !P.fhXferCashOut('savings'));
+
+  /* Every screen that says "spending" must ask the same question. Missing one
+     is exactly how the header came to say 27,2tr while the breakdown said 18tr. */
+  const sites = [
+    ['src/js-data/30-hydrate.js', 'family month + category totals'],
+    ['src/js-ui/20-budget.js', 'family chart, buổi map, range guide'],
+    ['src/js-ui/21-personal.js', 'personal Ra, month picker, chart, range'],
+    ['src/js-ui/60-transactions.js', 'the label legend'],
+  ];
+  sites.forEach(([f, what]) => {
+    const src = fs.readFileSync(path.join(ROOT, f), 'utf8');
+    t('asks it: ' + what, /fhCountsAsSpending/.test(src));
+  });
+  const bud = fs.readFileSync(path.join(ROOT, 'src/js-ui/20-budget.js'), 'utf8');
+  t('all three family sums ask, not just one', (bud.match(/fhCountsAsSpending/g) || []).length === 3);
+  const pers = fs.readFileSync(path.join(ROOT, 'src/js-ui/21-personal.js'), 'utf8');
+  t('every personal sum asks', (pers.match(/fhCountsAsSpending/g) || []).length >= 7);
+  t('Còn lại carries the card-repayment dent, and says so',
+    /xferCash/.test(pers) && /Trả nợ thẻ/.test(pers));
+
+  /* The breakdown and the header must land on the same number for the same
+     rows — that is the whole point, so compute both and compare. */
+  {
+    const rows = [
+      { node: 'groceries', amt: 3000000 }, { node: 'rentpay', amt: 7500000 },
+      { node: 'home', amt: 500000 }, { node: null, amt: 350000 },
+      { node: 'bankbank', amt: 7000000 }, { node: 'cardpay', amt: 1080000 },
+    ];
+    const headerRa = rows.filter((r) => P.fhCountsAsSpending(r.node)).reduce((s2, r) => s2 + r.amt, 0);
+    // what fhTreeBreakdownHTML puts in its spending total: expense-kind nodes + no-node
+    const treeTotal = rows.reduce((s2, r) => {
+      if (!r.node || !T.get(r.node)) return s2 + r.amt;
+      return T.kindOf(r.node) === 'expense' ? s2 + r.amt : s2;
+    }, 0);
+    t('header "Ra" and the tree breakdown agree to the đồng', headerRa === treeTotal, { headerRa, treeTotal });
+    t('and the 8,08tr that is not spending is excluded from both', headerRa === 11350000, headerRa);
+  }
 }
 
 console.log('\n-- the generated targets stay in lockstep with the JSON --');

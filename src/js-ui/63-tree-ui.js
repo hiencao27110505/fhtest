@@ -147,7 +147,7 @@ window.fhTreeTapExact = fhTreeTapExact;
 function fhTreeBreakdownHTML(rows) {
   if (typeof FH_TAX === 'undefined') return '';
   _tbRows = rows || [];               // what the visible list was built from, for the next expand
-  var sum = {}, cnt = {}, none = 0, total = 0, xTotal = 0, xAny = false;
+  var sum = {}, none = 0, total = 0, xTotal = 0, xAny = false;
   (rows || []).forEach(function (r) {
     var amt = Number(r.amt) || 0; if (amt <= 0) return;
     if (!r.node || !FH_TAX.get(r.node)) { total += amt; none += amt; return; }
@@ -159,7 +159,6 @@ function fhTreeBreakdownHTML(rows) {
        own accounts reads as the month's biggest purchase. */
     if (FH_TAX.kindOf(r.node) !== 'expense') { xTotal += amt; xAny = true; }
     else total += amt;
-    cnt[r.node] = (cnt[r.node] || 0) + 1;            // rows sitting on THIS node exactly
     sum[r.node] = (sum[r.node] || 0) + amt;
     FH_TAX.ancestors(r.node).forEach(function (a) { sum[a] = (sum[a] || 0) + amt; });
   });
@@ -205,12 +204,8 @@ function fhTreeBreakdownHTML(rows) {
          says "N transactions filed here", not "a sub-category with the same
          name". Still opens those rows for anyone who wants to go deeper. */
       if (own > 0) {
-        var oc = cnt[code] || 0;
-        s += row({
-          name: n.vi + (oc ? ' · ' + oc + ' ' + L('khoản', oc === 1 ? 'item' : 'items') : ''),
-          amt: own, depth: depth + 1, xfer: xfer, code: code, own: true,
-          go: 'fhTreeTapExact(&#39;' + escAttr(code) + '&#39;)'
-        });
+        s += row({ name: n.vi, amt: own, depth: depth + 1, xfer: xfer, code: code, own: true,
+          go: 'fhTreeTapExact(&#39;' + escAttr(code) + '&#39;)' });
       }
     }
     return s;

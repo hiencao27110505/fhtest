@@ -77,7 +77,7 @@ function renderCashflow(){
 
   var dim=m.dim, dom=m.dom, done=m.done;
   var daily=[]; for(var i=0;i<=dim;i++) daily[i]=0;
-  (window.txns||[]).forEach(function(t){ if(!t.future && t.month===window.selMonth && t._d){ var dd=t._d.getDate(); if(dd>=1&&dd<=dim) daily[dd]+=t.amt; } });
+  (window.txns||[]).forEach(function(t){ if(!t.future && t.month===window.selMonth && t._d && fhCountsAsSpending(t.node)){ var dd=t._d.getDate(); if(dd>=1&&dd<=dim) daily[dd]+=t.amt; } });
 
   if(!window._cfSwipeBound){ cfBindSwipe(); window._cfSwipeBound=true; }
   var live = (selMonth===curMonthKey() && !done);
@@ -208,7 +208,7 @@ function cfWowNote(d){                                     // classic week-over-
 function cfDayMap(){
   var byDay={}, buoi={}, untimed={}, first=null;
   (window.txns||[]).forEach(function(t){
-    if(t.future || !t._d) return;
+    if(t.future || !t._d || !fhCountsAsSpending(t.node)) return;
     var k=fhDateStr(t._d), a=t.amt||0;
     byDay[k]=(byDay[k]||0)+a;
     if(first==null || k<first) first=k;
@@ -365,7 +365,7 @@ function cfSpendRange(a, b){
   var lo=new Date(a.getFullYear(),a.getMonth(),a.getDate()).getTime();
   var hi=new Date(b.getFullYear(),b.getMonth(),b.getDate()).getTime();
   var sum=0;
-  (window.txns||[]).forEach(function(t){ if(t.future||!t._d) return;
+  (window.txns||[]).forEach(function(t){ if(t.future||!t._d||!fhCountsAsSpending(t.node)) return;
     var k=new Date(t._d.getFullYear(),t._d.getMonth(),t._d.getDate()).getTime(); if(k>=lo&&k<=hi) sum+=t.amt; });
   return sum;
 }

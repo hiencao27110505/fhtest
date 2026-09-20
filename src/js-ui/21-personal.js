@@ -108,15 +108,15 @@ window.buildPMonthChoices = function(){
   persEnsureSlice();                       // history not here yet → fetch; this sheet repaints when it lands
   var monSum=function(k){
     var inc=0,out=0;
-    if(SL){ SL.rows.forEach(function(r){ if((r.date||'').slice(0,7)!==k) return; if(r.kind==='income') inc+=r.amt; else out+=r.amt; }); }
+    if(SL){ SL.rows.forEach(function(r){ if((r.date||'').slice(0,7)!==k) return; if(r.kind==='income') inc+=r.amt; else if(fhCountsAsSpending(r.node)) out+=r.amt; }); }
     else if(P){
-      (P.txns||[]).forEach(function(t){ if(t.kind==='expense' && !t._unreadable && (t.date||'').slice(0,7)===k) out+=(t.amt||0); });
+      (P.txns||[]).forEach(function(t){ if(t.kind==='expense' && !t._unreadable && fhCountsAsSpending(t.node) && (t.date||'').slice(0,7)===k) out+=(t.amt||0); });
       (P.incomes||[]).forEach(function(i){ if(!i._unreadable && (i.date||'').slice(0,7)===k) inc+=(i.amt||0); });
     }
     return {inc:inc,out:out};
   };
   var allSub = SL
-    ? (function(){ var i=0,o=0; SL.rows.forEach(function(r){ if(r.kind==='income') i+=r.amt; else o+=r.amt; }); return fmt(i-o)+L(' còn lại',' left'); })()
+    ? (function(){ var i=0,o=0; SL.rows.forEach(function(r){ if(r.kind==='income') i+=r.amt; else if(fhCountsAsSpending(r.node)) o+=r.amt; }); return fmt(i-o)+L(' còn lại',' left'); })()
     : L('Đang tải…','Loading…');
   html+='<button class="qa" onclick="persSelectMonth(\'all\')"><div><div class="qt">'+persMonLabel('all',true)+(window.persSelMon==='all'?'  ✓':'')+'</div>'
     +'<div class="qs">'+allSub+'</div></div></button>';
@@ -363,7 +363,7 @@ window.fhEmptyCard = function(o){
 };
 /* state 3: empty states that name something from the person's own rows */
 function _persMonRows(P, mon){
-  return (P.txns||[]).filter(function(t){ return (t.date||'').slice(0,7)===mon && t.kind==='expense' && !t._unreadable && !t.spaceId; });
+  return (P.txns||[]).filter(function(t){ return (t.date||'').slice(0,7)===mon && t.kind==='expense' && !t._unreadable && !t.spaceId && fhCountsAsSpending(t.node); });
 }
 function _persFold(s2){ return String(s2||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/đ/g,'d'); }
 function persStreakDriven(P, mon){
@@ -483,14 +483,14 @@ function renderPersonal(){
      roll-up included — so they are covered by this one filter. */
   var txM, out, inc;
   if(inWin){
-    txM = P.txns.filter(function(t){ return (t.date||'').slice(0,7)===mon && t.kind==='expense' && !t._unreadable; });
+    txM = P.txns.filter(function(t){ return (t.date||'').slice(0,7)===mon && t.kind==='expense' && !t._unreadable && fhCountsAsSpending(t.node); });
     out = txM.reduce(function(s,t){ return s+(t.amt||0); },0);
     inc = P.incomes.filter(function(i){ return (i.date||'').slice(0,7)===mon && !i._unreadable; }).reduce(function(s,i){ return s+(i.amt||0); },0);
   } else {
     /* All-time or an older month: the slice is the book. Unreadable amounts
        were excluded at decrypt and counted — the banner by the list says so. */
     var slRows = SL ? SL.rows.filter(function(r){ return isAll || (r.date||'').slice(0,7)===mon; }) : [];
-    txM = slRows.filter(function(r){ return r.kind==='expense'; });
+    txM = slRows.filter(function(r){ return r.kind==='expense' && fhCountsAsSpending(r.node); });
     out = txM.reduce(function(s,t){ return s+(t.amt||0); },0);
     inc = slRows.reduce(function(s,r){ return s+(r.kind==='income'?r.amt:0); },0);
   }
@@ -520,7 +520,18 @@ function renderPersonal(){
     });
   }
   var invCash = invIn - invOut;
-  var left = inc-out+lendCash+invCash;
+  /* Transfer flow (0144): these left "Ra" above because they are not
+     consumption. Paying a card down still took the money, so "Còn lại" feels
+     it; moving money between your own accounts, a wallet top-up, an ATM
+     withdrawal or a deposit into savings did not, so it must not. */
+  var xferCash = 0;
+  if(inWin){
+    P.txns.forEach(function(t){
+      if((t.date||'').slice(0,7)!==mon || t._unreadable || t.kind!=='expense') return;
+      if(!fhCountsAsSpending(t.node) && fhXferCashOut(t.node)) xferCash -= (t.amt||0);
+    });
+  }
+  var left = inc-out+lendCash+invCash+xferCash;
   /* Active family's real name comes from FAM (hydrate); P.fams was never
      populated, so without this the card said a faceless "Nhóm". */
   var famName = function(fid){
@@ -546,6 +557,10 @@ function renderPersonal(){
         it (Ra is consumption only), so without this line the math looks off */
      + (slReady && Math.round(Math.abs(lendCash))>=1
          ? '<div class="cf-lend num">🤝 Cho vay & trả nợ riêng: '+(lendCash>0?'+':'')+fmt(lendCash)+'</div>' : '')
+     /* the card repayment's dent, said out loud — it is not spending, but the
+        money is gone, so without this line "Còn lại" looks wrong */
+     + (slReady && Math.round(Math.abs(xferCash))>=1
+         ? '<div class="cf-lend num">💳 Trả nợ thẻ: '+fmt(xferCash)+'</div>' : '')
      /* the buy's dent, said out loud the same way — not spent, not available */
      + (slReady && (Math.round(invOut)>=1 || Math.round(invIn)>=1)
          ? '<div class="cf-lend num">📈 '
@@ -904,7 +919,7 @@ function _pDate(dt){ return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStar
 /* Sum personal expense spend over an inclusive date range [aStr,bStr] ('YYYY-MM-DD'). */
 function persSpendRange(aStr, bStr){
   var P=fhPersonalData(), s=0;
-  (P.txns||[]).forEach(function(t){ if(t.kind==='expense' && t.date && t.date>=aStr && t.date<=bStr) s+=(t.amt||0); });
+  (P.txns||[]).forEach(function(t){ if(t.kind==='expense' && t.date && t.date>=aStr && t.date<=bStr && fhCountsAsSpending(t.node)) s+=(t.amt||0); });
   return s;
 }
 /* Period parts for the current month — mirrors cfGuideParts. budgetAllow is SELF-CORRECTING
@@ -957,7 +972,7 @@ function persCmpData(P, SL){
      the breakdown under it are always describing the same money. Income steps
      aside while a spending group is selected. */
   var _sel=(typeof fhNodeSelMatch==='function') && window.fhNodeSel;
-  var _keep=function(t){ return !_sel || (t.kind==='expense' && fhNodeSelMatch(t.node)); };
+  var _keep=function(t){ return fhCountsAsSpending(t.node) && (!_sel || (t.kind==='expense' && fhNodeSelMatch(t.node))); };
   (P.txns||[]).forEach(function(t){
     if(t._unreadable || (t.kind!=='expense' && t.kind!=='income') || !t.date || t.date<win) return;
     if(!_keep(t)) return;

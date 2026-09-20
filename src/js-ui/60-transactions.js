@@ -77,7 +77,10 @@ function _pBuildTxnCtx(){
         node:t.node||null,                                      // 0144 — what the tree filter and the chip sheet read
         _kg:'chi', _net:-(t.amt||0), _src:t.src||null, _acct:t.accountId||null, _mirror:!!(t.spaceId||t.linkId) });
       if((t.date||'').slice(0,7)===ym){
-        spent[cat]=(spent[cat]||0)+(t.amt||0);   // hero = this month only (parity with family M())
+        /* Not spending → out of the label totals too, so "Danh mục của tôi" and
+           "Tiêu vào gì" add up to the same money. treeRows still gets the row:
+           the tree shows it under "Không tính là chi tiêu" rather than hiding it. */
+        if(fhCountsAsSpending(t.node)) spent[cat]=(spent[cat]||0)+(t.amt||0);   // hero = this month only (parity with family M())
         treeRows.push({ node:t.node||null, amt:t.amt||0 });   // 0144: the SAME rows, so both views of this card agree
       }
       return;

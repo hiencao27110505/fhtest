@@ -160,6 +160,28 @@ function fhNodeSelLabel(){
   if (sel.charAt(0) === '=') { var e = FH_TAX.get(sel.slice(1)); return e ? e.vi : ''; }
   var n = FH_TAX.get(sel); return n ? n.vi : '';
 }
+/* DOES THIS ROW COUNT AS SPENDING? The ledger holds a row as kind='expense'
+   because that is how the bank reported it, but the tree may know better: money
+   moved to your own account, a card paid off, a wallet topped up. Those keep a
+   transfer node, and every total that claims to be "spending" has to ask this
+   one question, or the header and the breakdown drift apart — which is exactly
+   what they did. Unknown or unset node = spending, so nothing new is hidden. */
+function fhCountsAsSpending(node){
+  if (!node || typeof FH_TAX === 'undefined') return true;
+  /* The tree's kill switch has to restore the old numbers too, or turning it
+     off leaves totals that nothing on screen explains any more. */
+  if (!fhTreeOn()) return true;
+  var n = FH_TAX.get(node);
+  return !n || n.kind === 'expense';
+}
+/* ...and of the rows that are NOT spending, which ones actually took cash out
+   of the spendable pool? Paying a card down does: that money is gone. Moving
+   money between your own accounts, topping up a wallet, taking cash out of an
+   ATM, putting money in savings — all still yours, so "Còn lại" must not move.
+   Mirrors the loan and investment dents that already exist here. */
+function fhXferCashOut(node){
+  return node === 'cardpay';
+}
 /* Same name on both sides of the bank's verb: "CAO THÁI DUY HIỂN chuyen tien
    den CAO THAI DUY HIEN - 1046382279". Money between your own two accounts. */
 function fhLooksSelfTransfer(text){

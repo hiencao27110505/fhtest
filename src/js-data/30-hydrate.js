@@ -308,7 +308,11 @@
         const realized = (t.status !== 'planned') && (dt <= now);
         const amt = Number(t.amount);
         newTxns.push({ id: 'db_' + t.id, _dbId: t.id, _d: dt, _ts: (t.created_at ? new Date(t.created_at) : null), _catId: t.category_id, _memberId: t.member_id, _createdBy: t.created_by || null, ico: (c && c.emoji) || '🧾', cat: catName, note: t.note || '', date: (_isoDate(dt) === _isoDate(now)) ? 'Today' : (MO[dt.getMonth()] + ' ' + dt.getDate()), who: who, amt: amt, time: t.occurred_time || null, src: t.source || null, inst: t.instrument || null, node: t.node || null, month: mkey, future: realized ? undefined : true, photos: photosByTx[t.id] });
-        if (realized) { m.spent += amt; m.catSpent[catName] = (m.catSpent[catName] || 0) + amt; m.memberSpent[who] = (m.memberSpent[who] || 0) + amt; }
+        /* 0144 — a row the tree recognised as a transfer or a card repayment is
+           in the book as an expense but is not spending. It stays in the ledger
+           and in the breakdown's own section; it just leaves the totals. */
+        const _isSpend = !window.fhCountsAsSpending || window.fhCountsAsSpending(t.node || null);
+        if (realized && _isSpend) { m.spent += amt; m.catSpent[catName] = (m.catSpent[catName] || 0) + amt; m.memberSpent[who] = (m.memberSpent[who] || 0) + amt; }
       });
       newTxns.sort(function(a,b){ var ta=a._d?a._d.getTime():Infinity, tb=b._d?b._d.getTime():Infinity; return tb-ta; }); // newest first, globally
       window.txns = newTxns;
