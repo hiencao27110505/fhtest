@@ -124,7 +124,11 @@ function fhLooksPersonToPerson(input){
      person's name, which is how every VN bank writes a p2p counterparty — and
      then whatever the sender typed. Anchoring the whole string meant any memo at
      all defeated it, and a memo is exactly what these rows carry. */
-  return /^\d{6,}\s+[a-z]+\s+[a-z]+/.test(text);
+  if (/^\d{6,}\s+[a-z]+\s+[a-z]+/.test(text)) return true;
+  /* "VQRQ0001oqplk - VO DINH PHUC": a QR reference rather than an account
+     number, then the same person's name. The reference always carries digits,
+     which is what separates it from a merchant ("AEON NGUYEN VAN LINH"). */
+  return /^[a-z]*\d[a-z0-9]*\s+[a-z]+\s+[a-z]+(\s|$)/.test(text);
 }
 /* Siblings-first correction list for a picker: the node's siblings (and itself),
    then its parent's siblings, then every group of the kind. */

@@ -818,14 +818,12 @@ function buildCsvCandidates(parsed, result) {
        alone never sets this (the parser does not raise it). */
     var _stmtHint = (window.csvStagedMode && typeof window.fhStagedRawX === 'function') ? ((window.fhStagedRawX(i) || {}).stmt || null) : null;
     if (_stmtHint && _stmtHint.xfer) { _xfer = true; isTransfer = false; isIncome = false; }
-    if (isTransfer) {
-      var _selfMemo = '';
-      if (window.csvStagedMode && typeof window.fhStagedRawX === 'function') {
-        var _rx = window.fhStagedRawX(i);
-        _selfMemo = _rx ? (_rx.memo_display != null ? _rx.memo_display : (_rx.memo || '')) : '';
-      }
-      if (_isSelfTransfer(_selfMemo || desc)) { _xfer = true; isTransfer = false; }
+    var _selfMemo = '';
+    if (window.csvStagedMode && typeof window.fhStagedRawX === 'function') {
+      var _rx = window.fhStagedRawX(i);
+      _selfMemo = _rx ? (_rx.memo_display != null ? _rx.memo_display : (_rx.memo || '')) : '';
     }
+    if (_isSelfTransfer(_selfMemo || desc) || _isSelfTransfer(party)) { _xfer = true; isTransfer = false; }
 
     /* Which owned credit card this card payment pays off, matched from the
        mail's own evidence (card_masked → card-side account_masked → memo tail →

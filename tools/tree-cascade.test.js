@@ -208,6 +208,26 @@ console.log('\n-- rows real mail proved we were getting wrong --');
   t('a salutation is dropped, not just hidden', /if \(merchant === ''\) out\.counterparty = null;/.test(ex));
 }
 
+console.log('\n-- decrypted from a real ledger: what 11tr of "Chưa rõ" was --');
+{
+  /* Every string below was read out of a live personal ledger with the owner's
+     key, after they asked why so much was unclassified. Two thirds of it was
+     never spending at all. */
+  const n = (note) => P.fhNodeGuess({ kind: 'expense', note: note });
+  t('a QR reference before a person still reads as p2p', n('VQRQ0001oqplk - VO DINH PHUC') === 'p2p');
+  t('so does a payment reference before a name', n('LGOINV2609020BJ7R519 HIEN CAO') === 'p2p');
+  t('MoMo\'s "send a card" is a gift', n('Gửi thiệp đến Cung Đức Tùng') === 'gifts');
+  /* ...and none of that may steal a merchant the tree actually knows. */
+  t('a merchant with a person-like name is still the merchant', n('AEON NGUYEN VAN LINH') === 'groceries');
+  /* Money you move between your own two accounts is not spending, whatever
+     else the row looked like. The check used to run only on rows already
+     flagged as card payments, so a plain self-transfer of 7.000.000đ imported
+     as an expense. */
+  const rv = fs.readFileSync(path.join(ROOT, 'src/js-ui/57-csv-import-review.js'), 'utf8');
+  t('the self-transfer check is not nested under isTransfer',
+    !/if \(isTransfer\) \{[\s\S]{0,400}_isSelfTransfer/.test(rv) && /_isSelfTransfer\(_selfMemo \|\| desc\) \|\| _isSelfTransfer\(party\)/.test(rv));
+}
+
 console.log('\n-- the generated targets stay in lockstep with the JSON --');
 {
   const gen = require(path.join(ROOT, 'tools/gen-taxonomy.js'));
