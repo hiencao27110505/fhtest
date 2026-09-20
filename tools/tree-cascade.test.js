@@ -459,6 +459,54 @@ console.log('\n-- one definition of "spending", so the totals cannot drift apart
   }
 }
 
+console.log('\n-- the review card names what the app actually knows --');
+{
+  /* The queue showed "Others" on a transfer to another person: the card was
+     reading the legacy label, while the tree already knew it was p2p. The chip
+     now leads with the tree and falls back to the label. */
+  const ui = fs.readFileSync(path.join(ROOT, 'src/js-ui/56-csv-import-ui.js'), 'utf8');
+  const c2 = {
+    /* catStyle is read as window.catStyle, the way the app holds it. */
+    window: { catStyle: { Others: ['🗂️'], 'Ăn uống': ['🍽️'] } },
+    localStorage: { getItem: () => null, setItem: () => {} }, L: (vi) => vi,
+    esc: (x) => String(x), catValid: () => true, CAT_FALLBACK: 'Others',
+    isFallbackCat: (n) => String(n || '').trim().toLowerCase() === 'others',
+    catStyle: { Others: ['🗂️'], 'Ăn uống': ['🍽️'] },
+  };
+  vm.createContext(c2);
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'src/js-ui/11-taxonomy.js'), 'utf8'), c2);
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'src/js-ui/13-partition.js'), 'utf8'), c2);
+  const from = ui.indexOf('function csvCatLabel'), to = ui.indexOf('function csvNodeRow');
+  vm.runInContext(ui.slice(from, to) + ';globalThis.CHIP=csvCatChipText;globalThis.CLBL=csvCatLabel;', c2);
+
+  t('a transfer to another person reads as one, not as the catch-all',
+    c2.CHIP({ node: 'p2p', cat: 'Others' }, 'expense') === '🤝 Chuyển cho người khác');
+  t('the tree beats the label when both are known',
+    c2.CHIP({ node: 'coffee', cat: 'Ăn uống' }, 'expense') === '🍽️ Cà phê');
+  t('the label still carries a row the tree could not place',
+    c2.CHIP({ node: null, cat: 'Ăn uống' }, 'expense') === '🍽️ Ăn uống');
+  t('a node of the wrong kind is ignored rather than shown',
+    c2.CHIP({ node: 'p2p', cat: 'Ăn uống' }, 'income') === '🍽️ Ăn uống');
+  t('a row with neither says so', c2.CHIP({ node: null, cat: null }, 'expense') === null);
+  /* CAT_FALLBACK is STORED as the literal "Others" and translated only for
+     display — the legend has always done it, the review screen never did. */
+  t('the catch-all is shown in Vietnamese, not as the stored string',
+    c2.CLBL('Others') === 'Khác' && c2.CHIP({ node: null, cat: 'Others' }, 'expense') === '🗂️ Khác');
+  t('a real category keeps its own name', c2.CLBL('Ăn uống') === 'Ăn uống');
+  t('the expanded row and its picker translate it too',
+    (ui.match(/csvCatLabel\(/g) || []).length >= 4);
+
+  /* And the rows actually in the queue resolve to something worth reading. */
+  const seen = {};
+  [['CAO THÁI DUY HIỂN chuyen tien den NGUYEN DUC THIEN - 220999999994', 'p2p'],
+   ['MPOS*WAYNESCOFFEE HO CHI MINH VN', 'coffee'],
+   ['CO.OPMART NHIEU LOC HO CHI MINH VN', 'groceries'],
+   ['APPLE.COM/BILL', 'streaming']].forEach(([note, want]) => {
+     seen[note.slice(0, 18)] = P.fhNodeGuess({ kind: 'expense', note: note }) === want;
+   });
+  t('every card in the screenshot lands on a real node', Object.values(seen).every(Boolean), seen);
+}
+
 console.log('\n-- the generated targets stay in lockstep with the JSON --');
 {
   const gen = require(path.join(ROOT, 'tools/gen-taxonomy.js'));

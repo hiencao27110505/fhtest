@@ -969,10 +969,8 @@ function csvCollapsedCard(c, opts){
     else if(r._transfer) catTxt = '💳 '+L('Trả nợ thẻ','Card payment');
     else if(r._xfer)     catTxt = '🔁 '+L('Chuyển khoản nội bộ','Internal transfer');
     else if(r._repay)    catTxt = '🤝 '+(c.isIncome?L('Thu nợ','Repayment in'):L('Trả nợ','Repay'))+(c._repayWho?' · '+esc(c._repayWho):'');
-    else if(r._income)   catTxt = esc(r.cat||L('Thu nhập','Income'));
-    else if(r.cat && (typeof catValid!=='function' || catValid(r.cat))){
-      var s=(window.catStyle&&catStyle[r.cat])||['🏷️']; catTxt = s[0]+' '+esc(r.cat);
-    } else catTxt = null;
+    else if(r._income)   catTxt = csvCatChipText(r,'income') || esc(csvCatLabel(r.cat)||L('Thu nhập','Income'));
+    else                 catTxt = csvCatChipText(r,'expense');
     var catHtml = catTxt
       ? '<span class="scv-cat">'+catTxt+'</span>'
       : '<span class="scv-cat unset">'+L('Chọn danh mục','Pick a category')+'</span>';
@@ -1200,6 +1198,33 @@ function csvStagedRowsCard(c, opts){
   /* 0144 — "Tiêu vào gì": the tree's read of the purchase, editable here so a
      wrong guess is fixed once, at the moment the person is already looking at
      the row, rather than after it lands in the ledger. */
+  /* The catch-all category is STORED as the literal string "Others" (20-budget
+     CAT_FALLBACK) and only ever translated for display — the legend has done
+     this for ages, the review screen never did, so a Vietnamese queue showed an
+     English "Others". One helper, so the next surface cannot forget. */
+  function csvCatLabel(name){
+    return (typeof isFallbackCat==='function' && isFallbackCat(name)) ? L('Khác','Others') : name;
+  }
+  /* What this row is, in one chip. THE TREE'S ANSWER LEADS: it is the more
+     specific of the two and it is what the ledger will show once the row lands
+     — "Chuyển cho người khác" rather than a catch-all "Others". The person's
+     own label is the fallback, and both are on the expanded card either way, so
+     nothing is hidden by preferring the better answer here. */
+  function csvCatChipText(r, kind){
+    if(typeof fhTreeOn==='function' && fhTreeOn() && typeof FH_TAX!=='undefined'
+       && r.node && FH_TAX.get(r.node) && FH_TAX.kindOf(r.node)===kind){
+      var nd=FH_TAX.get(r.node), rt=FH_TAX.get(FH_TAX.root(r.node));
+      return ((rt&&rt.emoji)?rt.emoji+' ':'')+esc(nd.vi);
+    }
+    if(r.cat && (typeof catValid!=='function' || catValid(r.cat))){
+      /* guard and read the SAME reference — the copied idiom tests
+         window.catStyle then indexes the bare global, which only works because
+         they happen to be one object. */
+      var st=(window.catStyle&&window.catStyle[r.cat])||['🏷️'];
+      return st[0]+' '+esc(csvCatLabel(r.cat));
+    }
+    return null;
+  }
   function csvNodeRow(mkRow, cand){
     if(typeof fhTreeOn!=='function' || !fhTreeOn() || typeof FH_TAX==='undefined') return '';
     var kind=cand._nodeKind || (cand.isIncome ? 'income' : 'expense');
@@ -1262,7 +1287,7 @@ function csvStagedRowsCard(c, opts){
       rows += row('inccat', L('Danh mục','Category'), esc(c._incomeCat || 'Khác'));
     } else {
       rows += row('cat', L('Danh mục','Category'),
-        c.categoryName ? (csvCatEmoji(c.categoryName)+' '+esc(c.categoryName)) : L('Chưa rõ','Not set'),
+        c.categoryName ? (csvCatEmoji(c.categoryName)+' '+esc(csvCatLabel(c.categoryName))) : L('Chưa rõ','Not set'),
         { soft: !c.categoryName });
     }
     rows += csvNodeRow(row, c);
@@ -1496,7 +1521,7 @@ function csvRowSheetHTML(c){
     body = '<div class="choices">'
       + csvAllCats().map(function(name){
           var st = (window.catStyle && catStyle[name]) || ['🏷️'];
-          return chip(c.categoryName===name, "csvSheetPick('cat','"+escAttr(name)+"')", st[0]+' '+esc(name));
+          return chip(c.categoryName===name, "csvSheetPick('cat','"+escAttr(name)+"')", st[0]+' '+esc(csvCatLabel(name)));
         }).join('')
       + '</div>';
   } else if(f==='node'){
