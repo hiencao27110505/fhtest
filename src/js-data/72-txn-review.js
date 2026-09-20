@@ -646,7 +646,13 @@
         on the deposit (2026-09-06). */
   window.fhCardPayShaped = function (re) {
     if (!re) return false;
-    var memo = String(re.memo_display != null ? re.memo_display : (re.memo || re.counterparty || '')).toLowerCase();
+    /* WHO IS ON THE OTHER SIDE. memo_display can be an EMPTY STRING while the
+       merchant is named in counterparty — Vietcombank's card template does
+       exactly that ("MPOS*WAYNESCOFFEE HO CHI MINH VN" in counterparty,
+       memo:null, memo_display:"") — so an empty string has to fall through like
+       a null. Reading it as "the mail named nobody" is what kept Wayne's Coffee
+       and Co.op Mart filed as repayments after the first fix. */
+    var memo = String(re.memo_display || re.memo || re.counterparty || '').toLowerCase();
     var flat = memo.normalize ? memo.normalize('NFD').replace(/[̀-ͯ]/g, '') : memo;
     /* A CARD NUMBER IN THE MAIL IS NOT PROOF OF A REPAYMENT, and reading it as
        one turned every card purchase into "Trả nợ thẻ" — APPLE.COM/BILL,

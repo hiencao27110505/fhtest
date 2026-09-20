@@ -221,10 +221,23 @@ console.log('\n-- rows real mail proved we were getting wrong --');
       !cp({ card_masked: '****5140', memo: 'APPLE.COM/BILL' })
       && !cp({ card_masked: '****1234', memo: 'CO.OP MART NHIEU LOC' })
       && !cp({ card_masked: '****1234', memo_display: 'WAYNESCOFFEE' }));
-    t("the memo-less VIB confirmation this rule exists for still reads as a repayment",
+    /* THE EXACT SHAPE Vietcombank's card template produces, which survived the
+       first fix: memo null, memo_display an EMPTY STRING, and the merchant only
+       in counterparty. Reading "" as "the mail named nobody" kept these filed
+       as repayments. An empty string must fall through like a null. */
+    const vcbPurchase = { card_masked: '…0035', account_masked: '…2279', account_kind: null,
+      memo: null, memo_display: '', counterparty: 'MPOS*WAYNESCOFFEE HO CHI MINH VN' };
+    t('Vietcombank names the merchant in counterparty while memo_display is ""', !cp(vcbPurchase));
+    t('…and the same for the supermarket',
+      !cp({ ...vcbPurchase, counterparty: 'CO.OPMART NHIEU LOC HO CHI MINH VN' }));
+    /* VIB's real repayment mail, same empty memo_display — told apart by the
+       counterparty being the issuer rather than a shop. */
+    const vibRepay = { card_masked: 'CAO THAI DUY HIEN - ●●●● 4751', account_masked: '…5140',
+      account_kind: 'credit_card', memo: null, memo_display: '',
+      counterparty: 'Ngân hàng TMCP Quốc tế Việt Nam' };
+    t('the real VIB repayment mail still reads as a repayment', cp(vibRepay));
+    t('a mail naming nobody at all still reads as a repayment',
       cp({ card_masked: '****5140', memo: null }));
-    t('so does one whose only counterparty is the issuer',
-      cp({ card_masked: '****5140', counterparty: 'Ngân hàng TMCP Quốc tế Việt Nam' }));
     t('explicit repayment wording needs no card number at all',
       cp({ memo: 'THANH TOAN THE TIN DUNG VIB' }) && cp({ memo: 'Tra no the 5140' }));
     t('an ordinary merchant with no card is left alone', !cp({ memo: 'HIGHLANDS COFFEE' }));
