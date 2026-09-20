@@ -133,11 +133,21 @@ function fhTreeClearSel() {
   else window.fhNodeSel = null;
   fhTreeRepaint();
 }
+/* The rows this group holds that no leaf under it claimed. Selecting them is
+   what turns "2,1tr chưa rõ chi tiết" into a list you can select-all and teach
+   in one go. */
+function fhTreeTapExact(code) {
+  var key = '=' + code, off = (window.fhNodeSel === key);
+  if (typeof setTxnNode === 'function') setTxnNode(off ? null : key);
+  else window.fhNodeSel = off ? null : key;
+  fhTreeRepaint();
+}
 window.fhTreeTap = fhTreeTap; window.fhTreeClearSel = fhTreeClearSel;
+window.fhTreeTapExact = fhTreeTapExact;
 function fhTreeBreakdownHTML(rows) {
   if (typeof FH_TAX === 'undefined') return '';
   _tbRows = rows || [];               // what the visible list was built from, for the next expand
-  var sum = {}, none = 0, total = 0, xTotal = 0, xAny = false;
+  var sum = {}, cnt = {}, none = 0, total = 0, xTotal = 0, xAny = false;
   (rows || []).forEach(function (r) {
     var amt = Number(r.amt) || 0; if (amt <= 0) return;
     if (!r.node || !FH_TAX.get(r.node)) { total += amt; none += amt; return; }
@@ -149,6 +159,7 @@ function fhTreeBreakdownHTML(rows) {
        own accounts reads as the month's biggest purchase. */
     if (FH_TAX.kindOf(r.node) !== 'expense') { xTotal += amt; xAny = true; }
     else total += amt;
+    cnt[r.node] = (cnt[r.node] || 0) + 1;            // rows sitting on THIS node exactly
     sum[r.node] = (sum[r.node] || 0) + amt;
     FH_TAX.ancestors(r.node).forEach(function (a) { sum[a] = (sum[a] || 0) + amt; });
   });
@@ -163,7 +174,7 @@ function fhTreeBreakdownHTML(rows) {
       ? '<svg class="fh-chev' + (opts.open ? ' open' : '') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>'
       : '<span class="fh-chev"></span>';
     var tappable = opts.kids || opts.go || opts.code;
-    var sel = opts.code && window.fhNodeSel === opts.code;
+    var sel = opts.code && (window.fhNodeSel === opts.code || (opts.rest && window.fhNodeSel === '=' + opts.code));
     return '<' + (tappable ? 'button type="button"' : 'div') + ' class="fh-lrow tb-l' + opts.depth + (opts.rest ? ' tb-rest' : '') + (sel ? ' tb-sel' : '') + '"'
       + (opts.go ? ' onclick="' + opts.go + '"'
                  : (opts.code ? ' onclick="fhTreeTap(&#39;' + escAttr(opts.code) + '&#39;)" aria-pressed="' + (sel ? 'true' : 'false') + '"' : ''))
@@ -185,8 +196,18 @@ function fhTreeBreakdownHTML(rows) {
       kids.sort(function (a, b) { return sum[b] - sum[a]; });
       kids.forEach(function (c) { s += line(c, depth + 1, xfer); });
       /* What sits ON this node and under none of its children: the honest "we
-         know it was food, not which kind" amount. Never shown as a fake leaf. */
-      if (own > 0) s += row({ name: L('chưa rõ món', 'no detail'), amt: own, depth: depth + 1, rest: true, xfer: xfer });
+         know it was food, not which kind" amount. Never a fake leaf — but never
+         a dead end either. It is a work queue, so it says how many rows it is
+         and opens them, where before it was an inert grey label that read like
+         a category nobody could do anything about. */
+      if (own > 0) {
+        var oc = cnt[code] || 0;
+        s += row({
+          name: L('Chưa rõ chi tiết', 'No detail yet') + (oc ? ' · ' + oc + ' ' + L('khoản', oc === 1 ? 'item' : 'items') : ''),
+          amt: own, depth: depth + 1, rest: true, xfer: xfer, code: code,
+          go: 'fhTreeTapExact(&#39;' + escAttr(code) + '&#39;)'
+        });
+      }
     }
     return s;
   };

@@ -138,13 +138,28 @@ window.fhNodeSel = null;
 function fhNodeSelMatch(node){
   var sel = window.fhNodeSel; if (!sel) return true;
   if (sel === '_none') return !node || !FH_TAX.get(node);
+  /* '=code' is the node ITSELF with none of its children: the rows the tree
+     placed in a group but could not place under any leaf in it. That set is the
+     whole point of the "chưa rõ chi tiết" line, and it is not expressible as a
+     subtree match. */
+  if (sel.charAt(0) === '=') return node === sel.slice(1);
   if (!node) return false;
   return node === sel || FH_TAX.ancestors(node).indexOf(sel) >= 0;
+}
+/* The code a selection is about, exact or not. */
+function fhNodeSelCode(){
+  var sel = window.fhNodeSel;
+  if (!sel || sel === '_none') return null;
+  return sel.charAt(0) === '=' ? sel.slice(1) : sel;
 }
 /* What to call the current selection in a chip or a header. */
 function fhNodeSelLabel(){
   var sel = window.fhNodeSel; if (!sel) return '';
   if (sel === '_none') return L('Chưa rõ', 'Not sure yet');
+  if (sel.charAt(0) === '=') {
+    var e = FH_TAX.get(sel.slice(1));
+    return e ? e.vi + ' · ' + L('chưa rõ chi tiết', 'no detail') : '';
+  }
   var n = FH_TAX.get(sel); return n ? n.vi : '';
 }
 /* Same name on both sides of the bank's verb: "CAO THÁI DUY HIỂN chuyen tien

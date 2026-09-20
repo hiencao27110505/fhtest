@@ -6586,13 +6586,28 @@ window.fhNodeSel = null;
 function fhNodeSelMatch(node){
   var sel = window.fhNodeSel; if (!sel) return true;
   if (sel === '_none') return !node || !FH_TAX.get(node);
+  /* '=code' is the node ITSELF with none of its children: the rows the tree
+     placed in a group but could not place under any leaf in it. That set is the
+     whole point of the "chưa rõ chi tiết" line, and it is not expressible as a
+     subtree match. */
+  if (sel.charAt(0) === '=') return node === sel.slice(1);
   if (!node) return false;
   return node === sel || FH_TAX.ancestors(node).indexOf(sel) >= 0;
+}
+/* The code a selection is about, exact or not. */
+function fhNodeSelCode(){
+  var sel = window.fhNodeSel;
+  if (!sel || sel === '_none') return null;
+  return sel.charAt(0) === '=' ? sel.slice(1) : sel;
 }
 /* What to call the current selection in a chip or a header. */
 function fhNodeSelLabel(){
   var sel = window.fhNodeSel; if (!sel) return '';
   if (sel === '_none') return L('Chưa rõ', 'Not sure yet');
+  if (sel.charAt(0) === '=') {
+    var e = FH_TAX.get(sel.slice(1));
+    return e ? e.vi + ' · ' + L('chưa rõ chi tiết', 'no detail') : '';
+  }
   var n = FH_TAX.get(sel); return n ? n.vi : '';
 }
 /* Same name on both sides of the bank's verb: "CAO THÁI DUY HIỂN chuyen tien
@@ -19937,12 +19952,19 @@ function renderTxnBulkbar(){
       var hasChi=raw.some(function(r){ return r.kind==='expense'; });
       var hasAcct=raw.some(function(r){ return r.kind==='expense'||r.kind==='income'; });
       verbs.innerHTML='<button type="button" class="bb-v'+(hasChi?'':' dis')+'" onclick="txnBulkSheet(&#39;cat&#39;)">'+L('Danh mục','Category')+'</button>'
+        +_bbNodeVerb(hasChi)
         +'<button type="button" class="bb-v'+(hasAcct?'':' dis')+'" onclick="txnBulkSheet(&#39;acct&#39;)">'+L('Nguồn tiền','Money source')+'</button>';
     } else {
       verbs.innerHTML='<button type="button" class="bb-v" onclick="txnBulkSheet(&#39;cat&#39;)">'+L('Danh mục','Category')+'</button>'
+        +_bbNodeVerb(true)
         +'<button type="button" class="bb-v" onclick="txnBulkSheet(&#39;who&#39;)">'+L('Ai trả','Who paid')+'</button>';
     }
   }
+}
+/* Only offered while the tree is on — it is the tree's own field. */
+function _bbNodeVerb(enabled){
+  if(!(typeof fhTreeOn==='function' && fhTreeOn())) return '';
+  return '<button type="button" class="bb-v'+(enabled?'':' dis')+'" onclick="txnBulkSheet(&#39;node&#39;)">'+L('Tiêu vào gì','What it was')+'</button>';
 }
 var _txDelTimer=null;
 function _txBulkDisarm(){
@@ -19972,6 +19994,34 @@ function txnBulkSheet(kind){
       var em=(style[c]||['🏷️'])[0];
       return '<button type="button" class="choice" onclick="txnBulkCatPick(&#39;'+escAttr(c)+'&#39;)">'+em+' '+esc(c)+'</button>';
     }).join('');
+  } else if(kind==='node'){
+    var nChi2=raw?raw.filter(function(r){ return r.kind==='expense'; }).length:n;
+    if(!nChi2) return;
+    /* Scope: the group the queue came from, so the leaves on offer are the ones
+       that could actually be right. Entered from anywhere else, start at the
+       roots and drill one step. */
+    if(_bulkNodeScope===undefined) _bulkNodeScope=(typeof fhNodeSelCode==='function')?fhNodeSelCode():null;
+    var sc=_bulkNodeScope, scN=sc&&FH_TAX.get(sc);
+    h.textContent=scN?(L('Tiêu vào gì','What it was')+' · '+scN.vi):L('Tiêu vào gì','What it was');
+    s.textContent=subsetSub(nChi2, L('khoản chi','expenses'));
+    var opts=[];
+    if(scN){
+      /* Depth is a left inset, not a prefix character: the sheet is a list of
+         real choices and a leaf must read as a leaf, not as indented text. */
+      (function walk(c,d){ FH_TAX.children(c).forEach(function(k){
+        opts.push({k:k, lbl:FH_TAX.get(k).vi, d:d}); walk(k,d+1);
+      }); })(sc,0);
+      opts.unshift({k:sc, lbl:((scN.emoji||'')+' '+scN.vi).trim()+' · '+L('giữ ở mức nhóm','keep at group level'), d:0});
+    } else {
+      FH_TAX.roots('expense').forEach(function(c){ var rn=FH_TAX.get(c); opts.push({k:c, lbl:((rn.emoji||'')+' '+rn.vi).trim(), drill:FH_TAX.children(c).length>0}); });
+    }
+    list.innerHTML=(scN?'<button type="button" class="choice" onclick="txnBulkNodeScope(null)">← '+L('Chọn nhóm khác','Pick another group')+'</button>':'')
+      +opts.map(function(o){
+        var pad=o.d?' style="padding-left:'+(15+o.d*15)+'px"':'';
+        return o.drill
+          ? '<button type="button" class="choice"'+pad+' onclick="txnBulkNodeScope(&#39;'+escAttr(o.k)+'&#39;)">'+esc(o.lbl)+' ›</button>'
+          : '<button type="button" class="choice"'+pad+' onclick="txnBulkNodePick(&#39;'+escAttr(o.k)+'&#39;)">'+esc(o.lbl)+'</button>';
+      }).join('');
   } else if(kind==='who'){
     h.textContent=L('Ai trả','Who paid');
     s.textContent=L('Áp cho '+n+' khoản đã chọn.','Applies to the '+n+' selected.');
@@ -20015,6 +20065,44 @@ function txnBulkCatPick(name){
   txnSelExit(); renderAll(); renderTxns();
   toast(L('Đã đổi danh mục cho '+done+' khoản','Category changed on '+done+' items'));
 }
+var _bulkNodeScope;
+function txnBulkNodeScope(code){ _bulkNodeScope=code||null; txnBulkSheet('node'); }
+window.txnBulkNodeScope=txnBulkNodeScope;
+async function txnBulkNodePick(code){
+  closeSheet(); _bulkNodeScope=undefined;
+  var ids=Object.keys(TXV.sel||{}); if(!ids.length || !FH_TAX.get(code)) return;
+  var bar=document.getElementById('txn-bulkbar'); if(bar) bar.classList.add('busy');
+  var personal=_txnPersonal(), ok=0, fail=0, skipped=0;
+  var P=(personal && typeof fhPersonalData==='function')?fhPersonalData():null;
+  var all=P?((P.txns||[]).concat(P.txnsOld||[])):[];
+  for(var i=0;i<ids.length;i++){
+    var raw=personal ? all.find(function(x){ return String(x.id)===ids[i]; }) : txById(ids[i]);
+    if(!raw){ fail++; continue; }
+    if((raw.kind||'expense')!=='expense'){ skipped++; continue; }
+    var r=false;
+    try{
+      r=personal ? await window.fhPersonalSetNode(raw.id, code)
+                 : (raw._dbId ? await window.fhTxnSetNode(raw._dbId, code) : false);
+    }catch(_e){ r=false; }
+    if(r){
+      raw.node=code; ok++;
+      /* Teach it once: every past and future row with this wording resolves
+         itself, which is what stops the queue refilling next month. */
+      try{ if(window.fhLessonLearnNode) fhLessonLearnNode({ note:raw.note, counterparty:raw.counterparty, amount:raw.amt, node:code }); }catch(_e){}
+    } else fail++;
+  }
+  if(personal){ try{ await window.fhPersonalHydrate(); }catch(_e){} }
+  if(bar) bar.classList.remove('busy');
+  txnSelExit();
+  if(personal){ if(typeof renderPersonal==='function'){ try{ renderPersonal(); }catch(_e){} } refreshPersonalTxnOverlay(); }
+  else { renderAll(); renderTxns(); }
+  if(typeof renderFinanceHero==='function') renderFinanceHero();
+  var tail=skipped?L(' · '+skipped+' khoản khác giữ nguyên',' · '+skipped+' left as they were'):'';
+  toast(fail
+    ? L('Đã xếp '+ok+' khoản · '+fail+' khoản lỗi, thử lại nhé','Filed '+ok+' · '+fail+' failed, try again')
+    : L('Đã xếp '+ok+' khoản vào '+FH_TAX.get(code).vi,'Filed '+ok+' into '+FH_TAX.get(code).vi)+tail);
+}
+window.txnBulkNodePick=txnBulkNodePick;
 function txnBulkWhoPick(who){
   closeSheet();
   var ids=Object.keys(TXV.sel||{}); if(!ids.length) return;
@@ -21862,11 +21950,21 @@ function fhTreeClearSel() {
   else window.fhNodeSel = null;
   fhTreeRepaint();
 }
+/* The rows this group holds that no leaf under it claimed. Selecting them is
+   what turns "2,1tr chưa rõ chi tiết" into a list you can select-all and teach
+   in one go. */
+function fhTreeTapExact(code) {
+  var key = '=' + code, off = (window.fhNodeSel === key);
+  if (typeof setTxnNode === 'function') setTxnNode(off ? null : key);
+  else window.fhNodeSel = off ? null : key;
+  fhTreeRepaint();
+}
 window.fhTreeTap = fhTreeTap; window.fhTreeClearSel = fhTreeClearSel;
+window.fhTreeTapExact = fhTreeTapExact;
 function fhTreeBreakdownHTML(rows) {
   if (typeof FH_TAX === 'undefined') return '';
   _tbRows = rows || [];               // what the visible list was built from, for the next expand
-  var sum = {}, none = 0, total = 0, xTotal = 0, xAny = false;
+  var sum = {}, cnt = {}, none = 0, total = 0, xTotal = 0, xAny = false;
   (rows || []).forEach(function (r) {
     var amt = Number(r.amt) || 0; if (amt <= 0) return;
     if (!r.node || !FH_TAX.get(r.node)) { total += amt; none += amt; return; }
@@ -21878,6 +21976,7 @@ function fhTreeBreakdownHTML(rows) {
        own accounts reads as the month's biggest purchase. */
     if (FH_TAX.kindOf(r.node) !== 'expense') { xTotal += amt; xAny = true; }
     else total += amt;
+    cnt[r.node] = (cnt[r.node] || 0) + 1;            // rows sitting on THIS node exactly
     sum[r.node] = (sum[r.node] || 0) + amt;
     FH_TAX.ancestors(r.node).forEach(function (a) { sum[a] = (sum[a] || 0) + amt; });
   });
@@ -21892,7 +21991,7 @@ function fhTreeBreakdownHTML(rows) {
       ? '<svg class="fh-chev' + (opts.open ? ' open' : '') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>'
       : '<span class="fh-chev"></span>';
     var tappable = opts.kids || opts.go || opts.code;
-    var sel = opts.code && window.fhNodeSel === opts.code;
+    var sel = opts.code && (window.fhNodeSel === opts.code || (opts.rest && window.fhNodeSel === '=' + opts.code));
     return '<' + (tappable ? 'button type="button"' : 'div') + ' class="fh-lrow tb-l' + opts.depth + (opts.rest ? ' tb-rest' : '') + (sel ? ' tb-sel' : '') + '"'
       + (opts.go ? ' onclick="' + opts.go + '"'
                  : (opts.code ? ' onclick="fhTreeTap(&#39;' + escAttr(opts.code) + '&#39;)" aria-pressed="' + (sel ? 'true' : 'false') + '"' : ''))
@@ -21914,8 +22013,18 @@ function fhTreeBreakdownHTML(rows) {
       kids.sort(function (a, b) { return sum[b] - sum[a]; });
       kids.forEach(function (c) { s += line(c, depth + 1, xfer); });
       /* What sits ON this node and under none of its children: the honest "we
-         know it was food, not which kind" amount. Never shown as a fake leaf. */
-      if (own > 0) s += row({ name: L('chưa rõ món', 'no detail'), amt: own, depth: depth + 1, rest: true, xfer: xfer });
+         know it was food, not which kind" amount. Never a fake leaf — but never
+         a dead end either. It is a work queue, so it says how many rows it is
+         and opens them, where before it was an inert grey label that read like
+         a category nobody could do anything about. */
+      if (own > 0) {
+        var oc = cnt[code] || 0;
+        s += row({
+          name: L('Chưa rõ chi tiết', 'No detail yet') + (oc ? ' · ' + oc + ' ' + L('khoản', oc === 1 ? 'item' : 'items') : ''),
+          amt: own, depth: depth + 1, rest: true, xfer: xfer, code: code,
+          go: 'fhTreeTapExact(&#39;' + escAttr(code) + '&#39;)'
+        });
+      }
     }
     return s;
   };
@@ -23660,7 +23769,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v553';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v554';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',

@@ -16,11 +16,12 @@ let pass = 0, fail = 0;
 const t = (n, ok, d) => { console.log((ok ? '  PASS  ' : '  FAIL  ') + n + (!ok && d !== undefined ? '  -> ' + JSON.stringify(d) : '')); ok ? pass++ : fail++; };
 
 const tax = JSON.parse(fs.readFileSync(path.join(ROOT, 'taxonomy/taxonomy.json'), 'utf8'));
-const ctx = { window: {}, localStorage: { getItem: () => null, setItem: () => {} } };
+/* L() is the app's bilingual picker; the tests read the Vietnamese side. */
+const ctx = { window: {}, localStorage: { getItem: () => null, setItem: () => {} }, L: (vi) => vi };
 vm.createContext(ctx);
 vm.runInContext(fs.readFileSync(path.join(ROOT, 'src/js-ui/11-taxonomy.js'), 'utf8'), ctx);
 vm.runInContext(fs.readFileSync(path.join(ROOT, 'src/js-ui/13-partition.js'), 'utf8')
-  + ';globalThis.__P={fhLabelForNode,fhDefaultClaimsFor,fhNodeGuess,fhNodeCorrections,fhNodeDepth,fhNodeFromClaims,fhNodeGroup,fhTransferShape,fhLooksSelfTransfer,fhNodeSelMatch};', ctx);
+  + ';globalThis.__P={fhLabelForNode,fhDefaultClaimsFor,fhNodeGuess,fhNodeCorrections,fhNodeDepth,fhNodeFromClaims,fhNodeGroup,fhTransferShape,fhLooksSelfTransfer,fhNodeSelMatch,fhNodeSelLabel,fhNodeSelCode};', ctx);
 const T = ctx.FH_TAX, P = ctx.__P;
 
 console.log('\n-- the tree is well formed --');
@@ -328,6 +329,40 @@ console.log('\n-- the four ways v552 filtered nothing and swept nothing --');
     /_persOldRows/.test(pe) && !/_persOldMap|_persOldSel/.test(pe));
   t('a tap never rebuilds the whole personal tab behind the overlay',
     /_overlayUp/.test(tx));
+}
+
+console.log('\n-- "chưa rõ chi tiết" is a work queue, not a category --');
+{
+  const W = ctx.window;
+  /* A group-level answer is honest but it used to be a dead end: an inert grey
+     row inside every category that named money nobody could act on. Half of
+     "Mua sắm" was sitting in one. */
+  W.fhNodeSel = '=food';
+  t('an exact selection is the node and NOT its children',
+    P.fhNodeSelMatch('food') && !P.fhNodeSelMatch('groceries') && !P.fhNodeSelMatch(null));
+  t('a plain selection still includes the children',
+    (W.fhNodeSel = 'food', P.fhNodeSelMatch('groceries') && P.fhNodeSelMatch('food')));
+  W.fhNodeSel = '=food';
+  t('the exact selection names itself apart from the group', /chưa rõ chi tiết/.test(P.fhNodeSelLabel()));
+  t('fhNodeSelCode unwraps either form',
+    P.fhNodeSelCode() === 'food' && (W.fhNodeSel = 'food', P.fhNodeSelCode() === 'food'));
+  W.fhNodeSel = '_none';
+  t('"Chưa rõ" is still its own thing', P.fhNodeSelCode() === null && P.fhNodeSelMatch(null));
+  W.fhNodeSel = null;
+
+  const ui = fs.readFileSync(path.join(ROOT, 'src/js-ui/63-tree-ui.js'), 'utf8');
+  const tx = fs.readFileSync(path.join(ROOT, 'src/js-ui/60-transactions.js'), 'utf8');
+  t('the rest row opens the rows it is made of', /go: 'fhTreeTapExact/.test(ui));
+  t('it says how many rows that is', /cnt\[code\]/.test(ui) && /cnt\[r\.node\]/.test(ui));
+  t('it no longer shares a name with the top-level "Chưa rõ"',
+    !/'chưa rõ món'/.test(ui) && /Chưa rõ chi tiết/.test(ui));
+  /* The queue has to be emptiable, or naming it just moves the complaint. */
+  t('bulk select can assign a node', /txnBulkNodePick/.test(tx) && /txnBulkSheet\(&#39;node&#39;\)/.test(tx));
+  t('the bulk picker is scoped to the group the queue came from', /_bulkNodeScope/.test(tx) && /fhNodeSelCode/.test(tx));
+  t('assigning in bulk teaches, so the queue does not refill',
+    /fhLessonLearnNode\(\{ note:raw\.note/.test(tx));
+  t('bulk node writes go through the surgical writers, not a full row rewrite',
+    /fhPersonalSetNode\(raw\.id, code\)/.test(tx) && /fhTxnSetNode\(raw\._dbId, code\)/.test(tx));
 }
 
 console.log('\n-- the generated targets stay in lockstep with the JSON --');

@@ -847,12 +847,19 @@ function renderTxnBulkbar(){
       var hasChi=raw.some(function(r){ return r.kind==='expense'; });
       var hasAcct=raw.some(function(r){ return r.kind==='expense'||r.kind==='income'; });
       verbs.innerHTML='<button type="button" class="bb-v'+(hasChi?'':' dis')+'" onclick="txnBulkSheet(&#39;cat&#39;)">'+L('Danh mục','Category')+'</button>'
+        +_bbNodeVerb(hasChi)
         +'<button type="button" class="bb-v'+(hasAcct?'':' dis')+'" onclick="txnBulkSheet(&#39;acct&#39;)">'+L('Nguồn tiền','Money source')+'</button>';
     } else {
       verbs.innerHTML='<button type="button" class="bb-v" onclick="txnBulkSheet(&#39;cat&#39;)">'+L('Danh mục','Category')+'</button>'
+        +_bbNodeVerb(true)
         +'<button type="button" class="bb-v" onclick="txnBulkSheet(&#39;who&#39;)">'+L('Ai trả','Who paid')+'</button>';
     }
   }
+}
+/* Only offered while the tree is on — it is the tree's own field. */
+function _bbNodeVerb(enabled){
+  if(!(typeof fhTreeOn==='function' && fhTreeOn())) return '';
+  return '<button type="button" class="bb-v'+(enabled?'':' dis')+'" onclick="txnBulkSheet(&#39;node&#39;)">'+L('Tiêu vào gì','What it was')+'</button>';
 }
 var _txDelTimer=null;
 function _txBulkDisarm(){
@@ -882,6 +889,34 @@ function txnBulkSheet(kind){
       var em=(style[c]||['🏷️'])[0];
       return '<button type="button" class="choice" onclick="txnBulkCatPick(&#39;'+escAttr(c)+'&#39;)">'+em+' '+esc(c)+'</button>';
     }).join('');
+  } else if(kind==='node'){
+    var nChi2=raw?raw.filter(function(r){ return r.kind==='expense'; }).length:n;
+    if(!nChi2) return;
+    /* Scope: the group the queue came from, so the leaves on offer are the ones
+       that could actually be right. Entered from anywhere else, start at the
+       roots and drill one step. */
+    if(_bulkNodeScope===undefined) _bulkNodeScope=(typeof fhNodeSelCode==='function')?fhNodeSelCode():null;
+    var sc=_bulkNodeScope, scN=sc&&FH_TAX.get(sc);
+    h.textContent=scN?(L('Tiêu vào gì','What it was')+' · '+scN.vi):L('Tiêu vào gì','What it was');
+    s.textContent=subsetSub(nChi2, L('khoản chi','expenses'));
+    var opts=[];
+    if(scN){
+      /* Depth is a left inset, not a prefix character: the sheet is a list of
+         real choices and a leaf must read as a leaf, not as indented text. */
+      (function walk(c,d){ FH_TAX.children(c).forEach(function(k){
+        opts.push({k:k, lbl:FH_TAX.get(k).vi, d:d}); walk(k,d+1);
+      }); })(sc,0);
+      opts.unshift({k:sc, lbl:((scN.emoji||'')+' '+scN.vi).trim()+' · '+L('giữ ở mức nhóm','keep at group level'), d:0});
+    } else {
+      FH_TAX.roots('expense').forEach(function(c){ var rn=FH_TAX.get(c); opts.push({k:c, lbl:((rn.emoji||'')+' '+rn.vi).trim(), drill:FH_TAX.children(c).length>0}); });
+    }
+    list.innerHTML=(scN?'<button type="button" class="choice" onclick="txnBulkNodeScope(null)">← '+L('Chọn nhóm khác','Pick another group')+'</button>':'')
+      +opts.map(function(o){
+        var pad=o.d?' style="padding-left:'+(15+o.d*15)+'px"':'';
+        return o.drill
+          ? '<button type="button" class="choice"'+pad+' onclick="txnBulkNodeScope(&#39;'+escAttr(o.k)+'&#39;)">'+esc(o.lbl)+' ›</button>'
+          : '<button type="button" class="choice"'+pad+' onclick="txnBulkNodePick(&#39;'+escAttr(o.k)+'&#39;)">'+esc(o.lbl)+'</button>';
+      }).join('');
   } else if(kind==='who'){
     h.textContent=L('Ai trả','Who paid');
     s.textContent=L('Áp cho '+n+' khoản đã chọn.','Applies to the '+n+' selected.');
@@ -925,6 +960,44 @@ function txnBulkCatPick(name){
   txnSelExit(); renderAll(); renderTxns();
   toast(L('Đã đổi danh mục cho '+done+' khoản','Category changed on '+done+' items'));
 }
+var _bulkNodeScope;
+function txnBulkNodeScope(code){ _bulkNodeScope=code||null; txnBulkSheet('node'); }
+window.txnBulkNodeScope=txnBulkNodeScope;
+async function txnBulkNodePick(code){
+  closeSheet(); _bulkNodeScope=undefined;
+  var ids=Object.keys(TXV.sel||{}); if(!ids.length || !FH_TAX.get(code)) return;
+  var bar=document.getElementById('txn-bulkbar'); if(bar) bar.classList.add('busy');
+  var personal=_txnPersonal(), ok=0, fail=0, skipped=0;
+  var P=(personal && typeof fhPersonalData==='function')?fhPersonalData():null;
+  var all=P?((P.txns||[]).concat(P.txnsOld||[])):[];
+  for(var i=0;i<ids.length;i++){
+    var raw=personal ? all.find(function(x){ return String(x.id)===ids[i]; }) : txById(ids[i]);
+    if(!raw){ fail++; continue; }
+    if((raw.kind||'expense')!=='expense'){ skipped++; continue; }
+    var r=false;
+    try{
+      r=personal ? await window.fhPersonalSetNode(raw.id, code)
+                 : (raw._dbId ? await window.fhTxnSetNode(raw._dbId, code) : false);
+    }catch(_e){ r=false; }
+    if(r){
+      raw.node=code; ok++;
+      /* Teach it once: every past and future row with this wording resolves
+         itself, which is what stops the queue refilling next month. */
+      try{ if(window.fhLessonLearnNode) fhLessonLearnNode({ note:raw.note, counterparty:raw.counterparty, amount:raw.amt, node:code }); }catch(_e){}
+    } else fail++;
+  }
+  if(personal){ try{ await window.fhPersonalHydrate(); }catch(_e){} }
+  if(bar) bar.classList.remove('busy');
+  txnSelExit();
+  if(personal){ if(typeof renderPersonal==='function'){ try{ renderPersonal(); }catch(_e){} } refreshPersonalTxnOverlay(); }
+  else { renderAll(); renderTxns(); }
+  if(typeof renderFinanceHero==='function') renderFinanceHero();
+  var tail=skipped?L(' · '+skipped+' khoản khác giữ nguyên',' · '+skipped+' left as they were'):'';
+  toast(fail
+    ? L('Đã xếp '+ok+' khoản · '+fail+' khoản lỗi, thử lại nhé','Filed '+ok+' · '+fail+' failed, try again')
+    : L('Đã xếp '+ok+' khoản vào '+FH_TAX.get(code).vi,'Filed '+ok+' into '+FH_TAX.get(code).vi)+tail);
+}
+window.txnBulkNodePick=txnBulkNodePick;
 function txnBulkWhoPick(who){
   closeSheet();
   var ids=Object.keys(TXV.sel||{}); if(!ids.length) return;
