@@ -26,11 +26,13 @@
   const _tbfRunning = {}, _tbfStarted = {};
 
   function _tbfCursorKey(scope) {
-    /* v3: v1 wrote the LABEL's group whenever a keyword
-       disagreed, so those rows must be revisited. Bumping the key is what makes
-       an already-swept device sweep again. */
-    if (scope === 'family') return 'fh-tree-bf:v5:fam:' + ((window.DB && window.DB.fid) || '');
-    return 'fh-tree-bf:v5:per:' + ((window.fhPersonalData && fhPersonalData().uid) || '');
+    /* Bumping this key is the ONLY thing that makes an already-swept device
+       sweep again, so it moves with every change to what a row resolves to.
+       v5 shipped with a bug that marked a scope done after one batch of
+       unresolvable rows, so every device is sitting on a false "done" and v6
+       is what undoes that. */
+    if (scope === 'family') return 'fh-tree-bf:v6:fam:' + ((window.DB && window.DB.fid) || '');
+    return 'fh-tree-bf:v6:per:' + ((window.fhPersonalData && fhPersonalData().uid) || '');
   }
   function _tbfDone(scope) { try { return localStorage.getItem(_tbfCursorKey(scope)) === 'done'; } catch (e) { return false; } }
   function _tbfMarkDone(scope) { try { localStorage.setItem(_tbfCursorKey(scope), 'done'); } catch (e) {} }
@@ -97,11 +99,13 @@
     return !!(n && n.depth === 1);
   }
   async function _tbfSlice(scope) {
-    if (_tbfDoneThisSession >= _TBF_SESSION_MAX) return 0;
-    if (typeof document !== 'undefined' && document.hidden) return -1;   // backgrounded: stop, resume next launch
+    /* Session cap: stop, but NEVER mark the scope done — n:0 is reserved for
+       "walked the whole ledger". Next launch picks up where this left off. */
+    if (_tbfDoneThisSession >= _TBF_SESSION_MAX) return { n: -1, more: false };
+    if (typeof document !== 'undefined' && document.hidden) return { n: -1, more: false };   // backgrounded: resume next launch
     const rows = [];
     if (scope === 'family') {
-      if (typeof _fhWriteLocked === 'function' && _fhWriteLocked()) return -1;
+      if (typeof _fhWriteLocked === 'function' && _fhWriteLocked()) return { n: -1, more: false };
       for (const t of (window.txns || [])) {
         if (!t._dbId || !_tbfWants(t)) continue;
         rows.push(t);
@@ -109,14 +113,21 @@
       }
     } else {
       const P = window.fhPersonalData ? fhPersonalData() : null;
-      if (!P || !P.key || P.state !== 'ready') return -1;
+      if (!P || !P.key || P.state !== 'ready') return { n: -1, more: false };
       for (const t of (P.txns || [])) {
         if (t._unreadable || !_tbfWants(t)) continue;
+        /* MIRROR ROWS BELONG TO THE FAMILY LEDGER, NOT TO THIS SWEEP. Their node
+           is copied down by fhPersonalMirror from the family row. Writing one
+           here starts a ping-pong: the mirror sees the master disagree with its
+           family row, rewrites it, bumps the version and ends with a full
+           fhPersonalHydrate — a whole ledger re-decrypted per round. That is
+           the hot device and the stuck "Đang đồng bộ…". */
+        if (t.spaceId || t.linkId) { t._tbfSkip = 1; continue; }
         rows.push(t);
         if (rows.length >= _TBF_BATCH) break;
       }
     }
-    if (!rows.length) return 0;
+    if (!rows.length) return { n: 0, more: false };            // the ledger really is finished
     /* Decide first (pure, instant), then write what actually changed, a few at
        a time. Sequential awaits over a whole ledger is what made the app feel
        stuck on open. */
@@ -126,7 +137,7 @@
       if (!node || node === t.node) { t._tbfSkip = 1; continue; }
       work.push({ t: t, node: node });
     }
-    if (!work.length) return 0;
+    if (!work.length) return { n: 0, more: true };             // nothing to write HERE; keep walking
     let wrote = 0, refused = false;
     for (let i = 0; i < work.length; i += _TBF_LANES) {
       const lane = work.slice(i, i + _TBF_LANES);
@@ -143,7 +154,7 @@
       }
       if (refused) break;                                       // next launch retries; the cursor stays put
     }
-    return refused ? -1 : wrote;
+    return refused ? { n: -1, more: false } : { n: wrote, more: true };
   }
 
   /* Public entry: called from the family hydrate tail and the personal one.
@@ -160,14 +171,14 @@
     _tbfStarted[scope] = true;
     _tbfRunning[scope] = true;
     const step = () => {
-      _tbfSlice(scope).then((n) => {
-        if (n > 0) { _tbfIdle(step); return; }                  // more to do, next idle slice
+      _tbfSlice(scope).then((r) => {
+        if (r.more) { _tbfIdle(step); return; }                 // still rows to walk, next idle slice
         _tbfRunning[scope] = false;
-        if (n === 0) _tbfMarkDone(scope);                       // nothing left: stop asking, this device is current
+        if (r.n === 0) _tbfMarkDone(scope);                     // walked it all: this device is current
         /* A skipped row (no node derivable) leaves the sweep "done" — it will be
            retried the next time the person edits it or a newer tree knows more,
            not by re-walking the ledger on every boot. */
-        if (n === 0 && scope === 'personal' && window.renderPersonal) { try { renderPersonal(); } catch (e) {} }
+        if (r.n === 0 && scope === 'personal' && window.renderPersonal) { try { renderPersonal(); } catch (e) {} }
       }).catch(() => { _tbfRunning[scope] = false; });
     };
     _tbfIdle(step);

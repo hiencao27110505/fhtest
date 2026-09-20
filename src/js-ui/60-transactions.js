@@ -74,6 +74,7 @@ function _pBuildTxnCtx(){
       /* _kg/_net/_src/_acct feed the Giao dịch screen's filters + net heads:
          expense = money out (0109 stores it positive), so its cash flow is −amt. */
       rows.push({ id:t.id, cat:cat, note:t.note||cat, amt:t.amt||0, _d:_d, ico:t.emoji||'🗂️', who:null, _style:style[cat], _open:eOpen, photos:t.photos||undefined, time:t.time||null,
+        node:t.node||null,                                      // 0144 — what the tree filter and the chip sheet read
         _kg:'chi', _net:-(t.amt||0), _src:t.src||null, _acct:t.accountId||null, _mirror:!!(t.spaceId||t.linkId) });
       if((t.date||'').slice(0,7)===ym){
         spent[cat]=(spent[cat]||0)+(t.amt||0);   // hero = this month only (parity with family M())
@@ -123,6 +124,7 @@ function _pBuildTxnCtx(){
     } else return;
     if(!kseen[kcat]){ kseen[kcat]=1; kindOrder.push(kcat); }
     rows.push({ id:t.id, cat:kcat, note:note, amt:Math.abs(t.amt||0), _d:_d, ico:ico||kstyle[kcat][0], who:null, _style:kstyle[kcat], _open:open, _sign:sign, _amtCls:cls, time:t.time||null,
+      node:t.node||null,
       _kg:kg, _net:netv, _src:t.src||null, _acct:t.accountId||null });
   });
   order.sort(function(a,b){ return (spent[b]||0)-(spent[a]||0); });
@@ -637,15 +639,21 @@ function buildTxnToolChips(){
   else _txInstDefs().forEach(function(o){ srcDefs.push(o); srcMap[o.k]=TXV.insts?TXV.insts[o.k]:1; });
   var sl=_txChipLbl(L('Nguồn','Source'), srcMap, srcDefs);
   html+=chip(sl.t, sl.live, 'txnSheetSrc()');
-  var catDefs=(_txCatOrder()||[]).map(function(c){ return {k:c,lbl:c}; });
-  var cl=_txChipLbl(L('Danh mục','Categories'), TXV.cats, catDefs);
-  html+=chip(cl.t, cl.live, 'txnSheetCat()');
   if(typeof fhTreeOn==='function' && fhTreeOn()){
     var nl=L('Tiêu vào gì','What I bought');
     if(TXV.node) nl+=' · '+fhNodeSelLabel();
     html+=chip(nl, !!TXV.node, 'txnSheetNode()');
   }
+  var catDefs=(_txCatOrder()||[]).map(function(c){ return {k:c,lbl:c}; });
+  var cl=_txChipLbl(L('Danh mục','Categories'), TXV.cats, catDefs);
+  html+=chip(cl.t, cl.live, 'txnSheetCat()');
   setHTML('txn-chips', html);
+  /* A filter nobody can see reads as a broken list. Bring the live chip into
+     view so the narrowing always has something on screen explaining it. */
+  try{
+    var box=document.getElementById('txn-chips'), live=box&&box.querySelector('.txn-chip.tool.live');
+    if(live && box.scrollWidth>box.clientWidth) live.scrollIntoView({block:'nearest',inline:'center'});
+  }catch(_e){}
 }
 /* One toggle for every filter chip in a sheet; the last ON option refuses to
    turn off (a view of nothing answers nothing). */
@@ -695,7 +703,9 @@ function setTxnNode(code){
   renderTxnScreen();
   if(typeof buildTxnToolChips==='function') buildTxnToolChips();
   if(typeof renderFinanceHero==='function') renderFinanceHero();
-  if(_txnPersonal() && typeof renderPersonal==='function') renderPersonal();
+  var _ov=document.getElementById('txn-overlay');
+  var _overlayUp=!!(_ov && _ov.classList.contains('open'));
+  if(!_overlayUp && _txnPersonal() && typeof renderPersonal==='function') renderPersonal();
   if(document.getElementById('sheet-txnnode') && document.getElementById('sheet-txnnode').classList.contains('open')) txnSheetNode();
 }
 window.setTxnNode=setTxnNode;

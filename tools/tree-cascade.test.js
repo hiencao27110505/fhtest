@@ -251,7 +251,7 @@ console.log('\n-- money that moved is not money that was spent --');
   t('the sweep asks the transfer shape before the guess',
     bf.indexOf('fhTransferShape') < bf.indexOf('guess = fhNodeGuess'));
   /* And the rules changing is worthless if the sweep still thinks it is done. */
-  t('the sweep cursor moved with the rules', /fh-tree-bf:v5:/.test(bf) && !/fh-tree-bf:v[1-4]:/.test(bf));
+  t('the sweep cursor moved with the rules', /fh-tree-bf:v6:/.test(bf) && !/fh-tree-bf:v[1-5]:/.test(bf));
 }
 
 console.log('\n-- one selection, read by every surface --');
@@ -280,6 +280,54 @@ console.log('\n-- one selection, read by every surface --');
   const ui = fs.readFileSync(path.join(ROOT, 'src/js-ui/63-tree-ui.js'), 'utf8');
   t('not-spending gets its own section, out of the spending total',
     /kindOf\(r\.node\) !== 'expense'/.test(ui) && /tb-sect/.test(ui));
+}
+
+console.log('\n-- the four ways v552 filtered nothing and swept nothing --');
+{
+  const tx = fs.readFileSync(path.join(ROOT, 'src/js-ui/60-transactions.js'), 'utf8');
+  const bf = fs.readFileSync(path.join(ROOT, 'src/js-data/28-tree-backfill.js'), 'utf8');
+  const pe = fs.readFileSync(path.join(ROOT, 'src/js-ui/21-personal.js'), 'utf8');
+
+  /* 1. The row shape the Giao dịch screen is built from never carried `node`.
+     Every node filter therefore matched nothing (empty list) and the chip sheet
+     saw a ledger with no nodes in it (no options to offer). */
+  const pushes = tx.match(/rows\.push\(\{[\s\S]*?\}\);/g) || [];
+  t('every personal row shape carries node', pushes.length >= 2 && pushes.every((b) => /\bnode:\s*t\.node/.test(b)), pushes.length);
+  t('the filter and the row shape agree on the field name',
+    /fhNodeSelMatch\(t\.node\)/.test(tx));
+
+  /* 2. The sweep returned 0 both for "this batch needed no writes" and for
+     "the ledger is finished", and the caller marked the scope done forever.
+     Twelve unresolvable rows near the top were enough to end it permanently. */
+  t('the sweep separates "nothing here" from "nothing left"',
+    /\{ n: 0, more: true \}/.test(bf) && /\{ n: 0, more: false \}/.test(bf));
+  t('only an exhausted walk marks the scope done',
+    /if \(r\.n === 0\) _tbfMarkDone/.test(bf) && !/return 0;/.test(bf));
+  t('the session cap stops without marking done',
+    /_TBF_SESSION_MAX\) return \{ n: -1/.test(bf));
+  /* Simulate the runner against the slice contract: a ledger whose first two
+     batches resolve to nothing must still be walked to the end. */
+  {
+    const batches = [{ n: 0, more: true }, { n: 0, more: true }, { n: 5, more: true }, { n: 0, more: false }];
+    let i = 0, done = false;
+    const step = () => { const r = batches[i++]; if (r.more) return step(); if (r.n === 0) done = true; };
+    step();
+    t('a ledger with two dead batches is still walked to the end', done && i === batches.length, i);
+  }
+
+  /* 3. The personal sweep wrote nodes onto MIRROR rows, which fhPersonalMirror
+     owns. Each write made the mirror disagree with its family row, rewrite it,
+     bump the version and finish with a full fhPersonalHydrate: a whole ledger
+     re-decrypted per round. That is the hot device and the stuck banner. */
+  t('the personal sweep leaves mirror rows to the mirror',
+    /if \(t\.spaceId \|\| t\.linkId\) \{ t\._tbfSkip = 1; continue; \}/.test(bf));
+
+  /* 4. Caching the AGGREGATE under one selection meant every tap invalidated it
+     and persSeries called persEnsureSlice() — a network fetch per tap. */
+  t('the chart caches raw rows, not a filtered aggregate',
+    /_persOldRows/.test(pe) && !/_persOldMap|_persOldSel/.test(pe));
+  t('a tap never rebuilds the whole personal tab behind the overlay',
+    /_overlayUp/.test(tx));
 }
 
 console.log('\n-- the generated targets stay in lockstep with the JSON --');

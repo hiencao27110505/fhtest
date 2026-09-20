@@ -930,8 +930,7 @@ function persGuideParts(periodKey){
 
 /* Cache window start ('YYYY-MM-01' of last month) — mirrors _winFrom in 19-personal.js. */
 function _persWinFrom(){ var d=new Date(); d.setDate(1); d.setMonth(d.getMonth()-1); return _pDate(d); }
-var _persOldSel=null;   // the selection _persOldMap was built under
-var _persOldMap=null;   // last derived old-history map — kept while the slice is being re-fetched after a write, so old greys don't blink
+var _persOldRows=null;  // last seen pre-window slice rows, UNFILTERED — kept while the slice is being re-fetched after a write, so old greys don't blink
 /* Day-keyed {chi,thu}, the four buổi of each date, the untimed remainder per
    date, and the ledger's first date — over the WIDEST data we hold: the
    2-month cache for its window (fresh on every write), the full slice for
@@ -964,16 +963,16 @@ function persCmpData(P, SL){
     if(!_keep(t)) return;
     addTo(cur, t.date, t.kind, t.amt||0, t.time, t.ts);
   });
+  if(SL) _persOldRows=SL.rows;
   var old=null;
-  if(SL){
+  if(_persOldRows){
     old={byDay:{}, buoi:{}, untimed:{}, first:null};
-    SL.rows.forEach(function(r){
+    _persOldRows.forEach(function(r){
       if(!r.date) return;
       if(old.first==null || r.date<old.first) old.first=r.date;   // first over the WHOLE ledger
       if(r.date<win && _keep(r)) addTo(old, r.date, r.kind, r.amt, r.time, r.ts);
     });
-    _persOldMap=old; _persOldSel=window.fhNodeSel||null;
-  } else old=((_persOldSel||null)===(window.fhNodeSel||null))?_persOldMap:null;
+  }
   if(old){
     Object.keys(old.byDay).forEach(function(k){ byDay[k]=old.byDay[k]; });
     Object.keys(old.buoi).forEach(function(k){ buoi[k]=old.buoi[k]; });

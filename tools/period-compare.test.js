@@ -104,7 +104,12 @@ t('personal strip: grey + tick + red, upcoming slots, all four zooms', () => {
 });
 t('personal strip: comparisons never wait on the slice, and the slice carries the time', () => {
   assert.ok(/if\(!D\.complete\) persEnsureSlice\(\)/.test(pers));
-  assert.ok(/_persOldMap/.test(pers));
+  /* A kept copy of the pre-window history, so the grey comparison bars do not
+     blink while the slice is re-fetched after a write. Since 0144 what is kept
+     is the RAW rows rather than an aggregate: a node selection re-aggregates
+     them, where invalidating a cached aggregate made every tap refetch. */
+  assert.ok(/_persOldRows/.test(pers), 'old history is kept across re-fetches');
+  assert.ok(/if\(SL\) _persOldRows=SL\.rows;/.test(pers), 'kept unfiltered, so a selection never invalidates it');
   assert.ok(/occurred_time_enc,created_at/.test(data));
   assert.ok(/time: t\.occurred_time_enc \? await _decTxt\(t\.occurred_time_enc\) : null, ts: t\.created_at/.test(data));
 });
