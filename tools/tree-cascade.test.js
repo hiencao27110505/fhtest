@@ -476,8 +476,16 @@ console.log('\n-- the review card names what the app actually knows --');
   vm.createContext(c2);
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'src/js-ui/11-taxonomy.js'), 'utf8'), c2);
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'src/js-ui/13-partition.js'), 'utf8'), c2);
-  const from = ui.indexOf('function csvCatLabel'), to = ui.indexOf('function csvNodeRow');
-  vm.runInContext(ui.slice(from, to) + ';globalThis.CHIP=csvCatChipText;globalThis.CLBL=csvCatLabel;', c2);
+  /* LOAD THE WHOLE FILE, not a slice of it. Slicing the helpers out and running
+     them in isolation is exactly what hid the bug that broke the queue: they
+     were declared INSIDE csvStagedRowsCard while being called from two other
+     functions, so every real caller threw a ReferenceError and the review
+     screen would not open. Evaluating the real file is what proves they are
+     reachable from anywhere. */
+  vm.runInContext(ui, c2);
+  t('the chip helpers are reachable from every caller, not nested in one',
+    typeof c2.csvCatChipText === 'function' && typeof c2.csvCatLabel === 'function');
+  vm.runInContext('globalThis.CHIP=csvCatChipText;globalThis.CLBL=csvCatLabel;', c2);
 
   t('a transfer to another person reads as one, not as the catch-all',
     c2.CHIP({ node: 'p2p', cat: 'Others' }, 'expense') === '🤝 Chuyển cho người khác');

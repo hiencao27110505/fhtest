@@ -939,6 +939,38 @@ function csvWhenLine(c, opts){
   if(opts.timeStr) s += ' · ' + opts.timeStr;
   return s;
 }
+/* SCOPE MATTERS HERE: these two are called from csvCollapsedCard (the chip),
+   csvStagedRowsCard (the expanded row) and the picker sheet — three different
+   functions — so they live at file scope. Tucked inside csvStagedRowsCard, as
+   they first were, every other caller threw a ReferenceError and the review
+   queue would not open at all.
+   The catch-all category is STORED as the literal string "Others" (20-budget
+   CAT_FALLBACK) and only ever translated for display: the spending legend has
+   done that for ages, the review screen never did, so a Vietnamese queue read
+   back an English "Others". One helper, so the next surface cannot forget. */
+function csvCatLabel(name){
+  return (typeof isFallbackCat==='function' && isFallbackCat(name)) ? L('Khác','Others') : name;
+}
+/* What this row is, in one chip. THE TREE'S ANSWER LEADS: it is the more
+   specific of the two and it is what the ledger will show once the row lands —
+   "Chuyển cho người khác" rather than a catch-all "Others". The person's own
+   label is the fallback, and both are on the expanded card either way, so
+   nothing is hidden by preferring the better answer here. */
+function csvCatChipText(r, kind){
+  if(typeof fhTreeOn==='function' && fhTreeOn() && typeof FH_TAX!=='undefined'
+     && r.node && FH_TAX.get(r.node) && FH_TAX.kindOf(r.node)===kind){
+    var nd=FH_TAX.get(r.node), rt=FH_TAX.get(FH_TAX.root(r.node));
+    return ((rt&&rt.emoji)?rt.emoji+' ':'')+esc(nd.vi);
+  }
+  if(r.cat && (typeof catValid!=='function' || catValid(r.cat))){
+    /* guard and read the SAME reference — the copied idiom tests
+       window.catStyle then indexes the bare global, which only works because
+       they happen to be one object. */
+    var st=(window.catStyle&&window.catStyle[r.cat])||['🏷️'];
+    return st[0]+' '+esc(csvCatLabel(r.cat));
+  }
+  return null;
+}
 function csvCollapsedCard(c, opts){
   var rm = opts.removeFn
     ? '<button type="button" class="bulk-x'+(opts.armed?' armed':'')+'" onclick="'+opts.removeFn+'"'
@@ -1198,33 +1230,6 @@ function csvStagedRowsCard(c, opts){
   /* 0144 — "Tiêu vào gì": the tree's read of the purchase, editable here so a
      wrong guess is fixed once, at the moment the person is already looking at
      the row, rather than after it lands in the ledger. */
-  /* The catch-all category is STORED as the literal string "Others" (20-budget
-     CAT_FALLBACK) and only ever translated for display — the legend has done
-     this for ages, the review screen never did, so a Vietnamese queue showed an
-     English "Others". One helper, so the next surface cannot forget. */
-  function csvCatLabel(name){
-    return (typeof isFallbackCat==='function' && isFallbackCat(name)) ? L('Khác','Others') : name;
-  }
-  /* What this row is, in one chip. THE TREE'S ANSWER LEADS: it is the more
-     specific of the two and it is what the ledger will show once the row lands
-     — "Chuyển cho người khác" rather than a catch-all "Others". The person's
-     own label is the fallback, and both are on the expanded card either way, so
-     nothing is hidden by preferring the better answer here. */
-  function csvCatChipText(r, kind){
-    if(typeof fhTreeOn==='function' && fhTreeOn() && typeof FH_TAX!=='undefined'
-       && r.node && FH_TAX.get(r.node) && FH_TAX.kindOf(r.node)===kind){
-      var nd=FH_TAX.get(r.node), rt=FH_TAX.get(FH_TAX.root(r.node));
-      return ((rt&&rt.emoji)?rt.emoji+' ':'')+esc(nd.vi);
-    }
-    if(r.cat && (typeof catValid!=='function' || catValid(r.cat))){
-      /* guard and read the SAME reference — the copied idiom tests
-         window.catStyle then indexes the bare global, which only works because
-         they happen to be one object. */
-      var st=(window.catStyle&&window.catStyle[r.cat])||['🏷️'];
-      return st[0]+' '+esc(csvCatLabel(r.cat));
-    }
-    return null;
-  }
   function csvNodeRow(mkRow, cand){
     if(typeof fhTreeOn!=='function' || !fhTreeOn() || typeof FH_TAX==='undefined') return '';
     var kind=cand._nodeKind || (cand.isIncome ? 'income' : 'expense');
