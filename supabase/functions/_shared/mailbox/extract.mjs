@@ -391,7 +391,8 @@ function _tidy(extraction, body) {
 
   if (out.counterparty) {
     const merchant = tidyMerchant(out.counterparty);
-    if (merchant && merchant !== out.counterparty) out.counterparty_display = merchant;
+    if (merchant === '') out.counterparty = null;
+    else if (merchant && merchant !== out.counterparty) out.counterparty_display = merchant;
   }
   /* balance-after (full-ledger spec §7.4): the label-table tier reads it as a
      field; the template and model tiers usually don't. A deposit notice signs

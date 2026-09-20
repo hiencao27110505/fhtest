@@ -643,6 +643,7 @@
     if (!re) return false;
     var memo = String(re.memo_display != null ? re.memo_display : (re.memo || re.counterparty || '')).toLowerCase();
     var flat = memo.normalize ? memo.normalize('NFD').replace(/[̀-ͯ]/g, '') : memo;
+    if (re.card_masked) return true;
     if (_CARD_PAY_RX.test(flat)) return true;
     var tail = String(re.account_masked || '').replace(/\D/g, '').slice(-4);
     if (re.account_kind === 'credit_card' && tail && window.fhPersonalData) {

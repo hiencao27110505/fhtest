@@ -120,9 +120,11 @@ function fhLooksPersonToPerson(input){
     .replace(/[^a-z0-9]+/g,' ').trim();
   if(!text) return false;
   if(_P2P_RE.test(' '+text+' ')) return true;
-  /* "0111000158387 - CAO THAI MINH PHUONG": an account number followed by a
-     person's name, which is how every VN bank writes a p2p counterparty. */
-  return /^\d{6,}\s+[a-z]+(\s+[a-z]+){1,4}$/.test(text);
+  /* "13610000120606 - LE KHA NIN | Cam on a Lam hehe": an account number and a
+     person's name, which is how every VN bank writes a p2p counterparty — and
+     then whatever the sender typed. Anchoring the whole string meant any memo at
+     all defeated it, and a memo is exactly what these rows carry. */
+  return /^\d{6,}\s+[a-z]+\s+[a-z]+/.test(text);
 }
 /* Siblings-first correction list for a picker: the node's siblings (and itself),
    then its parent's siblings, then every group of the kind. */

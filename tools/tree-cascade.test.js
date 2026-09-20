@@ -189,6 +189,25 @@ console.log('\n-- a mirrored row keeps the same answer as its family copy --');
   t('and refreshes when the family node changed', /fNode \|\| ''\) !== \(m\.node \|\| ''\)/.test(pers));
 }
 
+console.log('\n-- rows real mail proved we were getting wrong --');
+{
+  /* Every string here came out of a live mailbox with no node under the rules
+     shipped before it. */
+  const n = (note) => P.fhNodeGuess({ kind: 'expense', note: note });
+  t('a bank memo after the counterparty still reads as p2p',
+    n('13610000120606 - LE KHA NIN | Cam on a Lam hehe') === 'p2p');
+  t('...and with a reference in the memo too',
+    n('109876009159 - DAO THI TUOI | LGOINV2609020BJ7R519 HIEN CAO') === 'p2p');
+  t('KOI through a payment gateway is milk tea', n('PAYOO-KOI CRM HO CHI MINH VN') === 'milktea');
+  /* A card repayment is not spending and must never get an expense node; the
+     review keeps it out of the ledger as a transfer instead. */
+  const rv = fs.readFileSync(path.join(ROOT, 'src/js-data/72-txn-review.js'), 'utf8');
+  t('a row naming the card it repays is a card payment', /if \(re\.card_masked\) return true;/.test(rv));
+  /* The greeting two VIB templates anchor on is not a counterparty. */
+  const ex = fs.readFileSync(path.join(ROOT, 'supabase/functions/_shared/mailbox/extract.mjs'), 'utf8');
+  t('a salutation is dropped, not just hidden', /if \(merchant === ''\) out\.counterparty = null;/.test(ex));
+}
+
 console.log('\n-- the generated targets stay in lockstep with the JSON --');
 {
   const gen = require(path.join(ROOT, 'tools/gen-taxonomy.js'));

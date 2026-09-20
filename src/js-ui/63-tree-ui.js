@@ -106,16 +106,15 @@ function fhTreeSelector(scope) {
    counts for its category and its group, so the top level always adds up to the
    same total the label view shows. Rows with no node land in one honest
    "Chưa rõ" line rather than being spread over the groups. */
-var _tbOpen = {};
-function fhTreeToggle(code) { _tbOpen[code] = !_tbOpen[code]; var host = document.querySelector('[data-treehost]'); if (host) fhTreeBreakdownInto(host); }
-function fhTreeBreakdownInto(host) {
-  if (!host) return;
-  var rows = [];
-  try { rows = JSON.parse(host.getAttribute('data-treerows') || '[]'); } catch (e) {}
-  host.innerHTML = fhTreeBreakdownHTML(rows);
+var _tbOpen = {}, _tbRows = [];
+function fhTreeToggle(code) {
+  _tbOpen[code] = !_tbOpen[code];
+  var host = document.querySelector('[data-treehost]');
+  if (host) host.innerHTML = fhTreeBreakdownHTML(_tbRows);
 }
 function fhTreeBreakdownHTML(rows) {
   if (typeof FH_TAX === 'undefined') return '';
+  _tbRows = rows || [];               // what the visible list was built from, for the next expand
   var sum = {}, none = 0, total = 0;
   (rows || []).forEach(function (r) {
     var amt = Number(r.amt) || 0; if (amt <= 0) return;
