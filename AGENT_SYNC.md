@@ -154,7 +154,13 @@ hand-merging `index.html`. Both replaced vigilance with structure.
     stage,worker,ingest,llm,mailtext,db}.mjs` plus new modules beside them, `functions/mailbox-dryrun/`,
     `pipeline/bank-email-pipeline.gs`, `src/js-data/{72-txn-review,77-statement-capture,76-quick-review}.js`,
     `src/js-ui/{13-partition,56-csv-import-ui,57-csv-import-review}.js`. If you are in any of these, say so here.
-  - **Migrations:** none claimed yet. I will claim each number here when I write it. Next free today is `0146`.
+  - **Migrations CLAIMED 2026-09-22, written, NOT applied yet:** `0146_mailbox_message_attempts`
+    (RECORD-ONLY: the parked-message table and its three functions are already live, created outside
+    the repo, and the live comments already call them "0146"; idempotent) and `0147_email_reading_v2`
+    (additive: `mailbox_grants.reader_v`, `email_transactions.row_kind`, new `mail_formats`,
+    `parked_messages()` + `release_reader_giveups()`, `sender_fingerprints.model_reads/model_read_build`,
+    and `mailbox_read_status()` re-created to skip notices). **Next free is `0148`.** I will say here
+    when they are applied.
   - **Deploys this work will make:** `mailbox-sync`, `mailbox-dryrun`. `get_edge_function` is diffed
     against `main` first, per the 2026-09-21 rule.
   - **A second of something (§3):** payload `v: 2` beside v1, a second template store beside
