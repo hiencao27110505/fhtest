@@ -183,7 +183,14 @@ const GRANT = (over = {}) => ({
 
   console.log('\n-- 2. constants moved in the intended direction --');
   t('fetch lanes raised from 6', W.FETCH_CONCURRENCY >= 20, String(W.FETCH_CONCURRENCY));
-  t('backfill stage cap raised from 150', W.BACKFILL_STAGE_MAX >= 400, String(W.BACKFILL_STAGE_MAX));
+  /* 150 → 400 (08-29) → 180 (09-15). The number is not the point; what it must
+     satisfy is: one slice fits what ONE run can pay Gmail for. A staged message
+     costs 40 units (headers + body), and a bigger slice reads no more mail per
+     minute, it only risks being killed mid-slice. */
+  t('a backfill slice is bigger than the old 150, and fits one run\'s Gmail budget',
+    W.BACKFILL_STAGE_MAX > 150 && W.BACKFILL_STAGE_MAX * 40 <= W.GMAIL_UNITS_PER_MIN * (W.RUN_BUDGET_MS / 60000),
+    [W.BACKFILL_STAGE_MAX, W.GMAIL_UNITS_PER_MIN, W.RUN_BUDGET_MS]);
+  t('a run stops itself before the platform kills it at 150 s', W.RUN_BUDGET_MS > 0 && W.RUN_BUDGET_MS < 150000, String(W.RUN_BUDGET_MS));
   t('ordinary poll cap raised from 40', W.MAX_MESSAGES_PER_GRANT >= 120, String(W.MAX_MESSAGES_PER_GRANT));
   t('per-grant model budget exists and is >= 40', W.MAX_MODEL_CALLS_PER_GRANT >= 40, String(W.MAX_MODEL_CALLS_PER_GRANT));
   t('the old name still resolves, so an older caller is not broken',
@@ -228,7 +235,7 @@ const GRANT = (over = {}) => ({
 
   const exsrc = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'functions', '_shared', 'mailbox', 'extract.mjs'), 'utf8');
   t('extract prefers the warm map but still falls back to a query',
-    /deps && deps\.fingerprints/.test(exsrc) && /if \(!fp && !warm\) fp = await db\.fingerprint/.test(exsrc));
+    /deps && deps\.fingerprints/.test(exsrc) && /if \(!fp && !warm\) \{\s*\n\s*fp = await db\.fingerprint/.test(exsrc));
   t('the warm map applies exact-beats-sentinel, like the query does',
     /if \(exact\) fp = exact;\s*\n\s*else if \(wide\)/.test(exsrc));
 
@@ -254,7 +261,9 @@ const GRANT = (over = {}) => ({
       typeof W.STALL_NOTIFY_AFTER === 'number' && W.STALL_NOTIFY_AFTER >= 10,
       String(W.STALL_NOTIFY_AFTER));
     t('a no-progress backfill run is what counts as a stall',
-      /backfillStalled = backfilling && summary\.staged === 0 && \(hitLimit \|\| moreQueued\)/.test(w));
+      /backfillStalled = backfilling && summary\.staged === 0 && !cursorAdvanced && \(hitLimit \|\| moreQueued\)/.test(w));
+    /* …and a run that moved the position past a wall of promos DID progress,
+       even though it staged nothing (the 333-of-365-days case). */
     t('progress clears the streak', /clearStall\(grant\.id\)/.test(w));
     t('a stalled backfill is allowed to notify', /stalledEnoughToSpeak/.test(w));
     t('and the notify gate now admits both finished AND stalled',

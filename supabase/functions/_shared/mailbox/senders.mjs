@@ -358,7 +358,15 @@ export function match(fromHeader, extra) {
  *  never arrive, with nothing anywhere pointing here. */
 export const PROMO_TOKENS = ['marketing', 'promotion'];
 
-export function inboxQuery(days, extra) {
+/** How many learned sender skips may ride in one query (2026-09-15).
+ *
+ *  A skip in the QUERY is the only free skip: the mail is never listed, so it
+ *  never costs a 20-unit fetch to be told what the cache already knows. The cap
+ *  exists because the query is a URL: one noisy mailbox must not be able to
+ *  grow it without bound. */
+export const SKIP_MAX = 25;
+
+export function inboxQuery(days, extra, opts) {
   // RECEIPT_DOMAINS are deliberately absent — see the note above RECEIPTS.
   const domains = [
     ...Object.keys(BANKS),
@@ -376,7 +384,16 @@ export function inboxQuery(days, extra) {
      of the 157 domains instead would multiply the query by three for the same
      effect. */
   const notPromo = PROMO_TOKENS.map(t => ' -from:' + t).join('');
-  return from + notPromo + ' newer_than:' + Math.max(1, Math.floor(days)) + 'd';
+  /* Senders we have LEARNED never send transactions (2026-09-15). Only
+     whole-sender verdicts for senders with no parse shape of their own reach
+     this — `db.skipSenders` enforces that — so excluding them here cannot hide
+     a real transaction. Addresses only: anything with whitespace would break
+     the query rather than narrow it. */
+  const skips = [...new Set(((opts && opts.skip) || [])
+    .map(a => String(a || '').trim().toLowerCase())
+    .filter(a => a && a.indexOf(' ') < 0 && a.indexOf('"') < 0))].slice(0, SKIP_MAX);
+  const notSkipped = skips.map(a => ' -from:' + a).join('');
+  return from + notPromo + notSkipped + ' newer_than:' + Math.max(1, Math.floor(days)) + 'd';
 }
 
 export const KNOWN_DOMAINS = { BANKS, WALLETS, RECEIPTS };

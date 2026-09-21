@@ -46,6 +46,33 @@ export function normalizeSubjectTemplate(subject) {
     .replace(/\b\d{6,}\b/g, '')
     .replace(/\b\w+ \d{1,2},? \d{4}\b/g, '')
     .replace(/\b\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4}\b/g, '')
+    /* A MONTH IN THE SUBJECT IS NOT A SHAPE (2026-09-15). "Bang sao ke ... ky
+       09/2026" and the same line for 10/2026 are one template, and treating
+       them as two meant every statement sender relearned itself every month
+       (three such groups in the live cache). Same family as the date rules
+       above; kept separate so the legacy reader below can drop exactly these. */
+    .replace(/\b(th[aá]ng|k[yỳ])\s*\d{1,2}\s*[\/-]\s*\d{2,4}\b/gi, '')
+    .replace(/\b\d{1,2}\/\d{4}\b/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * The shape key as it was written BEFORE the month rules above.
+ *
+ * Read-only, and only as a fallback: a row learned last month still answers,
+ * so nothing re-derives and no model call is paid twice for a shape we already
+ * know (the b0d5fdd lesson — a key change that invalidates the cache stalls
+ * every backfill behind it). Never written to; a re-learn migrates the row to
+ * the new key by itself.
+ */
+export function legacySubjectTemplate(subject) {
+  return String(subject || '')
+    .replace(/^\s*((fwd|fw|re|chuyen tiep|chuyển tiếp)\s*:\s*)+/i, '')
+    .replace(/#[\w-]+/g, '')
+    .replace(/\b\d{6,}\b/g, '')
+    .replace(/\b\w+ \d{1,2},? \d{4}\b/g, '')
+    .replace(/\b\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4}\b/g, '')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -113,14 +140,39 @@ export async function readTransaction(message, db, deps) {
      the query applies, applied to the map. A miss falls through to the query,
      so this stays an optimisation and never a source of truth. */
   let fp = null;
+  const legacy = legacySubjectTemplate(message.subject);
   const warm = deps && deps.fingerprints;
   if (warm) {
-    const exact = warm.get(sender + '\u0000' + template);
+    const exact = warm.get(sender + '\u0000' + template)
+      || (legacy !== template ? warm.get(sender + '\u0000' + legacy) : null);
     const wide = warm.get(sender + '\u0000' + SENDER_SENTINEL);
     if (exact) fp = exact;
     else if (wide) fp = { ...wide, _sender_wide: true };
   }
-  if (!fp && !warm) fp = await db.fingerprint(sender, template);
+  if (!fp && !warm) {
+    fp = await db.fingerprint(sender, template);
+    if (!fp && legacy !== template) fp = await db.fingerprint(sender, legacy);
+  }
+
+  /* A VERDICT LEARNED ON THIS MESSAGE MUST REACH THE NEXT ONE (2026-09-15).
+     The worker warms the map once per sender per run, and the query above is
+     skipped whenever a map exists — so a shape learned here stayed invisible
+     for the rest of the run and every later mail of the same shape paid for its
+     own model call. Measured on the 15/09 read: 162 calls for 25 shapes,
+     against a 20-per-minute free-tier wall. Writing through the save keeps one
+     source of truth (the table) and one cache, without touching five call
+     sites. */
+  if (warm && db && typeof db.saveFingerprint === 'function' && !db._warmThrough) {
+    const inner = db;
+    db = Object.create(inner);
+    db._warmThrough = true;
+    db.saveFingerprint = async function (row) {
+      try {
+        warm.set(String(row && row.sender_address) + '\u0000' + String(row && row.subject_template), row);
+      } catch (e) { /* the save below is what matters */ }
+      return inner.saveFingerprint(row);
+    };
+  }
 
   // A cached "not a transaction" costs one lookup and saves a model call
   // forever. This is most of what a real mailbox contains.

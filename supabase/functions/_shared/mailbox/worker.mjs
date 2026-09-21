@@ -27,7 +27,7 @@
 import { resolveDestination, MailboxHold } from './identity.mjs';
 import { buildStagedRow } from './stage.mjs';
 import { copyMeta } from './notify-copy.mjs';
-import { readTransaction, normalizeSubjectTemplate, SENDER_SENTINEL } from './extract.mjs';
+import { readTransaction, normalizeSubjectTemplate, legacySubjectTemplate, SENDER_SENTINEL } from './extract.mjs';
 import { enrichCategory } from './classify.mjs';
 import * as senders from './senders.mjs';
 import * as gmail from './gmail.mjs';
@@ -39,7 +39,7 @@ import { runStatementLane, sweepStatements } from './statement.mjs';
  *  because "which code is actually deployed" once cost hours of guessing; this
  *  worker had no equivalent, and answering that question is exactly what made
  *  the 28 Aug incident review slow. Bump on any deploy. */
-export const BUILD_ID = '2026-09-04-notifyvoice';
+export const BUILD_ID = '2026-09-21-relanded-lease-cursor';
 
 /** How many consecutive no-progress runs before a stalled backfill is allowed
  *  to send its completion notice anyway (0101).
@@ -140,7 +140,12 @@ export const MAX_MODEL_CALLS_PER_RUN = MAX_MODEL_CALLS_PER_GRANT;
  *  timeout: 400 rows is ~26s of pooled fetching plus ~10s of processing, well
  *  inside it. The listing cap below is what keeps a genuinely huge mailbox from
  *  trying to do a year in one pass. */
-export const BACKFILL_STAGE_MAX = 400;
+/* 400 → 180 (2026-09-15). With pacing, a run's size is no longer a guess: at
+   40 units per staged message (headers + body) and 4,500 units a minute, about
+   187 messages is what one run's budget buys, and a run has to finish inside the
+   function's wall clock. A bigger slice does not read more mail per minute; it
+   only risks being killed mid-slice. */
+export const BACKFILL_STAGE_MAX = 180;
 
 /** How many ids ONE RUN may list, on any path.
  *
@@ -226,6 +231,27 @@ export const FETCH_CONCURRENCY = 20;
  *  cannot be raced in a single-threaded runtime. Kept lower than the fetch
  *  concurrency because each mailbox carries its own fetch fan-out underneath,
  *  and the product of the two is what actually hits the network. */
+/** Gmail units this reader may spend in a minute, of the 6,000 one user gets.
+ *
+ *  Measured 2026-09-15: `messages.get` costs 20 units whatever format is asked
+ *  for, `messages.list` 5. So one user is worth about 300 fetches a minute, and
+ *  a message read head-then-body costs two of them. The headroom below the
+ *  6,000 is deliberate: the push path and the coverage probe draw on the same
+ *  per-user allowance, and a 403 costs more than waiting. */
+export const GMAIL_UNITS_PER_MIN = 4500;
+
+/** How long one run may spend before it stops and lets the next one continue.
+ *
+ *  Supabase gives a free-plan function 150 s of wall clock. A run killed at
+ *  that limit loses whatever it had not committed; a run that stops itself
+ *  leaves the backfill position (0136) on the last message it finished, so the
+ *  next run resumes exactly there. */
+export const RUN_BUDGET_MS = 100000;
+
+/** How long a reader holds a mailbox before the lease expires (0145). Renewed
+ *  while the run works, so this only bounds the damage from a crash. */
+export const LEASE_TTL_S = 90;
+
 export const GRANT_CONCURRENCY = 3;
 
 /** Runs `worker` over `items`, at most `limit` at a time, preserving order.
@@ -331,7 +357,84 @@ export async function runOne(grantId, ctx) {
  * "held" and "token rejected" are states the operator wants counted, not
  * incidents.
  */
+/* Gmail's per-user quota answer (0136): a 429, or the 403 it sends for "Units
+   per minute per user" / rateLimitExceeded. It means "slow down", not "this
+   message is broken", so a run pauses at that message the way a model hold does
+   instead of failing whole and discarding where it had got to. Any other Gmail
+   error still throws. */
+function _rateLimited(e) {
+  if (!(e instanceof gmail.GmailError)) return false;
+  if (e.status === 429) return true;
+  return e.status === 403
+    && /quota exceeded|ratelimitexceeded|userratelimitexceeded/i.test(String(e.message || ''));
+}
+
+/* ONE READER PER MAILBOX (0145).
+ *
+ *  Three triggers can start a read of the same mailbox and none of them could
+ *  see the others: the connect kick, the minute lane and the five-minute poll.
+ *  Gmail's allowance is per USER, so overlapping readers never read more, they
+ *  just spend the same 6,000 units a minute twice and collect 403s (41 in one
+ *  six-hour window on 2026-09-15).
+ *
+ *  A reader that cannot take the lease returns `busy` at once: there is nothing
+ *  useful it could do that the holder is not already doing. A crashed holder
+ *  costs one lease period, because the lease expires on its own.
+ *
+ *  The lease is optional: a ctx whose db does not offer it (every existing
+ *  test, and any caller from before 0145) runs exactly as before. */
 export async function runGrant(grant, ctx) {
+  if (!ctx.db.takeMailboxLease) return _runGrantLocked(grant, ctx);
+
+  let lease = null;
+  let leaseAnswered = true;
+  try { lease = await ctx.db.takeMailboxLease(grant.id, ctx.leaseTtlS ?? LEASE_TTL_S); }
+  catch (e) {
+    /* THE LEASE MUST NEVER BE WHY A MAILBOX GOES UNREAD. An error here is the
+       function not deployed yet, a permission change, a blip — none of which
+       say anything about who is reading. Read as we did before leases existed;
+       the worst case is the overlap we had all along. Only a successful call
+       that returns nothing means another reader holds this mailbox. */
+    leaseAnswered = false;
+  }
+  if (leaseAnswered && !lease) {
+    return { grantId: grant.id, email: grant.email, status: 'busy',
+             fetched: 0, staged: 0, skipped: 0, unreadable: 0, held: 0, duplicates: 0, queued: 0, restaged: 0 };
+  }
+  try {
+    return await _runGrantLocked(grant, { ...ctx, _lease: lease });
+  } finally {
+    if (ctx.db.releaseMailboxLease) {
+      try { await ctx.db.releaseMailboxLease(grant.id, lease); } catch (e) { /* it expires anyway */ }
+    }
+  }
+}
+
+async function _runGrantLocked(grant, ctx) {
+  const _runStartedAt = Date.now();
+  const _runBudgetMs = ctx.runBudgetMs ?? RUN_BUDGET_MS;
+
+  /* PACED TO THE QUOTA, not to the connection pool. Every Gmail call goes
+     through here: a list page costs 5 units, a message 20. When the minute's
+     budget is gone the next call waits for the window to roll rather than
+     asking and being refused. */
+  const _units = { at: Date.now(), spent: 0 };
+  const _perMin = ctx.gmailUnitsPerMin ?? GMAIL_UNITS_PER_MIN;
+  const _spend = async (units) => {
+    for (;;) {
+      const now = Date.now();
+      if (now - _units.at >= 60000) { _units.at = now; _units.spent = 0; }
+      if (_units.spent + units <= _perMin) { _units.spent += units; return; }
+      await new Promise((r) => setTimeout(r, Math.max(50, 60000 - (now - _units.at))));
+    }
+  };
+  const _baseFetch = ctx.fetch || globalThis.fetch;
+  const pacedFetch = async (u, init) => {
+    const s = String(u);
+    if (s.indexOf('gmail.googleapis.com') >= 0) await _spend(s.indexOf('/messages/') >= 0 ? 20 : 5);
+    return _baseFetch(u, init);
+  };
+
   const summary = {
     grantId: grant.id, email: grant.email, status: 'ok',
     fetched: 0, staged: 0, skipped: 0, unreadable: 0, held: 0, duplicates: 0, queued: 0, restaged: 0,
@@ -371,6 +474,9 @@ export async function runGrant(grant, ctx) {
   }
 
   const domains = await ctx.db.providerDomains();
+  /* Learned sender skips ride in the query itself (2026-09-15), so their mail
+     is never listed and never fetched. One small read per run. */
+  const skipSenders = ctx.db.skipSenders ? await ctx.db.skipSenders() : [];
   const backfilling = !grant.backfilled_at;
   /* The window the PERSON chose for this mailbox (0093), not a constant. Falls
      back to BACKFILL_DAYS for grants written before the column existed, which
@@ -380,7 +486,17 @@ export async function runGrant(grant, ctx) {
   const chosen = Number(grant.backfill_days) || BACKFILL_DAYS;
   const backfillDays = Math.min(365, Math.max(1, chosen));
   const days = backfilling ? backfillDays : windowDays(grant.last_synced_at, ctx.nowMs);
-  const query = senders.inboxQuery(days, domains);
+  /* THE BACKFILL POSITION (0136). A backfill used to list the newest mail in the
+     window on every run and work on the first BACKFILL_STAGE_MAX it had not
+     finished. Promo mail is settled on its headers and recorded nowhere, so it
+     kept those slots forever: with more than 400 promos newer than the oldest
+     mail reached, every run was the same 400 promos and the backfill could
+     never get further back (a real 365-day connect stopped at 333 days).
+     `backfill_before` is the point everything newer than has been finished
+     with; a backfill lists only mail older than it. */
+  const cursorMs = backfilling && grant.backfill_before ? (Date.parse(grant.backfill_before) || null) : null;
+  const query = senders.inboxQuery(days, domains, { skip: skipSenders })
+    + (cursorMs ? ' before:' + Math.floor(cursorMs / 1000) : '');
 
   /* STATEMENTS RIDE THEIR OWN LANE (statement.mjs). A statement is a FILE, and
      the header pass below cannot see one: `format=metadata` carries no MIME
@@ -401,10 +517,17 @@ export async function runGrant(grant, ctx) {
   // The same list cap on both paths. An ordinary poll can face a backlog too:
   // `windowDays` widens after an outage, and listing only what one run can stage
   // would truncate the catch-up exactly the way a truncated backfill does.
-  const ids = await gmail.listMessageIds(
-    query,
-    ctx.listMax ?? (backfilling ? BACKFILL_LIST_MAX : LIST_MAX_PER_RUN),
-    access, ctx.fetch);
+  let ids;
+  try {
+    ids = await gmail.listMessageIds(
+      query,
+      ctx.listMax ?? (backfilling ? BACKFILL_LIST_MAX : LIST_MAX_PER_RUN),
+      access, pacedFetch);
+  } catch (e) {
+    // Quota before anything was read: nothing to keep, try again next tick.
+    if (_rateLimited(e)) return { ...summary, status: 'held', reason: 'gmail_rate_limited' };
+    throw e;
+  }
   summary.fetched = ids.length;
 
   // One query for the whole window. A throw here is NOT caught: if the database
@@ -453,6 +576,14 @@ export async function runGrant(grant, ctx) {
   const warmFingerprints = new Map();
 
   let hitLimit = false;
+
+  /* What each message in `fresh` came to, for the backfill position (0136):
+     'done' (staged, skipped, junk, unreadable, deleted), 'held' (model budget,
+     rate limit), 'body' (still waiting for its body). Anything without 'done'
+     stops the position, so nothing unfinished is ever stepped over. */
+  const outcome = new Map();
+  const atOf = new Map();      // id -> internalDate ms, from the headers
+  let rateLimited = false;
 
   /* The freshest staged transaction of this run, distilled to the tiny copy
      enum {c,t,p} the moment the plaintext is still in hand (notify-copy.mjs).
@@ -521,11 +652,11 @@ export async function runGrant(grant, ctx) {
        table-readable shape that has not yet graduated is delayed at most one
        run — hitLimit holds the cursor, next run's fresh budget funds it. */
   const _metaChunk = (slice) => _pooled(slice, lanes, async (id) => {
-    try { return { id, meta: await gmail.getMessageMetadata(id, access, ctx.fetch) }; }
+    try { return { id, meta: await gmail.getMessageMetadata(id, access, pacedFetch) }; }
     catch (e) { return { id, error: e }; }
   });
   const _fetchBodies = (slice) => _pooled(slice, lanes, async (id) => {
-    try { return { id, message: await gmail.getMessage(id, access, ctx.fetch, mailtext) }; }
+    try { return { id, message: await gmail.getMessage(id, access, pacedFetch, mailtext) }; }
     catch (e) { return { id, error: e }; }
   });
   const _senderKey = (from) => {
@@ -539,6 +670,16 @@ export async function runGrant(grant, ctx) {
   let inflight = chunks.length ? _metaChunk(chunks[0]) : null;
 
   for (let c = 0; c < chunks.length; c++) {
+    if (rateLimited) break;    // Gmail said slow down; every further fetch spends quota
+    /* Stop ourselves before the platform does. What is finished keeps its place
+       in the backfill position; what is not is simply next run's first slice. */
+    if (Date.now() - _runStartedAt > _runBudgetMs) { hitLimit = true; break; }
+    /* Hold the mailbox while we are still using it. Best-effort: losing the
+       renewal costs a duplicate listing next minute, never a lost message. */
+    if (ctx._lease && ctx.db.renewMailboxLease && (c % 4 === 0)) {
+      try { await ctx.db.renewMailboxLease(grant.id, ctx._lease, ctx.leaseTtlS ?? LEASE_TTL_S); }
+      catch (e) { /* the lease expires on its own */ }
+    }
     const metas = (await inflight) || [];
     // Next chunk's HEADERS download while this one is classified and read.
     const more = c + 1 < chunks.length;
@@ -568,10 +709,15 @@ export async function runGrant(grant, ctx) {
     for (const g of metas) {
       if (g.error) { keep.push(g); continue; }             // thrown in position below
       const meta = g.meta;
+      outcome.set(g.id, 'done');
+      if (meta && meta.internalDate) atOf.set(g.id, meta.internalDate);
       if (!meta) { summary.skipped++; continue; }          // deleted between list and get
       if (!senders.match(meta.from, domains)) { summary.skipped++; continue; }
       const key = _senderKey(meta.from) + '\u0000' + normalizeSubjectTemplate(meta.subject);
-      const fp = warmFingerprints.get(key);
+      // A row learned under the pre-month key still answers (2026-09-15).
+      const legacyKey = _senderKey(meta.from) + '\u0000' + legacySubjectTemplate(meta.subject);
+      const fp = warmFingerprints.get(key)
+        || (legacyKey !== key ? warmFingerprints.get(legacyKey) : null);
       if (fp && fp.is_transaction_source === false) {
         // The exact-shape junk verdict, applied where it was always known:
         // before the body. Same tally stage as before — it means "answered by
@@ -587,9 +733,11 @@ export async function runGrant(grant, ctx) {
         // cursor, so nothing is skipped — only deferred to a funded run.
         summary.held++;
         hitLimit = true;
+        outcome.set(g.id, 'held');
         await ctx.db.bumpReadTally?.('held');
         continue;
       }
+      outcome.set(g.id, 'body');
       keep.push(g);
     }
 
@@ -600,7 +748,17 @@ export async function runGrant(grant, ctx) {
 
     for (const got of batchOrdered) {
     const id = got.id;
-    if (got.error) throw got.error;
+    outcome.set(id, 'done');
+    if (got.error) {
+      if (_rateLimited(got.error)) {
+        outcome.set(id, 'held');
+        summary.held++;
+        hitLimit = true;
+        rateLimited = true;
+        continue;
+      }
+      throw got.error;
+    }
     const message = got.message;
     if (!message) { summary.skipped++; continue; }   // deleted between list and get
 
@@ -641,6 +799,7 @@ export async function runGrant(grant, ctx) {
          only the model-needing ones wait for the next tick. */
       summary.held++;
       hitLimit = true;
+      outcome.set(id, 'held');
       /* A hold is meant to be "the model is unreachable / out of quota", and the
          cursor stays put so the message is retried. But ANY throw from
          readTransaction lands here — a real code bug is then indistinguishable
@@ -734,9 +893,57 @@ export async function runGrant(grant, ctx) {
        nothing had changed since the first read. This is the number the widening
        check compares against, and it is written in the same statement as
        `backfilled_at` so the two can never disagree. */
+    /* The position is cleared with the finish (0136), so a later widening
+       (0098) walks from the newest mail again. And `last_synced_at` becomes the
+       moment the walk STARTED: the walk stopped re-listing the newest mail once
+       it had a position, so the first ordinary poll must measure from there to
+       cover mail that arrived during it. Only written when the columns were
+       read as set, so a row from before the migration is patched as before. */
     await ctx.db.markSynced(grant.id, backfilling
-      ? { backfilled_at: new Date().toISOString(), backfilled_days: backfillDays }
+      ? { backfilled_at: new Date().toISOString(), backfilled_days: backfillDays,
+          ...(grant.backfill_before || grant.backfill_started_at
+            ? { backfill_before: null, backfill_started_at: null,
+                ...(grant.backfill_started_at ? { last_synced_at: grant.backfill_started_at } : {}) }
+            : {}) }
       : {});
+  }
+
+  /* Move the backfill position (0136) past the messages this run finished with,
+     in listing order, stopping at the first it did not. Gmail lists newest
+     first, so that prefix is the newest mail left; the new position is just
+     after its oldest message (`before:` is exclusive, at whole seconds, so the
+     boundary message is listed once more and filtered as already dealt with).
+     Guarded against an out-of-order listing: it never moves past an unfinished
+     message whose time is known. A failed write is logged, not fatal: it costs
+     one repeated slice, never a skipped message. */
+  let cursorAdvanced = false;
+  // Only a grant read WITH the column may move it: a caller whose select omits it
+  // would see "no position" and could write a newer one over real progress.
+  if (backfilling && (hitLimit || moreQueued) && ctx.db.advanceBackfill && ('backfill_before' in grant)) {
+    let oldestDone = null, newestOpen = null;
+    let prefix = true;
+    for (const fid of fresh) {
+      const done = outcome.get(fid) === 'done';
+      const at = atOf.get(fid) || null;
+      if (prefix && done) { if (at && (oldestDone === null || at < oldestDone)) oldestDone = at; continue; }
+      prefix = false;
+      if (!done && at && (newestOpen === null || at > newestOpen)) newestOpen = at;
+    }
+    if (oldestDone !== null) {
+      const floorAt = newestOpen !== null ? Math.max(oldestDone, newestOpen) : oldestDone;
+      const next = (Math.floor(floorAt / 1000) + 1) * 1000;
+      if (!cursorMs || next < cursorMs) {
+        const fields = { backfill_before: new Date(next).toISOString() };
+        if (!grant.backfill_started_at) fields.backfill_started_at = new Date(ctx.nowMs ?? Date.now()).toISOString();
+        try {
+          await ctx.db.advanceBackfill(grant.id, fields);
+          cursorAdvanced = true;
+          summary.backfillBefore = fields.backfill_before;
+        } catch (e) {
+          try { console.error('mailbox backfill position not saved', grant.id, (e && e.message) || e); } catch (_e) {}
+        }
+      }
+    }
   }
 
   /* One notification per run per mailbox, not one per transaction: a bank that
@@ -761,10 +968,10 @@ export async function runGrant(grant, ctx) {
   
      Progress clears the streak; no progress extends it. Nothing here changes
      what gets read or whether the cursor moves. */
-  const backfillStalled = backfilling && summary.staged === 0 && (hitLimit || moreQueued);
+  const backfillStalled = backfilling && summary.staged === 0 && !cursorAdvanced && (hitLimit || moreQueued);
   let stalledRuns = Number(grant.stalled_runs) || 0;
   if (backfilling && ctx.db.recordStall) {
-    if (summary.staged > 0) {
+    if (summary.staged > 0 || cursorAdvanced) {   // moving the position is progress too
       if (stalledRuns > 0 && ctx.db.clearStall) { await ctx.db.clearStall(grant.id); }
       stalledRuns = 0;
     } else if (backfillStalled) {

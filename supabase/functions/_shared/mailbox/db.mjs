@@ -95,7 +95,7 @@ export function createDb(url, serviceKey, fetchImpl) {
      */
     async dueGrants(limit) {
       const qs = new URLSearchParams({
-        select: 'id,user_id,member_id,family_id,provider,email,refresh_token_enc,scopes,needs_reauth,history_id,last_synced_at,backfilled_at,connected_at,default_scope,backfill_days,stalled_runs,first_stalled_at',
+        select: 'id,user_id,member_id,family_id,provider,email,refresh_token_enc,scopes,needs_reauth,history_id,last_synced_at,backfilled_at,connected_at,default_scope,backfill_days,stalled_runs,first_stalled_at,backfill_before,backfill_started_at',
         needs_reauth: 'eq.false',
         // Direction spelled out: PostgREST's order grammar is
         // `col.dir.nullsorder`, and a bare `.nullsfirst` is not reliably parsed.
@@ -115,7 +115,7 @@ export function createDb(url, serviceKey, fetchImpl) {
      */
     async grantById(id) {
       const qs = new URLSearchParams({
-        select: 'id,user_id,member_id,family_id,provider,email,refresh_token_enc,scopes,needs_reauth,history_id,last_synced_at,backfilled_at,connected_at,default_scope,backfill_days,stalled_runs,first_stalled_at',
+        select: 'id,user_id,member_id,family_id,provider,email,refresh_token_enc,scopes,needs_reauth,history_id,last_synced_at,backfilled_at,connected_at,default_scope,backfill_days,stalled_runs,first_stalled_at,backfill_before,backfill_started_at',
         id: 'eq.' + id,
         needs_reauth: 'eq.false',
         limit: '1',
@@ -142,7 +142,7 @@ export function createDb(url, serviceKey, fetchImpl) {
      */
     async grantsByEmail(email, folded) {
       const q = e => new URLSearchParams({
-        select: 'id,user_id,member_id,family_id,provider,email,refresh_token_enc,scopes,needs_reauth,history_id,last_synced_at,backfilled_at,watch_expires_at,default_scope,backfill_days,stalled_runs,first_stalled_at',
+        select: 'id,user_id,member_id,family_id,provider,email,refresh_token_enc,scopes,needs_reauth,history_id,last_synced_at,backfilled_at,watch_expires_at,default_scope,backfill_days,stalled_runs,first_stalled_at,backfill_before,backfill_started_at',
         email: 'eq.' + e,
         needs_reauth: 'eq.false',
         order: 'connected_at.asc',
@@ -218,6 +218,40 @@ export function createDb(url, serviceKey, fetchImpl) {
           body: JSON.stringify({ stalled_runs: 0, first_stalled_at: null }),
         });
       } catch { /* ditto */ }
+    },
+
+    /* The backfill position (0136). Not swallowed here: the worker catches and
+       logs it, because a lost position costs one repeated slice and nothing more. */
+    async advanceBackfill(grantId, fields) {
+      await rest('/mailbox_grants?id=eq.' + encodeURIComponent(grantId), {
+        method: 'PATCH',
+        body: JSON.stringify({ ...fields, updated_at: new Date().toISOString() }),
+      });
+    },
+
+    /* The mailbox lease (0145). Every one of these is best-effort at the call
+       site: a lease that cannot be taken, renewed or released must never be the
+       reason a mailbox goes unread. */
+    async takeMailboxLease(grantId, ttlS) {
+      const out = await rest('/rpc/take_mailbox_lease', {
+        method: 'POST',
+        body: JSON.stringify({ p_grant: grantId, p_ttl_s: ttlS || 90 }),
+      });
+      return (out && typeof out === 'string') ? out : (out || null);
+    },
+
+    async renewMailboxLease(grantId, lease, ttlS) {
+      return await rest('/rpc/renew_mailbox_lease', {
+        method: 'POST',
+        body: JSON.stringify({ p_grant: grantId, p_lease: lease, p_ttl_s: ttlS || 90 }),
+      });
+    },
+
+    async releaseMailboxLease(grantId, lease) {
+      await rest('/rpc/release_mailbox_lease', {
+        method: 'POST',
+        body: JSON.stringify({ p_grant: grantId, p_lease: lease }),
+      });
     },
 
     async markNeedsReauth(grantId) {
@@ -529,6 +563,26 @@ export function createDb(url, serviceKey, fetchImpl) {
 
 
     /** Bank domains, if anyone has seeded them. Empty is the normal case. */
+    /* Whole-sender junk verdicts that are safe to push into the Gmail query.
+       A sender qualifies only when it has a '*' verdict of "never a transaction
+       source" AND no parse shape of its own, so the query can never hide a real
+       transaction. Two small reads intersected here rather than one SQL
+       statement: PostgREST has no NOT EXISTS, and both sets are hundreds of
+       rows. Any failure returns [] — the query then lists exactly as before,
+       which is only slower, never wrong. */
+    async skipSenders() {
+      try {
+        const wide = await rest('/sender_fingerprints?select=sender_address&subject_template=eq.*&is_transaction_source=is.false');
+        if (!wide || !wide.length) return [];
+        const parse = await rest('/sender_fingerprints?select=sender_address&is_transaction_source=is.true');
+        const keep = new Set((parse || []).map(r => String(r.sender_address || '').toLowerCase()));
+        return [...new Set(wide.map(r => String(r.sender_address || '').toLowerCase()))]
+          .filter(a => a && !keep.has(a));
+      } catch {
+        return [];
+      }
+    },
+
     async providerDomains() {
       try {
         return (await rest('/known_provider_domains?select=domain_or_address,provider_name&active=eq.true')) || [];

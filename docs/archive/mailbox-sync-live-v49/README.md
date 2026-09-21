@@ -7,6 +7,10 @@ deploys (v52 onward) were built from `main` and overwrote it. This is the only
 surviving copy, rescued into git on 2026-09-21 so it cannot be lost a second time.
 It is an ARCHIVE: nothing imports it, nothing deploys it.
 
+**Status 2026-09-21: RE-LANDED into `main`** by three-way merge (see AGENT_SYNC, same date), with
+`pipeline/relanded-live-work.test.js` and migrations `0136_backfill_cursor.sql` / `0145_mailbox_reader_lease.sql`.
+This folder stays as the reference the merge can be checked against.
+
 Source: `supabase functions download mailbox-sync` of live v49, byte for byte, with
 the statement-capture delta (`patches/`) applied on top. `deploy.sh.txt` is the script
 that shipped it as v50.

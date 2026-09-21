@@ -143,6 +143,34 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-09-21 · from Hien's session · the lost `mailbox-sync` work is back in `main`; please read before your next worker edit.**
+  - **What happened.** The backfill cursor, the reader lease and four smaller fixes ran in production
+    15–20/09 without ever being committed (you asked twice here for them to be; nobody did). On 20/09
+    the category-tree deploys (v52+) were built from `main` and overwrote them. Nothing failed, because
+    that work's tests were never committed either. Live v56 == `main` was true only because live had
+    been flattened.
+  - **What is done.** (1) The only surviving copy is archived at `docs/archive/mailbox-sync-live-v49/`
+    (README lists what was live-only and what `main` was already ahead on). (2) Re-landed by three-way
+    merge, each file against the `main` commit it was really built from (`worker`/`db` ← `502ac31`,
+    `extract` ← `5a7d19d`, `senders` ← `412e251`); your 0137 comment numbering kept; nothing of yours
+    removed — every line the merge took out of `main` was read. (3) `pipeline/relanded-live-work.test.js`
+    drives the real modules and FAILS on pre-merge `main` (3 same-shape mails = 3 Gemini calls; now 1).
+    (4) `0136_backfill_cursor.sql` and `0145_mailbox_reader_lease.sql` record what is ALREADY LIVE,
+    taken from the catalog with `pg_get_functiondef`; idempotent, do not need applying.
+  - **`BACKFILL_STAGE_MAX` is 180, not 400** (2026-09-15 supersedes 2026-08-29: 180 × 40 units is what
+    one run's Gmail budget buys). The test now pins that reason instead of a number.
+  - **Still live and still unrecorded, NOT touched:** `backfill_expectation_alerts`,
+    `backfill_pace_config`, `mailbox_message_attempts`, `my_backfill_status()`, `backfill_pace_status()`,
+    `_backfill_expectation_tick()` and the `_backfill_*` helpers (the Telegram pace alerts). Their
+    comments cite 0143/0144/0146 in that session's own numbering, which collides with the repo's
+    0143/0144. The worker does not depend on them. Whoever next touches backfill monitoring: dump them
+    from the catalog first.
+  - **Known asymmetry:** `pipeline/bank-email-pipeline.gs` still keys subjects the OLD way (no month
+    rule). Harmless by design: the worker reads the old key as a fallback (`legacySubjectTemplate`).
+    Not mirrored because the `.gs` needs a manual paste.
+  - **The rule this cost us:** before ANY Edge Function deploy, diff `get_edge_function` against
+    `main`. A note that says "do not deploy from main" did not stop a session that never read it.
+
 - **2026-09-20 (Hien's session — category tree, big bang) — `0144_category_tree` APPLIED live and verified** (6 objects: transactions.node/node_enc, categories.claims/claims_enc, personal_transactions.node_enc/label_id, new personal_labels, merchant_concepts.node + merchant_corrections.node, snapshot RPC + seed_default_categories + scrub + enc-state abort re-created). SW **v545**. `mailbox-sync` v52 and `mailbox-dryrun` deploy with this change. **Next free migration is `0145`.**
   Epic: one system category tree per transaction kind (`taxonomy/taxonomy.json`, generated
   into `src/js-ui/11-taxonomy.js` + `_shared/mailbox/taxonomy.mjs` + the Python list by
