@@ -1,0 +1,284 @@
+/* Server-side category cascade — the one place a concept is decided when the
+   extractor left `category` null, which is MOST repeat mail (the template path in
+   labeltable.mjs deliberately sets `category: null` and lets learning own it).
+   Whatever this fills into `extraction.category` reaches BOTH consumers from a
+   single seam in the worker:
+     - stage.mjs → `category_hint` on the sealed row (the in-app suggestion), and
+     - copyMeta  → the notification's concept (generic vs. contextual copy).
+
+   Precedence, strongest first:
+     1. the extractor's own category (the LLM saw the whole email) — kept as-is
+     2. a synced USER correction (#3)      — a human taught this merchant
+     3. the curated dictionary (#1)        — known chains, deterministic + free
+     4. the per-merchant cache (#2)        — incl. a negative "tried, unknowable"
+     5. a ONE-SHOT model classify (#2)     — budget-gated; a 429 just falls to
+                                             generic and is NOT cached, so the
+                                             merchant stays eligible next run.
+   Nothing here ever retries or holds the message — a miss is a garnish miss, and
+   the transaction stages exactly as before. */
+
+import { toGeminiSchema, callGemini } from './llm.mjs';
+
+export const CLASSIFY_CONCEPTS = ['Housing', 'Groceries', 'Clothing', 'Shopping', 'Transport', 'Dining', 'Fun', 'Others'];
+
+function deburr(s) {
+  return String(s == null ? '' : s)
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/đ/g, 'd').replace(/Đ/g, 'd')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ').trim();
+}
+
+/* Gateway processors and bank boilerplate that ride in the counterparty and
+   would otherwise split one merchant into many keys ("REVI PHU MY HUNG TOWER" vs
+   "PAYOO REVICOFFEEHCM"). Stripped so the key — and therefore the #3 hash — is
+   stable across variants. MUST match the client's fhMerchantKey byte-for-byte, or
+   a correction taught on the device will not match on the read side. */
+const GATEWAYS = /\b(payoo|mpos|vnpay|onepay|napas|ecpay|appota|zalopay|shopeepay|viettelpay|smartpay|nganluong|baokim|revi)\b/g;
+const BANK_NOISE = /\b(customer|khach hang|thanh toan|chuyen tien|thanh toan qr|qr|pos|atm|ck|tt|nd|gd|ref|trace|mbvcb|mbct|vcb|tcb|acb|bidv|vietinbank|agribank|ib|ibft|ft)\b/g;
+
+/* The stable merchant key: deburred, gateways + bank noise + long digit runs
+   stripped, clamped. KEEP IN SYNC with fhMerchantKey in 57-csv-import-review.js. */
+export function merchantKey(counterparty, memo) {
+  let t = deburr(String(counterparty || '') + ' ' + String(memo || ''));
+  t = t.replace(GATEWAYS, ' ').replace(BANK_NOISE, ' ').replace(/[0-9]{4,}/g, ' ').replace(/\s+/g, ' ').trim();
+  return t.slice(0, 40).trim();
+}
+
+export async function hashKey(key, subtle) {
+  const buf = await subtle.digest('SHA-256', new TextEncoder().encode(key));
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/* Curated merchant→concept dictionary (#1) — a server-side slice of the client's
+   CSV_MERCHANTS, biggest chains only (the long tail is the classifier's job).
+   Ordered specific→broad; a deburred substring match, first hit wins. */
+const DICTIONARY = [
+  ['Dining', ['highlands', 'phuc long', 'trung nguyen legend', 'katinat', 'the coffee house', 'starbucks', 'passio', 'cong ca phe', 'ca phe', 'cafe', 'coffee', 'tra sua', 'gong cha', 'mixue', 'koi the', 'toco toco', 'phe la', 'kfc', 'lotteria', 'jollibee', 'mcdonald', 'burger king', 'pizza', 'domino', 'popeyes', 'gogi', 'kichi', 'manwah', 'hotpot', 'nha hang', 'restaurant', 'shopeefood', 'grabfood', 'baemin', 'golden gate']],
+  ['Groceries', ['bach hoa xanh', 'winmart', 'win mart', 'vinmart', 'coopmart', 'co opmart', 'co op', 'big c', 'bigc', 'go bigc', 'aeon', 'emart', 'lotte mart', 'mega market', 'satra', 'kingfoodmart', 'circle k', 'gs25', 'familymart', 'ministop', '7 eleven', 'sieu thi', 'tap hoa', 'nutri mart']],
+  ['Transport', ['grab', 'gojek', 'be group', 'xanh sm', 'vinasun', 'mai linh', 'g7 taxi', 'taxi', 'petrolimex', 'pvoil', 'xang dau', 'vetc', 'epass', 'parking', 'gui xe', 'cao toc']],
+  ['Housing', ['evn', 'dien luc', 'sawaco', 'cap nuoc', 'fpt telecom', 'internet', 'tien dien', 'tien nuoc', 'chung cu', 'ban quan ly', 'vinhomes', 'petrogas', 'pgas']],
+  ['Fun', ['cgv', 'lotte cinema', 'bhd star', 'galaxy cinema', 'cinestar', 'netflix', 'spotify', 'youtube premium', 'fpt play', 'steam games', 'playstation', 'garena', 'gym', 'fitness', 'yoga', 'karaoke', 'du lich', 'booking com', 'agoda', 'traveloka', 'klook', 'vietjet', 'vietnam airlines', 'bamboo airways', 'vexere']],
+  ['Shopping', ['aeon mall', 'vincom', 'shopee', 'lazada', 'tiki', 'sendo', 'tiktok shop', 'uniqlo', 'zara', 'muji', 'dien may xanh', 'the gioi di dong', 'fpt shop', 'cellphones', 'nguyen kim', 'fahasa', 'hasaki', 'watsons', 'guardian']],
+  ['Others', ['pharmacity', 'long chau', 'nha thuoc', 'benh vien', 'phong kham', 'vinmec', 'medlatec', 'bao hiem', 'prudential', 'manulife', 'hoc phi', 'ghn express', 'ghtk', 'ninja van', 'viettel post', 'vnpost']],
+];
+
+export function dictionaryConcept(text) {
+  const t = ' ' + deburr(text) + ' ';
+  if (t.trim().length < 2) return null;
+  for (const [concept, tokens] of DICTIONARY) {
+    for (const kw of tokens) {
+      if (t.indexOf(deburr(kw)) >= 0) return concept;
+    }
+  }
+  return null;
+}
+
+/* The four finer sub-kinds the notification has a dedicated voice for. The model
+   emits one when it clearly recognises the merchant as such — this is how a café
+   whose NAME carries no coffee keyword (REVI) still earns the coffee voice. Kept
+   in sync with the POOLS keys in notify-copy.mjs. */
+export const CLASSIFY_POOLS = ['coffee', 'milktea', 'ride', 'cinema'];
+
+const CLASSIFY_SYSTEM = 'You label a Vietnamese bank-transaction merchant/counterparty string. ' +
+  'Reply as JSON {"concept": ..., "pool": ...}. ' +
+  'concept is EXACTLY one of: Housing, Groceries, Clothing, Shopping, Transport, Dining, Fun, Others — ' +
+  'or null when you genuinely cannot tell (an opaque gateway or bank code, initials, a bare reference number). Do not guess wildly; null is the right answer for the unknowable. ' +
+  'pool is a FINER label, EXACTLY one of: coffee (a coffee shop / quán cà phê), milktea (bubble or milk tea), ride (ride-hailing or taxi), cinema (a movie theatre) — ' +
+  'or null when the merchant is none of those four specific kinds. Most merchants are pool null; set it only when you clearly recognise the brand or words as one of the four.';
+
+const CLASSIFY_SCHEMA = {
+  type: 'object',
+  properties: {
+    concept: { type: ['string', 'null'], enum: [...CLASSIFY_CONCEPTS, null] },
+    pool: { type: ['string', 'null'], enum: [...CLASSIFY_POOLS, null] },
+  },
+};
+
+/* One-shot merchant classify. Never throws, never retries: any transport failure
+   (429 included) returns {ok:false} so the caller falls to generic copy and does
+   NOT poison the cache; a real model answer returns {ok:true, concept} where a
+   null concept is a legitimate "unknowable" that DOES get negatively cached. */
+export async function classifyMerchant(text, cfg, fetchImpl) {
+  if (!cfg || !cfg.apiKey) return { ok: false };
+  const r = await callGemini('classify_merchant', {
+    systemInstruction: { parts: [{ text: CLASSIFY_SYSTEM }] },
+    contents: [{ role: 'user', parts: [{ text: 'Merchant: ' + String(text).slice(0, 200) }] }],
+    generationConfig: { responseMimeType: 'application/json', responseSchema: toGeminiSchema(CLASSIFY_SCHEMA) },
+  }, cfg, fetchImpl);
+  if (r.transportError || !r.ok) return { ok: false };   // 429/5xx/network → one-shot, no retry, no cache
+  const answer = r.data && r.data.candidates && r.data.candidates[0] &&
+    r.data.candidates[0].content && r.data.candidates[0].content.parts &&
+    r.data.candidates[0].content.parts[0] && r.data.candidates[0].content.parts[0].text;
+  if (!answer) return { ok: true, concept: null, pool: null };
+  let parsed;
+  try { parsed = JSON.parse(answer); } catch { return { ok: true, concept: null, pool: null }; }
+  const c = parsed && parsed.concept;
+  const p = parsed && parsed.pool;
+  return {
+    ok: true,
+    concept: CLASSIFY_CONCEPTS.indexOf(c) >= 0 ? c : null,
+    pool: CLASSIFY_POOLS.indexOf(p) >= 0 ? p : null,
+  };
+}
+
+function merchantText(extraction) {
+  return String(extraction.counterparty_display || extraction.counterparty || '') +
+    ' ' + String(extraction.memo || '');
+}
+
+/* Mutates extraction.category in place when it can improve on null. Best-effort
+   throughout: any DB or model hiccup leaves the concept as it was. */
+export async function enrichCategory(extraction, grant, ctx) {
+  if (!extraction) return;
+  if (CLASSIFY_CONCEPTS.indexOf(extraction.category) >= 0) return;   // (1) extractor already knows
+
+  const text = merchantText(extraction);
+  const key = merchantKey(extraction.counterparty_display || extraction.counterparty, extraction.memo);
+  if (!key || key.length < 2) return;
+
+  let hash = null;
+  try { hash = await hashKey(key, ctx.subtle); } catch { /* no subtle → skip the DB tiers */ }
+
+  // (2) user correction — the human label outranks every machine.
+  if (hash && ctx.db && ctx.db.merchantCorrectionGet && grant && grant.user_id) {
+    try {
+      const c = await ctx.db.merchantCorrectionGet(grant.user_id, hash);
+      if (CLASSIFY_CONCEPTS.indexOf(c) >= 0) { extraction.category = c; return; }
+    } catch { /* best-effort */ }
+  }
+
+  // (3) curated dictionary — deterministic, free.
+  const dict = dictionaryConcept(text);
+  if (dict) { extraction.category = dict; return; }
+
+  // (4) per-merchant cache, including the negative "already tried, unknowable".
+  if (hash && ctx.db && ctx.db.merchantConceptGet) {
+    try {
+      const row = await ctx.db.merchantConceptGet(hash);
+      if (row) {   // a row that EXISTS means we've already spent a call on this merchant
+        if (CLASSIFY_CONCEPTS.indexOf(row.concept) >= 0) extraction.category = row.concept;
+        if (CLASSIFY_POOLS.indexOf(row.pool) >= 0) extraction.pool = row.pool;
+        return;    // negative (null concept) → stay generic, never re-call
+      }
+    } catch { /* fall through to a fresh classify */ }
+  }
+
+  // (5) one-shot model classify — only if this run still has budget.
+  const budget = ctx.classifyBudget;
+  if (!budget || budget.left <= 0) return;
+  budget.left--;
+  const out = await classifyMerchant(text, ctx.llm, ctx.fetch);
+  if (!out || !out.ok) return;                     // transport error → leave uncached, retry-eligible
+  const concept = CLASSIFY_CONCEPTS.indexOf(out.concept) >= 0 ? out.concept : null;
+  const pool = CLASSIFY_POOLS.indexOf(out.pool) >= 0 ? out.pool : null;
+  if (hash && ctx.db && ctx.db.merchantConceptPut) {
+    try { await ctx.db.merchantConceptPut(hash, concept, pool); } catch { /* cache is a bonus */ }
+  }
+  if (concept) extraction.category = concept;
+  if (pool) extraction.pool = pool;
+}
+
+/* ── A batch of merchants, for a statement (statement-capture-spec.md section 11) ──
+   One email names one merchant, and enrichCategory above spends at most one model
+   call on it. A statement names thirty at once, on a project whose model quota is
+   the free tier. So the same cascade runs per name with the model step LAST and
+   ONCE: every name the free tiers cannot place goes into a single request.
+
+   What arrives here is merchant names only -- the device never sends an amount, a
+   date, or a counterparty that is a person. Nothing is logged but counts. */
+
+export const BATCH_MAX = 60;          // names accepted per request
+export const BATCH_MODEL_MAX = 40;    // names that may ride the one model call
+
+const BATCH_SYSTEM = 'You label Vietnamese merchant names from bank and e-wallet statements. ' +
+  'You are given a numbered list. Reply as JSON {"items":[{"i":<number>,"concept":...,"pool":...}]} with one item per line of the list. ' +
+  'concept is EXACTLY one of: Housing, Groceries, Clothing, Shopping, Transport, Dining, Fun, Others -- ' +
+  'or null when you genuinely cannot tell (an opaque gateway or bank code, initials, a bare reference number). Do not guess wildly; null is the right answer for the unknowable. ' +
+  'pool is EXACTLY one of: coffee, milktea, ride, cinema -- or null. Most merchants are pool null.';
+const BATCH_SCHEMA = {
+  type: 'object',
+  properties: { items: { type: 'array', items: { type: 'object', properties: {
+    i: { type: 'integer' },
+    concept: { type: ['string', 'null'], enum: [...CLASSIFY_CONCEPTS, null] },
+    pool: { type: ['string', 'null'], enum: [...CLASSIFY_POOLS, null] },
+  }, required: ['i'] } } },
+  required: ['items'],
+};
+
+/* One model call for many merchants. Returns an array aligned with `texts`
+   ({concept, pool} each), or NULL when the model could not be asked -- 429,
+   transport, no key -- which the caller must treat as "not tried", never as
+   "unknowable": a null here is not cached. */
+export async function classifyMerchantsBatch(texts, cfg, fetchImpl) {
+  if (!cfg || !cfg.apiKey || !texts || !texts.length) return null;
+  const list = texts.map((x, i) => (i + 1) + '. ' + String(x).slice(0, 80).replace(/\s+/g, ' ')).join('\n');
+  const r = await callGemini('classify_merchant_batch', {
+    systemInstruction: { parts: [{ text: BATCH_SYSTEM }] },
+    contents: [{ role: 'user', parts: [{ text: list }] }],
+    generationConfig: { responseMimeType: 'application/json', responseSchema: toGeminiSchema(BATCH_SCHEMA) },
+  }, cfg, fetchImpl);
+  if (r.transportError || !r.ok) return null;
+  const answer = r.data && r.data.candidates && r.data.candidates[0] && r.data.candidates[0].content &&
+    r.data.candidates[0].content.parts && r.data.candidates[0].content.parts[0] && r.data.candidates[0].content.parts[0].text;
+  if (!answer) return null;
+  let parsed;
+  try { parsed = JSON.parse(answer); } catch { return null; }
+  const out = texts.map(() => ({ concept: null, pool: null }));
+  for (const it of (parsed && parsed.items) || []) {
+    const idx = Number(it && it.i) - 1;
+    if (!(idx >= 0 && idx < out.length)) continue;
+    out[idx] = {
+      concept: CLASSIFY_CONCEPTS.indexOf(it.concept) >= 0 ? it.concept : null,
+      pool: CLASSIFY_POOLS.indexOf(it.pool) >= 0 ? it.pool : null,
+    };
+  }
+  return out;
+}
+
+/* names -> { name: concept|null }. Precedence is enrichCategory's, per name:
+   the person's own correction, the curated dictionary, the shared cache (a row that
+   EXISTS is an answer, even a null one), then the one batched call. Everything the
+   model answers is cached for every user, nulls included. */
+export async function conceptsForMerchants(names, userId, ctx) {
+  const result = {};
+  const uniq = [...new Set((names || []).map(n => String(n || '').trim()).filter(n => n.length >= 2))].slice(0, BATCH_MAX);
+  const misses = [];
+  for (const name of uniq) {
+    result[name] = null;
+    const key = merchantKey(name, '');
+    if (!key || key.length < 2) continue;
+    let hash = null;
+    try { hash = await hashKey(key, ctx.subtle); } catch { /* no subtle: dictionary only */ }
+
+    if (hash && userId && ctx.db.merchantCorrectionGet) {
+      try { const c = await ctx.db.merchantCorrectionGet(userId, hash); if (CLASSIFY_CONCEPTS.indexOf(c) >= 0) { result[name] = c; continue; } } catch { /* best-effort */ }
+    }
+    const dict = dictionaryConcept(name);
+    if (dict) { result[name] = dict; continue; }
+    if (hash && ctx.db.merchantConceptGet) {
+      try {
+        const row = await ctx.db.merchantConceptGet(hash);
+        if (row) { if (CLASSIFY_CONCEPTS.indexOf(row.concept) >= 0) result[name] = row.concept; continue; }
+      } catch { /* fall through to the model */ }
+    }
+    if (hash) misses.push({ name, hash });
+  }
+
+  const ask = misses.slice(0, BATCH_MODEL_MAX);
+  let asked = 0, limited = false;
+  if (ask.length) {
+    const answers = await classifyMerchantsBatch(ask.map(m => m.name), ctx.llm, ctx.fetch);
+    if (!answers) limited = true;
+    else {
+      asked = ask.length;
+      for (let i = 0; i < ask.length; i++) {
+        const a = answers[i] || { concept: null, pool: null };
+        if (a.concept) result[ask[i].name] = a.concept;
+        if (ctx.db.merchantConceptPut) { try { await ctx.db.merchantConceptPut(ask[i].hash, a.concept, a.pool); } catch { /* cache is a bonus */ } }
+      }
+    }
+  }
+  return { concepts: result, asked, limited, total: uniq.length };
+}

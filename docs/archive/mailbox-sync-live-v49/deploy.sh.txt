@@ -1,0 +1,20 @@
+#!/bin/sh
+# Statement capture: the two Edge Function deploys that were left for a human to run.
+#
+# THIS TREE IS NOT `main`. `supabase/functions/` here is the source that was LIVE as
+# mailbox-sync v49 on 2026-09-19 (downloaded with `supabase functions download`, byte for
+# byte), with ONLY the statement-capture change applied on top (patches/ holds the exact
+# deltas for the three files where live and main differ). Deploying mailbox-sync from
+# `main` instead would drop the backfill cursor and the reader lease that are live but
+# not committed. Verified: the pipeline test suite gives identical results on the live
+# baseline and on this tree, except the two new statement tests, which pass here.
+#
+# Already done on 2026-09-19: migrations 0139, 0140, 0141 applied; push-send deployed.
+# Run from the repo (the CLI's login is only found from inside it):
+#     cd ~/Documents/ClaudeHC/familyhub && sh .deploy/statement-capture/deploy.sh
+set -e
+HERE="$(cd "$(dirname "$0")" && pwd)"
+REF=iizyukzfsbdkbrgfupwq
+npx --yes supabase functions deploy merchant-concepts --project-ref "$REF" --workdir "$HERE" --use-api
+npx --yes supabase functions deploy mailbox-sync --no-verify-jwt --project-ref "$REF" --workdir "$HERE" --use-api
+echo "Done. Check: supabase dashboard -> Edge Functions -> mailbox-sync should be v50."

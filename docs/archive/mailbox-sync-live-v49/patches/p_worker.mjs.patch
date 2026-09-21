@@ -1,0 +1,53 @@
+--- main/supabase/functions/_shared/mailbox/worker.mjs	2026-09-18 10:44:29
++++ /Users/hiencao/Documents/ClaudeHC/familyhub/.worktrees/statement-capture/supabase/functions/_shared/mailbox/worker.mjs	2026-09-19 15:50:45
+@@ -33,6 +33,7 @@
+ import * as gmail from './gmail.mjs';
+ import * as mailtext from './mailtext.mjs';
+ import { decryptToken } from './token-crypto.mjs';
++import { runStatementLane, sweepStatements } from './statement.mjs';
+ 
+ /** What build is live. The Apps Script logs its own version on every run
+  *  because "which code is actually deployed" once cost hours of guessing; this
+@@ -277,7 +278,11 @@
+         };
+       }
+     });
+-  return { polled: grants.length, modelCalls, results, build: BUILD_ID };
++  /* A few expired or already-opened statement files leave storage per tick.
++     Best-effort and last: it never affects a mailbox's result. */
++  let statementsSwept = 0;
++  try { statementsSwept = (await sweepStatements(ctx)).swept; } catch { /* next tick */ }
++  return { polled: grants.length, modelCalls, results, build: BUILD_ID, statementsSwept };
+ }
+ 
+ /**
+@@ -377,6 +382,21 @@
+   const days = backfilling ? backfillDays : windowDays(grant.last_synced_at, ctx.nowMs);
+   const query = senders.inboxQuery(days, domains);
+ 
++  /* STATEMENTS RIDE THEIR OWN LANE (statement.mjs). A statement is a FILE, and
++     the header pass below cannot see one: `format=metadata` carries no MIME
++     parts. So the lane lists for itself and hands back the message ids it owns,
++     and the transaction loop leaves those alone. Wrapped whole: nothing about a
++     statement may ever cost a transaction its run. */
++  let statementIds = new Set();
++  try {
++    const lane = await runStatementLane(grant, { ...ctx, access, domains, days, backfillDays });
++    summary.statements = lane.summary;
++    statementIds = lane.messageIds;
++  } catch (e) {
++    summary.statements = { status: 'error', detail: String(e && e.message || e) };
++    console.error('statement lane failed for', grant.id, String(e && e.message || e));
++  }
++
+   const perRun = ctx.maxMessages ?? (backfilling ? BACKFILL_STAGE_MAX : MAX_MESSAGES_PER_GRANT);
+   // The same list cap on both paths. An ordinary poll can face a backlog too:
+   // `windowDays` widens after an outage, and listing only what one run can stage
+@@ -414,6 +434,7 @@
+     }
+   }
+   const allFresh = ids.filter(id =>
++    !statementIds.has(id) &&
+     !state.staged.has(id) && (!state.resolved.has(id) || restage.has(id)));
+   summary.skipped = ids.length - allFresh.length;
+ 
