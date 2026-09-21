@@ -2096,15 +2096,33 @@ input{font-family:inherit}
 @media (prefers-reduced-motion:reduce){.tb-list .fh-lrow .fh-chev{transition:none}}
 .tb-empty{padding:18px 0;color:var(--muted);font-size:14px}
 
-/* The node picker sheet: a search field over a list that is already sorted
-   siblings-first, so the common correction is the first thing under the thumb. */
-#sheet-node-pick .npick-search{margin:0 16px 10px}
-#sheet-node-pick .npick-search input{width:100%;box-sizing:border-box}
-#npick-list{display:flex;flex-direction:column;gap:6px;max-height:52vh;overflow-y:auto}
-.choice.npick{display:flex;align-items:baseline;gap:8px;text-align:left}
-.npick-n{font-weight:600}
-.npick-p{font-size:11.5px;color:var(--muted)}
+/* The node picker: one outline of the tree, the same on the detail sheet and
+   the review card. The LIST is the scroll container, so the sheet around it
+   (two different sheets) never has to know how tall a branch is. Depth is a
+   left inset (--d), never a different component; the row rhythm is the
+   legend's (.fh-lrow): 48px, hairline under, tint + weight for the chosen one. */
+.npick-search{margin:0 0 10px}
+.npick-search input{width:100%;box-sizing:border-box;background:var(--canvas);border:2px solid transparent;border-radius:13px;padding:11px 14px;font:inherit;font-size:15px;color:var(--ink)}
+.npick-search input:focus{outline:none;border-color:var(--brand);background:var(--white)}
+.npick-list,#npick-list{display:block;max-height:52vh;overflow-y:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin:0 -8px;padding:0 8px}
+.npick-list::-webkit-scrollbar,#npick-list::-webkit-scrollbar{display:none}
+.npick-row{display:flex;align-items:center;width:100%;min-height:48px;gap:4px;padding:0 2px 0 calc(var(--d,0) * 18px);border:0;border-bottom:1px solid var(--divider);background:none;font:inherit;color:inherit;text-align:left;position:relative;z-index:0}
+.npick-row:last-child{border-bottom:0}
+.npick-disc{width:36px;height:44px;flex:none;display:grid;place-items:center;border:0;background:none;color:var(--chev);margin-left:-6px;-webkit-tap-highlight-color:transparent}
+.npick-disc svg{width:16px;height:16px;transition:transform .18s ease}
+.npick-row.open>.npick-disc svg{transform:rotate(90deg)}
+.npick-disc.none{visibility:hidden}
+.npick-em{width:26px;flex:none;text-align:center;font-size:17px}
+.npick-nm{flex:1;min-width:0;min-height:44px;border:0;background:none;font:inherit;font-size:15.5px;font-weight:500;letter-spacing:-.01em;color:var(--ink);text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;-webkit-tap-highlight-color:transparent}
+.npick-row[style*="--d:0"] .npick-nm{font-weight:600}
+.npick-tick{width:18px;height:18px;flex:none;color:var(--brand-ink);opacity:0;margin-right:4px}
+.npick-row.on .npick-tick{opacity:1}
+.npick-row.on .npick-nm{color:var(--brand-ink);font-weight:700}
+.npick-row.on::before{content:"";position:absolute;left:-6px;right:-6px;top:3px;bottom:3px;background:var(--brand-tint);border-radius:11px;z-index:-1}
+.npick-clear{margin-top:6px;border-top:1px solid var(--divider);border-bottom:0;cursor:pointer}
+.npick-clear .npick-nm{color:var(--muted);font-weight:600}
 .npick-empty{padding:14px 4px;color:var(--muted);font-size:14px}
+@media (prefers-reduced-motion:reduce){.npick-disc svg{transition:none}}
 
 /* On a detail row the LEAF is the answer and wears the row's normal bold; the
    groups above it are context and sit in the same muted tone the card uses for
@@ -5596,7 +5614,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   <div class="sheet-h" id="npick-h">Tiêu vào gì</div>
   <div class="sheet-sub" id="npick-sub"></div>
   <div class="npick-search"><input id="npick-q" type="search" placeholder="Tìm: cà phê, xăng, tiền điện…" oninput="fhNodePickSearch(this)" autocomplete="off"></div>
-  <div class="choices" id="npick-list"></div>
+  <div class="npick-list" id="npick-list"></div>
 </div>
 <div class="sheet" id="sheet-exd-who">
   <div class="grab"></div>
@@ -6635,15 +6653,6 @@ function fhTransferShape(text){
   if(/ (rut tien mat|rut tien tai atm) /.test(t)) return 'cashout';
   if(/ (gui tiet kiem|mo so tiet kiem|tat toan so) /.test(t)) return 'savings';
   return null;
-}
-/* Siblings-first correction list for a picker: the node's siblings (and itself),
-   then its parent's siblings, then every group of the kind. */
-function fhNodeCorrections(code, kind){
-  kind=kind||fhNodeKind(code)||'expense';
-  var out=[], seen={}, push=function(c){ if(c&&!seen[c]){ seen[c]=1; out.push(c); } };
-  if(fhNodeOk(code)){ var p=FH_TAX.get(code).parent; if(p){ FH_TAX.children(p).forEach(push); push(p); var gp=FH_TAX.get(p).parent; if(gp) FH_TAX.children(gp).forEach(push); } }
-  FH_TAX.roots(kind).forEach(push);
-  return out;
 }
 /* Depth reached by a row, for the coverage metric: 3 leaf · 2 category · 1 group · 0 none. */
 function fhNodeDepth(code){ var n=fhNodeOk(code)?FH_TAX.get(code):null; if(!n) return 0; return FH_TAX.isLeaf(code)?3:n.depth; }
@@ -14694,6 +14703,7 @@ function csvRowSheetOpen(f){
   csvReadEditor(c);          // keep a note someone was mid-typing
   csvDisarmRemove();
   csvRowSheet = f;
+  if(f==='node'){ csvNodeOpen = null; csvNodeQ = ''; csvNodeReveal = true; }   // a fresh open starts from the row's node
   renderCsvReview();
 }
 function csvRowSheetClose(){ csvRowSheet = null; renderCsvReview(); }
@@ -14776,6 +14786,26 @@ window.csvSheetXferCreate = async function(){
   renderCsvReview();
 };
 
+/* State for the node outline inside the row sheet. FILE SCOPE on purpose: the
+   sheet is rebuilt from scratch on every review render, so what is open and
+   what was typed has to live outside it. null = "seed from the row's node". */
+var csvNodeOpen = null, csvNodeQ = '', csvNodeReveal = false;
+function csvNodeListHTML(c, kind){
+  return fhNodeOutlineHTML({
+    cur: c._node || null, kind: kind || c._nodeKind || (c.isIncome ? 'income' : 'expense'), q: csvNodeQ, open: csvNodeOpen || {},
+    pick: function(code){ return "csvSheetPick('node','"+escAttr(code)+"')"; },
+    toggle: function(code){ return "csvNodeToggle('"+escAttr(code)+"')"; },
+    clear: "csvSheetPick('node','')"
+  });
+}
+/* Open/fold and search repaint ONLY the list: rebuilding the whole sheet would
+   take the search field's focus and caret with it on every keystroke. */
+function csvNodeRepaint(){
+  var c = csvExpandedCandidate(), el = document.getElementById('csvnode-list');
+  if(c && el) el.innerHTML = csvNodeListHTML(c);
+}
+function csvNodeToggle(code){ if(!csvNodeOpen) csvNodeOpen = {}; csvNodeOpen[code] = !csvNodeOpen[code]; csvNodeRepaint(); }
+function csvNodeSearch(el){ csvNodeQ = (el && el.value) || ''; csvNodeRepaint(); }
 function csvRowSheetHTML(c){
   var f = csvRowSheet;
   var title = '', body = '';
@@ -14884,16 +14914,12 @@ function csvRowSheetHTML(c){
   } else if(f==='node'){
     var nKind = c._nodeKind || (c.isIncome ? 'income' : 'expense');
     title = (nKind==='income')?L('Tiền từ đâu','Where it came from'):L('Tiêu vào gì','What it was');
-    var opts = (typeof fhNodeCorrections==='function') ? fhNodeCorrections(c._node, nKind) : FH_TAX.roots(nKind);
-    body = '<div class="choices">'
-      + opts.map(function(code){
-          var nd = FH_TAX.get(code); if(!nd) return '';
-          var path = FH_TAX.pathVi(code), tail = path.slice(0,-1).join(' › ');
-          return chip(c._node===code, "csvSheetPick('node','"+escAttr(code)+"')",
-            esc(nd.vi) + (tail ? ' <span class="npick-p">'+esc(tail)+'</span>' : ''));
-        }).join('')
-      + chip(!c._node, "csvSheetPick('node','')", esc(L('Chưa rõ','Not sure yet')))
-      + '</div>';
+    /* The same outline the detail screen uses (63-tree-ui fhNodeOutlineHTML):
+       one picker, one order, on both surfaces. */
+    if(csvNodeOpen===null) csvNodeOpen = fhNodeOutlineSeed(c._node);
+    body = '<div class="npick-search"><input class="crs-in" id="csvnode-q" type="search" value="'+escAttr(csvNodeQ)+'"'
+         + ' placeholder="'+escAttr(L('Tìm: cà phê, xăng, tiền điện…','Search: coffee, fuel, electricity…'))+'" oninput="csvNodeSearch(this)" autocomplete="off"></div>'
+         + '<div class="npick-list" id="csvnode-list">'+csvNodeListHTML(c, nKind)+'</div>';
   } else if(f==='inccat'){
     title = L('Tiền gì vậy?','What money is this?');
     body = '<div class="choices">'
@@ -14930,6 +14956,7 @@ function csvRowSheetSync(){
   var c = (csvRowSheet && csvStagedMode) ? csvExpandedCandidate() : null;
   if(!c){ if(m.innerHTML) m.innerHTML=''; csvRowSheet = null; return; }
   m.innerHTML = csvRowSheetHTML(c);
+  if(csvRowSheet==='node' && csvNodeReveal){ csvNodeReveal = false; fhNodeOutlineReveal(document.getElementById('csvnode-list')); }
 }
 
 /* ── CTA bar actions ── */
@@ -21872,7 +21899,8 @@ window.rxAfterHydrate=rxAfterHydrate;
    rollback switch).
 
    • fhNodeLine(code)      — "Ăn uống › Đồ uống › Cà phê", for a detail row
-   • fhNodePickOpen(...)   — the picker sheet: siblings first, then search
+   • fhNodeOutlineHTML(o)  — THE picker: one outline of the tree, in the tree's own order
+   • fhNodePickOpen(...)   — the detail screen's sheet around it
    • fhTreeSelector(scope) - "Danh mục của tôi" / "Tiêu vào gì" segmented control
    • fhTreeBreakdownHTML() — the L1 view of a month, group → category → leaf   */
 
@@ -21890,49 +21918,98 @@ function fhNodeShort(code) {
 /* ── the picker ─────────────────────────────────────────────────────────────
    Opened from a detail row. `onPick` is the NAME of a global taking the chosen
    code, so the sheet stays declarative like every other sheet here. */
-var _npKind = 'expense', _npCur = null, _npFn = '', _npQ = '';
+/* ── THE PICKER: ONE OUTLINE OF THE WHOLE TREE ─────────────────────────────
+   Both pickers (the detail sheet here, the review card's row sheet) draw this.
+   The tree is shown in ITS OWN ORDER, always — the same groups in the same
+   places every time it opens, so the hand learns where things are. Nothing is
+   hoisted: the branch holding the current node is opened and scrolled to, not
+   moved. Depth is a left inset; a chevron opens or folds a branch; tapping a
+   NAME chooses it, at any level, so "Ăn uống" and "Cà phê" are both one tap.
+   The old list was the node's siblings, its parent and every root in one flat
+   run: three depths in one typography, and no way DOWN at all, because a
+   node's children were never listed. */
+var _NP_CHEV = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>';
+var _NP_TICK = '<svg class="npick-tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg>';
+/* Which branches start open: the path down to the current node, nothing else. */
+function fhNodeOutlineSeed(cur) {
+  var open = {};
+  if (cur && typeof FH_TAX !== 'undefined' && FH_TAX.get(cur)) FH_TAX.ancestors(cur).forEach(function (a) { open[a] = 1; });
+  return open;
+}
+/* o = { cur, kind, q, open, pick(code)→onclick, toggle(code)→onclick, clear→onclick }
+   The two callers differ only in what a tap DOES, so they pass that in. */
+function fhNodeOutlineHTML(o) {
+  if (typeof FH_TAX === 'undefined') return '';
+  var kind = o.kind || 'expense', open = o.open || {};
+  var q = FH_TAX.deburr(o.q || '').trim(), keep = null;
+  if (q) {
+    /* Searching FILTERS the outline, it does not replace it: a hit keeps its
+       ancestors, so "cà phê" still reads Ăn uống › Đồ uống › Cà phê by shape. */
+    keep = {};
+    FH_TAX.nodes.forEach(function (n) {
+      if (n.kind !== kind || n.manual) return;
+      var hit = FH_TAX.deburr(n.vi).indexOf(q) >= 0 || FH_TAX.deburr(n.en || '').indexOf(q) >= 0
+        || (n.kw || []).some(function (k) { return FH_TAX.deburr(k).indexOf(q) >= 0; });
+      if (hit) { keep[n.code] = 1; FH_TAX.ancestors(n.code).forEach(function (a) { keep[a] = 1; }); }
+    });
+  }
+  var row = function (code, depth) {
+    var n = FH_TAX.get(code); if (!n || n.manual || (keep && !keep[code])) return '';
+    var kids = FH_TAX.children(code).filter(function (c) { return !keep || keep[c]; });
+    var isOpen = keep ? kids.length > 0 : !!open[code];
+    var h = '<div class="npick-row' + (code === o.cur ? ' on' : '') + (isOpen ? ' open' : '') + '" style="--d:' + depth + '">'
+      + (kids.length && !keep
+          ? '<button type="button" class="npick-disc" aria-expanded="' + (isOpen ? 'true' : 'false') + '" aria-label="' + escAttr(n.vi) + '" onclick="' + o.toggle(code) + '">' + _NP_CHEV + '</button>'
+          : '<span class="npick-disc' + (kids.length ? '' : ' none') + '">' + _NP_CHEV + '</span>')
+      + (depth === 0 ? '<span class="npick-em">' + esc(n.emoji || '') + '</span>' : '')
+      + '<button type="button" class="npick-nm" onclick="' + o.pick(code) + '">' + esc(n.vi) + '</button>'
+      + _NP_TICK + '</div>';
+    if (isOpen) kids.forEach(function (c) { h += row(c, depth + 1); });
+    return h;
+  };
+  var out = FH_TAX.roots(kind).map(function (r) { return row(r, 0); }).join('');
+  if (!out) return '<div class="npick-empty">' + L('Không tìm thấy', 'Nothing found') + '</div>';
+  /* "I don't know" is a real answer: it clears the node without touching the label. */
+  return out + '<button type="button" class="npick-row npick-clear' + (o.cur ? '' : ' on') + '" onclick="' + o.clear + '">'
+    + '<span class="npick-disc none"></span><span class="npick-nm">' + L('Chưa rõ', 'Not sure yet') + '</span>' + _NP_TICK + '</button>';
+}
+/* Bring the chosen row into view inside its own list, once, after it opens. */
+function fhNodeOutlineReveal(listEl) {
+  if (!listEl) return;
+  var on = listEl.querySelector('.npick-row.on');
+  if (on && on.scrollIntoView) { try { on.scrollIntoView({ block: 'center' }); } catch (e) {} }
+}
+
+/* — the detail screen's sheet (#sheet-node-pick) — */
+var _npKind = 'expense', _npCur = null, _npFn = '', _npQ = '', _npOpen = {};
 function fhNodePickOpen(cur, kind, onPick) {
   _npCur = cur || null; _npKind = kind || fhNodeKind(cur) || 'expense'; _npFn = onPick || ''; _npQ = '';
+  _npOpen = fhNodeOutlineSeed(_npCur);
   var q = document.getElementById('npick-q'); if (q) q.value = '';
   fhNodePickRender();
   if (typeof openSheet === 'function') openSheet('sheet-node-pick');
+  setTimeout(function () { fhNodeOutlineReveal(document.getElementById('npick-list')); }, 60);
 }
 function fhNodePickSearch(el) { _npQ = (el && el.value) || ''; fhNodePickRender(); }
+function fhNodePickToggle(code) { _npOpen[code] = !_npOpen[code]; fhNodePickRender(); }
 function fhNodePickRender() {
   var list = document.getElementById('npick-list'); if (!list || typeof FH_TAX === 'undefined') return;
   var head = document.getElementById('npick-h');
-  if (head) head.textContent = L('Tiêu vào gì', 'What it was');
+  if (head) head.textContent = (_npKind === 'income') ? L('Tiền từ đâu', 'Where it came from') : L('Tiêu vào gì', 'What it was');
   var sub = document.getElementById('npick-sub');
-  if (sub) sub.textContent = L('Thay đổi chờ tới khi bấm Lưu', 'Waits for Save');
-  var codes, grouped = false;
-  var q = FH_TAX.deburr(_npQ).trim();
-  if (q) {
-    codes = FH_TAX.nodes.filter(function (n) {
-      if (n.kind !== _npKind || n.manual) return false;
-      if (FH_TAX.deburr(n.vi).indexOf(q) >= 0 || FH_TAX.deburr(n.en).indexOf(q) >= 0) return true;
-      return (n.kw || []).some(function (k) { return FH_TAX.deburr(k).indexOf(q) >= 0; });
-    }).map(function (n) { return n.code; }).slice(0, 60);
-    grouped = true;
-  } else {
-    codes = (typeof fhNodeCorrections === 'function') ? fhNodeCorrections(_npCur, _npKind) : FH_TAX.roots(_npKind);
-  }
-  if (!codes.length) { list.innerHTML = '<div class="npick-empty">' + L('Không tìm thấy', 'Nothing found') + '</div>'; return; }
-  list.innerHTML = codes.map(function (c) {
-    var n = FH_TAX.get(c); if (!n) return '';
-    var path = FH_TAX.pathVi(c), tail = path.slice(0, -1).join(' › ');
-    return '<button type="button" class="choice npick' + (c === _npCur ? ' on' : '') + '"'
-      + ' onclick="fhNodePicked(&#39;' + escAttr(c) + '&#39;)">'
-      + '<span class="npick-n">' + esc(n.vi) + '</span>'
-      + ((grouped && tail) ? '<span class="npick-p">' + esc(tail) + '</span>' : '')
-      + '</button>';
-  }).join('');
+  if (sub) sub.textContent = L('Bấm tên để chọn, bấm mũi tên để mở. Thay đổi chờ tới khi bấm Lưu.', 'Tap a name to choose, the arrow to open. Waits for Save.');
+  list.innerHTML = fhNodeOutlineHTML({
+    cur: _npCur, kind: _npKind, q: _npQ, open: _npOpen,
+    pick: function (c) { return 'fhNodePicked(&#39;' + escAttr(c) + '&#39;)'; },
+    toggle: function (c) { return 'fhNodePickToggle(&#39;' + escAttr(c) + '&#39;)'; },
+    clear: 'fhNodePickClear()'
+  });
 }
 function fhNodePicked(code) {
   if (typeof closeSheet === 'function') closeSheet();
   var fn = _npFn && window[_npFn];
   if (typeof fn === 'function') fn(code);
 }
-/* "I don't know" is a real answer: it clears the node without touching the label. */
 function fhNodePickClear() { fhNodePicked(''); }
 
 /* ── the layer selector ─────────────────────────────────────────────────────
@@ -23818,7 +23895,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v562';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v563';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',

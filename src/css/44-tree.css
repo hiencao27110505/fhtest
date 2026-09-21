@@ -26,15 +26,33 @@
 @media (prefers-reduced-motion:reduce){.tb-list .fh-lrow .fh-chev{transition:none}}
 .tb-empty{padding:18px 0;color:var(--muted);font-size:14px}
 
-/* The node picker sheet: a search field over a list that is already sorted
-   siblings-first, so the common correction is the first thing under the thumb. */
-#sheet-node-pick .npick-search{margin:0 16px 10px}
-#sheet-node-pick .npick-search input{width:100%;box-sizing:border-box}
-#npick-list{display:flex;flex-direction:column;gap:6px;max-height:52vh;overflow-y:auto}
-.choice.npick{display:flex;align-items:baseline;gap:8px;text-align:left}
-.npick-n{font-weight:600}
-.npick-p{font-size:11.5px;color:var(--muted)}
+/* The node picker: one outline of the tree, the same on the detail sheet and
+   the review card. The LIST is the scroll container, so the sheet around it
+   (two different sheets) never has to know how tall a branch is. Depth is a
+   left inset (--d), never a different component; the row rhythm is the
+   legend's (.fh-lrow): 48px, hairline under, tint + weight for the chosen one. */
+.npick-search{margin:0 0 10px}
+.npick-search input{width:100%;box-sizing:border-box;background:var(--canvas);border:2px solid transparent;border-radius:13px;padding:11px 14px;font:inherit;font-size:15px;color:var(--ink)}
+.npick-search input:focus{outline:none;border-color:var(--brand);background:var(--white)}
+.npick-list,#npick-list{display:block;max-height:52vh;overflow-y:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin:0 -8px;padding:0 8px}
+.npick-list::-webkit-scrollbar,#npick-list::-webkit-scrollbar{display:none}
+.npick-row{display:flex;align-items:center;width:100%;min-height:48px;gap:4px;padding:0 2px 0 calc(var(--d,0) * 18px);border:0;border-bottom:1px solid var(--divider);background:none;font:inherit;color:inherit;text-align:left;position:relative;z-index:0}
+.npick-row:last-child{border-bottom:0}
+.npick-disc{width:36px;height:44px;flex:none;display:grid;place-items:center;border:0;background:none;color:var(--chev);margin-left:-6px;-webkit-tap-highlight-color:transparent}
+.npick-disc svg{width:16px;height:16px;transition:transform .18s ease}
+.npick-row.open>.npick-disc svg{transform:rotate(90deg)}
+.npick-disc.none{visibility:hidden}
+.npick-em{width:26px;flex:none;text-align:center;font-size:17px}
+.npick-nm{flex:1;min-width:0;min-height:44px;border:0;background:none;font:inherit;font-size:15.5px;font-weight:500;letter-spacing:-.01em;color:var(--ink);text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;-webkit-tap-highlight-color:transparent}
+.npick-row[style*="--d:0"] .npick-nm{font-weight:600}
+.npick-tick{width:18px;height:18px;flex:none;color:var(--brand-ink);opacity:0;margin-right:4px}
+.npick-row.on .npick-tick{opacity:1}
+.npick-row.on .npick-nm{color:var(--brand-ink);font-weight:700}
+.npick-row.on::before{content:"";position:absolute;left:-6px;right:-6px;top:3px;bottom:3px;background:var(--brand-tint);border-radius:11px;z-index:-1}
+.npick-clear{margin-top:6px;border-top:1px solid var(--divider);border-bottom:0;cursor:pointer}
+.npick-clear .npick-nm{color:var(--muted);font-weight:600}
 .npick-empty{padding:14px 4px;color:var(--muted);font-size:14px}
+@media (prefers-reduced-motion:reduce){.npick-disc svg{transition:none}}
 
 /* On a detail row the LEAF is the answer and wears the row's normal bold; the
    groups above it are context and sit in the same muted tone the card uses for

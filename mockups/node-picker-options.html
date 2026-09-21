@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Chọn "Tiêu vào gì" · 4 phương án</title>
+<style>
+/* ============================================================================
+   FamilyHub · picker for the category tree ("Tiêu vào gì"). Four interaction
+   models, each a working prototype on the REAL tree (../src/js-ui/11-taxonomy.js,
+   214 nodes, 3 levels). Chrome is lifted verbatim from the app: 10-tokens.css
+   (sage/stone), 50-sheets-modals.css (.sheet/.grab/.sheet-h/.choice), the detail
+   row from 45-goals-txn-detail.css (.csv-srow). Nothing here is a new colour.
+   ============================================================================ */
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --sage-50:#ebfbf6;--sage-100:#d6f5eb;--sage-200:#afe9d8;--sage-300:#7ad5bd;--sage-400:#4abba1;--sage-500:#149d83;--sage-600:#007c65;
+  --stone-25:#fafcfc;--stone-50:#f6f9f8;--stone-100:#f0f5f3;--stone-150:#ecf1f0;--stone-200:#e3eae7;--stone-300:#c3cdca;--stone-400:#7f8986;--stone-500:#6f7674;--stone-600:#626b68;--stone-800:#2e3835;--stone-900:#0e1613;
+  --amber-ink:#915200;
+  --brand:var(--sage-500);--brand-ink:var(--sage-600);--brand-tint:var(--sage-50);
+  --ink:var(--stone-900);--ink-2:var(--stone-800);--muted:var(--stone-600);--muted-soft:var(--stone-500);
+  --white:#fff;--canvas:var(--stone-100);--surface:var(--stone-50);--hairline:var(--stone-200);--divider:var(--stone-150);--chev:var(--stone-300);
+  --shadow-focal:0 1px 3px rgba(14,22,19,.05),0 12px 30px rgba(14,22,19,.09);
+  --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+}
+html{-webkit-text-size-adjust:100%}
+body{background:#e9edeb;color:var(--ink);font:15px/1.5 var(--text);padding-block:0 80px;padding-inline:20px}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+input{font-family:inherit}
+.wrap{max-width:1500px;margin:0 auto}
+header.top{padding-block:40px 22px;max-width:74ch}
+.eyebrow{font-size:11px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted)}
+h1{font-family:var(--disp);font-size:32px;line-height:1.1;font-weight:700;letter-spacing:-.6px;margin:8px 0 10px;text-wrap:balance}
+.lede{color:var(--ink-2);font-size:16px;max-width:66ch}
+.lede b{font-weight:650}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(402px,1fr));gap:28px 24px;align-items:start;margin-top:12px}
+@media(max-width:480px){.grid{grid-template-columns:1fr}body{padding-inline:16px}}
+
+/* ---- the phone, as every mockup in this folder draws it ---- */
+.item{display:flex;flex-direction:column}
+.phone{width:100%;max-width:402px;height:874px;margin:0 auto;background:var(--canvas);overflow:hidden;display:flex;flex-direction:column;border-radius:46px;border:11px solid #05030a;box-shadow:0 30px 60px rgba(10,5,20,.28);position:relative}
+.scr{flex:1;position:relative;overflow:hidden;display:flex;flex-direction:column}
+.cap{margin:16px auto 0;max-width:402px;padding:0 6px;display:flex;flex-direction:column;gap:8px}
+.cap .n{font-family:var(--disp);font-size:11px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--brand-ink)}
+.cap h2{font-family:var(--disp);font-size:21px;font-weight:700;letter-spacing:-.3px;line-height:1.2}
+.cap p{color:var(--ink-2);font-size:14px}
+.cap ul{padding-left:18px;color:var(--ink-2);font-size:13.5px;display:flex;flex-direction:column;gap:3px}
+.cap .pro::marker{color:var(--brand)} .cap .con::marker{color:var(--amber-ink)}
+.cap .rec{align-self:flex-start;margin-top:2px;font-size:12px;font-weight:700;color:var(--brand-ink);background:var(--brand-tint);border:1.5px solid var(--sage-200);border-radius:999px;padding:4px 11px}
+
+/* ---- the detail screen behind the sheet (trimmed) ---- */
+.detail{padding:52px 18px 0;display:flex;flex-direction:column;gap:6px}
+.detail .nav{display:flex;align-items:center;justify-content:space-between;font-size:16px;color:var(--brand-ink);font-weight:600;margin-bottom:6px}
+.detail .nav span:last-child{opacity:.55}
+.detail .amt{font-family:var(--disp);font-size:36px;font-weight:700;letter-spacing:-1px;color:var(--ink)}
+.detail .memo{font-size:14px;color:var(--muted);margin-bottom:6px}
+.card{background:var(--white);border-radius:22px;padding:4px 14px;box-shadow:var(--shadow-focal)}
+.csv-srow{display:flex;width:100%;align-items:center;justify-content:space-between;gap:10px;padding:12px 2px;min-height:46px;border:0;border-bottom:1px solid var(--divider);background:none;font:inherit;text-align:left;color:inherit}
+.card .csv-srow:last-child{border-bottom:0}
+.csv-srow small{font-size:13px;font-weight:600;color:var(--muted);flex:none}
+.csv-sval{display:flex;align-items:center;gap:5px;min-width:0;font-size:14px}
+.csv-sval b{font-size:14px;font-weight:650;color:var(--ink);letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.csv-sval .up{color:var(--muted-soft);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.csv-schev{width:15px;height:15px;color:var(--chev);flex:none}
+.csv-srow.ro .csv-sval b{color:var(--muted);font-weight:600}
+.csv-srow.chg .csv-sval b{color:var(--brand-ink)}
+.csv-srow.chg small::after{content:"· sẽ lưu";color:var(--brand-ink);font-weight:600;margin-left:5px}
+.dim{position:absolute;inset:0;background:rgba(14,22,19,.28);opacity:0;visibility:hidden;transition:opacity .35s,visibility 0s linear .35s}
+.dim.on{opacity:1;visibility:visible;transition:opacity .35s}
+
+/* ---- the sheet, verbatim from 50-sheets-modals.css ---- */
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--white);border-radius:24px 24px 0 0;transform:translateY(102%);visibility:hidden;
+  transition:transform .4s cubic-bezier(.32,.72,0,1),visibility 0s linear .4s;z-index:60;padding:8px 20px 24px;max-height:86%;overflow-y:auto;display:flex;flex-direction:column}
+.sheet.on{transform:translateY(0);visibility:visible;transition:transform .4s cubic-bezier(.32,.72,0,1),visibility 0s}
+.sheet::-webkit-scrollbar{display:none}
+.grab{width:36px;height:5px;border-radius:3px;background:#dcd6e2;margin:8px auto 16px;flex:none}
+.sheet-h{font-family:var(--disp);font-weight:700;font-size:25px;letter-spacing:-.7px;color:var(--ink);margin-bottom:5px}
+.sheet-sub{font-size:15px;letter-spacing:-.01em;color:var(--muted);margin-bottom:14px;line-height:1.45}
+.choices{display:flex;gap:8px;flex-wrap:wrap}
+.choice{padding:10px 15px;border-radius:9999px;background:var(--white);border:1.5px solid var(--hairline);font-size:15px;font-weight:500;letter-spacing:-.01em;color:var(--ink)}
+.choice.on{border-color:var(--brand);border-width:2px;padding:9px 14px;color:var(--brand);font-weight:700;background:var(--brand-tint)}
+.q{margin:0 0 12px;flex:none}
+.q input{width:100%;height:40px;border-radius:12px;border:0;background:var(--surface);padding:0 14px 0 36px;font-size:15px;color:var(--ink);outline:0;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237f8986' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-size:17px;background-position:12px center}
+.q input::placeholder{color:var(--muted-soft)}
+.q input:focus{box-shadow:0 0 0 2px var(--sage-200)}
+.foot{display:flex;gap:10px;align-items:center;justify-content:space-between;padding-top:12px;margin-top:auto;border-top:1px solid var(--divider);flex:none}
+.foot .clr{font-size:14px;font-weight:600;color:var(--muted)}
+.cta{height:44px;padding:0 22px;border-radius:14px;background:var(--brand);color:#fff;font-weight:700;font-size:15px;letter-spacing:-.01em}
+.cta[disabled]{opacity:.45}
+
+/* ---- shared list row inside the sheet (the app's .fh-lrow rhythm) ---- */
+.lrow{display:flex;align-items:center;width:100%;min-height:48px;padding:0 2px;gap:10px;border-bottom:1px solid var(--divider);text-align:left;position:relative}
+.lrow:last-child{border-bottom:0}
+.lrow .nm{flex:1;min-width:0;font-size:15.5px;font-weight:500;color:var(--ink);letter-spacing:-.01em;display:flex;align-items:baseline;gap:8px}
+.lrow .nm i{font-style:normal;font-size:12px;color:var(--muted-soft)}
+.lrow .em{width:26px;flex:none;text-align:center;font-size:17px}
+.lrow.on .nm{color:var(--brand-ink);font-weight:700}
+.lrow.on::before{content:"";position:absolute;left:-10px;right:-10px;top:3px;bottom:3px;background:var(--brand-tint);border-radius:11px;z-index:-1}
+.lrow .tick{width:18px;height:18px;color:var(--brand-ink);flex:none;opacity:0}
+.lrow.on .tick{opacity:1}
+.lrow .drill{width:40px;height:40px;margin-right:-8px;display:grid;place-items:center;color:var(--chev);flex:none;border-radius:10px}
+.lrow .drill svg{width:18px;height:18px}
+.lrow .drill:active{background:var(--surface)}
+.lrow.lvl .nm{font-weight:600;color:var(--ink-2)}
+.lrow.lvl .nm i{color:var(--brand-ink);font-weight:600;font-size:12.5px}
+.empty{padding:22px 4px;color:var(--muted);font-size:14px}
+.list{flex:1;min-height:0;overflow-y:auto;margin:0 -2px;padding:0 2px}
+.list::-webkit-scrollbar{display:none}
+
+/* ---- Option 1: breadcrumb ---- */
+.crumbs{display:flex;align-items:center;flex-wrap:wrap;gap:2px 0;margin:0 0 6px;font-size:13.5px;flex:none}
+.crumbs button{padding:4px 6px;border-radius:8px;color:var(--brand-ink);font-weight:600}
+.crumbs button.here{color:var(--ink);font-weight:700;pointer-events:none}
+.crumbs svg{width:13px;height:13px;color:var(--chev)}
+
+/* ---- Option 2: stepper ---- */
+.steps{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin:0 0 12px;flex:none}
+.step{border-radius:13px;padding:8px 10px;background:var(--surface);text-align:left;display:flex;flex-direction:column;gap:1px;min-height:52px;border:2px solid transparent}
+.step .k{font-size:10.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted-soft)}
+.step .v{font-size:13.5px;font-weight:650;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.step .v.none{color:var(--muted-soft);font-weight:500}
+.step.here{border-color:var(--brand);background:var(--brand-tint)}
+.step.here .k{color:var(--brand-ink)}
+.step[disabled]{opacity:.42}
+
+/* ---- Option 3: outline ---- */
+.out .lrow{padding-left:calc(var(--d,0) * 18px + 2px)}
+.out .lrow .disc{width:34px;height:40px;margin-left:-8px;display:grid;place-items:center;color:var(--chev);flex:none}
+.out .lrow .disc svg{width:16px;height:16px;transition:transform .18s ease}
+.out .lrow.open .disc svg{transform:rotate(90deg)}
+.out .lrow .disc.none{visibility:hidden}
+.out .sect{font-size:11px;font-weight:700;letter-spacing:1.1px;text-transform:uppercase;color:var(--muted);padding:16px 2px 6px}
+
+/* ---- Option 4: wheels ---- */
+.sugg{display:flex;gap:8px;overflow-x:auto;margin:0 -20px 12px;padding:0 20px;flex:none;scrollbar-width:none}
+.sugg::-webkit-scrollbar{display:none}
+.sugg .choice{flex:none;padding:8px 13px;font-size:14px}
+.wheels{display:grid;grid-template-columns:1.15fr 1fr 1fr;gap:6px;position:relative;height:216px;flex:none;
+  -webkit-mask-image:linear-gradient(to bottom,transparent,#000 22%,#000 78%,transparent);mask-image:linear-gradient(to bottom,transparent,#000 22%,#000 78%,transparent)}
+.wheels::before{content:"";position:absolute;left:0;right:0;top:90px;height:36px;background:var(--surface);border-radius:10px;z-index:0}
+.wheel{overflow-y:auto;scroll-snap-type:y mandatory;padding:90px 0;position:relative;z-index:1;scrollbar-width:none}
+.wheel::-webkit-scrollbar{display:none}
+.wheel .w{height:36px;line-height:36px;scroll-snap-align:center;text-align:center;font-size:15px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 6px;transition:color .15s,font-weight .15s}
+.wheel .w.on{color:var(--ink);font-weight:650}
+.wheel .w.dash{color:var(--muted-soft)}
+.wheel .w.lvl{font-size:13px;color:var(--muted-soft)}
+.wheel.dis{opacity:.35;pointer-events:none}
+.wlbl{display:grid;grid-template-columns:1.15fr 1fr 1fr;gap:6px;margin-bottom:2px;flex:none}
+.wlbl span{font-size:10.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted-soft);text-align:center}
+.wpath{margin-top:10px;font-size:14px;color:var(--ink-2);text-align:center;min-height:22px}
+.wpath b{color:var(--brand-ink)}
+
+.notree{padding:60px 24px;color:var(--amber-ink);font-size:14px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top">
+  <span class="eyebrow">FamilyHub · Tiêu vào gì</span>
+  <h1>Bốn cách chọn một mục trong cây danh mục</h1>
+  <p class="lede">Cùng một dòng thật: <b>88.000 đ · APPLE.COM/BILL</b>, đang ở <b>Giải trí › Giải trí &amp; xem › Streaming &amp; thuê bao số</b>. Bấm vào dòng "Tiêu vào gì" trong mỗi máy để mở bảng chọn. Cả bốn chạy trên đúng cây 214 mục của app, cùng một khung sheet, cùng một dòng chi tiết. Khác nhau duy nhất ở cách đi lên, đi xuống và chốt một mức.</p>
+</header>
+
+<div class="grid" id="grid">
+  <!-- filled by script -->
+</div>
+</div>
+
+<script src="../src/js-ui/11-taxonomy.js"></script>
+<script>
+(function(){
+  var T = window.FH_TAX;
+  var grid = document.getElementById('grid');
+  if(!T){ grid.innerHTML = '<div class="notree">Không nạp được cây danh mục (../src/js-ui/11-taxonomy.js). Mở tệp này từ trong thư mục mockups/ của repo.</div>'; return; }
+
+  var KIND = 'expense';
+  var START = 'streaming';                                    // where the real row sits today
+  var ROW = { amt: '88.000 đ', memo: 'APPLE.COM/BILL · VIB · Tín dụng · Chủ nhật, 20/09 · 22:39' };
+  var esc = function(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); };
+  var SVG = {
+    chev:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>',
+    tick:'<svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg>',
+    sep:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>'
+  };
+  var rootEmoji = function(c){ var r = T.get(T.root(c)); return (r && r.emoji) || ''; };
+  var pathHTML = function(code){
+    if(!code) return '<b>Chưa rõ</b>';
+    var p = T.pathVi(code), leaf = p[p.length-1], up = p.slice(0,-1).join(' › ');
+    return (up ? '<span class="up">'+esc(up)+' › </span>' : '') + '<b>'+esc(leaf)+'</b>';
+  };
+  var search = function(q){
+    q = T.deburr(q).trim(); if(!q) return null;
+    return T.nodes.filter(function(n){
+      if(n.kind!==KIND || n.manual) return false;
+      if(T.deburr(n.vi).indexOf(q)>=0 || T.deburr(n.en||'').indexOf(q)>=0) return true;
+      return (n.kw||[]).some(function(k){ return T.deburr(k).indexOf(q)>=0; });
+    }).map(function(n){ return n.code; }).slice(0,40);
+  };
+  /* the app's fhNodeCorrections: siblings, parent, parent's siblings */
+  var corrections = function(code){
+    var out=[], seen={}, push=function(c){ if(c&&!seen[c]){ seen[c]=1; out.push(c); } };
+    var n = T.get(code);
+    if(n){ var p=n.parent; if(p){ T.children(p).forEach(push); push(p); var gp=T.get(p).parent; if(gp) T.children(gp).forEach(push); } }
+    return out;
+  };
+
+  /* ---- one phone: the trimmed detail screen + a dim + a sheet ---- */
+  function phone(id, sheetInner){
+    return '<div class="phone"><div class="scr">'
+      + '<div class="detail"><div class="nav"><span>‹ Giao dịch</span><span>Sửa</span></div>'
+      + '<div class="amt">'+ROW.amt+'</div><div class="memo">'+esc(ROW.memo)+'</div>'
+      + '<div class="card">'
+      +   '<div class="csv-srow ro"><small>Loại khoản</small><span class="csv-sval"><b>Chi tiêu</b></span></div>'
+      +   '<button type="button" class="csv-srow" id="'+id+'-row" onclick="window.__open(\''+id+'\')"><small>Tiêu vào gì</small><span class="csv-sval" id="'+id+'-val">'+pathHTML(START)+'</span>'+'<svg class="csv-schev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></button>'
+      +   '<div class="csv-srow ro"><small>Danh mục của tôi</small><span class="csv-sval"><b>Giải trí</b></span></div>'
+      + '</div></div>'
+      + '<div class="dim" id="'+id+'-dim" onclick="window.__close(\''+id+'\')"></div>'
+      + '<div class="sheet" id="'+id+'-sheet"><div class="grab"></div>'+sheetInner+'</div>'
+      + '</div></div>';
+  }
+  var OPTS = {};
+  window.__open = function(id){ OPTS[id].open(); document.getElementById(id+'-dim').classList.add('on'); document.getElementById(id+'-sheet').classList.add('on'); };
+  window.__close = function(id){ document.getElementById(id+'-dim').classList.remove('on'); document.getElementById(id+'-sheet').classList.remove('on'); };
+  function commit(id, code){
+    var o = OPTS[id]; o.cur = code || null;
+    var v = document.getElementById(id+'-val'); v.innerHTML = pathHTML(o.cur);
+    document.getElementById(id+'-row').classList.toggle('chg', o.cur !== START);
+    window.__close(id);
+  }
+  function caption(n, title, thesis, pros, cons, rec){
+    return '<div class="cap"><span class="n">Phương án '+n+'</span><h2>'+title+'</h2><p>'+thesis+'</p>'
+      + '<ul>'+pros.map(function(p){ return '<li class="pro">'+p+'</li>'; }).join('')+cons.map(function(c){ return '<li class="con">'+c+'</li>'; }).join('')+'</ul>'
+      + (rec ? '<span class="rec">'+rec+'</span>' : '') + '</div>';
+  }
+
+  /* =====================================================================
+     1 · Đi từng tầng, có đường dẫn (breadcrumb)
+     ===================================================================== */
+  (function(){
+    var id='o1', st={ cur:START, lvl:null, q:'' };
+    var inner = '<div class="sheet-h">Tiêu vào gì</div><div class="sheet-sub">Bấm tên để chọn. Bấm › để xem bên trong. Bấm đường dẫn để quay lên.</div>'
+      + '<div class="q"><input id="o1-q" type="search" placeholder="Tìm: cà phê, xăng, tiền điện…" autocomplete="off"></div>'
+      + '<div class="crumbs" id="o1-crumbs"></div><div class="list" id="o1-list"></div>'
+      + '<div class="foot"><button class="clr" onclick="window.__o1clear()">Chưa rõ</button><button class="cta" onclick="window.__o1save()">Lưu</button></div>';
+    grid.insertAdjacentHTML('beforeend', '<div class="item">'+phone(id, inner)
+      + caption(1,'Đi từng tầng, có đường dẫn',
+        'Mỗi màn hình là một tầng của cây. Dòng đầu tiên của tầng là chính tầng đó, nên "dừng ở Đồ uống" là một lựa chọn rõ ràng chứ không phải tình cờ. Đường dẫn ở trên vừa nói bạn đang ở đâu vừa là nút quay lên.',
+        ['Lên, xuống, và chốt một mức: ba thao tác, không thao tác nào phải đoán','Danh sách ngắn, không bao giờ quá một tầng','Tìm kiếm vẫn là đường tắt, và thả bạn đúng vào tầng của kết quả'],
+        ['Xuống ba tầng là ba lần bấm','Mục đang có bị che khi mở vào tầng khác'],
+        'Đề xuất') + '</div>');
+    var listEl=document.getElementById('o1-list'), crumbsEl=document.getElementById('o1-crumbs'), qEl=document.getElementById('o1-q');
+    function render(){
+      var hits = search(st.q);
+      if(hits){
+        crumbsEl.innerHTML = '<button class="here">Kết quả tìm</button>';
+        listEl.innerHTML = hits.length ? hits.map(function(c){ var n=T.get(c), up=T.pathVi(c).slice(0,-1).join(' › ');
+          return '<button class="lrow'+(c===st.cur?' on':'')+'" onclick="window.__o1pick(\''+c+'\')"><span class="em">'+rootEmoji(c)+'</span><span class="nm">'+esc(n.vi)+(up?'<i>'+esc(up)+'</i>':'')+'</span>'+SVG.tick+'</button>'; }).join('')
+          : '<div class="empty">Không tìm thấy. Thử từ khác, hoặc chọn theo nhóm.</div>';
+        return;
+      }
+      var chain = st.lvl ? [st.lvl].concat(T.ancestors(st.lvl)).reverse() : [];
+      crumbsEl.innerHTML = '<button'+(chain.length?' onclick="window.__o1go(null)"':' class="here"')+'>Tất cả</button>'
+        + chain.map(function(c,i){ var last=i===chain.length-1; return SVG.sep+'<button'+(last?' class="here"':' onclick="window.__o1go(\''+c+'\')"')+'>'+esc(T.get(c).vi)+'</button>'; }).join('');
+      var rows='';
+      if(st.lvl){ var L=T.get(st.lvl);
+        rows += '<button class="lrow lvl'+(st.lvl===st.cur?' on':'')+'" onclick="window.__o1pick(\''+st.lvl+'\')"><span class="em">'+rootEmoji(st.lvl)+'</span><span class="nm">'+esc(L.vi)+'<i>dừng ở mức này</i></span>'+SVG.tick+'</button>'; }
+      var kids = st.lvl ? T.children(st.lvl) : T.roots(KIND).filter(function(c){ return !T.get(c).manual; });
+      rows += kids.map(function(c){ var n=T.get(c), has=T.children(c).length>0;
+        return '<div class="lrow'+(c===st.cur?' on':'')+'"><button class="nm" style="text-align:left" onclick="window.__o1pick(\''+c+'\')"><span class="em" style="margin-right:2px">'+(st.lvl?'':rootEmoji(c))+'</span>'+esc(n.vi)+'</button>'+SVG.tick
+          + (has ? '<button class="drill" aria-label="Xem bên trong" onclick="window.__o1go(\''+c+'\')">'+SVG.chev+'</button>' : '<span class="drill"></span>')+'</div>'; }).join('');
+      listEl.innerHTML = rows;
+    }
+    window.__o1go = function(c){ st.lvl=c; st.q=''; qEl.value=''; render(); listEl.scrollTop=0; };
+    window.__o1pick = function(c){ st.cur=c; render(); };
+    window.__o1clear = function(){ st.cur=null; commit(id,null); };
+    window.__o1save = function(){ commit(id, st.cur); };
+    qEl.addEventListener('input', function(){ st.q=qEl.value; render(); });
+    OPTS[id] = { cur:START, open:function(){ st.cur=OPTS[id].cur; st.lvl = st.cur ? (T.get(st.cur).parent || null) : null; st.q=''; qEl.value=''; render(); } };
+  })();
+
+  /* =====================================================================
+     2 · Ba bước, mức nào cũng bấm được (stepper)
+     ===================================================================== */
+  (function(){
+    var id='o2', st={ sel:[null,null,null], k:0 };
+    var inner = '<div class="sheet-h">Tiêu vào gì</div><div class="sheet-sub">Nhóm, rồi loại, rồi chi tiết. Bỏ trống một bước là dừng ở bước trước.</div>'
+      + '<div class="steps" id="o2-steps"></div><div class="list" id="o2-list"></div>'
+      + '<div class="foot"><button class="clr" onclick="window.__o2clear()">Chưa rõ</button><button class="cta" id="o2-save" onclick="window.__o2save()">Lưu</button></div>';
+    grid.insertAdjacentHTML('beforeend', '<div class="item">'+phone(id, inner)
+      + caption(2,'Ba bước, mức nào cũng bấm được',
+        'Ba ô trên đầu là ba tầng của cây, luôn hiện cả ba. Bấm một ô để nhảy thẳng tới tầng đó. Ô để trống nghĩa là "tới đây thôi".',
+        ['Thấy cả ba tầng cùng lúc, và thấy mình đã chọn gì ở mỗi tầng','Nhảy thẳng tới tầng bất kỳ, không cần lùi từng bước','Rất hợp với dòng chi tiết bên dưới, vốn cũng đọc theo ba tầng'],
+        ['Ba ô chiếm chỗ; tên dài bị cắt','Không có tìm kiếm: chọn nhóm là bắt buộc','Cây có nhánh chỉ hai tầng, ô thứ ba phải tự mờ đi']) + '</div>');
+    var stepsEl=document.getElementById('o2-steps'), listEl=document.getElementById('o2-list');
+    var LBL=['Nhóm','Loại','Chi tiết'];
+    function value(){ return st.sel[2]||st.sel[1]||st.sel[0]||null; }
+    function render(){
+      var avail=[true, !!st.sel[0], !!(st.sel[1] && T.children(st.sel[1]).length)];
+      stepsEl.innerHTML = LBL.map(function(l,i){ var v=st.sel[i];
+        return '<button class="step'+(st.k===i?' here':'')+'"'+(avail[i]?'':' disabled')+' onclick="window.__o2k('+i+')"><span class="k">'+l+'</span><span class="v'+(v?'':' none')+'">'+(v?esc(T.get(v).vi):(i===0?'Chọn…':'để trống'))+'</span></button>'; }).join('');
+      var pool = st.k===0 ? T.roots(KIND).filter(function(c){ return !T.get(c).manual; }) : T.children(st.sel[st.k-1]);
+      listEl.innerHTML = (st.k>0 ? '<button class="lrow lvl'+(!st.sel[st.k]?' on':'')+'" onclick="window.__o2pick(null)"><span class="em"></span><span class="nm">Để trống<i>dừng ở '+esc(T.get(st.sel[st.k-1]).vi)+'</i></span>'+SVG.tick+'</button>' : '')
+        + pool.map(function(c){ var n=T.get(c);
+          return '<button class="lrow'+(st.sel[st.k]===c?' on':'')+'" onclick="window.__o2pick(\''+c+'\')"><span class="em">'+(st.k===0?(n.emoji||''):'')+'</span><span class="nm">'+esc(n.vi)+'</span>'+SVG.tick+'</button>'; }).join('');
+      document.getElementById('o2-save').disabled = !value();
+    }
+    window.__o2k = function(i){ st.k=i; render(); listEl.scrollTop=0; };
+    window.__o2pick = function(c){
+      st.sel[st.k]=c; for(var j=st.k+1;j<3;j++) st.sel[j]=null;
+      if(c && T.children(c).length && st.k<2){ st.k++; }          // a group with children steps you in
+      render(); listEl.scrollTop=0;
+    };
+    window.__o2clear = function(){ commit(id,null); };
+    window.__o2save = function(){ commit(id, value()); };
+    OPTS[id] = { cur:START, open:function(){ var c=OPTS[id].cur; var chain=c?[c].concat(T.ancestors(c)).reverse():[]; st.sel=[chain[0]||null,chain[1]||null,chain[2]||null]; st.k=Math.max(0,chain.length-1); render(); } };
+  })();
+
+  /* =====================================================================
+     3 · Một cây mở sẵn (outline)
+     ===================================================================== */
+  (function(){
+    var id='o3', st={ cur:START, open:{}, q:'' };
+    var inner = '<div class="sheet-h">Tiêu vào gì</div><div class="sheet-sub">Nhánh đang chọn mở sẵn. Bấm tên để chọn, bấm mũi tên để mở hoặc gập.</div>'
+      + '<div class="q"><input id="o3-q" type="search" placeholder="Tìm: cà phê, xăng, tiền điện…" autocomplete="off"></div>'
+      + '<div class="list out" id="o3-list"></div>'
+      + '<div class="foot"><button class="clr" onclick="window.__o3clear()">Chưa rõ</button><button class="cta" onclick="window.__o3save()">Lưu</button></div>';
+    grid.insertAdjacentHTML('beforeend', '<div class="item">'+phone(id, inner)
+      + caption(3,'Một cây mở sẵn',
+        'Cả cây trên một màn, thụt lề theo tầng, nhánh đang chọn mở sẵn và các nhóm khác gập lại bên dưới. Tìm kiếm lọc tại chỗ nhưng vẫn giữ đường dẫn, nên kết quả không bao giờ mất ngữ cảnh.',
+        ['Không phải chuyển màn: mọi mức đều ở đây, quan hệ nhìn thấy bằng lề','Chuyển từ Cà phê sang Ăn ngoài là một cái bấm, không phải đi lên rồi đi xuống','Tìm kiếm không phá cấu trúc'],
+        ['Mở hết Ăn uống là hơn 20 dòng, phải cuộn','Hai vùng bấm trên một dòng (tên và mũi tên) cần lề đủ rộng cho ngón tay']) + '</div>');
+    var listEl=document.getElementById('o3-list'), qEl=document.getElementById('o3-q');
+    function row(c, d, forceOpen){
+      var n=T.get(c), kids=T.children(c), has=kids.length>0, open=forceOpen||!!st.open[c];
+      var h='<div class="lrow'+(c===st.cur?' on':'')+(open?' open':'')+'" style="--d:'+d+'">'
+        + '<button class="disc'+(has?'':' none')+'" onclick="window.__o3tog(\''+c+'\')">'+SVG.chev+'</button>'
+        + (d===0?'<span class="em">'+(n.emoji||'')+'</span>':'')
+        + '<button class="nm" style="text-align:left" onclick="window.__o3pick(\''+c+'\')">'+esc(n.vi)+'</button>'+SVG.tick+'</div>';
+      if(has && open) h += kids.map(function(k){ return row(k, d+1, false); }).join('');
+      return h;
+    }
+    function render(){
+      var hits=search(st.q);
+      if(hits){
+        var keep={}; hits.forEach(function(c){ keep[c]=1; T.ancestors(c).forEach(function(a){ keep[a]=1; }); });
+        var rowF=function(c,d){ if(!keep[c]) return ''; var n=T.get(c), kids=T.children(c).filter(function(k){ return keep[k]; });
+          return '<div class="lrow'+(c===st.cur?' on':'')+(kids.length?' open':'')+'" style="--d:'+d+'"><span class="disc'+(kids.length?'':' none')+'">'+SVG.chev+'</span>'+(d===0?'<span class="em">'+(n.emoji||'')+'</span>':'')
+            + '<button class="nm" style="text-align:left" onclick="window.__o3pick(\''+c+'\')">'+esc(n.vi)+'</button>'+SVG.tick+'</div>' + kids.map(function(k){ return rowF(k,d+1); }).join(''); };
+        listEl.innerHTML = hits.length ? T.roots(KIND).map(function(r){ return rowF(r,0); }).join('') : '<div class="empty">Không tìm thấy.</div>';
+        return;
+      }
+      var here = st.cur ? T.root(st.cur) : null;
+      var roots = T.roots(KIND).filter(function(c){ return !T.get(c).manual; });
+      var h = here ? row(here,0,true) : '';
+      var others = roots.filter(function(r){ return r!==here; });
+      h += '<div class="sect">'+(here?'Nhóm khác':'Nhóm')+'</div>' + others.map(function(r){ return row(r,0,false); }).join('');
+      listEl.innerHTML = h;
+    }
+    window.__o3tog = function(c){ st.open[c]=!st.open[c]; render(); };
+    window.__o3pick = function(c){ st.cur=c; render(); };
+    window.__o3clear = function(){ commit(id,null); };
+    window.__o3save = function(){ commit(id, st.cur); };
+    qEl.addEventListener('input', function(){ st.q=qEl.value; render(); });
+    OPTS[id] = { cur:START, open:function(){ st.cur=OPTS[id].cur; st.open={}; if(st.cur) T.ancestors(st.cur).forEach(function(a){ st.open[a]=1; }); if(st.cur && T.children(st.cur).length) st.open[st.cur]=1; st.q=''; qEl.value=''; render(); } };
+  })();
+
+  /* =====================================================================
+     4 · Ba bánh xe (UIPickerView)
+     ===================================================================== */
+  (function(){
+    var id='o4', st={ sel:[null,null,null] }, H=36;
+    var inner = '<div class="sheet-h">Tiêu vào gì</div><div class="sheet-sub">Kéo từng cột. Cột bên phải để "—" là dừng ở cột trước.</div>'
+      + '<div class="sugg" id="o4-sugg"></div>'
+      + '<div class="wlbl"><span>Nhóm</span><span>Loại</span><span>Chi tiết</span></div>'
+      + '<div class="wheels"><div class="wheel" id="o4-w0"></div><div class="wheel" id="o4-w1"></div><div class="wheel" id="o4-w2"></div></div>'
+      + '<div class="wpath" id="o4-path"></div>'
+      + '<div class="foot"><button class="clr" onclick="window.__o4clear()">Chưa rõ</button><button class="cta" onclick="window.__o4save()">Lưu</button></div>';
+    grid.insertAdjacentHTML('beforeend', '<div class="item">'+phone(id, inner)
+      + caption(4,'Ba bánh xe',
+        'Bộ chọn quen thuộc nhất của iOS, dùng cho đúng việc nó sinh ra: một giá trị ba tầng, mỗi tầng một cột, cột phải phụ thuộc cột trái. Gợi ý ở trên là các mục cùng nhánh, để sửa nhanh không cần kéo.',
+        ['Thấy cả ba tầng và các lựa chọn xung quanh mỗi tầng cùng lúc','Cảm giác iOS thuần, quen tay ngay lập tức','Dòng dưới đọc lại đúng thứ sẽ lưu'],
+        ['Kéo qua 11 nhóm hay 20 loại là chậm hơn bấm','Không tìm kiếm được; gợi ý gánh phần đó','Bánh xe trong sheet cuộn được cần khoá cuộn cẩn thận trên iOS']) + '</div>');
+    var W=[0,1,2].map(function(i){ return document.getElementById('o4-w'+i); }), pathEl=document.getElementById('o4-path'), suggEl=document.getElementById('o4-sugg');
+    var lists=[[],[],[]], busy=false;
+    function items(i){
+      if(i===0) return T.roots(KIND).filter(function(c){ return !T.get(c).manual; });
+      var p=st.sel[i-1]; return p ? [null].concat(T.children(p)) : [];
+    }
+    function fill(i, keep){
+      lists[i]=items(i); var w=W[i];
+      w.classList.toggle('dis', !lists[i].length);
+      w.innerHTML = lists[i].map(function(c,j){ var on = (c===st.sel[i]);
+        return '<div class="w'+(c==null?' dash':'')+(on?' on':'')+'">'+(c==null?'—':esc(T.get(c).vi))+'</div>'; }).join('') || '<div class="w lvl">không có</div>';
+      var idx=Math.max(0, lists[i].indexOf(st.sel[i]));
+      busy=true; w.scrollTop = idx*H; setTimeout(function(){ busy=false; }, 60);
+    }
+    function value(){ return st.sel[2]||st.sel[1]||st.sel[0]||null; }
+    function paint(){
+      [0,1,2].forEach(function(i){ var idx=Math.max(0, lists[i].indexOf(st.sel[i])); Array.prototype.forEach.call(W[i].children,function(el,j){ el.classList.toggle('on', j===idx); }); });
+      var v=value(); pathEl.innerHTML = v ? T.pathVi(v).map(function(s,j,a){ return j===a.length-1?'<b>'+esc(s)+'</b>':esc(s); }).join(' › ') : '<span style="color:var(--muted-soft)">Chưa chọn</span>';
+      var sug=corrections(value());
+      suggEl.innerHTML = sug.map(function(c){ return '<button class="choice'+(c===value()?' on':'')+'" onclick="window.__o4jump(\''+c+'\')">'+esc(T.get(c).vi)+'</button>'; }).join('');
+    }
+    W.forEach(function(w,i){ var t=null; w.addEventListener('scroll', function(){ if(busy) return; clearTimeout(t); t=setTimeout(function(){
+      var j=Math.round(w.scrollTop/H), c=lists[i][j]; if(c===undefined) return;
+      if(st.sel[i]!==c){ st.sel[i]=c; for(var k=i+1;k<3;k++){ st.sel[k]=null; fill(k); } }
+      paint(); }, 80); }); });
+    function setFrom(c){ var chain=c?[c].concat(T.ancestors(c)).reverse():[]; st.sel=[chain[0]||null,chain[1]||null,chain[2]||null]; fill(0); fill(1); fill(2); paint(); }
+    window.__o4jump = function(c){ setFrom(c); };
+    window.__o4clear = function(){ commit(id,null); };
+    window.__o4save = function(){ commit(id, value()); };
+    OPTS[id] = { cur:START, open:function(){ setFrom(OPTS[id].cur); } };
+  })();
+
+  /* open the first one so the page never shows four closed sheets */
+  setTimeout(function(){ window.__open('o1'); }, 300);
+})();
+</script>
+</body>
+</html>

@@ -21,7 +21,7 @@ const ctx = { window: {}, localStorage: { getItem: () => null, setItem: () => {}
 vm.createContext(ctx);
 vm.runInContext(fs.readFileSync(path.join(ROOT, 'src/js-ui/11-taxonomy.js'), 'utf8'), ctx);
 vm.runInContext(fs.readFileSync(path.join(ROOT, 'src/js-ui/13-partition.js'), 'utf8')
-  + ';globalThis.__P={fhLabelForNode,fhDefaultClaimsFor,fhNodeGuess,fhNodeCorrections,fhNodeDepth,fhNodeFromClaims,fhNodeGroup,fhTransferShape,fhLooksSelfTransfer,fhNodeSelMatch,fhNodeSelLabel,fhNodeSelCode,fhCountsAsSpending,fhXferCashOut};', ctx);
+  + ';globalThis.__P={fhLabelForNode,fhDefaultClaimsFor,fhNodeGuess,fhNodeDepth,fhNodeFromClaims,fhNodeGroup,fhTransferShape,fhLooksSelfTransfer,fhNodeSelMatch,fhNodeSelLabel,fhNodeSelCode,fhCountsAsSpending,fhXferCashOut};', ctx);
 const T = ctx.FH_TAX, P = ctx.__P;
 const FH_TAX_VI = (c) => T.get(c).vi;
 
@@ -139,7 +139,8 @@ console.log('\n-- the guess, and what a label may contribute --');
     P.fhNodeGuess({ note: 'QR2CK3U3TT SUPERSPORTS', labelClaims: ['food'] }) === 'hobby',
     P.fhNodeGuess({ note: 'QR2CK3U3TT SUPERSPORTS', labelClaims: ['food'] }));
   t('a repayment never guesses (it inherits its loan)', P.fhNodeGuess({ kind: 'repayment', note: 'cafe' }) === null);
-  t('corrections are siblings first', P.fhNodeCorrections('coffee').slice(0, 3).every((c) => T.get(c).parent === 'drinks'));
+  /* (the siblings-first correction list is gone: the picker is the tree itself,
+     in the tree's own order — see "the picker is one outline" below) */
   t('depth: leaf 3, category 2, group 1, unknown 0',
     P.fhNodeDepth('coffee') === 3 && P.fhNodeDepth('drinks') === 2 && P.fhNodeDepth('food') === 1 && P.fhNodeDepth('zzz') === 0);
 }
@@ -530,6 +531,48 @@ console.log('\n-- statements get the same node the email path gets --');
   t('the client reads them and validates against the tree it has',
     /res\.data\.nodes/.test(st) && /FH_TAX\.get\(nd\)\) p\.node = nd/.test(st));
   t('and seals them where fhStagedNode reads email rows', /node: p\.node \|\| null,/.test(st));
+}
+
+console.log('\n-- the picker is one outline of the tree, in the tree\'s own order --');
+{
+  /* Whole files, not slices: a helper nested inside another function passes a
+     sliced test and breaks the app. */
+  const c3 = { window: {}, localStorage: { getItem: () => null, setItem: () => {} }, L: (vi) => vi,
+    esc: (x) => String(x == null ? '' : x), escAttr: (x) => String(x == null ? '' : x), fmtK: (v) => String(v),
+    document: { getElementById: () => null, querySelector: () => null } };
+  vm.createContext(c3);
+  ['11-taxonomy', '13-partition', '63-tree-ui', '56-csv-import-ui'].forEach((f) =>
+    vm.runInContext(fs.readFileSync(path.join(ROOT, 'src/js-ui/' + f + '.js'), 'utf8'), c3));
+  const H = (o) => c3.fhNodeOutlineHTML(Object.assign({ kind: 'expense', q: '', open: {},
+    pick: (c) => 'PICK(' + c + ')', toggle: (c) => 'TOG(' + c + ')', clear: 'CLEAR()' }, o));
+  const names = (html) => [...html.matchAll(/class="npick-nm"[^>]*>([^<]*)</g)].map((m) => m[1]);
+  const roots = T.roots('expense').filter((r) => !T.get(r).manual);
+
+  const open = c3.fhNodeOutlineSeed('streaming');
+  const html = H({ cur: 'streaming', open });
+  t('the tree keeps ITS order: the chosen branch is opened, never hoisted',
+    names(html)[0] === T.get(roots[0]).vi && T.root('streaming') !== roots[0], names(html).slice(0, 3));
+  t('every group is there, in taxonomy order',
+    JSON.stringify(names(html).filter((n) => roots.some((r) => T.get(r).vi === n)).slice(0, roots.length)) === JSON.stringify(roots.map((r) => T.get(r).vi)));
+  t('the path down to the current node is open', names(html).includes(T.get('streaming').vi) && names(html).includes(T.get(T.get('streaming').parent).vi));
+  t('other branches stay folded', !names(html).includes(T.get('drinks').vi));
+  t('the current node is the marked one', /npick-row on[^>]*>(?:(?!npick-row)[\s\S])*PICK\(streaming\)/.test(html));
+  t('a GROUP is one tap, same as a leaf', html.includes('PICK(leisure)') && html.includes('PICK(streaming)'));
+  t('you can go DOWN: opening a branch lists its children', names(H({ cur: null, open: { food: 1 } })).includes(T.get('drinks').vi));
+  t('a leaf has no chevron to tap', !html.includes('TOG(streaming)') && html.includes('TOG(leisure)'));
+  const found = names(H({ cur: null, q: 'ca phe' }));
+  t('search filters the outline and keeps the ancestors', found.includes(T.get('coffee').vi) && found.includes(T.get('drinks').vi) && found.includes(T.get('food').vi) && !found.includes(T.get('rent').vi), found.slice(0, 6));
+  t('"Chưa rõ" is the clear row and the only way to it', (html.match(/CLEAR\(\)/g) || []).length === 1 && !html.includes('PICK(xunfiled)'));
+  t('no node at all marks the clear row', /npick-clear on/.test(H({ cur: null })));
+  t('income rows get the income tree', names(H({ kind: 'income', cur: null })).every((n) => !roots.some((r) => T.get(r).vi === n)));
+  t('nothing found says so', /npick-empty/.test(H({ q: 'zzzzqqq' })));
+
+  t('both pickers draw the same component',
+    /fhNodeOutlineHTML\(/.test(fs.readFileSync(path.join(ROOT, 'src/js-ui/56-csv-import-ui.js'), 'utf8'))
+    && typeof c3.fhNodePickToggle === 'function' && typeof c3.fhNodePickClear === 'function');
+  t("the review sheet's outline state lives at file scope",
+    typeof c3.csvNodeToggle === 'function' && typeof c3.csvNodeSearch === 'function' && typeof c3.csvNodeListHTML === 'function');
+  t('the flat siblings-first list is gone', typeof c3.fhNodeCorrections === 'undefined');
 }
 
 console.log('\n-- the generated targets stay in lockstep with the JSON --');

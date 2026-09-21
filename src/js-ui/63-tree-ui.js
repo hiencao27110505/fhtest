@@ -5,7 +5,8 @@
    rollback switch).
 
    • fhNodeLine(code)      — "Ăn uống › Đồ uống › Cà phê", for a detail row
-   • fhNodePickOpen(...)   — the picker sheet: siblings first, then search
+   • fhNodeOutlineHTML(o)  — THE picker: one outline of the tree, in the tree's own order
+   • fhNodePickOpen(...)   — the detail screen's sheet around it
    • fhTreeSelector(scope) - "Danh mục của tôi" / "Tiêu vào gì" segmented control
    • fhTreeBreakdownHTML() — the L1 view of a month, group → category → leaf   */
 
@@ -23,49 +24,98 @@ function fhNodeShort(code) {
 /* ── the picker ─────────────────────────────────────────────────────────────
    Opened from a detail row. `onPick` is the NAME of a global taking the chosen
    code, so the sheet stays declarative like every other sheet here. */
-var _npKind = 'expense', _npCur = null, _npFn = '', _npQ = '';
+/* ── THE PICKER: ONE OUTLINE OF THE WHOLE TREE ─────────────────────────────
+   Both pickers (the detail sheet here, the review card's row sheet) draw this.
+   The tree is shown in ITS OWN ORDER, always — the same groups in the same
+   places every time it opens, so the hand learns where things are. Nothing is
+   hoisted: the branch holding the current node is opened and scrolled to, not
+   moved. Depth is a left inset; a chevron opens or folds a branch; tapping a
+   NAME chooses it, at any level, so "Ăn uống" and "Cà phê" are both one tap.
+   The old list was the node's siblings, its parent and every root in one flat
+   run: three depths in one typography, and no way DOWN at all, because a
+   node's children were never listed. */
+var _NP_CHEV = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>';
+var _NP_TICK = '<svg class="npick-tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg>';
+/* Which branches start open: the path down to the current node, nothing else. */
+function fhNodeOutlineSeed(cur) {
+  var open = {};
+  if (cur && typeof FH_TAX !== 'undefined' && FH_TAX.get(cur)) FH_TAX.ancestors(cur).forEach(function (a) { open[a] = 1; });
+  return open;
+}
+/* o = { cur, kind, q, open, pick(code)→onclick, toggle(code)→onclick, clear→onclick }
+   The two callers differ only in what a tap DOES, so they pass that in. */
+function fhNodeOutlineHTML(o) {
+  if (typeof FH_TAX === 'undefined') return '';
+  var kind = o.kind || 'expense', open = o.open || {};
+  var q = FH_TAX.deburr(o.q || '').trim(), keep = null;
+  if (q) {
+    /* Searching FILTERS the outline, it does not replace it: a hit keeps its
+       ancestors, so "cà phê" still reads Ăn uống › Đồ uống › Cà phê by shape. */
+    keep = {};
+    FH_TAX.nodes.forEach(function (n) {
+      if (n.kind !== kind || n.manual) return;
+      var hit = FH_TAX.deburr(n.vi).indexOf(q) >= 0 || FH_TAX.deburr(n.en || '').indexOf(q) >= 0
+        || (n.kw || []).some(function (k) { return FH_TAX.deburr(k).indexOf(q) >= 0; });
+      if (hit) { keep[n.code] = 1; FH_TAX.ancestors(n.code).forEach(function (a) { keep[a] = 1; }); }
+    });
+  }
+  var row = function (code, depth) {
+    var n = FH_TAX.get(code); if (!n || n.manual || (keep && !keep[code])) return '';
+    var kids = FH_TAX.children(code).filter(function (c) { return !keep || keep[c]; });
+    var isOpen = keep ? kids.length > 0 : !!open[code];
+    var h = '<div class="npick-row' + (code === o.cur ? ' on' : '') + (isOpen ? ' open' : '') + '" style="--d:' + depth + '">'
+      + (kids.length && !keep
+          ? '<button type="button" class="npick-disc" aria-expanded="' + (isOpen ? 'true' : 'false') + '" aria-label="' + escAttr(n.vi) + '" onclick="' + o.toggle(code) + '">' + _NP_CHEV + '</button>'
+          : '<span class="npick-disc' + (kids.length ? '' : ' none') + '">' + _NP_CHEV + '</span>')
+      + (depth === 0 ? '<span class="npick-em">' + esc(n.emoji || '') + '</span>' : '')
+      + '<button type="button" class="npick-nm" onclick="' + o.pick(code) + '">' + esc(n.vi) + '</button>'
+      + _NP_TICK + '</div>';
+    if (isOpen) kids.forEach(function (c) { h += row(c, depth + 1); });
+    return h;
+  };
+  var out = FH_TAX.roots(kind).map(function (r) { return row(r, 0); }).join('');
+  if (!out) return '<div class="npick-empty">' + L('Không tìm thấy', 'Nothing found') + '</div>';
+  /* "I don't know" is a real answer: it clears the node without touching the label. */
+  return out + '<button type="button" class="npick-row npick-clear' + (o.cur ? '' : ' on') + '" onclick="' + o.clear + '">'
+    + '<span class="npick-disc none"></span><span class="npick-nm">' + L('Chưa rõ', 'Not sure yet') + '</span>' + _NP_TICK + '</button>';
+}
+/* Bring the chosen row into view inside its own list, once, after it opens. */
+function fhNodeOutlineReveal(listEl) {
+  if (!listEl) return;
+  var on = listEl.querySelector('.npick-row.on');
+  if (on && on.scrollIntoView) { try { on.scrollIntoView({ block: 'center' }); } catch (e) {} }
+}
+
+/* — the detail screen's sheet (#sheet-node-pick) — */
+var _npKind = 'expense', _npCur = null, _npFn = '', _npQ = '', _npOpen = {};
 function fhNodePickOpen(cur, kind, onPick) {
   _npCur = cur || null; _npKind = kind || fhNodeKind(cur) || 'expense'; _npFn = onPick || ''; _npQ = '';
+  _npOpen = fhNodeOutlineSeed(_npCur);
   var q = document.getElementById('npick-q'); if (q) q.value = '';
   fhNodePickRender();
   if (typeof openSheet === 'function') openSheet('sheet-node-pick');
+  setTimeout(function () { fhNodeOutlineReveal(document.getElementById('npick-list')); }, 60);
 }
 function fhNodePickSearch(el) { _npQ = (el && el.value) || ''; fhNodePickRender(); }
+function fhNodePickToggle(code) { _npOpen[code] = !_npOpen[code]; fhNodePickRender(); }
 function fhNodePickRender() {
   var list = document.getElementById('npick-list'); if (!list || typeof FH_TAX === 'undefined') return;
   var head = document.getElementById('npick-h');
-  if (head) head.textContent = L('Tiêu vào gì', 'What it was');
+  if (head) head.textContent = (_npKind === 'income') ? L('Tiền từ đâu', 'Where it came from') : L('Tiêu vào gì', 'What it was');
   var sub = document.getElementById('npick-sub');
-  if (sub) sub.textContent = L('Thay đổi chờ tới khi bấm Lưu', 'Waits for Save');
-  var codes, grouped = false;
-  var q = FH_TAX.deburr(_npQ).trim();
-  if (q) {
-    codes = FH_TAX.nodes.filter(function (n) {
-      if (n.kind !== _npKind || n.manual) return false;
-      if (FH_TAX.deburr(n.vi).indexOf(q) >= 0 || FH_TAX.deburr(n.en).indexOf(q) >= 0) return true;
-      return (n.kw || []).some(function (k) { return FH_TAX.deburr(k).indexOf(q) >= 0; });
-    }).map(function (n) { return n.code; }).slice(0, 60);
-    grouped = true;
-  } else {
-    codes = (typeof fhNodeCorrections === 'function') ? fhNodeCorrections(_npCur, _npKind) : FH_TAX.roots(_npKind);
-  }
-  if (!codes.length) { list.innerHTML = '<div class="npick-empty">' + L('Không tìm thấy', 'Nothing found') + '</div>'; return; }
-  list.innerHTML = codes.map(function (c) {
-    var n = FH_TAX.get(c); if (!n) return '';
-    var path = FH_TAX.pathVi(c), tail = path.slice(0, -1).join(' › ');
-    return '<button type="button" class="choice npick' + (c === _npCur ? ' on' : '') + '"'
-      + ' onclick="fhNodePicked(&#39;' + escAttr(c) + '&#39;)">'
-      + '<span class="npick-n">' + esc(n.vi) + '</span>'
-      + ((grouped && tail) ? '<span class="npick-p">' + esc(tail) + '</span>' : '')
-      + '</button>';
-  }).join('');
+  if (sub) sub.textContent = L('Bấm tên để chọn, bấm mũi tên để mở. Thay đổi chờ tới khi bấm Lưu.', 'Tap a name to choose, the arrow to open. Waits for Save.');
+  list.innerHTML = fhNodeOutlineHTML({
+    cur: _npCur, kind: _npKind, q: _npQ, open: _npOpen,
+    pick: function (c) { return 'fhNodePicked(&#39;' + escAttr(c) + '&#39;)'; },
+    toggle: function (c) { return 'fhNodePickToggle(&#39;' + escAttr(c) + '&#39;)'; },
+    clear: 'fhNodePickClear()'
+  });
 }
 function fhNodePicked(code) {
   if (typeof closeSheet === 'function') closeSheet();
   var fn = _npFn && window[_npFn];
   if (typeof fn === 'function') fn(code);
 }
-/* "I don't know" is a real answer: it clears the node without touching the label. */
 function fhNodePickClear() { fhNodePicked(''); }
 
 /* ── the layer selector ─────────────────────────────────────────────────────

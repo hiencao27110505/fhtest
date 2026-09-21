@@ -206,14 +206,5 @@ function fhTransferShape(text){
   if(/ (gui tiet kiem|mo so tiet kiem|tat toan so) /.test(t)) return 'savings';
   return null;
 }
-/* Siblings-first correction list for a picker: the node's siblings (and itself),
-   then its parent's siblings, then every group of the kind. */
-function fhNodeCorrections(code, kind){
-  kind=kind||fhNodeKind(code)||'expense';
-  var out=[], seen={}, push=function(c){ if(c&&!seen[c]){ seen[c]=1; out.push(c); } };
-  if(fhNodeOk(code)){ var p=FH_TAX.get(code).parent; if(p){ FH_TAX.children(p).forEach(push); push(p); var gp=FH_TAX.get(p).parent; if(gp) FH_TAX.children(gp).forEach(push); } }
-  FH_TAX.roots(kind).forEach(push);
-  return out;
-}
 /* Depth reached by a row, for the coverage metric: 3 leaf · 2 category · 1 group · 0 none. */
 function fhNodeDepth(code){ var n=fhNodeOk(code)?FH_TAX.get(code):null; if(!n) return 0; return FH_TAX.isLeaf(code)?3:n.depth; }

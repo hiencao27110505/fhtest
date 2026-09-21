@@ -1342,6 +1342,7 @@ function csvRowSheetOpen(f){
   csvReadEditor(c);          // keep a note someone was mid-typing
   csvDisarmRemove();
   csvRowSheet = f;
+  if(f==='node'){ csvNodeOpen = null; csvNodeQ = ''; csvNodeReveal = true; }   // a fresh open starts from the row's node
   renderCsvReview();
 }
 function csvRowSheetClose(){ csvRowSheet = null; renderCsvReview(); }
@@ -1424,6 +1425,26 @@ window.csvSheetXferCreate = async function(){
   renderCsvReview();
 };
 
+/* State for the node outline inside the row sheet. FILE SCOPE on purpose: the
+   sheet is rebuilt from scratch on every review render, so what is open and
+   what was typed has to live outside it. null = "seed from the row's node". */
+var csvNodeOpen = null, csvNodeQ = '', csvNodeReveal = false;
+function csvNodeListHTML(c, kind){
+  return fhNodeOutlineHTML({
+    cur: c._node || null, kind: kind || c._nodeKind || (c.isIncome ? 'income' : 'expense'), q: csvNodeQ, open: csvNodeOpen || {},
+    pick: function(code){ return "csvSheetPick('node','"+escAttr(code)+"')"; },
+    toggle: function(code){ return "csvNodeToggle('"+escAttr(code)+"')"; },
+    clear: "csvSheetPick('node','')"
+  });
+}
+/* Open/fold and search repaint ONLY the list: rebuilding the whole sheet would
+   take the search field's focus and caret with it on every keystroke. */
+function csvNodeRepaint(){
+  var c = csvExpandedCandidate(), el = document.getElementById('csvnode-list');
+  if(c && el) el.innerHTML = csvNodeListHTML(c);
+}
+function csvNodeToggle(code){ if(!csvNodeOpen) csvNodeOpen = {}; csvNodeOpen[code] = !csvNodeOpen[code]; csvNodeRepaint(); }
+function csvNodeSearch(el){ csvNodeQ = (el && el.value) || ''; csvNodeRepaint(); }
 function csvRowSheetHTML(c){
   var f = csvRowSheet;
   var title = '', body = '';
@@ -1532,16 +1553,12 @@ function csvRowSheetHTML(c){
   } else if(f==='node'){
     var nKind = c._nodeKind || (c.isIncome ? 'income' : 'expense');
     title = (nKind==='income')?L('Tiền từ đâu','Where it came from'):L('Tiêu vào gì','What it was');
-    var opts = (typeof fhNodeCorrections==='function') ? fhNodeCorrections(c._node, nKind) : FH_TAX.roots(nKind);
-    body = '<div class="choices">'
-      + opts.map(function(code){
-          var nd = FH_TAX.get(code); if(!nd) return '';
-          var path = FH_TAX.pathVi(code), tail = path.slice(0,-1).join(' › ');
-          return chip(c._node===code, "csvSheetPick('node','"+escAttr(code)+"')",
-            esc(nd.vi) + (tail ? ' <span class="npick-p">'+esc(tail)+'</span>' : ''));
-        }).join('')
-      + chip(!c._node, "csvSheetPick('node','')", esc(L('Chưa rõ','Not sure yet')))
-      + '</div>';
+    /* The same outline the detail screen uses (63-tree-ui fhNodeOutlineHTML):
+       one picker, one order, on both surfaces. */
+    if(csvNodeOpen===null) csvNodeOpen = fhNodeOutlineSeed(c._node);
+    body = '<div class="npick-search"><input class="crs-in" id="csvnode-q" type="search" value="'+escAttr(csvNodeQ)+'"'
+         + ' placeholder="'+escAttr(L('Tìm: cà phê, xăng, tiền điện…','Search: coffee, fuel, electricity…'))+'" oninput="csvNodeSearch(this)" autocomplete="off"></div>'
+         + '<div class="npick-list" id="csvnode-list">'+csvNodeListHTML(c, nKind)+'</div>';
   } else if(f==='inccat'){
     title = L('Tiền gì vậy?','What money is this?');
     body = '<div class="choices">'
@@ -1578,6 +1595,7 @@ function csvRowSheetSync(){
   var c = (csvRowSheet && csvStagedMode) ? csvExpandedCandidate() : null;
   if(!c){ if(m.innerHTML) m.innerHTML=''; csvRowSheet = null; return; }
   m.innerHTML = csvRowSheetHTML(c);
+  if(csvRowSheet==='node' && csvNodeReveal){ csvNodeReveal = false; fhNodeOutlineReveal(document.getElementById('csvnode-list')); }
 }
 
 /* ── CTA bar actions ── */
