@@ -308,14 +308,47 @@ var _FOREIGN_CUR_LINE_RE = new RegExp('(?:\\b(?:' + _FOREIGN_CUR_CODES + ')\\b|[
    quietly re-creating the model-call-per-mail disease the graduation fixes had
    just cured. Strict equality on a model-spelt string is a fixture that only
    ever met one spelling. template_derive_failures caught it in one day. */
+/* COMPOUND SPELLINGS (2026-09-22). The single-token test above it fixed '₫'
+   and left every answer that says the đồng TWICE still reading as foreign:
+   "VND (₫)", "₫ VND", "VND đ", "Việt Nam Đồng", "VN Dong". A model told to
+   answer "exactly as the email states it" does exactly that on mail printing
+   both the code and the symbol. So the string is split into tokens, and it is
+   the đồng when EVERY token is a đồng word and none is foreign. One foreign
+   code or symbol anywhere ("VND/USD") keeps the refusal: an ambiguous reading
+   goes to the model path, never into a VND static. */
+var _DONG_TOKENS = { vnd: 1, vn: 1, d: 1, dong: 1, viet: 1, nam: 1, vietnam: 1, vietnamese: 1, '\u20ab': 1 };
 function _canonCurrency(c) {
   var flat = _akNorm(c).replace(/[^a-z$\u20ac\u00a3\u00a5\u20ab]/g, '');
   if (flat === '' || flat === 'vnd' || flat === 'vn' || flat === 'd' || flat === 'dong' || flat === '\u20ab') return 'VND';
+  var toks = _akNorm(c).replace(/\u20ab/g, ' \u20ab ').replace(/[^a-z$\u20ac\u00a3\u00a5\u20ab]+/g, ' ').trim().split(' ');
+  var allDong = toks.length > 0;
+  for (var i = 0; i < toks.length; i++) { if (_DONG_TOKENS[toks[i]] !== 1) { allDong = false; break; } }
+  if (allDong) return 'VND';
   return String(c).trim().toUpperCase();
 }
 
-function _readsForeignCurrency(body, amountLine) {
-  if (amountLine && _FOREIGN_CUR_LINE_RE.test(amountLine)) return true;
+/* `amountRaw`, optional (2026-09-22): the figure exactly as the template
+   captured it. The line test alone asked "does a foreign token appear ANYWHERE
+   on the amount's line", and a line is not always one cell: an SMS-style
+   notice is a single line, Gmail's plaintext joins a whole table row, and a
+   bilingual label reads "Amount (VND/USD)". So "150,000 VND ... han muc quoc
+   te 5,000 USD" degraded a domestic mail to the model, every mail, and at
+   derivation the same test failed the shape's own proof, so it never
+   graduated. The nearest token names the figure: when the captured amount is
+   itself followed (or led) by a đồng token, the amount is VND whatever else
+   the line mentions. A foreign figure is unaffected ("111.00 USD" is followed
+   by USD), and so is the dual cell that leads with it. */
+var _DONG_AFTER_RE = /^[^\S\n]{0,2}(?:VND|VN\u0110|\u20ab|\u0111|\u0110|dong|\u0111\u1ed3ng)(?![a-z])/i;
+var _DONG_BEFORE_RE = /(?:VND|VN\u0110|\u20ab)\)?[^\S\n]{0,2}[-+]?[^\S\n]{0,2}$/i;
+function _amountIsDong(amountLine, amountRaw) {
+  if (!amountLine || !amountRaw) return false;
+  var at = amountLine.indexOf(amountRaw);
+  if (at < 0) return false;
+  return _DONG_AFTER_RE.test(amountLine.slice(at + amountRaw.length)) || _DONG_BEFORE_RE.test(amountLine.slice(0, at));
+}
+
+function _readsForeignCurrency(body, amountLine, amountRaw) {
+  if (amountLine && _FOREIGN_CUR_LINE_RE.test(amountLine) && !_amountIsDong(amountLine, amountRaw)) return true;
   var flat = _akNorm(body);
   var m = flat.match(/(?:loai tien(?: te)?|don vi tien te)\s*[:.\-]?\s*([a-z]{3})\b/);
   if (!m) return false;
@@ -535,7 +568,7 @@ function applyExtractionTemplate(tplJson, body) {
   var out = { is_transaction: true };
   for (var s in tpl.static) out[s] = tpl.static[s];
 
-  var amtLine = '';
+  var amtLine = '', amtRawStr = '';
   for (var f in tpl.fields) {
     var spec = tpl.fields[f], m;
     try { m = new RegExp(spec.re).exec(body); } catch (e) { return null; }
@@ -555,6 +588,7 @@ function applyExtractionTemplate(tplJson, body) {
         var ls = body.lastIndexOf('\n', vi) + 1;
         var le = body.indexOf('\n', vi);
         amtLine = body.slice(ls, le < 0 ? body.length : le);
+        amtRawStr = raw;
       }
     } else {
       out[f] = raw;
@@ -564,7 +598,8 @@ function applyExtractionTemplate(tplJson, body) {
   // The foreign-currency degrade (see the guard above deriveExtractionTemplate):
   // a mail that speaks a foreign currency where this template would answer VND
   // goes to the currency-aware tiers instead of being misread here.
-  if ((out.currency == null || out.currency === 'VND') && _readsForeignCurrency(body, amtLine)) return null;
+  // A template learned off a đồng spelling ("₫") is a VND template too.
+  if ((out.currency == null || _canonCurrency(out.currency) === 'VND') && _readsForeignCurrency(body, amtLine, amtRawStr)) return null;
   return out;
 }
 

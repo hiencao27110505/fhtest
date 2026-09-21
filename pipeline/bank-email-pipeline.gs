@@ -19,7 +19,7 @@
 // Bumped on every change that gets pasted into Apps Script. Logged on each run
 // so "which code is actually live" is never again something to infer from the
 // wording of an error — several hours went into that guess this session.
-var PIPELINE_VERSION = '2026-09-07-heartbeat'; // the model quotes the substrings its two mandatory readings came from, and derivation anchors on the quote instead of guessing; paste only from origin/main
+var PIPELINE_VERSION = '2026-09-22-reading-v2'; // landing 1 of email-reading-v2: subject hygiene + hash-on-doubt cache key, the month rules this twin was missing, no cache row under a free-mail forwarder's address, compound dong spellings, a foreign refusal no longer wipes the shape's VND template; paste only from origin/main
 
 var MAX_NEW_CLASSIFICATIONS_PER_RUN = 10;
 var MAX_NEW_CLASSIFICATIONS_PER_DAY = 50;
@@ -305,9 +305,20 @@ function processOneMessage(message, runCallCount) {
     relabelMessageThread(message, 'txn/processed');
     return runCallCount;
   }
-  var template = normalizeSubjectTemplate(subject);
+  // The cache key: the normalised subject, or its hash when it still looks
+  // dirty. Every read and write below uses THIS string (subjectCacheKey).
+  var template = subjectCacheKey(subject);
 
   var fingerprint = findFingerprint(sender, template);
+  // Rows written before hash-on-doubt, and before the month rules, sit under
+  // the older readable keys. Read them, never write them: a re-learn moves the
+  // row to the new key by itself, and nothing re-derives in the meantime.
+  if (!fingerprint) {
+    var plainKey = normalizeSubjectTemplate(subject);
+    var legacyKey = legacySubjectTemplate(subject);
+    if (plainKey !== template) fingerprint = findFingerprint(sender, plainKey);
+    if (!fingerprint && legacyKey !== template && legacyKey !== plainKey) fingerprint = findFingerprint(sender, legacyKey);
+  }
   var extraction = null;
 
   if (fingerprint && fingerprint.is_transaction_source === false) {
@@ -371,7 +382,17 @@ function processOneMessage(message, runCallCount) {
         accountMasked: extraction.account_masked,
       });
     }
-    var derivedRegex = deriveExtractionTemplate(body, extraction);
+    /* A foreign mail must not cost the shape its VND template (2026-09-22,
+       mirror of extract.mjs _templateToStore). Derivation refuses a non-VND
+       reading, and the upsert then wrote null OVER the stored template, so the
+       next domestic mail paid the model to learn the shape again. Only the
+       'foreign_currency' refusal keeps what is stored. */
+    var deriveStep = null;
+    var derivedRegex = deriveExtractionTemplate(body, extraction, function (step) { deriveStep = step; });
+    if (!derivedRegex && deriveStep === 'foreign_currency' && fingerprint &&
+        typeof fingerprint.extraction_regex === 'string') {
+      derivedRegex = fingerprint.extraction_regex;
+    }
     upsertFingerprint(sender, template, true, extraction.transaction_type, derivedRegex);
   }
 
@@ -611,8 +632,62 @@ function normalizeSubjectTemplate(subject) {
     .replace(/\b\d{6,}\b/g, '')
     .replace(/\b\w+ \d{1,2},? \d{4}\b/g, '')
     .replace(/\b\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4}\b/g, '')
+    // A masked account token and a phone typed with separators (2026-09-22):
+    // this string is stored in plaintext in a table every family shares, and
+    // neither survived the rules above. Identical to extract.mjs, line for line.
+    .replace(/\b\d{2,4}-[Xx*]{3,}(?:-\d{2,4})?/g, '')
+    .replace(/(?:\+?84|\b0)(?:[\s.\-]?\d){8,10}\b/g, '')
+    // The two month rules the direct transport has had since 2026-09-15 and
+    // this twin never got: "ky 09/2026" and "ky 10/2026" are one template. While
+    // they were missing here the two transports keyed every statement sender
+    // differently and the shared cache split in two.
+    .replace(/\b(th[aá]ng|k[yỳ])\s*\d{1,2}\s*[\/-]\s*\d{2,4}\b/gi, '')
+    .replace(/\b\d{1,2}\/\d{4}\b/g, '')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+// The key as this script wrote it BEFORE the month rules above. Read-only, and
+// only as a fallback, so a row learned last month still answers and no model
+// call is paid twice for a shape already known. Same function, same reason, as
+// legacySubjectTemplate in extract.mjs.
+function legacySubjectTemplate(subject) {
+  return subject
+    .replace(/^\s*((fwd|fw|re|chuyen tiep|chuyển tiếp)\s*:\s*)+/i, '')
+    .replace(/#[\w-]+/g, '')
+    .replace(/\b\d{6,}\b/g, '')
+    .replace(/\b\w+ \d{1,2},? \d{4}\b/g, '')
+    .replace(/\b\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4}\b/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// HASH ON DOUBT (2026-09-22), the twin of subjectCacheKey in extract.mjs. The
+// cache is an exact-match lookup and never needed readable text. A normalised
+// subject that still looks dirty (a run of four or more digits that is not a
+// plain year, or eight or more digits strung together by spaces, dots or
+// dashes) is keyed by its SHA-256 instead. BOTH transports must produce the
+// same string or the shared cache splits: pipeline/subject-hygiene.test.js pins
+// a known digest for the JS side, and this is plain SHA-256 over UTF-8, hex.
+function subjectLooksDirty(normalised) {
+  var t = String(normalised || '');
+  var runs = t.match(/\d{4,}/g) || [];
+  for (var i = 0; i < runs.length; i++) {
+    if (!/^(?:19|20)\d{2}$/.test(runs[i])) return true;
+  }
+  return /\d(?:[\s.\-]?\d){7,}/.test(t);
+}
+
+function subjectCacheKey(subject) {
+  var t = normalizeSubjectTemplate(subject);
+  if (!subjectLooksDirty(t)) return t;
+  var bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, t, Utilities.Charset.UTF_8);
+  var hex = '';
+  for (var i = 0; i < bytes.length; i++) {
+    var b = (bytes[i] + 256) % 256;          // Apps Script bytes are signed
+    hex += (b < 16 ? '0' : '') + b.toString(16);
+  }
+  return 'h:' + hex;
 }
 
 function relabelMessageThread(message, labelName) {
@@ -1403,14 +1478,47 @@ var _FOREIGN_CUR_LINE_RE = new RegExp('(?:\\b(?:' + _FOREIGN_CUR_CODES + ')\\b|[
    quietly re-creating the model-call-per-mail disease the graduation fixes had
    just cured. Strict equality on a model-spelt string is a fixture that only
    ever met one spelling. template_derive_failures caught it in one day. */
+/* COMPOUND SPELLINGS (2026-09-22). The single-token test above it fixed '₫'
+   and left every answer that says the đồng TWICE still reading as foreign:
+   "VND (₫)", "₫ VND", "VND đ", "Việt Nam Đồng", "VN Dong". A model told to
+   answer "exactly as the email states it" does exactly that on mail printing
+   both the code and the symbol. So the string is split into tokens, and it is
+   the đồng when EVERY token is a đồng word and none is foreign. One foreign
+   code or symbol anywhere ("VND/USD") keeps the refusal: an ambiguous reading
+   goes to the model path, never into a VND static. */
+var _DONG_TOKENS = { vnd: 1, vn: 1, d: 1, dong: 1, viet: 1, nam: 1, vietnam: 1, vietnamese: 1, '\u20ab': 1 };
 function _canonCurrency(c) {
   var flat = _akNorm(c).replace(/[^a-z$\u20ac\u00a3\u00a5\u20ab]/g, '');
   if (flat === '' || flat === 'vnd' || flat === 'vn' || flat === 'd' || flat === 'dong' || flat === '\u20ab') return 'VND';
+  var toks = _akNorm(c).replace(/\u20ab/g, ' \u20ab ').replace(/[^a-z$\u20ac\u00a3\u00a5\u20ab]+/g, ' ').trim().split(' ');
+  var allDong = toks.length > 0;
+  for (var i = 0; i < toks.length; i++) { if (_DONG_TOKENS[toks[i]] !== 1) { allDong = false; break; } }
+  if (allDong) return 'VND';
   return String(c).trim().toUpperCase();
 }
 
-function _readsForeignCurrency(body, amountLine) {
-  if (amountLine && _FOREIGN_CUR_LINE_RE.test(amountLine)) return true;
+/* `amountRaw`, optional (2026-09-22): the figure exactly as the template
+   captured it. The line test alone asked "does a foreign token appear ANYWHERE
+   on the amount's line", and a line is not always one cell: an SMS-style
+   notice is a single line, Gmail's plaintext joins a whole table row, and a
+   bilingual label reads "Amount (VND/USD)". So "150,000 VND ... han muc quoc
+   te 5,000 USD" degraded a domestic mail to the model, every mail, and at
+   derivation the same test failed the shape's own proof, so it never
+   graduated. The nearest token names the figure: when the captured amount is
+   itself followed (or led) by a đồng token, the amount is VND whatever else
+   the line mentions. A foreign figure is unaffected ("111.00 USD" is followed
+   by USD), and so is the dual cell that leads with it. */
+var _DONG_AFTER_RE = /^[^\S\n]{0,2}(?:VND|VN\u0110|\u20ab|\u0111|\u0110|dong|\u0111\u1ed3ng)(?![a-z])/i;
+var _DONG_BEFORE_RE = /(?:VND|VN\u0110|\u20ab)\)?[^\S\n]{0,2}[-+]?[^\S\n]{0,2}$/i;
+function _amountIsDong(amountLine, amountRaw) {
+  if (!amountLine || !amountRaw) return false;
+  var at = amountLine.indexOf(amountRaw);
+  if (at < 0) return false;
+  return _DONG_AFTER_RE.test(amountLine.slice(at + amountRaw.length)) || _DONG_BEFORE_RE.test(amountLine.slice(0, at));
+}
+
+function _readsForeignCurrency(body, amountLine, amountRaw) {
+  if (amountLine && _FOREIGN_CUR_LINE_RE.test(amountLine) && !_amountIsDong(amountLine, amountRaw)) return true;
   var flat = _akNorm(body);
   var m = flat.match(/(?:loai tien(?: te)?|don vi tien te)\s*[:.\-]?\s*([a-z]{3})\b/);
   if (!m) return false;
@@ -1612,7 +1720,7 @@ function applyExtractionTemplate(tplJson, body) {
   var out = { is_transaction: true };
   for (var s in tpl.static) out[s] = tpl.static[s];
 
-  var amtLine = '';
+  var amtLine = '', amtRawStr = '';
   for (var f in tpl.fields) {
     var spec = tpl.fields[f], m;
     try { m = new RegExp(spec.re).exec(body); } catch (e) { return null; }
@@ -1632,6 +1740,7 @@ function applyExtractionTemplate(tplJson, body) {
         var ls = body.lastIndexOf('\n', vi) + 1;
         var le = body.indexOf('\n', vi);
         amtLine = body.slice(ls, le < 0 ? body.length : le);
+        amtRawStr = raw;
       }
     } else {
       out[f] = raw;
@@ -1641,11 +1750,32 @@ function applyExtractionTemplate(tplJson, body) {
   // The foreign-currency degrade (see the guard above deriveExtractionTemplate):
   // a mail that speaks a foreign currency where this template would answer VND
   // goes to the currency-aware tiers instead of being misread here.
-  if ((out.currency == null || out.currency === 'VND') && _readsForeignCurrency(body, amtLine)) return null;
+  // A template learned off a đồng spelling ("₫") is a VND template too.
+  if ((out.currency == null || _canonCurrency(out.currency) === 'VND') && _readsForeignCurrency(body, amtLine, amtRawStr)) return null;
   return out;
 }
 
+// A personal mailbox provider: someone hand-forwarding one receipt from their
+// own Gmail, so THEIR address arrives here as the "sender". Same list as
+// isFreeMail in senders.mjs (pipeline/sender-gate.test.js compares the two).
+var FREE_MAIL_DOMAINS = ['gmail.com', 'googlemail.com', 'yahoo.com', 'yahoo.com.vn', 'ymail.com',
+  'outlook.com', 'outlook.com.vn', 'hotmail.com', 'live.com', 'msn.com',
+  'icloud.com', 'me.com', 'mac.com', 'aol.com', 'proton.me', 'protonmail.com',
+  'zoho.com', 'mail.com', 'gmx.com', 'yandex.com'];
+function isFreeMail(address) {
+  var a = String(address || '').trim().toLowerCase();
+  var at = a.lastIndexOf('@');
+  return at >= 0 && FREE_MAIL_DOMAINS.indexOf(a.slice(at + 1)) >= 0;
+}
+
 function upsertFingerprint(sender, template, isSource, txnType, regex) {
+  /* NEVER CACHED UNDER A PERSON'S OWN ADDRESS (2026-09-22, email-reading-v2
+     §7). sender_fingerprints is plaintext and shared by every family, and two
+     rows in it were keyed by a family member's Gmail: a receipt they had
+     forwarded by hand. The mail is still processed exactly as before; only the
+     cache write is skipped, so the next hand-forward from that person is read
+     afresh instead of being answered by a row that names them. */
+  if (isFreeMail(sender)) return;
   supabasePost('sender_fingerprints', {
     sender_address: sender,
     subject_template: template,

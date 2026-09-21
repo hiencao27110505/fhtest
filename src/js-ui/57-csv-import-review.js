@@ -831,6 +831,11 @@ function buildCsvCandidates(parsed, result) {
       }
     }
 
+    /* Read BEFORE the self-transfer test below, which asks it a question. It used
+       to be declared after that test: `var` hoists the name, so nothing threw, the
+       test simply saw undefined on every row and its counterparty half never ran. */
+    var party = colFor.counterparty !== undefined ? (row[colFor.counterparty] || '').trim() : '';
+
     /* Self-transfer ("X chuyển tiền đến X") is an internal move between own
        accounts, not a card payment — reclassify cardpay → xfer so the review
        asks which account, not which card. Reads the staged memo (the counterparty
@@ -844,7 +849,18 @@ function buildCsvCandidates(parsed, result) {
        of a transfer is still a claim the person should see. A holder-name memo
        alone never sets this (the parser does not raise it). */
     var _stmtHint = (window.csvStagedMode && typeof window.fhStagedRawX === 'function') ? ((window.fhStagedRawX(i) || {}).stmt || null) : null;
-    if (_stmtHint && _stmtHint.xfer) { _xfer = true; isTransfer = false; isIncome = false; }
+    /* _xferDir: which way the money moved on a row pre-set as a transfer. Everywhere
+       else isIncome doubles as the direction flag (the Kind control never clears it
+       when a credit is flipped to a transfer), but the line below clears it, and with
+       it the only record that a wallet's top-up is money coming IN. The review card
+       has always asked `isIncome || _xferDir === 'in'` (56) and nothing ever set the
+       second half, so such a row was offered the money-out kinds and its wallet leg
+       was imported with the wrong sign. Set from the staged row's own direction. */
+    var _xferDir;
+    if (_stmtHint && _stmtHint.xfer) {
+      _xferDir = ((window.fhStagedRawX(i) || {}).direction === 'credit') ? 'in' : 'out';
+      _xfer = true; isTransfer = false; isIncome = false;
+    }
     var _selfMemo = '';
     if (window.csvStagedMode && typeof window.fhStagedRawX === 'function') {
       var _rx = window.fhStagedRawX(i);
@@ -863,8 +879,6 @@ function buildCsvCandidates(parsed, result) {
     if (isTransfer && !_xfer && window.fhResolveRepaidCard) {
       try { _payCardId = window.fhResolveRepaidCard(_sx, _sa, desc) || null; } catch (e) { _payCardId = null; }
     }
-
-    var party = colFor.counterparty !== undefined ? (row[colFor.counterparty] || '').trim() : '';
 
     /* The file often records who paid, and the ledger has that field too --
        match it to a real member so nobody re-enters what the export knew.
@@ -968,6 +982,16 @@ function buildCsvCandidates(parsed, result) {
             && fhWhoNode({ kind: nodeKind, note: desc, counterparty: party, amount: amount }) === 'p2p') node = _okN('p2p');
         if (node) nodeSource = 'keyword';
       }
+      /* 4b. the statement's own reading of the row. fhStmtClassify calls a debit
+             whose words say "phí" a fee, and that verdict used to die at the
+             hand-off (77 kept cardpay and topup only). It is the same class of
+             evidence as tier 4, a word, so it speaks only when the tree's own
+             keywords named nothing more specific ("phi giu xe" is parking, and
+             stays parking). It rests on the GROUP: the word says "a fee", never
+             which one. _okN keeps it off any row that is not an expense. */
+      if (!node && _stmtHint && _stmtHint.flow === 'fee') {
+        node = _okN('fees'); if (node) nodeSource = 'statement';
+      }
       /* 5. the legacy 8-concept hint, lifted to the tree GROUP that carries it.
             A concept is exactly a group's worth of confidence, so it lands on the
             group and never pretends to a leaf. */
@@ -993,8 +1017,17 @@ function buildCsvCandidates(parsed, result) {
        wording, always overridable on the card. Never a family expense category. */
     var incomeCat = null;
     if (isIncome) {
+      /* A statement row arrives already classified by the file's own reader
+         (fhStmtClassify: a credit it called a refund or a salary). That is the
+         source's stated answer, so it goes ahead of the keyword guess below, the
+         same precedence the file's category column gets over guessCat. Read from
+         stmt.incomeCat, and from the flow for a payload that carries only that.
+         Only a name the income set really has is accepted. */
+      var _stmtInc = _stmtHint ? (_stmtHint.incomeCat || ({ salary: 'Lương', refund: 'Hoàn tiền' })[_stmtHint.flow] || '') : '';
+      if (_stmtInc && typeof FH_INCOME_CATS !== 'undefined' && FH_INCOME_CATS.indexOf(_stmtInc) < 0) _stmtInc = '';
       var itext = deburr(String(desc || '').toLowerCase());
-      incomeCat = /\b(luong|salary|payroll)\b/.test(itext) ? 'Lương'
+      incomeCat = _stmtInc ? _stmtInc
+        : /\b(luong|salary|payroll)\b/.test(itext) ? 'Lương'
         : /\b(thuong|bonus)\b/.test(itext) ? 'Thưởng'
         : /\b(hoan tien|refund|hoan phi)\b/.test(itext) ? 'Hoàn tiền'
         : 'Khác';
@@ -1024,8 +1057,16 @@ function buildCsvCandidates(parsed, result) {
       categoryGuess: catGuess, categoryName: catName, catSource: catSource,
       _node: node, _nodeSource: nodeSource, _nodeKind: nodeKind, _receipt: isReceipt || undefined,
       counterparty: party, who: who, isIncome: isIncome, isTransfer: isTransfer, _xfer: _xfer,
+      _xferDir: _xferDir,
+      /* The bank's own reference, off the staged row. csvInfoScore has always counted
+         it when choosing the richest of two copies of one payment, and no candidate
+         ever carried it. Review-only: it has no ledger column, on purpose
+         (email-reading-v2-spec §4), and the file-import draft does not keep it. */
+      reference_number: (window.csvStagedMode && typeof window.fhStagedRawX === 'function'
+        && String((window.fhStagedRawX(i) || {}).reference_number || '').trim()) || undefined,
       _payCardId: _payCardId,
       _stmtAttn: !!(_stmtHint && _stmtHint.attn) || undefined,
+      _stmtFlow: (_stmtHint && _stmtHint.flow) || undefined,   // the statement's own word for the row (fee, refund, salary, topup, cardpay)
     };
   });
 }

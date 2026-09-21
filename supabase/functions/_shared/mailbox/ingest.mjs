@@ -114,6 +114,10 @@ export function normaliseReading(raw, body) {
     direction: r.direction,
     balance: r.balance ?? null,
     merchant: merchant ? tidyMerchant(merchant) : null,
+    // What the caller read, before the tidy above. stage.mjs seals it as
+    // counterparty_raw only when it differs from a NON-EMPTY tidied form, so a
+    // salutation the tidy rejected outright does not come back through here.
+    merchantRaw: merchant || null,
     description: memo,
     descriptionDisplay: tidy.description,
     typeCode: r.type_code || r.typeCode || tidy.code || null,
@@ -128,6 +132,13 @@ export function normaliseReading(raw, body) {
     senderAuth: r.sender_auth ?? r.senderAuth ?? null,
     status: r.status ?? null,
     flow: r.flow ?? null,
+    /* The caller's `transaction_type` is ITS reader's verdict on the mail, the
+       same thing the direct-read extractor calls transaction_type. It never
+       becomes the sealed transaction_type (stage.mjs derives that from the
+       sender kind, for the device's dedup rule); it rides as reader_type.
+       Kept in step with worker.mjs `_toReading`: a field mapped on one
+       transport only is a field half the rows will never carry. */
+    readerType: r.reader_type ?? r.readerType ?? r.transaction_type ?? null,
   };
 }
 

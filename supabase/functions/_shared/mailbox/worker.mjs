@@ -27,7 +27,7 @@
 import { resolveDestination, MailboxHold } from './identity.mjs';
 import { buildStagedRow } from './stage.mjs';
 import { copyMeta } from './notify-copy.mjs';
-import { readTransaction, normalizeSubjectTemplate, legacySubjectTemplate, SENDER_SENTINEL } from './extract.mjs';
+import { readTransaction, normalizeSubjectTemplate, legacySubjectTemplate, subjectCacheKey, SENDER_SENTINEL } from './extract.mjs';
 import { enrichCategory } from './classify.mjs';
 import * as senders from './senders.mjs';
 import * as gmail from './gmail.mjs';
@@ -713,11 +713,18 @@ async function _runGrantLocked(grant, ctx) {
       if (meta && meta.internalDate) atOf.set(g.id, meta.internalDate);
       if (!meta) { summary.skipped++; continue; }          // deleted between list and get
       if (!senders.match(meta.from, domains)) { summary.skipped++; continue; }
-      const key = _senderKey(meta.from) + '\u0000' + normalizeSubjectTemplate(meta.subject);
-      // A row learned under the pre-month key still answers (2026-09-15).
+      /* The SAME key readTransaction reads and writes by (extract.mjs
+         subjectCacheKey: the normalised subject, or its hash when it still
+         looks dirty). A different string here and the header pass never sees
+         a verdict the body pass wrote. */
+      const key = _senderKey(meta.from) + '\u0000' + await subjectCacheKey(meta.subject, ctx.subtle);
+      // A row written before hash-on-doubt still answers under its readable key,
+      const plainKey = _senderKey(meta.from) + '\u0000' + normalizeSubjectTemplate(meta.subject);
+      // and one learned under the pre-month key likewise (2026-09-15).
       const legacyKey = _senderKey(meta.from) + '\u0000' + legacySubjectTemplate(meta.subject);
       const fp = warmFingerprints.get(key)
-        || (legacyKey !== key ? warmFingerprints.get(legacyKey) : null);
+        || (plainKey !== key ? warmFingerprints.get(plainKey) : null)
+        || (legacyKey !== key && legacyKey !== plainKey ? warmFingerprints.get(legacyKey) : null);
       if (fp && fp.is_transaction_source === false) {
         // The exact-shape junk verdict, applied where it was always known:
         // before the body. Same tally stage as before — it means "answered by
@@ -726,8 +733,14 @@ async function _runGrantLocked(grant, ctx) {
         await ctx.db.bumpReadTally?.('junk_cache');
         continue;
       }
+      /* A person-shaped sender (senders.isPersonShaped: bank staff, not a
+         notice) is never model-bound, whatever an old fingerprint row says:
+         readTransaction will not send it to the model, so holding it for a
+         funded run would hold it for good. It goes on to the body fetch, the
+         free tiers get their one look, and it is settled this run. */
       if (fp && fp.is_transaction_source === true && typeof fp.extraction_regex !== 'string'
-          && ctx.budget && ctx.budget.left() === 0) {
+          && ctx.budget && ctx.budget.left() === 0
+          && !senders.isPersonShaped(_senderKey(meta.from))) {
         // Known model-bound, no budget left: this body would only be fetched,
         // decoded, and HELD. Hold it without the fetch. hitLimit keeps the
         // cursor, so nothing is skipped — only deferred to a funded run.
@@ -782,7 +795,7 @@ async function _runGrantLocked(grant, ctx) {
     let read;
     try {
       read = await readTransaction(message, ctx.db, {
-        llm: ctx.llm, fetch: ctx.fetch, budget: ctx.budget,
+        llm: ctx.llm, fetch: ctx.fetch, budget: ctx.budget, subtle: ctx.subtle,
         fingerprints: warmFingerprints.size ? warmFingerprints : null,
         learnedLabels: ctx.learnedLabels || null,
       });
@@ -1065,6 +1078,14 @@ function _toReading(x, message) {
     fxAmount: x.fx_amount ?? null,
     fxCurrency: x.fx_currency || null,
     merchant: x.counterparty_display || x.counterparty || null,
+    /* The counterparty AS THE MAIL PRINTED IT (email-reading-v2 §2, §4). The
+       line above prefers the tidied form, which is what the device has always
+       read, and until 2026-09-22 that was the only one sealed: "MPOS*ZQ MART 01
+       HO CHI MINH VN" left as "ZQ MART 01" and the original was gone for good,
+       because a box is never amended. stage.mjs seals it as counterparty_raw,
+       and only when it differs. A salutation the tidy layer REJECTED never
+       rides here: _tidy nulls x.counterparty itself in that case. */
+    merchantRaw: x.counterparty || null,
     reference: x.reference_number || null,
     // Falling back to the mail's own date: a template that could not anchor the
     // timestamp still produced a real transaction, and a row with no date
@@ -1101,6 +1122,17 @@ function _toReading(x, message) {
        every sealed row while the classifier filled it perfectly. */
     node: x.node || null,
     flow: x.flow || null,
+    /* The mail's own outcome ("Thành công", "completed"). stage.mjs has always
+       sealed reading.status; this mapper had no such key, so every direct-read
+       row sealed status null while the reader held it (email-reading-v2 §2).
+       The mapping IS the wire, as for cardMasked and node above. */
+    status: x.status || null,
+    /* The READER'S verdict on what kind of mail this is, which is a different
+       question from the sealed transaction_type (stage.mjs derives THAT from
+       the sender kind, on purpose, for the device's bank-vs-bank dedup rule).
+       Sealed beside it as raw_extracted.reader_type, so "this was a transfer
+       to a person" finally reaches review. */
+    readerType: x.transaction_type || null,
     senderAuth: message.dkim,
   };
 }

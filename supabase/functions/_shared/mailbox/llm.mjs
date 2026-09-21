@@ -212,19 +212,41 @@ export const EXTRACTION_SCHEMA = {
  * Schema: no `type: [x, "null"]` union (it wants `nullable: true`), and
  * `additionalProperties` is a hard 400 rather than being ignored. Converted on
  * the way out so EXTRACTION_SCHEMA itself stays the one both transports share.
+ *
+ * AT EVERY DEPTH (2026-09-22). This used to walk the TOP-LEVEL properties only,
+ * which is all the flat extraction schema ever needed. The first nested schema
+ * (classify.mjs BATCH_SCHEMA: an array of objects) went through it untouched
+ * below the first level, and its caller patched one level by hand. A converter
+ * that is correct only for the shapes it has met so far is how
+ * `classify_merchant_batch` came to fail 4 of 4 with HTTP 400: every rule above
+ * is a hard 400, and any of them surviving anywhere in the tree is enough. So
+ * the rewrite now recurses through `properties`, `items` and `anyOf`, and a
+ * `required` list inside `items` rides through untouched, as Gemini accepts it.
+ * A null inside an `enum` makes the node nullable even when its `type` was not
+ * written as a union, because Gemini refuses the null either way.
  */
 export function toGeminiSchema(schema) {
-  const copy = JSON.parse(JSON.stringify(schema));
-  delete copy.additionalProperties;
-  for (const key of Object.keys(copy.properties || {})) {
-    const prop = copy.properties[key];
-    if (Array.isArray(prop.type)) {
-      prop.type = prop.type.filter(t => t !== 'null')[0];
-      prop.nullable = true;
-      if (Array.isArray(prop.enum)) prop.enum = prop.enum.filter(e => e !== null);
-    }
+  return _geminiNode(JSON.parse(JSON.stringify(schema)));
+}
+
+function _geminiNode(node) {
+  if (!node || typeof node !== 'object' || Array.isArray(node)) return node;
+  delete node.additionalProperties;
+  if (Array.isArray(node.type)) {
+    const real = node.type.filter((t) => t !== 'null');
+    if (real.length !== node.type.length) node.nullable = true;
+    node.type = real[0];
   }
-  return copy;
+  if (Array.isArray(node.enum) && node.enum.indexOf(null) >= 0) {
+    node.enum = node.enum.filter((e) => e !== null);
+    node.nullable = true;
+  }
+  if (node.properties && typeof node.properties === 'object') {
+    for (const key of Object.keys(node.properties)) node.properties[key] = _geminiNode(node.properties[key]);
+  }
+  if (node.items) node.items = _geminiNode(node.items);
+  if (Array.isArray(node.anyOf)) node.anyOf = node.anyOf.map(_geminiNode);
+  return node;
 }
 
 /** The model could not be reached, or did not answer usably. */

@@ -88,8 +88,14 @@ t('shape rules alone already remove every leaked family here',
    invisible to every shape rule above. It is also the single most sensitive
    free-text field we hold — the payer's own words about why the money moved. */
 const MEMO_BODY = ['Diễn giải', 'Thanh toan tien dien hang thang', 'Số hoá đơn', 'HD1'].join('\n');
-t('without a reading, a digit-free mixed-case memo leaks',
-  unknownLabels(MEMO_BODY).some((l) => l.includes('Thanh toan tien dien hang thang')));
+/* CHANGED 2026-09-22. This used to assert the LEAK ("without a reading, a
+   digit-free mixed-case memo leaks"), as the argument for always passing the
+   reading. The leak had a cause of its own: after accepting "Diễn giải" the
+   harvester tested the NEXT line, that label's value, as another candidate.
+   It now steps over the value line (pipeline/label-harvester.test.js), so the
+   memo is never a candidate at all. Subtraction stays as the second guard. */
+t('without a reading, the memo no longer leaks: a label\'s value line is never a candidate',
+  !unknownLabels(MEMO_BODY).some((l) => l.includes('Thanh toan tien dien hang thang')));
 t('with the reading, it is subtracted and only labels remain',
   JSON.stringify(unknownLabels(MEMO_BODY, { memo: 'Thanh toan tien dien hang thang' }))
   === JSON.stringify(['Diễn giải', 'Số hoá đơn']));

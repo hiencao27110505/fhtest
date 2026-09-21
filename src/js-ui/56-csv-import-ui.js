@@ -1279,11 +1279,11 @@ function csvStagedRowsCard(c, opts){
       accts.forEach(function(a){ if(a.id===sel) an = a.name || L('Tài khoản','Account'); });
       if(sel==='_cash') an = L('Tiền mặt','Cash');
       rows += row('xferacct',
-        (c.isIncome ? L('Chuyển từ đâu','From where') : L('Chuyển đến đâu','To where')),
+        ((c.isIncome || c._xferDir === 'in') ? L('Chuyển từ đâu','From where') : L('Chuyển đến đâu','To where')),
         an ? esc(an) : L('Chọn tài khoản','Pick one'), { soft: !an });
     }
     if(cur==='repay'){
-      rows += row('repay', c.isIncome ? L('Ai trả bạn','Who repaid') : L('Trả nợ cho ai','Repaying whom'),
+      rows += row('repay', (c.isIncome || c._xferDir === 'in') ? L('Ai trả bạn','Who repaid') : L('Trả nợ cho ai','Repaying whom'),
         c._repayWho ? esc(c._repayWho) : L('Chọn','Pick'), { soft: !c._repayWho });
     }
   }
@@ -1517,7 +1517,7 @@ function csvRowSheetHTML(c){
       + (cards.length ? '' : '<div class="csv-scope-note">'+esc(L('Chưa có thẻ tín dụng nào — vẫn ghi được, gán thẻ sau ở mục Nợ & cho vay.','No credit card yet — it still imports, assign a card later in Owing & lending.'))+'</div>');
   } else if(f==='xferacct'){
     var accts = csvXferAccounts(c), sel = c._xferOtherId || '';
-    title = c.isIncome ? L('Chuyển từ đâu?','From which account?') : L('Chuyển đến đâu?','To which account?');
+    title = (c.isIncome || c._xferDir === 'in') ? L('Chuyển từ đâu?','From which account?') : L('Chuyển đến đâu?','To which account?');
     body = '<div class="choices">'
       + accts.map(function(a){ return chip(sel===a.id, "csvSheetPick('xferacct','"+a.id+"')", esc(a.name||L('Tài khoản','Account'))); }).join('')
       + chip(sel==='_cash', "csvSheetPick('xferacct','_cash')", esc(L('Tiền mặt','Cash')))
@@ -3522,6 +3522,31 @@ function csvDeferConfirm(di){
 
 function csvDeferDrop(di){ csvReview.deferred.splice(di,1); csvExpand = null; renderCsvReview(); }
 
+/* 0144 — the tree node a FAMILY-scoped row is written with: the one on the card
+   the person approved. A personal row already kept it (_specNode in 72); a
+   family row lost it, because the composer rows below carried no node, loadRow()
+   reset the composer's to null, and addExpense() re-guessed from the note and the
+   label. So the ledger could disagree with the review that produced it.
+   Three gates, in the order they can say no:
+     - the code must be one this tree knows, of the EXPENSE kind: this importer
+       writes expenses only, and an income node must never ride one;
+     - a node the PERSON picked wins, whatever the words say;
+     - a node the pipeline SEALED is trusted only while fhPipeNodeOk still
+       accepts it (category-tree-spec E16). The build pass already asked once,
+       but the description may have been edited since, and the check is cheap.
+   Every other source (history, a lesson, keywords, the label) is this device's
+   own reading of today's tree and rides as shown. Null hands the row back to
+   the composer's guess, which is what every row got before. */
+function csvPromoteNode(c){
+  var nd = c && c._node;
+  if(!nd || !window.FH_TAX || !FH_TAX.get(nd) || FH_TAX.kindOf(nd) !== 'expense') return null;
+  if(c._nodeSource === 'user') return nd;
+  if(c._nodeSource === 'pipeline' && typeof fhPipeNodeOk === 'function'){
+    return fhPipeNodeOk(nd, { note: c.description, counterparty: c.counterparty });
+  }
+  return nd;
+}
+
 /* Feeds every included candidate into bulkRows + submitBulk() (bulk expense
    logging's own machinery) instead of a bespoke insert -- the actual write
    goes through _dbInsertTxn() -> fhField()/_fhWriteLocked(), same as any
@@ -3572,9 +3597,14 @@ function csvPromote(subset, opts){
       // time: a staged bank email carries its real HH:MM (a CSV file row has none).
       // _timeAuto:false so submitBulk's loadRow/_syncExTime keeps this exact value
       // rather than re-deriving now/'' from the (usually back-dated) import date.
+      // node: the reviewed tree node (csvPromoteNode). submitBulk hands it to the
+      // writethrough like source/inst below; _nodeTouched keeps the composer's own
+      // guess off a node the person picked, same meaning as in csvRowShape.
+      var _pn = csvPromoteNode(c);
       return { note: c.description, amt: String(Math.round(c.amount)), cat: c.categoryName,
                who: c.who || csvDefaultWho(), date: c.dateDisplay, _invalid: false,
                _catTouched: true,
+               node: _pn, _nodeTouched: (_pn && c._nodeSource === 'user') || undefined,
                // 0100 provenance: a staged row's transport ('direct-email'/'forwarding-email'),
                // or 'csv-import' for a file. submitBulk hands this to the writethrough.
                source: csvStagedMode ? (window.fhStagedSource ? window.fhStagedSource(c) : 'forwarding-email') : 'csv-import',

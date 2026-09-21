@@ -29,6 +29,28 @@ const BLOCK = /<\/?(br|p|div|tr|td|th|table|thead|tbody|li|ul|ol|h[1-6]|hr|block
 const ENTITIES = {
   nbsp: ' ', amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", '#39': "'",
   ndash: '-', mdash: '-', hellip: '...', middot: '·',
+  ensp: ' ', emsp: ' ', thinsp: ' ', zwnj: '', zwj: '', shy: '',
+  lsquo: "'", rsquo: "'", sbquo: "'", ldquo: '"', rdquo: '"', bdquo: '"',
+  laquo: '"', raquo: '"', bull: '·', rarr: '->', larr: '<-', times: 'x',
+  copy: '(c)', reg: '(R)', trade: '(TM)', deg: '°',
+  euro: '€', pound: '£', yen: '¥', cent: '¢',
+};
+
+/* The Latin-1 letter entities, which is how an older mail generator writes
+   Vietnamese: "Ng&agrave;y giao d&#7883;ch" is "Ngày giao dịch". Until
+   2026-09-22 only the punctuation above was known, so such a label reached the
+   label-table reader, the template anchors and the miss-label harvester with
+   the entity still in it: unmatchable by the first two, and recorded as a
+   "label" by the third. CASE-SENSITIVE, unlike the table above: &Agrave; is À
+   and &agrave; is à. (Everything outside Latin-1, which is most Vietnamese
+   letters, arrives as a numeric reference and was always decoded.) */
+const LETTER_ENTITIES = {
+  Agrave: 'À', Aacute: 'Á', Acirc: 'Â', Atilde: 'Ã', Egrave: 'È', Eacute: 'É', Ecirc: 'Ê',
+  Igrave: 'Ì', Iacute: 'Í', Ograve: 'Ò', Oacute: 'Ó', Ocirc: 'Ô', Otilde: 'Õ',
+  Ugrave: 'Ù', Uacute: 'Ú', Yacute: 'Ý', ETH: 'Ð',
+  agrave: 'à', aacute: 'á', acirc: 'â', atilde: 'ã', egrave: 'è', eacute: 'é', ecirc: 'ê',
+  igrave: 'ì', iacute: 'í', ograve: 'ò', oacute: 'ó', ocirc: 'ô', otilde: 'õ',
+  ugrave: 'ù', uacute: 'ú', yacute: 'ý', eth: 'ð',
 };
 
 /** Decodes the entities bank mail actually uses, plus any numeric reference. */
@@ -37,8 +59,9 @@ export function decodeEntities(s) {
     .replace(/&#x([0-9a-f]+);/gi, (_, h) => _fromCode(parseInt(h, 16)))
     .replace(/&#(\d+);/g, (_, d) => _fromCode(parseInt(d, 10)))
     .replace(/&([a-z0-9#]+);/gi, (m, name) => {
-      const v = ENTITIES[name.toLowerCase()];
-      return v === undefined ? m : v;
+      if (Object.prototype.hasOwnProperty.call(LETTER_ENTITIES, name)) return LETTER_ENTITIES[name];
+      const key = name.toLowerCase();
+      return Object.prototype.hasOwnProperty.call(ENTITIES, key) ? ENTITIES[key] : m;
     });
 }
 
@@ -60,7 +83,12 @@ function _fromCode(n) {
  */
 export function stripHtml(input) {
   let s = String(input || '');
-  if (s.indexOf('<') === -1) return s;      // already text, leave it alone
+  /* Already text: no markup to strip. The ENTITIES still have to go, though
+     (2026-09-22). Some generators HTML-escape their text/plain part, and this
+     early return handed "S&#7889; ti&#7873;n" to every matcher downstream as
+     if it were a word. Only entities this file knows are touched; anything
+     else that merely looks like one ("AT&T;") is left exactly as written. */
+  if (s.indexOf('<') === -1) return decodeEntities(s);
 
   s = s.replace(/<!--[\s\S]*?-->/g, ' ');
   s = s.replace(DROP, ' ');

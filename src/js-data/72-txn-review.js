@@ -368,7 +368,16 @@
       // auto-fill in precisely the case the tidy just rejected. Only an ABSENT
       // field falls back, and that is rows staged before the tidy existed.
       var tidied = x.memo_display == null ? x.memo : x.memo_display;
-      var isPerson = x.transaction_type === 'p2p_transfer';
+      /* WHO SAYS it is a person. The sealed `transaction_type` on an email row is
+         derived from the SENDER's kind (stage.mjs), so it only ever reads bank_txn
+         or ecommerce_receipt and this test could never be true for mail: the rule
+         above was dead on exactly the rows it was written for. The reader's own
+         verdict is sealed beside it as `reader_type` (email-reading-v2-spec §4,
+         §15 fix 2) and is asked first. `transaction_type` keeps its meaning and
+         its other reader (fhStagedKind, the bank-vs-receipt dedup rule); it still
+         answers here for a statement row, which writes p2p_transfer itself, and
+         for every row sealed before reader_type existed. */
+      var isPerson = (x.reader_type || x.transaction_type) === 'p2p_transfer';
       /* The memo still comes first — it is the only field that can carry why the
          money moved, and "ca phe" beats "HIGHLANDS COFFEE" for that question.
          ONE EXCEPTION: a memo that is the bank's own CATEGORY NAME. "Thanh toán
@@ -1318,8 +1327,20 @@
          what the review already showed. */
       var base = window.csvBaseAmt ? window.csvBaseAmt(c.amount)
         : Math.round(Number(c.amount || 0) / (window.curMult ? window.curMult() : 1));
+      /* The reviewed time rides EVERY kind below, not only expense and income.
+         The writer stores it for any kind, and a transfer, a card payment, a
+         loan, a repayment or an investment is as much "at 14:05" as a purchase
+         is: five kinds used to land day-only because their specs left it out
+         (email-reading-v2-spec §15). Both legs of a pair carry the same time,
+         one event. A day-only source gives '' here and stays day-only. */
       var _t = window.csvRowTime ? window.csvRowTime(c) : undefined;   // reviewed time (edited value wins, else derived from occurred_at)
       var src = window.fhStagedSource ? window.fhStagedSource(c) : null;  // 'direct-email' | 'forwarding-email' (0100 provenance)
+      /* Which way the money moved. isIncome doubles as the direction under every
+         kind (the Kind control never clears it), with one exception: a statement
+         row pre-set as an internal transfer has isIncome cleared at build and
+         carries its direction on _xferDir instead (57). The same test the review
+         card makes, so the sign written is the direction the person was shown. */
+      var _moneyIn = !!c.isIncome || c._xferDir === 'in';
       /* Instrument (0105): the classifier's verdict rides in raw_extracted.
          Never lets a resolution error block the import — the row just lands
          untagged. */
@@ -1354,19 +1375,19 @@
         if (ai && window.fhPersonalAccountEnsure) { try { ownId = await window.fhPersonalAccountEnsure(ai); } catch (eO) {} }
         if (c._xferOtherId === '_cash' && window.fhPersonalCashAccount) { try { otherId = await window.fhPersonalCashAccount(); } catch (eC) {} }
         else if (c._xferOtherId) otherId = c._xferOtherId;
-        var credit = !!c.isIncome;
+        var credit = _moneyIn;
         var xNote = c.description || 'Chuyển khoản nội bộ';
         if (ownId && otherId && ownId !== otherId) {
           var gid = crypto.randomUUID();
-          specs.push({ kind: 'transfer', amt: -base, note: xNote, dateIso: c.dateDisplay || undefined,
+          specs.push({ kind: 'transfer', amt: -base, note: xNote, dateIso: c.dateDisplay || undefined, time: _t,
             accountId: credit ? otherId : ownId, transferGroupId: gid, source: src });
-          specs.push({ kind: 'transfer', amt: base, note: xNote, dateIso: c.dateDisplay || undefined,
+          specs.push({ kind: 'transfer', amt: base, note: xNote, dateIso: c.dateDisplay || undefined, time: _t,
             accountId: credit ? ownId : otherId, transferGroupId: gid, source: src });
         } else {
           var legAcct = ownId || otherId;
           specs.push({ kind: 'transfer',
             amt: legAcct === ownId ? (credit ? base : -base) : (credit ? -base : base),
-            note: xNote, dateIso: c.dateDisplay || undefined, accountId: legAcct, source: src });
+            note: xNote, dateIso: c.dateDisplay || undefined, time: _t, accountId: legAcct, source: src });
         }
         if (ownId) _recBal(ownId);
       } else if (c._repay) {
@@ -1379,9 +1400,9 @@
         if (ai && ai.kind !== 'credit_card' && window.fhPersonalAccountEnsure) {
           try { repAcct = await window.fhPersonalAccountEnsure(ai); } catch (eR) {}
         }
-        specs.push({ kind: 'repayment', amt: c.isIncome ? base : -base,
+        specs.push({ kind: 'repayment', amt: _moneyIn ? base : -base,
           who: (c._repayWho || '').trim() || (c.counterparty || '').trim() || '—',
-          note: c.description || null, dateIso: c.dateDisplay || undefined,
+          note: c.description || null, dateIso: c.dateDisplay || undefined, time: _t,
           accountId: repAcct, source: src });
         if (repAcct) _recBal(repAcct);
       } else if (c._loan) {
@@ -1395,7 +1416,7 @@
         }
         specs.push({ kind: 'loan', amt: base,
           who: (c._loanWho || '').trim() || (c.counterparty || '').trim() || '—',
-          note: c.description || null, dateIso: c.dateDisplay || undefined,
+          note: c.description || null, dateIso: c.dateDisplay || undefined, time: _t,
           dueDate: c._loanDue || undefined, accountId: loanAcct, source: src });
         if (loanAcct) _recBal(loanAcct);
       } else if (c._invest) {
@@ -1410,12 +1431,12 @@
         if (ai && ai.kind !== 'credit_card' && window.fhPersonalAccountEnsure) {
           try { invAcct = await window.fhPersonalAccountEnsure(ai); } catch (eIv) {}
         }
-        var invSell = !!c.isIncome;
+        var invSell = _moneyIn;
         if (c._investPosId) {
           specs.push({ kind: 'investment', amt: invSell ? base : -base,
             positionId: c._investPosId,
             qty: (c._investQty > 0) ? (invSell ? -c._investQty : c._investQty) : undefined,
-            note: c.description || null, dateIso: c.dateDisplay || undefined,
+            note: c.description || null, dateIso: c.dateDisplay || undefined, time: _t,
             accountId: invAcct, source: src });
           /* remember the seller → position mapping once the write lands (I9) */
           var _ik = (c.counterparty || c.description || '').trim();
@@ -1488,12 +1509,12 @@
              draws the outstanding down, one group id keeps them one event. */
           var _pgid = crypto.randomUUID();
           specs.push({ kind: 'transfer', amt: -base, note: _payNote,
-            dateIso: c.dateDisplay || undefined, accountId: payFrom, transferGroupId: _pgid, source: src });
+            dateIso: c.dateDisplay || undefined, time: _t, accountId: payFrom, transferGroupId: _pgid, source: src });
           specs.push({ kind: 'transfer', amt: base, note: _payNote,
-            dateIso: c.dateDisplay || undefined, accountId: payCard, transferGroupId: _pgid, source: src });
+            dateIso: c.dateDisplay || undefined, time: _t, accountId: payCard, transferGroupId: _pgid, source: src });
         } else {
           specs.push({ kind: 'transfer', amt: base, note: _payNote,
-            dateIso: c.dateDisplay || undefined, accountId: payCard, source: src });
+            dateIso: c.dateDisplay || undefined, time: _t, accountId: payCard, source: src });
         }
         if (payFrom) _recBal(payFrom);   // the mail's "Số dư" is the sending account's
       } else {

@@ -169,7 +169,9 @@
     function _qrDesc(re) {
       var tidied = re.memo_display == null ? re.memo : re.memo_display;
       if (tidied) return String(tidied);
-      if (re.transaction_type === 'p2p_transfer') return '';
+      // reader_type is the reader's own verdict; transaction_type on an email row
+      // only says what kind of SENDER it was, so it never said p2p (see 72).
+      if ((re.reader_type || re.transaction_type) === 'p2p_transfer') return '';
       return String(re.counterparty || '');
     }
     function _qrAcct(re) {
@@ -181,6 +183,20 @@
       }
       if (!kind) return null;
       return { kind: kind, tail: masked.replace(/\D/g, '').slice(-4) || null, provider: re.source_provider || null };
+    }
+    /* 0131 — the money source as one display-grade string ("VIB · tín dụng
+       ••4512"), for transactions.instrument on a family write. The same words
+       the full review builds in csvPromote (bank name, then the instrument
+       chip); fhAccountInstString is that grammar over an instrument, and a row
+       the classifier could not place still names its bank, as it does there.
+       _qrWriteFamily has always read QR.inst, and nothing ever set it, so every
+       family row logged from this sheet landed with a null instrument. */
+    function _qrInst(re) {
+      var ai = _qrAcct(re);
+      var s = (ai && window.fhAccountInstString) ? window.fhAccountInstString(ai) : null;
+      if (s) return s;
+      var prov = String((re && re.source_provider) || '');
+      return ((prov && typeof window.fhProviderName === 'function') ? window.fhProviderName(prov) : prov) || null;
     }
     /* Category suggestion — the SAME cascade the bulk review screen runs, in
        the same confidence order, so the quick sheet never knows less than the
@@ -365,13 +381,18 @@
           desc: desc, cat: cat,
           dest: 'personal',                                     // default = the staged scope; tappable to 'family'
           acctId: null,                                         // null = auto-resolve the bank instrument; else an explicit personal account
+          inst: _qrInst(re),                                    // 0131 money source string for a family write (see _qrInst)
           dateIso: _qrLocalIso(isNaN(oa.getTime()) ? new Date() : oa),
           time: _qrTime(row.occurred_at),
           queue: rows.length, txnId: null, busy: false,
           /* 0144 — the tree node for this row. Resolved once when the sheet
              opens (the sealed hint, this person's lesson, then the tree's
-             keywords) and carried into whichever ledger the person picks. */
-          node: _qrNodeFor(re, desc, flow === 'in' ? 'income' : 'expense'),
+             keywords) and carried into whichever ledger the person picks.
+             The kind follows `flow`, whose money-in value is 'income' (set a few
+             lines up). This used to test 'in', which flow never is, so every
+             income row was resolved against the EXPENSE tree and _qrNode('income')
+             then threw the answer away as the wrong kind. */
+          node: _qrNodeFor(re, desc, flow === 'income' ? 'income' : 'expense'),
           party: (re.counterparty || '').trim(),
         };
         _qrSessionSkip[row.id] = true;                          // shown this run — no re-pop on the next tab switch
@@ -587,6 +608,7 @@
       try { if (typeof loadRow === 'function') loadRow(0); } catch (e) {}
       window._fhImportSrc = src || null;
       window._fhImportInst = (QR && QR.inst) || null;   // 0131 — explicit null, never a stale value from a prior bulk
+      window._fhImportNode = _qrNode('expense');        // 0144 — the node this sheet resolved (or the person picked) rides to the family row too
       /* 0134 — the author's instrument rides to the mirror master even from
          the one-row sheet (account-setup-spec §6): resolve the account, reserve
          the link_id; the family writer creates the tagged master. Locked
@@ -606,8 +628,8 @@
       // the transaction. It unshifts window.txns on success.
       var before = (window.txns || []).length;
       try { window.addExpense(); }
-      catch (e) { window.BULK_SAVING = false; window._fhImportSrc = null; window._fhImportInst = null; window._fhImportAcct = null; window._fhImportLink = null; console.warn('quick family write failed', e); return false; }
-      window.BULK_SAVING = false; window._fhImportSrc = null; window._fhImportInst = null; window._fhImportAcct = null; window._fhImportLink = null;
+      catch (e) { window.BULK_SAVING = false; window._fhImportSrc = null; window._fhImportInst = null; window._fhImportAcct = null; window._fhImportLink = null; window._fhImportNode = null; console.warn('quick family write failed', e); return false; }
+      window.BULK_SAVING = false; window._fhImportSrc = null; window._fhImportInst = null; window._fhImportAcct = null; window._fhImportLink = null; window._fhImportNode = null;
       if ((window.txns || []).length <= before) { console.warn('quick family write added nothing'); return false; }
       /* Hold the new txn OBJECT so the photo step can read the id the async
          insert stamps on it (_dbInsertTxn sets t._dbId on this same object).
@@ -688,7 +710,7 @@
             // but honour an explicit account pick.
             ok = await window.fhPersonalAddIncome(base, QR.desc || '', QR.dateIso, src,
               /* 0144: quick review runs the same node cascade as the full screen */
-              { catName: 'Khác', catEmoji: '💰', accountId: QR.acctId ? QR.acctId : (autoIsCard ? null : acctId), time: QR.time });
+              { catName: 'Khác', catEmoji: '💰', accountId: QR.acctId ? QR.acctId : (autoIsCard ? null : acctId), time: QR.time, node: _qrNode('income') });
           } else {
             var emoji = (window.catStyle && window.catStyle[QR.cat] && window.catStyle[QR.cat][0]) || '🗂️';
             ok = await window.fhPersonalAddExpense(base, QR.desc || '', QR.cat || null, emoji, QR.dateIso, QR.time, src, { accountId: acctId, node: _qrNode('expense') });

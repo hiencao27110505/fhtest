@@ -288,23 +288,30 @@ function _parseForeignNumber(digits) {
   return null;
 }
 
-/** "-37,000 VND" | "(VND) 2,000.00" | "15,000 VND" → { value, negative, currency }.
+/** "-37,000 VND" | "(VND) 2,000.00" | "+15,000 VND" → { value, negative, sign, currency }.
  *  VN bank notation: comma groups thousands; a trailing .00 (or ,00) is decimals.
  *  `currency` is the ISO code the cell itself names, or null when it names
  *  none — the CALLER defaults, so a bare number stays distinguishable from an
  *  explicit "VND". A cell naming a foreign currency parses with decimals kept
  *  ($12.99 stays 12.99); stripping the "USD" token and reading the digits as
  *  VND is exactly how a $111 subscription once staged as 111đ.
+ *  `sign` is THREE-valued on purpose (2026-09-22): '-' and '+' are what the
+ *  bank printed, null is "it printed neither". `negative` alone folded the last
+ *  two together, so an incoming "+5,000,000" and a bare "5,000,000" both read as
+ *  "not negative" and the caller guessed debit for both. `negative` stays for
+ *  the callers that only ever asked that one question. U+2212 is the minus some
+ *  HTML mail prints instead of the ASCII hyphen.
  *  Returns null when the cell does not parse as one clean number. */
 export function parseAmountCell(raw) {
   const currency = cellCurrency(raw);
   const s = String(raw || '').replace(/VND|đ|dong/gi, '').trim();
-  const m = s.match(/(-)?\s*([\d.,]+)/);
+  const m = s.match(/([-+\u2212])?\s*([\d.,]+)/);
   if (!m) return null;
+  const sign = m[1] ? (m[1] === '+' ? '+' : '-') : null;
   if (currency && currency !== 'VND') {
     const fv = _parseForeignNumber(m[2].replace(/[.,]+$/, ''));
     if (fv == null || !Number.isFinite(fv) || fv <= 0) return null;
-    return { value: fv, negative: !!m[1], currency };
+    return { value: fv, negative: sign === '-', sign, currency };
   }
   let digits = m[2];
   // strip ONE decimal tail if present, then everything else is grouping
@@ -313,7 +320,7 @@ export function parseAmountCell(raw) {
   if (!/^\d+$/.test(digits)) return null;
   const value = parseInt(digits, 10);
   if (!Number.isFinite(value) || value <= 0) return null;
-  return { value, negative: !!m[1], currency };
+  return { value, negative: sign === '-', sign, currency };
 }
 
 /** The three date shapes these banks write, all Vietnam local time:
@@ -351,6 +358,33 @@ function _personKey(raw) {
   return _strip(String(raw || '').replace(/[-–].*$/, '')).replace(/[^a-z ]/g, '').trim();
 }
 
+/** Does this counterparty read as a PERSON rather than a shop?
+ *
+ *  The same reduction _personKey makes (drop the account or phone tail, keep
+ *  the letters), then three tests a Vietnamese name passes and a merchant
+ *  mostly does not: two to five words, every one a syllable-sized run of
+ *  letters, the first of them a family name, and no business word anywhere.
+ *  "NGUYEN VAN A - 0000 1234" is a person; "AEON NGUYEN VAN LINH" is not (it
+ *  opens with the brand), nor is "LE VAN SY COFFEE".
+ *
+ *  Used by classify.mjs to decide whether a counterparty may be shown to the
+ *  model at all, so it errs toward PERSON: a shop mistaken for a person loses a
+ *  category hint; a person mistaken for a shop has their name sent out. */
+const _FAMILY_NAMES = new Set(['nguyen', 'tran', 'le', 'pham', 'hoang', 'huynh', 'phan', 'vu', 'vo',
+  'dang', 'bui', 'do', 'ho', 'ngo', 'duong', 'ly', 'dinh', 'truong', 'doan', 'lam', 'mai', 'trinh',
+  'dao', 'cao', 'luong', 'luu', 'ta', 'ha', 'chu', 'to', 'thai', 'quach', 'la', 'kieu', 'ton', 'tong',
+  'van', 'phung', 'vuong', 'nghiem', 'thach', 'diep', 'lai', 'khuong', 'trieu', 'chau', 'tang', 'kim']);
+const _BUSINESS_WORDS_RE = /\b(?:cong ty|cty|tnhh|co phan|cp|jsc|ltd|llc|inc|company|corp|cua hang|shop|store|mart|market|sieu thi|coffee|cafe|ca phe|tra sua|quan|nha hang|restaurant|bakery|spa|salon|hotel|khach san|pharmacy|nha thuoc|benh vien|phong kham|truong|school|bank|ngan hang|pay|wallet|vi dien tu)\b/;
+export function looksLikePerson(raw) {
+  if (_BUSINESS_WORDS_RE.test(_strip(String(raw || '').replace(/[-–].*$/, '')))) return false;
+  const key = _personKey(raw);
+  if (!key) return false;
+  const words = key.split(' ').filter(Boolean);
+  if (words.length < 2 || words.length > 5) return false;
+  if (!words.every((w) => w.length <= 7)) return false;
+  return _FAMILY_NAMES.has(words[0]);
+}
+
 /** Does the mail's own status row say the transaction FAILED? Row-targeted on
  *  purpose: a success mail's footer can contain the words "không thành công"
  *  inside safety advice, so only the status field's value gets to answer. The
@@ -374,7 +408,33 @@ export function statusReadsFailed(body) {
    prefix. "Kính gửi CAO THÁI DUY HIỂN" is the one that mattered: a salutation
    carrying the account holder's own name passed every shape test there was. */
 const _MISS_DENY = ['kinh gui', 'theo doi', 'website', 'email', 'dia chi',
-                    'hotline', 'tong dai', 'tran trong', 'ngan hang quoc te'];
+                    'hotline', 'tong dai', 'tran trong', 'ngan hang quoc te',
+                    /* 2026-09-22: the other salutations, which carry a name just
+                       as "Kính gửi" does, and the sign-offs and disclaimer
+                       fragments that were sitting in extract_miss_labels as
+                       "labels" (email-reading-v2 §11). */
+                    'xin chao', 'dear', 'than gui', 'ban than men', 'yours',
+                    'unsubscribe', 'huy dang ky', 'best regards', 'regards', 'sincerely',
+                    'thank you', 'thanks', 'cam on', 'xin cam on',
+                    'thu nay', 'day la thu', 'day la email', 'vui long khong',
+                    'khong tra loi', 'luu y', 'mien tru', 'ban quyen', 'bao mat',
+                    'de biet them', 'moi thac mac', 'neu quy khach', 'neu ban',
+                    'this email', 'this e-mail', 'this message', 'this is an auto',
+                    'do not reply', 'please do not', 'please note', 'disclaimer',
+                    'confidential', 'copyright', 'all rights reserved', 'if you',
+                    'for more information', 'privacy', 'terms'];
+
+/* The first word of a field label, stripped. Only consulted by the Title-Case
+   rule below, so it only matters for banks that print "Ngày Giao Dịch" rather
+   than "Ngày giao dịch". Kept to words that are NOT plausible Vietnamese name
+   syllables: "Tài", "Tú", "Chi", "Ngân", "Phương" all start real labels and
+   real people, and a lost sighting costs nothing while a name in a plaintext
+   table is the incident this function exists to prevent. */
+const _LABEL_HEADS = new Set(['so', 'ngay', 'ten', 'loai', 'noi', 'dia', 'hinh', 'thoi',
+  'kenh', 'don', 'ghi', 'ma', 'amount', 'date', 'time', 'transaction', 'order',
+  'reference', 'payment', 'total', 'fee', 'account', 'card', 'status', 'description',
+  'details', 'type', 'balance', 'currency', 'method', 'channel', 'service',
+  'customer', 'bill', 'invoice', 'merchant']);
 
 /* Is this candidate actually a VALUE wearing a label's shape?
  *
@@ -394,6 +454,16 @@ const _MISS_DENY = ['kinh gui', 'theo doi', 'website', 'email', 'dia chi',
  *                      so "Phí (bao gồm VAT)" is still learnable.
  *   deny prefixes    — salutations and footers, which are neither.
  *
+ * Five more, 2026-09-22, each aimed at a family found in the 101 live rows:
+ *   no letter        — mask characters and rules ("●●●●", "-----")
+ *   entities         — "Nguy&#7877;n": text mailtext had not decoded, so none of
+ *                      the rules above could see what it was
+ *   trailing , - –   — a line that goes on: half an address, half a sentence
+ *   lowercase start  — the OTHER half: a wrapped continuation line
+ *   Title-Case runs  — three or more Title-Case words is a person, a place or a
+ *                      film ("Nguyễn Văn An", "Thành Phố Hồ Chí Minh") unless
+ *                      the first is a label's head word ("Ngày Giao Dịch")
+ *
  * KNOWN GAP, deliberately left: a fused "Tại Shopee" survives when the merchant
  * was not the extracted counterparty. It is a merchant rather than a person,
  * it is the coverage signal we are here for, and the DB CHECK in 0115 is the
@@ -401,6 +471,11 @@ const _MISS_DENY = ['kinh gui', 'theo doi', 'website', 'email', 'dia chi',
 function _isValueShaped(raw, values) {
   const t = String(raw || '').trim();
   if (!t || t.length < 3) return true;              // no field label is one glyph
+  if (!/\p{L}/u.test(t)) return true;               // masks and rules: not one letter in it
+  if (/&(?:#\d+|#x[0-9a-f]+|[a-z][a-z0-9]{1,9});/i.test(t)) return true;   // undecoded entity
+  if (/[,\-\u2013]$/.test(t)) return true;           // a line that goes on is not a label
+  const firstLetter = (t.match(/\p{L}/u) || [''])[0];
+  if (firstLetter && firstLetter !== firstLetter.toUpperCase()) return true;   // a wrapped continuation
   if (/[0-9]/.test(t)) return true;
   if (/(₫|\bVND\b|\bđ\b|\$)/i.test(t)) return true;
   // a host, a URL or an address is a footer value, never a label
@@ -419,6 +494,16 @@ function _isValueShaped(raw, values) {
   });
   if (caps.length >= 2) return true;
   if (caps.some((w) => w.replace(/[^\p{L}]/gu, '').length >= 6)) return true;
+
+  // A run of three or more Title-Case words: a proper noun, unless it opens
+  // with a label's head word.
+  const words = t.split(/\s+/).map((w) => w.replace(/[^\p{L}]/gu, '')).filter(Boolean);
+  let run = 0, longest = 0;
+  for (const w of words) {
+    run = /^\p{Lu}\p{Ll}+$/u.test(w) ? run + 1 : 0;
+    if (run > longest) longest = run;
+  }
+  if (longest >= 3 && !_LABEL_HEADS.has(_strip(words[0] || ''))) return true;
 
   return false;
 }
@@ -459,13 +544,30 @@ export function unknownLabels(body, reading) {
       if (cells.length === 2 && looksLikeLabel(cells[0])) out.add(cells[0]);
       continue;
     }
-    if (_lookup(line)) continue;
+    /* THE LINE AFTER A LABEL IS ITS VALUE, AND A VALUE IS NEVER A CANDIDATE
+       (2026-09-22). The loop used to step to the next line whatever it had just
+       decided, so after a label it tested that label's VALUE as the next
+       candidate, and the value passed, because the line after IT was another
+       label. That is how a person's full name, a merchant, a city and a film
+       title came to be harvested as "labels" (email-reading-v2 §11). Both
+       branches now step OVER the value line, the way _rows reads the table. */
+    if (_lookup(line)) {
+      let k = i + 1;
+      while (k < lines.length && !lines[k]) k++;
+      while (k < lines.length && _isEnglishTwin(lines[k])) {
+        k++;
+        while (k < lines.length && !lines[k]) k++;
+      }
+      // ...unless what follows is itself a label: a field the bank left empty.
+      if (lines[k] && !lines[k].includes('|') && !_lookup(lines[k])) i = k;
+      continue;
+    }
     if (!looksLikeLabel(line)) continue;
     let j = i + 1;
     while (j < lines.length && !lines[j]) j++;
     const next = lines[j];
     // A label is followed by a VALUE, not by another label and not by nothing.
-    if (next && !_lookup(next)) out.add(line);
+    if (next && !next.includes('|') && !_lookup(next)) { out.add(line); i = j; }
   }
   return [...out].filter((l) => !_isValueShaped(l, values)).slice(0, 24);
 }
@@ -522,14 +624,73 @@ export function deriveLabelMappings(body, reading) {
   return out;
 }
 
+/* DIRECTION RESTS ON EVIDENCE, OR IT IS NULL (2026-09-22).
+ *
+ * This used to read `negative ? 'debit' : (refund ? 'credit' : 'debit')`: every
+ * mail that printed no minus sign and no refund wording was a debit BY DEFAULT.
+ * So an incoming-transfer notice (a remitter row, a memo, an unsigned or "+"
+ * amount) was read as money leaving, and because the template learner runs on
+ * this tier's output the wrong direction then froze into the shape's statics
+ * and was served to every later mail for free. Money coming in could not be
+ * read here at all.
+ *
+ * Two grades of evidence, and the grade decides who wins:
+ *
+ *   STATED    what the mail says outright: a printed sign on the amount, or
+ *             debit/credit wording in the txn-kind row, the subject, the status
+ *             or the amount row's OWN label ("Số tiền ghi nợ", "Số tiền nhận").
+ *   IMPLIED   what the layout suggests: a merchant row is a card purchase, a
+ *             beneficiary row is an outgoing receipt, a "Tài khoản trích nợ"
+ *             style label names the account that paid; a remitter row with NO
+ *             beneficiary row is somebody sending money in.
+ *
+ * Stated outranks implied, because a refund legitimately names the merchant it
+ * came back from and an incoming notice legitimately names its beneficiary (the
+ * reader). Inside one grade a disagreement is a null, never a vote: "-50,000"
+ * under a "Hoàn tiền" subject is a mail this tier does not understand. Wording
+ * that names BOTH directions ("Thông báo ghi nợ/ghi có") is a generic title and
+ * counts as no wording at all.
+ *
+ * Null is an answer. extract.mjs accepts this tier only with a direction, so a
+ * null hands the mail to the next tier instead of inventing an expense. */
+const _CREDIT_WORDS_RE = /\b(?:ghi co|nhan tien|tien vao|so tien nhan|hoan tien|refund(?:ed)?|credited|received)\b/;
+const _DEBIT_WORDS_RE = /\b(?:ghi no|trich no|tien ra|so tien chuyen|debited)\b/;
+const _DEBIT_ACCOUNT_LABEL_RE = /tai khoan trich no|tai khoan ghi no|tai khoan nguon|debit account/;
+
+function _directionFrom(got, gotLabel, kindFlat, amtRaw, conv) {
+  // The sign lives on the TRANSACTION amount row even when the converted VND
+  // figure is the one being taken: banks print "-111 USD" and an unsigned
+  // conversion beside it. The converted row's sign answers only when the
+  // transaction row printed none.
+  const sign = (amtRaw && amtRaw.sign) || (conv && conv.sign) || null;
+
+  const wording = [kindFlat, _strip(got.status || ''),
+    amtRaw ? _strip(gotLabel.amount || '') : '',
+    conv ? _strip(gotLabel.converted || '') : ''].join(' | ');
+  const saysCredit = _CREDIT_WORDS_RE.test(wording);
+  const saysDebit = _DEBIT_WORDS_RE.test(wording);
+  const worded = saysCredit === saysDebit ? null : (saysCredit ? 'credit' : 'debit');
+
+  const signed = sign === '+' ? 'credit' : (sign === '-' ? 'debit' : null);
+  if (signed && worded) return signed === worded ? signed : null;
+  if (signed || worded) return signed || worded;
+
+  const impliesDebit = !!(got.merchant || got.beneficiary
+    || (got.account && _DEBIT_ACCOUNT_LABEL_RE.test(_strip(gotLabel.account || ''))));
+  const impliesCredit = !!(got.remitter && !got.beneficiary);
+  if (impliesDebit === impliesCredit) return null;
+  return impliesDebit ? 'debit' : 'credit';
+}
+
 export function readLabelTable(subject, body, learned) {
   const rows = _rows(body, learned);
   if (rows.length < 3) return null;
 
   const got = {};
+  const gotLabel = {};   // the label each value was read under: direction evidence lives in labels too
   for (const row of rows) {
     const field = _lookup(row.label, learned);
-    if (field && !(field in got)) got[field] = row.value;   // first hit wins; later dupes are footer noise
+    if (field && !(field in got)) { got[field] = row.value; gotLabel[field] = row.label; }   // first hit wins; later dupes are footer noise
   }
 
   /* The amount, in the mail's own currency. Three rows can carry money here:
@@ -567,24 +728,26 @@ export function readLabelTable(subject, body, learned) {
   }
 
   const when = got.occurred_at ? parseWhenCell(got.occurred_at) : null;
-  const who = got.merchant || got.beneficiary || null;
+
+  const kindFlat = _strip((got.txn_kind || '') + ' ' + (subject || ''));
+  const isTransfer = !!(got.beneficiary || got.remitter)
+    || /chuyen tien|chuyen khoan|bien lai/.test(kindFlat);
+
+  const direction = _directionFrom(got, gotLabel, kindFlat, amtRaw, conv);
+
+  /* Who is on the OTHER side depends on which way the money went. On money
+     coming in, the beneficiary row is the reader themself and the remitter is
+     the counterpart; taking the beneficiary first (the only order there was
+     while every row was a debit) would file a person's own name as who paid
+     them. A refund still names its merchant, so merchant stays first. */
+  const whoRow = got.merchant ? 'merchant'
+    : (direction === 'credit' && got.remitter) ? 'remitter'
+    : got.beneficiary ? 'beneficiary' : null;
+  const who = whoRow ? got[whoRow] : null;
 
   // The confidence gate. Money, a moment, and a counterpart (or at least a
   // memo): anything less is not a ledger row, and the model gets to judge it.
   if (!amt || !when || !(who || got.memo)) return null;
-
-  const kindFlat = _strip((got.txn_kind || '') + ' ' + (subject || ''));
-  const refund = /hoan tien|refund|ghi co/.test(kindFlat + ' ' + _strip(got.status || ''));
-  const isTransfer = !!(got.beneficiary || got.remitter)
-    || /chuyen tien|chuyen khoan|bien lai/.test(kindFlat);
-
-  // Direction: the sign when the bank prints one; otherwise the document kind.
-  // A card notice or an outgoing transfer is money leaving; a refund is not.
-  // The sign lives on the TRANSACTION amount row even when the converted VND
-  // figure is the one being taken — banks print "-111 USD" and an unsigned
-  // conversion beside it.
-  const negative = amtRaw ? amtRaw.negative : amt.negative;
-  const direction = negative ? 'debit' : (refund ? 'credit' : 'debit');
 
   // Self-transfer: the sender and the beneficiary are the same letters. That
   // is the person moving money between their own pockets, and filing it as an
@@ -612,6 +775,13 @@ export function readLabelTable(subject, body, learned) {
     fx_currency: fxCurrency,
     direction,
     counterparty: who,
+    /* WHICH ROW the counterparty was read off. A beneficiary or remitter row
+       names a person's account; a merchant row names a shop. classify.mjs
+       reads this so a name off a beneficiary row is never shown to the model,
+       whatever transaction_type above ends up saying. Not a template field:
+       a template-read mail carries the shape's frozen transaction_type, which
+       is 'p2p_transfer' for every shape this was true of. */
+    counterparty_row: whoRow,
     memo: got.memo || null,
     reference_number: got.reference || null,
     status: got.status || null,

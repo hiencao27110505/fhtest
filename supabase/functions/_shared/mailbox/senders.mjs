@@ -278,6 +278,72 @@ export function domainOf(address) {
 }
 
 /**
+ * THE SENDER GATE (2026-09-22, email-reading-v2 §7 R18).
+ *
+ * The Gmail query is `from:<bank domain>`, and a bank's domain is also where
+ * its EMPLOYEES have their mailboxes. On 2026-09-16 one backfill read the
+ * private correspondence of about 26 bank staff (relationship managers, loan
+ * officers): all 50 mails went to the model, and their hand-written subjects,
+ * names and phone numbers included, were cached in plaintext in a table every
+ * family shares. `match` cannot tell the two apart, because the domain is
+ * genuinely the bank's.
+ *
+ * The local part can. A bank's systems send from a ROLE (`info`, `no-reply`,
+ * `mbebanking`, `myvib.info`); a person sends from `firstname.lastname`. So a
+ * person-shaped address is: not a free-mail domain, two to five dot-separated
+ * runs of letters (the first may end in digits: `an2.nguyen`), and NO role
+ * word among them.
+ *
+ * What the gate does with the answer lives in extract.mjs: the free local
+ * tiers still read such a mail (a real notice from an odd address is not
+ * lost), but it is never sent to the model and never cached.
+ *
+ * EVERY role address this repo has seen is pinned in
+ * pipeline/sender-gate.test.js. A bank that ever sends notices from a
+ * person-shaped address would be read by the free tiers only; the symptom is
+ * a `personal_sender` count in read_tally, which is why it has its own stage.
+ */
+const FREE_MAIL = new Set([
+  'gmail.com', 'googlemail.com', 'yahoo.com', 'yahoo.com.vn', 'ymail.com',
+  'outlook.com', 'outlook.com.vn', 'hotmail.com', 'live.com', 'msn.com',
+  'icloud.com', 'me.com', 'mac.com', 'aol.com', 'proton.me', 'protonmail.com',
+  'zoho.com', 'mail.com', 'gmx.com', 'yandex.com',
+]);
+
+/** Words that make a local part a ROLE, matched as a WHOLE token between dots,
+ *  dashes or underscores (never as a substring: "bankole" is a surname). Brand
+ *  tokens are here because banks compose them (`hsbc.vietnam@`, `myvib.info@`). */
+const ROLE_WORDS = new Set([
+  'info', 'support', 'service', 'services', 'noreply', 'reply', 'card',
+  'cardcenter', 'center', 'alert', 'alerts', 'ebanking', 'notification',
+  'news', 'marketing', 'loyalty', 'cskh', 'statement', 'estatement', 'bank',
+  'admin', 'system', 'myvib', 'vietnam', 'mbebanking', 'vcbdigibank', 'tpbank',
+  'hsbc',
+]);
+
+const PERSON_LOCAL_RE = /^[a-z]+\d*(\.[a-z]+){1,4}$/;
+
+/** A personal mailbox provider: someone hand-forwarding one receipt from their
+ *  own Gmail. Takes an address or a whole From header. */
+export function isFreeMail(address) {
+  return FREE_MAIL.has(domainOf(addressOf(address)));
+}
+
+/** Does this address belong to a person rather than to a system? */
+export function isPersonShaped(address) {
+  const a = addressOf(address);
+  const at = a.lastIndexOf('@');
+  if (at <= 0) return false;
+  if (isFreeMail(a)) return false;
+  const local = a.slice(0, at);
+  if (!PERSON_LOCAL_RE.test(local)) return false;
+  for (const token of local.split(/[._-]/)) {
+    if (ROLE_WORDS.has(token.replace(/\d+$/, ''))) return false;
+  }
+  return true;
+}
+
+/**
  * True when `domain` is `parent` or a subdomain of it.
  *
  * The dot boundary is the whole check. Without it `momo.vn.evil.com` contains

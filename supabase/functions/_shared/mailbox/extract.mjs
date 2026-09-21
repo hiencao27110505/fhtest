@@ -26,7 +26,8 @@
 
 import { applyExtractionTemplate, deriveAccountKind, deriveExtractionTemplate } from './templates.mjs';
 import { readLabelTable, maskAccount, statusReadsFailed, unknownLabels, deriveLabelMappings } from './labeltable.mjs';
-import { canonProviderName } from './senders.mjs';
+import { canonProviderName, isPersonShaped } from './senders.mjs';
+import { hashKey } from './classify.mjs';
 import { tidyMemo, tidyMerchant } from './memo.mjs';
 import * as llm from './llm.mjs';
 
@@ -46,6 +47,15 @@ export function normalizeSubjectTemplate(subject) {
     .replace(/\b\d{6,}\b/g, '')
     .replace(/\b\w+ \d{1,2},? \d{4}\b/g, '')
     .replace(/\b\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4}\b/g, '')
+    /* A MASKED ACCOUNT AND A TYPED PHONE ARE NOT A SHAPE, AND NOT OURS TO KEEP
+       (2026-09-22). This string is stored in plaintext in a table every family
+       shares. "TK 0123-XXXX-456" survived every rule above (no six-digit run),
+       and so did a phone typed the way people type them, "090 123 4567" or
+       "+84.90.123.4567": two subjects with a masked token and a run of bank
+       staff's hand-written subjects were cached readable. Same family as the
+       date rule above. The Apps Script twin carries the identical two lines. */
+    .replace(/\b\d{2,4}-[Xx*]{3,}(?:-\d{2,4})?/g, '')
+    .replace(/(?:\+?84|\b0)(?:[\s.\-]?\d){8,10}\b/g, '')
     /* A MONTH IN THE SUBJECT IS NOT A SHAPE (2026-09-15). "Bang sao ke ... ky
        09/2026" and the same line for 10/2026 are one template, and treating
        them as two meant every statement sender relearned itself every month
@@ -75,6 +85,47 @@ export function legacySubjectTemplate(subject) {
     .replace(/\b\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4}\b/g, '')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+/**
+ * HASH ON DOUBT (2026-09-22): the key the cache is actually read and written by.
+ *
+ * The normaliser above removes what it recognises. What it does not recognise
+ * used to be stored as it stood, and a hand-written subject can carry anything:
+ * a customer id, a contract number, digits typed with dots. The cache is an
+ * EXACT-MATCH lookup, so it never needed readable text in the first place. When
+ * the normalised subject still looks dirty, the key is its SHA-256 instead:
+ * same hits, nothing to read.
+ *
+ * Dirty means a run of four or more digits that is not a plain year (19xx or
+ * 20xx: "Sao ke nam 2026" is a shape, and 36 such rows are live), or eight or
+ * more digits strung together by spaces, dots or dashes.
+ *
+ * ONE STRING, EVERYWHERE. Lookup, save, derive-failure recording and the
+ * worker's metadata-first pass must all use this key, or the cache is written
+ * under one name and read under another and never hits. The Apps Script twin
+ * (`subjectCacheKey` in bank-email-pipeline.gs) produces the same key with
+ * Utilities.computeDigest; pipeline/subject-hygiene.test.js pins a known digest
+ * so the two cannot drift.
+ */
+export function subjectLooksDirty(normalised) {
+  const t = String(normalised || '');
+  for (const run of (t.match(/\d{4,}/g) || [])) {
+    if (!/^(?:19|20)\d{2}$/.test(run)) return true;
+  }
+  return /\d(?:[\s.\-]?\d){7,}/.test(t);
+}
+
+/** WebCrypto, as classify.mjs hashes a merchant key: `crypto.subtle` is a global
+ *  on Deno (the worker) and on the Node that runs the tests, and a caller that
+ *  already holds one (ctx.subtle) may pass it. With no digest available at all
+ *  the digits are dropped instead: a worse key, and still never a readable one. */
+export async function subjectCacheKey(subject, subtle) {
+  const t = normalizeSubjectTemplate(subject);
+  if (!subjectLooksDirty(t)) return t;
+  const impl = subtle || (globalThis.crypto && globalThis.crypto.subtle) || null;
+  if (!impl) return 'd:' + t.replace(/\d+/g, '').replace(/\s+/g, ' ').trim();
+  return 'h:' + await hashKey(t, impl);
 }
 
 /*
@@ -129,9 +180,42 @@ function _noteDeriveFailure(db, sender, subjectTemplate, step) {
   } catch { /* a synchronous throw is just as harmless as an async one */ }
 }
 
+/* A FOREIGN MAIL MUST NOT COST THE SHAPE ITS VND TEMPLATE (2026-09-22).
+ *
+ * One (sender, subject) shape legitimately carries both currencies: a card
+ * notice announces a domestic coffee in VND and a foreign subscription in USD
+ * off the same layout (templates.mjs, the foreign-currency guard). The design
+ * is asymmetric on purpose: the stored VND template DEGRADES on the USD mail,
+ * the currency-aware tiers read it, and derivation REFUSES to make a template
+ * of it. But the save that followed wrote `extraction_regex: null` through
+ * merge-duplicates, which REPLACED the working VND template with nothing. So
+ * every foreign mail un-learned its shape, the next domestic mail paid the
+ * model to learn it again, and template_derive_failures filled with
+ * 'foreign_currency' rows on a sender whose mail is nearly all VND.
+ *
+ * Narrow on purpose: only the 'foreign_currency' refusal keeps the stored
+ * template. Any other failed derivation still stores null, as before. */
+function _templateToStore(derived, stored, failedStep) {
+  if (derived) return derived;
+  return (failedStep === 'foreign_currency' && typeof stored === 'string') ? stored : null;
+}
+
 export async function readTransaction(message, db, deps) {
   const sender = _address(message.from);
-  const template = normalizeSubjectTemplate(message.subject);
+  // The cache key: the normalised subject, or its hash when it still looks
+  // dirty (subjectCacheKey). Every read and write below uses THIS string.
+  const template = await subjectCacheKey(message.subject, deps && deps.subtle);
+  /* THE SENDER GATE (senders.mjs isPersonShaped, 2026-09-22). A person-shaped
+     address at a bank's domain is a member of staff, not a notice: their mail
+     may still be READ by the free local tiers below, but it is never sent to
+     the model and nothing about it is ever cached, because the cache key is
+     their hand-written subject, in plaintext, in a table every family shares. */
+  const personal = isPersonShaped(sender);
+  /* Rows written before hash-on-doubt sit under the readable key. Read them,
+     never write them: the same fallback the month rules got, for the same
+     reason (a key change that empties the cache stalls every backfill behind
+     it). A re-learn moves the row to the new key by itself. */
+  const plain = normalizeSubjectTemplate(message.subject);
 
   /* A warm map, when the caller has one (2026-08-29). The worker fetches every
      fingerprint for the window's senders in a single query and passes it here,
@@ -144,14 +228,16 @@ export async function readTransaction(message, db, deps) {
   const warm = deps && deps.fingerprints;
   if (warm) {
     const exact = warm.get(sender + '\u0000' + template)
-      || (legacy !== template ? warm.get(sender + '\u0000' + legacy) : null);
+      || (plain !== template ? warm.get(sender + '\u0000' + plain) : null)
+      || (legacy !== template && legacy !== plain ? warm.get(sender + '\u0000' + legacy) : null);
     const wide = warm.get(sender + '\u0000' + SENDER_SENTINEL);
     if (exact) fp = exact;
     else if (wide) fp = { ...wide, _sender_wide: true };
   }
   if (!fp && !warm) {
     fp = await db.fingerprint(sender, template);
-    if (!fp && legacy !== template) fp = await db.fingerprint(sender, legacy);
+    if (!fp && plain !== template) fp = await db.fingerprint(sender, plain);
+    if (!fp && legacy !== template && legacy !== plain) fp = await db.fingerprint(sender, legacy);
   }
 
   /* A VERDICT LEARNED ON THIS MESSAGE MUST REACH THE NEXT ONE (2026-09-15).
@@ -211,7 +297,7 @@ export async function readTransaction(message, db, deps) {
          amount, adopt it and re-derive the template so the upgrade is one-time
          per shape. Strictly local — no model call on any path; a failed
          re-derivation just repeats the (cheap) table walk next mail. */
-      if (applied.card_masked == null && stored.indexOf('card_masked') < 0) {
+      if (!personal && applied.card_masked == null && stored.indexOf('card_masked') < 0) {
         try {
           const learned0 = deps && deps.learnedLabels
             ? deps.learnedLabels.get(sender.slice(sender.lastIndexOf('@') + 1)) : undefined;
@@ -278,20 +364,24 @@ export async function readTransaction(message, db, deps) {
   const tabled = readLabelTable(message.subject, message.body, learnedForDomain);
   if (tabled && tabled.amount != null && tabled.direction) {
     _fillAccountKind(tabled, message, sender);
-    let derivedT = null;
-    try {
-      derivedT = deriveExtractionTemplate(message.body, tabled,
-        (step) => { _noteDeriveFailure(db, sender, template, step); });
-    } catch { derivedT = null; }
-    await db.saveFingerprint({
-      sender_address: sender,
-      subject_template: template,
-      is_transaction_source: true,
-      transaction_type: tabled.transaction_type || null,
-      extraction_regex: derivedT,
-    });
+    let derivedT = null, stepT = null;
+    // A person-shaped sender is READ here and never LEARNED: no derivation (its
+    // failure record carries the subject too) and no fingerprint row.
+    if (!personal) {
+      try {
+        derivedT = deriveExtractionTemplate(message.body, tabled,
+          (step) => { stepT = step; _noteDeriveFailure(db, sender, template, step); });
+      } catch { derivedT = null; }
+      await db.saveFingerprint({
+        sender_address: sender,
+        subject_template: template,
+        is_transaction_source: true,
+        transaction_type: tabled.transaction_type || null,
+        extraction_regex: _templateToStore(derivedT, stored, stepT),
+      });
+    }
     await db.bumpReadTally?.('table');
-    await db.bumpReadTally?.(derivedT ? 'template_learned' : 'template_unlearnable');
+    if (!personal) await db.bumpReadTally?.(derivedT ? 'template_learned' : 'template_unlearnable');
     return {
       ok: true,
       extraction: _tidy(tabled, message.body),
@@ -299,6 +389,17 @@ export async function readTransaction(message, db, deps) {
       learned: !!derivedT,
       transactionType: tabled.transaction_type || null,
     };
+  }
+
+  /* The sender gate closes HERE: after every tier that keeps the mail on this
+     machine, before the budget is touched and before anything is sent. Not a
+     hold (nothing will change by next poll) and not cached (see above): the
+     same answer is reached again for free next time, from the address alone.
+     Its own tally stage, so a bank that really does send notices from a
+     person-shaped address shows up as a number instead of as silence. */
+  if (personal) {
+    await db.bumpReadTally?.('personal_sender');
+    return { ok: false, reason: 'not_a_transaction', personalSender: true };
   }
 
   // ── stage 2: the model, on the mail as written ───────────────────────────
@@ -367,10 +468,10 @@ export async function readTransaction(message, db, deps) {
   // outcome then: the sender is confirmed as a transaction source, and the next
   // mail tries the model again rather than trusting an unproven template.
   _fillAccountKind(extraction, message, sender);
-  let derived = null;
+  let derived = null, derivedStep = null;
   try {
     derived = deriveExtractionTemplate(message.body, extraction,
-      (step) => { _noteDeriveFailure(db, sender, template, step); });
+      (step) => { derivedStep = step; _noteDeriveFailure(db, sender, template, step); });
   } catch { derived = null; }
 
   await db.saveFingerprint({
@@ -378,7 +479,7 @@ export async function readTransaction(message, db, deps) {
     subject_template: template,
     is_transaction_source: true,
     transaction_type: extraction.transaction_type || null,
-    extraction_regex: derived,
+    extraction_regex: _templateToStore(derived, stored, derivedStep),
   });
 
   await db.bumpReadTally?.('llm');

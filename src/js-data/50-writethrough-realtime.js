@@ -47,6 +47,14 @@
         const pick = _famAcctPick();
         if (pick) { nt.pAcct = pick.id; nt.linkId = crypto.randomUUID(); nt.inst = pick.inst; }
       }
+      /* 0144 — a row promoted from a review keeps the node the person saw there.
+         addExpense has just re-guessed one from the note and the label (the
+         composer knows nothing about the review), so the reviewed node replaces
+         that guess here, before the insert reads it and on the same object the
+         local list shows. Same hand-off as source/inst above. No node on the
+         global (a hand-typed bulk row, or a review that found none) leaves the
+         composer's guess standing, exactly as before. */
+      if (window.BULK_SAVING && window._fhImportNode) nt.node = window._fhImportNode;
     }
     const newKeys = (window.order || []).filter((k) => beforeOrder.indexOf(k) < 0);
     const inserted = nt ? _dbInsertTxn(nt, exD) : Promise.resolve();

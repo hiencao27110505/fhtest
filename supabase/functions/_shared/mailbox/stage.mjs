@@ -93,6 +93,21 @@ export function transactionTypeFor(kind) {
   return kind === 'bank' ? 'bank_txn' : 'ecommerce_receipt';
 }
 
+/** The five verdicts a reader may give (llm.mjs EXTRACTION_SCHEMA; the
+ *  label-table reader answers two of them). Anything else seals as null: a
+ *  closed vocabulary the device can switch on, never free text. */
+export const READER_TYPES = ['bank_txn', 'subscription', 'ecommerce_receipt', 'p2p_transfer', 'bill_payment'];
+function _readerType(v) {
+  return typeof v === 'string' && READER_TYPES.indexOf(v) >= 0 ? v : null;
+}
+
+/** The sender kind as senders.match assigns it, or null when the caller had
+ *  none. Sealed so the device can tell WHY transaction_type says what it says. */
+const SENDER_KINDS = ['bank', 'wallet', 'receipt'];
+function _senderKind(v) {
+  return typeof v === 'string' && SENDER_KINDS.indexOf(v) >= 0 ? v : null;
+}
+
 /**
  * Builds one sealed staging row.
  *
@@ -129,7 +144,16 @@ export async function buildStagedRow(args) {
   const currency = reading.currency || 'VND';
   const occurredAt = reading.occurredAt || reading.occurred_at || null;
 
+  /* DERIVED FROM THE SENDER KIND, ON PURPOSE, and not to be "fixed" with the
+     reader's verdict: the device's dedup engine reads this to tell a bank from
+     a non-bank. The reader's own verdict rides beside it as
+     raw_extracted.reader_type (2026-09-22). */
   const transactionType = transactionTypeFor(senderKind);
+
+  const counterparty = reading.merchant || null;
+  const counterpartyRawIn = reading.merchantRaw ?? reading.counterparty_raw ?? null;
+  const counterpartyRaw = (counterparty && counterpartyRawIn && String(counterpartyRawIn) !== String(counterparty))
+    ? String(counterpartyRawIn) : null;
 
   // Everything the reviewer needs and nothing the database may read. The five
   // cash-flow fields ride in raw_extracted rather than in columns of their own,
@@ -157,6 +181,12 @@ export async function buildStagedRow(args) {
       direction: reading.direction,
       balance: reading.balance ?? null,
       counterparty: reading.merchant || null,
+      /* The counterparty verbatim, ONLY when the display form above differs
+         from it ("MPOS*ZQ MART 01 HO CHI MINH VN" beside "ZQ MART 01"). The
+         key above stays the tidied form every existing reader expects; this
+         one is additive, and null whenever the two are the same string or
+         there is no counterparty at all. */
+      counterparty_raw: counterpartyRaw,
       memo: reading.description || null,
       memo_display: reading.descriptionDisplay ?? null,
       type_code: reading.typeCode || null,
@@ -178,6 +208,13 @@ export async function buildStagedRow(args) {
       card_masked: reading.cardMasked ?? reading.card_masked ?? null,
       reference_number: reading.reference || null,
       transaction_type: transactionType,
+      /* What the READER said this mail is (p2p_transfer, bill_payment, ...),
+         and which kind of sender it came from. Two NEW keys rather than a
+         change to transaction_type: see the note where that is derived. Inside
+         raw_extracted like everything else the database may not read; a
+         top-level key would be a column 0068's CHECK has to null out. */
+      reader_type: _readerType(reading.readerType ?? reading.reader_type),
+      sender_kind: _senderKind(senderKind),
       occurred_at: occurredAt,
       category_hint: reading.category || null,
       /* The category-tree node (0144, taxonomy.mjs): the most specific code the

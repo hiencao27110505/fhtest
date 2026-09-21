@@ -32,6 +32,7 @@
 
 import { toGeminiSchema, callGemini } from './llm.mjs';
 import { TAX, keywordNode, conceptOf, poolOf } from './taxonomy.mjs';
+import { looksLikePerson } from './labeltable.mjs';
 
 export const CLASSIFY_CONCEPTS = ['Housing', 'Groceries', 'Clothing', 'Shopping', 'Transport', 'Dining', 'Fun', 'Others'];
 
@@ -236,6 +237,37 @@ function merchantText(extraction) {
     ' ' + String(extraction.memo || '');
 }
 
+/* WHAT THE MODEL IS SHOWN, AND WHEN IT IS SHOWN NOTHING (2026-09-22).
+ *
+ * The consent text promises that a new mail format is sent to the AI service
+ * once, and that later mails of the same format are not sent. This call broke
+ * that quietly: it runs on EVERY mail whose merchant the free tiers cannot
+ * place, template-read ones included, and it sent `counterparty + memo`. On a
+ * transfer that is a person's name and the words they typed, from exactly the
+ * mails the promise covers (email-reading-v2 §11; consent v5 already makes this
+ * promise for statement rows, and classifyMerchantsBatch already keeps it).
+ *
+ * Two rules, and only for the MODEL step. The free tiers above it (corrections,
+ * keywords, dictionary, cache) run on this machine and keep reading the text
+ * they always read.
+ *   1. The merchant NAME only. Never the memo. Long digit runs (an account, a
+ *      phone, a reference riding in the counterparty) are dropped too.
+ *   2. No call at all when the row is person-to-person: the reader said
+ *      p2p_transfer, or the label table read the counterparty off a
+ *      beneficiary/remitter row, or the counterparty reads as a person's name.
+ */
+export function modelMerchantText(extraction) {
+  const name = String(extraction.counterparty_display || extraction.counterparty || '');
+  return name.replace(/[0-9][0-9 .\-]{4,}[0-9]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+export function isPersonToPerson(extraction) {
+  if (!extraction) return false;
+  if (extraction.transaction_type === 'p2p_transfer' || extraction.reader_type === 'p2p_transfer') return true;
+  if (extraction.counterparty_row === 'beneficiary' || extraction.counterparty_row === 'remitter') return true;
+  return looksLikePerson(extraction.counterparty) || looksLikePerson(extraction.counterparty_display);
+}
+
 /* Mutates extraction.node / .category / .pool in place when it can improve on
    null. Best-effort throughout: any DB or model hiccup leaves them as they were. */
 export async function enrichCategory(extraction, grant, ctx) {
@@ -296,11 +328,16 @@ export async function enrichCategory(extraction, grant, ctx) {
     } catch { /* fall through to a fresh classify */ }
   }
 
-  // (5) one-shot model classify — only if this run still has budget.
+  // (5) one-shot model classify — only if this run still has budget, only for
+  // a MERCHANT, and only ever its name (see modelMerchantText above). Checked
+  // before the budget is touched: a row we will not ask about costs nothing.
+  if (isPersonToPerson(extraction)) return;
+  const asked = modelMerchantText(extraction);
+  if (asked.length < 2) return;                    // a memo-only row has no merchant to name
   const budget = ctx.classifyBudget;
   if (!budget || budget.left <= 0) return;
   budget.left--;
-  const out = await classifyMerchant(text, ctx.llm, ctx.fetch);
+  const out = await classifyMerchant(asked, ctx.llm, ctx.fetch);
   if (!out || !out.ok) return;                     // transport error → leave uncached, retry-eligible
   const node = validNode(out.node);
   // What the cache remembers: the node-derived concept when there is a node
@@ -341,7 +378,7 @@ export const BATCH_SYSTEM = 'You label Vietnamese merchant names from bank and e
   'or null when you genuinely cannot tell (an opaque gateway or bank code, initials, a bare reference number). Do not guess wildly; null is the right answer for the unknowable. ' +
   'concept is EXACTLY one of: Housing, Groceries, Clothing, Shopping, Transport, Dining, Fun, Others -- or null. ' +
   'pool is EXACTLY one of: coffee, milktea, ride, cinema -- or null. Most merchants are pool null.';
-const BATCH_SCHEMA = {
+export const BATCH_SCHEMA = {
   type: 'object',
   properties: { items: { type: 'array', items: { type: 'object', properties: {
     i: { type: 'integer' },
@@ -357,20 +394,13 @@ const BATCH_SCHEMA = {
   required: ['items'],
 };
 
-/* Gemini's schema converter only walks top-level properties; the nested item
-   properties need the same null-union → nullable rewrite by hand. */
+/* The converter recurses now (llm.mjs toGeminiSchema, 2026-09-22), so the nested
+   item properties get the null-union → nullable rewrite where every other
+   schema gets it. This used to be patched here by hand, one level deep, for
+   this one schema: the next nested schema would have been a 400 again.
+   pipeline/gemini-schema.test.js walks the converted tree at every depth. */
 function _batchGeminiSchema() {
-  const s = toGeminiSchema(BATCH_SCHEMA);
-  const props = s.properties.items.items.properties;
-  for (const k of Object.keys(props)) {
-    const p = props[k];
-    if (Array.isArray(p.type)) {
-      p.type = p.type.filter((t) => t !== 'null')[0];
-      p.nullable = true;
-      if (Array.isArray(p.enum)) p.enum = p.enum.filter((e) => e !== null);
-    }
-  }
-  return s;
+  return toGeminiSchema(BATCH_SCHEMA);
 }
 
 /* One model call for many merchants. Returns an array aligned with `texts`

@@ -867,6 +867,7 @@
         amount_enc: await _encP(Number(amt)), note_enc: note ? await _encP(note) : null,
         cat_name_enc: opts.catName ? await _encP(opts.catName) : null, cat_emoji: opts.catEmoji || null,
         occurred_time_enc: t ? await _encP(t) : null,
+        node_enc: _okNode(opts.node) ? await _encP(opts.node) : null,   // 0144: tree node, same contract as fhPersonalAddExpense (quick review resolves one for income too)
         account_id: opts.accountId || null, source: source || null };
       const r = await _sb().from('personal_transactions').insert(row);
       if (r.error) { console.warn('personal income failed', r.error); return false; }

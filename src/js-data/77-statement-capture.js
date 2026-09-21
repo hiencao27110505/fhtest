@@ -104,7 +104,16 @@
              row exactly as it sees an email row. Null = nothing decided. */
           node: p.node || null,
           counterparty: p.counterparty || '', _transport: 'statement',
-          stmt: { xfer: !!p.xfer, attn: !!p.attn, incomeCat: p.incomeCat || '', fundedElsewhere: !!p.fundedElsewhere }
+          /* `stmt.flow` is the STATEMENT's own word for the row (fhStmtClassify:
+             fee, refund, salary, topup, cardpay), not the three-value `flow` above,
+             which is the email pipeline's vocabulary and has to stay that way for
+             every reader of it. Only cardpay and topup used to survive this
+             hand-off (as flow:'transfer' and stmt.xfer); fee, refund and salary
+             were classified and then dropped here, and incomeCat was written for
+             a reader that did not exist. 57's candidate builder reads both now.
+             p.flow has been in every stored payload since the first statement, so
+             rows saved before this line carry it too. */
+          stmt: { xfer: !!p.xfer, attn: !!p.attn, flow: p.flow || '', incomeCat: p.incomeCat || '', fundedElsewhere: !!p.fundedElsewhere }
         }
       };
     }
