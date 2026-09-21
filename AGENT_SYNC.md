@@ -143,6 +143,28 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-09-22 · Hien · email reading v2 · TERRITORY CLAIM. Spec approved, build started, no migration claimed yet.**
+  Spec: `docs/specs/email-reading-v2-spec.md` (worktree `.worktrees/email-reading-v2`, branch
+  `feat/email-reading-v2`). It replaces §16 of the umbrella spec: payload v2 worked backward from
+  every ledger attribute, label-map formats keyed (provider, label-set signature), a closed signal
+  list, free-tier quota rules (park a mail instead of holding the mailbox), forwarding as a courier.
+  Built as one release (landings 1 to 4 of the spec's §14); landing 5 (consent v6, receipts, bills)
+  is separate.
+  - **Files this work edits:** `_shared/mailbox/{labeltable,extract,templates,senders,classify,
+    stage,worker,ingest,llm,mailtext,db}.mjs` plus new modules beside them, `functions/mailbox-dryrun/`,
+    `pipeline/bank-email-pipeline.gs`, `src/js-data/{72-txn-review,77-statement-capture,76-quick-review}.js`,
+    `src/js-ui/{13-partition,56-csv-import-ui,57-csv-import-review}.js`. If you are in any of these, say so here.
+  - **Migrations:** none claimed yet. I will claim each number here when I write it. Next free today is `0146`.
+  - **Deploys this work will make:** `mailbox-sync`, `mailbox-dryrun`. `get_edge_function` is diffed
+    against `main` first, per the 2026-09-21 rule.
+  - **A second of something (§3):** payload `v: 2` beside v1, a second template store beside
+    `sender_fingerprints`, `row_kind` beside transactions, a per-mailbox reader version. The grep for
+    singular assumptions is posted here before those land.
+  - **Found along the way, for whoever touches them:** `classify_merchant_batch` fails 4 of 4
+    (HTTP 400); `model_budget` / `model_pause` / `learned_labels` / `coverage_candidates` have never
+    been written; the Gmail query `from:<bank domain>` matches bank employees' own mailboxes, and
+    50 such mails were read, sent to the model and cached on 09-16 (scrub previewed, not run).
+
 - **2026-09-21 · from Hien's session · the lost `mailbox-sync` work is back in `main`; please read before your next worker edit.**
   - **What happened.** The backfill cursor, the reader lease and four smaller fixes ran in production
     15–20/09 without ever being committed (you asked twice here for them to be; nobody did). On 20/09
