@@ -961,20 +961,31 @@ function buildCsvCandidates(parsed, result) {
       }
       // 4. the tree's own keywords over counterparty + memo
       if (!node) {
-        node = _okN(fhNodeGuess({ kind: nodeKind, note: desc, counterparty: party, amount: amount }));
+        node = _okN(fhNodeGuess({ kind: nodeKind, note: desc, counterparty: party, amount: amount, whatOnly: true }));
+        /* A transfer to another PERSON keeps the place it always had, ahead of the
+           hint and the label. Only the newer seller nodes wait for tier 7. */
+        if (!node && typeof fhWhoNode === 'function'
+            && fhWhoNode({ kind: nodeKind, note: desc, counterparty: party, amount: amount }) === 'p2p') node = _okN('p2p');
         if (node) nodeSource = 'keyword';
       }
       /* 5. the legacy 8-concept hint, lifted to the tree GROUP that carries it.
             A concept is exactly a group's worth of confidence, so it lands on the
             group and never pretends to a leaf. */
       if (!node && catGuessConcept && nodeKind === 'expense') {
-        var grp = CONCEPT_TREE_GROUP[catGuessConcept];
+        var grp = (typeof fhConceptGroup === 'function') ? fhConceptGroup(catGuessConcept) : CONCEPT_TREE_GROUP[catGuessConcept];
         node = _okN(grp); if (node) nodeSource = 'concept';
       }
       // 6. the label the person's own partition implies, when it implies one thing
       if (!node && catName && window.catClaims && typeof fhNodeFromClaims === 'function') {
         node = _okN(fhNodeFromClaims(window.catClaims[catName]));
         if (node) nodeSource = 'label';
+      }
+      /* 7. LAST: nothing says what was bought, so say who was paid — a seller, or
+            another person. Below every tier that knows WHAT, because "Đi lại" says
+            more than "Thanh toán cho người bán" ever can. */
+      if (!node && typeof fhWhoNode === 'function') {
+        node = _okN(fhWhoNode({ kind: nodeKind, note: desc, counterparty: party, amount: amount }));
+        if (node) nodeSource = 'who';
       }
     }
 

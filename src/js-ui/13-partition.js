@@ -96,8 +96,8 @@ function fhNodeFromClaims(claims){
 }
 /* Client-side node guess for one row. Tiers, in order (T3 registry is server-side):
    T4 personal lesson (window.fhLessonNode, from 24-lessons.js) → T2 keywords on
-   note + counterparty + memo → T6 the label's implied group → who was paid
-   (fhSellerSignal) → p2p → null.
+   note + counterparty + memo → T6 the label's implied group → (unless whatOnly)
+   who was paid: fhWhoNode = seller mark → p2p → null.
    input: {kind, note, counterparty, memo, amount, labelClaims} */
 function fhNodeGuess(input){
   input=input||{}; var kind=input.kind||'expense';
@@ -108,13 +108,29 @@ function fhNodeGuess(input){
   if(k) return k;
   var c=fhNodeFromClaims(input.labelClaims);
   if(c && FH_TAX.kindOf(c)===kind) return c;
-  /* WHO was paid, asked only once WHAT was bought has no answer. A transfer to a
-     seller and a transfer to a friend look the same to fhLooksPersonToPerson, so
-     this has to run first or every shop with a person's name is filed as p2p. */
-  if(kind==='expense'){ var s=fhSellerSignal(input); if(s) return s; }
-  if(kind==='expense' && fhLooksPersonToPerson(input)) return 'p2p';
-  return null;
+  /* Everything above says WHAT was bought. What follows only says WHO was paid,
+     which is vaguer than any of it. A caller that still has WHAT-evidence of its
+     own to try (the server's concept hint, the person's label) passes whatOnly
+     and asks fhWhoNode LAST. Shipping the who-tier inside this function, ahead of
+     those, turned 29 Grab rows hinted "Đi lại" into "Thanh toán cho người bán"
+     and a supermarket into "Công ty & cửa hàng" (2026-09-21). */
+  if(input.whatOnly) return null;
+  return fhWhoNode(input);
 }
+/* The last resort: nothing says what was bought, so say who was paid. A seller
+   mark is asked before the p2p shape, because a shop with a person's name and a
+   friend look the same to fhLooksPersonToPerson. */
+function fhWhoNode(input){
+  input=input||{}; if((input.kind||'expense')!=='expense') return null;
+  var s=fhSellerSignal(input); if(s) return s;
+  return fhLooksPersonToPerson(input)?'p2p':null;
+}
+/* The legacy eight concepts, lifted to the tree GROUP that carries each. A
+   concept is exactly a group's worth of confidence, so it lands on the group and
+   never pretends to a leaf. One table for every lane that reads a server hint. */
+var _CONCEPT_GROUP={ Housing:'home', Groceries:'groceries', Clothing:'clothing', Shopping:'shopping',
+  Transport:'transport', Dining:'food', Fun:'leisure', Others:null };
+function fhConceptGroup(concept){ var g=_CONCEPT_GROUP[concept]; return fhNodeOk(g)?g:null; }
 /* ── Who was paid: a seller, by the marks only a payment system leaves ─────────
    Measured on two real mailboxes (research/category-patterns.html): 143 of 273
    yearly transfers in one and 56 of 158 in the other carry at least one of these
@@ -160,13 +176,10 @@ function fhSellerSignal(input){
   }
   var words=flat.replace(/[^a-z0-9]+/g,' ');
   if(_BIZ_RX.test(words)) return 'bizpay';
-  /* A brand that sells across two groups with no shared parent. Grab is rides
-     AND food: certainly a purchase, and nothing deeper is known without Grab's
-     own receipt. Kept HERE and out of the tree's keywords on purpose: the worker
-     shares that list, and there a keyword would replace the legacy "Transport"
-     concept the flat labels still lean on. Its product names (grabfood, grabbike)
-     are real keywords and have already answered before this runs. */
-  if(/\b(grab|moca)\b/.test(words)) return 'purchase';
+  /* No brand rules here. Grab was one for a day ("rides AND food, so at least a
+     purchase") and it was wrong in practice: the server already hints Grab as
+     Transport, which says more than "paid to a seller" does, and this answered
+     first. A brand belongs in the keywords or nowhere. */
   return mark?'purchase':null;
 }
 /* Transfer-to-a-human phrasing, kept deliberately narrow: the bank's own verb

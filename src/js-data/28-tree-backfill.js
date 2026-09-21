@@ -31,8 +31,8 @@
        v5 shipped with a bug that marked a scope done after one batch of
        unresolvable rows, so every device is sitting on a false "done" and v6
        is what undoes that. */
-    if (scope === 'family') return 'fh-tree-bf:v7:fam:' + ((window.DB && window.DB.fid) || '');
-    return 'fh-tree-bf:v7:per:' + ((window.fhPersonalData && fhPersonalData().uid) || '');
+    if (scope === 'family') return 'fh-tree-bf:v8:fam:' + ((window.DB && window.DB.fid) || '');
+    return 'fh-tree-bf:v8:per:' + ((window.fhPersonalData && fhPersonalData().uid) || '');
   }
   function _tbfDone(scope) { try { return localStorage.getItem(_tbfCursorKey(scope)) === 'done'; } catch (e) { return false; } }
   function _tbfMarkDone(scope) { try { localStorage.setItem(_tbfCursorKey(scope), 'done'); } catch (e) {} }
@@ -80,10 +80,17 @@
       try { const xf = fhTransferShape(row.note, Math.abs(Number(row.amt) || 0)); if (xf) return xf; } catch (e) {}
     }
     let guess = null;
-    try { guess = fhNodeGuess({ kind: kind, note: row.note, amount: row.amt }); }
+    try { guess = fhNodeGuess({ kind: kind, note: row.note, amount: row.amt, whatOnly: true }); }
     catch (e) { guess = null; }
     if (guess) return guess;
-    return _tbfCoarse(scope, row);
+    /* The row's own label says WHAT, and outranks WHO. v7 asked who first, and
+       re-filed logged Grab rows from "Đi lại" to "Thanh toán cho người bán"; v8
+       puts them back, because a who-node is depth 1 and the sweep looks again. */
+    let who = null;
+    try { who = (typeof fhWhoNode === 'function') ? fhWhoNode({ kind: kind, note: row.note, amount: row.amt }) : null; }
+    catch (e) { who = null; }
+    if (who === 'p2p') return who;                       // a person keeps the place it had through v6
+    return _tbfCoarse(scope, row) || who;
   }
 
   /* One pass over one scope. Returns the number of rows written, or -1 when it

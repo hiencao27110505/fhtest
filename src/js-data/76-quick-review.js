@@ -210,8 +210,18 @@
           if (l) return l;
         }
       } catch (e) {}
-      try { return ok(fhNodeGuess({ kind: kind, note: desc, counterparty: party, amount: Number(re && re.amount) || 0 })); }
-      catch (e) { return null; }
+      var inp = { kind: kind, note: desc, counterparty: party, amount: Number(re && re.amount) || 0 };
+      try {
+        var what = ok(fhNodeGuess(Object.assign({ whatOnly: true }, inp)));
+        if (what) return what;
+        var who = (typeof fhWhoNode === 'function') ? ok(fhWhoNode(inp)) : null;
+        if (who === 'p2p') return who;            // a person keeps the place it always had
+        /* The server's concept hint says WHAT (Grab arrives as Transport); who was
+           paid is asked only after it, same order as the full review. */
+        var hinted = (kind === 'expense' && typeof fhConceptGroup === 'function') ? ok(fhConceptGroup(re && re.category_hint)) : null;
+        if (hinted) return hinted;
+        return who;
+      } catch (e) { return null; }
     }
     function _qrNode(kind) {
       if (!QR || typeof FH_TAX === 'undefined') return null;

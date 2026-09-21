@@ -21,7 +21,7 @@ const ctx = { window: {}, localStorage: { getItem: () => null, setItem: () => {}
 vm.createContext(ctx);
 vm.runInContext(fs.readFileSync(path.join(ROOT, 'src/js-ui/11-taxonomy.js'), 'utf8'), ctx);
 vm.runInContext(fs.readFileSync(path.join(ROOT, 'src/js-ui/13-partition.js'), 'utf8')
-  + ';globalThis.__P={fhPipeNodeOk,fhStructNode,fhSellerSignal,fhLabelForNode,fhDefaultClaimsFor,fhNodeGuess,fhNodeDepth,fhNodeFromClaims,fhNodeGroup,fhTransferShape,fhLooksSelfTransfer,fhNodeSelMatch,fhNodeSelLabel,fhNodeSelCode,fhCountsAsSpending,fhXferCashOut};', ctx);
+  + ';globalThis.__P={fhWhoNode,fhConceptGroup,fhPipeNodeOk,fhStructNode,fhSellerSignal,fhLabelForNode,fhDefaultClaimsFor,fhNodeGuess,fhNodeDepth,fhNodeFromClaims,fhNodeGroup,fhTransferShape,fhLooksSelfTransfer,fhNodeSelMatch,fhNodeSelLabel,fhNodeSelCode,fhCountsAsSpending,fhXferCashOut};', ctx);
 const T = ctx.FH_TAX, P = ctx.__P;
 const FH_TAX_VI = (c) => T.get(c).vi;
 
@@ -69,14 +69,14 @@ console.log('\n-- the keyword matcher finds what it should --');
   hit('AEON NGUYEN VAN LINH', 'groceries');
   hit('tien dien thang 9', 'electric');
   hit('cafe 50k', 'coffee');                              // a typed note, not a bank memo
-  /* Grab is rides AND food, two groups with no shared parent. The KEYWORDS stay
-     silent (the worker shares them, and there a hit would replace the legacy
-     "Transport" concept); the client's who-was-paid tier rests it on "paid to a
-     seller", which is true, and it never claims a ride or a meal. */
-  t('a brand spanning two groups: the shared keywords stay silent', T.keywordNode('VIB MOCA GRAB', 'expense') === null, T.keywordNode('VIB MOCA GRAB', 'expense'));
-  t('…and the guess rests it on "paid to a seller", never on either group',
-    P.fhNodeGuess({ kind: 'expense', counterparty: 'VIB MOCA GRAB', note: 'Thanh toán dịch vụ - hàng hóa' }) === 'purchase'
-    && P.fhNodeGuess({ kind: 'expense', note: 'GRAB' }) === 'purchase');
+  /* Grab is rides AND food, two groups with no shared parent, so no keyword and
+     no brand rule may answer for it. For one day (v565) a rule rested it on "paid
+     to a seller"; that fired ahead of the server's Transport hint and every Grab
+     card in the queue went from "Đi lại" to something vaguer. Silence here is
+     what lets the hint speak. */
+  t('a brand spanning two groups: the keywords stay silent', T.keywordNode('VIB MOCA GRAB', 'expense') === null, T.keywordNode('VIB MOCA GRAB', 'expense'));
+  t('…and so does the guess, WHO-tier included: no brand rules', P.fhNodeGuess({ kind: 'expense', counterparty: 'VIB MOCA GRAB', note: 'Thanh toán dịch vụ - hàng hóa' }) === null
+    && P.fhNodeGuess({ kind: 'expense', note: 'GRAB' }) === null);
   t('…while the brand\'s own product names still reach their leaf',
     T.keywordNode('GRABFOOD', 'expense') === 'delivery' && T.keywordNode('GrabBike', 'expense') === 'bikehail');
   t('a marketplace answers at GROUP level, never a leaf', T.keywordNode('Shopee VN', 'expense') === 'shopping');
@@ -302,7 +302,7 @@ console.log('\n-- money that moved is not money that was spent --');
   t('the sweep asks the transfer shape before the guess',
     bf.indexOf('fhTransferShape') < bf.indexOf('guess = fhNodeGuess'));
   /* And the rules changing is worthless if the sweep still thinks it is done. */
-  t('the sweep cursor moved with the rules', /fh-tree-bf:v7:/.test(bf) && !/fh-tree-bf:v[1-6]:/.test(bf));
+  t('the sweep cursor moved with the rules', /fh-tree-bf:v8:/.test(bf) && !/fh-tree-bf:v[1-7]:/.test(bf));
 }
 
 console.log('\n-- who was paid: a seller leaves marks a friend does not --');
@@ -334,6 +334,35 @@ console.log('\n-- who was paid: a seller leaves marks a friend does not --');
   t('a catering company is not software', g('CAO THAI DUY HIEN thanh toan QRCODE tai DZINE', 'DZINE') !== 'software' && T.keywordNode('DZINE FOOD SOLUTIONS C', 'expense') === null);
   t('an FX fee line is a bank fee, not a building\'s management fee', T.keywordNode('Phí Quản Lý Giao Dịch VND Tại Nước Ngoài', 'expense') === 'fxfee');
   t('"pizza" alone stops at eating out', T.keywordNode('PAYOO PIZZA SOMEWHERE', 'expense') === 'eatout' && T.keywordNode('PAYOO PIZZA4PS 15C', 'expense') === 'restaurant');
+}
+
+console.log('\n-- WHAT was bought outranks WHO was paid, in every lane --');
+{
+  /* The review's order, as 57 and 76 run it: words, a person (where it always
+     was), the server's hint, then the seller nodes last. Rebuilt here from the
+     same public functions so the ORDER is what is tested, not a line of source. */
+  const review = (r) => {
+    const i = { kind: 'expense', note: r.note || '', counterparty: r.cp || '' };
+    const what = P.fhNodeGuess(Object.assign({ whatOnly: true }, i)); if (what) return what;
+    const who = P.fhWhoNode(i); if (who === 'p2p') return who;
+    return P.fhConceptGroup(r.hint) || who;
+  };
+  t('Grab, hinted Transport by the server, is "Đi lại" again', review({ cp: 'VIB MOCA GRAB', note: 'Thanh toán dịch vụ - hàng hóa', hint: 'Transport' }) === 'transport');
+  t('a supermarket paid through a till account keeps its grocery hint', review({ cp: 'V3KOV500799292V1 - CONG TY TNHH QUICK va SAVE', note: 'KOVQR071N3K2KA', hint: 'Groceries' }) === 'groceries');
+  t('a clothes shop paid by QR keeps its clothing hint', review({ cp: 'MB999000054361 - MATTE', note: 'QR3VQ4H1TT Matte', hint: 'Clothing' }) === 'clothing');
+  t('with NO hint, the seller mark still beats "Chuyển cho người khác"', review({ cp: 'PHATLOC169208 - NGUYEN THI N M', note: 'CAO THAI DUY HIEN chuyen tien den NGUYEN THI N M - PHATLOC169208' }) === 'purchase'
+    && review({ cp: '1301965011 - CONG TY TNHH HYEIN', note: '' }) === 'bizpay');
+  t('a hint of "Others" says nothing, so the mark answers', review({ cp: '3666689689 - HOANG P A', note: '66527 N9GDR', hint: 'Others' }) === 'purchase');
+  t('a known dish still beats everything', review({ cp: '38933888 - CONG TY TNHH HU TIEU HONG PHAT', hint: 'Shopping' }) === 'restaurant');
+  t('a person keeps the place it always had, ahead of the hint', review({ cp: '102811489 - LE CAO HUNG', note: 'CAO THAI DUY HIEN chuyen tien den LE CAO HUNG - 102811489', hint: 'Dining' }) === 'p2p');
+  t('whatOnly never returns a who-node', ['p2p', 'purchase', 'bizpay'].indexOf(P.fhNodeGuess({ kind: 'expense', whatOnly: true, note: '66527 N9GDR', counterparty: '3666689689 - HOANG P A' })) < 0
+    && P.fhNodeGuess({ kind: 'expense', whatOnly: true, counterparty: '102811489 - LE CAO HUNG' }) === null);
+  t('the default guess is unchanged for callers with nothing else to try (the composer)', P.fhNodeGuess({ kind: 'expense', note: '66527 N9GDR', counterparty: '3666689689 - HOANG P A' }) === 'purchase');
+  t('every concept lifts to a real group, and "Others" to nothing', ['Housing', 'Groceries', 'Clothing', 'Shopping', 'Transport', 'Dining', 'Fun'].every((c) => !!T.get(P.fhConceptGroup(c))) && P.fhConceptGroup('Others') === null && P.fhConceptGroup('zzz') === null);
+  /* The sweep: the row's own label says WHAT, so it outranks the seller nodes too. */
+  const bf = fs.readFileSync(path.join(ROOT, 'src/js-data/28-tree-backfill.js'), 'utf8');
+  const body = bf.slice(bf.indexOf('function _tbfNodeFor'), bf.indexOf('function _tbfWants'));
+  t('the sweep asks words, then the label, and who-was-paid only after it', body.indexOf('whatOnly: true') > 0 && body.indexOf('whatOnly: true') < body.indexOf('_tbfCoarse(scope, row) || who'));
 }
 
 console.log('\n-- a node sealed by an older copy of the keywords is checked against today\'s --');
