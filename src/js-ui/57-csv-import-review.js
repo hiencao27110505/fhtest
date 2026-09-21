@@ -714,6 +714,33 @@ function buildCsvCandidates(parsed, result) {
     return m;
   })();
 
+  /* The same PAYEE, whatever was typed this time. A ledger note reads "payee |
+     memo", and the memo changes every month ("Em gui tien nha", "Em chuyen tien
+     nha. Cam on anh Quang") while the payee does not. Answered only when every
+     past row to that payee agrees and there are at least two of them: one row is
+     an anecdote, and a payee filed two ways is a shop that sells two things. The
+     who-was-paid nodes do not vote — they say nothing about what was bought. */
+  var payeeNodeMap = (function () {
+    var votes = {}, m = {}, WHO = { p2p: 1, purchase: 1, bizpay: 1, seller: 1 };
+    var see = function (t) {
+      if (!t || !t.node || t.future || WHO[t.node]) return;
+      var head = String(t.note || '').split('|')[0].trim();
+      if (!/\d{6,}/.test(head) || !/[A-Za-zÀ-ỹ]{2,}\s+[A-Za-zÀ-ỹ]{2,}/.test(head)) return;   // an account AND a name
+      var k = normDescForDedup(head); if (!k) return;
+      (votes[k] = votes[k] || {})[t.node] = (votes[k][t.node] || 0) + 1;
+    };
+    try {
+      (window.txns || []).forEach(see);
+      var P = window.fhPersonalData ? fhPersonalData() : null;
+      ((P && P.txns) || []).forEach(see);
+      Object.keys(votes).forEach(function (k) {
+        var ns = Object.keys(votes[k]);
+        if (ns.length === 1 && votes[k][ns[0]] >= 2) m[k] = ns[0];
+      });
+    } catch (e) {}
+    return m;
+  })();
+
   return parsed.rows.map(function(row, i) {
     var flags = [];
     var dateRaw = colFor.occurred_at !== undefined ? row[colFor.occurred_at] : '';
@@ -917,10 +944,14 @@ function buildCsvCandidates(parsed, result) {
     if (typeof FH_TAX !== 'undefined' && typeof fhNodeGuess === 'function') {
       var _okN = function (c) { return (c && FH_TAX.get(c) && FH_TAX.kindOf(c) === nodeKind) ? c : null; };
       // 1. the pipeline's own answer, sealed with the row (raw_extracted.node)
-      node = _okN(rowNodeHint); if (node) nodeSource = 'pipeline';
+      node = _okN(rowNodeHint);
+      /* …unless it rests on a keyword the tree has since retired (fhPipeNodeOk). */
+      if (node && typeof fhPipeNodeOk === 'function') node = fhPipeNodeOk(node, { note: desc, counterparty: party });
+      if (node) nodeSource = 'pipeline';
       // 2. a ledger row with the same wording that already carries a node
       if (!node) {
-        var hn = (desc && nodeHistoryMap[normDescForDedup(desc)]) || (party && nodeHistoryMap[normDescForDedup(party)]);
+        var hn = (desc && nodeHistoryMap[normDescForDedup(desc)]) || (party && nodeHistoryMap[normDescForDedup(party)])
+          || (party && payeeNodeMap[normDescForDedup(party)]);
         node = _okN(hn); if (node) nodeSource = 'history';
       }
       // 3. what this person taught about this merchant, at this size

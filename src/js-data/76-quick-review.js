@@ -200,9 +200,10 @@
     function _qrNodeFor(re, desc, kind) {
       if (typeof FH_TAX === 'undefined') return null;
       var ok = function (c) { return (c && FH_TAX.get(c) && FH_TAX.kindOf(c) === kind) ? c : null; };
-      var fromPipe = ok(re && re.node);
-      if (fromPipe) return fromPipe;
       var party = (re && re.counterparty) || '';
+      var fromPipe = ok(re && re.node);
+      if (fromPipe && typeof fhPipeNodeOk === 'function') fromPipe = fhPipeNodeOk(fromPipe, { note: desc, counterparty: party });
+      if (fromPipe) return fromPipe;
       try {
         if (window.fhLessonNode) {
           var l = ok(window.fhLessonNode({ counterparty: party, memo: desc, amount: Number(re && re.amount) || 0 }));

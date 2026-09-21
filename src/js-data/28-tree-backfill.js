@@ -31,8 +31,8 @@
        v5 shipped with a bug that marked a scope done after one batch of
        unresolvable rows, so every device is sitting on a false "done" and v6
        is what undoes that. */
-    if (scope === 'family') return 'fh-tree-bf:v6:fam:' + ((window.DB && window.DB.fid) || '');
-    return 'fh-tree-bf:v6:per:' + ((window.fhPersonalData && fhPersonalData().uid) || '');
+    if (scope === 'family') return 'fh-tree-bf:v7:fam:' + ((window.DB && window.DB.fid) || '');
+    return 'fh-tree-bf:v7:per:' + ((window.fhPersonalData && fhPersonalData().uid) || '');
   }
   function _tbfDone(scope) { try { return localStorage.getItem(_tbfCursorKey(scope)) === 'done'; } catch (e) { return false; } }
   function _tbfMarkDone(scope) { try { localStorage.setItem(_tbfCursorKey(scope), 'done'); } catch (e) {} }
@@ -77,7 +77,7 @@
        asked before the guess, which reads "chuyen tien den <my own name>" as
        money sent to another person. */
     if (kind === 'expense') {
-      try { const xf = fhTransferShape(row.note); if (xf) return xf; } catch (e) {}
+      try { const xf = fhTransferShape(row.note, Math.abs(Number(row.amt) || 0)); if (xf) return xf; } catch (e) {}
     }
     let guess = null;
     try { guess = fhNodeGuess({ kind: kind, note: row.note, amount: row.amt }); }
@@ -96,7 +96,12 @@
     if (t._tbfSkip) return false;
     if (!t.node) return true;
     const n = (typeof FH_TAX !== 'undefined') ? FH_TAX.get(t.node) : null;
-    return !!(n && n.depth === 1);
+    if (n && n.depth === 1) return true;
+    /* …or one that rests on a keyword the tree has since retired for filing real
+       rows wrongly (a catering firm under Phần mềm). Only the entries marked safe
+       for the ledger: fhPipeNodeOk's third argument. */
+    try { if (n && typeof fhPipeNodeOk === 'function' && fhPipeNodeOk(t.node, { note: t.note }, true) === null) return true; } catch (e) {}
+    return false;
   }
   async function _tbfSlice(scope) {
     /* Session cap: stop, but NEVER mark the scope done — n:0 is reserved for

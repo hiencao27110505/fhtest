@@ -1,12 +1,12 @@
 {
  "version": 1,
- "updated": "2026-09-20",
+ "updated": "2026-09-21",
  "kinds": [
   {
    "id": "expense",
    "vi": "Chi tiêu",
    "en": "Expense",
-   "note": "What the money bought. COICOP skeleton adapted to Vietnamese life. Eleven groups plus a root that only a person can file into. Deep where habits differ, shallow where they don’t."
+   "note": "What the money bought. COICOP skeleton adapted to Vietnamese life. Twelve groups plus a root that only a person can file into. Deep where habits differ, shallow where they don’t."
   },
   {
    "id": "income",
@@ -88,7 +88,8 @@
     "quick save market",
     "nutri mart",
     "di cho",
-    "cho bua"
+    "cho bua",
+    "7eleven"
    ],
    "concept": "Groceries"
   },
@@ -103,7 +104,8 @@
     "rau",
     "thit",
     "thit tuoi",
-    "hai san"
+    "hai san",
+    "vinameat"
    ],
    "concept": "Groceries"
   },
@@ -202,7 +204,8 @@
     "quan an",
     "nha hang",
     "an trua",
-    "an toi"
+    "an toi",
+    "pizza"
    ],
    "concept": "Dining"
   },
@@ -273,7 +276,13 @@
     "hu tieu",
     "hu tiu",
     "quan an",
-    "quan com"
+    "quan com",
+    "pizza 4ps",
+    "pizza4ps",
+    "spice temple",
+    "spicetemple",
+    "donchicken",
+    "don chicken"
    ],
    "concept": "Dining"
   },
@@ -289,13 +298,15 @@
     "lotteria",
     "mcdonald",
     "jollibee",
-    "pizza",
     "burger",
     "burger king",
     "popeyes",
     "domino",
     "texas chicken",
-    "chickita"
+    "chickita",
+    "pizza hut",
+    "the pizza company",
+    "pizza company"
    ],
    "concept": "Dining"
   },
@@ -452,7 +463,9 @@
     "sinh to",
     "tra chanh",
     "tra dao",
-    "fruities"
+    "fruities",
+    "boost juice",
+    "boostjuice"
    ],
    "concept": "Dining"
   },
@@ -506,7 +519,6 @@
    "vi": "Tiền nhà",
    "en": "Rent & building",
    "kw": [
-    "tien nha",
     "thue nha",
     "tro"
    ],
@@ -523,9 +535,13 @@
     "tien thue",
     "tien tro",
     "tien phong",
-    "tien nha",
     "tien thue nha",
-    "thue nha"
+    "thue nha",
+    "tien nha thang",
+    "dong tien nha",
+    "tra tien nha",
+    "thanh toan tien nha",
+    "tt tien nha"
    ],
    "concept": "Housing"
   },
@@ -716,7 +732,8 @@
    "en": "Household goods",
    "kw": [
     "dien may",
-    "noi that"
+    "noi that",
+    "dien may xanh"
    ],
    "concept": "Housing"
   },
@@ -730,7 +747,6 @@
    "kw": [
     "may giat",
     "tu lanh",
-    "dien may xanh",
     "nguyen kim",
     "may lanh"
    ],
@@ -873,7 +889,8 @@
     "do xang",
     "petrolimex",
     "pvoil",
-    "xang dau"
+    "xang dau",
+    "plx"
    ],
    "concept": "Transport"
   },
@@ -1191,7 +1208,8 @@
     "giay dep",
     "crocs",
     "biti",
-    "dep quai"
+    "dep quai",
+    "payoo vans"
    ],
    "concept": "Clothing"
   },
@@ -2109,6 +2127,21 @@
    "concept": "Others"
   },
   {
+   "code": "fxfee",
+   "kind": "expense",
+   "parent": "bankfees",
+   "depth": 3,
+   "vi": "Phí giao dịch ngoại tệ",
+   "en": "Foreign transaction fees",
+   "kw": [
+    "phi giao dich ngoai te",
+    "phi quan ly giao dich",
+    "giao dich vnd tai nuoc ngoai",
+    "phi chuyen doi ngoai te"
+   ],
+   "concept": "Others"
+  },
+  {
    "code": "interest",
    "kind": "expense",
    "parent": "fees",
@@ -2326,7 +2359,6 @@
     "canva",
     "notion",
     "anthropic",
-    "claude",
     "openai",
     "figma",
     "github",
@@ -2334,8 +2366,10 @@
     "google*cloud",
     "aws",
     "ux pilot",
-    "dzine",
-    "adobe"
+    "adobe",
+    "claude ai",
+    "claude sub",
+    "claude pro"
    ],
    "concept": "Others"
   },
@@ -2424,6 +2458,38 @@
    "concept": "Others"
   },
   {
+   "code": "purchase",
+   "kind": "expense",
+   "parent": null,
+   "depth": 1,
+   "vi": "Thanh toán cho người bán",
+   "en": "Paid to a seller",
+   "concept": "Others",
+   "emoji": "🧾"
+  },
+  {
+   "code": "bizpay",
+   "kind": "expense",
+   "parent": "purchase",
+   "depth": 2,
+   "vi": "Công ty & cửa hàng",
+   "en": "Companies & shops",
+   "concept": "Others"
+  },
+  {
+   "code": "seller",
+   "kind": "expense",
+   "parent": "purchase",
+   "depth": 2,
+   "vi": "Người bán cá nhân",
+   "en": "Individual sellers",
+   "kw": [
+    "chuyen khoan mua",
+    "ck mua"
+   ],
+   "concept": "Others"
+  },
+  {
    "code": "p2p",
    "kind": "expense",
    "parent": null,
@@ -2447,19 +2513,6 @@
     "tra tien an",
     "tien chung",
     "chuyen tien vao quy"
-   ],
-   "concept": "Others"
-  },
-  {
-   "code": "seller",
-   "kind": "expense",
-   "parent": "p2p",
-   "depth": 2,
-   "vi": "Mua từ người bán cá nhân",
-   "en": "Purchase from an individual seller",
-   "kw": [
-    "chuyen khoan mua",
-    "ck mua"
    ],
    "concept": "Others"
   },

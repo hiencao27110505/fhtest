@@ -65,6 +65,33 @@ t('MCC becomes a category hint in the shared 8-concept vocabulary', C.find((r) =
 t('a statement row seals raw_extracted.node like an email row does', B.every((r) => 'node' in r.raw_extracted && r.raw_extracted.node === null));
 t('a node the concept call handed back is sealed on the row',
   (function(){ var r = window.fhStmtAsStaged('idN', Object.assign({}, window.fhStmtRowPayload(bank.rows[0], { provider: 'VIB', kind: 'deposit', tail: bank.summary.accountTail }, 'S1'), { node: 'coffee' })); return r.raw_extracted.node === 'coffee'; })());
+
+/* The codes the FILE carries reach the node with no network at all. The real
+   tree and the real reader are loaded whole, the way the app concatenates them. */
+{
+  const vm = require('vm');
+  const ctx = { window: {}, localStorage: { getItem: () => null }, L: (vi) => vi };
+  vm.createContext(ctx);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', 'js-ui', '11-taxonomy.js'), 'utf8'), ctx);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', 'js-ui', '13-partition.js'), 'utf8') + ';globalThis.__S=fhStructNode;', ctx);
+  window.fhStructNode = ctx.__S;
+  const card = T.fhStmtParse(grid('credit-card'));
+  const C = card.rows.map((r) => ({ r: r, p: window.fhStmtRowPayload(r, { provider: 'VIB', kind: 'credit_card', tail: '4751' }, 'S2') }));
+  const withMcc = C.filter((x) => x.r.mcc && x.r.amt < 0);
+  t('the card fixture has MCC rows to test with', withMcc.length > 0, card.rows.slice(0, 3));
+  t('every MCC purchase row arrives with a real tree node', withMcc.every((x) => !x.p.node || ctx.FH_TAX.get(x.p.node)) && withMcc.some((x) => !!x.p.node),
+    withMcc.map((x) => [x.r.mcc, x.r.description, x.p.node]));
+  t('a fee line is filed as a fee even though it carries a shop\'s MCC',
+    C.filter((x) => /ph[ií] /i.test(x.r.description)).every((x) => !x.p.node || ctx.FH_TAX.ancestors(x.p.node).concat([x.p.node]).indexOf('fees') >= 0),
+    C.filter((x) => /ph[ií] /i.test(x.r.description)).map((x) => [x.r.description, x.p.node]));
+  const wallet = T.fhStmtParse(grid('ewallet'));
+  const W = wallet.rows.map((r) => ({ r: r, p: window.fhStmtRowPayload(r, { provider: 'MoMo', kind: 'ewallet', tail: '1217' }, 'S3') }));
+  t('wallet rows: a node only where the receiving service says so', W.every((x) => !x.p.node || ctx.FH_TAX.get(x.p.node)),
+    W.filter((x) => x.p.node).map((x) => [x.r.toAcct, x.p.node]));
+  console.log('        (card nodes: ' + withMcc.map((x) => x.r.mcc + '→' + x.p.node).join(', ') + ')');
+  console.log('        (wallet nodes: ' + (W.filter((x) => x.p.node).map((x) => (x.r.amt < 0 ? x.r.toAcct : x.r.fromAcct) + '→' + x.p.node).join(', ') || 'none in fixture') + ')');
+  delete window.fhStructNode;
+}
 t('an unknown MCC gives no hint rather than a wrong one', C.every((r) => ['', 'Housing', 'Groceries', 'Clothing', 'Shopping', 'Transport', 'Dining', 'Fun', 'Others'].indexOf(r.raw_extracted.category_hint) >= 0));
 t('money INTO the card is a credit with flow:transfer', C.filter((r) => r.direction === 'credit').every((r) => r.raw_extracted.flow === 'transfer'));
 t('the card is the account', C.every((r) => r.raw_extracted.account_kind === 'credit_card' && r.raw_extracted.account_masked === '6789'));

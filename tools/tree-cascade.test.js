@@ -21,7 +21,7 @@ const ctx = { window: {}, localStorage: { getItem: () => null, setItem: () => {}
 vm.createContext(ctx);
 vm.runInContext(fs.readFileSync(path.join(ROOT, 'src/js-ui/11-taxonomy.js'), 'utf8'), ctx);
 vm.runInContext(fs.readFileSync(path.join(ROOT, 'src/js-ui/13-partition.js'), 'utf8')
-  + ';globalThis.__P={fhLabelForNode,fhDefaultClaimsFor,fhNodeGuess,fhNodeDepth,fhNodeFromClaims,fhNodeGroup,fhTransferShape,fhLooksSelfTransfer,fhNodeSelMatch,fhNodeSelLabel,fhNodeSelCode,fhCountsAsSpending,fhXferCashOut};', ctx);
+  + ';globalThis.__P={fhPipeNodeOk,fhStructNode,fhSellerSignal,fhLabelForNode,fhDefaultClaimsFor,fhNodeGuess,fhNodeDepth,fhNodeFromClaims,fhNodeGroup,fhTransferShape,fhLooksSelfTransfer,fhNodeSelMatch,fhNodeSelLabel,fhNodeSelCode,fhCountsAsSpending,fhXferCashOut};', ctx);
 const T = ctx.FH_TAX, P = ctx.__P;
 const FH_TAX_VI = (c) => T.get(c).vi;
 
@@ -69,7 +69,16 @@ console.log('\n-- the keyword matcher finds what it should --');
   hit('AEON NGUYEN VAN LINH', 'groceries');
   hit('tien dien thang 9', 'electric');
   hit('cafe 50k', 'coffee');                              // a typed note, not a bank memo
-  t('a brand spanning two groups stays unanswered', T.keywordNode('VIB MOCA GRAB', 'expense') === null, T.keywordNode('VIB MOCA GRAB', 'expense'));
+  /* Grab is rides AND food, two groups with no shared parent. The KEYWORDS stay
+     silent (the worker shares them, and there a hit would replace the legacy
+     "Transport" concept); the client's who-was-paid tier rests it on "paid to a
+     seller", which is true, and it never claims a ride or a meal. */
+  t('a brand spanning two groups: the shared keywords stay silent', T.keywordNode('VIB MOCA GRAB', 'expense') === null, T.keywordNode('VIB MOCA GRAB', 'expense'));
+  t('…and the guess rests it on "paid to a seller", never on either group',
+    P.fhNodeGuess({ kind: 'expense', counterparty: 'VIB MOCA GRAB', note: 'Thanh toán dịch vụ - hàng hóa' }) === 'purchase'
+    && P.fhNodeGuess({ kind: 'expense', note: 'GRAB' }) === 'purchase');
+  t('…while the brand\'s own product names still reach their leaf',
+    T.keywordNode('GRABFOOD', 'expense') === 'delivery' && T.keywordNode('GrabBike', 'expense') === 'bikehail');
   t('a marketplace answers at GROUP level, never a leaf', T.keywordNode('Shopee VN', 'expense') === 'shopping');
   t('income keywords live in their own tree', T.keywordNode('thanh toan luong thang 03', 'income') === 'wage'
     && T.keywordNode('thanh toan luong thang 03', 'expense') === null);
@@ -254,7 +263,9 @@ console.log('\n-- decrypted from a real ledger: what 11tr of "Chưa rõ" was --'
      key, after they asked why so much was unclassified. Two thirds of it was
      never spending at all. */
   const n = (note) => P.fhNodeGuess({ kind: 'expense', note: note });
-  t('a QR reference before a person still reads as p2p', n('VQRQ0001oqplk - VO DINH PHUC') === 'p2p');
+  /* Was p2p until the tree could say "paid to a seller": VQRQ… is a collection
+     account a QR service issued, which a friend's account never is. */
+  t('a merchant-QR account before a person\'s name is a purchase, not p2p', n('VQRQ0001oqplk - VO DINH PHUC') === 'purchase', n('VQRQ0001oqplk - VO DINH PHUC'));
   t('so does a payment reference before a name', n('LGOINV2609020BJ7R519 HIEN CAO') === 'p2p');
   t('MoMo\'s "send a card" is a gift', n('Gửi thiệp đến Cung Đức Tùng') === 'gifts');
   /* ...and none of that may steal a merchant the tree actually knows. */
@@ -291,7 +302,86 @@ console.log('\n-- money that moved is not money that was spent --');
   t('the sweep asks the transfer shape before the guess',
     bf.indexOf('fhTransferShape') < bf.indexOf('guess = fhNodeGuess'));
   /* And the rules changing is worthless if the sweep still thinks it is done. */
-  t('the sweep cursor moved with the rules', /fh-tree-bf:v6:/.test(bf) && !/fh-tree-bf:v[1-5]:/.test(bf));
+  t('the sweep cursor moved with the rules', /fh-tree-bf:v7:/.test(bf) && !/fh-tree-bf:v[1-6]:/.test(bf));
+}
+
+console.log('\n-- who was paid: a seller leaves marks a friend does not --');
+{
+  /* Real strings from two mailboxes (VIB writes "ACCOUNT - NAME", MB writes
+     "NAME - ACCOUNT"), names shortened. research/category-patterns.html */
+  const g = (note, counterparty) => P.fhNodeGuess({ kind: 'expense', note: note, counterparty: counterparty });
+  const VIB = 'CAO THÁI DUY HIỂN chuyen tien den ';
+  t('a Techcombank shop alias with a person\'s name', g(VIB + 'NGUYEN THI N M - PHATLOC169208', 'PHATLOC169208 - NGUYEN THI N M') === 'purchase');
+  t('a till-printed order code to an all-digit personal account', g('66527 N9GDR', '3666689689 - HOANG P A') === 'purchase');
+  t('"TT HD" and an invoice number', g('TT HD BH00120', '0721000536225 - MA PHI THONG') === 'purchase');
+  t('a legal entity with no telling name is a company', g(VIB + 'CONG TY TNHH HYEIN - 1301965011', '1301965011 - CONG TY TNHH HYEIN') === 'bizpay');
+  t('MB\'s order (name first) reads the same', g('NGUYEN THU TRANG chuyen tien', 'HO KINH DOANH BALI CAMA - MS00P0XXXXXXXXX') === 'bizpay');
+  t('a masked virtual account still counts', g('NGUYEN THU TRANG chuyen tien', 'DO T H - PMC26018XXXXXXXXXXX') === 'purchase');
+  t('the bank\'s merchant-QR sentence', g('CAO THAI DUY HIEN thanh toan QRCODE tai DZINE', 'DZINE') === 'purchase');
+  t('MoMo\'s "pay" verb, as opposed to its "send" verb', g('Thanh toán cho NGUYEN NGOC H (VietinBank)') === 'purchase');
+  /* What the keywords know still wins: the mark only answers WHO. */
+  t('a known dish beats the mark', g(VIB + 'CONG TY TNHH HU TIEU HONG PHAT - 38933888', '38933888 - CONG TY TNHH HU TIEU HONG PHAT') === 'restaurant');
+  t('a wallet merchant with a known brand', g(VIB + 'MOMO_PASSIO - 99MM25155M65000522', '99MM25155M65000522 - MOMO_PASSIO') === 'coffee');
+  /* The expensive half: friends, family, and the default memo. */
+  t('the bank\'s default memo to a person stays p2p', g(VIB + 'LE CAO HUNG - 102811489', '102811489 - LE CAO HUNG') === 'p2p');
+  t('a thank-you to a person stays p2p', g('Cam on anh Lamm', '13610000120606 - LE KHA NIN') === 'p2p');
+  t('an unknown alphanumeric account is not a mark', g(VIB + 'NGUYEN HOANG NGOC - 9ZI4801', '9ZI4801 - NGUYEN HOANG NGOC') === 'p2p');
+  t('an issuer\'s name is never a shop', P.fhSellerSignal({ counterparty: 'NGAN HANG THUONG MAI CO PHAN QUOC TE VIET NAM' }) === null);
+  t('an employer paying a salary is not a purchase', P.fhNodeGuess({ kind: 'income', note: 'CONG TY CP DICH VU DI DONG TRUC TUYEN thanh toan luong thang 03' }) === 'wage');
+  t('"gui tien nha" is a sentence particle, not rent', g('Em gui tien nha. Cam on anh.', '6209991888 - NGUYEN VINH QUANG') === 'p2p');
+  t('real rent wording still reaches the leaf', g('dong tien nha thang 9') === 'rentpay');
+  t('a fund a person NAMED is not read for keywords it happens to contain', g('Chuyển tiền vào Quỹ Growth Claude') === 'split');
+  t('a catering company is not software', g('CAO THAI DUY HIEN thanh toan QRCODE tai DZINE', 'DZINE') !== 'software' && T.keywordNode('DZINE FOOD SOLUTIONS C', 'expense') === null);
+  t('an FX fee line is a bank fee, not a building\'s management fee', T.keywordNode('Phí Quản Lý Giao Dịch VND Tại Nước Ngoài', 'expense') === 'fxfee');
+  t('"pizza" alone stops at eating out', T.keywordNode('PAYOO PIZZA SOMEWHERE', 'expense') === 'eatout' && T.keywordNode('PAYOO PIZZA4PS 15C', 'expense') === 'restaurant');
+}
+
+console.log('\n-- a node sealed by an older copy of the keywords is checked against today\'s --');
+{
+  const ok = (node, note, cp, sweep) => P.fhPipeNodeOk(node, { note: note, counterparty: cp }, sweep);
+  t('a catering firm sealed as software is dropped', ok('software', 'Thanh toán dịch vụ - hàng hóa', 'DZINE FOOD SOLUTIONS C') === null);
+  t('…but Anthropic sealed as software stands: today\'s keywords still agree', ok('software', '', 'ANTHROPIC* CLAUDE SUB') === 'software');
+  t('"gui tien nha" sealed as rent is dropped in the queue', ok('rentpay', 'Em gui tien nha. Cam on anh.', '6209991888 - NGUYEN VINH QUANG') === null);
+  t('…and left alone in the ledger, where its owner confirmed it', ok('rentpay', '6209991888 - NGUYEN VINH QUANG | Em gui tien nha.', '', true) === 'rentpay');
+  t('real rent wording sealed as rent stands', ok('rentpay', 'dong tien nha thang 9', '') === 'rentpay');
+  t('an FX fee sealed as a building fee is dropped, in the ledger too', ok('mgmt', 'Phí Quản Lý Giao Dịch VND Tại Nước Ngoài', '', true) === null);
+  t('a real building fee stands', ok('mgmt', 'Can ho B10401 nop tien phi quan ly thang 8', '') === 'mgmt');
+  t('a sealed p2p yields to a seller mark', ok('p2p', '66527 N9GDR', '3666689689 - HOANG P A') === null);
+  t('a node no retired keyword touches passes untouched', ok('coffee', '', 'MPOS*WAYNESCOFFEE') === 'coffee' && ok('zzz', '', '') === null);
+}
+
+console.log('\n-- codes a payment system assigned answer before any word does --');
+{
+  const S = (o) => P.fhStructNode(o);
+  t('MCC 5812 alone stops at eating out: it is restaurants AND delivery', S({ mcc: '5812-Eating Places', desc: 'Mua Hàng / SOME PLACE' }) === 'eatout');
+  t('…and a keyword may go deeper INSIDE the code\'s branch', S({ mcc: '5812-Eating Places', desc: 'Mua Hàng / Foody' }) === 'delivery'
+    && S({ mcc: '5818', desc: 'Mua Hàng / APPLE.COM/BILL' }) === 'streaming');
+  t('…but never sideways: the code outranks a keyword from another branch', S({ mcc: '5812', desc: 'Mua Hàng / COFFEE AND BOOKS sach' }) !== 'books');
+  t('MCC 5734 reaches the software leaf', S({ mcc: '5734', desc: 'Mua Hàng / ANTHROPIC* CLAUDE SUB' }) === 'software');
+  t('a marketplace MCC stops at the group', S({ mcc: '5399', desc: 'Mua Hàng / SPEEPAY*Shopee' }) === 'shopping');
+  t('a fee line carries the purchase\'s MCC, and the words win', S({ mcc: '5734-Computer Software', desc: 'Phí Giao Dịch Ngoại Tệ' }) === 'fxfee'
+    && S({ mcc: '5818', desc: 'Phí Quản Lý Giao Dịch VND Tại Nước Ngoài' }) === 'fxfee');
+  t('an airline MCC range', S({ mcc: '3144' }) === 'flight');
+  t('MoMo: a telco top-up service', S({ svc: 'm4b_vttimobifone_topupdata', desc: 'Nạp Data MobiFone' }) === 'mobile');
+  t('MoMo: a group fund is pooling, whatever the person named it', S({ svc: 'mp_81212708_1y9i1bgnwd7m2i4ocy8zxh', desc: 'Chuyển tiền vào Quỹ Growth Claude' }) === 'split');
+  t('MoMo: the cinema service', S({ svc: 'ecomcgvcinema', desc: 'Mua vé xem phim' }) === 'cinema');
+  t('MoMo: a bank top-up coming in is a wallet move', S({ svc: 'vcb03.78.bank', desc: 'Nạp tiền vào Ví để thanh toán dịch vụ', out: false }) === 'wallet');
+  t('MoMo: payroll coming in', S({ svc: 'accounting_mm', desc: 'Nhận lương từ MOMO', out: false }) === 'wage');
+  t('Grab\'s service id says nothing about ride or food', S({ svc: 'm4becomgrab_moca_v3', desc: 'GRAB' }) === null);
+  t('a person\'s masked wallet says nothing', S({ svc: '*******991', desc: 'Chuyển đến Nguyễn Thu Trang' }) === null);
+  t('no codes at all is null, never a guess', S({ desc: 'CAO THAI DUY HIEN chuyen tien den LE CAO HUNG' }) === null && S({}) === null);
+  t('every MCC target is a real node', (() => { const src = fs.readFileSync(path.join(ROOT, 'src/js-ui/13-partition.js'), 'utf8');
+    const m = src.match(/var _MCC_NODE=\{([\s\S]*?)\};/)[1]; return [...m.matchAll(/:'([a-z0-9]+)'/g)].every((x) => !!T.get(x[1])); })());
+}
+
+console.log('\n-- money sent to a P2P exchange desk is funding, not spending --');
+{
+  t('a bare 20-digit order id', P.fhTransferShape('126109249 - NGUYEN H P | 22853744443228090368') === 'investfund');
+  t('the desk\'s own sentence, with an amount nobody rounds to', P.fhTransferShape('CAO THII DUY HIEN chuyen tien 114112', 52717845) === 'investfund');
+  t('the same words with a round amount could be anyone', P.fhTransferShape('HIEN chuyen tien 114112', 5000000) === null);
+  t('…and without an amount it says nothing', P.fhTransferShape('CAO THII DUY HIEN chuyen tien 114112') === null);
+  t('a 23-digit till reference is not an order id', P.fhTransferShape('VQRQALTWY2264 - FPT PHARMA | 58013187941788600655024') === null);
+  t('and that row is not spending', P.fhCountsAsSpending('investfund') === false);
 }
 
 console.log('\n-- one selection, read by every surface --');

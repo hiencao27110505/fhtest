@@ -142,6 +142,10 @@
         memo: c.memo == null ? '' : c.memo, counterparty: c.counterparty || '', person: !!c.person,
         flow: c.flow || '', xfer: xfer, attn: xfer, incomeCat: incomeCat, fundedElsewhere: !!c.fundedElsewhere,
         concept: (row.mcc && STM_MCC()[row.mcc]) || '',
+        /* The codes the file itself carries (MCC, MoMo's receiving service) answer
+           before any name is sent anywhere; _stmConcepts only fills what is left. */
+        node: (typeof window.fhStructNode === 'function' && window.fhStructNode({
+          mcc: row.mcc, svc: row.amt < 0 ? row.toAcct : row.fromAcct, desc: row.description, out: row.amt < 0 })) || null,
         provider: provider, accountKind: kind, tail: tail
       };
     }
