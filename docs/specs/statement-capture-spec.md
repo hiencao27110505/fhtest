@@ -456,6 +456,17 @@ cache first (`merchant_concepts`, `0126`), then one batched model call for the
 misses, answers stored for everyone. A counterparty that is a person is never
 sent: only rows whose kind is a merchant payment qualify.
 
+> **Amended 2026-09-21 — statement rows carry a tree node.** `conceptsForMerchants`
+> has decided a category-tree NODE first, and derived the legacy concept from it,
+> since migration 0144; the function returned only `concepts`, and the deployed
+> build predated the tree altogether. From `merchant-concepts` **v3** the response
+> is `{ concepts, nodes, limited }`. The device validates each code against the
+> tree it holds and seals it as `raw_extracted.node` — the same field `stage.mjs`
+> writes for an email row — so the review's pipeline tier (`fhStagedNode`) treats
+> the two alike. Old clients keep reading `concepts`. A row the local MCC/merchant
+> table already gave a concept is still not sent (model budget); the on-device
+> keyword tier places those. See `category-tree-spec.md` §3.2.1 and §16.1 **E8**.
+
 ## 12. Remembered decisions
 
 `row_fp = base64(HMAC-SHA256(k, canonical))`, where `k` is derived on the device
@@ -491,6 +502,11 @@ database and the Edge Functions are shared singletons (`AGENT_SYNC.md` §1):
    because that check found Supabase's default grants still on `statement_shapes`.
 2. ✅ `push-send` — deployed 2026-09-19. Live v20 was byte-identical to `main`.
 3. ✅ `merchant-concepts` v1 (new; `verify_jwt=true`) — deployed 2026-09-19.
+   **v3 deployed 2026-09-21**: first build with `taxonomy.mjs`; returns `nodes`.
+   Deployed with `npx -y supabase@latest functions deploy merchant-concepts
+   --project-ref iizyukzfsbdkbrgfupwq --use-api` — the MCP deploy tool cannot
+   carry the six-file bundle inline. Unlike `mailbox-sync`, this function only
+   touches `merchantConceptGet/Put`, so deploying it from `main` is safe.
 4. ✅ `mailbox-sync` **v50** (`--no-verify-jwt`) — deployed 2026-09-19; first scheduled ticks and Gmail pushes returned 200 with no holds. **Never from `main`.** Live is v49 and carries
    a backfill cursor and a reader lease that were never committed (`worker.mjs` +225
    lines against `main`, five other files differ). The deploy tree is

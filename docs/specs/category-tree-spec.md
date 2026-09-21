@@ -7,15 +7,21 @@ capture: they see their own labels, which are a **partition** of the tree. Budge
 changes underneath is that "Khác" stops being where software puts things it could
 not read.
 
-> **Status, 2026-09-20.** Spec agreed after the grilling of 2026-09-19/20
-> (decision log §16) and measured on two real mailboxes the same day (§12).
-> Build is **in progress, additive**: `taxonomy/taxonomy.json` (v1, 214 nodes),
-> `tools/gen-taxonomy.js`, the generated `src/js-ui/11-taxonomy.js` and the
-> partition helpers in `src/js-ui/13-partition.js` are in the tree. Migration
-> **0144**, the worker cascade on nodes, the on-device backfill
-> (`28-tree-backfill.js`) and the tree surfaces (`63-tree-ui.js`) are the
-> remaining steps. Rollback at any point is a display flag (C8), never a schema
-> revert.
+> **Status, 2026-09-21 — SHIPPED, then corrected on a real ledger.** Spec agreed
+> after the grilling of 2026-09-19/20 (decision log §16) and measured on two real
+> mailboxes (§12). Migration **0144** is applied; the worker cascade, the on-device
+> backfill, both pickers, the breakdown and the filters are live (SW **v564**;
+> `mailbox-sync` v54; `merchant-concepts` **v3**, the first build that carries
+> `taxonomy.mjs`). Two days of use on the founder's own ledger then overturned
+> several first-build decisions; those are recorded as the **E series** in §16 and
+> the sections they touch are amended in place, each marked *(E_n)*. Where this
+> document and the E series disagree, the E series is what runs.
+> **Designed but NOT built:** tier 1 shape statics and tier 5 rhythm (§3.2), the
+> four-step layer selector (two shipped), the non-blocking regroup card (C3), the
+> gap-word consent (Q11), fetching merchant-receipt mail for receipt-join (D3), the
+> loan-pair card (D4), promotion of corrections to the registry (Q8). Rollback at
+> any point is a display flag (C8), never a schema revert — and since E2 that flag
+> restores the old totals too.
 
 > **How this relates to its siblings.** `transaction-review-spec.md` §C is the
 > cascade this replaces: eight flat concepts, resolved to a family category, with a
@@ -148,6 +154,22 @@ A person's own correction (tier 4) outranks the registry (tier 3) for that
 person; with enough agreement across people a correction is promoted to the
 registry (Q8).
 
+#### 3.2.1 The cascade as it actually runs *(E1, E2, E8)*
+
+The table above is the design. What shipped, in order, strongest first:
+
+| Where | Order |
+|---|---|
+| **Worker** (`classify.mjs` `enrichCategory`, and `conceptsForMerchants` behind the `merchant-concepts` function for statements) | the extractor's own node → a synced user correction (`merchant_corrections`) → **tree keywords** (`keywordNode`, free) → the merchant cache (`merchant_concepts`, node when present; a row of nulls is "asked, unknowable" and is never re-asked) → **one** model call. The node menu rides the PROMPT, never `responseSchema`: a 182-value enum is a hard HTTP 400 from Gemini's OpenAPI subset, and `validNode()` is the gate. Concept and pool are then DERIVED from the node (`conceptOf`/`poolOf`), so the three cannot disagree |
+| **Review, on device** (`57-csv-import-review.js`, `nodeSource`) | `pipeline` (the sealed `raw_extracted.node`) → `history` (a ledger row with the same wording) → `learned` (`fhLessonNode`) → `keyword` (`fhNodeGuess`: lesson → tree keywords → label claims → person-to-person shape) → `concept` (the legacy 8-concept lifted to the tree GROUP that carries it, never to a leaf) → `label` (`fhNodeFromClaims`) |
+| **Backfill, on device** (`28-tree-backfill.js`) | **transfer shape first** (`fhTransferShape`), then `fhNodeGuess`, then the label's coarse node. Evidence outranks the label (E1) |
+
+Tiers 1 (shape statics) and 5 (rhythm) are not built. Statement rows take the
+worker path through `merchant-concepts`, which since v3 returns `nodes` beside
+`concepts`; the device seals it into the same `raw_extracted.node` an email row
+carries (E8). The Python parser on Cloud Run passes a node through `ingest.mjs`
+but assigns none (`parser/taxonomy.py` is generated and imported by nothing).
+
 ### 3.3 The "no others" guarantee, stated honestly
 
 - Kind is always decided. Group is decided for every row with a memo, a
@@ -159,23 +181,55 @@ registry (Q8).
 - The root therefore holds only rows a person deliberately filed there. The
   target is < 1% of captured rows at the root after tier 7 has answered; the
   review screen reports the share while it has not.
+- **Measured on the founder's September, 2026-09-20 *(E2)*.** 11.0tr sat at
+  "Chưa rõ". Decrypted, it was 7.09tr of transfers between the person's own
+  accounts and ~1.08tr of card repayments (the bank's confirmation mail names the
+  BANK as counterparty and carries no memo), 2.60tr person-to-person, one gift,
+  and noise. So ~8.2tr was **known and mis-kinded, not unknown**. Those rows now
+  take their true TRANSFER node (`bankbank`, `cardpay`, `wallet`, `cashout`,
+  `savings`) even though the ledger holds them as `kind='expense'`, and leave
+  every spending total (§4, E2). After that the residue was ~1.3%.
+- **A row placed at a group is not unknown either *(E3)*.** "We know it is Nhà ở,
+  not which kind" is a correct answer (Q2). It is shown under the group's OWN
+  name, styled like any other row, and it opens the rows it is made of. It is
+  never labelled "chưa rõ".
 
 ## 4. What the person does
 
-- **Refine.** Tap a row resting on a parent and pick among its children. Never a
-  flat 90-item list.
-- **Correct (Q3).** Siblings under the same parent first, the full tree behind
-  search. The correction is learned per person and may be promoted.
+- **Refine and correct — one picker *(E9, supersedes Q3's "siblings first")*.**
+  "Tiêu vào gì" opens ONE OUTLINE OF THE WHOLE TREE, in the tree's own order,
+  every time: the branch holding the current node is opened and scrolled to,
+  **never hoisted**, so the hand learns where things are. Depth is a left inset.
+  A chevron opens or folds a branch; tapping a NAME chooses it at any level, so a
+  group and a leaf are both one tap. Search FILTERS the outline and keeps each
+  hit's ancestors. "Chưa rõ" is its own row at the foot and the only way to the
+  root. The same component (`fhNodeOutlineHTML`) draws the detail sheet and the
+  review card's row sheet. The first build's list (siblings, parent, parent's
+  siblings, every root, flat) showed three depths in one typography and offered
+  no way DOWN at all: a node's children were never listed. A correction is
+  learned per person (`fhLessonLearnNode`).
+- **Assign in bulk *(E5)*.** In select mode the verb "Tiêu vào gì" files every
+  selected expense at one node, scoped to the group the selection came from, and
+  teaches a lesson per row so the same wording files itself from then on.
 - **Regroup (Q13).** Move nodes between their own labels in the budget sheet.
   The sheet asks **"Áp dụng cho N khoản cũ?"**, default yes; closed months are
   excluded. Budgets and totals follow the labels; the tree does not move.
 - **Rename, split, hide (Q1).** Labels are the person's; nodes are not. A label
   can be split by handing some of its claims to a new label.
 - **File as Chưa rõ.** The only way a row reaches the root.
-- **See the tree (Q15).** Breakdown surfaces ("Tiền đi đâu", the personal
-  category strip, budget detail) gain a layer selector: **Nhãn** (the labels, as
-  today) · **Nhóm** · **Danh mục** · **Chi tiết**. The transaction list gains a
-  tree filter. Budgets attach to labels only.
+- **See the tree (Q15) *(E3, E4)*.** Breakdown surfaces gain a layer selector.
+  It shipped with **two** stops, **Danh mục của tôi · Tiêu vào gì**, not the four
+  designed: the tree view is itself an expandable group → category → leaf list,
+  so the depth steps were redundant. Tapping a row in "Tiêu vào gì" **selects and
+  opens** it, and narrows the transaction list, the bar chart and the breakdown's
+  own highlight together (one variable, `fhNodeSel`; tap again to clear; a
+  "Đang xem: X · Xem tất cả" bar says a filter is on). The transaction list has a
+  matching **"Tiêu vào gì"** filter chip. Rows the tree knows are NOT spending sit
+  in their own section, **"Không tính là chi tiêu"**, below the spending and
+  outside the total the bars are drawn against. Budgets attach to labels only.
+- **The review card leads with the tree *(E6)*.** The chip on a queued card shows
+  the node ("Chuyển cho người khác", "Cà phê") and falls back to the label; both
+  remain on the expanded card.
 - **Report gaps (Q11).** Note words no tier recognised can be sent as bare words
   (never amounts, never notes) after an explicit opt-in, so the tree file grows
   from real gaps.
@@ -184,8 +238,8 @@ registry (Q8).
 
 | | Rule |
 |---|---|
-| C1 | Nothing visible changes on day one except the layer selector. Labels, budgets, totals, review defaults: identical |
-| C2 | Old rows are backfilled **coarse first** (the label's implied group), then refined on device from note and counterparty. A backfill never changes a label |
+| C1 | Nothing visible changes on day one except the layer selector. Labels, budgets, review defaults: identical. **Totals are the exception since E2**: a row whose node is a transfer leaves "Ra", the chart, the category stats and the family month totals, because it never was spending. `fh-tree=off` restores the old totals along with everything else |
+| C2 | Old rows are backfilled on device from note and counterparty, **evidence first** (E1): the words outrank the label, which answers only when the words say nothing. A backfill never changes a label |
 | C3 | Custom labels auto-map by name and emoji (`fhDefaultClaimsFor`). A label that maps to nothing keeps its rows and its budget; its nodes fall to Khác, and a **non-blocking regroup card** offers to fix the mapping later |
 | C4 | Additive columns only; no flag day. A client that never learns about nodes keeps working |
 | C5 | The pipeline emits the legacy `category_hint` (concept) and `pool` **and** the node for a window, so old builds and the notification copy see no change |
@@ -215,8 +269,20 @@ may only flag).
 
 - Root node: **"Chưa rõ"**. Catch-all label: **"Khác"** (EN "Others").
 - Regroup confirm: **"Áp dụng cho N khoản cũ?"** with "Tháng đã đóng không đổi".
-- Layer selector: **Nhãn · Nhóm · Danh mục · Chi tiết**.
-- Refine row hint: **"Chọn rõ hơn"** over the children of the resting node.
+- Layer selector, as shipped: **Danh mục của tôi · Tiêu vào gì** (the four-step
+  Nhãn · Nhóm · Danh mục · Chi tiết was not built).
+- Detail row and picker title: **"Tiêu vào gì"** (income: **"Tiền từ đâu"**).
+  Picker hint: **"Bấm tên để chọn, bấm mũi tên để mở. Thay đổi chờ tới khi bấm Lưu."**
+- Not-spending section: **"Không tính là chi tiêu"**, with **"Tiền chuyển giữa các
+  tài khoản của bạn, hoặc trả nợ thẻ. Vẫn nằm trong sổ vì ngân hàng báo về như một
+  khoản chi."** The card repayment's dent in Còn lại: **"💳 Trả nợ thẻ: −X"**.
+- Filter bar: **"Đang xem: X"** · **"Xem tất cả"**.
+- A group's own rows carry the group's name, nothing else. "Chưa rõ chi tiết",
+  "chưa rõ món" and a row count were all tried and rejected (E3).
+- The catch-all label is STORED as the literal `"Others"` (`CAT_FALLBACK`) and
+  translated only for display (**"Khác"**); every surface must go through
+  `isFallbackCat` / `csvCatLabel` or a Vietnamese screen shows an English word.
+- "Chọn rõ hơn" (refine hint) was not built.
 - Regroup card after migration: **"Nhãn 'X' chưa gắn với nhóm nào. Gắn ngay?"**
 - Consent for gap words: **"Gửi những từ chưa nhận ra để cải thiện cây danh mục?
   Chỉ gửi từ, không gửi số tiền hay ghi chú."**
@@ -292,29 +358,62 @@ emoji, kind)` (exact vi/en name → keyword lifted to depth ≤ 2 → emoji map;
 catch-all name → `['*']`) · `fhNodeFromClaims` (T6: one non-star claim, else null)
 · `fhNodeGuess({kind, note, counterparty, memo, amount, labelClaims})` (T4 lesson
 → T2 keywords → T6 label; repayment returns null and inherits) ·
-`fhNodeCorrections` (siblings, parent, parent's siblings, then the kind's groups)
-· `fhNodeDepth` (3 leaf · 2 · 1 · 0 for the coverage metric).
+`fhNodeDepth` (3 leaf · 2 · 1 · 0 for the coverage metric). Added after the first
+build: `fhTransferShape(text)` and `fhLooksSelfTransfer` (E2: the same name on
+both sides of "chuyen tien den" → `bankbank`; repayment wording or an issuer-only
+counterparty → `cardpay`; top-up → `wallet`; ATM → `cashout`; savings) ·
+`fhLooksPersonToPerson` · **`fhCountsAsSpending(node)`** (E2: THE one question
+every spending total asks; no node = spending; respects `fhTreeOn`) ·
+`fhXferCashOut(node)` (only `cardpay` dents Còn lại) · the selection,
+`window.fhNodeSel` with `fhNodeSelMatch` / `fhNodeSelLabel` / `fhNodeSelCode`
+(E4: `null` = all, `code` = that node and its descendants, `'=code'` = that node
+and NOT its children, `'_none'` = rows with no usable node).
+`fhNodeCorrections` was removed with the flat picker it fed (E9).
 
 ### 10.3 `src/js-data/28-tree-backfill.js` (new)
 
 Runs after hydrate, idle-scheduled, resumable from a local cursor, both ledgers:
 
-1. Rows without a node get the **coarse** node from their label's claims
-   (`fhNodeFromClaims`), or nothing when the label spans groups.
-2. Rows with a coarse node are **refined** by `fhNodeGuess` on note, counterparty
-   and memo, **only when the guessed node's root equals the label's implied root
-   (D2)**. A note that says "cafe" under a label that claims `home` keeps its
-   coarse node; refinement never crosses the person's own grouping.
-3. Writes go through the ordinary writers (`40-txn-writes-outbox.js`,
-   `19-personal.js`) with node only; the label column is never touched (C2).
+1. **Evidence first (E1, supersedes D2).** A row that needs a node (none, or one
+   still resting on a depth-1 group) asks, in order: `fhTransferShape` (was this
+   ever spending?), then `fhNodeGuess` on the note, then the label's coarse node.
+   The first build let the label veto the keyword, which recorded every past
+   mis-filing as fact ("QR2CK3U3TT SUPERSPORTS" under Ăn uống).
+2. Writes are surgical: `fhTxnSetNode` / `fhPersonalSetNode`, node only; the
+   label column is never touched (C2). `fhTxnSetNode` stamps
+   `DB._lastLocalWrite` before AND after the write, or realtime reads the
+   sweep's own echo as remote, re-hydrates, and the hydrate tail restarts the sweep.
+3. **The slice contract (E10).** `_tbfSlice` returns `{n, more}`. `n:0, more:false`
+   means "walked the whole ledger" and is the ONLY thing that may mark a scope
+   done; "this batch needed no writes" is `more:true`; the session cap (400
+   writes), a hidden tab, a locked ledger or a refused write are `n:-1` and never
+   mark done. A bare `0` for both once ended the sweep permanently at the first
+   twelve unresolvable rows.
+4. **Mirror rows are not this sweep's (E10).** A personal row with `spaceId` or
+   `linkId` takes its node from `fhPersonalMirror`; writing one here starts a
+   rewrite → version bump → full `fhPersonalHydrate` ping-pong (a hot device and
+   a stuck "Đang đồng bộ…").
+5. **The cursor is versioned and moves with the rules (E10).**
+   `fh-tree-bf:v<N>:fam:<fid>` / `:per:<uid>`, currently **v6**. A device that
+   finished a pass never looks again, so ANY change to what a row resolves to
+   (`fhNodeGuess`, `fhTransferShape`, the keywords, `_tbfWants`) ships with a
+   cursor bump or it changes nothing on existing devices. Once per page load
+   (`_tbfStarted`); never while `document.hidden`.
 
 ### 10.4 `src/js-ui/63-tree-ui.js` (new)
 
-Layer selector on breakdown surfaces; tree filter in the transaction list; the
-refine/correct picker (siblings first, search behind); the regroup sheet with
-"Áp dụng cho N khoản cũ?" (closed months skipped); the non-blocking regroup card
-for labels that mapped to nothing (C3); the gap-word consent card (Q11). All
-gated by `fhTreeOn()`.
+The two-stop layer selector; `fhTreeBreakdownHTML` (group → category → leaf on
+the app's own `.fh-lrow`, a group's own rows under the group's name (E3), the
+"Không tính là chi tiêu" section (E2)); `fhTreeTap` / `fhTreeTapExact` (E4);
+**`fhNodeOutlineHTML`** with `fhNodeOutlineSeed` and `fhNodeOutlineReveal`, the
+one picker both surfaces draw (E9); the claims sheet ("Gồm: …") with "Áp dụng cho
+N khoản cũ?". All gated by `fhTreeOn()`. Not built: the regroup card (C3), the
+gap-word consent (Q11).
+**Never `scrollIntoView`, here or anywhere in the app (E11).** It scrolls every
+scrollable ancestor, and `html`, `body` and `.phone` are `overflow:hidden` —
+finger-proof, not script-proof — so it drags the whole app and nothing scrolls
+it back. Set the container's own `scrollTop`/`scrollLeft` from two
+`getBoundingClientRect` deltas. `tools/tree-cascade.test.js` bans the call.
 
 ### 10.5 Changes in existing modules
 
@@ -328,7 +427,13 @@ gated by `fhTreeOn()`.
 | `57-csv-import-review.js` | Lessons store node; `fhMerchantKey` unchanged (must stay byte-identical to the worker's `merchantKey`) |
 | `24-lessons.js` | `fhLessonNode` (T4), amount-banded; lazy re-key from concept (C6) |
 | `27-streaks.js` | Streak keys on node roll up via `FH_TAX.root`; concept-keyed streaks re-key on first read (C6) |
-| `20-budget.js` | Budget rows unchanged (labels only, Q15); the regroup entry point |
+| `20-budget.js` | Budget rows unchanged (labels only, Q15); the regroup entry point; `_fhLegendWrap` hosts the layer selector; the day chart, buổi map and range guide ask `fhCountsAsSpending` (E2) |
+| `30-hydrate.js` | `m.spent` / `m.catSpent` / `memberSpent` skip rows that are not spending (E2); calls the family backfill in its tail |
+| `21-personal.js` | Every personal sum asks `fhCountsAsSpending`: "Ra" and all stats downstream of `txM`, the month picker, the chart, the range guide. `xferCash` keeps a card repayment's dent in Còn lại, said aloud like the loan and investment dents. The chart narrows to `fhNodeSel`; the pre-window history is cached as RAW rows (`_persOldRows`), because a cached aggregate was invalidated by every selection and refetched per tap (E2, E4) |
+| `60-transactions.js` | Personal row shapes carry `node` (without it every node filter matched nothing); `TXV.node`, the "Tiêu vào gì" chip and sheet, `setTxnNode`; the bulk verb `txnBulkNodePick` with a scoped picker (E4, E5). The label legend skips not-spending rows so both layers add up to the same money |
+| `56-csv-import-ui.js` | The card chip leads with the node (`csvCatChipText`), `csvCatLabel` translates the catch-all (E6); the row sheet draws the shared outline, its open/fold and search state at FILE scope because the sheet is rebuilt on every render (E9). Helpers called from several renderers live at file scope: nesting two of them inside one renderer once stopped the queue from opening |
+| `72-txn-review.js` | `fhStagedNode`; `_specNode` on the commit specs; **`fhCardPayShaped` no longer trusts `card_masked` alone (E7)** |
+| `77-statement-capture.js`, `supabase/functions/merchant-concepts/` | The function returns `nodes` beside `concepts`; the device validates each code against its own tree and seals `raw_extracted.node` (E8) |
 
 ## 11. Notification copy
 
@@ -409,6 +514,16 @@ because a broken taxonomy silently corrupts stored rows):
   people. Per-person lessons close it one counterparty at a time (~60 people in
   A's year); whether that is fast enough, or whether the p2p group needs its own
   reading (memo salutations, VietQR payloads), is to be measured after launch.
+- **The Python parser assigns no node.** `ingest.mjs` passes one through, and
+  `parser/taxonomy.py` is generated, but nothing on that path calls it.
+- **Mis-kinded rows are named, not converted.** A self-transfer stored as an
+  expense now reads as a transfer and leaves the totals (E2), but its `kind` is
+  still `expense`. Conversion is per row (`fhPersonalConvertToTransfer`, from the
+  detail screen); a bulk "these were never spending" conversion is not built.
+- **A queue can only be emptied by hand or by lessons.** Group-level rows shrink
+  through the bulk verb (E5). The free signals that would place them earlier
+  (rhythm: same payee, same amount, monthly; the paying instrument) are tier 5,
+  unbuilt; nor is a per-merchant-string model pass over historical rows.
 - Two VIB template fixes are prerequisites, not tree work: "Thanh toán thẻ tín
   dụng VIB thành công" (80 rows, counterparty lost, harmless) and "Chuyển tiền
   đến tài khoản VIB thành công" (14 rows, recipient replaced by the salutation).
@@ -435,7 +550,7 @@ Agreed with the founder 2026-09-19/20 (B, Q, C series) and during the build (D).
 | B | **Two layers.** L1 is the system tree, machine-assigned. L2 is the person's labels, a partition of L1: each node owned by exactly one label, "Others" owns the root. |
 | Q1 · Q11 | **L1 is closed and exhaustive.** Users regroup, rename, split, hide; they never add nodes. Unmatched note words are reported as words only, with consent, so the tree grows from real gaps. |
 | Q2 | **Rest on the deepest confident node.** A parent is a correct coarse answer, not "uncategorized". |
-| Q3 | **Corrections allowed**, siblings first, full tree behind search; corrections are learned. |
+| Q3 | **Corrections allowed** and learned. ~~Siblings first, full tree behind search~~ — the presentation is superseded by **E9**. |
 | Q4 | **Axis = what the money bought.** ≤ 3 levels, uneven depth. |
 | Q5 | **One tree per kind** (expense, income, transfer, loan, investment); repayment inherits its loan's node. |
 | Q6 | **Partitions per family and per person** over one shared tree. |
@@ -457,14 +572,45 @@ Agreed with the founder 2026-09-19/20 (B, Q, C series) and during the build (D).
 | C7 | **Node encrypted on both ledgers**; the tree itself is public. |
 | C8 | **Rollback = display flag**: `localStorage['fh-tree'] = 'off'`. |
 | D1 | **Default partitions.** A new family: the six seeded categories claim their groups (Nhà ở → home, Đi chợ → groceries, Ăn ngoài → eatout + drinks, Đi lại → transport, Giải trí → leisure, Mua sắm → shopping) plus Others `'*'`. A family-less person: labels derived from their own rows plus Khác. |
-| D2 | **Backfill refinement only when the keyword node's root equals the label's implied root.** |
+| D2 | ~~Backfill refinement only when the keyword node's root equals the label's implied root.~~ **Superseded by E1**: it contradicted Q14 and froze every past mis-filing in place. |
 | D3 | **Receipt-join.** A merchant receipt email enriches the matched bank/wallet row's node (exact amount, ±2 days) and is retired, never imported. |
 | D4 | **Loan-pair.** Exact amount to a person then back from a person within 45 days proposes cho vay / thu nợ. Propose-only. |
+
+### 16.1 The E series — decided on a real ledger, 2026-09-20/21
+
+Each came from the founder using the build on their own data. Where an E entry
+contradicts an earlier one, the E entry runs.
+
+| # | Decision | What forced it |
+|---|---|---|
+| E1 | **Evidence before the label, in the backfill too.** Supersedes D2; this is Q14 applied. | "SUPERSPORTS" filed under Ăn uống because the old label vetoed the keyword |
+| E2 | **Money that moved is not money that was spent.** A row whose words say transfer takes its TRANSFER node though stored as an expense; it is shown under "Không tính là chi tiêu"; and **one predicate, `fhCountsAsSpending`, is asked by every spending total** in both ledgers. A card repayment still dents Còn lại (`fhXferCashOut`), mirroring the loan and investment dents; moves between the person's own accounts, top-ups, ATM and savings do not. The kill switch restores the old totals. | 11tr of "Chưa rõ" that was 8.2tr of self-transfers and card repayments; then a header reading 27.2tr over a breakdown summing to ~18tr |
+| E3 | **A row placed at a group is shown as that group.** Own name, ordinary styling, no count, still opens its rows. Only the top-level "Chưa rõ" keeps the muted look. | "Chưa rõ chi tiết" inside every category described the gap in our knowledge, not the money |
+| E4 | **Tapping a category filters.** Selects and opens it; list, chart and breakdown follow one variable; a visible bar and a filter chip carry the state. Replaces a hidden `TXV.noNode` that narrowed the list with nothing saying so and was never cleared. | — |
+| E5 | **Bulk assign, and it teaches.** | A 2.1tr group-level bucket that could only be fixed a row at a time |
+| E6 | **The review card leads with the node; the catch-all is translated on every surface.** | "Others", in English, on a transfer to another person |
+| E7 | **A card number in the mail is not proof of a repayment.** `card_masked` counts only when the mail names no merchant: no memo/counterparty at all, or the issuer as counterparty. Two extractors fill the field and disagree: `llm.mjs` sets it only on a repayment, `labeltable.mjs` matches any "số thẻ" line, which every card PURCHASE alert prints. And `memo_display` can be an EMPTY STRING while the merchant sits in `counterparty` (Vietcombank's card template), so the fallback chain is `a \|\| b \|\| c`, never `a != null ? a : …`. Verified on 204 real mails: 20 repayments, all the VIB confirmation; 0 merchants. | APPLE.COM/BILL, CO.OP MART and WAYNESCOFFEE queued as "Trả nợ thẻ" |
+| E8 | **Statements get the same node the email path gets.** `merchant-concepts` returns `nodes`; the device seals `raw_extracted.node`. | The statement lane had been classifying into the 8 legacy concepts on a pre-tree build |
+| E9 | **The picker is one outline of the tree, in the tree's own order, nothing hoisted.** One component for both surfaces. Supersedes Q3's presentation. Chosen from four working prototypes (`mockups/node-picker-options.html`, option 3), with the founder's amendment that the selected branch must not be prioritised. | A flat list with three depths in one typography and no way down |
+| E10 | **The sweep's contract.** `{n, more}`; only an exhausted walk marks a scope done; mirror rows belong to the mirror; **the cursor version moves with every rule change**. | Three deploys in a row that changed nothing on the founder's device, then a hot phone |
+| E11 | **No `scrollIntoView` in this app.** | It dragged the whole app upward: a permanent gap under the tab bar, and a blank detail screen |
+
+**Two rules about tests, learned the same way.** A test that matches a line of
+source pins whatever that line does, bugs included (one asserted
+`if (re.card_masked) return true;` and held E7's bug in place). And a test that
+slices helpers out of a file and runs them alone manufactures the scope the real
+file may not have (one passed while the queue could not open). Run the real
+function, loaded from the whole file, on the real shapes.
 
 ## 17. Related
 
 - `research/category-tree.html` — the design note, the full tree explorer, the
   measurement run this spec summarises.
+- `research/categorization-flows.html` — the old and new cascades side by side,
+  from the email to the ledger.
+- `mockups/node-picker-options.html` — four working picker prototypes on the real
+  tree; option 3 shipped (E9).
+- `tools/tree-cascade.test.js` — 170 checks; the E series is pinned here.
 - `taxonomy/taxonomy.json`, `tools/gen-taxonomy.js` — the one source and its
   generator.
 - `docs/specs/transaction-review-spec.md` §C — the concept cascade this replaces;

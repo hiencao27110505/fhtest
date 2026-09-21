@@ -103,6 +103,15 @@ present but never routed into the pay-card field.
 
 ## 6. The data field — `card_masked`
 
+> **Amended 2026-09-21 — what the field means in practice.** This section calls
+> `card_masked` "the repaid card". That holds on the MODEL path only, where
+> `llm.mjs` is told to leave it null unless the mail is a repayment. On the
+> TEMPLATE path `labeltable.mjs` fills it from any "số thẻ" / "thẻ tín dụng số"
+> line, and every card PURCHASE alert prints one (Vietcombank's card notification
+> carries both the account, `…2279`, and the card, `…0035`). So across both paths
+> the field means only **"this mail named a card"**. Anything that reads it as
+> "this is a repayment" must also check who is on the other side — see §8.2.
+
 A new content field, semantically **"a credit-card number the mail names"**,
 role-neutral at extraction, masked to last-4. It rides inside `raw_extracted`
 (never a new column — `email_transactions`' key set is pinned by the `0068`
@@ -235,6 +244,25 @@ by last-4 tail (and provider when both sides carry one), mirroring
 5. **Otherwise null** → genuinely ambiguous; the row keeps "Chưa rõ".
 
 ### 8.2 Candidate build (`57-csv-import-review.js`)
+
+> **Amended 2026-09-21 — `fhCardPayShaped` and the purchases it swallowed.** A
+> first fix added `if (re.card_masked) return true;` so memo-less repayment mails
+> would stop importing as expenses. Given §6's amendment, that turned every card
+> purchase into "Trả nợ thẻ" (APPLE.COM/BILL, CO.OP MART, WAYNESCOFFEE). The rule
+> is now: `card_masked` counts **only when the mail names no merchant** — the
+> text is empty, or the counterparty is the issuer (`ngan hang`, `tmcp`). A
+> repayment pays the bank; a purchase names the shop.
+> The text is read as `memo_display || memo || counterparty`, **never**
+> `memo_display != null ? memo_display : …`: Vietcombank's card template sets
+> `memo_display` to an EMPTY STRING while the merchant sits in `counterparty`, so
+> a null-check never reaches it and every such mail "named nobody". (The sibling
+> `fhStagedCardPayments` had the same hazard and the same fix.)
+> Verified by running the function over 204 parsed mails from a real mailbox: 20
+> classified as repayments, all the VIB "Thanh toán thẻ tín dụng VIB thành công"
+> mail (counterparty "Ngân hàng TMCP Quốc tế Việt Nam"); 0 merchants. The other
+> two signals in `fhCardPayShaped` (repayment wording; `account_kind=credit_card`
+> while the number is a non-card account the person owns) are unchanged.
+> See `category-tree-spec.md` §16.1 **E7**.
 
 When a staged row is classified as a card payment (`isTransfer` set from the
 sealed shape), call the resolver and set `c._payCardId` on the returned
