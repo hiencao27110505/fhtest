@@ -655,7 +655,13 @@ function buildTxnToolChips(){
      view so the narrowing always has something on screen explaining it. */
   try{
     var box=document.getElementById('txn-chips'), live=box&&box.querySelector('.txn-chip.tool.live');
-    if(live && box.scrollWidth>box.clientWidth) live.scrollIntoView({block:'nearest',inline:'center'});
+    /* the row's own scrollLeft, never scrollIntoView — that one scrolls every
+       ancestor too, and this app's ancestors cannot be scrolled back (63-tree-ui
+       fhNodeOutlineReveal has the full story) */
+    if(live && box.scrollWidth>box.clientWidth){
+      var _br=box.getBoundingClientRect(), _lr=live.getBoundingClientRect();
+      box.scrollLeft=Math.max(0, box.scrollLeft+(_lr.left-_br.left)-(box.clientWidth-_lr.width)/2);
+    }
   }catch(_e){}
 }
 /* One toggle for every filter chip in a sheet; the last ON option refuses to

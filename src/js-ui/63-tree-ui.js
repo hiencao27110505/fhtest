@@ -79,11 +79,22 @@ function fhNodeOutlineHTML(o) {
   return out + '<button type="button" class="npick-row npick-clear' + (o.cur ? '' : ' on') + '" onclick="' + o.clear + '">'
     + '<span class="npick-disc none"></span><span class="npick-nm">' + L('Chưa rõ', 'Not sure yet') + '</span>' + _NP_TICK + '</button>';
 }
-/* Bring the chosen row into view inside its own list, once, after it opens. */
+/* Bring the chosen row into view inside its own list, once, after it opens.
+   NEVER scrollIntoView HERE, OR ANYWHERE IN THIS APP. It scrolls every
+   scrollable ancestor, and html, body and .phone are overflow:hidden — which
+   stops a finger, not a script. Called while the sheet was still sliding up
+   from below the screen, it dragged the whole app upward to "reveal" the row,
+   and nothing can scroll those ancestors back: a permanent gap under the tab
+   bar, and from the detail screen a page pulled so far that only the last row
+   was left on it. So the list's own scrollTop is the only thing this touches.
+   Rect deltas, not offsetTop: both rects ride the sheet's transform together,
+   so the difference is right even mid-animation. */
 function fhNodeOutlineReveal(listEl) {
   if (!listEl) return;
-  var on = listEl.querySelector('.npick-row.on');
-  if (on && on.scrollIntoView) { try { on.scrollIntoView({ block: 'center' }); } catch (e) {} }
+  var on = listEl.querySelector('.npick-row.on'); if (!on) return;
+  var lr = listEl.getBoundingClientRect(), r = on.getBoundingClientRect();
+  var delta = (r.top - lr.top) - (listEl.clientHeight - r.height) / 2;
+  listEl.scrollTop = Math.max(0, listEl.scrollTop + delta);
 }
 
 /* — the detail screen's sheet (#sheet-node-pick) — */

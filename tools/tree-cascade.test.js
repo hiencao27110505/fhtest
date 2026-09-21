@@ -567,6 +567,28 @@ console.log('\n-- the picker is one outline of the tree, in the tree\'s own orde
   t('income rows get the income tree', names(H({ kind: 'income', cur: null })).every((n) => !roots.some((r) => T.get(r).vi === n)));
   t('nothing found says so', /npick-empty/.test(H({ q: 'zzzzqqq' })));
 
+  /* The reveal moved THE WHOLE APP. scrollIntoView scrolls every scrollable
+     ancestor, html/body/.phone are overflow:hidden (finger-proof, not
+     script-proof), and nothing scrolls them back. */
+  {
+    let pageScrolled = false;
+    const rowEl = { getBoundingClientRect: () => ({ top: 900, height: 48 }), scrollIntoView: () => { pageScrolled = true; } };
+    const listEl = { scrollTop: 100, clientHeight: 400, getBoundingClientRect: () => ({ top: 300 }), querySelector: () => rowEl };
+    c3.fhNodeOutlineReveal(listEl);
+    t('revealing the chosen row scrolls ONLY its own list', pageScrolled === false && listEl.scrollTop === 100 + (900 - 300) - (400 - 48) / 2, listEl.scrollTop);
+    const topList = { scrollTop: 0, clientHeight: 400, getBoundingClientRect: () => ({ top: 300 }), querySelector: () => ({ getBoundingClientRect: () => ({ top: 310, height: 48 }) }) };
+    c3.fhNodeOutlineReveal(topList);
+    t('a row already near the top never scrolls negative', topList.scrollTop === 0);
+    t('no chosen row, nothing moves', (function(){ const l = { scrollTop: 7, querySelector: () => null }; c3.fhNodeOutlineReveal(l); return l.scrollTop === 7; })());
+  }
+  {
+    const offenders = [];
+    ['src/js-ui', 'src/js-data'].forEach((dir) => fs.readdirSync(path.join(ROOT, dir)).filter((f) => f.endsWith('.js')).forEach((f) => {
+      const src = fs.readFileSync(path.join(ROOT, dir, f), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+      if (/\.scrollIntoView\s*\(/.test(src)) offenders.push(f);
+    }));
+    t('nothing in the app calls scrollIntoView', offenders.length === 0, offenders);
+  }
   t('both pickers draw the same component',
     /fhNodeOutlineHTML\(/.test(fs.readFileSync(path.join(ROOT, 'src/js-ui/56-csv-import-ui.js'), 'utf8'))
     && typeof c3.fhNodePickToggle === 'function' && typeof c3.fhNodePickClear === 'function');

@@ -19834,7 +19834,13 @@ function buildTxnToolChips(){
      view so the narrowing always has something on screen explaining it. */
   try{
     var box=document.getElementById('txn-chips'), live=box&&box.querySelector('.txn-chip.tool.live');
-    if(live && box.scrollWidth>box.clientWidth) live.scrollIntoView({block:'nearest',inline:'center'});
+    /* the row's own scrollLeft, never scrollIntoView — that one scrolls every
+       ancestor too, and this app's ancestors cannot be scrolled back (63-tree-ui
+       fhNodeOutlineReveal has the full story) */
+    if(live && box.scrollWidth>box.clientWidth){
+      var _br=box.getBoundingClientRect(), _lr=live.getBoundingClientRect();
+      box.scrollLeft=Math.max(0, box.scrollLeft+(_lr.left-_br.left)-(box.clientWidth-_lr.width)/2);
+    }
   }catch(_e){}
 }
 /* One toggle for every filter chip in a sheet; the last ON option refuses to
@@ -21973,11 +21979,22 @@ function fhNodeOutlineHTML(o) {
   return out + '<button type="button" class="npick-row npick-clear' + (o.cur ? '' : ' on') + '" onclick="' + o.clear + '">'
     + '<span class="npick-disc none"></span><span class="npick-nm">' + L('Chưa rõ', 'Not sure yet') + '</span>' + _NP_TICK + '</button>';
 }
-/* Bring the chosen row into view inside its own list, once, after it opens. */
+/* Bring the chosen row into view inside its own list, once, after it opens.
+   NEVER scrollIntoView HERE, OR ANYWHERE IN THIS APP. It scrolls every
+   scrollable ancestor, and html, body and .phone are overflow:hidden — which
+   stops a finger, not a script. Called while the sheet was still sliding up
+   from below the screen, it dragged the whole app upward to "reveal" the row,
+   and nothing can scroll those ancestors back: a permanent gap under the tab
+   bar, and from the detail screen a page pulled so far that only the last row
+   was left on it. So the list's own scrollTop is the only thing this touches.
+   Rect deltas, not offsetTop: both rects ride the sheet's transform together,
+   so the difference is right even mid-animation. */
 function fhNodeOutlineReveal(listEl) {
   if (!listEl) return;
-  var on = listEl.querySelector('.npick-row.on');
-  if (on && on.scrollIntoView) { try { on.scrollIntoView({ block: 'center' }); } catch (e) {} }
+  var on = listEl.querySelector('.npick-row.on'); if (!on) return;
+  var lr = listEl.getBoundingClientRect(), r = on.getBoundingClientRect();
+  var delta = (r.top - lr.top) - (listEl.clientHeight - r.height) / 2;
+  listEl.scrollTop = Math.max(0, listEl.scrollTop + delta);
 }
 
 /* — the detail screen's sheet (#sheet-node-pick) — */
@@ -23895,7 +23912,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v563';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v564';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
