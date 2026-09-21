@@ -99,6 +99,10 @@
           account_kind: p.accountKind || null, account_masked: p.tail || '',
           reference_number: p.ref || '', balance: p.bal == null ? null : p.bal,
           category_hint: p.concept || '', direction: p.amt < 0 ? 'debit' : 'credit',
+          /* 0144 — same field the email path seals (stage.mjs), so the review's
+             pipeline tier (fhStagedNode → raw_extracted.node) sees a statement
+             row exactly as it sees an email row. Null = nothing decided. */
+          node: p.node || null,
           counterparty: p.counterparty || '', _transport: 'statement',
           stmt: { xfer: !!p.xfer, attn: !!p.attn, incomeCat: p.incomeCat || '', fundedElsewhere: !!p.fundedElsewhere }
         }
@@ -569,7 +573,12 @@
       try {
         const res = await window.sb.functions.invoke('merchant-concepts', { body: { merchants: names } });
         const map = (res && res.data && res.data.concepts) || {};
-        payloads.forEach((p) => { const c = map[String(p.counterparty || p.memo).slice(0, 80)]; if (c && !p.concept) p.concept = c; });
+        const nodeMap = (res && res.data && res.data.nodes) || {};   // 0144 — the tree node beside the legacy concept
+        payloads.forEach((p) => {
+          const key = String(p.counterparty || p.memo).slice(0, 80);
+          const c = map[key]; if (c && !p.concept) p.concept = c;
+          const nd = nodeMap[key]; if (nd && !p.node && window.FH_TAX && FH_TAX.get(nd)) p.node = nd;
+        });
       } catch (e) { /* rows simply arrive without a hint */ }
     }
 

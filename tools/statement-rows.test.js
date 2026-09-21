@@ -59,6 +59,12 @@ console.log('\n-- credit card statement --');
 var card = T.fhStmtParse(grid('credit-card'));
 var C = stage(card, { provider: 'VIB', kind: 'credit_card', tail: card.summary.accountTail });
 t('MCC becomes a category hint in the shared 8-concept vocabulary', C.find((r) => /Foody/.test(r.raw_extracted.memo)).raw_extracted.category_hint === 'Dining' && C.find((r) => /WINMART/.test(r.raw_extracted.memo)).raw_extracted.category_hint === 'Groceries', C.map((r) => r.raw_extracted.category_hint));
+/* 0144 — the tree node rides in the same sealed field the email path uses, so
+   the review's pipeline tier sees a statement row exactly as it sees an email
+   row. A payload with no node seals null, never an invented code. */
+t('a statement row seals raw_extracted.node like an email row does', B.every((r) => 'node' in r.raw_extracted && r.raw_extracted.node === null));
+t('a node the concept call handed back is sealed on the row',
+  (function(){ var r = window.fhStmtAsStaged('idN', Object.assign({}, window.fhStmtRowPayload(bank.rows[0], { provider: 'VIB', kind: 'deposit', tail: bank.summary.accountTail }, 'S1'), { node: 'coffee' })); return r.raw_extracted.node === 'coffee'; })());
 t('an unknown MCC gives no hint rather than a wrong one', C.every((r) => ['', 'Housing', 'Groceries', 'Clothing', 'Shopping', 'Transport', 'Dining', 'Fun', 'Others'].indexOf(r.raw_extracted.category_hint) >= 0));
 t('money INTO the card is a credit with flow:transfer', C.filter((r) => r.direction === 'credit').every((r) => r.raw_extracted.flow === 'transfer'));
 t('the card is the account', C.every((r) => r.raw_extracted.account_kind === 'credit_card' && r.raw_extracted.account_masked === '6789'));

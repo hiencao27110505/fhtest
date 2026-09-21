@@ -515,6 +515,23 @@ console.log('\n-- the review card names what the app actually knows --');
   t('every card in the screenshot lands on a real node', Object.values(seen).every(Boolean), seen);
 }
 
+console.log('\n-- statements get the same node the email path gets --');
+{
+  /* The statement lane never assigned a node: merchant-concepts computed one
+     (conceptsForMerchants returns {concepts, nodes}) and then dropped it on
+     the way out, and the client stored only the concept. So a merchant on a
+     bank email got its leaf while the same merchant on a statement stopped at
+     the group. Both ends now carry it, in the same sealed field. */
+  const mc = fs.readFileSync(path.join(ROOT, 'supabase/functions/merchant-concepts/index.ts'), 'utf8');
+  const st = fs.readFileSync(path.join(ROOT, 'src/js-data/77-statement-capture.js'), 'utf8');
+  const cl = fs.readFileSync(path.join(ROOT, 'supabase/functions/_shared/mailbox/classify.mjs'), 'utf8');
+  t('the shared cascade already returns nodes', /return \{ concepts: result, nodes,/.test(cl));
+  t('the function hands them to the client', /nodes: out\.nodes/.test(mc) && /nodes: \{\}, limited: false/.test(mc));
+  t('the client reads them and validates against the tree it has',
+    /res\.data\.nodes/.test(st) && /FH_TAX\.get\(nd\)\) p\.node = nd/.test(st));
+  t('and seals them where fhStagedNode reads email rows', /node: p\.node \|\| null,/.test(st));
+}
+
 console.log('\n-- the generated targets stay in lockstep with the JSON --');
 {
   const gen = require(path.join(ROOT, 'tools/gen-taxonomy.js'));

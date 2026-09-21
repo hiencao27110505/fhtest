@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const list = Array.isArray(body.merchants) ? body.merchants : [];
     const names = list.filter((x: unknown) => typeof x === "string").map((x: string) => x.slice(0, 80)).slice(0, BATCH_MAX);
-    if (!names.length) return json({ concepts: {}, limited: false });
+    if (!names.length) return json({ concepts: {}, nodes: {}, limited: false });
 
     const db = createDb(SUPABASE_URL, SERVICE_KEY, fetch);
     const out = await conceptsForMerchants(names, user.id, {
@@ -71,7 +71,12 @@ Deno.serve(async (req) => {
     });
     // Counts only. Never the names.
     console.log(JSON.stringify({ ev: "merchant_concepts", n: out.total, asked: out.asked, limited: out.limited }));
-    return json({ concepts: out.concepts, limited: out.limited });
+    /* 0144 — the cascade already decides a tree NODE first and derives the
+       legacy concept from it (classify.mjs conceptsForMerchants); this used to
+       hand back only the concept, so a statement row reached the review with
+       a group-level hint while the same merchant in a bank email got its leaf.
+       Both ride now, and old clients keep reading `concepts` unchanged. */
+    return json({ concepts: out.concepts, nodes: out.nodes || {}, limited: out.limited });
   } catch (e) {
     console.log(JSON.stringify({ ev: "merchant_concepts_err", err: String(e).slice(0, 200) }));
     return json({ error: "failed" }, 500);
