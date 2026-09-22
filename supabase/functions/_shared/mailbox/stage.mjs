@@ -202,11 +202,12 @@ const _SEALED_HERE = ['v', 'src', 'flow', 'sender_kind', 'txn_source', 'transact
  * clock. Split out of buildStagedRow so the contract test and the scoreboard can
  * look at exactly what WOULD be sealed without opening a box.
  *
- * @param {{reading: object, senderKind?: string, readerV?: number}} args
+ * @param {{reading: object, senderKind?: string, readerV?: number, rowKind?: string}} args
  */
 export function buildPayload(args) {
   const { reading, senderKind } = args;
   const readerV = Number(args.readerV) === 2 ? 2 : 1;
+  const isNotice = args.rowKind === 'notice';
   // VND unless the mail said otherwise. There is a real USD sample in the
   // corpus and comparing bare numbers once read 200 USD as 200 VND, so the
   // currency travels with the amount everywhere — into the fingerprint, into
@@ -333,6 +334,20 @@ export function buildPayload(args) {
 
 
   if (readerV === 2) _sealV2(payload.raw_extracted, reading, senderKind);
+  /* A NOTICE (spec §6) carries what it said whatever the mailbox's reader
+     version: the row kind did not exist before v2, so there is no v1 shape to
+     keep byte-identical, and a device that opens one needs `notice` (due day,
+     minimum payment, closing debt) to update the account tile quietly. amount
+     and direction are null: the mail moved no money. */
+  if (isNotice) {
+    const raw = payload.raw_extracted;
+    const carried = reading.raw || {};
+    raw.mail_kind = 'notice';
+    raw.signal = carried.signal ?? reading.signal ?? null;
+    raw.notice = carried.notice ?? null;
+    raw.loan = carried.loan ?? null;
+    raw.flow = null;
+  }
   return payload;
 }
 
@@ -394,6 +409,11 @@ function _sealV2(raw, reading, senderKind) {
  */
 export async function buildStagedRow(args) {
   const { gmailMessageId, destination, reading, sourceProvider, senderKind, deps } = args;
+  /* 'txn' (the default, and the only kind before 0147) or 'notice'. A notice
+     has no amount, so it has no dedup fingerprint and is never compared with
+     anything: the equality token would hash null, and the review queue has
+     nothing to import from it. The column is CLEAR on the row (0147 says why). */
+  const rowKind = args.rowKind === 'notice' ? 'notice' : 'txn';
   /* THE READER VERSION OF THIS MAILBOX (email-reading-v2 R15): a plain workflow
      column on mailbox_grants, default 1. At 1 the payload is byte-for-byte what
      it was before payload v2 existed (pinned by pipeline/stage-v1-snapshot.test.js);
@@ -409,13 +429,13 @@ export async function buildStagedRow(args) {
      which is silent loss rather than a refusal anyone can see. */
   if (!destination || !destination.stagingPub) throw new Error('STAGE_NO_DESTINATION');
   if (!destination.ownerUserId && !destination.memberId) throw new Error('STAGE_NO_OWNER');
-  if (!reading || reading.amount == null || !reading.direction) {
+  if (!reading || (rowKind === 'txn' && (reading.amount == null || !reading.direction))) {
     throw new Error('STAGE_NOT_READABLE');
   }
 
   const currency = reading.currency || 'VND';
   const occurredAt = reading.occurredAt || reading.occurred_at || null;
-  const payload = buildPayload({ reading, senderKind, readerV });
+  const payload = buildPayload({ reading, senderKind, readerV, rowKind });
 
   // Sealed BEFORE the fingerprint is computed and before anything is logged, so
   // that the window in which this function holds both a readable amount and a
@@ -431,12 +451,12 @@ export async function buildStagedRow(args) {
     { nacl: deps.nacl, rng: deps.rng }, destination.scope,
   );
 
-  const dedupFp = await dedupFingerprint(
+  const dedupFp = rowKind === 'notice' ? null : await dedupFingerprint(
     reading.amount, reading.direction, currency, deps.dedupKey, deps.subtle,
   );
 
   let duplicateOfId = null;
-  if (deps.db && occurredAt) {
+  if (rowKind === 'txn' && deps.db && occurredAt) {
     const dup = await findDuplicate({
       amount: reading.amount,
       direction: reading.direction,
@@ -471,6 +491,9 @@ export async function buildStagedRow(args) {
        "unreadable row" instead of a clear one. Defaults to 'family' when the
        destination predates scopes, which is what every existing grant means. */
     staging_scope: destination.scope === 'personal' ? 'personal' : 'family',
+    /* Only written on a notice: a txn row omits the key and takes the column's
+       default, so its insert is byte-identical to before 0147 existed. */
+    ...(rowKind === 'notice' ? { row_kind: 'notice' } : {}),
 
     // The envelope. 0068's CHECK requires all four together.
     sealed: envelope.sealed,

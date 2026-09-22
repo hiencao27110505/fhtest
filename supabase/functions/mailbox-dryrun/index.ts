@@ -28,13 +28,20 @@
            skip?: 0.. (page start), max?: 1..200 (page size, default 120),
            modelCalls?: 0..40 (default 0: a missing or non-numeric value
                         sends NOTHING to the model, for extract and classify
-                        alike; ask for calls explicitly) }
+                        alike; ask for calls explicitly),
+           readerV?: 1 | 2 (default 1: what payload each row WOULD seal, as
+                        stage.mjs buildPayload builds it for that reader
+                        version; 2 shows the v2 keys, src map included) }
+   Each row carries `raw`, the raw_extracted that would be sealed, and the
+   tally counts the v2 outcomes too: notice, multi, format_cap.
    Reply carries `next` (the skip for the following page) or null when the
    window is exhausted. See research/statements/dryrun.sh for the loop. */
 import { createDb } from "../_shared/mailbox/db.mjs";
 import { fromBytea, decryptToken } from "../_shared/mailbox/token-crypto.mjs";
 import { readTransaction } from "../_shared/mailbox/extract.mjs";
 import { enrichCategory } from "../_shared/mailbox/classify.mjs";
+import { buildPayload } from "../_shared/mailbox/stage.mjs";
+import { toReading, BUILD_ID } from "../_shared/mailbox/worker.mjs";
 import * as senders from "../_shared/mailbox/senders.mjs";
 import * as gmail from "../_shared/mailbox/gmail.mjs";
 import * as mailtext from "../_shared/mailbox/mailtext.mjs";
@@ -85,10 +92,11 @@ Deno.serve(async (req: Request) => {
   const max = Math.min(200, Math.max(1, Number(body.max) || 120));
   const skip = Math.max(0, Number(body.skip) || 0);
   const modelCalls = parseModelCalls(body.modelCalls);
+  const readerV = Number(body.readerV) === 2 ? 2 : 1;
 
   /* The real handle never leaves this line. Everything below sees `db`, the
      read-only proxy: reads pass through, writes are counted and dropped. */
-  const dry = dryDb(createDb(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KEY"), fetch));
+  const dry = dryDb(createDb(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KEY"), fetch, { readerBuild: BUILD_ID }));
   const db = dry.db;
   const grant = await db.grantById(grantId);
   if (!grant) return json({ error: "no_grant" }, 404);
@@ -126,7 +134,7 @@ Deno.serve(async (req: Request) => {
      Gmail refusal gets a second chance before it is written off. */
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
   const rows: Record<string, unknown>[] = [];
-  const tally: Record<string, number> = { window: allIds.length, page: ids.length, fetch_error: 0, not_sender: 0, not_a_transaction: 0, unreadable: 0, held: 0, ok: 0 };
+  const tally: Record<string, number> = { window: allIds.length, page: ids.length, fetch_error: 0, not_sender: 0, not_a_transaction: 0, notice: 0, multi: 0, format_cap: 0, unreadable: 0, held: 0, ok: 0 };
   const stages: Record<string, number> = {};
   const fetchErrors: Record<string, number> = {};
 
@@ -153,16 +161,29 @@ Deno.serve(async (req: Request) => {
     if (!sender) { tally.not_sender++; return; }
     let read;
     try {
-      read = await readTransaction(message, db, { llm, fetch, budget: bud, subtle: crypto.subtle, fingerprints: null, learnedLabels });
+      read = await readTransaction(message, db, {
+        llm, fetch, budget: bud, subtle: crypto.subtle, fingerprints: null, learnedLabels,
+        // As the worker passes them: the sender's class and provider, the
+        // format store (read-only here), and the build the format cap is keyed on.
+        senderKind: sender.senderKind || sender.kind, provider: sender.provider,
+        formats: db.formats, build: BUILD_ID,
+      });
     } catch (e) {
       tally.held++;
       rows.push({ id, date: message.date, from: message.from, subject: message.subject, outcome: "held", detail: String((e as Error)?.message || e).slice(0, 160) });
       return;
     }
     if (!read.ok) {
-      const k = read.reason === "not_a_transaction" ? "not_a_transaction" : "unreadable";
+      const k = read.mailKind === "notice" ? "notice"
+        : (read.reason === "multi" || read.reason === "format_cap" || read.reason === "not_a_transaction") ? read.reason : "unreadable";
       tally[k]++;
-      rows.push({ id, date: message.date, from: message.from, subject: message.subject, outcome: k, detail: read.detail || read.reason || null });
+      const row: Record<string, unknown> = { id, date: message.date, from: message.from, subject: message.subject, outcome: k, detail: read.detail || read.reason || null };
+      if (k === "notice") {
+        // What a notice row WOULD seal (row_kind 'notice', no amount, no dedup).
+        row.raw = buildPayload({ rowKind: "notice", readerV, senderKind: sender.senderKind || sender.kind,
+          reading: toReading({ mail_kind: "notice", signal: read.notice.signal || null, notice: read.notice.fields || null, loan: read.notice.loan || null }, message) }).raw_extracted;
+      }
+      rows.push(row);
       return;
     }
     try { await enrichCategory(read.extraction, grant, ctx); } catch { /* garnish */ }
@@ -178,7 +199,9 @@ Deno.serve(async (req: Request) => {
       account_kind: x.account_kind, account_masked: x.account_masked,
       card_masked: x.card_masked, flow: x.flow, status: x.status, balance: x.balance,
       category: x.category, pool: x.pool, node: x.node ?? null, channel: x.channel, reference: x.reference_number,
+      // The payload as the worker would seal it for a mailbox on `readerV`.
+      raw: buildPayload({ reading: toReading(x, message), senderKind: sender.senderKind || sender.kind, readerV }).raw_extracted,
     });
   });
-  return json({ grant: grant.id, email: grant.email, days, skip, max, next: skip + max < allIds.length ? skip + max : null, modelCalls, modelCallsUsed: bud.used(), classifyCallsLeft: ctx.classifyBudget.left, wouldWrite: dry.wouldWrite, tally, fetchErrors, stages, rows });
+  return json({ grant: grant.id, email: grant.email, days, skip, max, next: skip + max < allIds.length ? skip + max : null, modelCalls, modelCallsUsed: bud.used(), classifyCallsLeft: ctx.classifyBudget.left, readerV, build: BUILD_ID, wouldWrite: dry.wouldWrite, tally, fetchErrors, stages, rows });
 });

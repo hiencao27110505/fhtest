@@ -281,7 +281,9 @@ const GRANT = (over = {}) => ({
     t('first_stalled_at is only set on the first stall of a streak',
       /grant\.first_stalled_at \|\| new Date\(\)\.toISOString\(\)/.test(w));
     t('the grant projection actually selects the new columns, or they read undefined',
-      (d2.match(/stalled_runs,first_stalled_at/g) || []).length >= 2);
+      /* One shared column list since 2026-09-22 (db.mjs GRANT_COLUMNS), used by
+         every grant read; the columns must be in it and it must be used. */
+      /stalled_runs,first_stalled_at/.test(d2) && (d2.match(/select: GRANT_COLUMNS/g) || []).length >= 2);
     /* The property is that the ADDED COLUMNS carry no NOT NULL constraint —
        an existing row must stay valid without a backfill. Checking the whole
        file for "not null" was wrong: the partial index legitimately says

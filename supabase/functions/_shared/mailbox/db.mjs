@@ -22,8 +22,27 @@
    out visibly rather than reading as current. Imported rather than duplicated:
    two copies of a cache-keying version is how they drift. */
 import { EXTRACTION_LOGIC_VERSION } from './templates.mjs';
+import { seedFor, seedFormats, isSeed } from './formats.mjs';
 
 export const MAX_GRANTS_PER_RUN = 25;
+
+/* The columns every grant read selects. ONE list, because three copies drifted
+   before (statementRescanOwed says why it refused to join them). `reader_v`
+   (0147) rides here since 2026-09-22: worker and ingest read it off the grant. */
+const GRANT_COLUMNS = 'id,user_id,member_id,family_id,provider,email,refresh_token_enc,scopes,needs_reauth,history_id,last_synced_at,backfilled_at,connected_at,default_scope,backfill_days,stalled_runs,first_stalled_at,backfill_before,backfill_started_at,reader_v';
+
+/* The fingerprint row as the reader needs it. `model_reads` and
+   `model_read_build` (0147) are what "one model read per format per build"
+   is decided on (extract.mjs, before the model tier). */
+const FINGERPRINT_COLUMNS = 'sender_address,subject_template,is_transaction_source,transaction_type,extraction_regex,last_verified_at,model_reads,model_read_build';
+
+/* JSON with keys in a fixed order, so a format read back from jsonb (which
+   reorders keys) compares equal to the object that was written. */
+function _canon(v) {
+  if (Array.isArray(v)) return '[' + v.map(_canon).join(',') + ']';
+  if (v && typeof v === 'object') return '{' + Object.keys(v).sort().map((k) => JSON.stringify(k) + ':' + _canon(v[k])).join(',') + '}';
+  return JSON.stringify(v === undefined ? null : v);
+}
 
 /* The subject_template of a SENDER-WIDE verdict, as opposed to a per-shape one.
    A literal no real subject can normalise to — a normalised shape is derived
@@ -55,8 +74,12 @@ export function inValue(v) {
   return '"' + String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
 }
 
-export function createDb(url, serviceKey, fetchImpl) {
+export function createDb(url, serviceKey, fetchImpl, opts) {
   const doFetch = fetchImpl || globalThis.fetch;
+  /* Which worker build this handle writes on behalf of (worker.mjs BUILD_ID),
+     stamped on learned formats and on give-ups so a later build can tell its
+     own from an older one's. Optional: a caller without one writes null. */
+  const readerBuild = (opts && opts.readerBuild) || null;
   const base = url.replace(/\/$/, '') + '/rest/v1';
   const headers = {
     apikey: serviceKey,
@@ -95,7 +118,7 @@ export function createDb(url, serviceKey, fetchImpl) {
      */
     async dueGrants(limit) {
       const qs = new URLSearchParams({
-        select: 'id,user_id,member_id,family_id,provider,email,refresh_token_enc,scopes,needs_reauth,history_id,last_synced_at,backfilled_at,connected_at,default_scope,backfill_days,stalled_runs,first_stalled_at,backfill_before,backfill_started_at',
+        select: GRANT_COLUMNS,
         needs_reauth: 'eq.false',
         // Direction spelled out: PostgREST's order grammar is
         // `col.dir.nullsorder`, and a bare `.nullsfirst` is not reliably parsed.
@@ -115,7 +138,7 @@ export function createDb(url, serviceKey, fetchImpl) {
      */
     async grantById(id) {
       const qs = new URLSearchParams({
-        select: 'id,user_id,member_id,family_id,provider,email,refresh_token_enc,scopes,needs_reauth,history_id,last_synced_at,backfilled_at,connected_at,default_scope,backfill_days,stalled_runs,first_stalled_at,backfill_before,backfill_started_at',
+        select: GRANT_COLUMNS,
         id: 'eq.' + id,
         needs_reauth: 'eq.false',
         limit: '1',
@@ -142,7 +165,7 @@ export function createDb(url, serviceKey, fetchImpl) {
      */
     async grantsByEmail(email, folded) {
       const q = e => new URLSearchParams({
-        select: 'id,user_id,member_id,family_id,provider,email,refresh_token_enc,scopes,needs_reauth,history_id,last_synced_at,backfilled_at,watch_expires_at,default_scope,backfill_days,stalled_runs,first_stalled_at,backfill_before,backfill_started_at',
+        select: GRANT_COLUMNS + ',watch_expires_at',
         email: 'eq.' + e,
         needs_reauth: 'eq.false',
         order: 'connected_at.asc',
@@ -317,7 +340,7 @@ export function createDb(url, serviceKey, fetchImpl) {
     async fingerprint(sender, template) {
       sender = String(sender || '').toLowerCase();   // the cache key is case-blind, whoever calls
       const qs = new URLSearchParams({
-        select: 'sender_address,subject_template,is_transaction_source,transaction_type,extraction_regex,last_verified_at',
+        select: FINGERPRINT_COLUMNS,
         sender_address: 'eq.' + sender,
         subject_template: 'in.(' + [template, SENDER_SENTINEL].map(inValue).join(',') + ')',
       });
@@ -351,7 +374,7 @@ export function createDb(url, serviceKey, fetchImpl) {
       for (let i = 0; i < list.length; i += 40) {
         const chunk = list.slice(i, i + 40);
         const qs = new URLSearchParams({
-          select: 'sender_address,subject_template,is_transaction_source,transaction_type,extraction_regex,last_verified_at',
+          select: FINGERPRINT_COLUMNS,
           sender_address: 'in.(' + chunk.map(inValue).join(',') + ')',
         });
         const rows = (await rest('/sender_fingerprints?' + qs.toString())) || [];
@@ -704,8 +727,12 @@ export function createDb(url, serviceKey, fetchImpl) {
         ? 'owner_user_id=eq.' + encodeURIComponent(ownerUserId)
         : (memberId ? 'member_id=eq.' + encodeURIComponent(memberId) : null);
       if (!scope) return 0;
+      /* TXN ROWS ONLY (0147 row_kind). A notice is staged in this table and is
+         never a pending review: "N khoản chờ duyệt" and the push that carries
+         it must not count it. Same rule as mailbox_read_status() on the device
+         side, so the badge and the banner agree. */
       const res = await doFetch(
-        base + '/email_transactions?select=id&review_status=eq.pending&' + scope,
+        base + '/email_transactions?select=id&review_status=eq.pending&row_kind=eq.txn&' + scope,
         { method: 'HEAD', headers: { ...headers, Prefer: 'count=exact' } });
       const range = res.headers.get('content-range') || '';
       const n = Number(String(range).split('/')[1]);
@@ -720,6 +747,7 @@ export function createDb(url, serviceKey, fetchImpl) {
         dedup_fp: 'eq.' + q.dedupFp,
         occurred_at: 'gte.' + q.from,
         duplicate_of_id: 'is.null',
+        row_kind: 'eq.txn',          // a notice has no dedup_fp and is never a duplicate of anything
       });
       return (await rest('/email_transactions?' + qs.toString())) || [];
     },
@@ -740,6 +768,7 @@ export function createDb(url, serviceKey, fetchImpl) {
         select: 'id,created_at',
         gmail_message_id: 'eq.' + q.gmailMessageId,
         staging_scope: 'eq.family',
+        row_kind: 'eq.txn',
         member_id: 'in.(' + others.join(',') + ')',
         order: 'created_at.asc',
         limit: '1',
@@ -783,6 +812,190 @@ export function createDb(url, serviceKey, fetchImpl) {
         // Triage must never be able to fail a run.
       }
     },
+
+    /* ── parking (email-reading-v2 §10.4; 0146 + 0147) ─────────────────────────
+       One mail that needs the model no longer holds the whole mailbox: its id
+       is written here, the window finishes, and a slow lane works the list as
+       quota returns. Every method is best-effort AT THE CALL SITE: a worker
+       whose db lacks them (older tests) holds the mailbox exactly as before. */
+
+    /**
+     * One more failed attempt at one message. Returns true once the cap is
+     * reached: the message is given up on and the caller stops retrying it.
+     * The build is written in a second statement because the RPC's signature
+     * predates the column (0147 added `reader_build` to the table, not to
+     * record_message_hold): release_reader_giveups() releases only give-ups
+     * whose build is set and differs from the current one, so a give-up with
+     * no build would never come back. Both statements run as service_role.
+     */
+    async recordMessageHold(grantId, messageId, reason, cap, build) {
+      const gaveUp = await rpc('record_message_hold', {
+        p_grant: grantId, p_msg: messageId,
+        p_reason: reason ? String(reason).slice(0, 200) : null,
+        p_cap: cap == null ? 5 : cap,
+      });
+      const b = build || readerBuild;
+      if (b) {
+        try {
+          await rest('/mailbox_message_attempts?grant_id=eq.' + encodeURIComponent(grantId) +
+            '&gmail_message_id=eq.' + encodeURIComponent(messageId), {
+            method: 'PATCH', headers: { Prefer: 'return=minimal' },
+            body: JSON.stringify({ reader_build: b }),
+          });
+        } catch { /* the hold is recorded; only the release-by-build is lost for it */ }
+      }
+      return gaveUp === true;
+    },
+
+    /** The message was read after all: forget its attempts (a give-up is kept). */
+    async clearMessageHold(grantId, messageId) {
+      try { await rpc('clear_message_hold', { p_grant: grantId, p_msg: messageId }); } catch { /* next read clears it */ }
+    },
+
+    /** Message ids still worth retrying for this mailbox, oldest hold first. */
+    async parkedMessages(grantId, limit) {
+      return (await rpc('parked_messages', { p_grant: grantId, p_limit: limit || 50 })) || [];
+    },
+
+    /** Message ids this mailbox has given up on (0146). The window skips them
+     *  without counting another attempt; a new build may release them. */
+    async abandonedMessages(grantId) {
+      return (await rpc('abandoned_messages', { p_grant: grantId })) || [];
+    },
+
+    /** Give-ups made by an OLDER build get their attempts back: a better reader
+     *  is the only thing that improves a 'multi' or a 'format_cap'. Returns how
+     *  many were released. Cheap when nothing qualifies. */
+    async releaseReaderGiveups(build) {
+      const n = await rpc('release_reader_giveups', { p_build: String(build || readerBuild || '') });
+      return Number(n) || 0;
+    },
+
+    /* ── the model's daily wall (0116; email-reading-v2 §10.3) ───────────────── */
+
+    /** When the model is paused until, or null. One small read per run. */
+    async modelPausedUntil(model) {
+      const qs = new URLSearchParams({
+        select: 'paused_until', model: 'eq.' + model,
+        paused_until: 'gt.' + new Date().toISOString(), limit: '1',
+      });
+      const rows = (await rest('/model_pause?' + qs.toString())) || [];
+      return rows[0] && rows[0].paused_until ? rows[0].paused_until : null;
+    },
+
+    /** Writes the wall down once, so 66 runs stop rediscovering it one call at a time. */
+    async pauseModel(model, until, reason) {
+      await rpc('pause_model', {
+        p_model: model,
+        p_until: (until instanceof Date ? until : new Date(until)).toISOString(),
+        p_reason: reason || null,
+      });
+    },
+
+    /** Spends `n` of today's calls for this model on `lane` ('live' | 'backfill').
+     *  False means the day's cap is reached or the model is paused: do not call. */
+    async spendModelBudget(model, lane, n) {
+      const ok = await rpc('spend_model_budget', { p_model: model, p_lane: lane || 'live', p_n: n || 1 });
+      return ok === true;
+    },
+
+    /* ── learned formats (email-reading-v2 §8.2; 0147 mail_formats) ───────────
+       The store extract.mjs reads through (formats.mjs memoryFormatStore is the
+       contract). Seeds live in code and always answer first; the table holds
+       what the structural reader and the model taught. CACHED FOR THIS HANDLE'S
+       LIFE, which is one request and therefore one run: the key is a hash of
+       the mail's labels, known only once the body is in hand, so a warm-up
+       query like fingerprintsForSenders is not possible; a format is fetched
+       once per run instead, however many mails share it. */
+    formats: (() => {
+      const cache = new Map();       // provider\nsig -> format | null (a miss is remembered too)
+      const providers = new Map();   // provider -> has any seed or learned format
+      const key = (p, s) => String(p) + '\n' + String(s);
+      const row = async (provider, sig) => {
+        const qs = new URLSearchParams({
+          select: 'provider,sig,format,source,hits', provider: 'eq.' + provider, sig: 'eq.' + sig, limit: '1',
+        });
+        const rows = (await rest('/mail_formats?' + qs.toString())) || [];
+        return rows[0] || null;
+      };
+      /* READ ONLY: a seed, else the learned row's format, else null. Nothing
+         written, nothing counted; the dry run reads through this one. */
+      const fetch = async (provider, sig) => {
+        const seed = await seedFor(provider, sig);
+        if (seed) return seed;
+        const k = key(provider, sig);
+        if (!cache.has(k)) {
+          let r = null;
+          try { r = await row(provider, sig); } catch { r = null; }   // a store that is down is just the next tier
+          cache.set(k, r && r.format ? { format: r.format, hits: Number(r.hits) || 0 } : null);
+        }
+        const hit = cache.get(k);
+        return hit ? hit.format : null;
+      };
+      return {
+        fetch,
+        async get(provider, sig) {
+          const k = key(provider, sig);
+          const fresh = !cache.has(k);
+          const fmt = await fetch(provider, sig);
+          const hit = cache.get(k);
+          /* `hits` is a usage count for the seed backlog, bumped ONCE per run
+             per format (the first fetch), fire-and-forget: a lost bump is
+             nothing, a slow one must not sit in front of a read. */
+          if (fmt && fresh && hit && !isSeed(fmt)) {
+            const p = rest('/mail_formats?provider=eq.' + encodeURIComponent(provider) + '&sig=eq.' + encodeURIComponent(sig), {
+              method: 'PATCH', headers: { Prefer: 'return=minimal' },
+              body: JSON.stringify({ hits: hit.hits + 1 }),
+            });
+            if (p && typeof p.catch === 'function') p.catch(() => {});
+          }
+          return fmt;
+        },
+        /* False, and nothing written, when a seed holds the key (memoryFormatStore's
+           contract). A row whose format is already identical is left alone, so
+           `updated_at` keeps meaning "last changed" rather than "last seen". */
+        async put(format) {
+          if (!format || !format.provider || !format.sig || isSeed(format)) return false;
+          if (await seedFor(format.provider, format.sig)) return false;
+          const k = key(format.provider, format.sig);
+          /* One read before the write when this run has not seen the key: a
+             put is once per NEW format, so the read is cheap, and it is what
+             keeps a re-learn of the same map from churning the row. */
+          if (!cache.has(k)) await fetch(format.provider, format.sig);
+          const current = cache.get(k) || null;
+          if (current && _canon(current.format) === _canon(format)) return true;
+          await rest('/mail_formats?on_conflict=provider,sig', {
+            method: 'POST',
+            headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+            body: JSON.stringify({
+              provider: format.provider, sig: format.sig, format,
+              source: format.source === 'model' ? 'model' : 'table',
+              reader_build: readerBuild,
+              updated_at: new Date().toISOString(),
+            }),
+          });
+          cache.set(k, { format, hits: current ? current.hits : 0 });
+          providers.set(format.provider, true);
+          return true;
+        },
+        /* Whether ANY format, seed or learned, exists for this provider: what
+           lets the header pass fetch a model-bound mail while the model is
+           unavailable, because a format may read it for free (worker.mjs). */
+        async providerHasAny(provider) {
+          if (providers.has(provider)) return providers.get(provider);
+          let any = false;
+          try { any = (await seedFormats()).some((s) => s.provider === provider); } catch { any = false; }
+          if (!any) {
+            try {
+              const rows = (await rest('/mail_formats?select=sig&provider=eq.' + encodeURIComponent(provider) + '&limit=1')) || [];
+              any = rows.length > 0;
+            } catch { any = false; }
+          }
+          providers.set(provider, any);
+          return any;
+        },
+      };
+    })(),
 
     /* ── statement capture (statement.mjs, docs/specs/statement-capture-spec.md) ──
        Appended as one block on purpose: every method here is new, none changes an

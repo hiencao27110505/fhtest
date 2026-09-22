@@ -209,6 +209,11 @@ export async function runStatementLane(grant, ctx) {
     let verdict = db.statementShape ? await db.statementShape(address, shape) : null;
     if (!verdict) {
       if (modelLeft <= 0) { summary.undecided++; limited = true; continue; }
+      /* The worker's gate (email-reading-v2 §10.2-3): the day's ledger and
+         the pause row, asked before anything leaves the machine. A refusal is
+         "decide next run", the same shape as running out of the lane's own
+         allowance. Absent in older callers and tests. */
+      if (ctx.spendModel && !(await ctx.spendModel('statement'))) { summary.undecided++; limited = true; continue; }
       modelLeft--; summary.modelCalls++;
       const answer = await statementVerdict(message, files, ctx.llm, ctx.fetch);
       if (answer === null) { summary.undecided++; limited = true; continue; }   // could not ask: decide next run

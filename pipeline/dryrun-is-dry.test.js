@@ -43,7 +43,9 @@ function recorder() {
 }
 /* A read is a GET or a HEAD. One read in db.mjs is an RPC, and an RPC is a POST
    whatever it does, so that one path is named. Everything else is a write. */
-const READ_RPCS = ['/rest/v1/rpc/statement_sweep_list'];
+const READ_RPCS = ['/rest/v1/rpc/statement_sweep_list',
+  // 0146 abandoned_messages and 0147 parked_messages are `stable` SELECTs
+  '/rest/v1/rpc/parked_messages', '/rest/v1/rpc/abandoned_messages'];
 const isWrite = (r) => !(r.method === 'GET' || r.method === 'HEAD' || (r.method === 'POST' && READ_RPCS.includes(r.path)));
 
 console.log('\n-- every method db.mjs exports, called through the proxy --');

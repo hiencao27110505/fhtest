@@ -12,7 +12,7 @@
    runner. This file is transport: read the environment, build the context,
    report what happened. */
 import nacl from "npm:tweetnacl@1.0.3";
-import { runAll, runOne, runPush, renewWatches, runCoverageProbe } from "../_shared/mailbox/worker.mjs";
+import { runAll, runOne, runPush, renewWatches, runCoverageProbe, BUILD_ID, MODEL_PRIORITY } from "../_shared/mailbox/worker.mjs";
 import { runIngest } from "../_shared/mailbox/ingest.mjs";
 import { createDb } from "../_shared/mailbox/db.mjs";
 import { fromBytea } from "../_shared/mailbox/token-crypto.mjs";
@@ -55,7 +55,10 @@ Deno.serve(async (req: Request) => {
 
   const supabaseUrl = env("SUPABASE_URL");
   const serviceKey = env("SUPABASE_SERVICE_ROLE_KEY");
-  const db = createDb(supabaseUrl, serviceKey, fetch);
+  /* One handle per request, which is one run: db.formats caches what it reads
+     for exactly that long (email-reading-v2 §8.2). The build is stamped on
+     learned formats and on give-ups (0147 reader_build). */
+  const db = createDb(supabaseUrl, serviceKey, fetch, { readerBuild: BUILD_ID });
   const ctx = baseCtx(db, supabaseUrl, serviceKey, dedupKey, tokenKey);
 
   /* ── push: one mailbox, right now ──────────────────────────────────────────
@@ -214,6 +217,16 @@ function baseCtx(
       left: env("GEMINI_CLASSIFY") === "off"
         ? 0
         : (Number(env("GEMINI_CLASSIFY_MAX_PER_RUN")) || 3),
+    },
+    /* Priority when quota is short (email-reading-v2 §10.2), carved from each
+       grant's extraction budget by the worker: extraction may spend it all; a
+       statement verdict is asked only while at least `statementMin` calls
+       remain for extraction; a classify only while `classifyMin` do. The
+       daily wall (§10.3) stops all three together. Env overrides for a tight
+       day, no redeploy. */
+    modelPriority: {
+      statementMin: Number(env("MODEL_PRIORITY_STATEMENT_MIN")) || MODEL_PRIORITY.statementMin,
+      classifyMin: Number(env("MODEL_PRIORITY_CLASSIFY_MIN")) || MODEL_PRIORITY.classifyMin,
     },
     notify: (
       grant: { user_id: string; member_id: string },

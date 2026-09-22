@@ -11,11 +11,19 @@
  *   stage every message  →  then advance the cursor
  *
  * The cursor is written LAST and only when the window was handled. A crash, a
- * rate-limited model, a family that has not minted a staging key yet: all of
+ * Gmail rate limit, a family that has not minted a staging key yet: all of
  * them leave `last_synced_at` where it was, so the next poll reads the same
  * window again. Advancing first would skip mail silently, and silence is this
  * pipeline's characteristic failure — there is no error page for a transaction
  * that never appeared.
+ *
+ * ONE DELIBERATE CHANGE TO THAT RULE (email-reading-v2 §10.4, 2026-09-22): a
+ * message the MODEL refused (quota, wall, outage) no longer holds the window.
+ * Its id is written to mailbox_message_attempts and the window is finished
+ * when everything else in it is settled; a slow lane re-reads the parked list
+ * as quota returns. "Handled" now means: nothing held, and every unread
+ * message parked with its id recorded. Holds that are properties of the
+ * MAILBOX (no staging key, a dead token, Gmail's own quota) hold as before.
  *
  * That makes re-reading normal rather than exceptional, which is why
  * `alreadyStaged` is asked once per window before anything is fetched, and why
@@ -34,12 +42,45 @@ import * as gmail from './gmail.mjs';
 import * as mailtext from './mailtext.mjs';
 import { decryptToken } from './token-crypto.mjs';
 import { runStatementLane, sweepStatements } from './statement.mjs';
+import * as llm from './llm.mjs';
 
 /** What build is live. The Apps Script logs its own version on every run
  *  because "which code is actually deployed" once cost hours of guessing; this
  *  worker had no equivalent, and answering that question is exactly what made
  *  the 28 Aug incident review slow. Bump on any deploy. */
-export const BUILD_ID = '2026-09-21-relanded-lease-cursor';
+export const BUILD_ID = '2026-09-22-email-reading-v2-parking';
+
+/** How many PARKED messages one run re-reads after its window (email-reading-v2
+ *  §10.4), oldest hold first, inside the same model budget. Twenty: the slow
+ *  lane is for mail the model refused, so every one of these may cost a call,
+ *  and half the per-grant budget is the most a backlog may take from live mail.
+ *  The list itself is read wider (PARKED_LIST_MAX) so the window knows which of
+ *  its ids are already parked and does not count them as new attempts. */
+export const PARKED_PER_RUN = 20;
+export const PARKED_LIST_MAX = 500;
+
+/** Priority when quota is short (spec §10.2): extraction first, statement
+ *  verdicts second, merchant classification last. Carved from the per-grant
+ *  model budget: a statement verdict is asked only while at least `statementMin`
+ *  calls remain for extraction, a classify only while `classifyMin` do. The
+ *  daily wall stops all three at once. mailbox-sync/index.ts may override. */
+export const MODEL_PRIORITY = Object.freeze({ statementMin: 2, classifyMin: 5 });
+
+/* Give-ups made by an older build are released ONCE PER PROCESS, on the first
+   run this isolate does, keyed by build so a test may run several builds. An
+   Edge isolate lives for many runs and is recycled a handful of times per
+   deploy, so this is a few cheap UPDATEs (WHERE reader_build <> current, a
+   no-op after the first) rather than one per run. The simplest option that
+   is correct; a per-build tally row would be one more thing to be wrong. */
+const _giveupsReleased = new Set();
+async function _releaseGiveupsOnce(ctx, build) {
+  if (_giveupsReleased.has(build) || !ctx.db.releaseReaderGiveups) return;
+  try {
+    const n = await ctx.db.releaseReaderGiveups(build);
+    _giveupsReleased.add(build);
+    if (n > 0) { try { console.log('mailbox: build', build, 'released', n, 'give-ups'); } catch (_e) {} }
+  } catch (e) { /* not this run; the next one tries again */ }
+}
 
 /** How many consecutive no-progress runs before a stalled backfill is allowed
  *  to send its completion notice anyway (0101).
@@ -399,7 +440,8 @@ export async function runGrant(grant, ctx) {
   }
   if (leaseAnswered && !lease) {
     return { grantId: grant.id, email: grant.email, status: 'busy',
-             fetched: 0, staged: 0, skipped: 0, unreadable: 0, held: 0, duplicates: 0, queued: 0, restaged: 0 };
+             fetched: 0, staged: 0, skipped: 0, unreadable: 0, held: 0, duplicates: 0, queued: 0, restaged: 0,
+             parked: 0, retried: 0, givenUp: 0, notices: 0 };
   }
   try {
     return await _runGrantLocked(grant, { ...ctx, _lease: lease });
@@ -413,6 +455,9 @@ export async function runGrant(grant, ctx) {
 async function _runGrantLocked(grant, ctx) {
   const _runStartedAt = Date.now();
   const _runBudgetMs = ctx.runBudgetMs ?? RUN_BUDGET_MS;
+  /* Which reader build this run is. Overridable so a test can be "a new build". */
+  const build = ctx.build || BUILD_ID;
+  await _releaseGiveupsOnce(ctx, build);
 
   /* PACED TO THE QUOTA, not to the connection pool. Every Gmail call goes
      through here: a list page costs 5 units, a message 20. When the minute's
@@ -438,6 +483,11 @@ async function _runGrantLocked(grant, ctx) {
   const summary = {
     grantId: grant.id, email: grant.email, status: 'ok',
     fetched: 0, staged: 0, skipped: 0, unreadable: 0, held: 0, duplicates: 0, queued: 0, restaged: 0,
+    /* parked: model-needing mail whose id was recorded instead of holding the
+       mailbox; retried: parked mail the slow lane re-read this run; givenUp:
+       mail recorded as not worth retrying on this build; notices: rows staged
+       with row_kind 'notice' (never counted in `staged`, never notified). */
+    parked: 0, retried: 0, givenUp: 0, notices: 0,
   };
 
   // Resolved BEFORE any mail is fetched. A mailbox whose family has no staging
@@ -498,6 +548,107 @@ async function _runGrantLocked(grant, ctx) {
   const query = senders.inboxQuery(days, domains, { skip: skipSenders })
     + (cursorMs ? ' before:' + Math.floor(cursorMs / 1000) : '');
 
+  /* THE MODEL'S DAILY WALL (email-reading-v2 §10.3; 0116 model_pause,
+     spend_model_budget). Three things gate a model call in this run, asked in
+     this order and all before anything leaves the machine:
+
+       * the pause row, read once per run: a per-day 429 already met today
+         (by any run of any mailbox) means no call at all until the Pacific
+         reset; the free tiers still read, and model-needing mail is parked;
+       * the run's own counter (ctx.budget), as before;
+       * the day's ledger, one RPC per call: `false` means the cap is reached
+         or the model was paused since we looked, and the model is off for the
+         rest of this run.
+
+     A per-day 429 met mid-run writes the wall down (pause_model) so 66 runs
+     stop rediscovering it one request at a time (2026-09-02). A per-minute
+     one also stops this run's calls: retrying into a wall we have been told
+     about is the whole failure, and the parked mail is retried next minute.
+
+     Only extraction spends ctx.budget. The statement lane and the classifier
+     keep their own small allowances and share the ledger, the pause and the
+     priority order (MODEL_PRIORITY). A db without these methods (older tests)
+     gates on ctx.budget alone, as before. */
+  const model = (ctx.llm && ctx.llm.model) || llm.DEFAULT_MODEL;
+  const priority = { ...MODEL_PRIORITY, ...(ctx.modelPriority || {}) };
+  let modelPaused = false;
+  if (ctx.db.modelPausedUntil) {
+    try {
+      const until = await ctx.db.modelPausedUntil(model);
+      if (until && Date.parse(until) > (ctx.nowMs ?? Date.now())) { modelPaused = true; summary.modelPaused = 'paused'; }
+    } catch (e) { /* unknown is not paused; the ledger below still answers */ }
+  }
+  const lane = backfilling ? 'backfill' : 'live';
+  const spendDaily = async () => {
+    if (modelPaused) return false;
+    if (!ctx.db.spendModelBudget) return true;
+    let ok = true;
+    try { ok = await ctx.db.spendModelBudget(model, lane, 1); }
+    catch (e) { ok = true; }        // a ledger that is down never stops a read: the run's counter still caps
+    if (!ok) { modelPaused = true; summary.modelPaused = summary.modelPaused || 'budget'; }
+    return ok;
+  };
+  const wall = async (e) => {
+    modelPaused = true;
+    summary.modelPaused = 'rate_' + (e.scope || 'minute');
+    if (e.scope === 'day' && ctx.db.pauseModel) {
+      try { await ctx.db.pauseModel(model, llm.nextPacificReset(ctx.nowMs ?? Date.now()), 'quota_day'); }
+      catch (_e) { /* the next run reads the same 429 and tries again */ }
+    }
+  };
+  /* True when no extraction call may be made now: paused, walled, or out of
+     this run's budget. What the header pass parks on. */
+  const modelOff = () => modelPaused || !!(ctx.budget && ctx.budget.left() <= 0);
+  /* The gate extract.mjs spends through: ctx.budget with the pause and the
+     ledger in front of it. `left` reads 0 while paused so callers that look
+     before they leap (the header pass, the priority carve) agree with spend. */
+  const gate = ctx.budget ? {
+    spend: async () => (!modelOff() && await spendDaily() && ctx.budget.spend()),
+    used: () => ctx.budget.used(),
+    left: () => (modelPaused ? 0 : ctx.budget.left()),
+  } : undefined;
+  /* The statement lane's share: only while extraction keeps `statementMin`. */
+  const spendModel = async (kind) => {
+    if (kind === 'statement' && (modelPaused || (ctx.budget && ctx.budget.left() < priority.statementMin))) return false;
+    return spendDaily();
+  };
+  /* The classifier's share (classify.mjs reads and decrements `left`): 0 while
+     paused or while extraction has fewer than `classifyMin` calls left. */
+  const classifyBudget = ctx.classifyBudget ? {
+    get left() { return (modelPaused || (ctx.budget && ctx.budget.left() < priority.classifyMin)) ? 0 : ctx.classifyBudget.left; },
+    set left(v) { ctx.classifyBudget.left = v; },
+  } : undefined;
+
+  /* PARKING (email-reading-v2 §10.4; 0146 mailbox_message_attempts). Read once
+     per run: which of this mailbox's messages are already parked (the window
+     leaves them to the slow lane below, without counting another attempt) and
+     which it has given up on (the window steps over them; a new build releases
+     them). A failed read turns parking OFF for this run and every hold falls
+     back to holding the mailbox, exactly as before 0146 was wired: a parking
+     lot we cannot see is one we must not write to, or a message could be
+     re-parked every run until it is given up on for nothing. */
+  const parkingWired = !!(ctx.db.recordMessageHold && ctx.db.parkedMessages);
+  let parkingOk = parkingWired;
+  let parkedAll = [];
+  let abandoned = new Set();
+  if (parkingWired) {
+    try {
+      parkedAll = (await ctx.db.parkedMessages(grant.id, ctx.parkedListMax ?? PARKED_LIST_MAX)) || [];
+      if (ctx.db.abandonedMessages) abandoned = new Set((await ctx.db.abandonedMessages(grant.id)) || []);
+    } catch (e) { parkingOk = false; parkedAll = []; abandoned = new Set(); }
+  }
+  const parkedSet = new Set(parkedAll);
+  /* One more attempt at one message. 'parked' | 'given_up', or null when the
+     lot is not available and the caller must hold the mailbox as before. */
+  const park = async (id, reason, cap) => {
+    if (!parkingOk) return null;
+    let gaveUp;
+    try { gaveUp = await ctx.db.recordMessageHold(grant.id, id, reason, cap == null ? 5 : cap, build); }
+    catch (e) { return null; }
+    if (gaveUp) { summary.givenUp++; await ctx.db.bumpReadTally?.('given_up'); return 'given_up'; }
+    summary.parked++; await ctx.db.bumpReadTally?.('parked'); return 'parked';
+  };
+
   /* STATEMENTS RIDE THEIR OWN LANE (statement.mjs). A statement is a FILE, and
      the header pass below cannot see one: `format=metadata` carries no MIME
      parts. So the lane lists for itself and hands back the message ids it owns,
@@ -505,7 +656,7 @@ async function _runGrantLocked(grant, ctx) {
      statement may ever cost a transaction its run. */
   let statementIds = new Set();
   try {
-    const lane = await runStatementLane(grant, { ...ctx, access, domains, days, backfillDays });
+    const lane = await runStatementLane(grant, { ...ctx, access, domains, days, backfillDays, spendModel });
     summary.statements = lane.summary;
     statementIds = lane.messageIds;
   } catch (e) {
@@ -558,6 +709,10 @@ async function _runGrantLocked(grant, ctx) {
   }
   const allFresh = ids.filter(id =>
     !statementIds.has(id) &&
+    /* Parked: the slow lane's, below. Given up: stepped over until a new
+       build releases it. Both have their id recorded, which is what makes a
+       window with them in it a FINISHED window (§10.4). */
+    !parkedSet.has(id) && !abandoned.has(id) &&
     !state.staged.has(id) && (!state.resolved.has(id) || restage.has(id)));
   summary.skipped = ids.length - allFresh.length;
 
@@ -574,6 +729,9 @@ async function _runGrantLocked(grant, ctx) {
      this starts empty and is topped up per chunk below — still one query per
      chunk of twenty rather than one per message. */
   const warmFingerprints = new Map();
+  /* Whether a provider has any format at all, seed or learned: one read per
+     provider per run, for the header pass (email-reading-v2 §8.2). */
+  const providerFormats = new Map();
 
   let hitLimit = false;
 
@@ -664,6 +822,186 @@ async function _runGrantLocked(grant, ctx) {
     return (m ? m[1] : String(from || '')).trim().toLowerCase();
   };
 
+  /* ONE FETCHED MESSAGE, from sender check to staged row. The same code for a
+     message of the window and for a parked one the slow lane brings back
+     (`retry`): the only difference is that a retried message clears its
+     attempts once it is settled. Returns what became of it; the window loop
+     turns 'held' into the cursor hold, everything else is settled. */
+  const readOne = async (id, message, retry) => {
+    const sender = senders.match(message.from, domains);
+    if (!sender) { summary.skipped++; return 'skipped'; }
+
+    // DKIM is recorded on every row rather than enforced by default. It can
+    // reject real mail — some banks legitimately sign with an ESP domain — so
+    // it earns enforcement on observed verdicts rather than on principle. Under
+    // this transport the stakes are higher than under forwarding: a phishing
+    // mail only has to reach the user's inbox, not be forwarded to us.
+    if (ctx.enforceSenderAuth && !message.dkim.pass) {
+      summary.skipped++;
+      await ctx.db.recordFailure({
+        gmail_message_id: id, sender: message.from, subject: message.subject,
+        error_reason: 'sender_auth_failed:' + message.dkim.result,
+      });
+      return 'skipped';
+    }
+
+    let read;
+    try {
+      read = await readTransaction(message, ctx.db, {
+        llm: ctx.llm, fetch: ctx.fetch, budget: gate, subtle: ctx.subtle,
+        fingerprints: warmFingerprints.size ? warmFingerprints : null,
+        learnedLabels: ctx.learnedLabels || null,
+        /* The sender as THIS run matched it (the database's extra domains
+           included), so the reader asks the right prompt block and keys formats
+           by the same provider the row will carry. */
+        senderKind: sender.senderKind || sender.kind, provider: sender.provider,
+        /* The format store (email-reading-v2 §8.2): the table (db.formats),
+           or one the caller injected. Absent, the reader falls back to the
+           seeds plus what this process learns. */
+        formats: ctx.formats || (ctx.db.formats && ctx.db.formats.get ? ctx.db.formats : null),
+        /* The build, for "one model read per format per build" (spec §11). */
+        build,
+      });
+    } catch (e) {
+      /* THE MODEL IS UNREACHABLE OR OUT OF QUOTA. Until 2026-09-22 the mailbox
+         was HELD: the cursor stayed put and the whole window was read again
+         next poll, so one model-needing mail with no quota froze everybody's
+         mail behind it (77% of one backfill's body fetches were re-fetches of
+         mail the budget then deferred again). Now the MESSAGE is parked
+         (§10.4): its id goes to mailbox_message_attempts, the window goes on
+         and may finish, and the slow lane after the window reads it when the
+         model is back. Nothing is lost, because the id is remembered.
+
+         A per-day 429 is written down first (pause_model) so no later call
+         this run, or any run before the reset, asks again.
+
+         Only a MODEL throw is parked. Anything else that escapes readTransaction
+         is a code bug, and a code bug must not be recorded as "the model said
+         no" and given up on after five tries: it holds the mailbox exactly as
+         before, and is logged (2026-09-02: a mis-bumped logic version stalled a
+         grant this way, invisibly). A db with no parking lot holds too.
+
+         CONTINUE rather than break either way (2026-08-29): breaking abandoned
+         every remaining message in the window, including the ones that needed
+         no model at all. */
+      if (e instanceof llm.LlmUnavailable) {
+        if (e instanceof llm.LlmRateLimited) await wall(e);
+        const reason = e instanceof llm.LlmRateLimited ? 'rate_' + (e.scope || 'minute')
+          : (modelPaused ? 'model_paused' : (ctx.budget && ctx.budget.left() <= 0 ? 'model_budget' : 'model_unavailable'));
+        const p = await park(id, reason);
+        if (p) return p;
+      }
+      try { console.error('mailbox hold on', id, '—', (e && (e.stack || e.message)) || e); } catch (_e) {}
+      /* Held is a real outcome and it was only ever a number inside one run's
+         summary, so a mailbox stuck behind an exhausted quota looked exactly
+         like a quiet one from outside. A DAY COUNTER rather than a
+         parse_failures row on purpose: a hold is retried on the next poll, so
+         the same message would write a new failure row every tick and the table
+         that is supposed to say "these need a human" would fill with things
+         that fix themselves. Never awaited into a failure — holding must not
+         become throwing. */
+      await ctx.db.bumpReadTally?.('held');
+      return 'held';
+    }
+
+    if (!read.ok) {
+      /* MAIL THAT MOVES NO MONEY (spec §6): a card due notice, an instalment
+         reminder, "your statement is ready". Sealed and staged like a
+         transaction, with row_kind 'notice', no amount, no dedup fingerprint:
+         the device opens it and updates the account tile quietly. Never a
+         review card (pendingCount counts txn rows only), never a push (it
+         does not count toward `staged`). Its shape is NOT cached as junk. */
+      if (read.reason === 'not_a_transaction' && read.mailKind === 'notice' && read.notice) {
+        const row = await buildStagedRow({
+          gmailMessageId: id, destination, rowKind: 'notice',
+          reading: toReading({ mail_kind: 'notice', signal: read.notice.signal || null,
+            notice: read.notice.fields || null, loan: read.notice.loan || null }, message),
+          sourceProvider: sender.provider, senderKind: sender.senderKind || sender.kind,
+          readerV: grant.reader_v,
+          deps: { nacl: ctx.nacl, rng: ctx.rng, subtle: ctx.subtle, dedupKey: ctx.dedupKey, db: ctx.db },
+        });
+        if (await ctx.db.insertStaged(row)) { summary.notices++; await ctx.db.bumpReadTally?.('notice_staged'); }
+        else summary.skipped++;
+        if (retry) await ctx.db.clearMessageHold?.(grant.id, id);
+        return 'notice';
+      }
+      if (read.reason === 'not_a_transaction') { summary.skipped++; if (retry) await ctx.db.clearMessageHold?.(grant.id, id); return 'skipped'; }
+      /* One mail, several transactions (a broker's daily order summary). Not a
+         failure and not junk: given up on at once (record_message_hold, cap 1),
+         because waiting does not turn it into one transaction; only a better
+         reader does, and a new build releases it (0147). The read_tally 'multi'
+         stage is the volume to watch. */
+      if (read.reason === 'multi') {
+        summary.multi = (summary.multi || 0) + 1;
+        if (!(await park(id, 'multi', 1))) summary.skipped++;
+        return 'given_up';
+      }
+      /* This shape already had its one model read on this build and learned
+         nothing (spec §11): given up on until the reader changes. */
+      if (read.reason === 'format_cap') {
+        if (!(await park(id, 'format_cap', 1))) summary.skipped++;
+        return 'given_up';
+      }
+      summary.unreadable++;
+      await ctx.db.recordFailure({
+        gmail_message_id: id, sender: message.from, subject: message.subject,
+        error_reason: read.detail || read.reason,
+      });
+      if (retry) await ctx.db.clearMessageHold?.(grant.id, id);   // a failure row is its record now
+      return 'unreadable';
+    }
+
+    /* Decide the concept BEFORE the row is sealed and before the notification's
+       voice is chosen — one seam feeds both `category_hint` (via toReading →
+       stage.mjs) and copyMeta. Only fills what the extractor left null; a miss is
+       silent and staging proceeds unchanged. */
+    try { await enrichCategory(read.extraction, grant, classifyBudget ? { ...ctx, classifyBudget } : ctx); }
+    catch (_e) { /* the concept is a garnish; never let it fail a real row */ }
+
+    const row = await buildStagedRow({
+      gmailMessageId: id,
+      destination,
+      reading: toReading(read.extraction, message),
+      sourceProvider: read.extraction.source_provider || sender.provider,
+      /* The FINER class when the registry has one (gateway, broker, lender).
+         stage.mjs maps every non-bank to the same sealed transaction_type as
+         before, and seals the coarse kind on a v1 row. */
+      senderKind: sender.senderKind || sender.kind,
+      /* The reader version of THIS mailbox (R15). Absent until the column
+         exists, and then 1 until someone sets it: buildStagedRow reads anything
+         but 2 as 1. */
+      readerV: grant.reader_v,
+      deps: {
+        nacl: ctx.nacl, rng: ctx.rng, subtle: ctx.subtle,
+        dedupKey: ctx.dedupKey, db: ctx.db,
+      },
+    });
+
+    /* The certainty badge (0113): this exact message id was promoted or
+       dismissed in a previous connection. Stamped on the row AFTER the build —
+       it is workflow state like review_status, not sealed content. */
+    if (restage.has(id)) { row.resolved_before = true; summary.restaged++; }
+
+    if (row.duplicate_of_id) summary.duplicates++;
+    if (await ctx.db.insertStaged(row)) {
+      summary.staged++;
+      if (retry) await ctx.db.clearMessageHold?.(grant.id, id);   // read after all: forget the attempts
+      /* Newest staged row wins the notification's voice. Gmail lists newest
+         first but a widened window can interleave, so compare on the bank's
+         own timestamp rather than trusting arrival order. A duplicate
+         SUSPICION is excluded — its copy would voice a transaction the queue
+         may end up calling "Có thể trùng". */
+      if (!row.duplicate_of_id) {
+        try {
+          const at = Date.parse(read.extraction.occurred_at || '') || 0;
+          if (!copyBest || at >= copyBest.at) copyBest = { at, meta: copyMeta(read.extraction) };
+        } catch { /* copy is a garnish; staging never fails on it */ }
+      }
+    }
+    else { summary.skipped++; if (retry) await ctx.db.clearMessageHold?.(grant.id, id); }   // raced with another run; the guard held
+    return 'staged';
+  };
+
   const chunks = [];
   for (let i = 0; i < fresh.length; i += lanes) chunks.push(fresh.slice(i, i + lanes));
 
@@ -712,7 +1050,8 @@ async function _runGrantLocked(grant, ctx) {
       outcome.set(g.id, 'done');
       if (meta && meta.internalDate) atOf.set(g.id, meta.internalDate);
       if (!meta) { summary.skipped++; continue; }          // deleted between list and get
-      if (!senders.match(meta.from, domains)) { summary.skipped++; continue; }
+      const matched = senders.match(meta.from, domains);
+      if (!matched) { summary.skipped++; continue; }
       /* The SAME key readTransaction reads and writes by (extract.mjs
          subjectCacheKey: the normalised subject, or its hash when it still
          looks dirty). A different string here and the header pass never sees
@@ -739,16 +1078,39 @@ async function _runGrantLocked(grant, ctx) {
          funded run would hold it for good. It goes on to the body fetch, the
          free tiers get their one look, and it is settled this run. */
       if (fp && fp.is_transaction_source === true && typeof fp.extraction_regex !== 'string'
-          && ctx.budget && ctx.budget.left() === 0
+          && modelOff()
           && !senders.isPersonShaped(_senderKey(meta.from))) {
-        // Known model-bound, no budget left: this body would only be fetched,
-        // decoded, and HELD. Hold it without the fetch. hitLimit keeps the
-        // cursor, so nothing is skipped — only deferred to a funded run.
-        summary.held++;
-        hitLimit = true;
-        outcome.set(g.id, 'held');
-        await ctx.db.bumpReadTally?.('held');
-        continue;
+        /* Known model-bound, and the model is off (paused, walled, or out of
+           budget): this body would only be fetched, decoded, and refused.
+
+           UNLESS A FORMAT MAY READ IT (email-reading-v2 §8.2). The fingerprint
+           knows nothing about formats: their key is a hash of the mail's
+           labels, which needs the body. So when this sender's provider has
+           ANY format, seed or learned, the body is fetched anyway and the
+           format tier gets its look, for free; the model is still never
+           called. One cached read per provider per run. */
+        const provider = matched.provider;
+        let mayRead = false;
+        if (provider && ctx.db.formats && ctx.db.formats.providerHasAny) {
+          if (!providerFormats.has(provider)) {
+            let any = false;
+            try { any = !!(await ctx.db.formats.providerHasAny(provider)); } catch (e) { any = false; }
+            providerFormats.set(provider, any);
+          }
+          mayRead = providerFormats.get(provider);
+        }
+        if (!mayRead) {
+          /* Park it without the fetch: the id is recorded, the window can
+             finish, the slow lane reads it when the model is back (§10.4).
+             With no parking lot, hold as before: hitLimit keeps the cursor. */
+          const p = await park(g.id, modelPaused ? 'model_paused' : 'model_budget');
+          if (p) continue;                                     // outcome stays 'done': its id is recorded
+          summary.held++;
+          hitLimit = true;
+          outcome.set(g.id, 'held');
+          await ctx.db.bumpReadTally?.('held');
+          continue;
+        }
       }
       outcome.set(g.id, 'body');
       keep.push(g);
@@ -775,133 +1137,28 @@ async function _runGrantLocked(grant, ctx) {
     const message = got.message;
     if (!message) { summary.skipped++; continue; }   // deleted between list and get
 
-    const sender = senders.match(message.from, domains);
-    if (!sender) { summary.skipped++; continue; }
-
-    // DKIM is recorded on every row rather than enforced by default. It can
-    // reject real mail — some banks legitimately sign with an ESP domain — so
-    // it earns enforcement on observed verdicts rather than on principle. Under
-    // this transport the stakes are higher than under forwarding: a phishing
-    // mail only has to reach the user's inbox, not be forwarded to us.
-    if (ctx.enforceSenderAuth && !message.dkim.pass) {
-      summary.skipped++;
-      await ctx.db.recordFailure({
-        gmail_message_id: id, sender: message.from, subject: message.subject,
-        error_reason: 'sender_auth_failed:' + message.dkim.result,
-      });
-      continue;
+    const r = await readOne(id, message, false);
+    if (r === 'held') { summary.held++; hitLimit = true; outcome.set(id, 'held'); }
     }
+  }
 
-    let read;
-    try {
-      read = await readTransaction(message, ctx.db, {
-        llm: ctx.llm, fetch: ctx.fetch, budget: ctx.budget, subtle: ctx.subtle,
-        fingerprints: warmFingerprints.size ? warmFingerprints : null,
-        learnedLabels: ctx.learnedLabels || null,
-        /* The sender as THIS run matched it (the database's extra domains
-           included), so the reader asks the right prompt block and keys formats
-           by the same provider the row will carry. */
-        senderKind: sender.senderKind || sender.kind, provider: sender.provider,
-        /* The format store (email-reading-v2 §8.2), when the run has one. Absent,
-           the reader falls back to the seeds plus what this process learns. */
-        formats: ctx.formats || null,
-      });
-    } catch (e) {
-      /* The model is unreachable or out of quota. The mailbox is HELD — the
-         cursor stays put and this message is read again next poll.
-      
-         CONTINUE rather than break (2026-08-29). Holding is about the CURSOR,
-         and `hitLimit` already takes care of that: `markSynced` below refuses to
-         advance while it is set, so nothing is skipped either way. Breaking also
-         abandoned every remaining message in the window, including the ones that
-         needed no model at all — one unknown sender could strand a hundred rows
-         a stored template would have read for free. Those now stage normally and
-         only the model-needing ones wait for the next tick. */
-      summary.held++;
-      hitLimit = true;
-      outcome.set(id, 'held');
-      /* A hold is meant to be "the model is unreachable / out of quota", and the
-         cursor stays put so the message is retried. But ANY throw from
-         readTransaction lands here — a real code bug is then indistinguishable
-         from a quota wait, holds forever, and stalls the backfill with nothing
-         in the logs (2026-09-02: a mis-bumped logic version stalled a grant this
-         way, invisibly). So the actual error is logged, once per hold, without
-         changing the hold behaviour. */
-      try { console.error('mailbox hold on', id, '—', (e && (e.stack || e.message)) || e); } catch (_e) {}
-      /* Held is a real outcome and it was only ever a number inside one run's
-         summary, so a mailbox stuck behind an exhausted quota looked exactly
-         like a quiet one from outside. A DAY COUNTER rather than a
-         parse_failures row on purpose: a hold is retried on the next poll, so
-         the same message would write a new failure row every tick and the table
-         that is supposed to say "these need a human" would fill with things
-         that fix themselves. Never awaited into a failure — holding must not
-         become throwing. */
-      await ctx.db.bumpReadTally?.('held');
-      continue;
-    }
-
-    if (!read.ok) {
-      if (read.reason === 'not_a_transaction') { summary.skipped++; continue; }
-      /* One mail, several transactions (a broker's daily order summary). Not a
-         failure and not junk: counted, and left for the change that parks it
-         (email-reading-v2 §8.3, §10.4). Settled for this run so it cannot hold
-         the cursor; the read_tally 'multi' stage is the volume to watch. */
-      if (read.reason === 'multi') { summary.skipped++; summary.multi = (summary.multi || 0) + 1; continue; }
-      summary.unreadable++;
-      await ctx.db.recordFailure({
-        gmail_message_id: id, sender: message.from, subject: message.subject,
-        error_reason: read.detail || read.reason,
-      });
-      continue;
-    }
-
-    /* Decide the concept BEFORE the row is sealed and before the notification's
-       voice is chosen — one seam feeds both `category_hint` (via toReading →
-       stage.mjs) and copyMeta. Only fills what the extractor left null; a miss is
-       silent and staging proceeds unchanged. */
-    try { await enrichCategory(read.extraction, grant, ctx); }
-    catch (_e) { /* the concept is a garnish; never let it fail a real row */ }
-
-    const row = await buildStagedRow({
-      gmailMessageId: id,
-      destination,
-      reading: toReading(read.extraction, message),
-      sourceProvider: read.extraction.source_provider || sender.provider,
-      /* The FINER class when the registry has one (gateway, broker, lender).
-         stage.mjs maps every non-bank to the same sealed transaction_type as
-         before, and seals the coarse kind on a v1 row. */
-      senderKind: sender.senderKind || sender.kind,
-      /* The reader version of THIS mailbox (R15). Absent until the column
-         exists, and then 1 until someone sets it: buildStagedRow reads anything
-         but 2 as 1. */
-      readerV: grant.reader_v,
-      deps: {
-        nacl: ctx.nacl, rng: ctx.rng, subtle: ctx.subtle,
-        dedupKey: ctx.dedupKey, db: ctx.db,
-      },
-    });
-
-    /* The certainty badge (0113): this exact message id was promoted or
-       dismissed in a previous connection. Stamped on the row AFTER the build —
-       it is workflow state like review_status, not sealed content. */
-    if (restage.has(id)) { row.resolved_before = true; summary.restaged++; }
-
-    if (row.duplicate_of_id) summary.duplicates++;
-    if (await ctx.db.insertStaged(row)) {
-      summary.staged++;
-      /* Newest staged row wins the notification's voice. Gmail lists newest
-         first but a widened window can interleave, so compare on the bank's
-         own timestamp rather than trusting arrival order. A duplicate
-         SUSPICION is excluded — its copy would voice a transaction the queue
-         may end up calling "Có thể trùng". */
-      if (!row.duplicate_of_id) {
-        try {
-          const at = Date.parse(read.extraction.occurred_at || '') || 0;
-          if (!copyBest || at >= copyBest.at) copyBest = { at, meta: copyMeta(read.extraction) };
-        } catch { /* copy is a garnish; staging never fails on it */ }
-      }
-    }
-    else summary.skipped++;      // raced with another run; the guard held
+  /* THE SLOW LANE (email-reading-v2 §10.4). After the window, up to
+     PARKED_PER_RUN of this mailbox's parked messages, oldest hold first, are
+     fetched by id and read again inside the same model budget, only while the
+     model is on. A message that reads is staged and its attempts cleared; one
+     the model refuses again is counted (record_message_hold) and given up on
+     at the cap. Nothing here touches the cursor: these ids were recorded when
+     they were parked, which is what let the window finish without them. */
+  if (parkingOk && parkedAll.length && !rateLimited) {
+    for (const id of parkedAll.slice(0, ctx.parkedPerRun ?? PARKED_PER_RUN)) {
+      if (modelOff()) break;
+      if (Date.now() - _runStartedAt > _runBudgetMs) break;
+      let message;
+      try { message = await gmail.getMessage(id, access, pacedFetch, mailtext); }
+      catch (e) { if (_rateLimited(e)) { rateLimited = true; break; } continue; }   // stays parked; next run
+      summary.retried++;
+      if (!message) { await ctx.db.clearMessageHold?.(grant.id, id); continue; }    // gone from the mailbox: nothing to wait for
+      await readOne(id, message, true);
     }
   }
 
@@ -910,7 +1167,8 @@ async function _runGrantLocked(grant, ctx) {
   if (inflight) { try { await inflight; } catch { /* abandoned on purpose */ } }
 
   // Written last, and only when this run actually FINISHED the window: nothing
-  // held, and nothing left queued. Both are the same rule seen from two angles —
+  // held (a parked message is not held: its id is recorded, §10.4), and
+  // nothing left queued. Both are the same rule seen from two angles —
   // `last_synced_at` is what `windowDays` measures from, so advancing it with
   // messages still unread shrinks the next window past them and they are gone
   // with nothing recording they were there. `backfilled_at` is the same, one

@@ -22,8 +22,15 @@
  *   { ok: false, reason: 'not_a_transaction' }   cached verdict or the model's
  *   { ok: false, reason: 'unreadable', detail }  nothing usable came out
  *   { ok: false, reason: 'multi' }               one mail, several transactions:
- *                                                parked and counted, never
+ *                                                given up on and counted, never
  *                                                cached as junk (spec §8.3)
+ *   { ok: false, reason: 'format_cap' }          this shape already had its one
+ *                                                model read on this build and
+ *                                                learned nothing (spec §11);
+ *                                                given up on until a new build
+ *   { ok: false, reason: 'not_a_transaction', mailKind: 'notice', notice }
+ *                                                mail that moves no money; the
+ *                                                worker stages it as a notice
  *
  * A hold (leave it for the next poll) is a THROW, not a reason: the model being
  * rate-limited is not the same event as the model saying "this is a newsletter",
@@ -530,13 +537,35 @@ export async function readTransaction(message, db, deps) {
     return { ok: false, reason: 'not_a_transaction', personalSender: true };
   }
 
+  /* ONE MODEL READ PER FORMAT PER BUILD (spec §11; 0147 model_reads). Consent
+     says a new format goes to the model "một lần". Twelve shapes paid on every
+     mail because their template could never be derived and nothing remembered
+     the question had been asked. Now the fingerprint remembers: a transaction
+     shape with no template and no format that this build has already sent
+     once and learned nothing from is refused here, and the worker gives the
+     mail up (it is released when the reader's code changes, never when the
+     next mail arrives). Checked AFTER every free tier and the format tier, so
+     a shape a seed or a learned format reads is never capped. */
+  const build = (deps && deps.build) || null;
+  if (build && fp && !fp._sender_wide && fp.is_transaction_source === true && !stored && !known
+      && Number(fp.model_reads) >= 1 && fp.model_read_build === build) {
+    await db.bumpReadTally?.('format_cap');
+    return { ok: false, reason: 'format_cap' };
+  }
+
   // ── stage 2: the model, on the mail as written ───────────────────────────
   // Budgeted by the caller. A model call is the only thing here that costs
   // money or leaves the machine, so the ceiling lives at the call site rather
-  // than inside the thing being limited.
-  if (deps.budget && !deps.budget.spend()) {
+  // than inside the thing being limited. Awaited: the worker's gate asks the
+  // day's ledger (spend_model_budget) as well as the run's counter.
+  if (deps.budget && !(await deps.budget.spend())) {
     throw new llm.LlmUnavailable('call budget exhausted for this run');
   }
+  /* What this model read must record on the shape, whatever it learns: one
+     more read, on this build. Merged into the fingerprint save below ONLY when
+     the read produced neither a template nor a format; a shape that taught
+     something is free again and its count is left alone. */
+  const modelRead = build ? { model_reads: (Number(fp && !fp._sender_wide && fp.model_reads) || 0) + 1, model_read_build: build } : {};
 
   // The sender's class picks WHAT IS ASKED (one prompt block per class, llm.mjs).
   // WHAT IS SENT is unchanged: the sender, the subject, the mail as written.
@@ -552,6 +581,24 @@ export async function readTransaction(message, db, deps) {
   if (extraction && extraction.multi === true) {
     await db.bumpReadTally?.('multi');
     return { ok: false, reason: 'multi' };
+  }
+
+  /* A NOTICE moved no money and is NOT junk (spec §6): it is staged with
+     row_kind 'notice', so its shape must stay a transaction source, or the
+     second due notice off it is answered by the junk cache and never read. No
+     template can come of it (no amount), so the read is counted against the
+     shape like any unlearnable one: the next notice of this shape on this
+     build is capped above, and a new build reads it again. */
+  if (extraction && extraction.is_transaction !== true && extraction.mail_kind === 'notice') {
+    await db.saveFingerprint({
+      sender_address: sender, subject_template: template,
+      is_transaction_source: true, transaction_type: null, extraction_regex: _templateToStore(null, stored, null),
+      ...modelRead,
+    });
+    await db.bumpReadTally?.('llm_notice');
+    const noticeSignal = detectSignal(extraction, { ...ctx, notice: true }).signal || extraction.signal || null;
+    return { ok: false, reason: 'not_a_transaction', mailKind: 'notice',
+      notice: { signal: noticeSignal, fields: extraction.notice || null, loan: extraction.loan || null } };
   }
 
   if (!extraction || extraction.is_transaction !== true) {
@@ -590,17 +637,6 @@ export async function readTransaction(message, db, deps) {
     }
 
     await db.bumpReadTally?.('llm_junk');
-    /* A NOTICE moved no money, so to every caller today it is exactly what it
-       was: not a transaction, skipped, its shape cached. What it says rides
-       along for the change that stages notices (spec §6, `row_kind`): when
-       that lands, this shape must stop being cached as junk above, or the
-       second due notice is never read. */
-    if (extraction && extraction.mail_kind === 'notice') {
-      await db.bumpReadTally?.('llm_notice');
-      const noticeSignal = detectSignal(extraction, { ...ctx, notice: true }).signal || extraction.signal || null;
-      return { ok: false, reason: 'not_a_transaction', mailKind: 'notice',
-        notice: { signal: noticeSignal, fields: extraction.notice || null, loan: extraction.loan || null } };
-    }
     return { ok: false, reason: 'not_a_transaction' };
   }
 
@@ -610,6 +646,14 @@ export async function readTransaction(message, db, deps) {
     // may well be complete, and caching "not a transaction" here would blind us
     // to the whole sender on the strength of one bad mail.
     await db.bumpReadTally?.('unreadable');
+    /* Still one model read on this shape, and it learned nothing: counted, so
+       the next mail of the shape does not pay again on this build. Only when
+       the shape is already a known source: a first mail that is unreadable
+       says nothing about whether the shape is a source at all. */
+    if (build && fp && !fp._sender_wide && fp.is_transaction_source === true) {
+      await db.saveFingerprint({ sender_address: sender, subject_template: template,
+        is_transaction_source: true, transaction_type: fp.transaction_type || null, extraction_regex: stored, ...modelRead });
+    }
     return { ok: false, reason: 'unreadable', detail: 'no amount or direction' };
   }
 
@@ -630,16 +674,6 @@ export async function readTransaction(message, db, deps) {
       (step) => { derivedStep = step; _noteDeriveFailure(db, sender, template, step); });
   } catch { derived = null; }
 
-  await db.saveFingerprint({
-    sender_address: sender,
-    subject_template: template,
-    is_transaction_source: true,
-    transaction_type: extraction.transaction_type || null,
-    extraction_regex: _templateToStore(derived, stored, derivedStep),
-  });
-
-  await db.bumpReadTally?.('llm');
-  await db.bumpReadTally?.(derived ? 'template_learned' : 'template_unlearnable');
   /* THE FORMAT, from the labels the model CITED (core prompt rule 2). This is
      what makes "once per format" true: the labels it names become a label map,
      the map is replayed on this same mail, and only a map that reproduces the
@@ -649,6 +683,21 @@ export async function readTransaction(message, db, deps) {
     if (extraction.time_precision) extraction.src.time_precision = SRC.HEURISTIC;
   }
   const learnedFormat = await learnFormatFrom(extraction, 'model', extraction.labels);
+
+  /* The shape is confirmed as a source either way. The read is COUNTED against
+     it only when neither a template nor a format came of it: that is the shape
+     the cap above refuses next time, on this build. */
+  await db.saveFingerprint({
+    sender_address: sender,
+    subject_template: template,
+    is_transaction_source: true,
+    transaction_type: extraction.transaction_type || null,
+    extraction_regex: _templateToStore(derived, stored, derivedStep),
+    ...(derived || learnedFormat ? {} : modelRead),
+  });
+
+  await db.bumpReadTally?.('llm');
+  await db.bumpReadTally?.(derived ? 'template_learned' : 'template_unlearnable');
   /* A transaction the table tier could not read is a dictionary gap. Log the
      LABELS the mail used — bank boilerplate, no values, no amounts, nothing
      personal — so coverage grows from real misses without storing anyone's
