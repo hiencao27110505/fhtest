@@ -1898,6 +1898,46 @@ as — or the same day as — the deploy. A deploy announced only in
 
 ## 28. Releases (newest first)
 
+### 2026-09-23 — wallet statements name both sides, and one account stops having three identities · client only, SW v573
+
+- **For product:** a top-up from your own bank into your wallet used to arrive as
+  plain "Thu nhập" with no source and no destination, and so did money you moved
+  from your own bank account. On the founder's real wallet statement, 16 of 145
+  rows were transfers filed as income. They are now transfer pairs with the
+  other account already chosen. Separately, the same wallet had been showing up
+  three times in Tài sản (its short name, its "Ví" name, and its operator's
+  legal name), and one bank twice; that stops.
+- **Under the hood:** the wallet export carries four columns the parser read and
+  then dropped on incoming rows (`59-statement-table.js:279` captured the source
+  only when `isOut`). The row classifier now maps all four onto the SAME
+  payload-v2 field names the email path seals (`counterparty_kind`,
+  `counterparty_bank`, `counterparty_account_tail`, `holder_name`, `signal`), so
+  the review needs no new rules: yesterday's `fhKindFromSignal` tier 2 and
+  `_xferOtherId` do the pre-selection unchanged. `self` is decided on deburred
+  name equality, because the wallet writes the holder without diacritics and the
+  bank writes them. Account ids are read by shape: `<bankcode><digits>.bank` is a
+  linked bank, `*******<digits>` a person, `m4b_`/`w2b_`/`mp_`/`billpay` a
+  service. One issuer profile (`STMT_ISSUERS`) plus a default that behaves
+  exactly as today, so a second statement type is a table entry.
+  **Step 0, which had to come first:** one identity function
+  (`fhAcctProviderKey`/`fhAcctIdentity`) folds a wallet's short name, its "Ví X"
+  form and its operator's legal name onto one key, and a bank's short and long
+  forms likewise; a named provider with NO tail now returns null from
+  `fhPersonalAccountEnsure` instead of minting an account; "Ngân hàng liên kết",
+  "Ví" and "Tài khoản" can never be a provider. A statement never materialises an
+  account at all. Consistency with the server's `canonProviderName` is pinned by
+  a property test walking all 78 names in `senders.mjs`'s registry.
+- **Spec sections updated:** `statement-capture-spec.md` §11 (the row classifier
+  now emits contract fields; S21's funding rule generalised to incoming rows).
+- **Watch for:** a mail naming a bank with no account number no longer creates a
+  tail-less account on first sight, so those rows stay untagged until a number
+  arrives. That is deliberate (a tail-less ghost was carrying 26 real
+  transactions on one account) but it is a live behaviour change.
+  `csvXferAccounts` and the quick-review resolver still compare raw provider
+  strings; unaffected today because stored values did not change, but they are
+  the two paths that do not yet fold. Existing duplicate accounts are NOT merged
+  by this change: the code stops new ones only.
+
 ### 2026-09-22 (evening) — reader + device: a payment to a seller keeps its description, and a new personal ledger gets real categories · mailbox-sync v60, merchant-concepts v6, mailbox-dryrun v10 · SW v570 · migration 0148
 
 - **For product:** two faults found by the founder on a real queue within an hour of the
