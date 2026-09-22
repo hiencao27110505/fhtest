@@ -1137,6 +1137,23 @@ export function readRows(subject, rows, lookup) {
      being read as a repayment (category-tree E7). */
   const account = got.account || (got.merchant && got.card ? got.card : null);
   const accountField = got.account ? 'account' : (account ? 'card' : null);
+  /* ...and on a purchase that is ALL the card is. `card_masked` is documented
+     as the card BEING PAID DOWN, null on every mail that is not a repayment
+     (card-repayment-routing-spec.md), and the device reads it as exactly that:
+     fhResolveRepaidCard takes a named card as its most specific evidence, and
+     fhCardPayShaped takes one on a memo-less mail as a repayment outright.
+     Measured 2026-09-22: VIB's "Thanh toán hóa đơn QR thành công" paid by card
+     prints "Thẻ tín dụng: ••••4751" and nothing else, this reader filed that
+     tail as account_masked AND card_masked, and a purchase arrived carrying a
+     repayment signal. A mail naming a MERCHANT is a purchase — a repayment
+     pays the issuer, which is why cp_bank is the counterparty of last resort
+     here — so the card it prints was charged, not settled.
+     Nulled at the outcome rather than in extract.mjs's `_tidy` on purpose: the
+     tiers that read this one over-fill the field (a bare "Số thẻ" row is on
+     every card alert), while the model is told to fill it on a repayment only,
+     so the repayment path is left untouched by construction instead of by a
+     second judgement over a signal that has not been detected yet. */
+  const cardPaidDown = got.merchant ? null : (got.card || null);
   const cpAccount = got.cp_account || (whoRow === 'beneficiary' ? _accountInsideWho(got.beneficiary) : null);
 
   /* WHO IS ON THE OTHER SIDE, not merely WHICH ROWS THE MAIL PRINTED
@@ -1225,10 +1242,12 @@ export function readRows(subject, rows, lookup) {
     account_masked: account,
     /* The credit card the mail named, if any (card-repayment-routing-spec.md).
        Raw as printed here; `_tidy` masks it to last-4 like account_masked, and
-       the learner needs the verbatim value to anchor it. Role-neutral: the
-       client uses it as the repaid card only on rows it classifies as a card
-       payment. Null on every mail that named no card. */
-    card_masked: got.card || null,
+       the learner needs the verbatim value to anchor it. NOT role-neutral any
+       more (2026-09-22): it is the card being paid down, so it is null on
+       every mail that named no card AND on every mail that named a merchant —
+       see `cardPaidDown` above. A purchase charges a card; it does not pay one
+       down, and the card it charged is already `account_masked`. */
+    card_masked: cardPaidDown,
     category: null,                              // the client's learning owns this
     flow: self ? 'transfer' : null,              // anything else is stage.mjs's judgement
     balance: got.balance ? (parseAmountCell(got.balance) || {}).value ?? null : null,

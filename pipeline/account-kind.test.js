@@ -168,6 +168,39 @@ const TABLE = [
       bodyText: ['Từ tài khoản: 000111222333444', 'Số thẻ: 5138 92** **** 4751',
                  'Số tiền: 2.150.000 VND', 'Dư nợ còn lại: 0 VND'].join('\n') },
     null],
+  /* 2026-09-22, rule 5b (the card row). Measured on live mail: a VIB bill paid
+     BY CARD answers none of the five rules above — no hạn mức, no dư nợ, no số
+     dư, and a subject ("Thanh toán hóa đơn QR thành công") that names no
+     product — while its body prints the instrument on a labelled row. 27 of
+     200 live rows carried no account_kind, and the account-paid variant of the
+     SAME subject reads deposit fine. The mail says what it paid with; read it. */
+  ['a QR bill paid BY CARD: the labelled "Thẻ tín dụng" row is the instrument',
+    { subject: 'Thanh toán hóa đơn QR thành công',
+      bodyText: ['Thẻ tín dụng: ••••4751', 'Số tiền: 250.000 VND',
+                 'Vào lúc: 10:17 22/09/2026', 'Tại ZQ MART 01'].join('\n') },
+    'credit_card'],
+  ['...the same row written with asterisks or x\'s, or in full',
+    { subject: 'Thanh toán hóa đơn QR thành công',
+      bodyText: 'Số thẻ tín dụng: ****4751\nSố tiền: 250.000 VND' },
+    'credit_card'],
+  ['...but repayment wording hands the mail back to the account side — the card is what is PAID',
+    { subject: 'Thanh toán thẻ tín dụng thành công',
+      bodyText: ['Thẻ tín dụng: ••••4751', 'Từ tài khoản: 000111222333444',
+                 'Số tiền: 2.150.000 VND', 'Dư nợ còn lại: 0 VND'].join('\n') },
+    null],
+  ['...and a bare "Số thẻ" with no tín-dụng word is untouched: a debit card prints one too (0143)',
+    { subject: 'Thông báo giao dịch',
+      bodyText: 'Số thẻ: 4751********1234\nSố tiền: 250.000 VND' },
+    null],
+  ['...a credit limit in the same mail keeps rule 1 in charge, card row or not',
+    { subject: 'Thông báo giao dịch',
+      bodyText: ['Thẻ tín dụng: ••••4751', 'Số tiền: 250.000 VND',
+                 'Hạn mức khả dụng: 15.000.000 VND'].join('\n') },
+    'credit_card'],
+  ['...and the product named in prose is not a row about a number',
+    { subject: 'Thông báo giao dịch',
+      bodyText: 'Cảm ơn Quý khách đã dùng Thẻ tín dụng ZQ Cash Back\nSố tiền: 250.000 VND' },
+    null],
 ];
 for (const [name, input, want] of TABLE) {
   const got = T.deriveAccountKind(input);

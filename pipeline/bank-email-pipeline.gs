@@ -19,7 +19,7 @@
 // Bumped on every change that gets pasted into Apps Script. Logged on each run
 // so "which code is actually live" is never again something to infer from the
 // wording of an error — several hours went into that guess this session.
-var PIPELINE_VERSION = '2026-09-22-account-kind'; // landing 1 of email-reading-v2: subject hygiene + hash-on-doubt cache key, the month rules this twin was missing, no cache row under a free-mail forwarder's address, compound dong spellings, a foreign refusal no longer wipes the shape's VND template, plus deriveAccountKind's last-resort rule (a labelled account number with no card word reads as a deposit, so the ledger stops saying "Chưa rõ"); paste only from origin/main
+var PIPELINE_VERSION = '2026-09-22-card-row'; // landing 1 of email-reading-v2: subject hygiene + hash-on-doubt cache key, the month rules this twin was missing, no cache row under a free-mail forwarder's address, compound dong spellings, a foreign refusal no longer wipes the shape's VND template, plus deriveAccountKind's last-resort rule (a labelled account number with no card word reads as a deposit, so the ledger stops saying "Chưa rõ") and its card-row rule (a labelled "Thẻ tín dụng: ••••1234" on a mail that is not a repayment reads as the card, so a bill paid by card stops saying "Chưa rõ" too); paste only from origin/main
 
 var MAX_NEW_CLASSIFICATIONS_PER_RUN = 10;
 var MAX_NEW_CLASSIFICATIONS_PER_DAY = 50;
@@ -1453,11 +1453,43 @@ function _akHasAccountRow(body) {
   return false;
 }
 
+/* A LABELLED CREDIT-CARD row, and what counts as a card number inside it.
+   ONLY the labels that say TÍN DỤNG. A bare "Số thẻ" is printed by debit-card
+   notices too, and reading one of those as a card is exactly the 2026-09-19
+   ghost that rule 5 below was removed for and migration 0143 cleaned up — so
+   the veto list _AK_CARD_EVIDENCE may keep "so the", this rule may not.
+   The VALUE has to be card-shaped as well: a masked tail (bullets, asterisks
+   or x's in front of the digits) or a plain number, 4 to 19 digits. A product
+   name after the label ("Thẻ tín dụng ZQ Cash Back") is not a number, and a
+   20-digit run is not a card. _akNorm has flattened the body to one line, so
+   the window is read forwards from the label and the value must START it. */
+var _AK_CARD_LABELS = 'so the tin dung|the tin dung so|the tin dung';
+// Escaped, not literal: the .gs twin is deployed by hand-pasting (see _akNorm).
+var _AK_CARD_VALUE_RE = new RegExp('^[:\\-\\s]*([\\u2022*x\\u00d7.\\- ]*\\d[\\d\\u2022*x\\u00d7.\\- ]*)');
+
+function _akHasCreditCardRow(body) {
+  var re = new RegExp('\\b(?:' + _AK_CARD_LABELS + ')\\b([^\\n]{0,40})', 'g');
+  var m, v, digits;
+  while ((m = re.exec(body))) {
+    v = _AK_CARD_VALUE_RE.exec(m[1]);
+    if (!v) continue;
+    digits = v[1].replace(/[^0-9]/g, '').length;
+    if (digits >= 4 && digits <= 19) return true;
+  }
+  return false;
+}
+
 function deriveAccountKind(input) {
   var body = _akNorm(input && input.bodyText);
   var subject = _akNorm(input && input.subject);
   var provider = _akNorm(input && input.provider).replace(/[^a-z0-9]/g, '');
   var accountSide = false;   // rule 1 found a card being PAID from an account
+  /* Does this mail announce a card being PAID DOWN? Hoisted out of rule 1
+     (2026-09-22) unchanged, because rule 5b needs the same question answered on
+     mails rule 1 never reaches: on a repayment the card row is the DESTINATION
+     and the money moved on the funding account, so a labelled card row must not
+     be read as the instrument there. */
+  var repaying = /\b(thanh toan|tra no) (the|sao ke|du no)\b/.test(subject + ' ' + body);
   // 1. a credit limit or an outstanding balance — deposit accounts have neither.
   //    EXCEPT a card PAYMENT reported from the account side: "Thanh toán thẻ tín
   //    dụng … thành công" shows the card's dư nợ after payment AND the account's
@@ -1466,7 +1498,6 @@ function deriveAccountKind(input) {
   //    Reading it as a card filed every VIB card payment against the card's own
   //    debt and a real VIB account ended up kinded credit_card (2026-09-19).
   if (/\bhan muc kha dung\b/.test(body) || /\bdu no\b/.test(body)) {
-    var repaying = /\b(thanh toan|tra no) (the|sao ke|du no)\b/.test(subject + ' ' + body);
     var payingCard = repaying && /\bso du\b/.test(body);
     //    The same notice WITHOUT a balance (2026-09-22): VIB's account-side
     //    "Thanh toán sao kê thẻ Master Card" prints "Từ tài khoản: <15 digits>"
@@ -1496,6 +1527,23 @@ function deriveAccountKind(input) {
   //    materialized as a card. The client dropped the same heuristic on
   //    2026-09-02 (full-ledger-spec T12); the server kept it. A number says
   //    nothing about kind — unknown stays unknown, never a guessed debt.
+  // 5b. THE CARD ROW (2026-09-22). Every rule above asks the balance words or
+  //    the subject, and a bill payment answers neither: VIB's "Thanh toán hóa
+  //    đơn QR thành công" paid BY CARD prints no hạn mức, no dư nợ, no số dư,
+  //    and a subject that names no product — while its body prints "Thẻ tín
+  //    dụng: ••••4751". The one place that mail says what the instrument was
+  //    was the one place nobody read: 27 of 200 live rows imported with no
+  //    kind and "Nguồn tiền: Chưa rõ", though the account-paid variant of the
+  //    SAME subject reads deposit fine. Stating the labelled row is not the
+  //    guess Q16 forbids — it is rule 6's argument with the card word on it.
+  //    Narrow on both halves (see _akHasCreditCardRow): only a label saying
+  //    tín dụng, only a card-shaped value, so the 0143 ghost above stays dead.
+  //    NOT on a repayment notice, where that row is the card being PAID and
+  //    the money moved on the funding account — which is also why this can
+  //    never double-fire with rule 1's accountSide exception, whose mail is a
+  //    repayment by construction. Last of the card rules, so wherever the five
+  //    above have an answer, theirs stands.
+  if (!repaying && _akHasCreditCardRow(body)) return 'credit_card';
   // 6. LAST RESORT (2026-09-22): the mail PRINTS an account and says nothing
   //    anywhere about a card. 78 of 104 production mails reached this line as
   //    null, and a row with no kind is a row the device refuses to identify

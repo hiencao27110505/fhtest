@@ -655,8 +655,9 @@
      known (Q16: never invent a debt).
 
      Rows staged BEFORE the classifier existed carry no account_kind, and their
-     sealed boxes can never be amended — so for those only one LOCAL signal
-     stands in: the wallet providers are wallets by identity. A full-length
+     sealed boxes can never be amended — so for those two LOCAL signals stand
+     in: the wallet providers are wallets by identity, and an account the
+     person already owns states its own kind (see below). A full-length
      masked PAN is deliberately NOT read as a credit card any more — VN debit
      cards print 16-digit PANs too, and that guess is exactly how a debit
      account became a phantom card (2026-09-02). Anything unconfident stays
@@ -667,14 +668,44 @@
     var x = (r && r.raw_extracted) || null;
     if (!x) return null;
     var masked = String(x.account_masked || '');
+    var tail4 = masked.replace(/\D/g, '').slice(-4);
     var kind = x.account_kind || null;
     if (!kind) {
       var prov = String(r.source_provider || '').toLowerCase();
       if (/momo|zalopay|shopeepay/.test(prov)) kind = 'ewallet';
     }
+    /* THE PERSON'S OWN RECORD ANSWERS IT (2026-09-22, full-ledger T12). An
+       account's identity is (provider, tail); the kind is editable metadata.
+       So when the mail prints both and an account the person ALREADY OWNS has
+       that identity, the kind is theirs to read off, not ours to guess — and
+       throwing a known provider and a known tail away with the unknown kind is
+       what put "Nguồn tiền: Chưa rõ" on rows for an account the app has held
+       for weeks. We invent nothing: their own record is the evidence.
+       Providers fold through fhProviderName + csvCanonicalProvider, so "VIB",
+       "Ngân hàng Quốc Tế" and the long official name key ONE account.
+       Two owned accounts sharing a tail is ambiguity and resolves to nothing:
+       a wrong account is worse than no account. No owned match keeps today's
+       null — creating an account still needs a STATED kind (personal_accounts
+       .kind is NOT NULL, and a wrong one invents a debt: Q16). */
+    if (!kind && tail4.length === 4) {
+      try {
+        var canonP = function (s) {
+          var n = (window.fhProviderName ? (window.fhProviderName(s || '') || s) : s) || '';
+          return (typeof csvCanonicalProvider === 'function') ? csvCanonicalProvider(n) : String(n).toLowerCase();
+        };
+        var pKey = canonP((r && r.source_provider) || '');
+        var ownedA = (window.fhPersonalData && (fhPersonalData().accounts || [])) || [];
+        if (pKey) {
+          var hits = ownedA.filter(function (a) {
+            return a && a.kind && (a.tail || '') === tail4 && canonP(a.provider) === pKey;
+          });
+          if (hits.length === 1) kind = hits[0].kind;
+        }
+      } catch (eOwn) {}
+    }
     if (!kind) return null;
     return { kind: kind,
-             tail: masked.replace(/\D/g, '').slice(-4) || null,
+             tail: tail4 || null,
              provider: (r && r.source_provider) || null };
   };
 

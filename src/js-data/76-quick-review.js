@@ -185,13 +185,35 @@
     }
     function _qrAcct(re) {
       var masked = String(re.account_masked || '');
+      var tail4 = masked.replace(/\D/g, '').slice(-4);
       var kind = re.account_kind || null;
       if (!kind) {
         var prov = String(re.source_provider || '').toLowerCase();
         if (/momo|zalopay|shopeepay/.test(prov)) kind = 'ewallet';
       }
+      /* The person's own record answers a missing kind, exactly as
+         fhStagedAcct does (72-txn-review.js, 2026-09-22). Kept in step on
+         purpose: the same row approved here and in the full review must land
+         on the same account, and this sheet writing null while the other
+         writes the account is the kind of split only a person hits. */
+      if (!kind && tail4.length === 4) {
+        try {
+          var canonP = function (s) {
+            var n = (window.fhProviderName ? (window.fhProviderName(s || '') || s) : s) || '';
+            return (typeof csvCanonicalProvider === 'function') ? csvCanonicalProvider(n) : String(n).toLowerCase();
+          };
+          var pKey = canonP(re.source_provider || '');
+          var ownedA = (window.fhPersonalData && (fhPersonalData().accounts || [])) || [];
+          if (pKey) {
+            var hits = ownedA.filter(function (a) {
+              return a && a.kind && (a.tail || '') === tail4 && canonP(a.provider) === pKey;
+            });
+            if (hits.length === 1) kind = hits[0].kind;
+          }
+        } catch (eOwn) {}
+      }
       if (!kind) return null;
-      return { kind: kind, tail: masked.replace(/\D/g, '').slice(-4) || null, provider: re.source_provider || null };
+      return { kind: kind, tail: tail4 || null, provider: re.source_provider || null };
     }
     /* 0131 — the money source as one display-grade string ("VIB · tín dụng
        ••4512"), for transactions.instrument on a family write. The same words

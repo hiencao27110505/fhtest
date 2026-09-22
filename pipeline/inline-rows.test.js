@@ -67,7 +67,12 @@ t('the merchant off the colon-less "Tại" line', card && card.counterparty === 
 t('a merchant row is a debit', card && card.direction === 'debit', card && card.direction);
 t('holder_name off "Chủ thẻ"', card && card.holder_name === 'NGUYEN VAN A', card && card.holder_name);
 t('the transaction-kind row is kept for the signal detector', card && card.txn_kind === 'Thanh toán dịch vụ - hàng hóa', card && card.txn_kind);
-t('on a card PURCHASE the card is the person\'s own instrument', card && card.account_masked === '0000***0000' && card.card_masked === '0000***0000', card && card.account_masked);
+/* 2026-09-22: card_masked used to carry this tail too. It is documented as the
+   card BEING PAID DOWN and the device reads it as exactly that, so a purchase
+   filling it handed the review screen a repayment signal — the whole of
+   pipeline/card-masked-purchase.test.js. The card is the instrument here and
+   account_masked is where an instrument goes. */
+t('on a card PURCHASE the card is the person\'s own instrument, and pays no card down', card && card.account_masked === '0000***0000' && card.card_masked === null, card && [card.account_masked, card.card_masked]);
 t('rows_via says which reader', card && card.rows_via === 'line', card && card.rows_via);
 t('provenance: printed rows are `printed`', card && card.src.amount === 'printed' && card.src.holder_name === 'printed' && card.src.direction === 'printed', card && card.src);
 t('labels are recorded per row field, labels only', card && card.labels.amount === 'Giá trị' && card.labels.merchant === 'Tại' && !/45|ZQ COFFEE|NGUYEN/.test(JSON.stringify(card.labels)), card && card.labels);
