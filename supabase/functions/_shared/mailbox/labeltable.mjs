@@ -920,8 +920,19 @@ export function whenPrecision(raw) {
 export function greetingName(body) {
   const m = String(body || '').match(/^\s*(?:K[ií]nh\s+g[uử]i|Kinh\s+gui|Xin\s+ch[aà]o|Dear)[:,]?\s+([^\n,:]{4,60})[,:]?\s*$/im);
   if (!m) return null;
-  const name = m[1].replace(/^(?:anh|ch[iị]|[oô]ng|b[aà]|mr\.?|ms\.?|mrs\.?)\s+/i, '').trim();
-  if (/qu[yý]\s+kh[aá]ch|kh[aá]ch\s+h[aà]ng|customer|valued/i.test(name)) return null;
+  const honorific = /^(?:anh|ch[iị]|[oô]ng|b[aà]|mr\.?|ms\.?|mrs\.?)\s+/i;
+  /* "Kính gửi Quý khách NGUYEN VAN A," is how VIB (and MB, with a colon)
+     address a person: "Quý khách" is boilerplate, the name after it is
+     printed. Until 2026-09-22 the whole line was refused for containing
+     "Quý khách", so holder_name stayed null on every VIB transfer, and an
+     own-account transfer ("Đến tài khoản: … - NGUYEN VAN A", the same letters)
+     could only be found through the memo, as a guess the device will not
+     materialize an account from. A greeting that is ONLY the honorific
+     ("Kính gửi Quý khách hàng,") still names nobody. */
+  const name = m[1].replace(honorific, '')
+    .replace(/^(?:qu[yý]\s+kh[aá]ch(?:\s+h[aà]ng)?|kh[aá]ch\s+h[aà]ng|valued\s+customer|customer)\s*/i, '')
+    .replace(honorific, '').trim();
+  if (!name || /qu[yý]\s+kh[aá]ch|kh[aá]ch\s+h[aà]ng|customer|valued/i.test(name)) return null;
   return looksLikePerson(name) ? name : null;
 }
 

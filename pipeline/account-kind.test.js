@@ -100,6 +100,35 @@ const TABLE = [
   ['a card notice with a debt line and no account balance is still the card',
     { subject: 'Thông báo giao dịch thẻ tín dụng', bodyText: 'Số tiền: 185.000 VND\nDư nợ: 1.519.522 VND' },
     'credit_card'],
+  /* 2026-09-22: the account-side repayment notice WITHOUT a balance. VIB's
+     "Thanh toán sao kê thẻ Master Card" prints "Từ tài khoản: <15 digits>" and
+     the card's dư nợ, but no số dư, so the rule above read it as the card and
+     the real account (••5140) was materialized as a credit card a second time,
+     after 0143 had cured the PAN case. A labelled source-account row with a
+     10 to 16 digit number says the money moved on that account: not the
+     card. Not a deposit verdict either: unknown stays unknown (Q16). */
+  ['a repayment notice with a labelled "Từ tài khoản" number and NO balance is not the card',
+    { subject: 'Thanh toán sao kê thẻ Master Card thành công',
+      bodyText: ['Từ tài khoản: 000111222333444', 'Số thẻ: 5138 92** **** 4751',
+                 'Số tiền: 2.150.000 VND', 'Dư nợ còn lại: 0 VND'].join('\n') },
+    null],
+  ['...the same off a "Tài khoản trích nợ" row in a table cell, with the holder name in front',
+    { subject: 'Thanh toán thẻ tín dụng thành công',
+      bodyText: ['| Tài khoản trích nợ | NGUYEN VAN TEST - 3510187654001 (VND) |', '| Thẻ | 5138 92** **** 4751 |',
+                 '| Số tiền | 2.150.000 VND |', '| Dư nợ | 0 VND |'].join('\n') },
+    null],
+  ['...and "trả nợ thẻ" wording with a "Tài khoản nguồn" row',
+    { subject: 'Trả nợ thẻ thành công', bodyText: 'Tài khoản nguồn: 0123456789\nDư nợ: 0 VND' },
+    null],
+  ['a repayment notice whose only number is a masked PAN is still the card (asterisks are not digits)',
+    { subject: 'Thanh toán sao kê thẻ thành công', bodyText: 'Từ tài khoản: 5138 92** **** 4751\nDư nợ: 0 VND' },
+    'credit_card'],
+  ['a repayment notice with no source-account row at all is still the card',
+    { subject: 'Thanh toán sao kê thẻ thành công', bodyText: 'Số tiền: 2.150.000 VND\nDư nợ còn lại: 0 VND' },
+    'credit_card'],
+  ['a dư-nợ mail that is NOT a repayment keeps the card whatever account row it prints',
+    { subject: 'Thông báo giao dịch', bodyText: 'Từ tài khoản: 000111222333444\nDư nợ: 3.000.000 VND' },
+    'credit_card'],
 ];
 for (const [name, input, want] of TABLE) {
   const got = T.deriveAccountKind(input);

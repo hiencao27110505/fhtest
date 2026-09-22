@@ -1816,6 +1816,16 @@ function csvPayCardFor(c){
    picker. Excludes the row's own instrument when it is knowable. */
 function csvXferAccounts(c){
   var mine = (window.fhStagedAcct && c) ? fhStagedAcct(c) : null;
+  /* A row whose kind the classifier could not call (account_kind null, Q16)
+     still names its own instrument by NUMBER. Exclude it by (provider, tail)
+     all the same, or the sending account is offered as its own counterpart:
+     the VIB own transfer (2026-09-22) seals account_kind null and would have
+     listed "VIB ••3444" under "Chuyển đến đâu" for money leaving VIB ••3444. */
+  if(!mine && c && typeof c.rowIndex === 'number' && window._fhStagedRows){
+    var r0 = _fhStagedRows[c.rowIndex], x0 = r0 && r0.raw_extracted;
+    var t0 = x0 ? String(x0.account_masked || '').replace(/\D/g, '').slice(-4) : '';
+    if(t0) mine = { tail: t0, provider: r0.source_provider || null };
+  }
   return ((window.fhPersonalData && fhPersonalData().accounts) || []).filter(function(a){
     if(a.kind === 'credit_card') return false;
     if(a.kind === 'investment') return false;   // a position is a BUY's target ("Đầu tư" kind), never a transfer counterpart

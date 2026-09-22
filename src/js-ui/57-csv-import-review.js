@@ -749,18 +749,23 @@ function fhSignalLessonHit(c){
    key first (the printed account tail); then, weaker, the named bank or wallet
    when the person has exactly ONE account there. Never the row's own
    instrument, never a card (that is a repayment), never a position. */
+/* One key per bank however it was spelled: an account's provider (the sender
+   label, lower-cased by ensure) and a counterparty_bank as the mail printed it
+   ("VCB", "Vietcombank", the long form) must compare equal, or the account the
+   census materialized from the mail's own words is never found again. */
+function _sigProvKey(name){ return csvCanonicalProvider(fhProviderName(name || '')); }
 function _sigCounterpart(x, own, acct){
   var mine = acct || {};
   var pool = (own.accounts || []).filter(function (a) {
     if (a.kind === 'credit_card' || a.kind === 'investment') return false;
-    if (mine.tail && a.tail === mine.tail && csvCanonicalProvider(a.provider) === csvCanonicalProvider(mine.provider)) return false;
+    if (mine.tail && a.tail === mine.tail && _sigProvKey(a.provider) === _sigProvKey(mine.provider)) return false;
     return true;
   });
   var tail = _sigTail(x.counterparty_account_tail);
-  var bank = csvCanonicalProvider(x.counterparty_bank || '');
+  var bank = _sigProvKey(x.counterparty_bank || '');
   if (tail.length === 4) {
     var hits = pool.filter(function (a) { return (a.tail || '') === tail; });
-    if (hits.length > 1 && bank) hits = hits.filter(function (a) { return csvCanonicalProvider(a.provider) === bank; });
+    if (hits.length > 1 && bank) hits = hits.filter(function (a) { return _sigProvKey(a.provider) === bank; });
     if (hits.length === 1) return { id: hits[0].id, exact: true };
     if (hits.length > 1) return null;                 // two accounts share the tail: not ours to pick
   }
@@ -770,7 +775,7 @@ function _sigCounterpart(x, own, acct){
     name = w ? w[0] : '';
   }
   if (!name) return null;
-  var byName = pool.filter(function (a) { return csvCanonicalProvider(a.provider) === name; });
+  var byName = pool.filter(function (a) { return _sigProvKey(a.provider) === name; });
   return byName.length === 1 ? { id: byName[0].id, exact: false } : null;
 }
 /* THE precedence (spec §9), first match wins. One function for the full review
@@ -1485,10 +1490,25 @@ var FH_PROVIDER_CANON = {
   ocb:'OCB', msb:'MSB', seab:'SeABank', eximb:'Eximbank', momo:'MoMo',
   zalopay:'ZaloPay', shopeepay:'ShopeePay', viettelmoney:'Viettel Money'
 };
+/* The long official names, as a counterparty's bank is sometimes printed ("Tại
+   ngân hàng: Ngân hàng TMCP Ngoại thương Việt Nam"). Keyed by what is left of
+   the noise-stripped name once the corporate prefix (ngân hàng / NH / TMCP) and
+   a trailing "Việt Nam" are gone. The other side of an own-account transfer is
+   materialized under this name (72-txn-review.js fhStagedCounterpartAcct), so
+   "Vietcombank", "VCB" and the long form must land on ONE account, the same
+   reason canonProviderName in senders.mjs exists. This is the device's minimum;
+   a bank not listed here passes through as printed, never folded into another. */
+var FH_PROVIDER_LONG = {
+  ngoaithuong: 'Vietcombank', quandoi: 'MB Bank', quocte: 'VIB', kythuong: 'Techcombank',
+  congthuong: 'VietinBank', achau: 'ACB', tienphong: 'TPBank', vietnamthinhvuong: 'VPBank',
+  dautuvaphattrien: 'BIDV', nongnghiepvaphattriennongthon: 'Agribank', saigonthuongtin: 'Sacombank'
+};
 function fhProviderName(name){
   if(!name) return '';
   var key = csvCanonicalProvider(name);
-  return FH_PROVIDER_CANON[key] || String(name).trim();
+  if (FH_PROVIDER_CANON[key]) return FH_PROVIDER_CANON[key];
+  var long = key.replace(/^(?:nganhang|nh)?(?:thuongmaicophan|tmcp)?/, '').replace(/(?:vietnam|vn)$/, '');
+  return FH_PROVIDER_LONG[long] || String(name).trim();
 }
 window.fhProviderName = fhProviderName;
 

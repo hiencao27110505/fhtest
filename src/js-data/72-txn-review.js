@@ -663,6 +663,106 @@
              provider: (r && r.source_provider) || null };
   };
 
+  /* The OTHER side of an own-account transfer, as an instrument to ensure
+     (2026-09-22). A bank only mails about money moving on its own accounts, so
+     an account that never emails money-in (a Vietcombank account that only
+     receives) is never seen as a row's own instrument, never materializes, and
+     "Chuyển đến đâu" has nothing to pre-fill or even offer. The transfer mail
+     names it: "Đến tài khoản: <account> - <holder>", "Tại ngân hàng:
+     Vietcombank". Three facts, all required, all printed:
+       - the mail SAYS own transfer (signal own_transfer, or the printed
+         counterparty is the holder), from a printed or template-grade source.
+         Never a memo guess: "A chuyen tien den A" is the bank's auto-fill and
+         is graded heuristic on the server for exactly that reason;
+       - the counterparty's bank;
+       - the counterparty's account tail.
+     Always a deposit (never a card: a wrongly claimed card invents a debt), and
+     never for wallet_move (a top-up's other side is a wallet, which the wallet
+     provider rule in fhStagedAcct already covers). Identity is (provider, tail)
+     like every ensure(), so a later sighting of the same account as a row's own
+     instrument merges into this one instead of minting a twin. The provider
+     goes through fhProviderName so "VCB", "Vietcombank" and the long official
+     name all key the same account. */
+  window.fhStagedCounterpartAcct = function (x) {
+    if (!x || !(Number(x.v) >= 2)) return null;
+    if (x.signal === 'wallet_move') return null;
+    if (!(x.signal === 'own_transfer' || x.counterparty_kind === 'self')) return null;
+    var srcSig = (x.src && typeof x.src === 'object') ? x.src.signal : null;
+    if (srcSig !== 'printed' && srcSig !== 'template') return null;
+    var tail = String(x.counterparty_account_tail || '').replace(/\D/g, '').slice(-4);
+    var bank = String(x.counterparty_bank || '').trim();
+    if (tail.length !== 4 || !bank) return null;
+    var prov = (window.fhProviderName ? window.fhProviderName(bank) : '') || bank;
+    return { kind: 'deposit', provider: prov, tail: tail };
+  };
+
+  /* Eager account materialization (0109, full-ledger T11): the queue is a
+     CENSUS of the person's instruments. Every staged row names the account it
+     moved through (classifier kind · provider · tail), and an own-account
+     transfer names the account on the other side too. Materialize each
+     distinct one at review open, not at import, so every picker (transfer
+     counterpart, which-card) is complete the moment it renders and never asks
+     the person to create an account the app has already seen. Names go through
+     fhProviderName so a created account reads "VIB ••1234", not "vib ••1234".
+     Idempotent: ensure() keys on (provider, tail), so reopening the queue
+     creates nothing twice. Expects window._fhStagedRows to be `readable`
+     already (fhStagedAcct reads rows by index). A window function rather than
+     a block inside the open path so a test can run the census over synthetic
+     rows. */
+  window.fhQueueAccountCensus = async function (readable) {
+    var pdE = window.fhPersonalData && window.fhPersonalData();
+    if (!pdE || pdE.state !== 'ready' || !window.fhPersonalAccountEnsure) return;   // locked ledger — pickers fall back as today
+    var seen = {}, made = false, hadIds = {};
+    (pdE.accounts || []).forEach(function (a) { hadIds[a.id] = 1; });
+    var acctById = function (id) {
+      var pd = window.fhPersonalData && window.fhPersonalData();
+      return ((pd && pd.accounts) || []).filter(function (a) { return a.id === id; })[0] || null;
+    };
+    var ensure = async function (ai) {
+      var disp = (window.fhProviderName ? window.fhProviderName(ai.provider || '') : (ai.provider || '')) || '';
+      var idE = await window.fhPersonalAccountEnsure(Object.assign({}, ai,
+        { name: disp ? (disp + (ai.tail ? ' ••' + ai.tail : '')) : null }));
+      if (idE) { made = true; if (!hadIds[idE]) { hadIds[idE] = 1; window._fhQueueNewAccts.push(idE); } }
+      return idE;
+    };
+    for (var ei = 0; ei < (readable || []).length; ei++) {
+      var x = (readable[ei] && readable[ei].raw_extracted) || null;
+      var aiE = null, cpE = null;
+      try { aiE = window.fhStagedAcct ? window.fhStagedAcct({ rowIndex: ei }) : null; } catch (eA) {}
+      try { cpE = window.fhStagedCounterpartAcct(x); } catch (eP) {}
+      if (aiE) {
+        var aiKey = aiE.kind + '|' + String(aiE.provider || '').toLowerCase() + '|' + (aiE.tail || '');
+        if (!seen[aiKey]) {
+          seen[aiKey] = 1;
+          try {
+            var idE = await ensure(aiE);
+            /* Kind is metadata, identity is the number (full-ledger T12).
+               ensure() matched by (provider, tail) and left the kind alone, so
+               a row sealed `credit_card` over an account the app already holds
+               as a deposit changes nothing: the card guess never re-kinds it.
+               The one re-kind that IS made runs the other way: an account held
+               as a card that a PRINTED fact (or a verified format's fact) now
+               says is a deposit. A fact beats the guess that minted the card;
+               a guess never overwrites a fact, and nothing overwrites a kind
+               the person set themselves (human_verified). */
+            if (idE && aiE.kind === 'deposit' && x && Number(x.v) >= 2 && x.src && typeof x.src === 'object'
+                && (x.src.account_kind === 'printed' || x.src.account_kind === 'template')) {
+              var cur = acctById(idE);
+              if (cur && cur.kind === 'credit_card' && !cur.humanVerified && window.fhPersonalAccountUpdate) {
+                try { if (await window.fhPersonalAccountUpdate(idE, { kind: 'deposit' })) { cur.kind = 'deposit'; made = true; } } catch (eK) {}
+              }
+            }
+          } catch (eB) {}
+        }
+      }
+      if (cpE) {
+        var cpKey = cpE.kind + '|' + String(cpE.provider || '').toLowerCase() + '|' + cpE.tail;
+        if (!seen[cpKey]) { seen[cpKey] = 1; try { await ensure(cpE); } catch (eC) {} }
+      }
+    }
+    if (made) { try { window.renderPersonal && window.renderPersonal(); } catch (eR) {} }
+  };
+
   /* Card-payment candidates still waiting in the inbox — for the card detail's
      "Ghi thanh toán thẻ" sheet, which lets a person assign one to a SPECIFIC
      card (the sending bank mail can't say which). Fetch + open + filter, read
@@ -1121,38 +1221,12 @@
        screen exists to prevent. */
     window._fhStagedRows = readable;
 
-    /* Eager account materialization (0109): the queue is a CENSUS of the
-       person's instruments — every staged row names the account it moved
-       through (classifier kind · provider · tail). Materialize each distinct
-       one now, not at import, so every picker (transfer counterpart, which-card)
-       is complete the moment it renders and never asks the person to create an
-       account the app has already seen. Names go through fhProviderName so a
-       created account reads "VIB ••1234", not "vib ••1234". Fire-and-forget —
-       a slow insert must never hold the list — and idempotent: ensure() keys
-       on (kind, provider, tail), so reopening the queue creates nothing twice. */
+    /* Eager account materialization (0109, T11): the census of the queue's
+       instruments, own and counterpart alike — window.fhQueueAccountCensus,
+       above, says what and why. Fire-and-forget: a slow insert must never hold
+       the list. */
     window._fhQueueNewAccts = [];   // 0134: accounts this queue session materialized (the wizard treats them as "touched")
-    (async function () {
-      try {
-        var pdE = window.fhPersonalData && window.fhPersonalData();
-        if (!pdE || pdE.state !== 'ready' || !window.fhPersonalAccountEnsure) return;   // locked ledger — pickers fall back as today
-        var seenAi = {}, made = false;
-        var hadIds = {}; (pdE.accounts || []).forEach(function (a) { hadIds[a.id] = 1; });
-        for (var ei = 0; ei < readable.length; ei++) {
-          var aiE = null;
-          try { aiE = window.fhStagedAcct ? window.fhStagedAcct({ rowIndex: ei }) : null; } catch (eA) {}
-          if (!aiE) continue;
-          var aiKey = aiE.kind + '|' + (aiE.provider || '') + '|' + (aiE.tail || '');
-          if (seenAi[aiKey]) continue; seenAi[aiKey] = 1;
-          var disp = (window.fhProviderName ? window.fhProviderName(aiE.provider || '') : (aiE.provider || '')) || '';
-          try {
-            var idE = await window.fhPersonalAccountEnsure(Object.assign({}, aiE,
-              { name: disp ? (disp + (aiE.tail ? ' ••' + aiE.tail : '')) : null }));
-            if (idE) { made = true; if (!hadIds[idE]) window._fhQueueNewAccts.push(idE); }
-          } catch (eB) {}
-        }
-        if (made) { try { window.renderPersonal && window.renderPersonal(); } catch (eC) {} }
-      } catch (eD) {}
-    })();
+    window.fhQueueAccountCensus(readable).catch(function () {});
 
     window.csvStagedMode = true;   // reuse the review engine, drop its file-only chrome
 

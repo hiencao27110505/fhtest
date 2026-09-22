@@ -246,6 +246,7 @@ function deriveAccountKind(input) {
   var body = _akNorm(input && input.bodyText);
   var subject = _akNorm(input && input.subject);
   var provider = _akNorm(input && input.provider).replace(/[^a-z0-9]/g, '');
+  var accountSide = false;   // rule 1 found a card being PAID from an account
   // 1. a credit limit or an outstanding balance — deposit accounts have neither.
   //    EXCEPT a card PAYMENT reported from the account side: "Thanh toán thẻ tín
   //    dụng … thành công" shows the card's dư nợ after payment AND the account's
@@ -254,8 +255,18 @@ function deriveAccountKind(input) {
   //    Reading it as a card filed every VIB card payment against the card's own
   //    debt and a real VIB account ended up kinded credit_card (2026-09-19).
   if (/\bhan muc kha dung\b/.test(body) || /\bdu no\b/.test(body)) {
-    var payingCard = /\b(thanh toan|tra no) (the|sao ke)\b/.test(subject + ' ' + body) && /\bso du\b/.test(body);
+    var repaying = /\b(thanh toan|tra no) (the|sao ke|du no)\b/.test(subject + ' ' + body);
+    var payingCard = repaying && /\bso du\b/.test(body);
+    //    The same notice WITHOUT a balance (2026-09-22): VIB's account-side
+    //    "Thanh toán sao kê thẻ Master Card" prints "Từ tài khoản: <15 digits>"
+    //    and no số dư, and read as a card it minted the ••5140 ghost a second
+    //    time (0143 had only cured the PAN case). A repayment whose source row
+    //    is a labelled ACCOUNT NUMBER (10 to 16 digits; a masked PAN has
+    //    asterisks) moved the money on that account. Still not a deposit
+    //    verdict, only "not the card": unknown stays unknown, never a debt.
+    if (!payingCard && repaying && /\b(tu tai khoan|tai khoan trich no|tai khoan nguon)\b[^\n\d]{0,40}\d{10,16}\b/.test(body)) payingCard = true;
     if (!payingCard) return 'credit_card';
+    accountSide = true;
   }
   // 2. the wallet providers are e-wallets whatever the body says about balances
   for (var i = 0; i < _AK_EWALLETS.length; i++) {
@@ -263,8 +274,10 @@ function deriveAccountKind(input) {
   }
   // 3. a balance-after-transaction row is how deposit-account notices sign off
   if (/\bso du\b/.test(body)) return 'deposit';
-  // 4. the subject names the product where a terse body does not
-  if (/\bthe tin dung\b/.test(subject)) return 'credit_card';
+  // 4. the subject names the product where a terse body does not. Not after
+  //    the payment exception above: "Thanh toán thẻ tín dụng thành công" names
+  //    the card that was PAID, and the money moved on the account (rule 1).
+  if (!accountSide && /\bthe tin dung\b/.test(subject)) return 'credit_card';
   if (/\bso du tai khoan\b/.test(subject) || /\bbien dong so du\b/.test(subject)) return 'deposit';
   // 5. (removed 2026-09-19) a 15–16 digit number was read as a card PAN. VIB
   //    account numbers are 15 digits, so every number-bearing account notice
