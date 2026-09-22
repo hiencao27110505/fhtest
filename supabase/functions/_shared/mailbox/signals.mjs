@@ -28,7 +28,13 @@
  */
 
 import { SIGNALS, NOTICE_SIGNALS, SRC, CHANNELS, COUNTERPARTY_KINDS } from './contract.mjs';
-import { looksLikePerson } from './labeltable.mjs';
+/* nameKey and sellerMark MOVED to labeltable.mjs (2026-09-22): the label-table
+   reader now has to ask "is the other side a person or a seller?" before it
+   calls a mail p2p, and this module already imports from that one — importing
+   back would be a cycle. They are re-exported below, so every caller and
+   pipeline/signals.test.js still find them here. */
+import { looksLikePerson, nameKey, sellerMark } from './labeltable.mjs';
+export { nameKey, sellerMark };
 
 /* Deburred, lower-cased, punctuation to spaces, padded: every regex below can
    use plain spaces as word boundaries and none has to think about accents. */
@@ -40,66 +46,7 @@ function _flat(s) {
   return t ? ' ' + t + ' ' : '';
 }
 
-/** Letters only, the account or phone tail dropped: the form two printings of
- *  one name agree on ("NGUYEN VAN A - 0000 1234" and "Nguyễn Văn A"). */
-export function nameKey(raw) {
-  const parts = String(raw == null ? '' : raw).split(/\s+[-–|]\s+/);
-  // "ACCOUNT - NAME" and "NAME - ACCOUNT" are both printed; the name is the
-  // part with the fewest digits.
-  let best = parts[0] || '';
-  for (const p of parts) if ((p.match(/\d/g) || []).length < (best.match(/\d/g) || []).length) best = p;
-  return _flat(best).replace(/[0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
-}
-
-/* ── who was paid: the marks only a payment SYSTEM leaves (E12, E13) ─────────
-   Kept consistent with fhSellerSignal in src/js-ui/13-partition.js, which the
-   device keeps running on v1 rows. Measured there on two real mailboxes: 143 of
-   273 yearly transfers in one and 56 of 158 in the other carry one of these
-   marks, and not one of them also carries a person-to-person note. None of it
-   reads a payee's NAME for meaning. An unknown prefix is NOT a mark: a missing
-   rule makes the answer shallower, never wrong. [\dX] because some transports
-   mask digits. */
-const _VA_RX = [/^99MM[\dX]/, /^99ZP[\dX]/, /^ZLP[\dX]{6}/, /^ZION-/i, /^9627952[\dX]/, /^9990018[\dX]/, /^9990009[\dX]/,
-  /^MS0[\dX][PT][\dX]{6}/, /^VQRQ[A-Z0-9]{4}/i, /^(PHATLOC|LOCPHAT)[\dX]{3}/, /^(V3)?KOV[\dX]{3}/, /^MWGVN/,
-  /^AGBVMSP/, /^(PMC|PSP)[\dX]{10}/, /^MD18[\dX]{10}/, /^[\dX]{6,}QR[A-Z]{3}[\dX]{2}$/, /^MB?999[\dX]{6}/,
-  /^962NPS/, /^HE1TINGEE/, /^[A-Z0-9]{8,}VCB$/];
-const _PSP_NAME_RX = /(^|[\s|\-])(momo_|zalopay_|payoo[ _\-*])/;
-const _BIZ_RX = /\b(cong ty|cty|ct tnhh|ct cp|tnhh|co phan|hkd|ho kinh doanh|dntn|doanh nghiep tu nhan|company|limited|corporation|jsc|co ltd|ltd|cua hang|nha thuoc|tiem)\b/;
-const _TILL_MEMO_RX = [/^tt hd\b/, /^\d{5} [a-z0-9]{5}$/, /^qr[a-z0-9]{6}tt\b/, /^qr\d+tt\b/, /^kovqr[a-z0-9]+$/, /^(vqrloamb|mbts)[a-z0-9]+$/,
-  /^[a-z0-9]{15} \d{9}$/, /\bthanh toan qrcode tai\b/, /^thanh toan cho .+\([^)]+\)$/];
 const _ISSUER_RX = /\bngan hang\b|\bnh tmcp\b|\btmcp\b|\bbank\b/;
-
-function _deburr(s) {
-  return String(s == null ? '' : s).normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
-}
-
-/** 'bizpay' when the account name is a legal entity, 'purchase' for any other
- *  seller mark, null otherwise. The same three answers fhSellerSignal gives. */
-export function sellerMark(reading) {
-  const r = reading || {};
-  const segs = [];
-  for (const v of [r.counterparty, r.counterparty_account_tail, r.memo]) {
-    for (const x of String(v == null ? '' : v).split('|')) { const t = x.trim(); if (t) segs.push(t); }
-  }
-  if (!segs.length) return null;
-  const flat = _deburr(segs.join(' | '));
-  if (/\bngan hang\b/.test(flat)) return null;               // an issuer's name: a repayment, not a shop
-  let mark = _PSP_NAME_RX.test(flat);
-  for (let i = 0; i < segs.length && !mark; i++) {
-    for (const tok of segs[i].split(/\s+-\s+|\s+/)) {
-      const tk = tok.replace(/[.,;:]+$/, '');
-      if (tk.length < 8 || !/[\dX]/.test(tk)) { if (!/^ZION-/i.test(tk)) continue; }
-      if (_VA_RX.some((rx) => rx.test(tk))) { mark = true; break; }
-    }
-  }
-  for (let i = 0; i < segs.length && !mark; i++) {
-    const m = _deburr(segs[i]).replace(/\s+/g, ' ').trim();
-    if (_TILL_MEMO_RX.some((rx) => rx.test(m))) mark = true;
-  }
-  if (_BIZ_RX.test(flat.replace(/[^a-z0-9]+/g, ' '))) return 'bizpay';
-  return mark ? 'purchase' : null;
-}
 
 const _WALLET_NAME_RX = /^ (?:vi (?:dien tu )?)?(?:momo|zalopay|zalo pay|shopeepay|shopee pay|airpay|viettel money|viettelpay|vnpt money|vnpt pay|moca|smartpay) (?:$|vi |wallet )/;
 

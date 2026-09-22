@@ -670,8 +670,11 @@ function _persEmailRow(){
      state is already hydrated and decrypted when this tab is usable. ── */
   var bySpace = {}, catBySpace = {};
   txM.forEach(function(t){ var k=t.spaceId||'_p'; bySpace[k]=(bySpace[k]||0)+(t.amt||0);
-    var cats=catBySpace[k]||(catBySpace[k]={}), ck=(t.cat||'Khác');
-    if(!cats[ck]) cats[ck]={name:ck, emoji:t.emoji||'🗂️', v:0};
+    /* Same rescue the Giao dịch list makes: with a bare partition every row
+       would be filed under "Khác", so the tree's own group name stands in. */
+    var rl=(typeof fhPersonalRowLabel==='function')?fhPersonalRowLabel(t):null;
+    var cats=catBySpace[k]||(catBySpace[k]={}), ck=((rl&&rl.name)||t.cat||'Khác');
+    if(!cats[ck]) cats[ck]={name:ck, emoji:(rl&&rl.emoji)||t.emoji||'🗂️', v:0};
     cats[ck].v+=(t.amt||0);
   });
   var spKeys = Object.keys(bySpace).filter(function(k){ return k!=='_p'; });

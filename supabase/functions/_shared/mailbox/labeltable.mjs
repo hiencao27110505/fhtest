@@ -514,6 +514,75 @@ export function looksLikePerson(raw) {
   return _FAMILY_NAMES.has(words[0]);
 }
 
+/** Letters only, the account or phone tail dropped: the form two printings of
+ *  one name agree on ("NGUYEN VAN A - 0000 1234" and "Nguyễn Văn A").
+ *
+ *  It sits here, beside the two matchers it feeds, rather than in signals.mjs
+ *  where it was written: _personKey above only ever knew "NAME - ACCOUNT", and
+ *  a VIB beneficiary cell is printed the other way round ("1000002279 - NGUYEN
+ *  VAN TEST"), so the reader below needs this reduction before it can ask
+ *  looksLikePerson anything. */
+export function nameKey(raw) {
+  const parts = String(raw == null ? '' : raw).split(/\s+[-–|]\s+/);
+  // "ACCOUNT - NAME" and "NAME - ACCOUNT" are both printed; the name is the
+  // part with the fewest digits.
+  let best = parts[0] || '';
+  for (const p of parts) if ((p.match(/\d/g) || []).length < (best.match(/\d/g) || []).length) best = p;
+  return _strip(best).replace(/[^a-z ]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+/* ── who was paid: the marks only a payment SYSTEM leaves (E12, E13) ─────────
+   Kept consistent with fhSellerSignal in src/js-ui/13-partition.js, which the
+   device keeps running on v1 rows. Measured there on two real mailboxes: 143 of
+   273 yearly transfers in one and 56 of 158 in the other carry one of these
+   marks, and not one of them also carries a person-to-person note. None of it
+   reads a payee's NAME for meaning. An unknown prefix is NOT a mark: a missing
+   rule makes the answer shallower, never wrong. [\dX] because some transports
+   mask digits.
+
+   MOVED here from signals.mjs (2026-09-22) so readRows can ask it too. That
+   module imports looksLikePerson from this one, so importing sellerMark the
+   other way would be a cycle; both matchers answer the same question — who is
+   on the other side — so they now live together, at the leaf, and signals.mjs
+   re-exports this one unchanged. */
+const _VA_RX = [/^99MM[\dX]/, /^99ZP[\dX]/, /^ZLP[\dX]{6}/, /^ZION-/i, /^9627952[\dX]/, /^9990018[\dX]/, /^9990009[\dX]/,
+  /^MS0[\dX][PT][\dX]{6}/, /^VQRQ[A-Z0-9]{4}/i, /^(PHATLOC|LOCPHAT)[\dX]{3}/, /^(V3)?KOV[\dX]{3}/, /^MWGVN/,
+  /^AGBVMSP/, /^(PMC|PSP)[\dX]{10}/, /^MD18[\dX]{10}/, /^[\dX]{6,}QR[A-Z]{3}[\dX]{2}$/, /^MB?999[\dX]{6}/,
+  /^962NPS/, /^HE1TINGEE/, /^[A-Z0-9]{8,}VCB$/];
+const _PSP_NAME_RX = /(^|[\s|\-])(momo_|zalopay_|payoo[ _\-*])/;
+const _BIZ_RX = /\b(cong ty|cty|ct tnhh|ct cp|tnhh|co phan|hkd|ho kinh doanh|dntn|doanh nghiep tu nhan|company|limited|corporation|jsc|co ltd|ltd|cua hang|nha thuoc|tiem)\b/;
+const _TILL_MEMO_RX = [/^tt hd\b/, /^\d{5} [a-z0-9]{5}$/, /^qr[a-z0-9]{6}tt\b/, /^qr\d+tt\b/, /^kovqr[a-z0-9]+$/, /^(vqrloamb|mbts)[a-z0-9]+$/,
+  /^[a-z0-9]{15} \d{9}$/, /\bthanh toan qrcode tai\b/, /^thanh toan cho .+\([^)]+\)$/];
+
+/** 'bizpay' when the account name is a legal entity, 'purchase' for any other
+ *  seller mark, null otherwise. The same three answers fhSellerSignal gives.
+ *  (`_strip` is this file's `_deburr`, plus the whitespace collapse the
+ *  till-memo pass below was applying by hand anyway.) */
+export function sellerMark(reading) {
+  const r = reading || {};
+  const segs = [];
+  for (const v of [r.counterparty, r.counterparty_account_tail, r.memo]) {
+    for (const x of String(v == null ? '' : v).split('|')) { const t = x.trim(); if (t) segs.push(t); }
+  }
+  if (!segs.length) return null;
+  const flat = _strip(segs.join(' | '));
+  if (/\bngan hang\b/.test(flat)) return null;               // an issuer's name: a repayment, not a shop
+  let mark = _PSP_NAME_RX.test(flat);
+  for (let i = 0; i < segs.length && !mark; i++) {
+    for (const tok of segs[i].split(/\s+-\s+|\s+/)) {
+      const tk = tok.replace(/[.,;:]+$/, '');
+      if (tk.length < 8 || !/[\dX]/.test(tk)) { if (!/^ZION-/i.test(tk)) continue; }
+      if (_VA_RX.some((rx) => rx.test(tk))) { mark = true; break; }
+    }
+  }
+  for (let i = 0; i < segs.length && !mark; i++) {
+    const m = _strip(segs[i]);
+    if (_TILL_MEMO_RX.some((rx) => rx.test(m))) mark = true;
+  }
+  if (_BIZ_RX.test(flat.replace(/[^a-z0-9]+/g, ' '))) return 'bizpay';
+  return mark ? 'purchase' : null;
+}
+
 /** Does the mail's own status row say the transaction FAILED? Row-targeted on
  *  purpose: a success mail's footer can contain the words "không thành công"
  *  inside safety advice, so only the status field's value gets to answer. The
@@ -1070,13 +1139,43 @@ export function readRows(subject, rows, lookup) {
   const accountField = got.account ? 'account' : (account ? 'card' : null);
   const cpAccount = got.cp_account || (whoRow === 'beneficiary' ? _accountInsideWho(got.beneficiary) : null);
 
+  /* WHO IS ON THE OTHER SIDE, not merely WHICH ROWS THE MAIL PRINTED
+     (2026-09-22). `transaction_type` below used to read p2p_transfer on the
+     SHAPE alone — a beneficiary or remitter row exists, or the kind row or the
+     subject says chuyển tiền / chuyển khoản / biên lai. But a QR payment to a
+     SELLER is printed in exactly that shape: VIB's "Chuyển tiền nhanh đến tài
+     khoản ngân hàng nội địa thành công", beneficiary "VQRQ0001… - <a name>",
+     which is a virtual-account mark and not a friend.
+     Harmless while the verdict was discarded before sealing. It is sealed now,
+     as raw_extracted.reader_type, and the device asks it FIRST when it decides
+     whether to leave the description blank (a p2p counterparty answers "who",
+     not "what for"): on one real mailbox 19 of 104 rows read p2p, 7 of them
+     were merchants, and 5 imported with an empty description although the mail
+     had printed a perfectly good merchant string.
+     So the transfer shape is necessary and no longer sufficient. A seller mark
+     or a legal-entity name (E12, E13) outranks a person-shaped name, which is
+     the incident above: `ecommerce_receipt` is what that verdict means
+     downstream — a purchase nobody's bank initiated. A counterparty that is
+     neither is NULL, the answer this reader gives everywhere else when the mail
+     does not say: better than teaching the device, the vote learner and the
+     next stored template a coin flip. */
+  const cpIsSeller = whoRow === 'merchant'
+    || !!sellerMark({ counterparty: who, counterparty_account_tail: cpAccount, memo });
+  const cpIsPerson = !cpIsSeller && !!who && (looksLikePerson(who) || looksLikePerson(nameKey(who)));
+  const transactionType = whoRow === 'cp_bank' ? 'bank_txn'
+    : !isTransfer ? 'ecommerce_receipt'
+    : cpIsPerson ? 'p2p_transfer'
+    : cpIsSeller ? 'ecommerce_receipt'
+    : null;
+
   const out = {
     is_transaction: true,
     /* A mail whose ONLY counterpart is the beneficiary's bank is a payment to
        that bank (a card bill), which is the one case the reader can call
        bank_txn. It used to read p2p_transfer, because the bank row sat in the
-       beneficiary vocabulary and any beneficiary meant a transfer. */
-    transaction_type: whoRow === 'cp_bank' ? 'bank_txn' : (isTransfer ? 'p2p_transfer' : 'ecommerce_receipt'),
+       beneficiary vocabulary and any beneficiary meant a transfer. The rest of
+       the verdict, and why it is not the shape alone, is above. */
+    transaction_type: transactionType,
     source_provider: null,                       // worker falls back to the sender registry
     occurred_at: when,
     time_precision: whenPrecision(got.occurred_at),
@@ -1147,7 +1246,10 @@ export function readRows(subject, rows, lookup) {
     if (out[k] != null) src[k] = 'printed';
   }
   if (out.flow) src.flow = 'heuristic';
-  src.transaction_type = 'heuristic';
+  // ...and the type is a rule too — listed only when it reached a verdict, like
+  // every other field here: a source under a null value reads as a withdrawn
+  // answer (signals.mjs crossCheckSignal), which is not what a null means here.
+  if (out.transaction_type) src.transaction_type = 'heuristic';
   out.src = src;
 
   /* Which PRINTED LABEL each field was read under (labels only, never values):

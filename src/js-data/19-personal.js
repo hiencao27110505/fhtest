@@ -868,6 +868,7 @@
         cat_name_enc: opts.catName ? await _encP(opts.catName) : null, cat_emoji: opts.catEmoji || null,
         occurred_time_enc: t ? await _encP(t) : null,
         node_enc: _okNode(opts.node) ? await _encP(opts.node) : null,   // 0144: tree node, same contract as fhPersonalAddExpense (quick review resolves one for income too)
+        label_id: opts.labelId || null,                                 // 0144 Q12: the label the node resolved to, like every other writer
         account_id: opts.accountId || null, source: source || null };
       const r = await _sb().from('personal_transactions').insert(row);
       if (r.error) { console.warn('personal income failed', r.error); return false; }
@@ -1664,25 +1665,63 @@
       if (r.error) return false;
       await window.fhPersonalHydrate(); return true;
     };
-    /* First-run partition for a person who has no labels yet: one label per
-       distinct category name already on their rows (that IS their vocabulary),
-       each claiming what the tree says the name means, plus a catch-all. Runs
-       once, silently, and never overwrites a label the person already has. */
+    /* First-run partition for a person whose partition does not exist yet: one
+       label per distinct category name already on their rows (that IS their
+       vocabulary), each claiming what the tree says the name means, plus a
+       catch-all. Runs silently, and never overwrites a label the person made.
+
+       THE EMPTY-LEDGER HOLE (2026-09-22): this used to bail on
+       `(P.labels||[]).length`, and on a BRAND-NEW account it ran with zero rows,
+       so the only thing it could build was the catch-all — after which its own
+       guard stopped it ever running again. The partition was then {Khác}, every
+       node resolved to it, and the whole ledger read "Others" (240 rows on the
+       founder's second account). So the guard is now about the partition's
+       SHAPE, not its length: nothing, or nothing but a catch-all, is still
+       "not set up", and the fallback for a person with no vocabulary of their
+       own is the TREE — one label per expense root, named and drawn from the
+       tree itself so the two can never drift. Q6 still holds: when the person
+       HAS category names on their rows, those are what they get. */
+    const _labelIsCatchAll = (l) => {
+      const c = (l && l.claims) || [];
+      return c.length === 1 && c[0] === '*';
+    };
     window.fhPersonalLabelsEnsureDefaults = async function () {
-      if (!P.uid || !P.key || (P.labels || []).length) return false;
+      if (!P.uid || !P.key) return false;
+      const have = P.labels || [];
+      // A label that claims something real (or claims nothing yet, which is a
+      // person's own label the tree could not map — C3) means: hands off.
+      if (have.length && !have.every(_labelIsCatchAll)) return false;
       const seen = {}, out = [];
       for (const t of (P.txns || [])) {
         const nm = (t.cat || '').trim();
         if (!nm || seen[nm.toLowerCase()]) continue;
         seen[nm.toLowerCase()] = 1;
-        out.push({ name: nm, emoji: t.emoji || '🏷️',
-          claims: (typeof fhDefaultClaimsFor === 'function') ? fhDefaultClaimsFor(nm, t.emoji) : [] });
+        /* "Khác" / "Others" on a row is the catch-all, not a category: seeding it
+           as a label would rebuild the very one-bucket partition this exists to
+           fix (all 240 of the founder's rows wore that name). */
+        if (typeof fhIsCatchAllName === 'function' && fhIsCatchAllName(nm)) continue;
+        const claims = (typeof fhDefaultClaimsFor === 'function') ? fhDefaultClaimsFor(nm, t.emoji) : [];
+        if (claims.length === 1 && claims[0] === '*') continue;
+        out.push({ name: nm, emoji: t.emoji || '🏷️', claims: claims });
         if (out.length >= 24) break;
       }
-      out.push({ name: 'Khác', emoji: '🗂️', claims: ['*'] });
+      if (!out.length && window.FH_TAX) {
+        /* Nothing on the rows to learn from: the tree's own expense roots are the
+           partition. `xunfiled` ("Chưa rõ") is left out — only a person may file
+           there (Q9) and the catch-all covers it. */
+        for (const code of FH_TAX.roots('expense')) {
+          const n = FH_TAX.get(code);
+          if (!n || n.manual) continue;
+          out.push({ name: n.vi, emoji: n.emoji || '🏷️', claims: [code] });
+        }
+      }
+      // Exactly one catch-all, ever: reuse the one that is already there.
+      if (!have.some(_labelIsCatchAll)) out.push({ name: 'Khác', emoji: '🗂️', claims: ['*'] });
+      if (!out.length) return false;                       // nothing to add → no write, no hydrate loop
+      const base = have.reduce((m, l) => Math.max(m, Number(l.sortOrder) || 0), -1) + 1;
       const rows = [];
       for (let i = 0; i < out.length; i++) {
-        rows.push({ owner_user_id: P.uid, sort_order: i, emoji: out[i].emoji,
+        rows.push({ owner_user_id: P.uid, sort_order: base + i, emoji: out[i].emoji,
           name_enc: await _encP(out[i].name), claims_enc: await _encP(JSON.stringify(out[i].claims)) });
       }
       const r = await _sb().from('personal_labels').insert(rows);

@@ -65,15 +65,19 @@ function _pBuildTxnCtx(){
     if(t._unreadable) return;
     var _d=t.date?new Date(t.date+'T00:00:00'):null;
     if(t.kind==='expense'){
-      var cat=t.cat||other;
-      if(!style[cat]){ style[cat]=[t.emoji||'🗂️', PAL[order.length%PAL.length], 'var(--cat-other)']; order.push(cat); }
+      /* While the person's partition is nothing but a catch-all, every row would
+         read "Khác" — so the tree's own name for the row's group stands in
+         (fhPersonalRowLabel, display only, nothing written). */
+      var _rl=(typeof fhPersonalRowLabel==='function')?fhPersonalRowLabel(t):null;
+      var cat=(_rl&&_rl.name)||t.cat||other, _ico=(_rl&&_rl.emoji)||t.emoji||'🗂️';
+      if(!style[cat]){ style[cat]=[_ico, PAL[order.length%PAL.length], 'var(--cat-other)']; order.push(cat); }
       // Only PRIVATE rows are editable here; mirror rows (spaceId/linkId set) are a
       // family expense shown in the personal book — write-inert, but tappable
       // since 0114 (fhMirrorRowTap → the family expense detail, M10).
       var eOpen=(t.spaceId||t.linkId)?(t.spaceId?"fhMirrorRowTap('"+t.id+"')":''):"openPersonalTxDetail('"+t.id+"')";
       /* _kg/_net/_src/_acct feed the Giao dịch screen's filters + net heads:
          expense = money out (0109 stores it positive), so its cash flow is −amt. */
-      rows.push({ id:t.id, cat:cat, note:t.note||cat, amt:t.amt||0, _d:_d, ico:t.emoji||'🗂️', who:null, _style:style[cat], _open:eOpen, photos:t.photos||undefined, time:t.time||null,
+      rows.push({ id:t.id, cat:cat, note:t.note||cat, amt:t.amt||0, _d:_d, ico:_ico, who:null, _style:style[cat], _open:eOpen, photos:t.photos||undefined, time:t.time||null,
         node:t.node||null,                                      // 0144 — what the tree filter and the chip sheet read
         _kg:'chi', _net:-(t.amt||0), _src:t.src||null, _acct:t.accountId||null, _mirror:!!(t.spaceId||t.linkId) });
       if((t.date||'').slice(0,7)===ym){

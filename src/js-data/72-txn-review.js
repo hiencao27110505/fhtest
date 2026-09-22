@@ -410,7 +410,22 @@
          its other reader (fhStagedKind, the bank-vs-receipt dedup rule); it still
          answers here for a statement row, which writes p2p_transfer itself, and
          for every row sealed before reader_type existed. */
-      var isPerson = (x.reader_type || x.transaction_type) === 'p2p_transfer';
+      /* …but `reader_type` answers "what kind of mail was this", and ANY mail
+         carrying a beneficiary row reads as p2p_transfer. A QR payment to a
+         SELLER ("VQRQ0001oqplk - VO DINH PHUC", memo "Thanh toan QR" which the
+         tidy correctly empties) is such a mail, so the blank-on-purpose rule
+         fired on rows whose counterparty IS the answer: measured 19 rows read
+         as p2p, 7 of them merchants, 5 rendered blank with a name available.
+         payload v2 states the fact the rule actually wants — `counterparty_kind`
+         (person | merchant | bank | wallet | self | unknown), about the OTHER
+         SIDE rather than about the mail — so ask that when the row carries one.
+         `unknown` is "no opinion" and falls through, as do v1 rows and statement
+         rows, which carry no counterparty_kind at all and keep today's behaviour
+         byte for byte. */
+      var ckind = x.counterparty_kind;
+      var isPerson = (ckind && ckind !== 'unknown')
+        ? (ckind === 'person')
+        : ((x.reader_type || x.transaction_type) === 'p2p_transfer');
       /* The memo still comes first — it is the only field that can carry why the
          money moved, and "ca phe" beats "HIGHLANDS COFFEE" for that question.
          ONE EXCEPTION: a memo that is the bank's own CATEGORY NAME. "Thanh toán
@@ -1544,6 +1559,33 @@
        four kinds start carrying one only for a v2 row, so a v1 row writes exactly
        what it always wrote. Still guarded by kind, like every node. */
     var _v2Node = function (c, kind) { return (c && c._v2) ? _specNode(c, kind) : null; };
+    /* 0144 Q12/Q13 — THE LABEL, stored on the row. Every writer has accepted one
+       since the migration (`fhPersonalAddMany` reads `s.labelId`) and nothing
+       ever set it: 0 of 240 rows on a real ledger carry a label_id, which leaves
+       the per-row override and the regroup's "Áp dụng cho N khoản cũ?" with
+       nothing to work on. The node decides it, through the person's own
+       partition; a node that resolves to no label passes null, unchanged. */
+    var _specLabel = function (node) {
+      if (!node || !window.fhPersonalLabelFor) return null;
+      try { var hit = fhPersonalLabelFor(node); return (hit && hit.label) || null; } catch (e) { return null; }
+    };
+    var _labelId = function (node) { var l = _specLabel(node); return (l && l.id) || null; };
+    /* …and what the row is CALLED. The review resolves a category name through
+       `familyCatForConcept` — the FAMILY's categories — even for a row headed
+       for the personal book, which is how those same 240 rows all stored the
+       English family catch-all "Others" in cat_name_enc. A personal row belongs
+       to the person's own labels, so when the node resolves to a real label of
+       theirs, that label names the row. Narrow on purpose: a name the person
+       picked on the card is theirs and is never overwritten, and a person with
+       no labels keeps today's behaviour exactly. */
+    var _persCat = function (node, name, emoji) {
+      var l = _specLabel(node);
+      var isCatchAll = !!(l && (l.claims || []).length === 1 && l.claims[0] === '*');
+      var picked = String(name || '').trim();
+      var generic = !picked || (window.isFallbackCat && isFallbackCat(picked));
+      if (l && l.name && !isCatchAll && generic) return { name: l.name, emoji: l.emoji || emoji || '🗂️' };
+      return { name: name || null, emoji: emoji || '🗂️' };
+    };
     /* The other side, as its own encrypted column (counterparty_enc). Expense
        rows have carried it since 0132; income, transfer and investment rows
        dropped it although the writer has always had the column. Only a REAL
@@ -1707,14 +1749,17 @@
           var _ik = (c.counterparty || c.description || '').trim();
           if (_ik) invMemOps.push({ key: _ik, posId: c._investPosId });
         } else if (invSell) {
+          var _viNode = _specNode(c, 'income');
           specs.push({ kind: 'income', amt: base, note: c.description || '',
-          node: _specNode(c, 'income'),
+          node: _viNode, labelId: _labelId(_viNode),
             catName: 'Khác', catEmoji: '💰',
             dateIso: c.dateDisplay || undefined, time: _t, accountId: invAcct, source: src });
         } else {
+          var _veNode = _specNode(c, 'expense');
+          var _veCat = _persCat(_veNode, null, '🗂️');
           specs.push({ kind: 'expense', amt: base, note: c.description || '',
-          node: _specNode(c, 'expense'),
-            catName: null, catEmoji: '🗂️',
+          node: _veNode, labelId: _labelId(_veNode),
+            catName: _veCat.name, catEmoji: _veCat.emoji,
             dateIso: c.dateDisplay || undefined, time: _t, accountId: invAcct, source: src });
         }
         if (invAcct) _recBal(invAcct);
@@ -1726,8 +1771,9 @@
         if (ai && ai.kind !== 'credit_card' && window.fhPersonalAccountEnsure) {
           try { incAcct = await window.fhPersonalAccountEnsure(ai); } catch (e3) {}
         }
+        var _iNode = _specNode(c, 'income');
         specs.push({ kind: 'income', amt: base, note: c.description || '',
-          node: _specNode(c, 'income'),
+          node: _iNode, labelId: _labelId(_iNode),
           who: _who(c),
           catName: c._incomeCat || 'Khác',
           catEmoji: ({ 'Lương': '💼', 'Thưởng': '🎁', 'Hoàn tiền': '💸' })[c._incomeCat] || '💰',
@@ -1793,11 +1839,14 @@
            matcher and every later merchant feature read it. Only a REAL
            counterparty rides; a description-only row stays null rather than
            duplicating the note into a second column. */
+        var _xNode = _specNode(c, 'expense');
+        var _xCat = _persCat(_xNode, c.categoryName,
+          (window.catStyle && window.catStyle[c.categoryName] && window.catStyle[c.categoryName][0]) || '🗂️');
         specs.push({ kind: 'expense', amt: base, note: c.description || '',
-          node: _specNode(c, 'expense'),
+          node: _xNode, labelId: _labelId(_xNode),
           who: (c.counterparty && String(c.counterparty).trim()) || null,
-          catName: c.categoryName || null,
-          catEmoji: (window.catStyle && window.catStyle[c.categoryName] && window.catStyle[c.categoryName][0]) || '🗂️',
+          catName: _xCat.name,
+          catEmoji: _xCat.emoji,
           dateIso: c.dateDisplay || undefined, time: _t, accountId: acctId, source: src });
         _recBal(acctId);
       }
@@ -1812,9 +1861,11 @@
         if (ai && window.fhPersonalAccountEnsure) { try { feeAcct = await window.fhPersonalAccountEnsure(ai); } catch (eFe) {} }
         var feeBase = window.csvBaseAmt ? window.csvBaseAmt(c._fee.amount)
           : Math.round(Number(c._fee.amount) / (window.curMult ? window.curMult() : 1));
+        var _feeNode = (c._fee.node && window.FH_TAX && FH_TAX.get(c._fee.node) && FH_TAX.kindOf(c._fee.node) === 'expense') ? c._fee.node : null;
+        var _feeCat = _persCat(_feeNode, null, '🗂️');
         specs.push({ kind: 'expense', amt: feeBase, note: L('Phí giao dịch', 'Transaction fee'),
-          node: (c._fee.node && window.FH_TAX && FH_TAX.get(c._fee.node) && FH_TAX.kindOf(c._fee.node) === 'expense') ? c._fee.node : null,
-          catName: null, catEmoji: '🗂️', withPrev: true,
+          node: _feeNode, labelId: _labelId(_feeNode),
+          catName: _feeCat.name, catEmoji: _feeCat.emoji, withPrev: true,
           dateIso: c.dateDisplay || undefined, time: _t, accountId: feeAcct, source: src });
       }
       ranges.push({ c: c, to: specs.length });

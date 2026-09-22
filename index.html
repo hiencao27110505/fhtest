@@ -6496,6 +6496,44 @@ function fhPersonalLabelFor(node){
   var P=window.fhPersonalData?fhPersonalData():null, ls=(P&&P.labels)||[];
   return fhLabelForNode(node, ls.map(function(l){ return {key:l.id, claims:l.claims||[], label:l}; })) ;
 }
+/* Is the person's partition still nothing but a catch-all? Then it answers
+   "Khác" for every node there is, and the whole ledger reads as one bucket —
+   which is exactly what a first run with zero rows used to leave behind
+   (19-personal fhPersonalLabelsEnsureDefaults). */
+function fhPersonalPartitionBare(labels){
+  var P=window.fhPersonalData?fhPersonalData():null;
+  var ls=labels||((P&&P.labels)||[]);
+  for(var i=0;i<ls.length;i++){
+    var cl=(ls[i]&&ls[i].claims)||[];
+    for(var j=0;j<cl.length;j++) if(cl[j]!=='*'&&fhNodeOk(cl[j])) return false;
+  }
+  return true;
+}
+/* Is this NAME the catch-all rather than a category? Stored it is the literal
+   "Others" (CAT_FALLBACK) on the family side and "Khác" on the personal one, so
+   both count — a row wearing either name says "nobody filed this", which is not
+   a vocabulary to seed a partition from and not a label to trust on screen. */
+function fhIsCatchAllName(n){
+  var s=String(n||'').trim(); if(!s) return false;
+  if(typeof isFallbackCat==='function'&&isFallbackCat(s)) return true;
+  return typeof FH_TAX!=='undefined' && FH_TAX.deburr(s)==='khac';
+}
+/* DISPLAY ONLY — never a write. While the partition is bare, a row is shown
+   under its own node's ROOT, named by the tree, instead of being dumped in the
+   catch-all: 240 rows that read "Others" read as Ăn uống, Đi lại, Nhà ở with no
+   migration and nothing stored. A row with no node stays in the catch-all (it
+   really is unplaced), and a row whose label already says something keeps it —
+   this rescues the bucket, it does not overrule a person.
+   Returns {name, emoji} or null for "leave it exactly as it is". */
+function fhPersonalRowLabel(row){
+  if(!row||!fhTreeOn()) return null;
+  if(!fhPersonalPartitionBare()) return null;
+  var nm=String(row.cat||'').trim();
+  if(nm&&!fhIsCatchAllName(nm)) return null;
+  var code=fhNodeOk(row.node)?FH_TAX.root(row.node):null;
+  var n=code?FH_TAX.get(code):null;
+  return n?{name:n.vi, emoji:n.emoji||'🗂️'}:null;
+}
 /* Default claims for an existing/new label from its name + emoji: the tree's own
    labels and keywords resolve the name to a GROUP or CATEGORY code (never a leaf —
    a label named "Ăn uống" should own the whole group). Returns [] when nothing
@@ -8561,8 +8599,11 @@ function _persEmailRow(){
      state is already hydrated and decrypted when this tab is usable. ── */
   var bySpace = {}, catBySpace = {};
   txM.forEach(function(t){ var k=t.spaceId||'_p'; bySpace[k]=(bySpace[k]||0)+(t.amt||0);
-    var cats=catBySpace[k]||(catBySpace[k]={}), ck=(t.cat||'Khác');
-    if(!cats[ck]) cats[ck]={name:ck, emoji:t.emoji||'🗂️', v:0};
+    /* Same rescue the Giao dịch list makes: with a bare partition every row
+       would be filed under "Khác", so the tree's own group name stands in. */
+    var rl=(typeof fhPersonalRowLabel==='function')?fhPersonalRowLabel(t):null;
+    var cats=catBySpace[k]||(catBySpace[k]={}), ck=((rl&&rl.name)||t.cat||'Khác');
+    if(!cats[ck]) cats[ck]={name:ck, emoji:(rl&&rl.emoji)||t.emoji||'🗂️', v:0};
     cats[ck].v+=(t.amt||0);
   });
   var spKeys = Object.keys(bySpace).filter(function(k){ return k!=='_p'; });
@@ -19984,15 +20025,19 @@ function _pBuildTxnCtx(){
     if(t._unreadable) return;
     var _d=t.date?new Date(t.date+'T00:00:00'):null;
     if(t.kind==='expense'){
-      var cat=t.cat||other;
-      if(!style[cat]){ style[cat]=[t.emoji||'🗂️', PAL[order.length%PAL.length], 'var(--cat-other)']; order.push(cat); }
+      /* While the person's partition is nothing but a catch-all, every row would
+         read "Khác" — so the tree's own name for the row's group stands in
+         (fhPersonalRowLabel, display only, nothing written). */
+      var _rl=(typeof fhPersonalRowLabel==='function')?fhPersonalRowLabel(t):null;
+      var cat=(_rl&&_rl.name)||t.cat||other, _ico=(_rl&&_rl.emoji)||t.emoji||'🗂️';
+      if(!style[cat]){ style[cat]=[_ico, PAL[order.length%PAL.length], 'var(--cat-other)']; order.push(cat); }
       // Only PRIVATE rows are editable here; mirror rows (spaceId/linkId set) are a
       // family expense shown in the personal book — write-inert, but tappable
       // since 0114 (fhMirrorRowTap → the family expense detail, M10).
       var eOpen=(t.spaceId||t.linkId)?(t.spaceId?"fhMirrorRowTap('"+t.id+"')":''):"openPersonalTxDetail('"+t.id+"')";
       /* _kg/_net/_src/_acct feed the Giao dịch screen's filters + net heads:
          expense = money out (0109 stores it positive), so its cash flow is −amt. */
-      rows.push({ id:t.id, cat:cat, note:t.note||cat, amt:t.amt||0, _d:_d, ico:t.emoji||'🗂️', who:null, _style:style[cat], _open:eOpen, photos:t.photos||undefined, time:t.time||null,
+      rows.push({ id:t.id, cat:cat, note:t.note||cat, amt:t.amt||0, _d:_d, ico:_ico, who:null, _style:style[cat], _open:eOpen, photos:t.photos||undefined, time:t.time||null,
         node:t.node||null,                                      // 0144 — what the tree filter and the chip sheet read
         _kg:'chi', _net:-(t.amt||0), _src:t.src||null, _acct:t.accountId||null, _mirror:!!(t.spaceId||t.linkId) });
       if((t.date||'').slice(0,7)===ym){
@@ -24652,7 +24697,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v569';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v570';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -27038,6 +27083,7 @@ window.obGoogle = async function () {
         cat_name_enc: opts.catName ? await _encP(opts.catName) : null, cat_emoji: opts.catEmoji || null,
         occurred_time_enc: t ? await _encP(t) : null,
         node_enc: _okNode(opts.node) ? await _encP(opts.node) : null,   // 0144: tree node, same contract as fhPersonalAddExpense (quick review resolves one for income too)
+        label_id: opts.labelId || null,                                 // 0144 Q12: the label the node resolved to, like every other writer
         account_id: opts.accountId || null, source: source || null };
       const r = await _sb().from('personal_transactions').insert(row);
       if (r.error) { console.warn('personal income failed', r.error); return false; }
@@ -27834,25 +27880,63 @@ window.obGoogle = async function () {
       if (r.error) return false;
       await window.fhPersonalHydrate(); return true;
     };
-    /* First-run partition for a person who has no labels yet: one label per
-       distinct category name already on their rows (that IS their vocabulary),
-       each claiming what the tree says the name means, plus a catch-all. Runs
-       once, silently, and never overwrites a label the person already has. */
+    /* First-run partition for a person whose partition does not exist yet: one
+       label per distinct category name already on their rows (that IS their
+       vocabulary), each claiming what the tree says the name means, plus a
+       catch-all. Runs silently, and never overwrites a label the person made.
+
+       THE EMPTY-LEDGER HOLE (2026-09-22): this used to bail on
+       `(P.labels||[]).length`, and on a BRAND-NEW account it ran with zero rows,
+       so the only thing it could build was the catch-all — after which its own
+       guard stopped it ever running again. The partition was then {Khác}, every
+       node resolved to it, and the whole ledger read "Others" (240 rows on the
+       founder's second account). So the guard is now about the partition's
+       SHAPE, not its length: nothing, or nothing but a catch-all, is still
+       "not set up", and the fallback for a person with no vocabulary of their
+       own is the TREE — one label per expense root, named and drawn from the
+       tree itself so the two can never drift. Q6 still holds: when the person
+       HAS category names on their rows, those are what they get. */
+    const _labelIsCatchAll = (l) => {
+      const c = (l && l.claims) || [];
+      return c.length === 1 && c[0] === '*';
+    };
     window.fhPersonalLabelsEnsureDefaults = async function () {
-      if (!P.uid || !P.key || (P.labels || []).length) return false;
+      if (!P.uid || !P.key) return false;
+      const have = P.labels || [];
+      // A label that claims something real (or claims nothing yet, which is a
+      // person's own label the tree could not map — C3) means: hands off.
+      if (have.length && !have.every(_labelIsCatchAll)) return false;
       const seen = {}, out = [];
       for (const t of (P.txns || [])) {
         const nm = (t.cat || '').trim();
         if (!nm || seen[nm.toLowerCase()]) continue;
         seen[nm.toLowerCase()] = 1;
-        out.push({ name: nm, emoji: t.emoji || '🏷️',
-          claims: (typeof fhDefaultClaimsFor === 'function') ? fhDefaultClaimsFor(nm, t.emoji) : [] });
+        /* "Khác" / "Others" on a row is the catch-all, not a category: seeding it
+           as a label would rebuild the very one-bucket partition this exists to
+           fix (all 240 of the founder's rows wore that name). */
+        if (typeof fhIsCatchAllName === 'function' && fhIsCatchAllName(nm)) continue;
+        const claims = (typeof fhDefaultClaimsFor === 'function') ? fhDefaultClaimsFor(nm, t.emoji) : [];
+        if (claims.length === 1 && claims[0] === '*') continue;
+        out.push({ name: nm, emoji: t.emoji || '🏷️', claims: claims });
         if (out.length >= 24) break;
       }
-      out.push({ name: 'Khác', emoji: '🗂️', claims: ['*'] });
+      if (!out.length && window.FH_TAX) {
+        /* Nothing on the rows to learn from: the tree's own expense roots are the
+           partition. `xunfiled` ("Chưa rõ") is left out — only a person may file
+           there (Q9) and the catch-all covers it. */
+        for (const code of FH_TAX.roots('expense')) {
+          const n = FH_TAX.get(code);
+          if (!n || n.manual) continue;
+          out.push({ name: n.vi, emoji: n.emoji || '🏷️', claims: [code] });
+        }
+      }
+      // Exactly one catch-all, ever: reuse the one that is already there.
+      if (!have.some(_labelIsCatchAll)) out.push({ name: 'Khác', emoji: '🗂️', claims: ['*'] });
+      if (!out.length) return false;                       // nothing to add → no write, no hydrate loop
+      const base = have.reduce((m, l) => Math.max(m, Number(l.sortOrder) || 0), -1) + 1;
       const rows = [];
       for (let i = 0; i < out.length; i++) {
-        rows.push({ owner_user_id: P.uid, sort_order: i, emoji: out[i].emoji,
+        rows.push({ owner_user_id: P.uid, sort_order: base + i, emoji: out[i].emoji,
           name_enc: await _encP(out[i].name), claims_enc: await _encP(JSON.stringify(out[i].claims)) });
       }
       const r = await _sb().from('personal_labels').insert(rows);
@@ -38303,7 +38387,22 @@ window.classifyAmount = classifyAmount;
          its other reader (fhStagedKind, the bank-vs-receipt dedup rule); it still
          answers here for a statement row, which writes p2p_transfer itself, and
          for every row sealed before reader_type existed. */
-      var isPerson = (x.reader_type || x.transaction_type) === 'p2p_transfer';
+      /* …but `reader_type` answers "what kind of mail was this", and ANY mail
+         carrying a beneficiary row reads as p2p_transfer. A QR payment to a
+         SELLER ("VQRQ0001oqplk - VO DINH PHUC", memo "Thanh toan QR" which the
+         tidy correctly empties) is such a mail, so the blank-on-purpose rule
+         fired on rows whose counterparty IS the answer: measured 19 rows read
+         as p2p, 7 of them merchants, 5 rendered blank with a name available.
+         payload v2 states the fact the rule actually wants — `counterparty_kind`
+         (person | merchant | bank | wallet | self | unknown), about the OTHER
+         SIDE rather than about the mail — so ask that when the row carries one.
+         `unknown` is "no opinion" and falls through, as do v1 rows and statement
+         rows, which carry no counterparty_kind at all and keep today's behaviour
+         byte for byte. */
+      var ckind = x.counterparty_kind;
+      var isPerson = (ckind && ckind !== 'unknown')
+        ? (ckind === 'person')
+        : ((x.reader_type || x.transaction_type) === 'p2p_transfer');
       /* The memo still comes first — it is the only field that can carry why the
          money moved, and "ca phe" beats "HIGHLANDS COFFEE" for that question.
          ONE EXCEPTION: a memo that is the bank's own CATEGORY NAME. "Thanh toán
@@ -39437,6 +39536,33 @@ window.classifyAmount = classifyAmount;
        four kinds start carrying one only for a v2 row, so a v1 row writes exactly
        what it always wrote. Still guarded by kind, like every node. */
     var _v2Node = function (c, kind) { return (c && c._v2) ? _specNode(c, kind) : null; };
+    /* 0144 Q12/Q13 — THE LABEL, stored on the row. Every writer has accepted one
+       since the migration (`fhPersonalAddMany` reads `s.labelId`) and nothing
+       ever set it: 0 of 240 rows on a real ledger carry a label_id, which leaves
+       the per-row override and the regroup's "Áp dụng cho N khoản cũ?" with
+       nothing to work on. The node decides it, through the person's own
+       partition; a node that resolves to no label passes null, unchanged. */
+    var _specLabel = function (node) {
+      if (!node || !window.fhPersonalLabelFor) return null;
+      try { var hit = fhPersonalLabelFor(node); return (hit && hit.label) || null; } catch (e) { return null; }
+    };
+    var _labelId = function (node) { var l = _specLabel(node); return (l && l.id) || null; };
+    /* …and what the row is CALLED. The review resolves a category name through
+       `familyCatForConcept` — the FAMILY's categories — even for a row headed
+       for the personal book, which is how those same 240 rows all stored the
+       English family catch-all "Others" in cat_name_enc. A personal row belongs
+       to the person's own labels, so when the node resolves to a real label of
+       theirs, that label names the row. Narrow on purpose: a name the person
+       picked on the card is theirs and is never overwritten, and a person with
+       no labels keeps today's behaviour exactly. */
+    var _persCat = function (node, name, emoji) {
+      var l = _specLabel(node);
+      var isCatchAll = !!(l && (l.claims || []).length === 1 && l.claims[0] === '*');
+      var picked = String(name || '').trim();
+      var generic = !picked || (window.isFallbackCat && isFallbackCat(picked));
+      if (l && l.name && !isCatchAll && generic) return { name: l.name, emoji: l.emoji || emoji || '🗂️' };
+      return { name: name || null, emoji: emoji || '🗂️' };
+    };
     /* The other side, as its own encrypted column (counterparty_enc). Expense
        rows have carried it since 0132; income, transfer and investment rows
        dropped it although the writer has always had the column. Only a REAL
@@ -39600,14 +39726,17 @@ window.classifyAmount = classifyAmount;
           var _ik = (c.counterparty || c.description || '').trim();
           if (_ik) invMemOps.push({ key: _ik, posId: c._investPosId });
         } else if (invSell) {
+          var _viNode = _specNode(c, 'income');
           specs.push({ kind: 'income', amt: base, note: c.description || '',
-          node: _specNode(c, 'income'),
+          node: _viNode, labelId: _labelId(_viNode),
             catName: 'Khác', catEmoji: '💰',
             dateIso: c.dateDisplay || undefined, time: _t, accountId: invAcct, source: src });
         } else {
+          var _veNode = _specNode(c, 'expense');
+          var _veCat = _persCat(_veNode, null, '🗂️');
           specs.push({ kind: 'expense', amt: base, note: c.description || '',
-          node: _specNode(c, 'expense'),
-            catName: null, catEmoji: '🗂️',
+          node: _veNode, labelId: _labelId(_veNode),
+            catName: _veCat.name, catEmoji: _veCat.emoji,
             dateIso: c.dateDisplay || undefined, time: _t, accountId: invAcct, source: src });
         }
         if (invAcct) _recBal(invAcct);
@@ -39619,8 +39748,9 @@ window.classifyAmount = classifyAmount;
         if (ai && ai.kind !== 'credit_card' && window.fhPersonalAccountEnsure) {
           try { incAcct = await window.fhPersonalAccountEnsure(ai); } catch (e3) {}
         }
+        var _iNode = _specNode(c, 'income');
         specs.push({ kind: 'income', amt: base, note: c.description || '',
-          node: _specNode(c, 'income'),
+          node: _iNode, labelId: _labelId(_iNode),
           who: _who(c),
           catName: c._incomeCat || 'Khác',
           catEmoji: ({ 'Lương': '💼', 'Thưởng': '🎁', 'Hoàn tiền': '💸' })[c._incomeCat] || '💰',
@@ -39686,11 +39816,14 @@ window.classifyAmount = classifyAmount;
            matcher and every later merchant feature read it. Only a REAL
            counterparty rides; a description-only row stays null rather than
            duplicating the note into a second column. */
+        var _xNode = _specNode(c, 'expense');
+        var _xCat = _persCat(_xNode, c.categoryName,
+          (window.catStyle && window.catStyle[c.categoryName] && window.catStyle[c.categoryName][0]) || '🗂️');
         specs.push({ kind: 'expense', amt: base, note: c.description || '',
-          node: _specNode(c, 'expense'),
+          node: _xNode, labelId: _labelId(_xNode),
           who: (c.counterparty && String(c.counterparty).trim()) || null,
-          catName: c.categoryName || null,
-          catEmoji: (window.catStyle && window.catStyle[c.categoryName] && window.catStyle[c.categoryName][0]) || '🗂️',
+          catName: _xCat.name,
+          catEmoji: _xCat.emoji,
           dateIso: c.dateDisplay || undefined, time: _t, accountId: acctId, source: src });
         _recBal(acctId);
       }
@@ -39705,9 +39838,11 @@ window.classifyAmount = classifyAmount;
         if (ai && window.fhPersonalAccountEnsure) { try { feeAcct = await window.fhPersonalAccountEnsure(ai); } catch (eFe) {} }
         var feeBase = window.csvBaseAmt ? window.csvBaseAmt(c._fee.amount)
           : Math.round(Number(c._fee.amount) / (window.curMult ? window.curMult() : 1));
+        var _feeNode = (c._fee.node && window.FH_TAX && FH_TAX.get(c._fee.node) && FH_TAX.kindOf(c._fee.node) === 'expense') ? c._fee.node : null;
+        var _feeCat = _persCat(_feeNode, null, '🗂️');
         specs.push({ kind: 'expense', amt: feeBase, note: L('Phí giao dịch', 'Transaction fee'),
-          node: (c._fee.node && window.FH_TAX && FH_TAX.get(c._fee.node) && FH_TAX.kindOf(c._fee.node) === 'expense') ? c._fee.node : null,
-          catName: null, catEmoji: '🗂️', withPrev: true,
+          node: _feeNode, labelId: _labelId(_feeNode),
+          catName: _feeCat.name, catEmoji: _feeCat.emoji, withPrev: true,
           dateIso: c.dateDisplay || undefined, time: _t, accountId: feeAcct, source: src });
       }
       ranges.push({ c: c, to: specs.length });
@@ -42694,7 +42829,12 @@ window.classifyAmount = classifyAmount;
       if (tidied) return String(tidied);
       // reader_type is the reader's own verdict; transaction_type on an email row
       // only says what kind of SENDER it was, so it never said p2p (see 72).
-      if ((re.reader_type || re.transaction_type) === 'p2p_transfer') return '';
+      // counterparty_kind is the fact about the OTHER SIDE, and it outranks both:
+      // a QR payment to a seller reads as p2p_transfer too, and blanking its
+      // description threw away the only thing that said what was bought (see 72).
+      var ck = re.counterparty_kind;
+      if (ck && ck !== 'unknown') { if (ck === 'person') return ''; }
+      else if ((re.reader_type || re.transaction_type) === 'p2p_transfer') return '';
       return String(re.counterparty || '');
     }
     function _qrAcct(re) {
@@ -42766,6 +42906,14 @@ window.classifyAmount = classifyAmount;
       if (!QR || typeof FH_TAX === 'undefined') return null;
       var c = QR.node;
       return (c && FH_TAX.get(c) && FH_TAX.kindOf(c) === kind) ? c : null;
+    }
+    /* 0144 Q12 — the label the node resolves to, so a row logged from the quick
+       sheet carries one exactly like a row imported from the full review. Null
+       when the person has no partition yet, which is what the writer already
+       stored for every row (see 72's _specLabel). */
+    function _qrLabelId(node) {
+      if (!node || !window.fhPersonalLabelFor) return null;
+      try { var hit = fhPersonalLabelFor(node); return (hit && hit.label && hit.label.id) || null; } catch (e) { return null; }
     }
 
     function _qrSuggestCat(re, desc) {
@@ -43270,10 +43418,12 @@ window.classifyAmount = classifyAmount;
               /* 0144: quick review runs the same node cascade as the full screen */
               { catName: QR.incomeCat || 'Khác',
                 catEmoji: ({ 'Lương': '💼', 'Thưởng': '🎁', 'Hoàn tiền': '💸' })[QR.incomeCat] || '💰',   // same emoji map as the full review's promote (72)
-                accountId: QR.acctId ? QR.acctId : (autoIsCard ? null : acctId), time: QR.time, node: _qrNode('income') });
+                accountId: QR.acctId ? QR.acctId : (autoIsCard ? null : acctId), time: QR.time,
+                node: _qrNode('income'), labelId: _qrLabelId(_qrNode('income')) });
           } else {
             var emoji = (window.catStyle && window.catStyle[QR.cat] && window.catStyle[QR.cat][0]) || '🗂️';
-            ok = await window.fhPersonalAddExpense(base, QR.desc || '', QR.cat || null, emoji, QR.dateIso, QR.time, src, { accountId: acctId, node: _qrNode('expense') });
+            ok = await window.fhPersonalAddExpense(base, QR.desc || '', QR.cat || null, emoji, QR.dateIso, QR.time, src,
+              { accountId: acctId, node: _qrNode('expense'), labelId: _qrLabelId(_qrNode('expense')) });
           }
         }
         if (!ok) throw new Error('write failed');

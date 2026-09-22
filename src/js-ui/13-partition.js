@@ -48,6 +48,44 @@ function fhPersonalLabelFor(node){
   var P=window.fhPersonalData?fhPersonalData():null, ls=(P&&P.labels)||[];
   return fhLabelForNode(node, ls.map(function(l){ return {key:l.id, claims:l.claims||[], label:l}; })) ;
 }
+/* Is the person's partition still nothing but a catch-all? Then it answers
+   "Khác" for every node there is, and the whole ledger reads as one bucket —
+   which is exactly what a first run with zero rows used to leave behind
+   (19-personal fhPersonalLabelsEnsureDefaults). */
+function fhPersonalPartitionBare(labels){
+  var P=window.fhPersonalData?fhPersonalData():null;
+  var ls=labels||((P&&P.labels)||[]);
+  for(var i=0;i<ls.length;i++){
+    var cl=(ls[i]&&ls[i].claims)||[];
+    for(var j=0;j<cl.length;j++) if(cl[j]!=='*'&&fhNodeOk(cl[j])) return false;
+  }
+  return true;
+}
+/* Is this NAME the catch-all rather than a category? Stored it is the literal
+   "Others" (CAT_FALLBACK) on the family side and "Khác" on the personal one, so
+   both count — a row wearing either name says "nobody filed this", which is not
+   a vocabulary to seed a partition from and not a label to trust on screen. */
+function fhIsCatchAllName(n){
+  var s=String(n||'').trim(); if(!s) return false;
+  if(typeof isFallbackCat==='function'&&isFallbackCat(s)) return true;
+  return typeof FH_TAX!=='undefined' && FH_TAX.deburr(s)==='khac';
+}
+/* DISPLAY ONLY — never a write. While the partition is bare, a row is shown
+   under its own node's ROOT, named by the tree, instead of being dumped in the
+   catch-all: 240 rows that read "Others" read as Ăn uống, Đi lại, Nhà ở with no
+   migration and nothing stored. A row with no node stays in the catch-all (it
+   really is unplaced), and a row whose label already says something keeps it —
+   this rescues the bucket, it does not overrule a person.
+   Returns {name, emoji} or null for "leave it exactly as it is". */
+function fhPersonalRowLabel(row){
+  if(!row||!fhTreeOn()) return null;
+  if(!fhPersonalPartitionBare()) return null;
+  var nm=String(row.cat||'').trim();
+  if(nm&&!fhIsCatchAllName(nm)) return null;
+  var code=fhNodeOk(row.node)?FH_TAX.root(row.node):null;
+  var n=code?FH_TAX.get(code):null;
+  return n?{name:n.vi, emoji:n.emoji||'🗂️'}:null;
+}
 /* Default claims for an existing/new label from its name + emoji: the tree's own
    labels and keywords resolve the name to a GROUP or CATEGORY code (never a leaf —
    a label named "Ăn uống" should own the whole group). Returns [] when nothing

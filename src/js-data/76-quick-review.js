@@ -175,7 +175,12 @@
       if (tidied) return String(tidied);
       // reader_type is the reader's own verdict; transaction_type on an email row
       // only says what kind of SENDER it was, so it never said p2p (see 72).
-      if ((re.reader_type || re.transaction_type) === 'p2p_transfer') return '';
+      // counterparty_kind is the fact about the OTHER SIDE, and it outranks both:
+      // a QR payment to a seller reads as p2p_transfer too, and blanking its
+      // description threw away the only thing that said what was bought (see 72).
+      var ck = re.counterparty_kind;
+      if (ck && ck !== 'unknown') { if (ck === 'person') return ''; }
+      else if ((re.reader_type || re.transaction_type) === 'p2p_transfer') return '';
       return String(re.counterparty || '');
     }
     function _qrAcct(re) {
@@ -247,6 +252,14 @@
       if (!QR || typeof FH_TAX === 'undefined') return null;
       var c = QR.node;
       return (c && FH_TAX.get(c) && FH_TAX.kindOf(c) === kind) ? c : null;
+    }
+    /* 0144 Q12 — the label the node resolves to, so a row logged from the quick
+       sheet carries one exactly like a row imported from the full review. Null
+       when the person has no partition yet, which is what the writer already
+       stored for every row (see 72's _specLabel). */
+    function _qrLabelId(node) {
+      if (!node || !window.fhPersonalLabelFor) return null;
+      try { var hit = fhPersonalLabelFor(node); return (hit && hit.label && hit.label.id) || null; } catch (e) { return null; }
     }
 
     function _qrSuggestCat(re, desc) {
@@ -751,10 +764,12 @@
               /* 0144: quick review runs the same node cascade as the full screen */
               { catName: QR.incomeCat || 'Khác',
                 catEmoji: ({ 'Lương': '💼', 'Thưởng': '🎁', 'Hoàn tiền': '💸' })[QR.incomeCat] || '💰',   // same emoji map as the full review's promote (72)
-                accountId: QR.acctId ? QR.acctId : (autoIsCard ? null : acctId), time: QR.time, node: _qrNode('income') });
+                accountId: QR.acctId ? QR.acctId : (autoIsCard ? null : acctId), time: QR.time,
+                node: _qrNode('income'), labelId: _qrLabelId(_qrNode('income')) });
           } else {
             var emoji = (window.catStyle && window.catStyle[QR.cat] && window.catStyle[QR.cat][0]) || '🗂️';
-            ok = await window.fhPersonalAddExpense(base, QR.desc || '', QR.cat || null, emoji, QR.dateIso, QR.time, src, { accountId: acctId, node: _qrNode('expense') });
+            ok = await window.fhPersonalAddExpense(base, QR.desc || '', QR.cat || null, emoji, QR.dateIso, QR.time, src,
+              { accountId: acctId, node: _qrNode('expense'), labelId: _qrLabelId(_qrNode('expense')) });
           }
         }
         if (!ok) throw new Error('write failed');
