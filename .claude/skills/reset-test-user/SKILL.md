@@ -169,14 +169,16 @@ non-negotiable.
   carry a coverage self-check `DO` block that ABORTS the transaction and names any family-, user-,
   or `personal%`-scoped table not in its known-list — so a new table can never silently survive a
   reset. `coverage.sql` (step 0) shows the full inventory read-only so you can see drift before
-  running. Tables handled as of 2026-09-15: family-scoped — `txn_shares`, `settle_ups`,
+  running. Tables handled as of 2026-09-22: family-scoped — `txn_shares`, `settle_ups`,
   `family_streaks`, `family_creation_keys` (+ the original event/txn/budget/member set); member/
   person-scoped — `email_transactions`, `resolved_email_messages`, `mailbox_connections`,
-  `mailbox_grants`; other user-scoped (HARD) — `connected_accounts`, `device_sessions`,
+  `mailbox_grants`; bank-statement import (user-scoped) — `statement_files`, `statement_rows`,
+  `resolved_statement_rows`; other user-scoped (HARD) — `connected_accounts`, `device_sessions`,
   `merchant_corrections`, `user_consents`, `mailbox_beta_access`, `founder_daily_active`; personal —
-  `personal_transactions`, `personal_transaction_photos`, `personal_accounts`, `personal_budgets`,
-  `personal_lessons`, `personal_streaks`, `personal_review_memory`, `personal_keys` (`personal_incomes`
-  was folded into `personal_transactions`).
+  `personal_transactions`, `personal_transaction_photos`, `personal_accounts`, `personal_labels`,
+  `personal_budgets`, `personal_lessons`, `personal_streaks`, `personal_review_memory`, `personal_keys`
+  (`personal_incomes` was folded into `personal_transactions`; `personal_transactions.label_id →
+  personal_labels`, so transactions delete before labels).
 - **Personal key facts** (for accurate reporting): the personal ledger is E2EE under the user's own
   Key Card with **no escrow**; `init_personal_key` is `ON CONFLICT DO NOTHING` (first-writer-wins,
   server wrap never clobbered). The historical "new key minted on every reopen" modal was a

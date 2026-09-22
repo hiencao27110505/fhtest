@@ -36,7 +36,7 @@ BEGIN
   WHERE t.table_schema='public' AND t.table_type='BASE TABLE' AND t.table_name LIKE 'personal%'
     AND t.table_name NOT IN (
       'personal_transaction_photos','personal_transactions','personal_review_memory',
-      'personal_accounts','personal_budgets','personal_lessons','personal_streaks','personal_keys'
+      'personal_accounts','personal_labels','personal_budgets','personal_lessons','personal_streaks','personal_keys'
     );
   IF unhandled IS NOT NULL THEN
     RAISE EXCEPTION 'reset-personal: UNHANDLED personal table(s): % — update reset-personal.sql (add the DELETE + this known-list) before running', unhandled;
@@ -51,9 +51,10 @@ END $$;
 -- (personal_incomes was folded into personal_transactions. The coverage check above
 --  enforces that this list stays complete as the `personal%` schema grows.)
 DELETE FROM personal_transaction_photos WHERE owner_user_id IN (SELECT uid FROM _u);
-DELETE FROM personal_transactions       WHERE owner_user_id IN (SELECT uid FROM _u);
+DELETE FROM personal_transactions       WHERE owner_user_id IN (SELECT uid FROM _u);  -- .label_id → personal_labels (so txns go first)
 DELETE FROM personal_review_memory      WHERE owner_user_id IN (SELECT uid FROM _u);  -- investment review memory (0123)
 DELETE FROM personal_accounts           WHERE owner_user_id IN (SELECT uid FROM _u);
+DELETE FROM personal_labels             WHERE owner_user_id IN (SELECT uid FROM _u);  -- personal txn labels/tags
 DELETE FROM personal_budgets            WHERE owner_user_id IN (SELECT uid FROM _u);
 DELETE FROM personal_lessons            WHERE owner_user_id IN (SELECT uid FROM _u);  -- 0122: learned loan/category lessons
 DELETE FROM personal_streaks            WHERE owner_user_id IN (SELECT uid FROM _u);  -- habit streaks (0132)

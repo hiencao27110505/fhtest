@@ -59,8 +59,9 @@ BEGIN
       'members','passcode_attempts','family_creation_keys','mailbox_grants','mailbox_beta_access',
       'email_transactions','resolved_email_messages','connected_accounts','device_sessions',
       'merchant_corrections','user_consents','founder_daily_active',
+      'statement_files','statement_rows','resolved_statement_rows',  -- bank-statement import
       'personal_keys','personal_accounts','personal_budgets','personal_lessons','personal_streaks',
-      'personal_review_memory','personal_transaction_photos','personal_transactions'
+      'personal_review_memory','personal_transaction_photos','personal_transactions','personal_labels'
     );
   IF unhandled IS NOT NULL THEN
     RAISE EXCEPTION 'reset-test-user: UNHANDLED user-scoped table(s): % — update reset.sql (add the DELETE + this known-list) before running', unhandled;
@@ -108,6 +109,12 @@ DELETE FROM email_transactions      WHERE owner_user_id IN (SELECT uid FROM _tar
 DELETE FROM resolved_email_messages WHERE owner_user_id IN (SELECT uid FROM _target) OR member_id IN (SELECT id FROM _members);
 DELETE FROM mailbox_connections     WHERE member_id IN (SELECT id FROM _members);
 DELETE FROM mailbox_grants          WHERE user_id IN (SELECT uid FROM _target) OR member_id IN (SELECT id FROM _members);
+
+-- Bank-statement import (user-scoped): statement_rows → statement_files (leaf-first);
+-- resolved_statement_rows is independent (owner_user_id + row_fp).
+DELETE FROM resolved_statement_rows WHERE owner_user_id IN (SELECT uid FROM _target);
+DELETE FROM statement_rows          WHERE owner_user_id IN (SELECT uid FROM _target);
+DELETE FROM statement_files         WHERE owner_user_id IN (SELECT uid FROM _target);
 
 -- Family-scoped data, deleted leaf-first (respects RESTRICT/NO-ACTION FKs).
 --   txn_shares/transaction_photos/reactions → transactions
@@ -160,10 +167,12 @@ DELETE FROM family_creation_keys WHERE user_id IN (SELECT uid FROM _target);
 --   personal_review_memory.position_account_id       → personal_accounts
 -- (personal_incomes was folded into personal_transactions. Keep this list in sync
 --  with the `personal%` tables — the coverage self-check above enforces it.)
+--   personal_transactions.label_id → personal_labels (delete transactions first)
 DELETE FROM personal_transaction_photos WHERE owner_user_id IN (SELECT uid FROM _target);
 DELETE FROM personal_transactions       WHERE owner_user_id IN (SELECT uid FROM _target);
 DELETE FROM personal_review_memory      WHERE owner_user_id IN (SELECT uid FROM _target);
 DELETE FROM personal_accounts           WHERE owner_user_id IN (SELECT uid FROM _target);
+DELETE FROM personal_labels             WHERE owner_user_id IN (SELECT uid FROM _target);
 DELETE FROM personal_budgets            WHERE owner_user_id IN (SELECT uid FROM _target);
 DELETE FROM personal_lessons            WHERE owner_user_id IN (SELECT uid FROM _target);
 DELETE FROM personal_streaks            WHERE owner_user_id IN (SELECT uid FROM _target);
