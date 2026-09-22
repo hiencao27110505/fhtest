@@ -12629,6 +12629,7 @@ function submitBulk(opts){
     window._fhImportInst = (rows[k] && rows[k].inst) || null;    // 0131 money source ("VIB · tín dụng ••4512"), same handoff
     window._fhImportAcct = (rows[k] && rows[k].pAcct) || null;   // 0134 the author's account id → the mirror master's tag
     window._fhImportLink = (rows[k] && rows[k].link) || null;    // 0134 pre-reserved link_id for that master
+    window._fhImportNode = (rows[k] && rows[k].node) || null;    // 0144 the node reviewed for this row; null on a hand-typed row → the composer's guess stands
     BULK_SAVING=true;
     try{ window.addExpense(); } finally{ BULK_SAVING=false; }
   }
@@ -12636,6 +12637,7 @@ function submitBulk(opts){
   window._fhImportInst=null;
   window._fhImportAcct=null;
   window._fhImportLink=null;
+  window._fhImportNode=null;
   exPhotos=[];
   // One nudge for the whole batch — each row's own addExpense() stayed silent under
   // BULK_SAVING. A lone surviving row is a single expense, not a batch (the composer
@@ -14520,7 +14522,7 @@ function csvCollapsedCard(c, opts){
     var r = csvRowShape(c, opts.isDup || opts.repeat);
     var scope = !opts.isDup ? (csvRowScope(c)==='personal' ? L('🔒 Riêng tư','🔒 Private') : L('🏡 Gia đình','🏡 Family')) : '';
     var catTxt;
-    if(r._loan)          catTxt = '🤝 '+L('Cho vay','Loan out')+(c._loanWho?' · '+esc(c._loanWho):'');
+    if(r._loan)          catTxt = '🤝 '+(c.isIncome?L('Đi vay','Borrowed'):L('Cho vay','Loan out'))+(c._loanWho?' · '+esc(c._loanWho):'');
     else if(r._invest)   catTxt = '📈 '+(c.isIncome?L('Bán đầu tư','Sold investment'):L('Đầu tư','Investment'))
                                   +(function(){ var n=''; csvInvPositions().forEach(function(a){ if(a.id===c._investPosId) n=a.name||''; }); return n?' · '+esc(n):''; })();
     else if(r._transfer) catTxt = '💳 '+L('Trả nợ thẻ','Card payment');
@@ -14535,7 +14537,11 @@ function csvCollapsedCard(c, opts){
        ready list (spec Q9a), this chip carries the entire "you can catch a
        wrong firing at a glance" story. */
     var learnHtml = c._lessonWhy==='learned' ? '<span class="scv-dup soft">'+L('đã học từ bạn','learned from you')+'</span>'
-      : (c._lessonWhy==='owe'||c._lessonWhy==='owed') ? '<span class="scv-dup soft">'+L('khớp sổ nợ','matches your ledger')+'</span>' : '';
+      : (c._lessonWhy==='owe'||c._lessonWhy==='owed') ? '<span class="scv-dup soft">'+L('khớp sổ nợ','matches your ledger')+'</span>'
+      /* payload v2: the pre-selection rests on a judgment or a guess, not on
+         something the mail printed (email-reading-v2-spec §3). Same quiet chip as
+         the two above; gone once the person picks the kind themselves. */
+      : (c._srcAttn && !c._kindPicked) ? '<span class="scv-dup soft">'+L('máy đoán','a guess')+'</span>' : '';
     /* Two chips, two things the app can back with evidence (58-dedup-engine):
        "đã có trong sổ" is a fact it can show — the booked row, who logged it,
        when; "có thể trùng" is a same-amount same-day neighbour it cannot read
@@ -14563,6 +14569,13 @@ function csvCollapsedCard(c, opts){
     var tag = csvStagedSourceTag(c);
     var footBits = [whenTxt, tag].filter(Boolean).map(function(x){ return esc(x); });
     var footHtml = footBits.length ? '<span class="scv-foot">'+footBits.join('<span class="scv-sep">·</span>')+'</span>' : '';
+    /* payload v2: the mail printed a fee. It becomes its own small expense, shown
+       as one quiet line under its parent and imported or dropped with it. */
+    if(c._fee && c._fee.amount > 0){
+      footHtml += '<span class="scv-foot">'+esc(c._fee.on
+        ? L('Kèm phí '+csvFmt(c._fee.amount)+', ghi thành một khoản riêng','Plus a '+csvFmt(c._fee.amount)+' fee, logged as its own item')
+        : L('Có phí '+csvFmt(c._fee.amount)+', chưa ghi','Has a '+csvFmt(c._fee.amount)+' fee, not logged'))+'</span>';
+    }
     return '<div class="bulk-card'+(opts.invalid?' invalid':(opts.attn?' attn':''))+(opts.dim?' is-dim':'')+'">' + ck
       + '<button type="button" class="bulk-tap scv-tap" onclick="'+opts.tapFn+'" aria-label="'+L('Sửa khoản này','Edit this item')+'">'
       + topHtml
@@ -14772,12 +14785,13 @@ function csvStagedRowsCard(c, opts){
     var cur = csvRowKindCur(c);
     var kindLbls = { expense:L('Chi tiêu','Spending'), cardpay:L('💳 Trả nợ thẻ','💳 Card payment'),
                      xfer:L('🔁 Chuyển khoản nội bộ','🔁 Internal transfer'),
-                     income:L('Thu nhập','Income'), loan:L('🤝 Cho vay','🤝 Loan out'),
+                     income:L('Thu nhập','Income'),
+                     loan: c.isIncome ? L('🤝 Đi vay','🤝 Borrowed') : L('🤝 Cho vay','🤝 Loan out'),
                      invest: c.isIncome ? L('📈 Bán đầu tư','📈 Sold investment') : L('📈 Đầu tư','📈 Investment'),
                      repay: c.isIncome ? L('🤝 Thu nợ','🤝 Repayment in') : L('🤝 Trả nợ','🤝 Repay someone') };
     rows += row('kind', L('Loại khoản','Kind'), kindLbls[cur] || '');
     if(cur==='loan'){
-      rows += row('loanwho', L('Cho ai mượn','Lent to'),
+      rows += row('loanwho', c.isIncome ? L('Vay của ai','Borrowed from') : L('Cho ai mượn','Lent to'),
         c._loanWho ? esc(c._loanWho) : L('Chọn','Pick'), { soft: !c._loanWho });
       rows += fhPickRow({ label: L('Hẹn trả','Due back'), type: 'date', value: c._loanDue||'', on: 'csvPickLoanDue', clear: true, soft: !c._loanDue, hot: csvRowHot==='loandue',
         val: '<b>'+(c._loanDue ? '<span class="num">'+esc(csvDateRowLbl(c._loanDue))+'</span>' : esc(L('Chưa hẹn','Not set')))+'</b>' });
@@ -14793,7 +14807,7 @@ function csvStagedRowsCard(c, opts){
     }
     if(cur==='cardpay'){
       var cards = csvCreditCards();
-      var pc = c._payCardId || (cards.length===1 ? cards[0].id : '');
+      var pc = csvPayCardFor(c);
       var cardName = '';
       cards.forEach(function(a){ if(a.id===pc) cardName = a.name || L('Thẻ','Card'); });
       rows += row('paycard', L('Trả cho thẻ','Which card'),
@@ -14804,11 +14818,11 @@ function csvStagedRowsCard(c, opts){
       accts.forEach(function(a){ if(a.id===sel) an = a.name || L('Tài khoản','Account'); });
       if(sel==='_cash') an = L('Tiền mặt','Cash');
       rows += row('xferacct',
-        (c.isIncome ? L('Chuyển từ đâu','From where') : L('Chuyển đến đâu','To where')),
+        ((c.isIncome || c._xferDir === 'in') ? L('Chuyển từ đâu','From where') : L('Chuyển đến đâu','To where')),
         an ? esc(an) : L('Chọn tài khoản','Pick one'), { soft: !an });
     }
     if(cur==='repay'){
-      rows += row('repay', c.isIncome ? L('Ai trả bạn','Who repaid') : L('Trả nợ cho ai','Repaying whom'),
+      rows += row('repay', (c.isIncome || c._xferDir === 'in') ? L('Ai trả bạn','Who repaid') : L('Trả nợ cho ai','Repaying whom'),
         c._repayWho ? esc(c._repayWho) : L('Chọn','Pick'), { soft: !c._repayWho });
     }
   }
@@ -14836,6 +14850,14 @@ function csvStagedRowsCard(c, opts){
     val: '<b class="num">'+esc(csvDateRowLbl(c.dateDisplay))+'</b>' });
   rows += fhPickRow({ label: L('Giờ','Time'), type: 'time', value: t||'', on: 'csvPickTime', clear: true, soft: !t, hot: csvRowHot==='when',
     val: '<b class="num">'+(t ? esc(t) : esc(L('Chỉ tính theo ngày','Day only')))+'</b>' });
+  /* payload v2: the printed fee. One row, and the tap IS the answer (no sheet):
+     it toggles between logging the fee as its own small expense and leaving it
+     out. Grey when off, like every other optional row. */
+  if(c._fee && c._fee.amount > 0){
+    rows += '<button type="button" class="csv-srow'+(c._fee.on?'':' soft')+(csvRowHot==='fee'?' hot':'')+'" onclick="csvFeeToggle()">'
+      + '<small>'+L('Phí giao dịch','Transaction fee')+'</small><span class="csv-sval"><b><span class="num">'+esc(csvFmt(c._fee.amount))+'</span> · '
+      + esc(c._fee.on ? L('ghi thành khoản riêng','logged as its own item') : L('không ghi','not logged'))+'</b></span></button>';
+  }
   /* Nguồn tiền (bank · instrument) and Nguồn nhập (transport) used to be two
      read-only rows here. They are fixed provenance, so they moved up to the
      card's top line (csvActiveCard header) and no longer take a row. */
@@ -14992,6 +15014,7 @@ function csvRowSheetHTML(c){
       ? chip(cur==='income', "csvSheetPick('kind','income')", esc(L('Thu nhập','Income')))
         + chip(cur==='xfer', "csvSheetPick('kind','xfer')", esc(L('🔁 Chuyển khoản nội bộ','🔁 Internal transfer')))
         + chip(cur==='repay', "csvSheetPick('kind','repay')", esc(L('🤝 Thu nợ','🤝 Repayment in')))
+        + chip(cur==='loan', "csvSheetPick('kind','loan')", esc(L('🤝 Đi vay','🤝 Borrowed')))
         + chip(cur==='invest', "csvSheetPick('kind','invest')", esc(L('📈 Bán đầu tư','📈 Sold investment')))
       : chip(cur==='expense', "csvSheetPick('kind','expense')", esc(L('Chi tiêu','Spending')))
         + chip(cur==='cardpay', "csvSheetPick('kind','transfer')", esc(L('💳 Trả nợ thẻ','💳 Card payment')))
@@ -15009,11 +15032,13 @@ function csvRowSheetHTML(c){
     var lnames = pd2.people.map(function(p){ return p.who; });
     var capName = (c.counterparty || '').trim();
     if (capName && lnames.indexOf(capName) < 0) lnames.unshift(capName);
-    title = L('Cho ai mượn?','Lent to whom?');
+    title = c.isIncome ? L('Vay của ai?','Borrowed from whom?') : L('Cho ai mượn?','Lent to whom?');
     body = (lnames.length ? '<div class="choices" style="margin-bottom:10px">'
         + lnames.map(function(n){ return chip(c._loanWho===n, "csvSheetPick('loanwho','"+escAttr(n)+"')", esc(n)); }).join('')+'</div>' : '')
       + '<input id="csvsheet-loanwho" class="crs-in" placeholder="'+escAttr(L('vd. Thằng em','e.g. a name'))+'" value="'+escAttr(c._loanWho||'')+'"/>'
-      + '<div class="csv-scope-note">'+esc(L('Ghi vào sổ nợ riêng của bạn — không tính là chi tiêu.','Goes to your private receivables — never spending.'))+'</div>'
+      + '<div class="csv-scope-note">'+esc(c.isIncome
+          ? L('Ghi vào sổ nợ riêng của bạn, không tính là thu nhập.','Goes to your private debts, never income.')
+          : L('Ghi vào sổ nợ riêng của bạn — không tính là chi tiêu.','Goes to your private receivables — never spending.'))+'</div>'
       + '<button type="button" class="crs-done" onclick="csvSheetValDone()">'+esc(L('Xong','Done'))+'</button>';
   } else if(f==='invpos'){
     /* which position — existing ones as chips; a new one materializes right
@@ -15033,7 +15058,7 @@ function csvRowSheetHTML(c){
       + '<button type="button" class="crs-done" onclick="csvSheetValDone()">'+esc(L('Xong','Done'))+'</button>';
   } else if(f==='paycard'){
     var cards = csvCreditCards();
-    var pc = c._payCardId || (cards.length===1 ? cards[0].id : '');
+    var pc = csvPayCardFor(c);
     title = L('Trả cho thẻ nào','Which card');
     body = '<div class="choices">'
       + cards.map(function(a){ return chip(pc===a.id, "csvSheetPick('paycard','"+a.id+"')", esc(a.name||L('Thẻ','Card'))); }).join('')
@@ -15042,7 +15067,7 @@ function csvRowSheetHTML(c){
       + (cards.length ? '' : '<div class="csv-scope-note">'+esc(L('Chưa có thẻ tín dụng nào — vẫn ghi được, gán thẻ sau ở mục Nợ & cho vay.','No credit card yet — it still imports, assign a card later in Owing & lending.'))+'</div>');
   } else if(f==='xferacct'){
     var accts = csvXferAccounts(c), sel = c._xferOtherId || '';
-    title = c.isIncome ? L('Chuyển từ đâu?','From which account?') : L('Chuyển đến đâu?','To which account?');
+    title = (c.isIncome || c._xferDir === 'in') ? L('Chuyển từ đâu?','From which account?') : L('Chuyển đến đâu?','To which account?');
     body = '<div class="choices">'
       + accts.map(function(a){ return chip(sel===a.id, "csvSheetPick('xferacct','"+a.id+"')", esc(a.name||L('Tài khoản','Account'))); }).join('')
       + chip(sel==='_cash', "csvSheetPick('xferacct','_cash')", esc(L('Tiền mặt','Cash')))
@@ -15297,6 +15322,23 @@ function csvPickRowScope(v){
 function csvCreditCards(){
   return ((window.fhPersonalData && fhPersonalData().accounts) || []).filter(function(a){ return a.kind==='credit_card'; });
 }
+/* The card a "Trả nợ thẻ" row pays off: the person's own pick, else whatever
+   the ONE resolver says (fhResolveRepaidCard, 72), which is also what the import
+   asks. Every place that shows or pre-selects the card goes through here, so
+   the card SHOWN and the card IMPORTED cannot disagree. Four places used to
+   repeat "one owned card, so that one" on their own; that default now lives in
+   the resolver alone, where it knows to stand down when the mail names a
+   different card (card-repayment-routing-spec §9: never a wrong card). */
+function csvPayCardFor(c){
+  if(!c) return '';
+  if(c._payCardId) return c._payCardId;
+  if(!window.fhResolveRepaidCard) return '';
+  try{
+    var x = window.fhStagedRawX ? fhStagedRawX(c.rowIndex) : null;
+    var sa = window.fhStagedAcct ? fhStagedAcct(c) : null;
+    return fhResolveRepaidCard(x, sa, c.description) || '';
+  }catch(e){ return ''; }
+}
 /* Non-card accounts a transfer leg can pair with (0109) — the "other side"
    picker. Excludes the row's own instrument when it is knowable. */
 function csvXferAccounts(c){
@@ -15328,7 +15370,7 @@ function csvRowKindField(c){
   h += '</div></div>';
   if(cur==='cardpay'){
     var cards = csvCreditCards();
-    var pc = c._payCardId || (cards.length===1 ? cards[0].id : '');
+    var pc = csvPayCardFor(c);
     h += '<div class="field csv-paycardf"><label>'+esc(L('Trả cho thẻ nào','Which card'))+'</label><div class="choices">'
       + cards.map(function(a){ return '<button type="button" class="choice'+(pc===a.id?' on':'')+'" onclick="csvPickPayCard(\''+a.id+'\')">'+esc(a.name||'Thẻ')+'</button>'; }).join('')
       + '<button type="button" class="choice'+(!pc?' on':'')+'" onclick="csvPickPayCard(\'\')">'+esc(L('Chưa rõ','Not sure'))+'</button>'
@@ -15379,6 +15421,8 @@ function csvPickRowKind(v){
     }
     c._scope = 'personal';
   }
+  c._kindPicked = true;       // the person's own pick outranks everything (email-reading-v2-spec §9.1); the "máy đoán" chip goes
+  c._sigHold = false;
   c.isTransfer = (v==='transfer');
   c._xfer = (v==='xfer');
   c._repay = (v==='repay');
@@ -15387,7 +15431,7 @@ function csvPickRowKind(v){
   if(v==='income'){ c.isIncome = true; }
   else if(v==='expense'){ c.isIncome = false; }
   if(!c.isTransfer){ c._payCardId = null; }
-  else if(!c._payCardId){ var cards = csvCreditCards(); if(cards.length===1) c._payCardId = cards[0].id; }
+  else if(!c._payCardId){ c._payCardId = csvPayCardFor(c) || null; }
   if(!c._xfer){ c._xferOtherId = null; }
   if(!c._repay){ c._repayWho = null; }
   if(!c._loan){ c._loanWho = null; c._loanDue = null; }
@@ -15397,6 +15441,13 @@ function csvPickRowKind(v){
   /* the remembered seller pre-fills the position (0123 memory — one tap) */
   else if(!c._investPosId && window.fhInvMemoryMatch){ c._investPosId = fhInvMemoryMatch(c.counterparty || c.description) || null; }
   renderCsvReview();          // stays expanded (csvExpand unchanged); shows/hides the pickers + category
+}
+function csvFeeToggle(){
+  var c = csvExpandedCandidate(); if(!c || !c._fee) return;
+  csvReadEditor(c);
+  c._fee.on = !c._fee.on;
+  csvRowHot = 'fee';
+  renderCsvReview();
 }
 function csvPickLoanWho(name){
   var c = csvExpandedCandidate(); if(!c) return;
@@ -15858,6 +15909,18 @@ function csvSumTap(col){
    Same collapsed/expanded cards and the same verbs as the dated list — tick
    (import anyway), tap (open, with the evidence), ✕ (retire) — so a row never
    changes behaviour by changing section. */
+/* A ready row shown under "Cần bạn xem" because its pre-selection is a judgment
+   or a guess (payload v2, c._srcAttn). The SAME card the dated list draws, with
+   the same tick, editor and CTA bar: only its place on the screen differs. */
+function csvStagedSrcCard(c, i, pickOn, pickWk){
+  var o = { label: L('Máy đoán, bạn xem giúp','A guess, please check'), dateIso: c.dateDisplay, timeStr: csvRowTime(c), attn: true,
+            tapFn: "csvToggleExpand('ready',"+i+")", removeFn: "csvReadyRemove("+i+")",
+            checkFn: "csvStagedToggle("+i+")", checked: !c._skipImport,
+            armed: (csvArmedRemove === i), dim: pickOn && !csvPickMatch(c, pickWk) };
+  return csvIsOpen('ready', i)
+    ? csvActiveCard(c, Object.assign({}, o, { fields:true, ctaIdx:i }))
+    : csvCollapsedCard(c, o);
+}
 function csvStagedDupCard(c, i, tier, pickOn, pickWk){
   var o = { label: tier === 'sure' ? L('Đã có trong sổ','Already in your ledger') : L('Có thể trùng','Possible duplicate'),
             dateIso: c.dateDisplay, timeStr: csvRowTime(c), attn: tier !== 'sure', repeat: true,
@@ -16103,13 +16166,18 @@ function renderCsvReview(){
      already in the ledger leave the dated list for their own section; rows the
      app cannot decide join "Cần bạn xem". Both stay in r.ready (unticked) so
      Chọn nhanh, Chỉnh sửa, the tick and the ✕ keep working on them. */
-  var sureRows = [], likelyRows = [];
+  var sureRows = [], likelyRows = [], srcRows = [];
   if(csvStagedMode){
     r.ready.forEach(function(c, i){
       var tier = csvDupTier(c);
       if(tier === 'sure') sureRows.push({ c:c, i:i }); else if(tier === 'likely') likelyRows.push({ c:c, i:i });
+      /* payload v2 (email-reading-v2-spec §3): a pre-selection that rests on the
+         model's judgment or on a guess is SHOWN here. Still in r.ready, ticked or
+         not exactly as every other rule left it: provenance decides where a row
+         shows, never whether it imports. A duplicate verdict keeps its own place. */
+      else if(c._srcAttn) srcRows.push({ c:c, i:i });
     });
-    decisionCount += likelyRows.length;
+    decisionCount += likelyRows.length + srcRows.length;
   }
 
   // Lead with the win, not the workload.
@@ -16144,6 +16212,7 @@ function renderCsvReview(){
 
   if(csvStagedMode){
     likelyRows.forEach(function(e){ attnHtml += csvStagedDupCard(e.c, e.i, 'likely', pickOnStaged, pickWkStaged); });
+    srcRows.forEach(function(e){ attnHtml += csvStagedSrcCard(e.c, e.i, pickOnStaged, pickWkStaged); });
   }
   if(attnHtml){
     html += '<div class="group-h attn">'+L('Cần bạn xem','Needs a look')+'</div><div class="csv-cards">'+attnHtml+'</div>';
@@ -16238,7 +16307,7 @@ function renderCsvReview(){
        only sat between the toolbox and the list (removed 2026-09-16). */
     var dateBuckets = {};
     r.ready.forEach(function(c, i){
-      if(csvStagedMode && csvDupTier(c)) return;         // rendered in their own sections above
+      if(csvStagedMode && (csvDupTier(c) || c._srcAttn)) return;   // rendered in their own sections above
       var k = c.dateDisplay || ''; (dateBuckets[k] = dateBuckets[k] || []).push({ c:c, i:i });
     });
     var keys = Object.keys(dateBuckets).sort().reverse();
@@ -17047,6 +17116,31 @@ function csvDeferConfirm(di){
 
 function csvDeferDrop(di){ csvReview.deferred.splice(di,1); csvExpand = null; renderCsvReview(); }
 
+/* 0144 — the tree node a FAMILY-scoped row is written with: the one on the card
+   the person approved. A personal row already kept it (_specNode in 72); a
+   family row lost it, because the composer rows below carried no node, loadRow()
+   reset the composer's to null, and addExpense() re-guessed from the note and the
+   label. So the ledger could disagree with the review that produced it.
+   Three gates, in the order they can say no:
+     - the code must be one this tree knows, of the EXPENSE kind: this importer
+       writes expenses only, and an income node must never ride one;
+     - a node the PERSON picked wins, whatever the words say;
+     - a node the pipeline SEALED is trusted only while fhPipeNodeOk still
+       accepts it (category-tree-spec E16). The build pass already asked once,
+       but the description may have been edited since, and the check is cheap.
+   Every other source (history, a lesson, keywords, the label) is this device's
+   own reading of today's tree and rides as shown. Null hands the row back to
+   the composer's guess, which is what every row got before. */
+function csvPromoteNode(c){
+  var nd = c && c._node;
+  if(!nd || !window.FH_TAX || !FH_TAX.get(nd) || FH_TAX.kindOf(nd) !== 'expense') return null;
+  if(c._nodeSource === 'user') return nd;
+  if(c._nodeSource === 'pipeline' && typeof fhPipeNodeOk === 'function'){
+    return fhPipeNodeOk(nd, { note: c.description, counterparty: c.counterparty });
+  }
+  return nd;
+}
+
 /* Feeds every included candidate into bulkRows + submitBulk() (bulk expense
    logging's own machinery) instead of a bespoke insert -- the actual write
    goes through _dbInsertTxn() -> fhField()/_fhWriteLocked(), same as any
@@ -17097,9 +17191,14 @@ function csvPromote(subset, opts){
       // time: a staged bank email carries its real HH:MM (a CSV file row has none).
       // _timeAuto:false so submitBulk's loadRow/_syncExTime keeps this exact value
       // rather than re-deriving now/'' from the (usually back-dated) import date.
+      // node: the reviewed tree node (csvPromoteNode). submitBulk hands it to the
+      // writethrough like source/inst below; _nodeTouched keeps the composer's own
+      // guess off a node the person picked, same meaning as in csvRowShape.
+      var _pn = csvPromoteNode(c);
       return { note: c.description, amt: String(Math.round(c.amount)), cat: c.categoryName,
                who: c.who || csvDefaultWho(), date: c.dateDisplay, _invalid: false,
                _catTouched: true,
+               node: _pn, _nodeTouched: (_pn && c._nodeSource === 'user') || undefined,
                // 0100 provenance: a staged row's transport ('direct-email'/'forwarding-email'),
                // or 'csv-import' for a file. submitBulk hands this to the writethrough.
                source: csvStagedMode ? (window.fhStagedSource ? window.fhStagedSource(c) : 'forwarding-email') : 'csv-import',
@@ -17112,6 +17211,24 @@ function csvPromote(subset, opts){
                pAcct: c._pAcct || null, link: c._link || null,
                time: csvRowTime(c), _timeAuto: false };   // reviewed time (edited value wins, else derived); '' = day-only
     });
+    /* payload v2: a printed fee the person left on is its own small expense, right
+       after its parent (full-ledger-spec §3.4). Same payer, day, time and money
+       source; filed under the catch-all, with the tree's bank-fee node. A file
+       import has no fee field, so nothing is added there. */
+    if(csvStagedMode){
+      var withFees = [];
+      bulkRows.forEach(function(br, bi){
+        withFees.push(br);
+        var fc = rows[bi];
+        if(!fc || !fc._fee || !fc._fee.on || !(fc._fee.amount > 0)) return;
+        withFees.push({ note: L('Phí giao dịch','Transaction fee'), amt: String(Math.round(fc._fee.amount)),
+                        cat: csvCatOk(CAT_FALLBACK) ? CAT_FALLBACK : br.cat, who: br.who, date: br.date, _invalid: false,
+                        _catTouched: true, node: fc._fee.node || null, source: br.source, inst: br.inst,
+                        pAcct: br.pAcct, link: br.pAcct ? crypto.randomUUID() : null,
+                        time: br.time, _timeAuto: false });
+      });
+      bulkRows = withFees;
+    }
     bulkActive = 0;
     exPhotos = [];
     csvClearDraft();             // these rows are becoming real transactions now
@@ -17750,6 +17867,7 @@ function csvLendingPass(candidates){
   if (!iOwe.length && !oweMe.length && !haveLessons) return;
   candidates.forEach(function(c){
     if (c.isTransfer || c._xfer || c._repay || c._loan || c._invest || c.amount == null) return;
+    if (c._sigHold) return;   // a v2 signal already decided this row (email-reading-v2-spec §9: it outranks this pass)
     var text = (c.counterparty || '') + ' ' + (c.description || '');
     if (c.isIncome){
       var owed = _debtNameHit(oweMe, text);
@@ -17787,6 +17905,227 @@ function csvLendingPass(candidates){
       _lendClearCat(c);
     }
   });
+}
+
+/* ═══ payload v2: from a signal to a pre-selected kind ════════════════════════
+   (email-reading-v2-spec §5, §9.) A v2 mail arrives with a `signal`: what the
+   mail ITSELF can say about the movement ("this is a card repayment", "this is
+   payroll"). The server cannot know the rest: a transfer is "the other side is
+   YOUR account", a repayment is "the card is YOURS". That half is only on this
+   device, so the kind is decided here.
+
+   FH_SIGNALS mirrors SIGNALS in supabase/functions/_shared/mailbox/contract.mjs,
+   the single source of truth. This file cannot import it (single-file PWA), so
+   tools/payload-v2-contract.test.js compares the two and fails when they drift.
+   `proposes` speaks csvRowKindCur's vocabulary; `node` is the one taxonomy code
+   a signal maps to, or null when the mail's own words or the merchant decide. */
+var FH_SIGNALS = {
+  purchase:          { proposes: 'expense', node: null },
+  bill_payment:      { proposes: 'expense', node: null },
+  fee:               { proposes: 'expense', node: null },
+  p2p:               { proposes: null,      node: null },
+  own_transfer:      { proposes: 'xfer',    node: 'bankbank' },
+  card_repayment:    { proposes: 'cardpay', node: 'cardpay' },
+  wallet_move:       { proposes: 'xfer',    node: 'wallet' },
+  cash_move:         { proposes: 'xfer',    node: null },
+  savings_move:      { proposes: 'xfer',    node: null },
+  broker_funding:    { proposes: 'xfer',    node: 'investfund' },
+  fx_exchange:       { proposes: 'xfer',    node: 'fx' },
+  securities_trade:  { proposes: 'invest',  node: null },
+  yield:             { proposes: 'income',  node: null },
+  salary:            { proposes: 'income',  node: 'wage' },
+  refund:            { proposes: 'income',  node: null },
+  loan_disbursement: { proposes: 'loan',    node: null },
+  installment:       { proposes: 'repay',   node: 'pay' }
+};
+/* Mail that moves no money (spec §6). Never a review card: see fhNoticesApply. */
+var FH_NOTICE_SIGNALS = ['card_due', 'installment_due', 'statement_ready'];
+/* Which taxonomy kind a review kind files under (the tree and the ledger share
+   the six kind names). */
+var FH_KIND_NODEKIND = { expense: 'expense', income: 'income', xfer: 'transfer', cardpay: 'transfer',
+                         invest: 'investment', loan: 'loan', repay: 'repayment' };
+
+function fhIsV2(x){ return !!(x && Number(x.v) >= 2); }
+function _sigTail(s){ return String(s == null ? '' : s).replace(/\D/g, '').slice(-4); }
+/* Where a field's value came from, off the payload's `src` map. A block field is
+   looked up as 'investment.symbol' and then as its block, 'investment'. */
+function fhSrcOf(x, field){
+  var m = x && x.src;
+  if (!m || typeof m !== 'object') return null;
+  if (m[field]) return m[field];
+  var dot = String(field).indexOf('.');
+  return dot > 0 ? (m[String(field).slice(0, dot)] || null) : null;
+}
+/* Provenance decides WHERE a row shows, never WHETHER it imports (spec §3).
+   A judgment ('model') or a guess ('heuristic') under any of `fields` sends the
+   row to "Cần bạn xem". A field with no recorded source says nothing either
+   way: a v1 row has no `src` at all and sits where it always sat. */
+function fhSrcWeak(x, fields){
+  for (var i = 0; i < (fields || []).length; i++) {
+    var s = fhSrcOf(x, fields[i]);
+    if (s === 'model' || s === 'heuristic') return true;
+  }
+  return false;
+}
+/* What the person owns, read once per build: accounts (cards, deposits,
+   wallets, positions) and the people with an open balance. */
+function fhSignalOwn(){
+  var pd = window.fhPersonalData ? fhPersonalData() : null;
+  var debts = null;
+  try { debts = window.fhPersonalDebts ? fhPersonalDebts() : null; } catch (e) {}
+  return { ready: (typeof csvScopeReady === 'function') ? csvScopeReady() : !!(pd && pd.key),
+           accounts: (pd && pd.accounts) || [], people: (debts && debts.people) || [] };
+}
+/* Has the person already taught something about this payee? A lesson comes from
+   an explicit pick, and an explicit pick outranks everything the mail can say. */
+function fhSignalLessonHit(c){
+  try {
+    if (!c.isIncome && window.fhKindLesson && typeof csvLearnKey === 'function') {
+      var k = csvLearnKey(c);
+      if (k && fhKindLesson(k)) return true;
+    }
+    if (window.fhInvMemoryMatch && fhInvMemoryMatch(c.counterparty || c.description)) return true;
+  } catch (e) {}
+  return false;
+}
+/* The counterpart of a transfer among the accounts the person owns. An exact
+   key first (the printed account tail); then, weaker, the named bank or wallet
+   when the person has exactly ONE account there. Never the row's own
+   instrument, never a card (that is a repayment), never a position. */
+function _sigCounterpart(x, own, acct){
+  var mine = acct || {};
+  var pool = (own.accounts || []).filter(function (a) {
+    if (a.kind === 'credit_card' || a.kind === 'investment') return false;
+    if (mine.tail && a.tail === mine.tail && csvCanonicalProvider(a.provider) === csvCanonicalProvider(mine.provider)) return false;
+    return true;
+  });
+  var tail = _sigTail(x.counterparty_account_tail);
+  var bank = csvCanonicalProvider(x.counterparty_bank || '');
+  if (tail.length === 4) {
+    var hits = pool.filter(function (a) { return (a.tail || '') === tail; });
+    if (hits.length > 1 && bank) hits = hits.filter(function (a) { return csvCanonicalProvider(a.provider) === bank; });
+    if (hits.length === 1) return { id: hits[0].id, exact: true };
+    if (hits.length > 1) return null;                 // two accounts share the tail: not ours to pick
+  }
+  var name = bank;
+  if (!name && (x.signal === 'wallet_move' || x.counterparty_kind === 'wallet')) {
+    var w = csvCanonicalProvider(x.counterparty_raw || x.counterparty || '').match(/momo|zalopay|shopeepay|viettelmoney/);
+    name = w ? w[0] : '';
+  }
+  if (!name) return null;
+  var byName = pool.filter(function (a) { return csvCanonicalProvider(a.provider) === name; });
+  return byName.length === 1 ? { id: byName[0].id, exact: false } : null;
+}
+/* THE precedence (spec §9), first match wins. One function for the full review
+   and the quick sheet, so the two can never propose different kinds for one row.
+
+     1. the person's explicit pick, or a lesson learned from one
+     2. a signal PLUS a matching thing the person owns
+     3. a signal alone: the kind is proposed, the missing half rests unset
+     4. the lending pass, with its veto rules (lending-capture-spec Q15)
+     5. direction alone
+
+   Returns NULL when the signal has nothing to add, and the caller then runs
+   exactly what it ran before v2 existed. That covers: every v1 row; a v2 row
+   whose signal is null or unknown to this build (a v2 row the server could not
+   classify is never worse off than a v1 row); a row a lesson already answers
+   (1: the lesson is applied where it always was, by the lending pass, vetoes
+   and all); a signal the row's own direction contradicts; a personal-only kind
+   while the personal ledger is locked.
+
+   Otherwise { kind, tier, hold, weak, node, ...the pre-filled half }:
+     hold  the lending pass stands down (2 and 3 outrank 4). False for `p2p`,
+           which proposes nothing and is the pass's own territory.
+     weak  the pre-selection rests on a judgment or a guess, so the row is shown
+           in "Cần bạn xem". It still imports like any other row.
+
+   row: { x, direction, counterparty, description, amount, acct, provider }
+   own: fhSignalOwn() plus, optionally, lesson (bool) and cardFor (function). */
+function fhKindFromSignal(row, own){
+  var x = row && row.x;
+  if (!fhIsV2(x) || !x.signal) return null;
+  var sig = FH_SIGNALS.hasOwnProperty(x.signal) ? FH_SIGNALS[x.signal] : null;
+  if (!sig) return null;                              // a notice, or a signal newer than this build
+  own = own || {};
+  var credit = row.direction === 'credit';
+  if (row.direction !== 'credit' && row.direction !== 'debit') return null;
+  if (own.lesson) return null;                        // 1
+  /* E7: a card number is not proof of a repayment. The server already requires
+     that the mail names no merchant; if its own two statements disagree, the
+     signal is not trusted and the row is read the old way. */
+  if (x.signal === 'card_repayment' && x.counterparty_kind === 'merchant') return null;
+
+  var kind = sig.proposes;
+  var out = { signal: x.signal, tier: 3, hold: true, weak: false, node: sig.node || null };
+  /* What the pre-selection RESTS on, for placement. Chi tiêu for a debit and Thu
+     nhập for a credit rest on the direction, which the mail printed, so a
+     guessed `purchase` does not send every purchase to "Cần bạn xem" (the
+     server's signal detector reads free text, so most signals arrive as
+     'heuristic'). A kind the direction alone would NOT have given (a transfer,
+     a repayment, a loan, an investment) rests on the signal itself. */
+  var basis = (kind === 'expense' || kind === 'income' || !kind) ? [] : ['signal'];
+  if (x.signal === 'cash_move') out.node = credit ? 'cashin' : 'cashout';
+
+  if (!kind) {                                        // p2p: direction decides, the lending pass may override
+    out.kind = credit ? 'income' : 'expense'; out.tier = 5; out.hold = false;
+    return out;
+  }
+  if ((kind === 'expense' && credit) || (kind === 'income' && !credit)) return null;
+  if ((kind === 'loan' || kind === 'repay' || kind === 'invest') && !own.ready) return null;
+  out.kind = kind;
+
+  if (kind === 'income') {
+    var cats = (typeof FH_INCOME_CATS !== 'undefined') ? FH_INCOME_CATS : [];
+    out.incomeCat = x.signal === 'salary' ? 'Lương'
+      : x.signal === 'refund' ? 'Hoàn tiền'
+      : (x.signal === 'yield' && cats.indexOf('Lãi đầu tư') >= 0) ? 'Lãi đầu tư' : 'Khác';
+  } else if (kind === 'cardpay') {
+    var cardId = null;
+    if (typeof own.cardFor === 'function') { try { cardId = own.cardFor() || null; } catch (e) { cardId = null; } }
+    else {
+      var ct = _sigTail(x.card_masked);
+      var cards = (own.accounts || []).filter(function (a) { return a.kind === 'credit_card' && ct && (a.tail || '') === ct; });
+      if (cards.length === 1) cardId = cards[0].id;
+    }
+    if (cardId) { out.cardId = cardId; out.tier = 2; if (x.card_masked) basis.push('card_masked'); }
+  } else if (kind === 'xfer') {
+    if (x.signal === 'cash_move') { out.otherId = '_cash'; out.tier = 2; }
+    else {
+      var cp = _sigCounterpart(x, own, row.acct);
+      if (cp) {
+        out.otherId = cp.id; out.tier = 2;
+        if (cp.exact) basis.push('counterparty_account_tail'); else out.weak = true;
+      }
+    }
+  } else if (kind === 'invest') {
+    var inv = (x.investment && typeof x.investment === 'object') ? x.investment : {};
+    var sym = String(inv.symbol || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (sym) {
+      var pos = (own.accounts || []).filter(function (a) {
+        return a.kind === 'investment' && String(a.assetSymbol || '').toUpperCase().replace(/[^A-Z0-9]/g, '') === sym;
+      });
+      if (pos.length === 1) { out.posId = pos[0].id; out.tier = 2; basis.push('investment.symbol'); }
+    }
+    var q = Number(inv.quantity);
+    if (q > 0 && isFinite(q)) { out.qty = q; basis.push('investment.quantity'); }
+  } else if (kind === 'loan' || kind === 'repay') {
+    /* Money IN from a lender opens (or deepens) what the person owes; an
+       instalment going OUT draws it down. Anything else is not this shape. */
+    if ((kind === 'loan') !== credit) return null;
+    var text = (row.counterparty || '') + ' ' + (row.description || '');
+    var owe = _debtNameHit((own.people || []).filter(function (p) { return p.balance < -0.5; }), text);
+    if (owe) { out.who = owe.who; out.tier = 2; out.weak = true; }   // a name match is a guess: it may flag, never block
+    else if (kind === 'loan') {
+      /* No balance to match: the lender named by the mail is the same one-tap
+         default csvPickRowKind gives a hand-picked loan. */
+      out.who = String(row.counterparty || '').trim()
+        || ((typeof fhProviderName === 'function') ? fhProviderName(row.provider || '') : '') || null;
+    }
+    var due = x.loan && typeof x.loan === 'object' ? String(x.loan.due_date || '') : '';
+    if (kind === 'loan' && /^\d{4}-\d{2}-\d{2}$/.test(due)) { out.due = due; basis.push('loan.due_date'); }
+  }
+  if (fhSrcWeak(x, basis)) out.weak = true;
+  return out;
 }
 
 /* One candidate per data row. Never throws on a bad row -- flags it and
@@ -17867,6 +18206,9 @@ function buildCsvCandidates(parsed, result) {
     return m;
   })();
 
+  /* payload v2: what the person owns, read once for the whole build. */
+  var _sigOwn = (window.csvStagedMode && typeof window.fhStagedRawX === 'function') ? fhSignalOwn() : null;
+
   return parsed.rows.map(function(row, i) {
     var flags = [];
     var dateRaw = colFor.occurred_at !== undefined ? row[colFor.occurred_at] : '';
@@ -17905,11 +18247,31 @@ function buildCsvCandidates(parsed, result) {
     var dirWord = deburr((catGuess||'').trim().toLowerCase());
     if (/^(transfer_in|income|credit|thu nhap|tien vao|thu|khoan thu)$/.test(dirWord)) { isIncome = true; catGuess = ''; }
     else if (/^(expense|debit|chi|chi tieu|khoan chi|tien ra)$/.test(dirWord)) catGuess = '';
+    /* payload v2 (email-reading-v2-spec §9). Asked BEFORE any free-text rule
+       below reads the row: where the mail states a signal, the signal wins and
+       those rules stand down. _sig is null for every v1 row, for a v2 row the
+       server could not classify, and for a row a lesson already answers, and
+       then everything below runs exactly as it did before v2. */
+    var _sig = null, _sigX = null, _sigAcct = null;
+    if (_sigOwn) {
+      _sigX = window.fhStagedRawX(i);
+      if (fhIsV2(_sigX)) {
+        _sigAcct = window.fhStagedAcct ? window.fhStagedAcct({ rowIndex: i }) : null;
+        var _sigAmt = classifyAmount(amtRaw);
+        var _sigRow = { x: _sigX, direction: _sigX.direction,
+          counterparty: colFor.counterparty !== undefined ? (row[colFor.counterparty] || '').trim() : '',
+          description: desc, amount: _sigAmt.status === 'ok' ? Math.abs(_sigAmt.value) : null,
+          acct: _sigAcct, provider: _sigAcct && _sigAcct.provider };
+        _sig = fhKindFromSignal(_sigRow, Object.assign({}, _sigOwn, {
+          lesson: fhSignalLessonHit({ counterparty: _sigRow.counterparty, description: desc, amount: _sigRow.amount, isIncome: _sigX.direction === 'credit' }),
+          cardFor: window.fhResolveRepaidCard ? function () { return window.fhResolveRepaidCard(_sigX, _sigAcct, desc); } : null }));
+      }
+    }
     /* Some exports put everything in one column, so the words have to carry
        it: a salary run, an incoming transfer, a refund or interest is money
        IN. Filing a salary as spending would corrupt the month badly, so this
        leans towards holding a row back for review rather than importing it. */
-    if (!isIncome) {
+    if (!isIncome && !_sig) {
       var dtext = deburr(String(desc || '').toLowerCase());
       if (/\b(thanh toan luong|tra luong|chi luong|luong thang|ck den|nhan tien|tien ve|hoan tien|lai suat|interest|salary|payroll|refund)\b/.test(dtext)) isIncome = true;
     }
@@ -17927,7 +18289,7 @@ function buildCsvCandidates(parsed, result) {
        month twice. Held out like income: named, totalled, one tap back in
        if the call is wrong. */
     var isTransfer = false;
-    if (!isIncome) {
+    if (!isIncome && !_sig) {
       var ttext = ' ' + deburr((desc || '').toLowerCase()) + ' ';
       if (/thanh toan (sao ke |du no )?the( tin dung)?|tt the tin dung|tra no the|thanh toan the (visa|master|jcb)|credit card payment|tra tien the tin dung/.test(ttext)) isTransfer = true;
     }
@@ -17941,7 +18303,17 @@ function buildCsvCandidates(parsed, result) {
       /* fhStagedAcct carries the classifier verdict AND the local fallback for
          rows staged before it existed (masked-PAN / wallet provider). */
       var _sa = window.fhStagedAcct ? window.fhStagedAcct({ rowIndex: i }) : null;
-      if (_sx) {
+      if (_sx && _sig) {
+        /* The signal decides. One STRUCTURAL rule stays above it, because it is
+           not a reading of free text: money INTO a credit card draws the debt
+           down, whatever the mail calls it (a refund to a card is a transfer into
+           that card, never income: income cannot land on a card). */
+        if (_sa && _sa.kind === 'credit_card' && _sx.direction === 'credit' && _sig.kind !== 'cardpay') {
+          _sig = { kind: 'cardpay', signal: _sig.signal, tier: 3, hold: true, weak: false, node: 'cardpay' };
+        }
+        isIncome = (_sx.direction === 'credit');       // doubles as the direction under every kind
+        if (_sig.kind === 'cardpay') { isTransfer = true; isIncome = false; }
+      } else if (_sx) {
         if (_sx.flow === 'transfer') { isTransfer = true; isIncome = false; }
         else if (_sa && _sa.kind === 'credit_card' && _sx.direction === 'credit') { isTransfer = true; isIncome = false; }
         /* A bank's own payment-confirmation mail can carry NO memo at all (VIB
@@ -17957,6 +18329,11 @@ function buildCsvCandidates(parsed, result) {
       }
     }
 
+    /* Read BEFORE the self-transfer test below, which asks it a question. It used
+       to be declared after that test: `var` hoists the name, so nothing threw, the
+       test simply saw undefined on every row and its counterparty half never ran. */
+    var party = colFor.counterparty !== undefined ? (row[colFor.counterparty] || '').trim() : '';
+
     /* Self-transfer ("X chuyển tiền đến X") is an internal move between own
        accounts, not a card payment — reclassify cardpay → xfer so the review
        asks which account, not which card. Reads the staged memo (the counterparty
@@ -17970,13 +18347,30 @@ function buildCsvCandidates(parsed, result) {
        of a transfer is still a claim the person should see. A holder-name memo
        alone never sets this (the parser does not raise it). */
     var _stmtHint = (window.csvStagedMode && typeof window.fhStagedRawX === 'function') ? ((window.fhStagedRawX(i) || {}).stmt || null) : null;
-    if (_stmtHint && _stmtHint.xfer) { _xfer = true; isTransfer = false; isIncome = false; }
+    /* _xferDir: which way the money moved on a row pre-set as a transfer. Everywhere
+       else isIncome doubles as the direction flag (the Kind control never clears it
+       when a credit is flipped to a transfer), but the line below clears it, and with
+       it the only record that a wallet's top-up is money coming IN. The review card
+       has always asked `isIncome || _xferDir === 'in'` (56) and nothing ever set the
+       second half, so such a row was offered the money-out kinds and its wallet leg
+       was imported with the wrong sign. Set from the staged row's own direction. */
+    var _xferDir;
+    if (_stmtHint && _stmtHint.xfer) {
+      _xferDir = ((window.fhStagedRawX(i) || {}).direction === 'credit') ? 'in' : 'out';
+      _xfer = true; isTransfer = false; isIncome = false;
+    }
     var _selfMemo = '';
     if (window.csvStagedMode && typeof window.fhStagedRawX === 'function') {
       var _rx = window.fhStagedRawX(i);
       _selfMemo = _rx ? (_rx.memo_display != null ? _rx.memo_display : (_rx.memo || '')) : '';
     }
-    if (_isSelfTransfer(_selfMemo || desc) || _isSelfTransfer(party)) { _xfer = true; isTransfer = false; }
+    if (_sig) { if (_sig.kind === 'xfer') _xfer = true; }
+    else if (_isSelfTransfer(_selfMemo || desc) || _isSelfTransfer(party)) { _xfer = true; isTransfer = false; }
+    /* The personal-only kinds a signal can propose. Same marks the lending pass
+       leaves, and the same forced scope: a loan, a repayment or an investment
+       leg can only ever land in the personal book. */
+    var _sigLoan = !!(_sig && _sig.kind === 'loan'), _sigRepay = !!(_sig && _sig.kind === 'repay'),
+        _sigInvest = !!(_sig && _sig.kind === 'invest');
 
     /* Which owned credit card this card payment pays off, matched from the
        mail's own evidence (card_masked → card-side account_masked → memo tail →
@@ -17989,8 +18383,6 @@ function buildCsvCandidates(parsed, result) {
     if (isTransfer && !_xfer && window.fhResolveRepaidCard) {
       try { _payCardId = window.fhResolveRepaidCard(_sx, _sa, desc) || null; } catch (e) { _payCardId = null; }
     }
-
-    var party = colFor.counterparty !== undefined ? (row[colFor.counterparty] || '').trim() : '';
 
     /* The file often records who paid, and the ledger has that field too --
        match it to a real member so nobody re-enters what the export knew.
@@ -18005,7 +18397,7 @@ function buildCsvCandidates(parsed, result) {
       }
       if (!who && /^(chung|both|ca hai)$/.test(pn)) who = 'Both';
     }
-    var catName = (isIncome || isTransfer || _xfer) ? null : matchCategoryName(catGuess);
+    var catName = (isIncome || isTransfer || _xfer || _sigLoan || _sigRepay || _sigInvest) ? null : matchCategoryName(catGuess);
     var catSource = catName ? 'file' : null;
     /* History is keyed on what past transactions were CALLED (their note), so it
        only ever matched when the saved note happened to be the merchant. Rename a
@@ -18057,7 +18449,10 @@ function buildCsvCandidates(parsed, result) {
       if (g && csvCatOk(g)) { catName = g; catSource = 'keyword'; }
     }
     if (!catName && !isIncome && csvCatOk(CAT_FALLBACK)) { catName = CAT_FALLBACK; catSource = 'fallback'; }
-    if (!catName) flags.push('needs_category');
+    /* A loan, a repayment or an investment leg has no spending category: the
+       money changed shape, not owner (the same clearing the lending pass does). */
+    if (_sigLoan || _sigRepay || _sigInvest) { catName = null; catSource = null; }
+    else if (!catName) flags.push('needs_category');
 
     /* ── 0144: the tree node, beside the label ──────────────────────────────
        The label above answers "which of MY buckets"; the node answers "what did
@@ -18066,7 +18461,7 @@ function buildCsvCandidates(parsed, result) {
        Order is confidence, strongest first, and every tier is free but the first
        (the pipeline already spent whatever it spent). */
     var node = null, nodeSource = null;
-    var nodeKind = isIncome ? 'income' : (isTransfer || _xfer) ? 'transfer' : 'expense';
+    var nodeKind = (_sig && FH_KIND_NODEKIND[_sig.kind]) || (isIncome ? 'income' : (isTransfer || _xfer) ? 'transfer' : 'expense');
     if (typeof FH_TAX !== 'undefined' && typeof fhNodeGuess === 'function') {
       var _okN = function (c) { return (c && FH_TAX.get(c) && FH_TAX.kindOf(c) === nodeKind) ? c : null; };
       // 1. the pipeline's own answer, sealed with the row (raw_extracted.node)
@@ -18094,6 +18489,22 @@ function buildCsvCandidates(parsed, result) {
             && fhWhoNode({ kind: nodeKind, note: desc, counterparty: party, amount: amount }) === 'p2p') node = _okN('p2p');
         if (node) nodeSource = 'keyword';
       }
+      /* 4b. the statement's own reading of the row. fhStmtClassify calls a debit
+             whose words say "phí" a fee, and that verdict used to die at the
+             hand-off (77 kept cardpay and topup only). It is the same class of
+             evidence as tier 4, a word, so it speaks only when the tree's own
+             keywords named nothing more specific ("phi giu xe" is parking, and
+             stays parking). It rests on the GROUP: the word says "a fee", never
+             which one. _okN keeps it off any row that is not an expense. */
+      if (!node && _stmtHint && _stmtHint.flow === 'fee') {
+        node = _okN('fees'); if (node) nodeSource = 'statement';
+      }
+      /* 4c. the node the SIGNAL itself maps to (payroll is `wage`, an own-account
+             move is `bankbank`). Below every tier that read this row's own words
+             or this person's history, because it is the vaguer answer (E14a). */
+      if (!node && _sig && _sig.node) {
+        node = _okN(_sig.node); if (node) nodeSource = 'signal';
+      }
       /* 5. the legacy 8-concept hint, lifted to the tree GROUP that carries it.
             A concept is exactly a group's worth of confidence, so it lands on the
             group and never pretends to a leaf. */
@@ -18119,11 +18530,45 @@ function buildCsvCandidates(parsed, result) {
        wording, always overridable on the card. Never a family expense category. */
     var incomeCat = null;
     if (isIncome) {
+      /* A statement row arrives already classified by the file's own reader
+         (fhStmtClassify: a credit it called a refund or a salary). That is the
+         source's stated answer, so it goes ahead of the keyword guess below, the
+         same precedence the file's category column gets over guessCat. Read from
+         stmt.incomeCat, and from the flow for a payload that carries only that.
+         Only a name the income set really has is accepted. */
+      var _stmtInc = _stmtHint ? (_stmtHint.incomeCat || ({ salary: 'Lương', refund: 'Hoàn tiền' })[_stmtHint.flow] || '') : '';
+      if (_stmtInc && typeof FH_INCOME_CATS !== 'undefined' && FH_INCOME_CATS.indexOf(_stmtInc) < 0) _stmtInc = '';
       var itext = deburr(String(desc || '').toLowerCase());
-      incomeCat = /\b(luong|salary|payroll)\b/.test(itext) ? 'Lương'
+      incomeCat = _sig ? (_sig.incomeCat || 'Khác')      // the signal wins over the wording (spec §9)
+        : _stmtInc ? _stmtInc
+        : /\b(luong|salary|payroll)\b/.test(itext) ? 'Lương'
         : /\b(thuong|bonus)\b/.test(itext) ? 'Thưởng'
         : /\b(hoan tien|refund|hoan phi)\b/.test(itext) ? 'Hoàn tiền'
         : 'Khác';
+    }
+
+    /* payload v2: where the row SHOWS (spec §3). A pre-selected kind, card or
+       counterpart that rests on the model's judgment or on a guess is shown in
+       "Cần bạn xem"; so is the row's own account when its number was judged
+       rather than read; so is a v2 row whose signal the server withdrew because
+       its two readers disagreed (it seals `signal: null` and keeps `src.signal`).
+       The tick is untouched: provenance decides where, never whether. */
+    var _srcAttn = false;
+    if (fhIsV2(_sigX)) {
+      if (_sig && _sig.weak) _srcAttn = true;
+      else if (!_sigX.signal && fhSrcOf(_sigX, 'signal')) _srcAttn = true;
+      else if (_sigAcct && fhSrcWeak(_sigX, ['account_masked'])) _srcAttn = true;
+    }
+    /* payload v2: a printed fee is its own small expense (full-ledger-spec §3.4).
+       It rides ON its parent rather than as a second candidate: one staged row
+       is one candidate everywhere (rowIndex is how a row is retired), so a fee
+       that were its own candidate could hold its parent in the queue, or retire
+       it, by being ticked differently. Ticked only when the mail PRINTED it. */
+    var _fee = null;
+    if (fhIsV2(_sigX) && Number(_sigX.fee_amount) > 0 && isFinite(Number(_sigX.fee_amount))
+        && !(window.fhStagedFx && window.fhStagedFx(i))) {
+      _fee = { amount: Number(_sigX.fee_amount), on: fhSrcOf(_sigX, 'fee_amount') === 'printed',
+               node: (typeof FH_TAX !== 'undefined' && FH_TAX.get('bankfees')) ? 'bankfees' : null };
     }
 
     /* A foreign row the app could NOT estimate (no rate for its currency)
@@ -18150,8 +18595,29 @@ function buildCsvCandidates(parsed, result) {
       categoryGuess: catGuess, categoryName: catName, catSource: catSource,
       _node: node, _nodeSource: nodeSource, _nodeKind: nodeKind, _receipt: isReceipt || undefined,
       counterparty: party, who: who, isIncome: isIncome, isTransfer: isTransfer, _xfer: _xfer,
+      _xferDir: _xferDir,
+      /* The bank's own reference, off the staged row. csvInfoScore has always counted
+         it when choosing the richest of two copies of one payment, and no candidate
+         ever carried it. Review-only: it has no ledger column, on purpose
+         (email-reading-v2-spec §4), and the file-import draft does not keep it. */
+      reference_number: (window.csvStagedMode && typeof window.fhStagedRawX === 'function'
+        && String((window.fhStagedRawX(i) || {}).reference_number || '').trim()) || undefined,
       _payCardId: _payCardId,
+      /* payload v2 (all undefined on a v1 row). The kind a signal proposed and
+         the half of it this device could fill in from what the person owns. */
+      _v2: fhIsV2(_sigX) || undefined,
+      _sigKind: (_sig && _sig.kind) || undefined, _sigTier: (_sig && _sig.tier) || undefined,
+      _sigHold: (_sig && _sig.hold) || undefined,
+      _srcAttn: _srcAttn || undefined,
+      _loan: _sigLoan || undefined, _repay: _sigRepay || undefined, _invest: _sigInvest || undefined,
+      _scope: (_sigLoan || _sigRepay || _sigInvest) ? 'personal' : undefined,
+      _xferOtherId: (_sig && _sig.kind === 'xfer' && _sig.otherId) || undefined,
+      _investPosId: (_sigInvest && _sig.posId) || undefined, _investQty: (_sigInvest && _sig.qty) || undefined,
+      _loanWho: (_sigLoan && _sig.who) || undefined, _loanDue: (_sigLoan && _sig.due) || undefined,
+      _repayWho: (_sigRepay && _sig.who) || undefined,
+      _fee: _fee || undefined,
       _stmtAttn: !!(_stmtHint && _stmtHint.attn) || undefined,
+      _stmtFlow: (_stmtHint && _stmtHint.flow) || undefined,   // the statement's own word for the row (fee, refund, salary, topup, cardpay)
     };
   });
 }
@@ -18323,7 +18789,12 @@ function bucketCsvCandidates(candidates, mixedSigns) {
       var inst = srow && srow.occurred_at;
       if (!inst || !c.amount) return;
       var dt = new Date(inst);
-      if (!isNaN(dt.getTime()) && dt.getUTCHours() === 0 && dt.getUTCMinutes() === 0 && dt.getUTCSeconds() === 0) return;  // date-only: no instant to key on
+      /* v2 STATES whether the mail carried a clock time (time_precision); v1 is
+         still inferred from "exactly UTC midnight". Same rule as fhStagedRowTime. */
+      var tp = (srow.raw_extracted || {}).time_precision;
+      if (tp === 'day') return;                                                      // date-only: no instant to key on
+      if (tp !== 'second' && tp !== 'minute'
+          && !isNaN(dt.getTime()) && dt.getUTCHours() === 0 && dt.getUTCMinutes() === 0 && dt.getUTCSeconds() === 0) return;  // date-only: no instant to key on
       var k = inst + '|' + c.amount;
       var held = richest[k];
       if (!held) { richest[k] = c; return; }
@@ -18480,7 +18951,7 @@ function bucketCsvCandidates(candidates, mixedSigns) {
        queue; its card marks itself "Trả nợ thẻ" instead. Income likewise: its
        category set is the income one (_incomeCat, defaulted at build), never
        the family expense picker. */
-    if (!c.categoryName && !c.isTransfer && !c.isIncome && !c._loan && !c._repay && !c._xfer) {
+    if (!c.categoryName && !c.isTransfer && !c.isIncome && !c._loan && !c._repay && !c._xfer && !c._invest) {
       var gkey = normDescForDedup(c.description);
       (needsCategoryGroups[gkey] = needsCategoryGroups[gkey] || []).push(c);
       return;
@@ -24118,7 +24589,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v566';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v567';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -26503,6 +26974,7 @@ window.obGoogle = async function () {
         amount_enc: await _encP(Number(amt)), note_enc: note ? await _encP(note) : null,
         cat_name_enc: opts.catName ? await _encP(opts.catName) : null, cat_emoji: opts.catEmoji || null,
         occurred_time_enc: t ? await _encP(t) : null,
+        node_enc: _okNode(opts.node) ? await _encP(opts.node) : null,   // 0144: tree node, same contract as fhPersonalAddExpense (quick review resolves one for income too)
         account_id: opts.accountId || null, source: source || null };
       const r = await _sb().from('personal_transactions').insert(row);
       if (r.error) { console.warn('personal income failed', r.error); return false; }
@@ -26737,7 +27209,13 @@ window.obGoogle = async function () {
     window.fhPersonalAddMany = async function (specs, onChunk) {
       if (!P.uid || !P.key || !specs || !specs.length) return { ok: false, written: 0 };
       const rows = [];
+      /* glue[i]: spec i must land in the SAME insert as spec i-1 (`withPrev`). A
+         printed fee rides with the row it belongs to (email-reading-v2-spec §4):
+         split across two chunks, a failed second chunk would make the caller
+         retry the whole candidate and write its first row twice. */
+      const glue = [];
       for (const s of specs) {
+        glue.push(!!s.withPrev);
         const t = _okTime(s.time);
         rows.push({ owner_user_id: P.uid, txn_date: s.dateIso || _localDate(new Date()),
           kind: s.kind, space_id: null, link_id: null,
@@ -26760,8 +27238,8 @@ window.obGoogle = async function () {
       let written = 0;
       while (written < rows.length) {
         let end = Math.min(rows.length, written + CHUNK);
-        while (end < rows.length && rows[end].transfer_group_id
-               && rows[end].transfer_group_id === rows[end - 1].transfer_group_id) end++;
+        while (end < rows.length && (glue[end] || (rows[end].transfer_group_id
+               && rows[end].transfer_group_id === rows[end - 1].transfer_group_id))) end++;
         const r = await _sb().from('personal_transactions').insert(rows.slice(written, end));
         if (r.error) { console.warn('personal bulk insert failed after ' + written, r.error); return { ok: false, written: written }; }
         written = end;
@@ -28085,7 +28563,13 @@ window.obGoogle = async function () {
         } else {
           ht += '<div class="dbt-ts">thẻ tín dụng</div>';
         }
-        if (due) ht += '<div class="dbt-tchip"><span class="dbt-due">' + due + '</span></div>';
+        /* A due notice from the bank's own mail (email-reading-v2-spec §6) says more
+           than the due DAY can: this cycle's real date and the minimum payment. One
+           quiet line, in place of the chip it would otherwise repeat; gone once that
+           date has passed, when the chip takes over again. */
+        const nline = _noticeLine(c.acct.id);
+        if (nline) ht += '<div class="dbt-ts">' + _e(nline) + '</div>';
+        else if (due) ht += '<div class="dbt-tchip"><span class="dbt-due">' + due + '</span></div>';
         ht += '</button>';
         tiles.push(ht);
       });
@@ -28214,6 +28698,21 @@ window.obGoogle = async function () {
       return null;
     }
     window.persDebtDueInfo = _personDue;
+    /* "Đến hạn 25/09 · tối thiểu 1.200.000đ": what the latest due notice for this
+       card stated (72-txn-review.js fhNoticesApply keeps it, on this device only).
+       Empty when there is none, or when its due date is already behind us. */
+    function _noticeLine(acctId) {
+      const f = (window.fhAcctNoticeFacts || {})[acctId];
+      if (!f || !f.due) return '';
+      const now = new Date();
+      const today = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+      if (f.due < today) return '';
+      const say = (vi, en) => (typeof L === 'function' ? L(vi, en) : vi);
+      let s = say('Đến hạn ', 'Due ') + _dmy(f.due);
+      if (f.minK > 0) s += ' · ' + say('tối thiểu ', 'minimum ') + fmt(f.minK);
+      return s;
+    }
+    window.fhAcctNoticeLine = _noticeLine;
     /* "đến hạn DD/MM" — the next occurrence of the card's due day, clamped to
        the real length of that month so a due_day of 31 never rolls to the 1st. */
     const _dueLabel = (acct) => {
@@ -33182,6 +33681,14 @@ window.classifyAmount = classifyAmount;
         const pick = _famAcctPick();
         if (pick) { nt.pAcct = pick.id; nt.linkId = crypto.randomUUID(); nt.inst = pick.inst; }
       }
+      /* 0144 — a row promoted from a review keeps the node the person saw there.
+         addExpense has just re-guessed one from the note and the label (the
+         composer knows nothing about the review), so the reviewed node replaces
+         that guess here, before the insert reads it and on the same object the
+         local list shows. Same hand-off as source/inst above. No node on the
+         global (a hand-typed bulk row, or a review that found none) leaves the
+         composer's guess standing, exactly as before. */
+      if (window.BULK_SAVING && window._fhImportNode) nt.node = window._fhImportNode;
     }
     const newKeys = (window.order || []).filter((k) => beforeOrder.indexOf(k) < 0);
     const inserted = nt ? _dbInsertTxn(nt, exD) : Promise.resolve();
@@ -37398,10 +37905,40 @@ window.classifyAmount = classifyAmount;
      on every open of the queue is what was eating the Supabase bandwidth quota.
      Everything else the two row shapes carry is listed — including
      gmail_message_id, which the sealed path verifies against the payload. */
+  /* NOTICES ARE NOT TRANSACTIONS (email-reading-v2-spec §6). A card due notice or
+     a "statement ready" mail is staged in this same table with the clear column
+     row_kind = 'notice' (0147). It moves no money, so it must never be a review
+     card and never count toward "N khoản chờ duyệt": every reader of the pending
+     queue goes through this one helper.
+
+     The client ships BEFORE the migration, so the column may not exist yet. The
+     first query asks with the filter; if the database answers "no such column"
+     the helper remembers that for the session and every later query skips the
+     filter (until the column exists every row is a transaction, which is exactly
+     what an unfiltered read returns). A NULL row_kind reads as 'txn'.
+
+     `build(f)` must apply f() to the query BEFORE any order/limit: PostgREST
+     filters are not available on a query once it has been ordered. */
+  var _fhRowKindCol;   // undefined: not asked yet · true: the column is there · false: not yet
+  function _fhRowKindMissing(err) {
+    if (!err) return false;
+    return String(err.code || '') === '42703' || /row_kind/i.test(String(err.message || '') + ' ' + String(err.details || ''));
+  }
+  async function fhStagedTxnOnly(build) {
+    if (_fhRowKindCol !== false) {
+      var res = await build(function (q) { return q.or('row_kind.is.null,row_kind.neq.notice'); });
+      if (!res || !res.error) { _fhRowKindCol = true; return res; }
+      if (!_fhRowKindMissing(res.error)) return res;
+      _fhRowKindCol = false;
+    }
+    return build(function (q) { return q; });
+  }
+  window.fhStagedTxnOnly = fhStagedTxnOnly;
+
   async function fhFetchStagedTxns() {
-    var res = await sb.from('email_transactions')
+    var res = await fhStagedTxnOnly(function (txnOnly) { return txnOnly(sb.from('email_transactions')
       .select('id,member_id,owner_user_id,staging_scope,gmail_message_id,source_provider,occurred_at,amount,currency,direction,counterparty,reference_number,transaction_type,raw_extracted,duplicate_of_id,resolved_before,sealed,eph_pub,nonce,enc_v,created_at')
-      .eq('review_status', 'pending')
+      .eq('review_status', 'pending'))
       /* duplicate_of_id is a SUSPICION, not a delete order. It used to be
          filtered out here, which gave a guess made blind at 3am the power to
          hide a real transaction AND cancel its notification, with no screen
@@ -37413,7 +37950,7 @@ window.classifyAmount = classifyAmount;
          AUTHORITY was the bug. The rows come back now and land in the review
          screen's "Có thể trùng" bucket, which already knows how to ask. */
       .order('occurred_at', { ascending: false })
-      .limit(TXN_REVIEW_PAGE);
+      .limit(TXN_REVIEW_PAGE); });
     if (res.error) throw res.error;
     var rows = res.data || [];
     /* True pending total for the badge and the "N of M" header. Only when the
@@ -37424,9 +37961,9 @@ window.classifyAmount = classifyAmount;
        count cannot ride along on that select. */
     if (rows.length >= TXN_REVIEW_PAGE) {
       try {
-        var cnt = await sb.from('email_transactions')
+        var cnt = await fhStagedTxnOnly(function (txnOnly) { return txnOnly(sb.from('email_transactions')
           .select('id', { count: 'exact', head: true })
-          .eq('review_status', 'pending');
+          .eq('review_status', 'pending')); });
         window.fhStagedTotal = (cnt && typeof cnt.count === 'number') ? cnt.count : rows.length;
       } catch (e) { window.fhStagedTotal = rows.length; }
     } else {
@@ -37455,6 +37992,9 @@ window.classifyAmount = classifyAmount;
     // The Cá nhân tab carries the same CTA and the same badge; it has to hear
     // the count change too, or one of the two goes stale after every promote.
     try { if (typeof window.renderPersonal === 'function') window.renderPersonal(); } catch (e) {}
+    // Notices never reach the queue: applied to their account and retired, quietly
+    // (fhNoticesApply throttles itself and never blocks the badge).
+    try { if (window.fhNoticesApply) window.fhNoticesApply(); } catch (e) {}
   };
 
   /* The always-visible "Khoản thu chi từ email" CTA routes by setup state:
@@ -37674,7 +38214,16 @@ window.classifyAmount = classifyAmount;
       // auto-fill in precisely the case the tidy just rejected. Only an ABSENT
       // field falls back, and that is rows staged before the tidy existed.
       var tidied = x.memo_display == null ? x.memo : x.memo_display;
-      var isPerson = x.transaction_type === 'p2p_transfer';
+      /* WHO SAYS it is a person. The sealed `transaction_type` on an email row is
+         derived from the SENDER's kind (stage.mjs), so it only ever reads bank_txn
+         or ecommerce_receipt and this test could never be true for mail: the rule
+         above was dead on exactly the rows it was written for. The reader's own
+         verdict is sealed beside it as `reader_type` (email-reading-v2-spec §4,
+         §15 fix 2) and is asked first. `transaction_type` keeps its meaning and
+         its other reader (fhStagedKind, the bank-vs-receipt dedup rule); it still
+         answers here for a statement row, which writes p2p_transfer itself, and
+         for every row sealed before reader_type existed. */
+      var isPerson = (x.reader_type || x.transaction_type) === 'p2p_transfer';
       /* The memo still comes first — it is the only field that can carry why the
          money moved, and "ca phe" beats "HIGHLANDS COFFEE" for that question.
          ONE EXCEPTION: a memo that is the bank's own CATEGORY NAME. "Thanh toán
@@ -38011,8 +38560,16 @@ window.classifyAmount = classifyAmount;
     // 1. card_masked — the card the mail explicitly named as the repayment
     //    target (Layer 2). The card's own bank need not be the email's sender
     //    (cross-bank repayment), so match by tail; sa.provider only tie-breaks.
-    var id = byTail(last4(x.card_masked), sa && sa.provider);
+    var named = last4(x.card_masked);
+    var id = byTail(named, sa && sa.provider);
     if (id) return id;
+    /* The mail NAMES a card, in full, and it is not one of the person's cards:
+       the answer is "Chưa rõ", not the one card they do own. The one-card
+       default below is for a mail that names no card at all; applied here it
+       drew down the wrong card's debt on the word of a mail that said otherwise
+       (card-repayment-routing-spec §9: never a wrong card). A tail two owned
+       cards share is a different case, ambiguity, and keeps falling through. */
+    if (named.length === 4 && !cards.some(function (a) { return (a.tail || '') === named; })) return null;
     // 2. account_masked when the classifier called the instrument a credit card
     //    (the card-side alert — the ··5140 in the screenshot). Matches only
     //    against owned CARDS, so a deposit number here finds none and falls
@@ -38108,6 +38665,127 @@ window.classifyAmount = classifyAmount;
     catch (e) { console.warn('staged retire (targeted) failed', e, { ids: ids }); return false; }
   };
 
+  /* ── notices: mail that moves no money (email-reading-v2-spec §6) ───────────
+     A card due notice or a "statement ready" mail is sealed and staged like any
+     row, with row_kind = 'notice'. It is never a review card, never a toast,
+     never a push. This pass opens each one with the same opener, writes what it
+     states onto the MATCHING account, and retires it through the same RPC.
+
+     The account is matched, never created: same provider AND the same last four
+     digits, among the person's credit cards, exactly one hit. A notice for a
+     card the person has not set up is simply retired. "Wrong card is worse than
+     no card": anything short of one exact match applies nothing.
+
+     What it writes:
+       due_day / statement_day   onto the account, only where the person has not
+                                 set one. What they typed is never overwritten.
+       this cycle's due date, the minimum payment and the closing debt
+                                 kept on THIS device, encrypted under the personal
+                                 key, for the one quiet line on the account tile
+                                 (23-debts-ui.js). The closing debt is never
+                                 written as a balance: cards do not receive a
+                                 captured balance (account-setup-spec). */
+  var _fhNoticeBusy = false, _fhNoticeAt = 0;
+  window.fhAcctNoticeFacts = {};   // accountId -> { due, stmt, minK, debtK, at }, decrypted, in memory only
+  function _noticeKey() {
+    var uid = (window.fhUser && window.fhUser.id) || '';
+    return uid ? 'fh-acct-notice:' + uid : '';
+  }
+  async function _noticeLoad() {
+    try {
+      var k = _noticeKey(), pd = window.fhPersonalData && window.fhPersonalData();
+      if (!k || !pd || !pd.key || !window.FHCrypto) return;
+      var raw = localStorage.getItem(k); if (!raw) return;
+      var v = JSON.parse(await FHCrypto.decVal(pd.key, raw));
+      if (v && typeof v === 'object') window.fhAcctNoticeFacts = v;
+    } catch (e) {}
+  }
+  async function _noticeSave() {
+    try {
+      var k = _noticeKey(), pd = window.fhPersonalData && window.fhPersonalData();
+      if (!k || !pd || !pd.key || !window.FHCrypto) return;
+      localStorage.setItem(k, await FHCrypto.encVal(pd.key, JSON.stringify(window.fhAcctNoticeFacts || {})));
+    } catch (e) {}
+  }
+  /* Which owned card a notice is about → its account, or null. Pure. */
+  function fhNoticeTarget(provider, x, accounts) {
+    var canon = function (s) { return (typeof csvCanonicalProvider === 'function') ? csvCanonicalProvider(s) : String(s || '').toLowerCase(); };
+    var tail = String((x && (x.card_masked || x.account_masked)) || '').replace(/\D/g, '').slice(-4);
+    var prov = canon(provider);
+    if (tail.length !== 4 || !prov) return null;
+    var hits = (accounts || []).filter(function (a) {
+      return a.kind === 'credit_card' && (a.tail || '') === tail && canon(a.provider) === prov;
+    });
+    return hits.length === 1 ? hits[0] : null;
+  }
+  window.fhNoticeTarget = fhNoticeTarget;
+  /* What a notice states, in the ledger's units. Pure. Null when it states nothing usable. */
+  function fhNoticeFacts(x) {
+    var n = x && x.notice;
+    if (!n || typeof n !== 'object') return null;
+    var iso = function (v) { var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(v || '')); return m ? m[0] : null; };
+    var dayOf = function (d) { var k = d ? Number(d.slice(8, 10)) : 0; return (k >= 1 && k <= 31) ? k : null; };
+    var base = function (v) {
+      var a = Number(v); if (!(a > 0) || !isFinite(a)) return null;
+      return window.csvBaseAmt ? window.csvBaseAmt(a) : a / (window.curMult ? window.curMult() : 1);
+    };
+    var due = iso(n.due_date), stmt = iso(n.statement_date);
+    var out = { due: due, stmt: stmt, dueDay: dayOf(due), statementDay: dayOf(stmt),
+                minK: base(n.min_payment), debtK: base(n.closing_debt) };
+    return (out.due || out.stmt || out.minK != null || out.debtK != null) ? out : null;
+  }
+  window.fhNoticeFacts = fhNoticeFacts;
+
+  var _fhNoticeLoaded = false;
+  window.fhNoticesApply = async function () {
+    if (_fhNoticeBusy) return 0;
+    var pd = window.fhPersonalData && window.fhPersonalData();
+    if (!pd || pd.state !== 'ready' || !pd.key) return 0;          // no ledger to match against: they wait, staged
+    _fhNoticeBusy = true;
+    try {
+      /* What earlier notices said, back into memory once per session, so the tile
+         line survives a reload. */
+      if (!_fhNoticeLoaded) {
+        _fhNoticeLoaded = true;
+        await _noticeLoad();
+        if (Object.keys(window.fhAcctNoticeFacts || {}).length) { try { window.renderPersonal && window.renderPersonal(); } catch (eL) {} }
+      }
+      if (_fhRowKindCol === false) return 0;                       // no column yet: there are no notices
+      if (Date.now() - _fhNoticeAt < 10 * 60 * 1000) return 0;
+      var res = await sb.from('email_transactions')
+        .select('id,member_id,owner_user_id,staging_scope,gmail_message_id,source_provider,occurred_at,raw_extracted,sealed,eph_pub,nonce,enc_v,created_at')
+        .eq('review_status', 'pending').eq('row_kind', 'notice')
+        .order('occurred_at', { ascending: true }).limit(50);
+      if (res.error) { if (_fhRowKindMissing(res.error)) _fhRowKindCol = false; return 0; }
+      _fhRowKindCol = true; _fhNoticeAt = Date.now();
+      var rows = res.data || [];
+      if (!rows.length) return 0;
+      var done = [], changed = false;
+      for (var i = 0; i < rows.length; i++) {                       // oldest first, so the newest notice has the last word
+        var r = await fhReadStagedRow(rows[i]);
+        if (!r || r._unreadable) continue;                          // locked or wrong key: leave it staged, try again later
+        done.push(rows[i].id);
+        var x = r.raw_extracted || {};
+        var facts = fhNoticeFacts(x);
+        var acct = facts ? fhNoticeTarget(rows[i].source_provider, x, pd.accounts) : null;
+        if (!acct) continue;                                        // no such account: the notice is simply retired
+        var fields = {};
+        if (facts.dueDay && !acct.dueDay) fields.dueDay = facts.dueDay;
+        if (facts.statementDay && !acct.statementDay) fields.statementDay = facts.statementDay;
+        if ((fields.dueDay || fields.statementDay) && window.fhPersonalAccountUpdate) {
+          try { await window.fhPersonalAccountUpdate(acct.id, fields); } catch (eU) {}
+        }
+        window.fhAcctNoticeFacts[acct.id] = { due: facts.due, stmt: facts.stmt, minK: facts.minK, debtK: facts.debtK,
+                                              at: String(rows[i].occurred_at || '') };
+        changed = true;
+      }
+      if (changed) { await _noticeSave(); try { window.renderPersonal && window.renderPersonal(); } catch (eR) {} }
+      if (done.length) { try { await _rpc('resolve_email_transactions', { p_ids: done }); } catch (eD) { console.warn('notice retire failed', eD); } }
+      return done.length;
+    } catch (e) { return 0; }
+    finally { _fhNoticeBusy = false; }
+  };
+
   /* Which transport imported a staged row → the ledger `source` (0100). The
      sealed payload carries `_transport`: the direct-read worker stamps
      'oauth_direct' (stage.mjs); the forwarding pipeline leaves it absent, so
@@ -38133,7 +38811,13 @@ window.classifyAmount = classifyAmount;
     if (!(c && typeof c.rowIndex === 'number' && rows && rows[c.rowIndex])) return undefined;
     var oa = rows[c.rowIndex].occurred_at; if (!oa) return undefined;
     var d = new Date(oa); if (isNaN(d.getTime())) return undefined;
-    if (d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0) return undefined;  // date-only placeholder
+    /* v2 STATES whether the mail carried a clock time (time_precision), so a real
+       00:00:00 UTC (07:00 in Vietnam) is kept and a day-only mail stamped with any
+       other hour is not given a clock it never had. v1 keeps the inference. */
+    var tp = (rows[c.rowIndex].raw_extracted || {}).time_precision;
+    if (tp === 'day') return undefined;
+    if (tp !== 'second' && tp !== 'minute'
+        && d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0) return undefined;  // date-only placeholder
     return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
   };
 
@@ -38594,6 +39278,18 @@ window.classifyAmount = classifyAmount;
       if (!nd || !window.FH_TAX || !FH_TAX.get(nd)) return null;
       return FH_TAX.kindOf(nd) === kind ? nd : null;
     };
+    /* payload v2 seals a node for ANY kind (a transfer is `bankbank`, a payroll
+       credit is `wage`). Expense and income have always carried theirs; the other
+       four kinds start carrying one only for a v2 row, so a v1 row writes exactly
+       what it always wrote. Still guarded by kind, like every node. */
+    var _v2Node = function (c, kind) { return (c && c._v2) ? _specNode(c, kind) : null; };
+    /* The other side, as its own encrypted column (counterparty_enc). Expense
+       rows have carried it since 0132; income, transfer and investment rows
+       dropped it although the writer has always had the column. Only a REAL
+       counterparty rides, never the description. On an investment leg it names
+       the broker or seller beside the note and tracks nothing: balances are only
+       ever built from loan and repayment rows (investment-spec I1 stands). */
+    var _who = function (c) { return (c && c.counterparty && String(c.counterparty).trim()) || null; };
     var specs = [], ranges = [], extBals = {}, lessonOps = [], invMemOps = [];
     /* 0134 — every account this import touches (a row landed on it, or the
        queue session materialized it) is what the setup wizard walks afterwards
@@ -38624,8 +39320,20 @@ window.classifyAmount = classifyAmount;
          what the review already showed. */
       var base = window.csvBaseAmt ? window.csvBaseAmt(c.amount)
         : Math.round(Number(c.amount || 0) / (window.curMult ? window.curMult() : 1));
+      /* The reviewed time rides EVERY kind below, not only expense and income.
+         The writer stores it for any kind, and a transfer, a card payment, a
+         loan, a repayment or an investment is as much "at 14:05" as a purchase
+         is: five kinds used to land day-only because their specs left it out
+         (email-reading-v2-spec §15). Both legs of a pair carry the same time,
+         one event. A day-only source gives '' here and stays day-only. */
       var _t = window.csvRowTime ? window.csvRowTime(c) : undefined;   // reviewed time (edited value wins, else derived from occurred_at)
       var src = window.fhStagedSource ? window.fhStagedSource(c) : null;  // 'direct-email' | 'forwarding-email' (0100 provenance)
+      /* Which way the money moved. isIncome doubles as the direction under every
+         kind (the Kind control never clears it), with one exception: a statement
+         row pre-set as an internal transfer has isIncome cleared at build and
+         carries its direction on _xferDir instead (57). The same test the review
+         card makes, so the sign written is the direction the person was shown. */
+      var _moneyIn = !!c.isIncome || c._xferDir === 'in';
       /* Instrument (0105): the classifier's verdict rides in raw_extracted.
          Never lets a resolution error block the import — the row just lands
          untagged. */
@@ -38660,19 +39368,22 @@ window.classifyAmount = classifyAmount;
         if (ai && window.fhPersonalAccountEnsure) { try { ownId = await window.fhPersonalAccountEnsure(ai); } catch (eO) {} }
         if (c._xferOtherId === '_cash' && window.fhPersonalCashAccount) { try { otherId = await window.fhPersonalCashAccount(); } catch (eC) {} }
         else if (c._xferOtherId) otherId = c._xferOtherId;
-        var credit = !!c.isIncome;
+        var credit = _moneyIn;
         var xNote = c.description || 'Chuyển khoản nội bộ';
         if (ownId && otherId && ownId !== otherId) {
           var gid = crypto.randomUUID();
-          specs.push({ kind: 'transfer', amt: -base, note: xNote, dateIso: c.dateDisplay || undefined,
+          specs.push({ kind: 'transfer', amt: -base, note: xNote, dateIso: c.dateDisplay || undefined, time: _t,
+            who: _who(c), node: _v2Node(c, 'transfer'),
             accountId: credit ? otherId : ownId, transferGroupId: gid, source: src });
-          specs.push({ kind: 'transfer', amt: base, note: xNote, dateIso: c.dateDisplay || undefined,
+          specs.push({ kind: 'transfer', amt: base, note: xNote, dateIso: c.dateDisplay || undefined, time: _t,
+            who: _who(c), node: _v2Node(c, 'transfer'),
             accountId: credit ? ownId : otherId, transferGroupId: gid, source: src });
         } else {
           var legAcct = ownId || otherId;
           specs.push({ kind: 'transfer',
             amt: legAcct === ownId ? (credit ? base : -base) : (credit ? -base : base),
-            note: xNote, dateIso: c.dateDisplay || undefined, accountId: legAcct, source: src });
+            who: _who(c), node: _v2Node(c, 'transfer'),
+            note: xNote, dateIso: c.dateDisplay || undefined, time: _t, accountId: legAcct, source: src });
         }
         if (ownId) _recBal(ownId);
       } else if (c._repay) {
@@ -38685,9 +39396,10 @@ window.classifyAmount = classifyAmount;
         if (ai && ai.kind !== 'credit_card' && window.fhPersonalAccountEnsure) {
           try { repAcct = await window.fhPersonalAccountEnsure(ai); } catch (eR) {}
         }
-        specs.push({ kind: 'repayment', amt: c.isIncome ? base : -base,
+        specs.push({ kind: 'repayment', amt: _moneyIn ? base : -base,
           who: (c._repayWho || '').trim() || (c.counterparty || '').trim() || '—',
-          note: c.description || null, dateIso: c.dateDisplay || undefined,
+          note: c.description || null, dateIso: c.dateDisplay || undefined, time: _t,
+          node: _v2Node(c, 'repayment'),
           accountId: repAcct, source: src });
         if (repAcct) _recBal(repAcct);
       } else if (c._loan) {
@@ -38699,9 +39411,15 @@ window.classifyAmount = classifyAmount;
         if (ai && ai.kind !== 'credit_card' && window.fhPersonalAccountEnsure) {
           try { loanAcct = await window.fhPersonalAccountEnsure(ai); } catch (eLn) {}
         }
-        specs.push({ kind: 'loan', amt: base,
+        /* Money IN marked as a loan is money BORROWED (a lender's "giải ngân"):
+           −X by the same 0105 sign convention, so it opens a payable and fills
+           the receiving account. Before v2 no credit row could be a loan (the
+           credit-side Kind sheet never offered it), so every existing row still
+           takes the +X branch. */
+        specs.push({ kind: 'loan', amt: _moneyIn ? -base : base,
+          node: _v2Node(c, 'loan'),
           who: (c._loanWho || '').trim() || (c.counterparty || '').trim() || '—',
-          note: c.description || null, dateIso: c.dateDisplay || undefined,
+          note: c.description || null, dateIso: c.dateDisplay || undefined, time: _t,
           dueDate: c._loanDue || undefined, accountId: loanAcct, source: src });
         if (loanAcct) _recBal(loanAcct);
       } else if (c._invest) {
@@ -38716,12 +39434,13 @@ window.classifyAmount = classifyAmount;
         if (ai && ai.kind !== 'credit_card' && window.fhPersonalAccountEnsure) {
           try { invAcct = await window.fhPersonalAccountEnsure(ai); } catch (eIv) {}
         }
-        var invSell = !!c.isIncome;
+        var invSell = _moneyIn;
         if (c._investPosId) {
           specs.push({ kind: 'investment', amt: invSell ? base : -base,
             positionId: c._investPosId,
             qty: (c._investQty > 0) ? (invSell ? -c._investQty : c._investQty) : undefined,
-            note: c.description || null, dateIso: c.dateDisplay || undefined,
+            who: _who(c), node: _v2Node(c, 'investment'),
+            note: c.description || null, dateIso: c.dateDisplay || undefined, time: _t,
             accountId: invAcct, source: src });
           /* remember the seller → position mapping once the write lands (I9) */
           var _ik = (c.counterparty || c.description || '').trim();
@@ -38748,6 +39467,7 @@ window.classifyAmount = classifyAmount;
         }
         specs.push({ kind: 'income', amt: base, note: c.description || '',
           node: _specNode(c, 'income'),
+          who: _who(c),
           catName: c._incomeCat || 'Khác',
           catEmoji: ({ 'Lương': '💼', 'Thưởng': '🎁', 'Hoàn tiền': '💸' })[c._incomeCat] || '💰',
           dateIso: c.dateDisplay || undefined, time: _t, accountId: incAcct, source: src });
@@ -38793,13 +39513,13 @@ window.classifyAmount = classifyAmount;
              deposit's leg (−) keeps its balance honest, the card's leg (+)
              draws the outstanding down, one group id keeps them one event. */
           var _pgid = crypto.randomUUID();
-          specs.push({ kind: 'transfer', amt: -base, note: _payNote,
-            dateIso: c.dateDisplay || undefined, accountId: payFrom, transferGroupId: _pgid, source: src });
-          specs.push({ kind: 'transfer', amt: base, note: _payNote,
-            dateIso: c.dateDisplay || undefined, accountId: payCard, transferGroupId: _pgid, source: src });
+          specs.push({ kind: 'transfer', amt: -base, note: _payNote, node: _v2Node(c, 'transfer'),
+            dateIso: c.dateDisplay || undefined, time: _t, accountId: payFrom, transferGroupId: _pgid, source: src });
+          specs.push({ kind: 'transfer', amt: base, note: _payNote, node: _v2Node(c, 'transfer'),
+            dateIso: c.dateDisplay || undefined, time: _t, accountId: payCard, transferGroupId: _pgid, source: src });
         } else {
-          specs.push({ kind: 'transfer', amt: base, note: _payNote,
-            dateIso: c.dateDisplay || undefined, accountId: payCard, source: src });
+          specs.push({ kind: 'transfer', amt: base, note: _payNote, node: _v2Node(c, 'transfer'),
+            dateIso: c.dateDisplay || undefined, time: _t, accountId: payCard, source: src });
         }
         if (payFrom) _recBal(payFrom);   // the mail's "Số dư" is the sending account's
       } else {
@@ -38819,6 +39539,22 @@ window.classifyAmount = classifyAmount;
           catEmoji: (window.catStyle && window.catStyle[c.categoryName] && window.catStyle[c.categoryName][0]) || '🗂️',
           dateIso: c.dateDisplay || undefined, time: _t, accountId: acctId, source: src });
         _recBal(acctId);
+      }
+      /* payload v2: the printed fee is its own small expense on the SAME account
+         (full-ledger-spec §3.4), so the transfer stays a clean pair and the fee
+         still counts as spending. Written in the same INSERT as its parent
+         (`withPrev`): a chunk boundary between the two, and a failure on the
+         second chunk, would retry the whole candidate and write the parent
+         twice. Inside the candidate's range, so it is retired with its parent. */
+      if (c._fee && c._fee.on && c._fee.amount > 0) {
+        var feeAcct = null;
+        if (ai && window.fhPersonalAccountEnsure) { try { feeAcct = await window.fhPersonalAccountEnsure(ai); } catch (eFe) {} }
+        var feeBase = window.csvBaseAmt ? window.csvBaseAmt(c._fee.amount)
+          : Math.round(Number(c._fee.amount) / (window.curMult ? window.curMult() : 1));
+        specs.push({ kind: 'expense', amt: feeBase, note: L('Phí giao dịch', 'Transaction fee'),
+          node: (c._fee.node && window.FH_TAX && FH_TAX.get(c._fee.node) && FH_TAX.kindOf(c._fee.node) === 'expense') ? c._fee.node : null,
+          catName: null, catEmoji: '🗂️', withPrev: true,
+          dateIso: c.dateDisplay || undefined, time: _t, accountId: feeAcct, source: src });
       }
       ranges.push({ c: c, to: specs.length });
     }
@@ -40334,11 +41070,16 @@ window.classifyAmount = classifyAmount;
     let floor = null;
     if (!scoped) { try { floor = localStorage.getItem(_atxFrontKey(gid)) || null; } catch (e) {} }
     try {
-      let q = sb.from('email_transactions')
-        .select('occurred_at')
-        .eq('review_status', 'pending');
-      if (scoped) q = q.gte('occurred_at', sinceIso);
-      const res = await q.order('occurred_at', { ascending: true }).limit(1);
+      /* Transactions only: a due notice is staged in the same table and is not
+         something the read "found" (email-reading-v2-spec §6). _atxTxnOnly
+         tolerates the row_kind column not existing yet. */
+      const res = await _atxTxnOnly((txnOnly) => {
+        let q = sb.from('email_transactions')
+          .select('occurred_at')
+          .eq('review_status', 'pending');
+        if (scoped) q = q.gte('occurred_at', sinceIso);
+        return txnOnly(q).order('occurred_at', { ascending: true }).limit(1);
+      });
       const oldest = !res.error && res.data && res.data[0] && res.data[0].occurred_at;
       if (scoped) return oldest || null;
       if (oldest && (!floor || String(oldest) < String(floor))) {
@@ -40439,13 +41180,20 @@ window.classifyAmount = classifyAmount;
     } catch (e) { return {}; }            // locked ledger, wrong key, bad box
   }
 
+  /* Every pending-queue read on this screen counts TRANSACTIONS, never notices
+     (row_kind = 'notice', 0147). One helper owns the filter and its fallback
+     while the column does not exist yet: 72-txn-review.js fhStagedTxnOnly. If
+     that file is somehow absent the query runs unfiltered, which is today. */
+  const _atxTxnOnly = (build) => window.fhStagedTxnOnly
+    ? window.fhStagedTxnOnly(build) : build((q) => q);
+
   async function _atxRecentFinds() {
     try {
-      const res = await sb.from('email_transactions')
+      const res = await _atxTxnOnly((txnOnly) => txnOnly(sb.from('email_transactions')
         .select(ATX_FEED_COLS)
-        .eq('review_status', 'pending')
+        .eq('review_status', 'pending'))
         .order('created_at', { ascending: false })
-        .limit(ATX_FEED_ROWS);
+        .limit(ATX_FEED_ROWS));
       if (res.error) return [];
       const rows = res.data || [];
       /* Three nacl.box opens; negligible, and they run together rather than in
@@ -40680,9 +41428,9 @@ window.classifyAmount = classifyAmount;
   let _atxLiveSeq = 0;
 
   async function _atxPendingCount() {
-    const res = await sb.from('email_transactions')
+    const res = await _atxTxnOnly((txnOnly) => txnOnly(sb.from('email_transactions')
       .select('id', { count: 'exact', head: true })
-      .eq('review_status', 'pending');
+      .eq('review_status', 'pending')));
     if (res.error) throw res.error;
     return (typeof res.count === 'number') ? res.count : 0;
   }
@@ -41742,13 +42490,17 @@ window.classifyAmount = classifyAmount;
        exported openers. */
     var _QR_COLS = 'id,member_id,owner_user_id,staging_scope,gmail_message_id,source_provider,occurred_at,duplicate_of_id,resolved_before,sealed,eph_pub,nonce,enc_v,created_at';
     async function _qrFetch() {
-      var res = await window.sb.from('email_transactions')
+      /* Transactions only: a due notice (row_kind 'notice', 0147) is never offered
+         as a one-tap import. fhStagedTxnOnly (72) owns the filter and its fallback
+         while the column does not exist yet. */
+      var ask = function (txnOnly) { return txnOnly(window.sb.from('email_transactions')
         .select(_QR_COLS)
         .eq('review_status', 'pending')
         .eq('staging_scope', 'personal')
-        .is('duplicate_of_id', null)
+        .is('duplicate_of_id', null))
         .order('occurred_at', { ascending: false })
-        .limit(30);
+        .limit(30); };
+      var res = await (window.fhStagedTxnOnly ? window.fhStagedTxnOnly(ask) : ask(function (q) { return q; }));
       if (res.error) throw res.error;
       var rows = res.data || [];
       _qrSeenPrune(rows.map(function (r) { return r.id; }));
@@ -41786,7 +42538,9 @@ window.classifyAmount = classifyAmount;
     function _qrDesc(re) {
       var tidied = re.memo_display == null ? re.memo : re.memo_display;
       if (tidied) return String(tidied);
-      if (re.transaction_type === 'p2p_transfer') return '';
+      // reader_type is the reader's own verdict; transaction_type on an email row
+      // only says what kind of SENDER it was, so it never said p2p (see 72).
+      if ((re.reader_type || re.transaction_type) === 'p2p_transfer') return '';
       return String(re.counterparty || '');
     }
     function _qrAcct(re) {
@@ -41798,6 +42552,20 @@ window.classifyAmount = classifyAmount;
       }
       if (!kind) return null;
       return { kind: kind, tail: masked.replace(/\D/g, '').slice(-4) || null, provider: re.source_provider || null };
+    }
+    /* 0131 — the money source as one display-grade string ("VIB · tín dụng
+       ••4512"), for transactions.instrument on a family write. The same words
+       the full review builds in csvPromote (bank name, then the instrument
+       chip); fhAccountInstString is that grammar over an instrument, and a row
+       the classifier could not place still names its bank, as it does there.
+       _qrWriteFamily has always read QR.inst, and nothing ever set it, so every
+       family row logged from this sheet landed with a null instrument. */
+    function _qrInst(re) {
+      var ai = _qrAcct(re);
+      var s = (ai && window.fhAccountInstString) ? window.fhAccountInstString(ai) : null;
+      if (s) return s;
+      var prov = String((re && re.source_provider) || '');
+      return ((prov && typeof window.fhProviderName === 'function') ? window.fhProviderName(prov) : prov) || null;
     }
     /* Category suggestion — the SAME cascade the bulk review screen runs, in
        the same confidence order, so the quick sheet never knows less than the
@@ -41867,11 +42635,15 @@ window.classifyAmount = classifyAmount;
     function _qrLocalIso(d) {
       return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
     }
-    // bank timestamp → local "HH:MM"; a date-only UTC-midnight placeholder stays timeless (72's rule)
-    function _qrTime(oa) {
+    // bank timestamp → local "HH:MM"; a date-only UTC-midnight placeholder stays timeless (72's rule).
+    // A v2 payload states it instead (time_precision), and then the guess is not made.
+    function _qrTime(oa, re) {
       if (!oa) return undefined;
       var d = new Date(oa); if (isNaN(d.getTime())) return undefined;
-      if (d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0) return undefined;
+      var tp = re && re.time_precision;
+      if (tp === 'day') return undefined;
+      if (tp !== 'second' && tp !== 'minute'
+          && d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0) return undefined;
       return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
     }
 
@@ -41943,7 +42715,7 @@ window.classifyAmount = classifyAmount;
               var f0 = opened.flow || (opened.direction === 'credit' ? 'income' : 'expense');
               var v = window.fhDedupAssess([{
                 amount: Number(opened.amount) || 0, date: oa0, dateDisplay: oa0 && !isNaN(oa0.getTime()) ? _qrLocalIso(oa0) : '',
-                time: _qrTime(cand.occurred_at) || '', description: _qrDesc(opened), counterparty: opened.counterparty || '',
+                time: _qrTime(cand.occurred_at, opened) || '', description: _qrDesc(opened), counterparty: opened.counterparty || '',
                 isIncome: f0 === 'income', isTransfer: f0 === 'transfer', accountKind: opened.account_kind || null,
                 provider: cand.source_provider || '', currency: opened.currency || 'VND' }], dupIndex)[0];
               if (v) {
@@ -41959,8 +42731,32 @@ window.classifyAmount = classifyAmount;
 
         var flow = re.flow || (re.direction === 'credit' ? 'income' : 'expense');
         var foreign = re.currency && re.currency !== 'VND';
-        if (flow === 'transfer' || foreign || _qrLendingShaped(flow, re)
-            || (window.fhCardPayShaped && window.fhCardPayShaped(re))) {
+        /* payload v2 (email-reading-v2-spec §9): the SAME function the full review
+           asks, so the two can never propose different kinds for one row. Null for
+           every v1 row, for a v2 row with no signal, and for a row a lesson already
+           answers: then the checks below run exactly as they always did. When it
+           answers, it decides: anything but a plain expense or income is a judgment
+           call and belongs to the full screen. */
+        var sig = null;
+        try {
+          if (typeof fhKindFromSignal === 'function' && typeof fhIsV2 === 'function' && fhIsV2(re)) {
+            var sDesc = _qrDesc(re), sAcct = _qrAcct(re), sOwn = fhSignalOwn();
+            sOwn.lesson = fhSignalLessonHit({ counterparty: re.counterparty || '', description: sDesc,
+              amount: Number(re.amount) || 0, isIncome: re.direction === 'credit' });
+            sOwn.cardFor = window.fhResolveRepaidCard ? function () { return window.fhResolveRepaidCard(re, sAcct, sDesc); } : null;
+            sig = fhKindFromSignal({ x: re, direction: re.direction, counterparty: re.counterparty || '', description: sDesc,
+              amount: Number(re.amount) || 0, acct: sAcct, provider: re.source_provider }, sOwn);
+          }
+        } catch (eSig) { sig = null; }
+        var sigSimple = !!(sig && (sig.kind === 'expense' || sig.kind === 'income')
+          && !(sAcct && sAcct.kind === 'credit_card' && re.direction === 'credit'));   // money INTO a card is a transfer, whatever the mail calls it (57)
+        if (sig && sigSimple) flow = sig.kind;
+        /* A printed fee becomes its own small row, which only the full screen writes. */
+        var hasFee = typeof fhIsV2 === 'function' && fhIsV2(re) && Number(re.fee_amount) > 0;
+        if (foreign || hasFee || (sig && !sigSimple)
+            || (sig && sigSimple && !sig.hold && _qrLendingShaped(flow, re))
+            || (!sig && (flow === 'transfer' || _qrLendingShaped(flow, re)
+                         || (window.fhCardPayShaped && window.fhCardPayShaped(re))))) {
           /* A judgment-call row belongs to the full review screen. Since 0122
              that includes LENDING-shaped rows: a payee matching an open debt
              balance or a learned loan lesson — quick review's one-tap "Duyệt ·
@@ -41982,15 +42778,27 @@ window.classifyAmount = classifyAmount;
           desc: desc, cat: cat,
           dest: 'personal',                                     // default = the staged scope; tappable to 'family'
           acctId: null,                                         // null = auto-resolve the bank instrument; else an explicit personal account
+          inst: _qrInst(re),                                    // 0131 money source string for a family write (see _qrInst)
           dateIso: _qrLocalIso(isNaN(oa.getTime()) ? new Date() : oa),
-          time: _qrTime(row.occurred_at),
+          time: _qrTime(row.occurred_at, re),
+          /* Income subtype, when the mail's signal states it (salary, refund). */
+          incomeCat: (sig && sig.kind === 'income' && sig.incomeCat) || null,
           queue: rows.length, txnId: null, busy: false,
           /* 0144 — the tree node for this row. Resolved once when the sheet
              opens (the sealed hint, this person's lesson, then the tree's
-             keywords) and carried into whichever ledger the person picks. */
-          node: _qrNodeFor(re, desc, flow === 'in' ? 'income' : 'expense'),
+             keywords) and carried into whichever ledger the person picks.
+             The kind follows `flow`, whose money-in value is 'income' (set a few
+             lines up). This used to test 'in', which flow never is, so every
+             income row was resolved against the EXPENSE tree and _qrNode('income')
+             then threw the answer away as the wrong kind. */
+          node: _qrNodeFor(re, desc, flow === 'income' ? 'income' : 'expense'),
           party: (re.counterparty || '').trim(),
         };
+        /* The node the signal itself maps to (payroll is `wage`), only when every
+           tier that read this row's own words came up empty: the vaguer answer
+           goes below the others (E14a), same place the full review gives it. */
+        if (!QR.node && sig && sig.node && typeof FH_TAX !== 'undefined' && FH_TAX.get(sig.node)
+            && FH_TAX.kindOf(sig.node) === (flow === 'income' ? 'income' : 'expense')) QR.node = sig.node;
         _qrSessionSkip[row.id] = true;                          // shown this run — no re-pop on the next tab switch
         _qrRender();
       } finally { _qrInFlight = false; }
@@ -42204,6 +43012,7 @@ window.classifyAmount = classifyAmount;
       try { if (typeof loadRow === 'function') loadRow(0); } catch (e) {}
       window._fhImportSrc = src || null;
       window._fhImportInst = (QR && QR.inst) || null;   // 0131 — explicit null, never a stale value from a prior bulk
+      window._fhImportNode = _qrNode('expense');        // 0144 — the node this sheet resolved (or the person picked) rides to the family row too
       /* 0134 — the author's instrument rides to the mirror master even from
          the one-row sheet (account-setup-spec §6): resolve the account, reserve
          the link_id; the family writer creates the tagged master. Locked
@@ -42223,8 +43032,8 @@ window.classifyAmount = classifyAmount;
       // the transaction. It unshifts window.txns on success.
       var before = (window.txns || []).length;
       try { window.addExpense(); }
-      catch (e) { window.BULK_SAVING = false; window._fhImportSrc = null; window._fhImportInst = null; window._fhImportAcct = null; window._fhImportLink = null; console.warn('quick family write failed', e); return false; }
-      window.BULK_SAVING = false; window._fhImportSrc = null; window._fhImportInst = null; window._fhImportAcct = null; window._fhImportLink = null;
+      catch (e) { window.BULK_SAVING = false; window._fhImportSrc = null; window._fhImportInst = null; window._fhImportAcct = null; window._fhImportLink = null; window._fhImportNode = null; console.warn('quick family write failed', e); return false; }
+      window.BULK_SAVING = false; window._fhImportSrc = null; window._fhImportInst = null; window._fhImportAcct = null; window._fhImportLink = null; window._fhImportNode = null;
       if ((window.txns || []).length <= before) { console.warn('quick family write added nothing'); return false; }
       /* Hold the new txn OBJECT so the photo step can read the id the async
          insert stamps on it (_dbInsertTxn sets t._dbId on this same object).
@@ -42305,7 +43114,9 @@ window.classifyAmount = classifyAmount;
             // but honour an explicit account pick.
             ok = await window.fhPersonalAddIncome(base, QR.desc || '', QR.dateIso, src,
               /* 0144: quick review runs the same node cascade as the full screen */
-              { catName: 'Khác', catEmoji: '💰', accountId: QR.acctId ? QR.acctId : (autoIsCard ? null : acctId), time: QR.time });
+              { catName: QR.incomeCat || 'Khác',
+                catEmoji: ({ 'Lương': '💼', 'Thưởng': '🎁', 'Hoàn tiền': '💸' })[QR.incomeCat] || '💰',   // same emoji map as the full review's promote (72)
+                accountId: QR.acctId ? QR.acctId : (autoIsCard ? null : acctId), time: QR.time, node: _qrNode('income') });
           } else {
             var emoji = (window.catStyle && window.catStyle[QR.cat] && window.catStyle[QR.cat][0]) || '🗂️';
             ok = await window.fhPersonalAddExpense(base, QR.desc || '', QR.cat || null, emoji, QR.dateIso, QR.time, src, { accountId: acctId, node: _qrNode('expense') });
@@ -42542,7 +43353,7 @@ window.classifyAmount = classifyAmount;
         var acct = _qrAcct(re);
         var oa = row.occurred_at ? new Date(row.occurred_at) : null;
         _peek = { n: rows.length, id: row.id, flow: flow, amount: Number(re.amount) || 0, desc: desc, cat: cat, emoji: emoji,
-          time: _qrTime(row.occurred_at), dateIso: (oa && !isNaN(oa.getTime())) ? _qrLocalIso(oa) : null,
+          time: _qrTime(row.occurred_at, re), dateIso: (oa && !isNaN(oa.getTime())) ? _qrLocalIso(oa) : null,
           provider: re.source_provider || null, tail: (acct && acct.tail) || null, foreign: !!(re.currency && re.currency !== 'VND') };
         return _peek;
       } catch (e) { _peek = _peek || { n: 0 }; return _peek; }
@@ -42656,7 +43467,16 @@ window.classifyAmount = classifyAmount;
              row exactly as it sees an email row. Null = nothing decided. */
           node: p.node || null,
           counterparty: p.counterparty || '', _transport: 'statement',
-          stmt: { xfer: !!p.xfer, attn: !!p.attn, incomeCat: p.incomeCat || '', fundedElsewhere: !!p.fundedElsewhere }
+          /* `stmt.flow` is the STATEMENT's own word for the row (fhStmtClassify:
+             fee, refund, salary, topup, cardpay), not the three-value `flow` above,
+             which is the email pipeline's vocabulary and has to stay that way for
+             every reader of it. Only cardpay and topup used to survive this
+             hand-off (as flow:'transfer' and stmt.xfer); fee, refund and salary
+             were classified and then dropped here, and incomeCat was written for
+             a reader that did not exist. 57's candidate builder reads both now.
+             p.flow has been in every stored payload since the first statement, so
+             rows saved before this line carry it too. */
+          stmt: { xfer: !!p.xfer, attn: !!p.attn, flow: p.flow || '', incomeCat: p.incomeCat || '', fundedElsewhere: !!p.fundedElsewhere }
         }
       };
     }
