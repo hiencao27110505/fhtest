@@ -31,8 +31,8 @@
        v5 shipped with a bug that marked a scope done after one batch of
        unresolvable rows, so every device is sitting on a false "done" and v6
        is what undoes that. */
-    if (scope === 'family') return 'fh-tree-bf:v8:fam:' + ((window.DB && window.DB.fid) || '');
-    return 'fh-tree-bf:v8:per:' + ((window.fhPersonalData && fhPersonalData().uid) || '');
+    if (scope === 'family') return 'fh-tree-bf:v9:fam:' + ((window.DB && window.DB.fid) || '');
+    return 'fh-tree-bf:v9:per:' + ((window.fhPersonalData && fhPersonalData().uid) || '');
   }
   function _tbfDone(scope) { try { return localStorage.getItem(_tbfCursorKey(scope)) === 'done'; } catch (e) { return false; } }
   function _tbfMarkDone(scope) { try { localStorage.setItem(_tbfCursorKey(scope), 'done'); } catch (e) {} }
@@ -47,17 +47,22 @@
   /* The coarse node for one row, from the claims of the label it already sits in.
      A label that claims several groups ("Con cái") implies nothing, and that is
      an honest null: the row keeps no node until a human or a receipt says more. */
+  function _tbfClaims(scope, row) {
+    if (scope === 'family') return (window.catClaims || {})[row.cat] || null;
+    const P = window.fhPersonalData ? fhPersonalData() : null;
+    const lab = row.labelId && P && (P.labels || []).find((l) => l.id === row.labelId);
+    return lab ? lab.claims : (typeof fhDefaultClaimsFor === 'function' ? fhDefaultClaimsFor(row.cat, row.emoji) : null);
+  }
   function _tbfCoarse(scope, row) {
     if (typeof fhNodeFromClaims !== 'function') return null;
-    let claims = null;
-    if (scope === 'family') {
-      claims = (window.catClaims || {})[row.cat];
-    } else {
-      const P = window.fhPersonalData ? fhPersonalData() : null;
-      const lab = row.labelId && (P.labels || []).find((l) => l.id === row.labelId);
-      claims = lab ? lab.claims : (typeof fhDefaultClaimsFor === 'function' ? fhDefaultClaimsFor(row.cat, row.emoji) : null);
-    }
-    return fhNodeFromClaims(claims || []);
+    return fhNodeFromClaims(_tbfClaims(scope, row) || []);
+  }
+  /* A row the v565 sweep got wrong: a who-node on a row whose own label claims a
+     real category. The ledger is what the review reads as history, so these are
+     put right FIRST, ahead of the ordinary walk — not in a later idle slice. */
+  function _tbfDisplaced(scope, row) {
+    try { return typeof fhNodeDisplaced === 'function' && fhNodeDisplaced(row.node, _tbfClaims(scope, row)); }
+    catch (e) { return false; }
   }
 
   /* The refined node, or the coarse one. `kind` comes from the row itself on the
@@ -110,6 +115,12 @@
     try { if (n && typeof fhPipeNodeOk === 'function' && fhPipeNodeOk(t.node, { note: t.note }, true) === null) return true; } catch (e) {}
     return false;
   }
+  /* Displaced rows ahead of everything else; the rest keep ledger order. */
+  function _tbfRepairFirst(scope, rows) {
+    const fix = [], rest = [];
+    for (const t of rows) (_tbfDisplaced(scope, t) ? fix : rest).push(t);
+    return fix.concat(rest);
+  }
   async function _tbfSlice(scope) {
     /* Session cap: stop, but NEVER mark the scope done — n:0 is reserved for
        "walked the whole ledger". Next launch picks up where this left off. */
@@ -118,14 +129,12 @@
     const rows = [];
     if (scope === 'family') {
       if (typeof _fhWriteLocked === 'function' && _fhWriteLocked()) return { n: -1, more: false };
-      for (const t of (window.txns || [])) {
-        if (!t._dbId || !_tbfWants(t)) continue;
-        rows.push(t);
-        if (rows.length >= _TBF_BATCH) break;
-      }
+      const all = (window.txns || []).filter((t) => t._dbId && _tbfWants(t));
+      for (const t of _tbfRepairFirst('family', all)) { rows.push(t); if (rows.length >= _TBF_BATCH) break; }
     } else {
       const P = window.fhPersonalData ? fhPersonalData() : null;
       if (!P || !P.key || P.state !== 'ready') return { n: -1, more: false };
+      const all = [];
       for (const t of (P.txns || [])) {
         if (t._unreadable || !_tbfWants(t)) continue;
         /* MIRROR ROWS BELONG TO THE FAMILY LEDGER, NOT TO THIS SWEEP. Their node
@@ -135,9 +144,9 @@
            fhPersonalHydrate — a whole ledger re-decrypted per round. That is
            the hot device and the stuck "Đang đồng bộ…". */
         if (t.spaceId || t.linkId) { t._tbfSkip = 1; continue; }
-        rows.push(t);
-        if (rows.length >= _TBF_BATCH) break;
+        all.push(t);
       }
+      for (const t of _tbfRepairFirst('personal', all)) { rows.push(t); if (rows.length >= _TBF_BATCH) break; }
     }
     if (!rows.length) return { n: 0, more: false };            // the ledger really is finished
     /* Decide first (pure, instant), then write what actually changed, a few at
@@ -182,6 +191,14 @@
        sweep could restart itself through its own writes. */
     _tbfStarted[scope] = true;
     _tbfRunning[scope] = true;
+    /* A ledger holding rows a who-node displaced is what the review copies from,
+       so those do not wait for an idle moment: the first slice runs now. Every
+       later slice is as lazy as before. */
+    let urgent = false;
+    try {
+      const src = scope === 'family' ? (window.txns || []) : ((window.fhPersonalData && fhPersonalData().txns) || []);
+      urgent = src.some((t) => t && t.node && !(t.spaceId || t.linkId) && _tbfDisplaced(scope, t));
+    } catch (e) { urgent = false; }
     const step = () => {
       _tbfSlice(scope).then((r) => {
         if (r.more) { _tbfIdle(step); return; }                 // still rows to walk, next idle slice
@@ -193,7 +210,7 @@
         if (r.n === 0 && scope === 'personal' && window.renderPersonal) { try { renderPersonal(); } catch (e) {} }
       }).catch(() => { _tbfRunning[scope] = false; });
     };
-    _tbfIdle(step);
+    if (urgent) Promise.resolve().then(step); else _tbfIdle(step);
   };
   /* Re-run a scope from scratch: used after a regroup changes what labels claim,
      and available by hand when a tree version lands with new leaves. */

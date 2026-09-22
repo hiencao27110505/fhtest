@@ -918,17 +918,26 @@ function buildCsvCandidates(parsed, result) {
   var CONCEPT_TREE_GROUP = { Housing: 'home', Groceries: 'groceries', Clothing: 'clothing',
     Shopping: 'shopping', Transport: 'transport', Dining: 'food', Fun: 'leisure', Others: null };
 
+  /* Only a node that says WHAT was bought, and that the row's own label does not
+     contradict, is evidence (fhNodeIsEvidence). A who-node or a stale machine
+     guess in the ledger must not become the answer for the next row. */
   var nodeHistoryMap = (function () {
     var m = {};
+    var ev = function (node, claims) { return (typeof fhNodeIsEvidence === 'function') ? fhNodeIsEvidence(node, claims) : !!node; };
     try {
       (window.txns || []).forEach(function (t) {
         if (!t || !t.node || t.future) return;
+        if (!ev(t.node, (window.catClaims || {})[t.cat])) return;
         var k = normDescForDedup(t.note || '');
         if (k && !m[k]) m[k] = t.node;
       });
       var P = window.fhPersonalData ? fhPersonalData() : null;
+      var labels = (P && P.labels) || [];
       ((P && P.txns) || []).forEach(function (t) {
         if (!t || !t.node) return;
+        var lab = t.labelId && labels.find(function (l) { return l.id === t.labelId; });
+        var claims = lab ? lab.claims : (typeof fhDefaultClaimsFor === 'function' ? fhDefaultClaimsFor(t.cat, t.emoji) : null);
+        if (!ev(t.node, claims)) return;
         var k = normDescForDedup(t.note || '');
         if (k && !m[k]) m[k] = t.node;
       });
@@ -943,9 +952,9 @@ function buildCsvCandidates(parsed, result) {
      an anecdote, and a payee filed two ways is a shop that sells two things. The
      who-was-paid nodes do not vote — they say nothing about what was bought. */
   var payeeNodeMap = (function () {
-    var votes = {}, m = {}, WHO = { p2p: 1, purchase: 1, bizpay: 1, seller: 1 };
+    var votes = {}, m = {};
     var see = function (t) {
-      if (!t || !t.node || t.future || WHO[t.node]) return;
+      if (!t || !t.node || t.future || (typeof fhIsWhoNode === 'function' && fhIsWhoNode(t.node))) return;
       var head = String(t.note || '').split('|')[0].trim();
       if (!/\d{6,}/.test(head) || !/[A-Za-zÀ-ỹ]{2,}\s+[A-Za-zÀ-ỹ]{2,}/.test(head)) return;   // an account AND a name
       var k = normDescForDedup(head); if (!k) return;

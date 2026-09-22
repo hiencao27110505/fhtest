@@ -295,6 +295,30 @@ function fhTransferShape(text, amount){
   }
   return null;
 }
+/* ── Is a LOGGED row's node worth copying onto a new row with the same words? ──
+   The review reads the ledger as evidence: "a row called this already carries a
+   node". That is only evidence when the node says WHAT was bought. A who-node
+   (người bán, công ty, p2p) says nothing about the goods, and a node the row's
+   own label contradicts is a machine's old guess, not a person's answer — the
+   v565 sweep wrote "Thanh toán cho người bán" onto every logged Grab row, and
+   for a day every new Grab card inherited it from step 2 while steps 5 and 6
+   knew better (2026-09-22). `claims` is the row's label's claim list, or null. */
+var _WHO_NODES={p2p:1,purchase:1,bizpay:1,seller:1};
+function fhIsWhoNode(code){ return !!_WHO_NODES[code]; }
+function fhNodeIsEvidence(node, claims){
+  if(!fhNodeOk(node) || _WHO_NODES[node]) return false;
+  var lab=fhNodeFromClaims(claims||[]);
+  if(!lab) return true;                                   // a label that implies nothing cannot contradict
+  if(node===lab) return true;
+  return FH_TAX.ancestors(node).indexOf(lab)>=0;          // deeper inside the label's group is still agreement
+}
+/* A logged row a who-node DISPLACED: its label claims a real category and the node
+   ignores it. These are repaired first, before the idle sweep's ordinary walk. */
+function fhNodeDisplaced(node, claims){
+  if(!fhNodeOk(node) || !_WHO_NODES[node]) return false;
+  var lab=fhNodeFromClaims(claims||[]);
+  return !!(lab && !_WHO_NODES[lab]);
+}
 /* ── A node decided elsewhere, checked against the tree as it stands NOW ───────
    The mailbox worker seals a node on every row from ITS copy of the keywords, and
    that copy only changes when the worker is redeployed. A keyword retired here

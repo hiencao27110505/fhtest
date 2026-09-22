@@ -21,7 +21,7 @@ const ctx = { window: {}, localStorage: { getItem: () => null, setItem: () => {}
 vm.createContext(ctx);
 vm.runInContext(fs.readFileSync(path.join(ROOT, 'src/js-ui/11-taxonomy.js'), 'utf8'), ctx);
 vm.runInContext(fs.readFileSync(path.join(ROOT, 'src/js-ui/13-partition.js'), 'utf8')
-  + ';globalThis.__P={fhWhoNode,fhConceptGroup,fhPipeNodeOk,fhStructNode,fhSellerSignal,fhLabelForNode,fhDefaultClaimsFor,fhNodeGuess,fhNodeDepth,fhNodeFromClaims,fhNodeGroup,fhTransferShape,fhLooksSelfTransfer,fhNodeSelMatch,fhNodeSelLabel,fhNodeSelCode,fhCountsAsSpending,fhXferCashOut};', ctx);
+  + ';globalThis.__P={fhNodeIsEvidence,fhNodeDisplaced,fhWhoNode,fhConceptGroup,fhPipeNodeOk,fhStructNode,fhSellerSignal,fhLabelForNode,fhDefaultClaimsFor,fhNodeGuess,fhNodeDepth,fhNodeFromClaims,fhNodeGroup,fhTransferShape,fhLooksSelfTransfer,fhNodeSelMatch,fhNodeSelLabel,fhNodeSelCode,fhCountsAsSpending,fhXferCashOut};', ctx);
 const T = ctx.FH_TAX, P = ctx.__P;
 const FH_TAX_VI = (c) => T.get(c).vi;
 
@@ -302,7 +302,7 @@ console.log('\n-- money that moved is not money that was spent --');
   t('the sweep asks the transfer shape before the guess',
     bf.indexOf('fhTransferShape') < bf.indexOf('guess = fhNodeGuess'));
   /* And the rules changing is worthless if the sweep still thinks it is done. */
-  t('the sweep cursor moved with the rules', /fh-tree-bf:v8:/.test(bf) && !/fh-tree-bf:v[1-7]:/.test(bf));
+  t('the sweep cursor moved with the rules', /fh-tree-bf:v9:/.test(bf) && !/fh-tree-bf:v[1-8]:/.test(bf));
 }
 
 console.log('\n-- who was paid: a seller leaves marks a friend does not --');
@@ -363,6 +363,46 @@ console.log('\n-- WHAT was bought outranks WHO was paid, in every lane --');
   const bf = fs.readFileSync(path.join(ROOT, 'src/js-data/28-tree-backfill.js'), 'utf8');
   const body = bf.slice(bf.indexOf('function _tbfNodeFor'), bf.indexOf('function _tbfWants'));
   t('the sweep asks words, then the label, and who-was-paid only after it', body.indexOf('whatOnly: true') > 0 && body.indexOf('whatOnly: true') < body.indexOf('_tbfCoarse(scope, row) || who'));
+}
+
+console.log('\n-- the ledger is evidence only when it says WHAT, and the sweep repairs what a who-node displaced --');
+{
+  const CL = { transport: ['transport'], food: ['eatout', 'drinks'], vague: ['*'] };
+  t('a logged "Đi lại" row is evidence for the next row with those words', P.fhNodeIsEvidence('carhail', CL.transport) === true);
+  t('a logged who-node is never evidence, whatever its label', P.fhNodeIsEvidence('purchase', CL.transport) === false && P.fhNodeIsEvidence('p2p', null) === false);
+  t('a node the row\'s own label contradicts is a stale guess, not evidence', P.fhNodeIsEvidence('coffee', CL.transport) === false);
+  t('a label that implies nothing cannot contradict', P.fhNodeIsEvidence('coffee', CL.vague) === true && P.fhNodeIsEvidence('coffee', null) === true);
+  t('displaced = a who-node sitting on a row whose label claims a real category', P.fhNodeDisplaced('purchase', CL.transport) === true
+    && P.fhNodeDisplaced('purchase', CL.vague) === false && P.fhNodeDisplaced('carhail', CL.transport) === false && P.fhNodeDisplaced('p2p', null) === false);
+
+  /* The whole sweep, on a seeded personal ledger, with the writes captured. The
+     Grab row the v565 sweep filed as "Thanh toán cho người bán" sits BEHIND
+     twenty unclassified rows, and still gets written first, and right. */
+  const writes = [];
+  const rows = [];
+  for (let i = 0; i < 20; i++) rows.push({ id: 'n' + i, kind: 'expense', note: 'Chuyển tiền ' + i, cat: 'Khác', emoji: '🗂️', amt: 1000, node: null });
+  rows.push({ id: 'grab', kind: 'expense', note: 'Thanh toán GRAB', cat: 'Đi lại', emoji: '🚗', amt: 56000, node: 'purchase' });
+  rows.push({ id: 'mirror', kind: 'expense', note: 'Thanh toán GRAB', cat: 'Đi lại', emoji: '🚗', amt: 40000, node: 'purchase', spaceId: 'fam' });
+  const w = ctx.window;
+  w.fhPersonalData = () => ({ key: 'k', state: 'ready', txns: rows, labels: [] });
+  w.fhPersonalSetNode = async (id, node) => { writes.push([id, node]); return true; };
+  w.txns = [];
+  const c2 = { window: w, localStorage: { getItem: () => null, setItem: () => {} }, setTimeout: (fn) => fn(), Promise, console,
+    FH_TAX: T, fhTreeOn: () => true, fhNodeFromClaims: P.fhNodeFromClaims, fhDefaultClaimsFor: P.fhDefaultClaimsFor, fhNodeGuess: P.fhNodeGuess,
+    fhTransferShape: P.fhTransferShape, fhWhoNode: P.fhWhoNode, fhNodeDisplaced: P.fhNodeDisplaced, fhPipeNodeOk: P.fhPipeNodeOk, fhPersonalData: w.fhPersonalData };
+  vm.createContext(c2);
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'src/js-data/28-tree-backfill.js'), 'utf8'), c2);
+  w.fhTreeBackfill('personal');
+  const settle = () => new Promise((r) => setTimeout(r, 30));
+  /* The sweep writes through promises, so these assertions wait for it; the
+     file's summary at the bottom waits for THIS. */
+  globalThis.__pending = (async () => {
+    for (let i = 0; i < 20 && !writes.some((x) => x[0] === 'grab'); i++) await settle();
+    t('the displaced Grab row is the FIRST thing the sweep writes, though it sits last in the ledger', writes.length > 0 && writes[0][0] === 'grab', writes.slice(0, 3));
+    t('…and it goes back to what its label says: Đi lại', writes.find((x) => x[0] === 'grab') && writes.find((x) => x[0] === 'grab')[1] === 'transport', writes.find((x) => x[0] === 'grab'));
+    t('a mirror row is never written, displaced or not', !writes.some((x) => x[0] === 'mirror'), writes.filter((x) => x[0] === 'mirror'));
+    t('the sweep never touched the ordinary rows before the repair', writes.findIndex((x) => x[0] === 'grab') === 0);
+  })();
 }
 
 console.log('\n-- a node sealed by an older copy of the keywords is checked against today\'s --');
@@ -727,5 +767,7 @@ console.log('\n-- the generated targets stay in lockstep with the JSON --');
   t('the python twin exists', fs.existsSync(path.join(ROOT, 'earthy/serverless/functions/transaction-parser/parser/taxonomy.py')));
 }
 
-console.log('\n' + (fail ? fail + ' FAILED, ' : 'ALL ') + pass + ' PASSED');
-process.exit(fail ? 1 : 0);
+(globalThis.__pending || Promise.resolve()).then(() => {
+  console.log('\n' + (fail ? fail + ' FAILED, ' : 'ALL ') + pass + ' PASSED');
+  process.exit(fail ? 1 : 0);
+});

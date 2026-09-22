@@ -6743,6 +6743,30 @@ function fhTransferShape(text, amount){
   }
   return null;
 }
+/* ── Is a LOGGED row's node worth copying onto a new row with the same words? ──
+   The review reads the ledger as evidence: "a row called this already carries a
+   node". That is only evidence when the node says WHAT was bought. A who-node
+   (người bán, công ty, p2p) says nothing about the goods, and a node the row's
+   own label contradicts is a machine's old guess, not a person's answer — the
+   v565 sweep wrote "Thanh toán cho người bán" onto every logged Grab row, and
+   for a day every new Grab card inherited it from step 2 while steps 5 and 6
+   knew better (2026-09-22). `claims` is the row's label's claim list, or null. */
+var _WHO_NODES={p2p:1,purchase:1,bizpay:1,seller:1};
+function fhIsWhoNode(code){ return !!_WHO_NODES[code]; }
+function fhNodeIsEvidence(node, claims){
+  if(!fhNodeOk(node) || _WHO_NODES[node]) return false;
+  var lab=fhNodeFromClaims(claims||[]);
+  if(!lab) return true;                                   // a label that implies nothing cannot contradict
+  if(node===lab) return true;
+  return FH_TAX.ancestors(node).indexOf(lab)>=0;          // deeper inside the label's group is still agreement
+}
+/* A logged row a who-node DISPLACED: its label claims a real category and the node
+   ignores it. These are repaired first, before the idle sweep's ordinary walk. */
+function fhNodeDisplaced(node, claims){
+  if(!fhNodeOk(node) || !_WHO_NODES[node]) return false;
+  var lab=fhNodeFromClaims(claims||[]);
+  return !!(lab && !_WHO_NODES[lab]);
+}
 /* ── A node decided elsewhere, checked against the tree as it stands NOW ───────
    The mailbox worker seals a node on every row from ITS copy of the keywords, and
    that copy only changes when the worker is redeployed. A keyword retired here
@@ -18161,17 +18185,26 @@ function buildCsvCandidates(parsed, result) {
   var CONCEPT_TREE_GROUP = { Housing: 'home', Groceries: 'groceries', Clothing: 'clothing',
     Shopping: 'shopping', Transport: 'transport', Dining: 'food', Fun: 'leisure', Others: null };
 
+  /* Only a node that says WHAT was bought, and that the row's own label does not
+     contradict, is evidence (fhNodeIsEvidence). A who-node or a stale machine
+     guess in the ledger must not become the answer for the next row. */
   var nodeHistoryMap = (function () {
     var m = {};
+    var ev = function (node, claims) { return (typeof fhNodeIsEvidence === 'function') ? fhNodeIsEvidence(node, claims) : !!node; };
     try {
       (window.txns || []).forEach(function (t) {
         if (!t || !t.node || t.future) return;
+        if (!ev(t.node, (window.catClaims || {})[t.cat])) return;
         var k = normDescForDedup(t.note || '');
         if (k && !m[k]) m[k] = t.node;
       });
       var P = window.fhPersonalData ? fhPersonalData() : null;
+      var labels = (P && P.labels) || [];
       ((P && P.txns) || []).forEach(function (t) {
         if (!t || !t.node) return;
+        var lab = t.labelId && labels.find(function (l) { return l.id === t.labelId; });
+        var claims = lab ? lab.claims : (typeof fhDefaultClaimsFor === 'function' ? fhDefaultClaimsFor(t.cat, t.emoji) : null);
+        if (!ev(t.node, claims)) return;
         var k = normDescForDedup(t.note || '');
         if (k && !m[k]) m[k] = t.node;
       });
@@ -18186,9 +18219,9 @@ function buildCsvCandidates(parsed, result) {
      an anecdote, and a payee filed two ways is a shop that sells two things. The
      who-was-paid nodes do not vote — they say nothing about what was bought. */
   var payeeNodeMap = (function () {
-    var votes = {}, m = {}, WHO = { p2p: 1, purchase: 1, bizpay: 1, seller: 1 };
+    var votes = {}, m = {};
     var see = function (t) {
-      if (!t || !t.node || t.future || WHO[t.node]) return;
+      if (!t || !t.node || t.future || (typeof fhIsWhoNode === 'function' && fhIsWhoNode(t.node))) return;
       var head = String(t.note || '').split('|')[0].trim();
       if (!/\d{6,}/.test(head) || !/[A-Za-zÀ-ỹ]{2,}\s+[A-Za-zÀ-ỹ]{2,}/.test(head)) return;   // an account AND a name
       var k = normDescForDedup(head); if (!k) return;
@@ -24589,7 +24622,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v567';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v568';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -31598,8 +31631,8 @@ window.obGoogle = async function () {
        v5 shipped with a bug that marked a scope done after one batch of
        unresolvable rows, so every device is sitting on a false "done" and v6
        is what undoes that. */
-    if (scope === 'family') return 'fh-tree-bf:v8:fam:' + ((window.DB && window.DB.fid) || '');
-    return 'fh-tree-bf:v8:per:' + ((window.fhPersonalData && fhPersonalData().uid) || '');
+    if (scope === 'family') return 'fh-tree-bf:v9:fam:' + ((window.DB && window.DB.fid) || '');
+    return 'fh-tree-bf:v9:per:' + ((window.fhPersonalData && fhPersonalData().uid) || '');
   }
   function _tbfDone(scope) { try { return localStorage.getItem(_tbfCursorKey(scope)) === 'done'; } catch (e) { return false; } }
   function _tbfMarkDone(scope) { try { localStorage.setItem(_tbfCursorKey(scope), 'done'); } catch (e) {} }
@@ -31614,17 +31647,22 @@ window.obGoogle = async function () {
   /* The coarse node for one row, from the claims of the label it already sits in.
      A label that claims several groups ("Con cái") implies nothing, and that is
      an honest null: the row keeps no node until a human or a receipt says more. */
+  function _tbfClaims(scope, row) {
+    if (scope === 'family') return (window.catClaims || {})[row.cat] || null;
+    const P = window.fhPersonalData ? fhPersonalData() : null;
+    const lab = row.labelId && P && (P.labels || []).find((l) => l.id === row.labelId);
+    return lab ? lab.claims : (typeof fhDefaultClaimsFor === 'function' ? fhDefaultClaimsFor(row.cat, row.emoji) : null);
+  }
   function _tbfCoarse(scope, row) {
     if (typeof fhNodeFromClaims !== 'function') return null;
-    let claims = null;
-    if (scope === 'family') {
-      claims = (window.catClaims || {})[row.cat];
-    } else {
-      const P = window.fhPersonalData ? fhPersonalData() : null;
-      const lab = row.labelId && (P.labels || []).find((l) => l.id === row.labelId);
-      claims = lab ? lab.claims : (typeof fhDefaultClaimsFor === 'function' ? fhDefaultClaimsFor(row.cat, row.emoji) : null);
-    }
-    return fhNodeFromClaims(claims || []);
+    return fhNodeFromClaims(_tbfClaims(scope, row) || []);
+  }
+  /* A row the v565 sweep got wrong: a who-node on a row whose own label claims a
+     real category. The ledger is what the review reads as history, so these are
+     put right FIRST, ahead of the ordinary walk — not in a later idle slice. */
+  function _tbfDisplaced(scope, row) {
+    try { return typeof fhNodeDisplaced === 'function' && fhNodeDisplaced(row.node, _tbfClaims(scope, row)); }
+    catch (e) { return false; }
   }
 
   /* The refined node, or the coarse one. `kind` comes from the row itself on the
@@ -31677,6 +31715,12 @@ window.obGoogle = async function () {
     try { if (n && typeof fhPipeNodeOk === 'function' && fhPipeNodeOk(t.node, { note: t.note }, true) === null) return true; } catch (e) {}
     return false;
   }
+  /* Displaced rows ahead of everything else; the rest keep ledger order. */
+  function _tbfRepairFirst(scope, rows) {
+    const fix = [], rest = [];
+    for (const t of rows) (_tbfDisplaced(scope, t) ? fix : rest).push(t);
+    return fix.concat(rest);
+  }
   async function _tbfSlice(scope) {
     /* Session cap: stop, but NEVER mark the scope done — n:0 is reserved for
        "walked the whole ledger". Next launch picks up where this left off. */
@@ -31685,14 +31729,12 @@ window.obGoogle = async function () {
     const rows = [];
     if (scope === 'family') {
       if (typeof _fhWriteLocked === 'function' && _fhWriteLocked()) return { n: -1, more: false };
-      for (const t of (window.txns || [])) {
-        if (!t._dbId || !_tbfWants(t)) continue;
-        rows.push(t);
-        if (rows.length >= _TBF_BATCH) break;
-      }
+      const all = (window.txns || []).filter((t) => t._dbId && _tbfWants(t));
+      for (const t of _tbfRepairFirst('family', all)) { rows.push(t); if (rows.length >= _TBF_BATCH) break; }
     } else {
       const P = window.fhPersonalData ? fhPersonalData() : null;
       if (!P || !P.key || P.state !== 'ready') return { n: -1, more: false };
+      const all = [];
       for (const t of (P.txns || [])) {
         if (t._unreadable || !_tbfWants(t)) continue;
         /* MIRROR ROWS BELONG TO THE FAMILY LEDGER, NOT TO THIS SWEEP. Their node
@@ -31702,9 +31744,9 @@ window.obGoogle = async function () {
            fhPersonalHydrate — a whole ledger re-decrypted per round. That is
            the hot device and the stuck "Đang đồng bộ…". */
         if (t.spaceId || t.linkId) { t._tbfSkip = 1; continue; }
-        rows.push(t);
-        if (rows.length >= _TBF_BATCH) break;
+        all.push(t);
       }
+      for (const t of _tbfRepairFirst('personal', all)) { rows.push(t); if (rows.length >= _TBF_BATCH) break; }
     }
     if (!rows.length) return { n: 0, more: false };            // the ledger really is finished
     /* Decide first (pure, instant), then write what actually changed, a few at
@@ -31749,6 +31791,14 @@ window.obGoogle = async function () {
        sweep could restart itself through its own writes. */
     _tbfStarted[scope] = true;
     _tbfRunning[scope] = true;
+    /* A ledger holding rows a who-node displaced is what the review copies from,
+       so those do not wait for an idle moment: the first slice runs now. Every
+       later slice is as lazy as before. */
+    let urgent = false;
+    try {
+      const src = scope === 'family' ? (window.txns || []) : ((window.fhPersonalData && fhPersonalData().txns) || []);
+      urgent = src.some((t) => t && t.node && !(t.spaceId || t.linkId) && _tbfDisplaced(scope, t));
+    } catch (e) { urgent = false; }
     const step = () => {
       _tbfSlice(scope).then((r) => {
         if (r.more) { _tbfIdle(step); return; }                 // still rows to walk, next idle slice
@@ -31760,7 +31810,7 @@ window.obGoogle = async function () {
         if (r.n === 0 && scope === 'personal' && window.renderPersonal) { try { renderPersonal(); } catch (e) {} }
       }).catch(() => { _tbfRunning[scope] = false; });
     };
-    _tbfIdle(step);
+    if (urgent) Promise.resolve().then(step); else _tbfIdle(step);
   };
   /* Re-run a scope from scratch: used after a regroup changes what labels claim,
      and available by hand when a tree version lands with new leaves. */
