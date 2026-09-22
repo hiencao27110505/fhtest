@@ -108,9 +108,18 @@
   }
 
   (function () {
-    var _cstKnown = null;
+    var _cstKnown = null, _cstUid = null;
 
     async function _cstFetch() {
+      /* THE CACHE BELONGS TO A PERSON, NOT TO A PAGE LOAD (2026-09-22). `_cstKnown`
+         is module state that sign-out never cleared, so a second account signing in
+         on the same tab inherited the first one's "already agreed" and the connect
+         flow asked nobody: a real mailbox was connected and read with NO consent row
+         at all, and the statement lane (which checks the recorded version on the
+         server) then refused for good. Keyed to the uid, a different person is a
+         cache miss. */
+      var _uid = (window.fhUser && window.fhUser.id) || '';
+      if (_cstUid !== _uid) { _cstUid = _uid; _cstKnown = null; }
       if (_cstKnown && _cstKnown.version >= FH_CONSENT_V) return _cstKnown;
       var res = await sb.from('user_consents')
         .select('version,consented_at')
@@ -612,7 +621,18 @@
     window.fhConsentOffer = async function (go) {
       var rec = null;
       try { rec = await _cstFetch(); } catch (e) { return true; }
-      if (!rec || rec.version >= FH_CONSENT_V) return true;        // never consented: the connect flow asks; current: nothing to say
+      if (rec && rec.version >= FH_CONSENT_V) return true;         // current: nothing to say
+      /* NO RECORD AT ALL, yet here they are on the way into the review: the
+         comment this replaces said "the connect flow asks", which is true only
+         for someone not connected yet. A mailbox connected while the cache
+         above was lying (see _cstFetch) leaves a person nothing would EVER ask
+         again, and no statement is captured for as long as that holds. Asking
+         here is the only way back. */
+      if (!rec) {
+        var _conn = null;
+        try { _conn = window.fhAutoTxnConnection ? await window.fhAutoTxnConnection() : null; } catch (eC) {}
+        if (!_conn) return true;                                   // not connected: the connect flow asks
+      }
       try { if (sessionStorage.getItem('fh-cst-offered') === String(FH_CONSENT_V)) return true; sessionStorage.setItem('fh-cst-offered', String(FH_CONSENT_V)); } catch (e) {}
       window.fhConsentSheet({ then: go, later: go, prior: rec, priorKnown: true });
       return false;
