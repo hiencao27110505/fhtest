@@ -159,7 +159,7 @@ hand-merging `index.html`. Both replaced vigilance with structure.
     the repo, and the live comments already call them "0146"; idempotent) and `0147_email_reading_v2`
     (additive: `mailbox_grants.reader_v`, `email_transactions.row_kind`, new `mail_formats`,
     `parked_messages()` + `release_reader_giveups()`, `sender_fingerprints.model_reads/model_read_build`,
-    and `mailbox_read_status()` re-created to skip notices). **Next free is `0148`.** **BOTH APPLIED
+    and `mailbox_read_status()` re-created to skip notices). **`0148_reader_v_default_2` APPLIED 2026-09-22 (new grants start on reader 2). Next free is `0149`.** **0146+0147 BOTH APPLIED
     2026-09-22 ~01:30 UTC and verified by query.** `mailbox-sync` v58, `mailbox-dryrun` v8, `merchant-concepts`
     v4 DEPLOYED from `feat/email-reading-v2` (live v57 was diffed against `main` first: identical). Client SW
     v567. Reader v2 is switched on per mailbox via `mailbox_grants.reader_v` (founders first). Release-log
