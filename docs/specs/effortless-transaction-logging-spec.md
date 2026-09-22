@@ -1898,6 +1898,45 @@ as — or the same day as — the deploy. A deploy announced only in
 
 ## 28. Releases (newest first)
 
+### 2026-09-22 (evening) — reader + device: a payment to a seller keeps its description, and a new personal ledger gets real categories · mailbox-sync v60, merchant-concepts v6, mailbox-dryrun v10 · SW v570 · migration 0148
+
+- **For product:** two faults found by the founder on a real queue within an hour of the
+  morning's deploy. A QR payment to a shop came into the ledger with no description at
+  all, and every row on a fresh personal ledger was filed under "Others". Both are
+  fixed. A seller payment now carries the shop's name, and a personal ledger that has
+  no categories of its own is given the tree's own list (Ăn uống, Đi lại, Mua sắm and
+  the rest) instead of a single catch-all.
+- **Under the hood:** three separate causes.
+  (1) `readLabelTable` called any mail with a "Đến tài khoản" row a `p2p_transfer`, on
+  the presence of the row alone. The morning's deploy started sealing that verdict as
+  `reader_type`, and the device asks it first to decide whether to leave a description
+  blank (a person's name answers "who", not "what for"), so a QR payment to a seller
+  lost its description: measured 19 of 104 rows read as p2p, 7 of them merchants, 5
+  blank with a counterparty available. The verdict now requires the counterparty to
+  read as a person; a seller mark (`VQRQ…`, `99MM…`), a legal-entity name or a merchant
+  row makes it `ecommerce_receipt`, and an unreadable counterparty makes it null.
+  `sellerMark`/`nameKey` moved into `labeltable.mjs` beside `looksLikePerson` (importing
+  them back from `signals.mjs` would have been a cycle); `signals.mjs` re-exports them.
+  The sealed `transaction_type` column, derived from the sender kind, is untouched.
+  (2) The device now asks `counterparty_kind` rather than the p2p verdict, which also
+  covers rows whose stored v4 template still carries the stale frozen static.
+  (3) `fhPersonalLabelsEnsureDefaults` built a person's first partition from the
+  category names already on their rows, and on a brand-new ledger it ran with zero
+  rows, creating only the catch-all and latching. Its guard is now about the
+  partition's shape, and with nothing to learn from it seeds one label per expense root
+  from `FH_TAX`. `label_id` is written on every personal promote (it never was: 0 of 240
+  rows), a personal row takes its category name from the person's own labels rather
+  than the family's, and the breakdown groups by the node's root when the partition is
+  still bare. Migration `0148` makes `reader_v` default to 2, after a mailbox connected
+  20 minutes post-rollout defaulted to 1 and sealed 219 rows with the old reader.
+- **Spec sections updated:** none in this document; the v2 spec owns the reader.
+- **Watch for:** rows imported BEFORE this deploy keep their empty note. The counterparty
+  is stored on most of them (187 of 187 expense rows on the affected account), so a
+  one-time device repair could fill them; not built, pending a count of how many rows
+  across the five accounts with email-imported history actually have an empty note.
+  Already-learned v4 templates keep their frozen `transaction_type` until their anchors
+  miss; `EXTRACTION_LOGIC_VERSION` was deliberately not bumped.
+
 ### 2026-09-22 — email reading v2: migrations 0146–0147 APPLIED · mailbox-sync v58, mailbox-dryrun v8, merchant-concepts v4 DEPLOYED · client SW v567
 
 - **For product:** the reader now states every fact a ledger row can hold, not
