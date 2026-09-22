@@ -129,6 +129,45 @@ const TABLE = [
   ['a dư-nợ mail that is NOT a repayment keeps the card whatever account row it prints',
     { subject: 'Thông báo giao dịch', bodyText: 'Từ tài khoản: 000111222333444\nDư nợ: 3.000.000 VND' },
     'credit_card'],
+  /* 2026-09-22, rule 6 (last resort). 78 of 104 production mails fell through
+     every rule above to null, the device will not identify an account without a
+     kind, and 143 of 187 expense rows on one real account imported as "Chưa
+     rõ" — while the mail itself printed the account. A labelled account-number
+     row with no card word anywhere is the mail stating its own instrument, and
+     kind is editable metadata (T12), so this is not the guess Q16 forbids. */
+  ['a transfer notice printing a labelled account number and no card word is a deposit',
+    { subject: 'VIB - Thông báo giao dịch',
+      bodyText: ['Từ tài khoản: 000111222333444', 'Số tiền: 2.000.000 VND',
+                 'Đến: NGUYEN VAN TEST - Ngân hàng TEST',
+                 'Nội dung: chuyen tien'].join('\n') },
+    'deposit'],
+  ['...but a credit limit anywhere in the same mail keeps rule 1 in charge',
+    { subject: 'VIB - Thông báo giao dịch',
+      bodyText: ['Từ tài khoản: 000111222333444', 'Số tiền: 2.000.000 VND',
+                 'Hạn mức khả dụng: 15.000.000 VND'].join('\n') },
+    'credit_card'],
+  ['a masked PAN under a "Số thẻ" label is card evidence, never an account number',
+    { subject: 'Thông báo giao dịch',
+      bodyText: 'Số thẻ: 4751********1234\nSố tiền: 250.000 VND' },
+    null],
+  ['a bare 12-digit reference with no account label stays null — the LABEL is the rule',
+    { subject: 'Thông báo giao dịch',
+      bodyText: 'Mã giao dịch: 123456789012\nSố tiền: 250.000 VND' },
+    null],
+  ['a labelled row whose value is only 6 digits is not an account number',
+    { subject: 'Thông báo giao dịch',
+      bodyText: 'Tài khoản: 123456\nSố tiền: 50.000 VND' },
+    null],
+  ['a mail with BOTH a labelled account row and "Số dư" is still the deposit rule 3 answer',
+    { subject: 'Thông báo giao dịch',
+      bodyText: ['Từ tài khoản: 000111222333444', 'Số tiền: 2.000.000 VND',
+                 'Số dư: 9.850.000 VND'].join('\n') },
+    'deposit'],
+  ['the account-side repayment notice still reads as the account, not a deposit verdict',
+    { subject: 'Thanh toán sao kê thẻ Master Card thành công',
+      bodyText: ['Từ tài khoản: 000111222333444', 'Số thẻ: 5138 92** **** 4751',
+                 'Số tiền: 2.150.000 VND', 'Dư nợ còn lại: 0 VND'].join('\n') },
+    null],
 ];
 for (const [name, input, want] of TABLE) {
   const got = T.deriveAccountKind(input);
@@ -146,6 +185,18 @@ t('but a credit signal beats even the wallet — Ví Trả Sau carries dư nợ'
   T.deriveAccountKind({ provider: 'MoMo', bodyText: 'Dư nợ kỳ này: 500.000đ' }) === 'credit_card');
 t('a "số dư" in prose does not fire off the word "dư" alone',
   T.deriveAccountKind({ bodyText: 'So du\nNoi dung chuyen tien' }) === 'deposit');
+
+/* Agreeing on these inputs is necessary and never sufficient: the .gs slice is
+   kept in step by hand-pasting, so pin the whole classifier byte for byte the
+   way the foreign-currency guard pins its functions. */
+{
+  const mjs = fs.readFileSync(path.join(__dirname, '../supabase/functions/_shared/mailbox/templates.mjs'), 'utf8');
+  const cut = (s) => s.slice(s.indexOf('// ---- the instrument classifier'),
+                             s.indexOf('/* Foreign-currency guard'));
+  t('the classifier slice is byte-identical in both files',
+    cut(mjs) === cut(src) && cut(src).length > 3000,
+    cut(mjs).length + ' vs ' + cut(src).length);
+}
 
 /* ── 2. the template static ──────────────────────────────────────────────── */
 console.log('\n-- a non-null verdict freezes into the shape, null stays absent --');

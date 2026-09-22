@@ -242,6 +242,47 @@ function _akNorm(s) {
     .toLowerCase().replace(/\s+/g, ' ');
 }
 
+// A LABELLED account-number row, and the card words that veto reading one.
+// _akNorm has flattened newlines to spaces, so the value is taken from the same
+// 40-character window rule 1 uses — wide enough for a table cell that prints
+// the holder's name in front of the number, and still anchored to the label so
+// a reference or an order id can never pass as an account.
+var _AK_ACCT_LABELS = 'tu tai khoan|tai khoan trich no|tai khoan ghi no|' +
+  'tai khoan nguon|so tai khoan|tai khoan|debit account|from account|account number';
+// Escaped, not literal: the .gs twin is deployed by hand-pasting (see _akNorm).
+var _AK_CARD_EVIDENCE = new RegExp('\\b(?:han muc kha dung|du no|the tin dung|so the|' +
+  'the (?:visa|master|jcb))\\b|\\d[ .]*\\*{2,}|\\*{2,}[ .]*\\d');
+
+// Digits of the first grouping that IS an account number: runs of 3+ digits
+// joined by a single space or dot ("0123 4567 8901"), counted only until the
+// count reaches 10. Stopping there is the point — a body flattened to one line
+// can print an amount right after the number, and a blind count would push a
+// genuine 15-digit VIB account past the ceiling and lose it.
+function _akAcctDigits(window) {
+  var m = String(window).match(/\d{3,}(?:[ .]\d{3,}){0,5}/);
+  if (!m) return 0;
+  var parts = m[0].split(/[ .]/);
+  var n = 0;
+  for (var i = 0; i < parts.length; i++) {
+    n += parts[i].length;
+    if (n >= 10) break;
+  }
+  return n;
+}
+
+function _akHasAccountRow(body) {
+  var re = new RegExp('\\b(?:' + _AK_ACCT_LABELS + ')\\b([^\\d]{0,40}\\d[\\d *.]{0,30})', 'g');
+  var m;
+  while ((m = re.exec(body))) {
+    // Asterisks among the digits are card masking, so that value is a PAN and
+    // not an account number. Keep reading: a real account row may follow.
+    if (/\d[ .]*\*|\*[ .]*\d/.test(m[1])) continue;
+    var n = _akAcctDigits(m[1]);
+    if (n >= 10 && n <= 16) return true;
+  }
+  return false;
+}
+
 function deriveAccountKind(input) {
   var body = _akNorm(input && input.bodyText);
   var subject = _akNorm(input && input.subject);
@@ -285,6 +326,19 @@ function deriveAccountKind(input) {
   //    materialized as a card. The client dropped the same heuristic on
   //    2026-09-02 (full-ledger-spec T12); the server kept it. A number says
   //    nothing about kind — unknown stays unknown, never a guessed debt.
+  // 6. LAST RESORT (2026-09-22): the mail PRINTS an account and says nothing
+  //    anywhere about a card. 78 of 104 production mails reached this line as
+  //    null, and a row with no kind is a row the device refuses to identify
+  //    (fhStagedAcct): 143 of 187 expense rows on one real account imported
+  //    with account_id null and showed "Chưa rõ" as the money source — while
+  //    their body said "Từ tài khoản: <15 digits>". Identity is (provider,
+  //    tail) and kind is editable metadata (T12), so stating what the mail
+  //    prints is not the guess Q16 forbids. Guarded: a LABELLED row only, 10
+  //    to 16 digits, card-style masking refused as a PAN, and ANY card word
+  //    leaves the rules above with their answer, null included — which is also
+  //    why this cannot double-fire with the accountSide exception, whose mail
+  //    carries dư nợ by construction.
+  if (!_AK_CARD_EVIDENCE.test(subject + ' ' + body) && _akHasAccountRow(body)) return 'deposit';
   return null;
 }
 
