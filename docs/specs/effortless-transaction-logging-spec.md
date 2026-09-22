@@ -1898,6 +1898,59 @@ as — or the same day as — the deploy. A deploy announced only in
 
 ## 28. Releases (newest first)
 
+### 2026-09-22 — email reading v2: migrations 0146–0147 APPLIED · mailbox-sync v58, mailbox-dryrun v8, merchant-concepts v4 DEPLOYED · client SW v567
+
+- **For product:** the reader now states every fact a ledger row can hold, not
+  only an amount and a merchant: the counterpart account of a transfer, the card
+  a repayment pays off, a fee as its own line, the exact time on every kind, and
+  a closed list of what the mail says the movement IS (a card repayment, an
+  own-account transfer, a salary, a refund, a securities fill, an instalment).
+  The review screen pre-selects the kind and the missing half from those facts,
+  and marks a pre-selection that rests on a guess with "máy đoán". VIB
+  credit-card notices, a third of one founder's mailbox and unreadable locally
+  before, are read by a hand-written format with no model call. Card due
+  notices are read quietly into the card's due day and never become review
+  cards. Bank staff mailboxes are no longer read, sent to the model, or cached.
+  Measured on 955 real mails with the model off: read locally 445 → 801, model-
+  needing 507 → 151.
+- **Under the hood:** `docs/specs/email-reading-v2-spec.md` (R1–R18) replaces
+  §16 of this document. Payload v2 (`contract.mjs`, sealed only when
+  `mailbox_grants.reader_v = 2`; at 1 the payload is byte-identical, pinned).
+  Reader: HTML read as a table (`htmltable.mjs`), inline `Label: value` rows,
+  wider vocabulary, per-field provenance, the signal detector (`signals.mjs`),
+  label-map formats keyed `(provider, label-set signature)` with three VIB seeds
+  (`formats.mjs`, table `mail_formats`), the prompt as a shared core plus one
+  block per sender class, `WALLETS` split into wallet/gateway/broker/lender.
+  Quota: a model-needing mail is parked by id (`mailbox_message_attempts`, 0146
+  recorded, 0147 `parked_messages`/`release_reader_giveups`) and the window
+  finishes; a per-day 429 pauses the model until the Pacific reset
+  (`model_pause`, 0116 finally wired); one model read per format per build
+  (`sender_fingerprints.model_reads`). Notices stage with clear `row_kind =
+  'notice'` and are excluded from every pending count (`mailbox_read_status()`
+  re-created). Landing 1 fixes: money-in direction in the table reader, the
+  false foreign-currency refusal that un-learned VND templates, subject hygiene
+  (phone/token rules, hash on doubt), the sender gate, the label harvester's
+  value-as-label bug, the merchant classifier sending memo text (now merchant
+  name only, never for a person), the batch classifier's schema, the reader's
+  verdict and status reaching the row, time kept on five kinds, node kept on
+  family promote, statement fee/refund/salary kept. `mailbox-dryrun` committed
+  and made dry. Scoreboard: `tools/scoreboard/run.mjs` over a local, git-ignored
+  corpus pulled by `tools/pull-mail-corpus.mjs`. Commits f5fb120 → a6ff155 on
+  `feat/email-reading-v2`.
+- **Spec sections updated:** §16 now points to the v2 spec; §9 ("the cursor
+  moves last") gains the parking exception; §24 metadata note gains `row_kind`;
+  §12.2 gains `mail_formats`; the trust-model table §3 gains the courier line
+  (forwarding's reader retires in a follow-up paste; until then the .gs keeps
+  its own prompt).
+- **Watch for:** reader v2 is switched on per mailbox (`reader_v`), founders
+  first. Rows sealed before the switch keep v1 payloads until reviewed. Broker
+  and lender reading is built on synthetic mail only: no corpus had any. The
+  `.gs` twin is NOT yet a courier and its normaliser was updated but not pasted.
+  `read_tally` gains stages `format_seed`, `format`, `parked`, `given_up`,
+  `format_cap`, `notice_staged`, `signal_agree/disagree`. The privacy scrub of
+  `sender_fingerprints`/`extract_miss_labels` (previewed 09-21) is applied
+  separately once the sender gate has run for a day.
+
 ### 2026-09-19 — statement capture: migrations 0139–0142 APPLIED · push-send v21, merchant-concepts v1, mailbox-sync v50 DEPLOYED · client live
 
 - **For product:** when a bank or e-wallet emails a statement file, it shows up in

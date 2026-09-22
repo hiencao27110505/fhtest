@@ -159,8 +159,11 @@ hand-merging `index.html`. Both replaced vigilance with structure.
     the repo, and the live comments already call them "0146"; idempotent) and `0147_email_reading_v2`
     (additive: `mailbox_grants.reader_v`, `email_transactions.row_kind`, new `mail_formats`,
     `parked_messages()` + `release_reader_giveups()`, `sender_fingerprints.model_reads/model_read_build`,
-    and `mailbox_read_status()` re-created to skip notices). **Next free is `0148`.** I will say here
-    when they are applied.
+    and `mailbox_read_status()` re-created to skip notices). **Next free is `0148`.** **BOTH APPLIED
+    2026-09-22 ~01:30 UTC and verified by query.** `mailbox-sync` v58, `mailbox-dryrun` v8, `merchant-concepts`
+    v4 DEPLOYED from `feat/email-reading-v2` (live v57 was diffed against `main` first: identical). Client SW
+    v567. Reader v2 is switched on per mailbox via `mailbox_grants.reader_v` (founders first). Release-log
+    entry in the umbrella spec Part 3.
   - **Deploys this work will make:** `mailbox-sync`, `mailbox-dryrun`. `get_edge_function` is diffed
     against `main` first, per the 2026-09-21 rule.
   - **A second of something (§3):** payload `v: 2` beside v1, a second template store beside
