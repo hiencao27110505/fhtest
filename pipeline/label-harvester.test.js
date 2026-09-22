@@ -37,7 +37,7 @@ const t = (n, ok, d) => { console.log((ok ? '  PASS  ' : '  FAIL  ') + n + (!ok 
 /* Mixed-case values on purpose: nothing here has a digit, a caps run or a
    currency mark, so no SHAPE rule catches it. Only the loop fix does. */
 const BODY = [
-  'Chủ tài khoản',        // unknown label
+  'Người đại diện',       // unknown label ("Chủ tài khoản" stood here until it joined the vocabulary, 2026-09-22)
   'Nguyễn Văn',           // ...its value: a (synthetic) name, two Title-Case words
   'Rạp chiếu',            // unknown label
   'Rạp Sao Mai',          // ...its value: a venue
@@ -54,8 +54,8 @@ const BODY = [
 console.log('\n-- a label\'s value line is never a candidate --');
 const got = unknownLabels(BODY);
 const has = (x) => got.includes(x);
-t('the unknown labels are harvested', has('Chủ tài khoản') && has('Rạp chiếu') && has('Tên phim') && has('Thành phố') && has('Ghi chú thêm'), got);
-t('NOT the person\'s name under "Chủ tài khoản"', !has('Nguyễn Văn'), got);
+t('the unknown labels are harvested', has('Người đại diện') && has('Rạp chiếu') && has('Tên phim') && has('Thành phố') && has('Ghi chú thêm'), got);
+t('NOT the person\'s name under "Người đại diện"', !has('Nguyễn Văn'), got);
 t('NOT the venue', !has('Rạp Sao Mai'), got);
 t('NOT the film title', !has('Chuyện mùa hè'), got);
 t('NOT the city', !has('Đà Lạt'), got);
@@ -107,8 +107,13 @@ for (const cell of ['Xin chào Nguyễn Văn', 'Dear Customer', 'Thân gửi anh
 
 console.log('\n-- and the real vocabulary still gets through --');
 const kept = (cell) => unknownLabels('| ' + cell + ' | x |').includes(cell);
-t('"Phí (bao gồm VAT)"', kept('Phí (bao gồm VAT)'));
-t('"Diễn giải"', kept('Diễn giải'));
+/* "Phí (bao gồm VAT)" and "Diễn giải" were the two examples here until
+   2026-09-22, when the harvest did its job and both joined the vocabulary
+   (labeltable.mjs LABELS: fee, memo). A label the reader knows is no longer a
+   miss, so the same two shapes are pinned with labels it still does not know. */
+t('"Thuế (bao gồm VAT)"', kept('Thuế (bao gồm VAT)'));
+t('"Ghi chú"', kept('Ghi chú'));
+t('a label that joined the vocabulary is no longer harvested', !kept('Diễn giải') && !kept('Phí (bao gồm VAT)'));
 t('"Mã khách hàng"', kept('Mã khách hàng'));
 t('"Hạng thẻ"', kept('Hạng thẻ'));
 t('a Title-Cased label opens with a label head word: "Ngày Hết Hạn"', kept('Ngày Hết Hạn'));

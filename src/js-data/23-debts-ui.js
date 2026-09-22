@@ -110,7 +110,13 @@
         } else {
           ht += '<div class="dbt-ts">thẻ tín dụng</div>';
         }
-        if (due) ht += '<div class="dbt-tchip"><span class="dbt-due">' + due + '</span></div>';
+        /* A due notice from the bank's own mail (email-reading-v2-spec §6) says more
+           than the due DAY can: this cycle's real date and the minimum payment. One
+           quiet line, in place of the chip it would otherwise repeat; gone once that
+           date has passed, when the chip takes over again. */
+        const nline = _noticeLine(c.acct.id);
+        if (nline) ht += '<div class="dbt-ts">' + _e(nline) + '</div>';
+        else if (due) ht += '<div class="dbt-tchip"><span class="dbt-due">' + due + '</span></div>';
         ht += '</button>';
         tiles.push(ht);
       });
@@ -239,6 +245,21 @@
       return null;
     }
     window.persDebtDueInfo = _personDue;
+    /* "Đến hạn 25/09 · tối thiểu 1.200.000đ": what the latest due notice for this
+       card stated (72-txn-review.js fhNoticesApply keeps it, on this device only).
+       Empty when there is none, or when its due date is already behind us. */
+    function _noticeLine(acctId) {
+      const f = (window.fhAcctNoticeFacts || {})[acctId];
+      if (!f || !f.due) return '';
+      const now = new Date();
+      const today = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+      if (f.due < today) return '';
+      const say = (vi, en) => (typeof L === 'function' ? L(vi, en) : vi);
+      let s = say('Đến hạn ', 'Due ') + _dmy(f.due);
+      if (f.minK > 0) s += ' · ' + say('tối thiểu ', 'minimum ') + fmt(f.minK);
+      return s;
+    }
+    window.fhAcctNoticeLine = _noticeLine;
     /* "đến hạn DD/MM" — the next occurrence of the card's due day, clamped to
        the real length of that month so a due_day of 31 never rolls to the 1st. */
     const _dueLabel = (acct) => {

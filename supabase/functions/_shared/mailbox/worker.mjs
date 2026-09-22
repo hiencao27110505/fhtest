@@ -25,7 +25,7 @@
  */
 
 import { resolveDestination, MailboxHold } from './identity.mjs';
-import { buildStagedRow } from './stage.mjs';
+import { buildStagedRow, carryRaw } from './stage.mjs';
 import { copyMeta } from './notify-copy.mjs';
 import { readTransaction, normalizeSubjectTemplate, legacySubjectTemplate, subjectCacheKey, SENDER_SENTINEL } from './extract.mjs';
 import { enrichCategory } from './classify.mjs';
@@ -798,6 +798,13 @@ async function _runGrantLocked(grant, ctx) {
         llm: ctx.llm, fetch: ctx.fetch, budget: ctx.budget, subtle: ctx.subtle,
         fingerprints: warmFingerprints.size ? warmFingerprints : null,
         learnedLabels: ctx.learnedLabels || null,
+        /* The sender as THIS run matched it (the database's extra domains
+           included), so the reader asks the right prompt block and keys formats
+           by the same provider the row will carry. */
+        senderKind: sender.senderKind || sender.kind, provider: sender.provider,
+        /* The format store (email-reading-v2 §8.2), when the run has one. Absent,
+           the reader falls back to the seeds plus what this process learns. */
+        formats: ctx.formats || null,
       });
     } catch (e) {
       /* The model is unreachable or out of quota. The mailbox is HELD — the
@@ -835,6 +842,11 @@ async function _runGrantLocked(grant, ctx) {
 
     if (!read.ok) {
       if (read.reason === 'not_a_transaction') { summary.skipped++; continue; }
+      /* One mail, several transactions (a broker's daily order summary). Not a
+         failure and not junk: counted, and left for the change that parks it
+         (email-reading-v2 §8.3, §10.4). Settled for this run so it cannot hold
+         the cursor; the read_tally 'multi' stage is the volume to watch. */
+      if (read.reason === 'multi') { summary.skipped++; summary.multi = (summary.multi || 0) + 1; continue; }
       summary.unreadable++;
       await ctx.db.recordFailure({
         gmail_message_id: id, sender: message.from, subject: message.subject,
@@ -844,7 +856,7 @@ async function _runGrantLocked(grant, ctx) {
     }
 
     /* Decide the concept BEFORE the row is sealed and before the notification's
-       voice is chosen — one seam feeds both `category_hint` (via _toReading →
+       voice is chosen — one seam feeds both `category_hint` (via toReading →
        stage.mjs) and copyMeta. Only fills what the extractor left null; a miss is
        silent and staging proceeds unchanged. */
     try { await enrichCategory(read.extraction, grant, ctx); }
@@ -853,9 +865,16 @@ async function _runGrantLocked(grant, ctx) {
     const row = await buildStagedRow({
       gmailMessageId: id,
       destination,
-      reading: _toReading(read.extraction, message),
+      reading: toReading(read.extraction, message),
       sourceProvider: read.extraction.source_provider || sender.provider,
-      senderKind: sender.kind,
+      /* The FINER class when the registry has one (gateway, broker, lender).
+         stage.mjs maps every non-bank to the same sealed transaction_type as
+         before, and seals the coarse kind on a v1 row. */
+      senderKind: sender.senderKind || sender.kind,
+      /* The reader version of THIS mailbox (R15). Absent until the column
+         exists, and then 1 until someone sets it: buildStagedRow reads anything
+         but 2 as 1. */
+      readerV: grant.reader_v,
       deps: {
         nacl: ctx.nacl, rng: ctx.rng, subtle: ctx.subtle,
         dedupKey: ctx.dedupKey, db: ctx.db,
@@ -1067,8 +1086,22 @@ async function _runGrantLocked(grant, ctx) {
  * the one the shared `sender_fingerprints` templates were derived against, and
  * the staged shape is the one the client opener reads. Neither is free to move.
  */
-function _toReading(x, message) {
+/* What the extraction calls a contract field, where that is not its key. */
+const EXTRACTION_ALIASES = {
+  category_hint: ['category'],
+  reader_type: ['transaction_type'],
+  counterparty_raw: ['counterparty'],
+};
+
+export function toReading(x, message) {
   return {
+    /* PAYLOAD V2: every contract.mjs RAW_FIELDS key the extraction states,
+       carried by ONE walk of that list (stage.mjs carryRaw) and sealed by
+       buildStagedRow when the mailbox's reader version is 2. The hand-written
+       keys below are what a v1 row is built from and stay exactly as they
+       were; ingest.mjs normaliseReading makes the same call, so a field added
+       to the contract reaches both transports the same day. */
+    raw: carryRaw(x, EXTRACTION_ALIASES),
     amount: x.amount,
     direction: x.direction,
     currency: x.currency || 'VND',

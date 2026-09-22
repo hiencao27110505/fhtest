@@ -17,12 +17,14 @@
  * spec §8.1, §10.4): a WRONG card moves the wrong balance, so ambiguity resolves
  * to null ("Chưa rõ"), never to a guess.
  *
- * NOT pinned, on purpose: one owned card while the mail's card_masked names a
- * DIFFERENT tail. Today step 4 still answers with the owned card. The same
- * one-card default is repeated at four places in 56's display, so changing the
- * resolver alone would make the shown card and the imported card disagree,
- * which §8 forbids. That is a product call, not a defect fix, so it is left
- * alone here and asserted nowhere.
+ * ONE OWNED CARD, AND THE MAIL NAMES ANOTHER (2026-09-22). Step 4's "one owned
+ * card, so that one" used to answer even when card_masked named a different
+ * card in full. That drew down the wrong card's debt on the word of a mail that
+ * said otherwise, against §9 ("never a wrong card"). Now a fully named card that
+ * is not owned resolves to null. The same default was repeated at four places
+ * in 56's display; they all go through csvPayCardFor, which asks this resolver,
+ * so the card SHOWN and the card IMPORTED cannot disagree (§8). Both are pinned
+ * at the bottom of this file.
  *
  * Real function extracted from source by name. Synthetic tails only.
  */
@@ -89,6 +91,34 @@ ok(resolve([A, A2], { card_masked: '1111' }, null, '') === null, 'two cards shar
 ok(resolve([A, A2], { card_masked: '1111' }, { kind: 'deposit', tail: '3333', provider: 'otherbank' }, '') === 'card-A2', '...a provider hint breaks it');
 ok(resolve([D], { card_masked: '1111' }, DEP_SA, '') === null, 'no card owned -> null');
 ok(resolve([], {}, null, '') === null, 'nothing owned, nothing known -> null, and no throw');
+
+console.log('\nthe mail names a card the person does not own');
+ok(resolve([A, D], { card_masked: '**** 9999' }, DEP_SA, '') === null, 'one owned card, the mail names ANOTHER -> null ("Chưa rõ"), never the owned one');
+ok(resolve([A, D], { card_masked: '**** 9999', memo: 'THANH TOAN THE' }, DEP_SA, 'tra no the') === null, '...whatever the memo and the description add');
+ok(resolve([A, D], { card_masked: '**** 9999', memo: 'THE 1111' }, DEP_SA, '') === null, '...even a memo naming the owned card: the mail\'s own card field is the stronger statement');
+ok(resolve([A, D], { card_masked: '**** 1111' }, DEP_SA, '') === 'card-A', 'the mail names the owned card -> that card (unchanged)');
+ok(resolve([A, D], {}, DEP_SA, '') === 'card-A', 'the mail names NO card -> the one-card default still answers (unchanged)');
+ok(resolve([A, D], { card_masked: '' }, DEP_SA, '') === 'card-A', '...an empty card field is no card named');
+ok(resolve([A, D], { card_masked: '**11' }, DEP_SA, '') === 'card-A', 'a fragment shorter than four digits names nothing: it cannot be compared, so it cannot veto');
+ok(resolve([A, B, D], { card_masked: '9999', memo: 'THE 1111' }, DEP_SA, '') === null, 'two owned cards, the mail names a third -> null');
+
+console.log('\nthe card SHOWN is the card IMPORTED');
+{
+  const UI = fs.readFileSync(path.join(__dirname, '..', 'src', 'js-ui', '56-csv-import-ui.js'), 'utf8');
+  ok(!/cards\.length\s*===\s*1/.test(UI), 'no display site repeats "one owned card, so that one" on its own');
+  const sites = ['function csvStagedRowsCard(', 'function csvRowSheetHTML(', 'function csvRowKindField(', 'function csvPickRowKind('];
+  sites.forEach((h) => ok(/csvPayCardFor\(c\)/.test(grab(UI, h)), h.replace('function ', '').replace('(', '') + ' asks csvPayCardFor'));
+  ok(/fhResolveRepaidCard\(x, sa, c\.description\)/.test(grab(UI, 'function csvPayCardFor(')), 'and csvPayCardFor asks the one resolver, with the same three arguments the import passes');
+  ok(/payCard = window\.fhResolveRepaidCard\(_sx2, ai, c\.description\)/.test(SRC), '...which is the call the promote path makes');
+
+  // The real csvPayCardFor over the real resolver: a pick wins, else the resolver's word.
+  ctx.fhStagedRawX = () => ctx.__x; ctx.fhStagedAcct = () => DEP_SA;
+  vm.runInContext(grab(UI, 'function csvPayCardFor('), ctx);
+  const shown = (accounts, x, cand) => { ctx.accounts = accounts; ctx.__x = x; ctx.__c = Object.assign({ rowIndex: 0, description: '' }, cand); return vm.runInContext('csvPayCardFor(__c)', ctx); };
+  ok(shown([A, D], { card_masked: '9999' }, {}) === '', 'one owned card, another named -> the row shows "Chưa rõ"');
+  ok(shown([A, D], {}, {}) === 'card-A', 'one owned card, none named -> the row shows that card');
+  ok(shown([A, B], { card_masked: '2222' }, { _payCardId: 'card-A' }) === 'card-A', 'the person\'s own pick always wins');
+}
 
 console.log(failed ? '\n' + failed + ' failed' : '\nall passed');
 process.exit(failed ? 1 : 0);

@@ -1102,7 +1102,13 @@
     window.fhPersonalAddMany = async function (specs, onChunk) {
       if (!P.uid || !P.key || !specs || !specs.length) return { ok: false, written: 0 };
       const rows = [];
+      /* glue[i]: spec i must land in the SAME insert as spec i-1 (`withPrev`). A
+         printed fee rides with the row it belongs to (email-reading-v2-spec §4):
+         split across two chunks, a failed second chunk would make the caller
+         retry the whole candidate and write its first row twice. */
+      const glue = [];
       for (const s of specs) {
+        glue.push(!!s.withPrev);
         const t = _okTime(s.time);
         rows.push({ owner_user_id: P.uid, txn_date: s.dateIso || _localDate(new Date()),
           kind: s.kind, space_id: null, link_id: null,
@@ -1125,8 +1131,8 @@
       let written = 0;
       while (written < rows.length) {
         let end = Math.min(rows.length, written + CHUNK);
-        while (end < rows.length && rows[end].transfer_group_id
-               && rows[end].transfer_group_id === rows[end - 1].transfer_group_id) end++;
+        while (end < rows.length && (glue[end] || (rows[end].transfer_group_id
+               && rows[end].transfer_group_id === rows[end - 1].transfer_group_id))) end++;
         const r = await _sb().from('personal_transactions').insert(rows.slice(written, end));
         if (r.error) { console.warn('personal bulk insert failed after ' + written, r.error); return { ok: false, written: written }; }
         written = end;

@@ -39,6 +39,7 @@
 
 import { sealForFamily } from './sealed-box.mjs';
 import { dedupFingerprint, findDuplicate } from './dedup.mjs';
+import { RAW_FIELDS, RAW_KEYS, PAYLOAD_V, SRC, SENDER_KINDS as CONTRACT_SENDER_KINDS, fieldAccepts, flowFor } from './contract.mjs';
 
 /**
  * The transaction_type values email_transactions accepts (0025's CHECK).
@@ -102,41 +103,110 @@ function _readerType(v) {
 }
 
 /** The sender kind as senders.match assigns it, or null when the caller had
- *  none. Sealed so the device can tell WHY transaction_type says what it says. */
+ *  none. Sealed so the device can tell WHY transaction_type says what it says.
+ *
+ *  TWO GRAINS (2026-09-22). senders.mjs now tells a gateway, a broker and a
+ *  lender apart from an e-wallet. A v1 row seals the COARSE kind it always
+ *  sealed ('wallet' for all four, which is what they were inside the old
+ *  WALLETS group), so nothing a v1 device reads has changed; a v2 row seals the
+ *  finer one (contract.mjs SENDER_KINDS). */
 const SENDER_KINDS = ['bank', 'wallet', 'receipt'];
 function _senderKind(v) {
-  return typeof v === 'string' && SENDER_KINDS.indexOf(v) >= 0 ? v : null;
+  if (typeof v !== 'string') return null;
+  if (SENDER_KINDS.indexOf(v) >= 0) return v;
+  return CONTRACT_SENDER_KINDS.indexOf(v) >= 0 ? 'wallet' : null;
+}
+function _senderKindFine(v) {
+  return typeof v === 'string' && CONTRACT_SENDER_KINDS.indexOf(v) >= 0 ? v : null;
 }
 
-/**
- * Builds one sealed staging row.
+/* ── ONE FIELD LIST FOR BOTH MAPPERS (email-reading-v2 §4: "the mapping is the
+ * wire") ──────────────────────────────────────────────────────────────────────
  *
- * @param {object} args
- * @param {string} args.gmailMessageId  idempotency key, bound inside the box
- * @param {object} args.destination     {memberId, familyId, stagingPub} from identity.mjs
- * @param {object} args.reading         what the parser read off the mail
- * @param {string} args.sourceProvider  the sender label ('techcombank', 'momo')
- * @param {string} args.senderKind      'bank' | 'wallet' | 'receipt' | undefined
- * @param {object} args.deps            {nacl, rng?, subtle?, dedupKey, db}
- * @return {Promise<object>} a row ready to insert, sealed
- * @throws on anything that would otherwise produce a readable or unowned row
+ * worker.mjs `toReading` and ingest.mjs `normaliseReading` were two hand-written
+ * lists that had to agree, and did not: `status` and the reader's verdict were
+ * mapped by one and not the other, `card_masked` by neither for a while, and
+ * every such gap sealed rows without the field FOR GOOD, because a box is never
+ * amended. Both now call this, and this walks contract.mjs RAW_FIELDS. A field
+ * added to the contract is carried by both transports the same day, and
+ * pipeline/contract.test.js drives both real mappers to prove it.
+ *
+ * `source` is whatever the transport holds (the extraction, or the caller's
+ * reading); `alias` names the source key where it is not the contract's key.
+ * A value the contract does not accept (a wrong enum word, a string where a
+ * number belongs) is carried as NULL: a sealed row is one nobody can inspect
+ * afterwards to find out what went wrong.
  */
-export async function buildStagedRow(args) {
-  const { gmailMessageId, destination, reading, sourceProvider, senderKind, deps } = args;
+const _SRC_VALUES = Object.values(SRC);
+const _TOP_KEYS = ['amount', 'currency', 'direction', 'counterparty', 'reference_number', 'counterparty_display'];
+/* What a source calls a field, where that is not the sealed key. */
+const _SRC_KEY_RENAMES = { category: 'category_hint', transaction_type: 'reader_type' };
 
-  if (!gmailMessageId) throw new Error('STAGE_NO_MESSAGE_ID');
-  /* A destination needs a key and somebody to belong to. Since 0092 that
-     "somebody" can be an owner OR a member: a personal-only user has no member
-     row, and requiring one would refuse exactly the people that migration
-     admits. Requiring NEITHER would be worse than the old rule — a row with no
-     owner and no member matches no RLS predicate and is visible to nobody,
-     which is silent loss rather than a refusal anyone can see. */
-  if (!destination || !destination.stagingPub) throw new Error('STAGE_NO_DESTINATION');
-  if (!destination.ownerUserId && !destination.memberId) throw new Error('STAGE_NO_OWNER');
-  if (!reading || reading.amount == null || !reading.direction) {
-    throw new Error('STAGE_NOT_READABLE');
+export function carryRaw(source, alias) {
+  const from = source || {};
+  const names = alias || {};
+  const out = {};
+  for (const field of RAW_FIELDS) {
+    let value;
+    for (const name of [field.key].concat(names[field.key] || [])) {
+      if (from[name] !== undefined && from[name] !== null) { value = from[name]; break; }
+    }
+    if (value === undefined) value = null;
+    if (field.type === 'obj' && value && field.keys) value = _block(value, field.keys);
+    if (field.key === 'src') value = _srcMap(value);
+    out[field.key] = fieldAccepts(field, value) ? value : null;
   }
+  return out;
+}
 
+/* A kind-specific block keeps ONLY the keys the contract lists for it, and is
+   null rather than half-filled. This is also the privacy rule for receipts:
+   a Grab receipt carries a home address, and a key that is not listed (there
+   is no address key, on purpose) cannot ride into the box. */
+function _block(value, keys) {
+  if (typeof value !== 'object' || Array.isArray(value)) return null;
+  const out = {};
+  let any = false;
+  for (const k of keys) { out[k] = value[k] ?? null; if (out[k] != null) any = true; }
+  return any ? out : null;
+}
+
+/* The provenance map. An entry is kept for what it SAYS, never for whether its
+   field carries a value: `signal: null` beside `src.signal: 'model'` is how the
+   device reads "withdrawn after the detector and the model disagreed", and
+   stripping that entry would turn it into "the mail never said".
+   A block (`investment`, `loan`, `notice`) has ONE entry under its own key,
+   plus a dotted entry (`investment.symbol`) where one inner field came from
+   somewhere else; the device looks up the dotted key first. */
+function _srcMap(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const out = {};
+  for (const k of Object.keys(value)) {
+    if (_SRC_VALUES.indexOf(value[k]) < 0) continue;
+    const key = _SRC_KEY_RENAMES[k] || k;
+    if (RAW_KEYS.indexOf(key) >= 0 || _TOP_KEYS.indexOf(key) >= 0) { out[key] = value[k]; continue; }
+    const dot = key.indexOf('.');
+    if (dot > 0) {
+      const block = RAW_FIELDS.find((f) => f.key === key.slice(0, dot) && f.type === 'obj' && f.keys);
+      if (block && block.keys.indexOf(key.slice(dot + 1)) >= 0) out[key] = value[k];
+    }
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+/* Keys this module decides at the seal, whatever a mapper carried. */
+const _SEALED_HERE = ['v', 'src', 'flow', 'sender_kind', 'txn_source', 'transaction_type', '_transport', '_sender_auth'];
+
+/**
+ * The plaintext payload, before it is sealed. Pure: no key, no database, no
+ * clock. Split out of buildStagedRow so the contract test and the scoreboard can
+ * look at exactly what WOULD be sealed without opening a box.
+ *
+ * @param {{reading: object, senderKind?: string, readerV?: number}} args
+ */
+export function buildPayload(args) {
+  const { reading, senderKind } = args;
+  const readerV = Number(args.readerV) === 2 ? 2 : 1;
   // VND unless the mail said otherwise. There is a real USD sample in the
   // corpus and comparing bare numbers once read 200 USD as 200 VND, so the
   // currency travels with the amount everywhere — into the fingerprint, into
@@ -260,6 +330,92 @@ export async function buildStagedRow(args) {
       _sender_auth: reading.senderAuth || null,
     },
   };
+
+
+  if (readerV === 2) _sealV2(payload.raw_extracted, reading, senderKind);
+  return payload;
+}
+
+/**
+ * Payload v2, ADDED to the v1 keys above and never instead of them: a device
+ * that knows nothing about v2 reads a v2 row exactly as it reads a v1 one.
+ *
+ * Walks contract.mjs RAW_FIELDS over what the mapper carried (`reading.raw`,
+ * built by carryRaw). A v1 key keeps the value the v1 code above gave it and is
+ * only FILLED from the carried value when that was null; a v2 key is set.
+ */
+function _sealV2(raw, reading, senderKind) {
+  const carried = reading.raw || {};
+  for (const field of RAW_FIELDS) {
+    if (_SEALED_HERE.indexOf(field.key) >= 0) continue;
+    let value = fieldAccepts(field, carried[field.key]) ? (carried[field.key] ?? null) : null;
+    // The verbatim counterparty rides only beside a counterparty: one the tidy
+    // layer REJECTED (a salutation) must not come back through the raw key.
+    if (field.key === 'counterparty_raw' && !raw.counterparty) value = null;
+    /* A carried NULL never erases a value the v1 code above produced. The
+       contract lists counterparty_raw as a v2 key, but this file has sealed it
+       since 2026-09-22 (only when it differs from the display form); writing
+       the carried null over it lost the verbatim counterparty on every v2 row
+       whose mapper had nothing to add. Caught by stage-v1-snapshot.test.js. */
+    if (field.since === 1) {
+      /* A v1 key the v1 code sealed WITHOUT checking it (account_kind, channel:
+         whatever word the reader gave) is held to the contract on a v2 row: a
+         word outside the enum is null, never a string nobody can switch on.
+         Here and not above, because a v1 payload must stay byte-for-byte what
+         it was, unchecked words included. Caught by pipeline/contract.test.js. */
+      if (!fieldAccepts(field, raw[field.key])) raw[field.key] = null;
+      if (raw[field.key] == null && value != null) raw[field.key] = value;
+    } else raw[field.key] = value != null ? value : (raw[field.key] ?? null);
+  }
+  raw.sender_kind = _senderKindFine(senderKind) || raw.sender_kind;
+  /* `flow` for a v2 row is DERIVED from the signal and the direction
+     (contract.mjs flowFor), reconciled by the rule this file has always applied:
+     direction is evidence, flow is judgement, evidence wins. A transfer-type
+     signal is the one judgement direction cannot contradict. With no signal the
+     v1 reconciliation above stands, so a caller that still says "transfer"
+     (the forwarding reader) is heard. */
+  if (raw.signal) raw.flow = flowFor(raw.signal, reading.direction) || raw.flow;
+  raw.src = _srcMap(carried.src);
+  raw.v = PAYLOAD_V;
+}
+
+/**
+ * Builds one sealed staging row.
+ *
+ * @param {object} args
+ * @param {string} args.gmailMessageId  idempotency key, bound inside the box
+ * @param {object} args.destination     {memberId, familyId, stagingPub} from identity.mjs
+ * @param {object} args.reading         what the parser read off the mail
+ * @param {string} args.sourceProvider  the sender label ('techcombank', 'momo')
+ * @param {string} args.senderKind      'bank' | 'wallet' | 'receipt' | undefined
+ * @param {object} args.deps            {nacl, rng?, subtle?, dedupKey, db}
+ * @return {Promise<object>} a row ready to insert, sealed
+ * @throws on anything that would otherwise produce a readable or unowned row
+ */
+export async function buildStagedRow(args) {
+  const { gmailMessageId, destination, reading, sourceProvider, senderKind, deps } = args;
+  /* THE READER VERSION OF THIS MAILBOX (email-reading-v2 R15): a plain workflow
+     column on mailbox_grants, default 1. At 1 the payload is byte-for-byte what
+     it was before payload v2 existed (pinned by pipeline/stage-v1-snapshot.test.js);
+     at 2 it also carries `v`, `src` and every contract.mjs field the mail stated. */
+  const readerV = Number(args.readerV) === 2 ? 2 : 1;
+
+  if (!gmailMessageId) throw new Error('STAGE_NO_MESSAGE_ID');
+  /* A destination needs a key and somebody to belong to. Since 0092 that
+     "somebody" can be an owner OR a member: a personal-only user has no member
+     row, and requiring one would refuse exactly the people that migration
+     admits. Requiring NEITHER would be worse than the old rule — a row with no
+     owner and no member matches no RLS predicate and is visible to nobody,
+     which is silent loss rather than a refusal anyone can see. */
+  if (!destination || !destination.stagingPub) throw new Error('STAGE_NO_DESTINATION');
+  if (!destination.ownerUserId && !destination.memberId) throw new Error('STAGE_NO_OWNER');
+  if (!reading || reading.amount == null || !reading.direction) {
+    throw new Error('STAGE_NOT_READABLE');
+  }
+
+  const currency = reading.currency || 'VND';
+  const occurredAt = reading.occurredAt || reading.occurred_at || null;
+  const payload = buildPayload({ reading, senderKind, readerV });
 
   // Sealed BEFORE the fingerprint is computed and before anything is logged, so
   // that the window in which this function holds both a readable amount and a

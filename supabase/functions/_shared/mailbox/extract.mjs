@@ -1,11 +1,29 @@
 /**
  * Reading a transaction out of one mail, cheaply where possible.
  *
- * Three outcomes, and the caller has to be able to tell them apart:
+ * THE CASCADE (email-reading-v2 §8.1), cheapest first, nothing leaving the
+ * machine until the last step:
  *
- *   { ok: true,  extraction, stage: 'template' | 'llm', learned }
+ *   junk cache        a header-only verdict, keyed (sender, subject shape)
+ *   known format      a stored label map (formats.mjs): a seed, then a learned one
+ *   legacy template   the v4 regex templates, until formats cover their shapes
+ *   structural reader the mail's table read as a table, or its lines walked,
+ *                     over the shared vocabulary; on success it WRITES a format
+ *   the model         only when none of the above can answer; its cited labels
+ *                     write a format, proven by replaying it on the same mail
+ *   signal detector   after EVERY tier (signals.mjs): what the mail itself says
+ *                     the movement was, and who is on the other side
+ *
+ * Four outcomes, and the caller has to be able to tell them apart:
+ *
+ *   { ok: true,  extraction, stage, tier, learned }
+ *        stage  'format' | 'template' | 'table' | 'llm'
+ *        tier   'seed' | 'format' | 'template' | 'structural' | 'line' | 'model'
  *   { ok: false, reason: 'not_a_transaction' }   cached verdict or the model's
  *   { ok: false, reason: 'unreadable', detail }  nothing usable came out
+ *   { ok: false, reason: 'multi' }               one mail, several transactions:
+ *                                                parked and counted, never
+ *                                                cached as junk (spec §8.3)
  *
  * A hold (leave it for the next poll) is a THROW, not a reason: the model being
  * rate-limited is not the same event as the model saying "this is a newsletter",
@@ -25,10 +43,13 @@
  */
 
 import { applyExtractionTemplate, deriveAccountKind, deriveExtractionTemplate } from './templates.mjs';
-import { readLabelTable, maskAccount, statusReadsFailed, unknownLabels, deriveLabelMappings } from './labeltable.mjs';
-import { canonProviderName, isPersonShaped } from './senders.mjs';
+import { readLabelTable, tableRows, greetingName, whenPrecision, maskAccount, statusReadsFailed, unknownLabels, deriveLabelMappings } from './labeltable.mjs';
+import { canonProviderName, isPersonShaped, match as matchSender } from './senders.mjs';
 import { hashKey } from './classify.mjs';
 import { tidyMemo, tidyMerchant } from './memo.mjs';
+import { labelSignature, learnFormat, applyFormat, isSeed, memoryFormatStore } from './formats.mjs';
+import { detectSignal, detectChannel, counterpartyKind, crossCheckSignal } from './signals.mjs';
+import { SRC } from './contract.mjs';
 import * as llm from './llm.mjs';
 
 /**
@@ -274,6 +295,84 @@ export async function readTransaction(message, db, deps) {
     return { ok: false, reason: 'not_a_transaction', senderWide: !!fp._sender_wide };
   }
 
+  /* WHO SENT IT, as the registry classes them (senders.mjs): the class picks
+     the model's prompt block and feeds the signal detector, and the provider
+     is half of a format's key. A caller that already matched the sender (the
+     worker does, with the database's extra domains) may pass both. */
+  const matched = matchSender(message.from);
+  const senderKind = (deps && deps.senderKind) || (matched && matched.senderKind) || null;
+  const provider = (deps && deps.provider) || (matched && matched.provider) || sender.slice(sender.lastIndexOf('@') + 1);
+  const ctx = { subject: message.subject, senderKind, provider };
+  /* The learned vocabulary for THIS sender's domain, if any mappings have
+     reached the n>=3 confirmation bar (db.loadLearnedLabels, 0111). Hardcoded LABELS
+     always wins inside the reader; an absent map is exactly the old reader. */
+  const learnedForDomain = deps && deps.learnedLabels
+    ? deps.learnedLabels.get(sender.slice(sender.lastIndexOf('@') + 1)) : undefined;
+
+  // ── stage 0.5: a known FORMAT, locally, nothing leaves ───────────────────
+  // The mail's rows, the signature of their labels, and the label map stored
+  // under (provider, signature): a hand-written seed first, then a learned one
+  // (the store's `get` owns that order). A store that is down, a mail with no
+  // rows, a map that does not read this mail: all of them are just "the next
+  // tier", never a failed read.
+  const formats = (deps && deps.formats) || _defaultFormats(deps && deps.subtle);
+  let table = null, sig = null, known = null;
+  try {
+    table = tableRows(message, learnedForDomain);
+    if (table.rows.length >= 3) {
+      sig = await labelSignature(table.rows, deps && deps.subtle);
+      known = await formats.get(provider, sig);
+    }
+  } catch { known = null; }
+  if (known) {
+    let rows = table.rows;
+    /* The line walk only sees labels SOMEBODY knows. A format learned from the
+       model's citations knows labels the vocabulary does not, so the lines are
+       walked again with the format's own labels added. The signature above was
+       taken over the first walk, at learning and here alike. */
+    if (table.via === 'line') {
+      try {
+        const extra = new Map(learnedForDomain || []);
+        for (const [label, field] of Object.entries(known.map || {})) if (!extra.has(label)) extra.set(label, field);
+        rows = tableRows({ body: message.body }, extra).rows;
+      } catch { rows = table.rows; }
+    }
+    const viaFormat = applyFormat(known, rows, message.subject);
+    if (viaFormat) {
+      if (statusReadsFailed(message.body)) {
+        await db.bumpReadTally?.('failed_status');
+        return { ok: false, reason: 'not_a_transaction' };
+      }
+      await db.bumpReadTally?.(isSeed(known) ? 'format_seed' : 'format');
+      _fillAccountKind(viaFormat, message, sender);
+      return {
+        ok: true,
+        extraction: await _finish(viaFormat, message, ctx, db, false),
+        stage: 'format',
+        tier: isSeed(known) ? 'seed' : 'format',
+        learned: false,
+        transactionType: viaFormat.transaction_type || null,
+      };
+    }
+    await db.bumpReadTally?.('format_missed');
+  }
+  /* Learns a format from a read, best-effort and never for a person-shaped
+     sender. Skipped when a format already holds this key and merely did not
+     read THIS mail (a foreign-currency mail off a VND layout): overwriting it
+     would un-learn the layout for every domestic mail that follows, which is
+     the template-side bug _templateToStore exists for. */
+  const learnFormatFrom = async (extraction, source, labels) => {
+    if (personal || !sig || known || !table) return false;
+    try {
+      const fmt = await learnFormat({ provider, senderKind, rows: table.rows, extraction, labels, source,
+        subject: message.subject, subtle: deps && deps.subtle });
+      if (!fmt) { await db.bumpReadTally?.('format_unlearnable'); return false; }
+      const kept = await formats.put(fmt);
+      await db.bumpReadTally?.(kept === false ? 'format_kept_seed' : 'format_learned');
+      return kept !== false;
+    } catch { return false; }   // learning is optional; reading is not
+  };
+
   // ── stage 1: the stored template, locally, nothing leaves ────────────────
   const stored = (fp && typeof fp.extraction_regex === 'string') ? fp.extraction_regex : null;
   if (stored) {
@@ -319,12 +418,35 @@ export async function readTransaction(message, db, deps) {
           }
         } catch (e) { /* an upgrade must never cost the read itself */ }
       }
+      /* Upgrade-on-hit, for payload v2 (email-reading-v2 §8.1 step 3). A v4
+         template anchors seven fields and cannot carry a fee, a holder name,
+         the other side's bank or the time's precision. The structural reader
+         can, on THIS mail, locally: when it reads the same amount and does not
+         contradict the direction, its v2-only fields are adopted, and the
+         format it implies is written so the NEXT mail of this layout is served
+         by the format tier above and never comes here again. No model call on
+         any path, and no logic-version bump: a bump re-derives every shape
+         through the model at once, which is what stalled backfills on
+         2026-09-02. */
+      applied.src = _srcFor(applied, SRC.TEMPLATE);
+      try {
+        const t3 = readLabelTable(message.subject, message.body, learnedForDomain, message.html);
+        if (t3 && t3.amount === applied.amount && (!t3.direction || t3.direction === applied.direction)) {
+          for (const k of V2_UPGRADE_FIELDS) {
+            if (applied[k] == null && t3[k] != null) { applied[k] = t3[k]; applied.src[k] = SRC.PRINTED; }
+          }
+          if (t3.direction && table && t3.rows_via === table.via && await learnFormatFrom(t3, 'table', t3.labels)) {
+            await db.bumpReadTally?.('template_to_format');
+          }
+        }
+      } catch (e) { /* an upgrade must never cost the read itself */ }
       await db.bumpReadTally?.('template');
       _fillAccountKind(applied, message, sender);
       return {
         ok: true,
-        extraction: _tidy(applied, message.body),
+        extraction: await _finish(applied, message, ctx, db, false),
         stage: 'template',
+        tier: 'template',
         learned: false,
         transactionType: (fp && fp.transaction_type) || applied.transaction_type || null,
       };
@@ -356,12 +478,9 @@ export async function readTransaction(message, db, deps) {
     await db.bumpReadTally?.('failed_status');
     return { ok: false, reason: 'not_a_transaction' };
   }
-  /* The learned vocabulary for THIS sender's domain, if any mappings have
-     reached the n>=3 confirmation bar (db.loadLearnedLabels, 0111). Hardcoded LABELS
-     always wins inside the reader; an absent map is exactly the old reader. */
-  const learnedForDomain = deps && deps.learnedLabels
-    ? deps.learnedLabels.get(sender.slice(sender.lastIndexOf('@') + 1)) : undefined;
-  const tabled = readLabelTable(message.subject, message.body, learnedForDomain);
+  // The mail's HTML table read AS A TABLE when it has one (htmltable.mjs), its
+  // flattened lines walked otherwise; one vocabulary, one gate, either way.
+  const tabled = readLabelTable(message.subject, message.body, learnedForDomain, message.html);
   if (tabled && tabled.amount != null && tabled.direction) {
     _fillAccountKind(tabled, message, sender);
     let derivedT = null, stepT = null;
@@ -381,12 +500,21 @@ export async function readTransaction(message, db, deps) {
       });
     }
     await db.bumpReadTally?.('table');
+    await db.bumpReadTally?.(tabled.rows_via === 'structural' ? 'table_structural' : 'table_line');
     if (!personal) await db.bumpReadTally?.(derivedT ? 'template_learned' : 'template_unlearnable');
+    /* ...and the FORMAT this read implies (spec §8.1 step 4: "on success it
+       writes the format it just read, so the walk is paid once per format").
+       Only when the rows the reader used are the rows the signature was taken
+       over. The v4 template above is still written: the forwarding transport
+       shares that cache, and it is the fallback tier. */
+    const learnedFormat = (table && tabled.rows_via === table.via)
+      ? await learnFormatFrom(tabled, 'table', tabled.labels) : false;
     return {
       ok: true,
-      extraction: _tidy(tabled, message.body),
+      extraction: await _finish(tabled, message, ctx, db, false),
       stage: 'table',
-      learned: !!derivedT,
+      tier: tabled.rows_via === 'structural' ? 'structural' : 'line',
+      learned: !!derivedT || learnedFormat,
       transactionType: tabled.transaction_type || null,
     };
   }
@@ -410,7 +538,21 @@ export async function readTransaction(message, db, deps) {
     throw new llm.LlmUnavailable('call budget exhausted for this run');
   }
 
-  const extraction = await llm.extract(sender, message.subject, message.body, deps.llm, deps.fetch);
+  // The sender's class picks WHAT IS ASKED (one prompt block per class, llm.mjs).
+  // WHAT IS SENT is unchanged: the sender, the subject, the mail as written.
+  const extraction = await llm.extract(sender, message.subject, message.body, deps.llm, deps.fetch, senderKind);
+
+  /* ONE MAIL, SEVERAL TRANSACTIONS (a broker's daily order summary). Its own
+     outcome: not junk (the sender is a transaction source and the next mail may
+     be a single trade), not unreadable (nothing failed), and never cached,
+     because the cache key is the subject shape and a cached "junk" here would
+     hide every single-trade mail that shares it. The worker parks it and the
+     scoreboard counts it, so the real volume is known before anything is built
+     (spec §8.3). */
+  if (extraction && extraction.multi === true) {
+    await db.bumpReadTally?.('multi');
+    return { ok: false, reason: 'multi' };
+  }
 
   if (!extraction || extraction.is_transaction !== true) {
     // Cache the verdict for this exact shape.
@@ -448,6 +590,17 @@ export async function readTransaction(message, db, deps) {
     }
 
     await db.bumpReadTally?.('llm_junk');
+    /* A NOTICE moved no money, so to every caller today it is exactly what it
+       was: not a transaction, skipped, its shape cached. What it says rides
+       along for the change that stages notices (spec §6, `row_kind`): when
+       that lands, this shape must stop being cached as junk above, or the
+       second due notice is never read. */
+    if (extraction && extraction.mail_kind === 'notice') {
+      await db.bumpReadTally?.('llm_notice');
+      const noticeSignal = detectSignal(extraction, { ...ctx, notice: true }).signal || extraction.signal || null;
+      return { ok: false, reason: 'not_a_transaction', mailKind: 'notice',
+        notice: { signal: noticeSignal, fields: extraction.notice || null, loan: extraction.loan || null } };
+    }
     return { ok: false, reason: 'not_a_transaction' };
   }
 
@@ -467,6 +620,9 @@ export async function readTransaction(message, db, deps) {
   // this sender, and to the other transport as well. Storing null is the right
   // outcome then: the sender is confirmed as a transaction source, and the next
   // mail tries the model again rather than trusting an unproven template.
+  // Stamped BEFORE the account-kind heuristic below fills its gap, so a kind
+  // the model stated reads `model` and a kind the body scan supplied does not.
+  extraction.src = _srcFor(extraction, SRC.MODEL);
   _fillAccountKind(extraction, message, sender);
   let derived = null, derivedStep = null;
   try {
@@ -484,6 +640,15 @@ export async function readTransaction(message, db, deps) {
 
   await db.bumpReadTally?.('llm');
   await db.bumpReadTally?.(derived ? 'template_learned' : 'template_unlearnable');
+  /* THE FORMAT, from the labels the model CITED (core prompt rule 2). This is
+     what makes "once per format" true: the labels it names become a label map,
+     the map is replayed on this same mail, and only a map that reproduces the
+     model's own answer is kept. No proof, no format. */
+  if (extraction.time_precision == null) {
+    extraction.time_precision = whenPrecision(extraction.occurred_at_raw);
+    if (extraction.time_precision) extraction.src.time_precision = SRC.HEURISTIC;
+  }
+  const learnedFormat = await learnFormatFrom(extraction, 'model', extraction.labels);
   /* A transaction the table tier could not read is a dictionary gap. Log the
      LABELS the mail used — bank boilerplate, no values, no amounts, nothing
      personal — so coverage grows from real misses without storing anyone's
@@ -504,11 +669,106 @@ export async function readTransaction(message, db, deps) {
   } catch { /* learning is optional; reading is not */ }
   return {
     ok: true,
-    extraction: _tidy(extraction, message.body),
+    extraction: await _finish(extraction, message, ctx, db, true),
     stage: 'llm',
-    learned: !!derived,
+    tier: 'model',
+    learned: !!derived || learnedFormat,
     transactionType: extraction.transaction_type || null,
   };
+}
+
+/* The v2 fields a v4 template cannot carry and the structural reader can. */
+const V2_UPGRADE_FIELDS = ['time_precision', 'fee_amount', 'available_limit', 'holder_name',
+  'counterparty_bank', 'counterparty_account_tail', 'txn_kind', 'counterparty_row'];
+
+/* One in-memory store per process, holding the seeds and whatever this process
+   learns, for a caller that injects none (every test, the scoreboard, and the
+   worker until the formats table exists). */
+let _memoryFormats = null;
+function _defaultFormats(subtle) {
+  if (!_memoryFormats) _memoryFormats = memoryFormatStore(subtle);
+  return _memoryFormats;
+}
+
+/* Every field a tier filled, stamped with that tier's provenance. */
+const _SRC_FIELDS = ['occurred_at', 'time_precision', 'amount', 'currency', 'fx_amount', 'fx_currency', 'fx_rate',
+  'fee_amount', 'tax_amount', 'available_limit', 'direction', 'counterparty', 'counterparty_kind', 'holder_name',
+  'counterparty_bank', 'counterparty_account_tail', 'memo', 'reference_number', 'status', 'account_masked',
+  'account_kind', 'card_masked', 'balance', 'channel', 'signal', 'node', 'category', 'transaction_type',
+  'investment', 'loan', 'notice'];
+function _srcFor(extraction, src) {
+  const out = {};
+  for (const k of _SRC_FIELDS) if (extraction[k] != null) out[k] = src;
+  return out;
+}
+
+/**
+ * What runs after EVERY tier, in this order, on the tier's RAW output:
+ *
+ *   1. the holder's name from the greeting, when no row printed it
+ *   2. who is on the other side (signals.mjs counterpartyKind)
+ *   3. the channel
+ *   4. the signal, and the node a signal maps to
+ *   5. `_tidy`: masking, memo_display, the display merchant, the balance scan
+ *
+ * Before `_tidy` on purpose: a virtual-account prefix ("99MM…") is a seller
+ * mark, and `_tidy` masks account numbers down to four digits.
+ *
+ * ON MODEL-READ MAIL THE DETECTOR IS A CROSS-CHECK (spec §8.4). Both answer and
+ * agree: the signal stands. Both answer and disagree: the sealed signal is
+ * NULL, and the row shows in "Cần bạn xem" on the device. The three outcomes
+ * are tallied, so a detector that keeps contradicting the model is a number
+ * someone can look at, not a silence.
+ */
+async function _finish(extraction, message, ctx, db, modelRead) {
+  const x = extraction;
+  const src = x.src = { ...(x.src || {}) };
+  const heuristic = (field) => { if (x[field] != null) src[field] = SRC.HEURISTIC; };
+  // account_kind was filled by the tier (its src is already stamped) or by
+  // _fillAccountKind just before this, which is a body scan.
+  if (x.account_kind != null && !src.account_kind) src.account_kind = SRC.HEURISTIC;
+
+  if (!x.holder_name) { x.holder_name = greetingName(message.body); heuristic('holder_name'); }
+  // The bank's own type code rides inside a structured memo ("…POS…",
+  // "MOBILETOPUP"); `_tidy` splits it out below, and the detector wants it now.
+  if (!x.type_code) { try { const code = tidyMemo(x.memo, message.body).code; if (code) x.type_code = code; } catch { /* _tidy decides */ } }
+
+  const who = counterpartyKind(x, ctx);
+  x.counterparty_kind = who.kind;
+  if (who.kind) src.counterparty_kind = who.src; else delete src.counterparty_kind;
+
+  const ch = detectChannel(x, ctx);
+  x.channel = ch.channel;
+  if (ch.channel) src.channel = ch.src; else delete src.channel;
+
+  const modelSignal = modelRead ? x.signal : null;
+  const modelNode = modelRead ? x.node : null;
+  const detected = detectSignal(x, ctx);
+  let verdict;
+  if (modelRead) {
+    verdict = crossCheckSignal(detected, modelSignal, modelNode);
+    await db.bumpReadTally?.(verdict.outcome === 'agree' ? 'signal_agree'
+      : verdict.outcome === 'disagree' ? 'signal_disagree'
+      : verdict.outcome === 'one_sided' ? 'signal_one_sided' : 'signal_none');
+  } else {
+    verdict = detected;   // graded by the detector: printed | template | heuristic
+  }
+  x.signal = verdict.signal;
+  /* `src.signal` is kept on a DISAGREEMENT, where the signal itself is null:
+     that pair is how the device tells "withdrawn" from "the mail never said". */
+  if (verdict.src) src.signal = verdict.src; else delete src.signal;
+  delete x.signal_hint;
+  /* The node a signal maps to. For purchase and p2p the contract says null: the
+     merchant path decides (classify.mjs enrichCategory). The WHO nodes
+     ('purchase', 'bizpay', 'p2p') are deliberately NOT sealed from here: the
+     device reads a sealed node FIRST, ahead of every tier that knows what was
+     bought, so a who-node in the box would displace a what-answer (E14a). It
+     has `signal` and `counterparty_kind` to place its own who-tier last. A
+     model's node stands only where no signal contradicts it. */
+  if (verdict.node) { x.node = verdict.node; src.node = verdict.src; }
+  else if (modelRead && verdict.outcome === 'disagree') { x.node = null; delete src.node; }
+
+  return _tidy(x, message.body);
 }
 
 /**
@@ -535,6 +795,8 @@ function _tidy(extraction, body) {
   // treatment as account_masked, whichever tier filled it. maskAccount(null)
   // returns null, so the no-card case is untouched.
   out.card_masked = maskAccount(out.card_masked);
+  // ...and the OTHER side's account, by the same rule (email-reading-v2 §4).
+  out.counterparty_account_tail = maskAccount(out.counterparty_account_tail) ?? null;
   // every tier's provider leaves canonical — template statics included, which
   // is what heals the names already frozen at derivation without touching them
   out.source_provider = canonProviderName(out.source_provider);
@@ -552,7 +814,14 @@ function _tidy(extraction, body) {
      off with "Số dư: 11.800.000 VND", so a cheap body scan fills the gap —
      fail-quiet, because a missing balance only mutes the client's drift
      detector, never a transaction. */
-  if (out.balance == null) out.balance = _balanceAfter(body);
+  const src = out.src = { ...(out.src || {}) };
+  if (out.balance == null) { out.balance = _balanceAfter(body); if (out.balance != null) src.balance = SRC.HEURISTIC; }
+  // What this function derives is a judgement over free text, whoever read the
+  // mail: the display memo, the bank's type code, the display merchant.
+  if (out.memo_display) src.memo_display = SRC.HEURISTIC;
+  if (out.type_code) src.type_code = SRC.HEURISTIC;
+  if (out.counterparty_display) src.counterparty_display = SRC.HEURISTIC;
+  if (!out.counterparty) { delete src.counterparty; delete src.counterparty_kind; out.counterparty_kind = null; }
   return out;
 }
 

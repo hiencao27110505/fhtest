@@ -58,6 +58,10 @@ const WATCH_EXPIRY_MS = Date.parse('2026-09-01T00:00:00Z');
 // ── a real Vietnamese bank email, as Gmail hands it over ────────────────────
 // HTML with the fields in table cells, which is the shape that matters: the
 // label and its value are separated by a cell boundary and nothing else.
+// The date label is one the label-table reader does NOT know, on purpose: this
+// test is about a mail the MODEL has to read first. ("Thời gian" stood here
+// until 2026-09-22, when it joined the vocabulary and the free tier began
+// reading this fixture by itself.)
 const MAIL_HTML = `<html><body><table>
 <tr><td>Ngân hàng</td><td>MB Bank</td></tr>
 <tr><td>Số tiền giao dịch</td><td>-165,000 VND</td></tr>
@@ -66,7 +70,7 @@ const MAIL_HTML = `<html><body><table>
 <tr><td>Người nhận</td><td>HIGHLANDS COFFEE</td></tr>
 <tr><td>Nội dung chuyển tiền</td><td>ca phe sang</td></tr>
 <tr><td>Ma giao dich</td><td>FT26234000123</td></tr>
-<tr><td>Thời gian</td><td>24-08-2026 10:15:00</td></tr>
+<tr><td>Thời điểm</td><td>24-08-2026 10:15:00</td></tr>
 </table></body></html>`;
 
 const MESSAGE_ID = 'msg-abc-1';

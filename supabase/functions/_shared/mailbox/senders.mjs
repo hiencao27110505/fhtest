@@ -142,82 +142,113 @@ const BANKS = {
   'wooribank.vn': 'Woori',
 };
 
-/** Wallets, payment services, securities houses and consumer finance.
+/** Everything that is not a bank and not a merchant receipt, in FOUR classes
+ *  (email-reading-v2 §7, 2026-09-22).
  *
- * Everything here is `ecommerce_receipt`, never `bank_txn`, and that is not
- * cosmetic: the client's bank-vs-bank dedup rule reads the kind, and its job is
- * to STOP a dedup. Calling a wallet a bank feeds that rule a claim we cannot
- * support and lets a genuine duplicate through. Securities and BNPL sit here for
- * the same reason — they do confirm by mail, but a trade confirmation is not a
- * bank debit. */
+ * Until now this was one group, `WALLETS`, and every sender in it was read with
+ * one prompt and staged as a plain `ecommerce_receipt` expense. That was wrong
+ * for two of the four: a securities house confirms a TRADE (a quantity, a
+ * symbol, a side), and a consumer-finance or pay-later company confirms a
+ * DISBURSEMENT or an INSTALMENT (a contract, a due date, principal and
+ * interest). The reader now knows the class before it reads, so it can ask the
+ * model the right questions (llm.mjs, one prompt block per class) and seal
+ * `sender_kind` for the device.
+ *
+ * WHAT DID NOT CHANGE, AND MUST NOT. Everything here is still
+ * `ecommerce_receipt`, never `bank_txn` (stage.mjs transactionTypeFor): the
+ * client's bank-vs-bank dedup rule reads that, and its job is to STOP a dedup.
+ * Calling a wallet, a broker or a lender a bank feeds that rule a claim we
+ * cannot support and lets a genuine duplicate through. And the Gmail query is
+ * the union of all four, the same 66 domains it always was
+ * (pipeline/sender-kinds.test.js pins the set). */
+
+/** E-wallets: the customer holds a balance there. */
 const WALLETS = {
+  'airpay.vn': 'ShopeePay',
+  'moca.vn': 'Moca',
+  'momo.com.vn': 'MoMo',
+  'momo.vn': 'MoMo',
+  'mservice.com.vn': 'MoMo',
+  'mservice.vn': 'MoMo',
+  'shopeepay.vn': 'ShopeePay',
+  'viettelmoney.com.vn': 'ViettelPay',
+  'viettelmoney.vn': 'ViettelPay',
+  'viettelpay.com.vn': 'ViettelPay',
+  'viettelpay.vn': 'ViettelPay',
+  'vnptmoney.com.vn': 'VNPT Money',
+  'vnptmoney.vn': 'VNPT Money',
+  'vnptpay.vn': 'VNPT Money',
+  'zalopay.com.vn': 'ZaloPay',
+  'zalopay.vn': 'ZaloPay',
+};
+
+/** Payment gateways and switches: they move a payment and hold nothing. */
+const GATEWAYS = {
   '9pay.com.vn': '9Pay',
   '9pay.vn': '9Pay',
-  'airpay.vn': 'ShopeePay',
   'alepay.vn': 'Alepay',
   'appotapay.com': 'AppotaPay',
   'appotapay.com.vn': 'AppotaPay',
   'appotapay.vn': 'AppotaPay',
   'baokim.com.vn': 'Baokim',
   'baokim.vn': 'Baokim',
-  'dnse.com.vn': 'DNSE',
-  'dnse.vn': 'DNSE',
-  'fecredit.com.vn': 'FE Credit',
-  'fecredit.vn': 'FE Credit',
-  'finhay.com.vn': 'Finhay',
-  'finhay.vn': 'Finhay',
   'finviet.com.vn': 'FinViet',
   'finviet.vn': 'FinViet',
-  'fundiin.vn': 'Fundiin',
   'gpay.com.vn': 'GPay',
   'gpay.vn': 'GPay',
-  'hdsaison.com.vn': 'HD SAISON',
-  'homecredit.com.vn': 'Home Credit',
-  'homecredit.vn': 'Home Credit',
-  'hsc.com.vn': 'HSC',
-  'hsc.vn': 'HSC',
-  'infina.com.vn': 'Infina',
-  'infina.vn': 'Infina',
-  'kredivo.com.vn': 'Kredivo',
-  'kredivo.vn': 'Kredivo',
-  'mbs.com.vn': 'MBS',
-  'mbs.vn': 'MBS',
-  'miraeasset.com.vn': 'Mirae Asset',
-  'moca.vn': 'Moca',
-  'momo.com.vn': 'MoMo',
-  'momo.vn': 'MoMo',
-  'mservice.com.vn': 'MoMo',
-  'mservice.vn': 'MoMo',
   'napas.com.vn': 'NAPAS',
   'nganluong.vn': 'NganLuong',
   'onepay.com.vn': 'OnePay',
   'onepay.vn': 'OnePay',
   'payoo.com.vn': 'Payoo',
   'payoo.vn': 'Payoo',
-  'shopeepay.vn': 'ShopeePay',
   'smartpay.com.vn': 'SmartPay',
   'smartpay.vn': 'SmartPay',
+  'vnpay.com.vn': 'VNPAY',
+  'vnpay.vn': 'VNPAY',
+};
+
+/** Securities houses and investing apps: trade confirmations, cash in and out
+ *  of a securities account, dividends. */
+const BROKERS = {
+  'dnse.com.vn': 'DNSE',
+  'dnse.vn': 'DNSE',
+  'finhay.com.vn': 'Finhay',
+  'finhay.vn': 'Finhay',
+  'hsc.com.vn': 'HSC',
+  'hsc.vn': 'HSC',
+  'infina.com.vn': 'Infina',
+  'infina.vn': 'Infina',
+  'mbs.com.vn': 'MBS',
+  'mbs.vn': 'MBS',
+  'miraeasset.com.vn': 'Mirae Asset',
   'ssi.com.vn': 'SSI',
   'ssi.vn': 'SSI',
   'tcbs.com.vn': 'TCBS',
   'vcbs.com.vn': 'VCBS',
   'vcbs.vn': 'VCBS',
-  'viettelmoney.com.vn': 'ViettelPay',
-  'viettelmoney.vn': 'ViettelPay',
-  'viettelpay.com.vn': 'ViettelPay',
-  'viettelpay.vn': 'ViettelPay',
   'vndirect.com.vn': 'VNDIRECT',
   'vndirect.vn': 'VNDIRECT',
-  'vnpay.com.vn': 'VNPAY',
-  'vnpay.vn': 'VNPAY',
-  'vnptmoney.com.vn': 'VNPT Money',
-  'vnptmoney.vn': 'VNPT Money',
-  'vnptpay.vn': 'VNPT Money',
   'vps.com.vn': 'VPS',
   'vps.vn': 'VPS',
-  'zalopay.com.vn': 'ZaloPay',
-  'zalopay.vn': 'ZaloPay',
 };
+
+/** Consumer finance and pay-later: disbursements, instalments, due notices. */
+const LENDERS = {
+  'fecredit.com.vn': 'FE Credit',
+  'fecredit.vn': 'FE Credit',
+  'fundiin.vn': 'Fundiin',
+  'hdsaison.com.vn': 'HD SAISON',
+  'homecredit.com.vn': 'Home Credit',
+  'homecredit.vn': 'Home Credit',
+  'kredivo.com.vn': 'Kredivo',
+  'kredivo.vn': 'Kredivo',
+};
+
+/** The four classes above in match order, with the `senderKind` each carries. */
+const NON_BANK_GROUPS = [
+  [WALLETS, 'wallet'], [GATEWAYS, 'gateway'], [BROKERS, 'broker'], [LENDERS, 'lender'],
+];
 
 /** Merchant RECEIPT senders — the third kind, `'receipt'`.
  *
@@ -362,7 +393,16 @@ export function domainMatches(domain, parent) {
  *        rows from known_provider_domains, unioned in as banks when present.
  *        The table is empty today and this worker does not depend on it; it is
  *        read so that seeding it later widens both transports at once.
- * @return {{provider: string, kind: 'bank'|'wallet'|'receipt'}|null}
+ * @return {{provider: string, kind: 'bank'|'wallet'|'receipt', senderKind: string}|null}
+ *
+ * TWO KINDS, AND THE COARSE ONE IS LOAD-BEARING. `kind` is the three-value
+ * answer every caller has always switched on (stage.mjs derives the sealed
+ * `transaction_type` from it; ingest.mjs compares it to 'bank'), and a gateway,
+ * a broker and a lender all still answer 'wallet' there, exactly as they did
+ * inside the old WALLETS group. `senderKind` is the finer class (contract.mjs
+ * SENDER_KINDS) that picks the prompt block and is sealed as `sender_kind` on a
+ * v2 row. Widening `kind` itself would have changed what existing rows' dedup
+ * sees; adding a key changes nothing for anyone who does not read it.
  */
 export function match(fromHeader, extra) {
   const address = addressOf(fromHeader);
@@ -370,13 +410,15 @@ export function match(fromHeader, extra) {
   if (!domain) return null;
 
   for (const [d, provider] of Object.entries(BANKS)) {
-    if (domainMatches(domain, d)) return { provider, kind: 'bank' };
+    if (domainMatches(domain, d)) return { provider, kind: 'bank', senderKind: 'bank' };
   }
-  for (const [d, provider] of Object.entries(WALLETS)) {
-    if (domainMatches(domain, d)) return { provider, kind: 'wallet' };
+  for (const [group, senderKind] of NON_BANK_GROUPS) {
+    for (const [d, provider] of Object.entries(group)) {
+      if (domainMatches(domain, d)) return { provider, kind: 'wallet', senderKind };
+    }
   }
   for (const [d, provider] of Object.entries(RECEIPTS)) {
-    if (domainMatches(domain, d)) return { provider, kind: 'receipt' };
+    if (domainMatches(domain, d)) return { provider, kind: 'receipt', senderKind: 'receipt' };
   }
   for (const row of extra || []) {
     const d = String(row.domain_or_address || '').toLowerCase();
@@ -384,7 +426,7 @@ export function match(fromHeader, extra) {
     // A row may name a full address rather than a domain, which is why the
     // address is compared too.
     if (address === d || domainMatches(domain, d)) {
-      return { provider: row.provider_name || d, kind: 'bank' };
+      return { provider: row.provider_name || d, kind: 'bank', senderKind: 'bank' };
     }
   }
   return null;
@@ -436,7 +478,7 @@ export function inboxQuery(days, extra, opts) {
   // RECEIPT_DOMAINS are deliberately absent — see the note above RECEIPTS.
   const domains = [
     ...Object.keys(BANKS),
-    ...Object.keys(WALLETS),
+    ...NON_BANK_GROUPS.flatMap(([group]) => Object.keys(group)),
     ...(extra || []).map(r => String(r.domain_or_address || '').toLowerCase()).filter(Boolean),
   ];
   const uniq = [...new Set(domains)];
@@ -462,7 +504,18 @@ export function inboxQuery(days, extra, opts) {
   return from + notPromo + notSkipped + ' newer_than:' + Math.max(1, Math.floor(days)) + 'd';
 }
 
-export const KNOWN_DOMAINS = { BANKS, WALLETS, RECEIPTS };
+/* `WALLETS` here is still EVERY non-bank, non-receipt domain, as it was before
+   the split: tools/pull-mail-corpus.mjs and tools/scoreboard/run.mjs walk these
+   groups to know which domains the registry covers, and a caller reading
+   KNOWN_DOMAINS.WALLETS must not silently lose the brokers and lenders. The
+   finer groups ride beside it. */
+export const KNOWN_DOMAINS = {
+  BANKS,
+  WALLETS: Object.assign({}, ...NON_BANK_GROUPS.map(([group]) => group)),
+  RECEIPTS,
+  GATEWAYS, BROKERS, LENDERS,
+  EWALLETS: WALLETS,
+};
 
 /* One display name per provider, whoever wrote it down.
 
@@ -483,7 +536,7 @@ function _provKey(name) {
 }
 const _PROV_CANON = (() => {
   const map = {};
-  for (const name of new Set([...Object.values(BANKS), ...Object.values(WALLETS)])) {
+  for (const name of new Set([...Object.values(BANKS), ...NON_BANK_GROUPS.flatMap(([group]) => Object.values(group))])) {
     map[_provKey(name)] = name;
   }
   Object.assign(map, {

@@ -995,7 +995,7 @@ function csvCollapsedCard(c, opts){
     var r = csvRowShape(c, opts.isDup || opts.repeat);
     var scope = !opts.isDup ? (csvRowScope(c)==='personal' ? L('🔒 Riêng tư','🔒 Private') : L('🏡 Gia đình','🏡 Family')) : '';
     var catTxt;
-    if(r._loan)          catTxt = '🤝 '+L('Cho vay','Loan out')+(c._loanWho?' · '+esc(c._loanWho):'');
+    if(r._loan)          catTxt = '🤝 '+(c.isIncome?L('Đi vay','Borrowed'):L('Cho vay','Loan out'))+(c._loanWho?' · '+esc(c._loanWho):'');
     else if(r._invest)   catTxt = '📈 '+(c.isIncome?L('Bán đầu tư','Sold investment'):L('Đầu tư','Investment'))
                                   +(function(){ var n=''; csvInvPositions().forEach(function(a){ if(a.id===c._investPosId) n=a.name||''; }); return n?' · '+esc(n):''; })();
     else if(r._transfer) catTxt = '💳 '+L('Trả nợ thẻ','Card payment');
@@ -1010,7 +1010,11 @@ function csvCollapsedCard(c, opts){
        ready list (spec Q9a), this chip carries the entire "you can catch a
        wrong firing at a glance" story. */
     var learnHtml = c._lessonWhy==='learned' ? '<span class="scv-dup soft">'+L('đã học từ bạn','learned from you')+'</span>'
-      : (c._lessonWhy==='owe'||c._lessonWhy==='owed') ? '<span class="scv-dup soft">'+L('khớp sổ nợ','matches your ledger')+'</span>' : '';
+      : (c._lessonWhy==='owe'||c._lessonWhy==='owed') ? '<span class="scv-dup soft">'+L('khớp sổ nợ','matches your ledger')+'</span>'
+      /* payload v2: the pre-selection rests on a judgment or a guess, not on
+         something the mail printed (email-reading-v2-spec §3). Same quiet chip as
+         the two above; gone once the person picks the kind themselves. */
+      : (c._srcAttn && !c._kindPicked) ? '<span class="scv-dup soft">'+L('máy đoán','a guess')+'</span>' : '';
     /* Two chips, two things the app can back with evidence (58-dedup-engine):
        "đã có trong sổ" is a fact it can show — the booked row, who logged it,
        when; "có thể trùng" is a same-amount same-day neighbour it cannot read
@@ -1038,6 +1042,13 @@ function csvCollapsedCard(c, opts){
     var tag = csvStagedSourceTag(c);
     var footBits = [whenTxt, tag].filter(Boolean).map(function(x){ return esc(x); });
     var footHtml = footBits.length ? '<span class="scv-foot">'+footBits.join('<span class="scv-sep">·</span>')+'</span>' : '';
+    /* payload v2: the mail printed a fee. It becomes its own small expense, shown
+       as one quiet line under its parent and imported or dropped with it. */
+    if(c._fee && c._fee.amount > 0){
+      footHtml += '<span class="scv-foot">'+esc(c._fee.on
+        ? L('Kèm phí '+csvFmt(c._fee.amount)+', ghi thành một khoản riêng','Plus a '+csvFmt(c._fee.amount)+' fee, logged as its own item')
+        : L('Có phí '+csvFmt(c._fee.amount)+', chưa ghi','Has a '+csvFmt(c._fee.amount)+' fee, not logged'))+'</span>';
+    }
     return '<div class="bulk-card'+(opts.invalid?' invalid':(opts.attn?' attn':''))+(opts.dim?' is-dim':'')+'">' + ck
       + '<button type="button" class="bulk-tap scv-tap" onclick="'+opts.tapFn+'" aria-label="'+L('Sửa khoản này','Edit this item')+'">'
       + topHtml
@@ -1247,12 +1258,13 @@ function csvStagedRowsCard(c, opts){
     var cur = csvRowKindCur(c);
     var kindLbls = { expense:L('Chi tiêu','Spending'), cardpay:L('💳 Trả nợ thẻ','💳 Card payment'),
                      xfer:L('🔁 Chuyển khoản nội bộ','🔁 Internal transfer'),
-                     income:L('Thu nhập','Income'), loan:L('🤝 Cho vay','🤝 Loan out'),
+                     income:L('Thu nhập','Income'),
+                     loan: c.isIncome ? L('🤝 Đi vay','🤝 Borrowed') : L('🤝 Cho vay','🤝 Loan out'),
                      invest: c.isIncome ? L('📈 Bán đầu tư','📈 Sold investment') : L('📈 Đầu tư','📈 Investment'),
                      repay: c.isIncome ? L('🤝 Thu nợ','🤝 Repayment in') : L('🤝 Trả nợ','🤝 Repay someone') };
     rows += row('kind', L('Loại khoản','Kind'), kindLbls[cur] || '');
     if(cur==='loan'){
-      rows += row('loanwho', L('Cho ai mượn','Lent to'),
+      rows += row('loanwho', c.isIncome ? L('Vay của ai','Borrowed from') : L('Cho ai mượn','Lent to'),
         c._loanWho ? esc(c._loanWho) : L('Chọn','Pick'), { soft: !c._loanWho });
       rows += fhPickRow({ label: L('Hẹn trả','Due back'), type: 'date', value: c._loanDue||'', on: 'csvPickLoanDue', clear: true, soft: !c._loanDue, hot: csvRowHot==='loandue',
         val: '<b>'+(c._loanDue ? '<span class="num">'+esc(csvDateRowLbl(c._loanDue))+'</span>' : esc(L('Chưa hẹn','Not set')))+'</b>' });
@@ -1268,7 +1280,7 @@ function csvStagedRowsCard(c, opts){
     }
     if(cur==='cardpay'){
       var cards = csvCreditCards();
-      var pc = c._payCardId || (cards.length===1 ? cards[0].id : '');
+      var pc = csvPayCardFor(c);
       var cardName = '';
       cards.forEach(function(a){ if(a.id===pc) cardName = a.name || L('Thẻ','Card'); });
       rows += row('paycard', L('Trả cho thẻ','Which card'),
@@ -1311,6 +1323,14 @@ function csvStagedRowsCard(c, opts){
     val: '<b class="num">'+esc(csvDateRowLbl(c.dateDisplay))+'</b>' });
   rows += fhPickRow({ label: L('Giờ','Time'), type: 'time', value: t||'', on: 'csvPickTime', clear: true, soft: !t, hot: csvRowHot==='when',
     val: '<b class="num">'+(t ? esc(t) : esc(L('Chỉ tính theo ngày','Day only')))+'</b>' });
+  /* payload v2: the printed fee. One row, and the tap IS the answer (no sheet):
+     it toggles between logging the fee as its own small expense and leaving it
+     out. Grey when off, like every other optional row. */
+  if(c._fee && c._fee.amount > 0){
+    rows += '<button type="button" class="csv-srow'+(c._fee.on?'':' soft')+(csvRowHot==='fee'?' hot':'')+'" onclick="csvFeeToggle()">'
+      + '<small>'+L('Phí giao dịch','Transaction fee')+'</small><span class="csv-sval"><b><span class="num">'+esc(csvFmt(c._fee.amount))+'</span> · '
+      + esc(c._fee.on ? L('ghi thành khoản riêng','logged as its own item') : L('không ghi','not logged'))+'</b></span></button>';
+  }
   /* Nguồn tiền (bank · instrument) and Nguồn nhập (transport) used to be two
      read-only rows here. They are fixed provenance, so they moved up to the
      card's top line (csvActiveCard header) and no longer take a row. */
@@ -1467,6 +1487,7 @@ function csvRowSheetHTML(c){
       ? chip(cur==='income', "csvSheetPick('kind','income')", esc(L('Thu nhập','Income')))
         + chip(cur==='xfer', "csvSheetPick('kind','xfer')", esc(L('🔁 Chuyển khoản nội bộ','🔁 Internal transfer')))
         + chip(cur==='repay', "csvSheetPick('kind','repay')", esc(L('🤝 Thu nợ','🤝 Repayment in')))
+        + chip(cur==='loan', "csvSheetPick('kind','loan')", esc(L('🤝 Đi vay','🤝 Borrowed')))
         + chip(cur==='invest', "csvSheetPick('kind','invest')", esc(L('📈 Bán đầu tư','📈 Sold investment')))
       : chip(cur==='expense', "csvSheetPick('kind','expense')", esc(L('Chi tiêu','Spending')))
         + chip(cur==='cardpay', "csvSheetPick('kind','transfer')", esc(L('💳 Trả nợ thẻ','💳 Card payment')))
@@ -1484,11 +1505,13 @@ function csvRowSheetHTML(c){
     var lnames = pd2.people.map(function(p){ return p.who; });
     var capName = (c.counterparty || '').trim();
     if (capName && lnames.indexOf(capName) < 0) lnames.unshift(capName);
-    title = L('Cho ai mượn?','Lent to whom?');
+    title = c.isIncome ? L('Vay của ai?','Borrowed from whom?') : L('Cho ai mượn?','Lent to whom?');
     body = (lnames.length ? '<div class="choices" style="margin-bottom:10px">'
         + lnames.map(function(n){ return chip(c._loanWho===n, "csvSheetPick('loanwho','"+escAttr(n)+"')", esc(n)); }).join('')+'</div>' : '')
       + '<input id="csvsheet-loanwho" class="crs-in" placeholder="'+escAttr(L('vd. Thằng em','e.g. a name'))+'" value="'+escAttr(c._loanWho||'')+'"/>'
-      + '<div class="csv-scope-note">'+esc(L('Ghi vào sổ nợ riêng của bạn — không tính là chi tiêu.','Goes to your private receivables — never spending.'))+'</div>'
+      + '<div class="csv-scope-note">'+esc(c.isIncome
+          ? L('Ghi vào sổ nợ riêng của bạn, không tính là thu nhập.','Goes to your private debts, never income.')
+          : L('Ghi vào sổ nợ riêng của bạn — không tính là chi tiêu.','Goes to your private receivables — never spending.'))+'</div>'
       + '<button type="button" class="crs-done" onclick="csvSheetValDone()">'+esc(L('Xong','Done'))+'</button>';
   } else if(f==='invpos'){
     /* which position — existing ones as chips; a new one materializes right
@@ -1508,7 +1531,7 @@ function csvRowSheetHTML(c){
       + '<button type="button" class="crs-done" onclick="csvSheetValDone()">'+esc(L('Xong','Done'))+'</button>';
   } else if(f==='paycard'){
     var cards = csvCreditCards();
-    var pc = c._payCardId || (cards.length===1 ? cards[0].id : '');
+    var pc = csvPayCardFor(c);
     title = L('Trả cho thẻ nào','Which card');
     body = '<div class="choices">'
       + cards.map(function(a){ return chip(pc===a.id, "csvSheetPick('paycard','"+a.id+"')", esc(a.name||L('Thẻ','Card'))); }).join('')
@@ -1772,6 +1795,23 @@ function csvPickRowScope(v){
 function csvCreditCards(){
   return ((window.fhPersonalData && fhPersonalData().accounts) || []).filter(function(a){ return a.kind==='credit_card'; });
 }
+/* The card a "Trả nợ thẻ" row pays off: the person's own pick, else whatever
+   the ONE resolver says (fhResolveRepaidCard, 72), which is also what the import
+   asks. Every place that shows or pre-selects the card goes through here, so
+   the card SHOWN and the card IMPORTED cannot disagree. Four places used to
+   repeat "one owned card, so that one" on their own; that default now lives in
+   the resolver alone, where it knows to stand down when the mail names a
+   different card (card-repayment-routing-spec §9: never a wrong card). */
+function csvPayCardFor(c){
+  if(!c) return '';
+  if(c._payCardId) return c._payCardId;
+  if(!window.fhResolveRepaidCard) return '';
+  try{
+    var x = window.fhStagedRawX ? fhStagedRawX(c.rowIndex) : null;
+    var sa = window.fhStagedAcct ? fhStagedAcct(c) : null;
+    return fhResolveRepaidCard(x, sa, c.description) || '';
+  }catch(e){ return ''; }
+}
 /* Non-card accounts a transfer leg can pair with (0109) — the "other side"
    picker. Excludes the row's own instrument when it is knowable. */
 function csvXferAccounts(c){
@@ -1803,7 +1843,7 @@ function csvRowKindField(c){
   h += '</div></div>';
   if(cur==='cardpay'){
     var cards = csvCreditCards();
-    var pc = c._payCardId || (cards.length===1 ? cards[0].id : '');
+    var pc = csvPayCardFor(c);
     h += '<div class="field csv-paycardf"><label>'+esc(L('Trả cho thẻ nào','Which card'))+'</label><div class="choices">'
       + cards.map(function(a){ return '<button type="button" class="choice'+(pc===a.id?' on':'')+'" onclick="csvPickPayCard(\''+a.id+'\')">'+esc(a.name||'Thẻ')+'</button>'; }).join('')
       + '<button type="button" class="choice'+(!pc?' on':'')+'" onclick="csvPickPayCard(\'\')">'+esc(L('Chưa rõ','Not sure'))+'</button>'
@@ -1854,6 +1894,8 @@ function csvPickRowKind(v){
     }
     c._scope = 'personal';
   }
+  c._kindPicked = true;       // the person's own pick outranks everything (email-reading-v2-spec §9.1); the "máy đoán" chip goes
+  c._sigHold = false;
   c.isTransfer = (v==='transfer');
   c._xfer = (v==='xfer');
   c._repay = (v==='repay');
@@ -1862,7 +1904,7 @@ function csvPickRowKind(v){
   if(v==='income'){ c.isIncome = true; }
   else if(v==='expense'){ c.isIncome = false; }
   if(!c.isTransfer){ c._payCardId = null; }
-  else if(!c._payCardId){ var cards = csvCreditCards(); if(cards.length===1) c._payCardId = cards[0].id; }
+  else if(!c._payCardId){ c._payCardId = csvPayCardFor(c) || null; }
   if(!c._xfer){ c._xferOtherId = null; }
   if(!c._repay){ c._repayWho = null; }
   if(!c._loan){ c._loanWho = null; c._loanDue = null; }
@@ -1872,6 +1914,13 @@ function csvPickRowKind(v){
   /* the remembered seller pre-fills the position (0123 memory — one tap) */
   else if(!c._investPosId && window.fhInvMemoryMatch){ c._investPosId = fhInvMemoryMatch(c.counterparty || c.description) || null; }
   renderCsvReview();          // stays expanded (csvExpand unchanged); shows/hides the pickers + category
+}
+function csvFeeToggle(){
+  var c = csvExpandedCandidate(); if(!c || !c._fee) return;
+  csvReadEditor(c);
+  c._fee.on = !c._fee.on;
+  csvRowHot = 'fee';
+  renderCsvReview();
 }
 function csvPickLoanWho(name){
   var c = csvExpandedCandidate(); if(!c) return;
@@ -2333,6 +2382,18 @@ function csvSumTap(col){
    Same collapsed/expanded cards and the same verbs as the dated list — tick
    (import anyway), tap (open, with the evidence), ✕ (retire) — so a row never
    changes behaviour by changing section. */
+/* A ready row shown under "Cần bạn xem" because its pre-selection is a judgment
+   or a guess (payload v2, c._srcAttn). The SAME card the dated list draws, with
+   the same tick, editor and CTA bar: only its place on the screen differs. */
+function csvStagedSrcCard(c, i, pickOn, pickWk){
+  var o = { label: L('Máy đoán, bạn xem giúp','A guess, please check'), dateIso: c.dateDisplay, timeStr: csvRowTime(c), attn: true,
+            tapFn: "csvToggleExpand('ready',"+i+")", removeFn: "csvReadyRemove("+i+")",
+            checkFn: "csvStagedToggle("+i+")", checked: !c._skipImport,
+            armed: (csvArmedRemove === i), dim: pickOn && !csvPickMatch(c, pickWk) };
+  return csvIsOpen('ready', i)
+    ? csvActiveCard(c, Object.assign({}, o, { fields:true, ctaIdx:i }))
+    : csvCollapsedCard(c, o);
+}
 function csvStagedDupCard(c, i, tier, pickOn, pickWk){
   var o = { label: tier === 'sure' ? L('Đã có trong sổ','Already in your ledger') : L('Có thể trùng','Possible duplicate'),
             dateIso: c.dateDisplay, timeStr: csvRowTime(c), attn: tier !== 'sure', repeat: true,
@@ -2578,13 +2639,18 @@ function renderCsvReview(){
      already in the ledger leave the dated list for their own section; rows the
      app cannot decide join "Cần bạn xem". Both stay in r.ready (unticked) so
      Chọn nhanh, Chỉnh sửa, the tick and the ✕ keep working on them. */
-  var sureRows = [], likelyRows = [];
+  var sureRows = [], likelyRows = [], srcRows = [];
   if(csvStagedMode){
     r.ready.forEach(function(c, i){
       var tier = csvDupTier(c);
       if(tier === 'sure') sureRows.push({ c:c, i:i }); else if(tier === 'likely') likelyRows.push({ c:c, i:i });
+      /* payload v2 (email-reading-v2-spec §3): a pre-selection that rests on the
+         model's judgment or on a guess is SHOWN here. Still in r.ready, ticked or
+         not exactly as every other rule left it: provenance decides where a row
+         shows, never whether it imports. A duplicate verdict keeps its own place. */
+      else if(c._srcAttn) srcRows.push({ c:c, i:i });
     });
-    decisionCount += likelyRows.length;
+    decisionCount += likelyRows.length + srcRows.length;
   }
 
   // Lead with the win, not the workload.
@@ -2619,6 +2685,7 @@ function renderCsvReview(){
 
   if(csvStagedMode){
     likelyRows.forEach(function(e){ attnHtml += csvStagedDupCard(e.c, e.i, 'likely', pickOnStaged, pickWkStaged); });
+    srcRows.forEach(function(e){ attnHtml += csvStagedSrcCard(e.c, e.i, pickOnStaged, pickWkStaged); });
   }
   if(attnHtml){
     html += '<div class="group-h attn">'+L('Cần bạn xem','Needs a look')+'</div><div class="csv-cards">'+attnHtml+'</div>';
@@ -2713,7 +2780,7 @@ function renderCsvReview(){
        only sat between the toolbox and the list (removed 2026-09-16). */
     var dateBuckets = {};
     r.ready.forEach(function(c, i){
-      if(csvStagedMode && csvDupTier(c)) return;         // rendered in their own sections above
+      if(csvStagedMode && (csvDupTier(c) || c._srcAttn)) return;   // rendered in their own sections above
       var k = c.dateDisplay || ''; (dateBuckets[k] = dateBuckets[k] || []).push({ c:c, i:i });
     });
     var keys = Object.keys(dateBuckets).sort().reverse();
@@ -3617,6 +3684,24 @@ function csvPromote(subset, opts){
                pAcct: c._pAcct || null, link: c._link || null,
                time: csvRowTime(c), _timeAuto: false };   // reviewed time (edited value wins, else derived); '' = day-only
     });
+    /* payload v2: a printed fee the person left on is its own small expense, right
+       after its parent (full-ledger-spec §3.4). Same payer, day, time and money
+       source; filed under the catch-all, with the tree's bank-fee node. A file
+       import has no fee field, so nothing is added there. */
+    if(csvStagedMode){
+      var withFees = [];
+      bulkRows.forEach(function(br, bi){
+        withFees.push(br);
+        var fc = rows[bi];
+        if(!fc || !fc._fee || !fc._fee.on || !(fc._fee.amount > 0)) return;
+        withFees.push({ note: L('Phí giao dịch','Transaction fee'), amt: String(Math.round(fc._fee.amount)),
+                        cat: csvCatOk(CAT_FALLBACK) ? CAT_FALLBACK : br.cat, who: br.who, date: br.date, _invalid: false,
+                        _catTouched: true, node: fc._fee.node || null, source: br.source, inst: br.inst,
+                        pAcct: br.pAcct, link: br.pAcct ? crypto.randomUUID() : null,
+                        time: br.time, _timeAuto: false });
+      });
+      bulkRows = withFees;
+    }
     bulkActive = 0;
     exPhotos = [];
     csvClearDraft();             // these rows are becoming real transactions now

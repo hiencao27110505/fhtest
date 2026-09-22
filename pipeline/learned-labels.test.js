@@ -51,7 +51,16 @@ console.log('\n-- what one model answer teaches --');
 const votes = LT.deriveLabelMappings(VIB, READING);
 const byLabel = Object.fromEntries(votes.map(v => [v.label, v.field]));
 console.log('   votes:', JSON.stringify(votes));
-t('"dien giai" -> memo', byLabel['dien giai'] === 'memo', JSON.stringify(byLabel));
+/* OVERTAKEN BY THE VOCABULARY (2026-09-22), like 'so giao dich' below: "Diễn
+   giải" is VIB's memo label, seen 364 times in the email-reading-v2 test set,
+   and it is hand-authored now. The learning property it used to pin is pinned
+   on a label the vocabulary still does not know. */
+t('"dien giai" is now HARDCODED, so the learner holds no vote on it', !('dien giai' in byLabel), JSON.stringify(byLabel));
+{
+  const v = LT.deriveLabelMappings(VIB.replace('Diễn giải', 'Lời nhắn riêng'), READING);
+  t('an UNKNOWN label beside the model\'s memo still teaches memo',
+    v.some((x) => x.label === 'loi nhan rieng' && x.field === 'memo'), JSON.stringify(v));
+}
 t('banned: the date label is NOT learned, though its value was right there',
   !('ngay giao dich' in byLabel));
 t('banned: the account label is NOT learned', !('tu tai khoan' in byLabel));
@@ -96,11 +105,16 @@ const learned = new Map([['ngay giao dich', 'memo'],        // hostile: tries to
 const before = LT.readLabelTable('x', VIB);
 /* And the date label was hand-added too (labeltable.mjs:64, from the VIB
    failure logs), plus 'ngan hang huong' joined beneficiary from BVBank's — so
-   the hand-authored reader now opens this shape ON ITS OWN. What learning
-   still adds here is the memo: 'dien giai' remains vocabulary-unknown. */
-t('the hand-authored reader now opens VIB2 by itself',
-  !!before && before.occurred_at === '2026-09-02T11:57:00+07:00' && before.memo === null,
+   the hand-authored reader now opens this shape ON ITS OWN. Since 2026-09-22
+   that includes the memo ('dien giai' is vocabulary), and "Ngân hàng hưởng" is
+   read as what it is, the beneficiary's BANK, which still stands in as the
+   counterparty when the mail names nobody else. */
+t('the hand-authored reader now opens VIB2 by itself, memo included',
+  !!before && before.occurred_at === '2026-09-02T11:57:00+07:00' && before.memo === READING.memo,
   JSON.stringify(before && { at: before.occurred_at, memo: before.memo }));
+t('  the bank row is counterparty_bank, and the counterparty of last resort',
+  !!before && before.counterparty_bank === READING.counterparty && before.counterparty === READING.counterparty
+  && before.counterparty_row === 'cp_bank');
 /* THE HAND-ADD LANDED (2026-09-03), so this now asserts the opposite of what it
    used to. Until today the gate had no timestamp: VIB's date label ("Ngày giao
    dịch") was absent from the vocabulary, and occurred_at is on the BANNED list
@@ -122,8 +136,12 @@ t('with the date hand-added, learned mappings DO open this shape',
   LT.readLabelTable('x', VIB, learned) !== null);
 t('  counterparty matches the model exactly, not a degraded guess',
   LT.readLabelTable('x', VIB, learned).counterparty === READING.counterparty);
-t('  KNOWN DIVERGENCE: a card bill reads p2p_transfer, model said bank_txn',
-  LT.readLabelTable('x', VIB, learned).transaction_type === 'p2p_transfer' &&
+/* THE DIVERGENCE PINNED HERE IS GONE (2026-09-22). It came from "Ngân hàng
+   hưởng" sitting in the beneficiary vocabulary: a beneficiary meant a transfer
+   between people. A mail whose only counterpart is the bank is a payment TO
+   the bank, and both tiers now say so. */
+t('  a card bill paid to the issuer reads bank_txn, as the model said',
+  LT.readLabelTable('x', VIB, learned).transaction_type === 'bank_txn' &&
   READING.transaction_type === 'bank_txn');
 
 /* Swap in the known date label and the learned mappings carry the rest. */

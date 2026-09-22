@@ -149,6 +149,14 @@ export async function getMessage(id, token, fetchImpl, mailtext) {
     internalDate: data.internalDate ? Number(data.internalDate) : null,
     headers,
     body: mailtext.toText(mailtext.decodeBase64Url(_bodyData(payload))),
+    /* The HTML part AS MARKUP, when the mail has one (email-reading-v2 §8.1 step
+       4). Additive: `body` above is unchanged and is still what the templates
+       anchor on and what the model is sent. This is for the structural reader
+       only (htmltable.mjs), which reads a `<tr>` as a row instead of guessing
+       rows back out of flattened lines. Null when the mail is text-only. It
+       lives exactly as long as `body` does: in memory for one read, never
+       stored, never sent anywhere. */
+    html: _htmlData(payload, mailtext),
     dkim: dkimVerdict(headers, headers.from || ''),
     attachments: _attachments(payload),
   };
@@ -209,6 +217,14 @@ function _bodyData(payload) {
   const found = { plain: '', html: '' };
   _walk(payload, found);
   return found.plain || found.html;
+}
+
+/** The HTML part decoded, or null. Same walk as _bodyData, which prefers plain:
+ *  this one answers "is there markup at all", for the structural reader. */
+function _htmlData(payload, mailtext) {
+  const found = { plain: '', html: '' };
+  _walk(payload, found);
+  return found.html ? mailtext.decodeBase64Url(found.html) : null;
 }
 
 /**

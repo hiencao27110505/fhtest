@@ -49,7 +49,8 @@
  */
 
 import { resolveDestination, MailboxHold } from './identity.mjs';
-import { buildStagedRow } from './stage.mjs';
+import { buildStagedRow, carryRaw } from './stage.mjs';
+import { RAW_KEYS } from './contract.mjs';
 import { tidyMemo, tidyMerchant } from './memo.mjs';
 import * as senders from './senders.mjs';
 import * as gmail from './gmail.mjs';
@@ -92,6 +93,18 @@ function usableAmount(v) {
  * which is a question the memo alone cannot answer. `buildStagedRow` writes no
  * raw_body under any transport, so this string dies with the request.
  */
+/* What an external reader may call a contract field: its camelCase twin, plus
+   the few names this transport has always accepted. Built from the contract's
+   own key list, never retyped. */
+const _camel = (k) => k.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+const INGEST_ALIASES = Object.fromEntries(RAW_KEYS.map((k) => [k, [_camel(k)]]));
+INGEST_ALIASES.account_masked.push('account_tail', 'accountTail');
+INGEST_ALIASES.card_masked.push('card_tail', 'cardTail');
+INGEST_ALIASES.balance.push('balance_after', 'balanceAfter');
+INGEST_ALIASES.category_hint.push('category');
+INGEST_ALIASES.reader_type.push('transaction_type');
+INGEST_ALIASES.counterparty_raw.push('merchant', 'counterparty');
+
 export function normaliseReading(raw, body) {
   const r = raw || {};
   const memo = r.description ?? r.memo ?? null;
@@ -105,6 +118,12 @@ export function normaliseReading(raw, body) {
   const merchant = r.merchant ?? r.counterparty ?? null;
 
   return {
+    /* PAYLOAD V2, by the same ONE walk of contract.mjs RAW_FIELDS the direct-read
+       mapper makes (stage.mjs carryRaw), so the two transports cannot drift. The
+       caller may spell a key in snake_case or camelCase; the tidied memo and its
+       type code are this function's own and are carried as such. */
+    raw: carryRaw({ ...r, memo, memo_display: tidy.description, type_code: r.type_code || r.typeCode || tidy.code || null },
+      INGEST_ALIASES),
     amount: r.amount,
     currency: r.currency || 'VND',
     // The foreign original behind a converted-VND amount (Approach 2 of
@@ -189,7 +208,7 @@ async function resolveSender(payload, ctx) {
   let extra = [];
   try { extra = await ctx.db.providerDomains(); } catch { /* our list alone still decides */ }
   const matched = senders.match(payload.from, extra);
-  if (matched) return { provider: matched.provider, kind: matched.kind, unknown: false };
+  if (matched) return { provider: matched.provider, kind: matched.kind, senderKind: matched.senderKind, unknown: false };
   return { ...declared, unknown: true };
 }
 
@@ -277,7 +296,8 @@ async function ingestForGrant(grant, payload, messageId, ctx) {
     destination,
     reading: normaliseReading(payload.reading, payload.body),
     sourceProvider: sender.provider,
-    senderKind: sender.kind,
+    senderKind: sender.senderKind || sender.kind,
+    readerV: grant.reader_v,     // R15: anything but 2 seals as v1
     deps: {
       nacl: ctx.nacl, rng: ctx.rng, subtle: ctx.subtle,
       dedupKey: ctx.dedupKey, db: ctx.db,

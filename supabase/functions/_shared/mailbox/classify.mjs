@@ -274,6 +274,14 @@ export async function enrichCategory(extraction, grant, ctx) {
   if (!extraction) return;
   ctx = ctx || {};
 
+  /* (0) A node that is NOT an expense node was decided by the signal detector
+     (signals.mjs: 'cardpay', 'bankbank', 'wage', 'cashout'…) from what the mail
+     itself states. This cascade only knows EXPENSE nodes: left to run, its
+     keyword tier would overwrite a card repayment with whatever word the memo
+     happened to contain, and its model tier would spend a call on a transfer.
+     Nothing to enrich: a concept is a spending category. */
+  if (extraction.node && !validNode(extraction.node) && TAX.get(extraction.node)) return;
+
   // (1) extractor already knows the node → derive what is missing, done.
   if (validNode(extraction.node)) {
     const d = derivedFromNode(extraction.node);
@@ -332,6 +340,9 @@ export async function enrichCategory(extraction, grant, ctx) {
   // a MERCHANT, and only ever its name (see modelMerchantText above). Checked
   // before the budget is touched: a row we will not ask about costs nothing.
   if (isPersonToPerson(extraction)) return;
+  // ...nor when the other side is the customer themself or a bank: there is no
+  // merchant there to name (signals.mjs counterpartyKind).
+  if (extraction.counterparty_kind === 'self' || extraction.counterparty_kind === 'bank') return;
   const asked = modelMerchantText(extraction);
   if (asked.length < 2) return;                    // a memo-only row has no merchant to name
   const budget = ctx.classifyBudget;

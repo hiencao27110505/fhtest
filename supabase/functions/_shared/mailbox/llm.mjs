@@ -13,14 +13,16 @@
  * sheet in the same commit** — src/js-data/75-consent-ui.js, and the two are
  * held together by pipeline/llm-raw-body.test.js on the forwarding side.
  *
- * The prompt and schema are the ones the forwarding pipeline uses, verbatim.
- * They are not copied to be different; they are copied because both transports
- * write into one `sender_fingerprints` cache, so a template derived from one
- * model's output is applied to the other transport's mail. Two prompts would
- * derive two shapes of template for the same bank.
+ * THE PROMPT IS NO LONGER THE FORWARDING PIPELINE'S (2026-09-22). It was copied
+ * from there verbatim so both transports derived one shape of template. Under
+ * email-reading-v2 the Apps Script stops reading mail at all (R11: it becomes a
+ * courier that hands the mail to THIS reader), so there is one prompt again,
+ * and it is this one. Until that paste lands the two differ, on purpose; the
+ * v4 templates both still write are derived from fields both prompts share.
  */
 
 import { TAX } from './taxonomy.mjs';
+import { SIGNALS, NOTICE_SIGNALS, MAIL_KINDS, COUNTERPARTY_KINDS, CHANNELS, TIME_PRECISIONS } from './contract.mjs';
 
 /**
  * Free tier, no card, rate-limited well above what this worker needs given that
@@ -29,183 +31,337 @@ import { TAX } from './taxonomy.mjs';
  */
 export const DEFAULT_MODEL = 'gemini-3.5-flash-lite';
 
-/* The category-tree codes the model may answer in `node` (0144, taxonomy.mjs):
-   every expense node (leaves and groups) and every income node. Built once at
-   module load from the generated tree, so a tree edit is one regeneration away
-   from the prompt and the schema alike. The two manual-only roots ('xunfiled',
+/* The category-tree codes the model may answer in `node` (0144, taxonomy.mjs),
+   by kind. Built once at module load from the generated tree, so a tree edit is
+   one regeneration away from the prompt. The manual-only roots ('xunfiled',
    'iunfiled') are a person's verdict, never a model's, and are left out. */
-export const EXPENSE_NODE_CODES = TAX.nodes.filter((n) => n.kind === 'expense' && !n.manual).map((n) => n.code);
-export const INCOME_NODE_CODES = TAX.nodes.filter((n) => n.kind === 'income' && !n.manual).map((n) => n.code);
+const _codes = (kind) => TAX.nodes.filter((n) => n.kind === kind && !n.manual).map((n) => n.code);
+export const EXPENSE_NODE_CODES = _codes('expense');
+export const INCOME_NODE_CODES = _codes('income');
+export const TRANSFER_NODE_CODES = _codes('transfer');
+export const INVESTMENT_NODE_CODES = _codes('investment');
+export const LOAN_NODE_CODES = _codes('loan');
+export const REPAYMENT_NODE_CODES = _codes('repayment');
 export const NODE_CODES = [...EXPENSE_NODE_CODES, ...INCOME_NODE_CODES];
 
-export const EXTRACTION_SYSTEM_PROMPT =
-  'You classify and extract structured data from an email. The email may or may not represent ' +
-  'a financial transaction (bank transfer, subscription receipt, e-commerce order, bill payment, ' +
-  'P2P transfer). It may be in Vietnamese, English, or mixed.\n\n' +
-  'If the email is NOT a transaction record (promotional, newsletter, unrelated notification), ' +
-  'set is_transaction to false and leave all other fields null.\n\n' +
-  'If it IS a transaction record, extract every field you can find. Use null for anything not ' +
-  'present in the email — do not guess or infer values that aren\'t stated.\n\n' +
-  'transaction_type: use p2p_transfer when the counterparty is an individual person — identified ' +
-  'by a personal name, a phone number, or a personal account/e-wallet, with no indication of a ' +
-  'merchant or business. Use bank_txn for other bank-initiated transactions with no clear personal ' +
-  'counterparty (fees, interest, transfers to a business/wallet system, generic account activity). ' +
-  'Use subscription/ecommerce_receipt/bill_payment for their respective clearly-labeled cases.\n\n' +
-  'occurred_at: ISO 8601, and must include a UTC offset. If the email states one, use it. If it ' +
-  'doesn\'t (most Vietnamese bank/provider emails don\'t), assume the timestamp is already in the ' +
-  'sender\'s local time and attach that offset — for Vietnamese banks and providers this is ' +
-  '+07:00. Never output a bare timestamp with no offset.\n\n' +
-  'occurred_at_raw: the timestamp COPIED CHARACTER-FOR-CHARACTER from the email — the exact ' +
-  'substring occurred_at was read from, including any weekday words, exactly as printed ' +
-  '(e.g. "11:11 Chủ Nhật 23/08/2026", "26/08/2026 14:32:00", "26/08/2026"). Do not reformat, ' +
-  'translate or trim it. Null only when no printed timestamp exists.\n\n' +
-  'amount_raw: the transaction amount COPIED CHARACTER-FOR-CHARACTER as printed — digits and ' +
-  'separators only, without the currency word (e.g. "1.234.567", "15,000", "266,320"). This is ' +
-  'the exact substring amount was parsed from. Null only when no printed figure exists.\n\n' +
-  'counterparty: copy the full counterparty string exactly as written in the email, including any ' +
-  'account number, phone number, or identifier alongside the name — do not shorten or summarize it.\n\n' +
-  'memo: the free-text note the payer attached to the transaction — the transfer message, payment ' +
-  'reference, order description, or item name. In Vietnamese bank emails this is usually labelled ' +
-  '"Nội dung chuyển tiền", "Nội dung giao dịch", "Diễn giải" or similar. Copy it verbatim. This is ' +
-  'the only field that can carry the payer\'s own words about WHY the money moved, so never ' +
-  'paraphrase it and never substitute a description of your own. Many banks auto-generate this ' +
-  'field from the sender name and it carries no real meaning (e.g. "NGUYEN VAN A chuyen tien", ' +
-  '"TRANSFER FROM ..."); extract it as written either way and do not try to judge whether it is ' +
-  'meaningful — a human reviews it downstream.\n\n' +
-  'Amounts must be the raw number with no currency symbol or thousands separators. If the email ' +
-  'states a status (success/failed/pending), extract it; otherwise null.\n\n' +
+/* ── THE PROMPT: a shared core plus one block per sender class (R8) ──────────
+ *
+ * One universal prompt asked a small model 20 questions about every mail, most
+ * of them irrelevant to the mail in hand, and a third of the answers never
+ * reached review (email-reading-v2 §2). senders.mjs knows the sender's class
+ * BEFORE the call, so the model is given the core and only the block its class
+ * needs: a broker's mail is asked about symbols and quantities and never about
+ * card repayments. A shorter prompt also spends less of a free quota.
+ *
+ * THE CORE IS COPIED VERBATIM from docs/specs/email-reading-v2-spec.md §8.3,
+ * where it was agreed line by line; pipeline/prompt-blocks.test.js compares the
+ * two, so neither can drift without the other. Change the spec first.
+ *
+ * WHAT IS ASKED changed here. WHAT IS SENT did not: the mail as written, under
+ * the same consent (see the header of this file and `extract` below).
+ */
+export const CORE_PROMPT =
+  'You read ONE email that a Vietnamese bank, e-wallet, broker or lender sent to\n' +
+  'its customer, and report what it states. Vietnamese, English, or both.\n' +
+  '\n' +
+  'mail_kind: exactly one of\n' +
+  '  transaction  the mail reports money that moved, or a card that was charged\n' +
+  '  notice       a financial notice with no movement: payment due, statement\n' +
+  '               ready, instalment reminder\n' +
+  '  other        anything else: marketing, OTP, login alert, survey.\n' +
+  '               Set every other field to null.\n' +
+  '\n' +
+  'RULES\n' +
+  '1. Report only what the mail prints. Null always beats a guess. Never compute,\n' +
+  '   convert, translate, shorten or tidy a value.\n' +
+  '2. NEW. For every field you fill from a labelled row, write that label EXACTLY\n' +
+  '   as printed into `labels` under the same key (labels.amount = "Số tiền giao\n' +
+  '   dịch"). If the value came from a sentence, write "~". These labels teach a\n' +
+  '   local reader this format so later mails never reach you: a wrong label is\n' +
+  '   worse than "~".\n' +
+  '3. amount: the figure that actually moved, as a positive number with no\n' +
+  '   separators. Not the balance, not a fee, not a limit, not a promotional or\n' +
+  '   cashback figure. amount_raw: the same figure copied character for character.\n' +
+  '4. NEW. direction: debit when money left the customer\'s account or card,\n' +
+  '   credit when it arrived. Accept only printed evidence: a sign (+ or -), a\n' +
+  '   label ("ghi nợ" / "ghi có", "tiền ra" / "tiền vào"), or the mail\'s own\n' +
+  '   wording ("bạn đã chuyển", "bạn vừa nhận"). No evidence: null.\n' +
+  '5. occurred_at: ISO 8601 with an offset (+07:00 when none is printed).\n' +
+  '   occurred_at_raw: copied verbatim. NEW. time_precision: second, minute or day.\n' +
+  '6. currency, fx_amount, fx_currency: as today. NEW. fx_rate only if printed.\n' +
+  '7. NEW. Two sides. account_tail, account_kind, balance_after, available_limit\n' +
+  '   and holder_name describe the CUSTOMER\'S own instrument. counterparty,\n' +
+  '   counterparty_account_tail, counterparty_bank and counterparty_kind describe\n' +
+  '   the other side. holder_name is the customer\'s own name where the mail\n' +
+  '   prints it (the greeting, the remitter on a debit, the beneficiary on a\n' +
+  '   credit). counterparty_kind: person, merchant, bank, wallet, self or\n' +
+  '   unknown. Answer self only when the printed counterparty name equals\n' +
+  '   holder_name letter for letter, ignoring case and accents.\n' +
+  '8. counterparty and memo: copied in full, verbatim, never paraphrased, never\n' +
+  '   judged for meaning.\n' +
+  '9. NEW. fee_amount only when printed as its own figure. status as printed.\n' +
+  '10. card_tail: as today (the card being paid down, never the funding account).';
+
+/* Carried over UNCHANGED from the single prompt: the three rules the core
+   refers to as "as today", which a model that never saw yesterday's prompt
+   needs spelled out. Never guess; never compute a conversion; "a wrongly
+   claimed credit card invents a debt". */
+export const FIELD_NOTES =
+  'FIELD NOTES\n' +
   'currency: the ISO 4217 code the amount is denominated in (VND, USD, EUR, ...), exactly as the ' +
-  'email states it — never default to VND when the mail prints another currency. International ' +
+  'email states it. Never default to VND when the mail prints another currency. International ' +
   'card notices from Vietnamese banks often show BOTH a foreign transaction amount and the ' +
   'converted amount actually debited in VND (labelled "Số tiền quy đổi", "Số tiền ghi nợ" or ' +
   'similar). When both are present, amount must be the converted VND figure with currency VND, ' +
   'and the original foreign figure goes into fx_amount and fx_currency. When only a foreign ' +
   'amount is present, amount is that figure with its own currency code and fx_amount/fx_currency ' +
-  'stay null. Never compute a conversion yourself — only report figures the mail prints.\n\n' +
+  'stay null. Never compute a conversion yourself: only report figures the mail prints.\n' +
   'account_kind: which kind of account the money moved on, judged only from what the mail itself ' +
-  'says. credit_card when the mail shows a credit limit or an outstanding card balance — Vietnamese ' +
-  'banks write "Hạn mức khả dụng" or "Dư nợ" — or names a credit card ("thẻ tín dụng"). deposit ' +
-  'when it reports the account balance after the transaction ("Số dư") or is a balance-change ' +
-  'notice ("biến động số dư") on a bank account. ewallet when the sender is an e-wallet — MoMo, ' +
-  'ZaloPay, ShopeePay, or the mail says "ví điện tử". When the mail carries none of these signals, ' +
-  'answer null — never guess, because a wrongly claimed credit card invents a debt.\n\n' +
-  'card_masked: on a credit-card payment or repayment mail ("thanh toán thẻ tín dụng", ' +
-  '"trả nợ thẻ", a statement payment), the credit card whose balance is being paid down — the ' +
-  'card the money goes TO, distinct from the funding account in account_masked. Copy the card ' +
-  'number as printed (masked to its last digits is fine). Null on every mail that is not a card ' +
-  'repayment, and never guess — a wrong card moves the wrong balance.\n\n' +
-  'flow: what KIND of movement this is, as one of exactly these words.\n' +
-  '  income   — money that is genuinely the person\'s to spend: salary, a refund, ' +
-  'interest, a p2p transfer someone sent them.\n' +
-  '  expense  — money leaving for goods, services, bills or a p2p transfer they sent.\n' +
-  '  transfer — the SAME money moving between accounts the person already owns, and ' +
-  'therefore neither income nor spending: a credit-card bill payment, a top-up of a ' +
-  'wallet from a bank account, a move between own savings and current accounts. ' +
-  'Read the memo and the counterparty for this — a counterparty that names a card, a ' +
-  'wallet, or the person\'s own name is the signal. When in doubt between transfer ' +
-  'and the other two, answer income or expense: calling a real expense a transfer ' +
-  'hides it from the ledger entirely, while a transfer filed as an expense is merely ' +
-  'wrong and visible.\n' +
-  'flow must agree with direction: credit is income or transfer, debit is expense or ' +
-  'transfer. Never credit+expense or debit+income.\n\n' +
-  'category: what the money was spent ON, as ONE of exactly these words — ' +
-  'Housing, Groceries, Clothing, Shopping, Transport, Dining, Fun, Others. ' +
-  'Judge from the merchant and the memo together: a coffee shop is Dining, a ' +
-  'supermarket is Groceries, a ride-hailing app or fuel is Transport, an ' +
-  'electricity or water or internet bill is Housing, a streaming subscription ' +
-  'is Fun. Use Others when the mail genuinely does not say what was bought — a ' +
-  'bare transfer to a person, or an ATM withdrawal. NULL when it is money ' +
-  'coming IN rather than going out: income is not a spending category, and ' +
-  'guessing one puts a salary under Shopping.';
+  'says. credit_card when the mail shows a credit limit or an outstanding card balance ("Hạn mức ' +
+  'khả dụng", "Dư nợ") or names a credit card ("thẻ tín dụng"). deposit when it reports the ' +
+  'account balance after the transaction ("Số dư") or is a balance-change notice ("biến động số ' +
+  'dư") on a bank account. ewallet when the sender is an e-wallet (MoMo, ZaloPay, ShopeePay) or ' +
+  'the mail says "ví điện tử". When the mail carries none of these signals, answer null. Never ' +
+  'guess, because a wrongly claimed credit card invents a debt.\n' +
+  'card_tail: on a credit-card payment or repayment mail ("thanh toán thẻ tín dụng", "trả nợ ' +
+  'thẻ", a statement payment), the credit card whose balance is being paid down: the card the ' +
+  'money goes TO, distinct from the funding account in account_tail. Copy the card number as ' +
+  'printed (masked to its last digits is fine). Null on every mail that is not a card repayment, ' +
+  'and never guess: a wrong card moves the wrong balance.\n' +
+  'account_tail, counterparty_account_tail: the account number as printed (masked is fine).\n' +
+  'channel: QR, POS, ATM, online or transfer, only when the mail says which. Otherwise null.\n' +
+  'multi: true when this ONE email reports SEVERAL separate transactions (a daily order ' +
+  'summary, a list of matched trades). Then answer mail_kind transaction, multi true, and set ' +
+  'every other field to null. Otherwise false.';
+
+/* One line per signal: what the MAIL must say for the signal to be answered.
+   The keys are contract.mjs SIGNALS, walked, never retyped, so a signal added
+   there without a definition here fails pipeline/prompt-blocks.test.js. */
+export const SIGNAL_DEFINITIONS = {
+  purchase: 'a payment to a merchant: a merchant or POS row, a shop or company as the other side',
+  bill_payment: 'a bill paid to a biller: "thanh toán hóa đơn", electricity, water, internet, phone',
+  fee: 'a fee the sender itself charged: "phí thường niên", "phí SMS", "phí quản lý tài khoản"',
+  p2p: 'money to or from a PERSON: the other side is an individual\'s name or personal account',
+  own_transfer: 'between the customer\'s OWN accounts: the counterparty name equals holder_name',
+  card_repayment: 'a credit-card bill being paid down ("thanh toán thẻ tín dụng", "dư nợ thẻ") AND the mail names no merchant',
+  wallet_move: 'a top-up of, or withdrawal from, an e-wallet to or from a bank account ("nạp tiền vào ví")',
+  cash_move: 'an ATM cash withdrawal or a cash deposit',
+  savings_move: 'opening or closing a savings or term deposit ("mở / tất toán tiền gửi", "chứng chỉ tiền gửi")',
+  broker_funding: 'cash moved into or out of a securities account',
+  fx_exchange: 'a purchase or sale of foreign currency',
+  securities_trade: 'an executed buy or sell of a stock, fund or bond ("khớp lệnh mua / bán")',
+  yield: 'a dividend, a coupon, savings interest, "nhận lợi nhuận"',
+  salary: 'payroll wording from an employer ("thanh toán lương", "lương tháng")',
+  refund: 'money returned: "hoàn tiền", a reversal, cashback',
+  loan_disbursement: 'a loan paid out to the customer ("giải ngân")',
+  installment: 'an instalment of a loan or pay-later plan being paid ("trả góp kỳ n")',
+};
+export const NOTICE_DEFINITIONS = {
+  card_due: 'a card payment is due: a due date, a minimum payment, the closing debt',
+  installment_due: 'an instalment is due: a reminder before the debit',
+  statement_ready: 'a statement is available; no figure moved',
+};
+
+const TIE_BREAK =
+  'When unsure between a transfer-type signal (own_transfer, card_repayment, wallet_move, cash_move, ' +
+  'savings_move, broker_funding, fx_exchange) and purchase or p2p, answer purchase or p2p: a hidden ' +
+  'expense is worse than a visible wrong one. When the mail does not say, signal is null. Never ' +
+  'fall back to purchase because nothing else fits.';
+
+function _signalLines(keys) {
+  return keys.map((k) => '  ' + k + ': ' + (SIGNAL_DEFINITIONS[k] || NOTICE_DEFINITIONS[k])).join('\n');
+}
+
+const _BANK_SIGNALS = Object.keys(SIGNALS);
+const _BROKER_SIGNALS = ['broker_funding', 'securities_trade', 'yield'];
+const _LENDER_SIGNALS = ['loan_disbursement', 'installment'];
+
+export const BLOCKS = {
+  /* Banks, e-wallets and gateways: the whole signal list, and the node menu
+     limited to the three kinds their mail can be (expense, income, transfer). */
+  bank:
+    'THIS SENDER IS A BANK, AN E-WALLET OR A PAYMENT GATEWAY.\n' +
+    'signal: what the mail ITSELF says the movement was, exactly one of these keys, or null:\n' +
+    _signalLines(_BANK_SIGNALS) + '\n' +
+    'For a notice (mail_kind notice), signal is one of:\n' + _signalLines(NOTICE_SIGNALS) + '\n' +
+    'and fill `notice` {statement_date, due_date, min_payment, closing_debt} with what is printed.\n' +
+    TIE_BREAK + '\n' +
+    'node: the MOST SPECIFIC category code you are confident about, or null. For money going out, one of: ' +
+    EXPENSE_NODE_CODES.join(', ') + '. For money coming in, one of: ' + INCOME_NODE_CODES.join(', ') +
+    '. For a movement between the customer\'s own accounts, one of: ' + TRANSFER_NODE_CODES.join(', ') +
+    '. Prefer a leaf when the merchant clearly is that; its group when you know the area but not the ' +
+    'exact kind; null for the unknowable (a bare transfer to a person, an opaque code).',
+  /* Securities houses and investing apps. */
+  broker:
+    'THIS SENDER IS A SECURITIES BROKER OR AN INVESTING APP.\n' +
+    'signal: exactly one of these keys, or null:\n' + _signalLines(_BROKER_SIGNALS) + '\n' +
+    'When the mail reports an executed trade, fill `investment`: symbol (the ticker or fund code as ' +
+    'printed), side (buy or sell), quantity, unit_price, order_id. Only printed values; null for the ' +
+    'rest. amount is the total settled for the trade, as printed.\n' +
+    'node: one of ' + [...INVESTMENT_NODE_CODES, 'investfund', 'dividend', 'savinterest'].join(', ') + ', or null.',
+  /* Consumer finance and pay-later. */
+  lender:
+    'THIS SENDER IS A CONSUMER-FINANCE OR PAY-LATER LENDER.\n' +
+    'signal: exactly one of these keys, or null:\n' + _signalLines(_LENDER_SIGNALS) + '\n' +
+    'For a notice (mail_kind notice), signal is one of:\n' + _signalLines(['installment_due', 'statement_ready']) + '\n' +
+    'Fill `loan` with what is printed: contract_tail (the contract number, masked is fine), ' +
+    'installment_no, installment_count, due_date (ISO date), principal, interest, remaining_balance. ' +
+    'For a notice, fill `notice` {statement_date, due_date, min_payment, closing_debt} instead.\n' +
+    // The BORROWING side of the loan tree only: a lender's mail is never the
+    // customer lending money out, and 'collect' is a repayment coming IN.
+    'node: one of ' + [...LOAN_NODE_CODES.filter((c) => c === 'borrow' || TAX.root(c) === 'borrow'), 'pay'].join(', ') + ', or null.',
+};
+
+/** Which block a sender class reads. Anything unknown reads the bank block:
+ *  it is the general one, and an unrecognised class must not mean no signals. */
+export function blockFor(senderKind) {
+  if (senderKind === 'broker') return BLOCKS.broker;
+  if (senderKind === 'lender') return BLOCKS.lender;
+  return BLOCKS.bank;
+}
+
+export function systemPromptFor(senderKind) {
+  return CORE_PROMPT + '\n\n' + FIELD_NOTES + '\n\n' + blockFor(senderKind);
+}
+
+/** Kept for callers and tests that want "the prompt": the bank one. */
+export const EXTRACTION_SYSTEM_PROMPT = systemPromptFor('bank');
+
+const _STR = { type: ['string', 'null'] };
+const _NUM = { type: ['number', 'null'] };
+
+/* The fields a label may be cited for (core rule 2). Its own object, with every
+   key declared: Gemini refuses an object schema with no properties. */
+export const CITABLE_FIELDS = ['amount', 'fx_amount', 'currency', 'occurred_at', 'counterparty', 'memo',
+  'reference_number', 'status', 'account_tail', 'balance_after', 'card_tail', 'fee_amount', 'available_limit',
+  'holder_name', 'counterparty_bank', 'counterparty_account_tail'];
 
 export const EXTRACTION_SCHEMA = {
   type: 'object',
   properties: {
-    is_transaction: { type: 'boolean' },
-    transaction_type: {
-      type: ['string', 'null'],
-      enum: ['bank_txn', 'subscription', 'ecommerce_receipt', 'p2p_transfer', 'bill_payment', null],
-    },
-    source_provider: { type: ['string', 'null'] },
-    occurred_at: { type: ['string', 'null'] },
-    amount: { type: ['number', 'null'] },
-    /* WITNESS CITATIONS (2026-09-05): the verbatim substrings the two
-       MANDATORY template fields were read from, so derivation can anchor on
-       the model's own quote instead of re-guessing where in the body a value
-       came from (templates.mjs). Deliberately NOT in `required`: an older
-       .gs paste or a model that omits them degrades to the pre-citation
-       scan, never breaks. The quotes are mail text the pipeline already
-       holds — nothing new leaves the machine because of them. */
-    occurred_at_raw: { type: ['string', 'null'] },
-    amount_raw: { type: ['string', 'null'] },
-    currency: { type: ['string', 'null'] },
-    /* The ORIGINAL foreign figure, when the mail shows both it and the
-       converted VND amount it billed (foreign-currency-emails-spec.md,
-       Approach 2). `amount` then carries the converted VND — the money that
-       actually moved — and this pair keeps "$111" visible to the reviewer and
-       recoverable by a future multi-currency migration. Null on every
-       domestic mail and on foreign mail with no conversion printed. */
-    fx_amount: { type: ['number', 'null'] },
-    fx_currency: { type: ['string', 'null'] },
+    /* THE PRIMARY VERDICT (R8). `is_transaction` was a boolean, so a payment-due
+       notice had to be called a transaction or junk. It is still derived for
+       every existing caller: see normaliseAnswer. */
+    mail_kind: { type: 'string', enum: [...MAIL_KINDS] },
+    /* One mail, several transactions (a broker's daily order summary). Flagged,
+       parked and counted; never read as one row (spec §8.3). */
+    multi: { type: ['boolean', 'null'] },
+    /* WITNESS CITATIONS, generalised (2026-09-05 asked for two raw substrings;
+       rule 2 asks for the LABEL each field was read from). This is what makes a
+       format a lookup instead of a regex derivation (formats.mjs). Labels are
+       mail text the pipeline already holds: nothing new leaves the machine. */
+    labels: { type: ['object', 'null'], properties: Object.fromEntries(CITABLE_FIELDS.map((f) => [f, _STR])) },
+    source_provider: _STR,
+    occurred_at: _STR,
+    occurred_at_raw: _STR,
+    time_precision: { type: ['string', 'null'], enum: [...TIME_PRECISIONS, null] },
+    amount: _NUM,
+    amount_raw: _STR,
+    currency: _STR,
+    fx_amount: _NUM,
+    fx_currency: _STR,
+    fx_rate: _NUM,
+    fee_amount: _NUM,
+    tax_amount: _NUM,
     direction: { type: ['string', 'null'], enum: ['debit', 'credit', null] },
-    counterparty: { type: ['string', 'null'] },
-    memo: { type: ['string', 'null'] },
-    reference_number: { type: ['string', 'null'] },
-    status: { type: ['string', 'null'] },
-    account_masked: { type: ['string', 'null'] },
-    /* The repaid credit card on a card-payment mail, distinct from the funding
-       account_masked (card-repayment-routing-spec.md). Optional — not in the
-       required list — so Gemini's pinned schema stays valid; null on non-repayments. */
-    card_masked: { type: ['string', 'null'] },
-    /* WHICH INSTRUMENT moved the money (borrowing-lending-spec §8): a card
-       debit is spending that also grows a debt, a deposit debit is just
-       spending, a wallet debit is spending from the ví. NOT in `required`:
-       the heuristic in templates.mjs fills the gap when the model says
-       nothing, and null means "the mail did not say" — the client then
-       defaults to deposit-expense behaviour rather than inventing a debt. */
-    account_kind: {
-      type: ['string', 'null'],
-      enum: ['credit_card', 'deposit', 'ewallet', null],
-    },
-    /* A CLOSED vocabulary, and the same eight the app already maps to family
-       categories (`CONCEPT_MATCH` in 50-sheets-expense-capture.js). Free text
-       would be worse than nothing here: the family names its own categories, in
-       its own language, so an invented name matches none of them and falls
-       through the whole cascade anyway — while looking like an answer.
-       Constraining to concepts means the guess is portable across families that
-       share no category names at all. */
-    /* WHERE THE MONEY LANDS, which `direction` alone cannot answer.
-    
-       A credit-card bill payment is a debit and is not spending; a wallet top-up
-       is a debit and is not spending; both are the same money moving between
-       accounts the person already owns. Filing either as an expense double-counts
-       against the purchases already recorded on that card.
-    
-       Kept SEPARATE from `direction` rather than folded into it: direction is a
-       fact the mail states plainly and the template path can read without a model,
-       while flow is a judgement about what the movement MEANS. Collapsing them
-       would make the cheap, reliable field depend on the expensive, fallible one. */
-    flow: {
-      type: ['string', 'null'],
-      enum: ['income', 'expense', 'transfer', null],
-    },
-    category: {
-      type: ['string', 'null'],
-      enum: ['Housing', 'Groceries', 'Clothing', 'Shopping', 'Transport', 'Dining', 'Fun', 'Others', null],
-    },
-    /* NO `node` HERE, deliberately (0144). The tree code is decided by the
-       cascade in classify.mjs, which runs straight after extraction and holds
-       the merchant cache this call does not. Asking the extractor as well cost
-       a 1.4KB menu on every mail and, as a 182-value enum, was rejected by
-       Gemini's OpenAPI subset with a hard 400 on every call. */
+    status: _STR,
+    // the customer's own instrument
+    account_tail: _STR,
+    account_kind: { type: ['string', 'null'], enum: ['credit_card', 'deposit', 'ewallet', null] },
+    balance_after: _NUM,
+    available_limit: _NUM,
+    holder_name: _STR,
+    // the other side
+    counterparty: _STR,
+    counterparty_account_tail: _STR,
+    counterparty_bank: _STR,
+    counterparty_kind: { type: ['string', 'null'], enum: [...COUNTERPARTY_KINDS, null] },
+    card_tail: _STR,
+    memo: _STR,
+    reference_number: _STR,
+    channel: { type: ['string', 'null'], enum: [...CHANNELS, null] },
+    /* A closed list (contract.mjs): 20 values, well inside what Gemini's
+       OpenAPI subset accepts as an enum. */
+    signal: { type: ['string', 'null'], enum: [...Object.keys(SIGNALS), ...NOTICE_SIGNALS, null] },
+    /* A PLAIN STRING, NOT AN ENUM (0144): the tree is 217 codes, past what
+       Gemini accepts as an enum, and it answered every call with a hard 400.
+       The menu rides the block instead, limited to the kinds that sender class
+       can produce, and the caller validates the code against the tree. It is
+       asked here since 2026-09-22 so a model-read mail costs ONE call, not an
+       extraction plus a merchant classification (spec §10.1). */
+    node: _STR,
+    // kind-specific blocks: an object or null, never a half-filled object
+    investment: { type: ['object', 'null'], properties: {
+      symbol: _STR, side: { type: ['string', 'null'], enum: ['buy', 'sell', null] },
+      quantity: _NUM, unit_price: _NUM, order_id: _STR } },
+    loan: { type: ['object', 'null'], properties: {
+      contract_tail: _STR, installment_no: _NUM, installment_count: _NUM, due_date: _STR,
+      principal: _NUM, interest: _NUM, remaining_balance: _NUM } },
+    notice: { type: ['object', 'null'], properties: {
+      statement_date: _STR, due_date: _STR, min_payment: _NUM, closing_debt: _NUM } },
+    /* NO `flow` AND NO `category` (2026-09-22). Both were judgements the model
+       was asked for and staging then discarded or re-derived: flow comes from
+       signal + direction (contract.mjs flowFor), the category from the node.
+       An answer that still carries them is tolerated, never required. */
   },
   required: [
-    'is_transaction', 'transaction_type', 'source_provider', 'occurred_at',
-    'amount', 'currency', 'direction', 'counterparty', 'memo', 'reference_number',
-    'status', 'account_masked', 'category', 'flow',
+    'mail_kind', 'multi', 'source_provider', 'occurred_at', 'amount', 'currency', 'direction',
+    'counterparty', 'memo', 'reference_number', 'status', 'account_tail', 'signal',
   ],
   additionalProperties: false,
 };
+
+/* The model's names, mapped to the ones every other tier and both mappers use.
+   The PROMPT says account_tail, balance_after and card_tail because that is
+   what the fields mean; the KEYS downstream stay account_masked, balance and
+   card_masked, because the device, the dedup engine and every sealed row
+   already read them (contract.mjs). An answer in the old names passes through. */
+const _ANSWER_RENAMES = [['account_tail', 'account_masked'], ['balance_after', 'balance'], ['card_tail', 'card_masked']];
+
+/**
+ * The model's answer as the rest of the pipeline reads it.
+ *
+ *  - `is_transaction` is DERIVED from `mail_kind` for every existing caller,
+ *    and `mail_kind` from `is_transaction` for an answer in the old shape.
+ *  - `transaction_type`, the reader's verdict sealed as reader_type, is derived
+ *    from the two things that now say it (the signal, the counterparty's kind)
+ *    unless the answer still states one.
+ *  - an enum the model got wrong is null, not a string nobody can switch on.
+ */
+export function normaliseAnswer(parsed) {
+  if (!parsed || typeof parsed !== 'object') return parsed;
+  const x = { ...parsed };
+  if (MAIL_KINDS.indexOf(x.mail_kind) < 0) {
+    x.mail_kind = x.is_transaction === true ? 'transaction' : (x.is_transaction === false ? 'other' : null);
+  }
+  x.is_transaction = x.mail_kind === 'transaction';
+  x.multi = x.multi === true;
+  for (const [from, to] of _ANSWER_RENAMES) {
+    if (x[to] == null && x[from] != null) x[to] = x[from];
+    delete x[from];
+  }
+  if (x.labels && typeof x.labels === 'object') {
+    const l = { ...x.labels };
+    for (const [from, to] of _ANSWER_RENAMES) { if (l[to] == null && l[from] != null) l[to] = l[from]; delete l[from]; }
+    x.labels = l;
+  } else x.labels = null;
+  if (COUNTERPARTY_KINDS.indexOf(x.counterparty_kind) < 0) x.counterparty_kind = null;
+  if (CHANNELS.indexOf(x.channel) < 0) x.channel = null;
+  if (TIME_PRECISIONS.indexOf(x.time_precision) < 0) x.time_precision = null;
+  if (!(SIGNALS[x.signal] || NOTICE_SIGNALS.indexOf(x.signal) >= 0)) x.signal = null;
+  if (typeof x.node !== 'string' || !TAX.get(x.node) || TAX.get(x.node).manual) x.node = null;
+  for (const k of ['investment', 'loan', 'notice']) {
+    const b = x[k];
+    if (!b || typeof b !== 'object' || Array.isArray(b) || !Object.values(b).some((v) => v != null)) x[k] = null;
+  }
+  if (x.is_transaction && !x.transaction_type) {
+    x.transaction_type = (x.counterparty_kind === 'person' || x.counterparty_kind === 'self' || x.signal === 'p2p' || x.signal === 'own_transfer') ? 'p2p_transfer'
+      : x.signal === 'bill_payment' ? 'bill_payment'
+      : (x.counterparty_kind === 'merchant' || x.signal === 'purchase') ? 'ecommerce_receipt'
+      : 'bank_txn';
+  }
+  return x;
+}
 
 /**
  * Gemini's `responseSchema` is a restricted OpenAPI-3.0-ish subset, not JSON
@@ -416,7 +572,7 @@ export async function callGemini(feature, requestBody, cfg, fetchImpl) {
   return { status, ok, text, data, transportError };
 }
 
-export async function extract(sender, subject, body, cfg, fetchImpl) {
+export async function extract(sender, subject, body, cfg, fetchImpl, senderKind) {
   if (!cfg || !cfg.apiKey) throw new LlmUnavailable('no api key configured');
 
   // The sender line is named separately from the mail so the model can classify
@@ -424,7 +580,9 @@ export async function extract(sender, subject, body, cfg, fetchImpl) {
   const mailText = 'Subject: ' + subject + '\n\n' + body;
 
   const r = await callGemini('extract', {
-    systemInstruction: { parts: [{ text: EXTRACTION_SYSTEM_PROMPT }] },
+    // WHAT IS ASKED depends on the sender's class. WHAT IS SENT (the next line)
+    // does not, and has not changed: the sender, the subject, the mail as written.
+    systemInstruction: { parts: [{ text: systemPromptFor(senderKind) }] },
     contents: [{ role: 'user', parts: [{ text: 'Sender: ' + sender + '\n' + mailText }] }],
     generationConfig: {
       responseMimeType: 'application/json',
@@ -444,5 +602,5 @@ export async function extract(sender, subject, body, cfg, fetchImpl) {
 
   let parsed;
   try { parsed = JSON.parse(answer); } catch { throw new LlmUnavailable('answer not JSON'); }
-  return parsed;
+  return normaliseAnswer(parsed);
 }

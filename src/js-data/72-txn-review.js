@@ -92,10 +92,40 @@
      on every open of the queue is what was eating the Supabase bandwidth quota.
      Everything else the two row shapes carry is listed — including
      gmail_message_id, which the sealed path verifies against the payload. */
+  /* NOTICES ARE NOT TRANSACTIONS (email-reading-v2-spec §6). A card due notice or
+     a "statement ready" mail is staged in this same table with the clear column
+     row_kind = 'notice' (0147). It moves no money, so it must never be a review
+     card and never count toward "N khoản chờ duyệt": every reader of the pending
+     queue goes through this one helper.
+
+     The client ships BEFORE the migration, so the column may not exist yet. The
+     first query asks with the filter; if the database answers "no such column"
+     the helper remembers that for the session and every later query skips the
+     filter (until the column exists every row is a transaction, which is exactly
+     what an unfiltered read returns). A NULL row_kind reads as 'txn'.
+
+     `build(f)` must apply f() to the query BEFORE any order/limit: PostgREST
+     filters are not available on a query once it has been ordered. */
+  var _fhRowKindCol;   // undefined: not asked yet · true: the column is there · false: not yet
+  function _fhRowKindMissing(err) {
+    if (!err) return false;
+    return String(err.code || '') === '42703' || /row_kind/i.test(String(err.message || '') + ' ' + String(err.details || ''));
+  }
+  async function fhStagedTxnOnly(build) {
+    if (_fhRowKindCol !== false) {
+      var res = await build(function (q) { return q.or('row_kind.is.null,row_kind.neq.notice'); });
+      if (!res || !res.error) { _fhRowKindCol = true; return res; }
+      if (!_fhRowKindMissing(res.error)) return res;
+      _fhRowKindCol = false;
+    }
+    return build(function (q) { return q; });
+  }
+  window.fhStagedTxnOnly = fhStagedTxnOnly;
+
   async function fhFetchStagedTxns() {
-    var res = await sb.from('email_transactions')
+    var res = await fhStagedTxnOnly(function (txnOnly) { return txnOnly(sb.from('email_transactions')
       .select('id,member_id,owner_user_id,staging_scope,gmail_message_id,source_provider,occurred_at,amount,currency,direction,counterparty,reference_number,transaction_type,raw_extracted,duplicate_of_id,resolved_before,sealed,eph_pub,nonce,enc_v,created_at')
-      .eq('review_status', 'pending')
+      .eq('review_status', 'pending'))
       /* duplicate_of_id is a SUSPICION, not a delete order. It used to be
          filtered out here, which gave a guess made blind at 3am the power to
          hide a real transaction AND cancel its notification, with no screen
@@ -107,7 +137,7 @@
          AUTHORITY was the bug. The rows come back now and land in the review
          screen's "Có thể trùng" bucket, which already knows how to ask. */
       .order('occurred_at', { ascending: false })
-      .limit(TXN_REVIEW_PAGE);
+      .limit(TXN_REVIEW_PAGE); });
     if (res.error) throw res.error;
     var rows = res.data || [];
     /* True pending total for the badge and the "N of M" header. Only when the
@@ -118,9 +148,9 @@
        count cannot ride along on that select. */
     if (rows.length >= TXN_REVIEW_PAGE) {
       try {
-        var cnt = await sb.from('email_transactions')
+        var cnt = await fhStagedTxnOnly(function (txnOnly) { return txnOnly(sb.from('email_transactions')
           .select('id', { count: 'exact', head: true })
-          .eq('review_status', 'pending');
+          .eq('review_status', 'pending')); });
         window.fhStagedTotal = (cnt && typeof cnt.count === 'number') ? cnt.count : rows.length;
       } catch (e) { window.fhStagedTotal = rows.length; }
     } else {
@@ -149,6 +179,9 @@
     // The Cá nhân tab carries the same CTA and the same badge; it has to hear
     // the count change too, or one of the two goes stale after every promote.
     try { if (typeof window.renderPersonal === 'function') window.renderPersonal(); } catch (e) {}
+    // Notices never reach the queue: applied to their account and retired, quietly
+    // (fhNoticesApply throttles itself and never blocks the badge).
+    try { if (window.fhNoticesApply) window.fhNoticesApply(); } catch (e) {}
   };
 
   /* The always-visible "Khoản thu chi từ email" CTA routes by setup state:
@@ -714,8 +747,16 @@
     // 1. card_masked — the card the mail explicitly named as the repayment
     //    target (Layer 2). The card's own bank need not be the email's sender
     //    (cross-bank repayment), so match by tail; sa.provider only tie-breaks.
-    var id = byTail(last4(x.card_masked), sa && sa.provider);
+    var named = last4(x.card_masked);
+    var id = byTail(named, sa && sa.provider);
     if (id) return id;
+    /* The mail NAMES a card, in full, and it is not one of the person's cards:
+       the answer is "Chưa rõ", not the one card they do own. The one-card
+       default below is for a mail that names no card at all; applied here it
+       drew down the wrong card's debt on the word of a mail that said otherwise
+       (card-repayment-routing-spec §9: never a wrong card). A tail two owned
+       cards share is a different case, ambiguity, and keeps falling through. */
+    if (named.length === 4 && !cards.some(function (a) { return (a.tail || '') === named; })) return null;
     // 2. account_masked when the classifier called the instrument a credit card
     //    (the card-side alert — the ··5140 in the screenshot). Matches only
     //    against owned CARDS, so a deposit number here finds none and falls
@@ -811,6 +852,127 @@
     catch (e) { console.warn('staged retire (targeted) failed', e, { ids: ids }); return false; }
   };
 
+  /* ── notices: mail that moves no money (email-reading-v2-spec §6) ───────────
+     A card due notice or a "statement ready" mail is sealed and staged like any
+     row, with row_kind = 'notice'. It is never a review card, never a toast,
+     never a push. This pass opens each one with the same opener, writes what it
+     states onto the MATCHING account, and retires it through the same RPC.
+
+     The account is matched, never created: same provider AND the same last four
+     digits, among the person's credit cards, exactly one hit. A notice for a
+     card the person has not set up is simply retired. "Wrong card is worse than
+     no card": anything short of one exact match applies nothing.
+
+     What it writes:
+       due_day / statement_day   onto the account, only where the person has not
+                                 set one. What they typed is never overwritten.
+       this cycle's due date, the minimum payment and the closing debt
+                                 kept on THIS device, encrypted under the personal
+                                 key, for the one quiet line on the account tile
+                                 (23-debts-ui.js). The closing debt is never
+                                 written as a balance: cards do not receive a
+                                 captured balance (account-setup-spec). */
+  var _fhNoticeBusy = false, _fhNoticeAt = 0;
+  window.fhAcctNoticeFacts = {};   // accountId -> { due, stmt, minK, debtK, at }, decrypted, in memory only
+  function _noticeKey() {
+    var uid = (window.fhUser && window.fhUser.id) || '';
+    return uid ? 'fh-acct-notice:' + uid : '';
+  }
+  async function _noticeLoad() {
+    try {
+      var k = _noticeKey(), pd = window.fhPersonalData && window.fhPersonalData();
+      if (!k || !pd || !pd.key || !window.FHCrypto) return;
+      var raw = localStorage.getItem(k); if (!raw) return;
+      var v = JSON.parse(await FHCrypto.decVal(pd.key, raw));
+      if (v && typeof v === 'object') window.fhAcctNoticeFacts = v;
+    } catch (e) {}
+  }
+  async function _noticeSave() {
+    try {
+      var k = _noticeKey(), pd = window.fhPersonalData && window.fhPersonalData();
+      if (!k || !pd || !pd.key || !window.FHCrypto) return;
+      localStorage.setItem(k, await FHCrypto.encVal(pd.key, JSON.stringify(window.fhAcctNoticeFacts || {})));
+    } catch (e) {}
+  }
+  /* Which owned card a notice is about → its account, or null. Pure. */
+  function fhNoticeTarget(provider, x, accounts) {
+    var canon = function (s) { return (typeof csvCanonicalProvider === 'function') ? csvCanonicalProvider(s) : String(s || '').toLowerCase(); };
+    var tail = String((x && (x.card_masked || x.account_masked)) || '').replace(/\D/g, '').slice(-4);
+    var prov = canon(provider);
+    if (tail.length !== 4 || !prov) return null;
+    var hits = (accounts || []).filter(function (a) {
+      return a.kind === 'credit_card' && (a.tail || '') === tail && canon(a.provider) === prov;
+    });
+    return hits.length === 1 ? hits[0] : null;
+  }
+  window.fhNoticeTarget = fhNoticeTarget;
+  /* What a notice states, in the ledger's units. Pure. Null when it states nothing usable. */
+  function fhNoticeFacts(x) {
+    var n = x && x.notice;
+    if (!n || typeof n !== 'object') return null;
+    var iso = function (v) { var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(v || '')); return m ? m[0] : null; };
+    var dayOf = function (d) { var k = d ? Number(d.slice(8, 10)) : 0; return (k >= 1 && k <= 31) ? k : null; };
+    var base = function (v) {
+      var a = Number(v); if (!(a > 0) || !isFinite(a)) return null;
+      return window.csvBaseAmt ? window.csvBaseAmt(a) : a / (window.curMult ? window.curMult() : 1);
+    };
+    var due = iso(n.due_date), stmt = iso(n.statement_date);
+    var out = { due: due, stmt: stmt, dueDay: dayOf(due), statementDay: dayOf(stmt),
+                minK: base(n.min_payment), debtK: base(n.closing_debt) };
+    return (out.due || out.stmt || out.minK != null || out.debtK != null) ? out : null;
+  }
+  window.fhNoticeFacts = fhNoticeFacts;
+
+  var _fhNoticeLoaded = false;
+  window.fhNoticesApply = async function () {
+    if (_fhNoticeBusy) return 0;
+    var pd = window.fhPersonalData && window.fhPersonalData();
+    if (!pd || pd.state !== 'ready' || !pd.key) return 0;          // no ledger to match against: they wait, staged
+    _fhNoticeBusy = true;
+    try {
+      /* What earlier notices said, back into memory once per session, so the tile
+         line survives a reload. */
+      if (!_fhNoticeLoaded) {
+        _fhNoticeLoaded = true;
+        await _noticeLoad();
+        if (Object.keys(window.fhAcctNoticeFacts || {}).length) { try { window.renderPersonal && window.renderPersonal(); } catch (eL) {} }
+      }
+      if (_fhRowKindCol === false) return 0;                       // no column yet: there are no notices
+      if (Date.now() - _fhNoticeAt < 10 * 60 * 1000) return 0;
+      var res = await sb.from('email_transactions')
+        .select('id,member_id,owner_user_id,staging_scope,gmail_message_id,source_provider,occurred_at,raw_extracted,sealed,eph_pub,nonce,enc_v,created_at')
+        .eq('review_status', 'pending').eq('row_kind', 'notice')
+        .order('occurred_at', { ascending: true }).limit(50);
+      if (res.error) { if (_fhRowKindMissing(res.error)) _fhRowKindCol = false; return 0; }
+      _fhRowKindCol = true; _fhNoticeAt = Date.now();
+      var rows = res.data || [];
+      if (!rows.length) return 0;
+      var done = [], changed = false;
+      for (var i = 0; i < rows.length; i++) {                       // oldest first, so the newest notice has the last word
+        var r = await fhReadStagedRow(rows[i]);
+        if (!r || r._unreadable) continue;                          // locked or wrong key: leave it staged, try again later
+        done.push(rows[i].id);
+        var x = r.raw_extracted || {};
+        var facts = fhNoticeFacts(x);
+        var acct = facts ? fhNoticeTarget(rows[i].source_provider, x, pd.accounts) : null;
+        if (!acct) continue;                                        // no such account: the notice is simply retired
+        var fields = {};
+        if (facts.dueDay && !acct.dueDay) fields.dueDay = facts.dueDay;
+        if (facts.statementDay && !acct.statementDay) fields.statementDay = facts.statementDay;
+        if ((fields.dueDay || fields.statementDay) && window.fhPersonalAccountUpdate) {
+          try { await window.fhPersonalAccountUpdate(acct.id, fields); } catch (eU) {}
+        }
+        window.fhAcctNoticeFacts[acct.id] = { due: facts.due, stmt: facts.stmt, minK: facts.minK, debtK: facts.debtK,
+                                              at: String(rows[i].occurred_at || '') };
+        changed = true;
+      }
+      if (changed) { await _noticeSave(); try { window.renderPersonal && window.renderPersonal(); } catch (eR) {} }
+      if (done.length) { try { await _rpc('resolve_email_transactions', { p_ids: done }); } catch (eD) { console.warn('notice retire failed', eD); } }
+      return done.length;
+    } catch (e) { return 0; }
+    finally { _fhNoticeBusy = false; }
+  };
+
   /* Which transport imported a staged row → the ledger `source` (0100). The
      sealed payload carries `_transport`: the direct-read worker stamps
      'oauth_direct' (stage.mjs); the forwarding pipeline leaves it absent, so
@@ -836,7 +998,13 @@
     if (!(c && typeof c.rowIndex === 'number' && rows && rows[c.rowIndex])) return undefined;
     var oa = rows[c.rowIndex].occurred_at; if (!oa) return undefined;
     var d = new Date(oa); if (isNaN(d.getTime())) return undefined;
-    if (d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0) return undefined;  // date-only placeholder
+    /* v2 STATES whether the mail carried a clock time (time_precision), so a real
+       00:00:00 UTC (07:00 in Vietnam) is kept and a day-only mail stamped with any
+       other hour is not given a clock it never had. v1 keeps the inference. */
+    var tp = (rows[c.rowIndex].raw_extracted || {}).time_precision;
+    if (tp === 'day') return undefined;
+    if (tp !== 'second' && tp !== 'minute'
+        && d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0) return undefined;  // date-only placeholder
     return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
   };
 
@@ -1297,6 +1465,18 @@
       if (!nd || !window.FH_TAX || !FH_TAX.get(nd)) return null;
       return FH_TAX.kindOf(nd) === kind ? nd : null;
     };
+    /* payload v2 seals a node for ANY kind (a transfer is `bankbank`, a payroll
+       credit is `wage`). Expense and income have always carried theirs; the other
+       four kinds start carrying one only for a v2 row, so a v1 row writes exactly
+       what it always wrote. Still guarded by kind, like every node. */
+    var _v2Node = function (c, kind) { return (c && c._v2) ? _specNode(c, kind) : null; };
+    /* The other side, as its own encrypted column (counterparty_enc). Expense
+       rows have carried it since 0132; income, transfer and investment rows
+       dropped it although the writer has always had the column. Only a REAL
+       counterparty rides, never the description. On an investment leg it names
+       the broker or seller beside the note and tracks nothing: balances are only
+       ever built from loan and repayment rows (investment-spec I1 stands). */
+    var _who = function (c) { return (c && c.counterparty && String(c.counterparty).trim()) || null; };
     var specs = [], ranges = [], extBals = {}, lessonOps = [], invMemOps = [];
     /* 0134 — every account this import touches (a row landed on it, or the
        queue session materialized it) is what the setup wizard walks afterwards
@@ -1380,13 +1560,16 @@
         if (ownId && otherId && ownId !== otherId) {
           var gid = crypto.randomUUID();
           specs.push({ kind: 'transfer', amt: -base, note: xNote, dateIso: c.dateDisplay || undefined, time: _t,
+            who: _who(c), node: _v2Node(c, 'transfer'),
             accountId: credit ? otherId : ownId, transferGroupId: gid, source: src });
           specs.push({ kind: 'transfer', amt: base, note: xNote, dateIso: c.dateDisplay || undefined, time: _t,
+            who: _who(c), node: _v2Node(c, 'transfer'),
             accountId: credit ? ownId : otherId, transferGroupId: gid, source: src });
         } else {
           var legAcct = ownId || otherId;
           specs.push({ kind: 'transfer',
             amt: legAcct === ownId ? (credit ? base : -base) : (credit ? -base : base),
+            who: _who(c), node: _v2Node(c, 'transfer'),
             note: xNote, dateIso: c.dateDisplay || undefined, time: _t, accountId: legAcct, source: src });
         }
         if (ownId) _recBal(ownId);
@@ -1403,6 +1586,7 @@
         specs.push({ kind: 'repayment', amt: _moneyIn ? base : -base,
           who: (c._repayWho || '').trim() || (c.counterparty || '').trim() || '—',
           note: c.description || null, dateIso: c.dateDisplay || undefined, time: _t,
+          node: _v2Node(c, 'repayment'),
           accountId: repAcct, source: src });
         if (repAcct) _recBal(repAcct);
       } else if (c._loan) {
@@ -1414,7 +1598,13 @@
         if (ai && ai.kind !== 'credit_card' && window.fhPersonalAccountEnsure) {
           try { loanAcct = await window.fhPersonalAccountEnsure(ai); } catch (eLn) {}
         }
-        specs.push({ kind: 'loan', amt: base,
+        /* Money IN marked as a loan is money BORROWED (a lender's "giải ngân"):
+           −X by the same 0105 sign convention, so it opens a payable and fills
+           the receiving account. Before v2 no credit row could be a loan (the
+           credit-side Kind sheet never offered it), so every existing row still
+           takes the +X branch. */
+        specs.push({ kind: 'loan', amt: _moneyIn ? -base : base,
+          node: _v2Node(c, 'loan'),
           who: (c._loanWho || '').trim() || (c.counterparty || '').trim() || '—',
           note: c.description || null, dateIso: c.dateDisplay || undefined, time: _t,
           dueDate: c._loanDue || undefined, accountId: loanAcct, source: src });
@@ -1436,6 +1626,7 @@
           specs.push({ kind: 'investment', amt: invSell ? base : -base,
             positionId: c._investPosId,
             qty: (c._investQty > 0) ? (invSell ? -c._investQty : c._investQty) : undefined,
+            who: _who(c), node: _v2Node(c, 'investment'),
             note: c.description || null, dateIso: c.dateDisplay || undefined, time: _t,
             accountId: invAcct, source: src });
           /* remember the seller → position mapping once the write lands (I9) */
@@ -1463,6 +1654,7 @@
         }
         specs.push({ kind: 'income', amt: base, note: c.description || '',
           node: _specNode(c, 'income'),
+          who: _who(c),
           catName: c._incomeCat || 'Khác',
           catEmoji: ({ 'Lương': '💼', 'Thưởng': '🎁', 'Hoàn tiền': '💸' })[c._incomeCat] || '💰',
           dateIso: c.dateDisplay || undefined, time: _t, accountId: incAcct, source: src });
@@ -1508,12 +1700,12 @@
              deposit's leg (−) keeps its balance honest, the card's leg (+)
              draws the outstanding down, one group id keeps them one event. */
           var _pgid = crypto.randomUUID();
-          specs.push({ kind: 'transfer', amt: -base, note: _payNote,
+          specs.push({ kind: 'transfer', amt: -base, note: _payNote, node: _v2Node(c, 'transfer'),
             dateIso: c.dateDisplay || undefined, time: _t, accountId: payFrom, transferGroupId: _pgid, source: src });
-          specs.push({ kind: 'transfer', amt: base, note: _payNote,
+          specs.push({ kind: 'transfer', amt: base, note: _payNote, node: _v2Node(c, 'transfer'),
             dateIso: c.dateDisplay || undefined, time: _t, accountId: payCard, transferGroupId: _pgid, source: src });
         } else {
-          specs.push({ kind: 'transfer', amt: base, note: _payNote,
+          specs.push({ kind: 'transfer', amt: base, note: _payNote, node: _v2Node(c, 'transfer'),
             dateIso: c.dateDisplay || undefined, time: _t, accountId: payCard, source: src });
         }
         if (payFrom) _recBal(payFrom);   // the mail's "Số dư" is the sending account's
@@ -1534,6 +1726,22 @@
           catEmoji: (window.catStyle && window.catStyle[c.categoryName] && window.catStyle[c.categoryName][0]) || '🗂️',
           dateIso: c.dateDisplay || undefined, time: _t, accountId: acctId, source: src });
         _recBal(acctId);
+      }
+      /* payload v2: the printed fee is its own small expense on the SAME account
+         (full-ledger-spec §3.4), so the transfer stays a clean pair and the fee
+         still counts as spending. Written in the same INSERT as its parent
+         (`withPrev`): a chunk boundary between the two, and a failure on the
+         second chunk, would retry the whole candidate and write the parent
+         twice. Inside the candidate's range, so it is retired with its parent. */
+      if (c._fee && c._fee.on && c._fee.amount > 0) {
+        var feeAcct = null;
+        if (ai && window.fhPersonalAccountEnsure) { try { feeAcct = await window.fhPersonalAccountEnsure(ai); } catch (eFe) {} }
+        var feeBase = window.csvBaseAmt ? window.csvBaseAmt(c._fee.amount)
+          : Math.round(Number(c._fee.amount) / (window.curMult ? window.curMult() : 1));
+        specs.push({ kind: 'expense', amt: feeBase, note: L('Phí giao dịch', 'Transaction fee'),
+          node: (c._fee.node && window.FH_TAX && FH_TAX.get(c._fee.node) && FH_TAX.kindOf(c._fee.node) === 'expense') ? c._fee.node : null,
+          catName: null, catEmoji: '🗂️', withPrev: true,
+          dateIso: c.dateDisplay || undefined, time: _t, accountId: feeAcct, source: src });
       }
       ranges.push({ c: c, to: specs.length });
     }

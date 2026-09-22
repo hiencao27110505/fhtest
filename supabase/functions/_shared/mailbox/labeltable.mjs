@@ -28,20 +28,37 @@
  * client, which already own them for the other two tiers.
  */
 
+import { htmlRows } from './htmltable.mjs';
+
 /** One label vocabulary, Vietnamese-first with the English twins the bilingual
  *  banks append. Matched against a diacritic-stripped, lowercased label cell,
  *  by CONTAINS — VCB writes "Số tiền Transaction Amount" as one cell. Order
  *  matters where vocabularies overlap: the first hit wins, so the more specific
- *  entry sits above the generic one ("số tiền phí" must never read as amount). */
+ *  entry sits above the generic one ("số tiền phí" must never read as amount).
+ *  Three match modes per entry: `any` (contains), `whole` (contains, at word
+ *  boundaries) and `exact` (the whole label is the key); see _lookup. */
 const LABELS = [
+  /* A PRINTED FEE, captured AND absorbed (email-reading-v2 §4, 2026-09-22).
+     These keys used to sit in the absorber below, so a fee could never be read
+     as the amount, and that guarantee stands: this row sits above `amount` for
+     the same reason. What changed is that the value is no longer thrown away.
+     VIB prints "Phí (bao gồm VAT)" on every transfer (283 of the 955-mail test
+     set) and "Phí giao dịch (bao gồm VAT)" on every card repayment; the ledger
+     holds a fee as its own small expense row (full-ledger-spec §3.4). A fee of
+     zero parses as null, which is the honest reading of "0 ₫". */
+  { field: 'fee',          any: ['so tien phi', 'charge amount'],
+                           whole: ['phi (bao gom vat)', 'phi giao dich', 'phi dich vu', 'transaction fee'] },
   /* The absorber row. Sits ABOVE amount so that any "số tiền …" variant that
      is NOT the transaction amount — fees, promo/cashback figures, reward
      points, and the FX rate on an international card notice — is swallowed
      here instead of contains-matching into `amount`. Found by a test fixture:
      "Số tiền khuyến mãi" read as the amount; "Tỷ giá quy đổi" would have
      turned an exchange RATE into a transaction amount the same way. */
-  { field: 'charge',       any: ['so tien phi', 'charge amount', 'loai phi', 'ty gia',
+  { field: 'charge',       any: ['loai phi', 'ty gia', 'charge code',
                                  'khuyen mai', 'so tien hoan', 'cashback', 'diem thuong', 'tich diem'] },
+  /* What a CARD still has to spend. Above `balance` and `amount` alike: it is
+     a figure, and neither of those. */
+  { field: 'limit',        whole: ['han muc kha dung', 'han muc con lai', 'available limit', 'available credit'] },
   /* The converted/billed VND figure an international card notice prints beside
      its foreign transaction amount ("Số tiền quy đổi: 2.923.000 VND"). Above
      `amount` because every key here contains "số tiền" and would be swallowed
@@ -49,8 +66,11 @@ const LABELS = [
      the number that actually left the account — the bank's own settled
      conversion — so readLabelTable prefers it over the foreign figure. */
   { field: 'converted',    any: ['so tien quy doi', 'so tien ghi no', 'so tien thanh toan',
-                                 'billed amount', 'billing amount', 'converted amount'] },
-  { field: 'amount',       any: ['so tien giao dich', 'so tien', 'transaction amount', 'amount'] },
+                                 'billed amount', 'billing amount', 'converted amount'], whole: ['gia tri quy doi'] },
+  /* 'gia tri' is VIB's credit-card notice ("Giá trị: 45,000 VND"), the largest
+     format in the test set that no local tier could read: 341 mails. */
+  { field: 'amount',       any: ['so tien giao dich', 'so tien', 'transaction amount', 'amount'],
+                           whole: ['gia tri giao dich', 'gia tri', 'transaction value'] },
   /* An explicit currency row ("Loại tiền: USD"). Some banks denominate the
      amount cell bare and state the currency here instead — without this row
      a USD notice whose amount cell prints no token reads as VND. */
@@ -60,24 +80,59 @@ const LABELS = [
      matched nothing and its mail could never satisfy the amount+instant+
      counterpart gate below — it went to the model every single time, 801
      recorded misses from one sender. Contains-matching keeps this additive:
-     "ngay, gio giao dich" does not contain "ngay giao dich". */
-  { field: 'occurred_at',  any: ['ngay, gio giao dich', 'ngay gio giao dich', 'ngay giao dich', 'trans. date', 'date, time', 'thoi gian giao dich'] },
-  { field: 'merchant',     any: ['diem giao dich', 'su dung tai', 'merchant'] },
+     "ngay, gio giao dich" does not contain "ngay giao dich".
+     'thoi gian' is EXACT, never contains: MoMo's cinema receipt prints "Thời
+     gian chiếu" (the SHOWTIME) and a statement mail prints "Thời gian sao kê",
+     and either would have become the transaction's moment. */
+  { field: 'occurred_at',  any: ['ngay, gio giao dich', 'ngay gio giao dich', 'ngay giao dich', 'trans. date', 'date, time', 'thoi gian giao dich'],
+                           whole: ['vao luc'], exact: ['thoi gian'] },
+  /* 'nha cung cap' is the biller on a QR bill payment; 'tai' ALONE is the
+     no-colon merchant line of VIB's card notice ("Tại SHOP NAME"), which _rows
+     only ever emits from inside an inline block. Exact, so "Tại ngân hàng"
+     (the beneficiary's bank, below) is untouched. */
+  { field: 'merchant',     any: ['diem giao dich', 'su dung tai', 'merchant'], whole: ['nha cung cap'], exact: ['tai'] },
+  /* WHERE the other side banks. These two keys sat under `beneficiary` until
+     2026-09-22, which put a bank's name where a person's belongs. Above
+     `beneficiary` because "Tên ngân hàng hưởng" would otherwise never get here.
+     A mail whose ONLY counterpart is this row (VIB's card repayment: the issuer
+     is who was paid) still reads: readLabelTable falls back to it. */
+  { field: 'cp_bank',      any: ['ngan hang huong', 'ten ngan hang'],
+                           whole: ['ngan hang thu huong', 'tai ngan hang', 'beneficiary bank'] },
+  /* The other side's ACCOUNT, where the bank gives it a row of its own (VCB's
+     "Tài khoản người hưởng"). Above `account`: "so tai khoan nguoi huong"
+     contains 'so tai khoan' and would be read as the person's OWN account. */
+  { field: 'cp_account',   whole: ['so tai khoan nguoi huong', 'tai khoan nguoi huong', 'tai khoan thu huong',
+                                   'tai khoan huong', 'tai khoan nhan', 'credit account', 'beneficiary account'] },
   /* 'den tai khoan' is a JUDGEMENT, not a synonym. On a VIB transfer notice the
      destination-account row is where the counterparty's NAME is printed, so it
      answers "who", which is what this field means. It sits here rather than in
      `account` below deliberately — first field wins, and reading it as an
      account would drop the counterparty from the row entirely. If a bank ever
      prints a bare number there, counterparty becomes a number: visible in
-     review and correctable, never silent. */
-  { field: 'beneficiary',  any: ['ten nguoi huong', 'nguoi thu huong', 'den tai khoan', 'ngan hang huong', 'ten ngan hang', 'beneficiary name'] },
+     review and correctable, never silent. The cell is "ACCOUNT - NAME" on all
+     269 VIB transfers in the test set, so the account half is ALSO read out of
+     it, as counterparty_account_tail (_accountInsideWho). */
+  { field: 'beneficiary',  any: ['ten nguoi huong', 'nguoi thu huong', 'den tai khoan', 'beneficiary name'] },
   { field: 'remitter',     any: ['ten nguoi chuyen', "remitter's name", 'remitter'] },
-  { field: 'memo',         any: ['noi dung chuyen tien', 'noi dung', 'details of payment'] },
+  /* 'dien giai' is VIB's memo label: 364 sightings in the test set, none read. */
+  { field: 'memo',         any: ['noi dung chuyen tien', 'noi dung', 'details of payment'], whole: ['dien giai'] },
+  /* What was bought, on a bill payment ("Hàng hóa/dịch vụ"). It becomes the
+     memo only when the mail has no memo row of its own. */
+  { field: 'item',         whole: ['hang hoa/dich vu', 'hang hoa dich vu', 'hang hoa / dich vu'] },
+  /* The customer's OWN name as the mail prints it. Own-name detection needs it
+     (signals.mjs: `self` is letter-for-letter equality with the counterparty),
+     and until now it was guessed out of the debit-account cell. Above `card`,
+     whose bare 'the' is start-anchored and would not take "Chủ thẻ" anyway. */
+  { field: 'holder',       whole: ['ten chu the', 'chu the', 'chu tai khoan', 'cardholder', 'account holder'] },
   { field: 'account',      any: ['tai khoan trich no', 'tai khoan ghi no', 'tai khoan nguon', 'so tai khoan', 'tu tai khoan', 'debit account', 'tk cham'] },
-  { field: 'reference',    any: ['so lenh giao dich', 'so tham chieu', 'so giao dich', 'order number', 'ma giao dich', 'reference number', 'transaction number'] },
+  { field: 'reference',    any: ['so lenh giao dich', 'so tham chieu', 'so giao dich', 'order number', 'ma giao dich', 'reference number', 'transaction number'],
+                           whole: ['so hoa don'] },
   { field: 'status',       any: ['tinh trang', 'trang thai', 'status'] },
   { field: 'balance',      any: ['so du', 'balance'] },
-  { field: 'txn_kind',     any: ['loai giao dich', 'transaction type'] },
+  /* 'giao dich' ALONE is VIB's card-notice kind row ("Giao dịch: Thanh toán
+     dịch vụ - hàng hóa"). Exact: as a contains-key it would be every label in
+     this file. */
+  { field: 'txn_kind',     any: ['loai giao dich', 'transaction type'], exact: ['giao dich'] },
   /* The credit card a payment/repayment mail names — emitted as `card_masked`
      (card-repayment-routing-spec.md), so the review screen can pre-select which
      card a "Trả nợ thẻ" pays off. Repayment phrasings first; the bare 'the'
@@ -113,6 +168,7 @@ function _strip(s) {
  *  a field the bank left empty. */
 function _rows(body, learned) {
   const out = [];
+  let inlineRun = false;   // the previous row was an inline one: see the "Tại" rule
   const lines = String(body || '').split('\n').map((l) => l.trim());
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -126,6 +182,27 @@ function _rows(body, learned) {
         if (next.length === 1 && !_lookup(next[0], learned)) { out.push({ label: cells[0], value: next[0] }); i++; }
       }
       continue;
+    }
+    /* INLINE FORM: "Label: value" on ONE line (2026-09-22). VIB's credit-card
+       notice is not a table at all: five `<div>Số thẻ:<b>…</b></div>` lines,
+       341 mails in the 955-mail test set, and until now every one of them went
+       to the model, because each line looked like a label whose "value" (the
+       next line) was another label. A line counts only when the part BEFORE THE
+       FIRST COLON resolves through the vocabulary, so prose with a colon in it
+       ("Hotline: 1800…", "Lưu ý: …") is not a row. Checked before the line
+       form, which would otherwise claim the same line as a bare label. */
+    const inl = _inline(line, learned);
+    if (inl) { out.push(inl); inlineRun = true; continue; }
+    /* ...and that notice's merchant line, which has no colon: "Tại SHOP NAME",
+       directly under the inline block. Only there: "tại" opens ordinary
+       sentences everywhere else in a mail. */
+    if (inlineRun) {
+      const at = line.match(/^(T[ạa]i)\s+(\S.*)$/i);
+      if (at && line.length <= MAX_LABEL_LEN && !_isProse(line) && !_lookup(line, learned)) {
+        out.push({ label: at[1], value: at[2].trim(), form: 'inline' });
+        continue;
+      }
+      inlineRun = false;
     }
     // line form: a known label, value on the next non-empty line
     if (_lookup(line, learned)) {
@@ -149,10 +226,40 @@ function _rows(body, learned) {
       /* A "value" that still contains a pipe is a TABLE ROW, not a value — a
          label that swallows one consumes somebody else's data. Leave it for
          the pipe-form branch on its own turn. */
-      if (val && !val.includes('|') && !_lookup(val, learned)) { out.push({ label: line, value: val }); i = j; }
+      /* ...and a "value" that is the mail's SIGN-OFF is an empty field. VIB
+         prints "Diễn giải" with nothing under it on every card repayment, and
+         the next line is "Cảm ơn Quý khách đã sử dụng dịch vụ…": once the
+         vocabulary knew that label, the courtesy line became the memo. */
+      if (val && !val.includes('|') && !_lookup(val, learned) && !_isSignOff(val)) { out.push({ label: line, value: val }); i = j; }
     }
   }
   return out;
+}
+
+/* "Label: value" on one line, or null. The label half must be short and must
+   resolve; the value half must exist and must not be a bare English twin
+   ("Số tiền: Amount" is a bilingual LABEL whose value is on the next line). */
+const MAX_INLINE_LABEL_LEN = 40;
+function _inline(line, learned) {
+  const at = line.indexOf(':');
+  if (at <= 0 || at > MAX_INLINE_LABEL_LEN) return null;
+  const label = line.slice(0, at).trim();
+  const value = line.slice(at + 1).trim();
+  if (!label || !value || _isEnglishTwin(value)) return null;
+  if (!_lookup(label, learned)) return null;
+  return { label, value, form: 'inline' };
+}
+
+/* How a bank mail's body ends, where a field's value would be. Matched at the
+   START of the line, on the stripped form, so a memo that merely contains
+   "cam on" ("cam on anh nhieu") is untouched. */
+const _SIGN_OFF_RE = /^(?:cam on quy khach|xin cam on quy khach|xin cam on|tran trong|thank you for|hotline\b|quy khach vui long|day la email tu dong|day la thu tu dong|do not reply|this is an auto)/;
+function _isSignOff(line) { return _SIGN_OFF_RE.test(_strip(line)); }
+
+function _isProse(labelCell) {
+  const padded = ' ' + _strip(labelCell) + ' ';
+  for (const m of PROSE_MARKERS) if (padded.includes(m)) return true;
+  return false;
 }
 
 /* The English halves of the bilingual labels VN banks print. Matched EXACTLY
@@ -210,7 +317,22 @@ function _lookup(labelCell, learned) {
   const padded = ' ' + flat + ' ';
   for (const m of PROSE_MARKERS) if (padded.includes(m)) return null;
   for (const entry of LABELS) {
-    for (const key of entry.any) {
+    /* EXACT keys first: a one-word label ("Tại", "Giao dịch", "Thời gian") that
+       as a contains-key would be half the vocabulary. The colon an inline or
+       line-form label may end with is not part of the word. */
+    if (entry.exact && entry.exact.indexOf(flat.replace(/\s*:$/, '')) >= 0) return entry.field;
+    /* WHOLE-WORD keys (2026-09-22): every key added since contains-matching
+       was the only mode. "Ghi chú thêm" contains 'chu the', and as a contains-
+       key that made a note field the cardholder's name. The older keys stay
+       contains-matched, as they were measured; nothing new joins them. */
+    for (const key of entry.whole || []) {
+      const at = flat.indexOf(key);
+      if (at < 0 || at > MAX_KEY_START) continue;
+      const before = at === 0 ? ' ' : flat[at - 1];
+      const after = at + key.length >= flat.length ? ' ' : flat[at + key.length];
+      if (!/[a-z0-9]/.test(before) && !/[a-z0-9]/.test(after)) return entry.field;
+    }
+    for (const key of entry.any || []) {
       const at = flat.indexOf(key);
       /* The bare card key 'the' (thẻ, stripped) must match only at the START.
          As a contains-key it fired inside prose — "Thanh toán THE tin dung VIB
@@ -234,6 +356,13 @@ function _lookup(labelCell, learned) {
     if (f) return f;
   }
   return null;
+}
+
+/** The row field the hand-written vocabulary gives a label, or null. What a
+ *  stored format is built from (formats.mjs): the vocabulary always maps first,
+ *  and a label the model cites may only add what this does not know. */
+export function vocabularyField(label, learned) {
+  return _lookup(label, learned);
 }
 
 /* The English halves of the bilingual labels, as they appear ALONE on a line.
@@ -675,21 +804,170 @@ function _directionFrom(got, gotLabel, kindFlat, amtRaw, conv) {
   if (signed && worded) return signed === worded ? signed : null;
   if (signed || worded) return signed || worded;
 
-  const impliesDebit = !!(got.merchant || got.beneficiary
+  // The beneficiary's BANK or ACCOUNT row is as much an outgoing receipt as the
+  // beneficiary's name: they are the same side of the same form, and the bank
+  // row implied a debit all along, from inside the beneficiary vocabulary.
+  const impliesDebit = !!(got.merchant || got.beneficiary || got.cp_bank || got.cp_account
     || (got.account && _DEBIT_ACCOUNT_LABEL_RE.test(_strip(gotLabel.account || ''))));
   const impliesCredit = !!(got.remitter && !got.beneficiary);
   if (impliesDebit === impliesCredit) return null;
   return impliesDebit ? 'debit' : 'credit';
 }
 
-export function readLabelTable(subject, body, learned) {
-  const rows = _rows(body, learned);
-  if (rows.length < 3) return null;
+/* ── the mail's rows, from its markup when it has any ─────────────────────── */
+
+/** `<tr>` cells → label/value pairs. Pairing is a question about LABELS, which
+ *  is why it lives here and not in htmltable.mjs:
+ *    two cells            label | value, the shape nearly every bank uses
+ *    four cells           two pairs side by side, and only when BOTH label
+ *                         cells resolve (VCB's "Loại phí | … | Số tiền phí | …")
+ *  A label is the FIRST LINE of its cell and a value the first line of its own,
+ *  which is exactly what the line walk reads off the flattened body ("Sử dụng
+ *  tại" with its English twin "At" on the next line; a fee cell that stacks
+ *  three figures). That equality is deliberate: where both readers succeed they
+ *  must agree, and the scoreboard measures that they do.
+ *  A pair with an EMPTY value is kept: the field is empty, the format is not
+ *  different, and labelSignature (formats.mjs) reads labels only. */
+function _pairCells(htmlRowList, lookup) {
+  const out = [];
+  const first = (cell) => String(cell || '').split('\n')[0].trim();
+  const labelOf = (cell) => {
+    const head = first(cell);
+    if (!head || head.length > MAX_LABEL_LEN) return null;
+    if (lookup(head)) return head;
+    // "Thẻ\nCard" resolves as the joined "Thẻ Card" where the head alone would
+    // not; an unknown label stays its first line.
+    const joined = String(cell || '').split('\n').join(' ').trim();
+    if (joined.length <= MAX_LABEL_LEN && lookup(joined)) return head;
+    return _isProse(head) ? null : head.replace(/\s*:$/, '');
+  };
+  for (const r of htmlRowList || []) {
+    const c = r.cells || [];
+    const pairs = c.length === 2 ? [[c[0], c[1]]]
+      : (c.length === 4 && lookup(first(c[0])) && lookup(first(c[2]))) ? [[c[0], c[1]], [c[2], c[3]]]
+      : [];
+    for (const [l, v] of pairs) {
+      const label = labelOf(l);
+      if (!label) continue;
+      const value = first(v);
+      out.push({ label, value: _isEnglishTwin(value) ? '' : value, form: 'cell' });
+    }
+  }
+  return out;
+}
+
+/**
+ * The rows of one mail, and which reader produced them.
+ *
+ * STRUCTURAL when the markup yields at least three label/value pairs and
+ * resolves at least as many of them as the line walk does; LINE otherwise (a
+ * text-only mail, a notice laid out in `<div>`s like VIB's card alert, markup
+ * past the size cap). One rule, used by the reader below AND by the format tier
+ * in extract.mjs, so a format is learned and looked up over the same rows.
+ *
+ * `learned` is the extra label map: the n>=3 learned vocabulary (0111), or a
+ * stored format's own labels when the line walk has to find rows the
+ * hand-written vocabulary does not know.
+ */
+export function tableRows(message, learned) {
+  const lookup = (l) => _lookup(l, learned);
+  const resolved = (rows) => rows.filter((r) => r.value && lookup(r.label)).length;
+  const line = _rows(message && message.body, learned);
+  let cell = [];
+  if (message && message.html) {
+    try { cell = _pairCells(htmlRows(message.html), lookup); } catch { cell = []; }
+  }
+  /* Three resolved pairs are a table the vocabulary can read. NOT "at least as
+     many as the line walk": the line walk over-counts, because a mail's own
+     TITLE can contain a label phrase ("Chuyển tiền nhanh đến tài khoản … thành
+     công" contains "đến tài khoản") and then reads as a row. With fewer than
+     three, the markup still wins when the line walk found no more than it did:
+     that is a format whose labels nobody knows yet, and its rows are exactly
+     what the model's cited labels will be looked up in. */
+  const nCell = resolved(cell);
+  if (cell.length >= 3 && (nCell >= 3 || nCell >= resolved(line))) return { rows: cell, via: 'structural' };
+  return { rows: line, via: 'line' };
+}
+
+/* "0123456789 - NGUYEN VAN A" or "NGUYEN VAN A - 0123456789": the account half
+   of a beneficiary cell that carries both. A virtual account has letters in it
+   ("99MM…"), so the test is "a token with four or more digits and no space",
+   never "all digits". Null when the cell is only a name. */
+function _accountInsideWho(cell) {
+  const parts = String(cell || '').split(/\s+[-–]\s+/);
+  if (parts.length < 2) return null;
+  for (const part of [parts[0], parts[parts.length - 1]]) {
+    const t = part.trim();
+    if (t && !/\s/.test(t) && (t.match(/\d/g) || []).length >= 4) return t;
+  }
+  return null;
+}
+
+/** second | minute | day, from the PRINTED form (email-reading-v2 §4). It
+ *  replaces two guesses the device makes today: "UTC midnight means day only",
+ *  and a minute recovered from a note suffix. Null when nothing was printed. */
+export function whenPrecision(raw) {
+  const s = String(raw || '');
+  if (!/\d/.test(s)) return null;
+  if (/\d{1,2}:\d{2}:\d{2}/.test(s)) return 'second';
+  if (/\d{1,2}:\d{2}/.test(s)) return 'minute';
+  return 'day';
+}
+
+/** The name in the mail's greeting ("Kính gửi NGUYEN VAN A"), when it IS a name
+ *  and not "Quý khách hàng". A body scan, so callers record it as `heuristic`;
+ *  a printed "Chủ thẻ" row always wins over it. */
+export function greetingName(body) {
+  const m = String(body || '').match(/^\s*(?:K[ií]nh\s+g[uử]i|Kinh\s+gui|Xin\s+ch[aà]o|Dear)[:,]?\s+([^\n,:]{4,60})[,:]?\s*$/im);
+  if (!m) return null;
+  const name = m[1].replace(/^(?:anh|ch[iị]|[oô]ng|b[aà]|mr\.?|ms\.?|mrs\.?)\s+/i, '').trim();
+  if (/qu[yý]\s+kh[aá]ch|kh[aá]ch\s+h[aà]ng|customer|valued/i.test(name)) return null;
+  return looksLikePerson(name) ? name : null;
+}
+
+export function readLabelTable(subject, body, learned, html) {
+  /* THE MARKUP FIRST, when the mail has any (email-reading-v2 §8.1 step 4). The
+     structural rows are tried on their own and kept only if they pass the same
+     gate; otherwise the line walk reads the mail exactly as it always did. A
+     caller with no HTML (the forwarding transport, every older test) passes
+     three arguments and gets the old reader. */
+  if (html) {
+    const t = tableRows({ body, html }, learned);
+    if (t.via === 'structural') {
+      const viaCells = readRows(subject, t.rows, (l) => _lookup(l, learned));
+      if (viaCells) { viaCells.rows_via = 'structural'; return viaCells; }
+    }
+  }
+  const viaLines = readRows(subject, _rows(body, learned), (l) => _lookup(l, learned));
+  if (viaLines) viaLines.rows_via = 'line';
+  return viaLines;
+}
+
+/**
+ * Rows → a reading, or null when the confidence gate is not met.
+ *
+ * `lookup` is what turns a label into a field. The vocabulary above is the
+ * default; a stored FORMAT passes its own label map instead (formats.mjs), so a
+ * known format and an unknown one are read by the same code and can only differ
+ * in what a label means, never in how a value is parsed or a direction decided.
+ */
+export function readRows(subject, rows, lookup) {
+  if (!rows || rows.length < 3) return null;
 
   const got = {};
   const gotLabel = {};   // the label each value was read under: direction evidence lives in labels too
+  const subjectFlat = _strip(subject);
   for (const row of rows) {
-    const field = _lookup(row.label, learned);
+    if (!row.value) continue;                       // a field the bank left empty
+    /* THE MAIL'S OWN TITLE IS NOT A ROW. VIB repeats the subject as the first
+       line of the body, "Chuyển tiền nhanh đến tài khoản ngân hàng nội địa
+       thành công" contains the label phrase "đến tài khoản", and the line under
+       it is the salutation: so the line walk read "Kính gửi <the customer>" as
+       the beneficiary on all 269 VIB transfers of the test set, first hit
+       winning over the real row further down. (memo.mjs tidyMerchant has been
+       blanking that salutation since; this is where it came from.) */
+    if (subjectFlat && _strip(row.label) === subjectFlat) continue;
+    const field = lookup(row.label);
     if (field && !(field in got)) { got[field] = row.value; gotLabel[field] = row.label; }   // first hit wins; later dupes are footer noise
   }
 
@@ -720,11 +998,12 @@ export function readLabelTable(subject, body, learned) {
   const txnCur = amtRaw ? (amtRaw.currency || curRow || 'VND') : null;
 
   let amt = amtRaw, currency = txnCur, fxAmount = null, fxCurrency = null;
+  let amountField = 'amount';
   if (amtRaw && txnCur !== 'VND' && convVnd) {
-    amt = convVnd; currency = 'VND';
+    amt = convVnd; currency = 'VND'; amountField = 'converted';
     fxAmount = amtRaw.value; fxCurrency = txnCur;
   } else if (!amtRaw && convVnd) {
-    amt = convVnd; currency = 'VND';
+    amt = convVnd; currency = 'VND'; amountField = 'converted';
   }
 
   const when = got.occurred_at ? parseWhenCell(got.occurred_at) : null;
@@ -739,30 +1018,57 @@ export function readLabelTable(subject, body, learned) {
      coming in, the beneficiary row is the reader themself and the remitter is
      the counterpart; taking the beneficiary first (the only order there was
      while every row was a debit) would file a person's own name as who paid
-     them. A refund still names its merchant, so merchant stays first. */
+     them. A refund still names its merchant, so merchant stays first.
+     LAST, the beneficiary's BANK, when the mail names nobody else: VIB's card
+     repayment is paid to the issuer and says so in "Ngân hàng hưởng", with an
+     empty memo. That row was the counterparty while it sat in the beneficiary
+     vocabulary, the device recognises a repayment by it (E7: "the issuer as
+     counterparty"), and 81 mails of the test set read only because of it. */
   const whoRow = got.merchant ? 'merchant'
     : (direction === 'credit' && got.remitter) ? 'remitter'
-    : got.beneficiary ? 'beneficiary' : null;
+    : got.beneficiary ? 'beneficiary'
+    : got.cp_bank ? 'cp_bank' : null;
   const who = whoRow ? got[whoRow] : null;
+
+  /* What was bought stands in for a memo the mail does not have. */
+  const memo = got.memo || got.item || null;
+  const memoField = got.memo ? 'memo' : (got.item ? 'item' : null);
 
   // The confidence gate. Money, a moment, and a counterpart (or at least a
   // memo): anything less is not a ledger row, and the model gets to judge it.
-  if (!amt || !when || !(who || got.memo)) return null;
+  if (!amt || !when || !(who || memo)) return null;
 
   // Self-transfer: the sender and the beneficiary are the same letters. That
   // is the person moving money between their own pockets, and filing it as an
   // expense would quietly shrink a ledger by money that never left. The sender
-  // side comes from the remitter row where the bank prints one (VCB), or from
-  // the holder name inside the debit-account cell where it does not (MB writes
-  // "NGUYEN THU TRANG - 3510…" as the account value and has no remitter row).
-  const senderName = _personKey(got.remitter) || _personKey(got.account);
+  // side comes from the holder row where the mail prints one, the remitter row
+  // where the bank prints that (VCB), or from the holder name inside the
+  // debit-account cell where it does neither (MB writes "NGUYEN THU TRANG -
+  // 3510…" as the account value and has no remitter row).
+  const senderName = _personKey(got.holder) || _personKey(got.remitter) || _personKey(got.account);
   const self = !!(senderName && got.beneficiary && senderName === _personKey(got.beneficiary));
 
-  return {
+  const fee = got.fee ? parseAmountCell(got.fee) : null;
+  const limit = got.limit ? parseAmountCell(got.limit) : null;
+  /* On a CARD PURCHASE the card is the person's own instrument, not a card
+     being paid down: the mail names a merchant and no account row ("Số thẻ" is
+     the only instrument VIB's card notice prints). card_masked stays filled
+     too, role-neutral as ever; signals.mjs is what keeps a card number from
+     being read as a repayment (category-tree E7). */
+  const account = got.account || (got.merchant && got.card ? got.card : null);
+  const accountField = got.account ? 'account' : (account ? 'card' : null);
+  const cpAccount = got.cp_account || (whoRow === 'beneficiary' ? _accountInsideWho(got.beneficiary) : null);
+
+  const out = {
     is_transaction: true,
-    transaction_type: isTransfer ? 'p2p_transfer' : 'ecommerce_receipt',
+    /* A mail whose ONLY counterpart is the beneficiary's bank is a payment to
+       that bank (a card bill), which is the one case the reader can call
+       bank_txn. It used to read p2p_transfer, because the bank row sat in the
+       beneficiary vocabulary and any beneficiary meant a transfer. */
+    transaction_type: whoRow === 'cp_bank' ? 'bank_txn' : (isTransfer ? 'p2p_transfer' : 'ecommerce_receipt'),
     source_provider: null,                       // worker falls back to the sender registry
     occurred_at: when,
+    time_precision: whenPrecision(got.occurred_at),
     amount: amt.value,
     /* The currency the amount is REALLY in. 'VND' was hardcoded here until
        2026-09-03, which — with parseAmountCell then discarding the USD token —
@@ -773,6 +1079,8 @@ export function readLabelTable(subject, body, learned) {
        ledger row's note; null on every domestic mail. */
     fx_amount: fxAmount,
     fx_currency: fxCurrency,
+    fee_amount: fee ? fee.value : null,
+    available_limit: limit ? limit.value : null,
     direction,
     counterparty: who,
     /* WHICH ROW the counterparty was read off. A beneficiary or remitter row
@@ -782,7 +1090,16 @@ export function readLabelTable(subject, body, learned) {
        a template-read mail carries the shape's frozen transaction_type, which
        is 'p2p_transfer' for every shape this was true of. */
     counterparty_row: whoRow,
-    memo: got.memo || null,
+    /* The two sides (email-reading-v2 §4), raw as printed; `_tidy` masks the
+       account to its last four. The KIND of counterparty is not decided here:
+       signals.mjs decides it for every tier from these same fields. */
+    holder_name: got.holder || null,
+    counterparty_bank: got.cp_bank || null,
+    counterparty_account_tail: cpAccount,
+    memo,
+    /* The transaction-kind row as printed ("Thanh toán dịch vụ - hàng hóa").
+       Read by signals.mjs for the signal and the channel; never sealed. */
+    txn_kind: got.txn_kind || null,
     reference_number: got.reference || null,
     status: got.status || null,
     /* AS THE MAIL PRINTED IT, not masked here (2026-09-02). Masking moved to
@@ -795,7 +1112,7 @@ export function readLabelTable(subject, body, learned) {
        still pinned in tests — what changed is WHERE it is enforced, not
        whether. Nothing reads this tier's output except extract.mjs, which
        tidies, and the learner, which needs the raw. */
-    account_masked: got.account || null,
+    account_masked: account,
     /* The credit card the mail named, if any (card-repayment-routing-spec.md).
        Raw as printed here; `_tidy` masks it to last-4 like account_masked, and
        the learner needs the verbatim value to anchor it. Role-neutral: the
@@ -806,4 +1123,27 @@ export function readLabelTable(subject, body, learned) {
     flow: self ? 'transfer' : null,              // anything else is stage.mjs's judgement
     balance: got.balance ? (parseAmountCell(got.balance) || {}).value ?? null : null,
   };
+
+  /* PROVENANCE (contract.mjs SRC): everything above was read off a labelled row
+     of THIS mail, so it is `printed`, the direction included (a printed sign,
+     printed wording, or which rows the mail printed at all). Two things are
+     not: the own-accounts verdict and the transfer/receipt type are rules run
+     over those rows. Only fields that carry a value are listed. */
+  const src = {};
+  for (const k of ['occurred_at', 'time_precision', 'amount', 'currency', 'fx_amount', 'fx_currency',
+    'fee_amount', 'available_limit', 'direction', 'counterparty', 'holder_name', 'counterparty_bank',
+    'counterparty_account_tail', 'memo', 'reference_number', 'status', 'account_masked', 'card_masked', 'balance']) {
+    if (out[k] != null) src[k] = 'printed';
+  }
+  if (out.flow) src.flow = 'heuristic';
+  src.transaction_type = 'heuristic';
+  out.src = src;
+
+  /* Which PRINTED LABEL each field was read under (labels only, never values):
+     what formats.mjs turns into a stored label map. Keyed by the row field. */
+  const labels = {};
+  for (const f of Object.keys(gotLabel)) labels[f] = gotLabel[f];
+  out.labels = labels;
+  out.read_fields = { amount: amountField, memo: memoField, account: accountField, who: whoRow };
+  return out;
 }

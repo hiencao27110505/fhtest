@@ -1245,11 +1245,16 @@
     let floor = null;
     if (!scoped) { try { floor = localStorage.getItem(_atxFrontKey(gid)) || null; } catch (e) {} }
     try {
-      let q = sb.from('email_transactions')
-        .select('occurred_at')
-        .eq('review_status', 'pending');
-      if (scoped) q = q.gte('occurred_at', sinceIso);
-      const res = await q.order('occurred_at', { ascending: true }).limit(1);
+      /* Transactions only: a due notice is staged in the same table and is not
+         something the read "found" (email-reading-v2-spec §6). _atxTxnOnly
+         tolerates the row_kind column not existing yet. */
+      const res = await _atxTxnOnly((txnOnly) => {
+        let q = sb.from('email_transactions')
+          .select('occurred_at')
+          .eq('review_status', 'pending');
+        if (scoped) q = q.gte('occurred_at', sinceIso);
+        return txnOnly(q).order('occurred_at', { ascending: true }).limit(1);
+      });
       const oldest = !res.error && res.data && res.data[0] && res.data[0].occurred_at;
       if (scoped) return oldest || null;
       if (oldest && (!floor || String(oldest) < String(floor))) {
@@ -1350,13 +1355,20 @@
     } catch (e) { return {}; }            // locked ledger, wrong key, bad box
   }
 
+  /* Every pending-queue read on this screen counts TRANSACTIONS, never notices
+     (row_kind = 'notice', 0147). One helper owns the filter and its fallback
+     while the column does not exist yet: 72-txn-review.js fhStagedTxnOnly. If
+     that file is somehow absent the query runs unfiltered, which is today. */
+  const _atxTxnOnly = (build) => window.fhStagedTxnOnly
+    ? window.fhStagedTxnOnly(build) : build((q) => q);
+
   async function _atxRecentFinds() {
     try {
-      const res = await sb.from('email_transactions')
+      const res = await _atxTxnOnly((txnOnly) => txnOnly(sb.from('email_transactions')
         .select(ATX_FEED_COLS)
-        .eq('review_status', 'pending')
+        .eq('review_status', 'pending'))
         .order('created_at', { ascending: false })
-        .limit(ATX_FEED_ROWS);
+        .limit(ATX_FEED_ROWS));
       if (res.error) return [];
       const rows = res.data || [];
       /* Three nacl.box opens; negligible, and they run together rather than in
@@ -1591,9 +1603,9 @@
   let _atxLiveSeq = 0;
 
   async function _atxPendingCount() {
-    const res = await sb.from('email_transactions')
+    const res = await _atxTxnOnly((txnOnly) => txnOnly(sb.from('email_transactions')
       .select('id', { count: 'exact', head: true })
-      .eq('review_status', 'pending');
+      .eq('review_status', 'pending')));
     if (res.error) throw res.error;
     return (typeof res.count === 'number') ? res.count : 0;
   }

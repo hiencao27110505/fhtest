@@ -87,18 +87,29 @@ console.log('\n-- the single classify call --');
   t('no violation at any depth', violations(sent.generationConfig.responseSchema).length === 0, violations(sent.generationConfig.responseSchema));
 }
 
-console.log('\n-- the extraction schema: valid, and UNCHANGED by the rewrite --');
+console.log('\n-- the extraction schema: valid at every depth, and pinned --');
 {
   const g = L.toGeminiSchema(L.EXTRACTION_SCHEMA);
   t('no violation at any depth', violations(g).length === 0, violations(g));
-  /* The converter as it was, inline: the flat schema that has answered 200 in
-     production for months must come out byte-for-byte the same. */
+  /* The schema is NESTED now (2026-09-22, email-reading-v2 §8.3): `labels`,
+     `investment`, `loan` and `notice` are objects, so the old "byte-identical
+     to the flat converter" assertion is gone with the flat schema. In its
+     place: the converted output is pinned by digest, so a change to what the
+     model is asked is loud and deliberate. Recompute the digest when you
+     change EXTRACTION_SCHEMA on purpose, and only then. */
+  const digest = async (o) => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(o))))).map((b) => b.toString(16).padStart(2, '0')).join('');
+  t('the converted extraction schema is the pinned one', await digest(g) === 'e2edb77daf45e18c4cd87f93aa698b4442082012c2bb189ca2970abd938a37be', await digest(g));
+  t('mail_kind is the primary verdict and is required', g.properties.mail_kind && g.required.includes('mail_kind'));
+  t('every nested object declares its properties (Gemini refuses an empty object)',
+    ['labels', 'investment', 'loan', 'notice'].every((k) => g.properties[k].type === 'object' && g.properties[k].nullable === true && Object.keys(g.properties[k].properties).length > 0));
+  t('node is a plain string, never an enum (217 codes is a hard 400)', g.properties.node.type === 'string' && !g.properties.node.enum);
+  t('flow and category are no longer asked', !g.properties.flow && !g.properties.category);
   const old = (schema) => { const copy = JSON.parse(JSON.stringify(schema)); delete copy.additionalProperties;
     for (const key of Object.keys(copy.properties || {})) { const prop = copy.properties[key];
       if (Array.isArray(prop.type)) { prop.type = prop.type.filter((x) => x !== 'null')[0]; prop.nullable = true;
         if (Array.isArray(prop.enum)) prop.enum = prop.enum.filter((e) => e !== null); } }
     return copy; };
-  t('byte-identical to what the old converter produced for it', JSON.stringify(g) === JSON.stringify(old(L.EXTRACTION_SCHEMA)));
+  t('...and the OLD flat converter would have left it invalid below the first level', violations(old(L.EXTRACTION_SCHEMA)).length > 0);
   t('...while the OLD converter left the batch schema invalid below the first level  <-- the latent 400',
     violations(old(C.BATCH_SCHEMA)).length > 0, violations(old(C.BATCH_SCHEMA)));
 }

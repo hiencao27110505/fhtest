@@ -125,13 +125,17 @@
        exported openers. */
     var _QR_COLS = 'id,member_id,owner_user_id,staging_scope,gmail_message_id,source_provider,occurred_at,duplicate_of_id,resolved_before,sealed,eph_pub,nonce,enc_v,created_at';
     async function _qrFetch() {
-      var res = await window.sb.from('email_transactions')
+      /* Transactions only: a due notice (row_kind 'notice', 0147) is never offered
+         as a one-tap import. fhStagedTxnOnly (72) owns the filter and its fallback
+         while the column does not exist yet. */
+      var ask = function (txnOnly) { return txnOnly(window.sb.from('email_transactions')
         .select(_QR_COLS)
         .eq('review_status', 'pending')
         .eq('staging_scope', 'personal')
-        .is('duplicate_of_id', null)
+        .is('duplicate_of_id', null))
         .order('occurred_at', { ascending: false })
-        .limit(30);
+        .limit(30); };
+      var res = await (window.fhStagedTxnOnly ? window.fhStagedTxnOnly(ask) : ask(function (q) { return q; }));
       if (res.error) throw res.error;
       var rows = res.data || [];
       _qrSeenPrune(rows.map(function (r) { return r.id; }));
@@ -266,11 +270,15 @@
     function _qrLocalIso(d) {
       return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
     }
-    // bank timestamp → local "HH:MM"; a date-only UTC-midnight placeholder stays timeless (72's rule)
-    function _qrTime(oa) {
+    // bank timestamp → local "HH:MM"; a date-only UTC-midnight placeholder stays timeless (72's rule).
+    // A v2 payload states it instead (time_precision), and then the guess is not made.
+    function _qrTime(oa, re) {
       if (!oa) return undefined;
       var d = new Date(oa); if (isNaN(d.getTime())) return undefined;
-      if (d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0) return undefined;
+      var tp = re && re.time_precision;
+      if (tp === 'day') return undefined;
+      if (tp !== 'second' && tp !== 'minute'
+          && d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0) return undefined;
       return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
     }
 
@@ -342,7 +350,7 @@
               var f0 = opened.flow || (opened.direction === 'credit' ? 'income' : 'expense');
               var v = window.fhDedupAssess([{
                 amount: Number(opened.amount) || 0, date: oa0, dateDisplay: oa0 && !isNaN(oa0.getTime()) ? _qrLocalIso(oa0) : '',
-                time: _qrTime(cand.occurred_at) || '', description: _qrDesc(opened), counterparty: opened.counterparty || '',
+                time: _qrTime(cand.occurred_at, opened) || '', description: _qrDesc(opened), counterparty: opened.counterparty || '',
                 isIncome: f0 === 'income', isTransfer: f0 === 'transfer', accountKind: opened.account_kind || null,
                 provider: cand.source_provider || '', currency: opened.currency || 'VND' }], dupIndex)[0];
               if (v) {
@@ -358,8 +366,32 @@
 
         var flow = re.flow || (re.direction === 'credit' ? 'income' : 'expense');
         var foreign = re.currency && re.currency !== 'VND';
-        if (flow === 'transfer' || foreign || _qrLendingShaped(flow, re)
-            || (window.fhCardPayShaped && window.fhCardPayShaped(re))) {
+        /* payload v2 (email-reading-v2-spec §9): the SAME function the full review
+           asks, so the two can never propose different kinds for one row. Null for
+           every v1 row, for a v2 row with no signal, and for a row a lesson already
+           answers: then the checks below run exactly as they always did. When it
+           answers, it decides: anything but a plain expense or income is a judgment
+           call and belongs to the full screen. */
+        var sig = null;
+        try {
+          if (typeof fhKindFromSignal === 'function' && typeof fhIsV2 === 'function' && fhIsV2(re)) {
+            var sDesc = _qrDesc(re), sAcct = _qrAcct(re), sOwn = fhSignalOwn();
+            sOwn.lesson = fhSignalLessonHit({ counterparty: re.counterparty || '', description: sDesc,
+              amount: Number(re.amount) || 0, isIncome: re.direction === 'credit' });
+            sOwn.cardFor = window.fhResolveRepaidCard ? function () { return window.fhResolveRepaidCard(re, sAcct, sDesc); } : null;
+            sig = fhKindFromSignal({ x: re, direction: re.direction, counterparty: re.counterparty || '', description: sDesc,
+              amount: Number(re.amount) || 0, acct: sAcct, provider: re.source_provider }, sOwn);
+          }
+        } catch (eSig) { sig = null; }
+        var sigSimple = !!(sig && (sig.kind === 'expense' || sig.kind === 'income')
+          && !(sAcct && sAcct.kind === 'credit_card' && re.direction === 'credit'));   // money INTO a card is a transfer, whatever the mail calls it (57)
+        if (sig && sigSimple) flow = sig.kind;
+        /* A printed fee becomes its own small row, which only the full screen writes. */
+        var hasFee = typeof fhIsV2 === 'function' && fhIsV2(re) && Number(re.fee_amount) > 0;
+        if (foreign || hasFee || (sig && !sigSimple)
+            || (sig && sigSimple && !sig.hold && _qrLendingShaped(flow, re))
+            || (!sig && (flow === 'transfer' || _qrLendingShaped(flow, re)
+                         || (window.fhCardPayShaped && window.fhCardPayShaped(re))))) {
           /* A judgment-call row belongs to the full review screen. Since 0122
              that includes LENDING-shaped rows: a payee matching an open debt
              balance or a learned loan lesson — quick review's one-tap "Duyệt ·
@@ -383,7 +415,9 @@
           acctId: null,                                         // null = auto-resolve the bank instrument; else an explicit personal account
           inst: _qrInst(re),                                    // 0131 money source string for a family write (see _qrInst)
           dateIso: _qrLocalIso(isNaN(oa.getTime()) ? new Date() : oa),
-          time: _qrTime(row.occurred_at),
+          time: _qrTime(row.occurred_at, re),
+          /* Income subtype, when the mail's signal states it (salary, refund). */
+          incomeCat: (sig && sig.kind === 'income' && sig.incomeCat) || null,
           queue: rows.length, txnId: null, busy: false,
           /* 0144 — the tree node for this row. Resolved once when the sheet
              opens (the sealed hint, this person's lesson, then the tree's
@@ -395,6 +429,11 @@
           node: _qrNodeFor(re, desc, flow === 'income' ? 'income' : 'expense'),
           party: (re.counterparty || '').trim(),
         };
+        /* The node the signal itself maps to (payroll is `wage`), only when every
+           tier that read this row's own words came up empty: the vaguer answer
+           goes below the others (E14a), same place the full review gives it. */
+        if (!QR.node && sig && sig.node && typeof FH_TAX !== 'undefined' && FH_TAX.get(sig.node)
+            && FH_TAX.kindOf(sig.node) === (flow === 'income' ? 'income' : 'expense')) QR.node = sig.node;
         _qrSessionSkip[row.id] = true;                          // shown this run — no re-pop on the next tab switch
         _qrRender();
       } finally { _qrInFlight = false; }
@@ -710,7 +749,9 @@
             // but honour an explicit account pick.
             ok = await window.fhPersonalAddIncome(base, QR.desc || '', QR.dateIso, src,
               /* 0144: quick review runs the same node cascade as the full screen */
-              { catName: 'Khác', catEmoji: '💰', accountId: QR.acctId ? QR.acctId : (autoIsCard ? null : acctId), time: QR.time, node: _qrNode('income') });
+              { catName: QR.incomeCat || 'Khác',
+                catEmoji: ({ 'Lương': '💼', 'Thưởng': '🎁', 'Hoàn tiền': '💸' })[QR.incomeCat] || '💰',   // same emoji map as the full review's promote (72)
+                accountId: QR.acctId ? QR.acctId : (autoIsCard ? null : acctId), time: QR.time, node: _qrNode('income') });
           } else {
             var emoji = (window.catStyle && window.catStyle[QR.cat] && window.catStyle[QR.cat][0]) || '🗂️';
             ok = await window.fhPersonalAddExpense(base, QR.desc || '', QR.cat || null, emoji, QR.dateIso, QR.time, src, { accountId: acctId, node: _qrNode('expense') });
@@ -947,7 +988,7 @@
         var acct = _qrAcct(re);
         var oa = row.occurred_at ? new Date(row.occurred_at) : null;
         _peek = { n: rows.length, id: row.id, flow: flow, amount: Number(re.amount) || 0, desc: desc, cat: cat, emoji: emoji,
-          time: _qrTime(row.occurred_at), dateIso: (oa && !isNaN(oa.getTime())) ? _qrLocalIso(oa) : null,
+          time: _qrTime(row.occurred_at, re), dateIso: (oa && !isNaN(oa.getTime())) ? _qrLocalIso(oa) : null,
           provider: re.source_provider || null, tail: (acct && acct.tail) || null, foreign: !!(re.currency && re.currency !== 'VND') };
         return _peek;
       } catch (e) { _peek = _peek || { n: 0 }; return _peek; }

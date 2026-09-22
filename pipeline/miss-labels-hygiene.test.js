@@ -26,15 +26,20 @@ let pass = 0, fail = 0;
 const t = (n, ok, d) => { console.log((ok ? '  PASS  ' : '  FAIL  ') + n + (!ok && d ? '  -> ' + d : '')); ok ? pass++ : fail++; };
 
 /* A VIB body carrying one of each leaked family, in line form — the rendering
-   production actually sends, and the one the old filter could not read. */
+   production actually sends, and the one the old filter could not read.
+   THREE LABELS RENAMED 2026-09-22: "Phí (bao gồm VAT)", "Số hoá đơn" and "Diễn
+   giải" stood here as the vocabulary we most wanted to learn, and have since
+   been learned (labeltable.mjs LABELS: fee, reference, memo), so the harvester
+   rightly no longer reports them. The same three SHAPES are kept with labels
+   the reader still does not know. */
 const BODY = [
   'Kính gửi CAO THÁI DUY HIỂN',
   'Ngày giao dịch', '03/09/2026 10:17',
   'Số tiền', '500,000 ₫',
-  'Phí (bao gồm VAT)', '0 ₫',
-  'Số hoá đơn', 'HD00123',
+  'Thuế (bao gồm VAT)', '0 ₫',
+  'Mã khách hàng', 'HD00123',
   'Đến tài khoản', 'NGUYEN VAN A',
-  'Diễn giải', 'Thanh toan tien dien thang 8',
+  'Ghi chú', 'Thanh toan tien dien thang 8',
   'Tại TLJ CRESCENT MALL', 'x',
   'Tại MPOS*WAYNESCOFFEE', 'y',
   'Giá trị: 105,000 VND', 'z',
@@ -67,10 +72,10 @@ t('no host or address — footer values, never labels',
   !has('vib.com.vn') && !got.some((l) => l.includes('@')));
 
 console.log('\n-- and the real vocabulary still gets through --');
-t('"Phí (bao gồm VAT)" survives — one short caps run is not a proper noun',
-  has('Phí (bao gồm VAT)'));
-t('"Số hoá đơn" survives', has('Số hoá đơn'));
-t('"Diễn giải" survives — the memo label we most want to learn', has('Diễn giải'));
+t('"Thuế (bao gồm VAT)" survives — one short caps run is not a proper noun',
+  has('Thuế (bao gồm VAT)'));
+t('"Mã khách hàng" survives', has('Mã khách hàng'));
+t('"Ghi chú" survives — a memo-like label the reader does not know yet', has('Ghi chú'));
 t('it recorded something at all — a filter that returns nothing is not hygiene',
   got.length >= 3, JSON.stringify(got));
 
@@ -87,7 +92,7 @@ t('shape rules alone already remove every leaked family here',
    a memo that is mixed-case, carries no digit and names nobody in capitals is
    invisible to every shape rule above. It is also the single most sensitive
    free-text field we hold — the payer's own words about why the money moved. */
-const MEMO_BODY = ['Diễn giải', 'Thanh toan tien dien hang thang', 'Số hoá đơn', 'HD1'].join('\n');
+const MEMO_BODY = ['Ghi chú', 'Thanh toan tien dien hang thang', 'Mã khách hàng', 'HD1'].join('\n');
 /* CHANGED 2026-09-22. This used to assert the LEAK ("without a reading, a
    digit-free mixed-case memo leaks"), as the argument for always passing the
    reading. The leak had a cause of its own: after accepting "Diễn giải" the
@@ -98,7 +103,7 @@ t('without a reading, the memo no longer leaks: a label\'s value line is never a
   !unknownLabels(MEMO_BODY).some((l) => l.includes('Thanh toan tien dien hang thang')));
 t('with the reading, it is subtracted and only labels remain',
   JSON.stringify(unknownLabels(MEMO_BODY, { memo: 'Thanh toan tien dien hang thang' }))
-  === JSON.stringify(['Diễn giải', 'Số hoá đơn']));
+  === JSON.stringify(['Ghi chú', 'Mã khách hàng']));
 
 console.log('\n' + pass + ' pass, ' + fail + ' fail\n');
 if (fail) process.exit(1);
