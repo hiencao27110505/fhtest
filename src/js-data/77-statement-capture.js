@@ -74,6 +74,33 @@
        _fhStagedRows by rowIndex), so matching the shape exactly is what makes a
        statement row reviewable with no second code path. `_stmt` is the only
        discriminator, and only retirement looks at it. */
+    /* ── payload v2, when the file's issuer was recognised ───────────────────
+       (email-reading-v2-spec §4, §5.) The SAME keys the email path seals,
+       filled from the statement's own source/destination columns (59
+       fhStmtClassify). The review already knows how to read every one of them:
+       a signal picks the kind, the bank and the tail find the account on the
+       other side, and holder_name is what own-name detection needs.
+
+       `v: 2` is what opens that door, so it is set ONLY when the profile
+       actually placed the other side. A file the app has not met carries
+       nothing from here and stays a v1 reading, read exactly as before.
+
+       `src` says where each field came from (contract SRC): the file PRINTED
+       these, in columns of its own, so they are neither a judgment nor a guess
+       and do not by themselves send a row to "Cần bạn xem". A field the file
+       did not state gets no source at all — an entry for a NULL field is read
+       as "the reader withdrew its answer" and would flag every silent row. A
+       pre-selection that rests on a NAME rather than a number is marked weak by
+       fhKindFromSignal, which is where that judgment belongs. */
+    function _stmV2(p) {
+      if (!p.cpKind) return {};                       // issuer not recognised: stay v1
+      const x = { v: 2, counterparty_kind: p.cpKind, holder_name: p.holderName || null,
+        counterparty_bank: p.cpBank || null, counterparty_account_tail: p.cpTail || null,
+        signal: p.signal || null, src: {} };
+      ['counterparty_kind', 'holder_name', 'counterparty_bank', 'counterparty_account_tail', 'signal']
+        .forEach((k) => { if (x[k] && x[k] !== 'unknown') x.src[k] = 'printed'; });
+      return x;
+    }
     function fhStmtAsStaged(id, p) {
       return {
         id: id, _stmt: true, statement_id: p.sid, statement_title: p.stitle || '', row_fp: p.fp || null,
@@ -92,7 +119,7 @@
         amount: Math.abs(p.amt), currency: 'VND', direction: p.amt < 0 ? 'debit' : 'credit',
         counterparty: p.counterparty || '',
         duplicate_of_id: null, resolved_before: false,
-        raw_extracted: {
+        raw_extracted: Object.assign({
           memo: p.memo, memo_display: p.memo,
           transaction_type: p.person ? 'p2p_transfer' : (p.accountKind === 'ewallet' ? 'ecommerce_receipt' : 'bank_txn'),
           flow: p.flow === 'cardpay' ? 'transfer' : (p.amt < 0 ? 'expense' : 'income'),
@@ -114,7 +141,7 @@
              p.flow has been in every stored payload since the first statement, so
              rows saved before this line carry it too. */
           stmt: { xfer: !!p.xfer, attn: !!p.attn, flow: p.flow || '', incomeCat: p.incomeCat || '', fundedElsewhere: !!p.fundedElsewhere }
-        }
+        }, _stmV2(p))
       };
     }
     window.fhStmtAsStaged = fhStmtAsStaged;
@@ -143,13 +170,21 @@
          says recipient == holder. Both are pre-set AND sent to "Cần bạn xem". A
          holder-name memo alone sets nothing. Level 1 (both legs) is the review's own
          pair matcher, which needs no hint. */
-      const xfer = c.flow === 'topup' || !!c.selfTransfer;
+      /* A move between two accounts the person owns, now also when the file's
+         own account columns said so rather than its words (59: signal
+         own_transfer / wallet_move). Same treatment either way: pre-set to
+         transfer AND sent to "Cần bạn xem", because one side of a transfer is
+         still a claim the person should see. */
+      const xfer = c.flow === 'topup' || !!c.selfTransfer || c.signal === 'own_transfer' || c.signal === 'wallet_move';
       const incomeCat = c.flow === 'salary' ? 'Lương' : (c.flow === 'refund' ? 'Hoàn tiền' : '');
       return {
         sid: sid, date: row.date, time: row.time || '', sec: (row.key || '').slice(17, 19) || '00',
         amt: row.amt, bal: (c.fundedElsewhere ? null : row.bal), ref: row.ref || '',
         memo: c.memo == null ? '' : c.memo, counterparty: c.counterparty || '', person: !!c.person,
         flow: c.flow || '', xfer: xfer, attn: xfer, incomeCat: incomeCat, fundedElsewhere: !!c.fundedElsewhere,
+        /* payload v2 — the other side, and whose statement this is. */
+        signal: c.signal || '', cpKind: c.cpKind || '', cpBank: c.cpBank || '',
+        cpTail: c.cpTail || '', holderName: c.holder || '',
         concept: (row.mcc && STM_MCC()[row.mcc]) || '',
         /* The codes the file itself carries (MCC, MoMo's receiving service) answer
            before any name is sent anywhere; _stmConcepts only fills what is left. */
@@ -434,10 +469,14 @@
 
       /* Reading order: a confirmed reading for this sender and header shape, else the
          vocabulary. The proof below decides whether either is believed. */
-      let parsed = window.fhStmtParse(grid);
+      /* The sender is half of how the issuer profile is recognised (59
+         STMT_ISSUERS): the same column names under another bank must not be
+         read as this wallet's account ids. */
+      const pctx = { provider: S.card.source_provider };
+      let parsed = window.fhStmtParse(grid, null, pctx);
       if (parsed.table) {
         const kept = _stmMapGet(S.card.source_provider, parsed.sig);
-        if (kept && !parsed.proof.ok) parsed = window.fhStmtParse(grid, kept);
+        if (kept && !parsed.proof.ok) parsed = window.fhStmtParse(grid, kept, pctx);
       }
       S.parsed = parsed; S.grid = grid;
       if (!parsed.table || !parsed.rows.length) return _stmFail(L('Không thấy bảng giao dịch trong file này.', 'No transaction table found in this file.'), false);

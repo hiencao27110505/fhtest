@@ -1176,8 +1176,22 @@
        a lost race hits the 0105 partial-unique index and we refetch. */
     window.fhPersonalAccountEnsure = async function (info) {
       if (!P.uid || !P.key || !info || !info.kind) return null;
-      const prov = (info.provider || '').toLowerCase() || null;
+      /* ONE identity for a provider (full-ledger T12), folded by the function
+         every other resolver uses: "momo", "Ví MoMo" and the operator's legal
+         name are ONE wallet; "hsbc" and "hsbc vietnam" are ONE bank. Both
+         shapes are sitting on a real ledger right now, each holding rows.
+         Only the MATCH folds — what is stored is what was always stored, so
+         nothing that reads a provider string moves. */
+      const _pkey = (s) => (typeof window.fhAcctProviderKey === 'function')
+        ? window.fhAcctProviderKey(s || '') : String(s || '').toLowerCase();
+      const pkey = _pkey(info.provider);
+      const akey = (a) => _pkey(a && a.provider);
       const tail = (info.tail || '').replace(/\D/g, '').slice(-4) || null;
+      /* A phrase that names no provider at all ("Ngân hàng liên kết", "Tài
+         khoản") and no number either: there is nothing here to create an
+         account from, and the old answer was to mint one under the phrase. */
+      if (info.provider && !pkey && !tail) return null;
+      const prov = (pkey ? (info.provider || '').toLowerCase() : '') || null;
       /* Identity is the NUMBER, not our guess of the kind. A (provider, tail)
          pair names one instrument; matching kind too is how one heuristic
          mis-guess minted a phantom duplicate of a real account (2026-09-02).
@@ -1188,15 +1202,15 @@
          "Vietcombank" twin (found 2026-09-13). Prefer a same-kind tail-less
          account when several exist, else any tail-less one for the provider. */
       const _match = (a) => tail
-        ? ((a.provider || '') === (prov || '') && (a.tail || '') === tail)
-        : ((a.provider || '') === (prov || '') && !a.tail);
+        ? (akey(a) === pkey && (a.tail || '') === tail)
+        : (akey(a) === pkey && !a.tail);
       let hit = tail ? P.accounts.find(_match)
         : (P.accounts.find((a) => _match(a) && a.kind === info.kind) || P.accounts.find(_match));
       /* No tail but a provider that owns exactly ONE account: adopt it. A bank
          that prints its number on some mails and not others is one account,
          not two; a provider with several accounts stays ambiguous → tail-less. */
-      if (!hit && !tail && prov) {
-        const byProv = P.accounts.filter((a) => (a.provider || '') === prov && a.kind !== 'investment');
+      if (!hit && !tail && pkey) {
+        const byProv = P.accounts.filter((a) => akey(a) === pkey && a.kind !== 'investment');
         if (byProv.length === 1) hit = byProv[0];
       }
       /* A caller with a tail but NO provider still means one specific
@@ -1204,18 +1218,24 @@
          rather than minting a provider-null twin (the "Tài khoản ••4751"
          duplicate, 2026-09-06). Two accounts sharing a tail is ambiguous —
          fall through to the exact match's verdict. */
-      if (!hit && tail && !prov) {
+      if (!hit && tail && !pkey) {
         const byTail = P.accounts.filter((a) => (a.tail || '') === tail);
         if (byTail.length === 1) hit = byTail[0];
       }
       if (hit) return hit.id;
-      /* No tail, and the provider already has SEVERAL accounts: this row cannot say
-         which one it belongs to, and the old answer -- mint a tail-less "VIB" beside
-         "VIB ••4751" and "VIB ••5140" -- was a ghost that collected 75 rows nobody
-         could place (2026-09-19). An untagged row is one tap from right; a ghost
-         account is a wrong balance and a picker entry that means nothing. So: no
-         account. The census and every import path already treat null as "untagged". */
-      if (!tail && prov && P.accounts.some((a) => (a.provider || '') === prov && a.kind !== 'investment')) return null;
+      /* NO TAIL: there is nothing here to identify an account BY. Adopting the
+         provider's single account (above) is the one safe answer; the old one
+         was to mint a tail-less twin under the name. That is how "VIB" appeared
+         beside "VIB ••4751" and "VIB ••5140" and collected 75 rows nobody could
+         place (2026-09-19, which stopped it only when a sibling already
+         existed), and how a tail-less "ví momo" came to hold 26 real
+         transactions beside "momo ••1217" on another ledger. So: no account,
+         sibling or none. An untagged row is one tap from right; a ghost account
+         is a wrong balance and a picker entry that means nothing, and the
+         census and every import path already treat null as "untagged".
+         A caller with no provider EITHER is not this case — the cash account's
+         name is its identity — and it still creates. */
+      if (!tail && pkey) return null;
       const name = info.name || ((prov ? prov.charAt(0).toUpperCase() + prov.slice(1) : 'Tài khoản') + (tail ? ' ••' + tail : ''));
       const r = await _sb().from('personal_accounts').insert({ owner_user_id: P.uid, kind: info.kind,
         provider: prov, tail: tail, name_enc: await _encP(name) }).select('id').single();

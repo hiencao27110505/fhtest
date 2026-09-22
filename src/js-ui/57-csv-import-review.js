@@ -753,7 +753,7 @@ function fhSignalLessonHit(c){
    label, lower-cased by ensure) and a counterparty_bank as the mail printed it
    ("VCB", "Vietcombank", the long form) must compare equal, or the account the
    census materialized from the mail's own words is never found again. */
-function _sigProvKey(name){ return csvCanonicalProvider(fhProviderName(name || '')); }
+function _sigProvKey(name){ return fhAcctProviderKey(name || ''); }
 function _sigCounterpart(x, own, acct){
   var mine = acct || {};
   var pool = (own.accounts || []).filter(function (a) {
@@ -1503,10 +1503,78 @@ var FH_PROVIDER_LONG = {
   congthuong: 'VietinBank', achau: 'ACB', tienphong: 'TPBank', vietnamthinhvuong: 'VPBank',
   dautuvaphattrien: 'BIDV', nongnghiepvaphattriennongthon: 'Agribank', saigonthuongtin: 'Sacombank'
 };
+/* A wallet's "Ví X" form and its OPERATOR's legal name, which is what a bank
+   prints when the wallet is the counterparty. Measured in production: one
+   wallet is held three times by one person — as `momo` with a number, as
+   `ví momo` with none, and under the operator's full legal name with the same
+   number. Banks need no entries here: their long official names are already in
+   FH_PROVIDER_LONG, and "X Vietnam" / "Ngân hàng X" fold by shape below. */
+var FH_PROVIDER_ALIAS = {
+  vimomo: 'momo', mservice: 'momo', dichvudidongtructuyen: 'momo',
+  vizalopay: 'zalopay', zion: 'zalopay',
+  vishopeepay: 'shopeepay', airpay: 'shopeepay',
+  viviettelmoney: 'viettelmoney', viettelpay: 'viettelmoney',
+  vivnpay: 'vnpay'
+};
+/* Phrases that are NOT a provider, whoever wrote them down. A statement that
+   only says "a linked bank", a picker's "Tài khoản", a wallet's generic word
+   for itself: each of these once looked like a name and could mint an account
+   under it. They fold to nothing, and nothing is what an account may be
+   created from (full-ledger T11: "＋ Tài khoản khác" is the last resort, a
+   ghost account is not). Both spellings are listed — the raw canonical key and
+   what it becomes once the corporate dressing is stripped. */
+var FH_PROVIDER_NOTA = ['nganhanglienket', 'lienket', 'linked', 'taikhoan', 'account', 'taikhoannguon',
+  'vi', 'vidientu', 'vicuatoi', 'wallet', 'ewallet', 'khac', 'other', 'chuaro', 'unknown', 'nguontien'];
+
+/* ═══ ONE account identity ═══════════════════════════════════════════════════
+   THE key a provider is compared under, everywhere an account is resolved or
+   created (fhPersonalAccountEnsure, fhStagedAcct, fhStagedCounterpartAcct, the
+   signal counterpart, the statement path). Not a second scheme: it is
+   csvCanonicalProvider + fhProviderName, the pair every caller already
+   composed, with the three folds they were missing —
+
+     the corporate dressing ("Ngân hàng TMCP X Việt Nam", "Công ty CP X"),
+     a wallet's "Ví X" form and its operator's legal name (FH_PROVIDER_ALIAS),
+     a bank's "X Vietnam" (which is why `hsbc` and `hsbc vietnam` were two
+     accounts with one number on a real ledger).
+
+   Returns '' for a phrase that is not a provider at all. Kept consistent with
+   canonProviderName in supabase/functions/_shared/mailbox/senders.mjs by
+   tools/account-identity-fold.test.js, which walks that file's own tables. */
+function fhAcctProviderKey(name){
+  var key = csvCanonicalProvider(name);
+  if (!key || FH_PROVIDER_NOTA.indexOf(key) >= 0) return '';
+  key = key.replace(/^(?:nganhang|nh)(?:thuongmaicophan|tmcp)?/, '')
+           .replace(/^(?:thuongmaicophan|tmcp)/, '')
+           .replace(/^(?:congtycophan|congtytnhh|congty|ctcp|ctytnhh|cty|tnhh)/, '');
+  if (key.length > 3) key = key.replace(/(?:vietnam|vn)$/, '') || key;
+  if (!key) return '';
+  if (FH_PROVIDER_ALIAS[key]) key = FH_PROVIDER_ALIAS[key];
+  if (FH_PROVIDER_LONG[key]) key = csvCanonicalProvider(FH_PROVIDER_LONG[key]);
+  if (FH_PROVIDER_CANON[key]) key = csvCanonicalProvider(FH_PROVIDER_CANON[key]);
+  return FH_PROVIDER_NOTA.indexOf(key) >= 0 ? '' : key;
+}
+window.fhAcctProviderKey = fhAcctProviderKey;
+/* An instrument's identity (full-ledger T12): the folded provider and the four
+   digits, never the kind. `id` is the comparable pair; an empty `key` means
+   "this names no provider", and an empty `tail` means "this names no account"
+   — with both empty there is nothing to create. */
+function fhAcctIdentity(spec){
+  spec = spec || {};
+  var key = fhAcctProviderKey(spec.provider || '');
+  var tail = String(spec.tail == null ? '' : spec.tail).replace(/\D/g, '').slice(-4);
+  if (tail.length !== 4) tail = '';
+  return { key: key, provider: key ? fhProviderName(spec.provider) : '', tail: tail, id: key + '|' + tail };
+}
+window.fhAcctIdentity = fhAcctIdentity;
 function fhProviderName(name){
   if(!name) return '';
   var key = csvCanonicalProvider(name);
   if (FH_PROVIDER_CANON[key]) return FH_PROVIDER_CANON[key];
+  /* The same fold the identity key uses, so "Ví MoMo" and the operator's legal
+     name read as the one household spelling instead of as themselves. */
+  var folded = fhAcctProviderKey(name);
+  if (folded && FH_PROVIDER_CANON[folded]) return FH_PROVIDER_CANON[folded];
   var long = key.replace(/^(?:nganhang|nh)?(?:thuongmaicophan|tmcp)?/, '').replace(/(?:vietnam|vn)$/, '');
   return FH_PROVIDER_LONG[long] || String(name).trim();
 }

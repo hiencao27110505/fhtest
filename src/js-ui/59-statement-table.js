@@ -265,6 +265,110 @@ function fhStmtProve(rows, summary){
   return out;
 }
 
+/* ═══ Issuer profiles ═══════════════════════════════════════════════════════
+   WHICH statement is being read, instead of pattern-matching every file the
+   same way. A profile says which columns hold the source and the destination,
+   how THIS issuer spells its account ids, and which names are the issuer
+   talking about itself rather than about a person. A second issuer is an entry
+   in this table, not a change to the code below it.
+
+   Matched on the columns present PLUS the sender already known, so the same
+   column names under another bank are never read as this wallet's ids. The
+   default profile knows no id shapes at all, which is exactly how every file
+   was read before profiles existed. */
+
+/* The NAPAS code a Vietnamese bank account is addressed by on an interbank
+   transfer ("970436_…"). Only the codes this profile has been checked against;
+   an unknown code simply names no bank, which costs a match and invents none. */
+var STMT_BANK_BIN = {
+  '970403': 'Sacombank', '970405': 'Agribank', '970407': 'Techcombank', '970415': 'VietinBank',
+  '970416': 'ACB', '970418': 'BIDV', '970422': 'MB Bank', '970423': 'TPBank', '970426': 'MSB',
+  '970429': 'SCB', '970431': 'Eximbank', '970432': 'VPBank', '970436': 'Vietcombank',
+  '970437': 'HDBank', '970440': 'SeABank', '970441': 'VIB', '970443': 'SHB', '970448': 'OCB'
+};
+/* An account NAME that is an organisation, not a person (email-reading-v2-spec
+   §5, E12/E13: a legal-entity account name marks a seller with near certainty). */
+var STMT_ENTITY_WORDS = /(^| )(cong ty|cty|tnhh|jsc|corp|corporation|company|doanh nghiep|tap doan|chi nhanh|trung tam|ngan hang)( |$)/;
+
+var STMT_ISSUER_DEFAULT = { id: 'default', own: null, person: null, service: null, banks: [], payroll: null, selfNames: [] };
+var STMT_ISSUERS = [
+  { id: 'momo-wallet',
+    /* "Tài khoản chuyển" is the SOURCE and "Tài khoản nhận" the DESTINATION,
+       each with its own "Tên định danh" name column (aliased in STMT_ROLES). */
+    when: function (roles, ctx) {
+      var p = stmtDeburr((ctx && ctx.provider) || '').replace(/[^a-z0-9]/g, '');
+      return p.indexOf('momo') >= 0 && roles.fromAcct !== undefined && roles.toAcct !== undefined
+        && roles.fromName !== undefined && roles.toName !== undefined;
+    },
+    own: /^\d{6,}$/,                       // the wallet's own side: a bare digit string
+    person: /^\*+\d{3,}$/,                 // someone else's wallet: a masked phone
+    /* A merchant or a service the wallet pays: every id it issues carries a
+       prefix of its own. Tried AFTER the shapes above, which are narrower. */
+    service: /^(?:m\d*b|w\d*b|mp_|kgs_|coop_|billpay|ecom|vms\d|googleireland|momo_root|momo_)/,
+    banks: [
+      /* A linked bank: a bank code and NO account number, so it can name a bank
+         and can never identify an account (full-ledger T11 — "＋ Tài khoản khác"
+         is the last resort, a ghost account is not). */
+      { re: /^([a-z]{2,6})\d*\.[\d.]*bank$/ },
+      /* An interbank transfer: a NAPAS bank code and an account number. */
+      { re: /^(\d{6})_(\d{4,})$/, bin: true }
+    ],
+    payroll: /^accounting_mm$/,             // the wallet operator's own payroll
+    /* Names that are the WALLET talking about itself or about a rail — never the
+       person, and never a provider to file an account under. */
+    selfNames: [/^vi momo$/, /^momo$/, /^doi tac momo$/, /^ngan hang lien ket$/, /^vi dien tu$/, /^vi cua toi$/]
+  }
+];
+function fhStmtIssuer(roles, ctx){
+  for (var i = 0; i < STMT_ISSUERS.length; i++) {
+    try { if (STMT_ISSUERS[i].when(roles || {}, ctx || {})) return STMT_ISSUERS[i]; } catch (e) {}
+  }
+  return STMT_ISSUER_DEFAULT;
+}
+/* An account id -> { name, tail } when this issuer spells banks that way, else
+   null. `tail` is '' for a shape that carries no number: the caller may name the
+   bank from it but must never identify an account by it. */
+function fhStmtBankOf(id, profile){
+  var s = String(id == null ? '' : id).trim().toLowerCase();
+  var list = (profile && profile.banks) || [];
+  for (var i = 0; i < list.length; i++) {
+    var m = list[i].re.exec(s); if (!m) continue;
+    if (!list[i].bin) return { name: m[1], tail: '' };
+    var digits = String(m[2] || '').replace(/\D/g, '');
+    return { name: STMT_BANK_BIN[m[1]] || '', tail: digits.length >= 4 ? digits.slice(-4) : '' };
+  }
+  return null;
+}
+function _stmtSelfName(name, profile){
+  var k = stmtDeburr(name).replace(/\s+/g, ' ').trim();
+  var list = (profile && profile.selfNames) || [];
+  for (var i = 0; i < list.length; i++) if (list[i].test(k)) return true;
+  return false;
+}
+/* WHOSE statement this is, from the file itself. A wallet export has no "Chủ
+   tài khoản" line for fhStmtSummary to read, but it names its own side on every
+   row — sometimes as the wallet ("Ví MoMo"), sometimes as the person. The name
+   that appears most often beside the wallet's own id, is not the wallet talking
+   about itself, and reads as a name (two words or more) is the holder. Two
+   sightings at least: one is an accident. Spellings fold, because the same
+   person is printed with diacritics on one side and without on the other. */
+function fhStmtHolder(rows, profile){
+  if (!profile || !profile.own) return '';
+  var seen = {}, best = '', bestN = 1;
+  (rows || []).forEach(function(r){
+    [[r.fromAcct, r.fromName], [r.toAcct, r.toName]].forEach(function(pair){
+      var id = String(pair[0] || '').trim().toLowerCase(), nm = String(pair[1] || '').trim();
+      if (!nm || !profile.own.test(id)) return;
+      var k = stmtDeburr(nm).replace(/\s+/g, ' ').trim();
+      if (!k || k.indexOf(' ') < 0 || _stmtSelfName(nm, profile)) return;
+      var hit = seen[k] || (seen[k] = { n: 0, raw: nm });
+      hit.n++;
+      if (hit.n > bestN) { bestN = hit.n; best = hit.raw; }
+    });
+  });
+  return best;
+}
+
 /* What a row is, from the statement's own words. These are HINTS for the review
    card's Kind control and description, and every one stays overridable there.
    Transfers need evidence (spec §11): a holder-name memo alone is never one. */
@@ -303,26 +407,96 @@ function fhStmtClassify(row, ctx){
      linked bank: it belongs to that bank's account, and the bank has its own row. */
   out.fundedElsewhere = !!(isOut && row.unmoved);
   out.fundingIsBank = !!(out.funding && _stmtHas(stmtWords(out.funding), STMT_BANK_WORDS));
+
+  /* ── BOTH SIDES, in the payload-v2 vocabulary (email-reading-v2-spec §4) ────
+     The file names the source and the destination of every row in columns of
+     its own. Only one of them was ever read: on an OUTGOING row the source name
+     became the funding source above. On an INCOMING row the source was dropped
+     whole, so a top-up from the person's own bank — and a transfer from their
+     OWN account — arrived as plain income with no source and no destination.
+     Measured on one real 145-row wallet statement: 16 rows.
+
+     These are the field names the EMAIL path already seals, so the review needs
+     no statement-only rule to read them, and `signal` is spoken from the
+     contract's closed list.
+
+     ALL OF IT comes from the issuer profile, and a file whose issuer is not
+     recognised leaves this block entirely: it fills no field, states no signal,
+     and stays a v1 reading — which is the whole reason the default profile
+     exists. Nothing below can move a statement the app has never met. */
+  var P = ctx.profile || STMT_ISSUER_DEFAULT;
+  if (!P.own) return out;
+  out.holder = ctx.holderName || ctx.holder || '';
+  out.cpKind = 'unknown'; out.cpBank = ''; out.cpTail = ''; out.signal = '';
+  var oid = String((isOut ? row.toAcct : row.fromAcct) || '').trim().toLowerCase();
+  var oname = String((isOut ? row.toName : row.fromName) || '').trim();
+  var fold = function (s) { return stmtDeburr(s).replace(/\s+/g, ' ').trim(); };
+  /* The same person, printed with diacritics on the wallet's side and without
+     on the bank's. `stmtDeburr` is the fold FH_TAX.deburr applies everywhere
+     else; tools/statement-payload-v2.test.js pins the two equal. */
+  var isSelf = !!(out.holder && oname && fold(oname) === fold(out.holder));
+  var bank = oid ? fhStmtBankOf(oid, P) : null;
+  if (P.payroll && P.payroll.test(oid)) {
+    out.cpKind = 'merchant';
+    if (!isOut) out.signal = 'salary';
+  } else if (bank && bank.tail) {
+    /* A bank code AND an account number: someone's account at a bank. Whose is
+       read off the NAME, which is the only thing that can say. */
+    out.cpBank = bank.name || ''; out.cpTail = bank.tail;
+    out.cpKind = isSelf ? 'self' : (STMT_ENTITY_WORDS.test(fold(oname)) ? 'merchant' : 'person');
+    if (isSelf) out.signal = 'own_transfer';
+  } else if (bank) {
+    /* A linked bank rail: a code and no number. It names the bank and nothing
+       more, so it can never mint an account (constraint: fold or leave null). */
+    out.cpBank = (oname && !_stmtSelfName(oname, P) && !isSelf) ? oname : (bank.name || '');
+    out.cpKind = isSelf ? 'self' : 'bank';
+    out.signal = isSelf ? 'own_transfer' : 'wallet_move';
+  } else if (P.person && P.person.test(oid)) {
+    out.cpKind = 'person';
+  } else if ((P.own && P.own.test(oid)) || (isSelf && oid)) {
+    out.cpKind = 'self'; out.signal = 'own_transfer';
+  } else if (P.service && P.service.test(oid)) {
+    out.cpKind = 'merchant';
+  }
+  /* What the row's own WORDS already said, in the same vocabulary. Only the
+     four a statement can actually evidence: a purchase and a person-to-person
+     row stay unsignalled, so the merchant path and the lending pass decide them
+     exactly as they do today. */
+  if (!out.signal) {
+    if (!isOut && out.flow === 'salary') out.signal = 'salary';
+    else if (!isOut && out.flow === 'refund') out.signal = 'refund';
+    else if (out.flow === 'topup') out.signal = 'wallet_move';
+  }
+  if (out.selfTransfer) out.signal = 'own_transfer';
   return out;
 }
 
 /* One call for the whole file. `rolesOverride` is a remembered or hand-confirmed
-   mapping. Never throws on a strange file: `table: null` means "no table found". */
-function fhStmtParse(grid, rolesOverride){
+   mapping; `ctx` is what the app already knows about the file before opening it
+   ({ provider }), which is half of how the issuer is recognised. Never throws on
+   a strange file: `table: null` means "no table found". */
+function fhStmtParse(grid, rolesOverride, ctx){
   var table = fhStmtFindTable(grid || [], rolesOverride);
-  if (!table) return { table: null, rows: [], failed: 0, summary: {}, proof: { ok: false, how: '', ratio: 0 } };
+  if (!table) return { table: null, issuer: STMT_ISSUER_DEFAULT.id, rows: [], failed: 0, summary: {}, proof: { ok: false, how: '', ratio: 0 } };
   var summary = fhStmtSummary(table.notes);
   var read = fhStmtRead(table);
   var proof = fhStmtProve(read.rows, summary);
+  var profile = fhStmtIssuer(table.roles, ctx || {});
+  /* The holder is read once, off every row, before any row is classified: the
+     self test asks "is the other side me?", and one row cannot answer that. */
+  var holderName = summary.holder || fhStmtHolder(read.rows, profile);
   var rows = proof.oldestFirst.map(function(r){
-    var c = fhStmtClassify(r, { holder: summary.holder });
+    var c = fhStmtClassify(r, { holder: summary.holder, holderName: holderName, profile: profile });
     return Object.assign({}, r, { cls: c });
   });
-  return { table: table, sig: fhStmtHeaderSig(table.headers), rows: rows, failed: read.failed, summary: summary, proof: proof };
+  return { table: table, issuer: profile.id, holder: holderName, sig: fhStmtHeaderSig(table.headers),
+    rows: rows, failed: read.failed, summary: summary, proof: proof };
 }
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { fhStmtNum: fhStmtNum, fhStmtDate: fhStmtDate, fhStmtRoles: fhStmtRoles, fhStmtFindTable: fhStmtFindTable,
     fhStmtSummary: fhStmtSummary, fhStmtRead: fhStmtRead, fhStmtProve: fhStmtProve, fhStmtClassify: fhStmtClassify,
-    fhStmtParse: fhStmtParse, fhStmtHeaderSig: fhStmtHeaderSig };
+    fhStmtParse: fhStmtParse, fhStmtHeaderSig: fhStmtHeaderSig, stmtDeburr: stmtDeburr,
+    STMT_ISSUERS: STMT_ISSUERS, STMT_ISSUER_DEFAULT: STMT_ISSUER_DEFAULT,
+    fhStmtIssuer: fhStmtIssuer, fhStmtBankOf: fhStmtBankOf, fhStmtHolder: fhStmtHolder };
 }

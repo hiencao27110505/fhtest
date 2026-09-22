@@ -18071,7 +18071,7 @@ function fhSignalLessonHit(c){
    label, lower-cased by ensure) and a counterparty_bank as the mail printed it
    ("VCB", "Vietcombank", the long form) must compare equal, or the account the
    census materialized from the mail's own words is never found again. */
-function _sigProvKey(name){ return csvCanonicalProvider(fhProviderName(name || '')); }
+function _sigProvKey(name){ return fhAcctProviderKey(name || ''); }
 function _sigCounterpart(x, own, acct){
   var mine = acct || {};
   var pool = (own.accounts || []).filter(function (a) {
@@ -18821,10 +18821,78 @@ var FH_PROVIDER_LONG = {
   congthuong: 'VietinBank', achau: 'ACB', tienphong: 'TPBank', vietnamthinhvuong: 'VPBank',
   dautuvaphattrien: 'BIDV', nongnghiepvaphattriennongthon: 'Agribank', saigonthuongtin: 'Sacombank'
 };
+/* A wallet's "Ví X" form and its OPERATOR's legal name, which is what a bank
+   prints when the wallet is the counterparty. Measured in production: one
+   wallet is held three times by one person — as `momo` with a number, as
+   `ví momo` with none, and under the operator's full legal name with the same
+   number. Banks need no entries here: their long official names are already in
+   FH_PROVIDER_LONG, and "X Vietnam" / "Ngân hàng X" fold by shape below. */
+var FH_PROVIDER_ALIAS = {
+  vimomo: 'momo', mservice: 'momo', dichvudidongtructuyen: 'momo',
+  vizalopay: 'zalopay', zion: 'zalopay',
+  vishopeepay: 'shopeepay', airpay: 'shopeepay',
+  viviettelmoney: 'viettelmoney', viettelpay: 'viettelmoney',
+  vivnpay: 'vnpay'
+};
+/* Phrases that are NOT a provider, whoever wrote them down. A statement that
+   only says "a linked bank", a picker's "Tài khoản", a wallet's generic word
+   for itself: each of these once looked like a name and could mint an account
+   under it. They fold to nothing, and nothing is what an account may be
+   created from (full-ledger T11: "＋ Tài khoản khác" is the last resort, a
+   ghost account is not). Both spellings are listed — the raw canonical key and
+   what it becomes once the corporate dressing is stripped. */
+var FH_PROVIDER_NOTA = ['nganhanglienket', 'lienket', 'linked', 'taikhoan', 'account', 'taikhoannguon',
+  'vi', 'vidientu', 'vicuatoi', 'wallet', 'ewallet', 'khac', 'other', 'chuaro', 'unknown', 'nguontien'];
+
+/* ═══ ONE account identity ═══════════════════════════════════════════════════
+   THE key a provider is compared under, everywhere an account is resolved or
+   created (fhPersonalAccountEnsure, fhStagedAcct, fhStagedCounterpartAcct, the
+   signal counterpart, the statement path). Not a second scheme: it is
+   csvCanonicalProvider + fhProviderName, the pair every caller already
+   composed, with the three folds they were missing —
+
+     the corporate dressing ("Ngân hàng TMCP X Việt Nam", "Công ty CP X"),
+     a wallet's "Ví X" form and its operator's legal name (FH_PROVIDER_ALIAS),
+     a bank's "X Vietnam" (which is why `hsbc` and `hsbc vietnam` were two
+     accounts with one number on a real ledger).
+
+   Returns '' for a phrase that is not a provider at all. Kept consistent with
+   canonProviderName in supabase/functions/_shared/mailbox/senders.mjs by
+   tools/account-identity-fold.test.js, which walks that file's own tables. */
+function fhAcctProviderKey(name){
+  var key = csvCanonicalProvider(name);
+  if (!key || FH_PROVIDER_NOTA.indexOf(key) >= 0) return '';
+  key = key.replace(/^(?:nganhang|nh)(?:thuongmaicophan|tmcp)?/, '')
+           .replace(/^(?:thuongmaicophan|tmcp)/, '')
+           .replace(/^(?:congtycophan|congtytnhh|congty|ctcp|ctytnhh|cty|tnhh)/, '');
+  if (key.length > 3) key = key.replace(/(?:vietnam|vn)$/, '') || key;
+  if (!key) return '';
+  if (FH_PROVIDER_ALIAS[key]) key = FH_PROVIDER_ALIAS[key];
+  if (FH_PROVIDER_LONG[key]) key = csvCanonicalProvider(FH_PROVIDER_LONG[key]);
+  if (FH_PROVIDER_CANON[key]) key = csvCanonicalProvider(FH_PROVIDER_CANON[key]);
+  return FH_PROVIDER_NOTA.indexOf(key) >= 0 ? '' : key;
+}
+window.fhAcctProviderKey = fhAcctProviderKey;
+/* An instrument's identity (full-ledger T12): the folded provider and the four
+   digits, never the kind. `id` is the comparable pair; an empty `key` means
+   "this names no provider", and an empty `tail` means "this names no account"
+   — with both empty there is nothing to create. */
+function fhAcctIdentity(spec){
+  spec = spec || {};
+  var key = fhAcctProviderKey(spec.provider || '');
+  var tail = String(spec.tail == null ? '' : spec.tail).replace(/\D/g, '').slice(-4);
+  if (tail.length !== 4) tail = '';
+  return { key: key, provider: key ? fhProviderName(spec.provider) : '', tail: tail, id: key + '|' + tail };
+}
+window.fhAcctIdentity = fhAcctIdentity;
 function fhProviderName(name){
   if(!name) return '';
   var key = csvCanonicalProvider(name);
   if (FH_PROVIDER_CANON[key]) return FH_PROVIDER_CANON[key];
+  /* The same fold the identity key uses, so "Ví MoMo" and the operator's legal
+     name read as the one household spelling instead of as themselves. */
+  var folded = fhAcctProviderKey(name);
+  if (folded && FH_PROVIDER_CANON[folded]) return FH_PROVIDER_CANON[folded];
   var long = key.replace(/^(?:nganhang|nh)?(?:thuongmaicophan|tmcp)?/, '').replace(/(?:vietnam|vn)$/, '');
   return FH_PROVIDER_LONG[long] || String(name).trim();
 }
@@ -19897,6 +19965,110 @@ function fhStmtProve(rows, summary){
   return out;
 }
 
+/* ═══ Issuer profiles ═══════════════════════════════════════════════════════
+   WHICH statement is being read, instead of pattern-matching every file the
+   same way. A profile says which columns hold the source and the destination,
+   how THIS issuer spells its account ids, and which names are the issuer
+   talking about itself rather than about a person. A second issuer is an entry
+   in this table, not a change to the code below it.
+
+   Matched on the columns present PLUS the sender already known, so the same
+   column names under another bank are never read as this wallet's ids. The
+   default profile knows no id shapes at all, which is exactly how every file
+   was read before profiles existed. */
+
+/* The NAPAS code a Vietnamese bank account is addressed by on an interbank
+   transfer ("970436_…"). Only the codes this profile has been checked against;
+   an unknown code simply names no bank, which costs a match and invents none. */
+var STMT_BANK_BIN = {
+  '970403': 'Sacombank', '970405': 'Agribank', '970407': 'Techcombank', '970415': 'VietinBank',
+  '970416': 'ACB', '970418': 'BIDV', '970422': 'MB Bank', '970423': 'TPBank', '970426': 'MSB',
+  '970429': 'SCB', '970431': 'Eximbank', '970432': 'VPBank', '970436': 'Vietcombank',
+  '970437': 'HDBank', '970440': 'SeABank', '970441': 'VIB', '970443': 'SHB', '970448': 'OCB'
+};
+/* An account NAME that is an organisation, not a person (email-reading-v2-spec
+   §5, E12/E13: a legal-entity account name marks a seller with near certainty). */
+var STMT_ENTITY_WORDS = /(^| )(cong ty|cty|tnhh|jsc|corp|corporation|company|doanh nghiep|tap doan|chi nhanh|trung tam|ngan hang)( |$)/;
+
+var STMT_ISSUER_DEFAULT = { id: 'default', own: null, person: null, service: null, banks: [], payroll: null, selfNames: [] };
+var STMT_ISSUERS = [
+  { id: 'momo-wallet',
+    /* "Tài khoản chuyển" is the SOURCE and "Tài khoản nhận" the DESTINATION,
+       each with its own "Tên định danh" name column (aliased in STMT_ROLES). */
+    when: function (roles, ctx) {
+      var p = stmtDeburr((ctx && ctx.provider) || '').replace(/[^a-z0-9]/g, '');
+      return p.indexOf('momo') >= 0 && roles.fromAcct !== undefined && roles.toAcct !== undefined
+        && roles.fromName !== undefined && roles.toName !== undefined;
+    },
+    own: /^\d{6,}$/,                       // the wallet's own side: a bare digit string
+    person: /^\*+\d{3,}$/,                 // someone else's wallet: a masked phone
+    /* A merchant or a service the wallet pays: every id it issues carries a
+       prefix of its own. Tried AFTER the shapes above, which are narrower. */
+    service: /^(?:m\d*b|w\d*b|mp_|kgs_|coop_|billpay|ecom|vms\d|googleireland|momo_root|momo_)/,
+    banks: [
+      /* A linked bank: a bank code and NO account number, so it can name a bank
+         and can never identify an account (full-ledger T11 — "＋ Tài khoản khác"
+         is the last resort, a ghost account is not). */
+      { re: /^([a-z]{2,6})\d*\.[\d.]*bank$/ },
+      /* An interbank transfer: a NAPAS bank code and an account number. */
+      { re: /^(\d{6})_(\d{4,})$/, bin: true }
+    ],
+    payroll: /^accounting_mm$/,             // the wallet operator's own payroll
+    /* Names that are the WALLET talking about itself or about a rail — never the
+       person, and never a provider to file an account under. */
+    selfNames: [/^vi momo$/, /^momo$/, /^doi tac momo$/, /^ngan hang lien ket$/, /^vi dien tu$/, /^vi cua toi$/]
+  }
+];
+function fhStmtIssuer(roles, ctx){
+  for (var i = 0; i < STMT_ISSUERS.length; i++) {
+    try { if (STMT_ISSUERS[i].when(roles || {}, ctx || {})) return STMT_ISSUERS[i]; } catch (e) {}
+  }
+  return STMT_ISSUER_DEFAULT;
+}
+/* An account id -> { name, tail } when this issuer spells banks that way, else
+   null. `tail` is '' for a shape that carries no number: the caller may name the
+   bank from it but must never identify an account by it. */
+function fhStmtBankOf(id, profile){
+  var s = String(id == null ? '' : id).trim().toLowerCase();
+  var list = (profile && profile.banks) || [];
+  for (var i = 0; i < list.length; i++) {
+    var m = list[i].re.exec(s); if (!m) continue;
+    if (!list[i].bin) return { name: m[1], tail: '' };
+    var digits = String(m[2] || '').replace(/\D/g, '');
+    return { name: STMT_BANK_BIN[m[1]] || '', tail: digits.length >= 4 ? digits.slice(-4) : '' };
+  }
+  return null;
+}
+function _stmtSelfName(name, profile){
+  var k = stmtDeburr(name).replace(/\s+/g, ' ').trim();
+  var list = (profile && profile.selfNames) || [];
+  for (var i = 0; i < list.length; i++) if (list[i].test(k)) return true;
+  return false;
+}
+/* WHOSE statement this is, from the file itself. A wallet export has no "Chủ
+   tài khoản" line for fhStmtSummary to read, but it names its own side on every
+   row — sometimes as the wallet ("Ví MoMo"), sometimes as the person. The name
+   that appears most often beside the wallet's own id, is not the wallet talking
+   about itself, and reads as a name (two words or more) is the holder. Two
+   sightings at least: one is an accident. Spellings fold, because the same
+   person is printed with diacritics on one side and without on the other. */
+function fhStmtHolder(rows, profile){
+  if (!profile || !profile.own) return '';
+  var seen = {}, best = '', bestN = 1;
+  (rows || []).forEach(function(r){
+    [[r.fromAcct, r.fromName], [r.toAcct, r.toName]].forEach(function(pair){
+      var id = String(pair[0] || '').trim().toLowerCase(), nm = String(pair[1] || '').trim();
+      if (!nm || !profile.own.test(id)) return;
+      var k = stmtDeburr(nm).replace(/\s+/g, ' ').trim();
+      if (!k || k.indexOf(' ') < 0 || _stmtSelfName(nm, profile)) return;
+      var hit = seen[k] || (seen[k] = { n: 0, raw: nm });
+      hit.n++;
+      if (hit.n > bestN) { bestN = hit.n; best = hit.raw; }
+    });
+  });
+  return best;
+}
+
 /* What a row is, from the statement's own words. These are HINTS for the review
    card's Kind control and description, and every one stays overridable there.
    Transfers need evidence (spec §11): a holder-name memo alone is never one. */
@@ -19935,28 +20107,98 @@ function fhStmtClassify(row, ctx){
      linked bank: it belongs to that bank's account, and the bank has its own row. */
   out.fundedElsewhere = !!(isOut && row.unmoved);
   out.fundingIsBank = !!(out.funding && _stmtHas(stmtWords(out.funding), STMT_BANK_WORDS));
+
+  /* ── BOTH SIDES, in the payload-v2 vocabulary (email-reading-v2-spec §4) ────
+     The file names the source and the destination of every row in columns of
+     its own. Only one of them was ever read: on an OUTGOING row the source name
+     became the funding source above. On an INCOMING row the source was dropped
+     whole, so a top-up from the person's own bank — and a transfer from their
+     OWN account — arrived as plain income with no source and no destination.
+     Measured on one real 145-row wallet statement: 16 rows.
+
+     These are the field names the EMAIL path already seals, so the review needs
+     no statement-only rule to read them, and `signal` is spoken from the
+     contract's closed list.
+
+     ALL OF IT comes from the issuer profile, and a file whose issuer is not
+     recognised leaves this block entirely: it fills no field, states no signal,
+     and stays a v1 reading — which is the whole reason the default profile
+     exists. Nothing below can move a statement the app has never met. */
+  var P = ctx.profile || STMT_ISSUER_DEFAULT;
+  if (!P.own) return out;
+  out.holder = ctx.holderName || ctx.holder || '';
+  out.cpKind = 'unknown'; out.cpBank = ''; out.cpTail = ''; out.signal = '';
+  var oid = String((isOut ? row.toAcct : row.fromAcct) || '').trim().toLowerCase();
+  var oname = String((isOut ? row.toName : row.fromName) || '').trim();
+  var fold = function (s) { return stmtDeburr(s).replace(/\s+/g, ' ').trim(); };
+  /* The same person, printed with diacritics on the wallet's side and without
+     on the bank's. `stmtDeburr` is the fold FH_TAX.deburr applies everywhere
+     else; tools/statement-payload-v2.test.js pins the two equal. */
+  var isSelf = !!(out.holder && oname && fold(oname) === fold(out.holder));
+  var bank = oid ? fhStmtBankOf(oid, P) : null;
+  if (P.payroll && P.payroll.test(oid)) {
+    out.cpKind = 'merchant';
+    if (!isOut) out.signal = 'salary';
+  } else if (bank && bank.tail) {
+    /* A bank code AND an account number: someone's account at a bank. Whose is
+       read off the NAME, which is the only thing that can say. */
+    out.cpBank = bank.name || ''; out.cpTail = bank.tail;
+    out.cpKind = isSelf ? 'self' : (STMT_ENTITY_WORDS.test(fold(oname)) ? 'merchant' : 'person');
+    if (isSelf) out.signal = 'own_transfer';
+  } else if (bank) {
+    /* A linked bank rail: a code and no number. It names the bank and nothing
+       more, so it can never mint an account (constraint: fold or leave null). */
+    out.cpBank = (oname && !_stmtSelfName(oname, P) && !isSelf) ? oname : (bank.name || '');
+    out.cpKind = isSelf ? 'self' : 'bank';
+    out.signal = isSelf ? 'own_transfer' : 'wallet_move';
+  } else if (P.person && P.person.test(oid)) {
+    out.cpKind = 'person';
+  } else if ((P.own && P.own.test(oid)) || (isSelf && oid)) {
+    out.cpKind = 'self'; out.signal = 'own_transfer';
+  } else if (P.service && P.service.test(oid)) {
+    out.cpKind = 'merchant';
+  }
+  /* What the row's own WORDS already said, in the same vocabulary. Only the
+     four a statement can actually evidence: a purchase and a person-to-person
+     row stay unsignalled, so the merchant path and the lending pass decide them
+     exactly as they do today. */
+  if (!out.signal) {
+    if (!isOut && out.flow === 'salary') out.signal = 'salary';
+    else if (!isOut && out.flow === 'refund') out.signal = 'refund';
+    else if (out.flow === 'topup') out.signal = 'wallet_move';
+  }
+  if (out.selfTransfer) out.signal = 'own_transfer';
   return out;
 }
 
 /* One call for the whole file. `rolesOverride` is a remembered or hand-confirmed
-   mapping. Never throws on a strange file: `table: null` means "no table found". */
-function fhStmtParse(grid, rolesOverride){
+   mapping; `ctx` is what the app already knows about the file before opening it
+   ({ provider }), which is half of how the issuer is recognised. Never throws on
+   a strange file: `table: null` means "no table found". */
+function fhStmtParse(grid, rolesOverride, ctx){
   var table = fhStmtFindTable(grid || [], rolesOverride);
-  if (!table) return { table: null, rows: [], failed: 0, summary: {}, proof: { ok: false, how: '', ratio: 0 } };
+  if (!table) return { table: null, issuer: STMT_ISSUER_DEFAULT.id, rows: [], failed: 0, summary: {}, proof: { ok: false, how: '', ratio: 0 } };
   var summary = fhStmtSummary(table.notes);
   var read = fhStmtRead(table);
   var proof = fhStmtProve(read.rows, summary);
+  var profile = fhStmtIssuer(table.roles, ctx || {});
+  /* The holder is read once, off every row, before any row is classified: the
+     self test asks "is the other side me?", and one row cannot answer that. */
+  var holderName = summary.holder || fhStmtHolder(read.rows, profile);
   var rows = proof.oldestFirst.map(function(r){
-    var c = fhStmtClassify(r, { holder: summary.holder });
+    var c = fhStmtClassify(r, { holder: summary.holder, holderName: holderName, profile: profile });
     return Object.assign({}, r, { cls: c });
   });
-  return { table: table, sig: fhStmtHeaderSig(table.headers), rows: rows, failed: read.failed, summary: summary, proof: proof };
+  return { table: table, issuer: profile.id, holder: holderName, sig: fhStmtHeaderSig(table.headers),
+    rows: rows, failed: read.failed, summary: summary, proof: proof };
 }
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { fhStmtNum: fhStmtNum, fhStmtDate: fhStmtDate, fhStmtRoles: fhStmtRoles, fhStmtFindTable: fhStmtFindTable,
     fhStmtSummary: fhStmtSummary, fhStmtRead: fhStmtRead, fhStmtProve: fhStmtProve, fhStmtClassify: fhStmtClassify,
-    fhStmtParse: fhStmtParse, fhStmtHeaderSig: fhStmtHeaderSig };
+    fhStmtParse: fhStmtParse, fhStmtHeaderSig: fhStmtHeaderSig, stmtDeburr: stmtDeburr,
+    STMT_ISSUERS: STMT_ISSUERS, STMT_ISSUER_DEFAULT: STMT_ISSUER_DEFAULT,
+    fhStmtIssuer: fhStmtIssuer, fhStmtBankOf: fhStmtBankOf, fhStmtHolder: fhStmtHolder };
 }
 /* ---------- expense ---------- */
 var catStyle={};
@@ -24697,7 +24939,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v572';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v573';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -27391,8 +27633,22 @@ window.obGoogle = async function () {
        a lost race hits the 0105 partial-unique index and we refetch. */
     window.fhPersonalAccountEnsure = async function (info) {
       if (!P.uid || !P.key || !info || !info.kind) return null;
-      const prov = (info.provider || '').toLowerCase() || null;
+      /* ONE identity for a provider (full-ledger T12), folded by the function
+         every other resolver uses: "momo", "Ví MoMo" and the operator's legal
+         name are ONE wallet; "hsbc" and "hsbc vietnam" are ONE bank. Both
+         shapes are sitting on a real ledger right now, each holding rows.
+         Only the MATCH folds — what is stored is what was always stored, so
+         nothing that reads a provider string moves. */
+      const _pkey = (s) => (typeof window.fhAcctProviderKey === 'function')
+        ? window.fhAcctProviderKey(s || '') : String(s || '').toLowerCase();
+      const pkey = _pkey(info.provider);
+      const akey = (a) => _pkey(a && a.provider);
       const tail = (info.tail || '').replace(/\D/g, '').slice(-4) || null;
+      /* A phrase that names no provider at all ("Ngân hàng liên kết", "Tài
+         khoản") and no number either: there is nothing here to create an
+         account from, and the old answer was to mint one under the phrase. */
+      if (info.provider && !pkey && !tail) return null;
+      const prov = (pkey ? (info.provider || '').toLowerCase() : '') || null;
       /* Identity is the NUMBER, not our guess of the kind. A (provider, tail)
          pair names one instrument; matching kind too is how one heuristic
          mis-guess minted a phantom duplicate of a real account (2026-09-02).
@@ -27403,15 +27659,15 @@ window.obGoogle = async function () {
          "Vietcombank" twin (found 2026-09-13). Prefer a same-kind tail-less
          account when several exist, else any tail-less one for the provider. */
       const _match = (a) => tail
-        ? ((a.provider || '') === (prov || '') && (a.tail || '') === tail)
-        : ((a.provider || '') === (prov || '') && !a.tail);
+        ? (akey(a) === pkey && (a.tail || '') === tail)
+        : (akey(a) === pkey && !a.tail);
       let hit = tail ? P.accounts.find(_match)
         : (P.accounts.find((a) => _match(a) && a.kind === info.kind) || P.accounts.find(_match));
       /* No tail but a provider that owns exactly ONE account: adopt it. A bank
          that prints its number on some mails and not others is one account,
          not two; a provider with several accounts stays ambiguous → tail-less. */
-      if (!hit && !tail && prov) {
-        const byProv = P.accounts.filter((a) => (a.provider || '') === prov && a.kind !== 'investment');
+      if (!hit && !tail && pkey) {
+        const byProv = P.accounts.filter((a) => akey(a) === pkey && a.kind !== 'investment');
         if (byProv.length === 1) hit = byProv[0];
       }
       /* A caller with a tail but NO provider still means one specific
@@ -27419,18 +27675,24 @@ window.obGoogle = async function () {
          rather than minting a provider-null twin (the "Tài khoản ••4751"
          duplicate, 2026-09-06). Two accounts sharing a tail is ambiguous —
          fall through to the exact match's verdict. */
-      if (!hit && tail && !prov) {
+      if (!hit && tail && !pkey) {
         const byTail = P.accounts.filter((a) => (a.tail || '') === tail);
         if (byTail.length === 1) hit = byTail[0];
       }
       if (hit) return hit.id;
-      /* No tail, and the provider already has SEVERAL accounts: this row cannot say
-         which one it belongs to, and the old answer -- mint a tail-less "VIB" beside
-         "VIB ••4751" and "VIB ••5140" -- was a ghost that collected 75 rows nobody
-         could place (2026-09-19). An untagged row is one tap from right; a ghost
-         account is a wrong balance and a picker entry that means nothing. So: no
-         account. The census and every import path already treat null as "untagged". */
-      if (!tail && prov && P.accounts.some((a) => (a.provider || '') === prov && a.kind !== 'investment')) return null;
+      /* NO TAIL: there is nothing here to identify an account BY. Adopting the
+         provider's single account (above) is the one safe answer; the old one
+         was to mint a tail-less twin under the name. That is how "VIB" appeared
+         beside "VIB ••4751" and "VIB ••5140" and collected 75 rows nobody could
+         place (2026-09-19, which stopped it only when a sibling already
+         existed), and how a tail-less "ví momo" came to hold 26 real
+         transactions beside "momo ••1217" on another ledger. So: no account,
+         sibling or none. An untagged row is one tap from right; a ghost account
+         is a wrong balance and a picker entry that means nothing, and the
+         census and every import path already treat null as "untagged".
+         A caller with no provider EITHER is not this case — the cash account's
+         name is its identity — and it still creates. */
+      if (!tail && pkey) return null;
       const name = info.name || ((prov ? prov.charAt(0).toUpperCase() + prov.slice(1) : 'Tài khoản') + (tail ? ' ••' + tail : ''));
       const r = await _sb().from('personal_accounts').insert({ owner_user_id: P.uid, kind: info.kind,
         provider: prov, tail: tail, name_enc: await _encP(name) }).select('id').single();
@@ -38667,6 +38929,7 @@ window.classifyAmount = classifyAmount;
     if (!kind && tail4.length === 4) {
       try {
         var canonP = function (s) {
+          if (typeof window.fhAcctProviderKey === 'function') return window.fhAcctProviderKey(s || '');
           var n = (window.fhProviderName ? (window.fhProviderName(s || '') || s) : s) || '';
           return (typeof csvCanonicalProvider === 'function') ? csvCanonicalProvider(n) : String(n).toLowerCase();
         };
@@ -38708,6 +38971,13 @@ window.classifyAmount = classifyAmount;
      name all key the same account. */
   window.fhStagedCounterpartAcct = function (x) {
     if (!x || !(Number(x.v) >= 2)) return null;
+    /* A STATEMENT row never materializes the other side. One mail is one thing
+       that just happened and its counterparty is worth an account; a statement
+       is bulk history, and 145 rows of it would mint accounts by the handful
+       from months-old counterparties. The statement path RESOLVES the other
+       side against accounts the person already has (57 _sigCounterpart) and
+       leaves the row unfilled when it finds none. */
+    if (x._transport === 'statement') return null;
     if (x.signal === 'wallet_move') return null;
     if (!(x.signal === 'own_transfer' || x.counterparty_kind === 'self')) return null;
     var srcSig = (x.src && typeof x.src === 'object') ? x.src.signal : null;
@@ -43814,6 +44084,33 @@ window.classifyAmount = classifyAmount;
        _fhStagedRows by rowIndex), so matching the shape exactly is what makes a
        statement row reviewable with no second code path. `_stmt` is the only
        discriminator, and only retirement looks at it. */
+    /* ── payload v2, when the file's issuer was recognised ───────────────────
+       (email-reading-v2-spec §4, §5.) The SAME keys the email path seals,
+       filled from the statement's own source/destination columns (59
+       fhStmtClassify). The review already knows how to read every one of them:
+       a signal picks the kind, the bank and the tail find the account on the
+       other side, and holder_name is what own-name detection needs.
+
+       `v: 2` is what opens that door, so it is set ONLY when the profile
+       actually placed the other side. A file the app has not met carries
+       nothing from here and stays a v1 reading, read exactly as before.
+
+       `src` says where each field came from (contract SRC): the file PRINTED
+       these, in columns of its own, so they are neither a judgment nor a guess
+       and do not by themselves send a row to "Cần bạn xem". A field the file
+       did not state gets no source at all — an entry for a NULL field is read
+       as "the reader withdrew its answer" and would flag every silent row. A
+       pre-selection that rests on a NAME rather than a number is marked weak by
+       fhKindFromSignal, which is where that judgment belongs. */
+    function _stmV2(p) {
+      if (!p.cpKind) return {};                       // issuer not recognised: stay v1
+      const x = { v: 2, counterparty_kind: p.cpKind, holder_name: p.holderName || null,
+        counterparty_bank: p.cpBank || null, counterparty_account_tail: p.cpTail || null,
+        signal: p.signal || null, src: {} };
+      ['counterparty_kind', 'holder_name', 'counterparty_bank', 'counterparty_account_tail', 'signal']
+        .forEach((k) => { if (x[k] && x[k] !== 'unknown') x.src[k] = 'printed'; });
+      return x;
+    }
     function fhStmtAsStaged(id, p) {
       return {
         id: id, _stmt: true, statement_id: p.sid, statement_title: p.stitle || '', row_fp: p.fp || null,
@@ -43832,7 +44129,7 @@ window.classifyAmount = classifyAmount;
         amount: Math.abs(p.amt), currency: 'VND', direction: p.amt < 0 ? 'debit' : 'credit',
         counterparty: p.counterparty || '',
         duplicate_of_id: null, resolved_before: false,
-        raw_extracted: {
+        raw_extracted: Object.assign({
           memo: p.memo, memo_display: p.memo,
           transaction_type: p.person ? 'p2p_transfer' : (p.accountKind === 'ewallet' ? 'ecommerce_receipt' : 'bank_txn'),
           flow: p.flow === 'cardpay' ? 'transfer' : (p.amt < 0 ? 'expense' : 'income'),
@@ -43854,7 +44151,7 @@ window.classifyAmount = classifyAmount;
              p.flow has been in every stored payload since the first statement, so
              rows saved before this line carry it too. */
           stmt: { xfer: !!p.xfer, attn: !!p.attn, flow: p.flow || '', incomeCat: p.incomeCat || '', fundedElsewhere: !!p.fundedElsewhere }
-        }
+        }, _stmV2(p))
       };
     }
     window.fhStmtAsStaged = fhStmtAsStaged;
@@ -43883,13 +44180,21 @@ window.classifyAmount = classifyAmount;
          says recipient == holder. Both are pre-set AND sent to "Cần bạn xem". A
          holder-name memo alone sets nothing. Level 1 (both legs) is the review's own
          pair matcher, which needs no hint. */
-      const xfer = c.flow === 'topup' || !!c.selfTransfer;
+      /* A move between two accounts the person owns, now also when the file's
+         own account columns said so rather than its words (59: signal
+         own_transfer / wallet_move). Same treatment either way: pre-set to
+         transfer AND sent to "Cần bạn xem", because one side of a transfer is
+         still a claim the person should see. */
+      const xfer = c.flow === 'topup' || !!c.selfTransfer || c.signal === 'own_transfer' || c.signal === 'wallet_move';
       const incomeCat = c.flow === 'salary' ? 'Lương' : (c.flow === 'refund' ? 'Hoàn tiền' : '');
       return {
         sid: sid, date: row.date, time: row.time || '', sec: (row.key || '').slice(17, 19) || '00',
         amt: row.amt, bal: (c.fundedElsewhere ? null : row.bal), ref: row.ref || '',
         memo: c.memo == null ? '' : c.memo, counterparty: c.counterparty || '', person: !!c.person,
         flow: c.flow || '', xfer: xfer, attn: xfer, incomeCat: incomeCat, fundedElsewhere: !!c.fundedElsewhere,
+        /* payload v2 — the other side, and whose statement this is. */
+        signal: c.signal || '', cpKind: c.cpKind || '', cpBank: c.cpBank || '',
+        cpTail: c.cpTail || '', holderName: c.holder || '',
         concept: (row.mcc && STM_MCC()[row.mcc]) || '',
         /* The codes the file itself carries (MCC, MoMo's receiving service) answer
            before any name is sent anywhere; _stmConcepts only fills what is left. */
@@ -44174,10 +44479,14 @@ window.classifyAmount = classifyAmount;
 
       /* Reading order: a confirmed reading for this sender and header shape, else the
          vocabulary. The proof below decides whether either is believed. */
-      let parsed = window.fhStmtParse(grid);
+      /* The sender is half of how the issuer profile is recognised (59
+         STMT_ISSUERS): the same column names under another bank must not be
+         read as this wallet's account ids. */
+      const pctx = { provider: S.card.source_provider };
+      let parsed = window.fhStmtParse(grid, null, pctx);
       if (parsed.table) {
         const kept = _stmMapGet(S.card.source_provider, parsed.sig);
-        if (kept && !parsed.proof.ok) parsed = window.fhStmtParse(grid, kept);
+        if (kept && !parsed.proof.ok) parsed = window.fhStmtParse(grid, kept, pctx);
       }
       S.parsed = parsed; S.grid = grid;
       if (!parsed.table || !parsed.rows.length) return _stmFail(L('Không thấy bảng giao dịch trong file này.', 'No transaction table found in this file.'), false);

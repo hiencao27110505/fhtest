@@ -690,6 +690,7 @@
     if (!kind && tail4.length === 4) {
       try {
         var canonP = function (s) {
+          if (typeof window.fhAcctProviderKey === 'function') return window.fhAcctProviderKey(s || '');
           var n = (window.fhProviderName ? (window.fhProviderName(s || '') || s) : s) || '';
           return (typeof csvCanonicalProvider === 'function') ? csvCanonicalProvider(n) : String(n).toLowerCase();
         };
@@ -731,6 +732,13 @@
      name all key the same account. */
   window.fhStagedCounterpartAcct = function (x) {
     if (!x || !(Number(x.v) >= 2)) return null;
+    /* A STATEMENT row never materializes the other side. One mail is one thing
+       that just happened and its counterparty is worth an account; a statement
+       is bulk history, and 145 rows of it would mint accounts by the handful
+       from months-old counterparties. The statement path RESOLVES the other
+       side against accounts the person already has (57 _sigCounterpart) and
+       leaves the row unfilled when it finds none. */
+    if (x._transport === 'statement') return null;
     if (x.signal === 'wallet_move') return null;
     if (!(x.signal === 'own_transfer' || x.counterparty_kind === 'self')) return null;
     var srcSig = (x.src && typeof x.src === 'object') ? x.src.signal : null;
