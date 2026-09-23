@@ -634,6 +634,9 @@ function, loaded from the whole file, on the real shapes.
   measurement run this spec summarises.
 - `research/categorization-flows.html` — the old and new cascades side by side,
   from the email to the ledger.
+- `research/category-tree-map.html` — the full tree drawn kind-first (every
+  root, category and leaf, with badges for manual/rest and keyword-less
+  leaves), reading the generated `11-taxonomy.js` live so it cannot drift.
 - `mockups/node-picker-options.html` — four working picker prototypes on the real
   tree; option 3 shipped (E9).
 - `tools/tree-cascade.test.js` — 170 checks; the E series is pinned here.
