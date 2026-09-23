@@ -958,7 +958,12 @@
         + (settings
           ? '<button class="dbt-btn tinted" onclick="fhWizCancel()">Huỷ</button><button class="dbt-btn primary" onclick="fhWizSave()">Lưu</button>'
           : '<button class="dbt-btn tinted" onclick="fhWizLater()">Để sau</button><button class="dbt-btn primary" onclick="fhWizSave()">' + (last ? 'Hoàn tất' : 'Xong') + '</button>')
-        + '</div>';
+        + '</div>'
+        /* settings only, and only when a target exists: the human's answer to
+           whatever duplicate the registry could not know (account-identity-spec
+           §2, P7) — never shown mid-wizard, where the person is anchoring. */
+        + (settings && _mergeTargets(w.acct).length
+          ? '<button class="dbt-btn tinted" style="width:100%;margin-top:8px" onclick="fhAcctMergeSheet(\'' + w.acct.id + '\')">Gộp vào tài khoản khác</button>' : '');
       _ovOpen(settings ? 'Cài đặt tài khoản' : ('Xác nhận số dư' + (n > 1 ? ' · ' + (i + 1) + '/' + n : '')), h);
     }
     const _wizReadName = () => { const w = _wiz, el = document.getElementById('wz-name'); if (w && el) w.draft.name = (el.value || '').trim(); };
@@ -1043,6 +1048,69 @@
       const w = _wiz; if (!w) return;
       try { await fhPersonalAccountUpdate(w.acct.id, { setupSkipped: true }); } catch (e) {}
       if (w.i + 1 < w.queue.length) _wizStep(w.queue, w.i + 1, w.intro, w.saved); else _wizDone(w.saved);
+    };
+
+    /* ── "Gộp vào tài khoản khác" (account-identity-spec §2, P7) ─────────────
+       The registry (0150) ends the machine-made duplicate class; this is the
+       person's tool for the rest — a hand-made twin, prose no registry knows.
+       Picker → confirm that NAMES the consequence (how many rows move, which
+       card dies) → one atomic RPC (0151). Never across the investment line
+       (a position's rows are meaningless on a cash account); the RPC enforces
+       the same guards server-side, this list only offers what would succeed.
+       No auto-merge exists anywhere: a duplicate is visible and cheap, a
+       wrong merge is silent and wrong. */
+    const _mergeTargets = (src) => {
+      const P = _P(); if (!P || !src) return [];
+      const inv = src.kind === 'investment';
+      return (P.accounts || []).filter((a) => a.id !== src.id && (a.kind === 'investment') === inv);
+    };
+    const _acctLbl = (a) => a.name || ((a.provider ? a.provider.charAt(0).toUpperCase() + a.provider.slice(1) : 'Tài khoản') + (a.tail ? ' ••' + a.tail : ''));
+    window.fhAcctMergeSheet = function (srcId) {
+      const P = _P(); const src = P && P.accounts.find((a) => a.id === srcId); if (!src) return;
+      const targets = _mergeTargets(src);
+      if (!targets.length) { window.toast && toast('Không có tài khoản nào để gộp vào'); return; }
+      setTxt('exdacct-h', 'Gộp vào tài khoản khác');
+      setTxt('exdacct-sub', 'Mọi giao dịch của “' + _acctLbl(src) + '” chuyển sang thẻ bạn chọn');
+      setHTML('exdacct-list', targets.map((a) =>
+        '<button type="button" class="choice" onclick="fhAcctMergePick(\'' + srcId + '\',\'' + a.id + '\')">' + _e(_acctLbl(a)) + '</button>').join(''));
+      openSheet('sheet-exd-acct');
+    };
+    /* Step two, same sheet: the consequence in numbers before the tap that
+       cannot be taken back. The count is asked of the SERVER (the window the
+       device holds is months, the merge moves all-time). */
+    window.fhAcctMergePick = async function (srcId, dstId) {
+      const P = _P(); const src = P.accounts.find((a) => a.id === srcId), dst = P.accounts.find((a) => a.id === dstId);
+      if (!src || !dst) { closeSheet(); return; }
+      let n = null;
+      try {
+        const r = await window.sb.from('personal_transactions').select('id', { count: 'exact', head: true })
+          .eq('owner_user_id', P.uid).or('account_id.eq.' + srcId + ',position_account_id.eq.' + srcId);
+        if (!r.error) n = r.count || 0;
+      } catch (e) {}
+      const rows = n == null ? 'Mọi giao dịch' : (n ? n + ' giao dịch' : 'Không có giao dịch nào');
+      setTxt('exdacct-h', 'Gộp tài khoản');
+      setTxt('exdacct-sub', '');
+      setHTML('exdacct-list',
+        '<div class="dbt-note" style="text-align:left">' + rows + ' của “' + _e(_acctLbl(src)) + '” chuyển sang “' + _e(_acctLbl(dst)) + '”. Thẻ “' + _e(_acctLbl(src)) + '” sẽ bị xoá. Một lần gộp nữa không hoàn tác được lần này.</div>'
+        + '<button type="button" class="dbt-btn danger" style="width:100%;margin-top:10px" onclick="fhAcctMergeGo(\'' + srcId + '\',\'' + dstId + '\',this)">Gộp' + (n ? ' ' + n + ' giao dịch' : '') + '</button>'
+        + '<button type="button" class="dbt-btn tinted" style="width:100%;margin-top:8px" onclick="closeSheet()">Huỷ</button>');
+    };
+    window.fhAcctMergeGo = async function (srcId, dstId, btn) {
+      if (btn) { btn.disabled = true; btn.textContent = 'Đang gộp…'; }
+      const r = await window.sb.rpc('merge_personal_accounts', { p_src: srcId, p_dst: dstId });
+      if (r.error) {
+        console.warn('account merge failed', r.error);
+        if (btn && btn.isConnected) { btn.disabled = false; btn.textContent = 'Gộp'; }
+        window.toast && toast('Chưa gộp được, thử lại'); return;
+      }
+      closeSheet(); _wiz = null;
+      window.toast && toast(r.data > 0 ? 'Đã gộp ' + r.data + ' giao dịch' : 'Đã gộp tài khoản');
+      if (window.fhPersonalMatchSliceInvalidate) fhPersonalMatchSliceInvalidate();
+      if (window.fhPersonalStatsSliceInvalidate) fhPersonalStatsSliceInvalidate();
+      await window.fhPersonalHydrate();
+      const P = _P(); const dst = P && P.accounts.find((a) => a.id === dstId);
+      if (dst && dst.kind === 'credit_card') openDebtAccount(dstId); else if (dst) openBalAccount(dstId); else closeDebt();
+      if (window.renderPersonal) renderPersonal();
     };
 
     /* ═══ Full ledger (0109) — balances, anchors, drift, the transfer pair ═══ */

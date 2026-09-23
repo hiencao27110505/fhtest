@@ -278,14 +278,18 @@ function fhStmtProve(rows, summary){
    was read before profiles existed. */
 
 /* The NAPAS code a Vietnamese bank account is addressed by on an interbank
-   transfer ("970436_…"). Only the codes this profile has been checked against;
-   an unknown code simply names no bank, which costs a match and invents none. */
-var STMT_BANK_BIN = {
-  '970403': 'Sacombank', '970405': 'Agribank', '970407': 'Techcombank', '970415': 'VietinBank',
-  '970416': 'ACB', '970418': 'BIDV', '970422': 'MB Bank', '970423': 'TPBank', '970426': 'MSB',
-  '970429': 'SCB', '970431': 'Eximbank', '970432': 'VPBank', '970436': 'Vietcombank',
-  '970437': 'HDBank', '970440': 'SeABank', '970441': 'VIB', '970443': 'SHB', '970448': 'OCB'
-};
+   transfer ("970436_…"). The BIN table moved into taxonomy/providers.json
+   (account-identity-spec P8) and reaches this runtime as window.FH_PROVIDERS
+   (09-providers.js) — but this file is pure on purpose (no app globals,
+   Node-requireable), so the registry is looked up defensively. Absent, or
+   given a code the registry has not verified, a BIN simply names no bank,
+   which costs a match and invents none — exactly what an unknown code
+   always did. */
+function _stmtBinName(bin){
+  var R = (typeof FH_PROVIDERS !== 'undefined' && FH_PROVIDERS)
+       || (typeof window !== 'undefined' && window.FH_PROVIDERS) || null;
+  return R ? R.labelOf(R.keyFromBin(bin)) : '';
+}
 /* An account NAME that is an organisation, not a person (email-reading-v2-spec
    §5, E12/E13: a legal-entity account name marks a seller with near certainty). */
 var STMT_ENTITY_WORDS = /(^| )(cong ty|cty|tnhh|jsc|corp|corporation|company|doanh nghiep|tap doan|chi nhanh|trung tam|ngan hang)( |$)/;
@@ -335,7 +339,7 @@ function fhStmtBankOf(id, profile){
     var m = list[i].re.exec(s); if (!m) continue;
     if (!list[i].bin) return { name: m[1], tail: '' };
     var digits = String(m[2] || '').replace(/\D/g, '');
-    return { name: STMT_BANK_BIN[m[1]] || '', tail: digits.length >= 4 ? digits.slice(-4) : '' };
+    return { name: _stmtBinName(m[1]), tail: digits.length >= 4 ? digits.slice(-4) : '' };
   }
   return null;
 }

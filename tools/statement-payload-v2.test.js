@@ -42,6 +42,11 @@ const vm = require('vm');
 
 const ROOT = path.join(__dirname, '..');
 const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
+/* 59 names banks through the generated provider registry (BIN table moved
+   there, account-identity-spec P8); in plain Node the classic script's
+   window.FH_PROVIDERS does not exist, so hand it the bare global 59 also
+   accepts. */
+{ const _pw = {}; new Function('window', read('src/js-ui/09-providers.js'))(_pw); global.FH_PROVIDERS = _pw.FH_PROVIDERS; }
 const T = require(path.join(ROOT, 'src/js-ui/59-statement-table.js'));
 const SNAP = path.join(__dirname, 'fixtures', 'statement-v2-candidates.json');
 const UPDATE = process.argv.includes('--update');
@@ -86,6 +91,8 @@ function device(accounts) {
   ].map((h) => grab(SRC50, h) + (h.startsWith('var') ? ';' : '')).join('\n') + '\n' + SRC50.match(/var CONCEPT_ORDER=\[[^\]]*\];/)[0], ctx);
   vm.runInContext(SRC45.slice(0, SRC45.indexOf('function classifyDate')) + grab(SRC45, 'function classifyDate(') + '\n' + grab(SRC45, 'function classifyAmount('), ctx);
   vm.runInContext(SRC56.match(/var FH_INCOME_CATS = \[[^\]]*\];/)[0], ctx);
+  // the provider registry (generated) — the fold in 57 resolves through it
+  vm.runInContext(read('src/js-ui/09-providers.js'), ctx);
   vm.runInContext(read('src/js-ui/57-csv-import-review.js'), ctx);
   vm.runInContext(SRC72.slice(SRC72.indexOf('var _BANK_GENERIC_MEMOS'), SRC72.indexOf('function fhStagedKind')), ctx);
   ['window.fhStagedNode = function (rowIndex)', 'window.fhStagedRawX = function (rowIndex)', 'window.fhStagedAcct = function (c)',

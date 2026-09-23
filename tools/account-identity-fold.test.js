@@ -11,11 +11,20 @@
  * Two causes, and both are here: provider strings that do not fold to one key,
  * and a tail-less name that can still mint an account.
  *
+ * Since account-identity-spec (2026-09-23) the fold is not a hand table any
+ * more: it resolves through the generated provider registry
+ * (taxonomy/providers.json → src/js-ui/09-providers.js), and what an account
+ * row STORES is the registry key (0150 provider_key), prose demoted to a
+ * display label. The old alias/deny tables are gone; these pins are what
+ * stops the registry from quietly meaning something else.
+ *
  * WHAT THIS PINS
- *   1. the fold table — the aliases only, no ledger data — and that it is a
- *      REFINEMENT of the server's canonProviderName (senders.mjs), walked over
- *      that file's own registry so the two cannot drift apart: never two keys
- *      for one server name, and never one key for two;
+ *   1. the fold — spellings seen in the wild land on ONE registry key
+ *      ("Ví X", the operator's legal name, the long bank form, the dressing-
+ *      stripped unknown), and it is a REFINEMENT of the server's
+ *      canonProviderName (senders.mjs), walked over that file's own registry
+ *      so the two cannot drift apart: never two keys for one server name, and
+ *      never one key for two;
  *   2. the deny list: a phrase that is not a provider ("Ngân hàng liên kết",
  *      "Tài khoản", a wallet's generic word for itself) folds to nothing;
  *   3. fhPersonalAccountEnsure, the REAL one out of 19-personal.js:
@@ -23,7 +32,10 @@
  *          for that folded provider, and creates nothing;
  *        · with no tail and no match at all it returns null (2026-09-19);
  *        · with no tail and SEVERAL accounts at that provider, null;
- *        · identity is (provider, tail) and never the kind (full-ledger T12).
+ *        · identity is (provider, tail) and never the kind (full-ledger T12);
+ *        · a created row stores provider_key (the registry key, null for
+ *          prose the registry does not know), and the MATCH prefers the
+ *          stored key — a pre-backfill keyless row still finds its keyed twin.
  *
  * Synthetic names and numbers only.
  */
@@ -52,20 +64,17 @@ function grab(src, header) {
   return src.slice(at, i + 1);
 }
 
-/* ── the fold itself, out of 57-csv-import-review.js ───────────────────────── */
+/* ── the fold itself: the generated registry + the wrappers in 57 ─────────── */
 const SRC57 = read('src/js-ui/57-csv-import-review.js');
 const fold = (() => {
   const ctx = { console };
   ctx.window = ctx;
   vm.createContext(ctx);
+  vm.runInContext(read('src/js-ui/09-providers.js'), ctx);   // generated — window.FH_PROVIDERS
   vm.runInContext([
     'function deburr(s){ return String(s==null?"":s).normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").replace(/đ/g,"d").replace(/Đ/g,"d").toLowerCase(); }',
     SRC57.match(/var CSV_PROVIDER_NOISE = \[[\s\S]*?\];/)[0],
     grab(SRC57, 'function csvCanonicalProvider(name)'),
-    SRC57.match(/var FH_PROVIDER_CANON = \{[\s\S]*?\n\};/)[0],
-    SRC57.match(/var FH_PROVIDER_LONG = \{[\s\S]*?\n\};/)[0],
-    SRC57.match(/var FH_PROVIDER_ALIAS = \{[\s\S]*?\n\};/)[0],
-    SRC57.match(/var FH_PROVIDER_NOTA = \[[\s\S]*?\];/)[0],
     grab(SRC57, 'function fhAcctProviderKey(name)'),
     grab(SRC57, 'function fhAcctIdentity(spec)'),
     grab(SRC57, 'function fhProviderName(name)'),
@@ -74,26 +83,30 @@ const fold = (() => {
 })();
 const key = (s) => fold.fhAcctProviderKey(s);
 
-/* ── 1. the fold table ─────────────────────────────────────────────────────── */
-console.log('the fold table: one key per provider, however it was written');
-/* [what was written, what it must key as]. Aliases only — nothing here comes
-   from anyone's ledger. */
+/* ── 1. the fold ───────────────────────────────────────────────────────────── */
+console.log('the fold: one registry key per provider, however it was written');
+/* [what was written, what it must key as]. Registry keys now, not the old
+   short slugs — no fold key was ever persisted before 0150, and every
+   comparison runs both sides through the same function, so the rename is
+   class-preserving. Nothing here comes from anyone's ledger. */
 const TABLE = [
   // a wallet: its short name, its "Ví X" form, its operator's legal name
   ['MoMo', 'momo'], ['momo', 'momo'], ['Ví MoMo', 'momo'], ['ví momo', 'momo'],
   ['M_Service', 'momo'], ['Công ty Cổ phần Dịch vụ Di động Trực tuyến', 'momo'],
   ['ZaloPay', 'zalopay'], ['Ví ZaloPay', 'zalopay'], ['CTCP Zion', 'zalopay'],
   ['ShopeePay', 'shopeepay'], ['Ví ShopeePay', 'shopeepay'], ['AirPay', 'shopeepay'],
-  ['Viettel Money', 'viettelmoney'], ['ViettelPay', 'viettelmoney'],
+  ['Viettel Money', 'viettelpay'], ['ViettelPay', 'viettelpay'],
   // a bank: short name, "X Vietnam", "Ngân hàng X", the long official name
-  ['VCB', 'vietcom'], ['Vietcombank', 'vietcom'], ['vietcombank', 'vietcom'],
-  ['Ngân hàng TMCP Ngoại thương Việt Nam', 'vietcom'], ['NH Ngoại thương', 'vietcom'],
-  ['VIB', 'vib'], ['Ngân hàng Quốc Tế', 'vib'], ['Ngân hàng TMCP Quốc Tế Việt Nam', 'vib'],
-  ['MB', 'mb'], ['MBBank', 'mb'], ['MB Bank', 'mb'], ['Ngân hàng TMCP Quân Đội', 'mb'],
-  ['Techcombank', 'techcom'], ['TCB', 'techcom'], ['Ngân hàng TMCP Kỹ Thương', 'techcom'],
-  // a bank the registry does not know still folds its dressing away
+  ['VCB', 'vietcombank'], ['Vietcombank', 'vietcombank'], ['vietcombank', 'vietcombank'],
+  ['Ngân hàng TMCP Ngoại thương Việt Nam', 'vietcombank'], ['NH Ngoại thương', 'vietcombank'],
+  ['VIB', 'vib'], ['Ví VIB', 'vib'], ['Ngân hàng Quốc Tế', 'vib'], ['Ngân hàng TMCP Quốc Tế Việt Nam', 'vib'],
+  ['MB', 'mbbank'], ['MBBank', 'mbbank'], ['MB Bank', 'mbbank'], ['Ngân hàng TMCP Quân Đội', 'mbbank'],
+  ['Techcombank', 'techcombank'], ['TCB', 'techcombank'], ['Ngân hàng TMCP Kỹ Thương', 'techcombank'],
   ['HSBC', 'hsbc'], ['HSBC Vietnam', 'hsbc'], ['hsbc vietnam', 'hsbc'], ['HSBC Việt Nam', 'hsbc'],
   ['Shinhan', 'shinhan'], ['Shinhan Bank Vietnam', 'shinhan'],
+  // prose the registry does not know still folds its dressing away — to a
+  // stable slug of its own, never onto a neighbour's key
+  ['Ngân hàng TMCP Thí Nghiệm', 'thinghiem'], ['Thí Nghiệm Bank', 'thinghiem'],
 ];
 TABLE.forEach(([wrote, want]) => ok(key(wrote) === want, '"' + wrote + '" -> ' + want, key(wrote)));
 
@@ -116,7 +129,9 @@ ok(key('VIB') === 'vib' && key('Ví') === '', 'and the deny list does not eat a 
   ok(fold.fhAcctIdentity({ provider: 'Ngân hàng liên kết' }).id === '|', 'and a phrase with no number is no identity at all',
      fold.fhAcctIdentity({ provider: 'Ngân hàng liên kết' }));
   ok(fold.fhProviderName('ví momo') === 'MoMo' && fold.fhProviderName('M_Service') === 'MoMo',
-     'the display name folds with it', [fold.fhProviderName('ví momo'), fold.fhProviderName('M_Service')]);
+     'the display name is the registry label', [fold.fhProviderName('ví momo'), fold.fhProviderName('M_Service')]);
+  ok(fold.fhProviderName('Ngân hàng TMCP Thí Nghiệm') === 'Ngân hàng TMCP Thí Nghiệm',
+     'an unknown provider reads as printed, never folded into another', fold.fhProviderName('Ngân hàng TMCP Thí Nghiệm'));
 }
 
 /* ── 3. consistency with the server's canonProviderName ────────────────────── */
@@ -159,6 +174,7 @@ ok(key('VIB') === 'vib' && key('Ví') === '', 'and the deny list does not eat a 
       select: () => ({ single: async () => ({ data: { id: 'new-' + (++state.seq) }, error: null }) }) }; } }) });
     ctx.fhPersonalHydrate = async () => {};
     vm.createContext(ctx);
+    vm.runInContext(read('src/js-ui/09-providers.js'), ctx);   // ensure() reads window.FH_PROVIDERS
     vm.runInContext(grab(SRC19, 'window.fhPersonalAccountEnsure = async function (info)') + ';', ctx);
     return { ctx, state, ensure: (info) => ctx.fhPersonalAccountEnsure(info) };
   }
@@ -180,6 +196,19 @@ ok(key('VIB') === 'vib' && key('Ví') === '', 'and the deny list does not eat a 
     ok(await L.ensure({ kind: 'deposit', provider: 'HSBC Vietnam' }) === 'a-hsbc',
        'and with no number at all it still adopts the one account there');
     ok(L.state.inserted.length === 0, 'nothing was created', L.state.inserted);
+  }
+  {   /* the stored key is the identity: a row whose PROSE no longer folds
+         anywhere near the candidate still matches through provider_key */
+    const L = ledger([{ id: 'a-mb', kind: 'deposit', provider: 'nh tmcp quan doi (cu)', providerKey: 'mbbank', tail: '8844' }]);
+    ok(await L.ensure({ kind: 'deposit', provider: 'MB Bank', tail: '8844' }) === 'a-mb',
+       'a stored provider_key outranks whatever the prose has drifted to');
+    ok(L.state.inserted.length === 0, 'nothing was created', L.state.inserted);
+  }
+  {   /* and the other direction: a pre-backfill row with NO stored key still
+         finds its keyed twin through the same resolver */
+    const L = ledger([{ id: 'a-old', kind: 'ewallet', provider: 'ví momo', tail: '1217' }]);
+    ok(await L.ensure({ kind: 'ewallet', provider: 'MoMo', tail: '1217' }) === 'a-old',
+       'a keyless pre-backfill row is not split from its keyed candidate');
   }
   {   /* no tail, nothing to adopt */
     const L = ledger([]);
@@ -210,12 +239,21 @@ ok(key('VIB') === 'vib' && key('Ví') === '', 'and the deny list does not eat a 
     ok(id === 'new-1' && L.state.inserted.length === 1, 'the cash account still creates itself', id);
     ok(await L.ensure({ kind: 'cash', name: 'Tiền mặt' }) === 'new-1', 'and only once', L.state.accounts.length);
   }
-  {   /* what must still work: a real new instrument with a number */
+  {   /* what must still work: a real new instrument with a number — and since
+         0150 the row it writes carries the registry key */
     const L = ledger([{ id: 'a-momo', kind: 'ewallet', provider: 'momo', tail: '1217' }]);
     const id = await L.ensure({ kind: 'deposit', provider: 'Vietcombank', tail: '2279', name: 'Vietcombank ••2279' });
     ok(id === 'new-1' && L.state.inserted.length === 1, 'a number the ledger has never seen still creates its account', id);
     ok(L.state.inserted[0].provider === 'vietcombank' && L.state.inserted[0].tail === '2279',
        'stored exactly as it always was: the MATCH folds, the value does not', L.state.inserted[0]);
+    ok(L.state.inserted[0].provider_key === 'vietcombank',
+       'and the row stores the registry key (0150)', L.state.inserted[0].provider_key);
+  }
+  {   /* an unknown provider with a number: created, but with NO invented key */
+    const L = ledger([]);
+    const id = await L.ensure({ kind: 'deposit', provider: 'Ngân hàng TMCP Thí Nghiệm', tail: '9911' });
+    ok(id === 'new-1' && L.state.inserted.length === 1 && L.state.inserted[0].provider_key === null,
+       'prose the registry does not know keeps provider_key null', L.state.inserted[0]);
   }
 
   console.log(failed ? '\n' + failed + ' failed' : '\nall passed');

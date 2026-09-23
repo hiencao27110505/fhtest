@@ -66,6 +66,9 @@ function build() {
   // The category tree is generated from taxonomy/taxonomy.json into src/js-ui/11-taxonomy.js
   // (and the worker/python twins) on every build, so the client can never drift from the source.
   require('./tools/gen-taxonomy.js').generate();
+  // Same pattern for the provider registry (taxonomy/providers.json → src/js-ui/09-providers.js
+  // + the worker's providers.mjs): account identity resolves through ONE list on both runtimes.
+  require('./tools/gen-providers.js').generate();
   let html = fs.readFileSync(path.join(ROOT, 'src/index.html'), 'utf8');
   for (const m of MARKERS) {
     if (html.indexOf(m.token) < 0) throw new Error('marker not found in src/index.html: ' + m.token);

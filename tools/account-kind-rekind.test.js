@@ -69,6 +69,8 @@ function device(accounts) {
   vm.createContext(ctx);
   // deburr + csvCanonicalProvider + the provider canon, for fhProviderName.
   vm.runInContext('function deburr(s){return String(s).normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").replace(/đ/g,"d").replace(/Đ/g,"D");}', ctx);
+  // the provider registry (generated) — fhAcctProviderKey resolves through it
+  vm.runInContext(read('src/js-ui/09-providers.js'), ctx);
   vm.runInContext(SRC57.slice(SRC57.indexOf('var CSV_PROVIDER_NOISE'), SRC57.indexOf('window.fhProviderName = fhProviderName;')) + 'window.fhProviderName = fhProviderName;\n'
     + SRC57.slice(SRC57.indexOf('function csvCanonicalProvider(name)'), SRC57.indexOf('/* Ledger, near-miss, pipeline and cross-source matching')), ctx);
   vm.runInContext(SRC72.slice(SRC72.indexOf('window.fhStagedRawX = function'), SRC72.indexOf('/* Card-payment candidates still waiting in the inbox')), ctx);

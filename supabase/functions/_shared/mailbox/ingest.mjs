@@ -54,6 +54,7 @@ import { RAW_KEYS } from './contract.mjs';
 import { tidyMemo, tidyMerchant } from './memo.mjs';
 import * as senders from './senders.mjs';
 import * as gmail from './gmail.mjs';
+import { FH_PROVIDERS } from './providers.mjs';
 
 /** The only two directions a bank notice can describe. */
 export const DIRECTIONS = ['debit', 'credit'];
@@ -295,7 +296,11 @@ async function ingestForGrant(grant, payload, messageId, ctx) {
     gmailMessageId: messageId,
     destination,
     reading: normaliseReading(payload.reading, payload.body),
-    sourceProvider: sender.provider,
+    /* Sealed as the registry's canonical LABEL when it knows the name
+       (account-identity-spec P4) — whether the name came from our own domain
+       match or from the caller's declared label. A name the registry has never
+       seen is sealed unchanged, so an unknown provider is no worse off. */
+    sourceProvider: (FH_PROVIDERS.resolve(sender.provider) || { label: sender.provider }).label,
     senderKind: sender.senderKind || sender.kind,
     readerV: grant.reader_v,     // R15: anything but 2 seals as v1
     deps: {

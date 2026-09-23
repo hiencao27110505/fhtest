@@ -38,6 +38,7 @@ import { copyMeta } from './notify-copy.mjs';
 import { readTransaction, normalizeSubjectTemplate, legacySubjectTemplate, subjectCacheKey, SENDER_SENTINEL } from './extract.mjs';
 import { enrichCategory } from './classify.mjs';
 import * as senders from './senders.mjs';
+import { FH_PROVIDERS } from './providers.mjs';
 import * as gmail from './gmail.mjs';
 import * as mailtext from './mailtext.mjs';
 import { decryptToken } from './token-crypto.mjs';
@@ -58,6 +59,17 @@ export const BUILD_ID = '2026-09-22-email-reading-v2-parking';
  *  its ids are already parked and does not count them as new attempts. */
 export const PARKED_PER_RUN = 20;
 export const PARKED_LIST_MAX = 500;
+
+/** The provider spelling a row SEALS (account-identity-spec P4). Whichever
+ *  value won precedence goes through the registry, and a name the registry
+ *  knows is sealed as its canonical LABEL — "vcb", "Vietcombank" and the legal
+ *  long form all land as one spelling, which is the whole point of the
+ *  registry. Prose it has never seen passes through untouched: an unknown
+ *  provider must not be worse off than it was before the registry existed. */
+function sealedProviderName(prose) {
+  const hit = FH_PROVIDERS.resolve(prose);
+  return hit ? hit.label : prose;
+}
 
 /** Priority when quota is short (spec §10.2): extraction first, statement
  *  verdicts second, merchant classification last. Carved from the per-grant
@@ -916,7 +928,7 @@ async function _runGrantLocked(grant, ctx) {
           gmailMessageId: id, destination, rowKind: 'notice',
           reading: toReading({ mail_kind: 'notice', signal: read.notice.signal || null,
             notice: read.notice.fields || null, loan: read.notice.loan || null }, message),
-          sourceProvider: sender.provider, senderKind: sender.senderKind || sender.kind,
+          sourceProvider: sealedProviderName(sender.provider), senderKind: sender.senderKind || sender.kind,
           readerV: grant.reader_v,
           deps: { nacl: ctx.nacl, rng: ctx.rng, subtle: ctx.subtle, dedupKey: ctx.dedupKey, db: ctx.db },
         });
@@ -962,7 +974,12 @@ async function _runGrantLocked(grant, ctx) {
       gmailMessageId: id,
       destination,
       reading: toReading(read.extraction, message),
-      sourceProvider: read.extraction.source_provider || sender.provider,
+      /* The DOMAIN-derived name outranks the reader's free-text label
+         (account-identity-spec P3, the 2026-09-23 precedence flip): the sender
+         table already canonicalised it, and the old order let the model's
+         spelling-of-the-day split one wallet into three accounts. The label
+         survives only where no sender name exists at all. */
+      sourceProvider: sealedProviderName(sender.provider || read.extraction.source_provider),
       /* The FINER class when the registry has one (gateway, broker, lender).
          stage.mjs maps every non-bank to the same sealed transaction_type as
          before, and seals the coarse kind on a v1 row. */

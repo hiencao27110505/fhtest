@@ -192,7 +192,10 @@ Deno.serve(async (req: Request) => {
     const x = read.extraction;
     rows.push({
       id, date: message.date, from: message.from, subject: message.subject, outcome: "ok", stage: read.stage,
-      provider: x.source_provider || sender.provider, sender_kind: sender.kind,
+      // Same precedence the worker seals with since account-identity-spec P3:
+      // the sender-domain name outranks the reader's label, so the dry run
+      // reports what a real run would store.
+      provider: sender.provider || x.source_provider, sender_kind: sender.kind,
       direction: x.direction, amount: x.amount, currency: x.currency, occurred_at: x.occurred_at,
       counterparty: x.counterparty, memo: x.memo, memo_display: x.memo_display, type_code: x.type_code,
       transaction_type: x.transaction_type, counterparty_row: x.counterparty_row ?? null,

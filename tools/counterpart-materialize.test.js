@@ -98,6 +98,8 @@ function device(accounts) {
     'function _scanConcepts(', 'function conceptFromNote(', 'function familyCatForConcept(', 'function guessCat(',
   ].map((h) => grab(SRC50, h) + (h.startsWith('var') ? ';' : '')).join('\n') + '\n' + SRC50.match(/var CONCEPT_ORDER=\[[^\]]*\];/)[0], ctx);
   vm.runInContext(SRC45.slice(0, SRC45.indexOf('function classifyDate')) + grab(SRC45, 'function classifyDate(') + '\n' + grab(SRC45, 'function classifyAmount('), ctx);
+  // the provider registry (generated) — the fold in 57 resolves through it
+  vm.runInContext(read('src/js-ui/09-providers.js'), ctx);
   vm.runInContext(read('src/js-ui/57-csv-import-review.js'), ctx);
   vm.runInContext(read('src/js-ui/58-dedup-engine.js'), ctx);
   vm.runInContext(grab(SRC56, 'function csvXferAccounts(c)'), ctx);

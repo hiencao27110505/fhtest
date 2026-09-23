@@ -33,6 +33,7 @@
 import * as gmail from './gmail.mjs';
 import * as mailtext from './mailtext.mjs';
 import * as senders from './senders.mjs';
+import { FH_PROVIDERS } from './providers.mjs';
 import { sealForFamily, sealBytes } from './sealed-box.mjs';
 import { toGeminiSchema, callGemini } from './llm.mjs';
 
@@ -51,6 +52,15 @@ export const STATEMENT_MAX_PER_RUN = 6;
 export const STATEMENT_MODEL_CALLS_PER_RUN = 2;
 
 export const STATEMENT_EXTS = ['xlsx', 'csv'];
+
+/** The provider a statement row records, spelled the registry's way when the
+ *  registry knows the name (account-identity-spec P4). The sender table's own
+ *  canon stays as the fallback, so a name the registry has never seen keeps
+ *  exactly the healing it had before. */
+function providerLabel(name) {
+  const hit = FH_PROVIDERS.resolve(name);
+  return hit ? hit.label : senders.canonProviderName(name);
+}
 
 /** `xlsx` | `csv` | ''. By FILE NAME: banks send spreadsheets as
  *  application/octet-stream often enough that the content type says nothing. */
@@ -230,7 +240,7 @@ export async function runStatementLane(grant, ctx) {
       // known bank that was judged not a statement is exactly the row to look at.
       await db.insertStatementFile({
         owner_user_id: grant.user_id, gmail_message_id: id, part_index: 0,
-        source_provider: senders.canonProviderName(sender.provider), received_at: receivedAt,
+        source_provider: providerLabel(sender.provider), received_at: receivedAt,
         file_ext: statementExt(files[0].filename), byte_size: 0, status: 'rejected', backfill: !!rescan,
       });
       if (db.recordFailure) {
@@ -262,7 +272,7 @@ export async function runStatementLane(grant, ctx) {
       await db.uploadStatementObject(path, blob);
       const inserted = await db.insertStatementFile({
         id: fileId, owner_user_id: grant.user_id, gmail_message_id: id, part_index: file.partIndex,
-        source_provider: senders.canonProviderName(sender.provider), received_at: receivedAt,
+        source_provider: providerLabel(sender.provider), received_at: receivedAt,
         file_ext: statementExt(file.filename), byte_size: blob.length, bytes_source: 'sealed_object',
         object_path: path, meta_sealed: meta.sealed, meta_eph_pub: meta.eph_pub, meta_nonce: meta.nonce, enc_v: meta.enc_v,
         status: 'pending', backfill: !!rescan,

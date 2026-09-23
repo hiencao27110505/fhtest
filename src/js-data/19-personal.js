@@ -399,7 +399,7 @@
         const [tr, bd, ac, dr, pp, mm, lb] = await Promise.all([
           _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,occurred_time_enc,txn_date,kind,space_id,link_id,version,updated_at,created_at,account_id,transfer_group_id,position_account_id,quantity_enc,source,node_enc,label_id').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }).order('id')),
           _sb().from('personal_budgets').select('total_enc,cats_enc').eq('owner_user_id', P.uid).eq('month', _monISO()).maybeSingle(),
-          _sb().from('personal_accounts').select('id,kind,name_enc,tail,provider,credit_limit_enc,human_verified,statement_day,due_day,anchor_balance_enc,anchor_at,ext_balance_enc,ext_balance_date,account_number_enc,asset_symbol_enc,asset_unit_enc,asset_class_enc,manual_price_enc,manual_price_at,setup_skipped_at').eq('owner_user_id', P.uid).is('archived_at', null),
+          _sb().from('personal_accounts').select('id,kind,name_enc,tail,provider,provider_key,credit_limit_enc,human_verified,statement_day,due_day,anchor_balance_enc,anchor_at,ext_balance_enc,ext_balance_date,account_number_enc,asset_symbol_enc,asset_unit_enc,asset_class_enc,manual_price_enc,manual_price_at,setup_skipped_at').eq('owner_user_id', P.uid).is('archived_at', null),
           _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,counterparty_enc,cat_name_enc,cat_emoji,txn_date,kind,account_id,transfer_group_id,position_account_id,quantity_enc,due_date,created_at,node_enc,label_id').eq('owner_user_id', P.uid).or('kind.neq.expense,account_id.not.is.null').order('txn_date', { ascending: false }).order('id')),
           _sb().from('personal_transaction_photos').select('transaction_id,photo_url,sort_order').eq('owner_user_id', P.uid).order('sort_order').limit(800).then((r) => r, () => ({ data: null })),
           _sb().from('personal_review_memory').select('id,key_enc,position_account_id').eq('owner_user_id', P.uid).limit(500).then((r) => r, () => ({ data: null })),
@@ -473,6 +473,10 @@
           const ext = a.ext_balance_enc ? await _decP(a.ext_balance_enc) : null;
           const mpx = a.manual_price_enc ? await _decP(a.manual_price_enc) : null;
           accounts.push({ id: a.id, kind: a.kind, tail: a.tail, provider: a.provider,
+            /* provider identity (0150): the registry key when the prose resolved
+               to one, else null — ensure() matches on it before falling back to
+               the folded prose. */
+            providerKey: a.provider_key || null,
             humanVerified: a.human_verified,
             statementDay: a.statement_day || null, dueDay: a.due_day || null,
             name: await _decTxt(a.name_enc),
@@ -1184,8 +1188,20 @@
          nothing that reads a provider string moves. */
       const _pkey = (s) => (typeof window.fhAcctProviderKey === 'function')
         ? window.fhAcctProviderKey(s || '') : String(s || '').toLowerCase();
+      /* The registry key alone — never a shape-rule slug — is what a row
+         STORES as provider_key (0150, account-identity-spec P5). Unknown
+         prose keeps it null and goes on matching by folded label, so an
+         unknown provider is not worse off than today. */
+      const _rkey = (s) => (s && window.FH_PROVIDERS) ? window.FH_PROVIDERS.keyOf(s) : '';
       const pkey = _pkey(info.provider);
-      const akey = (a) => _pkey(a && a.provider);
+      const regKey = _rkey(info.provider) || null;
+      /* The MATCH prefers the stored key. A row written before the 0150
+         backfill (or by an older build) has none while its prose may NOW
+         resolve to the candidate's key — folding that prose through the same
+         resolver keeps ensure from splitting such a row from its keyed twin.
+         The candidate side is `pkey`: its registry key when the prose
+         resolves, its folded label otherwise, the same precedence. */
+      const akey = (a) => (a && a.providerKey) || _pkey(a && a.provider);
       const tail = (info.tail || '').replace(/\D/g, '').slice(-4) || null;
       /* A phrase that names no provider at all ("Ngân hàng liên kết", "Tài
          khoản") and no number either: there is nothing here to create an
@@ -1238,13 +1254,13 @@
       if (!tail && pkey) return null;
       const name = info.name || ((prov ? prov.charAt(0).toUpperCase() + prov.slice(1) : 'Tài khoản') + (tail ? ' ••' + tail : ''));
       const r = await _sb().from('personal_accounts').insert({ owner_user_id: P.uid, kind: info.kind,
-        provider: prov, tail: tail, name_enc: await _encP(name) }).select('id').single();
+        provider: prov, provider_key: regKey, tail: tail, name_enc: await _encP(name) }).select('id').single();
       if (r.error) {   // lost a race with ourselves → the row exists; refetch and rematch
         await window.fhPersonalHydrate();
         const again = P.accounts.find(_match);
         return again ? again.id : null;
       }
-      P.accounts.push({ id: r.data.id, kind: info.kind, provider: prov, tail: tail, name: name, limitK: null, humanVerified: false });
+      P.accounts.push({ id: r.data.id, kind: info.kind, provider: prov, providerKey: regKey, tail: tail, name: name, limitK: null, humanVerified: false });
       return r.data.id;
     };
     /* One-time-per-session self-heal of the account list (2026-09-13):

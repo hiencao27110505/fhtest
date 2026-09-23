@@ -57,6 +57,8 @@ if (qrInstSrc) {
   // whole: fhProviderName leans on csvCanonicalProvider and its noise list, and
   // slicing those out by hand would only test the slicing.
   vm.runInContext(grab(read('src/js-ui/50-sheets-expense-capture.js'), 'function deburr('), ctx);
+  // the provider registry (generated) — the fold in 57 resolves through it
+  vm.runInContext(read('src/js-ui/09-providers.js'), ctx);
   vm.runInContext(REVIEW, ctx);
   vm.runInContext(grab(WT, 'window.fhAccountInstString = function (a)') + ';', ctx);
   vm.runInContext(grab(CSVUI, 'function csvStagedProvider(') + '\n' + grab(CSVUI, 'function csvStagedAcctChip('), ctx);

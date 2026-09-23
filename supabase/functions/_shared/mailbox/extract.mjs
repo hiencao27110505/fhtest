@@ -52,6 +52,7 @@
 import { applyExtractionTemplate, deriveAccountKind, deriveExtractionTemplate } from './templates.mjs';
 import { readLabelTable, tableRows, greetingName, whenPrecision, maskAccount, statusReadsFailed, unknownLabels, deriveLabelMappings } from './labeltable.mjs';
 import { canonProviderName, isPersonShaped, match as matchSender } from './senders.mjs';
+import { FH_PROVIDERS } from './providers.mjs';
 import { hashKey } from './classify.mjs';
 import { tidyMemo, tidyMerchant } from './memo.mjs';
 import { labelSignature, learnFormat, applyFormat, isSeed, memoryFormatStore } from './formats.mjs';
@@ -847,8 +848,15 @@ function _tidy(extraction, body) {
   // ...and the OTHER side's account, by the same rule (email-reading-v2 §4).
   out.counterparty_account_tail = maskAccount(out.counterparty_account_tail) ?? null;
   // every tier's provider leaves canonical — template statics included, which
-  // is what heals the names already frozen at derivation without touching them
-  out.source_provider = canonProviderName(out.source_provider);
+  // is what heals the names already frozen at derivation without touching them.
+  // The healing now goes through the provider registry first (account-identity
+  // spec §3): a spelling the registry knows leaves as its LABEL, and the sender
+  // table's canon stays as the fallback so prose the registry has never seen
+  // heals exactly as it did before.
+  {
+    const hit = FH_PROVIDERS.resolve(out.source_provider);
+    out.source_provider = hit ? hit.label : canonProviderName(out.source_provider);
+  }
   const tidy = tidyMemo(out.memo, body);
   out.memo_display = tidy.description;
   if (tidy.code) out.type_code = tidy.code;
