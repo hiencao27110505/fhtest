@@ -264,6 +264,17 @@ by last-4 tail (and provider when both sides carry one), mirroring
 > while the number is a non-card account the person owns) are unchanged.
 > See `category-tree-spec.md` §16.1 **E7**.
 
+> **Amended 2026-09-23 — the rule moved to the server as the `card_repayment`
+> signal (reader v2).** `signals.mjs` now states it once, where the whole mail is
+> in hand, with exactly this section's constraint built in: the signal fires only
+> when the mail names **no merchant** (E7 — a card number is not proof of a
+> repayment), and the device refuses it besides when `counterparty_kind` says
+> `merchant` (`fhKindFromSignal`, `57-csv-import-review.js`). The device then
+> pre-selects the repaid card through the same `fhResolveRepaidCard` this spec
+> defines, wired in as the signal's `cardFor`. `fhCardPayShaped` and the three
+> other wording copies remain as the fallback for v1 rows already in the queue
+> and retire on scoreboard parity (`email-reading-v2-spec.md` §5, §9, R9).
+
 When a staged row is classified as a card payment (`isTransfer` set from the
 sealed shape), call the resolver and set `c._payCardId` on the returned
 candidate. This is the single missing wire: the identity that already drives the

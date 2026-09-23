@@ -158,17 +158,28 @@ registry (Q8).
 
 The table above is the design. What shipped, in order, strongest first:
 
-| Where | Order |
-|---|---|
-| **Worker** (`classify.mjs` `enrichCategory`, and `conceptsForMerchants` behind the `merchant-concepts` function for statements) | the extractor's own node → a synced user correction (`merchant_corrections`) → **tree keywords** (`keywordNode`, free) → the merchant cache (`merchant_concepts`, node when present; a row of nulls is "asked, unknowable" and is never re-asked) → **one** model call. The node menu rides the PROMPT, never `responseSchema`: a 182-value enum is a hard HTTP 400 from Gemini's OpenAPI subset, and `validNode()` is the gate. Concept and pool are then DERIVED from the node (`conceptOf`/`poolOf`), so the three cannot disagree |
-| **Review, on device** (`57-csv-import-review.js`, `nodeSource`) | `pipeline` (the sealed `raw_extracted.node`) → `history` (a ledger row with the same wording) → `learned` (`fhLessonNode`) → `keyword` (`fhNodeGuess`: lesson → tree keywords → label claims → person-to-person shape) → `concept` (the legacy 8-concept lifted to the tree GROUP that carries it, never to a leaf) → `label` (`fhNodeFromClaims`) |
-| **Backfill, on device** (`28-tree-backfill.js`) | **transfer shape first** (`fhTransferShape`), then `fhNodeGuess`, then the label's coarse node. Evidence outranks the label (E1) |
+*(Rewritten 2026-09-23: three rounds landed since the first version of this
+table — E12–E18 on 09-21, the E14a/E14b corrections on 09-21/22, and the v2
+reader (`email-reading-v2-spec.md`) on 09-22. Verified against `main` and the
+deployed `mailbox-sync` v62.)*
 
-Tiers 1 (shape statics) and 5 (rhythm) are not built. Statement rows take the
-worker path through `merchant-concepts`, which since v3 returns `nodes` beside
-`concepts`; the device seals it into the same `raw_extracted.node` an email row
-carries (E8). The Python parser on Cloud Run passes a node through `ingest.mjs`
-but assigns none (`parser/taxonomy.py` is generated and imported by nothing).
+| Where | Order, strongest first |
+|---|---|
+| **Worker, before the category** (`signals.mjs`, reader v2 — every mailbox since 0148) | `detectSignal` states what the mail ITSELF says (`own_transfer`, `card_repayment`, `wallet_move`, `salary`, `securities_trade`… §5 of the v2 spec) plus `counterparty_kind` and `channel`; when the model read the mail, `crossCheckSignal` compares the two and a disagreement withdraws the signal VISIBLY (`signal: null` beside `src.signal`). A WHAT-signal seals its node (`nodeForSignal`: `cardpay`, `bankbank`, `wallet`, `investfund`, `wage`…). The WHO nodes (`purchase`, `bizpay`, `p2p`) are **deliberately never sealed** — a sealed node is read first on the device, and a who-node there would displace a what-answer (E14a); the device gets `signal` + `counterparty_kind` instead and places its own who-tier last |
+| **Worker, the category** (`classify.mjs` `enrichCategory`, and `merchant-concepts` for statements) | unchanged by v2, and only for rows no what-signal answered (purchase, p2p): the extractor's own node → a synced user correction (`merchant_corrections`) → **tree keywords** (`keywordNode`, free) → the merchant cache (`merchant_concepts`; a row of nulls is "asked, unknowable") → **one** model call, batched since v2 (extraction and category are ONE call for model-read mail). The node menu rides the PROMPT, never `responseSchema` (a 182-value enum is a hard HTTP 400); `validNode()` is the gate. Concept and pool are DERIVED from the node (`conceptOf`/`poolOf`) |
+| **Review, on device** (`57-csv-import-review.js`, `nodeSource`) | `pipeline` (the sealed node, dropped by `fhPipeNodeOk` when it rests on a keyword the tree has since retired, E16) → `history` (a ledger row with the same wording, **only when `fhNodeIsEvidence`**: a who-node, or a node the row's own label contradicts, is never evidence, E14b) → `learned` (`fhLessonNode`) → `keyword` (`fhNodeGuess({whatOnly})`, plus `p2p` kept in its old place) → `statement` (a fee line's words beat the MCC it inherited) → **`signal`** (the v2 signal's node, when the tiers above knew nothing) → `concept` (the legacy 8-concept lifted to its GROUP, never a leaf) → `label` (`fhNodeFromClaims`) → `who` (`fhWhoNode`: seller marks then person, LAST — E14a) |
+| **Review, the kind** (`fhKindFromSignal`, v2 rows only) | beside the node: lesson → signal + a thing the person owns (an owned card tail, an owned counterpart account — pre-fills it) → signal alone → the lending pass (stands down when a signal held, `_sigHold`) → direction. The free-text kind regexes (card-repayment wording, salary words, own-name transfer) now run **only for v1 rows** (`!_sig`) |
+| **Quick review** (`76-quick-review.js`) | same shape: sealed node (guarded) → lesson → `whatOnly` guess → `p2p` → concept hint → who. `counterparty_kind` outranks the old `p2p_transfer` description-blanking rule |
+| **Backfill, on device** (`28-tree-backfill.js`, cursor **v9**) | **transfer shape first** (`fhTransferShape`), then `fhNodeGuess({whatOnly})`, then `p2p`, then the label's coarse node, then the who-nodes. Rows a who-node displaced from a real category are repaired in the FIRST slice on launch, not in idle time (E14b) |
+
+Tiers 1 (shape statics) and 5 (rhythm) are not built as such — the v2 format
+store (`mail_formats`) is tier 1's landing place. Statement rows: `fhStructNode`
+reads the codes the FILE carries (MCC, MoMo's receiving-service id; the code
+sets the branch, a keyword may only go deeper inside it, E15), and since SW
+v570+ the statement classifier speaks the same signal vocabulary
+(`own_transfer`, `wallet_move`, `salary`…) into the same payload-v2 field
+names, so `fhKindFromSignal` pre-selects statement rows with no extra rules.
+The Python parser on Cloud Run still assigns no node.
 
 ### 3.3 The "no others" guarantee, stated honestly
 
@@ -339,6 +350,11 @@ enrichCategory(extraction, grant, ctx)
   `node`, frozen by the same never-disagreed rule as `direction`.
 - `mailbox-dryrun` reports depth reached per row (leaf / category / group /
   root) so §12 can be re-measured after any tree change.
+- *(2026-09-23)* Since reader v2 this cascade is the SECOND half of the worker's
+  answer: `signals.mjs` runs first and may seal a node outright for the
+  transfer/income/investment shapes (§3.2.1). `enrichCategory` keeps exactly
+  this seam for what remains — purchases and person-to-person rows — and the
+  model call is now the same one that extracts the mail (one call, not two).
 
 ## 10. Client module map
 
@@ -599,6 +615,7 @@ contradicts an earlier one, the E entry runs.
 | E14 | **No extra taps. Pre-select from the data; when it runs out, rest on the deepest level that is known.** Supersedes the "ask once" prompts proposed in the research. Grab (rides AND food, no shared parent) rests on `purchase`; its rule lives in the client, NOT in the shared keywords, because on the worker a keyword would replace the legacy "Transport" concept the flat labels still use. | The founder, 2026-09-21 |
 | E14a | **WHAT outranks WHO, in every lane (corrects E12 and E14, one day later).** The who-was-paid tier shipped INSIDE `fhNodeGuess`, which the review calls at tier 4, ahead of the server's concept hint (tier 5) and the person's label (tier 6). So "paid to a seller" answered before two tiers that knew what was bought. Now: `fhNodeGuess({whatOnly})` → a person (`p2p`, where it always was) → hint → label → `fhWhoNode` last; the sweep is words → `p2p` → the row's label → seller nodes. The Grab brand rule is deleted: no brand rules in the who-tier, ever. Cursor v8 re-files what v7 moved. | The founder: every Grab card in the queue read "Thanh toán cho người bán". Measured on 693 rows: 31 had a who-node displace a real category (29 Grab from "Đi lại", a supermarket from "Đi chợ & siêu thị", a clothes shop from "Quần áo & phụ kiện"); after the fix 0, with the unfiled count unchanged (93 → 26) |
 | E14b | **The ledger is evidence only when it says WHAT (`fhNodeIsEvidence`), and the sweep repairs what a who-node displaced FIRST.** The review's history tier (step 2) copied a logged row's node onto any new row with the same words, ahead of the hint and the label, with no check on what that node was. After E14a fixed the rules, every new Grab card still read "Thanh toán cho người bán" because the v565 sweep had already written it onto the logged Grab rows. Now a who-node, or a node the row's own label contradicts, is never history; and rows a who-node displaced are re-filed in the first slice on launch, not in idle time. Cursor v9. `tools/review-history-evidence.test.js` replays the real card through the real review. | The founder's screenshot, 2026-09-22: label "Đi lại", node "Thanh toán cho người bán", on a MoMo statement row |
+| E19 | **The signal tier (v2 reader, 2026-09-22, built by the other session; recorded here 09-23).** The four device regex families this spec's §3.2 relied on (card-repayment wording ×4 copies, own-name transfer ×3, salary/refund word lists) are now stated ONCE on the server as `signals.mjs`, graded printed/template/heuristic, cross-checked against the model, and honoured on the device as (a) a `signal` node tier placed BELOW keyword/statement and ABOVE concept/label/who, and (b) `fhKindFromSignal` for the kind. The old regexes remain only for v1 payloads and retire on scoreboard parity. E7, E12/E13 (who-nodes never sealed) and E14a (WHAT outranks WHO) are honoured by construction: `nodeForSignal` refuses `purchase`/`bizpay`/`p2p`. | `email-reading-v2-spec.md` §5, §8.4, §9; R3, R9, R10 |
 | E15 | **Codes before words in the statement lane.** `fhStructNode`: MCC (ISO 18245) and MoMo's receiving-service id set the BRANCH; a keyword may go deeper inside it, never sideways; a fee line's words beat the MCC it inherited from the purchase. MCC used to reach only the eight legacy concepts, the service id nothing. | VIB's card statement and MoMo's statement both carry them on every row |
 | E16 | **A sealed node is checked against today's keywords (`fhPipeNodeOk`).** The worker seals nodes from ITS copy of the keyword list, which only changes on redeploy, and `mailbox-sync` cannot be redeployed from `main`. A node resting on a retired keyword is dropped in the queue; in the ledger only the entries marked safe are re-filed ("tien nha" is not: some of those rows are rent and their owner confirmed it). | Five live false positives: "gui tien **nha**" as rent, DZINE **Food** as software, a fund a person named "…Claude" as software, "Phí **quản lý** giao dịch" as a building fee, "pizza" as fast food for a sit-down restaurant |
 | E17 | **The same payee, whatever was typed this time.** A second history tier keyed on the payee head of the ledger note, answered only when at least two past rows agree unanimously; who-was-paid nodes do not vote. | A monthly rent whose memo changes every month would otherwise lose its node when E16 retired the keyword that was right by luck |
@@ -633,3 +650,6 @@ function, loaded from the whole file, on the real shapes.
 - `docs/ARCHITECTURE.md` — the dedup model (receipt-join, loan-pair rows).
 - `docs/features/bank-email-pipeline.md`, `docs/features/direct-mailbox-read.md`
   — the worker this cascade runs in.
+- `docs/specs/email-reading-v2-spec.md` — the v2 reader: payload v2, the signal
+  vocabulary (§5), the device kind decision (§9). Owns `signals.mjs` and
+  `contract.mjs`; this spec owns the tree and the node cascade the signals feed.
