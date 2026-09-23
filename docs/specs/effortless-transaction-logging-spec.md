@@ -1898,6 +1898,41 @@ as — or the same day as — the deploy. A deploy announced only in
 
 ## 28. Releases (newest first)
 
+### 2026-09-23 (later) — the provider half of an account's identity is a registry KEY · mailbox-sync v63, mailbox-dryrun v13 · SW v574 · migrations 0150–0151 APPLIED
+
+- **For product:** the morning's fix stopped duplicates by teaching one
+  function more spellings; this ends the class. Every provider FamilyHub can
+  name now lives in one registry (`taxonomy/providers.json`, 85 entries), and
+  an account row stores the registry *key* — prose is only its display label.
+  A wallet's "Ví" form, its operator's legal name, a bank's long official
+  form, a NAPAS BIN on a statement and a wallet-statement bank code all land
+  on the same key, on the device and in the worker, because both run the same
+  generated code. And when something still slips through — prose no registry
+  can know, a hand-made twin — the account settings sheet now has **"Gộp vào
+  tài khoản khác"**: pick the survivor, see exactly how many transactions move
+  and which card dies, confirm. No SQL operator needed again.
+- **Under the hood:** `tools/gen-providers.js` (run by `build.js`, the
+  taxonomy pattern) generates `src/js-ui/09-providers.js` and
+  `_shared/mailbox/providers.mjs` from the JSON; the four device alias tables
+  (`FH_PROVIDER_CANON/LONG/ALIAS/NOTA`) and `STMT_BANK_BIN` are deleted, their
+  data folded into `names[]`/`bins[]`/deny. The worker seals
+  `sender.provider || extraction.source_provider` — **flipped** (the §24
+  inversion) — and every seal site resolves through the registry label;
+  `_tidy` heals template statics registry-first. Migration `0150` adds
+  `personal_accounts.provider_key` (backfilled, 26 rows, through the same
+  resolver); `fhPersonalAccountEnsure` matches stored key first, folded label
+  as fallback, so pre-backfill rows never split from keyed twins. Migration
+  `0151` is the atomic merge RPC (owner-only, never across the investment
+  line; the source card is deleted, nothing half-moves).
+  `tools/provider-registry.test.js` pins all 230 sender-domain labels to
+  registry keys, regeneration freshness, resolver semantics, and the flip
+  itself — the old order cannot quietly return.
+- **Spec:** `docs/specs/account-identity-spec.md` (new, decisions P1–P8).
+- **Watch for:** display names now come from registry labels: "Viettel Money"
+  prints as "ViettelPay", "hsbc vietnam" as "HSBC". Auto-merge remains
+  rejected (P7) — the two known leftover duplicates (a no-tail BVBank, a
+  no-tail Vietcombank) are now one "Gộp" tap away for their owners, not ours.
+
 ### 2026-09-23 — wallet statements name both sides, and one account stops having three identities · client only, SW v573
 
 - **For product:** a top-up from your own bank into your wallet used to arrive as
