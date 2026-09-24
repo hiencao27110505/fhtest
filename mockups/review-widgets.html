@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Duyệt giao dịch — widget số liệu &amp; danh mục</title>
+<style>
+:root{
+  --sage-50:#ebfbf6;--sage-100:#d6f5eb;--sage-200:#afe9d8;--sage-300:#7ad5bd;--sage-400:#4abba1;--sage-500:#149d83;--sage-600:#007c65;--sage-800:#095143;
+  --sage-wash:rgba(20,157,131,.18);
+  --stone-25:#fafcfc;--stone-50:#f6f9f8;--stone-100:#f0f5f3;--stone-150:#ecf1f0;--stone-200:#e3eae7;--stone-300:#c3cdca;--stone-400:#7f8986;--stone-500:#6f7674;--stone-600:#626b68;--stone-800:#2e3835;--stone-900:#0e1613;
+  --id-1:#0b67a9;--id-2:#5a94e0;--id-3:#9e5cd1;--id-4:#e6659c;--id-5:#b52f4a;--id-6:#bc6d24;
+  --id-1-tint:#e5f4ff;--id-2-tint:#e7f3ff;--id-3-tint:#f6eeff;--id-4-tint:#ffebf2;--id-5-tint:#ffebed;--id-6-tint:#ffeee2;
+  --brand:var(--sage-500);--brand-ink:var(--sage-600);--brand-tint:var(--sage-50);
+  --grad-brand:linear-gradient(135deg,var(--sage-500),var(--sage-400));
+  --ink:var(--stone-900);--ink-2:var(--stone-800);--muted:var(--stone-600);--muted-soft:var(--stone-500);
+  --white:#fff;--canvas:var(--stone-100);--hairline:var(--stone-200);--divider:var(--stone-150);--surface:var(--stone-50);
+  --shadow-card:0 1px 3px rgba(14,22,19,.05),0 8px 24px rgba(14,22,19,.04);
+  --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--text);background:var(--canvas);color:var(--ink);-webkit-font-smoothing:antialiased}
+.num{font-family:var(--disp);font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+.wrap{max-width:1360px;margin:0 auto;padding:40px 24px 90px}
+h1{font-family:var(--disp);font-size:30px;font-weight:800;letter-spacing:-.8px}
+.eyebrow{font-size:11px;font-weight:700;letter-spacing:.14em;color:var(--brand-ink);text-transform:uppercase;margin-bottom:6px}
+h2{font-family:var(--disp);font-size:21px;font-weight:800;letter-spacing:-.5px;margin:44px 0 18px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:26px}
+figure{margin:0}
+figcaption{padding:10px 4px 0;font-size:13.5px}
+figcaption b{font-family:var(--disp);font-weight:800;font-size:12px;letter-spacing:.06em;color:var(--brand-ink);background:var(--brand-tint);border-radius:6px;padding:2px 7px;margin-right:7px}
+figcaption span{font-weight:700;letter-spacing:-.2px}
+.card{background:var(--white);border-radius:22px;box-shadow:var(--shadow-card);padding:16px}
+.lbl{font-size:10.5px;font-weight:700;letter-spacing:.12em;color:var(--muted-soft);text-transform:uppercase}
+.pz{display:inline-flex;background:var(--surface);border-radius:12px;padding:3px}
+.pz b,.pz span{font-size:12.5px;font-weight:600;padding:6px 13px;border-radius:9px;color:var(--muted)}
+.pz b{background:var(--white);color:var(--ink);box-shadow:0 1px 3px rgba(14,22,19,.08)}
+.tile2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tile{background:var(--surface);border-radius:14px;padding:10px 12px}
+.tile .tl{font-size:11.5px;font-weight:600;color:var(--muted)}
+.tile .tv{font-family:var(--disp);font-weight:700;font-size:17px;letter-spacing:-.4px;margin-top:2px}
+.up{color:var(--sage-600)}
+.bars{display:flex;align-items:flex-end;gap:7px;height:84px;padding-top:16px}
+.bars i{flex:1;background:var(--brand);border-radius:5px 5px 2px 2px;position:relative}
+.bars i .v{position:absolute;top:-15px;left:50%;transform:translateX(-50%);font-size:9.5px;font-weight:700;color:var(--muted);white-space:nowrap}
+.bars i.dim{background:var(--sage-200)}
+.xlab{display:flex;gap:7px;margin-top:6px}
+.xlab s{flex:1;text-decoration:none;text-align:center;font-size:10px;color:var(--muted-soft)}
+.crow{display:flex;align-items:center;gap:11px;padding:11px 2px;border-top:1px solid var(--divider)}
+.crow:first-of-type{border-top:0}
+.crow .em{width:30px;height:30px;border-radius:9px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.crow .nm{flex:1;min-width:0;font-size:14px;font-weight:600;letter-spacing:-.1px}
+.crow .nm small{display:block;font-size:11.5px;font-weight:500;color:var(--muted-soft);margin-top:1px}
+.crow .amt{font-family:var(--disp);font-weight:700;font-size:14px;letter-spacing:-.3px}
+.crow .pc{font-size:11.5px;color:var(--muted-soft);width:34px;text-align:right}
+.trk{display:block;height:4px;border-radius:2px;background:var(--stone-150);margin-top:5px;overflow:hidden;position:relative}
+.trk i{position:absolute;left:0;top:0;bottom:0;border-radius:2px;background:var(--brand)}
+.more{display:block;text-align:center;font-size:13px;font-weight:600;color:var(--brand-ink);padding:10px 0 2px}
+.dot{display:inline-block;width:8px;height:8px;border-radius:3px;vertical-align:0}
+@media (max-width:420px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="eyebrow">FamilyHub · Duyệt giao dịch · Phương án 01</div>
+<h1>Widget số liệu ×8 · Widget danh mục ×8</h1>
+
+<h2>A · Widget số liệu</h2>
+<div class="grid">
+
+<!-- S1 -->
+<figure>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:baseline"><span class="lbl">90 ngày qua</span><span class="pz"><b>Tuần</b><span>Tháng</span></span></div>
+    <div class="tile2" style="margin-top:10px">
+      <div class="tile"><span class="tl"><span class="up">↑</span> Tiền vào</span><div class="tv up num">8.476.093 ₫</div></div>
+      <div class="tile"><span class="tl">↓ Tiền ra</span><div class="tv num">149.032.198 ₫</div></div>
+    </div>
+    <div class="bars"><i style="height:100%"><span class="v num">38tr</span></i><i style="height:26%"></i><i style="height:56%"></i><i style="height:14%"></i><i style="height:48%"></i><i style="height:10%"></i><i style="height:22%"></i><i style="height:8%"></i></div>
+    <div class="xlab"><s>8</s><s>10/8</s><s>17/8</s><s>24/8</s><s>31/8</s><s>7/9</s><s>14/9</s><s>21/9</s></div>
+  </div>
+  <figcaption><b>S1</b><span>Ô đôi + cột</span></figcaption>
+</figure>
+
+<!-- S2 -->
+<figure>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <span><span class="lbl">Tiền ra · 90 ngày</span>
+      <div class="num" style="font-family:var(--disp);font-weight:800;font-size:30px;letter-spacing:-.9px;margin-top:3px">149.032.198 ₫</div>
+      <div class="num" style="font-size:12.5px;font-weight:600;color:var(--muted);margin-top:2px"><span class="up">↑ 8.476.093 ₫</span> · 346 khoản</div></span>
+      <span class="pz"><b>Tuần</b><span>Tháng</span></span>
+    </div>
+    <div class="bars" style="height:64px"><i style="height:100%"></i><i style="height:26%"></i><i style="height:56%"></i><i style="height:14%"></i><i style="height:48%"></i><i style="height:10%"></i><i style="height:22%"></i><i style="height:8%"></i></div>
+    <div class="xlab"><s>8</s><s>10/8</s><s>17/8</s><s>24/8</s><s>31/8</s><s>7/9</s><s>14/9</s><s>21/9</s></div>
+  </div>
+  <figcaption><b>S2</b><span>Một con số lớn</span></figcaption>
+</figure>
+
+<!-- S3 -->
+<figure>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:baseline"><span class="lbl">Chênh lệch · 90 ngày</span><span class="pz"><b>Tuần</b><span>Tháng</span></span></div>
+    <div class="num" style="font-family:var(--disp);font-weight:800;font-size:30px;letter-spacing:-.9px;margin-top:6px">−140.556.105 ₫</div>
+    <div style="display:flex;gap:16px;margin-top:6px;font-size:13px;font-weight:600">
+      <span class="num up">↑ 8.476.093</span><span class="num">↓ 149.032.198</span><span class="num" style="color:var(--muted-soft)">346 khoản</span>
+    </div>
+    <div class="bars" style="height:52px"><i style="height:100%"></i><i style="height:26%"></i><i style="height:56%"></i><i style="height:14%"></i><i style="height:48%"></i><i style="height:10%"></i><i style="height:22%"></i><i style="height:8%"></i></div>
+  </div>
+  <figcaption><b>S3</b><span>Chênh lệch trước</span></figcaption>
+</figure>
+
+<!-- S4 -->
+<figure>
+  <div class="card" style="padding-bottom:12px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline">
+      <span style="font-size:13.5px;font-weight:600"><span class="num">↓ 149,0tr</span> · <span class="num up">↑ 8,5tr</span></span>
+      <span class="pz"><b>Tuần</b><span>Tháng</span></span>
+    </div>
+    <div class="bars" style="height:128px;padding-top:20px">
+      <i style="height:100%"><span class="v num">38,2tr</span></i><i style="height:26%"></i><i style="height:56%"><span class="v num">21,4tr</span></i><i style="height:14%"></i><i style="height:48%"></i><i style="height:10%"></i><i style="height:22%"></i><i style="height:8%"></i>
+    </div>
+    <div class="xlab"><s>8</s><s>10/8</s><s>17/8</s><s>24/8</s><s>31/8</s><s>7/9</s><s>14/9</s><s>21/9</s></div>
+  </div>
+  <figcaption><b>S4</b><span>Biểu đồ là chính</span></figcaption>
+</figure>
+
+<!-- S5 -->
+<figure>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:baseline"><span class="lbl">Vào · Ra theo tuần</span><span class="pz"><b>Tuần</b><span>Tháng</span></span></div>
+    <div class="bars" style="height:84px;gap:9px">
+      <span style="flex:1;height:100%;display:flex;gap:2px;align-items:flex-end"><i style="flex:1;height:8%;background:var(--sage-300);border-radius:4px 4px 2px 2px"></i><i style="flex:1;height:100%;background:var(--sage-600);border-radius:4px 4px 2px 2px"></i></span>
+      <span style="flex:1;height:100%;display:flex;gap:2px;align-items:flex-end"><i style="flex:1;height:3%;background:var(--sage-300);border-radius:4px 4px 2px 2px"></i><i style="flex:1;height:26%;background:var(--sage-600);border-radius:4px 4px 2px 2px"></i></span>
+      <span style="flex:1;height:100%;display:flex;gap:2px;align-items:flex-end"><i style="flex:1;height:20%;background:var(--sage-300);border-radius:4px 4px 2px 2px"></i><i style="flex:1;height:56%;background:var(--sage-600);border-radius:4px 4px 2px 2px"></i></span>
+      <span style="flex:1;height:100%;display:flex;gap:2px;align-items:flex-end"><i style="flex:1;height:3%;background:var(--sage-300);border-radius:4px 4px 2px 2px"></i><i style="flex:1;height:14%;background:var(--sage-600);border-radius:4px 4px 2px 2px"></i></span>
+      <span style="flex:1;height:100%;display:flex;gap:2px;align-items:flex-end"><i style="flex:1;height:6%;background:var(--sage-300);border-radius:4px 4px 2px 2px"></i><i style="flex:1;height:48%;background:var(--sage-600);border-radius:4px 4px 2px 2px"></i></span>
+      <span style="flex:1;height:100%;display:flex;gap:2px;align-items:flex-end"><i style="flex:1;height:14%;background:var(--sage-300);border-radius:4px 4px 2px 2px"></i><i style="flex:1;height:10%;background:var(--sage-600);border-radius:4px 4px 2px 2px"></i></span>
+      <span style="flex:1;height:100%;display:flex;gap:2px;align-items:flex-end"><i style="flex:1;height:3%;background:var(--sage-300);border-radius:4px 4px 2px 2px"></i><i style="flex:1;height:22%;background:var(--sage-600);border-radius:4px 4px 2px 2px"></i></span>
+      <span style="flex:1;height:100%;display:flex;gap:2px;align-items:flex-end"><i style="flex:1;height:3%;background:var(--sage-300);border-radius:4px 4px 2px 2px"></i><i style="flex:1;height:8%;background:var(--sage-600);border-radius:4px 4px 2px 2px"></i></span>
+    </div>
+    <div class="xlab"><s>8</s><s>10/8</s><s>17/8</s><s>24/8</s><s>31/8</s><s>7/9</s><s>14/9</s><s>21/9</s></div>
+    <div style="display:flex;gap:14px;margin-top:8px;font-size:11.5px;font-weight:600;color:var(--muted)">
+      <span><i class="dot" style="background:var(--sage-300)"></i> Vào 8,5tr</span>
+      <span><i class="dot" style="background:var(--sage-600)"></i> Ra 149,0tr</span>
+    </div>
+  </div>
+  <figcaption><b>S5</b><span>Cột đôi vào–ra</span></figcaption>
+</figure>
+
+<!-- S6 -->
+<figure>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:baseline"><span class="lbl">90 ngày qua</span><span class="pz"><b>Tuần</b><span>Tháng</span></span></div>
+    <div class="tile2" style="margin-top:10px">
+      <div class="tile"><span class="tl"><span class="up">↑</span> Tiền vào</span><div class="tv up num">8.476.093 ₫</div></div>
+      <div class="tile"><span class="tl">↓ Tiền ra</span><div class="tv num">149.032.198 ₫</div></div>
+    </div>
+    <svg viewBox="0 0 320 84" style="width:100%;height:84px;margin-top:12px" preserveAspectRatio="none">
+      <path d="M0,10 C30,18 45,58 80,50 C110,44 125,70 160,64 C190,60 205,76 240,72 C270,70 290,78 320,76 L320,84 L0,84 Z" fill="var(--sage-wash)"/>
+      <path d="M0,10 C30,18 45,58 80,50 C110,44 125,70 160,64 C190,60 205,76 240,72 C270,70 290,78 320,76" fill="none" stroke="var(--sage-500)" stroke-width="2.4" stroke-linecap="round"/>
+      <circle cx="80" cy="50" r="3.4" fill="var(--sage-600)"/>
+    </svg>
+    <div class="xlab"><s>8</s><s>17/8</s><s>31/8</s><s>14/9</s><s>21/9</s></div>
+  </div>
+  <figcaption><b>S6</b><span>Đường mềm</span></figcaption>
+</figure>
+
+<!-- S7 -->
+<figure>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:baseline"><span class="lbl">90 ngày qua</span><span class="pz"><b>Tuần</b><span>Tháng</span></span></div>
+    <div style="margin-top:12px">
+      <div style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:600"><span>↓ Tiền ra</span><span class="num">149.032.198 ₫</span></div>
+      <div style="display:flex;height:12px;border-radius:6px;overflow:hidden;gap:2px;margin-top:6px">
+        <i style="flex:50;background:var(--sage-800)"></i><i style="flex:13;background:var(--sage-600)"></i><i style="flex:13;background:var(--sage-500)"></i><i style="flex:24;background:var(--sage-300)"></i>
+      </div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:7px;font-size:11.5px;font-weight:600;color:var(--muted)">
+        <span><i class="dot" style="background:var(--sage-800)"></i> Chuyển 50%</span>
+        <span><i class="dot" style="background:var(--sage-600)"></i> Mua sắm 13%</span>
+        <span><i class="dot" style="background:var(--sage-500)"></i> Ăn uống 13%</span>
+        <span><i class="dot" style="background:var(--sage-300)"></i> Khác 24%</span>
+      </div>
+    </div>
+    <div style="margin-top:14px;border-top:1px solid var(--divider);padding-top:11px">
+      <div style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:600"><span class="up">↑ Tiền vào</span><span class="num up">8.476.093 ₫</span></div>
+      <div style="display:flex;height:12px;border-radius:6px;overflow:hidden;margin-top:6px;background:var(--surface)">
+        <i style="width:6%;background:var(--sage-400);border-radius:6px"></i>
+      </div>
+    </div>
+  </div>
+  <figcaption><b>S7</b><span>Hai dải tỉ lệ</span></figcaption>
+</figure>
+
+<!-- S8 -->
+<figure>
+  <div class="card" style="padding:14px 16px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;text-align:center">
+      <span style="border-right:1px solid var(--divider)"><span class="lbl">Vào</span><div class="num up" style="font-family:var(--disp);font-weight:700;font-size:16px;letter-spacing:-.4px;margin-top:3px">8,5tr</div></span>
+      <span style="border-right:1px solid var(--divider)"><span class="lbl">Ra</span><div class="num" style="font-family:var(--disp);font-weight:700;font-size:16px;letter-spacing:-.4px;margin-top:3px">149,0tr</div></span>
+      <span><span class="lbl">Khoản</span><div class="num" style="font-family:var(--disp);font-weight:700;font-size:16px;letter-spacing:-.4px;margin-top:3px">346</div></span>
+    </div>
+    <div class="bars" style="height:56px;margin-top:6px"><i style="height:100%"></i><i style="height:26%"></i><i style="height:56%"></i><i style="height:14%"></i><i style="height:48%"></i><i style="height:10%"></i><i style="height:22%"></i><i style="height:8%"></i></div>
+    <div class="xlab"><s>8</s><s>10/8</s><s>17/8</s><s>24/8</s><s>31/8</s><s>7/9</s><s>14/9</s><s>21/9</s></div>
+  </div>
+  <figcaption><b>S8</b><span>Ba cột số</span></figcaption>
+</figure>
+
+</div>
+
+<h2>B · Widget danh mục</h2>
+<div class="grid">
+
+<!-- C1 -->
+<figure>
+  <div class="card" style="padding:10px 16px 8px">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0 4px"><span class="lbl">Tiền đi đâu</span><span style="font-size:12px;color:var(--muted-soft)">% của 149tr</span></div>
+    <div class="crow"><span class="em">🤝</span><span class="nm">Chuyển cho người khác<span class="trk"><i style="width:50%"></i></span></span><span class="amt num">74.019.000</span><span class="pc num">50%</span></div>
+    <div class="crow"><span class="em">🛍️</span><span class="nm">Mua sắm<span class="trk"><i style="width:13%"></i></span></span><span class="amt num">19.453.094</span><span class="pc num">13%</span></div>
+    <div class="crow"><span class="em">🍽️</span><span class="nm">Ăn uống<span class="trk"><i style="width:13%"></i></span></span><span class="amt num">19.346.495</span><span class="pc num">13%</span></div>
+    <div class="crow"><span class="em">💼</span><span class="nm">Công việc &amp; kinh doanh<span class="trk"><i style="width:7%"></i></span></span><span class="amt num">9.708.445</span><span class="pc num">7%</span></div>
+    <span class="more">Xem 6 mục nữa</span>
+  </div>
+  <figcaption><b>C1</b><span>Dòng + vạch tỉ lệ</span></figcaption>
+</figure>
+
+<!-- C2 -->
+<figure>
+  <div class="card" style="padding:10px 16px 8px">
+    <div style="padding:6px 0 4px"><span class="lbl">Tiền đi đâu</span></div>
+    <div class="crow"><span class="em" style="background:var(--id-1-tint)">🤝</span><span class="nm">Chuyển cho người khác<small>×26 · lớn nhất 57,2tr cho Duy Hiền</small></span><span class="amt num">74.019.000</span></div>
+    <div class="crow"><span class="em" style="background:var(--id-2-tint)">🛍️</span><span class="nm">Mua sắm<small>×32 · đồ thể thao, quần áo, giày</small></span><span class="amt num">19.453.094</span></div>
+    <div class="crow"><span class="em" style="background:var(--id-6-tint)">🍽️</span><span class="nm">Ăn uống<small>×110 · đi chợ 13,2tr, cà phê ×35</small></span><span class="amt num">19.346.495</span></div>
+    <span class="more">Xem 6 mục nữa</span>
+  </div>
+  <figcaption><b>C2</b><span>Dòng kể chuyện ×N</span></figcaption>
+</figure>
+
+<!-- C3 -->
+<figure>
+  <div class="card" style="padding:14px 16px 8px">
+    <span class="lbl">Tiền đi đâu</span>
+    <div style="display:flex;height:14px;border-radius:7px;overflow:hidden;gap:2px;margin-top:10px">
+      <i style="flex:50;background:var(--id-1)"></i><i style="flex:13;background:var(--id-2)"></i><i style="flex:13;background:var(--id-6)"></i><i style="flex:7;background:var(--id-3)"></i><i style="flex:6;background:var(--id-4)"></i><i style="flex:11;background:var(--stone-300)"></i>
+    </div>
+    <div class="crow" style="margin-top:8px"><span class="dot" style="background:var(--id-1)"></span><span class="nm">Chuyển cho người khác</span><span class="amt num">74.019.000</span><span class="pc num">50%</span></div>
+    <div class="crow"><span class="dot" style="background:var(--id-2)"></span><span class="nm">Mua sắm</span><span class="amt num">19.453.094</span><span class="pc num">13%</span></div>
+    <div class="crow"><span class="dot" style="background:var(--id-6)"></span><span class="nm">Ăn uống</span><span class="amt num">19.346.495</span><span class="pc num">13%</span></div>
+    <span class="more">Xem 6 mục nữa</span>
+  </div>
+  <figcaption><b>C3</b><span>Dải phổ + chú giải</span></figcaption>
+</figure>
+
+<!-- C4 -->
+<figure>
+  <div class="card" style="display:flex;gap:16px;align-items:center">
+    <svg viewBox="0 0 96 96" style="width:96px;height:96px;flex-shrink:0">
+      <circle cx="48" cy="48" r="40" fill="none" stroke="var(--stone-150)" stroke-width="12"/>
+      <circle cx="48" cy="48" r="40" fill="none" stroke="var(--id-1)" stroke-width="12" stroke-dasharray="125.6 251.3" stroke-linecap="round" transform="rotate(-90 48 48)"/>
+      <circle cx="48" cy="48" r="40" fill="none" stroke="var(--id-2)" stroke-width="12" stroke-dasharray="32.7 251.3" stroke-dashoffset="-125.6" stroke-linecap="round" transform="rotate(-90 48 48)"/>
+      <circle cx="48" cy="48" r="40" fill="none" stroke="var(--id-6)" stroke-width="12" stroke-dasharray="32.7 251.3" stroke-dashoffset="-158.3" stroke-linecap="round" transform="rotate(-90 48 48)"/>
+      <text x="48" y="45" text-anchor="middle" font-family="var(--disp)" font-size="15" font-weight="800" fill="var(--ink)">149tr</text>
+      <text x="48" y="60" text-anchor="middle" font-size="9" font-weight="600" fill="var(--muted-soft)">tiền ra</text>
+    </svg>
+    <div style="flex:1">
+      <div class="crow" style="padding:7px 0"><span class="dot" style="background:var(--id-1)"></span><span class="nm" style="font-size:13px">Chuyển tiền</span><span class="amt num" style="font-size:13px">50%</span></div>
+      <div class="crow" style="padding:7px 0"><span class="dot" style="background:var(--id-2)"></span><span class="nm" style="font-size:13px">Mua sắm</span><span class="amt num" style="font-size:13px">13%</span></div>
+      <div class="crow" style="padding:7px 0"><span class="dot" style="background:var(--id-6)"></span><span class="nm" style="font-size:13px">Ăn uống</span><span class="amt num" style="font-size:13px">13%</span></div>
+      <div class="crow" style="padding:7px 0"><span class="dot" style="background:var(--stone-300)"></span><span class="nm" style="font-size:13px">Khác</span><span class="amt num" style="font-size:13px">24%</span></div>
+    </div>
+  </div>
+  <figcaption><b>C4</b><span>Vòng + chú giải</span></figcaption>
+</figure>
+
+<!-- C5 -->
+<figure>
+  <div class="card" style="padding:14px">
+    <span class="lbl" style="display:block;padding:0 2px 10px">Tiền đi đâu</span>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div class="tile" style="background:var(--id-1-tint)"><span style="font-size:17px">🤝</span><div style="font-size:12px;font-weight:600;margin-top:4px">Chuyển tiền</div><div class="num" style="font-family:var(--disp);font-weight:700;font-size:15px;letter-spacing:-.3px">74,0tr ₫</div></div>
+      <div class="tile" style="background:var(--id-2-tint)"><span style="font-size:17px">🛍️</span><div style="font-size:12px;font-weight:600;margin-top:4px">Mua sắm</div><div class="num" style="font-family:var(--disp);font-weight:700;font-size:15px;letter-spacing:-.3px">19,5tr ₫</div></div>
+      <div class="tile" style="background:var(--id-6-tint)"><span style="font-size:17px">🍽️</span><div style="font-size:12px;font-weight:600;margin-top:4px">Ăn uống</div><div class="num" style="font-family:var(--disp);font-weight:700;font-size:15px;letter-spacing:-.3px">19,3tr ₫</div></div>
+      <div class="tile"><span style="font-size:17px">💼</span><div style="font-size:12px;font-weight:600;margin-top:4px">Công việc</div><div class="num" style="font-family:var(--disp);font-weight:700;font-size:15px;letter-spacing:-.3px">9,7tr ₫</div></div>
+    </div>
+    <span class="more">Xem 6 mục nữa</span>
+  </div>
+  <figcaption><b>C5</b><span>Ô màu định danh</span></figcaption>
+</figure>
+
+<!-- C6 -->
+<figure>
+  <div class="card" style="padding:10px 16px 12px">
+    <div style="padding:6px 0 2px"><span class="lbl">Tiền đi đâu</span></div>
+    <div class="crow"><span class="em">🤝</span><span class="nm" style="font-size:15px">Chuyển cho người khác</span><span class="amt num" style="font-size:16px">74.019.000 ₫</span></div>
+    <div class="crow"><span class="em">🛍️</span><span class="nm" style="font-size:15px">Mua sắm</span><span class="amt num" style="font-size:16px">19.453.094 ₫</span></div>
+    <div class="crow"><span class="em">🍽️</span><span class="nm" style="font-size:15px">Ăn uống</span><span class="amt num" style="font-size:16px">19.346.495 ₫</span></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 18px;margin-top:8px;border-top:1px solid var(--divider);padding-top:9px">
+      <span style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0"><span style="color:var(--muted)">💼 Công việc</span><span class="num" style="font-weight:600">9,7tr</span></span>
+      <span style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0"><span style="color:var(--muted)">🧾 Người bán</span><span class="num" style="font-weight:600">8,8tr</span></span>
+      <span style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0"><span style="color:var(--muted)">🎉 Giải trí</span><span class="num" style="font-weight:600">3,7tr</span></span>
+      <span style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0"><span style="color:var(--muted)">🎁 Biếu tặng</span><span class="num" style="font-weight:600">1,5tr</span></span>
+      <span style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0"><span style="color:var(--muted)">💊 Sức khỏe</span><span class="num" style="font-weight:600">597k</span></span>
+      <span style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0"><span style="color:var(--muted)">🗂️ Khác</span><span class="num" style="font-weight:600">100k</span></span>
+    </div>
+  </div>
+  <figcaption><b>C6</b><span>Ba lớn, phần còn gọn</span></figcaption>
+</figure>
+
+<!-- C7 -->
+<figure>
+  <div class="card" style="padding:14px 16px">
+    <span class="lbl">Tiền đi đâu</span>
+    <div style="display:flex;flex-direction:column;gap:11px;margin-top:12px">
+      <span><span style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:600"><span>🤝 Chuyển cho người khác</span><span class="num">74,0tr</span></span><span class="trk" style="height:8px;border-radius:4px;margin-top:4px"><i style="width:100%;border-radius:4px"></i></span></span>
+      <span><span style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:600"><span>🛍️ Mua sắm</span><span class="num">19,5tr</span></span><span class="trk" style="height:8px;border-radius:4px;margin-top:4px"><i style="width:26%;border-radius:4px"></i></span></span>
+      <span><span style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:600"><span>🍽️ Ăn uống</span><span class="num">19,3tr</span></span><span class="trk" style="height:8px;border-radius:4px;margin-top:4px"><i style="width:26%;border-radius:4px"></i></span></span>
+      <span><span style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:600"><span>💼 Công việc &amp; kinh doanh</span><span class="num">9,7tr</span></span><span class="trk" style="height:8px;border-radius:4px;margin-top:4px"><i style="width:13%;border-radius:4px"></i></span></span>
+      <span><span style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:600"><span>🧾 Thanh toán cho người bán</span><span class="num">8,8tr</span></span><span class="trk" style="height:8px;border-radius:4px;margin-top:4px"><i style="width:12%;border-radius:4px"></i></span></span>
+    </div>
+    <span class="more">Xem 5 mục nữa</span>
+  </div>
+  <figcaption><b>C7</b><span>Thanh ngang</span></figcaption>
+</figure>
+
+<!-- C8 -->
+<figure>
+  <div class="card" style="padding:10px 16px 8px">
+    <div style="padding:6px 0 4px"><span class="lbl">Tiền đi đâu</span></div>
+    <div class="crow"><span class="em">🤝</span><span class="nm">Chuyển cho người khác</span><span class="amt num">74.019.000</span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--stone-300)" stroke-width="2.4" style="transform:rotate(90deg)"><path d="M9 6l6 6-6 6"/></svg></div>
+    <div style="padding:1px 0 8px 41px;display:flex;flex-direction:column;gap:5px">
+      <span style="display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted)"><span>Chuyển cho người khác ×22</span><span class="num" style="color:var(--ink);font-weight:600">74.543.000</span></span>
+      <span style="display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted)"><span>Chia bill &amp; góp chung ×4</span><span class="num" style="color:var(--ink);font-weight:600">4.600.000</span></span>
+    </div>
+    <div class="crow"><span class="em">🍽️</span><span class="nm">Ăn uống</span><span class="amt num">19.346.495</span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--stone-300)" stroke-width="2.4" style="transform:rotate(90deg)"><path d="M9 6l6 6-6 6"/></svg></div>
+    <div style="padding:1px 0 8px 41px;display:flex;flex-direction:column;gap:5px">
+      <span style="display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted)"><span>Đi chợ &amp; siêu thị ×55</span><span class="num" style="color:var(--ink);font-weight:600">13.154.693</span></span>
+      <span style="display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted)"><span>Cà phê ×35</span><span class="num" style="color:var(--ink);font-weight:600">2.903.600</span></span>
+      <span style="display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted)"><span>Giao đồ ăn ×15</span><span class="num" style="color:var(--ink);font-weight:600">2.145.060</span></span>
+    </div>
+    <div class="crow"><span class="em">🛍️</span><span class="nm">Mua sắm</span><span class="amt num">19.453.094</span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--stone-300)" stroke-width="2.4"><path d="M9 6l6 6-6 6"/></svg></div>
+  </div>
+  <figcaption><b>C8</b><span>Cây mở sẵn</span></figcaption>
+</figure>
+
+</div>
+</div>
+</body>
+</html>
