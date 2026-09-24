@@ -41020,10 +41020,49 @@ window.classifyAmount = classifyAmount;
         'Màn hình của Google sẽ xin quyền đọc thư. Google chỉ có đúng một quyền như vậy và nó bao trùm cả hộp thư, không có quyền nào hẹp hơn. Tụi mình chỉ tải email ngân hàng, và bạn gỡ quyền trong tài khoản Google bất cứ lúc nào.',
         'Google’s screen asks for permission to read your mail. Google offers exactly one such permission and it covers the whole mailbox, there is no narrower one. We only ever fetch bank email, and you can revoke access in your Google account at any time.')) + '</span></div>' +
 
-      '<button class="cta" onclick="fhAutoTxnSetup()">' +
+      /* Consent lives INSIDE this step (activation-journey-spec Q28a): the slot
+         fills with the full PDPL text when no current record exists, and the
+         CTA becomes the agree. One continuous read → agree → the choices →
+         Google, instead of a separate sheet popping between the decision and
+         the connect. Same record, same version machinery (75-consent-ui). */
+      '<div id="atx-consent-slot"></div>' +
+
+      '<button class="cta" id="atx-step1-cta" onclick="fhAutoTxnSetup()">' +
         _esc(L('Tiếp tục', 'Continue')) + '</button>' +
       '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Để sau', 'Not now')) + '</button>'
     );
+    _atxConsentPrep(seq);
+  };
+
+  /* Fill the step-1 consent slot once the record is known. Fire-and-forget:
+     a slow read leaves the plain Continue, and fhConsentEnsure inside
+     fhAutoTxnGrant stays as the belt for that path. */
+  async function _atxConsentPrep(seq) {
+    if (!window.fhConsentState) return;
+    let st = null;
+    try { st = await window.fhConsentState(); } catch (e) { return; }
+    if (!st || !st.needed || seq !== _atxSheetSeq) return;
+    const slot = document.getElementById('atx-consent-slot');
+    const cta = document.getElementById('atx-step1-cta');
+    if (!slot || !cta) return;
+    slot.innerHTML = window.fhConsentInlineHTML ? window.fhConsentInlineHTML(st.prior) : '';
+    cta.textContent = L('Tôi hiểu và đồng ý, tiếp tục', 'I understand and agree, continue');
+    cta.setAttribute('onclick', 'fhAutoTxnAgreeGo(this)');
+  }
+
+  /* The step-1 agree: record the consent, then straight into the choices.
+     A failed insert keeps the person here — proceeding without the row is the
+     one thing this flow must never do. */
+  window.fhAutoTxnAgreeGo = async function (btn) {
+    if (btn) { btn.disabled = true; btn.textContent = L('Đang ghi nhận…', 'Recording…'); }
+    let ok = false;
+    try { ok = window.fhConsentRecord ? await window.fhConsentRecord() : false; } catch (e) { ok = false; }
+    if (!ok) {
+      if (btn) { btn.disabled = false; btn.textContent = L('Tôi hiểu và đồng ý, tiếp tục', 'I understand and agree, continue'); }
+      window.toast && window.toast(L('Chưa ghi nhận được, thử lại nhé', 'Could not record it, try again'));
+      return;
+    }
+    window.fhAutoTxnSetup();
   };
 
   /* STEP 2 OF 2 — the three decisions, as a grouped list.
@@ -42955,6 +42994,42 @@ window.classifyAmount = classifyAmount;
     };
 
     /* ── layer 2: the bank-email consent ────────────────────────────────────── */
+    /* The full bank-email consent, as one embeddable block: kicker, the
+       what-changed delta for a re-consent, the Q&A body (folded behind the
+       delta on a re-consent, in full for a first ask) and the small print.
+       Built for the connect flow's step 1 (activation-journey-spec Q28): the
+       consent is read and agreed INSIDE the flow, one continuous read → agree
+       → Google, instead of a second sheet interrupting it. The standalone
+       fhConsentSheet below stays for every other caller (review-entry offer,
+       Settings re-read); both render the same rows, so the recorded version
+       is always the text that was actually on screen. */
+    window.fhConsentInlineHTML = function (accepted) {
+      var rows = _cstBankRows();
+      var changed = _cstChangedBlock(FH_CONSENT_KIND, accepted, FH_CONSENT_V);
+      return _cstKicker(L('EMAIL NGÂN HÀNG', 'BANK EMAIL')) +
+        changed +
+        (changed ? _cstFullTextFold(rows, FH_CONSENT_V) : '<div class="cst-body">' + rows + '</div>') +
+        _cstBankSmallPrint();
+    };
+    /* {needed, prior}: is a bank-email consent at the current version on
+       record? Unreadable fails closed to "needed": the ask costs a screen,
+       the silence costs a lawful basis. */
+    window.fhConsentState = async function () {
+      var rec = null;
+      try { rec = await _cstFetch(); } catch (e) { return { needed: true, prior: null }; }
+      return { needed: !(rec && rec.version >= FH_CONSENT_V), prior: rec };
+    };
+    /* Record the agree (same row fhConsentAgree writes). True = recorded (or
+       already there); false = the insert failed and the caller must not proceed
+       as if consent existed. */
+    window.fhConsentRecord = async function () {
+      var res = await sb.from('user_consents').insert({ kind: FH_CONSENT_KIND, version: FH_CONSENT_V });
+      var dup = res.error && /duplicate key|already exists/i.test(res.error.message || '');
+      if (res.error && !dup) return false;
+      _cstKnown = { version: FH_CONSENT_V, consented_at: new Date().toISOString() };
+      return true;
+    };
+
     window.fhConsentSheet = async function (opts) {
       opts = opts || {};
       var ro = !!opts.readOnly;
@@ -42963,36 +43038,8 @@ window.classifyAmount = classifyAmount;
       var accepted = opts.prior || null;
       if (!opts.priorKnown) { try { accepted = await _cstFetch(); } catch (e) {} }
 
-      /* Ordered to the statutory triad -- what, why, how -- then the rest of
-         the "quyền được biết" list: who else receives it, how long it is kept,
-         the rights, and who is answerable (small print). The Q&A voice stays
-         because it reads; the coverage is what the law fixes. */
-      var rows =
-        _cstRow(L('Earthy lấy gì từ email?', 'What does Earthy take from the email?'), _esc(L(
-          'Số tiền, thời điểm, người nhận hoặc cửa hàng, lời nhắn chuyển khoản, số tài khoản đã che bớt, và tên ngân hàng.',
-          'The amount, the time, who was paid, the transfer note, the partially hidden account number, and the bank’s name.'))) +
-        _cstRow(L('Để làm gì?', 'What for?'), _esc(L(
-          'Chỉ để ghi vào sổ chi tiêu của gia đình bạn. Không bán, không quảng cáo, không chấm điểm tín dụng.',
-          'Only to record spending in your family’s ledger. Never sold, never ads, never credit scoring.'))) +
-        _cstRow(L('Có ai đọc được email của tôi không?', 'Can anyone read my emails?'), _esc(L(
-          'Lần đầu gặp một mẫu email của ngân hàng, tụi mình gửi email đó cho AI của Google một lần, để học cách đọc mẫu đó. Những email sau cùng mẫu được đọc ngay tại hệ thống, không gửi đi đâu nữa. Email trong hộp thư trung gian tự xoá sau 7 ngày; email không đọc được giữ tối đa 90 ngày rồi cũng xoá. Giao dịch chờ duyệt giữ đến khi bạn duyệt hoặc ngắt kết nối.',
-          'The first time we meet a new email format from a bank, we send that one email to Google’s AI once, to learn how to read that format. Every later email in the same format is read on our own systems and goes nowhere. Emails in the relay inbox delete themselves after 7 days; ones we could not read are kept at most 90 days, then deleted too. Pending transactions are kept until you review them or disconnect.'))) +
-        _cstRow(L('Còn file sao kê ngân hàng gửi kèm email?', 'What about statement files attached to an email?'), _esc(L(
-          'Tụi mình niêm phong file bằng khoá riêng của bạn và giữ tối đa 90 ngày, mở xong là xoá. File chỉ mở trên máy bạn; mật khẩu không rời khỏi máy. Để gợi ý danh mục, máy bạn có thể gửi tên cửa hàng cho AI của Google, không kèm số tiền, ngày hay tên người.',
-          'We seal the file with your own key and keep it for at most 90 days; it is deleted once opened. The file only opens on your device, and its password never leaves it. To suggest categories, your device may send merchant names to Google’s AI, never an amount, a date or a person’s name.'))) +
-        _cstRow(L('Ai mở được các giao dịch này?', 'Who can open these transactions?'), _esc(L(
-          'Mỗi giao dịch được niêm phong ngay khi đến, như thư bỏ vào két đã khoá: máy chủ giữ két, còn chìa chỉ nằm trên điện thoại của gia đình bạn.',
-          'Each transaction is sealed the moment it arrives, like a letter dropped into a locked safe: the server holds the safe, and the key lives only on your family’s phones.'))) +
-        _cstRow(L('Giao dịch có tự vào sổ không?', 'Do transactions enter the ledger by themselves?'), _esc(L(
-          'Không. Bạn duyệt từng khoản một. Muốn dừng, vào Cài đặt bấm Ngắt kết nối: dừng ngay và các khoản đang chờ được xoá hết.',
-          'No. You review every one. To stop, tap Disconnect in Settings: it stops at once and pending items are deleted.')));
-
-      var smallPrint = '<div class="cst-meta">' + _esc(L(
-        'Giao dịch ngân hàng là dữ liệu cá nhân nhạy cảm theo pháp luật, nên chúng tôi có lời xin phép riêng này. Vận hành: ' + FH_DATA_OPERATORS_VI + ' · ' + FH_DATA_CONTACT + ' · Chi tiết: ',
-        'Bank transactions are sensitive personal data under the law, which is why this feature asks separately. Operated by ' + FH_DATA_OPERATORS_EN + ' · ' + FH_DATA_CONTACT + ' · Details: ')) +
-        _cstPolicyLink() + '. ' +
-        _esc(L('Nếu không đồng ý, chỉ tính năng này không bật.', 'If you decline, only this feature stays off.')) + '</div>';
-
+      var rows = _cstBankRows();
+      var smallPrint = _cstBankSmallPrint();
       var footer;
       if (ro) {
         var when = accepted && accepted.consented_at ? new Date(accepted.consented_at) : null;
@@ -43020,6 +43067,41 @@ window.classifyAmount = classifyAmount;
       window._cstThen = ro ? null : (opts.then || null);
       window._cstLater = ro ? null : (opts.later || null);
     };
+
+    /* Ordered to the statutory triad -- what, why, how -- then the rest of
+       the "quyền được biết" list: who else receives it, how long it is kept,
+       the rights, and who is answerable (small print). The Q&A voice stays
+       because it reads; the coverage is what the law fixes. One builder, so
+       the standalone sheet and the connect flow's inline block cannot drift. */
+    function _cstBankRows() {
+      return (
+        _cstRow(L('Earthy lấy gì từ email?', 'What does Earthy take from the email?'), _esc(L(
+          'Số tiền, thời điểm, người nhận hoặc cửa hàng, lời nhắn chuyển khoản, số tài khoản đã che bớt, và tên ngân hàng.',
+          'The amount, the time, who was paid, the transfer note, the partially hidden account number, and the bank’s name.'))) +
+        _cstRow(L('Để làm gì?', 'What for?'), _esc(L(
+          'Chỉ để ghi vào sổ chi tiêu của gia đình bạn. Không bán, không quảng cáo, không chấm điểm tín dụng.',
+          'Only to record spending in your family’s ledger. Never sold, never ads, never credit scoring.'))) +
+        _cstRow(L('Có ai đọc được email của tôi không?', 'Can anyone read my emails?'), _esc(L(
+          'Lần đầu gặp một mẫu email của ngân hàng, tụi mình gửi email đó cho AI của Google một lần, để học cách đọc mẫu đó. Những email sau cùng mẫu được đọc ngay tại hệ thống, không gửi đi đâu nữa. Email trong hộp thư trung gian tự xoá sau 7 ngày; email không đọc được giữ tối đa 90 ngày rồi cũng xoá. Giao dịch chờ duyệt giữ đến khi bạn duyệt hoặc ngắt kết nối.',
+          'The first time we meet a new email format from a bank, we send that one email to Google’s AI once, to learn how to read that format. Every later email in the same format is read on our own systems and goes nowhere. Emails in the relay inbox delete themselves after 7 days; ones we could not read are kept at most 90 days, then deleted too. Pending transactions are kept until you review them or disconnect.'))) +
+        _cstRow(L('Còn file sao kê ngân hàng gửi kèm email?', 'What about statement files attached to an email?'), _esc(L(
+          'Tụi mình niêm phong file bằng khoá riêng của bạn và giữ tối đa 90 ngày, mở xong là xoá. File chỉ mở trên máy bạn; mật khẩu không rời khỏi máy. Để gợi ý danh mục, máy bạn có thể gửi tên cửa hàng cho AI của Google, không kèm số tiền, ngày hay tên người.',
+          'We seal the file with your own key and keep it for at most 90 days; it is deleted once opened. The file only opens on your device, and its password never leaves it. To suggest categories, your device may send merchant names to Google’s AI, never an amount, a date or a person’s name.'))) +
+        _cstRow(L('Ai mở được các giao dịch này?', 'Who can open these transactions?'), _esc(L(
+          'Mỗi giao dịch được niêm phong ngay khi đến, như thư bỏ vào két đã khoá: máy chủ giữ két, còn chìa chỉ nằm trên điện thoại của gia đình bạn.',
+          'Each transaction is sealed the moment it arrives, like a letter dropped into a locked safe: the server holds the safe, and the key lives only on your family’s phones.'))) +
+        _cstRow(L('Giao dịch có tự vào sổ không?', 'Do transactions enter the ledger by themselves?'), _esc(L(
+          'Không. Bạn duyệt từng khoản một. Muốn dừng, vào Cài đặt bấm Ngắt kết nối: dừng ngay và các khoản đang chờ được xoá hết.',
+          'No. You review every one. To stop, tap Disconnect in Settings: it stops at once and pending items are deleted.'))));
+    }
+
+    function _cstBankSmallPrint() {
+      return '<div class="cst-meta">' + _esc(L(
+        'Giao dịch ngân hàng là dữ liệu cá nhân nhạy cảm theo pháp luật, nên chúng tôi có lời xin phép riêng này. Vận hành: ' + FH_DATA_OPERATORS_VI + ' · ' + FH_DATA_CONTACT + ' · Chi tiết: ',
+        'Bank transactions are sensitive personal data under the law, which is why this feature asks separately. Operated by ' + FH_DATA_OPERATORS_EN + ' · ' + FH_DATA_CONTACT + ' · Details: ')) +
+        _cstPolicyLink() + '. ' +
+        _esc(L('Nếu không đồng ý, chỉ tính năng này không bật.', 'If you decline, only this feature stays off.')) + '</div>';
+    }
 
     /* "Để sau". On the blocking gate this only closes the sheet, as it always has.
        On the soft offer below it also carries on to where the person was going. */

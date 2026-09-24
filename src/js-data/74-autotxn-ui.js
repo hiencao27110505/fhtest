@@ -465,10 +465,49 @@
         'Màn hình của Google sẽ xin quyền đọc thư. Google chỉ có đúng một quyền như vậy và nó bao trùm cả hộp thư, không có quyền nào hẹp hơn. Tụi mình chỉ tải email ngân hàng, và bạn gỡ quyền trong tài khoản Google bất cứ lúc nào.',
         'Google’s screen asks for permission to read your mail. Google offers exactly one such permission and it covers the whole mailbox, there is no narrower one. We only ever fetch bank email, and you can revoke access in your Google account at any time.')) + '</span></div>' +
 
-      '<button class="cta" onclick="fhAutoTxnSetup()">' +
+      /* Consent lives INSIDE this step (activation-journey-spec Q28a): the slot
+         fills with the full PDPL text when no current record exists, and the
+         CTA becomes the agree. One continuous read → agree → the choices →
+         Google, instead of a separate sheet popping between the decision and
+         the connect. Same record, same version machinery (75-consent-ui). */
+      '<div id="atx-consent-slot"></div>' +
+
+      '<button class="cta" id="atx-step1-cta" onclick="fhAutoTxnSetup()">' +
         _esc(L('Tiếp tục', 'Continue')) + '</button>' +
       '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Để sau', 'Not now')) + '</button>'
     );
+    _atxConsentPrep(seq);
+  };
+
+  /* Fill the step-1 consent slot once the record is known. Fire-and-forget:
+     a slow read leaves the plain Continue, and fhConsentEnsure inside
+     fhAutoTxnGrant stays as the belt for that path. */
+  async function _atxConsentPrep(seq) {
+    if (!window.fhConsentState) return;
+    let st = null;
+    try { st = await window.fhConsentState(); } catch (e) { return; }
+    if (!st || !st.needed || seq !== _atxSheetSeq) return;
+    const slot = document.getElementById('atx-consent-slot');
+    const cta = document.getElementById('atx-step1-cta');
+    if (!slot || !cta) return;
+    slot.innerHTML = window.fhConsentInlineHTML ? window.fhConsentInlineHTML(st.prior) : '';
+    cta.textContent = L('Tôi hiểu và đồng ý, tiếp tục', 'I understand and agree, continue');
+    cta.setAttribute('onclick', 'fhAutoTxnAgreeGo(this)');
+  }
+
+  /* The step-1 agree: record the consent, then straight into the choices.
+     A failed insert keeps the person here — proceeding without the row is the
+     one thing this flow must never do. */
+  window.fhAutoTxnAgreeGo = async function (btn) {
+    if (btn) { btn.disabled = true; btn.textContent = L('Đang ghi nhận…', 'Recording…'); }
+    let ok = false;
+    try { ok = window.fhConsentRecord ? await window.fhConsentRecord() : false; } catch (e) { ok = false; }
+    if (!ok) {
+      if (btn) { btn.disabled = false; btn.textContent = L('Tôi hiểu và đồng ý, tiếp tục', 'I understand and agree, continue'); }
+      window.toast && window.toast(L('Chưa ghi nhận được, thử lại nhé', 'Could not record it, try again'));
+      return;
+    }
+    window.fhAutoTxnSetup();
   };
 
   /* STEP 2 OF 2 — the three decisions, as a grouped list.
