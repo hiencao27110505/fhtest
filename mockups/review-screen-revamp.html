@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Duyệt giao dịch — 8 phương án</title>
+<style>
+/* ═══ App tokens (mirrored from src/css/10-tokens.css — do not drift) ═══ */
+:root{
+  --sage-50:#ebfbf6;--sage-100:#d6f5eb;--sage-200:#afe9d8;--sage-300:#7ad5bd;--sage-400:#4abba1;--sage-500:#149d83;--sage-600:#007c65;--sage-800:#095143;--sage-900:#0a362c;
+  --sage-wash:rgba(20,157,131,.18);
+  --stone-25:#fafcfc;--stone-50:#f6f9f8;--stone-100:#f0f5f3;--stone-150:#ecf1f0;--stone-200:#e3eae7;--stone-300:#c3cdca;--stone-400:#7f8986;--stone-500:#6f7674;--stone-600:#626b68;--stone-800:#2e3835;--stone-900:#0e1613;
+  --red-base:#d63053;--amber-base:#be7200;
+  --id-1:#0b67a9;--id-2:#5a94e0;--id-3:#9e5cd1;--id-4:#e6659c;--id-5:#b52f4a;--id-6:#bc6d24;
+  --brand:var(--sage-500);--brand-ink:var(--sage-600);--brand-tint:var(--sage-50);
+  --grad-brand:linear-gradient(135deg,var(--sage-500),var(--sage-400));
+  --ink:var(--stone-900);--ink-2:var(--stone-800);--muted:var(--stone-600);--muted-soft:var(--stone-500);
+  --white:#fff;--canvas:var(--stone-100);--hairline:var(--stone-200);--divider:var(--stone-150);--surface:var(--stone-50);
+  --shadow-card:0 1px 3px rgba(14,22,19,.05),0 8px 24px rgba(14,22,19,.04);
+  --shadow-focal:0 1px 3px rgba(14,22,19,.05),0 12px 30px rgba(14,22,19,.09);
+  --r:22px;
+  --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--text);background:var(--canvas);color:var(--ink);-webkit-font-smoothing:antialiased}
+.num{font-family:var(--disp);font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+
+/* ═══ Gallery chrome ═══ */
+.wrap{max-width:1340px;margin:0 auto;padding:40px 24px 90px}
+header.gal{margin-bottom:34px;max-width:760px}
+.gal-eyebrow{font-size:11px;font-weight:700;letter-spacing:.14em;color:var(--brand-ink);text-transform:uppercase}
+.gal h1{font-family:var(--disp);font-size:34px;font-weight:800;letter-spacing:-1px;margin:6px 0 10px}
+.gal p{font-size:14.5px;line-height:1.6;color:var(--muted)}
+.gal .rule{margin-top:18px;display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted-soft)}
+.gal .rule b{color:var(--ink-2);font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:38px 30px}
+figure.opt{margin:0}
+.cap{padding:16px 6px 0}
+.cap .n{display:inline-block;font-family:var(--disp);font-weight:800;font-size:12px;letter-spacing:.08em;color:var(--brand-ink);background:var(--brand-tint);border-radius:6px;padding:3px 8px;margin-right:8px}
+.cap .t{font-family:var(--disp);font-weight:700;font-size:17px;letter-spacing:-.3px}
+.cap .why{margin-top:7px;font-size:13px;line-height:1.55;color:var(--muted)}
+.cap .vd{margin-top:8px;display:flex;flex-direction:column;gap:3px;font-size:12.5px;line-height:1.5}
+.cap .vd span{color:var(--ink-2)} .cap .vd em{font-style:normal;color:var(--muted-soft)}
+.cap .vd .plus::before{content:"Được — ";font-weight:700;color:var(--sage-600)}
+.cap .vd .minus::before{content:"Đánh đổi — ";font-weight:700;color:var(--amber-base)}
+
+/* ═══ Phone frame ═══ */
+.ph{width:100%;max-width:404px;margin:0 auto;background:var(--stone-25);border:1px solid var(--hairline);border-radius:34px;box-shadow:var(--shadow-focal);overflow:hidden}
+.scr{height:790px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:var(--canvas)}
+.fade{position:absolute;left:0;right:0;bottom:0;height:44px;background:linear-gradient(rgba(240,245,243,0),var(--canvas));pointer-events:none}
+/* nav bar */
+.nav{display:flex;align-items:center;justify-content:space-between;padding:16px 18px 12px;background:var(--stone-25)}
+.nav .bk{width:34px;height:34px;display:flex;align-items:center;justify-content:center;color:var(--ink)}
+.nav .ttl{font-family:var(--disp);font-weight:700;font-size:17px;letter-spacing:-.2px}
+.nav .act{font-family:var(--disp);font-weight:700;font-size:16px;color:var(--brand-ink)}
+.nav .act.off{color:var(--stone-300)}
+svg{display:block}
+.body{flex:1;overflow:hidden;padding:14px 14px 0;display:flex;flex-direction:column;gap:12px}
+/* toolbox */
+.txb{display:flex;gap:8px;padding:0 14px 12px;background:var(--stone-25);border-bottom:1px solid var(--divider)}
+.tb{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:var(--white);border:1px solid var(--hairline);border-radius:14px;padding:11px 6px;font-size:12.5px;font-weight:600;color:var(--ink-2)}
+.tb .bn{font-family:var(--disp);font-weight:700;font-size:11px;background:var(--surface);border-radius:8px;padding:2px 7px;color:var(--muted)}
+.tb.ico{flex:0 0 46px}
+/* shared atoms */
+.card{background:var(--white);border-radius:var(--r);box-shadow:var(--shadow-card);padding:16px}
+.lbl{font-size:10.5px;font-weight:700;letter-spacing:.12em;color:var(--muted-soft);text-transform:uppercase}
+.pill-row{display:flex;gap:6px}
+.pz{display:inline-flex;background:var(--surface);border-radius:12px;padding:3px}
+.pz b,.pz span{font-size:12.5px;font-weight:600;padding:6px 13px;border-radius:9px;color:var(--muted)}
+.pz b{background:var(--white);color:var(--ink);box-shadow:0 1px 3px rgba(14,22,19,.08)}
+.tile2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tile{background:var(--surface);border-radius:14px;padding:10px 12px}
+.tile .tl{font-size:11.5px;font-weight:600;color:var(--muted);display:flex;gap:5px;align-items:center}
+.tile .tv{font-family:var(--disp);font-weight:700;font-size:17px;letter-spacing:-.4px;margin-top:2px}
+.up{color:var(--sage-600)} .dn{color:var(--ink)}
+.bars{display:flex;align-items:flex-end;gap:7px;height:86px;padding-top:16px}
+.bars i{flex:1;background:var(--brand);border-radius:5px 5px 2px 2px;position:relative}
+.bars i.ghost{background:var(--stone-200)}
+.bars i .v{position:absolute;top:-15px;left:50%;transform:translateX(-50%);font-size:9.5px;font-weight:700;color:var(--muted);white-space:nowrap}
+.bars i.on{background:var(--sage-600)}
+.xlab{display:flex;gap:7px;margin-top:6px}
+.xlab s{flex:1;text-decoration:none;text-align:center;font-size:10px;color:var(--muted-soft)}
+.crow{display:flex;align-items:center;gap:11px;padding:11px 2px;border-top:1px solid var(--divider)}
+.crow:first-of-type{border-top:0}
+.crow .em{width:30px;height:30px;border-radius:9px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:15px}
+.crow .nm{flex:1;min-width:0;font-size:14px;font-weight:600;letter-spacing:-.1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crow .amt{font-family:var(--disp);font-weight:700;font-size:14px;letter-spacing:-.3px}
+.crow .pc{font-size:11.5px;color:var(--muted-soft);width:34px;text-align:right}
+.trk{display:block;height:4px;border-radius:2px;background:var(--stone-150);margin-top:5px;overflow:hidden;position:relative}
+.trk i{position:absolute;left:0;top:0;bottom:0;border-radius:2px;background:var(--brand)}
+.qcard{background:var(--white);border-radius:16px;box-shadow:var(--shadow-card);padding:12px 14px;display:flex;gap:10px;align-items:center}
+.qcard .ck{width:22px;height:22px;border-radius:7px;background:var(--brand);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.qcard .bd{flex:1;min-width:0}
+.qcard .l1{display:flex;justify-content:space-between;gap:8px;font-size:13.5px;font-weight:600}
+.qcard .l1 .a{font-family:var(--disp);font-weight:700;letter-spacing:-.3px;white-space:nowrap}
+.qcard .l2{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted-soft);margin-top:2px}
+.dayh{font-size:12px;font-weight:700;color:var(--muted);padding:2px 4px}
+.cta{display:flex;align-items:center;justify-content:center;gap:8px;background:var(--grad-brand);color:#fff;font-family:var(--disp);font-weight:700;font-size:15px;border-radius:999px;padding:14px;box-shadow:0 8px 22px rgba(20,157,131,.28)}
+.ghostbtn{display:block;text-align:center;font-size:13.5px;font-weight:600;color:var(--brand-ink);padding:10px}
+.ok✓{}
+@media (max-width:480px){ .grid{grid-template-columns:1fr} .scr{height:720px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="gal">
+  <div class="gal-eyebrow">FamilyHub · Duyệt giao dịch</div>
+  <h1>Tám phương án cho màn duyệt</h1>
+  <p>Trạng thái B của màn duyệt — sau khi đọc xong email. Ảnh chụp hiện tại vỡ ở đúng chỗ quan trọng: hàng đã duyệt hết thì màn chỉ còn một biểu đồ trôi nổi, cây danh mục toàn chevron chết và một chữ "Others" lạc giọng. Mỗi phương án dưới đây đặt một CƯỢC CẤU TRÚC khác nhau — thứ tự ưu tiên giữa số liệu, biểu đồ, cây danh mục và hàng chờ — không phải tám lớp sơn.</p>
+  <div class="rule"><b>Số liệu thật</b> từ máy test · <b>token thật</b> từ 10-tokens.css · <b>SF Pro</b> · emoji chỉ làm dấu nội dung · một focal mỗi màn</div>
+</header>
+
+<div class="grid">
+
+<!-- ═══════════ 01 · BẢNG TỔNG KẾT ═══════════ -->
+<figure class="opt">
+  <div class="ph"><div class="scr">
+    <div class="nav"><span class="bk"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></span><span class="ttl">Duyệt giao dịch</span><span class="act">Nhập 346</span></div>
+    <div class="txb"><span class="tb">☰ Chọn nhanh</span><span class="tb">✎ Sửa <span class="bn">346</span></span><span class="tb ico">🗄</span><span class="tb ico">📊</span></div>
+    <div class="body">
+      <div class="card" style="padding:14px 16px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline">
+          <span class="lbl">90 ngày qua</span>
+          <span class="pz"><b>Tuần</b><span>Tháng</span></span>
+        </div>
+        <div class="tile2" style="margin-top:10px">
+          <div class="tile"><span class="tl"><span class="up">↑</span> Tiền vào</span><span class="tv up num">8.476.093 ₫</span></div>
+          <div class="tile"><span class="tl"><span>↓</span> Tiền ra</span><span class="tv num">149.032.198 ₫</span></div>
+        </div>
+        <div class="bars">
+          <i class="ghost" style="height:100%"><span class="v num">38tr</span></i><i class="ghost" style="height:26%"></i><i class="ghost" style="height:56%"></i><i class="ghost" style="height:14%"></i><i class="ghost" style="height:48%"></i><i class="ghost" style="height:10%"></i><i class="ghost" style="height:22%"></i><i class="ghost" style="height:8%"><span class="v num">1,2tr</span></i>
+        </div>
+        <div class="xlab"><s>8</s><s>10/8</s><s>17/8</s><s>24/8</s><s>31/8</s><s>7/9</s><s>14/9</s><s>21/9</s></div>
+        <div style="font-size:11px;color:var(--muted-soft);margin-top:6px">Cột xám: chưa vào sổ — đặc dần khi bạn nhập</div>
+      </div>
+      <div class="card" style="padding:8px 16px 6px">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0 4px"><span class="lbl">Tiền đi đâu</span><span style="font-size:12px;color:var(--muted-soft)">% của 149tr</span></div>
+        <div class="crow"><span class="em">🤝</span><span class="nm">Chuyển cho người khác<span class="trk"><i style="width:50%"></i></span></span><span class="amt num">74.019.000</span><span class="pc num">50%</span></div>
+        <div class="crow"><span class="em">🛍️</span><span class="nm">Mua sắm<span class="trk"><i style="width:13%"></i></span></span><span class="amt num">19.453.094</span><span class="pc num">13%</span></div>
+        <div class="crow"><span class="em">🍽️</span><span class="nm">Ăn uống<span class="trk"><i style="width:13%"></i></span></span><span class="amt num">19.346.495</span><span class="pc num">13%</span></div>
+        <div class="crow"><span class="em">💼</span><span class="nm">Công việc &amp; kinh doanh<span class="trk"><i style="width:7%"></i></span></span><span class="amt num">9.708.445</span><span class="pc num">7%</span></div>
+        <div class="crow"><span class="em">🧾</span><span class="nm">Thanh toán cho người bán<span class="trk"><i style="width:6%"></i></span></span><span class="amt num">8.804.021</span><span class="pc num">6%</span></div>
+        <div class="ghostbtn">Xem 5 mục nữa</div>
+      </div>
+      <div class="dayh">Thứ 3, 23/09</div>
+      <div class="qcard"><span class="ck"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round"><path d="M5 13l4 4L19 7"/></svg></span><span class="bd"><span class="l1"><span>AEON NGUYEN VAN LINH</span><span class="a num">−45.000 ₫</span></span><span class="l2"><span>🛒 Đi chợ &amp; siêu thị</span><span>VCB ••2279 · 21:56</span></span></span></div>
+    </div>
+    <div class="fade"></div>
+  </div></div>
+  <figcaption class="cap">
+    <span class="n">01</span><span class="t">Bảng tổng kết</span>
+    <div class="why">Một thẻ số liệu (hai ô + biểu đồ gọn trong cùng khung), một thẻ danh mục phẳng có thanh tỉ lệ và cột %, rồi tới hàng chờ. Sửa đúng cái đang vỡ, giữ đúng cấu trúc hiện tại.</div>
+    <div class="vd"><span class="plus">ít rủi ro nhất, mọi thành phần đã tồn tại — chỉ gom vào khung và thêm %.</span><em class="minus">cây danh mục mất tầng con; muốn xem nhánh phải chạm vào từng mục.</em></div>
+  </figcaption>
+</figure>
+
+<!-- ═══════════ 02 · HAI THẺ PHÂN ĐOẠN ═══════════ -->
+<figure class="opt">
+  <div class="ph"><div class="scr">
+    <div class="nav"><span class="bk"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></span><span class="ttl">Duyệt giao dịch</span><span class="act">Nhập 346</span></div>
+    <div style="padding:0 14px 12px;background:var(--stone-25);border-bottom:1px solid var(--divider)">
+      <div class="pz" style="display:flex"><b style="flex:1;text-align:center">Hàng chờ · 346</b><span style="flex:1;text-align:center">Bức tranh</span></div>
+    </div>
+    <div class="body">
+      <div class="card" style="padding:12px 14px;display:flex;gap:12px;align-items:center">
+        <span style="flex:1"><span class="lbl">Sẽ nhập</span><div class="num" style="font-family:var(--disp);font-weight:700;font-size:19px;letter-spacing:-.4px;margin-top:2px">346 khoản · 149,0tr ₫</div></span>
+        <span class="pz"><b>Tất cả</b><span>Tuần này</span></span>
+      </div>
+      <div class="dayh">Thứ 3, 23/09 · 6 khoản</div>
+      <div class="qcard"><span class="ck"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round"><path d="M5 13l4 4L19 7"/></svg></span><span class="bd"><span class="l1"><span>AEON NGUYEN VAN LINH</span><span class="a num">−45.000 ₫</span></span><span class="l2"><span>🛒 Đi chợ &amp; siêu thị</span><span>VCB ••2279 · 21:56</span></span></span></div>
+      <div class="qcard"><span class="ck"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round"><path d="M5 13l4 4L19 7"/></svg></span><span class="bd"><span class="l1"><span>GRAB *TRIP HCM</span><span class="a num">−86.000 ₫</span></span><span class="l2"><span>🚗 Đi lại</span><span>VCB ••2279 · 18:12</span></span></span></div>
+      <div class="qcard" style="opacity:.92"><span class="ck" style="background:var(--white);border:1.6px solid var(--stone-300)"></span><span class="bd"><span class="l1"><span>CAO THÁI DUY HIỀN chuyển tiền</span><span class="a num">−2.500.000 ₫</span></span><span class="l2"><span>🤝 Có thể trùng · chờ bạn xem</span><span>VIB ••5140 · 09:40</span></span></span></div>
+      <div class="dayh">Thứ 2, 22/09 · 4 khoản</div>
+      <div class="qcard"><span class="ck"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round"><path d="M5 13l4 4L19 7"/></svg></span><span class="bd"><span class="l1"><span>HIGHLANDS COFFEE</span><span class="a num">−65.000 ₫</span></span><span class="l2"><span>☕ Cà phê</span><span>MoMo · 08:03</span></span></span></div>
+      <div class="qcard"><span class="ck"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round"><path d="M5 13l4 4L19 7"/></svg></span><span class="bd"><span class="l1"><span>CGV VIVO CITY</span><span class="a num">−391.500 ₫</span></span><span class="l2"><span>🎉 Rạp phim</span><span>VCB ••2279 · 20:45</span></span></span></div>
+    </div>
+    <div class="fade"></div>
+  </div></div>
+  <figcaption class="cap">
+    <span class="n">02</span><span class="t">Hai ngăn: Hàng chờ · Bức tranh</span>
+    <div class="why">Một segmented control kiểu iOS tách hai việc khác bản chất: DUYỆT (danh sách, tick, sửa) và HIỂU (số liệu, biểu đồ, cây). Ngăn Hàng chờ chỉ còn một dòng tổng "sẽ nhập"; toàn bộ bức tranh sang ngăn kia.</div>
+    <div class="vd"><span class="plus">mỗi ngăn một việc, hết cảnh cuộn qua 4 khối chrome mới tới thẻ đầu tiên; hàng-chờ-rỗng chỉ rỗng một ngăn.</span><em class="minus">bức tranh bớt "đập vào mắt" — người không chạm ngăn kia sẽ không thấy chart.</em></div>
+  </figcaption>
+</figure>
+
+<!-- ═══════════ 03 · BIỂU ĐỒ DẪN CHUYỆN ═══════════ -->
+<figure class="opt">
+  <div class="ph"><div class="scr">
+    <div class="nav"><span class="bk"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></span><span class="ttl">Duyệt giao dịch</span><span class="act">Nhập 346</span></div>
+    <div class="txb"><span class="tb">☰ Chọn nhanh</span><span class="tb">✎ Sửa <span class="bn">346</span></span><span class="tb ico">🗄</span></div>
+    <div class="body">
+      <div class="card" style="padding:16px 16px 12px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <span><span class="lbl">Tuần 17–23/8 · chạm cột để xem</span>
+          <div class="num" style="font-family:var(--disp);font-weight:800;font-size:26px;letter-spacing:-.7px;margin-top:3px">21.400.000 ₫</div>
+          <div style="font-size:12px;color:var(--muted)">42 khoản · nhiều nhất: 🤝 Chuyển 14,2tr</div></span>
+          <span class="pz"><b>Tuần</b><span>Tháng</span></span>
+        </div>
+        <div class="bars" style="height:110px">
+          <i class="ghost" style="height:100%"></i><i class="ghost" style="height:26%"></i><i class="on" style="height:56%"></i><i class="ghost" style="height:14%"></i><i class="ghost" style="height:48%"></i><i class="ghost" style="height:10%"></i><i class="ghost" style="height:22%"></i><i class="ghost" style="height:8%"></i>
+        </div>
+        <div class="xlab"><s>8</s><s>10/8</s><s><b style="color:var(--sage-600)">17/8</b></s><s>24/8</s><s>31/8</s><s>7/9</s><s>14/9</s><s>21/9</s></div>
+      </div>
+      <div class="card" style="padding:8px 16px 6px">
+        <div class="crow"><span class="em">🤝</span><span class="nm">Chuyển cho người khác</span><span class="amt num">74.019.000</span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--stone-300)" stroke-width="2.4"><path d="M9 6l6 6-6 6"/></svg></div>
+        <div class="crow"><span class="em">🛍️</span><span class="nm">Mua sắm</span><span class="amt num">19.453.094</span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--stone-300)" stroke-width="2.4"><path d="M9 6l6 6-6 6"/></svg></div>
+        <div class="crow"><span class="em">🍽️</span><span class="nm">Ăn uống</span><span class="amt num">19.346.495</span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--stone-300)" stroke-width="2.4"><path d="M9 6l6 6-6 6"/></svg></div>
+        <div class="ghostbtn">Xem cả 10 danh mục</div>
+      </div>
+      <div class="dayh">Thứ 3, 23/09</div>
+      <div class="qcard"><span class="ck"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round"><path d="M5 13l4 4L19 7"/></svg></span><span class="bd"><span class="l1"><span>AEON NGUYEN VAN LINH</span><span class="a num">−45.000 ₫</span></span><span class="l2"><span>🛒 Đi chợ &amp; siêu thị</span><span>VCB ••2279 · 21:56</span></span></span></div>
+    </div>
+    <div class="fade"></div>
+  </div></div>
+  <figcaption class="cap">
+    <span class="n">03</span><span class="t">Biểu đồ dẫn chuyện</span>
+    <div class="why">Chart là focal thật sự: chạm một cột thì con số lớn + dòng "nhiều nhất" kể chuyện tuần đó, các cột khác lui về xám. Danh mục rút còn top-3 + một cửa; hàng chờ ngay dưới.</div>
+    <div class="vd"><span class="plus">một focal rõ ràng, "zoom in" nghĩa đen — mỗi lần chạm là một câu trả lời.</span><em class="minus">phụ thuộc tương tác; ảnh chụp tĩnh (và người lười chạm) chỉ thấy một tuần.</em></div>
+  </figcaption>
+</figure>
+
+<!-- ═══════════ 04 · BẢN ĐỒ DÒNG TIỀN ═══════════ -->
+<figure class="opt">
+  <div class="ph"><div class="scr">
+    <div class="nav"><span class="bk"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></span><span class="ttl">Duyệt giao dịch</span><span class="act">Nhập 346</span></div>
+    <div class="txb"><span class="tb">☰ Chọn nhanh</span><span class="tb">✎ Sửa <span class="bn">346</span></span><span class="tb ico">🗄</span><span class="tb ico">📊</span></div>
+    <div class="body">
+      <div class="card">
+        <span class="lbl">Tiền ra · 90 ngày</span>
+        <div class="num" style="font-family:var(--disp);font-weight:800;font-size:30px;letter-spacing:-.8px;margin:4px 0 2px">149.032.198 ₫</div>
+        <div style="font-size:12.5px;color:var(--muted)">346 khoản · <span class="up num" style="font-weight:600">↑ vào 8.476.093 ₫</span></div>
+        <div style="display:flex;height:14px;border-radius:7px;overflow:hidden;gap:2px;margin-top:14px">
+          <i style="flex:50;background:var(--id-1)"></i><i style="flex:13;background:var(--id-2)"></i><i style="flex:13;background:var(--id-6)"></i><i style="flex:7;background:var(--id-3)"></i><i style="flex:6;background:var(--id-4)"></i><i style="flex:11;background:var(--stone-300)"></i>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px 12px;margin-top:10px;font-size:11.5px;color:var(--ink-2)">
+          <span><i style="display:inline-block;width:8px;height:8px;border-radius:3px;background:var(--id-1)"></i> Chuyển 50%</span>
+          <span><i style="display:inline-block;width:8px;height:8px;border-radius:3px;background:var(--id-2)"></i> Mua sắm 13%</span>
+          <span><i style="display:inline-block;width:8px;height:8px;border-radius:3px;background:var(--id-6)"></i> Ăn uống 13%</span>
+          <span><i style="display:inline-block;width:8px;height:8px;border-radius:3px;background:var(--stone-300)"></i> Khác 24%</span>
+        </div>
+      </div>
+      <div class="card" style="padding:8px 16px 6px">
+        <div class="crow"><span class="em" style="background:#e5f4ff">🤝</span><span class="nm">Chuyển cho người khác<span style="display:block;font-size:11.5px;font-weight:500;color:var(--muted-soft)">×26 · lớn nhất 57,2tr cho Duy Hiền</span></span><span class="amt num">74.019.000</span></div>
+        <div class="crow"><span class="em" style="background:#e7f3ff">🛍️</span><span class="nm">Mua sắm<span style="display:block;font-size:11.5px;font-weight:500;color:var(--muted-soft)">×32 · Đồ thể thao, quần áo, giày</span></span><span class="amt num">19.453.094</span></div>
+        <div class="crow"><span class="em" style="background:#ffeee2">🍽️</span><span class="nm">Ăn uống<span style="display:block;font-size:11.5px;font-weight:500;color:var(--muted-soft)">×110 · Đi chợ 13,2tr, cà phê ×35</span></span><span class="amt num">19.346.495</span></div>
+        <div class="ghostbtn">Xem cả 10 danh mục</div>
+      </div>
+      <div class="dayh">346 khoản chờ duyệt</div>
+      <div class="qcard"><span class="ck"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round"><path d="M5 13l4 4L19 7"/></svg></span><span class="bd"><span class="l1"><span>AEON NGUYEN VAN LINH</span><span class="a num">−45.000 ₫</span></span><span class="l2"><span>🛒 Đi chợ &amp; siêu thị</span><span>VCB ••2279 · 21:56</span></span></span></div>
+    </div>
+    <div class="fade"></div>
+  </div></div>
+  <figcaption class="cap">
+    <span class="n">04</span><span class="t">Bản đồ dòng tiền</span>
+    <div class="why">Một dải phổ 100% (sáu slot màu định danh của app — đúng hệ --id-*) là hero: cả 149tr trong MỘT hình. Biểu đồ cột lui hẳn sau nút 📊; mỗi danh mục mang một dòng phụ kể chuyện (×N, khoản lớn nhất).</div>
+    <div class="vd"><span class="plus">trả lời "tiền đi đâu" trong một giây; dòng phụ ×N thay cho tầng cây mà không cần mở gì.</span><em class="minus">mất trục thời gian trên màn chính — "tuần nào tiêu nhiều" phải thêm một chạm.</em></div>
+  </figcaption>
+</figure>
+
+<!-- ═══════════ 05 · Ô NHỎ KIỂU HEALTH ═══════════ -->
+<figure class="opt">
+  <div class="ph"><div class="scr">
+    <div class="nav"><span class="bk"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></span><span class="ttl">Duyệt giao dịch</span><span class="act">Nhập 346</span></div>
+    <div class="txb"><span class="tb">☰ Chọn nhanh</span><span class="tb">✎ Sửa <span class="bn">346</span></span><span class="tb ico">🗄</span></div>
+    <div class="body">
+      <div class="tile2">
+        <div class="card" style="padding:13px 14px"><span class="lbl">Tiền ra</span><div class="num" style="font-family:var(--disp);font-weight:800;font-size:20px;letter-spacing:-.5px;margin-top:3px">149,0tr ₫</div>
+          <div class="bars" style="height:34px;padding-top:8px;gap:4px"><i class="ghost" style="height:100%"></i><i class="ghost" style="height:26%"></i><i class="ghost" style="height:56%"></i><i class="ghost" style="height:14%"></i><i class="ghost" style="height:48%"></i><i class="ghost" style="height:10%"></i><i class="ghost" style="height:22%"></i><i class="ghost" style="height:8%"></i></div>
+        </div>
+        <div class="card" style="padding:13px 14px"><span class="lbl">Tiền vào</span><div class="num up" style="font-family:var(--disp);font-weight:800;font-size:20px;letter-spacing:-.5px;margin-top:3px">8,5tr ₫</div>
+          <div style="font-size:11.5px;color:var(--muted-soft);margin-top:14px">3 khoản · lớn nhất 7,5tr</div>
+        </div>
+        <div class="card" style="padding:13px 14px"><span class="lbl">Top danh mục</span>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:7px"><span style="font-size:16px">🤝</span><span style="flex:1;font-size:12.5px;font-weight:600">Chuyển tiền</span><span class="num" style="font-size:12.5px;font-weight:700">50%</span></div>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:5px"><span style="font-size:16px">🛍️</span><span style="flex:1;font-size:12.5px;font-weight:600">Mua sắm</span><span class="num" style="font-size:12.5px;font-weight:700">13%</span></div>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:5px"><span style="font-size:16px">🍽️</span><span style="flex:1;font-size:12.5px;font-weight:600">Ăn uống</span><span class="num" style="font-size:12.5px;font-weight:700">13%</span></div>
+        </div>
+        <div class="card" style="padding:13px 14px"><span class="lbl">Nguồn</span>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:7px"><span style="flex:1;font-size:12.5px;font-weight:600">VCB ••2279</span><span class="num" style="font-size:12.5px;font-weight:700">201</span></div>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:5px"><span style="flex:1;font-size:12.5px;font-weight:600">VIB ••5140</span><span class="num" style="font-size:12.5px;font-weight:700">98</span></div>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:5px"><span style="flex:1;font-size:12.5px;font-weight:600">MoMo</span><span class="num" style="font-size:12.5px;font-weight:700">47</span></div>
+        </div>
+      </div>
+      <div class="dayh">Thứ 3, 23/09 · 6 khoản</div>
+      <div class="qcard"><span class="ck"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round"><path d="M5 13l4 4L19 7"/></svg></span><span class="bd"><span class="l1"><span>AEON NGUYEN VAN LINH</span><span class="a num">−45.000 ₫</span></span><span class="l2"><span>🛒 Đi chợ &amp; siêu thị</span><span>VCB ••2279 · 21:56</span></span></span></div>
+      <div class="qcard"><span class="ck"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round"><path d="M5 13l4 4L19 7"/></svg></span><span class="bd"><span class="l1"><span>GRAB *TRIP HCM</span><span class="a num">−86.000 ₫</span></span><span class="l2"><span>🚗 Đi lại</span><span>VCB ••2279 · 18:12</span></span></span></div>
+    </div>
+    <div class="fade"></div>
+  </div></div>
+  <figcaption class="cap">
+    <span class="n">05</span><span class="t">Ô nhỏ kiểu Health</span>
+    <div class="why">Bốn ô gọn 2×2 — Tiền ra (kèm sparkline), Tiền vào, Top danh mục, Nguồn — mỗi ô một câu trả lời, chạm ô nào mở sâu ô đó. "Nguồn" lần đầu có chỗ đứng: VCB/VIB/MoMo bao nhiêu khoản.</div>
+    <div class="vd"><span class="plus">liếc 2 giây ra 4 câu trả lời; thêm chiều "nguồn" mà các phương án khác không có chỗ.</span><em class="minus">mỗi ô đều nông — con số chi tiết nào cũng cần một chạm nữa; nhiều đơn vị thị giác nhất.</em></div>
+  </figcaption>
+</figure>
+
+<!-- ═══════════ 06 · HÀNG CHỜ TRƯỚC ═══════════ -->
+<figure class="opt">
+  <div class="ph"><div class="scr">
+    <div class="nav"><span class="bk"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></span><span class="ttl">Duyệt giao dịch</span><span class="act">Nhập 346</span></div>
+    <div class="txb"><span class="tb">☰ Chọn nhanh</span><span class="tb">✎ Sửa <span class="bn">346</span></span><span class="tb ico">🗄</span></div>
+    <div class="body" style="gap:10px">
+      <div class="card" style="padding:11px 14px;display:flex;align-items:center;gap:10px">
+        <div class="bars" style="height:26px;padding:0;gap:3px;flex:0 0 92px"><i class="ghost" style="height:100%"></i><i class="ghost" style="height:26%"></i><i class="ghost" style="height:56%"></i><i class="ghost" style="height:14%"></i><i class="ghost" style="height:48%"></i><i class="ghost" style="height:10%"></i><i class="ghost" style="height:22%"></i><i class="ghost" style="height:8%"></i></div>
+        <span style="flex:1;font-size:13px;font-weight:600">Ra 149,0tr · Vào 8,5tr<span style="display:block;font-size:11.5px;font-weight:500;color:var(--muted-soft)">50% là chuyển cho người khác</span></span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--stone-300)" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="dayh">Thứ 3, 23/09 · 6 khoản · 3,1tr</div>
+      <div class="qcard"><span class="ck"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round"><path d="M5 13l4 4L19 7"/></svg></span><span class="bd"><span class="l1"><span>AEON NGUYEN VAN LINH</span><span class="a num">−45.000 ₫</span></span><span class="l2"><span>🛒 Đi chợ &amp; siêu thị</span><span>VCB ••2279 · 21:56</span></span></span></div>
+      <div class="qcard"><span class="ck"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round"><path d="M5 13l4 4L19 7"/></svg></span><span class="bd"><span class="l1"><span>GRAB *TRIP HCM</span><span class="a num">−86.000 ₫</span></span><span class="l2"><span>🚗 Đi lại</span><span>VCB ••2279 · 18:12</span></span></span></div>
+      <div class="qcard" style="opacity:.92"><span class="ck" style="background:var(--white);border:1.6px solid var(--stone-300)"></span><span class="bd"><span class="l1"><span>CAO THÁI DUY HIỀN chuyển tiền</span><span class="a num">−2.500.000 ₫</span></span><span class="l2"><span>🤝 Có thể trùng · chờ bạn xem</span><span>VIB ••5140 · 09:40</span></span></span></div>
+      <div class="dayh">Thứ 2, 22/09 · 4 khoản · 1,9tr</div>
+      <div class="qcard"><span class="ck"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round"><path d="M5 13l4 4L19 7"/></svg></span><span class="bd"><span class="l1"><span>HIGHLANDS COFFEE</span><span class="a num">−65.000 ₫</span></span><span class="l2"><span>☕ Cà phê</span><span>MoMo · 08:03</span></span></span></div>
+      <div class="qcard"><span class="ck"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round"><path d="M5 13l4 4L19 7"/></svg></span><span class="bd"><span class="l1"><span>CGV VIVO CITY</span><span class="a num">−391.500 ₫</span></span><span class="l2"><span>🎉 Rạp phim</span><span>VCB ••2279 · 20:45</span></span></span></div>
+    </div>
+    <div class="fade"></div>
+  </div></div>
+  <figcaption class="cap">
+    <span class="n">06</span><span class="t">Hàng chờ trước, bức tranh gấp lại</span>
+    <div class="why">Người mở màn này đến để LÀM: thẻ đầu tiên xuất hiện ngay ở vệt nhìn thứ hai. Bức tranh nén thành một thanh gấp (sparkline + hai con số + một câu) — chạm thì bung chart + cây đầy đủ. Mỗi ngày mang tổng riêng.</div>
+    <div class="vd"><span class="plus">nhanh nhất tới việc; câu "50% là chuyển cho người khác" vẫn giữ được cú aha trong một dòng.</span><em class="minus">bức tranh — giá trị cốt lõi của kích hoạt — bị giấu sau một chạm ở đúng lần mở đầu tiên.</em></div>
+  </figcaption>
+</figure>
+
+<!-- ═══════════ 07 · CUỘN THEO THÁNG ═══════════ -->
+<figure class="opt">
+  <div class="ph"><div class="scr">
+    <div class="nav"><span class="bk"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></span><span class="ttl">Duyệt giao dịch</span><span class="act">Nhập 346</span></div>
+    <div class="txb"><span class="tb">☰ Chọn nhanh</span><span class="tb">✎ Sửa <span class="bn">346</span></span><span class="tb ico">🗄</span></div>
+    <div class="body" style="gap:10px">
+      <div style="position:sticky;top:0;background:var(--canvas);padding:2px 2px 8px;border-bottom:1px solid var(--divider)">
+        <div style="display:flex;align-items:baseline;justify-content:space-between">
+          <span style="font-family:var(--disp);font-weight:800;font-size:21px;letter-spacing:-.5px">Tháng 9</span>
+          <span class="num" style="font-size:13.5px;font-weight:700">↓ 23,4tr · <span class="up">↑ 1,0tr</span></span>
+        </div>
+        <div style="display:flex;gap:5px;margin-top:8px">
+          <span style="font-size:11px;font-weight:600;background:var(--white);border:1px solid var(--hairline);border-radius:999px;padding:4px 10px">🍽️ Ăn uống 8,1tr</span>
+          <span style="font-size:11px;font-weight:600;background:var(--white);border:1px solid var(--hairline);border-radius:999px;padding:4px 10px">🛍️ Mua sắm 5,4tr</span>
+          <span style="font-size:11px;font-weight:600;background:var(--white);border:1px solid var(--hairline);border-radius:999px;padding:4px 10px">＋7</span>
+        </div>
+      </div>
+      <div class="dayh">Thứ 3, 23/09</div>
+      <div class="qcard"><span class="ck"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round"><path d="M5 13l4 4L19 7"/></svg></span><span class="bd"><span class="l1"><span>AEON NGUYEN VAN LINH</span><span class="a num">−45.000 ₫</span></span><span class="l2"><span>🛒 Đi chợ &amp; siêu thị</span><span>VCB ••2279 · 21:56</span></span></span></div>
+      <div class="qcard"><span class="ck"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round"><path d="M5 13l4 4L19 7"/></svg></span><span class="bd"><span class="l1"><span>GRAB *TRIP HCM</span><span class="a num">−86.000 ₫</span></span><span class="l2"><span>🚗 Đi lại</span><span>VCB ••2279 · 18:12</span></span></span></div>
+      <div style="display:flex;align-items:baseline;justify-content:space-between;padding:10px 2px 0;border-top:1px solid var(--divider);margin-top:6px">
+        <span style="font-family:var(--disp);font-weight:800;font-size:21px;letter-spacing:-.5px;color:var(--muted)">Tháng 8</span>
+        <span class="num" style="font-size:13.5px;font-weight:700;color:var(--muted)">↓ 125,6tr · <span class="up">↑ 7,5tr</span></span>
+      </div>
+      <div style="display:flex;gap:5px">
+        <span style="font-size:11px;font-weight:600;background:var(--white);border:1px solid var(--hairline);border-radius:999px;padding:4px 10px">🤝 Chuyển 71,5tr</span>
+        <span style="font-size:11px;font-weight:600;background:var(--white);border:1px solid var(--hairline);border-radius:999px;padding:4px 10px">🛍️ 14,0tr</span>
+        <span style="font-size:11px;font-weight:600;background:var(--white);border:1px solid var(--hairline);border-radius:999px;padding:4px 10px">＋8</span>
+      </div>
+      <div class="dayh">Thứ 7, 30/08</div>
+      <div class="qcard"><span class="ck"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round"><path d="M5 13l4 4L19 7"/></svg></span><span class="bd"><span class="l1"><span>PHUC LONG SAIGON CTR</span><span class="a num">−92.000 ₫</span></span><span class="l2"><span>☕ Cà phê</span><span>MoMo · 15:21</span></span></span></div>
+    </div>
+    <div class="fade"></div>
+  </div></div>
+  <figcaption class="cap">
+    <span class="n">07</span><span class="t">Cuộn theo tháng</span>
+    <div class="why">Không có khối stats riêng — thống kê SỐNG TRONG dòng cuộn: mỗi tháng một header dính (tổng ra/vào + chip top danh mục của đúng tháng đó), rồi tới các ngày và thẻ. Cuộn 90 ngày là đọc một cuốn sổ.</div>
+    <div class="vd"><span class="plus">số liệu luôn đúng ngữ cảnh đang cuộn; không còn "khối tổng" tranh chỗ với hàng chờ.</span><em class="minus">không có cái nhìn 90-ngày trọn vẹn ở một chỗ; so sánh giữa các tháng phải cuộn qua lại.</em></div>
+  </figcaption>
+</figure>
+
+<!-- ═══════════ 08 · KHOẢNH KHẮC HOÀN THÀNH ═══════════ -->
+<figure class="opt">
+  <div class="ph"><div class="scr">
+    <div class="nav"><span class="bk"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></span><span class="ttl">Duyệt giao dịch</span><span class="act off">Nhập</span></div>
+    <div class="body" style="padding-top:18px">
+      <div class="card" style="background:linear-gradient(160deg,var(--sage-50),var(--white) 70%);text-align:center;padding:26px 18px 22px">
+        <div style="width:52px;height:52px;margin:0 auto;border-radius:50%;background:var(--grad-brand);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 22px rgba(20,157,131,.3)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg></div>
+        <div style="font-family:var(--disp);font-weight:800;font-size:21px;letter-spacing:-.5px;margin-top:12px">Đã duyệt xong 346 khoản</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:4px">90 ngày · tất cả đã vào sổ cá nhân</div>
+      </div>
+      <div class="card" style="padding:14px 16px">
+        <span class="lbl">Bức tranh 90 ngày của bạn</span>
+        <div class="tile2" style="margin-top:10px">
+          <div class="tile"><span class="tl"><span class="up">↑</span> Tiền vào</span><span class="tv up num">8.476.093 ₫</span></div>
+          <div class="tile"><span class="tl"><span>↓</span> Tiền ra</span><span class="tv num">149.032.198 ₫</span></div>
+        </div>
+        <div class="bars" style="height:64px"><i style="height:100%"></i><i style="height:26%"></i><i style="height:56%"></i><i style="height:14%"></i><i style="height:48%"></i><i style="height:10%"></i><i style="height:22%"></i><i style="height:8%"></i></div>
+        <div class="xlab"><s>8</s><s>10/8</s><s>17/8</s><s>24/8</s><s>31/8</s><s>7/9</s><s>14/9</s><s>21/9</s></div>
+        <div class="crow" style="margin-top:6px"><span class="em">🤝</span><span class="nm">Chuyển cho người khác</span><span class="amt num">74.019.000</span><span class="pc num">50%</span></div>
+        <div class="crow"><span class="em">🛍️</span><span class="nm">Mua sắm</span><span class="amt num">19.453.094</span><span class="pc num">13%</span></div>
+        <div class="crow"><span class="em">🍽️</span><span class="nm">Ăn uống</span><span class="amt num">19.346.495</span><span class="pc num">13%</span></div>
+      </div>
+      <div class="cta"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.1" stroke-linecap="round"><path d="M4 19V9M9 19V5M14 19v-7M19 19v-11"/></svg> Xem sổ của bạn ở Tài chính</div>
+      <div class="ghostbtn">Sao kê cũ · 8 file chờ mở</div>
+    </div>
+    <div class="fade"></div>
+  </div></div>
+  <figcaption class="cap">
+    <span class="n">08</span><span class="t">Khoảnh khắc hoàn thành</span>
+    <div class="why">Thiết kế riêng cho đúng trạng thái đang vỡ trong ảnh chụp: hàng chờ về 0 thì màn LỘT XÁC — toolbox biến mất, một dấu ✓ sage, bức tranh chốt lại thành báo cáo chỉ-đọc, và một CTA dẫn về Tài chính nơi số liệu giờ đã sống. "Sao kê cũ · 8" thành lối đi tiếp thay vì một nút mồ côi.</div>
+    <div class="vd"><span class="plus">biến khoảnh khắc trống rỗng thành phần thưởng — đúng chỗ chốt vòng lặp kích hoạt; ghép được với bất kỳ phương án 01–07 nào cho trạng thái còn hàng.</span><em class="minus">chỉ giải quyết trạng thái rỗng; vẫn cần chọn một phương án cho lúc 346 khoản đang chờ.</em></div>
+  </figcaption>
+</figure>
+
+</div>
+
+<footer style="margin-top:44px;max-width:760px;font-size:13px;line-height:1.6;color:var(--muted)">
+  <b style="color:var(--ink-2)">Gợi ý ghép:</b> 01 hoặc 03 cho trạng thái còn hàng + 08 cho trạng thái đã duyệt xong là cặp ít rủi ro mà chữa đúng hai cái đang vỡ. 02 là cược lớn nhất về cấu trúc — đáng làm nếu tin rằng "duyệt" và "hiểu" là hai phiên khác nhau. Mọi phương án đều giữ: toolbox hiện tại, thẻ hàng chờ hiện tại, ngôn ngữ xám-đặc của cột (xám = chưa duyệt), và quy tắc "Others" phải là "Khác".
+</footer>
+
+</div>
+</body>
+</html>
