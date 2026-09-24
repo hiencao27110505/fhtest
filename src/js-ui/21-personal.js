@@ -577,7 +577,15 @@ function renderPersonal(){
      debts, unreadables or a statement queue while the money book is still
      empty — a 0 ₫ hero, zero tiles and a blank chart then read as broken. The
      card keeps only its label and action rows until a real row exists. */
-  var _persAnyRows = ((P.txns||[]).length + (P.incomes||[]).length + ((SL&&SL.rows)?SL.rows.length:0)) > 0;
+  /* Only rows that PRODUCE a stat count (feedback round 3: a lone transfer
+     pair — two rows, zero Vào/Ra/Còn lại — resurrected the dead card). A pure
+     transfer moves nothing the tiles can show; expense, income, loans and
+     investments all reach at least one figure. The slice is expense/income
+     only by construction, so its length is already the right question. */
+  var _persStatKinds = { expense:1, income:1, loan:1, repayment:1, investment:1 };
+  var _persAnyRows = (P.txns||[]).some(function(t){ return _persStatKinds[t.kind]; })
+    || (P.incomes||[]).length > 0
+    || !!(SL && SL.rows && SL.rows.length);
   var hasStats = !slReady || _persAnyRows;
   if(!hasStats){
     /* The Email ngân hàng widget stands in for the stats card entirely
