@@ -4235,22 +4235,28 @@ button.csv-srow:active{background:var(--surface)}
    sheet INSIDE the modal (the global sheet layer sits under modals). Brand
    tint marks state the way Apple tints: active condition count, the primary
    verb, a picked chip. Everything else stays quiet surface + hairline. */
-#txh{position:relative;z-index:8;background:var(--white);padding:8px 12px 10px;
+#txh{position:relative;z-index:8;background:var(--white);padding:8px 0 10px;
   border-bottom:1px solid var(--hairline)}
 #txh:empty{display:none}
-.txb{display:flex;gap:8px}
-.txb-b{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;
-  font-size:13.5px;font-weight:650;color:var(--ink);background:var(--surface);
-  border:1px solid var(--hairline);border-radius:12px;padding:9px 0;min-height:40px}
+/* One row of self-sized chips, never wrapped, never squeezed: labels stay on
+   one line and the row scrolls sideways when four tools outgrow a phone —
+   equal-width flex:1 buttons were what broke the labels into two cramped
+   lines. Edge padding rides INSIDE the scroller so the first and last chip
+   still align with the screen gutter. */
+.txb{display:flex;gap:8px;overflow-x:auto;padding:0 12px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.txb::-webkit-scrollbar{display:none}
+.txb-b{flex:0 0 auto;display:flex;align-items:center;justify-content:center;gap:6px;
+  white-space:nowrap;font-size:13.5px;font-weight:650;color:var(--ink);background:var(--surface);
+  border:1px solid var(--hairline);border-radius:999px;padding:0 14px;height:38px}
 .txb-b.on{background:var(--brand-tint);border-color:transparent;color:var(--brand-ink)}
 .txb-ic{display:inline-flex;width:17px;height:17px}
 .txb-ic svg{width:100%;height:100%}
 .txb-n{font-size:11px;font-weight:800;font-variant-numeric:tabular-nums;
   background:var(--fill-neutral);color:var(--ink-2);border-radius:99px;padding:2px 7px;line-height:1.2}
 .txb-b.on .txb-n{background:var(--white);color:var(--brand-ink)}
-/* the chart toggle: icon-only and a fixed 44px wide. Hidden only dims the
-   icon, so the button never reads as an alert or an active filter. */
-.txb-ico{flex:0 0 44px}
+/* the chart toggle: icon-only, a circle matching the chip height. Hidden only
+   dims the icon, so the button never reads as an alert or an active filter. */
+.txb-ico{flex:0 0 38px;width:38px;padding:0}
 .txb-ico.off .txb-ic{opacity:.45}
 
 /* the sheet shell — scrim + bottom card, anchored to the modal box */
@@ -25362,7 +25368,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v583';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v584';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
