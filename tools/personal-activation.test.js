@@ -62,7 +62,7 @@ console.log('\n-- the queue deck as a standing widget --');
 t('the deck is one builder shared by the state 2 card and the standalone widget',
   /function persQueueDeckHTML\(n\)\{/.test(ui) && (ui.match(/persQueueDeckHTML\(n\)/g) || []).length >= 3);
 t('states 3 and 4 mount the widget right under the first widget whenever rows wait',
-  /persSetupWidgetHTML\(act\) \+ persQueueWidgetHTML\(act\)/.test(ui) && /if\(act\.state===4\) h \+= persQueueWidgetHTML\(act\);/.test(ui) && /var n = act\.queue \|\| 0; if\(!n\) return '';/.test(ui));
+  /persSetupWidgetHTML\(act\) \+ persQueueWidgetHTML\(act\)/.test(ui) && /if\(act\.state===4 && hasStats\) h \+= persQueueWidgetHTML\(act\);/.test(ui) && /var n = act\.queue \|\| 0; if\(!n\) return '';/.test(ui));
 t('the widget hides while a first read runs or the grant is dead', /fhBackfillHolds\(\)\) return '';/.test(ui) && /fhReauthState\(\)\) return '';/.test(ui));
 t('the widget keeps the screen to one primary: its action is the tinted button', /pq-widget[\s\S]{0,400}class="dbt-empty-cta"/.test(ui) && !/pq-widget[\s\S]{0,400}class="cta /.test(ui));
 t('quick review never auto-pops while the first read is running', /if \(!opts\.force\) \{[\s\S]{0,300}fhBackfillHolds\(\)\) return;/.test(quick));

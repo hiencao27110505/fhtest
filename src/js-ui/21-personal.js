@@ -580,14 +580,19 @@ function renderPersonal(){
   var _persAnyRows = ((P.txns||[]).length + (P.incomes||[]).length + ((SL&&SL.rows)?SL.rows.length:0)) > 0;
   var hasStats = !slReady || _persAnyRows;
   if(!hasStats){
-    h += '<section class="cf-card">'
-       + '<div class="cf-lblrow"><div class="cf-lbl">Sổ cá nhân</div></div>'
-       + '<div class="cf-cta">'
-       +   '<button class="cc-row" onclick="openPersonalBudget()"><span class="cc-ic">'+PIC.chart+'</span><span class="cc-t">'+(P.budget>0?'Ngân sách cá nhân':'Lập ngân sách cá nhân')+'</span>'+_ccChev+'</button>'
-       +   '<button class="cc-row" onclick="openPersonalExpense()"><span class="cc-ic">'+PIC.plus+'</span><span class="cc-t">Ghi giao dịch</span>'+_ccChev+'</button>'
-       +   _persEmailRow()
-       + '</div>'
-       + '</section>';
+    /* The Email ngân hàng widget stands in for the stats card entirely
+       (activation feedback round 2): no shell of action rows either. State 3
+       already put the queue widget on top; state 4 places it here. When the
+       widget has nothing to show (no queue — held, dead grant, or no mailbox),
+       the persActCard family says what the email door needs next, falling back
+       to the connect offer when no mailbox is on at all. */
+    persMailSeed(); persMailProbe();
+    var _qw = persQueueWidgetHTML(act);
+    if(act.state===4) h += _qw;
+    if(!_qw){
+      var _mailOn = !!(_persMail && (_persMail.fwd || _persMail.oauth));
+      h += persActCard(_mailOn ? act : { state:1, queue:0 }, mon);
+    }
   } else {
   h += '<section class="cf-card'+(persMaskIs('cf')?' sec-masked':'')+'">'
      + '<div class="cf-lblrow"><span class="tl"><div class="cf-lbl">'+cfLbl+'</div>'+persEyeHTML('cf')+'</span>'+moCaret+'</div>'
@@ -694,7 +699,7 @@ function _persEmailRow(){
      Built by 27-streaks.js (js-data); counts derive from the ledger + the
      email review queue, so this section may re-render itself once the async
      compute lands. ── */
-  if(act.state===4) h += persQueueWidgetHTML(act);   // right under the first widget
+  if(act.state===4 && hasStats) h += persQueueWidgetHTML(act);   // right under the first widget (the !hasStats branch already placed it)
   h += act.state===3 ? persStreakDriven(P, mon) : (window.persStreakSection ? persStreakSection() : '');
 
 /* ── Nợ & cho vay — the balance-sheet dimension (stocks, not flows), between

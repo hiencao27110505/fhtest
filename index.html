@@ -8627,14 +8627,19 @@ function renderPersonal(){
   var _persAnyRows = ((P.txns||[]).length + (P.incomes||[]).length + ((SL&&SL.rows)?SL.rows.length:0)) > 0;
   var hasStats = !slReady || _persAnyRows;
   if(!hasStats){
-    h += '<section class="cf-card">'
-       + '<div class="cf-lblrow"><div class="cf-lbl">Sổ cá nhân</div></div>'
-       + '<div class="cf-cta">'
-       +   '<button class="cc-row" onclick="openPersonalBudget()"><span class="cc-ic">'+PIC.chart+'</span><span class="cc-t">'+(P.budget>0?'Ngân sách cá nhân':'Lập ngân sách cá nhân')+'</span>'+_ccChev+'</button>'
-       +   '<button class="cc-row" onclick="openPersonalExpense()"><span class="cc-ic">'+PIC.plus+'</span><span class="cc-t">Ghi giao dịch</span>'+_ccChev+'</button>'
-       +   _persEmailRow()
-       + '</div>'
-       + '</section>';
+    /* The Email ngân hàng widget stands in for the stats card entirely
+       (activation feedback round 2): no shell of action rows either. State 3
+       already put the queue widget on top; state 4 places it here. When the
+       widget has nothing to show (no queue — held, dead grant, or no mailbox),
+       the persActCard family says what the email door needs next, falling back
+       to the connect offer when no mailbox is on at all. */
+    persMailSeed(); persMailProbe();
+    var _qw = persQueueWidgetHTML(act);
+    if(act.state===4) h += _qw;
+    if(!_qw){
+      var _mailOn = !!(_persMail && (_persMail.fwd || _persMail.oauth));
+      h += persActCard(_mailOn ? act : { state:1, queue:0 }, mon);
+    }
   } else {
   h += '<section class="cf-card'+(persMaskIs('cf')?' sec-masked':'')+'">'
      + '<div class="cf-lblrow"><span class="tl"><div class="cf-lbl">'+cfLbl+'</div>'+persEyeHTML('cf')+'</span>'+moCaret+'</div>'
@@ -8741,7 +8746,7 @@ function _persEmailRow(){
      Built by 27-streaks.js (js-data); counts derive from the ledger + the
      email review queue, so this section may re-render itself once the async
      compute lands. ── */
-  if(act.state===4) h += persQueueWidgetHTML(act);   // right under the first widget
+  if(act.state===4 && hasStats) h += persQueueWidgetHTML(act);   // right under the first widget (the !hasStats branch already placed it)
   h += act.state===3 ? persStreakDriven(P, mon) : (window.persStreakSection ? persStreakSection() : '');
 
 /* ── Nợ & cho vay — the balance-sheet dimension (stocks, not flows), between
@@ -16216,8 +16221,11 @@ function _ctreeRender(list, cap, filterable){
   var max = list[0].tot || 1;
   var html = '<div class="ctree"><div class="ctree-cap">'+esc(cap)+'</div>';
   list.forEach(function(c){
-    var kids = Object.keys(c.kids).map(function(k){ return { t:k, v:c.kids[k].v, n:c.kids[k].n }; })
-      .sort(function(a,b){ return b.v-a.v; }).slice(0,5);
+    var kids = Object.keys(c.kids).map(function(k){ return { t:k, v:c.kids[k].v, n:c.kids[k].n }; });
+    /* the root's own rows join the children as a line under the root's own
+       name (the same label their cards wear), so the sum on screen adds up */
+    if(kids.length && c.selfV>0) kids.push({ t:c.name, v:c.selfV, n:c.selfN });
+    kids = kids.sort(function(a,b){ return b.v-a.v; }).slice(0,6);
     var on = filterable && csvCatFilter===c.name;
     var wTot = Math.max(4, Math.round(c.tot/max*100));
     var wBk = c.bk>0 ? Math.max(3, Math.round(c.bk/max*100)) : 0;
@@ -16240,12 +16248,15 @@ function _ctreeRender(list, cap, filterable){
   }
   return html + '</div>';
 }
-function _ctreeAdd(cats, t, amt, booked, extraChild){
-  var c = cats[t.name] || (cats[t.name] = { name:t.name, emoji:t.emoji||null, tot:0, bk:0, kids:{} });
+function _ctreeAdd(cats, t, amt, booked, extraChild, cnt){
+  var c = cats[t.name] || (cats[t.name] = { name:t.name, emoji:t.emoji||null, tot:0, bk:0, selfV:0, selfN:0, kids:{} });
   c.tot += amt; if(booked) c.bk += amt;
   if(t.emoji && !c.emoji) c.emoji = t.emoji;
   var child = t.child || extraChild;
-  if(child){ var kd = c.kids[child] || (c.kids[child] = { n:0, v:0 }); kd.n++; kd.v += amt; }
+  if(child){ var kd = c.kids[child] || (c.kids[child] = { n:0, v:0 }); kd.n += (cnt==null?1:cnt); kd.v += amt; }
+  /* rows sitting AT the root: remembered so the expanded node can show them as
+     their own line — otherwise the reader does the maths (total − leaves). */
+  else { c.selfV += amt; c.selfN += (cnt==null?1:cnt); }
 }
 function csvCatTreeHTML(){
   if(!csvStagedMode || csvSumHidden) return '';
@@ -25281,7 +25292,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v576';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v577';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',

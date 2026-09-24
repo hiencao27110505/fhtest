@@ -2460,8 +2460,11 @@ function _ctreeRender(list, cap, filterable){
   var max = list[0].tot || 1;
   var html = '<div class="ctree"><div class="ctree-cap">'+esc(cap)+'</div>';
   list.forEach(function(c){
-    var kids = Object.keys(c.kids).map(function(k){ return { t:k, v:c.kids[k].v, n:c.kids[k].n }; })
-      .sort(function(a,b){ return b.v-a.v; }).slice(0,5);
+    var kids = Object.keys(c.kids).map(function(k){ return { t:k, v:c.kids[k].v, n:c.kids[k].n }; });
+    /* the root's own rows join the children as a line under the root's own
+       name (the same label their cards wear), so the sum on screen adds up */
+    if(kids.length && c.selfV>0) kids.push({ t:c.name, v:c.selfV, n:c.selfN });
+    kids = kids.sort(function(a,b){ return b.v-a.v; }).slice(0,6);
     var on = filterable && csvCatFilter===c.name;
     var wTot = Math.max(4, Math.round(c.tot/max*100));
     var wBk = c.bk>0 ? Math.max(3, Math.round(c.bk/max*100)) : 0;
@@ -2484,12 +2487,15 @@ function _ctreeRender(list, cap, filterable){
   }
   return html + '</div>';
 }
-function _ctreeAdd(cats, t, amt, booked, extraChild){
-  var c = cats[t.name] || (cats[t.name] = { name:t.name, emoji:t.emoji||null, tot:0, bk:0, kids:{} });
+function _ctreeAdd(cats, t, amt, booked, extraChild, cnt){
+  var c = cats[t.name] || (cats[t.name] = { name:t.name, emoji:t.emoji||null, tot:0, bk:0, selfV:0, selfN:0, kids:{} });
   c.tot += amt; if(booked) c.bk += amt;
   if(t.emoji && !c.emoji) c.emoji = t.emoji;
   var child = t.child || extraChild;
-  if(child){ var kd = c.kids[child] || (c.kids[child] = { n:0, v:0 }); kd.n++; kd.v += amt; }
+  if(child){ var kd = c.kids[child] || (c.kids[child] = { n:0, v:0 }); kd.n += (cnt==null?1:cnt); kd.v += amt; }
+  /* rows sitting AT the root: remembered so the expanded node can show them as
+     their own line — otherwise the reader does the maths (total − leaves). */
+  else { c.selfV += amt; c.selfN += (cnt==null?1:cnt); }
 }
 function csvCatTreeHTML(){
   if(!csvStagedMode || csvSumHidden) return '';
