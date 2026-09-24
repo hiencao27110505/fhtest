@@ -241,6 +241,13 @@ window.persStepTap = function(act){
 function persActivation(P, SL){
   var hasTx = (P.txns||[]).length>0 || (P.debts||[]).length>0 || (P.unreadable||0)>0
     || !!(SL && SL.rows && SL.rows.length) || ((P.txnsOld||[]).length>0);
+  /* The badge is primed by the FAMILY hydrate, which a famless (or
+     personal-first) boot never runs before this tab paints — so ask once from
+     here; fhRefreshStagedCount re-renders the tab when the answer lands. */
+  if(!window._fhStagedKnown && window.fhRefreshStagedCount && !window._persQAsked){
+    window._persQAsked = true;
+    try{ window.fhRefreshStagedCount(); }catch(e){}
+  }
   var queue = window.fhStagedCount||0;
   if(!hasTx){
     persMailSeed(); persMailProbe();
@@ -276,6 +283,12 @@ function persActCard(act, mon){
       + '<p class="pact-p">'+(pg.front ? 'Đã đọc tới '+esc(fmtDayMon(new Date(pg.front)))+'. ' : '')+'Xong là mọi khoản tìm thấy về đây để bạn duyệt.</p>'
       + '<span class="cc-prog" style="margin-top:14px"><i style="width:'+pct+'%"></i></span>'
       + '<button class="ob-textlink pact-link" onclick="fhEmailTxnCta({scope:\'personal\'})">Xem tiến độ</button></section>';
+  }
+  if(!act.queue && !window._fhStagedKnown){
+    /* the badge has not answered yet — hold the shape, claim nothing */
+    return '<section class="cf-card"><div class="cf-lbl">Email ngân hàng · đã kết nối</div><div class="pact-h">Đang kiểm tra hộp thư…</div>'
+      + persQueueDeckHTML(0)
+      + '<button class="ob-textlink pact-link" onclick="fhEmailTxnCta({scope:\'personal\'})">Mở mục duyệt</button></section>';
   }
   if(!act.queue){
     return '<section class="cf-card"><div class="cf-lbl">Email ngân hàng · đã kết nối</div><div class="pact-h">Chưa thấy giao dịch nào trong email</div>'
@@ -597,7 +610,11 @@ function renderPersonal(){
     persMailSeed(); persMailProbe();
     var _qw = persQueueWidgetHTML(act);
     if(act.state===4) h += _qw;
-    if(!_qw){
+    if(!_qw && window._fhStagedKnown){
+      /* Only a CONFIRMED count may claim anything about the mailbox — a badge
+         that has not answered yet must not read as "Chưa thấy giao dịch nào"
+         over a queue of hundreds (the slot stays empty for the beat the ask
+         takes; fhRefreshStagedCount re-renders on the answer). */
       var _mailOn = !!(_persMail && (_persMail.fwd || _persMail.oauth));
       h += persActCard(_mailOn ? act : { state:1, queue:0 }, mon);
     }

@@ -169,8 +169,12 @@
      query — 0058's RLS returns [] for anyone without a mailbox, so it is safe to call for
      every user. Cached on window and pushed to the CTA renderer. */
   window.fhStagedCount = 0;
+  /* false until the first real answer: 0-because-not-asked and 0-because-empty
+     must be distinguishable, or the tab claims an empty mailbox on a boot that
+     simply has not fetched yet (activation feedback round 4). */
+  window._fhStagedKnown = false;
   window.fhRefreshStagedCount = async function () {
-    try { var rows = await fhFetchStagedTxns(); window.fhStagedCount = (typeof window.fhStagedTotal === 'number') ? window.fhStagedTotal : (rows || []).length; }
+    try { var rows = await fhFetchStagedTxns(); window.fhStagedCount = (typeof window.fhStagedTotal === 'number') ? window.fhStagedTotal : (rows || []).length; window._fhStagedKnown = true; }
     catch (e) { window.fhStagedCount = 0; }
     // Statement rows and unopened statement cards wait in the same queue, so the
     // same badge counts them. Head-only, and never allowed to zero the email count.
