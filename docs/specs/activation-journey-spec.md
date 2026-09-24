@@ -9,11 +9,14 @@ moment: the value lives behind a modal the person must discover, the chart
 counts nothing until they review, the app's shell still assumes a family,
 and the one return trigger (push) refuses solo users outright.
 
-> **Status, 2026-09-24.** Designed in a grilling session (decision log §12,
-> Q1 to Q31), building now, big bang, in worktree
-> `.worktrees/activation-journey`. Client work ships as one release with an
-> SW bump; one server landing (personal push) carries a migration and a
-> `push-send` deploy. Nothing pushes to `main` until the VPN window opens.
+> **Status, 2026-09-24. BUILT**, big bang, on `feat/activation-journey`
+> (worktree `.worktrees/activation-journey`), designed the same day in a
+> grilling session (decision log §12, Q1 to Q31). Client: SW **v575**, four
+> commits. Server landing LIVE: migration `0152_personal_push` applied
+> (table held 0 rows), `push-send` v23 and `mailbox-sync` v64 deployed, both
+> diffed byte-for-byte against `main` first. The branch is NOT pushed —
+> waiting for the VPN window; before pushing: fetch, rebase, re-read
+> `origin/main`'s `CACHE_NAME`, rebuild.
 
 > **How this relates to its siblings.** `personal-activation-spec.md` owns
 > the four states of the Tài chính tab; this spec keeps its state machine
