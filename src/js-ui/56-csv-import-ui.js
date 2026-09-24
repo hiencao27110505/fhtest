@@ -2258,8 +2258,16 @@ function csvBookedLedger(){
   var SL = window.fhPersonalStatsSliceCached && window.fhPersonalStatsSliceCached();
   var floorIso = (function(){ var t=new Date(); t.setDate(t.getDate()-365);   // a year is the chart's reach, like the backfill's
     return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0'); })();
-  var byDay={}, byCat={}, thu=0, chi=0;
+  var byDay={}, byCat={}, byCatIn={}, thu=0, chi=0;
   var spend=function(node){ return (typeof fhCountsAsSpending==='function') ? fhCountsAsSpending(node) : true; };
+  var addInc=function(row){
+    var a=row.amt||0; if(!(a>0)) return;
+    thu+=a;
+    var rl=(typeof fhPersonalRowLabel==='function') ? fhPersonalRowLabel(row) : null;
+    var k=((rl&&rl.name)||row.cat||'Thu nhập');
+    var c=byCatIn[k]||(byCatIn[k]={name:k, emoji:(rl&&rl.emoji)||row.emoji||'💰', v:0});
+    c.v+=a;
+  };
   var addExp=function(row){
     var a=row.amt||0; if(!(a>0)) return;
     chi+=a;
@@ -2271,7 +2279,7 @@ function csvBookedLedger(){
   };
   if(SL){
     SL.rows.forEach(function(r2){
-      if(r2.kind==='income'){ thu+=(r2.amt||0); return; }
+      if(r2.kind==='income'){ addInc(r2); return; }
       if(r2.kind==='expense' && spend(r2.node)) addExp(r2);
     });
   } else {
@@ -2279,9 +2287,9 @@ function csvBookedLedger(){
       if(t._unreadable || t.spaceId) return;
       if(t.kind==='expense' && spend(t.node)) addExp(t);
     });
-    (P.incomes||[]).forEach(function(i2){ if(!i2._unreadable) thu+=(i2.amt||0); });
+    (P.incomes||[]).forEach(function(i2){ if(!i2._unreadable) addInc(i2); });
   }
-  return { byDay:byDay, byCat:byCat, thu:thu, chi:chi };
+  return { byDay:byDay, byCat:byCat, byCatIn:byCatIn, thu:thu, chi:chi };
 }
 function csvSumData(){
   var r = csvReview; if(!r) return null;
@@ -2371,9 +2379,7 @@ function csvSumHTML(){
     + '<div class="csum-stats">'
     +   '<div class="csum-stat"><span class="cl"><span class="csum-up">↑</span> '+L('Tiền vào','Money in')+'</span><span class="cv pos num">'+esc(fmt(totIn))+'</span></div>'
     +   '<div class="csum-stat"><span class="cl"><span class="csum-dn">↓</span> '+L('Tiền ra','Money out')+'</span><span class="cv num">'+esc(fmt(totOut))+'</span></div>'
-    + '</div>'
-    + (d.n ? '<div class="csum-pend"><b>'+d.n+'</b> '+L('khoản chưa duyệt','unconfirmed')
-        + (merged && (bk.chi>0||bk.thu>0) ? L(' · phần xám trên cột là phần chưa vào sổ',' · the grey share of a bar is not booked yet') : '')+'</div>' : '');
+    + '</div>';
   var buckets = merged ? csvSumBuckets(d.byDay, bk.byDay, true) : csvSumBuckets(d.byDay, d.bySel);
   if(buckets.length){
     var Z=[['day',L('Ngày','Day')],['week',L('Tuần','Week')],['month',L('Tháng','Month')]];
@@ -2419,42 +2425,49 @@ function csvCatFilterGo(name){
   csvCatFilter = (csvCatFilter===name) ? null : name;
   renderCsvReview();
 }
-function csvCatDim(c){
-  return !!(csvCatFilter && (c.categoryName||CAT_FALLBACK)!==csvCatFilter);
+/* THE MACHINE'S ANSWER NAMES THE NODE (activation feedback 2026-09-24): the
+   tree used c.categoryName, which for most staged rows is the fallback — so
+   the whole section read as one "Others" while every card below it wore a
+   real label. This resolver is the same one the cards use (csvCatChipText's
+   rule): the taxonomy root is the section's top level, the deeper node is the
+   child; the person's own label is the fallback, translated. */
+function csvTreeCatOf(c, kind){
+  if(typeof fhTreeOn==='function' && fhTreeOn() && typeof FH_TAX!=='undefined'
+     && c._node && FH_TAX.get(c._node) && FH_TAX.kindOf(c._node)===kind){
+    var rt=FH_TAX.get(FH_TAX.root(c._node)), nd=FH_TAX.get(c._node);
+    return { name: rt.vi, emoji: rt.emoji||null, child: (nd && nd!==rt) ? nd.vi : null };
+  }
+  if(kind==='income'){
+    var inm = c._incomeCat ? csvCatLabel(c._incomeCat) : L('Thu nhập','Income');
+    var ist = (window.catStyle && c._incomeCat && window.catStyle[c._incomeCat]) || null;
+    return { name: inm, emoji: ist ? ist[0] : '💰', child: null };
+  }
+  var raw = c.categoryName || (typeof CAT_FALLBACK!=='undefined' ? CAT_FALLBACK : 'Others');
+  var st = (window.catStyle && window.catStyle[raw]) || null;
+  return { name: csvCatLabel(raw), emoji: st ? st[0] : null, child: null };
 }
-function csvCatTreeHTML(){
-  if(!csvStagedMode || csvSumHidden) return '';
-  var r = csvReview; if(!r) return '';
-  var cats = {};
-  var add = function(name, emoji, amt, booked, child){
-    var k = name || CAT_FALLBACK;
-    var c = cats[k] || (cats[k] = { name:k, emoji:emoji||null, tot:0, bk:0, kids:{} });
-    c.tot += amt; if(booked) c.bk += amt;
-    if(emoji && !c.emoji) c.emoji = emoji;
-    if(child){ var kd = c.kids[child] || (c.kids[child] = { n:0, v:0 }); kd.n++; kd.v += amt; }
-  };
-  r.ready.forEach(function(c){
-    if(c.isIncome || c.isTransfer || c._xfer) return;
-    if(typeof csvFxUnresolved==='function' && csvFxUnresolved(c)) return;
-    var a = csvBaseAmt(c.amount||0); if(!(a>0)) return;
-    var st = (window.catStyle && window.catStyle[c.categoryName]) || null;
-    var child = String(c.description||'').trim().slice(0,28) || null;
-    add(c.categoryName, st ? st[0] : null, a, false, child);
-  });
-  var bk = csvBookedLedger();
-  if(bk) Object.keys(bk.byCat).forEach(function(k){ var c=bk.byCat[k]; add(c.name, c.emoji, c.v, true, null); });
-  var list = Object.keys(cats).map(function(k){ return cats[k]; }).sort(function(a,b){ return b.tot-a.tot; });
+function csvCatDim(c){
+  if(!csvCatFilter) return false;
+  if(c.isIncome || c.isTransfer || c._xfer) return false;   // held-out rows never dim under an expense filter
+  return csvTreeCatOf(c,'expense').name !== csvCatFilter;
+}
+/* One renderer for both trees (chi + thu): expandable, EXPANDED by default,
+   proportional two-layer track (solid = đã vào sổ, grey = chưa duyệt), the
+   machine's child nodes underneath. `filterable` wires the row tap to the
+   list filter; the chevron alone folds a node either way. */
+function _ctreeRender(list, cap, filterable){
   if(!list.length) return '';
   var max = list[0].tot || 1;
-  var html = '<div class="ctree"><div class="ctree-cap">'+esc(L('TIỀN ĐI ĐÂU','WHERE THE MONEY WENT'))+'</div>';
+  var html = '<div class="ctree"><div class="ctree-cap">'+esc(cap)+'</div>';
   list.forEach(function(c){
     var kids = Object.keys(c.kids).map(function(k){ return { t:k, v:c.kids[k].v, n:c.kids[k].n }; })
       .sort(function(a,b){ return b.v-a.v; }).slice(0,5);
-    var on = csvCatFilter===c.name;
+    var on = filterable && csvCatFilter===c.name;
     var wTot = Math.max(4, Math.round(c.tot/max*100));
     var wBk = c.bk>0 ? Math.max(3, Math.round(c.bk/max*100)) : 0;
+    var tap = filterable ? ' onclick="event.preventDefault();csvCatFilterGo(\''+escAttr(c.name)+'\')"' : '';
     html += '<details open><summary>'
-      + '<div class="ctree-row'+(on?' on':'')+'" onclick="event.preventDefault();csvCatFilterGo(\''+escAttr(c.name)+'\')">'
+      + '<div class="ctree-row'+(on?' on':'')+'"'+tap+'>'
       +   '<span class="ctree-ico">'+(c.emoji||'🗂️')+'</span>'
       +   '<span class="ctree-bd"><span class="ctree-line"><span>'+esc(c.name)+'</span><span class="amt num">'+esc(fmt(c.tot))+'</span></span>'
       +   '<span class="ctree-track"><i class="tot" style="width:'+wTot+'%"></i>'+(wBk?'<i class="bk" style="width:'+wBk+'%"></i>':'')+'</span></span>'
@@ -2465,11 +2478,55 @@ function csvCatTreeHTML(){
         }).join('')+'</div>' : '')
       + '</details>';
   });
-  if(csvCatFilter){
+  if(filterable && csvCatFilter){
     html += '<button type="button" class="ctree-clear" onclick="csvCatFilterGo(csvCatFilter)">'
       + esc(L('Đang lọc theo '+csvCatFilter+' · bỏ lọc','Filtering by '+csvCatFilter+' · clear'))+'</button>';
   }
   return html + '</div>';
+}
+function _ctreeAdd(cats, t, amt, booked, extraChild){
+  var c = cats[t.name] || (cats[t.name] = { name:t.name, emoji:t.emoji||null, tot:0, bk:0, kids:{} });
+  c.tot += amt; if(booked) c.bk += amt;
+  if(t.emoji && !c.emoji) c.emoji = t.emoji;
+  var child = t.child || extraChild;
+  if(child){ var kd = c.kids[child] || (c.kids[child] = { n:0, v:0 }); kd.n++; kd.v += amt; }
+}
+function csvCatTreeHTML(){
+  if(!csvStagedMode || csvSumHidden) return '';
+  var r = csvReview; if(!r) return '';
+  var cats = {};
+  r.ready.forEach(function(c){
+    if(c.isIncome || c.isTransfer || c._xfer) return;
+    if(typeof csvFxUnresolved==='function' && csvFxUnresolved(c)) return;
+    var a = csvBaseAmt(c.amount||0); if(!(a>0)) return;
+    _ctreeAdd(cats, csvTreeCatOf(c,'expense'), a, false, null);
+  });
+  var bk = csvBookedLedger();
+  if(bk) Object.keys(bk.byCat).forEach(function(k){ var c=bk.byCat[k]; _ctreeAdd(cats, { name:c.name, emoji:c.emoji, child:null }, c.v, true, null); });
+  var list = Object.keys(cats).map(function(k){ return cats[k]; }).sort(function(a,b){ return b.tot-a.tot; });
+  return _ctreeRender(list, L('TIỀN ĐI ĐÂU','WHERE THE MONEY WENT'), true);
+}
+/* Thu, mirrored (activation feedback): the same anatomy for money coming in,
+   grouped by the machine's income nodes, the payer as the child line. Queue
+   income rows live folded in "Tiền vào & trả nợ thẻ", so these rows are a
+   summary, not a filter — the tap only folds. */
+function csvIncomeTreeHTML(){
+  if(!csvStagedMode || csvSumHidden) return '';
+  var r = csvReview; if(!r) return '';
+  var cats = {};
+  var addInc = function(c){
+    if(!c.isIncome || c._xfer || c._repay || c._invest) return;
+    if(typeof csvFxUnresolved==='function' && csvFxUnresolved(c)) return;
+    var a = csvBaseAmt(c.amount||0); if(!(a>0)) return;
+    var who = String(c.counterparty || c.description || '').trim().slice(0,28) || null;
+    _ctreeAdd(cats, csvTreeCatOf(c,'income'), a, false, who);
+  };
+  r.ready.forEach(addInc);
+  r.deferred.forEach(addInc);
+  var bk = csvBookedLedger();
+  if(bk && bk.byCatIn) Object.keys(bk.byCatIn).forEach(function(k){ var c=bk.byCatIn[k]; _ctreeAdd(cats, { name:c.name, emoji:c.emoji, child:null }, c.v, true, null); });
+  var list = Object.keys(cats).map(function(k){ return cats[k]; }).sort(function(a,b){ return b.tot-a.tot; });
+  return _ctreeRender(list, L('TIỀN VÀO TỪ ĐÂU','WHERE THE MONEY CAME FROM'), false);
 }
 function csvSumOnScroll(el){
   csvSumScroll = el.scrollLeft;   // survives the full innerHTML re-render every edit triggers
@@ -2828,7 +2885,7 @@ function renderCsvReview(){
   // design: tapping a bar scrolls the list DOWN to that period, so the chart
   // naturally leaves the viewport, like the personal tab's own card.
   html += csvSumHTML();
-  if(csvStagedMode) html += csvCatTreeHTML();   // the tree right under the strip (Q20b)
+  if(csvStagedMode) html += csvCatTreeHTML() + csvIncomeTreeHTML();   // the two trees right under the strip (Q20b)
 
   if(csvStagedMode){
     likelyRows.forEach(function(e){ attnHtml += csvStagedDupCard(e.c, e.i, 'likely', pickOnStaged, pickWkStaged); });
@@ -3282,6 +3339,7 @@ function csvBulkDelete(){
    sits under modals (z 62), the same reason #csv-rowsheet lives here.
    csvTxrHeadSync keeps its name and call sites; it now paints two buttons. */
 var CSV_TXR_I_SEL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h9M4 12h9M4 18h9"/><path d="m15.5 11.5 2.5 2.5 5-5.5"/></svg>';
+var CSV_TXB_I_OLD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="5" rx="1.5"/><path d="M5 9v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9"/><path d="M10 13h4"/></svg>';
 var CSV_TXB_I_EDIT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
 var CSV_TXB_I_CHART = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9M9 19V5M14 19v-7M19 19v-11"/></svg>';
 var CSV_TXB_I_TAG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8Z"/><path d="M7.5 7.5h.01"/></svg>';
@@ -3435,6 +3493,14 @@ function csvTxrHeadSync(){
     + '<button type="button" class="txb-b" onclick="csvToolOpen(\'edit\')">'
       + '<span class="txb-ic">'+CSV_TXB_I_EDIT+'</span>'+esc(L('Chỉnh sửa','Edit'))
       + '<span class="txb-n">'+n+'</span></button>'
+    /* Sao kê cũ moved off the review body into this box (2026-09-24): the
+       backlog is a tool you reach for, not a section everyone scrolls past. */
+    + (function(){
+        var oldN = (typeof window.fhStmtOldCards === 'function') ? window.fhStmtOldCards().length : 0;
+        return oldN ? '<button type="button" class="txb-b" onclick="csvToolOpen(\'stmtold\')">'
+          + '<span class="txb-ic">'+CSV_TXB_I_OLD+'</span>'+esc(L('Sao kê cũ','Older'))
+          + '<span class="txb-n">'+oldN+'</span></button>' : '';
+      })()
     + ((typeof csvSumBtnHTML === 'function') ? csvSumBtnHTML() : '')   // show / hide the summary chart
     + '</div>';
 }
@@ -3474,6 +3540,13 @@ function csvPickSheetHTML(){
       + (ready.length - stmtN ? csvPickChip(csvPickF.via === 'email', L('Từ email','From an email'), ready.length - stmtN, "csvPickViaTgl('email')") : '')
       + (sk.length > 1 ? sk.map(function(id){ return csvPickChip(!!csvPickF.stmt[id], stmts[id].title, stmts[id].n, "csvPickStmtTgl('"+escAttr(id)+"')"); }).join('') : '')
       + '</div></div>';
+  }
+  /* The locked statement cards' provider filter lives here now, not on the
+     review body (activation feedback 2026-09-24): same drawer, same chip
+     style, one less row of chrome above the list. */
+  var provChips = (typeof window.fhStmtPickChipsHTML === 'function') ? window.fhStmtPickChipsHTML() : '';
+  if(provChips){
+    h += '<div class="ctp-g"><div class="ctp-l">'+esc(L('Sao kê chưa mở','Unopened statements'))+'</div>'+provChips+'</div>';
   }
   if(dupN){
     h += '<div class="ctp-g"><div class="ctp-l">'+esc(L('Trùng lặp','Duplicates'))+'</div><div class="ctp-r">'
@@ -3625,7 +3698,9 @@ function csvToolSheetSync(){
   if(csvToolSheet === 'edit' && !csvStagedSelected().length){ m.innerHTML = ''; csvToolSheet = null; return; }
   m.innerHTML = '<div class="cts-scrim" onclick="csvToolClose()"></div>'
     + '<div class="cts">'
-    + (csvToolSheet === 'pick' ? csvPickSheetHTML() : csvEditSheetHTML())
+    + (csvToolSheet === 'pick' ? csvPickSheetHTML()
+       : csvToolSheet === 'stmtold' ? ((typeof window.fhStmtOldListHTML === 'function') ? window.fhStmtOldListHTML() : '')
+       : csvEditSheetHTML())
     + '</div>';
 }
 

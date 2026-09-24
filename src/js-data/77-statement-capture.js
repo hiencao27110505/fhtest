@@ -338,19 +338,29 @@
       const chip = (on, label, cnt, arg) => '<button type="button" class="ctp-chip' + (on ? ' on' : '') + '" onclick="fhStmtProvTgl(\'' + _escAttr(arg) + '\')">' + _esc(label) + ' <span class="ctp-n">' + cnt + '</span></button>';
       return '<div class="ctp-r stm-provs">' + chip(!_stmProvF, L('Tất cả', 'All'), _stmCards.length, '') + ps.map((p) => chip(_stmProvF === p, p, n[p], p)).join('') + '</div>';
     }
+    /* Declutter (activation feedback 2026-09-24): the review body carries only
+       the FRESH locked cards under one small header. The provider chips moved
+       into the Chọn nhanh drawer (fhStmtPickChipsHTML) and the backlog moved
+       into the toolbox as its own tool (fhStmtOldListHTML) — two rows of
+       chrome off the top of every open. */
     window.fhStmtCardsHTML = function () {
       if (!_stmCards.length) return '';
-      const chips = _stmProvChips();
-      const shown = _stmCards.filter((c) => !_stmProvF || _stmProvOf(c) === _stmProvF);
-      const fresh = shown.filter((c) => !c.backfill), old = shown.filter((c) => c.backfill);
-      let html = '<div class="group-h attn">' + _esc(L('Sao kê', 'Statements')) + ' · ' + _stmCards.length + '</div>' + chips;
-      if (fresh.length) html += '<div class="csv-cards">' + fresh.map(_stmCardHTML).join('') + '</div>';
-      if (old.length) {
-        html += '<div class="group-h csv-sure-h stm-old-h"><span>' + _esc(L('Sao kê cũ', 'Older')) + ' · ' + old.length + '</span>' +
-          '<button type="button" class="csv-linkbtn" onclick="fhStmtToggleOld()">' + _esc(_stmOldOpen ? L('Thu gọn', 'Hide') : L('Xem', 'Show')) + '</button></div>';
-        if (_stmOldOpen) html += '<div class="csv-cards">' + old.map(_stmCardHTML).join('') + '</div>';
-      }
-      return html;
+      const fresh = _stmCards.filter((c) => !c.backfill && (!_stmProvF || _stmProvOf(c) === _stmProvF));
+      if (!fresh.length) return '';
+      return '<div class="group-h attn">' + _esc(L('Sao kê', 'Statements')) + ' · ' + fresh.length + '</div>' +
+        '<div class="csv-cards">' + fresh.map(_stmCardHTML).join('') + '</div>';
+    };
+    window.fhStmtPickChipsHTML = function () { return _stmProvChips(); };
+    window.fhStmtOldCards = function () {
+      return _stmCards.filter((c) => c.backfill && (!_stmProvF || _stmProvOf(c) === _stmProvF));
+    };
+    window.fhStmtOldListHTML = function () {
+      const old = window.fhStmtOldCards();
+      let h = '<div class="cts-h"><b>' + _esc(L('Sao kê cũ', 'Older statements')) + (old.length ? ' · ' + old.length : '') + '</b></div>';
+      if (!old.length) return h + '<div class="ctp-m"><b>' + _esc(L('Không còn sao kê cũ nào.', 'No older statements left.')) + '</b></div>';
+      h += '<div class="cts-sub">' + _esc(L('Sao kê tìm thấy khi đọc lịch sử email. Mở cái nào cần, bỏ cái nào không.',
+        'Statements found while reading email history. Open what you need, dismiss the rest.')) + '</div>';
+      return h + '<div class="csv-cards">' + old.map(_stmCardHTML).join('') + '</div>';
     };
     window.fhStmtToggleOld = function () { _stmOldOpen = !_stmOldOpen; window.renderCsvReview && window.renderCsvReview(); };
 
