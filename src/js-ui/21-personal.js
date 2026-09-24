@@ -572,6 +572,23 @@ function renderPersonal(){
   var cfLbl = 'Còn lại · cá nhân';
 
   var h = persInviteWidgetHTML() + (act.state===3 ? persSetupWidgetHTML(act) + persQueueWidgetHTML(act) : '');
+  /* A ledger with no money rows yet must not wear a dead stats widget
+     (activation feedback 2026-09-24): state 3 can arrive with hasTx true via
+     debts, unreadables or a statement queue while the money book is still
+     empty — a 0 ₫ hero, zero tiles and a blank chart then read as broken. The
+     card keeps only its label and action rows until a real row exists. */
+  var _persAnyRows = ((P.txns||[]).length + (P.incomes||[]).length + ((SL&&SL.rows)?SL.rows.length:0)) > 0;
+  var hasStats = !slReady || _persAnyRows;
+  if(!hasStats){
+    h += '<section class="cf-card">'
+       + '<div class="cf-lblrow"><div class="cf-lbl">Sổ cá nhân</div></div>'
+       + '<div class="cf-cta">'
+       +   '<button class="cc-row" onclick="openPersonalBudget()"><span class="cc-ic">'+PIC.chart+'</span><span class="cc-t">'+(P.budget>0?'Ngân sách cá nhân':'Lập ngân sách cá nhân')+'</span>'+_ccChev+'</button>'
+       +   '<button class="cc-row" onclick="openPersonalExpense()"><span class="cc-ic">'+PIC.plus+'</span><span class="cc-t">Ghi giao dịch</span>'+_ccChev+'</button>'
+       +   _persEmailRow()
+       + '</div>'
+       + '</section>';
+  } else {
   h += '<section class="cf-card'+(persMaskIs('cf')?' sec-masked':'')+'">'
      + '<div class="cf-lblrow"><span class="tl"><div class="cf-lbl">'+cfLbl+'</div>'+persEyeHTML('cf')+'</span>'+moCaret+'</div>'
      + '<div class="cf-big num'+(left<0&&slReady?' neg':'')+'">'+(slReady?fmt(left):'…')+'</div>'
@@ -630,6 +647,7 @@ function renderPersonal(){
      +   _persEmailRow()
      + '</div>'
      + '</section>';
+  }
 
   /* The Cá nhân copy of Widget A's email row. It was a hardcoded duplicate, which
    is how it missed the first-read progress entirely: renderCashflowEmailCta

@@ -72,10 +72,14 @@ const nodeCrypto = require('crypto');
   let html = window.fhStmtCardsHTML();
   t('two VIB statements read apart: card vs account', /Sao kê VIB thẻ tín dụng · tháng 09\/2026/.test(html) && /Sao kê VIB tài khoản/.test(html), html.match(/Sao kê VIB[^<]*/g));
   t('the wallet says it is a wallet, with its period', /Sao kê MoMo ví · 20\/06 – 18\/09/.test(html), html.match(/Sao kê MoMo[^<]*/g));
-  t('a bank filter appears once there is more than one bank', /fhStmtProvTgl\('VIB'\)/.test(html) && /fhStmtProvTgl\('MoMo'\)/.test(html) && /Tất cả/.test(html));
+  /* The chips moved into the Chọn nhanh drawer (activation feedback 2026-09-24):
+     the body stays chips-free and the drawer embeds fhStmtPickChipsHTML(). */
+  var chips = window.fhStmtPickChipsHTML();
+  t('a bank filter appears once there is more than one bank — in the drawer, not the body',
+    /fhStmtProvTgl\('VIB'\)/.test(chips) && /fhStmtProvTgl\('MoMo'\)/.test(chips) && /Tất cả/.test(chips) && !/stm-provs/.test(html));
   window.fhStmtProvTgl('VIB'); html = el('csv-result').innerHTML;
   t('VIB only: both VIB cards, no MoMo card', (html.match(/class="stm-card/g) || []).length === 2 && !/Sao kê MoMo/.test(html));
-  t('...and the counts on the chips still describe the whole list', /Tất cả <span class="ctp-n">3<\/span>/.test(html));
+  t('...and the counts on the chips still describe the whole list', /Tất cả <span class="ctp-n">3<\/span>/.test(window.fhStmtPickChipsHTML()));
   window.fhStmtProvTgl('VIB'); html = el('csv-result').innerHTML;
   t('tapping the same bank again clears the filter', (html.match(/class="stm-card/g) || []).length === 3);
   t('a card is a tappable row with a chevron and the queue\'s own remove control', /class="stm-tap" onclick="fhStmtOpen/.test(html) && /class="chev"/.test(html) && /class="bulk-x"/.test(html) && !/Mở sao kê/.test(html));
