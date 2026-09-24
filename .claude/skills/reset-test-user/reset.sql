@@ -58,7 +58,7 @@ BEGIN
     AND c.table_name NOT IN (
       'members','passcode_attempts','family_creation_keys','mailbox_grants','mailbox_beta_access',
       'email_transactions','resolved_email_messages','connected_accounts','device_sessions',
-      'merchant_corrections','user_consents','founder_daily_active',
+      'merchant_corrections','user_consents','founder_daily_active','push_subscriptions',  -- push is person-level (owner_user_id) + family_id
       'statement_files','statement_rows','resolved_statement_rows',  -- bank-statement import
       'personal_keys','personal_accounts','personal_budgets','personal_lessons','personal_streaks',
       'personal_review_memory','personal_transaction_photos','personal_transactions','personal_labels'
@@ -177,6 +177,7 @@ DELETE FROM personal_budgets            WHERE owner_user_id IN (SELECT uid FROM 
 DELETE FROM personal_lessons            WHERE owner_user_id IN (SELECT uid FROM _target);
 DELETE FROM personal_streaks            WHERE owner_user_id IN (SELECT uid FROM _target);
 DELETE FROM personal_keys               WHERE user_id       IN (SELECT uid FROM _target);
+DELETE FROM push_subscriptions          WHERE owner_user_id IN (SELECT uid FROM _target);  -- push went person-level (owner_user_id), in addition to the family_id delete above
 -- (Personal photo blobs live in the `personal-media` bucket and are NOT deleted
 --  here — same storage.protect_delete() constraint as family-media; purge out-of-band.)
 
