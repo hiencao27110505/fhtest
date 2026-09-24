@@ -25188,7 +25188,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v574';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v575';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -34945,11 +34945,17 @@ window.classifyAmount = classifyAmount;
     catch (e) { return null; }
   }
   async function _pushSaveSub(sub) {
-    const fid = window.DB && window.DB.fid, mid = window.DB && window.DB.ownerMemberId;
-    if (!fid || !mid || !sub) return false;
+    /* User-scoped since 0152: the family seat is optional. A famless account
+       saves a personal row (family/member null) that the pipeline reaches via
+       owner_user_id; once a family exists the resync re-points the row at it. */
+    const fid = (window.DB && window.DB.fid) || null, mid = (window.DB && window.DB.ownerMemberId) || null;
+    const uid = window.fhUser && window.fhUser.id;
+    if (!uid || !sub) return false;
+    const seated = !!(fid && mid);
     const j = sub.toJSON ? sub.toJSON() : sub;
     const res = await sb.from('push_subscriptions').upsert({
-      family_id: fid, member_id: mid, endpoint: sub.endpoint,
+      owner_user_id: uid,
+      family_id: seated ? fid : null, member_id: seated ? mid : null, endpoint: sub.endpoint,
       p256dh: (j.keys && j.keys.p256dh) || '', auth: (j.keys && j.keys.auth) || '',
       ua: (navigator.userAgent || '').slice(0, 200)
     }, { onConflict: 'endpoint' });
@@ -34984,8 +34990,10 @@ window.classifyAmount = classifyAmount;
   };
   window.fhPushEnable = async function () {
     try {
-      const fid = window.DB && window.DB.fid, mid = window.DB && window.DB.ownerMemberId;
-      if (!fid || !mid) { window.toast && window.toast(L('Hãy mở một gia đình trước', 'Open a family first')); return false; }
+      /* No family gate any more (0152): a solo account's queue push is the
+         whole return loop, and "mở một gia đình trước" refused exactly the
+         person the feature serves. Only a session is required. */
+      if (!(window.fhUser && window.fhUser.id)) { window.toast && window.toast(L('Bạn cần đăng nhập trước đã', 'Please sign in first')); return false; }
       // permission FIRST: iOS drops the user-gesture context after an await
       const perm = await Notification.requestPermission();
       if (perm !== 'granted') { window.fhPushSheet && window.fhPushSheet(); return false; }
@@ -35023,11 +35031,13 @@ window.classifyAmount = classifyAmount;
      here (RLS owns that boundary) — fhPushTeardown clears the old row instead. */
   window.fhPushResync = async function () {
     try {
-      const fid = window.DB && window.DB.fid; if (!fid) return;
-      if (window._fhPushSyncedFid === fid) return;
+      const uid = window.fhUser && window.fhUser.id; if (!uid) return;
+      const fid = (window.DB && window.DB.fid) || null;
+      const key = fid || ('p:' + uid);          // famless rows re-sync too (0152)
+      if (window._fhPushSyncedFid === key) return;
       if (!_pushSupported() || Notification.permission !== 'granted') return;
       const sub = await _pushGetSub(); if (!sub) return;
-      if (await _pushSaveSub(sub)) window._fhPushSyncedFid = fid;
+      if (await _pushSaveSub(sub)) window._fhPushSyncedFid = key;
     } catch (e) {}
   };
   // Settings → Notifications sheet: state-aware, one clear action per state
@@ -35045,11 +35055,15 @@ window.classifyAmount = classifyAmount;
       sub = L('Thông báo đang bị chặn trong cài đặt hệ thống. Hãy mở Cài đặt của máy, tìm Earthy và cho phép thông báo, rồi quay lại đây.', 'Notifications are blocked in system settings. Open your device Settings, find Earthy, allow notifications, then come back here.');
       act = _btn(L('Đã hiểu', 'Got it'), '_closeOv()', _S.cta);
     } else if (st === 'on') {
-      sub = L('Máy này sẽ nhận thông báo khi cả nhà ghi một khoản, thêm ảnh, thả cảm xúc, gửi yêu cầu hoặc chia sẻ tâm trạng, kể cả khi app đang đóng.', 'This device gets a heads-up when the family logs an expense, adds a photo, reacts, sends a request or shares a mood, even with the app closed.');
+      sub = document.documentElement.classList.contains('fh-nofam')
+        ? L('Máy này sẽ nhận thông báo khi có giao dịch từ email chờ bạn duyệt, kể cả khi app đang đóng.', 'This device gets a heads-up when a bank email is waiting for your review, even with the app closed.')
+        : L('Máy này sẽ nhận thông báo khi cả nhà ghi một khoản, thêm ảnh, thả cảm xúc, gửi yêu cầu hoặc chia sẻ tâm trạng, kể cả khi app đang đóng.', 'This device gets a heads-up when the family logs an expense, adds a photo, reacts, sends a request or shares a mood, even with the app closed.');
       act = _btn(L('Tắt thông báo trên máy này', 'Turn off on this device'), 'fhPushDisable()', _S.line)
           + _btn(L('Xong', 'Done'), '_closeOv()', _S.cta);
     } else {
-      sub = L('Nhận thông báo khi cả nhà ghi một khoản, thêm ảnh, thả cảm xúc, gửi yêu cầu hoặc chia sẻ tâm trạng, và khi có giao dịch từ email chờ bạn duyệt. Kể cả khi app đang đóng.', 'Get a heads-up when the family logs an expense, adds a photo, reacts, sends a request or shares a mood, and when a bank email is waiting for your review. Even with the app closed.');
+      sub = document.documentElement.classList.contains('fh-nofam')
+        ? L('Nhận thông báo khi có giao dịch từ email chờ bạn duyệt. Kể cả khi app đang đóng.', 'Get a heads-up when a bank email is waiting for your review. Even with the app closed.')
+        : L('Nhận thông báo khi cả nhà ghi một khoản, thêm ảnh, thả cảm xúc, gửi yêu cầu hoặc chia sẻ tâm trạng, và khi có giao dịch từ email chờ bạn duyệt. Kể cả khi app đang đóng.', 'Get a heads-up when the family logs an expense, adds a photo, reacts, sends a request or shares a mood, and when a bank email is waiting for your review. Even with the app closed.');
       act = _btn(L('Bật thông báo 🔔', 'Turn on notifications 🔔'), 'fhPushEnable()', _S.cta);
     }
     _fhSheet(h + '<div class="fh-s-sub">' + sub + '</div>' + act);
@@ -35067,7 +35081,9 @@ window.classifyAmount = classifyAmount;
        • members who answered the old post-import offer keep that answer. */
   window.fhPushFirstVisitOffer = function () {
     try {
-      const mid = window.DB && window.DB.ownerMemberId; if (!mid) return;
+      /* A famless account has no member seat — the person themselves is the
+         once-per key then (0152). */
+      const mid = (window.DB && window.DB.ownerMemberId) || (window.fhUser && window.fhUser.id); if (!mid) return;
       const ob = document.getElementById('onboarding');
       if (ob && !ob.classList.contains('done')) return;          // mid-onboarding: finishOnboarding calls again
       if (window._fhPushOfferArmed) return; window._fhPushOfferArmed = true;

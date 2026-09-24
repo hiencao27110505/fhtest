@@ -275,6 +275,9 @@ async function notifyReview(
       // waiting to be opened, which push-send voices with its own line and tag.
       kind: meta && meta.statement ? "stmt_new" : "txn_review",
       member_id: grant.member_id,
+      // A personal-only grant carries no member (0092); the user is the
+      // destination then (0152). An older push-send ignores the field.
+      user_id: grant.user_id,
       count,
       ...(meta && meta.backfill ? { backfill: true } : {}),
       ...(meta && meta.copy ? { copy: meta.copy } : {}),

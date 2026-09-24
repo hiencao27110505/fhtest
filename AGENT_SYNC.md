@@ -156,8 +156,14 @@ hand-merging `index.html`. Both replaced vigilance with structure.
     `57-csv-import-review.js`: this work restructures the review surface's container and summary
     chart (`csvSumHTML` region, `fhTxnReviewSheet` entry) and does NOT touch extraction, payload
     handling, dedup, or `_srcAttn` semantics. `76-quick-review.js` is read-only here.
-  - **Migration**: one, for `push_subscriptions` personal scope — number claimed here when applied,
-    per §2. **Deploy**: `push-send` only, diffed against `main` first per the 2026-09-21 rule.
+  - **Migration `0152_personal_push` CLAIMED + APPLIED 2026-09-24** (push_subscriptions user-scoped:
+    `owner_user_id` not null default `auth.uid()`, family/member pair nullable + all-or-none CHECK,
+    owner-keyed RLS; table held 0 rows at apply, verified by query first). Next free is `0153`.
+  - **Deploys 2026-09-24**: `push-send` v23 (verify_jwt=true kept — its service-role claim path
+    depends on it) and `mailbox-sync` v64 (`--no-verify-jwt`; notifyReview now also sends
+    `grant.user_id` so a personal-only grant's push has a destination). Both were diffed against
+    `origin/main` first per the 2026-09-21 rule: live push-send == main byte-for-byte, live
+    mailbox-sync v63 == main across all 26 files, so v64 carries exactly the one notify line.
   - **A second of something (§3):** a second *scope* of push subscription (user-scoped beside
     family-scoped) — the grep for `family_id`/`member_id` singular assumptions in `push-send` and
     `55-push.js` is posted here before it lands. Also a second entry point to the review engine

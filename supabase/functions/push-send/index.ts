@@ -203,26 +203,46 @@ Deno.serve(async (req: Request) => {
       // one member's own devices only, both carry nothing.
       const svcKind = String(b.kind || "");
       if (svcKind !== "txn_review" && svcKind !== "stmt_new") return json({ error: "bad kind" }, 400);
-      const memberId = typeof b.member_id === "string" ? b.member_id : "";
-      if (!/^[0-9a-f-]{36}$/i.test(memberId)) return json({ error: "bad member" }, 400);
+      /* The destination is a PERSON (0152). A family-scoped grant names a
+         member; a personal-only grant (Model Y, no members row anywhere) can
+         only name a user. Either identifies the same thing — whose devices —
+         and subscriptions are keyed on owner_user_id now, so both row shapes
+         (family-seated and personal) are reached with one select. */
+      const isUuid = (s: string) => /^[0-9a-f-]{36}$/i.test(s);
+      const memberId = typeof b.member_id === "string" && isUuid(b.member_id) ? b.member_id : "";
+      let targetUser = typeof b.user_id === "string" && isUuid(b.user_id) ? b.user_id : "";
+      if (!memberId && !targetUser) return json({ error: "bad member" }, 400);
       const count = Math.max(1, Math.min(99, Number(b.count) || 1));
 
-      // family is derived from the member row, never taken from the body
-      const { data: mem } = await admin.from("members").select("family_id")
-        .eq("id", memberId).is("archived_at", null).maybeSingle();
-      if (!mem || !mem.family_id) return json({ error: "no member" }, 400);
-      const { data: f } = await admin.from("families").select("default_language")
-        .eq("id", mem.family_id).maybeSingle();
-      const lg = f && f.default_language === "en" ? "en" : "vi";
+      // family (for language) is derived from the member row, never from the body
+      let famId: string | null = null;
+      if (memberId) {
+        const { data: mem } = await admin.from("members").select("family_id,user_id")
+          .eq("id", memberId).is("archived_at", null).maybeSingle();
+        if (!mem || !mem.family_id) return json({ error: "no member" }, 400);
+        famId = mem.family_id;
+        if (!targetUser && mem.user_id) targetUser = mem.user_id;
+      }
+      if (!targetUser) return json({ error: "no member" }, 400);
+      let lg = "vi";
+      if (famId) {
+        const { data: f } = await admin.from("families").select("default_language")
+          .eq("id", famId).maybeSingle();
+        lg = f && f.default_language === "en" ? "en" : "vi";
+      } else {
+        const { data: pr } = await admin.from("profiles").select("language")
+          .eq("id", targetUser).maybeSingle();
+        lg = pr && pr.language === "en" ? "en" : "vi";
+      }
 
-      // ONLY this member's devices. The inverse of the social path's fan-out.
+      // ONLY this person's devices. The inverse of the social path's fan-out.
       const { data: own } = await admin.from("push_subscriptions")
         .select("id,endpoint,p256dh,auth")
-        .eq("family_id", mem.family_id).eq("member_id", memberId);
+        .eq("owner_user_id", targetUser);
       // This branch logged NOTHING until 2026-08-20, which is why four days of
       // dead notifications were invisible (AGENT_SYNC). Same structured style
       // as the social path's push_fanout/push_done.
-      console.log(JSON.stringify({ ev: "txn_review_subs", member: memberId.slice(0, 8), n: own ? own.length : 0 }));
+      console.log(JSON.stringify({ ev: "txn_review_subs", member: (memberId || targetUser).slice(0, 8), n: own ? own.length : 0 }));
       if (!own || !own.length) return json({ sent: 0, pruned: 0 });
 
       const srv2 = await getAppServer();
