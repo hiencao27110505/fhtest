@@ -123,11 +123,20 @@
       const list = _obInvites.map(function (inv, i) {
         return _obInviteCard(inv, i, i === _obSel) + (i === _obSel && !inv.card_only ? _obCodeBlock() : '');
       }).join('');
+      /* Solo is the primary journey (activation-journey-spec Q16): an invite at
+         sign-in must not be a wall. The skip enters the app on the personal
+         ledger; the invite stays claimable from a widget on Tài chính. Hidden
+         when the app/picker opened this screen — there the back arrow already
+         leads out. */
+      var solo = (window.__obFromPicker || window.__obFromApp) ? ''
+        : '<button type="button" class="ob-textlink ob-solo-skip" onclick="obSoloSkip()">'
+          + L('Để sau, dùng sổ riêng trước', 'Later — start with my own ledger') + '</button>';
       body.innerHTML =
         '<div class="ob-lab">' + (_obInvites.length > 1 ? L('Lời mời cho bạn', 'Your invites') : L('Lời mời cho bạn', 'Your invite')) + '</div>'
         + '<div id="ob-invite-list" role="radiogroup">' + list + '</div>'
         + '<div class="ob-or"><span>' + L('hoặc', 'or') + '</span></div>'
-        + '<button type="button" class="ob-ghost-btn" onclick="obShowCreate()">' + L('Tạo gia đình mới', 'Create a new family') + '</button>';
+        + '<button type="button" class="ob-ghost-btn" onclick="obShowCreate()">' + L('Tạo gia đình mới', 'Create a new family') + '</button>'
+        + solo;
       cta.textContent = L('Tham gia', 'Join family');
       if (hint) hint.textContent = (!sel.card_only && sel.passcode_set === false)
         ? L('Gia đình này chưa đặt mã. Nhờ chủ gia đình đặt mã trước.', 'This family has no passcode yet. Ask the owner to set one first.')
@@ -144,6 +153,12 @@
     window.obRenderStart();
   };
   window.obShowCreate = function () { _obMode = 'create'; window.obRenderStart(); setTimeout(function () { const f = _g('ob-famname'); if (f) f.focus(); }, 80); };
+  /* "Để sau, dùng sổ riêng trước": enter the app solo, invites intact — they
+     resurface as the invite widget on Tài chính and can be claimed any time. */
+  window.obSoloSkip = function () {
+    window.__fhPendingInvites = _obInvites.slice();
+    if (window.fhEnterPersonalOnly) window.fhEnterPersonalOnly();
+  };
   window.obShowInvites = function () { if (!_obInvites.length) return; _obMode = 'invite'; window.obRenderStart(); };
   // The single footer CTA dispatches by mode.
   window.obPrimary = function () { if (_obMode === 'create') { if (window.obCreateFamily) window.obCreateFamily(); } else { window.obJoin(); } };
@@ -172,6 +187,7 @@
        active-family slot. They surface on the Tài Chính tab's Nợ & cho vay
        section instead (23-debts-ui). Absent field (older deploy) = family. */
     _obInvites = _obInvites.filter(function (inv) { return (inv.family_type || 'family') === 'family'; });
+    window.__fhPendingInvites = _obInvites.slice();   // keep the Tài chính invite widget in step
     _obSel = 0;
     _obMode = _obInvites.length ? 'invite' : 'create';
     _fhJoinCtx = _obInvites.length ? _obInvites[0] : null;

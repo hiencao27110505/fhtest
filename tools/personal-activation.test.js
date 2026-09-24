@@ -23,8 +23,8 @@ const t = (n, ok, d) => { console.log((ok ? '  PASS  ' : '  FAIL  ') + n + (!ok 
 console.log('\n-- four states, derived from data the app already holds --');
 t('the state is read from the ledger, the badge count and the mailbox, nothing stored',
   /function persActivation\(P, SL\)\{/.test(ui) && /window\.fhStagedCount\|\|0/.test(ui) && /persMailProbe\(\)/.test(ui));
-t('states 1 and 2 replace the dashboard: no 0 ₫ hero, no chart, no empty sections',
-  /if\(act\.state<=2\)\{[\s\S]{0,300}_persCommit\(host, persActCard\(act, mon\) \+ persWillSeeHTML\(\), isCur, false\);\s*return;/.test(ui));
+t('states 1 and 2 replace the dashboard: no 0 ₫ hero, no chart, no empty sections (famless door cards allowed)',
+  /if\(act\.state<=2\)\{[\s\S]{0,300}_persCommit\(host, persInviteWidgetHTML\(\) \+ persActCard\(act, mon\) \+ persWillSeeHTML\(\) \+ persFamCardHTML\(\), isCur, false\);\s*return;/.test(ui));
 t('state 1 has one primary CTA (connect email) and manual entry as a text link',
   /act\.state===1[\s\S]{0,600}class="cta pact-cta" onclick="fhEmailTxnCta\(\{scope:\\'personal\\'\}\)"[\s\S]{0,200}Kết nối email ngân hàng/.test(ui)
   && /class="ob-textlink pact-link" onclick="openPersonalExpense\(\)">Hoặc ghi tay một khoản/.test(ui));
@@ -50,7 +50,7 @@ t('step 2 is done when every non-investment account is anchored or skipped',
   /a\.anchorK==null && !a\.setupSkippedAt/.test(ui) && /accts\.length>0 && need\.length===0/.test(ui));
 t('the widget shows only the remaining steps and can be hidden; hidden or complete = state 4',
   /act\.open\.forEach/.test(ui) && /persSetupHide/.test(ui) && /\(!open\.length \|\| persSetupHidden\(P\)\) \? 4 : 3/.test(ui));
-t('state 4 renders no setup widget at all', /var h = act\.state===3 \? persSetupWidgetHTML\(act\) \+ persQueueWidgetHTML\(act\) : '';/.test(ui) && !/act\.state===4[^\n]*persSetupWidgetHTML/.test(ui));
+t('state 4 renders no setup widget at all', /var h = persInviteWidgetHTML\(\) \+ \(act\.state===3 \? persSetupWidgetHTML\(act\) \+ persQueueWidgetHTML\(act\) : ''\);/.test(ui) && !/act\.state===4[^\n]*persSetupWidgetHTML/.test(ui));
 t('step 2 opens the account-setup wizard for the accounts that need it', /fhAcctSetupWizard\(st\.needIds, \{ intro: true \}\)/.test(ui));
 t('streak and investment empty states are built from the month\'s own private rows',
   /function persStreakDriven\(P, mon\)/.test(ui) && /top\.n<3\) return base/.test(ui)
@@ -68,7 +68,7 @@ t('the widget keeps the screen to one primary: its action is the tinted button',
 t('quick review never auto-pops while the first read is running', /if \(!opts\.force\) \{[\s\S]{0,300}fhBackfillHolds\(\)\) return;/.test(quick));
 t('quick review never auto-pops while the deck is on screen', /\(window\.fhStagedCount\|\|0\)>0\) return; window\.fhQuickReviewMaybe\(\)/.test(R('src/js-ui/10-nav-model.js')));
 
-t('the deck has no count line and its action reads "Kiểm tra N giao dịch"', !/pq-count/.test(ui) && !/\.pq-count\{/.test(css) && (ui.match(/Kiểm tra '\+n\+' giao dịch/g) || []).length === 2 && !/Duyệt '\+n\+' khoản/.test(ui));
+t('the deck has no count line; state 2 is a door to the picture, the widget keeps "Kiểm tra N giao dịch"', !/pq-count/.test(ui) && !/\.pq-count\{/.test(css) && /Xem bức tranh chi tiêu của bạn/.test(ui) && (ui.match(/Kiểm tra '\+n\+' giao dịch/g) || []).length === 1 && !/Duyệt '\+n\+' khoản/.test(ui));
 
 console.log('\n-- Tài sản: name, one action, the eye by the title --');
 {

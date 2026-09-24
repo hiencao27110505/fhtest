@@ -397,10 +397,15 @@
 
 /* ---------- personal-first: the no-family shell (fh-nofam on <html>) ----------
    Set by afterLogin for an account with zero families; cleared by the family
-   hydrate the moment a real family is active. Family-only surfaces stay out of
-   the shell, and Home carries only the create-a-family trigger (.nofam-card). */
+   hydrate the moment a real family is active. The whole tabbar hides — Tài
+   chính is the only home a famless account has (activation-journey-spec Q30);
+   the family door lives on the tab itself and in Settings. */
+.fh-nofam .tabbar{display:none}
 .fh-nofam #t-spending,.fh-nofam #t-events{display:none}
 .fh-nofam .fab{display:none !important}
+/* the Settings family door swaps with the family-management rows */
+#set-family-start-row{display:none}
+.fh-nofam #set-family-start-row{display:flex}
 .nofam-card{text-align:center;padding:30px 22px 24px;margin-top:14px}
 .nofam-ic{font-size:42px;margin-bottom:10px}
 .nofam-t{font-weight:800;font-size:19px;letter-spacing:-.02em;margin-bottom:8px}

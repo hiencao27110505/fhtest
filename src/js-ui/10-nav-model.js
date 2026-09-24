@@ -15,10 +15,10 @@ window.fhAvStyle = function(mm){
 window.fhAvIni = function(mm){ return (mm && mm.ini) || ''; };
 
 function go(name){
-  // Personal-first: with no family yet (fh-nofam), the family-data tabs funnel to
-  // Home, which holds only the create-family trigger (their tab buttons are hidden,
-  // but deep links / push routes can still call go with them).
-  if((name==='spending'||name==='events') && document.documentElement.classList.contains('fh-nofam')) name='home';
+  // Personal-first: with no family yet (fh-nofam) the tabbar is hidden and every
+  // family tab — Home included — funnels to Tài chính, the famless account's only
+  // home (deep links / push routes can still call go with them).
+  if((name==='spending'||name==='events'||name==='home') && document.documentElement.classList.contains('fh-nofam')) name='personal';
   document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('on'); });
   document.getElementById('v-'+name).classList.add('on');
   document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('on'); });

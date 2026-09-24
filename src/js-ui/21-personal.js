@@ -284,9 +284,35 @@ function persActCard(act, mon){
       + '<button class="ob-textlink pact-link m" onclick="fhEmailTxnCta({scope:\'personal\'})">Kiểm tra kết nối</button></section>';
   }
   var n = act.queue;
+  /* The card is a door (activation-journey-spec Q24): the preview — chart,
+     categories, rows — lives on the review screen; this card only opens it. */
   return '<section class="cf-card"><div class="cf-lbl">Email ngân hàng · đã đọc xong</div><div class="pact-h">'+n+' khoản đang chờ bạn duyệt</div>'
     + persQueueDeckHTML(n)
-    + '<button class="cta pact-cta" onclick="fhEmailTxnCta({scope:\'personal\'})">'+_PI.list+'Kiểm tra '+n+' giao dịch</button>'+link+'</section>';
+    + '<button class="cta pact-cta" onclick="fhEmailTxnCta({scope:\'personal\'})">'+_PI.bars+'Xem bức tranh chi tiêu của bạn</button>'+link+'</section>';
+}
+/* ── Famless shell widgets (activation-journey-spec Q30) ──
+   The tabbar is gone while fh-nofam, so the family door lives here: pending
+   invites as a tracker-style widget on top, and a quiet create card at the
+   bottom. Both disappear the moment a family is active (fh-nofam cleared). */
+function persInviteWidgetHTML(){
+  if(!document.documentElement.classList.contains('fh-nofam')) return '';
+  var invs = window.__fhPendingInvites || [];
+  if(!invs.length) return '';
+  var rows = invs.slice(0,3).map(function(inv){
+    return '<button class="psu-step" onclick="fhFamilyStart()"><div class="psu-ring">🏡</div>'
+      + '<div class="psu-b"><div class="psu-t">'+esc(inv.family_name||'Gia đình')+'</div>'
+      + '<div class="psu-s">Mời bởi '+esc(inv.invited_by||'chủ gia đình')+'</div></div>'+_ccChev+'</button>';
+  }).join('');
+  return '<section class="cf-card psu-card"><div class="cf-lblrow"><div class="cf-lbl">Lời mời gia đình'+(invs.length>1?' · '+invs.length:'')+'</div></div>'
+    + '<div class="psu-steps">'+rows+'</div></section>';
+}
+function persFamCardHTML(){
+  if(!document.documentElement.classList.contains('fh-nofam')) return '';
+  if((window.__fhPendingInvites||[]).length) return '';   // the invite widget already holds the family door
+  return '<section class="cf-card"><div class="cf-lbl">Gia đình</div>'
+    + '<div class="pact-h sm">Dùng chung với người thân?</div>'
+    + '<p class="pact-p">Tạo không gian gia đình để cùng ghi chi tiêu, lưu khoảnh khắc và tiết kiệm chung. Sổ cá nhân của bạn vẫn luôn riêng tư.</p>'
+    + '<div class="dbt-empty-cta"><button onclick="fhFamilyStart()">Tạo gia đình &amp; mời thành viên</button></div></section>';
 }
 /* The queue as a deck: the newest staged row on top (two lines, read-only,
    the tap opens the review queue), two blank cards behind. Shared by the
@@ -473,7 +499,7 @@ function renderPersonal(){
   var act = persActivation(P, SL);
   if(act.state<=2){
     if(!SL) persEnsureSlice();   // rows older than the 2-month cache still count as "has transactions"
-    _persCommit(host, persActCard(act, mon) + persWillSeeHTML(), isCur, false);
+    _persCommit(host, persInviteWidgetHTML() + persActCard(act, mon) + persWillSeeHTML() + persFamCardHTML(), isCur, false);
     return;
   }
   /* _unreadable rows are EXCLUDED from every total rather than counted as 0.
@@ -545,7 +571,7 @@ function renderPersonal(){
       + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M6 9l6 6 6-6"/></svg></button>';
   var cfLbl = 'Còn lại · cá nhân';
 
-  var h = act.state===3 ? persSetupWidgetHTML(act) + persQueueWidgetHTML(act) : '';
+  var h = persInviteWidgetHTML() + (act.state===3 ? persSetupWidgetHTML(act) + persQueueWidgetHTML(act) : '');
   h += '<section class="cf-card'+(persMaskIs('cf')?' sec-masked':'')+'">'
      + '<div class="cf-lblrow"><span class="tl"><div class="cf-lbl">'+cfLbl+'</div>'+persEyeHTML('cf')+'</span>'+moCaret+'</div>'
      + '<div class="cf-big num'+(left<0&&slReady?' neg':'')+'">'+(slReady?fmt(left):'…')+'</div>'
@@ -856,6 +882,7 @@ function _persEmailRow(){
                  : 'Chi tiết từng giao dịch chỉ lưu sẵn cho tháng này và tháng trước. Tổng và biểu đồ phía trên vẫn tính đủ tháng đã chọn.'))+'</div>';
   }
   h += '</div>';
+  h += persFamCardHTML();   // famless: the quiet family door, last (Q30)
   /* Re-renders arrive in bursts around boot (hydrate, mirror, slice, staged
      count). When nothing in the template changed, skip the innerHTML swap —
      a rebuild of identical markup is pure flicker, and it would also wipe the

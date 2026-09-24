@@ -264,7 +264,10 @@ function finishOnboarding(){
   obBuzz([10,40,16]);                                                    // the "you're in" moment
   document.getElementById('onboarding').classList.add('done');
   window.__obFromApp=false;                                              // the in-app trigger's back intent is spent
-  go('home');
+  /* Tài chính is the landing for everyone (activation-journey-spec Q31) —
+     a fresh family included. Home is one tab away; the Key Card intro and
+     the family's own screens still arrive on their own. */
+  go('personal');
   try{ if(window.fhInstallNudge) window.fhInstallNudge(); }catch(e){}   // earned-moment install nudge (once, dismissible, only if installable)
   try{ if(window.fhPushFirstVisitOffer) fhPushFirstVisitOffer(); }catch(e){}   // first home visit → the notification offer (yields to the install nudge if it fired)
 }

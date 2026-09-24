@@ -676,10 +676,15 @@ input{font-family:inherit}
 
 /* ---------- personal-first: the no-family shell (fh-nofam on <html>) ----------
    Set by afterLogin for an account with zero families; cleared by the family
-   hydrate the moment a real family is active. Family-only surfaces stay out of
-   the shell, and Home carries only the create-a-family trigger (.nofam-card). */
+   hydrate the moment a real family is active. The whole tabbar hides — Tài
+   chính is the only home a famless account has (activation-journey-spec Q30);
+   the family door lives on the tab itself and in Settings. */
+.fh-nofam .tabbar{display:none}
 .fh-nofam #t-spending,.fh-nofam #t-events{display:none}
 .fh-nofam .fab{display:none !important}
+/* the Settings family door swaps with the family-management rows */
+#set-family-start-row{display:none}
+.fh-nofam #set-family-start-row{display:flex}
 .nofam-card{text-align:center;padding:30px 22px 24px;margin-top:14px}
 .nofam-ic{font-size:42px;margin-bottom:10px}
 .nofam-t{font-weight:800;font-size:19px;letter-spacing:-.02em;margin-bottom:8px}
@@ -5721,6 +5726,9 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
          ease-symmetry requires. Not gated: every signed-in user has this. -->
     <button id="set-privacy-row" class="set-row" onclick="closeSheet();fhPrivacySheet()"><span class="set-ic">🛡️</span><span class="set-t" data-t="setPrivacy">Privacy</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhLanguageSheet()"><span class="set-ic">🌐</span><span class="set-t" data-t="setLanguage">Language</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+    <!-- Famless (fh-nofam): the durable family door — the tabbar is hidden then,
+         so Settings and the Tài chính card are where a family can be started. -->
+    <button id="set-family-start-row" class="set-row" onclick="closeSheet();fhFamilyStart()"><span class="set-ic">🏡</span><span class="set-t" data-t="setFamilyStart">Create a family</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhSwitchFamily()"><span class="set-ic">⇄</span><span class="set-t" data-t="setSwitchFamily">Switch family</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhInvite()"><span class="set-ic">＋</span><span class="set-t" data-t="inviteMember2">Invite a member</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhEncryptionSheet()"><span class="set-ic">🔒</span><span class="set-t" data-t="setEncryption">Money encryption</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
@@ -6062,10 +6070,10 @@ window.fhAvStyle = function(mm){
 window.fhAvIni = function(mm){ return (mm && mm.ini) || ''; };
 
 function go(name){
-  // Personal-first: with no family yet (fh-nofam), the family-data tabs funnel to
-  // Home, which holds only the create-family trigger (their tab buttons are hidden,
-  // but deep links / push routes can still call go with them).
-  if((name==='spending'||name==='events') && document.documentElement.classList.contains('fh-nofam')) name='home';
+  // Personal-first: with no family yet (fh-nofam) the tabbar is hidden and every
+  // family tab — Home included — funnels to Tài chính, the famless account's only
+  // home (deep links / push routes can still call go with them).
+  if((name==='spending'||name==='events'||name==='home') && document.documentElement.classList.contains('fh-nofam')) name='personal';
   document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('on'); });
   document.getElementById('v-'+name).classList.add('on');
   document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('on'); });
@@ -8260,9 +8268,35 @@ function persActCard(act, mon){
       + '<button class="ob-textlink pact-link m" onclick="fhEmailTxnCta({scope:\'personal\'})">Kiểm tra kết nối</button></section>';
   }
   var n = act.queue;
+  /* The card is a door (activation-journey-spec Q24): the preview — chart,
+     categories, rows — lives on the review screen; this card only opens it. */
   return '<section class="cf-card"><div class="cf-lbl">Email ngân hàng · đã đọc xong</div><div class="pact-h">'+n+' khoản đang chờ bạn duyệt</div>'
     + persQueueDeckHTML(n)
-    + '<button class="cta pact-cta" onclick="fhEmailTxnCta({scope:\'personal\'})">'+_PI.list+'Kiểm tra '+n+' giao dịch</button>'+link+'</section>';
+    + '<button class="cta pact-cta" onclick="fhEmailTxnCta({scope:\'personal\'})">'+_PI.bars+'Xem bức tranh chi tiêu của bạn</button>'+link+'</section>';
+}
+/* ── Famless shell widgets (activation-journey-spec Q30) ──
+   The tabbar is gone while fh-nofam, so the family door lives here: pending
+   invites as a tracker-style widget on top, and a quiet create card at the
+   bottom. Both disappear the moment a family is active (fh-nofam cleared). */
+function persInviteWidgetHTML(){
+  if(!document.documentElement.classList.contains('fh-nofam')) return '';
+  var invs = window.__fhPendingInvites || [];
+  if(!invs.length) return '';
+  var rows = invs.slice(0,3).map(function(inv){
+    return '<button class="psu-step" onclick="fhFamilyStart()"><div class="psu-ring">🏡</div>'
+      + '<div class="psu-b"><div class="psu-t">'+esc(inv.family_name||'Gia đình')+'</div>'
+      + '<div class="psu-s">Mời bởi '+esc(inv.invited_by||'chủ gia đình')+'</div></div>'+_ccChev+'</button>';
+  }).join('');
+  return '<section class="cf-card psu-card"><div class="cf-lblrow"><div class="cf-lbl">Lời mời gia đình'+(invs.length>1?' · '+invs.length:'')+'</div></div>'
+    + '<div class="psu-steps">'+rows+'</div></section>';
+}
+function persFamCardHTML(){
+  if(!document.documentElement.classList.contains('fh-nofam')) return '';
+  if((window.__fhPendingInvites||[]).length) return '';   // the invite widget already holds the family door
+  return '<section class="cf-card"><div class="cf-lbl">Gia đình</div>'
+    + '<div class="pact-h sm">Dùng chung với người thân?</div>'
+    + '<p class="pact-p">Tạo không gian gia đình để cùng ghi chi tiêu, lưu khoảnh khắc và tiết kiệm chung. Sổ cá nhân của bạn vẫn luôn riêng tư.</p>'
+    + '<div class="dbt-empty-cta"><button onclick="fhFamilyStart()">Tạo gia đình &amp; mời thành viên</button></div></section>';
 }
 /* The queue as a deck: the newest staged row on top (two lines, read-only,
    the tap opens the review queue), two blank cards behind. Shared by the
@@ -8449,7 +8483,7 @@ function renderPersonal(){
   var act = persActivation(P, SL);
   if(act.state<=2){
     if(!SL) persEnsureSlice();   // rows older than the 2-month cache still count as "has transactions"
-    _persCommit(host, persActCard(act, mon) + persWillSeeHTML(), isCur, false);
+    _persCommit(host, persInviteWidgetHTML() + persActCard(act, mon) + persWillSeeHTML() + persFamCardHTML(), isCur, false);
     return;
   }
   /* _unreadable rows are EXCLUDED from every total rather than counted as 0.
@@ -8521,7 +8555,7 @@ function renderPersonal(){
       + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M6 9l6 6 6-6"/></svg></button>';
   var cfLbl = 'Còn lại · cá nhân';
 
-  var h = act.state===3 ? persSetupWidgetHTML(act) + persQueueWidgetHTML(act) : '';
+  var h = persInviteWidgetHTML() + (act.state===3 ? persSetupWidgetHTML(act) + persQueueWidgetHTML(act) : '');
   h += '<section class="cf-card'+(persMaskIs('cf')?' sec-masked':'')+'">'
      + '<div class="cf-lblrow"><span class="tl"><div class="cf-lbl">'+cfLbl+'</div>'+persEyeHTML('cf')+'</span>'+moCaret+'</div>'
      + '<div class="cf-big num'+(left<0&&slReady?' neg':'')+'">'+(slReady?fmt(left):'…')+'</div>'
@@ -8832,6 +8866,7 @@ function _persEmailRow(){
                  : 'Chi tiết từng giao dịch chỉ lưu sẵn cho tháng này và tháng trước. Tổng và biểu đồ phía trên vẫn tính đủ tháng đã chọn.'))+'</div>';
   }
   h += '</div>';
+  h += persFamCardHTML();   // famless: the quiet family door, last (Q30)
   /* Re-renders arrive in bursts around boot (hydrate, mirror, slice, staged
      count). When nothing in the template changed, skip the innerHTML swap —
      a rebuild of identical markup is pure flicker, and it would also wipe the
@@ -24114,13 +24149,14 @@ var LANG=(function(){
 
 var EN_DEFAULT={
   /* onboarding — curated 2-step flow: intro + sign-in → your family */
-  introTitle:'One home for the family’s money',
-  sellPrivT:'Truly private', sellPrivS:'End-to-end encrypted, so only your family can read it. Even we can’t look.',
-  sellAutoT:'Effortless', sellAutoS:'Transactions log themselves. Nobody has to type them in.',
+  introTitle:'Your whole money picture, in one place',
+  sellPrivT:'Truly private', sellPrivS:'End-to-end encrypted, so only you — and the family you choose — can read it. Even we can’t look.',
+  sellAutoT:'Effortless', sellAutoS:'Connect your bank email and transactions log themselves. Money in, money out, zoomed in or out — no typing.',
   continueGoogle:'Continue with Google', signingIn:'Signing in…',
   terms:'By continuing, you agree to our',
   termsLink:'Privacy Policy',
   setPrivacy:'Privacy',
+  setFamilyStart:'Create a family',
   startTitle:'Your family', startSubNew:'Name your home and you’re in.',
   inviteForYou:'Your invite', joinCta:'Join family', orCreate:'or start your own',
   familyName:'Family name', phFamName:'e.g. The Reeds', createFamilyCta:'Create family',
@@ -24226,13 +24262,14 @@ var EN_DEFAULT={
 var I18N={
   vi:{
     /* onboarding — curated 2-step flow: intro + sign-in → your family */
-    introTitle:'Một tổ ấm cho tiền nong của cả nhà',
-    sellPrivT:'Riêng tư tuyệt đối', sellPrivS:'Mã hóa đầu cuối, chỉ gia đình bạn đọc được. Tụi mình cũng không xem được.',
-    sellAutoT:'Nhẹ tênh', sellAutoS:'Giao dịch tự vào sổ, cả nhà khỏi nhập tay từng khoản.',
+    introTitle:'Cả bức tranh tiền nong của bạn, ở một nơi',
+    sellPrivT:'Riêng tư tuyệt đối', sellPrivS:'Mã hóa đầu cuối, chỉ bạn và người thân bạn chọn đọc được. Tụi mình cũng không xem được.',
+    sellAutoT:'Nhẹ tênh', sellAutoS:'Nối email ngân hàng, giao dịch tự vào sổ. Tiền vào, tiền ra, nhìn gần hay nhìn xa đều rõ, khỏi nhập tay.',
     continueGoogle:'Tiếp tục với Google', signingIn:'Đang đăng nhập…',
     terms:'Khi tiếp tục, bạn đồng ý với',
     termsLink:'Chính sách quyền riêng tư',
     setPrivacy:'Quyền riêng tư',
+    setFamilyStart:'Tạo gia đình',
     startTitle:'Nhà của bạn', startSubNew:'Đặt tên cho tổ ấm của mình để bắt đầu.',
     inviteForYou:'Lời mời cho bạn', joinCta:'Tham gia', orCreate:'hoặc tạo tổ ấm riêng',
     familyName:'Tên gia đình', phFamName:'vd. Nhà mình', createFamilyCta:'Tạo gia đình',
@@ -24622,7 +24659,10 @@ function finishOnboarding(){
   obBuzz([10,40,16]);                                                    // the "you're in" moment
   document.getElementById('onboarding').classList.add('done');
   window.__obFromApp=false;                                              // the in-app trigger's back intent is spent
-  go('home');
+  /* Tài chính is the landing for everyone (activation-journey-spec Q31) —
+     a fresh family included. Home is one tab away; the Key Card intro and
+     the family's own screens still arrive on their own. */
+  go('personal');
   try{ if(window.fhInstallNudge) window.fhInstallNudge(); }catch(e){}   // earned-moment install nudge (once, dismissible, only if installable)
   try{ if(window.fhPushFirstVisitOffer) fhPushFirstVisitOffer(); }catch(e){}   // first home visit → the notification offer (yields to the install nudge if it fired)
 }
@@ -25395,8 +25435,9 @@ async function afterLogin(session) {
     invs = invs.filter((i) => i && (i.family_type || 'family') === 'family');   // friend/trip spaces never open this door
     if (invs.length && onb && typeof window.obGo === 'function') {
       fhResumeFail(); fhWarmAbandon();
+      window.__fhPendingInvites = invs;                     // the solo skip's widget on Tài chính reads these
       window.__obFromPicker = false;
-      onb.classList.remove('done'); window.obGo('start');   // take the waiting invite (create is still offered there)
+      onb.classList.remove('done'); window.obGo('start');   // take the waiting invite (create + a solo skip are offered there)
     } else {
       fhEnterPersonalOnly();
     }
@@ -25462,7 +25503,9 @@ function showFamilyPicker(fams, opts) {
       await (window.loadFamilyData ? window.loadFamilyData() : loadActiveFamily());
       ov.remove();
       if (onb) onb.classList.add('done');
-      if (typeof window.go === 'function') window.go('home');
+      /* Login landing is Tài chính (Q31); a mid-session switch from Settings
+         goes to Home — the person just picked a family to look at. */
+      if (typeof window.go === 'function') window.go(dismissible ? 'home' : 'personal');
     };
   });
   document.getElementById('fh-fam-new').onclick = () => {
@@ -35627,11 +35670,20 @@ window.classifyAmount = classifyAmount;
       const list = _obInvites.map(function (inv, i) {
         return _obInviteCard(inv, i, i === _obSel) + (i === _obSel && !inv.card_only ? _obCodeBlock() : '');
       }).join('');
+      /* Solo is the primary journey (activation-journey-spec Q16): an invite at
+         sign-in must not be a wall. The skip enters the app on the personal
+         ledger; the invite stays claimable from a widget on Tài chính. Hidden
+         when the app/picker opened this screen — there the back arrow already
+         leads out. */
+      var solo = (window.__obFromPicker || window.__obFromApp) ? ''
+        : '<button type="button" class="ob-textlink ob-solo-skip" onclick="obSoloSkip()">'
+          + L('Để sau, dùng sổ riêng trước', 'Later — start with my own ledger') + '</button>';
       body.innerHTML =
         '<div class="ob-lab">' + (_obInvites.length > 1 ? L('Lời mời cho bạn', 'Your invites') : L('Lời mời cho bạn', 'Your invite')) + '</div>'
         + '<div id="ob-invite-list" role="radiogroup">' + list + '</div>'
         + '<div class="ob-or"><span>' + L('hoặc', 'or') + '</span></div>'
-        + '<button type="button" class="ob-ghost-btn" onclick="obShowCreate()">' + L('Tạo gia đình mới', 'Create a new family') + '</button>';
+        + '<button type="button" class="ob-ghost-btn" onclick="obShowCreate()">' + L('Tạo gia đình mới', 'Create a new family') + '</button>'
+        + solo;
       cta.textContent = L('Tham gia', 'Join family');
       if (hint) hint.textContent = (!sel.card_only && sel.passcode_set === false)
         ? L('Gia đình này chưa đặt mã. Nhờ chủ gia đình đặt mã trước.', 'This family has no passcode yet. Ask the owner to set one first.')
@@ -35648,6 +35700,12 @@ window.classifyAmount = classifyAmount;
     window.obRenderStart();
   };
   window.obShowCreate = function () { _obMode = 'create'; window.obRenderStart(); setTimeout(function () { const f = _g('ob-famname'); if (f) f.focus(); }, 80); };
+  /* "Để sau, dùng sổ riêng trước": enter the app solo, invites intact — they
+     resurface as the invite widget on Tài chính and can be claimed any time. */
+  window.obSoloSkip = function () {
+    window.__fhPendingInvites = _obInvites.slice();
+    if (window.fhEnterPersonalOnly) window.fhEnterPersonalOnly();
+  };
   window.obShowInvites = function () { if (!_obInvites.length) return; _obMode = 'invite'; window.obRenderStart(); };
   // The single footer CTA dispatches by mode.
   window.obPrimary = function () { if (_obMode === 'create') { if (window.obCreateFamily) window.obCreateFamily(); } else { window.obJoin(); } };
@@ -35676,6 +35734,7 @@ window.classifyAmount = classifyAmount;
        active-family slot. They surface on the Tài Chính tab's Nợ & cho vay
        section instead (23-debts-ui). Absent field (older deploy) = family. */
     _obInvites = _obInvites.filter(function (inv) { return (inv.family_type || 'family') === 'family'; });
+    window.__fhPendingInvites = _obInvites.slice();   // keep the Tài chính invite widget in step
     _obSel = 0;
     _obMode = _obInvites.length ? 'invite' : 'create';
     _fhJoinCtx = _obInvites.length ? _obInvites[0] : null;

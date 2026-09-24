@@ -136,13 +136,14 @@ var LANG=(function(){
 
 var EN_DEFAULT={
   /* onboarding — curated 2-step flow: intro + sign-in → your family */
-  introTitle:'One home for the family’s money',
-  sellPrivT:'Truly private', sellPrivS:'End-to-end encrypted, so only your family can read it. Even we can’t look.',
-  sellAutoT:'Effortless', sellAutoS:'Transactions log themselves. Nobody has to type them in.',
+  introTitle:'Your whole money picture, in one place',
+  sellPrivT:'Truly private', sellPrivS:'End-to-end encrypted, so only you — and the family you choose — can read it. Even we can’t look.',
+  sellAutoT:'Effortless', sellAutoS:'Connect your bank email and transactions log themselves. Money in, money out, zoomed in or out — no typing.',
   continueGoogle:'Continue with Google', signingIn:'Signing in…',
   terms:'By continuing, you agree to our',
   termsLink:'Privacy Policy',
   setPrivacy:'Privacy',
+  setFamilyStart:'Create a family',
   startTitle:'Your family', startSubNew:'Name your home and you’re in.',
   inviteForYou:'Your invite', joinCta:'Join family', orCreate:'or start your own',
   familyName:'Family name', phFamName:'e.g. The Reeds', createFamilyCta:'Create family',
@@ -248,13 +249,14 @@ var EN_DEFAULT={
 var I18N={
   vi:{
     /* onboarding — curated 2-step flow: intro + sign-in → your family */
-    introTitle:'Một tổ ấm cho tiền nong của cả nhà',
-    sellPrivT:'Riêng tư tuyệt đối', sellPrivS:'Mã hóa đầu cuối, chỉ gia đình bạn đọc được. Tụi mình cũng không xem được.',
-    sellAutoT:'Nhẹ tênh', sellAutoS:'Giao dịch tự vào sổ, cả nhà khỏi nhập tay từng khoản.',
+    introTitle:'Cả bức tranh tiền nong của bạn, ở một nơi',
+    sellPrivT:'Riêng tư tuyệt đối', sellPrivS:'Mã hóa đầu cuối, chỉ bạn và người thân bạn chọn đọc được. Tụi mình cũng không xem được.',
+    sellAutoT:'Nhẹ tênh', sellAutoS:'Nối email ngân hàng, giao dịch tự vào sổ. Tiền vào, tiền ra, nhìn gần hay nhìn xa đều rõ, khỏi nhập tay.',
     continueGoogle:'Tiếp tục với Google', signingIn:'Đang đăng nhập…',
     terms:'Khi tiếp tục, bạn đồng ý với',
     termsLink:'Chính sách quyền riêng tư',
     setPrivacy:'Quyền riêng tư',
+    setFamilyStart:'Tạo gia đình',
     startTitle:'Nhà của bạn', startSubNew:'Đặt tên cho tổ ấm của mình để bắt đầu.',
     inviteForYou:'Lời mời cho bạn', joinCta:'Tham gia', orCreate:'hoặc tạo tổ ấm riêng',
     familyName:'Tên gia đình', phFamName:'vd. Nhà mình', createFamilyCta:'Tạo gia đình',

@@ -134,8 +134,9 @@ async function afterLogin(session) {
     invs = invs.filter((i) => i && (i.family_type || 'family') === 'family');   // friend/trip spaces never open this door
     if (invs.length && onb && typeof window.obGo === 'function') {
       fhResumeFail(); fhWarmAbandon();
+      window.__fhPendingInvites = invs;                     // the solo skip's widget on Tài chính reads these
       window.__obFromPicker = false;
-      onb.classList.remove('done'); window.obGo('start');   // take the waiting invite (create is still offered there)
+      onb.classList.remove('done'); window.obGo('start');   // take the waiting invite (create + a solo skip are offered there)
     } else {
       fhEnterPersonalOnly();
     }
@@ -201,7 +202,9 @@ function showFamilyPicker(fams, opts) {
       await (window.loadFamilyData ? window.loadFamilyData() : loadActiveFamily());
       ov.remove();
       if (onb) onb.classList.add('done');
-      if (typeof window.go === 'function') window.go('home');
+      /* Login landing is Tài chính (Q31); a mid-session switch from Settings
+         goes to Home — the person just picked a family to look at. */
+      if (typeof window.go === 'function') window.go(dismissible ? 'home' : 'personal');
     };
   });
   document.getElementById('fh-fam-new').onclick = () => {
