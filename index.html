@@ -3130,6 +3130,23 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
 .csum-pend{font-size:12px;color:var(--muted);margin:0 2px 10px}
 .csum-pend b{color:var(--ink)}
 
+/* ── S4: one stat line + the tall strip ── */
+.csum-s4h{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.csum-s4n{font-size:13.5px;font-weight:600;color:var(--ink)}
+.csum-s4n b{font-weight:600}
+.csum-s4 .pst{height:128px}
+/* ── G6: leaf gradient washes under quiet root labels ── */
+.clw{margin:0 0 18px;background:var(--white);border:1px solid var(--hairline);border-radius:16px;padding:12px 10px 10px}
+.clw .ctree-cap{padding:0 6px 4px}
+.clw-r{font-size:10.5px;font-weight:700;letter-spacing:.1em;color:var(--muted-soft);text-transform:uppercase;padding:9px 6px 3px}
+.clw-r:first-of-type{padding-top:3px}
+.clw-l{position:relative;display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;text-align:left;border-radius:8px;overflow:hidden;padding:7px 10px;margin-top:3px;font-size:12.5px;color:var(--ink-2);-webkit-tap-highlight-color:transparent}
+.clw-l i{position:absolute;inset:0;background:linear-gradient(90deg,var(--sage-100),rgba(235,251,246,.15))}
+.clw-l .t,.clw-l .a{position:relative}
+.clw-l .a{font-weight:600;flex-shrink:0}
+.clw-l.on{outline:1.6px solid var(--brand);outline-offset:-1.6px}
+.clw-l.on i{background:linear-gradient(90deg,var(--sage-200),var(--sage-50))}
+
 /* ── The category tree (Q20b): expanded by default, proportional bars carrying
    the same two-layer language as the strip — solid = đã vào sổ, grey tail =
    chưa duyệt. A node tap filters the row list (Q15a). ── */
@@ -16071,7 +16088,23 @@ function csvBookedLedger(){
   var SL = window.fhPersonalStatsSliceCached && window.fhPersonalStatsSliceCached();
   var floorIso = (function(){ var t=new Date(); t.setDate(t.getDate()-365);   // a year is the chart's reach, like the backfill's
     return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0'); })();
-  var byDay={}, byCat={}, byCatIn={}, thu=0, chi=0;
+  var byDay={}, byCat={}, byCatIn={}, byLeaf={}, byLeafIn={}, thu=0, chi=0;
+  /* leaf resolution for the G6 widget: the DEEPEST node's own label, its root
+     only as the section it files under */
+  var leafOf=function(row){
+    if(typeof fhTreeOn==='function' && fhTreeOn() && typeof FH_TAX!=='undefined' && row.node && FH_TAX.get(row.node)){
+      var rt=FH_TAX.get(FH_TAX.root(row.node)), nd=FH_TAX.get(row.node);
+      return { root:rt.vi, emoji:rt.emoji||null, leaf:nd.vi };
+    }
+    var rl=(typeof fhPersonalRowLabel==='function') ? fhPersonalRowLabel(row) : null;
+    var nm=((rl&&rl.name)||row.cat||'Khác');
+    return { root:nm, emoji:(rl&&rl.emoji)||row.emoji||null, leaf:nm };
+  };
+  var leafAdd=function(map,row,a){
+    var t=leafOf(row), k=t.root+'|'+t.leaf;
+    var e=map[k]||(map[k]={root:t.root, emoji:t.emoji, leaf:t.leaf, v:0, n:0});
+    e.v+=a; e.n++; if(t.emoji && !e.emoji) e.emoji=t.emoji;
+  };
   var spend=function(node){ return (typeof fhCountsAsSpending==='function') ? fhCountsAsSpending(node) : true; };
   var addInc=function(row){
     var a=row.amt||0; if(!(a>0)) return;
@@ -16080,6 +16113,7 @@ function csvBookedLedger(){
     var k=((rl&&rl.name)||row.cat||'Thu nhập');
     var c=byCatIn[k]||(byCatIn[k]={name:k, emoji:(rl&&rl.emoji)||row.emoji||'💰', v:0});
     c.v+=a;
+    leafAdd(byLeafIn,row,a);
   };
   var addExp=function(row){
     var a=row.amt||0; if(!(a>0)) return;
@@ -16089,6 +16123,7 @@ function csvBookedLedger(){
     var k=((rl&&rl.name)||row.cat||'Khác');
     var c=byCat[k]||(byCat[k]={name:k, emoji:(rl&&rl.emoji)||row.emoji||'🗂️', v:0});
     c.v+=a;
+    leafAdd(byLeaf,row,a);
   };
   if(SL){
     SL.rows.forEach(function(r2){
@@ -16102,7 +16137,7 @@ function csvBookedLedger(){
     });
     (P.incomes||[]).forEach(function(i2){ if(!i2._unreadable) addInc(i2); });
   }
-  return { byDay:byDay, byCat:byCat, byCatIn:byCatIn, thu:thu, chi:chi };
+  return { byDay:byDay, byCat:byCat, byCatIn:byCatIn, byLeaf:byLeaf, byLeafIn:byLeafIn, thu:thu, chi:chi };
 }
 function csvSumData(){
   var r = csvReview; if(!r) return null;
@@ -16185,22 +16220,20 @@ function csvSumHTML(){
   var bk = d.booked;
   var merged = !!bk;
   if(!d.n && !(merged && (bk.chi>0 || bk.thu>0))) return '';
-  /* Thu and chi as stat tiles (Q23): the whole window, queue + booked, with
-     the unconfirmed share named underneath. The bars below stay chi-only. */
+  /* S4 (mockups/review-widgets.html): the chart IS the widget — one compact
+     stat line, then a tall strip. Totals count queue + booked. */
   var totIn = d.thu + (merged ? bk.thu : 0), totOut = d.chi + (merged ? bk.chi : 0);
-  var html = '<div class="csum">'
-    + '<div class="csum-stats">'
-    +   '<div class="csum-stat"><span class="cl"><span class="csum-up">↑</span> '+L('Tiền vào','Money in')+'</span><span class="cv pos num">'+esc(fmt(totIn))+'</span></div>'
-    +   '<div class="csum-stat"><span class="cl"><span class="csum-dn">↓</span> '+L('Tiền ra','Money out')+'</span><span class="cv num">'+esc(fmt(totOut))+'</span></div>'
-    + '</div>';
+  var html = '<div class="csum csum-s4">'
+    + '<div class="csum-s4h"><span class="csum-s4n num">↓ '+esc(fmt(totOut))+' · <b class="csum-up">↑ '+esc(fmt(totIn))+'</b></span>';
   var buckets = merged ? csvSumBuckets(d.byDay, bk.byDay, true) : csvSumBuckets(d.byDay, d.bySel);
+  if(!buckets.length) html += '</div>';
   if(buckets.length){
     var Z=[['day',L('Ngày','Day')],['week',L('Tuần','Week')],['month',L('Tháng','Month')]];
     // The personal "Còn lại" card's zoom row and strip, same markup and CSS
     // (.pz / .pst in 40-spending-tabs.css), so the two charts are one component.
-    html += '<div class="pz">'+Z.map(function(z){
+    html += '<span class="pz">'+Z.map(function(z){
       return '<button type="button" class="'+(csvSumZoom===z[0]?'on':'')+'" onclick="csvSumZoomGo(\''+z[0]+'\')">'+z[1]+'</button>';
-    }).join('')+'</div>';
+    }).join('')+'</span></div>';
     var max=1; buckets.forEach(function(b){ if(b.amt>max) max=b.amt; });
     html += '<div class="pst" id="csum-strip" onscroll="csvSumOnScroll(this)">';
     buckets.forEach(function(b){
@@ -16238,61 +16271,79 @@ function csvCatFilterGo(name){
   csvCatFilter = (csvCatFilter===name) ? null : name;
   renderCsvReview();
 }
-/* THE MACHINE'S ANSWER NAMES THE NODE (activation feedback 2026-09-24): the
-   tree used c.categoryName, which for most staged rows is the fallback — so
-   the whole section read as one "Others" while every card below it wore a
-   real label. This resolver is the same one the cards use (csvCatChipText's
-   rule): the taxonomy root is the section's top level, the deeper node is the
-   child; the person's own label is the fallback, translated. */
-function csvTreeCatOf(c, kind){
+/* THE MACHINE'S ANSWER NAMES THE NODE: the taxonomy's DEEPEST node is the
+   line item (G6, mockups/review-widgets.html), its root only the quiet
+   section label above — no root totals, every wash on one global scale so
+   any two leaves anywhere in the list compare directly. */
+function csvTreeLeafOf(c, kind){
   if(typeof fhTreeOn==='function' && fhTreeOn() && typeof FH_TAX!=='undefined'
      && c._node && FH_TAX.get(c._node) && FH_TAX.kindOf(c._node)===kind){
     var rt=FH_TAX.get(FH_TAX.root(c._node)), nd=FH_TAX.get(c._node);
-    return { name: rt.vi, emoji: rt.emoji||null, child: (nd && nd!==rt) ? nd.vi : null };
+    return { root: rt.vi, emoji: rt.emoji||null, leaf: nd.vi };
   }
   if(kind==='income'){
     var inm = c._incomeCat ? csvCatLabel(c._incomeCat) : L('Thu nhập','Income');
-    var ist = (window.catStyle && c._incomeCat && window.catStyle[c._incomeCat]) || null;
-    return { name: inm, emoji: ist ? ist[0] : '💰', child: null };
+    return { root: inm, emoji: '💰', leaf: inm };
   }
   var raw = c.categoryName || (typeof CAT_FALLBACK!=='undefined' ? CAT_FALLBACK : 'Others');
   var st = (window.catStyle && window.catStyle[raw]) || null;
-  return { name: csvCatLabel(raw), emoji: st ? st[0] : null, child: null };
+  var nm = csvCatLabel(raw);
+  return { root: nm, emoji: st ? st[0] : null, leaf: nm };
 }
 function csvCatDim(c){
   if(!csvCatFilter) return false;
   if(c.isIncome || c.isTransfer || c._xfer) return false;   // held-out rows never dim under an expense filter
-  return csvTreeCatOf(c,'expense').name !== csvCatFilter;
+  return csvTreeLeafOf(c,'expense').leaf !== csvCatFilter;
 }
-/* One renderer for both trees (chi + thu): expandable, EXPANDED by default,
-   proportional two-layer track (solid = đã vào sổ, grey = chưa duyệt), the
-   machine's child nodes underneath. `filterable` wires the row tap to the
-   list filter; the chevron alone folds a node either way. */
-function _ctreeRender(list, cap, filterable){
+/* collect (root, leaf) sums from queue rows + the booked ledger's leaf map */
+function _clwCollect(kind, bookedMap){
+  var roots = {};
+  var add = function(t, a, n){
+    var r = roots[t.root] || (roots[t.root] = { root:t.root, emoji:t.emoji||null, sum:0, leaves:{} });
+    r.sum += a; if(t.emoji && !r.emoji) r.emoji = t.emoji;
+    var lf = r.leaves[t.leaf] || (r.leaves[t.leaf] = { leaf:t.leaf, v:0, n:0 });
+    lf.v += a; lf.n += (n==null?1:n);
+  };
+  var r0 = csvReview;
+  if(r0){
+    var take = function(c){
+      if(kind==='expense'){ if(c.isIncome || c.isTransfer || c._xfer) return; }
+      else { if(!c.isIncome || c._xfer || c._repay || c._invest) return; }
+      if(typeof csvFxUnresolved==='function' && csvFxUnresolved(c)) return;
+      var a = csvBaseAmt(c.amount||0); if(!(a>0)) return;
+      add(csvTreeLeafOf(c, kind), a, 1);
+    };
+    r0.ready.forEach(take);
+    if(kind==='income') r0.deferred.forEach(take);
+  }
+  if(bookedMap) Object.keys(bookedMap).forEach(function(k){
+    var e = bookedMap[k];
+    add({ root:e.root, emoji:e.emoji, leaf:e.leaf }, e.v, e.n);
+  });
+  return Object.keys(roots).map(function(k){ return roots[k]; }).sort(function(a,b){ return b.sum-a.sum; });
+}
+/* G6 renderer: quiet root label, gradient leaf washes, global scale */
+function _clwRender(list, cap, filterable){
   if(!list.length) return '';
-  var max = list[0].tot || 1;
-  var html = '<div class="ctree"><div class="ctree-cap">'+esc(cap)+'</div>';
-  list.forEach(function(c){
-    var kids = Object.keys(c.kids).map(function(k){ return { t:k, v:c.kids[k].v, n:c.kids[k].n }; });
-    /* the root's own rows join the children as a line under the root's own
-       name (the same label their cards wear), so the sum on screen adds up */
-    if(kids.length && c.selfV>0) kids.push({ t:c.name, v:c.selfV, n:c.selfN });
-    kids = kids.sort(function(a,b){ return b.v-a.v; }).slice(0,6);
-    var on = filterable && csvCatFilter===c.name;
-    var wTot = Math.max(4, Math.round(c.tot/max*100));
-    var wBk = c.bk>0 ? Math.max(3, Math.round(c.bk/max*100)) : 0;
-    var tap = filterable ? ' onclick="event.preventDefault();csvCatFilterGo(\''+escAttr(c.name)+'\')"' : '';
-    html += '<details open><summary>'
-      + '<div class="ctree-row'+(on?' on':'')+'"'+tap+'>'
-      +   '<span class="ctree-ico">'+(c.emoji||'🗂️')+'</span>'
-      +   '<span class="ctree-bd"><span class="ctree-line"><span>'+esc(c.name)+'</span><span class="amt num">'+esc(fmt(c.tot))+'</span></span>'
-      +   '<span class="ctree-track"><i class="tot" style="width:'+wTot+'%"></i>'+(wBk?'<i class="bk" style="width:'+wBk+'%"></i>':'')+'</span></span>'
-      +   (kids.length ? '<svg class="ctree-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" onclick="event.stopPropagation()"><path d="m9 6 6 6-6 6"/></svg>' : '')
-      + '</div></summary>'
-      + (kids.length ? '<div class="ctree-kids">'+kids.map(function(kd){
-          return '<div class="ctree-kid"><span>'+esc(kd.t)+(kd.n>1?' ×'+kd.n:'')+'</span><span class="amt num">'+esc(fmt(kd.v))+'</span></div>';
-        }).join('')+'</div>' : '')
-      + '</details>';
+  var max = 1;
+  list.forEach(function(r){ Object.keys(r.leaves).forEach(function(k){ if(r.leaves[k].v>max) max=r.leaves[k].v; }); });
+  var html = '<div class="clw"><div class="ctree-cap">'+esc(cap)+'</div>';
+  list.forEach(function(r){
+    var lvs = Object.keys(r.leaves).map(function(k){ return r.leaves[k]; }).sort(function(a,b){ return b.v-a.v; });
+    /* a group whose only leaf carries the group's own name says it once —
+       the leaf row absorbs the emoji and the label row is skipped */
+    var solo = lvs.length===1 && lvs[0].leaf===r.root;
+    if(!solo) html += '<div class="clw-r">'+(r.emoji ? r.emoji+' ' : '')+esc(r.root)+'</div>';
+    lvs.forEach(function(lf){
+      var w = Math.max(2, Math.round(lf.v/max*100));
+      var on = filterable && csvCatFilter===lf.leaf;
+      var tap = filterable ? ' onclick="csvCatFilterGo(\''+escAttr(lf.leaf)+'\')"' : '';
+      html += '<'+(filterable?'button type="button"':'div')+' class="clw-l'+(on?' on':'')+'"'+tap+'>'
+        + '<i style="width:'+w+'%"></i>'
+        + '<span class="t">'+(solo && r.emoji ? r.emoji+' ' : '')+esc(lf.leaf)+(lf.n>1 ? ' ×'+lf.n : '')+'</span>'
+        + '<span class="a num">'+esc(fmt(lf.v))+'</span>'
+        + '</'+(filterable?'button':'div')+'>';
+    });
   });
   if(filterable && csvCatFilter){
     html += '<button type="button" class="ctree-clear" onclick="csvCatFilterGo(csvCatFilter)">'
@@ -16300,52 +16351,19 @@ function _ctreeRender(list, cap, filterable){
   }
   return html + '</div>';
 }
-function _ctreeAdd(cats, t, amt, booked, extraChild, cnt){
-  var c = cats[t.name] || (cats[t.name] = { name:t.name, emoji:t.emoji||null, tot:0, bk:0, selfV:0, selfN:0, kids:{} });
-  c.tot += amt; if(booked) c.bk += amt;
-  if(t.emoji && !c.emoji) c.emoji = t.emoji;
-  var child = t.child || extraChild;
-  if(child){ var kd = c.kids[child] || (c.kids[child] = { n:0, v:0 }); kd.n += (cnt==null?1:cnt); kd.v += amt; }
-  /* rows sitting AT the root: remembered so the expanded node can show them as
-     their own line — otherwise the reader does the maths (total − leaves). */
-  else { c.selfV += amt; c.selfN += (cnt==null?1:cnt); }
-}
 function csvCatTreeHTML(){
   if(!csvStagedMode || csvSumHidden) return '';
-  var r = csvReview; if(!r) return '';
-  var cats = {};
-  r.ready.forEach(function(c){
-    if(c.isIncome || c.isTransfer || c._xfer) return;
-    if(typeof csvFxUnresolved==='function' && csvFxUnresolved(c)) return;
-    var a = csvBaseAmt(c.amount||0); if(!(a>0)) return;
-    _ctreeAdd(cats, csvTreeCatOf(c,'expense'), a, false, null);
-  });
+  if(!csvReview) return '';
   var bk = csvBookedLedger();
-  if(bk) Object.keys(bk.byCat).forEach(function(k){ var c=bk.byCat[k]; _ctreeAdd(cats, { name:c.name, emoji:c.emoji, child:null }, c.v, true, null); });
-  var list = Object.keys(cats).map(function(k){ return cats[k]; }).sort(function(a,b){ return b.tot-a.tot; });
-  return _ctreeRender(list, L('TIỀN ĐI ĐÂU','WHERE THE MONEY WENT'), true);
+  var list = _clwCollect('expense', bk && bk.byLeaf);
+  return _clwRender(list, L('TIỀN ĐI ĐÂU','WHERE THE MONEY WENT'), true);
 }
-/* Thu, mirrored (activation feedback): the same anatomy for money coming in,
-   grouped by the machine's income nodes, the payer as the child line. Queue
-   income rows live folded in "Tiền vào & trả nợ thẻ", so these rows are a
-   summary, not a filter — the tap only folds. */
 function csvIncomeTreeHTML(){
   if(!csvStagedMode || csvSumHidden) return '';
-  var r = csvReview; if(!r) return '';
-  var cats = {};
-  var addInc = function(c){
-    if(!c.isIncome || c._xfer || c._repay || c._invest) return;
-    if(typeof csvFxUnresolved==='function' && csvFxUnresolved(c)) return;
-    var a = csvBaseAmt(c.amount||0); if(!(a>0)) return;
-    var who = String(c.counterparty || c.description || '').trim().slice(0,28) || null;
-    _ctreeAdd(cats, csvTreeCatOf(c,'income'), a, false, who);
-  };
-  r.ready.forEach(addInc);
-  r.deferred.forEach(addInc);
+  if(!csvReview) return '';
   var bk = csvBookedLedger();
-  if(bk && bk.byCatIn) Object.keys(bk.byCatIn).forEach(function(k){ var c=bk.byCatIn[k]; _ctreeAdd(cats, { name:c.name, emoji:c.emoji, child:null }, c.v, true, null); });
-  var list = Object.keys(cats).map(function(k){ return cats[k]; }).sort(function(a,b){ return b.tot-a.tot; });
-  return _ctreeRender(list, L('TIỀN VÀO TỪ ĐÂU','WHERE THE MONEY CAME FROM'), false);
+  var list = _clwCollect('income', bk && bk.byLeafIn);
+  return _clwRender(list, L('TIỀN VÀO TỪ ĐÂU','WHERE THE MONEY CAME FROM'), false);
 }
 function csvSumOnScroll(el){
   csvSumScroll = el.scrollLeft;   // survives the full innerHTML re-render every edit triggers
@@ -25344,7 +25362,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v582';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v583';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
