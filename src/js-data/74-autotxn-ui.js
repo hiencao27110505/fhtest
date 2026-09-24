@@ -1654,6 +1654,7 @@
     n === 1 ? 'Found 1 transaction, waiting for your review.'
             : 'Found ' + n + ' transactions, waiting for your review.');
 
+  window.fhBackfillWatch = function () { return _atxLiveWatch(); };
   function _atxLiveWatch() {
     const seq = ++_atxLiveSeq;
     const t0 = Date.now();
@@ -1679,7 +1680,9 @@
       const el = document.getElementById('atx-live');       // connect sheet only; may be null
       const pg = document.getElementById('atx-pg');
       const sheet = document.getElementById('fh-sheet');
-      if (!pg || !sheet || !sheet.classList.contains('on')) badgeOnly = true;
+      const scr = document.getElementById('csv-import-modal');   // the review screen's reading state carries #atx-pg too
+      const surfaced = (sheet && sheet.classList.contains('on')) || (scr && scr.classList.contains('on'));
+      if (!pg || !surfaced) badgeOnly = true;
       if (!document.hidden) {
         try {
           /* The GRANT is asked every tick, the frontier only when the count

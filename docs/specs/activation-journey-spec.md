@@ -124,14 +124,17 @@ grey/solid language. Tapping a node filters the row list below — that
 filter is the "zoom in" of this release (Q15a); period-compare machinery
 stays on the dashboard.
 
-### 5c. Reading mode (first light)
+### 5c. Reading mode (first light) — REVISED 2026-09-24 (feedback round 6)
 
-When a first read (or any backfill) is running, the screen opens in
-reading mode: a progress header ("Đang đọc N ngày email… M khoản") that
-re-polls, with the chart, tree and rows re-rendering live as rows stage.
-The existing backfill-progress branch in `fhEmailTxnCta` is kept, not
-retired (Q18 — "add, not retire"); the screen is where the connect flow
-now lands.
+The screen has TWO states. While a read runs it is the PROGRESS surface
+and nothing else: the connect sheet's tracking anatomy full screen (bar,
+frontier date, the just-found feed, the completion CTA), no toolbox, no
+stats, no chart, no tree, no cards. The full picture appears only once
+reading finishes (a local poll flips the state over). Assembling the
+picture live mid-read was tried and rejected: heavy re-renders and
+half-true numbers. The Tài chính email card mirrors the same liveness
+through `fhBackfillWatch`, which keeps repainting the badge surfaces
+after the screen closes.
 
 ### 5d. Sparse yield
 

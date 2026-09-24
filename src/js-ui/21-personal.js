@@ -277,12 +277,24 @@ function persActCard(act, mon){
       + '<p class="pact-p">Ngân hàng vẫn gửi email, nhưng app không đọc được nữa cho tới khi bạn kết nối lại.</p>'
       + '<button class="cta pact-cta" onclick="fhEmailTxnCta({scope:\'personal\'})">'+_PI.mail+'Làm mới kết nối</button>'+link+'</section>';
   }
-  if(!act.queue && pg && pg.phase==='reading'){
-    var pct = pg.windowDays>0 ? Math.min(100, Math.round(pg.daysRead/pg.windowDays*100)) : 0;
-    return '<section class="cf-card"><div class="cf-lbl">Email ngân hàng · đang đọc</div><div class="pact-h">Đang dò hộp thư của bạn</div>'
-      + '<p class="pact-p">'+(pg.front ? 'Đã đọc tới '+esc(fmtDayMon(new Date(pg.front)))+'. ' : '')+'Xong là mọi khoản tìm thấy về đây để bạn duyệt.</p>'
+  var _bfReading = (typeof window.fhBackfillPhase==='function') ? window.fhBackfillPhase()==='reading' : !!(pg && pg.phase==='reading');
+  if(_bfReading){
+    /* LIVE while a read runs, queue or no queue (feedback round 6): the found
+       count and the frontier tick up on this card instead of it sitting dead
+       on a stale claim. fhBackfillWatch repaints the badge surfaces (this tab
+       included) every few seconds; re-armed with a throttle so a long
+       backfill outlives the watcher's own 3-minute window. */
+    if(window.fhBackfillWatch && (!window._persBfWatchAt || Date.now()-window._persBfWatchAt>30000)){
+      window._persBfWatchAt = Date.now();
+      try{ window.fhBackfillWatch(); }catch(e){}
+    }
+    var n0 = act.queue || (pg && pg.found) || 0;
+    var pct = (pg && pg.windowDays>0) ? Math.min(100, Math.round(pg.daysRead/pg.windowDays*100)) : 0;
+    return '<section class="cf-card"><div class="cf-lbl">Email ngân hàng · đang đọc</div><div class="pact-h">Đang đọc hộp thư của bạn</div>'
+      + '<p class="pact-p">'+(pg && pg.front ? 'Đã đọc tới '+esc(fmtDayMon(new Date(pg.front)))+'. ' : '')
+      + (n0 ? '<b>'+n0+' khoản</b> tìm thấy. ' : '')+'Đọc xong là mọi khoản về đây để bạn duyệt.</p>'
       + '<span class="cc-prog" style="margin-top:14px"><i style="width:'+pct+'%"></i></span>'
-      + '<button class="ob-textlink pact-link" onclick="fhEmailTxnCta({scope:\'personal\'})">Xem tiến độ</button></section>';
+      + '<button class="cta pact-cta" onclick="fhEmailTxnCta({scope:\'personal\'})">'+_PI.bars+'Xem tiến độ đọc</button></section>';
   }
   if(!act.queue && !window._fhStagedKnown){
     /* the badge has not answered yet — hold the shape, claim nothing */

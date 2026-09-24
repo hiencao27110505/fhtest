@@ -1196,15 +1196,22 @@
     });
   }
 
-  window.fhTxnReviewSheet = async function (ctx, opts) {
-    opts = opts || {};
-    var quiet = !!opts.quiet;   // the reading-mode watcher re-renders in place: no overlay, keep the scroll
+  window.fhTxnReviewSheet = async function (ctx) {
     // Key-mismatch alarm latched (18-staging-keys): approval is frozen for the
     // whole family until a verify passes again. Re-show the explanation rather
     // than a dead queue — the freeze must never look like a bug.
     if (window.fhStagingAlarmActive && window.fhStagingAlarmActive()) {
       window.fhStagingAlarmShow && window.fhStagingAlarmShow();
       return;
+    }
+    /* TWO STATES (activation feedback round 6). While the first read runs the
+       screen is the PROGRESS surface and nothing else — the same tracking UX
+       the connect sheet used to carry, now full screen: bar, frontier, the
+       just-found feed. The full picture (toolbox, stats, chart, tree, cards)
+       arrives only once reading finishes; assembling it live mid-read both
+       cost heavy re-renders and showed half-truths. */
+    if (window.fhBackfillPhase && window.fhBackfillPhase() === 'reading') {
+      return _rvwReadingScreen(ctx);
     }
     /* Entry context = the source of truth for THIS open, set here because every
        entry funnels through this one function — the two CTAs (which pass a scope)
@@ -1213,13 +1220,13 @@
        never persisted, so the card defaults reflect where the screen was opened
        from and a previous open's choice cannot linger. */
     window.csvEntryScope = window.fhNormScope ? window.fhNormScope(ctx) : (ctx || null);
-    if (!quiet) _txrLoadShow(L('Đang tải giao dịch…', 'Loading transactions…'));
+    _txrLoadShow(L('Đang tải giao dịch…', 'Loading transactions…'));
     var raw;
     try {
       raw = await fhFetchStagedTxns();
     } catch (e) {
       _txrLoadHide();
-      if (!quiet) window.toast && window.toast(L('Chưa tải được giao dịch', 'Could not load transactions'));
+      window.toast && window.toast(L('Chưa tải được giao dịch', 'Could not load transactions'));
       return;
     }
 
@@ -1258,8 +1265,7 @@
       } catch (eS) { console.warn('statement load failed', eS); }
     }
 
-    var reading = window.fhBackfillPhase && window.fhBackfillPhase() === 'reading';
-    if (!readable.length && !stmtCards && !reading) {
+    if (!readable.length && !stmtCards) {
       _txrLoadHide();
       /* Sparse yield (activation-journey-spec Q27): no blame-the-bank copy —
          the alternate supply lines, statement file first, manual second. Email
@@ -1310,11 +1316,6 @@
     window.fhQueueAccountCensus(readable).catch(function () {});
 
     window.csvStagedMode = true;   // reuse the review engine, drop its file-only chrome
-    var _keepScroll = null;
-    if (quiet) {
-      var _qb = document.querySelector('#csv-import-modal .modal-body');
-      if (_qb) _keepScroll = _qb.scrollTop;
-    }
 
     /* The duplicate matcher inside csvBuildReview is synchronous, so the
        personal slice it matches against (365-day horizon — a re-staged card can
@@ -1331,7 +1332,7 @@
        before the lending pass reads it. Best-effort — a failed sync degrades
        to whatever this device already knows, never blocks the queue. */
     try { if (window.fhLessonsSync) await window.fhLessonsSync(); } catch (e) {}
-    csvBuildReview([fhStagedAsCsvSource(readable)], quiet ? { keepView: true } : {});
+    csvBuildReview([fhStagedAsCsvSource(readable)], {});
     renderCsvReview();
 
     // Same screen, different framing: no file to pick, and the title should say
@@ -1341,6 +1342,7 @@
     var pick = document.getElementById('csv-pick'); if (pick) pick.style.display = 'none';
     var title = document.querySelector('#csv-import-modal .modal-title');
     if (title) title.textContent = L('Duyệt giao dịch', 'Review transactions');
+    var _saveEl = document.getElementById('csv-save'); if (_saveEl) _saveEl.style.display = '';   // back from the reading state
 
     /* A partly-locked queue must SAY so. Before this, unopenable rows were
        counted and then shown to no one unless the whole queue was locked — so
@@ -1382,97 +1384,66 @@
     }
 
     _txrLoadHide();
-    if (!quiet) openSheet('csv-import-modal');
-    else if (_keepScroll != null) {
-      var _qb2 = document.querySelector('#csv-import-modal .modal-body');
-      if (_qb2) _qb2.scrollTop = _keepScroll;   // a background refresh must not yank the reader
-    }
-    /* Reading mode (activation-journey-spec §5c): while the first read runs the
-       banner narrates, the picture assembles live underneath, and import waits. */
-    _rvwReadingSync();
-    _rvwWatchEnsure(ctx);
+    openSheet('csv-import-modal');
   };
 
-  /* ── Reading mode: the live first-light surface ──────────────────────────
-     While `fhBackfillPhase()` is 'reading', the screen wears a banner between
-     the nav and the list (progress + the just-connected note + the push offer),
-     the Import action steps aside (import mid-backfill is WRONG: duplicate
-     bucketing only sees fetched rows, so a twin not yet staged is never
-     flagged), and a watcher re-renders quietly as rows stage — the chart, tree
-     and rows drawing themselves in is the activation moment. The watcher stops
-     when the screen closes or the phase leaves 'reading'; on finish it clears
-     the banner, restores Import and does one last quiet refresh. */
-  var _rvwTimer = null, _rvwCtx = null;
-  async function _rvwReadingSync() {
-    var box = document.getElementById('rvw-reading');
-    var save = document.getElementById('csv-save');
-    if (!box) return;
-    var reading = window.csvStagedMode && window.fhBackfillPhase && window.fhBackfillPhase() === 'reading';
-    if (!reading) {
-      if (box.innerHTML) box.innerHTML = '';
-      if (save) save.style.display = '';
-      window._rvwJustConnected = false;
-      return;
-    }
-    var p = window.fhBackfillProgress ? window.fhBackfillProgress() : null;
-    var pct = (p && p.windowDays > 0) ? Math.min(100, Math.round(p.daysRead / p.windowDays * 100)) : 0;
-    var n = window.fhStagedCount || 0;
-    var just = !!window._rvwJustConnected;
+  /* ── State A: the reading screen ─────────────────────────────────────────
+     The connect sheet's own progress anatomy (#atx-pg bar + frontier,
+     #atx-feed just-found lines, #atx-live-cta born at completion), full
+     screen. fhBackfillWatch (74) repaints those ids every few seconds and
+     KEEPS RUNNING after the screen closes, demoted to badge mode — which is
+     what keeps the Tài chính card breathing too. A small local poll flips
+     this screen into the full review the moment the phase leaves 'reading'. */
+  var _rvwROTimer = null;
+  async function _rvwReadingScreen(ctx) {
+    window.csvStagedMode = false;                     // state A has no toolbox, no save
+    try { if (typeof csvTxrHeadSync === 'function') csvTxrHeadSync(); } catch (e) {}
+    var pick = document.getElementById('csv-pick'); if (pick) pick.style.display = 'none';
+    var title = document.querySelector('#csv-import-modal .modal-title');
+    if (title) title.textContent = L('Duyệt giao dịch', 'Review transactions');
+    var save = document.getElementById('csv-save'); if (save) save.style.display = 'none';
+    var n1 = document.getElementById('fh-txn-locked-note'); if (n1) n1.remove();
+    var n2 = document.getElementById('fh-txn-more-note'); if (n2) n2.remove();
+    var just = !!window._rvwJustConnected; window._rvwJustConnected = false;
     var pushRow = '';
     if (just) { try { if (typeof _atxPushRowSafe === 'function') pushRow = (await _atxPushRowSafe()) || ''; } catch (e) {} }
-    box.innerHTML =
-      '<div class="rvw-read-t"><span class="dot"></span>' + _esc(just
-        ? L('Đã kết nối ✓ Đang đọc hộp thư của bạn', 'Connected ✓ Reading your mailbox')
-        : L('Đang đọc hộp thư của bạn', 'Reading your mailbox')) + '</div>' +
-      '<div class="rvw-read-s">' + _esc(
-        (p && p.front ? L('Đã đọc tới ' + fmtDayMon(new Date(p.front)) + ' · ' + n + ' khoản tìm thấy. ',
-                          'Read back to ' + fmtDayMon(new Date(p.front)) + ' · ' + n + ' found. ') : '') +
-        L('Bức tranh bên dưới tự vẽ dần, bạn cứ xem trước. Duyệt và nhập được ngay khi đọc xong.',
-          'The picture below draws itself in as we read. Reviewing and importing open the moment it finishes.')) + '</div>' +
-      '<span class="cc-prog"><i style="width:' + pct + '%"></i></span>' +
-      pushRow;
-    if (save) save.style.display = 'none';
-  }
-  function _rvwWatchEnsure(ctx) {
-    if (_rvwTimer) return;
-    if (!(window.fhBackfillPhase && window.fhBackfillPhase() === 'reading')) return;
-    _rvwCtx = ctx || null;
-    _rvwTimer = 1;   // sentinel: a quiet refresh mid-tick must not double-start
-    _rvwTick(0);
-  }
-  async function _rvwTick(nIter) {
-    var modal = document.getElementById('csv-import-modal');
-    if (!modal || !modal.classList.contains('on') || !window.csvStagedMode) { _rvwStop(false); return; }
-    var phase = window.fhBackfillPhase ? window.fhBackfillPhase() : null;
-    if (phase !== 'reading') { _rvwStop(true); return; }
-    /* the grant + frontier every other tick (a small select); staged rows every tick */
-    if (nIter % 2 === 0) {
-      try {
-        var conn = window.fhAutoTxnConnection ? await window.fhAutoTxnConnection() : null;
-        if (conn && typeof _atxProgressState === 'function') { try { await _atxProgressState(conn); } catch (e) {} }
-        if (conn && conn.phase !== 'reading') { _rvwStop(true); return; }
-      } catch (e) {}
+    var out = document.getElementById('csv-result');
+    if (out) {
+      out.classList.remove('staged');
+      out.innerHTML =
+        '<div class="rvw-ro">' +
+        '<div class="mbx-hero">' + (typeof _mbxGlyph === 'function' ? _mbxGlyph('mail') : '') + '</div>' +
+        '<div class="sheet-h">' + _esc(just ? L('Đã kết nối ✓', 'Connected ✓') : L('Đang đọc hộp thư của bạn', 'Reading your mailbox')) + '</div>' +
+        '<div class="sheet-sub">' + _esc(L(
+          'Tụi mình đang tìm email giao dịch. Đọc xong, bức tranh chi tiêu và danh sách khoản sẽ hiện ở đây để bạn duyệt.',
+          'We are reading your mail for transactions. Once done, your spending picture and the review list appear right here.')) + '</div>' +
+        '<div id="atx-pg"></div><div id="atx-feed"></div><div id="atx-live-cta"></div>' +
+        '<div class="mbx-note">' + (typeof _mbxGlyph === 'function' ? _mbxGlyph('check') : '') + '<span>' + _esc(L(
+          'Cứ đóng màn hình này dùng app bình thường nhé, tụi mình vẫn đọc tiếp và báo bạn khi xong.',
+          'Feel free to close this and carry on. We keep reading, and we will tell you when it is done.')) + '</span></div>' +
+        pushRow + '</div>';
     }
-    var before = (window._fhStagedRows || []).length;
-    try { if (window.fhRefreshStagedCount) await window.fhRefreshStagedCount(); } catch (e) {}
-    if ((window.fhStagedCount || 0) !== before) {
-      try { await window.fhTxnReviewSheet(_rvwCtx, { quiet: true }); } catch (e) {}
-    } else {
-      try { await _rvwReadingSync(); } catch (e) {}
-    }
-    if (!_rvwTimer) return;   // stopped while we awaited
-    _rvwTimer = setTimeout(function () { _rvwTick(nIter + 1); }, 4000);
-  }
-  function _rvwStop(finished) {
-    if (_rvwTimer && _rvwTimer !== 1) clearTimeout(_rvwTimer);
-    _rvwTimer = null;
-    window._rvwJustConnected = false;
-    if (finished) {
-      /* done: banner off, Import back, and one last full quiet refresh so the
-         list holds everything the read found */
-      _rvwReadingSync();
-      try { window.fhTxnReviewSheet(_rvwCtx, { quiet: true }); } catch (e) {}
-    }
+    openSheet('csv-import-modal');
+    try {
+      var conn = window.fhAutoTxnConnection ? await window.fhAutoTxnConnection() : null;
+      if (conn && typeof _atxProgressState === 'function') {
+        var st = await _atxProgressState(conn);
+        if (typeof _atxProgressPaint === 'function') _atxProgressPaint(document.getElementById('atx-pg'), st);
+        if (typeof _atxFeedPaint === 'function') _atxFeedPaint(document.getElementById('atx-feed'), st.finds);
+      }
+    } catch (e) {}
+    try { if (window.fhBackfillWatch) window.fhBackfillWatch(); } catch (e) {}
+    clearTimeout(_rvwROTimer);
+    (function tick() {
+      var m = document.getElementById('csv-import-modal');
+      if (!m || !m.classList.contains('on')) { _rvwROTimer = null; return; }   // closed: the demoted watcher keeps the tab live
+      if (window.fhBackfillPhase && window.fhBackfillPhase() !== 'reading') {
+        _rvwROTimer = null;
+        try { window.fhTxnReviewSheet(ctx); } catch (e) {}   // state B: the full picture
+        return;
+      }
+      _rvwROTimer = setTimeout(tick, 3000);
+    })();
   }
 
   /* Which staged rows has the person FINISHED with?

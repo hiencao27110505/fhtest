@@ -182,9 +182,9 @@ function harness(countAt) {
        which only the CONNECT sheet renders — so opening the STATUS sheet
        mid-backfill demoted the watcher to badge-only on tick one and the card
        never repainted. #atx-pg is on both sheets, and must stay the probe. */
-    t('the sheet-alive probe is #atx-pg, not a connect-sheet-only element',
+    t('the alive probe is #atx-pg on ANY live surface — sheet or the review screen',
       /const pg = document\.getElementById\('atx-pg'\);\s*\n\s*const sheet/.test(src)
-      && /if \(!pg \|\| !sheet/.test(src));
+      && /csv-import-modal/.test(src) && /if \(!pg \|\| !surfaced\)/.test(src));
     /* CHANGED 2026-09-13. This used to assert the feed asked for CLEAR columns
        only — correct while the amount was the one thing the list could not
        show. The product call changed: the row now leads with the description
