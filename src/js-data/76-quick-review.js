@@ -1005,12 +1005,18 @@
        opens the full queue. Cached for a minute and keyed on the badge count so
        a promote re-fetches; a locked ledger or an unopenable row yields the
        count alone and the card degrades to a blank deck. Never throws. */
-    var _peek = null, _peekAt = 0, _peekFor = -1, _peekBusy = false;
+    var _peek = null, _peekAt = 0, _peekFor = -1, _peekBusy = false, _peekInflight = null;
     window.fhStagedPeekCached = function () { return _peek; };
     window.fhStagedPeek = async function (forCount) {
-      if (_peekBusy) return _peek;
+      /* A call landing mid-flight gets the IN-FLIGHT promise, never an instant
+         null: the deck's .then(renderPersonal) on an instantly-resolved null
+         re-kicked this function, which instantly resolved null again — an
+         unbroken microtask chain that froze the main thread and starved the
+         very fetch whose completion would have ended it (the v579 boot freeze). */
+      if (_peekBusy) return _peekInflight || _peek;
       if (_peek && _peekFor === forCount && Date.now() - _peekAt < 60000) return _peek;
       _peekBusy = true;
+      _peekInflight = (async function () {
       try {
         if (!window.fhPersonalKeyReady || !fhPersonalKeyReady()) { _peek = { n: 0 }; return _peek; }
         var rows = await _qrFetch();
@@ -1029,6 +1035,8 @@
           provider: re.source_provider || null, tail: (acct && acct.tail) || null, foreign: !!(re.currency && re.currency !== 'VND') };
         return _peek;
       } catch (e) { _peek = _peek || { n: 0 }; return _peek; }
-      finally { _peekAt = Date.now(); _peekFor = forCount; _peekBusy = false; }
+      finally { _peekAt = Date.now(); _peekFor = forCount; _peekBusy = false; _peekInflight = null; }
+      })();
+      return _peekInflight;
     };
   })();

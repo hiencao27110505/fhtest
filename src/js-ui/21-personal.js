@@ -332,9 +332,18 @@ function persFamCardHTML(){
    state 2 card and the standalone widget below. */
 function persQueueDeckHTML(n){
   var pk = window.fhStagedPeekCached ? fhStagedPeekCached() : null;
-  if(window.fhStagedPeek && (!pk || window._persPeekFor !== n)){
+  /* One kick at a time, and a re-render ONLY when the answer changed what the
+     deck would draw. The old unconditional .then(renderPersonal) met
+     fhStagedPeek's busy-guard returning an instant null and became an unbroken
+     microtask chain — the v579 boot freeze. */
+  if(window.fhStagedPeek && !window._persPeekWait && (!pk || window._persPeekFor !== n)){
+    window._persPeekWait = true;
     window._persPeekFor = n;
-    fhStagedPeek(n).then(function(){ try{ renderPersonal(); }catch(e){} });
+    fhStagedPeek(n).then(function(){
+      window._persPeekWait = false;
+      var now = window.fhStagedPeekCached ? fhStagedPeekCached() : null;
+      if(now !== pk){ try{ renderPersonal(); }catch(e){} }
+    }, function(){ window._persPeekWait = false; });
   }
   var top;
   if(pk && pk.id && !pk.foreign){

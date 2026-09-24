@@ -8379,9 +8379,18 @@ function persFamCardHTML(){
    state 2 card and the standalone widget below. */
 function persQueueDeckHTML(n){
   var pk = window.fhStagedPeekCached ? fhStagedPeekCached() : null;
-  if(window.fhStagedPeek && (!pk || window._persPeekFor !== n)){
+  /* One kick at a time, and a re-render ONLY when the answer changed what the
+     deck would draw. The old unconditional .then(renderPersonal) met
+     fhStagedPeek's busy-guard returning an instant null and became an unbroken
+     microtask chain — the v579 boot freeze. */
+  if(window.fhStagedPeek && !window._persPeekWait && (!pk || window._persPeekFor !== n)){
+    window._persPeekWait = true;
     window._persPeekFor = n;
-    fhStagedPeek(n).then(function(){ try{ renderPersonal(); }catch(e){} });
+    fhStagedPeek(n).then(function(){
+      window._persPeekWait = false;
+      var now = window.fhStagedPeekCached ? fhStagedPeekCached() : null;
+      if(now !== pk){ try{ renderPersonal(); }catch(e){} }
+    }, function(){ window._persPeekWait = false; });
   }
   var top;
   if(pk && pk.id && !pk.foreign){
@@ -25317,7 +25326,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v579';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v580';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -44695,12 +44704,18 @@ window.classifyAmount = classifyAmount;
        opens the full queue. Cached for a minute and keyed on the badge count so
        a promote re-fetches; a locked ledger or an unopenable row yields the
        count alone and the card degrades to a blank deck. Never throws. */
-    var _peek = null, _peekAt = 0, _peekFor = -1, _peekBusy = false;
+    var _peek = null, _peekAt = 0, _peekFor = -1, _peekBusy = false, _peekInflight = null;
     window.fhStagedPeekCached = function () { return _peek; };
     window.fhStagedPeek = async function (forCount) {
-      if (_peekBusy) return _peek;
+      /* A call landing mid-flight gets the IN-FLIGHT promise, never an instant
+         null: the deck's .then(renderPersonal) on an instantly-resolved null
+         re-kicked this function, which instantly resolved null again — an
+         unbroken microtask chain that froze the main thread and starved the
+         very fetch whose completion would have ended it (the v579 boot freeze). */
+      if (_peekBusy) return _peekInflight || _peek;
       if (_peek && _peekFor === forCount && Date.now() - _peekAt < 60000) return _peek;
       _peekBusy = true;
+      _peekInflight = (async function () {
       try {
         if (!window.fhPersonalKeyReady || !fhPersonalKeyReady()) { _peek = { n: 0 }; return _peek; }
         var rows = await _qrFetch();
@@ -44719,7 +44734,9 @@ window.classifyAmount = classifyAmount;
           provider: re.source_provider || null, tail: (acct && acct.tail) || null, foreign: !!(re.currency && re.currency !== 'VND') };
         return _peek;
       } catch (e) { _peek = _peek || { n: 0 }; return _peek; }
-      finally { _peekAt = Date.now(); _peekFor = forCount; _peekBusy = false; }
+      finally { _peekAt = Date.now(); _peekFor = forCount; _peekBusy = false; _peekInflight = null; }
+      })();
+      return _peekInflight;
     };
   })();
 
