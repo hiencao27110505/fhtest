@@ -58,6 +58,18 @@ figcaption span{font-weight:700;letter-spacing:-.2px}
 .trk i{position:absolute;left:0;top:0;bottom:0;border-radius:2px;background:var(--brand)}
 .more{display:block;text-align:center;font-size:13px;font-weight:600;color:var(--brand-ink);padding:10px 0 2px}
 .dot{display:inline-block;width:8px;height:8px;border-radius:3px;vertical-align:0}
+/* D4 family: the row background IS the bar */
+.wr{position:relative;border-radius:10px;overflow:hidden;padding:9px 10px;display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;font-weight:600}
+.wr i{position:absolute;inset:0;background:var(--sage-100)}
+.wr>span{position:relative}
+.wc{position:relative;border-radius:8px;overflow:hidden;padding:7px 10px 7px 26px;display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;color:var(--ink-2)}
+.wc i{position:absolute;inset:0;background:var(--sage-50)}
+.wc>span{position:relative}
+.wc .num{font-weight:600}
+/* D7 family: roots are headers, children carry the bars */
+.gh{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.02em}
+.br{display:flex;justify-content:space-between;font-size:12.5px;font-weight:600;align-items:baseline;gap:8px}
+.br .num{flex-shrink:0}
 @media (max-width:420px){.grid{grid-template-columns:1fr}}
 </style>
 </head>
@@ -550,6 +562,364 @@ figcaption span{font-weight:700;letter-spacing:-.2px}
     <span class="more">Xem 8 mục nữa</span>
   </div>
   <figcaption><b>D8</b><span>Cột thanh thẳng hàng</span></figcaption>
+</figure>
+
+</div>
+
+<h2>D · «Nền hàng là thanh» — tám biến thể <span style="font-size:13px;font-weight:600;color:var(--muted-soft);letter-spacing:0">(mở hết, không gấp)</span></h2>
+<div class="grid">
+
+<!-- E1 -->
+<figure>
+  <div class="card" style="padding:14px 12px">
+    <span class="lbl" style="padding:0 4px">Tiền đi đâu</span>
+    <div style="display:flex;flex-direction:column;gap:4px;margin-top:10px">
+      <span class="wr"><i style="width:100%"></i><span>🤝 Chuyển cho người khác</span><span class="num">74,0tr</span></span>
+      <span class="wc"><i style="width:94%"></i><span>Chuyển ×22</span><span class="num">74,5tr</span></span>
+      <span class="wc"><i style="width:6%"></i><span>Chia bill &amp; góp chung ×4</span><span class="num">4,6tr</span></span>
+      <span class="wr" style="margin-top:5px"><i style="width:26%"></i><span>🛍️ Mua sắm</span><span class="num">19,5tr</span></span>
+      <span class="wc"><i style="width:15%"></i><span>Mua sắm ×27</span><span class="num">11,0tr</span></span>
+      <span class="wc"><i style="width:5%"></i><span>Đồ sở thích &amp; thể thao ×2</span><span class="num">3,5tr</span></span>
+      <span class="wc"><i style="width:3%"></i><span>Quần áo ×3</span><span class="num">2,6tr</span></span>
+      <span class="wr" style="margin-top:5px"><i style="width:26%"></i><span>🍽️ Ăn uống</span><span class="num">19,3tr</span></span>
+      <span class="wc"><i style="width:18%"></i><span>Đi chợ &amp; siêu thị ×55</span><span class="num">13,2tr</span></span>
+      <span class="wc"><i style="width:4%"></i><span>Cà phê ×35</span><span class="num">2,9tr</span></span>
+      <span class="wc"><i style="width:3%"></i><span>Giao đồ ăn ×15</span><span class="num">2,1tr</span></span>
+    </div>
+  </div>
+  <figcaption><b>E1</b><span>Nguyên bản, đủ nhánh</span></figcaption>
+</figure>
+
+<!-- E2 -->
+<figure>
+  <div class="card" style="padding:14px 12px">
+    <span class="lbl" style="padding:0 4px">Tiền đi đâu</span>
+    <div style="display:flex;flex-direction:column;gap:4px;margin-top:10px">
+      <span class="wr"><i style="width:100%"></i><span>🤝 Chuyển cho người khác</span><span class="num">74,0tr <em style="font-style:normal;font-size:11px;color:var(--sage-800);opacity:.7">50%</em></span></span>
+      <span class="wc"><i style="width:94%"></i><span>Chuyển ×22</span><span class="num">74,5tr</span></span>
+      <span class="wc"><i style="width:6%"></i><span>Chia bill &amp; góp chung ×4</span><span class="num">4,6tr</span></span>
+      <span class="wr" style="margin-top:5px"><i style="width:26%"></i><span>🛍️ Mua sắm</span><span class="num">19,5tr <em style="font-style:normal;font-size:11px;color:var(--sage-800);opacity:.7">13%</em></span></span>
+      <span class="wc"><i style="width:15%"></i><span>Mua sắm ×27</span><span class="num">11,0tr</span></span>
+      <span class="wc"><i style="width:5%"></i><span>Đồ sở thích ×2</span><span class="num">3,5tr</span></span>
+      <span class="wr" style="margin-top:5px"><i style="width:26%"></i><span>🍽️ Ăn uống</span><span class="num">19,3tr <em style="font-style:normal;font-size:11px;color:var(--sage-800);opacity:.7">13%</em></span></span>
+      <span class="wc"><i style="width:18%"></i><span>Đi chợ &amp; siêu thị ×55</span><span class="num">13,2tr</span></span>
+      <span class="wc"><i style="width:4%"></i><span>Cà phê ×35</span><span class="num">2,9tr</span></span>
+    </div>
+  </div>
+  <figcaption><b>E2</b><span>Kèm %</span></figcaption>
+</figure>
+
+<!-- E3 -->
+<figure>
+  <div class="card" style="padding:14px 12px">
+    <span class="lbl" style="padding:0 4px">Tiền đi đâu</span>
+    <div style="display:flex;flex-direction:column;gap:4px;margin-top:10px">
+      <span class="wr" style="border-radius:10px;overflow:hidden"><i style="width:94%;background:var(--sage-100)"></i><i style="left:auto;right:0;width:6%;background:var(--sage-50)"></i><span>🤝 Chuyển cho người khác</span><span class="num">74,0tr</span></span>
+      <span class="wc"><i style="width:94%"></i><span>Chuyển ×22</span><span class="num">74,5tr</span></span>
+      <span class="wc"><i style="width:6%"></i><span>Chia bill &amp; góp chung ×4</span><span class="num">4,6tr</span></span>
+      <span class="wr" style="margin-top:5px"><i style="width:15%;background:var(--sage-100)"></i><i style="left:15%;width:11%;background:var(--sage-50)"></i><span>🛍️ Mua sắm</span><span class="num">19,5tr</span></span>
+      <span class="wc"><i style="width:15%"></i><span>Mua sắm ×27</span><span class="num">11,0tr</span></span>
+      <span class="wc"><i style="width:5%"></i><span>Đồ sở thích ×2</span><span class="num">3,5tr</span></span>
+      <span class="wc"><i style="width:3%"></i><span>Quần áo ×3</span><span class="num">2,6tr</span></span>
+      <span class="wr" style="margin-top:5px"><i style="width:18%;background:var(--sage-100)"></i><i style="left:18%;width:8%;background:var(--sage-50)"></i><span>🍽️ Ăn uống</span><span class="num">19,3tr</span></span>
+      <span class="wc"><i style="width:18%"></i><span>Đi chợ &amp; siêu thị ×55</span><span class="num">13,2tr</span></span>
+      <span class="wc"><i style="width:4%"></i><span>Cà phê ×35</span><span class="num">2,9tr</span></span>
+    </div>
+  </div>
+  <figcaption><b>E3</b><span>Nền gốc chia khúc theo con</span></figcaption>
+</figure>
+
+<!-- E4 -->
+<figure>
+  <div class="card" style="padding:14px 12px">
+    <span class="lbl" style="padding:0 4px">Tiền đi đâu</span>
+    <div style="display:flex;flex-direction:column;gap:4px;margin-top:10px">
+      <span class="wr"><i style="left:auto;right:0;width:100%"></i><span>🤝 Chuyển cho người khác</span><span class="num">74,0tr</span></span>
+      <span class="wc"><i style="left:auto;right:0;width:94%"></i><span>Chuyển ×22</span><span class="num">74,5tr</span></span>
+      <span class="wc"><i style="left:auto;right:0;width:6%"></i><span>Chia bill &amp; góp chung ×4</span><span class="num">4,6tr</span></span>
+      <span class="wr" style="margin-top:5px"><i style="left:auto;right:0;width:26%"></i><span>🛍️ Mua sắm</span><span class="num">19,5tr</span></span>
+      <span class="wc"><i style="left:auto;right:0;width:15%"></i><span>Mua sắm ×27</span><span class="num">11,0tr</span></span>
+      <span class="wc"><i style="left:auto;right:0;width:5%"></i><span>Đồ sở thích ×2</span><span class="num">3,5tr</span></span>
+      <span class="wr" style="margin-top:5px"><i style="left:auto;right:0;width:26%"></i><span>🍽️ Ăn uống</span><span class="num">19,3tr</span></span>
+      <span class="wc"><i style="left:auto;right:0;width:18%"></i><span>Đi chợ &amp; siêu thị ×55</span><span class="num">13,2tr</span></span>
+      <span class="wc"><i style="left:auto;right:0;width:4%"></i><span>Cà phê ×35</span><span class="num">2,9tr</span></span>
+    </div>
+  </div>
+  <figcaption><b>E4</b><span>Thanh neo phải, sau số tiền</span></figcaption>
+</figure>
+
+<!-- E5 -->
+<figure>
+  <div class="card" style="padding:14px 12px">
+    <span class="lbl" style="padding:0 4px">Tiền đi đâu</span>
+    <div style="display:flex;flex-direction:column;gap:4px;margin-top:10px">
+      <span style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px 4px;font-size:13.5px;font-weight:700"><span>🤝 Chuyển cho người khác</span><span class="num">74,0tr</span></span>
+      <span class="wc"><i style="width:94%"></i><span>Chuyển ×22</span><span class="num">74,5tr</span></span>
+      <span class="wc"><i style="width:6%"></i><span>Chia bill &amp; góp chung ×4</span><span class="num">4,6tr</span></span>
+      <span style="display:flex;justify-content:space-between;align-items:center;padding:10px 10px 4px;font-size:13.5px;font-weight:700;border-top:1px solid var(--divider);margin-top:6px"><span>🛍️ Mua sắm</span><span class="num">19,5tr</span></span>
+      <span class="wc"><i style="width:15%"></i><span>Mua sắm ×27</span><span class="num">11,0tr</span></span>
+      <span class="wc"><i style="width:5%"></i><span>Đồ sở thích ×2</span><span class="num">3,5tr</span></span>
+      <span class="wc"><i style="width:3%"></i><span>Quần áo ×3</span><span class="num">2,6tr</span></span>
+      <span style="display:flex;justify-content:space-between;align-items:center;padding:10px 10px 4px;font-size:13.5px;font-weight:700;border-top:1px solid var(--divider);margin-top:6px"><span>🍽️ Ăn uống</span><span class="num">19,3tr</span></span>
+      <span class="wc"><i style="width:18%"></i><span>Đi chợ &amp; siêu thị ×55</span><span class="num">13,2tr</span></span>
+      <span class="wc"><i style="width:4%"></i><span>Cà phê ×35</span><span class="num">2,9tr</span></span>
+    </div>
+  </div>
+  <figcaption><b>E5</b><span>Chỉ con mang nền</span></figcaption>
+</figure>
+
+<!-- E6 -->
+<figure>
+  <div class="card" style="padding:14px 12px">
+    <span class="lbl" style="padding:0 4px">Tiền đi đâu</span>
+    <div style="display:flex;flex-direction:column;gap:4px;margin-top:10px">
+      <span class="wr"><i style="width:100%;background:linear-gradient(90deg,var(--sage-200),var(--sage-50))"></i><span>🤝 Chuyển cho người khác</span><span class="num">74,0tr</span></span>
+      <span class="wc"><i style="width:94%;background:linear-gradient(90deg,var(--sage-100),rgba(235,251,246,0))"></i><span>Chuyển ×22</span><span class="num">74,5tr</span></span>
+      <span class="wc"><i style="width:6%;background:var(--sage-100)"></i><span>Chia bill &amp; góp chung ×4</span><span class="num">4,6tr</span></span>
+      <span class="wr" style="margin-top:5px"><i style="width:26%;background:linear-gradient(90deg,var(--sage-200),var(--sage-50))"></i><span>🛍️ Mua sắm</span><span class="num">19,5tr</span></span>
+      <span class="wc"><i style="width:15%;background:linear-gradient(90deg,var(--sage-100),rgba(235,251,246,0))"></i><span>Mua sắm ×27</span><span class="num">11,0tr</span></span>
+      <span class="wc"><i style="width:5%;background:var(--sage-100)"></i><span>Đồ sở thích ×2</span><span class="num">3,5tr</span></span>
+      <span class="wr" style="margin-top:5px"><i style="width:26%;background:linear-gradient(90deg,var(--sage-200),var(--sage-50))"></i><span>🍽️ Ăn uống</span><span class="num">19,3tr</span></span>
+      <span class="wc"><i style="width:18%;background:linear-gradient(90deg,var(--sage-100),rgba(235,251,246,0))"></i><span>Đi chợ &amp; siêu thị ×55</span><span class="num">13,2tr</span></span>
+      <span class="wc"><i style="width:4%;background:var(--sage-100)"></i><span>Cà phê ×35</span><span class="num">2,9tr</span></span>
+    </div>
+  </div>
+  <figcaption><b>E6</b><span>Nền chuyển sắc</span></figcaption>
+</figure>
+
+<!-- E7 -->
+<figure>
+  <div class="card" style="padding:14px 12px">
+    <span class="lbl" style="padding:0 4px">Tiền đi đâu</span>
+    <div style="display:flex;flex-direction:column;gap:4px;margin-top:10px">
+      <span class="wr"><i style="width:100%"></i><span>🤝 Chuyển cho người khác</span><span class="num">74,0tr</span></span>
+      <span style="margin:2px 0 2px 14px;border-left:2px solid var(--sage-200);padding-left:6px;display:flex;flex-direction:column;gap:4px">
+        <span class="wc" style="padding-left:10px"><i style="width:94%"></i><span>Chuyển ×22</span><span class="num">74,5tr</span></span>
+        <span class="wc" style="padding-left:10px"><i style="width:6%"></i><span>Chia bill &amp; góp chung ×4</span><span class="num">4,6tr</span></span>
+      </span>
+      <span class="wr" style="margin-top:4px"><i style="width:26%"></i><span>🍽️ Ăn uống</span><span class="num">19,3tr</span></span>
+      <span style="margin:2px 0 2px 14px;border-left:2px solid var(--sage-200);padding-left:6px;display:flex;flex-direction:column;gap:4px">
+        <span class="wc" style="padding-left:10px"><i style="width:18%"></i><span>Đi chợ &amp; siêu thị ×55</span><span class="num">13,2tr</span></span>
+        <span class="wc" style="padding-left:10px"><i style="width:4%"></i><span>Cà phê ×35</span><span class="num">2,9tr</span></span>
+        <span class="wc" style="padding-left:10px"><i style="width:3%"></i><span>Giao đồ ăn ×15</span><span class="num">2,1tr</span></span>
+      </span>
+    </div>
+  </div>
+  <figcaption><b>E7</b><span>Nền + ray dọc</span></figcaption>
+</figure>
+
+<!-- E8 -->
+<figure>
+  <div class="card" style="padding:12px 10px">
+    <span class="lbl" style="padding:0 6px">Tiền đi đâu</span>
+    <div style="display:flex;flex-direction:column;gap:2px;margin-top:8px">
+      <span class="wr" style="padding:6px 8px;border-radius:8px;font-size:12.5px"><i style="width:100%"></i><span>🤝 Chuyển cho người khác</span><span class="num">74,0tr</span></span>
+      <span class="wc" style="padding:4px 8px 4px 22px;font-size:11.5px"><i style="width:94%"></i><span>Chuyển ×22</span><span class="num">74,5tr</span></span>
+      <span class="wc" style="padding:4px 8px 4px 22px;font-size:11.5px"><i style="width:6%"></i><span>Chia bill ×4</span><span class="num">4,6tr</span></span>
+      <span class="wr" style="padding:6px 8px;border-radius:8px;font-size:12.5px;margin-top:3px"><i style="width:26%"></i><span>🛍️ Mua sắm</span><span class="num">19,5tr</span></span>
+      <span class="wc" style="padding:4px 8px 4px 22px;font-size:11.5px"><i style="width:15%"></i><span>Mua sắm ×27</span><span class="num">11,0tr</span></span>
+      <span class="wc" style="padding:4px 8px 4px 22px;font-size:11.5px"><i style="width:5%"></i><span>Đồ sở thích ×2</span><span class="num">3,5tr</span></span>
+      <span class="wc" style="padding:4px 8px 4px 22px;font-size:11.5px"><i style="width:3%"></i><span>Quần áo ×3</span><span class="num">2,6tr</span></span>
+      <span class="wr" style="padding:6px 8px;border-radius:8px;font-size:12.5px;margin-top:3px"><i style="width:26%"></i><span>🍽️ Ăn uống</span><span class="num">19,3tr</span></span>
+      <span class="wc" style="padding:4px 8px 4px 22px;font-size:11.5px"><i style="width:18%"></i><span>Đi chợ &amp; siêu thị ×55</span><span class="num">13,2tr</span></span>
+      <span class="wc" style="padding:4px 8px 4px 22px;font-size:11.5px"><i style="width:4%"></i><span>Cà phê ×35</span><span class="num">2,9tr</span></span>
+      <span class="wc" style="padding:4px 8px 4px 22px;font-size:11.5px"><i style="width:3%"></i><span>Giao đồ ăn ×15</span><span class="num">2,1tr</span></span>
+      <span class="wr" style="padding:6px 8px;border-radius:8px;font-size:12.5px;margin-top:3px"><i style="width:13%"></i><span>💼 Công việc &amp; kinh doanh</span><span class="num">9,7tr</span></span>
+      <span class="wc" style="padding:4px 8px 4px 22px;font-size:11.5px"><i style="width:13%"></i><span>Phần mềm &amp; công cụ ×5</span><span class="num">9,7tr</span></span>
+    </div>
+  </div>
+  <figcaption><b>E8</b><span>Nén chặt, thấy nhiều</span></figcaption>
+</figure>
+
+</div>
+
+<h2>E · «Con là thanh, gốc là đề mục» — tám biến thể <span style="font-size:13px;font-weight:600;color:var(--muted-soft);letter-spacing:0">(mở hết, không gấp)</span></h2>
+<div class="grid">
+
+<!-- F1 -->
+<figure>
+  <div class="card" style="padding:14px 16px">
+    <span class="lbl">Tiền đi đâu</span>
+    <div class="gh" style="margin-top:11px"><span>🤝 CHUYỂN CHO NGƯỜI KHÁC</span><span class="num">74,0tr</span></div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:7px">
+      <span><span class="br"><span>Chuyển ×22</span><span class="num">74,5tr</span></span><span class="trk" style="height:6px;border-radius:3px;margin-top:3px"><i style="width:100%;border-radius:3px"></i></span></span>
+      <span><span class="br"><span>Chia bill &amp; góp chung ×4</span><span class="num">4,6tr</span></span><span class="trk" style="height:6px;border-radius:3px;margin-top:3px"><i style="width:6%;border-radius:3px"></i></span></span>
+    </div>
+    <div class="gh" style="margin-top:14px"><span>🍽️ ĂN UỐNG</span><span class="num">19,3tr</span></div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:7px">
+      <span><span class="br"><span>Đi chợ &amp; siêu thị ×55</span><span class="num">13,2tr</span></span><span class="trk" style="height:6px;border-radius:3px;margin-top:3px"><i style="width:18%;border-radius:3px"></i></span></span>
+      <span><span class="br"><span>Cà phê ×35</span><span class="num">2,9tr</span></span><span class="trk" style="height:6px;border-radius:3px;margin-top:3px"><i style="width:4%;border-radius:3px"></i></span></span>
+      <span><span class="br"><span>Giao đồ ăn ×15</span><span class="num">2,1tr</span></span><span class="trk" style="height:6px;border-radius:3px;margin-top:3px"><i style="width:3%;border-radius:3px"></i></span></span>
+    </div>
+    <div class="gh" style="margin-top:14px"><span>🛍️ MUA SẮM</span><span class="num">19,5tr</span></div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:7px">
+      <span><span class="br"><span>Mua sắm ×27</span><span class="num">11,0tr</span></span><span class="trk" style="height:6px;border-radius:3px;margin-top:3px"><i style="width:15%;border-radius:3px"></i></span></span>
+      <span><span class="br"><span>Đồ sở thích &amp; thể thao ×2</span><span class="num">3,5tr</span></span><span class="trk" style="height:6px;border-radius:3px;margin-top:3px"><i style="width:5%;border-radius:3px"></i></span></span>
+    </div>
+  </div>
+  <figcaption><b>F1</b><span>Nguyên bản, đủ nhóm</span></figcaption>
+</figure>
+
+<!-- F2 -->
+<figure>
+  <div class="card" style="padding:14px 16px">
+    <span class="lbl">Tiền đi đâu</span>
+    <div class="gh" style="margin-top:11px;border-bottom:1px solid var(--divider);padding-bottom:6px"><span>🤝 CHUYỂN CHO NGƯỜI KHÁC</span><span class="num">74,0tr · 50%</span></div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+      <span><span class="br"><span>Chuyển ×22</span><span class="num">74,5tr</span></span><span class="trk" style="height:6px;border-radius:3px;margin-top:3px"><i style="width:100%;border-radius:3px"></i></span></span>
+      <span><span class="br"><span>Chia bill &amp; góp chung ×4</span><span class="num">4,6tr</span></span><span class="trk" style="height:6px;border-radius:3px;margin-top:3px"><i style="width:6%;border-radius:3px"></i></span></span>
+    </div>
+    <div class="gh" style="margin-top:14px;border-bottom:1px solid var(--divider);padding-bottom:6px"><span>🍽️ ĂN UỐNG</span><span class="num">19,3tr · 13%</span></div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+      <span><span class="br"><span>Đi chợ &amp; siêu thị ×55</span><span class="num">13,2tr</span></span><span class="trk" style="height:6px;border-radius:3px;margin-top:3px"><i style="width:18%;border-radius:3px"></i></span></span>
+      <span><span class="br"><span>Cà phê ×35</span><span class="num">2,9tr</span></span><span class="trk" style="height:6px;border-radius:3px;margin-top:3px"><i style="width:4%;border-radius:3px"></i></span></span>
+    </div>
+    <div class="gh" style="margin-top:14px;border-bottom:1px solid var(--divider);padding-bottom:6px"><span>🛍️ MUA SẮM</span><span class="num">19,5tr · 13%</span></div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+      <span><span class="br"><span>Mua sắm ×27</span><span class="num">11,0tr</span></span><span class="trk" style="height:6px;border-radius:3px;margin-top:3px"><i style="width:15%;border-radius:3px"></i></span></span>
+    </div>
+  </div>
+  <figcaption><b>F2</b><span>Đề mục có %, kẻ chân</span></figcaption>
+</figure>
+
+<!-- F3 -->
+<figure>
+  <div class="card" style="padding:14px 16px">
+    <span class="lbl">Tiền đi đâu</span>
+    <div class="gh" style="margin-top:11px;color:#13619d"><span>🤝 CHUYỂN CHO NGƯỜI KHÁC</span><span class="num">74,0tr</span></div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:7px">
+      <span><span class="br"><span>Chuyển ×22</span><span class="num">74,5tr</span></span><span class="trk" style="height:6px;border-radius:3px;margin-top:3px"><i style="width:100%;background:var(--id-1);border-radius:3px"></i></span></span>
+      <span><span class="br"><span>Chia bill &amp; góp chung ×4</span><span class="num">4,6tr</span></span><span class="trk" style="height:6px;border-radius:3px;margin-top:3px"><i style="width:6%;background:var(--id-1);border-radius:3px"></i></span></span>
+    </div>
+    <div class="gh" style="margin-top:14px;color:#8e4900"><span>🍽️ ĂN UỐNG</span><span class="num">19,3tr</span></div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:7px">
+      <span><span class="br"><span>Đi chợ &amp; siêu thị ×55</span><span class="num">13,2tr</span></span><span class="trk" style="height:6px;border-radius:3px;margin-top:3px"><i style="width:18%;background:var(--id-6);border-radius:3px"></i></span></span>
+      <span><span class="br"><span>Cà phê ×35</span><span class="num">2,9tr</span></span><span class="trk" style="height:6px;border-radius:3px;margin-top:3px"><i style="width:4%;background:var(--id-6);border-radius:3px"></i></span></span>
+    </div>
+    <div class="gh" style="margin-top:14px;color:#2a5ea0"><span>🛍️ MUA SẮM</span><span class="num">19,5tr</span></div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:7px">
+      <span><span class="br"><span>Mua sắm ×27</span><span class="num">11,0tr</span></span><span class="trk" style="height:6px;border-radius:3px;margin-top:3px"><i style="width:15%;background:var(--id-2);border-radius:3px"></i></span></span>
+      <span><span class="br"><span>Đồ sở thích ×2</span><span class="num">3,5tr</span></span><span class="trk" style="height:6px;border-radius:3px;margin-top:3px"><i style="width:5%;background:var(--id-2);border-radius:3px"></i></span></span>
+    </div>
+  </div>
+  <figcaption><b>F3</b><span>Mỗi nhóm một màu định danh</span></figcaption>
+</figure>
+
+<!-- F4 -->
+<figure>
+  <div class="card" style="padding:14px 16px">
+    <span class="lbl">Tiền đi đâu</span>
+    <div class="gh" style="margin-top:11px"><span>🤝 CHUYỂN CHO NGƯỜI KHÁC</span><span class="num">74,0tr</span></div>
+    <div style="display:flex;flex-direction:column;gap:9px;margin-top:8px">
+      <span><span style="font-size:12.5px;font-weight:600">Chuyển ×22</span><span style="display:flex;align-items:center;gap:7px;margin-top:3px"><span class="trk" style="height:14px;border-radius:7px;margin:0;flex:1"><i style="width:100%;border-radius:7px"></i></span><span class="num" style="font-size:12px;font-weight:700;flex-shrink:0">74,5tr</span></span></span>
+      <span><span style="font-size:12.5px;font-weight:600">Chia bill &amp; góp chung ×4</span><span style="display:flex;align-items:center;gap:7px;margin-top:3px"><span class="trk" style="height:14px;border-radius:7px;margin:0;flex:1"><i style="width:6%;border-radius:7px"></i></span><span class="num" style="font-size:12px;font-weight:700;flex-shrink:0">4,6tr</span></span></span>
+    </div>
+    <div class="gh" style="margin-top:14px"><span>🍽️ ĂN UỐNG</span><span class="num">19,3tr</span></div>
+    <div style="display:flex;flex-direction:column;gap:9px;margin-top:8px">
+      <span><span style="font-size:12.5px;font-weight:600">Đi chợ &amp; siêu thị ×55</span><span style="display:flex;align-items:center;gap:7px;margin-top:3px"><span class="trk" style="height:14px;border-radius:7px;margin:0;flex:1"><i style="width:18%;border-radius:7px"></i></span><span class="num" style="font-size:12px;font-weight:700;flex-shrink:0">13,2tr</span></span></span>
+      <span><span style="font-size:12.5px;font-weight:600">Cà phê ×35</span><span style="display:flex;align-items:center;gap:7px;margin-top:3px"><span class="trk" style="height:14px;border-radius:7px;margin:0;flex:1"><i style="width:4%;border-radius:7px"></i></span><span class="num" style="font-size:12px;font-weight:700;flex-shrink:0">2,9tr</span></span></span>
+    </div>
+  </div>
+  <figcaption><b>F4</b><span>Thanh dày, số bên phải</span></figcaption>
+</figure>
+
+<!-- F5 -->
+<figure>
+  <div class="card" style="padding:14px 16px">
+    <span class="lbl">Tiền đi đâu</span>
+    <div style="margin-top:11px">
+      <div class="gh"><span>🤝 CHUYỂN CHO NGƯỜI KHÁC</span><span class="num">74,0tr</span></div>
+      <span class="trk" style="height:3px;margin-top:5px"><i style="width:50%"></i></span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+      <span><span class="br"><span>Chuyển ×22</span><span class="num">74,5tr</span></span><span class="trk" style="height:6px;border-radius:3px;margin-top:3px"><i style="width:100%;background:var(--sage-400);border-radius:3px"></i></span></span>
+      <span><span class="br"><span>Chia bill &amp; góp chung ×4</span><span class="num">4,6tr</span></span><span class="trk" style="height:6px;border-radius:3px;margin-top:3px"><i style="width:6%;background:var(--sage-400);border-radius:3px"></i></span></span>
+    </div>
+    <div style="margin-top:13px">
+      <div class="gh"><span>🍽️ ĂN UỐNG</span><span class="num">19,3tr</span></div>
+      <span class="trk" style="height:3px;margin-top:5px"><i style="width:13%"></i></span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+      <span><span class="br"><span>Đi chợ &amp; siêu thị ×55</span><span class="num">13,2tr</span></span><span class="trk" style="height:6px;border-radius:3px;margin-top:3px"><i style="width:18%;background:var(--sage-400);border-radius:3px"></i></span></span>
+      <span><span class="br"><span>Cà phê ×35</span><span class="num">2,9tr</span></span><span class="trk" style="height:6px;border-radius:3px;margin-top:3px"><i style="width:4%;background:var(--sage-400);border-radius:3px"></i></span></span>
+    </div>
+  </div>
+  <figcaption><b>F5</b><span>Đề mục mang vạch phần trăm</span></figcaption>
+</figure>
+
+<!-- F6 -->
+<figure>
+  <div class="card" style="padding:14px 16px">
+    <span class="lbl">Tiền đi đâu</span>
+    <div class="gh" style="margin-top:11px"><span>🤝 CHUYỂN CHO NGƯỜI KHÁC</span><span class="num">74,0tr</span></div>
+    <div style="display:flex;flex-direction:column;gap:7px;margin-top:8px">
+      <span style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:baseline"><span style="font-size:12.5px;font-weight:600">Chuyển ×22<span class="trk" style="width:52%;height:4px;margin-top:3px"><i style="width:100%"></i></span></span><span class="num" style="font-size:12.5px;font-weight:700">74,5tr</span></span>
+      <span style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:baseline"><span style="font-size:12.5px;font-weight:600">Chia bill &amp; góp chung ×4<span class="trk" style="width:52%;height:4px;margin-top:3px"><i style="width:6%"></i></span></span><span class="num" style="font-size:12.5px;font-weight:700">4,6tr</span></span>
+    </div>
+    <div class="gh" style="margin-top:13px"><span>🍽️ ĂN UỐNG</span><span class="num">19,3tr</span></div>
+    <div style="display:flex;flex-direction:column;gap:7px;margin-top:8px">
+      <span style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:baseline"><span style="font-size:12.5px;font-weight:600">Đi chợ &amp; siêu thị ×55<span class="trk" style="width:52%;height:4px;margin-top:3px"><i style="width:18%"></i></span></span><span class="num" style="font-size:12.5px;font-weight:700">13,2tr</span></span>
+      <span style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:baseline"><span style="font-size:12.5px;font-weight:600">Cà phê ×35<span class="trk" style="width:52%;height:4px;margin-top:3px"><i style="width:4%"></i></span></span><span class="num" style="font-size:12.5px;font-weight:700">2,9tr</span></span>
+      <span style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:baseline"><span style="font-size:12.5px;font-weight:600">Giao đồ ăn ×15<span class="trk" style="width:52%;height:4px;margin-top:3px"><i style="width:3%"></i></span></span><span class="num" style="font-size:12.5px;font-weight:700">2,1tr</span></span>
+    </div>
+  </div>
+  <figcaption><b>F6</b><span>Vạch nhỏ dưới tên</span></figcaption>
+</figure>
+
+<!-- F7 -->
+<figure>
+  <div class="card" style="padding:14px">
+    <span class="lbl" style="padding:0 2px">Tiền đi đâu</span>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px">
+      <div style="background:var(--surface);border-radius:14px;padding:10px 12px">
+        <div class="gh" style="font-size:11px"><span>🤝 CHUYỂN</span><span class="num">74,0tr</span></div>
+        <div style="display:flex;flex-direction:column;gap:7px;margin-top:7px">
+          <span><span class="br" style="font-size:11.5px"><span>Chuyển ×22</span><span class="num">74,5tr</span></span><span class="trk" style="height:5px;margin-top:2px;background:var(--stone-200)"><i style="width:100%"></i></span></span>
+          <span><span class="br" style="font-size:11.5px"><span>Chia bill ×4</span><span class="num">4,6tr</span></span><span class="trk" style="height:5px;margin-top:2px;background:var(--stone-200)"><i style="width:6%"></i></span></span>
+        </div>
+      </div>
+      <div style="background:var(--surface);border-radius:14px;padding:10px 12px">
+        <div class="gh" style="font-size:11px"><span>🍽️ ĂN UỐNG</span><span class="num">19,3tr</span></div>
+        <div style="display:flex;flex-direction:column;gap:7px;margin-top:7px">
+          <span><span class="br" style="font-size:11.5px"><span>Đi chợ ×55</span><span class="num">13,2tr</span></span><span class="trk" style="height:5px;margin-top:2px;background:var(--stone-200)"><i style="width:68%"></i></span></span>
+          <span><span class="br" style="font-size:11.5px"><span>Cà phê ×35</span><span class="num">2,9tr</span></span><span class="trk" style="height:5px;margin-top:2px;background:var(--stone-200)"><i style="width:15%"></i></span></span>
+        </div>
+      </div>
+      <div style="background:var(--surface);border-radius:14px;padding:10px 12px">
+        <div class="gh" style="font-size:11px"><span>🛍️ MUA SẮM</span><span class="num">19,5tr</span></div>
+        <div style="display:flex;flex-direction:column;gap:7px;margin-top:7px">
+          <span><span class="br" style="font-size:11.5px"><span>Mua sắm ×27</span><span class="num">11,0tr</span></span><span class="trk" style="height:5px;margin-top:2px;background:var(--stone-200)"><i style="width:57%"></i></span></span>
+          <span><span class="br" style="font-size:11.5px"><span>Đồ sở thích ×2</span><span class="num">3,5tr</span></span><span class="trk" style="height:5px;margin-top:2px;background:var(--stone-200)"><i style="width:18%"></i></span></span>
+        </div>
+      </div>
+      <div style="background:var(--surface);border-radius:14px;padding:10px 12px">
+        <div class="gh" style="font-size:11px"><span>💼 CÔNG VIỆC</span><span class="num">9,7tr</span></div>
+        <div style="display:flex;flex-direction:column;gap:7px;margin-top:7px">
+          <span><span class="br" style="font-size:11.5px"><span>Phần mềm ×5</span><span class="num">9,7tr</span></span><span class="trk" style="height:5px;margin-top:2px;background:var(--stone-200)"><i style="width:50%"></i></span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <figcaption><b>F7</b><span>Ô nhóm 2 cột</span></figcaption>
+</figure>
+
+<!-- F8 -->
+<figure>
+  <div class="card" style="padding:14px 16px">
+    <span class="lbl">Tiền đi đâu</span>
+    <div class="gh" style="margin-top:11px"><span>🤝 CHUYỂN CHO NGƯỜI KHÁC</span><span class="num">74,0tr</span></div>
+    <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">
+      <span style="display:grid;grid-template-columns:64px 1fr auto;gap:10px;align-items:center"><span class="trk" style="height:6px;margin:0;border-radius:3px"><i style="width:100%;border-radius:3px"></i></span><span style="font-size:12.5px;font-weight:600">Chuyển ×22</span><span class="num" style="font-size:12.5px;font-weight:700">74,5tr</span></span>
+      <span style="display:grid;grid-template-columns:64px 1fr auto;gap:10px;align-items:center"><span class="trk" style="height:6px;margin:0;border-radius:3px"><i style="width:6%;border-radius:3px"></i></span><span style="font-size:12.5px;font-weight:600">Chia bill &amp; góp chung ×4</span><span class="num" style="font-size:12.5px;font-weight:700">4,6tr</span></span>
+    </div>
+    <div class="gh" style="margin-top:13px"><span>🍽️ ĂN UỐNG</span><span class="num">19,3tr</span></div>
+    <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">
+      <span style="display:grid;grid-template-columns:64px 1fr auto;gap:10px;align-items:center"><span class="trk" style="height:6px;margin:0;border-radius:3px"><i style="width:18%;border-radius:3px"></i></span><span style="font-size:12.5px;font-weight:600">Đi chợ &amp; siêu thị ×55</span><span class="num" style="font-size:12.5px;font-weight:700">13,2tr</span></span>
+      <span style="display:grid;grid-template-columns:64px 1fr auto;gap:10px;align-items:center"><span class="trk" style="height:6px;margin:0;border-radius:3px"><i style="width:4%;border-radius:3px"></i></span><span style="font-size:12.5px;font-weight:600">Cà phê ×35</span><span class="num" style="font-size:12.5px;font-weight:700">2,9tr</span></span>
+      <span style="display:grid;grid-template-columns:64px 1fr auto;gap:10px;align-items:center"><span class="trk" style="height:6px;margin:0;border-radius:3px"><i style="width:3%;border-radius:3px"></i></span><span style="font-size:12.5px;font-weight:600">Giao đồ ăn ×15</span><span class="num" style="font-size:12.5px;font-weight:700">2,1tr</span></span>
+    </div>
+  </div>
+  <figcaption><b>F8</b><span>Thanh trái, tên giữa, số phải</span></figcaption>
 </figure>
 
 </div>
