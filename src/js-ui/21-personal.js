@@ -734,7 +734,7 @@ function _persEmailRow(){
      email review queue, so this section may re-render itself once the async
      compute lands. ── */
   if(act.state===4 && hasStats) h += persQueueWidgetHTML(act);   // right under the first widget (the !hasStats branch already placed it)
-  h += act.state===3 ? persStreakDriven(P, mon) : (window.persStreakSection ? persStreakSection() : '');
+  h += hasStats ? (act.state===3 ? persStreakDriven(P, mon) : (window.persStreakSection ? persStreakSection() : '')) : '';
 
 /* ── Nợ & cho vay — the balance-sheet dimension (stocks, not flows), between
      the month's cash-flow card and the month's spending cards. Built by
@@ -743,8 +743,13 @@ function _persEmailRow(){
 
   /* ── Đầu tư — the asset dimension, the debts bento's sibling (0123). Built
      by 26-investment-ui.js (js-data) for the same modal-helper reason. ── */
-  h += act.state===3 ? persInvestDriven(P, mon) : (window.persInvestSection ? persInvestSection() : '');
+  h += hasStats ? (act.state===3 ? persInvestDriven(P, mon) : (window.persInvestSection ? persInvestSection() : '')) : '';
 
+  /* No stats yet → no money sections at all (feedback round 5): Tiền đi đâu
+     and Giao dịch của bạn join streaks and investment in waiting for the first
+     stat-producing row. Tài sản (accounts, debts) stays — it has real content
+     the moment accounts materialize from the queue. */
+  if(hasStats){
   /* ── Tiền đi đâu tháng này — one card per space, that space's categories
      nested inside (the old "Các nhóm của tôi" roll-up and the separate
      "Chi theo danh mục" card were two cuts of the same money with no visual
@@ -939,6 +944,7 @@ function _persEmailRow(){
                  : 'Chi tiết từng giao dịch chỉ lưu sẵn cho tháng này và tháng trước. Tổng và biểu đồ phía trên vẫn tính đủ tháng đã chọn.'))+'</div>';
   }
   h += '</div>';
+  }
   h += persFamCardHTML();   // famless: the quiet family door, last (Q30)
   /* Re-renders arrive in bursts around boot (hydrate, mirror, slice, staged
      count). When nothing in the template changed, skip the innerHTML swap —

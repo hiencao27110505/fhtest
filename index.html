@@ -8781,7 +8781,7 @@ function _persEmailRow(){
      email review queue, so this section may re-render itself once the async
      compute lands. ── */
   if(act.state===4 && hasStats) h += persQueueWidgetHTML(act);   // right under the first widget (the !hasStats branch already placed it)
-  h += act.state===3 ? persStreakDriven(P, mon) : (window.persStreakSection ? persStreakSection() : '');
+  h += hasStats ? (act.state===3 ? persStreakDriven(P, mon) : (window.persStreakSection ? persStreakSection() : '')) : '';
 
 /* ── Nợ & cho vay — the balance-sheet dimension (stocks, not flows), between
      the month's cash-flow card and the month's spending cards. Built by
@@ -8790,8 +8790,13 @@ function _persEmailRow(){
 
   /* ── Đầu tư — the asset dimension, the debts bento's sibling (0123). Built
      by 26-investment-ui.js (js-data) for the same modal-helper reason. ── */
-  h += act.state===3 ? persInvestDriven(P, mon) : (window.persInvestSection ? persInvestSection() : '');
+  h += hasStats ? (act.state===3 ? persInvestDriven(P, mon) : (window.persInvestSection ? persInvestSection() : '')) : '';
 
+  /* No stats yet → no money sections at all (feedback round 5): Tiền đi đâu
+     and Giao dịch của bạn join streaks and investment in waiting for the first
+     stat-producing row. Tài sản (accounts, debts) stays — it has real content
+     the moment accounts materialize from the queue. */
+  if(hasStats){
   /* ── Tiền đi đâu tháng này — one card per space, that space's categories
      nested inside (the old "Các nhóm của tôi" roll-up and the separate
      "Chi theo danh mục" card were two cuts of the same money with no visual
@@ -8986,6 +8991,7 @@ function _persEmailRow(){
                  : 'Chi tiết từng giao dịch chỉ lưu sẵn cho tháng này và tháng trước. Tổng và biểu đồ phía trên vẫn tính đủ tháng đã chọn.'))+'</div>';
   }
   h += '</div>';
+  }
   h += persFamCardHTML();   // famless: the quiet family door, last (Q30)
   /* Re-renders arrive in bursts around boot (hydrate, mirror, slice, staged
      count). When nothing in the template changed, skip the innerHTML swap —
@@ -25326,7 +25332,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v580';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v581';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
