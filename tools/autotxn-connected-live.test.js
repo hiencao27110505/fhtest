@@ -94,7 +94,10 @@ function harness(countAt) {
     _mbxPushRow: async () => { rec.pushRowAsked++; return '<div id="push-offer-row"></div>'; },
     _closeOv: () => {},
     window: {
-      fhTxnReviewSheet: () => {},
+      /* fhTxnReviewSheet ABSENT by default: with the review screen available,
+         fhAutoTxnDone('connected') routes there (activation-journey-spec Q18)
+         and the sheet below is the fallback — these blocks exercise the
+         fallback. The screen route has its own block at the bottom. */
       fhRefreshStagedCount: () => { rec.fullRefresh++; },
       renderCashflowEmailCta: () => { rec.renders++; },
       get fhStagedCount() { return state.staged; },
@@ -164,6 +167,9 @@ function harness(countAt) {
     t('the grant is re-read every tick, so a finish that stages nothing is still seen',
       h.rec.grantAsks === h.rec.asks, 'grantAsks=' + h.rec.grantAsks + ' asks=' + h.rec.asks);
     h.state.phase = 'done';                           // backfilled_at lands
+    /* the review screen has loaded by now (it was absent at connect time so the
+       fallback sheet rendered) — the finish CTA routes into it */
+    h.scope.window.fhTxnReviewSheet = () => {};
     await h.fire();
     t('and the moment the read finishes the CTA appears, carrying the count',
       h.ctaEl.innerHTML.indexOf('15') >= 0 && h.ctaEl.innerHTML.indexOf('fhTxnReviewSheet') >= 0,
@@ -310,6 +316,18 @@ function harness(countAt) {
     t('the reauth sheet keeps its one job — no offer',
       (h.rec.sheets[1] || '').indexOf('push-offer-row') < 0
       && (h.rec.sheets[1] || '').indexOf('atx-go') >= 0);
+  }
+
+  console.log('\n-- the screen route: with the review screen available, connected lands there --');
+  {
+    const h = harness(() => 0);
+    let opened = null;
+    h.scope.window.fhTxnReviewSheet = async (ctx) => { opened = ctx; };
+    await h.fn('connected');
+    await settle();
+    t('connected opens the review screen instead of the sheet', !!opened && h.rec.sheets.length === 0);
+    t('the screen opens on the grant\'s own scope', opened && opened.scope === 'personal');
+    t('the banner is told this is first light', h.scope.window._rvwJustConnected === true);
   }
 
   console.log('\n' + pass + ' passed, ' + fail + ' failed');

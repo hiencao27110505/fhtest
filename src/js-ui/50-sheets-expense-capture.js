@@ -317,6 +317,7 @@ function _applyExLayout(){
 }
 /* Drag a bottom sheet / modal DOWN to dismiss — axis-locked so it never fights scrolling. */
 function initSheetDrag(sheet, closeFn){
+  if(sheet.classList.contains('fh-screen')) return;   // a screen is a place, not a sheet: back, never drag-away
   closeFn = closeFn || closeSheet;
   var scroller = sheet.querySelector('.modal-body, .sh-body') || sheet;   // scrolls its own body, not the sheet/modal shell
   var x0=0, y0=0, dy=0, active=false, dragging=false, decided=false;

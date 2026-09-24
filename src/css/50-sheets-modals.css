@@ -398,3 +398,58 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
 .csum-dn{color:var(--ink)}
 .csum-up{color:var(--good)}
 .csum .pz{margin-top:0}   /* the personal card spaces its zoom row off the tiles; here it leads */
+/* Thu/Chi stat tiles above the strip (activation-journey-spec Q23): the whole
+   window, booked + unconfirmed together; the sub-line names the unconfirmed. */
+.csum-stats{display:flex;gap:10px;margin:0 0 10px}
+.csum-stat{flex:1;background:var(--surface);border-radius:14px;padding:10px 12px}
+.csum-stat .cl{font-size:11.5px;font-weight:600;color:var(--muted);display:flex;gap:5px;align-items:center}
+.csum-stat .cv{font-family:var(--disp);font-weight:700;font-size:16.5px;letter-spacing:-.3px;color:var(--ink);margin-top:2px}
+.csum-stat .cv.pos{color:var(--good)}
+.csum-pend{font-size:12px;color:var(--muted);margin:0 2px 10px}
+.csum-pend b{color:var(--ink)}
+
+/* ── The category tree (Q20b): expanded by default, proportional bars carrying
+   the same two-layer language as the strip — solid = đã vào sổ, grey tail =
+   chưa duyệt. A node tap filters the row list (Q15a). ── */
+.ctree{margin:0 0 18px;border:1px solid var(--hairline);border-radius:16px;background:var(--white);overflow:hidden}
+.ctree-cap{font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.02em;padding:12px 14px 4px}
+.ctree details{border-top:1px solid var(--divider)}
+.ctree details:first-of-type{border-top:0}
+.ctree summary{list-style:none;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.ctree summary::-webkit-details-marker{display:none}
+.ctree-row{display:flex;align-items:center;gap:10px;padding:10px 14px}
+.ctree-row.on{background:var(--brand-tint)}
+.ctree-ico{font-size:17px;flex-shrink:0;width:24px;text-align:center}
+.ctree-bd{flex:1;min-width:0}
+.ctree-line{display:flex;justify-content:space-between;gap:8px;font-size:13.5px;font-weight:600;color:var(--ink)}
+.ctree-line .amt{font-family:var(--disp);font-weight:700;letter-spacing:-.2px;flex-shrink:0}
+.ctree-track{height:5px;border-radius:3px;background:var(--surface);margin-top:5px;position:relative;overflow:hidden}
+.ctree-track .tot{position:absolute;left:0;top:0;bottom:0;background:var(--muted-soft);border-radius:3px}
+.ctree-track .bk{position:absolute;left:0;top:0;bottom:0;background:var(--brand);border-radius:3px}
+.ctree-chev{flex-shrink:0;color:var(--muted-soft);transition:transform .2s}
+.ctree details[open] .ctree-chev{transform:rotate(90deg)}
+.ctree-kids{padding:0 14px 8px 48px}
+.ctree-kid{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;color:var(--muted);padding:3px 0}
+.ctree-kid .amt{font-weight:600;color:var(--ink);flex-shrink:0}
+.ctree-clear{display:block;width:100%;text-align:center;padding:10px;font-size:13px;font-weight:600;color:var(--brand-ink);border-top:1px solid var(--divider)}
+
+/* ── Reading-mode banner (first read running): sits between the nav and #txh,
+   so the picture assembling below is never covered. ── */
+#rvw-reading:empty{display:none}
+#rvw-reading{border-bottom:1px solid var(--divider);padding:12px 18px;background:var(--white);flex-shrink:0}
+.rvw-read-t{font-size:14px;font-weight:700;color:var(--ink);display:flex;gap:8px;align-items:center}
+.rvw-read-t .dot{width:7px;height:7px;border-radius:50%;background:var(--good);animation:rvwpulse 1.4s ease-in-out infinite}
+@keyframes rvwpulse{0%,100%{opacity:1}50%{opacity:.35}}
+.rvw-read-s{font-size:12.5px;color:var(--muted);margin-top:3px;line-height:1.45}
+#rvw-reading .cc-prog{display:block;margin-top:8px}
+
+/* ── The screen dress (activation-journey-spec Q7/Q14): the shared modal
+   container, full-bleed — square corners, no grip, fade like a view, a back
+   arrow in the nav. Drag-to-dismiss is gated off in initSheetDrag. ── */
+.modal.fh-screen{top:0;border-radius:0;box-shadow:none;transform:none;opacity:0;
+  transition:opacity .3s cubic-bezier(.4,0,.2,1), visibility 0s linear .3s}
+.modal.fh-screen.on{opacity:1;transition:opacity .3s cubic-bezier(.4,0,.2,1), visibility 0s}
+.modal.fh-screen .modal-grip{display:none}
+.modal.fh-screen .modal-nav{padding-top:max(env(safe-area-inset-top),14px)}
+.rvw-back{display:flex;align-items:center;justify-content:center;width:36px;height:36px;margin-left:-8px;border-radius:50%;color:var(--ink)}
+.rvw-back:active{background:var(--surface)}

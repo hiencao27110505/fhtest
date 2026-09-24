@@ -1767,6 +1767,20 @@
 
   async function fhAutoTxnDone(state) {
     if (state === 'connected') {
+      /* First light lands on the review SCREEN in reading mode
+         (activation-journey-spec Q18): the person watches their own money
+         picture assemble instead of reading a sheet about it. The banner
+         carries the connected note, the progress and the push offer
+         (_rvwJustConnected → _rvwReadingSync, 72-txn-review.js). The sheet
+         below stays as the fallback when the screen cannot open. */
+      if (window.fhTxnReviewSheet) {
+        try {
+          const conn0 = await _atxConnection();
+          window._rvwJustConnected = true;
+          await window.fhTxnReviewSheet({ scope: (conn0 && conn0.scope === 'family') ? 'family' : 'personal' });
+          return;
+        } catch (e) { window._rvwJustConnected = false; }
+      }
       /* WHY THE OFFER IS ON THIS SCREEN AT ALL: push used to be offered only on
          the FORWARDING status sheet and after a first hand-review — so a person
          who connected by OAuth had no subscription, and the "something is

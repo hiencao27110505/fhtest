@@ -560,13 +560,21 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   </div>
 </div>
 
-<div class="modal" id="csv-import-modal">
+<!-- The review surface is a SCREEN, not a page-sheet (activation-journey-spec Q7/Q14):
+     fh-screen restyles the shared modal container to full-bleed with a back arrow,
+     no grip, no drag-to-dismiss. Both flows (staged review + file import) live here;
+     the container id and every inner id are unchanged so the 3700-line review engine
+     is untouched by the promotion. -->
+<div class="modal fh-screen" id="csv-import-modal">
   <div class="modal-grip"></div>
   <div class="modal-nav">
-    <button class="modal-cancel" onclick="closeModals()" data-t="cancel">Cancel</button>
+    <button class="modal-cancel rvw-back" onclick="closeModals()" aria-label="Back" data-ta="ariaBack"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></button>
     <div class="modal-title" data-t="csvModalTitle">Import from file</div>
     <button class="modal-save" id="csv-save" onclick="csvSaveDispatch()" disabled data-t="csvSave">Import</button>
   </div>
+  <!-- Reading-mode banner (first read running): progress + first-light copy,
+       painted by _rvwReadingSync (72-txn-review.js). Empty = hidden. -->
+  <div id="rvw-reading"></div>
   <!-- Staged-review tools header: summary + [Chọn nhiều | Tuần], filled by
        csvTxrHeadSync (56-csv-import-ui.js) in csvStagedMode only. It sits
        BETWEEN the nav and the scroller so list rows push down and never slide

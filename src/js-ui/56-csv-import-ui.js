@@ -537,9 +537,11 @@ function csvBuildReview(sources, opts){
   csvInflowOpen = false;   // a fresh review starts with the money-in line folded
   csvInflowDetail = null;
   csvBulkReset();          // ...and with no pane open and no delete left armed
-  csvRevealCount = CSV_REVEAL_STEP;   // a fresh review starts at the first window
-
   opts = opts || {};
+  /* keepView: the reading-mode watcher rebuilds every few seconds as rows
+     stage — the person's zoom, pan, filter and reveal must survive those. */
+  if(!opts.keepView) csvRevealCount = CSV_REVEAL_STEP;   // a fresh review starts at the first window
+
   csvCatMerges = {}; csvCatAmbiguous = {};   // recomputed every build
   csvPendingCats = [];                       // adoption is re-decided each build
   csvFuzzyCats = !opts.declined;             // undo also turns off name-merging
@@ -577,7 +579,10 @@ function csvBuildReview(sources, opts){
   var buckets = bucketCsvCandidates(candidates, mixed);
   var rowsRead = sources.reduce(function(n, src){ return n + src.parsed.rows.length; }, 0);
 
-  csvSumZoom='week'; csvSumScroll=null;   // fresh batch → the summary opens at Week, pinned newest
+  if(!opts.keepView){
+    csvSumZoom='week'; csvSumScroll=null;   // fresh batch → the summary opens at Week, pinned newest
+    csvCatFilter=null;                      // and any category filter from the last open is spent
+  }
 
   csvReview = {
     sources: sources,
@@ -2230,13 +2235,54 @@ function csvSumToggle(){
 }
 /* The toolbox's third, icon-only button. Absent when there is nothing to chart. */
 function csvSumBtnHTML(){
-  var d = csvSumData(); if(!d || !d.n) return '';
+  var d = csvSumData(); if(!d || (!d.n && !(d.booked && (d.booked.chi>0 || d.booked.thu>0)))) return '';
   return '<button type="button" class="txb-b txb-ico'+(csvSumHidden ? ' off' : '')+'" onclick="csvSumToggle()"'
     + ' aria-pressed="'+(csvSumHidden ? 'false' : 'true')+'"'
     + ' aria-label="'+escAttr(csvSumHidden ? L('Hiện biểu đồ','Show chart') : L('Ẩn biểu đồ','Hide chart'))+'">'
     + '<span class="txb-ic">'+CSV_TXB_I_CHART+'</span></button>';
 }
 
+/* ── Booked personal rows for the merged picture (activation-journey-spec Q13b).
+   The strip and the category tree count staged + imported TOGETHER: on a first
+   run everything is unconfirmed (all grey), and on a return visit five new rows
+   sit on top of a solid month instead of orphaned in a rump chart. Personal
+   entry scope + staged mode only — the family model lives elsewhere, and the
+   file-import flow keeps charting its own file. Amounts are base units on both
+   sides (the ledger stores base; csvBaseAmt converts the queue). */
+function csvBookedLedger(){
+  if(!csvStagedMode) return null;
+  var d = (typeof csvEntryScopeDesc==='function') ? csvEntryScopeDesc() : null;
+  if(!d || d.kind!=='personal') return null;
+  var P = window.fhPersonalData ? window.fhPersonalData() : null;
+  if(!P || P.state!=='ready') return null;
+  var SL = window.fhPersonalStatsSliceCached && window.fhPersonalStatsSliceCached();
+  var floorIso = (function(){ var t=new Date(); t.setDate(t.getDate()-365);   // a year is the chart's reach, like the backfill's
+    return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0'); })();
+  var byDay={}, byCat={}, thu=0, chi=0;
+  var spend=function(node){ return (typeof fhCountsAsSpending==='function') ? fhCountsAsSpending(node) : true; };
+  var addExp=function(row){
+    var a=row.amt||0; if(!(a>0)) return;
+    chi+=a;
+    if(row.date && row.date>=floorIso) byDay[row.date]=(byDay[row.date]||0)+a;
+    var rl=(typeof fhPersonalRowLabel==='function') ? fhPersonalRowLabel(row) : null;
+    var k=((rl&&rl.name)||row.cat||'Khác');
+    var c=byCat[k]||(byCat[k]={name:k, emoji:(rl&&rl.emoji)||row.emoji||'🗂️', v:0});
+    c.v+=a;
+  };
+  if(SL){
+    SL.rows.forEach(function(r2){
+      if(r2.kind==='income'){ thu+=(r2.amt||0); return; }
+      if(r2.kind==='expense' && spend(r2.node)) addExp(r2);
+    });
+  } else {
+    (P.txns||[]).forEach(function(t){
+      if(t._unreadable || t.spaceId) return;
+      if(t.kind==='expense' && spend(t.node)) addExp(t);
+    });
+    (P.incomes||[]).forEach(function(i2){ if(!i2._unreadable) thu+=(i2.amt||0); });
+  }
+  return { byDay:byDay, byCat:byCat, thu:thu, chi:chi };
+}
 function csvSumData(){
   var r = csvReview; if(!r) return null;
   var cands = [];
@@ -2258,22 +2304,35 @@ function csvSumData(){
       if(e.sel) bySel[c.dateDisplay]=(bySel[c.dateDisplay]||0)+a;
     }
   });
-  return { n:n, thu:thu, chi:chi, byDay:byDay, bySel:bySel };
+  return { n:n, thu:thu, chi:chi, byDay:byDay, bySel:bySel, booked: csvBookedLedger() };
 }
 /* byDay (ISO 'YYYY-MM-DD' → base đ) → chronological buckets for the zoom.
    Day collapses to days that have spend (a 90-day backfill in day view is
    otherwise mostly gaps); Week/Month keep empty periods as zero slots so the
-   time axis stays honest — a gap reads as "nothing that week". */
-function csvSumBuckets(byDay, bySel){
-  var days = Object.keys(byDay).sort();
+   time axis stays honest — a gap reads as "nothing that week".
+
+   Two layer modes (activation-journey-spec Q13/Q22):
+     merged=false (file flow) — byB is the TICKED subset of byDay:
+       amt = the file's day total, sel = the share going into the import.
+     merged=true (staged review) — byB is the BOOKED ledger, a separate set:
+       amt = queue + booked (the whole story), sel = booked (đã vào sổ).
+       The grey tail above the solid bar is exactly the unconfirmed share. */
+function csvSumBuckets(byDay, byB, merged){
+  byB = byB || {};
+  var daySet={};
+  Object.keys(byDay).forEach(function(k){ daySet[k]=1; });
+  if(merged) Object.keys(byB).forEach(function(k){ daySet[k]=1; });
+  var days = Object.keys(daySet).sort();
   if(!days.length) return [];
-  bySel = bySel || {};
+  var q=function(k){ return byDay[k]||0; }, b=function(k){ return byB[k]||0; };
+  var dayAmt=function(k){ return merged ? q(k)+b(k) : q(k); };
+  var daySel=function(k){ return merged ? b(k) : b(k); };
   var out=[];
   var iso=function(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
   if(csvSumZoom==='day'){
     days.forEach(function(k){
       var d=new Date(k+'T00:00:00');
-      out.push({ s:k, e:k, lbl:d.getDate()+'/'+(d.getMonth()+1), amt:byDay[k], sel:bySel[k]||0 });
+      out.push({ s:k, e:k, lbl:d.getDate()+'/'+(d.getMonth()+1), amt:dayAmt(k), sel:daySel(k) });
     });
     return out;
   }
@@ -2283,7 +2342,7 @@ function csvSumBuckets(byDay, bySel){
     while(mon<=d1){
       var end=new Date(mon); end.setDate(end.getDate()+6);
       var ws=iso(mon), we=iso(end), wa=0, wsel=0;
-      days.forEach(function(k){ if(k>=ws&&k<=we){ wa+=byDay[k]; wsel+=bySel[k]||0; } });
+      days.forEach(function(k){ if(k>=ws&&k<=we){ wa+=dayAmt(k); wsel+=daySel(k); } });
       out.push({ s:ws, e:we, lbl:mon.getDate()+'/'+(mon.getMonth()+1), amt:wa, sel:wsel });
       mon.setDate(mon.getDate()+7);
     }
@@ -2293,7 +2352,7 @@ function csvSumBuckets(byDay, bySel){
   while(m<=d1){
     var mEnd=new Date(m.getFullYear(), m.getMonth()+1, 0);
     var ms=iso(m), me=iso(mEnd), ma=0, msel=0;
-    days.forEach(function(k){ if(k>=ms&&k<=me){ ma+=byDay[k]; msel+=bySel[k]||0; } });
+    days.forEach(function(k){ if(k>=ms&&k<=me){ ma+=dayAmt(k); msel+=daySel(k); } });
     out.push({ s:ms, e:me, lbl:moAbbr(m.getMonth())+(m.getFullYear()===new Date().getFullYear()?'':' '+String(m.getFullYear()).slice(2)), amt:ma, sel:msel });
     m.setMonth(m.getMonth()+1);
   }
@@ -2301,12 +2360,21 @@ function csvSumBuckets(byDay, bySel){
 }
 function csvSumHTML(){
   if(csvStagedMode && csvSumHidden) return '';   // hidden from the toolbox's chart button
-  var d = csvSumData(); if(!d || !d.n) return '';
+  var d = csvSumData(); if(!d) return '';
+  var bk = d.booked;
+  var merged = !!bk;
+  if(!d.n && !(merged && (bk.chi>0 || bk.thu>0))) return '';
+  /* Thu and chi as stat tiles (Q23): the whole window, queue + booked, with
+     the unconfirmed share named underneath. The bars below stay chi-only. */
+  var totIn = d.thu + (merged ? bk.thu : 0), totOut = d.chi + (merged ? bk.chi : 0);
   var html = '<div class="csum">'
-    + '<div class="csum-brief">'+d.n+' '+L('giao dịch','transactions')
-    + ' · <span class="csum-dn">↓ '+esc(fmt(d.chi))+'</span>'
-    + ' · <span class="csum-up">↑ '+esc(fmt(d.thu))+'</span></div>';
-  var buckets = csvSumBuckets(d.byDay, d.bySel);
+    + '<div class="csum-stats">'
+    +   '<div class="csum-stat"><span class="cl"><span class="csum-up">↑</span> '+L('Tiền vào','Money in')+'</span><span class="cv pos num">'+esc(fmt(totIn))+'</span></div>'
+    +   '<div class="csum-stat"><span class="cl"><span class="csum-dn">↓</span> '+L('Tiền ra','Money out')+'</span><span class="cv num">'+esc(fmt(totOut))+'</span></div>'
+    + '</div>'
+    + (d.n ? '<div class="csum-pend"><b>'+d.n+'</b> '+L('khoản chưa duyệt','unconfirmed')
+        + (merged && (bk.chi>0||bk.thu>0) ? L(' · phần xám trên cột là phần chưa vào sổ',' · the grey share of a bar is not booked yet') : '')+'</div>' : '');
+  var buckets = merged ? csvSumBuckets(d.byDay, bk.byDay, true) : csvSumBuckets(d.byDay, d.bySel);
   if(buckets.length){
     var Z=[['day',L('Ngày','Day')],['week',L('Tuần','Week')],['month',L('Tháng','Month')]];
     // The personal "Còn lại" card's zoom row and strip, same markup and CSS
@@ -2323,9 +2391,12 @@ function csvSumHTML(){
          rides the green, as it does on the personal card. */
       var hp = b.amt>0 ? Math.max(Math.round(b.amt/max*100),4) : 0;
       var hc = b.sel>0 ? Math.max(Math.round(b.sel/max*100),4) : 0;
+      /* The label carries the bar's WHOLE amount — on a first run every bar is
+         pure grey (nothing booked) and a label keyed to the solid layer would
+         label nothing at all. */
       html += '<div class="pst-c" data-chi="'+b.sel+'" data-prev="'+b.amt+'" data-ly="" data-s="'+b.s+'" data-e="'+b.e+'" onclick="csvSumTap(this)">'
         + '<span class="pst-bars">'
-        + (hc ? '<span class="pst-val num" style="bottom:calc('+hp+'% + 3px)">'+esc(fmtK(b.sel))+'</span>' : '')
+        + (hp ? '<span class="pst-val num" style="bottom:calc('+hp+'% + 3px)">'+esc(fmtK(b.amt))+'</span>' : '')
         + (hp ? '<i class="pst-p" style="height:'+hp+'%"></i>' : '')
         + (hc ? '<i class="pst-b" style="height:'+hc+'%"></i>' : '')
         + '</span><span class="pst-l">'+esc(b.lbl)+'</span></div>';
@@ -2335,6 +2406,71 @@ function csvSumHTML(){
   return html + '</div>';
 }
 function csvSumZoomGo(z){ csvSumZoom=z; csvSumScroll=null; renderCsvReview(); }
+
+/* ── The category tree (activation-journey-spec Q20b, Q15a) ──
+   Every category the window holds — queue + booked merged — as an expandable
+   tree, EXPANDED by default: name, proportional track in the strip's own
+   two-layer language (solid = đã vào sổ, grey = chưa duyệt), and under each
+   node its top descriptions from the queue. Tapping a row FILTERS the list
+   below (dim, never hide — the same treatment Chọn nhanh uses); the chevron
+   alone folds a node. Staged mode only: the file flow keeps csvSpendPanel. */
+var csvCatFilter = null;
+function csvCatFilterGo(name){
+  csvCatFilter = (csvCatFilter===name) ? null : name;
+  renderCsvReview();
+}
+function csvCatDim(c){
+  return !!(csvCatFilter && (c.categoryName||CAT_FALLBACK)!==csvCatFilter);
+}
+function csvCatTreeHTML(){
+  if(!csvStagedMode || csvSumHidden) return '';
+  var r = csvReview; if(!r) return '';
+  var cats = {};
+  var add = function(name, emoji, amt, booked, child){
+    var k = name || CAT_FALLBACK;
+    var c = cats[k] || (cats[k] = { name:k, emoji:emoji||null, tot:0, bk:0, kids:{} });
+    c.tot += amt; if(booked) c.bk += amt;
+    if(emoji && !c.emoji) c.emoji = emoji;
+    if(child){ var kd = c.kids[child] || (c.kids[child] = { n:0, v:0 }); kd.n++; kd.v += amt; }
+  };
+  r.ready.forEach(function(c){
+    if(c.isIncome || c.isTransfer || c._xfer) return;
+    if(typeof csvFxUnresolved==='function' && csvFxUnresolved(c)) return;
+    var a = csvBaseAmt(c.amount||0); if(!(a>0)) return;
+    var st = (window.catStyle && window.catStyle[c.categoryName]) || null;
+    var child = String(c.description||'').trim().slice(0,28) || null;
+    add(c.categoryName, st ? st[0] : null, a, false, child);
+  });
+  var bk = csvBookedLedger();
+  if(bk) Object.keys(bk.byCat).forEach(function(k){ var c=bk.byCat[k]; add(c.name, c.emoji, c.v, true, null); });
+  var list = Object.keys(cats).map(function(k){ return cats[k]; }).sort(function(a,b){ return b.tot-a.tot; });
+  if(!list.length) return '';
+  var max = list[0].tot || 1;
+  var html = '<div class="ctree"><div class="ctree-cap">'+esc(L('TIỀN ĐI ĐÂU','WHERE THE MONEY WENT'))+'</div>';
+  list.forEach(function(c){
+    var kids = Object.keys(c.kids).map(function(k){ return { t:k, v:c.kids[k].v, n:c.kids[k].n }; })
+      .sort(function(a,b){ return b.v-a.v; }).slice(0,5);
+    var on = csvCatFilter===c.name;
+    var wTot = Math.max(4, Math.round(c.tot/max*100));
+    var wBk = c.bk>0 ? Math.max(3, Math.round(c.bk/max*100)) : 0;
+    html += '<details open><summary>'
+      + '<div class="ctree-row'+(on?' on':'')+'" onclick="event.preventDefault();csvCatFilterGo(\''+escAttr(c.name)+'\')">'
+      +   '<span class="ctree-ico">'+(c.emoji||'🗂️')+'</span>'
+      +   '<span class="ctree-bd"><span class="ctree-line"><span>'+esc(c.name)+'</span><span class="amt num">'+esc(fmt(c.tot))+'</span></span>'
+      +   '<span class="ctree-track"><i class="tot" style="width:'+wTot+'%"></i>'+(wBk?'<i class="bk" style="width:'+wBk+'%"></i>':'')+'</span></span>'
+      +   (kids.length ? '<svg class="ctree-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" onclick="event.stopPropagation()"><path d="m9 6 6 6-6 6"/></svg>' : '')
+      + '</div></summary>'
+      + (kids.length ? '<div class="ctree-kids">'+kids.map(function(kd){
+          return '<div class="ctree-kid"><span>'+esc(kd.t)+(kd.n>1?' ×'+kd.n:'')+'</span><span class="amt num">'+esc(fmt(kd.v))+'</span></div>';
+        }).join('')+'</div>' : '')
+      + '</details>';
+  });
+  if(csvCatFilter){
+    html += '<button type="button" class="ctree-clear" onclick="csvCatFilterGo(csvCatFilter)">'
+      + esc(L('Đang lọc theo '+csvCatFilter+' · bỏ lọc','Filtering by '+csvCatFilter+' · clear'))+'</button>';
+  }
+  return html + '</div>';
+}
 function csvSumOnScroll(el){
   csvSumScroll = el.scrollLeft;   // survives the full innerHTML re-render every edit triggers
   if(csvSumRaf) return;
@@ -2399,7 +2535,7 @@ function csvStagedSrcCard(c, i, pickOn, pickWk){
   var o = { label: L('Máy đoán, bạn xem giúp','A guess, please check'), dateIso: c.dateDisplay, timeStr: csvRowTime(c), attn: true,
             tapFn: "csvToggleExpand('ready',"+i+")", removeFn: "csvReadyRemove("+i+")",
             checkFn: "csvStagedToggle("+i+")", checked: !c._skipImport,
-            armed: (csvArmedRemove === i), dim: pickOn && !csvPickMatch(c, pickWk) };
+            armed: (csvArmedRemove === i), dim: (pickOn && !csvPickMatch(c, pickWk)) || csvCatDim(c) };
   return csvIsOpen('ready', i)
     ? csvActiveCard(c, Object.assign({}, o, { fields:true, ctaIdx:i }))
     : csvCollapsedCard(c, o);
@@ -2409,7 +2545,7 @@ function csvStagedDupCard(c, i, tier, pickOn, pickWk){
             dateIso: c.dateDisplay, timeStr: csvRowTime(c), attn: tier !== 'sure', repeat: true,
             tapFn: "csvToggleExpand('ready',"+i+")", removeFn: "csvReadyRemove("+i+")",
             checkFn: "csvStagedToggle("+i+")", checked: !c._skipImport,
-            armed: (csvArmedRemove === i), dim: pickOn && !csvPickMatch(c, pickWk) };
+            armed: (csvArmedRemove === i), dim: (pickOn && !csvPickMatch(c, pickWk)) || csvCatDim(c) };
   /* fx_final: one button that makes the booked row match the statement, then retires
      this one. Personal-book twins only -- a family row's amount is shared state with
      its own edit path, so there the difference is shown and the person edits it. */
@@ -2692,6 +2828,7 @@ function renderCsvReview(){
   // design: tapping a bar scrolls the list DOWN to that period, so the chart
   // naturally leaves the viewport, like the personal tab's own card.
   html += csvSumHTML();
+  if(csvStagedMode) html += csvCatTreeHTML();   // the tree right under the strip (Q20b)
 
   if(csvStagedMode){
     likelyRows.forEach(function(e){ attnHtml += csvStagedDupCard(e.c, e.i, 'likely', pickOnStaged, pickWkStaged); });
@@ -2827,7 +2964,7 @@ function renderCsvReview(){
                   tapFn:"csvToggleExpand('ready',"+e.i+")", removeFn:"csvReadyRemove("+e.i+")" };
         if(csvStagedMode){ o.checkFn = "csvStagedToggle("+e.i+")"; o.checked = !e.c._skipImport;
                            o.armed = (csvArmedRemove === e.i);
-                           o.dim = pickOn && !csvPickMatch(e.c, pickWk); }
+                           o.dim = (pickOn && !csvPickMatch(e.c, pickWk)) || csvCatDim(e.c); }
         /* Staged expanded card wears the settings-rows layout with its own CTA
            bar (delete / apply-to-similar / import-one) — the explicit Xong
            button belongs to the file workbench; here the header collapse and

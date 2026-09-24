@@ -3120,6 +3120,61 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
 .csum-dn{color:var(--ink)}
 .csum-up{color:var(--good)}
 .csum .pz{margin-top:0}   /* the personal card spaces its zoom row off the tiles; here it leads */
+/* Thu/Chi stat tiles above the strip (activation-journey-spec Q23): the whole
+   window, booked + unconfirmed together; the sub-line names the unconfirmed. */
+.csum-stats{display:flex;gap:10px;margin:0 0 10px}
+.csum-stat{flex:1;background:var(--surface);border-radius:14px;padding:10px 12px}
+.csum-stat .cl{font-size:11.5px;font-weight:600;color:var(--muted);display:flex;gap:5px;align-items:center}
+.csum-stat .cv{font-family:var(--disp);font-weight:700;font-size:16.5px;letter-spacing:-.3px;color:var(--ink);margin-top:2px}
+.csum-stat .cv.pos{color:var(--good)}
+.csum-pend{font-size:12px;color:var(--muted);margin:0 2px 10px}
+.csum-pend b{color:var(--ink)}
+
+/* ── The category tree (Q20b): expanded by default, proportional bars carrying
+   the same two-layer language as the strip — solid = đã vào sổ, grey tail =
+   chưa duyệt. A node tap filters the row list (Q15a). ── */
+.ctree{margin:0 0 18px;border:1px solid var(--hairline);border-radius:16px;background:var(--white);overflow:hidden}
+.ctree-cap{font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.02em;padding:12px 14px 4px}
+.ctree details{border-top:1px solid var(--divider)}
+.ctree details:first-of-type{border-top:0}
+.ctree summary{list-style:none;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.ctree summary::-webkit-details-marker{display:none}
+.ctree-row{display:flex;align-items:center;gap:10px;padding:10px 14px}
+.ctree-row.on{background:var(--brand-tint)}
+.ctree-ico{font-size:17px;flex-shrink:0;width:24px;text-align:center}
+.ctree-bd{flex:1;min-width:0}
+.ctree-line{display:flex;justify-content:space-between;gap:8px;font-size:13.5px;font-weight:600;color:var(--ink)}
+.ctree-line .amt{font-family:var(--disp);font-weight:700;letter-spacing:-.2px;flex-shrink:0}
+.ctree-track{height:5px;border-radius:3px;background:var(--surface);margin-top:5px;position:relative;overflow:hidden}
+.ctree-track .tot{position:absolute;left:0;top:0;bottom:0;background:var(--muted-soft);border-radius:3px}
+.ctree-track .bk{position:absolute;left:0;top:0;bottom:0;background:var(--brand);border-radius:3px}
+.ctree-chev{flex-shrink:0;color:var(--muted-soft);transition:transform .2s}
+.ctree details[open] .ctree-chev{transform:rotate(90deg)}
+.ctree-kids{padding:0 14px 8px 48px}
+.ctree-kid{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;color:var(--muted);padding:3px 0}
+.ctree-kid .amt{font-weight:600;color:var(--ink);flex-shrink:0}
+.ctree-clear{display:block;width:100%;text-align:center;padding:10px;font-size:13px;font-weight:600;color:var(--brand-ink);border-top:1px solid var(--divider)}
+
+/* ── Reading-mode banner (first read running): sits between the nav and #txh,
+   so the picture assembling below is never covered. ── */
+#rvw-reading:empty{display:none}
+#rvw-reading{border-bottom:1px solid var(--divider);padding:12px 18px;background:var(--white);flex-shrink:0}
+.rvw-read-t{font-size:14px;font-weight:700;color:var(--ink);display:flex;gap:8px;align-items:center}
+.rvw-read-t .dot{width:7px;height:7px;border-radius:50%;background:var(--good);animation:rvwpulse 1.4s ease-in-out infinite}
+@keyframes rvwpulse{0%,100%{opacity:1}50%{opacity:.35}}
+.rvw-read-s{font-size:12.5px;color:var(--muted);margin-top:3px;line-height:1.45}
+#rvw-reading .cc-prog{display:block;margin-top:8px}
+
+/* ── The screen dress (activation-journey-spec Q7/Q14): the shared modal
+   container, full-bleed — square corners, no grip, fade like a view, a back
+   arrow in the nav. Drag-to-dismiss is gated off in initSheetDrag. ── */
+.modal.fh-screen{top:0;border-radius:0;box-shadow:none;transform:none;opacity:0;
+  transition:opacity .3s cubic-bezier(.4,0,.2,1), visibility 0s linear .3s}
+.modal.fh-screen.on{opacity:1;transition:opacity .3s cubic-bezier(.4,0,.2,1), visibility 0s}
+.modal.fh-screen .modal-grip{display:none}
+.modal.fh-screen .modal-nav{padding-top:max(env(safe-area-inset-top),14px)}
+.rvw-back{display:flex;align-items:center;justify-content:center;width:36px;height:36px;margin-left:-8px;border-radius:50%;color:var(--ink)}
+.rvw-back:active{background:var(--surface)}
 
 /* ── quick review sheet (76-quick-review.js) ───────────────────────────────
    One fresh email transaction on the #fh-sheet layer. It reuses the app's REAL
@@ -5189,13 +5244,21 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   </div>
 </div>
 
-<div class="modal" id="csv-import-modal">
+<!-- The review surface is a SCREEN, not a page-sheet (activation-journey-spec Q7/Q14):
+     fh-screen restyles the shared modal container to full-bleed with a back arrow,
+     no grip, no drag-to-dismiss. Both flows (staged review + file import) live here;
+     the container id and every inner id are unchanged so the 3700-line review engine
+     is untouched by the promotion. -->
+<div class="modal fh-screen" id="csv-import-modal">
   <div class="modal-grip"></div>
   <div class="modal-nav">
-    <button class="modal-cancel" onclick="closeModals()" data-t="cancel">Cancel</button>
+    <button class="modal-cancel rvw-back" onclick="closeModals()" aria-label="Back" data-ta="ariaBack"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></button>
     <div class="modal-title" data-t="csvModalTitle">Import from file</div>
     <button class="modal-save" id="csv-save" onclick="csvSaveDispatch()" disabled data-t="csvSave">Import</button>
   </div>
+  <!-- Reading-mode banner (first read running): progress + first-light copy,
+       painted by _rvwReadingSync (72-txn-review.js). Empty = hidden. -->
+  <div id="rvw-reading"></div>
   <!-- Staged-review tools header: summary + [Chọn nhiều | Tuần], filled by
        csvTxrHeadSync (56-csv-import-ui.js) in csvStagedMode only. It sits
        BETWEEN the nav and the scroller so list rows push down and never slide
@@ -12115,6 +12178,7 @@ function _applyExLayout(){
 }
 /* Drag a bottom sheet / modal DOWN to dismiss — axis-locked so it never fights scrolling. */
 function initSheetDrag(sheet, closeFn){
+  if(sheet.classList.contains('fh-screen')) return;   // a screen is a place, not a sheet: back, never drag-away
   closeFn = closeFn || closeSheet;
   var scroller = sheet.querySelector('.modal-body, .sh-body') || sheet;   // scrolls its own body, not the sheet/modal shell
   var x0=0, y0=0, dy=0, active=false, dragging=false, decided=false;
@@ -14211,9 +14275,11 @@ function csvBuildReview(sources, opts){
   csvInflowOpen = false;   // a fresh review starts with the money-in line folded
   csvInflowDetail = null;
   csvBulkReset();          // ...and with no pane open and no delete left armed
-  csvRevealCount = CSV_REVEAL_STEP;   // a fresh review starts at the first window
-
   opts = opts || {};
+  /* keepView: the reading-mode watcher rebuilds every few seconds as rows
+     stage — the person's zoom, pan, filter and reveal must survive those. */
+  if(!opts.keepView) csvRevealCount = CSV_REVEAL_STEP;   // a fresh review starts at the first window
+
   csvCatMerges = {}; csvCatAmbiguous = {};   // recomputed every build
   csvPendingCats = [];                       // adoption is re-decided each build
   csvFuzzyCats = !opts.declined;             // undo also turns off name-merging
@@ -14251,7 +14317,10 @@ function csvBuildReview(sources, opts){
   var buckets = bucketCsvCandidates(candidates, mixed);
   var rowsRead = sources.reduce(function(n, src){ return n + src.parsed.rows.length; }, 0);
 
-  csvSumZoom='week'; csvSumScroll=null;   // fresh batch → the summary opens at Week, pinned newest
+  if(!opts.keepView){
+    csvSumZoom='week'; csvSumScroll=null;   // fresh batch → the summary opens at Week, pinned newest
+    csvCatFilter=null;                      // and any category filter from the last open is spent
+  }
 
   csvReview = {
     sources: sources,
@@ -15904,13 +15973,54 @@ function csvSumToggle(){
 }
 /* The toolbox's third, icon-only button. Absent when there is nothing to chart. */
 function csvSumBtnHTML(){
-  var d = csvSumData(); if(!d || !d.n) return '';
+  var d = csvSumData(); if(!d || (!d.n && !(d.booked && (d.booked.chi>0 || d.booked.thu>0)))) return '';
   return '<button type="button" class="txb-b txb-ico'+(csvSumHidden ? ' off' : '')+'" onclick="csvSumToggle()"'
     + ' aria-pressed="'+(csvSumHidden ? 'false' : 'true')+'"'
     + ' aria-label="'+escAttr(csvSumHidden ? L('Hiện biểu đồ','Show chart') : L('Ẩn biểu đồ','Hide chart'))+'">'
     + '<span class="txb-ic">'+CSV_TXB_I_CHART+'</span></button>';
 }
 
+/* ── Booked personal rows for the merged picture (activation-journey-spec Q13b).
+   The strip and the category tree count staged + imported TOGETHER: on a first
+   run everything is unconfirmed (all grey), and on a return visit five new rows
+   sit on top of a solid month instead of orphaned in a rump chart. Personal
+   entry scope + staged mode only — the family model lives elsewhere, and the
+   file-import flow keeps charting its own file. Amounts are base units on both
+   sides (the ledger stores base; csvBaseAmt converts the queue). */
+function csvBookedLedger(){
+  if(!csvStagedMode) return null;
+  var d = (typeof csvEntryScopeDesc==='function') ? csvEntryScopeDesc() : null;
+  if(!d || d.kind!=='personal') return null;
+  var P = window.fhPersonalData ? window.fhPersonalData() : null;
+  if(!P || P.state!=='ready') return null;
+  var SL = window.fhPersonalStatsSliceCached && window.fhPersonalStatsSliceCached();
+  var floorIso = (function(){ var t=new Date(); t.setDate(t.getDate()-365);   // a year is the chart's reach, like the backfill's
+    return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0'); })();
+  var byDay={}, byCat={}, thu=0, chi=0;
+  var spend=function(node){ return (typeof fhCountsAsSpending==='function') ? fhCountsAsSpending(node) : true; };
+  var addExp=function(row){
+    var a=row.amt||0; if(!(a>0)) return;
+    chi+=a;
+    if(row.date && row.date>=floorIso) byDay[row.date]=(byDay[row.date]||0)+a;
+    var rl=(typeof fhPersonalRowLabel==='function') ? fhPersonalRowLabel(row) : null;
+    var k=((rl&&rl.name)||row.cat||'Khác');
+    var c=byCat[k]||(byCat[k]={name:k, emoji:(rl&&rl.emoji)||row.emoji||'🗂️', v:0});
+    c.v+=a;
+  };
+  if(SL){
+    SL.rows.forEach(function(r2){
+      if(r2.kind==='income'){ thu+=(r2.amt||0); return; }
+      if(r2.kind==='expense' && spend(r2.node)) addExp(r2);
+    });
+  } else {
+    (P.txns||[]).forEach(function(t){
+      if(t._unreadable || t.spaceId) return;
+      if(t.kind==='expense' && spend(t.node)) addExp(t);
+    });
+    (P.incomes||[]).forEach(function(i2){ if(!i2._unreadable) thu+=(i2.amt||0); });
+  }
+  return { byDay:byDay, byCat:byCat, thu:thu, chi:chi };
+}
 function csvSumData(){
   var r = csvReview; if(!r) return null;
   var cands = [];
@@ -15932,22 +16042,35 @@ function csvSumData(){
       if(e.sel) bySel[c.dateDisplay]=(bySel[c.dateDisplay]||0)+a;
     }
   });
-  return { n:n, thu:thu, chi:chi, byDay:byDay, bySel:bySel };
+  return { n:n, thu:thu, chi:chi, byDay:byDay, bySel:bySel, booked: csvBookedLedger() };
 }
 /* byDay (ISO 'YYYY-MM-DD' → base đ) → chronological buckets for the zoom.
    Day collapses to days that have spend (a 90-day backfill in day view is
    otherwise mostly gaps); Week/Month keep empty periods as zero slots so the
-   time axis stays honest — a gap reads as "nothing that week". */
-function csvSumBuckets(byDay, bySel){
-  var days = Object.keys(byDay).sort();
+   time axis stays honest — a gap reads as "nothing that week".
+
+   Two layer modes (activation-journey-spec Q13/Q22):
+     merged=false (file flow) — byB is the TICKED subset of byDay:
+       amt = the file's day total, sel = the share going into the import.
+     merged=true (staged review) — byB is the BOOKED ledger, a separate set:
+       amt = queue + booked (the whole story), sel = booked (đã vào sổ).
+       The grey tail above the solid bar is exactly the unconfirmed share. */
+function csvSumBuckets(byDay, byB, merged){
+  byB = byB || {};
+  var daySet={};
+  Object.keys(byDay).forEach(function(k){ daySet[k]=1; });
+  if(merged) Object.keys(byB).forEach(function(k){ daySet[k]=1; });
+  var days = Object.keys(daySet).sort();
   if(!days.length) return [];
-  bySel = bySel || {};
+  var q=function(k){ return byDay[k]||0; }, b=function(k){ return byB[k]||0; };
+  var dayAmt=function(k){ return merged ? q(k)+b(k) : q(k); };
+  var daySel=function(k){ return merged ? b(k) : b(k); };
   var out=[];
   var iso=function(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
   if(csvSumZoom==='day'){
     days.forEach(function(k){
       var d=new Date(k+'T00:00:00');
-      out.push({ s:k, e:k, lbl:d.getDate()+'/'+(d.getMonth()+1), amt:byDay[k], sel:bySel[k]||0 });
+      out.push({ s:k, e:k, lbl:d.getDate()+'/'+(d.getMonth()+1), amt:dayAmt(k), sel:daySel(k) });
     });
     return out;
   }
@@ -15957,7 +16080,7 @@ function csvSumBuckets(byDay, bySel){
     while(mon<=d1){
       var end=new Date(mon); end.setDate(end.getDate()+6);
       var ws=iso(mon), we=iso(end), wa=0, wsel=0;
-      days.forEach(function(k){ if(k>=ws&&k<=we){ wa+=byDay[k]; wsel+=bySel[k]||0; } });
+      days.forEach(function(k){ if(k>=ws&&k<=we){ wa+=dayAmt(k); wsel+=daySel(k); } });
       out.push({ s:ws, e:we, lbl:mon.getDate()+'/'+(mon.getMonth()+1), amt:wa, sel:wsel });
       mon.setDate(mon.getDate()+7);
     }
@@ -15967,7 +16090,7 @@ function csvSumBuckets(byDay, bySel){
   while(m<=d1){
     var mEnd=new Date(m.getFullYear(), m.getMonth()+1, 0);
     var ms=iso(m), me=iso(mEnd), ma=0, msel=0;
-    days.forEach(function(k){ if(k>=ms&&k<=me){ ma+=byDay[k]; msel+=bySel[k]||0; } });
+    days.forEach(function(k){ if(k>=ms&&k<=me){ ma+=dayAmt(k); msel+=daySel(k); } });
     out.push({ s:ms, e:me, lbl:moAbbr(m.getMonth())+(m.getFullYear()===new Date().getFullYear()?'':' '+String(m.getFullYear()).slice(2)), amt:ma, sel:msel });
     m.setMonth(m.getMonth()+1);
   }
@@ -15975,12 +16098,21 @@ function csvSumBuckets(byDay, bySel){
 }
 function csvSumHTML(){
   if(csvStagedMode && csvSumHidden) return '';   // hidden from the toolbox's chart button
-  var d = csvSumData(); if(!d || !d.n) return '';
+  var d = csvSumData(); if(!d) return '';
+  var bk = d.booked;
+  var merged = !!bk;
+  if(!d.n && !(merged && (bk.chi>0 || bk.thu>0))) return '';
+  /* Thu and chi as stat tiles (Q23): the whole window, queue + booked, with
+     the unconfirmed share named underneath. The bars below stay chi-only. */
+  var totIn = d.thu + (merged ? bk.thu : 0), totOut = d.chi + (merged ? bk.chi : 0);
   var html = '<div class="csum">'
-    + '<div class="csum-brief">'+d.n+' '+L('giao dịch','transactions')
-    + ' · <span class="csum-dn">↓ '+esc(fmt(d.chi))+'</span>'
-    + ' · <span class="csum-up">↑ '+esc(fmt(d.thu))+'</span></div>';
-  var buckets = csvSumBuckets(d.byDay, d.bySel);
+    + '<div class="csum-stats">'
+    +   '<div class="csum-stat"><span class="cl"><span class="csum-up">↑</span> '+L('Tiền vào','Money in')+'</span><span class="cv pos num">'+esc(fmt(totIn))+'</span></div>'
+    +   '<div class="csum-stat"><span class="cl"><span class="csum-dn">↓</span> '+L('Tiền ra','Money out')+'</span><span class="cv num">'+esc(fmt(totOut))+'</span></div>'
+    + '</div>'
+    + (d.n ? '<div class="csum-pend"><b>'+d.n+'</b> '+L('khoản chưa duyệt','unconfirmed')
+        + (merged && (bk.chi>0||bk.thu>0) ? L(' · phần xám trên cột là phần chưa vào sổ',' · the grey share of a bar is not booked yet') : '')+'</div>' : '');
+  var buckets = merged ? csvSumBuckets(d.byDay, bk.byDay, true) : csvSumBuckets(d.byDay, d.bySel);
   if(buckets.length){
     var Z=[['day',L('Ngày','Day')],['week',L('Tuần','Week')],['month',L('Tháng','Month')]];
     // The personal "Còn lại" card's zoom row and strip, same markup and CSS
@@ -15997,9 +16129,12 @@ function csvSumHTML(){
          rides the green, as it does on the personal card. */
       var hp = b.amt>0 ? Math.max(Math.round(b.amt/max*100),4) : 0;
       var hc = b.sel>0 ? Math.max(Math.round(b.sel/max*100),4) : 0;
+      /* The label carries the bar's WHOLE amount — on a first run every bar is
+         pure grey (nothing booked) and a label keyed to the solid layer would
+         label nothing at all. */
       html += '<div class="pst-c" data-chi="'+b.sel+'" data-prev="'+b.amt+'" data-ly="" data-s="'+b.s+'" data-e="'+b.e+'" onclick="csvSumTap(this)">'
         + '<span class="pst-bars">'
-        + (hc ? '<span class="pst-val num" style="bottom:calc('+hp+'% + 3px)">'+esc(fmtK(b.sel))+'</span>' : '')
+        + (hp ? '<span class="pst-val num" style="bottom:calc('+hp+'% + 3px)">'+esc(fmtK(b.amt))+'</span>' : '')
         + (hp ? '<i class="pst-p" style="height:'+hp+'%"></i>' : '')
         + (hc ? '<i class="pst-b" style="height:'+hc+'%"></i>' : '')
         + '</span><span class="pst-l">'+esc(b.lbl)+'</span></div>';
@@ -16009,6 +16144,71 @@ function csvSumHTML(){
   return html + '</div>';
 }
 function csvSumZoomGo(z){ csvSumZoom=z; csvSumScroll=null; renderCsvReview(); }
+
+/* ── The category tree (activation-journey-spec Q20b, Q15a) ──
+   Every category the window holds — queue + booked merged — as an expandable
+   tree, EXPANDED by default: name, proportional track in the strip's own
+   two-layer language (solid = đã vào sổ, grey = chưa duyệt), and under each
+   node its top descriptions from the queue. Tapping a row FILTERS the list
+   below (dim, never hide — the same treatment Chọn nhanh uses); the chevron
+   alone folds a node. Staged mode only: the file flow keeps csvSpendPanel. */
+var csvCatFilter = null;
+function csvCatFilterGo(name){
+  csvCatFilter = (csvCatFilter===name) ? null : name;
+  renderCsvReview();
+}
+function csvCatDim(c){
+  return !!(csvCatFilter && (c.categoryName||CAT_FALLBACK)!==csvCatFilter);
+}
+function csvCatTreeHTML(){
+  if(!csvStagedMode || csvSumHidden) return '';
+  var r = csvReview; if(!r) return '';
+  var cats = {};
+  var add = function(name, emoji, amt, booked, child){
+    var k = name || CAT_FALLBACK;
+    var c = cats[k] || (cats[k] = { name:k, emoji:emoji||null, tot:0, bk:0, kids:{} });
+    c.tot += amt; if(booked) c.bk += amt;
+    if(emoji && !c.emoji) c.emoji = emoji;
+    if(child){ var kd = c.kids[child] || (c.kids[child] = { n:0, v:0 }); kd.n++; kd.v += amt; }
+  };
+  r.ready.forEach(function(c){
+    if(c.isIncome || c.isTransfer || c._xfer) return;
+    if(typeof csvFxUnresolved==='function' && csvFxUnresolved(c)) return;
+    var a = csvBaseAmt(c.amount||0); if(!(a>0)) return;
+    var st = (window.catStyle && window.catStyle[c.categoryName]) || null;
+    var child = String(c.description||'').trim().slice(0,28) || null;
+    add(c.categoryName, st ? st[0] : null, a, false, child);
+  });
+  var bk = csvBookedLedger();
+  if(bk) Object.keys(bk.byCat).forEach(function(k){ var c=bk.byCat[k]; add(c.name, c.emoji, c.v, true, null); });
+  var list = Object.keys(cats).map(function(k){ return cats[k]; }).sort(function(a,b){ return b.tot-a.tot; });
+  if(!list.length) return '';
+  var max = list[0].tot || 1;
+  var html = '<div class="ctree"><div class="ctree-cap">'+esc(L('TIỀN ĐI ĐÂU','WHERE THE MONEY WENT'))+'</div>';
+  list.forEach(function(c){
+    var kids = Object.keys(c.kids).map(function(k){ return { t:k, v:c.kids[k].v, n:c.kids[k].n }; })
+      .sort(function(a,b){ return b.v-a.v; }).slice(0,5);
+    var on = csvCatFilter===c.name;
+    var wTot = Math.max(4, Math.round(c.tot/max*100));
+    var wBk = c.bk>0 ? Math.max(3, Math.round(c.bk/max*100)) : 0;
+    html += '<details open><summary>'
+      + '<div class="ctree-row'+(on?' on':'')+'" onclick="event.preventDefault();csvCatFilterGo(\''+escAttr(c.name)+'\')">'
+      +   '<span class="ctree-ico">'+(c.emoji||'🗂️')+'</span>'
+      +   '<span class="ctree-bd"><span class="ctree-line"><span>'+esc(c.name)+'</span><span class="amt num">'+esc(fmt(c.tot))+'</span></span>'
+      +   '<span class="ctree-track"><i class="tot" style="width:'+wTot+'%"></i>'+(wBk?'<i class="bk" style="width:'+wBk+'%"></i>':'')+'</span></span>'
+      +   (kids.length ? '<svg class="ctree-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" onclick="event.stopPropagation()"><path d="m9 6 6 6-6 6"/></svg>' : '')
+      + '</div></summary>'
+      + (kids.length ? '<div class="ctree-kids">'+kids.map(function(kd){
+          return '<div class="ctree-kid"><span>'+esc(kd.t)+(kd.n>1?' ×'+kd.n:'')+'</span><span class="amt num">'+esc(fmt(kd.v))+'</span></div>';
+        }).join('')+'</div>' : '')
+      + '</details>';
+  });
+  if(csvCatFilter){
+    html += '<button type="button" class="ctree-clear" onclick="csvCatFilterGo(csvCatFilter)">'
+      + esc(L('Đang lọc theo '+csvCatFilter+' · bỏ lọc','Filtering by '+csvCatFilter+' · clear'))+'</button>';
+  }
+  return html + '</div>';
+}
 function csvSumOnScroll(el){
   csvSumScroll = el.scrollLeft;   // survives the full innerHTML re-render every edit triggers
   if(csvSumRaf) return;
@@ -16073,7 +16273,7 @@ function csvStagedSrcCard(c, i, pickOn, pickWk){
   var o = { label: L('Máy đoán, bạn xem giúp','A guess, please check'), dateIso: c.dateDisplay, timeStr: csvRowTime(c), attn: true,
             tapFn: "csvToggleExpand('ready',"+i+")", removeFn: "csvReadyRemove("+i+")",
             checkFn: "csvStagedToggle("+i+")", checked: !c._skipImport,
-            armed: (csvArmedRemove === i), dim: pickOn && !csvPickMatch(c, pickWk) };
+            armed: (csvArmedRemove === i), dim: (pickOn && !csvPickMatch(c, pickWk)) || csvCatDim(c) };
   return csvIsOpen('ready', i)
     ? csvActiveCard(c, Object.assign({}, o, { fields:true, ctaIdx:i }))
     : csvCollapsedCard(c, o);
@@ -16083,7 +16283,7 @@ function csvStagedDupCard(c, i, tier, pickOn, pickWk){
             dateIso: c.dateDisplay, timeStr: csvRowTime(c), attn: tier !== 'sure', repeat: true,
             tapFn: "csvToggleExpand('ready',"+i+")", removeFn: "csvReadyRemove("+i+")",
             checkFn: "csvStagedToggle("+i+")", checked: !c._skipImport,
-            armed: (csvArmedRemove === i), dim: pickOn && !csvPickMatch(c, pickWk) };
+            armed: (csvArmedRemove === i), dim: (pickOn && !csvPickMatch(c, pickWk)) || csvCatDim(c) };
   /* fx_final: one button that makes the booked row match the statement, then retires
      this one. Personal-book twins only -- a family row's amount is shared state with
      its own edit path, so there the difference is shown and the person edits it. */
@@ -16366,6 +16566,7 @@ function renderCsvReview(){
   // design: tapping a bar scrolls the list DOWN to that period, so the chart
   // naturally leaves the viewport, like the personal tab's own card.
   html += csvSumHTML();
+  if(csvStagedMode) html += csvCatTreeHTML();   // the tree right under the strip (Q20b)
 
   if(csvStagedMode){
     likelyRows.forEach(function(e){ attnHtml += csvStagedDupCard(e.c, e.i, 'likely', pickOnStaged, pickWkStaged); });
@@ -16501,7 +16702,7 @@ function renderCsvReview(){
                   tapFn:"csvToggleExpand('ready',"+e.i+")", removeFn:"csvReadyRemove("+e.i+")" };
         if(csvStagedMode){ o.checkFn = "csvStagedToggle("+e.i+")"; o.checked = !e.c._skipImport;
                            o.armed = (csvArmedRemove === e.i);
-                           o.dim = pickOn && !csvPickMatch(e.c, pickWk); }
+                           o.dim = (pickOn && !csvPickMatch(e.c, pickWk)) || csvCatDim(e.c); }
         /* Staged expanded card wears the settings-rows layout with its own CTA
            bar (delete / apply-to-similar / import-one) — the explicit Xong
            button belongs to the file workbench; here the header collapse and
@@ -24832,6 +25033,17 @@ document.querySelectorAll('.modal').forEach(function(m){ initSheetDrag(m, closeM
   if(['activity','tx'].indexOf(h)>=0){ go('spending'); segTo('activity'); return; }
   if(h==='memories'){ goMoments('album'); return; }
   if(h==='events'){ goMoments('plans'); return; }
+  /* #review → the review screen, through the standard entry so held / reauth /
+     empty states route correctly. Waits for the data module (the entry lives
+     there); personal scope, the activation journey's default. */
+  if(h==='review'){
+    go('personal');
+    var _rvTry=0, _rvT=setInterval(function(){
+      if(window.fhEmailTxnCta){ clearInterval(_rvT); try{ window.fhEmailTxnCta({scope:'personal'}); }catch(e){} }
+      else if(++_rvTry>50) clearInterval(_rvT);
+    }, 200);
+    return;
+  }
   if(['home','spending','personal'].indexOf(h)>=0) go(h);
 })();
 
@@ -38630,9 +38842,13 @@ window.classifyAmount = classifyAmount;
     }
 
     if (oauth && window.fhBackfillHolds && window.fhBackfillHolds()) {
-      return window.fhAutoTxnStatus
-        ? window.fhAutoTxnStatus(await window.fhAutoTxnConnection())
-        : (window.fhTxnReviewSheet && window.fhTxnReviewSheet(ctx));
+      /* A first read in progress now opens the review SCREEN in reading mode
+         (activation-journey-spec §5c): the banner narrates the read, the
+         picture assembles live, and import stays held until it finishes —
+         same correctness rule, told on the surface where the value shows.
+         The Settings status screen (fhAutoTxnStatus) keeps its own progress
+         view; this route is added beside it, not instead of it. */
+      return window.fhTxnReviewSheet && window.fhTxnReviewSheet(ctx);
     }
 
     if (fwd || oauth) return window.fhTxnReviewSheet && window.fhTxnReviewSheet(ctx);
@@ -39567,7 +39783,9 @@ window.classifyAmount = classifyAmount;
     });
   }
 
-  window.fhTxnReviewSheet = async function (ctx) {
+  window.fhTxnReviewSheet = async function (ctx, opts) {
+    opts = opts || {};
+    var quiet = !!opts.quiet;   // the reading-mode watcher re-renders in place: no overlay, keep the scroll
     // Key-mismatch alarm latched (18-staging-keys): approval is frozen for the
     // whole family until a verify passes again. Re-show the explanation rather
     // than a dead queue — the freeze must never look like a bug.
@@ -39582,13 +39800,13 @@ window.classifyAmount = classifyAmount;
        never persisted, so the card defaults reflect where the screen was opened
        from and a previous open's choice cannot linger. */
     window.csvEntryScope = window.fhNormScope ? window.fhNormScope(ctx) : (ctx || null);
-    _txrLoadShow(L('Đang tải giao dịch…', 'Loading transactions…'));
+    if (!quiet) _txrLoadShow(L('Đang tải giao dịch…', 'Loading transactions…'));
     var raw;
     try {
       raw = await fhFetchStagedTxns();
     } catch (e) {
       _txrLoadHide();
-      window.toast && window.toast(L('Chưa tải được giao dịch', 'Could not load transactions'));
+      if (!quiet) window.toast && window.toast(L('Chưa tải được giao dịch', 'Could not load transactions'));
       return;
     }
 
@@ -39627,15 +39845,32 @@ window.classifyAmount = classifyAmount;
       } catch (eS) { console.warn('statement load failed', eS); }
     }
 
-    if (!readable.length && !stmtCards) {
+    var reading = window.fhBackfillPhase && window.fhBackfillPhase() === 'reading';
+    if (!readable.length && !stmtCards && !reading) {
       _txrLoadHide();
+      /* Sparse yield (activation-journey-spec Q27): no blame-the-bank copy —
+         the alternate supply lines, statement file first, manual second. Email
+         capture has a coverage floor (a bank that doesn't email), and these
+         two doors are the remedy, not a consolation. */
+      var isPersonal = window.csvEntryScope && window.csvEntryScope.kind === 'personal';
       _fhSheet('<div class="mbx-hero">' + _mbxGlyph('mail') + '</div>' +
         '<div class="sheet-h">' + _esc(L('Chưa có giao dịch mới', 'Nothing to review')) + '</div>' +
         '<div class="sheet-sub">' + _esc(locked
           ? L('Có giao dịch đang khoá — mở khoá ứng dụng để xem.',
               'Some transactions are locked — unlock the app to see them.')
-          : L('Giao dịch từ email ngân hàng sẽ xuất hiện ở đây để bạn duyệt.',
-              'Transactions from your bank email will appear here to review.')) + '</div>' +
+          : L('Khi ngân hàng gửi email báo giao dịch, khoản sẽ về đây để bạn duyệt. Ngân hàng ít gửi email? Vẫn còn hai đường khác:',
+              'When your bank emails a transaction it lands here for review. Bank rarely emails? Two other ways in:')) + '</div>' +
+        (locked ? '' :
+          '<div class="cf-cta">' +
+          '<button class="cc-row" onclick="_closeOv();openCsvImport()">' +
+            '<span class="cc-ic">' + _mbxGlyph('mail') + '</span>' +
+            '<span class="cc-t">' + _esc(L('Nhập file sao kê', 'Import a statement file')) +
+              '<span class="cc-sub">' + _esc(L('Excel/CSV tải từ app ngân hàng, ví', 'Excel/CSV from your banking app or wallet')) + '</span></span></button>' +
+          (isPersonal ?
+          '<button class="cc-row" onclick="_closeOv();openPersonalExpense()">' +
+            '<span class="cc-ic">' + _mbxGlyph('check') + '</span>' +
+            '<span class="cc-t">' + _esc(L('Ghi tay một khoản', 'Log one by hand')) + '</span></button>' : '') +
+          '</div>') +
         '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Đóng', 'Close')) + '</button>');
       return;
     }
@@ -39662,6 +39897,11 @@ window.classifyAmount = classifyAmount;
     window.fhQueueAccountCensus(readable).catch(function () {});
 
     window.csvStagedMode = true;   // reuse the review engine, drop its file-only chrome
+    var _keepScroll = null;
+    if (quiet) {
+      var _qb = document.querySelector('#csv-import-modal .modal-body');
+      if (_qb) _keepScroll = _qb.scrollTop;
+    }
 
     /* The duplicate matcher inside csvBuildReview is synchronous, so the
        personal slice it matches against (365-day horizon — a re-staged card can
@@ -39678,7 +39918,7 @@ window.classifyAmount = classifyAmount;
        before the lending pass reads it. Best-effort — a failed sync degrades
        to whatever this device already knows, never blocks the queue. */
     try { if (window.fhLessonsSync) await window.fhLessonsSync(); } catch (e) {}
-    csvBuildReview([fhStagedAsCsvSource(readable)], {});
+    csvBuildReview([fhStagedAsCsvSource(readable)], quiet ? { keepView: true } : {});
     renderCsvReview();
 
     // Same screen, different framing: no file to pick, and the title should say
@@ -39729,8 +39969,98 @@ window.classifyAmount = classifyAmount;
     }
 
     _txrLoadHide();
-    openSheet('csv-import-modal');
+    if (!quiet) openSheet('csv-import-modal');
+    else if (_keepScroll != null) {
+      var _qb2 = document.querySelector('#csv-import-modal .modal-body');
+      if (_qb2) _qb2.scrollTop = _keepScroll;   // a background refresh must not yank the reader
+    }
+    /* Reading mode (activation-journey-spec §5c): while the first read runs the
+       banner narrates, the picture assembles live underneath, and import waits. */
+    _rvwReadingSync();
+    _rvwWatchEnsure(ctx);
   };
+
+  /* ── Reading mode: the live first-light surface ──────────────────────────
+     While `fhBackfillPhase()` is 'reading', the screen wears a banner between
+     the nav and the list (progress + the just-connected note + the push offer),
+     the Import action steps aside (import mid-backfill is WRONG: duplicate
+     bucketing only sees fetched rows, so a twin not yet staged is never
+     flagged), and a watcher re-renders quietly as rows stage — the chart, tree
+     and rows drawing themselves in is the activation moment. The watcher stops
+     when the screen closes or the phase leaves 'reading'; on finish it clears
+     the banner, restores Import and does one last quiet refresh. */
+  var _rvwTimer = null, _rvwCtx = null;
+  async function _rvwReadingSync() {
+    var box = document.getElementById('rvw-reading');
+    var save = document.getElementById('csv-save');
+    if (!box) return;
+    var reading = window.csvStagedMode && window.fhBackfillPhase && window.fhBackfillPhase() === 'reading';
+    if (!reading) {
+      if (box.innerHTML) box.innerHTML = '';
+      if (save) save.style.display = '';
+      window._rvwJustConnected = false;
+      return;
+    }
+    var p = window.fhBackfillProgress ? window.fhBackfillProgress() : null;
+    var pct = (p && p.windowDays > 0) ? Math.min(100, Math.round(p.daysRead / p.windowDays * 100)) : 0;
+    var n = window.fhStagedCount || 0;
+    var just = !!window._rvwJustConnected;
+    var pushRow = '';
+    if (just) { try { if (typeof _atxPushRowSafe === 'function') pushRow = (await _atxPushRowSafe()) || ''; } catch (e) {} }
+    box.innerHTML =
+      '<div class="rvw-read-t"><span class="dot"></span>' + _esc(just
+        ? L('Đã kết nối ✓ Đang đọc hộp thư của bạn', 'Connected ✓ Reading your mailbox')
+        : L('Đang đọc hộp thư của bạn', 'Reading your mailbox')) + '</div>' +
+      '<div class="rvw-read-s">' + _esc(
+        (p && p.front ? L('Đã đọc tới ' + fmtDayMon(new Date(p.front)) + ' · ' + n + ' khoản tìm thấy. ',
+                          'Read back to ' + fmtDayMon(new Date(p.front)) + ' · ' + n + ' found. ') : '') +
+        L('Bức tranh bên dưới tự vẽ dần, bạn cứ xem trước. Duyệt và nhập được ngay khi đọc xong.',
+          'The picture below draws itself in as we read. Reviewing and importing open the moment it finishes.')) + '</div>' +
+      '<span class="cc-prog"><i style="width:' + pct + '%"></i></span>' +
+      pushRow;
+    if (save) save.style.display = 'none';
+  }
+  function _rvwWatchEnsure(ctx) {
+    if (_rvwTimer) return;
+    if (!(window.fhBackfillPhase && window.fhBackfillPhase() === 'reading')) return;
+    _rvwCtx = ctx || null;
+    _rvwTimer = 1;   // sentinel: a quiet refresh mid-tick must not double-start
+    _rvwTick(0);
+  }
+  async function _rvwTick(nIter) {
+    var modal = document.getElementById('csv-import-modal');
+    if (!modal || !modal.classList.contains('on') || !window.csvStagedMode) { _rvwStop(false); return; }
+    var phase = window.fhBackfillPhase ? window.fhBackfillPhase() : null;
+    if (phase !== 'reading') { _rvwStop(true); return; }
+    /* the grant + frontier every other tick (a small select); staged rows every tick */
+    if (nIter % 2 === 0) {
+      try {
+        var conn = window.fhAutoTxnConnection ? await window.fhAutoTxnConnection() : null;
+        if (conn && typeof _atxProgressState === 'function') { try { await _atxProgressState(conn); } catch (e) {} }
+        if (conn && conn.phase !== 'reading') { _rvwStop(true); return; }
+      } catch (e) {}
+    }
+    var before = (window._fhStagedRows || []).length;
+    try { if (window.fhRefreshStagedCount) await window.fhRefreshStagedCount(); } catch (e) {}
+    if ((window.fhStagedCount || 0) !== before) {
+      try { await window.fhTxnReviewSheet(_rvwCtx, { quiet: true }); } catch (e) {}
+    } else {
+      try { await _rvwReadingSync(); } catch (e) {}
+    }
+    if (!_rvwTimer) return;   // stopped while we awaited
+    _rvwTimer = setTimeout(function () { _rvwTick(nIter + 1); }, 4000);
+  }
+  function _rvwStop(finished) {
+    if (_rvwTimer && _rvwTimer !== 1) clearTimeout(_rvwTimer);
+    _rvwTimer = null;
+    window._rvwJustConnected = false;
+    if (finished) {
+      /* done: banner off, Import back, and one last full quiet refresh so the
+         list holds everything the read found */
+      _rvwReadingSync();
+      try { window.fhTxnReviewSheet(_rvwCtx, { quiet: true }); } catch (e) {}
+    }
+  }
 
   /* Which staged rows has the person FINISHED with?
 
@@ -42322,6 +42652,20 @@ window.classifyAmount = classifyAmount;
 
   async function fhAutoTxnDone(state) {
     if (state === 'connected') {
+      /* First light lands on the review SCREEN in reading mode
+         (activation-journey-spec Q18): the person watches their own money
+         picture assemble instead of reading a sheet about it. The banner
+         carries the connected note, the progress and the push offer
+         (_rvwJustConnected → _rvwReadingSync, 72-txn-review.js). The sheet
+         below stays as the fallback when the screen cannot open. */
+      if (window.fhTxnReviewSheet) {
+        try {
+          const conn0 = await _atxConnection();
+          window._rvwJustConnected = true;
+          await window.fhTxnReviewSheet({ scope: (conn0 && conn0.scope === 'family') ? 'family' : 'personal' });
+          return;
+        } catch (e) { window._rvwJustConnected = false; }
+      }
       /* WHY THE OFFER IS ON THIS SCREEN AT ALL: push used to be offered only on
          the FORWARDING status sheet and after a first hand-review — so a person
          who connected by OAuth had no subscription, and the "something is

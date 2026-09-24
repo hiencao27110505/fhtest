@@ -437,6 +437,17 @@ document.querySelectorAll('.modal').forEach(function(m){ initSheetDrag(m, closeM
   if(['activity','tx'].indexOf(h)>=0){ go('spending'); segTo('activity'); return; }
   if(h==='memories'){ goMoments('album'); return; }
   if(h==='events'){ goMoments('plans'); return; }
+  /* #review → the review screen, through the standard entry so held / reauth /
+     empty states route correctly. Waits for the data module (the entry lives
+     there); personal scope, the activation journey's default. */
+  if(h==='review'){
+    go('personal');
+    var _rvTry=0, _rvT=setInterval(function(){
+      if(window.fhEmailTxnCta){ clearInterval(_rvT); try{ window.fhEmailTxnCta({scope:'personal'}); }catch(e){} }
+      else if(++_rvTry>50) clearInterval(_rvT);
+    }, 200);
+    return;
+  }
   if(['home','spending','personal'].indexOf(h)>=0) go(h);
 })();
 
