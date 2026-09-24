@@ -143,6 +143,26 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-09-24 · Hien · activation journey · TERRITORY CLAIM. Spec written, build started.**
+  Spec: `docs/specs/activation-journey-spec.md` (worktree `.worktrees/activation-journey`, branch
+  `feat/activation-journey`). The solo-user activation revamp: the staged-review surface becomes a
+  real screen (`#v-review`) with a completed chart + category tree rendering staged+imported rows,
+  famless users lose the tabbar, Tài chính becomes the landing for everyone, consent merges into
+  connect step 1, invite screen gets a solo skip, and personal-only push gets fixed.
+  - **Files this work edits:** `src/index.html`, `src/js-ui/{10-nav-model,21-personal,
+    56-csv-import-ui,57-csv-import-review,80-onboard-boot}.js`, `src/js-data/{10-client-auth,
+    55-push,65-passcode-ui,72-txn-review,74-autotxn-ui,75-consent-ui}.js`, `src/css/*`.
+    **OVERLAP with the email-reading-v2 claim** on `72-txn-review.js`, `56-csv-import-ui.js`,
+    `57-csv-import-review.js`: this work restructures the review surface's container and summary
+    chart (`csvSumHTML` region, `fhTxnReviewSheet` entry) and does NOT touch extraction, payload
+    handling, dedup, or `_srcAttn` semantics. `76-quick-review.js` is read-only here.
+  - **Migration**: one, for `push_subscriptions` personal scope — number claimed here when applied,
+    per §2. **Deploy**: `push-send` only, diffed against `main` first per the 2026-09-21 rule.
+  - **A second of something (§3):** a second *scope* of push subscription (user-scoped beside
+    family-scoped) — the grep for `family_id`/`member_id` singular assumptions in `push-send` and
+    `55-push.js` is posted here before it lands. Also a second entry point to the review engine
+    (screen beside modal) during the transition; the modal path is removed in the same release.
+
 - **2026-09-22 · Hien · email reading v2 · TERRITORY CLAIM. Spec approved, build started, no migration claimed yet.**
   Spec: `docs/specs/email-reading-v2-spec.md` (worktree `.worktrees/email-reading-v2`, branch
   `feat/email-reading-v2`). It replaces §16 of the umbrella spec: payload v2 worked backward from
