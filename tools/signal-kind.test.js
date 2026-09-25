@@ -279,7 +279,7 @@ console.log('\nplacement by provenance');
   ctx.__cs = all;
   const b = vm.runInContext('bucketCsvCandidates(__cs, false)', ctx);
   ok(b.ready.length === 2 && b.deferred.length === 0, 'and both stay importable: the flag only changes where the card is drawn', [b.ready.length, b.deferred.length]);
-  ok(/if\(csvStagedMode && \(csvDupTier\(c\) \|\| c\._srcAttn\)\) return;/.test(SRC56) && /srcRows\.forEach\(function\(e\)\{ attnHtml \+= csvStagedSrcCard/.test(SRC56),
+  ok(/if\(csvStagedMode && \(csvDupTier\(c\) \|\| c\._srcAttn\)\) return;/.test(SRC56) && /srcRows\.forEach\(function\(e\)\{ (?:if\(csvCatHide\(e\.c\)\) return; )?attnHtml \+= csvStagedSrcCard/.test(SRC56),
     'the renderer draws a flagged row under "Cần bạn xem" and not a second time in the dated list');
 }
 

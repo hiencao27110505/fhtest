@@ -2435,9 +2435,14 @@ function csvSumZoomGo(z){ csvSumZoom=z; csvSumScroll=null; renderCsvReview(); }
    mockups/review-widgets.html): root emoji leads the row, the count sits
    muted after the name, and the row's wash is the leaf's share of the
    widget's own total — 50% of the money is half a bar, never a full bar
-   normalized to the biggest row. Tapping a row FILTERS the list below
-   (dim, never hide — the same treatment Chọn nhanh uses). Staged mode
-   only: the file flow keeps csvSpendPanel. */
+   normalized to the biggest row. Three lists cover every kind the queue
+   holds: tiền ra, tiền vào, and the moves that are neither (transfers,
+   card and loan repayments, investments). Tapping a row FILTERS the
+   cards below to that category alone — hide, not dim: the screen shows
+   only the chosen category's cards, with one clear-filter bar under the
+   widgets as the way back. (Chọn nhanh keeps its own dim-never-hide
+   treatment; the two filters are different tools.) Staged mode only:
+   the file flow keeps csvSpendPanel. */
 var csvCatFilter = null;
 function csvCatFilterGo(name){
   csvCatFilter = (csvCatFilter===name) ? null : name;
@@ -2447,25 +2452,47 @@ function csvCatFilterGo(name){
    line item (I1, mockups/review-widgets.html), its root reduced to the
    emoji that leads the row — no root totals, no grouping, every wash a
    share of the same total so any two leaves compare directly. */
+/* Which of the three lists a row belongs to. 'other' is every move that is
+   neither spending nor income: own-account transfers, card and loan
+   repayments, investments — the kinds the two directional lists used to
+   drop on the floor (or misfile under an expense fallback name). */
+var _CLW_OTHER_KINDS = { transfer:1, loan:1, repayment:1, investment:1 };
+function csvRowGroup(c){
+  if(c.isIncome && !c._xfer && !c._repay && !c._invest) return 'income';
+  if(c._xfer || c.isTransfer || c._repay || c._invest) return 'other';
+  return 'expense';
+}
 function csvTreeLeafOf(c, kind){
   if(typeof fhTreeOn==='function' && fhTreeOn() && typeof FH_TAX!=='undefined'
-     && c._node && FH_TAX.get(c._node) && FH_TAX.kindOf(c._node)===kind){
-    var rt=FH_TAX.get(FH_TAX.root(c._node)), nd=FH_TAX.get(c._node);
-    return { root: rt.vi, emoji: rt.emoji||null, leaf: nd.vi };
+     && c._node && FH_TAX.get(c._node)){
+    var k = FH_TAX.kindOf(c._node);
+    if(k===kind || (kind==='other' && _CLW_OTHER_KINDS[k])){
+      var rt=FH_TAX.get(FH_TAX.root(c._node)), nd=FH_TAX.get(c._node);
+      return { root: rt.vi, emoji: rt.emoji||null, leaf: nd.vi };
+    }
   }
   if(kind==='income'){
     var inm = c._incomeCat ? csvCatLabel(c._incomeCat) : L('Thu nhập','Income');
     return { root: inm, emoji: '💰', leaf: inm };
+  }
+  if(kind==='other'){
+    var onm = c._invest ? L('Đầu tư','Investment')
+            : c._repay ? L('Trả nợ','Repayment')
+            : L('Chuyển khoản','Transfer');
+    return { root: onm, emoji: c._invest ? '📈' : c._repay ? '🧾' : '🔁', leaf: onm };
   }
   var raw = c.categoryName || (typeof CAT_FALLBACK!=='undefined' ? CAT_FALLBACK : 'Others');
   var st = (window.catStyle && window.catStyle[raw]) || null;
   var nm = csvCatLabel(raw);
   return { root: nm, emoji: st ? st[0] : null, leaf: nm };
 }
-function csvCatDim(c){
+/* The category filter HIDES what it does not name: only the chosen leaf's
+   cards stay on screen (Q15a, revised 2026-09-26 from dim to hide). Every
+   row is judged in its own list's vocabulary, so an income leaf filters
+   income cards and a transfer leaf filters the moves. */
+function csvCatHide(c){
   if(!csvCatFilter) return false;
-  if(c.isIncome || c.isTransfer || c._xfer) return false;   // held-out rows never dim under an expense filter
-  return csvTreeLeafOf(c,'expense').leaf !== csvCatFilter;
+  return csvTreeLeafOf(c, csvRowGroup(c)).leaf !== csvCatFilter;
 }
 /* collect (root, leaf) sums from queue rows + the booked ledger's leaf map */
 function _clwCollect(kind, bookedMap){
@@ -2479,8 +2506,7 @@ function _clwCollect(kind, bookedMap){
   var r0 = csvReview;
   if(r0){
     var take = function(c){
-      if(kind==='expense'){ if(c.isIncome || c.isTransfer || c._xfer) return; }
-      else { if(!c.isIncome || c._xfer || c._repay || c._invest) return; }
+      if(csvRowGroup(c)!==kind) return;
       if(typeof csvFxUnresolved==='function' && csvFxUnresolved(c)) return;
       var a = csvBaseAmt(c.amount||0); if(!(a>0)) return;
       add(csvTreeLeafOf(c, kind), a, 1);
@@ -2517,25 +2543,33 @@ function _clwRender(list, cap, filterable){
       + '<span class="a num">'+esc(fmt(lf.v))+'</span>'
       + '</'+(filterable?'button':'div')+'>';
   });
-  if(filterable && csvCatFilter){
-    html += '<button type="button" class="ctree-clear" onclick="csvCatFilterGo(csvCatFilter)">'
-      + esc(L('Đang lọc theo '+csvCatFilter+' · bỏ lọc','Filtering by '+csvCatFilter+' · clear'))+'</button>';
-  }
   return html + '</div>';
 }
 function csvCatTreeHTML(){
-  if(!csvStagedMode || csvSumHidden) return '';
-  if(!csvReview) return '';
   var bk = csvBookedLedger();
-  var list = _clwCollect('expense', bk && bk.byLeaf);
-  return _clwRender(list, L('TIỀN ĐI ĐÂU','WHERE THE MONEY WENT'), true);
+  return _clwRender(_clwCollect('expense', bk && bk.byLeaf), L('TIỀN ĐI ĐÂU','WHERE THE MONEY WENT'), true);
 }
 function csvIncomeTreeHTML(){
-  if(!csvStagedMode || csvSumHidden) return '';
-  if(!csvReview) return '';
   var bk = csvBookedLedger();
-  var list = _clwCollect('income', bk && bk.byLeafIn);
-  return _clwRender(list, L('TIỀN VÀO TỪ ĐÂU','WHERE THE MONEY CAME FROM'), false);
+  return _clwRender(_clwCollect('income', bk && bk.byLeafIn), L('TIỀN VÀO TỪ ĐÂU','WHERE THE MONEY CAME FROM'), true);
+}
+/* Queue rows only: the booked ledger keeps leaf maps for spending and income,
+   not for the other kinds, so this list states what is WAITING, not history. */
+function csvOtherTreeHTML(){
+  return _clwRender(_clwCollect('other', null), L('CHUYỂN KHOẢN & KHÁC','TRANSFERS & MORE'), true);
+}
+/* The three lists plus, when a filter is on, ONE clear bar under them all —
+   inside no single widget, because the filtered leaf may live in any of the
+   three, and it must survive even a re-render where every list came back
+   empty (say, right after importing the filtered rows). */
+function csvCatWidgetsHTML(){
+  if(!csvStagedMode || csvSumHidden || !csvReview) return '';
+  var html = csvCatTreeHTML() + csvIncomeTreeHTML() + csvOtherTreeHTML();
+  if(csvCatFilter){
+    html += '<button type="button" class="ctree-clear" onclick="csvCatFilterGo(csvCatFilter)">'
+      + esc(L('Đang lọc theo '+csvCatFilter+' · bỏ lọc','Filtering by '+csvCatFilter+' · clear'))+'</button>';
+  }
+  return html;
 }
 function csvSumOnScroll(el){
   csvSumScroll = el.scrollLeft;   // survives the full innerHTML re-render every edit triggers
@@ -2601,7 +2635,7 @@ function csvStagedSrcCard(c, i, pickOn, pickWk){
   var o = { label: L('Máy đoán, bạn xem giúp','A guess, please check'), dateIso: c.dateDisplay, timeStr: csvRowTime(c), attn: true,
             tapFn: "csvToggleExpand('ready',"+i+")", removeFn: "csvReadyRemove("+i+")",
             checkFn: "csvStagedToggle("+i+")", checked: !c._skipImport,
-            armed: (csvArmedRemove === i), dim: (pickOn && !csvPickMatch(c, pickWk)) || csvCatDim(c) };
+            armed: (csvArmedRemove === i), dim: (pickOn && !csvPickMatch(c, pickWk)) };
   return csvIsOpen('ready', i)
     ? csvActiveCard(c, Object.assign({}, o, { fields:true, ctaIdx:i }))
     : csvCollapsedCard(c, o);
@@ -2611,7 +2645,7 @@ function csvStagedDupCard(c, i, tier, pickOn, pickWk){
             dateIso: c.dateDisplay, timeStr: csvRowTime(c), attn: tier !== 'sure', repeat: true,
             tapFn: "csvToggleExpand('ready',"+i+")", removeFn: "csvReadyRemove("+i+")",
             checkFn: "csvStagedToggle("+i+")", checked: !c._skipImport,
-            armed: (csvArmedRemove === i), dim: (pickOn && !csvPickMatch(c, pickWk)) || csvCatDim(c) };
+            armed: (csvArmedRemove === i), dim: (pickOn && !csvPickMatch(c, pickWk)) };
   /* fx_final: one button that makes the booked row match the statement, then retires
      this one. Personal-book twins only -- a family row's amount is shared state with
      its own edit path, so there the difference is shown and the person edits it. */
@@ -2754,7 +2788,7 @@ function renderCsvReview(){
 
      handledHtml is the middle ground: money in and duplicates, both decided
      for the user and both reversible, shown so neither disappears quietly. */
-  var attnHtml = '', handledHtml = '';
+  var attnHtml = '', handledHtml = '', handledN = 0;   // handledN counts the cards actually appended (a category filter can hide some)
   var pickOnStaged = csvStagedMode && csvPickCount() > 0;
   var pickWkStaged = pickOnStaged ? csvPickWeekMax() : 0;
   r.groups.forEach(function(g, gi){
@@ -2768,6 +2802,7 @@ function renderCsvReview(){
   });
   r.dup.forEach(function(d, di){
     if(d.resolved!==null) return;
+    if(csvStagedMode && csvCatHide(d.c)) return;   // category filter hides non-matching cards
     var o = { label: csvDupTier(d.c) === 'sure' ? L('Đã có trong sổ','Already in your ledger') : L('Có thể trùng','Possible duplicate'),
               dateIso:d.c.dateDisplay, attn:true, isDup:true,
               _handled:true,
@@ -2783,7 +2818,7 @@ function renderCsvReview(){
          gutter; Bỏ qua stays on the expanded card where its explanation is. */
       o.removeFn = null;
     }
-    if(!csvIsOpen('dup', di)){ handledHtml += csvCollapsedCard(d.c, o); return; }
+    if(!csvIsOpen('dup', di)){ handledHtml += csvCollapsedCard(d.c, o); handledN++; return; }
     /* duplicateOfPipeline and duplicateOfSource are the same finding from two
        places -- the pipeline spotted it at 3am, this screen spotted it just now
        -- and which layer noticed is not something anyone reviewing a receipt
@@ -2792,6 +2827,7 @@ function renderCsvReview(){
       || (csvStagedMode
         ? L('Xuất hiện 2 lần với cùng nội dung và số tiền.','Appears twice with the same description and amount.')
         : L('Xuất hiện 2 lần trong file này với cùng nội dung và số tiền.','Appears twice in this file with the same description and amount.'));
+    handledN++;
     handledHtml += csvActiveCard(d.c, Object.assign({}, o, { fields:true, note:esc(why),
       buttons: '<button type="button" class="btn-line" onclick="csvDupInclude('+di+')">'+L('Vẫn nhập','Import anyway')+'</button>'
              + '<button type="button" class="btn-text-quiet" onclick="csvDupSkip('+di+')">'+L('Bỏ qua','Skip')+'</button>' }));
@@ -2802,6 +2838,7 @@ function renderCsvReview(){
      show the rows; a mislabelled expense has its own way back in there. */
   var inflow = [];
   r.deferred.forEach(function(c, di){
+    if(csvStagedMode && csvCatHide(c)) return;   // category filter hides non-matching cards
     if(c.isIncome || c.isTransfer){ inflow.push({ c:c, di:di }); return; }
     var why = c.flags.indexOf('date_missing')>=0 ? L('Thiếu ngày','Missing date')
       : c.flags.indexOf('amount_missing')>=0 ? L('Thiếu số tiền','Missing amount')
@@ -2810,7 +2847,7 @@ function renderCsvReview(){
     var o = { label:why, dateIso:c.dateDisplay, timeStr:csvRowTime(c), invalid:blocking, attn:!blocking,
               tapFn:"csvToggleExpand('defer',"+di+")", removeFn:"csvDeferDrop("+di+")" };
     if(!csvIsOpen('defer', di)){
-      if(blocking) attnHtml += csvCollapsedCard(c, o); else handledHtml += csvCollapsedCard(c, o);
+      if(blocking) attnHtml += csvCollapsedCard(c, o); else { handledHtml += csvCollapsedCard(c, o); handledN++; }
       return;
     }
     var card = csvActiveCard(c, Object.assign({}, o, { fields: true,
@@ -2820,7 +2857,7 @@ function renderCsvReview(){
             : L('Cột số tiền trong file này vừa có số dương vừa có số âm, nên tụi mình chưa rõ khoản nào là chi. Nếu đây là khoản chi, bấm Nhập khoản này.','This file\'s amount column mixes positive and negative numbers, so we can\'t tell which rows are spending. If this one is, tap Import this one.')) : null,
       buttons: '<button type="button" class="btn-line" onclick="csvDeferConfirm('+di+')">'+L('Nhập khoản này','Import this one')+'</button>'
              + '<button type="button" class="btn-text-quiet" onclick="csvDeferDrop('+di+')">'+L('Bỏ khỏi danh sách','Remove from list')+'</button>' }));
-    if(blocking) attnHtml += card; else handledHtml += card;
+    if(blocking) attnHtml += card; else { handledHtml += card; handledN++; }
   });
   /* Anything we had to GUESS at joins the review section, even though it's
      importable: a catch-all default or a pattern hunch is exactly what someone
@@ -2894,29 +2931,34 @@ function renderCsvReview(){
   // design: tapping a bar scrolls the list DOWN to that period, so the chart
   // naturally leaves the viewport, like the personal tab's own card.
   html += csvSumHTML();
-  if(csvStagedMode) html += csvCatTreeHTML() + csvIncomeTreeHTML();   // the two trees right under the strip (Q20b)
+  if(csvStagedMode) html += csvCatWidgetsHTML();   // the category lists right under the strip (Q20b)
 
   if(csvStagedMode){
-    likelyRows.forEach(function(e){ attnHtml += csvStagedDupCard(e.c, e.i, 'likely', pickOnStaged, pickWkStaged); });
-    srcRows.forEach(function(e){ attnHtml += csvStagedSrcCard(e.c, e.i, pickOnStaged, pickWkStaged); });
+    likelyRows.forEach(function(e){ if(csvCatHide(e.c)) return; attnHtml += csvStagedDupCard(e.c, e.i, 'likely', pickOnStaged, pickWkStaged); });
+    srcRows.forEach(function(e){ if(csvCatHide(e.c)) return; attnHtml += csvStagedSrcCard(e.c, e.i, pickOnStaged, pickWkStaged); });
   }
   if(attnHtml){
     html += '<div class="group-h attn">'+L('Cần bạn xem','Needs a look')+'</div><div class="csv-cards">'+attnHtml+'</div>';
   }
   /* Already booked: a fact, shown with its evidence, out of the way. Unticked,
      so nothing double-imports; the tick is "nhập vẫn", ✕ retires one, and the
-     header's button retires them all at once. */
+     header's button retires them all at once. Under a category filter the
+     section shows only matching cards and the count says what is SHOWN; the
+     skip-all button steps aside then, because it acts on every sure row and a
+     button must not claim less than it does. */
   if(csvStagedMode && sureRows.length){
-    var sureHtml = '';
-    sureRows.forEach(function(e){ sureHtml += csvStagedDupCard(e.c, e.i, 'sure', pickOnStaged, pickWkStaged); });
-    html += '<div class="group-h csv-sure-h"><span>'+L('Đã có trong sổ','Already in your ledger')+' · '+sureRows.length+'</span>'
-          + '<button type="button" class="csv-linkbtn" onclick="csvSureSkipAll()">'+esc(L('Bỏ qua cả '+sureRows.length,'Skip all '+sureRows.length))+'</button></div>'
-          + '<div class="csv-cards">'+sureHtml+'</div>';
+    var sureHtml = '', sureShown = 0;
+    sureRows.forEach(function(e){ if(csvCatHide(e.c)) return; sureShown++; sureHtml += csvStagedDupCard(e.c, e.i, 'sure', pickOnStaged, pickWkStaged); });
+    if(sureShown){
+      html += '<div class="group-h csv-sure-h"><span>'+L('Đã có trong sổ','Already in your ledger')+' · '+sureShown+'</span>'
+            + (csvCatFilter ? '' : '<button type="button" class="csv-linkbtn" onclick="csvSureSkipAll()">'+esc(L('Bỏ qua cả '+sureRows.length,'Skip all '+sureRows.length))+'</button>')+'</div>'
+            + '<div class="csv-cards">'+sureHtml+'</div>';
+    }
   }
   /* Decided, not asked: money in and duplicates stay out of the import, and
      each card still offers the way back in. */
   if(handledHtml){
-    html += '<div class="group-h">'+L('Tụi mình để riêng','Set aside')+' · '+handledCount+'</div>'
+    html += '<div class="group-h">'+L('Tụi mình để riêng','Set aside')+' · '+handledN+'</div>'
           + '<div class="csv-cards">'+handledHtml+'</div>';
   }
   if(inflow.length){
@@ -2966,7 +3008,9 @@ function renderCsvReview(){
      transfer_group_id) and retires both staged rows. Ambiguity (two possible
      partners) proposes nothing; a dismissed pair stays dismissed this open. ── */
   if(csvStagedMode){
-    var props = csvXferProposals();
+    /* Pair proposals step aside while a category filter is on: they are a
+       suggestion spanning two rows, not a card of the chosen category. */
+    var props = csvCatFilter ? [] : csvXferProposals();
     window._csvXferProps = {};
     if(props.length){
       html += '<div class="group-h">'+esc(L('Chuyển khoản nội bộ?','Internal transfer?'))+'</div>';
@@ -2994,6 +3038,7 @@ function renderCsvReview(){
     var dateBuckets = {};
     r.ready.forEach(function(c, i){
       if(csvStagedMode && (csvDupTier(c) || c._srcAttn)) return;   // rendered in their own sections above
+      if(csvStagedMode && csvCatHide(c)) return;   // category filter: only the chosen leaf's cards render
       var k = c.dateDisplay || ''; (dateBuckets[k] = dateBuckets[k] || []).push({ c:c, i:i });
     });
     var keys = Object.keys(dateBuckets).sort().reverse();
@@ -3030,7 +3075,7 @@ function renderCsvReview(){
                   tapFn:"csvToggleExpand('ready',"+e.i+")", removeFn:"csvReadyRemove("+e.i+")" };
         if(csvStagedMode){ o.checkFn = "csvStagedToggle("+e.i+")"; o.checked = !e.c._skipImport;
                            o.armed = (csvArmedRemove === e.i);
-                           o.dim = (pickOn && !csvPickMatch(e.c, pickWk)) || csvCatDim(e.c); }
+                           o.dim = (pickOn && !csvPickMatch(e.c, pickWk)); }
         /* Staged expanded card wears the settings-rows layout with its own CTA
            bar (delete / apply-to-similar / import-one) — the explicit Xong
            button belongs to the file workbench; here the header collapse and
