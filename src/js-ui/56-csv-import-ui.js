@@ -2429,22 +2429,24 @@ function csvSumHTML(){
 }
 function csvSumZoomGo(z){ csvSumZoom=z; csvSumScroll=null; renderCsvReview(); }
 
-/* ── The category tree (activation-journey-spec Q20b, Q15a) ──
-   Every category the window holds — queue + booked merged — as an expandable
-   tree, EXPANDED by default: name, proportional track in the strip's own
-   two-layer language (solid = đã vào sổ, grey = chưa duyệt), and under each
-   node its top descriptions from the queue. Tapping a row FILTERS the list
-   below (dim, never hide — the same treatment Chọn nhanh uses); the chevron
-   alone folds a node. Staged mode only: the file flow keeps csvSpendPanel. */
+/* ── The category list (activation-journey-spec Q20b, Q15a) ──
+   Every category the window holds — queue + booked merged — as ONE flat
+   list of the taxonomy's deepest nodes, sorted large to small (I1,
+   mockups/review-widgets.html): root emoji leads the row, the count sits
+   muted after the name, and the row's wash is the leaf's share of the
+   widget's own total — 50% of the money is half a bar, never a full bar
+   normalized to the biggest row. Tapping a row FILTERS the list below
+   (dim, never hide — the same treatment Chọn nhanh uses). Staged mode
+   only: the file flow keeps csvSpendPanel. */
 var csvCatFilter = null;
 function csvCatFilterGo(name){
   csvCatFilter = (csvCatFilter===name) ? null : name;
   renderCsvReview();
 }
 /* THE MACHINE'S ANSWER NAMES THE NODE: the taxonomy's DEEPEST node is the
-   line item (G6, mockups/review-widgets.html), its root only the quiet
-   section label above — no root totals, every wash on one global scale so
-   any two leaves anywhere in the list compare directly. */
+   line item (I1, mockups/review-widgets.html), its root reduced to the
+   emoji that leads the row — no root totals, no grouping, every wash a
+   share of the same total so any two leaves compare directly. */
 function csvTreeLeafOf(c, kind){
   if(typeof fhTreeOn==='function' && fhTreeOn() && typeof FH_TAX!=='undefined'
      && c._node && FH_TAX.get(c._node) && FH_TAX.kindOf(c._node)===kind){
@@ -2492,28 +2494,28 @@ function _clwCollect(kind, bookedMap){
   });
   return Object.keys(roots).map(function(k){ return roots[k]; }).sort(function(a,b){ return b.sum-a.sum; });
 }
-/* G6 renderer: quiet root label, gradient leaf washes, global scale */
+/* I1 renderer: one flat list, largest first, wash = share of the total */
 function _clwRender(list, cap, filterable){
   if(!list.length) return '';
-  var max = 1;
-  list.forEach(function(r){ Object.keys(r.leaves).forEach(function(k){ if(r.leaves[k].v>max) max=r.leaves[k].v; }); });
+  var flat = [], total = 0;
+  list.forEach(function(r){ Object.keys(r.leaves).forEach(function(k){
+    var lf = r.leaves[k];
+    flat.push({ leaf:lf.leaf, v:lf.v, n:lf.n, emoji:r.emoji||null });
+    total += lf.v;
+  }); });
+  flat.sort(function(a,b){ return b.v-a.v; });
+  if(!(total>0)) return '';
   var html = '<div class="clw"><div class="ctree-cap">'+esc(cap)+'</div>';
-  list.forEach(function(r){
-    var lvs = Object.keys(r.leaves).map(function(k){ return r.leaves[k]; }).sort(function(a,b){ return b.v-a.v; });
-    /* a group whose only leaf carries the group's own name says it once —
-       the leaf row absorbs the emoji and the label row is skipped */
-    var solo = lvs.length===1 && lvs[0].leaf===r.root;
-    if(!solo) html += '<div class="clw-r">'+(r.emoji ? r.emoji+' ' : '')+esc(r.root)+'</div>';
-    lvs.forEach(function(lf){
-      var w = Math.max(2, Math.round(lf.v/max*100));
-      var on = filterable && csvCatFilter===lf.leaf;
-      var tap = filterable ? ' onclick="csvCatFilterGo(\''+escAttr(lf.leaf)+'\')"' : '';
-      html += '<'+(filterable?'button type="button"':'div')+' class="clw-l'+(on?' on':'')+'"'+tap+'>'
-        + '<i style="width:'+w+'%"></i>'
-        + '<span class="t">'+(solo && r.emoji ? r.emoji+' ' : '')+esc(lf.leaf)+(lf.n>1 ? ' ×'+lf.n : '')+'</span>'
-        + '<span class="a num">'+esc(fmt(lf.v))+'</span>'
-        + '</'+(filterable?'button':'div')+'>';
-    });
+  flat.forEach(function(lf){
+    var w = Math.max(1.5, Math.round(lf.v/total*1000)/10);
+    var on = filterable && csvCatFilter===lf.leaf;
+    var tap = filterable ? ' onclick="csvCatFilterGo(\''+escAttr(lf.leaf)+'\')"' : '';
+    html += '<'+(filterable?'button type="button"':'div')+' class="clw-l'+(on?' on':'')+'"'+tap+'>'
+      + '<i style="width:'+w+'%"></i>'
+      + (lf.emoji ? '<b class="clw-e">'+lf.emoji+'</b>' : '')
+      + '<span class="t">'+esc(lf.leaf)+(lf.n>1 ? ' <em class="clw-n">×'+lf.n+'</em>' : '')+'</span>'
+      + '<span class="a num">'+esc(fmt(lf.v))+'</span>'
+      + '</'+(filterable?'button':'div')+'>';
   });
   if(filterable && csvCatFilter){
     html += '<button type="button" class="ctree-clear" onclick="csvCatFilterGo(csvCatFilter)">'
