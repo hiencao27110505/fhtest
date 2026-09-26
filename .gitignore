@@ -38,3 +38,6 @@ __pycache__/
 # names, account numbers and a month of transactions each. Vercel serves the
 # repo root, so a commit would publish them. Local-only, always.
 research/statements/
+# Screenshot-runner output (tools/ui-harness). Regenerated on every run, ~3 MB a
+# manifest, and Vercel serves the repo root — a commit would publish them.
+shots/

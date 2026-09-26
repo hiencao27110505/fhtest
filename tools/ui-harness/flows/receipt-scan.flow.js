@@ -14,9 +14,12 @@ module.exports = {
         await t.eval(`(function(){
           var c=document.createElement('canvas'); c.width=120; c.height=160; var x=c.getContext('2d'); x.fillStyle='#fbfaf6'; x.fillRect(0,0,120,160); x.fillStyle='#222'; x.fillText('TONG 85.000',10,80);
           var a=c.toDataURL('image/jpeg',0.8); x.fillText('118.000',10,100); var b=c.toDataURL('image/jpeg',0.8); x.fillText('?',10,120); var d=c.toDataURL('image/jpeg',0.8);
+          /* today, read from the app's own clock: the ledger renders the current
+             period, so a hard-coded date silently walks off screen as time passes. */
+          var _t=isoDate(TODAY);
           __fhScanSeed({ scope:'family', items:[
-            { src:a, state:'ok', amt:85, note:'QC Circle K', cat:'Ăn uống', date:'2026-09-19', time:'08:12' },
-            { src:b, state:'flag', amt:118, note:'QC Highlands', cat:'Ăn uống', date:'2026-09-19', time:'09:40' },
+            { src:a, state:'ok', amt:85, note:'QC Circle K', cat:'Ăn uống', date:_t, time:'08:12' },
+            { src:b, state:'flag', amt:118, note:'QC Highlands', cat:'Ăn uống', date:_t, time:'09:40' },
             { src:d, state:'bad' } ] });
         })()`);
         await t.wait(400);

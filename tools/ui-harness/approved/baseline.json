@@ -1,0 +1,279 @@
+{
+  "feature": "baseline",
+  "shots": {
+    "personal.vi.sage": {
+      "errors": 0,
+      "lint": {
+        "targets": 9,
+        "overflow": 0,
+        "language": 0,
+        "pageScroll": 0
+      }
+    },
+    "home.vi.sage": {
+      "errors": 0,
+      "lint": {
+        "targets": 0,
+        "overflow": 0,
+        "language": 0,
+        "pageScroll": 0
+      }
+    },
+    "spending.vi.sage": {
+      "errors": 0,
+      "lint": {
+        "targets": 4,
+        "overflow": 0,
+        "language": 0,
+        "pageScroll": 0
+      }
+    },
+    "spending-tx.vi.sage": {
+      "errors": 0,
+      "lint": {
+        "targets": 0,
+        "overflow": 0,
+        "language": 0,
+        "pageScroll": 0
+      }
+    },
+    "events.vi.sage": {
+      "errors": 0,
+      "lint": {
+        "targets": 30,
+        "overflow": 0,
+        "language": 0,
+        "pageScroll": 0
+      }
+    },
+    "expense-modal.vi.sage": {
+      "errors": 0,
+      "lint": {
+        "targets": 4,
+        "overflow": 0,
+        "language": 0,
+        "pageScroll": 0
+      }
+    },
+    "budget-sheet.vi.sage": {
+      "errors": 0,
+      "lint": {
+        "targets": 7,
+        "overflow": 0,
+        "language": 0,
+        "pageScroll": 0
+      }
+    },
+    "settings.vi.sage": {
+      "errors": 0,
+      "lint": {
+        "targets": 0,
+        "overflow": 0,
+        "language": 0,
+        "pageScroll": 0
+      }
+    },
+    "personal.vi.ocean": {
+      "errors": 0,
+      "lint": {
+        "targets": 9,
+        "overflow": 0,
+        "language": 0,
+        "pageScroll": 0
+      }
+    },
+    "home.vi.ocean": {
+      "errors": 0,
+      "lint": {
+        "targets": 0,
+        "overflow": 0,
+        "language": 0,
+        "pageScroll": 0
+      }
+    },
+    "spending.vi.ocean": {
+      "errors": 0,
+      "lint": {
+        "targets": 4,
+        "overflow": 0,
+        "language": 0,
+        "pageScroll": 0
+      }
+    },
+    "spending-tx.vi.ocean": {
+      "errors": 0,
+      "lint": {
+        "targets": 0,
+        "overflow": 0,
+        "language": 0,
+        "pageScroll": 0
+      }
+    },
+    "events.vi.ocean": {
+      "errors": 0,
+      "lint": {
+        "targets": 30,
+        "overflow": 0,
+        "language": 0,
+        "pageScroll": 0
+      }
+    },
+    "expense-modal.vi.ocean": {
+      "errors": 0,
+      "lint": {
+        "targets": 4,
+        "overflow": 0,
+        "language": 0,
+        "pageScroll": 0
+      }
+    },
+    "budget-sheet.vi.ocean": {
+      "errors": 0,
+      "lint": {
+        "targets": 7,
+        "overflow": 0,
+        "language": 0,
+        "pageScroll": 0
+      }
+    },
+    "personal.en.sage": {
+      "errors": 0,
+      "lint": {
+        "targets": 9,
+        "overflow": 0,
+        "language": 11,
+        "pageScroll": 0
+      }
+    },
+    "home.en.sage": {
+      "errors": 0,
+      "lint": {
+        "targets": 0,
+        "overflow": 0,
+        "language": 1,
+        "pageScroll": 0
+      }
+    },
+    "spending.en.sage": {
+      "errors": 0,
+      "lint": {
+        "targets": 4,
+        "overflow": 0,
+        "language": 1,
+        "pageScroll": 0
+      }
+    },
+    "spending-tx.en.sage": {
+      "errors": 0,
+      "lint": {
+        "targets": 0,
+        "overflow": 0,
+        "language": 1,
+        "pageScroll": 0
+      }
+    },
+    "events.en.sage": {
+      "errors": 0,
+      "lint": {
+        "targets": 30,
+        "overflow": 0,
+        "language": 1,
+        "pageScroll": 0
+      }
+    },
+    "expense-modal.en.sage": {
+      "errors": 0,
+      "lint": {
+        "targets": 4,
+        "overflow": 0,
+        "language": 6,
+        "pageScroll": 0
+      }
+    },
+    "budget-sheet.en.sage": {
+      "errors": 0,
+      "lint": {
+        "targets": 7,
+        "overflow": 0,
+        "language": 1,
+        "pageScroll": 0
+      }
+    },
+    "settings.en.sage": {
+      "errors": 0,
+      "lint": {
+        "targets": 0,
+        "overflow": 0,
+        "language": 1,
+        "pageScroll": 0
+      }
+    },
+    "personal.en.ocean": {
+      "errors": 0,
+      "lint": {
+        "targets": 9,
+        "overflow": 0,
+        "language": 11,
+        "pageScroll": 0
+      }
+    },
+    "home.en.ocean": {
+      "errors": 0,
+      "lint": {
+        "targets": 0,
+        "overflow": 0,
+        "language": 1,
+        "pageScroll": 0
+      }
+    },
+    "spending.en.ocean": {
+      "errors": 0,
+      "lint": {
+        "targets": 4,
+        "overflow": 0,
+        "language": 1,
+        "pageScroll": 0
+      }
+    },
+    "spending-tx.en.ocean": {
+      "errors": 0,
+      "lint": {
+        "targets": 0,
+        "overflow": 0,
+        "language": 1,
+        "pageScroll": 0
+      }
+    },
+    "events.en.ocean": {
+      "errors": 0,
+      "lint": {
+        "targets": 30,
+        "overflow": 0,
+        "language": 1,
+        "pageScroll": 0
+      }
+    },
+    "expense-modal.en.ocean": {
+      "errors": 0,
+      "lint": {
+        "targets": 4,
+        "overflow": 0,
+        "language": 6,
+        "pageScroll": 0
+      }
+    },
+    "budget-sheet.en.ocean": {
+      "errors": 0,
+      "lint": {
+        "targets": 7,
+        "overflow": 0,
+        "language": 1,
+        "pageScroll": 0
+      }
+    }
+  },
+  "flows": {
+    "add-family-expense-then-delete": true,
+    "switch-language-persists": true
+  }
+}
