@@ -140,12 +140,14 @@ const notice = (id, provider, detail, extra) => Object.assign({ id, row_kind: 'n
     ok(/window\.fhStagedTxnOnly = fhStagedTxnOnly;/.test(SRC72), '72 exports it');
     const qr = grab(SRC76, 'async function _qrFetch(');
     ok(/window\.fhStagedTxnOnly \? window\.fhStagedTxnOnly\(ask\)/.test(qr) && /txnOnly\(window\.sb\.from\('email_transactions'\)/.test(qr), 'quick review (_qrFetch)');
-    ['async function _atxPendingCount(', 'async function _atxRecentFinds(', 'async function _atxFrontier('].forEach((h) => {
+    ['async function _atxPendingCount(', 'async function _atxRecentFinds(', 'async function _atxFrontier(',
+     /* the live watcher's drain and its first-tick seed (reading-loop-cost-spec H2) */
+     'async function _atxSeedRows(', 'async function _atxDeltaRows('].forEach((h) => {
       const body = grab(SRC74, h);
       ok(/_atxTxnOnly\(/.test(body) && /txnOnly\(/.test(body), 'connect screen: ' + h.replace('async function ', '').replace('(', ''));
     });
     const direct = (SRC72 + SRC74 + SRC76).split("from('email_transactions')").length - 1;
-    ok(direct === 7, 'and there is no eighth reader of the table that nobody looked at (6 filtered + the notice pass itself)', direct);
+    ok(direct === 9, 'and there is no tenth reader of the table that nobody looked at (8 filtered + the notice pass itself)', direct);
   }
 
   console.log('\nwhich account, and what it states');

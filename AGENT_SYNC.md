@@ -143,6 +143,23 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-09-26 · Hien · reading-loop cost fix · BUILT + SHIPPED to `main`, client only, SW v587.**
+  From the onboarding UT (`docs/specs/reading-loop-cost-spec.md`): the backfill
+  watcher issued ~45-60 requests/min, re-unsealed the same 3 feed rows every
+  tick and full-rebuilt the Cá nhân tab per tick. Files touched:
+  `src/js-data/74-autotxn-ui.js` (watcher rewritten: one delta drain per tick,
+  id-keyed open cache, per-batch key pool, grant asked on quiet drains,
+  extend-not-replace arming, parked while hidden), `src/js-ui/21-personal.js`
+  (`persProgressPatch` + hooks in the reading card), `src/css/74-mailbox.css`
+  (standing `will-change` dropped). **Contract change for other sessions:**
+  `fhBackfillWatch()` now EXTENDS a running watcher instead of starting a
+  rival; a new watcher only exists after the previous one's deadline/ceiling
+  passes. `tools/autotxn-connected-live.test.js` is rewritten to the new
+  contract; `tools/reading-loop.test.js` and an updated reader count in
+  `tools/notice-rows.test.js` guard the shape. No migration, no edge-function
+  deploy, no consent change. `pipeline/direct-persist-contract.test.js` fails
+  on a local Python env issue before and after this change — not related.
+
 - **2026-09-24 · Hien · activation journey · TERRITORY CLAIM. Spec written, build started.**
   Spec: `docs/specs/activation-journey-spec.md` (worktree `.worktrees/activation-journey`, branch
   `feat/activation-journey`). The solo-user activation revamp: the staged-review surface becomes a

@@ -637,7 +637,7 @@
       const CORE = 'id,provider,email,needs_reauth,connected_at,last_synced_at,backfilled_at';
       const T2 = CORE + ',default_scope,backfill_days';
       const T3 = T2 + ',stalled_runs,first_stalled_at';
-      const ask = (cols) => sb.from('mailbox_grants').select(cols).eq('provider', 'google').limit(1);
+      const ask = (cols) => { try { _atxStats.req++; } catch (e2) {} return sb.from('mailbox_grants').select(cols).eq('provider', 'google').limit(1); };
       let res = await ask(T3);
       if (res.error) res = await ask(T2);
       if (res.error) res = await ask(CORE);
@@ -1294,6 +1294,7 @@
         if (scoped) q = q.gte('occurred_at', sinceIso);
         return txnOnly(q).order('occurred_at', { ascending: true }).limit(1);
       });
+      _atxStats.req++;
       const oldest = !res.error && res.data && res.data[0] && res.data[0].occurred_at;
       if (scoped) return oldest || null;
       if (oldest && (!floor || String(oldest) < String(floor))) {
@@ -1366,21 +1367,52 @@
      matters because this list appears at the moment we are asking for trust. */
   const ATX_FEED_COLS = 'id,source_provider,occurred_at,staging_scope,sealed,eph_pub,nonce,enc_v';
 
+  /* ── the read-loop cost meter (reading-loop-cost-spec §6) ─────────────────
+     Every request and every unseal this subsystem performs, counted, so the
+     acceptance numbers are checkable from the console instead of by hand-
+     counting rows in devtools. Not telemetry: it never leaves the device. */
+  const _atxStats = { req: 0, unseals: 0, paints: 0, since: 0 };
+  /* typeof-guarded: tools/autotxn-return.test.js evals the slice this line
+     sits in with no `window` in scope. Browsers always have one. */
+  if (typeof window !== 'undefined') window.fhReadLoopStats = () => Object.assign({}, _atxStats);
+
+  /* ── opened rows are opened ONCE (reading-loop-cost-spec H2) ──────────────
+     The feed used to re-run nacl.box.open on the same three newest rows every
+     tick — ~900 opens over a 20-minute backfill for a few dozen distinct rows.
+     A sealed row's content never changes, so the id is a complete cache key.
+     Only successful opens are cached: a locked ledger must retry after unlock.
+     Insertion-ordered Map, oldest evicted — a display cache, not storage. */
+  const _atxOpenCache = new Map();
+  const ATX_OPEN_CACHE_MAX = 120;
+
+  /* One private-key resolve per BATCH, not per row. The unwrap behind
+     fh(Personal)StagingPrivKey is AES-GCM work that was silently multiplied by
+     three; the pool memoizes the promise per scope for one batch's lifetime. */
+  function _atxPrivPool() {
+    const memo = {};
+    return function (personal) {
+      const k = personal ? 'p' : 'f';
+      if (!memo[k]) memo[k] = personal
+        ? window.fhPersonalStagingPrivKey() : window.fhStagingPrivKey();
+      return memo[k];
+    };
+  }
+
   /* One staged row -> what the feed shows. Mirrors fhReadStagedRow's key choice
      and payload flatten; anything that throws falls back to {} so the caller
      renders the clear-column row. */
-  async function _atxOpenFind(r) {
+  async function _atxOpenFind(r, pool) {
     if (!r || !r.sealed || !window.fhStagingOpenRow) return {};
+    if (r.id && _atxOpenCache.has(r.id)) return _atxOpenCache.get(r.id);
     try {
       const personal = r.staging_scope === 'personal';
       /* Both bindings come from OUR session, never from the row the server
          sent — a check is only a check when both sides were already known. */
       r.family_id = window.DB && window.DB.fid;
       if (personal) r.owner_user_id = (window.fhUser && window.fhUser.id) || null;
-      const priv = personal
-        ? await window.fhPersonalStagingPrivKey()
-        : await window.fhStagingPrivKey();
+      const priv = await (pool || _atxPrivPool())(personal);
       const p = window.fhStagingOpenRow(r, priv);
+      _atxStats.unseals++;
       /* Forwarding seals the detail FLAT; the direct-read worker nests it under
          raw_extracted. Flatten the nested case up so both shapes read alike. */
       const re = (p && p.raw_extracted && typeof p.raw_extracted === 'object')
@@ -1389,9 +1421,31 @@
          missing value, so it must fall through to the counterparty rather than
          resurrect the bank's auto-fill. Same rule the review screen uses. */
       const tidied = re.memo_display == null ? re.memo : re.memo_display;
-      return { desc: tidied || re.counterparty || '',
+      const out = { desc: tidied || re.counterparty || '',
                amount: re.amount, currency: re.currency, direction: re.direction };
+      if (r.id) {
+        _atxOpenCache.set(r.id, out);
+        if (_atxOpenCache.size > ATX_OPEN_CACHE_MAX) {
+          for (const k of _atxOpenCache.keys()) {
+            if (_atxOpenCache.size <= ATX_OPEN_CACHE_MAX) break;
+            _atxOpenCache.delete(k);
+          }
+        }
+      }
+      return out;
     } catch (e) { return {}; }            // locked ledger, wrong key, bad box
+  }
+
+  /* Rows -> feed items, through the cache, one key pool for the whole batch. */
+  async function _atxOpenRows(rows) {
+    const pool = _atxPrivPool();
+    const opened = await Promise.all(rows.map((r) => _atxOpenFind(r, pool)));
+    return rows.map(function (r, i) {
+      return { id: r.id, source_provider: r.source_provider, occurred_at: r.occurred_at,
+               created_at: r.created_at,
+               _desc: opened[i].desc || '', _amount: opened[i].amount,
+               _direction: opened[i].direction };
+    });
   }
 
   /* Every pending-queue read on this screen counts TRANSACTIONS, never notices
@@ -1408,17 +1462,60 @@
         .eq('review_status', 'pending'))
         .order('created_at', { ascending: false })
         .limit(ATX_FEED_ROWS));
+      _atxStats.req++;
       if (res.error) return [];
-      const rows = res.data || [];
-      /* Three nacl.box opens; negligible, and they run together rather than in
-         sequence because none depends on another. */
-      const opened = await Promise.all(rows.map(_atxOpenFind));
-      return rows.map(function (r, i) {
-        return { id: r.id, source_provider: r.source_provider, occurred_at: r.occurred_at,
-                 _desc: opened[i].desc || '', _amount: opened[i].amount,
-                 _direction: opened[i].direction };
-      });
+      /* Opens go through the id cache: a row already shown is never re-opened. */
+      return await _atxOpenRows(res.data || []);
     } catch (e) { return []; }
+  }
+
+  /* ── what landed since the cursor (reading-loop-cost-spec H2) ─────────────
+     THE one recurring request of the live watcher: pending transactions staged
+     after `cursor`, oldest-first so a burst larger than one page drains across
+     ticks without ever skipping a row (a strict `gt` on the newest seen would
+     orphan everything older in the same burst). During a first read the queue
+     is held, so nothing leaves it and `baseline + drained` is the exact count. */
+  const ATX_DELTA_PAGE = 40;
+
+  /* First tick of a watcher over a non-empty queue: the newest few rows, so
+     the feed starts at "vừa tìm thấy" rather than at the oldest page of a
+     cursorless ascending drain. Same shape as the drain, opposite order. */
+  async function _atxSeedRows() {
+    const res = await _atxTxnOnly((txnOnly) => txnOnly(sb.from('email_transactions')
+      .select(ATX_FEED_COLS + ',created_at')
+      .eq('review_status', 'pending'))
+      .order('created_at', { ascending: false })
+      .limit(ATX_FEED_ROWS));
+    _atxStats.req++;
+    if (res.error) return [];
+    return res.data || [];
+  }
+
+  async function _atxDeltaRows(cursor) {
+    const res = await _atxTxnOnly((txnOnly) => {
+      let q = sb.from('email_transactions')
+        .select(ATX_FEED_COLS + ',created_at')
+        .eq('review_status', 'pending');
+      if (cursor) q = q.gt('created_at', cursor);
+      return txnOnly(q).order('created_at', { ascending: true }).limit(ATX_DELTA_PAGE);
+    });
+    _atxStats.req++;
+    if (res.error) return [];
+    return res.data || [];
+  }
+
+  /* The frontier, maintained from rows we already hold instead of a dedicated
+     query: min occurred_at seen, floored in localStorage exactly as
+     _atxFrontier does, so it survives a watcher restart and never rewinds. */
+  function _atxFloorFrontier(gid, rows) {
+    let f = null;
+    if (gid) { try { f = localStorage.getItem(_atxFrontKey(gid)) || null; } catch (e) {} }
+    for (let i = 0; i < rows.length; i++) {
+      const o = rows[i] && rows[i].occurred_at;
+      if (o && (!f || String(o) < String(f))) f = o;
+    }
+    if (gid && f) { try { localStorage.setItem(_atxFrontKey(gid), f); } catch (e) {} }
+    return f;
   }
 
 
@@ -1645,6 +1742,7 @@
     const res = await _atxTxnOnly((txnOnly) => txnOnly(sb.from('email_transactions')
       .select('id', { count: 'exact', head: true })
       .eq('review_status', 'pending')));
+    _atxStats.req++;
     if (res.error) throw res.error;
     return (typeof res.count === 'number') ? res.count : 0;
   }
@@ -1654,106 +1752,182 @@
     n === 1 ? 'Found 1 transaction, waiting for your review.'
             : 'Found ' + n + ' transactions, waiting for your review.');
 
+  /* ── EXTENDS, never replaces (reading-loop-cost-spec H3, 2026-09-26) ───────
+     Arming used to build a NEW watcher every time: the tab's 30-second re-arm
+     threw away the accumulated state, forced the expensive first-tick branch
+     at least twice a minute, and made the 3-minute lifetime a fiction — while
+     the surfaces with no re-arm (an established user's catch-up) froze at
+     exactly three minutes. Now an arm call while a watcher runs only pushes
+     its deadline out; state, cursor and caches survive. An absolute ceiling
+     bounds one watcher's life; the next arm after the ceiling starts fresh. */
+  const ATX_LIVE_EXTEND_MS = 3 * 60 * 1000;
+  const ATX_LIVE_CEILING_MS = 30 * 60 * 1000;
+  let _atxLiveUntil = 0, _atxLiveOn = false, _atxParked = null;
+
+  /* Hidden means PARKED: the timer stops, not just its body (H4). The old
+     guard skipped the network but kept the setTimeout chain alive, so a
+     backgrounded app went on waking the process every few seconds for nothing
+     — and the end-of-window reconcile, a fetch of up to a thousand sealed
+     rows, ran with no visibility check at all. Resume re-enters the loop. */
+  try {
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden && _atxParked) { const go = _atxParked; _atxParked = null; go(); }
+    });
+  } catch (e) { /* a harness document without addEventListener; browsers always have it */ }
+
   window.fhBackfillWatch = function () { return _atxLiveWatch(); };
   function _atxLiveWatch() {
+    _atxLiveUntil = Date.now() + ATX_LIVE_EXTEND_MS;
+    if (_atxLiveOn) return;                       // extend the running watcher
+    _atxLiveOn = true;
     const seq = ++_atxLiveSeq;
     const t0 = Date.now();
-    let last = 0;
-    /* Closing the sheet DEMOTES the watcher instead of killing it (2026-09-05
-       v2): the person who connects and closes at five seconds is exactly the
-       one whose rows land at ten, and stopping cold meant their badge stayed
-       blank until the next refocus — the original complaint, back in a smaller
-       coat. Badge mode keeps the same cheap head count, touches only the badge
-       surfaces, never the sheet's DOM, and dies with the same 3-minute window.
-       A demotion is one-way: a sheet that reopens starts its own watcher, and
-       the seq bump retires this one. */
-    let badgeOnly = false, lastPhase = 'reading', lastState = null;
+    _atxStats.since = t0; _atxStats.req = 0; _atxStats.unseals = 0; _atxStats.paints = 0;
+    /* known: the pending count — a baseline head count once, then maintained
+       by adding what the delta drain returns. Exact during a first read, where
+       the queue is held and nothing can leave it; re-baselined periodically in
+       every other phase, where a promote elsewhere can shrink it. */
+    let known = null, cursor = null, feed = [];
+    let conn = null, lastPhase = null, lastPaintKey = '', tickN = 0, quietLast = false;
     (async function tick() {
       if (seq !== _atxLiveSeq) return;
-      /* THE LIVENESS PROBE MUST BE AN ELEMENT BOTH SHEETS HAVE. This keyed on
-         `#atx-live` — which only fhAutoTxnDone renders — so opening the STATUS
-         sheet mid-backfill demoted the watcher to badge-only on its first tick
-         and the progress card never repainted. The count moved only on the
-         screen behind the sheet, which is exactly how it was reported: "I only
-         know there's an update when I dismiss the bottom sheet."
-         `#atx-pg` is on both. */
-      const el = document.getElementById('atx-live');       // connect sheet only; may be null
-      const pg = document.getElementById('atx-pg');
-      const sheet = document.getElementById('fh-sheet');
-      const scr = document.getElementById('csv-import-modal');   // the review screen's reading state carries #atx-pg too
-      const surfaced = (sheet && sheet.classList.contains('on')) || (scr && scr.classList.contains('on'));
-      if (!pg || !surfaced) badgeOnly = true;
-      if (!document.hidden) {
-        try {
-          /* The GRANT is asked every tick, the frontier only when the count
-             moved. backfilled_at can flip on a run that stages nothing — the
-             last chunk of a window often does — so waiting for a count change
-             to notice completion would leave the screen reading forever. The
-             frontier, by contrast, only moves when a row lands. */
-          const conn = await _atxConnection();
-          const n = await _atxPendingCount();
-          if (seq !== _atxLiveSeq) return;
-          const phase = (conn && conn.phase) || 'reading';
-          const changed = (n !== last) || (phase !== lastPhase);
-          if (changed) {
-            const front = (n !== last || !lastState)
-              ? await _atxConnFrontier(conn) : lastState.front;
-            const finds = (phase === 'reading' && n > 0 && (n !== last || !lastState))
-              ? await _atxRecentFinds()
-              : (phase === 'reading' && lastState ? lastState.finds : []);
-            if (seq !== _atxLiveSeq) return;
-            const w = (conn && conn.backfillDays) || ATX_DEFAULT_DAYS;
-            lastState = { phase: phase, windowDays: w, found: n, front: front, finds: finds,
-                          daysRead: _atxDaysRead(front, w) };
-            _atxProgressCache = lastState;         // the row paints from this
-            last = n; lastPhase = phase;
-            if (!badgeOnly) {
-              _atxProgressPaint(document.getElementById('atx-pg'), lastState);
-              /* Cleared on completion rather than frozen: "vừa tìm thấy" is a
-                 liveness signal, and a stale one outliving the work it reported
-                 is the kind of detail that quietly stops being believed. */
-              _atxFeedPaint(document.getElementById('atx-feed'), lastState.finds);
-              /* The CTA is BORN here, never merely relabelled: it does not
-                 exist while the phase is 'reading', so there is nothing to tap
-                 by accident during the one stretch when tapping is wrong. */
-              const cta = document.getElementById('atx-live-cta');
-              if (cta) {
-                const open = (phase === 'done' || phase === 'slow') && n > 0 && window.fhTxnReviewSheet;
-                const want = open
-                  ? '<button class="cta" onclick="fhTxnReviewSheet()">' + _esc(L('Xem ' + n + ' khoản',
-                      n === 1 ? 'Review 1 transaction' : 'Review ' + n + ' transactions')) + '</button>'
-                  : '';
-                if (cta.innerHTML !== want) cta.innerHTML = want;
-              }
-            }
-            /* The two badge surfaces read window.fhStagedCount; set it directly
-               rather than through fhRefreshStagedCount for the reason above. */
-            window.fhStagedCount = n;
-            try { if (typeof window.renderCashflowEmailCta === 'function') window.renderCashflowEmailCta(); } catch (e) {}
-            try { if (typeof window.renderPersonal === 'function') window.renderPersonal(); } catch (e) {}
-          }
-        } catch (e) { /* one missed tick; the next asks again */ }
-      }
-      const elapsed = Date.now() - t0;
-      if (elapsed < 3 * 60 * 1000) {
-        /* Eager while the first find is still owed and the kick is landing —
-           rows arrive 0–8s in, and at a flat 4s the person could stare at
-           "đang dò" for four extra beats. Once something is found (or the
-           eager window passes) the number only moves as backfill chunks land,
-           and 4s is plenty. */
-        setTimeout(tick, (last <= 0 && elapsed < 20 * 1000) ? 1500 : 4000);
+      if (document.hidden) {                       // park: no timer, no radio
+        _atxParked = function () { if (seq === _atxLiveSeq) tick(); };
         return;
       }
-      /* Window over. One REAL refresh either way, so the badge reconciles with
-         everything this watcher's head count cannot see (retire filtering, a
-         promote from another device). */
-      try { window.fhRefreshStagedCount && window.fhRefreshStagedCount(); } catch (e) {}
-      if (!badgeOnly && last <= 0 && el) {
-        // Three quiet minutes is an answer too: say so instead of ellipsing forever.
-        el.innerHTML = _mbxGlyph('mail') + '<span>' + _esc(L(
-          'Chưa thấy khoản nào. Tụi mình vẫn tìm tiếp, bạn cứ đóng màn hình này.',
-          'Nothing yet. We’re still looking, and it’s fine to close this screen.')) + '</span>';
+      const now = Date.now();
+      if (now >= Math.min(_atxLiveUntil, t0 + ATX_LIVE_CEILING_MS)) {
+        /* Window over — visible, by construction. One REAL refresh, so the
+           badge reconciles with everything the drain cannot see (retire
+           filtering, a promote from another device). */
+        _atxLiveOn = false;
+        try { window.fhRefreshStagedCount && window.fhRefreshStagedCount(); } catch (e) {}
+        try { console.info('[fh] read-loop: ' + _atxStats.req + ' req, '
+          + _atxStats.unseals + ' unseals, ' + _atxStats.paints + ' paints in '
+          + Math.round((now - t0) / 1000) + 's'); } catch (e) {}
+        const el = document.getElementById('atx-live');
+        const scr0 = document.getElementById('csv-import-modal');
+        const sh0 = document.getElementById('fh-sheet');
+        const up = (sh0 && sh0.classList.contains('on')) || (scr0 && scr0.classList.contains('on'));
+        if (up && (known || 0) <= 0 && el) {
+          // Quiet minutes are an answer too: say so instead of ellipsing forever.
+          el.innerHTML = _mbxGlyph('mail') + '<span>' + _esc(L(
+            'Chưa thấy khoản nào. Tụi mình vẫn tìm tiếp, bạn cứ đóng màn hình này.',
+            'Nothing yet. We’re still looking, and it’s fine to close this screen.')) + '</span>';
+        }
+        return;
       }
+      /* THE LIVENESS PROBE MUST BE AN ELEMENT BOTH SHEETS HAVE (`#atx-pg` —
+         see 2026-09-05 note in git history). Surfaced is judged per tick, not
+         latched: with one long-lived watcher, a sheet that reopens must get
+         its paints back rather than needing a rival watcher. */
+      const pg = document.getElementById('atx-pg');
+      const sheet = document.getElementById('fh-sheet');
+      const scr = document.getElementById('csv-import-modal');
+      const surfaced = !!pg && ((sheet && sheet.classList.contains('on')) || (scr && scr.classList.contains('on')));
+      try {
+        /* The GRANT is a slow-moving fact — backfilled_at flips once, reauth is
+           rare — asked on the first tick and then ON QUIET, not every 4s:
+           ~300 requests per read used to buy four columns that changed once.
+           An EMPTY drain is precisely the "did it just finish?" signal, since
+           a run that completes the window often stages nothing at the end; a
+           slow stride backstops reauth detection while rows keep flowing. */
+        if (!conn || (quietLast && tickN % 2 === 0) || tickN % 8 === 0) conn = await _atxConnection();
+        const phase = (conn && conn.phase) || 'reading';
+        if (seq !== _atxLiveSeq) return;
+        /* One recurring request: the drain. Until rows exist the tick seeds
+           with the newest few (a cursorless ascending read of a big queue
+           would start at rows from months ago and take twenty ticks to catch
+           up); after that, strictly-newer pages, oldest first, so a burst
+           larger than a page spreads across ticks and never skips a row.
+           THE BASELINE COUNT IS TAKEN ON THE SEED TICK, after the seed: taken
+           earlier it races the connect kick — rows landing between a count of
+           an empty queue and the first seed would sit below the cursor,
+           uncounted for the whole read. */
+        let fresh = [];
+        if (cursor == null) {
+          const seed = await _atxSeedRows();
+          if (seed.length) {
+            cursor = seed[0].created_at;
+            feed = await _atxOpenRows(seed);
+            known = await _atxPendingCount();
+          } else if (known == null) {
+            known = await _atxPendingCount();     // an empty queue's honest zero
+          }
+        } else {
+          fresh = await _atxDeltaRows(cursor);
+          if (fresh.length) {
+            cursor = fresh[fresh.length - 1].created_at;
+            known = (known || 0) + fresh.length;
+            const opened = await _atxOpenRows(fresh);
+            feed = opened.reverse().concat(feed).slice(0, ATX_FEED_ROWS);
+          } else if (phase !== 'reading' && tickN % 8 === 0) {
+            /* Outside a first read the queue can SHRINK under us (a promote on
+               another device); drift-heal on a slow stride. During the read the
+               queue is held, so baseline + drained is already exact. */
+            known = await _atxPendingCount();
+          }
+        }
+        quietLast = cursor != null && fresh.length === 0;
+        if (seq !== _atxLiveSeq) return;
+        const gid = conn && conn.id;
+        const front = _atxFloorFrontier(gid, feed.concat(fresh || []));
+        const w = (conn && conn.backfillDays) || ATX_DEFAULT_DAYS;
+        const paintKey = phase + '|' + (known || 0) + '|' + (front || '');
+        if (paintKey !== lastPaintKey) {
+          lastPaintKey = paintKey;
+          const lastState = { phase: phase, windowDays: w, found: known || 0, front: front,
+                              finds: phase === 'reading' ? feed : [],
+                              daysRead: _atxDaysRead(front, w) };
+          _atxProgressCache = lastState;         // the row paints from this
+          if (surfaced) {
+            _atxStats.paints++;
+            _atxProgressPaint(document.getElementById('atx-pg'), lastState);
+            /* Cleared on completion rather than frozen: "vừa tìm thấy" is a
+               liveness signal, and a stale one outliving the work it reported
+               is the kind of detail that quietly stops being believed. */
+            _atxFeedPaint(document.getElementById('atx-feed'), lastState.finds);
+            /* The CTA is BORN here, never merely relabelled: it does not
+               exist while the phase is 'reading', so there is nothing to tap
+               by accident during the one stretch when tapping is wrong. */
+            const cta = document.getElementById('atx-live-cta');
+            if (cta) {
+              const n = known || 0;
+              const open = (phase === 'done' || phase === 'slow') && n > 0 && window.fhTxnReviewSheet;
+              const want = open
+                ? '<button class="cta" onclick="fhTxnReviewSheet()">' + _esc(L('Xem ' + n + ' khoản',
+                    n === 1 ? 'Review 1 transaction' : 'Review ' + n + ' transactions')) + '</button>'
+                : '';
+              if (cta.innerHTML !== want) cta.innerHTML = want;
+            }
+          }
+          /* The two badge surfaces read window.fhStagedCount; set it directly
+             rather than through fhRefreshStagedCount (that helper fetches every
+             sealed row to answer, which is a promote-time job, not a tick job). */
+          window.fhStagedCount = known || 0;
+          try { if (typeof window.renderCashflowEmailCta === 'function') window.renderCashflowEmailCta(); } catch (e) {}
+          /* The Cá nhân tab: numbers are PATCHED in place while the phase holds
+             (H5 — renderPersonal is a whole-tab innerHTML rebuild whose memo
+             key contains these very numbers, so it could never hit mid-read);
+             the full render runs only when the phase changes and the card must
+             restructure. */
+          try {
+            if (phase === lastPhase && typeof window.persProgressPatch === 'function') {
+              window.persProgressPatch(lastState);
+            } else if (typeof window.renderPersonal === 'function') { window.renderPersonal(); }
+          } catch (e) {}
+          lastPhase = phase;
+        }
+      } catch (e) { /* one missed tick; the next asks again */ }
+      tickN++;
+      /* Eager while the first find is still owed and the kick is landing —
+         rows arrive 0–8s in. After that the backfill lane runs once a minute,
+         so 15s catches a burst quickly while watched and 30s is plenty for
+         badge upkeep — the acceptance bar is at most 6 requests a minute,
+         down from 45 to 60 (reading-loop-cost-spec §5). */
+      const elapsed = Date.now() - t0;
+      const ms = ((known || 0) <= 0 && elapsed < 20 * 1000) ? 5000 : (surfaced ? 15000 : 30000);
+      setTimeout(tick, ms);
     })();
   }
 

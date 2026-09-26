@@ -290,12 +290,38 @@ function persActCard(act, mon){
     }
     var n0 = act.queue || (pg && pg.found) || 0;
     var pct = (pg && pg.windowDays>0) ? Math.min(100, Math.round(pg.daysRead/pg.windowDays*100)) : 0;
+    /* #pact-live and #pact-bar are the watcher's PATCH TARGETS
+       (persProgressPatch below): while a read runs, only these two nodes
+       change, so the tab never pays a full innerHTML rebuild per tick. */
     return '<section class="cf-card"><div class="cf-lbl">Email ngân hàng · đang đọc</div><div class="pact-h">Đang đọc hộp thư của bạn</div>'
-      + '<p class="pact-p">'+(pg && pg.front ? 'Đã đọc tới '+esc(fmtDayMon(new Date(pg.front)))+'. ' : '')
-      + (n0 ? '<b>'+n0+' khoản</b> tìm thấy. ' : '')+'Đọc xong là mọi khoản về đây để bạn duyệt.</p>'
-      + '<span class="cc-prog" style="margin-top:14px"><i style="width:'+pct+'%"></i></span>'
+      + '<p class="pact-p"><span id="pact-live">'+(pg && pg.front ? 'Đã đọc tới '+esc(fmtDayMon(new Date(pg.front)))+'. ' : '')
+      + (n0 ? '<b>'+n0+' khoản</b> tìm thấy. ' : '')+'</span>Đọc xong là mọi khoản về đây để bạn duyệt.</p>'
+      + '<span class="cc-prog" style="margin-top:14px"><i id="pact-bar" style="width:'+pct+'%"></i></span>'
       + '<button class="cta pact-cta" onclick="fhEmailTxnCta({scope:\'personal\'})">'+_PI.bars+'Xem tiến độ đọc</button></section>';
   }
+/* ── the read-progress numbers, patched in place (reading-loop-cost-spec H5) ──
+   renderPersonal() rebuilds the whole tab into a string and swaps innerHTML;
+   its only memo is a compare against the previous string, which embeds the
+   live count and frontier — so during a backfill the memo could never hit and
+   every watcher tick paid a full-tab rebuild (~300 over a 20-minute read).
+   While the phase holds steady the card's shape cannot change, only these two
+   nodes, so the watcher calls this instead. Absent nodes mean the card is not
+   on screen; the next renderPersonal (tab entry, hydrate) rebuilds from
+   fhBackfillProgress() and is current again. */
+window.persProgressPatch = function(st){
+  if(!st && typeof window.fhBackfillProgress==='function') st = fhBackfillProgress();
+  if(!st) return false;
+  var live = document.getElementById('pact-live');
+  var bar = document.getElementById('pact-bar');
+  if(!live && !bar) return false;
+  if(bar && st.windowDays>0) bar.style.width = Math.min(100, Math.round((st.daysRead||0)/st.windowDays*100))+'%';
+  if(live){
+    var h = (st.front ? 'Đã đọc tới '+esc(fmtDayMon(new Date(st.front)))+'. ' : '')
+          + (st.found ? '<b>'+st.found+' khoản</b> tìm thấy. ' : '');
+    if(live.innerHTML !== h) live.innerHTML = h;
+  }
+  return true;
+};
   if(!act.queue && !window._fhStagedKnown){
     /* the badge has not answered yet — hold the shape, claim nothing */
     return '<section class="cf-card"><div class="cf-lbl">Email ngân hàng · đã kết nối</div><div class="pact-h">Đang kiểm tra hộp thư…</div>'

@@ -431,8 +431,10 @@ button.csv-srow:active{background:var(--surface)}
 /* Law 1: the body RESERVES its height, so nothing below the feed moves on a
    timer nobody touched. Rows roll inside a fixed window. */
 .atx-fd-body{position:relative;overflow:hidden;transition:height .42s cubic-bezier(.32,.72,0,1)}
-.atx-fd-wrap{position:absolute;left:0;right:0;transition:transform .5s cubic-bezier(.32,.72,0,1);
-  will-change:transform,opacity,filter}
+/* No standing will-change: it held three promoted compositor layers for the
+   whole reading session to serve a half-second entrance. The browser promotes
+   on its own for the duration of the animation/transition, which is enough. */
+.atx-fd-wrap{position:absolute;left:0;right:0;transition:transform .5s cubic-bezier(.32,.72,0,1)}
 .atx-fd-row{display:flex;align-items:center;gap:11px;padding:10px 13px;height:58px;
   border-top:1px solid var(--divider)}
 .atx-fd-wrap:first-child .atx-fd-row{border-top:0}
