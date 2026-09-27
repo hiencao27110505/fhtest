@@ -37,9 +37,7 @@ console.log('\n-- 1. the provider has a format: fetched, format tier tried, no m
   await modelBound(db);
   const ctx = makeCtx({ db, queue: ['a', 'b'], mail, maxModelCalls: 0 });
   const r = await W.runGrant(settled(), ctx);
-  t('each message cost ONE full get (2026-09-27: the metadata pass is gone — 20 units either way)',
-    ctx.fetched.includes('a:body') && ctx.fetched.includes('b:body')
-    && ctx.fetched.length === 2 && ctx.fetched.every((f) => !f.endsWith(':meta')), ctx.fetched);
+  t('both bodies were fetched (headers, then body)', ['a:meta', 'a:body', 'b:meta', 'b:body'].every((f) => ctx.fetched.includes(f)), ctx.fetched);
   t('the model was never called', ctx.model.calls === 0);
   t('the format tier looked (no seed matched this prose, so it went on) and the mail was parked at the model gate', r.parked === 2 && r.held === 0 && r.staged === 0, r);
   t('the cursor advanced', r.status === 'ok' && db.calls.some((c) => c[0] === 'markSynced'), r.status);
@@ -52,7 +50,7 @@ console.log('\n-- 2. the provider has no format: parked on the headers alone --'
   await modelBound(db);
   const ctx = makeCtx({ db, queue: ['a'], mail, maxModelCalls: 0 });
   const r = await W.runGrant(settled(), ctx);
-  t('one full get, then parked on its headers — the body rode along unread, no second get', ctx.fetched.join() === 'a:body', ctx.fetched);
+  t('headers fetched, body NOT fetched', ctx.fetched.join() === 'a:meta', ctx.fetched);
   t('parked, reason model_budget, cursor advanced', r.parked === 1 && db.holds.get('a').reason === 'model_budget' && r.status === 'ok', [r, [...db.holds]]);
   t('no model call', ctx.model.calls === 0);
 }
@@ -63,7 +61,7 @@ console.log('\n-- 3. the same, with no parking lot: held without a fetch, exactl
   await modelBound(db);
   const ctx = makeCtx({ db, queue: ['a'], mail, maxModelCalls: 0 });
   const r = await W.runGrant(settled(), ctx);
-  t('held after its single get, cursor kept', r.held === 1 && r.status === 'held' && ctx.fetched.join() === 'a:body' && !db.calls.some((c) => c[0] === 'markSynced'), [r, ctx.fetched]);
+  t('held, no body fetch, cursor kept', r.held === 1 && r.status === 'held' && ctx.fetched.join() === 'a:meta' && !db.calls.some((c) => c[0] === 'markSynced'), [r, ctx.fetched]);
 }
 
 console.log('\n-- 4. a shape with NO fingerprint is fetched regardless (never gated), as before --');

@@ -12,26 +12,28 @@ it just measures the wrong thing. This spec makes the wait short, makes the
 progress reflect work rather than a cursor position, and puts the money picture
 on screen **while** the read runs instead of after it.
 
-> **Status, 2026-09-27 evening. FIRST BUILD REGRESSED AND WAS PARTLY REVERTED
-> THE SAME DAY; the pipeline fix that replaced it is live (mailbox-sync v66).**
-> The morning build (v65) shipped the 45-day slice, chaining, and the
-> deepening reveal. The founder's turtle alert measured the next fresh
-> 365-day read at **15m41s against the lane baseline's 11m33s**, and the
-> reveal UI was judged a trick. Edge logs plus the grant row located the
-> regression precisely: chained links inherited the spent pacing window
-> (correct) but the run budget counted pacing SLEEP as work, so each link
-> slept ~half its 100s and self-stopped — effective spend ~2,700 units/min,
-> below the cron baseline's ~3,100. Fixes now live: the run budget measures
-> WORKED time with a 140s wall stop under the platform kill; ONE
-> ?format=full get per message (Gmail charges 20 units whatever the format,
-> so head-then-body doubled the price of every kept message); the slice cap
-> raised to 600 as a memory bound. Expected: ~24k units for the reference
-> mailbox at 4,500/min ≈ **5.5-6.5 minutes for a full year**, chain-continuous.
-> REVERTED per founder call: the 45-day first slice, `first_slice_at` writes,
-> the first-light notification, and every client `deepening` surface — the
-> UI is exactly v587's again (hold until 100%). The 0153 column stays applied
-> and unused, reserved. §2b and §2d below describe the PARKED design; §2
-> (slice) is parked with them; §2c (chaining) is live as amended.
+> **Status, 2026-09-27 night. ALL SERVER CHANGES REVERTED to the pre-chaining
+> baseline (mailbox-sync v67 == the 2e6fd47 code that measured 11m33). Two
+> builds regressed and both are backed out.** Timeline, from production logs
+> and `mailbox_grants`: the morning build (v65: 45-day slice + chaining +
+> reveal) measured 15m41 vs the 11m33 baseline; the evening build (v66:
+> work-budget + one-get + chaining, UI reverted) measured 14m08. Root cause of
+> BOTH regressions, confirmed by `read_tally` + edge logs + the grant table:
+> the Gmail rate limit is **per-mailbox, not per-grant**, and this mailbox had
+> **two active grants** (a test grant plus a leftover the reset never deleted)
+> each self-pacing to 4,500 units/min → combined 9,000 vs the ~6,000 real
+> ceiling → sustained 403s. Any 403 sets `rateLimited`, which by design stops
+> the chain — so chaining could not fire precisely during a contended fresh
+> backfill, and the runs fell back to the 2-minute cron cadence. Chaining plus
+> 3× larger slices added quota pressure that destabilised a system already
+> near its floor; the genuine one-get win (halves the get cost of the ~800
+> format-read transactions) was swamped. **Everything below is PARKED.** The
+> real levers, in order, and each to be shipped alone with a before/after
+> measurement: (1) never let two grants backfill one mailbox concurrently
+> [+ fix the reset flow that orphans grants]; (2) pace or suspend the statement
+> lane during an active backfill (it 403-storms unpaced today); (3) re-introduce
+> one-get on its own; (4) only then reconsider chaining, and only for a SOLE
+> backfill that provably owns the quota. `0153` column stays applied, unused.
 
 > **How this relates to its siblings.** `activation-journey-spec.md` §5c is what
 > this spec amends: its revision of 2026-09-24 made reading mode progress-only

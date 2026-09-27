@@ -183,7 +183,7 @@ console.log('\n-- runGrant: a person-shaped sender is never held as model-bound 
     return { out, log, saved };
   };
   const role = await run('ebanking@zqbank.example');
-  t('(control) a ROLE sender known to be model-bound IS held at budget zero, after its single get', role.out.held === 1 && role.log.body.length === 1 && role.log.meta.length === 0, role.out);
+  t('(control) a ROLE sender known to be model-bound IS held at budget zero', role.out.held === 1 && role.log.body.length === 0, role.out);
   const staff = await run('an.nguyen@zqbank.example');
   t('a person-shaped sender is NOT held', staff.out.held === 0 && staff.out.status !== 'held', staff.out);
   t('it is settled this run: skipped', staff.out.skipped >= 1, staff.out);

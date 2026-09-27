@@ -93,20 +93,6 @@ t('a poll still measures from the last sync, not from the backfill window',
 t('and still widens to cover an outage rather than skipping it',
   W.windowDays('2026-08-01T00:00:00Z', Date.parse('2026-08-26T00:00:00Z')) >= 26);
 
-console.log('\n-- the chain (§2c): when a run hands the baton on --');
-{
-  const base = { backfilling: true, rateLimited: false };
-  t('a capped run with a moved cursor chains',
-    W.chainAfter({ ...base, cursorAdvanced: true }));
-  t('a run that left a measured tail chains',
-    W.chainAfter({ ...base, moreQueued: true }));
-  t('Gmail saying slow down ends the chain — quota is why the lane exists',
-    !W.chainAfter({ ...base, cursorAdvanced: true, rateLimited: true }));
-  t('a run with no progress and no tail never chains (nothing to continue)',
-    !W.chainAfter(base));
-  t('an ordinary poll never chains', !W.chainAfter({ backfilling: false, cursorAdvanced: true }));
-}
-
 console.log('\n' + (fail === 0 ? 'ALL ' + pass + ' PASSED' : pass + ' passed, ' + fail + ' FAILED'));
 process.exit(fail ? 1 : 0);
 })();

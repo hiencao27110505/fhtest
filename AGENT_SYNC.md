@@ -143,6 +143,8 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-09-27 (night) · Hien · REVERTED all server backfill changes to the 11m33 baseline. `mailbox-sync` v67 == 2e6fd47 code.** Two builds regressed (15m41, 14m08) and both are backed out; `worker.mjs`, `mailbox-sync/index.ts` and the six affected pipeline/tool tests are byte-identical to 2e6fd47 again. Chaining, the 45-day slice, one-get, work-budget accounting, `WALL_STOP_MS`, `BACKFILL_STAGE_MAX=600` — all GONE. Root cause (production-confirmed): Gmail quota is **per-mailbox not per-grant**; this test mailbox had TWO active grants (`7a221a24` test + orphan `a4b5b845` from 09-15 that the reset skill never deleted) → 9,000 vs ~6,000 units/min → 403 storms → chain can't fire → cron fallback. **Two follow-ups for whoever picks this up:** (a) the `reset-test-user` flow is leaving orphan grants, so every backfill measurement is contaminated — worth fixing before trusting any number; (b) `0153_first_slice` column stays applied+unused (reserved; do not repurpose the name). Real speedups are PARKED in `first-ninety-seconds-spec.md`, each to ship alone with a measurement. Client is unchanged (v587 behaviour, SW v589). `mailbox-connect`/`push-send` untouched.
+
 - **2026-09-27 (evening) · Hien · POSTMORTEM + FIX: the morning build made a 365-day read SLOWER (15m41s vs 11m33s); reverted the UI, fixed the pipeline for real. `mailbox-sync` v66.**
   Root cause, from edge logs + `mailbox_grants`: chain links inherited the
   spent Gmail pacing window (by design) but `RUN_BUDGET_MS` counted pacing

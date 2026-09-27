@@ -139,15 +139,6 @@ export const POLL_DAYS = 2;
  *  twice. */
 export const BACKFILL_DAYS = 90;
 
-/** Should this run hand the baton to an immediate next run (first-ninety-
- *  seconds-spec §2c)? Only while backfilling, never after Gmail said slow
- *  down, and only when the run made real progress or left a measured tail —
- *  a run with neither would chain forever doing nothing. */
-export function chainAfter(s) {
-  return !!(s.backfilling && !s.rateLimited
-    && (s.cursorAdvanced || s.moreQueued));
-}
-
 /** How far ahead of a watch's expiry we renew it.
  *
  *  A watch lasts 7 days; renewing 2 days out means each mailbox is re-registered
@@ -202,14 +193,12 @@ export const MAX_MODEL_CALLS_PER_RUN = MAX_MODEL_CALLS_PER_GRANT;
  *  timeout: 400 rows is ~26s of pooled fetching plus ~10s of processing, well
  *  inside it. The listing cap below is what keeps a genuinely huge mailbox from
  *  trying to do a year in one pass. */
-/* 400 → 180 (2026-09-15), sized to one minute of pacing when a message cost
-   40 units (head + body). 180 → 600 (2026-09-27): a message now costs ONE
-   20-unit get, and the run budget measures worked time with a hard wall stop
-   underneath — so the budget, not this number, is what ends a slice. What
-   this cap still does is bound memory and keep the listing invariant
-   (600 × 3 ≤ 2000): a run must always list deeper than it can settle, or
-   "there is more" becomes indistinguishable from "there is nothing". */
-export const BACKFILL_STAGE_MAX = 600;
+/* 400 → 180 (2026-09-15). With pacing, a run's size is no longer a guess: at
+   40 units per staged message (headers + body) and 4,500 units a minute, about
+   187 messages is what one run's budget buys, and a run has to finish inside the
+   function's wall clock. A bigger slice does not read more mail per minute; it
+   only risks being killed mid-slice. */
+export const BACKFILL_STAGE_MAX = 180;
 
 /** How many ids ONE RUN may list, on any path.
  *
@@ -312,14 +301,6 @@ export const GMAIL_UNITS_PER_MIN = 4500;
  *  next run resumes exactly there. */
 export const RUN_BUDGET_MS = 100000;
 
-/** The hard wall-clock stop, under the platform's 150 s kill. The work budget
- *  above no longer counts pacing sleep (a chained link often starts inside a
- *  spent minute and must wait it out — waiting is not work, and counting it
- *  was measured on 2026-09-27 to drop effective throughput BELOW the cron
- *  baseline: 15m41s for a year that the lane did in 11m33s). This is the
- *  backstop that keeps a sleepy link from meeting the platform's limit. */
-export const WALL_STOP_MS = 140000;
-
 /** How long a reader holds a mailbox before the lease expires (0145). Renewed
  *  while the run works, so this only bounds the damage from a crash. */
 export const LEASE_TTL_S = 90;
@@ -403,24 +384,16 @@ export async function runAll(ctx) {
  * kicks this is fire-and-forget and has nobody to show an error to; the
  * minute lane covers whatever this run declined to do.
  */
-export async function runOne(grantId, ctx, opts = {}) {
+export async function runOne(grantId, ctx) {
   if (!ctx.learnedLabels && ctx.db.loadLearnedLabels) {
     try { ctx = { ...ctx, learnedLabels: await ctx.db.loadLearnedLabels() }; } catch { /* hand-authored it is */ }
   }
   const grant = ctx.db.grantById ? await ctx.db.grantById(grantId) : null;
   if (!grant) return { polled: 0, modelCalls: 0, results: [], build: BUILD_ID, reason: 'no_grant' };
-  /* A chain link inherits what its predecessor left (§2c): the model budget
-     is capped by `modelLeft` so ten links cannot spend ten allowances against
-     Gemini's per-minute wall, and the Gmail pacing window rides in as a seed. */
-  const capBase = ctx.maxModelCalls ?? MAX_MODEL_CALLS_PER_GRANT;
-  const cap = (opts && opts.modelLeft != null)
-    ? Math.max(0, Math.min(capBase, Number(opts.modelLeft) || 0))
-    : capBase;
-  const budget = _budget(cap);
+  const budget = _budget(ctx.maxModelCalls ?? MAX_MODEL_CALLS_PER_GRANT);
   let result;
   try {
-    result = await runGrant(grant, { ...ctx, budget,
-      ...(opts && opts.units ? { unitsSeed: opts.units } : {}) });
+    result = await runGrant(grant, { ...ctx, budget });
   } catch (e) {
     result = {
       grantId: grant.id, email: grant.email,
@@ -502,30 +475,16 @@ async function _runGrantLocked(grant, ctx) {
      through here: a list page costs 5 units, a message 20. When the minute's
      budget is gone the next call waits for the window to roll rather than
      asking and being refused. */
-  /* Seeded from the previous CHAIN LINK when there is one (§2c): a fresh
-     invocation must not mean a fresh allowance, or back-to-back links would
-     spend a multiple of the per-minute budget and buy 403s with it. */
-  const _units = {
-    at: (ctx.unitsSeed && Number(ctx.unitsSeed.at)) || Date.now(),
-    spent: (ctx.unitsSeed && Number(ctx.unitsSeed.spent)) || 0,
-    slept: 0,
-  };
+  const _units = { at: Date.now(), spent: 0 };
   const _perMin = ctx.gmailUnitsPerMin ?? GMAIL_UNITS_PER_MIN;
   const _spend = async (units) => {
     for (;;) {
       const now = Date.now();
       if (now - _units.at >= 60000) { _units.at = now; _units.spent = 0; }
       if (_units.spent + units <= _perMin) { _units.spent += units; return; }
-      const wait = Math.max(50, 60000 - (now - _units.at));
-      _units.slept += wait;                     // waiting for quota is not work
-      await new Promise((r) => setTimeout(r, wait));
+      await new Promise((r) => setTimeout(r, Math.max(50, 60000 - (now - _units.at))));
     }
   };
-  /* What the run budget measures: time spent WORKING. Pacing sleep is the
-     quota doing its job and must not count, or a seeded chain link burns its
-     budget asleep and stops after one burst (the 2026-09-27 regression). */
-  const _worked = () => (Date.now() - _runStartedAt) - _units.slept;
-  const _wallStop = ctx.wallStopMs ?? WALL_STOP_MS;
   const _baseFetch = ctx.fetch || globalThis.fetch;
   const pacedFetch = async (u, init) => {
     const s = String(u);
@@ -862,14 +821,12 @@ async function _runGrantLocked(grant, ctx) {
        a template (never gated) or an unknown fingerprint (never gated). A
        table-readable shape that has not yet graduated is delayed at most one
        run — hitLimit holds the cursor, next run's fresh budget funds it. */
-  /* ONE ?format=full GET per message. Head-then-body was built to make junk
-     cheap back when metadata was believed cheaper; the 2026-09-15 measurement
-     says Gmail charges 20 units WHATEVER the format, so the second get bought
-     nothing but quota — it doubled the price of every kept message. Junk
-     still settles on its first and only get; the ~20KB body it now downloads
-     is bandwidth inside this process, not units, and is dropped unread. */
   const _metaChunk = (slice) => _pooled(slice, lanes, async (id) => {
-    try { return { id, meta: await gmail.getMessage(id, access, pacedFetch, mailtext) }; }
+    try { return { id, meta: await gmail.getMessageMetadata(id, access, pacedFetch) }; }
+    catch (e) { return { id, error: e }; }
+  });
+  const _fetchBodies = (slice) => _pooled(slice, lanes, async (id) => {
+    try { return { id, message: await gmail.getMessage(id, access, pacedFetch, mailtext) }; }
     catch (e) { return { id, error: e }; }
   });
   const _senderKey = (from) => {
@@ -1071,7 +1028,7 @@ async function _runGrantLocked(grant, ctx) {
     if (rateLimited) break;    // Gmail said slow down; every further fetch spends quota
     /* Stop ourselves before the platform does. What is finished keeps its place
        in the backfill position; what is not is simply next run's first slice. */
-    if (_worked() > _runBudgetMs || (Date.now() - _runStartedAt) > _wallStop) { hitLimit = true; break; }
+    if (Date.now() - _runStartedAt > _runBudgetMs) { hitLimit = true; break; }
     /* Hold the mailbox while we are still using it. Best-effort: losing the
        renewal costs a duplicate listing next minute, never a lost message. */
     if (ctx._lease && ctx.db.renewMailboxLease && (c % 4 === 0)) {
@@ -1125,8 +1082,9 @@ async function _runGrantLocked(grant, ctx) {
         || (plainKey !== key ? warmFingerprints.get(plainKey) : null)
         || (legacyKey !== key && legacyKey !== plainKey ? warmFingerprints.get(legacyKey) : null);
       if (fp && fp.is_transaction_source === false) {
-        // The exact-shape junk verdict. Same tally stage as always — it means
-        // "answered by the junk cache", settled at one get.
+        // The exact-shape junk verdict, applied where it was always known:
+        // before the body. Same tally stage as before — it means "answered by
+        // the junk cache", and it just got 20KB cheaper.
         summary.skipped++;
         await ctx.db.bumpReadTally?.('junk_cache');
         continue;
@@ -1175,8 +1133,12 @@ async function _runGrantLocked(grant, ctx) {
       keep.push(g);
     }
 
-    /* No second fetch: the full message already rode in with the headers. */
-    for (const got of keep) {
+    const fetched = await _fetchBodies(keep.map((g) => (g.error ? g : g.id)).filter((x) => typeof x === 'string'));
+    // Re-thread metadata-stage errors into position among the fetched results.
+    const byId = new Map(fetched.map((f) => [f.id, f]));
+    const batchOrdered = keep.map((g) => (g.error ? g : (byId.get(g.id) || { id: g.id, message: null })));
+
+    for (const got of batchOrdered) {
     const id = got.id;
     outcome.set(id, 'done');
     if (got.error) {
@@ -1189,7 +1151,7 @@ async function _runGrantLocked(grant, ctx) {
       }
       throw got.error;
     }
-    const message = got.meta;
+    const message = got.message;
     if (!message) { summary.skipped++; continue; }   // deleted between list and get
 
     const r = await readOne(id, message, false);
@@ -1207,7 +1169,7 @@ async function _runGrantLocked(grant, ctx) {
   if (parkingOk && parkedAll.length && !rateLimited) {
     for (const id of parkedAll.slice(0, ctx.parkedPerRun ?? PARKED_PER_RUN)) {
       if (modelOff()) break;
-      if (_worked() > _runBudgetMs || (Date.now() - _runStartedAt) > _wallStop) break;
+      if (Date.now() - _runStartedAt > _runBudgetMs) break;
       let message;
       try { message = await gmail.getMessage(id, access, pacedFetch, mailtext); }
       catch (e) { if (_rateLimited(e)) { rateLimited = true; break; } continue; }   // stays parked; next run
@@ -1389,19 +1351,6 @@ async function _runGrantLocked(grant, ctx) {
   if (hitLimit) summary.status = 'held';
   else if (moreQueued) summary.status = 'more';   // healthy, just not finished
   if (stalledRuns >= (ctx.stallNotifyAfter ?? STALL_NOTIFY_AFTER)) summary.status = 'stalled';
-
-  /* The chain contract (§2c): everything the NEXT link needs to be a
-     continuation rather than a fresh allowance. `continue` is the decision,
-     `units` the shared Gmail pacing window, `modelLeft` the remaining model
-     budget. The caller (mailbox-sync) re-POSTs on `continue`; the minute lane
-     stays as the crash fallback and the 0145 lease keeps the two apart. */
-  summary.backfilling = backfilling;
-  summary.rateLimited = rateLimited;
-  summary.cursorAdvanced = cursorAdvanced;
-  summary.moreQueued = moreQueued;
-  summary.continue = chainAfter(summary);
-  summary.modelLeft = (ctx.budget && ctx.budget.left) ? ctx.budget.left() : null;
-  summary.units = { at: _units.at, spent: _units.spent };
   return summary;
 }
 
