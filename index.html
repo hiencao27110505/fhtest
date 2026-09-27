@@ -7642,6 +7642,7 @@ function renderCashflowEmailCta(){
   var n=window.fhStagedCount||0;
   var p=(typeof window.fhBackfillProgress==='function') ? window.fhBackfillProgress() : null;
   var reading=!!(p && p.phase==='reading');
+  var deepening=!!(p && p.phase==='deepening');   // 0153: first light, history still arriving
   /* A DEAD CONNECTION OUTRANKS PROGRESS — there is nothing to be making
      progress on. This is the surface that survives "Nhắc tôi sau", so it is not
      dismissible and carries no count: a number here would read as work waiting,
@@ -7669,6 +7670,17 @@ function renderCashflowEmailCta(){
        full-bleed bar there draws a square line straight through the rounded
        corners and reads as a mis-coloured card border, not as progress. */
     prog='<span class="cc-prog"><i style="width:'+pct+'%"></i></span>';
+  } else if(deepening){
+    /* The queue is OPEN now, so the row is a destination: count badge, and the
+       still-arriving read demoted to a subtitle with the observed ETA. */
+    icCls='cc-ic run';
+    badge = n>0 ? '<span class="cc-badge num">'+n+'</span>'
+                : '<span class="cc-badge run"><span class="cc-dot"></span>'+p.daysRead+'/'+p.windowDays+'</span>';
+    sub='<span class="cc-sub">'+esc(L(
+      'Đang đọc tiếp về trước'+(p.etaMin>0 ? ' · còn ~'+p.etaMin+' phút' : ''),
+      'Still reading back'+(p.etaMin>0 ? ' · ~'+p.etaMin+'m left' : '')))+'</span>';
+    var pctD=p.windowDays>0 ? Math.min(100,Math.round(p.daysRead/p.windowDays*100)) : 0;
+    prog='<span class="cc-prog"><i style="width:'+pctD+'%"></i></span>';
   } else {
     badge = n>0 ? '<span class="cc-badge num">'+n+'</span>' : '';
   }
@@ -8398,6 +8410,24 @@ window.persProgressPatch = function(st){
   }
   return true;
 };
+  var _bfDeepening = (typeof window.fhBackfillPhase==='function') && window.fhBackfillPhase()==='deepening';
+  if(_bfDeepening){
+    /* First light (0153): the newest slice is reviewable NOW; the rest keeps
+       arriving. Same 30s-throttled re-arm as the reading branch so the count
+       and ETA stay live through a long deepen. */
+    if(window.fhBackfillWatch && (!window._persBfWatchAt || Date.now()-window._persBfWatchAt>30000)){
+      window._persBfWatchAt = Date.now();
+      try{ fhBackfillWatch(); }catch(e){}
+    }
+    var nD = act.queue || (pg && pg.found) || 0;
+    var pctD = (pg && pg.windowDays>0) ? Math.min(100, Math.round(pg.daysRead/pg.windowDays*100)) : 0;
+    var etaD = (pg && pg.etaMin>0) ? (', còn ~'+pg.etaMin+' phút') : '';
+    return '<section class="cf-card"><div class="cf-lbl">Email ngân hàng · đang đọc tiếp</div><div class="pact-h">'+(nD ? nD+' khoản sẵn sàng để duyệt' : 'Đang đọc tiếp về trước')+'</div>'
+      + '<p class="pact-p">Phần gần nhất đã đọc xong, phần cũ hơn đang về ('+pctD+'%'+etaD+'). Bạn xem trước được phần đã có.</p>'
+      + (nD ? persQueueDeckHTML(nD) : '')
+      + '<span class="cc-prog" style="margin-top:14px"><i style="width:'+pctD+'%"></i></span>'
+      + '<button class="cta pact-cta" onclick="fhEmailTxnCta({scope:\'personal\'})">'+_PI.bars+(nD ? 'Xem '+nD+' khoản' : 'Xem tiến độ')+'</button></section>';
+  }
   if(!act.queue && !window._fhStagedKnown){
     /* the badge has not answered yet — hold the shape, claim nothing */
     return '<section class="cf-card"><div class="cf-lbl">Email ngân hàng · đã kết nối</div><div class="pact-h">Đang kiểm tra hộp thư…</div>'
@@ -25447,7 +25477,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v587';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v588';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -38989,9 +39019,25 @@ window.classifyAmount = classifyAmount;
   window.fhStagedTxnOnly = fhStagedTxnOnly;
 
   async function fhFetchStagedTxns() {
-    var res = await fhStagedTxnOnly(function (txnOnly) { return txnOnly(sb.from('email_transactions')
+    /* DEEPENING (0153, first-ninety-seconds-spec §2b): dedup pairs live
+       within ±3 days, so while history is still arriving the only rows that
+       can be missing a twin sit within 3 days of the frontier. Exclude that
+       band and everything shown is exactly as dup-safe as a finished read;
+       the band shrinks to nothing when backfilled_at lands. */
+    var _dcut = null;
+    try {
+      if (window.fhBackfillPhase && window.fhBackfillPhase() === 'deepening') {
+        var _dpg = window.fhBackfillProgress && window.fhBackfillProgress();
+        var _dt = _dpg && _dpg.front ? Date.parse(_dpg.front) : 0;
+        if (_dt) _dcut = new Date(_dt + 3 * 86400000).toISOString();
+      }
+    } catch (e) {}
+    window._rvwDeepenCut = _dcut;
+    var res = await fhStagedTxnOnly(function (txnOnly) { var q = sb.from('email_transactions')
       .select('id,member_id,owner_user_id,staging_scope,gmail_message_id,source_provider,occurred_at,amount,currency,direction,counterparty,reference_number,transaction_type,raw_extracted,duplicate_of_id,resolved_before,sealed,eph_pub,nonce,enc_v,created_at')
-      .eq('review_status', 'pending'))
+      .eq('review_status', 'pending');
+      if (_dcut) q = q.gte('occurred_at', _dcut);
+      return txnOnly(q)
       /* duplicate_of_id is a SUSPICION, not a delete order. It used to be
          filtered out here, which gave a guess made blind at 3am the power to
          hide a real transaction AND cancel its notification, with no screen
@@ -40247,6 +40293,23 @@ window.classifyAmount = classifyAmount;
         'Showing the first ' + readable.length + '. Review these, then open this again for the rest.');
       var mt2 = document.querySelector('#csv-import-modal .modal-title');
       if (mt2 && mt2.parentNode) mt2.parentNode.insertBefore(more, mt2.nextSibling);
+    }
+
+    /* First light, still deepening: say so, and say what is held back — the
+       3-day band near the frontier joins the list as the read moves past it. */
+    var oldDeep = document.getElementById('fh-txn-deepen-note');
+    if (oldDeep) oldDeep.remove();
+    if (window._rvwDeepenCut) {
+      var pgD = (window.fhBackfillProgress && window.fhBackfillProgress()) || null;
+      var etaD = pgD && pgD.etaMin > 0 ? pgD.etaMin : 0;
+      var deep = document.createElement('div');
+      deep.id = 'fh-txn-deepen-note';
+      deep.className = 'mbx-locked-note';
+      deep.textContent = L(
+        'Đang đọc tiếp về trước' + (etaD ? ', còn ~' + etaD + ' phút' : '') + '. Khoản sát mép đọc sẽ vào danh sách ngay khi vùng lân cận của nó đọc xong.',
+        'Still reading further back' + (etaD ? ' · ~' + etaD + ' min left' : '') + '. Rows near the frontier join as their surroundings finish.');
+      var mt3 = document.querySelector('#csv-import-modal .modal-title');
+      if (mt3 && mt3.parentNode) mt3.parentNode.insertBefore(deep, mt3.nextSibling);
     }
 
     _txrLoadHide();
@@ -41772,8 +41835,10 @@ window.classifyAmount = classifyAmount;
       const CORE = 'id,provider,email,needs_reauth,connected_at,last_synced_at,backfilled_at';
       const T2 = CORE + ',default_scope,backfill_days';
       const T3 = T2 + ',stalled_runs,first_stalled_at';
+      const T4 = T3 + ',first_slice_at';               // 0153: first light
       const ask = (cols) => { try { _atxStats.req++; } catch (e2) {} return sb.from('mailbox_grants').select(cols).eq('provider', 'google').limit(1); };
-      let res = await ask(T3);
+      let res = await ask(T4);
+      if (res.error) res = await ask(T3);
       if (res.error) res = await ask(T2);
       if (res.error) res = await ask(CORE);
       if (res.error) return null;
@@ -41787,6 +41852,7 @@ window.classifyAmount = classifyAmount;
                needsReauth: !!row.needs_reauth, connectedAt: row.connected_at,
                lastSyncedAt: row.last_synced_at,
                backfilledAt: row.backfilled_at || null,
+               firstSliceAt: row.first_slice_at || null,
                backfillDays: Number(row.backfill_days) || ATX_DEFAULT_DAYS,
                stalledRuns: Number(row.stalled_runs) || 0,
                /* Older grants predate the column; they are family by history,
@@ -41826,6 +41892,10 @@ window.classifyAmount = classifyAmount;
     if (conn.needsReauth) return 'reauth';
     if (conn.backfilledAt) return 'done';
     if (conn.stalledRuns >= ATX_STALL_OPENS_AT) return 'slow';
+    /* 'deepening' (0153): the newest slice is whole — first light. The queue
+       hold releases (fhBackfillHolds stays reading-only) while the rest of
+       the chosen window keeps arriving behind the review screen. */
+    if (conn.firstSliceAt) return 'deepening';
     return 'reading';
   }
 
@@ -42924,6 +42994,7 @@ window.classifyAmount = classifyAmount;
        every other phase, where a promote elsewhere can shrink it. */
     let known = null, cursor = null, feed = [];
     let conn = null, lastPhase = null, lastPaintKey = '', tickN = 0, quietLast = false;
+    let etaFront = null, etaAt = 0, etaMin = null;   // F14: ETA from the frontier's observed rate
     (async function tick() {
       if (seq !== _atxLiveSeq) return;
       if (document.hidden) {                       // park: no timer, no radio
@@ -43008,11 +43079,24 @@ window.classifyAmount = classifyAmount;
         const gid = conn && conn.id;
         const front = _atxFloorFrontier(gid, feed.concat(fresh || []));
         const w = (conn && conn.backfillDays) || ATX_DEFAULT_DAYS;
+        /* ETA (F14): purely observed — days the frontier moved over wall
+           minutes, projected across what remains. The server promises no
+           schedule; a stalled frontier simply stops updating the estimate. */
+        if (front && etaFront && etaAt && front !== etaFront) {
+          const dDays = (Date.parse(etaFront) - Date.parse(front)) / 86400000;
+          const dMin = (Date.now() - etaAt) / 60000;
+          if (dDays > 0 && dMin > 0) {
+            const rem = Math.max(0, w - _atxDaysRead(front, w));
+            etaMin = Math.max(1, Math.round(rem / (dDays / dMin)));
+          }
+        }
+        if (front && front !== etaFront) { etaFront = front; etaAt = Date.now(); }
         const paintKey = phase + '|' + (known || 0) + '|' + (front || '');
         if (paintKey !== lastPaintKey) {
           lastPaintKey = paintKey;
           const lastState = { phase: phase, windowDays: w, found: known || 0, front: front,
                               finds: phase === 'reading' ? feed : [],
+                              etaMin: (phase === 'reading' || phase === 'deepening') ? etaMin : null,
                               daysRead: _atxDaysRead(front, w) };
           _atxProgressCache = lastState;         // the row paints from this
           if (surfaced) {
@@ -43047,9 +43131,11 @@ window.classifyAmount = classifyAmount;
              the full render runs only when the phase changes and the card must
              restructure. */
           try {
+            let patched = false;
             if (phase === lastPhase && typeof window.persProgressPatch === 'function') {
-              window.persProgressPatch(lastState);
-            } else if (typeof window.renderPersonal === 'function') { window.renderPersonal(); }
+              patched = !!window.persProgressPatch(lastState);
+            }
+            if (!patched && typeof window.renderPersonal === 'function') { window.renderPersonal(); }
           } catch (e) {}
           lastPhase = phase;
         }

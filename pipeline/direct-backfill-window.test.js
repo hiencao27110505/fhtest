@@ -93,6 +93,54 @@ t('a poll still measures from the last sync, not from the backfill window',
 t('and still widens to cover an outage rather than skipping it',
   W.windowDays('2026-08-01T00:00:00Z', Date.parse('2026-08-26T00:00:00Z')) >= 26);
 
+console.log('\n-- the first slice (0153): a long window opens at 45 days --');
+/* first-ninety-seconds-spec §2/§2b. The decision is pure and pinned here:
+   which phase a run is in, and how wide it reads. */
+t('the slice is 45 days, one full monthly cycle whatever the calendar',
+  W.FIRST_SLICE_DAYS === 45, String(W.FIRST_SLICE_DAYS));
+{
+  const fresh365 = { backfilled_at: null, first_slice_at: null };
+  const p1 = W.backfillPhase(fresh365, 365);
+  t('a fresh 365-day grant reads the slice first',
+    p1.backfilling && p1.firstSlice && p1.days === 45, JSON.stringify(p1));
+  const lit = { backfilled_at: null, first_slice_at: '2026-09-27T00:00:00Z' };
+  const p2 = W.backfillPhase(lit, 365);
+  t('after first light the SAME grant deepens across the whole window',
+    p2.backfilling && !p2.firstSlice && p2.days === 365, JSON.stringify(p2));
+  const small = { backfilled_at: null, first_slice_at: null };
+  const p3 = W.backfillPhase(small, 30);
+  t('a window at or under the slice is one phase, exactly as before',
+    !p3.firstSlice && p3.days === 30, JSON.stringify(p3));
+  const p3b = W.backfillPhase({ backfilled_at: null, first_slice_at: null }, 45);
+  t('...including exactly 45', !p3b.firstSlice && p3b.days === 45, JSON.stringify(p3b));
+  /* THE PRE-MIGRATION GUARD. A grant row read WITHOUT the 0153 column must
+     fall back to single-phase: a caller whose projection omits it would
+     otherwise see "no slice yet" forever and loop phase A for good. */
+  const noCol = { backfilled_at: null };
+  const p4 = W.backfillPhase(noCol, 365);
+  t('a grant read without the column never enters phase A',
+    !p4.firstSlice && p4.days === 365, JSON.stringify(p4));
+  const done = { backfilled_at: '2026-09-27T00:00:00Z', first_slice_at: null };
+  t('a finished backfill has no phase at all',
+    !W.backfillPhase(done, 365).backfilling);
+}
+
+console.log('\n-- the chain (§2c): when a run hands the baton on --');
+{
+  const base = { backfilling: true, rateLimited: false };
+  t('a capped run with a moved cursor chains',
+    W.chainAfter({ ...base, cursorAdvanced: true }));
+  t('a run that left a measured tail chains',
+    W.chainAfter({ ...base, moreQueued: true }));
+  t('first light chains straight into the deepen',
+    W.chainAfter({ ...base, sliceDone: true }));
+  t('Gmail saying slow down ends the chain — quota is why the lane exists',
+    !W.chainAfter({ ...base, cursorAdvanced: true, rateLimited: true }));
+  t('a run with no progress and no tail never chains (nothing to continue)',
+    !W.chainAfter(base));
+  t('an ordinary poll never chains', !W.chainAfter({ backfilling: false, cursorAdvanced: true }));
+}
+
 console.log('\n' + (fail === 0 ? 'ALL ' + pass + ' PASSED' : pass + ' passed, ' + fail + ' FAILED'));
 process.exit(fail ? 1 : 0);
 })();

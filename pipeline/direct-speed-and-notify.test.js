@@ -266,8 +266,8 @@ const GRANT = (over = {}) => ({
        even though it staged nothing (the 333-of-365-days case). */
     t('progress clears the streak', /clearStall\(grant\.id\)/.test(w));
     t('a stalled backfill is allowed to notify', /stalledEnoughToSpeak/.test(w));
-    t('and the notify gate now admits both finished AND stalled',
-      /\(finishedBackfill \|\| stalledEnoughToSpeak\)/.test(w));
+    t('and the notify gate admits finished, FIRST LIGHT (0153) and stalled — each speaks once',
+      /\(finishedBackfill \|\| sliceJustDone \|\| stalledEnoughToSpeak\)/.test(w));
 
     /* The load-bearing one. A stall must change who is TOLD, never what is
        READ — setting backfilled_at here would abandon unread mail. */

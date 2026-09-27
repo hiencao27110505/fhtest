@@ -143,6 +143,21 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-09-27 · Hien · first-slice + slice-chaining (problem 01, long read) · CLAIMING `0153` + a `mailbox-sync` redeploy.**
+  Design in `docs/specs/first-ninety-seconds-spec.md` (amended today). Server:
+  a 365-day first read now runs as a 45-day FIRST SLICE, then deepens backward;
+  a capped backfill run re-POSTs its own grant (`EdgeRuntime.waitUntil`, same
+  secret) instead of waiting for the minute lane, carrying its model budget and
+  its Gmail pacing window through the chain so back-to-back links cannot spend
+  more than 4,500 units/min. Migration `0153_first_slice`: one nullable
+  `mailbox_grants.first_slice_at timestamptz` + column grant (0087 pattern);
+  **APPLIED live 2026-09-27 via MCP; next free migration is `0154`.** `mailbox-sync` was hash-diffed against live v64 (byte-identical to main)
+  before the edit, and **redeployed as v65 on 2026-09-27**. Client: phase
+  `deepening` (first_slice_at set, backfilled_at not) releases the queue hold;
+  the review fetch excludes the 3-day dup-unsafe band behind the frontier
+  while deepening. Files: `worker.mjs`, `mailbox-sync/index.ts`,
+  `74-autotxn-ui.js`, `72-txn-review.js`, `21-personal.js`, `20-budget.js`.
+
 - **2026-09-26 · Hien · reading-loop cost fix · BUILT + SHIPPED to `main`, client only, SW v587.**
   From the onboarding UT (`docs/specs/reading-loop-cost-spec.md`): the backfill
   watcher issued ~45-60 requests/min, re-unsealed the same 3 feed rows every

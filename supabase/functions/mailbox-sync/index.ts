@@ -146,8 +146,13 @@ Deno.serve(async (req: Request) => {
        fire-and-forget and the minute lane covers anything declined here. */
     if (body && typeof body.grant === "string" && body.grant) {
       try {
-        const out = await runOne(body.grant, ctx);
-        console.log("mailbox-sync targeted run", JSON.stringify(out));
+        const depth = Number(body.chain) || 0;
+        const out = await runOne(body.grant, ctx, {
+          ...(body.modelLeft != null ? { modelLeft: Number(body.modelLeft) } : {}),
+          ...(body.units && typeof body.units === "object" ? { units: body.units } : {}),
+        });
+        console.log("mailbox-sync targeted run", JSON.stringify({ ...out, chain: depth }));
+        chainNext(out.results && out.results[0], depth, expected);
         return json(out, 200);
       } catch (e) {
         console.error("mailbox-sync targeted run failed:", e);
@@ -168,12 +173,42 @@ Deno.serve(async (req: Request) => {
   try {
     const watches = await renewWatches(ctx);
     const out = await runAll(ctx);
+    /* A lane run that left a measured tail hands its own baton on (§2c of
+       first-ninety-seconds-spec), so a backfill started by the minute lane
+       chains exactly like one started by the connect kick. */
+    for (const r of (out.results || [])) chainNext(r, 0, expected);
     return json({ ...out, watches });
   } catch (e) {
     console.error("mailbox-sync run failed:", e);
     return json({ error: String((e as Error)?.message || e) }, 500);
   }
 });
+
+/* ── the slice chain (first-ninety-seconds-spec §2c) ─────────────────────
+   A capped backfill run re-POSTs its own grant instead of waiting for the
+   minute lane, through the same door with the same secret. Fire-and-forget
+   under waitUntil, exactly like the connect kick: a lost link costs sixty
+   seconds (the lane picks it up), never a lost message. The body carries the
+   pacing window and the remaining model budget so a chain of links shares ONE
+   per-minute allowance; a depth cap bounds a pathological loop — 24 links is
+   already more slices than BACKFILL_LIST_MAX can fill. */
+const CHAIN_MAX_DEPTH = 24;
+function chainNext(r: any, depth: number, secret: string) {
+  try {
+    if (!r || !r.continue || !r.grantId) return;
+    if (depth >= CHAIN_MAX_DEPTH) { console.warn("mailbox-sync chain depth cap", r.grantId); return; }
+    const url = env("SUPABASE_URL").replace(/\/$/, "") + "/functions/v1/mailbox-sync";
+    const post = fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-sync-secret": secret },
+      body: JSON.stringify({ grant: r.grantId, chain: depth + 1,
+        ...(r.modelLeft != null ? { modelLeft: r.modelLeft } : {}),
+        ...(r.units ? { units: r.units } : {}) }),
+    }).catch((e) => console.warn("mailbox-sync chain link failed; the minute lane covers it:", e));
+    const er = (globalThis as any).EdgeRuntime;
+    if (er && typeof er.waitUntil === "function") er.waitUntil(post);
+  } catch (e) { console.warn("mailbox-sync chain skipped:", e); }
+}
 
 /* Everything the worker needs, built once per request so the push path and the
    tick cannot drift apart in what they hand it. */

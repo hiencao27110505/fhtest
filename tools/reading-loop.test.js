@@ -71,6 +71,22 @@ console.log('\n-- the standing compositor layers are gone --');
 t('.atx-fd-wrap no longer holds will-change for the whole session',
   !/atx-fd-wrap\{[^}]*will-change/.test(css));
 
+console.log('\n-- first light (0153): deepening releases the hold, geometry keeps it honest --');
+const rvw = R('src/js-data/72-txn-review.js');
+const budg = R('src/js-ui/20-budget.js');
+t('the phase vocabulary knows deepening, from the 0153 column',
+  /firstSliceAt/.test(atx) && /return 'deepening';/.test(atx) && /first_slice_at/.test(atx));
+t('the hold stays reading-only — deepening is NOT held',
+  /fhBackfillHolds = \(\) => _atxPhaseCache === 'reading'/.test(atx));
+t('while deepening, the review fetch excludes the 3-day dup-unsafe band',
+  /_rvwDeepenCut/.test(rvw) && /3 \* 86400000/.test(rvw) && /gte\('occurred_at', _dcut\)/.test(rvw));
+t('and the screen says what is held back instead of hiding it',
+  /fh-txn-deepen-note/.test(rvw));
+t('the ETA is observed from the frontier rate, client-side only (F14)',
+  /etaMin/.test(atx) && /etaFront/.test(atx) && !/eta/.test(R('supabase/migrations/0153_first_slice.sql')));
+t('both badge surfaces carry the deepening state',
+  /deepening/.test(budg) && /_bfDeepening/.test(ui));
+
 console.log('');
 if (fail) { console.error(fail + ' failing'); process.exit(1); }
 console.log('reading-loop: ' + pass + ' checks pass');

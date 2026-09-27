@@ -139,6 +139,41 @@ export const POLL_DAYS = 2;
  *  twice. */
 export const BACKFILL_DAYS = 90;
 
+/** The FIRST SLICE of a long backfill (first-ninety-seconds-spec §2, 0153).
+ *
+ *  A person who chooses 365 days used to wait for all of it before seeing
+ *  anything. The first read now covers the newest 45 days, records
+ *  `first_slice_at` (the client's "first light" — the queue hold releases),
+ *  and the rest of the chosen window deepens behind it via the same cursor.
+ *
+ *  45 and not 30 because thirty days can miss a whole monthly cycle — a
+ *  salary, a card statement, rent — and a picture missing its largest
+ *  recurring item reads as wrong rather than partial. A window chosen at or
+ *  below this is read in one phase, exactly as before. */
+export const FIRST_SLICE_DAYS = 45;
+
+/** Which phase of a backfill this run is, as a pure decision (tested in
+ *  pipeline/direct-backfill-window.test.js). `firstSlice` only when the grant
+ *  row was READ with the 0153 column — a caller whose projection omits it
+ *  must fall back to single-phase rather than loop phase A forever. */
+export function backfillPhase(grant, chosenDays) {
+  const backfilling = !grant.backfilled_at;
+  const firstSlice = backfilling
+    && ('first_slice_at' in grant)
+    && !grant.first_slice_at
+    && chosenDays > FIRST_SLICE_DAYS;
+  return { backfilling, firstSlice, days: firstSlice ? FIRST_SLICE_DAYS : chosenDays };
+}
+
+/** Should this run hand the baton to an immediate next run (§2c)?
+ *  Only while backfilling, never after Gmail said slow down, and only when
+ *  the run made real progress or left a measured tail — a run that neither
+ *  moved the cursor nor finished a slice would chain forever doing nothing. */
+export function chainAfter(s) {
+  return !!(s.backfilling && !s.rateLimited
+    && (s.cursorAdvanced || s.moreQueued || s.sliceDone));
+}
+
 /** How far ahead of a watch's expiry we renew it.
  *
  *  A watch lasts 7 days; renewing 2 days out means each mailbox is re-registered
@@ -384,16 +419,24 @@ export async function runAll(ctx) {
  * kicks this is fire-and-forget and has nobody to show an error to; the
  * minute lane covers whatever this run declined to do.
  */
-export async function runOne(grantId, ctx) {
+export async function runOne(grantId, ctx, opts = {}) {
   if (!ctx.learnedLabels && ctx.db.loadLearnedLabels) {
     try { ctx = { ...ctx, learnedLabels: await ctx.db.loadLearnedLabels() }; } catch { /* hand-authored it is */ }
   }
   const grant = ctx.db.grantById ? await ctx.db.grantById(grantId) : null;
   if (!grant) return { polled: 0, modelCalls: 0, results: [], build: BUILD_ID, reason: 'no_grant' };
-  const budget = _budget(ctx.maxModelCalls ?? MAX_MODEL_CALLS_PER_GRANT);
+  /* A chain link inherits what its predecessor left (§2c): the model budget
+     is capped by `modelLeft` so ten links cannot spend ten allowances against
+     Gemini's per-minute wall, and the Gmail pacing window rides in as a seed. */
+  const capBase = ctx.maxModelCalls ?? MAX_MODEL_CALLS_PER_GRANT;
+  const cap = (opts && opts.modelLeft != null)
+    ? Math.max(0, Math.min(capBase, Number(opts.modelLeft) || 0))
+    : capBase;
+  const budget = _budget(cap);
   let result;
   try {
-    result = await runGrant(grant, { ...ctx, budget });
+    result = await runGrant(grant, { ...ctx, budget,
+      ...(opts && opts.units ? { unitsSeed: opts.units } : {}) });
   } catch (e) {
     result = {
       grantId: grant.id, email: grant.email,
@@ -475,7 +518,13 @@ async function _runGrantLocked(grant, ctx) {
      through here: a list page costs 5 units, a message 20. When the minute's
      budget is gone the next call waits for the window to roll rather than
      asking and being refused. */
-  const _units = { at: Date.now(), spent: 0 };
+  /* Seeded from the previous CHAIN LINK when there is one (§2c): a fresh
+     invocation must not mean a fresh allowance, or back-to-back links would
+     spend a multiple of the per-minute budget and buy 403s with it. */
+  const _units = {
+    at: (ctx.unitsSeed && Number(ctx.unitsSeed.at)) || Date.now(),
+    spent: (ctx.unitsSeed && Number(ctx.unitsSeed.spent)) || 0,
+  };
   const _perMin = ctx.gmailUnitsPerMin ?? GMAIL_UNITS_PER_MIN;
   const _spend = async (units) => {
     for (;;) {
@@ -547,7 +596,12 @@ async function _runGrantLocked(grant, ctx) {
      refactor away from being gone. */
   const chosen = Number(grant.backfill_days) || BACKFILL_DAYS;
   const backfillDays = Math.min(365, Math.max(1, chosen));
-  const days = backfilling ? backfillDays : windowDays(grant.last_synced_at, ctx.nowMs);
+  /* Two-phase read (0153): a long window's first run covers the newest 45
+     days only; `first_slice_at` then flips the client to first light and the
+     remaining window continues behind the same cursor. */
+  const phase = backfillPhase(grant, backfillDays);
+  const firstSlice = phase.firstSlice;
+  const days = backfilling ? phase.days : windowDays(grant.last_synced_at, ctx.nowMs);
   /* THE BACKFILL POSITION (0136). A backfill used to list the newest mail in the
      window on every run and work on the first BACKFILL_STAGE_MAX it had not
      finished. Promo mail is settled on its headers and recorded nowhere, so it
@@ -1193,7 +1247,18 @@ async function _runGrantLocked(grant, ctx) {
   //
   // Not advancing costs one repeated listing five minutes later, and the
   // already-staged check makes the repeat nearly free.
-  if (!hitLimit && !moreQueued) {
+  const sliceJustDone = firstSlice && !hitLimit && !moreQueued;
+  if (sliceJustDone) {
+    /* FIRST LIGHT (0153, first-ninety-seconds-spec §2b): the newest slice is
+       whole, so the person can look now. The backfill stays OPEN on purpose:
+       `backfilled_at` untouched, the cursor kept where the slice ended, and
+       the chain (§2c) carries straight on into the rest of the window. Set
+       once, never overwritten — the db writer is conditioned on null. */
+    if (ctx.db.setFirstSlice) {
+      try { await ctx.db.setFirstSlice(grant.id); }
+      catch (e) { try { console.error('first_slice_at not saved', grant.id, (e && e.message) || e); } catch (_e) {} }
+    }
+  } else if (!hitLimit && !moreQueued) {
     /* A finished backfill records WHAT IT COVERED, not just that it happened
        (0098). `backfill_days` is overwritten on every reconnect, so comparing a
        new request against it would read "90 then 2 then 90" as a widening when
@@ -1208,6 +1273,10 @@ async function _runGrantLocked(grant, ctx) {
        read as set, so a row from before the migration is patched as before. */
     await ctx.db.markSynced(grant.id, backfilling
       ? { backfilled_at: new Date().toISOString(), backfilled_days: backfillDays,
+          /* A window at or under the slice never had a phase A; its first
+             light IS the finish. Only when the column was read (0153). */
+          ...(('first_slice_at' in grant) && !grant.first_slice_at
+            ? { first_slice_at: new Date().toISOString() } : {}),
           ...(grant.backfill_before || grant.backfill_started_at
             ? { backfill_before: null, backfill_started_at: null,
                 ...(grant.backfill_started_at ? { last_synced_at: grant.backfill_started_at } : {}) }
@@ -1289,7 +1358,7 @@ async function _runGrantLocked(grant, ctx) {
   }
   summary.stalledRuns = stalledRuns;
 
-  const finishedBackfill = backfilling && !hitLimit && !moreQueued;
+  const finishedBackfill = backfilling && !hitLimit && !moreQueued && !sliceJustDone;
   /* A backfill that has stopped making progress is allowed to speak once, so
      the person is not left with a full queue and silence. It is still NOT
      marked finished: `backfilled_at` is untouched above, the stragglers keep
@@ -1311,7 +1380,7 @@ async function _runGrantLocked(grant, ctx) {
     && stalledRuns >= stallThreshold && prevStalled < stallThreshold;
 
   const shouldNotify = backfilling
-    ? (finishedBackfill || stalledEnoughToSpeak)
+    ? (finishedBackfill || sliceJustDone || stalledEnoughToSpeak)
     : summary.staged > 0;
 
   /* The number a person actually cares about is HOW MANY ARE WAITING, not how
@@ -1336,7 +1405,7 @@ async function _runGrantLocked(grant, ctx) {
     /* A backfill speaks as a digest (count only); a steady-state poll speaks
        with the freshest transaction's voice. scope rides along so the tap can
        land on the personal quick-review sheet instead of the generic queue. */
-    const isDigest = finishedBackfill || stalledEnoughToSpeak;
+    const isDigest = finishedBackfill || sliceJustDone || stalledEnoughToSpeak;
     try {
       await ctx.notify(grant, notifyCount, {
         backfill: isDigest,
@@ -1351,6 +1420,20 @@ async function _runGrantLocked(grant, ctx) {
   if (hitLimit) summary.status = 'held';
   else if (moreQueued) summary.status = 'more';   // healthy, just not finished
   if (stalledRuns >= (ctx.stallNotifyAfter ?? STALL_NOTIFY_AFTER)) summary.status = 'stalled';
+
+  /* The chain contract (§2c): everything the NEXT link needs to be a
+     continuation rather than a fresh allowance. `continue` is the decision,
+     `units` the shared Gmail pacing window, `modelLeft` the remaining model
+     budget. The caller (mailbox-sync) re-POSTs on `continue`; the minute lane
+     stays as the crash fallback and the 0145 lease keeps the two apart. */
+  summary.backfilling = backfilling;
+  summary.sliceDone = sliceJustDone;
+  summary.rateLimited = rateLimited;
+  summary.cursorAdvanced = cursorAdvanced;
+  summary.moreQueued = moreQueued;
+  summary.continue = chainAfter(summary);
+  summary.modelLeft = (ctx.budget && ctx.budget.left) ? ctx.budget.left() : null;
+  summary.units = { at: _units.at, spent: _units.spent };
   return summary;
 }
 

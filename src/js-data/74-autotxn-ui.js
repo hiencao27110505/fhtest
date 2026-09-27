@@ -637,8 +637,10 @@
       const CORE = 'id,provider,email,needs_reauth,connected_at,last_synced_at,backfilled_at';
       const T2 = CORE + ',default_scope,backfill_days';
       const T3 = T2 + ',stalled_runs,first_stalled_at';
+      const T4 = T3 + ',first_slice_at';               // 0153: first light
       const ask = (cols) => { try { _atxStats.req++; } catch (e2) {} return sb.from('mailbox_grants').select(cols).eq('provider', 'google').limit(1); };
-      let res = await ask(T3);
+      let res = await ask(T4);
+      if (res.error) res = await ask(T3);
       if (res.error) res = await ask(T2);
       if (res.error) res = await ask(CORE);
       if (res.error) return null;
@@ -652,6 +654,7 @@
                needsReauth: !!row.needs_reauth, connectedAt: row.connected_at,
                lastSyncedAt: row.last_synced_at,
                backfilledAt: row.backfilled_at || null,
+               firstSliceAt: row.first_slice_at || null,
                backfillDays: Number(row.backfill_days) || ATX_DEFAULT_DAYS,
                stalledRuns: Number(row.stalled_runs) || 0,
                /* Older grants predate the column; they are family by history,
@@ -691,6 +694,10 @@
     if (conn.needsReauth) return 'reauth';
     if (conn.backfilledAt) return 'done';
     if (conn.stalledRuns >= ATX_STALL_OPENS_AT) return 'slow';
+    /* 'deepening' (0153): the newest slice is whole — first light. The queue
+       hold releases (fhBackfillHolds stays reading-only) while the rest of
+       the chosen window keeps arriving behind the review screen. */
+    if (conn.firstSliceAt) return 'deepening';
     return 'reading';
   }
 
@@ -1789,6 +1796,7 @@
        every other phase, where a promote elsewhere can shrink it. */
     let known = null, cursor = null, feed = [];
     let conn = null, lastPhase = null, lastPaintKey = '', tickN = 0, quietLast = false;
+    let etaFront = null, etaAt = 0, etaMin = null;   // F14: ETA from the frontier's observed rate
     (async function tick() {
       if (seq !== _atxLiveSeq) return;
       if (document.hidden) {                       // park: no timer, no radio
@@ -1873,11 +1881,24 @@
         const gid = conn && conn.id;
         const front = _atxFloorFrontier(gid, feed.concat(fresh || []));
         const w = (conn && conn.backfillDays) || ATX_DEFAULT_DAYS;
+        /* ETA (F14): purely observed — days the frontier moved over wall
+           minutes, projected across what remains. The server promises no
+           schedule; a stalled frontier simply stops updating the estimate. */
+        if (front && etaFront && etaAt && front !== etaFront) {
+          const dDays = (Date.parse(etaFront) - Date.parse(front)) / 86400000;
+          const dMin = (Date.now() - etaAt) / 60000;
+          if (dDays > 0 && dMin > 0) {
+            const rem = Math.max(0, w - _atxDaysRead(front, w));
+            etaMin = Math.max(1, Math.round(rem / (dDays / dMin)));
+          }
+        }
+        if (front && front !== etaFront) { etaFront = front; etaAt = Date.now(); }
         const paintKey = phase + '|' + (known || 0) + '|' + (front || '');
         if (paintKey !== lastPaintKey) {
           lastPaintKey = paintKey;
           const lastState = { phase: phase, windowDays: w, found: known || 0, front: front,
                               finds: phase === 'reading' ? feed : [],
+                              etaMin: (phase === 'reading' || phase === 'deepening') ? etaMin : null,
                               daysRead: _atxDaysRead(front, w) };
           _atxProgressCache = lastState;         // the row paints from this
           if (surfaced) {
@@ -1912,9 +1933,11 @@
              the full render runs only when the phase changes and the card must
              restructure. */
           try {
+            let patched = false;
             if (phase === lastPhase && typeof window.persProgressPatch === 'function') {
-              window.persProgressPatch(lastState);
-            } else if (typeof window.renderPersonal === 'function') { window.renderPersonal(); }
+              patched = !!window.persProgressPatch(lastState);
+            }
+            if (!patched && typeof window.renderPersonal === 'function') { window.renderPersonal(); }
           } catch (e) {}
           lastPhase = phase;
         }
