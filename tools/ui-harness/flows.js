@@ -57,7 +57,10 @@ function helpers(sess, dir, rec) {
   const flows = mod.flows.filter((f) => !o.only || o.only.includes(f.name));
   if (!flows.length) { console.error('no flows selected'); process.exit(2); }
 
-  execSync('node build.js', { cwd: ROOT, stdio: 'inherit' });
+  /* FH_MINIFY=1 shoots the build Vercel actually serves (build.js --deploy, esbuild).
+     Worth doing before a release: ~253 inline on* handlers call top-level functions BY
+     NAME, so a minifier that renamed one would leave every tap silently dead. */
+  execSync('node build.js' + (process.env.FH_MINIFY ? ' --deploy' : ''), { cwd: ROOT, stdio: 'inherit' });
   const srv = await serve(ROOT);
   const browser = await launch();
   const report = { feature, at: new Date().toISOString(), flows: [] };

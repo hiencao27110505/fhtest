@@ -45,7 +45,10 @@ const lintCount = (l) => l ? l.targets.length + l.overflow.length + l.language.l
   const shots = manifest.shots.filter((s) => !o.only || o.only.includes(s.name));
   if (!shots.length) { console.error('no shots selected'); process.exit(2); }
 
-  execSync('node build.js', { cwd: ROOT, stdio: 'inherit' });
+  /* FH_MINIFY=1 shoots the build Vercel actually serves (build.js --deploy, esbuild).
+     Worth doing before a release: ~253 inline on* handlers call top-level functions BY
+     NAME, so a minifier that renamed one would leave every tap silently dead. */
+  execSync('node build.js' + (process.env.FH_MINIFY ? ' --deploy' : ''), { cwd: ROOT, stdio: 'inherit' });
   const srv = await serve(ROOT);
   const browser = await launch();
   const userStrings = fixtureStrings();
