@@ -202,8 +202,8 @@ console.log('\n-- runGrant: the header pass finds a verdict stored under the has
   await W.runGrant({ id: 'g1', user_id: 'u1', member_id: 'm1', family_id: 'f1', email: 'x@gmail.com', needs_reauth: false,
     refresh_token_enc: ENC, last_synced_at: new Date().toISOString(), backfilled_at: '2026-08-28T00:00:00Z',
     backfilled_days: 90, backfill_days: 90, default_scope: 'family', stalled_runs: 0 }, ctx);
-  t('its headers were read', log.meta.includes('junk-1'));
-  t('its body never was: the hashed junk verdict answered on headers', !log.body.includes('junk-1'), log.body);
+  t('read once, format=full — the metadata pass is gone', log.body.filter((x) => x === 'junk-1').length === 1 && log.meta.length === 0, JSON.stringify([log.meta, log.body]));
+  t('and no second get: the hashed junk verdict answered on the same response', log.body.length === 1, log.body);
   t('and it counted as a junk-cache answer', tally.includes('junk_cache'), tally);
 }
 

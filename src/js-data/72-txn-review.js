@@ -123,25 +123,9 @@
   window.fhStagedTxnOnly = fhStagedTxnOnly;
 
   async function fhFetchStagedTxns() {
-    /* DEEPENING (0153, first-ninety-seconds-spec §2b): dedup pairs live
-       within ±3 days, so while history is still arriving the only rows that
-       can be missing a twin sit within 3 days of the frontier. Exclude that
-       band and everything shown is exactly as dup-safe as a finished read;
-       the band shrinks to nothing when backfilled_at lands. */
-    var _dcut = null;
-    try {
-      if (window.fhBackfillPhase && window.fhBackfillPhase() === 'deepening') {
-        var _dpg = window.fhBackfillProgress && window.fhBackfillProgress();
-        var _dt = _dpg && _dpg.front ? Date.parse(_dpg.front) : 0;
-        if (_dt) _dcut = new Date(_dt + 3 * 86400000).toISOString();
-      }
-    } catch (e) {}
-    window._rvwDeepenCut = _dcut;
-    var res = await fhStagedTxnOnly(function (txnOnly) { var q = sb.from('email_transactions')
+    var res = await fhStagedTxnOnly(function (txnOnly) { return txnOnly(sb.from('email_transactions')
       .select('id,member_id,owner_user_id,staging_scope,gmail_message_id,source_provider,occurred_at,amount,currency,direction,counterparty,reference_number,transaction_type,raw_extracted,duplicate_of_id,resolved_before,sealed,eph_pub,nonce,enc_v,created_at')
-      .eq('review_status', 'pending');
-      if (_dcut) q = q.gte('occurred_at', _dcut);
-      return txnOnly(q)
+      .eq('review_status', 'pending'))
       /* duplicate_of_id is a SUSPICION, not a delete order. It used to be
          filtered out here, which gave a guess made blind at 3am the power to
          hide a real transaction AND cancel its notification, with no screen
@@ -1397,23 +1381,6 @@
         'Showing the first ' + readable.length + '. Review these, then open this again for the rest.');
       var mt2 = document.querySelector('#csv-import-modal .modal-title');
       if (mt2 && mt2.parentNode) mt2.parentNode.insertBefore(more, mt2.nextSibling);
-    }
-
-    /* First light, still deepening: say so, and say what is held back — the
-       3-day band near the frontier joins the list as the read moves past it. */
-    var oldDeep = document.getElementById('fh-txn-deepen-note');
-    if (oldDeep) oldDeep.remove();
-    if (window._rvwDeepenCut) {
-      var pgD = (window.fhBackfillProgress && window.fhBackfillProgress()) || null;
-      var etaD = pgD && pgD.etaMin > 0 ? pgD.etaMin : 0;
-      var deep = document.createElement('div');
-      deep.id = 'fh-txn-deepen-note';
-      deep.className = 'mbx-locked-note';
-      deep.textContent = L(
-        'Đang đọc tiếp về trước' + (etaD ? ', còn ~' + etaD + ' phút' : '') + '. Khoản sát mép đọc sẽ vào danh sách ngay khi vùng lân cận của nó đọc xong.',
-        'Still reading further back' + (etaD ? ' · ~' + etaD + ' min left' : '') + '. Rows near the frontier join as their surroundings finish.');
-      var mt3 = document.querySelector('#csv-import-modal .modal-title');
-      if (mt3 && mt3.parentNode) mt3.parentNode.insertBefore(deep, mt3.nextSibling);
     }
 
     _txrLoadHide();

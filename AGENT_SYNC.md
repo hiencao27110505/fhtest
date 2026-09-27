@@ -143,6 +143,24 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-09-27 (evening) · Hien · POSTMORTEM + FIX: the morning build made a 365-day read SLOWER (15m41s vs 11m33s); reverted the UI, fixed the pipeline for real. `mailbox-sync` v66.**
+  Root cause, from edge logs + `mailbox_grants`: chain links inherited the
+  spent Gmail pacing window (by design) but `RUN_BUDGET_MS` counted pacing
+  SLEEP as work, so each link slept ~half its budget and self-stopped —
+  effective ~2,700 units/min, under the cron lane's ~3,100. Fixes in v66:
+  run budget measures WORKED time (`_units.slept` excluded) with
+  `WALL_STOP_MS` 140s under the platform's 150s kill; **one `?format=full`
+  get per message** (2026-09-15's own measurement: 20 units whatever the
+  format — the metadata-then-body pass doubled the price of every kept
+  message); `BACKFILL_STAGE_MAX` 180→600 as a memory bound. Expected ~5.5-6.5
+  min for the reference year. **Reverted per founder call:** the 45-day
+  first slice, `first_slice_at` writes, first-light notify, and ALL client
+  `deepening` UI (client files restored to the v587 state; SW v589). The
+  `0153` column stays applied and UNUSED — reserved; do not repurpose the
+  name. Contract tests rewritten to the one-get economy:
+  `metadata-first`, `format-aware-header-pass`, `sender-gate`,
+  `subject-hygiene`, `direct-speed-and-notify`, `direct-backfill-window`.
+
 - **2026-09-27 · Hien · first-slice + slice-chaining (problem 01, long read) · CLAIMING `0153` + a `mailbox-sync` redeploy.**
   Design in `docs/specs/first-ninety-seconds-spec.md` (amended today). Server:
   a 365-day first read now runs as a 45-day FIRST SLICE, then deepens backward;

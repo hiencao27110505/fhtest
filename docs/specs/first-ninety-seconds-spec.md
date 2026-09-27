@@ -12,17 +12,26 @@ it just measures the wrong thing. This spec makes the wait short, makes the
 progress reflect work rather than a cursor position, and puts the money picture
 on screen **while** the read runs instead of after it.
 
-> **Status, 2026-09-27. SERVER HALF + REVEAL BUILT** (§2, §2b, §8b, §9b):
-> 45-day first slice, slice chaining with carried pacing and model budget,
-> migration `0153_first_slice`, phase `deepening` on the client, queue hold
-> released at first light with the 3-day dup-unsafe band filtered. The
-> PROGRESSIVE TREE (§3, problem 02's fix) is NOT built yet — during a first
-> slice the screen still shows progress only; the picture appears at slice
-> completion (~60-120s) instead of at 100% (~8-12 min). Duration analysis that
-> sized all of this: the 5 Whys block in the UT report, verified against code
-> and production on 27/09. Free-tier limits assessed the same day: Gmail's
-> measured ~6,000 units/user/min (self-cap 4,500) is the binding constraint;
-> a full year is quota-bound at ~8 minutes whatever the code does.
+> **Status, 2026-09-27 evening. FIRST BUILD REGRESSED AND WAS PARTLY REVERTED
+> THE SAME DAY; the pipeline fix that replaced it is live (mailbox-sync v66).**
+> The morning build (v65) shipped the 45-day slice, chaining, and the
+> deepening reveal. The founder's turtle alert measured the next fresh
+> 365-day read at **15m41s against the lane baseline's 11m33s**, and the
+> reveal UI was judged a trick. Edge logs plus the grant row located the
+> regression precisely: chained links inherited the spent pacing window
+> (correct) but the run budget counted pacing SLEEP as work, so each link
+> slept ~half its 100s and self-stopped — effective spend ~2,700 units/min,
+> below the cron baseline's ~3,100. Fixes now live: the run budget measures
+> WORKED time with a 140s wall stop under the platform kill; ONE
+> ?format=full get per message (Gmail charges 20 units whatever the format,
+> so head-then-body doubled the price of every kept message); the slice cap
+> raised to 600 as a memory bound. Expected: ~24k units for the reference
+> mailbox at 4,500/min ≈ **5.5-6.5 minutes for a full year**, chain-continuous.
+> REVERTED per founder call: the 45-day first slice, `first_slice_at` writes,
+> the first-light notification, and every client `deepening` surface — the
+> UI is exactly v587's again (hold until 100%). The 0153 column stays applied
+> and unused, reserved. §2b and §2d below describe the PARKED design; §2
+> (slice) is parked with them; §2c (chaining) is live as amended.
 
 > **How this relates to its siblings.** `activation-journey-spec.md` §5c is what
 > this spec amends: its revision of 2026-09-24 made reading mode progress-only
@@ -81,7 +90,7 @@ card statement, a rent payment — and a picture missing its largest recurring
 item reads as wrong rather than partial. Forty-five days guarantees at least one
 of every monthly event wherever it falls in the calendar.
 
-## 2b. First light releases the hold; a 3-day band stays back
+## 2b. PARKED 2026-09-27 — First light releases the hold; a 3-day band stays back
 
 When the first slice completes the grant gets `first_slice_at` (0153) and the
 client's phase becomes **`deepening`**: the queue hold (`fhBackfillHolds`)
@@ -116,7 +125,7 @@ A depth counter caps runaway chains; the minute lane stays untouched as the
 crash fallback, and the 0145 lease keeps a chain link and a lane tick out of
 the same mailbox.
 
-## 2d. Progress the person can track
+## 2d. PARKED 2026-09-27 — Progress the person can track
 
 While reading or deepening, the surfaces show numbers that actually move: the
 found count (already live via the v587 delta loop), the frontier date, and an
@@ -315,6 +324,10 @@ Invariants:
 | F12 | The hold releases at first light, and the dup constraint is honoured by geometry instead of by blanket: rows within `frontier + 3 days` stay out of the review fetch while deepening, because only they can still be missing a twin. |
 | F13 | Parallel slice fan-out is rejected: the Gmail budget is per user, so parallel slices split the same 4,500 units for no throughput. Chaining removes idle minutes; nothing removes quota minutes. |
 | F14 | The ETA is client-derived from the frontier's observed rate. The server promises no schedule. |
+| F15 | 2026-09-27: the first build regressed (15m41s vs 11m33s) because the run budget counted pacing sleep as work; chained links slept off their budget. The budget now measures worked time; `WALL_STOP_MS` 140s backstops the platform's 150s kill. |
+| F16 | One `?format=full` get per message. The metadata-then-full pass doubled quota on kept mail for bandwidth that never mattered server-side. Junk settles on its single get. |
+| F17 | `BACKFILL_STAGE_MAX` 180 → 600: a memory bound, not a completion promise — the cursor makes an unfinished slice free to resume. |
+| F18 | First light, the deepening reveal, the 3-day band and the client ETA are PARKED per the founder's call after the UT re-run: no UI change rides a pipeline fix again. The 0153 column stays, unused, reserved. |
 
 ## 15. Related
 

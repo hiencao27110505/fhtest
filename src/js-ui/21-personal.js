@@ -322,24 +322,6 @@ window.persProgressPatch = function(st){
   }
   return true;
 };
-  var _bfDeepening = (typeof window.fhBackfillPhase==='function') && window.fhBackfillPhase()==='deepening';
-  if(_bfDeepening){
-    /* First light (0153): the newest slice is reviewable NOW; the rest keeps
-       arriving. Same 30s-throttled re-arm as the reading branch so the count
-       and ETA stay live through a long deepen. */
-    if(window.fhBackfillWatch && (!window._persBfWatchAt || Date.now()-window._persBfWatchAt>30000)){
-      window._persBfWatchAt = Date.now();
-      try{ fhBackfillWatch(); }catch(e){}
-    }
-    var nD = act.queue || (pg && pg.found) || 0;
-    var pctD = (pg && pg.windowDays>0) ? Math.min(100, Math.round(pg.daysRead/pg.windowDays*100)) : 0;
-    var etaD = (pg && pg.etaMin>0) ? (', còn ~'+pg.etaMin+' phút') : '';
-    return '<section class="cf-card"><div class="cf-lbl">Email ngân hàng · đang đọc tiếp</div><div class="pact-h">'+(nD ? nD+' khoản sẵn sàng để duyệt' : 'Đang đọc tiếp về trước')+'</div>'
-      + '<p class="pact-p">Phần gần nhất đã đọc xong, phần cũ hơn đang về ('+pctD+'%'+etaD+'). Bạn xem trước được phần đã có.</p>'
-      + (nD ? persQueueDeckHTML(nD) : '')
-      + '<span class="cc-prog" style="margin-top:14px"><i style="width:'+pctD+'%"></i></span>'
-      + '<button class="cta pact-cta" onclick="fhEmailTxnCta({scope:\'personal\'})">'+_PI.bars+(nD ? 'Xem '+nD+' khoản' : 'Xem tiến độ')+'</button></section>';
-  }
   if(!act.queue && !window._fhStagedKnown){
     /* the badge has not answered yet — hold the shape, claim nothing */
     return '<section class="cf-card"><div class="cf-lbl">Email ngân hàng · đã kết nối</div><div class="pact-h">Đang kiểm tra hộp thư…</div>'

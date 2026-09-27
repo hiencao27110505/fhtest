@@ -29,7 +29,7 @@ export const MAX_GRANTS_PER_RUN = 25;
 /* The columns every grant read selects. ONE list, because three copies drifted
    before (statementRescanOwed says why it refused to join them). `reader_v`
    (0147) rides here since 2026-09-22: worker and ingest read it off the grant. */
-const GRANT_COLUMNS = 'id,user_id,member_id,family_id,provider,email,refresh_token_enc,scopes,needs_reauth,history_id,last_synced_at,backfilled_at,connected_at,default_scope,backfill_days,stalled_runs,first_stalled_at,backfill_before,backfill_started_at,reader_v,first_slice_at';
+const GRANT_COLUMNS = 'id,user_id,member_id,family_id,provider,email,refresh_token_enc,scopes,needs_reauth,history_id,last_synced_at,backfilled_at,connected_at,default_scope,backfill_days,stalled_runs,first_stalled_at,backfill_before,backfill_started_at,reader_v';
 
 /* The fingerprint row as the reader needs it. `model_reads` and
    `model_read_build` (0147) are what "one model read per format per build"
@@ -245,15 +245,6 @@ export function createDb(url, serviceKey, fetchImpl, opts) {
 
     /* The backfill position (0136). Not swallowed here: the worker catches and
        logs it, because a lost position costs one repeated slice and nothing more. */
-    /* First light (0153): set once, never overwritten — the is.null filter
-       makes a raced double-write a no-op instead of a moved timestamp. */
-    async setFirstSlice(grantId) {
-      await rest('/mailbox_grants?id=eq.' + encodeURIComponent(grantId) + '&first_slice_at=is.null', {
-        method: 'PATCH',
-        body: JSON.stringify({ first_slice_at: new Date().toISOString(), updated_at: new Date().toISOString() }),
-      });
-    },
-
     async advanceBackfill(grantId, fields) {
       await rest('/mailbox_grants?id=eq.' + encodeURIComponent(grantId), {
         method: 'PATCH',

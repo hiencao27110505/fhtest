@@ -545,7 +545,6 @@ function renderCashflowEmailCta(){
   var n=window.fhStagedCount||0;
   var p=(typeof window.fhBackfillProgress==='function') ? window.fhBackfillProgress() : null;
   var reading=!!(p && p.phase==='reading');
-  var deepening=!!(p && p.phase==='deepening');   // 0153: first light, history still arriving
   /* A DEAD CONNECTION OUTRANKS PROGRESS — there is nothing to be making
      progress on. This is the surface that survives "Nhắc tôi sau", so it is not
      dismissible and carries no count: a number here would read as work waiting,
@@ -573,17 +572,6 @@ function renderCashflowEmailCta(){
        full-bleed bar there draws a square line straight through the rounded
        corners and reads as a mis-coloured card border, not as progress. */
     prog='<span class="cc-prog"><i style="width:'+pct+'%"></i></span>';
-  } else if(deepening){
-    /* The queue is OPEN now, so the row is a destination: count badge, and the
-       still-arriving read demoted to a subtitle with the observed ETA. */
-    icCls='cc-ic run';
-    badge = n>0 ? '<span class="cc-badge num">'+n+'</span>'
-                : '<span class="cc-badge run"><span class="cc-dot"></span>'+p.daysRead+'/'+p.windowDays+'</span>';
-    sub='<span class="cc-sub">'+esc(L(
-      'Đang đọc tiếp về trước'+(p.etaMin>0 ? ' · còn ~'+p.etaMin+' phút' : ''),
-      'Still reading back'+(p.etaMin>0 ? ' · ~'+p.etaMin+'m left' : '')))+'</span>';
-    var pctD=p.windowDays>0 ? Math.min(100,Math.round(p.daysRead/p.windowDays*100)) : 0;
-    prog='<span class="cc-prog"><i style="width:'+pctD+'%"></i></span>';
   } else {
     badge = n>0 ? '<span class="cc-badge num">'+n+'</span>' : '';
   }

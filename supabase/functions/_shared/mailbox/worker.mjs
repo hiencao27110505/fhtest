@@ -139,39 +139,13 @@ export const POLL_DAYS = 2;
  *  twice. */
 export const BACKFILL_DAYS = 90;
 
-/** The FIRST SLICE of a long backfill (first-ninety-seconds-spec §2, 0153).
- *
- *  A person who chooses 365 days used to wait for all of it before seeing
- *  anything. The first read now covers the newest 45 days, records
- *  `first_slice_at` (the client's "first light" — the queue hold releases),
- *  and the rest of the chosen window deepens behind it via the same cursor.
- *
- *  45 and not 30 because thirty days can miss a whole monthly cycle — a
- *  salary, a card statement, rent — and a picture missing its largest
- *  recurring item reads as wrong rather than partial. A window chosen at or
- *  below this is read in one phase, exactly as before. */
-export const FIRST_SLICE_DAYS = 45;
-
-/** Which phase of a backfill this run is, as a pure decision (tested in
- *  pipeline/direct-backfill-window.test.js). `firstSlice` only when the grant
- *  row was READ with the 0153 column — a caller whose projection omits it
- *  must fall back to single-phase rather than loop phase A forever. */
-export function backfillPhase(grant, chosenDays) {
-  const backfilling = !grant.backfilled_at;
-  const firstSlice = backfilling
-    && ('first_slice_at' in grant)
-    && !grant.first_slice_at
-    && chosenDays > FIRST_SLICE_DAYS;
-  return { backfilling, firstSlice, days: firstSlice ? FIRST_SLICE_DAYS : chosenDays };
-}
-
-/** Should this run hand the baton to an immediate next run (§2c)?
- *  Only while backfilling, never after Gmail said slow down, and only when
- *  the run made real progress or left a measured tail — a run that neither
- *  moved the cursor nor finished a slice would chain forever doing nothing. */
+/** Should this run hand the baton to an immediate next run (first-ninety-
+ *  seconds-spec §2c)? Only while backfilling, never after Gmail said slow
+ *  down, and only when the run made real progress or left a measured tail —
+ *  a run with neither would chain forever doing nothing. */
 export function chainAfter(s) {
   return !!(s.backfilling && !s.rateLimited
-    && (s.cursorAdvanced || s.moreQueued || s.sliceDone));
+    && (s.cursorAdvanced || s.moreQueued));
 }
 
 /** How far ahead of a watch's expiry we renew it.
@@ -228,12 +202,14 @@ export const MAX_MODEL_CALLS_PER_RUN = MAX_MODEL_CALLS_PER_GRANT;
  *  timeout: 400 rows is ~26s of pooled fetching plus ~10s of processing, well
  *  inside it. The listing cap below is what keeps a genuinely huge mailbox from
  *  trying to do a year in one pass. */
-/* 400 → 180 (2026-09-15). With pacing, a run's size is no longer a guess: at
-   40 units per staged message (headers + body) and 4,500 units a minute, about
-   187 messages is what one run's budget buys, and a run has to finish inside the
-   function's wall clock. A bigger slice does not read more mail per minute; it
-   only risks being killed mid-slice. */
-export const BACKFILL_STAGE_MAX = 180;
+/* 400 → 180 (2026-09-15), sized to one minute of pacing when a message cost
+   40 units (head + body). 180 → 600 (2026-09-27): a message now costs ONE
+   20-unit get, and the run budget measures worked time with a hard wall stop
+   underneath — so the budget, not this number, is what ends a slice. What
+   this cap still does is bound memory and keep the listing invariant
+   (600 × 3 ≤ 2000): a run must always list deeper than it can settle, or
+   "there is more" becomes indistinguishable from "there is nothing". */
+export const BACKFILL_STAGE_MAX = 600;
 
 /** How many ids ONE RUN may list, on any path.
  *
@@ -335,6 +311,14 @@ export const GMAIL_UNITS_PER_MIN = 4500;
  *  leaves the backfill position (0136) on the last message it finished, so the
  *  next run resumes exactly there. */
 export const RUN_BUDGET_MS = 100000;
+
+/** The hard wall-clock stop, under the platform's 150 s kill. The work budget
+ *  above no longer counts pacing sleep (a chained link often starts inside a
+ *  spent minute and must wait it out — waiting is not work, and counting it
+ *  was measured on 2026-09-27 to drop effective throughput BELOW the cron
+ *  baseline: 15m41s for a year that the lane did in 11m33s). This is the
+ *  backstop that keeps a sleepy link from meeting the platform's limit. */
+export const WALL_STOP_MS = 140000;
 
 /** How long a reader holds a mailbox before the lease expires (0145). Renewed
  *  while the run works, so this only bounds the damage from a crash. */
@@ -524,6 +508,7 @@ async function _runGrantLocked(grant, ctx) {
   const _units = {
     at: (ctx.unitsSeed && Number(ctx.unitsSeed.at)) || Date.now(),
     spent: (ctx.unitsSeed && Number(ctx.unitsSeed.spent)) || 0,
+    slept: 0,
   };
   const _perMin = ctx.gmailUnitsPerMin ?? GMAIL_UNITS_PER_MIN;
   const _spend = async (units) => {
@@ -531,9 +516,16 @@ async function _runGrantLocked(grant, ctx) {
       const now = Date.now();
       if (now - _units.at >= 60000) { _units.at = now; _units.spent = 0; }
       if (_units.spent + units <= _perMin) { _units.spent += units; return; }
-      await new Promise((r) => setTimeout(r, Math.max(50, 60000 - (now - _units.at))));
+      const wait = Math.max(50, 60000 - (now - _units.at));
+      _units.slept += wait;                     // waiting for quota is not work
+      await new Promise((r) => setTimeout(r, wait));
     }
   };
+  /* What the run budget measures: time spent WORKING. Pacing sleep is the
+     quota doing its job and must not count, or a seeded chain link burns its
+     budget asleep and stops after one burst (the 2026-09-27 regression). */
+  const _worked = () => (Date.now() - _runStartedAt) - _units.slept;
+  const _wallStop = ctx.wallStopMs ?? WALL_STOP_MS;
   const _baseFetch = ctx.fetch || globalThis.fetch;
   const pacedFetch = async (u, init) => {
     const s = String(u);
@@ -596,12 +588,7 @@ async function _runGrantLocked(grant, ctx) {
      refactor away from being gone. */
   const chosen = Number(grant.backfill_days) || BACKFILL_DAYS;
   const backfillDays = Math.min(365, Math.max(1, chosen));
-  /* Two-phase read (0153): a long window's first run covers the newest 45
-     days only; `first_slice_at` then flips the client to first light and the
-     remaining window continues behind the same cursor. */
-  const phase = backfillPhase(grant, backfillDays);
-  const firstSlice = phase.firstSlice;
-  const days = backfilling ? phase.days : windowDays(grant.last_synced_at, ctx.nowMs);
+  const days = backfilling ? backfillDays : windowDays(grant.last_synced_at, ctx.nowMs);
   /* THE BACKFILL POSITION (0136). A backfill used to list the newest mail in the
      window on every run and work on the first BACKFILL_STAGE_MAX it had not
      finished. Promo mail is settled on its headers and recorded nowhere, so it
@@ -875,12 +862,14 @@ async function _runGrantLocked(grant, ctx) {
        a template (never gated) or an unknown fingerprint (never gated). A
        table-readable shape that has not yet graduated is delayed at most one
        run — hitLimit holds the cursor, next run's fresh budget funds it. */
+  /* ONE ?format=full GET per message. Head-then-body was built to make junk
+     cheap back when metadata was believed cheaper; the 2026-09-15 measurement
+     says Gmail charges 20 units WHATEVER the format, so the second get bought
+     nothing but quota — it doubled the price of every kept message. Junk
+     still settles on its first and only get; the ~20KB body it now downloads
+     is bandwidth inside this process, not units, and is dropped unread. */
   const _metaChunk = (slice) => _pooled(slice, lanes, async (id) => {
-    try { return { id, meta: await gmail.getMessageMetadata(id, access, pacedFetch) }; }
-    catch (e) { return { id, error: e }; }
-  });
-  const _fetchBodies = (slice) => _pooled(slice, lanes, async (id) => {
-    try { return { id, message: await gmail.getMessage(id, access, pacedFetch, mailtext) }; }
+    try { return { id, meta: await gmail.getMessage(id, access, pacedFetch, mailtext) }; }
     catch (e) { return { id, error: e }; }
   });
   const _senderKey = (from) => {
@@ -1082,7 +1071,7 @@ async function _runGrantLocked(grant, ctx) {
     if (rateLimited) break;    // Gmail said slow down; every further fetch spends quota
     /* Stop ourselves before the platform does. What is finished keeps its place
        in the backfill position; what is not is simply next run's first slice. */
-    if (Date.now() - _runStartedAt > _runBudgetMs) { hitLimit = true; break; }
+    if (_worked() > _runBudgetMs || (Date.now() - _runStartedAt) > _wallStop) { hitLimit = true; break; }
     /* Hold the mailbox while we are still using it. Best-effort: losing the
        renewal costs a duplicate listing next minute, never a lost message. */
     if (ctx._lease && ctx.db.renewMailboxLease && (c % 4 === 0)) {
@@ -1136,9 +1125,8 @@ async function _runGrantLocked(grant, ctx) {
         || (plainKey !== key ? warmFingerprints.get(plainKey) : null)
         || (legacyKey !== key && legacyKey !== plainKey ? warmFingerprints.get(legacyKey) : null);
       if (fp && fp.is_transaction_source === false) {
-        // The exact-shape junk verdict, applied where it was always known:
-        // before the body. Same tally stage as before — it means "answered by
-        // the junk cache", and it just got 20KB cheaper.
+        // The exact-shape junk verdict. Same tally stage as always — it means
+        // "answered by the junk cache", settled at one get.
         summary.skipped++;
         await ctx.db.bumpReadTally?.('junk_cache');
         continue;
@@ -1187,12 +1175,8 @@ async function _runGrantLocked(grant, ctx) {
       keep.push(g);
     }
 
-    const fetched = await _fetchBodies(keep.map((g) => (g.error ? g : g.id)).filter((x) => typeof x === 'string'));
-    // Re-thread metadata-stage errors into position among the fetched results.
-    const byId = new Map(fetched.map((f) => [f.id, f]));
-    const batchOrdered = keep.map((g) => (g.error ? g : (byId.get(g.id) || { id: g.id, message: null })));
-
-    for (const got of batchOrdered) {
+    /* No second fetch: the full message already rode in with the headers. */
+    for (const got of keep) {
     const id = got.id;
     outcome.set(id, 'done');
     if (got.error) {
@@ -1205,7 +1189,7 @@ async function _runGrantLocked(grant, ctx) {
       }
       throw got.error;
     }
-    const message = got.message;
+    const message = got.meta;
     if (!message) { summary.skipped++; continue; }   // deleted between list and get
 
     const r = await readOne(id, message, false);
@@ -1223,7 +1207,7 @@ async function _runGrantLocked(grant, ctx) {
   if (parkingOk && parkedAll.length && !rateLimited) {
     for (const id of parkedAll.slice(0, ctx.parkedPerRun ?? PARKED_PER_RUN)) {
       if (modelOff()) break;
-      if (Date.now() - _runStartedAt > _runBudgetMs) break;
+      if (_worked() > _runBudgetMs || (Date.now() - _runStartedAt) > _wallStop) break;
       let message;
       try { message = await gmail.getMessage(id, access, pacedFetch, mailtext); }
       catch (e) { if (_rateLimited(e)) { rateLimited = true; break; } continue; }   // stays parked; next run
@@ -1247,18 +1231,7 @@ async function _runGrantLocked(grant, ctx) {
   //
   // Not advancing costs one repeated listing five minutes later, and the
   // already-staged check makes the repeat nearly free.
-  const sliceJustDone = firstSlice && !hitLimit && !moreQueued;
-  if (sliceJustDone) {
-    /* FIRST LIGHT (0153, first-ninety-seconds-spec §2b): the newest slice is
-       whole, so the person can look now. The backfill stays OPEN on purpose:
-       `backfilled_at` untouched, the cursor kept where the slice ended, and
-       the chain (§2c) carries straight on into the rest of the window. Set
-       once, never overwritten — the db writer is conditioned on null. */
-    if (ctx.db.setFirstSlice) {
-      try { await ctx.db.setFirstSlice(grant.id); }
-      catch (e) { try { console.error('first_slice_at not saved', grant.id, (e && e.message) || e); } catch (_e) {} }
-    }
-  } else if (!hitLimit && !moreQueued) {
+  if (!hitLimit && !moreQueued) {
     /* A finished backfill records WHAT IT COVERED, not just that it happened
        (0098). `backfill_days` is overwritten on every reconnect, so comparing a
        new request against it would read "90 then 2 then 90" as a widening when
@@ -1273,10 +1246,6 @@ async function _runGrantLocked(grant, ctx) {
        read as set, so a row from before the migration is patched as before. */
     await ctx.db.markSynced(grant.id, backfilling
       ? { backfilled_at: new Date().toISOString(), backfilled_days: backfillDays,
-          /* A window at or under the slice never had a phase A; its first
-             light IS the finish. Only when the column was read (0153). */
-          ...(('first_slice_at' in grant) && !grant.first_slice_at
-            ? { first_slice_at: new Date().toISOString() } : {}),
           ...(grant.backfill_before || grant.backfill_started_at
             ? { backfill_before: null, backfill_started_at: null,
                 ...(grant.backfill_started_at ? { last_synced_at: grant.backfill_started_at } : {}) }
@@ -1358,7 +1327,7 @@ async function _runGrantLocked(grant, ctx) {
   }
   summary.stalledRuns = stalledRuns;
 
-  const finishedBackfill = backfilling && !hitLimit && !moreQueued && !sliceJustDone;
+  const finishedBackfill = backfilling && !hitLimit && !moreQueued;
   /* A backfill that has stopped making progress is allowed to speak once, so
      the person is not left with a full queue and silence. It is still NOT
      marked finished: `backfilled_at` is untouched above, the stragglers keep
@@ -1380,7 +1349,7 @@ async function _runGrantLocked(grant, ctx) {
     && stalledRuns >= stallThreshold && prevStalled < stallThreshold;
 
   const shouldNotify = backfilling
-    ? (finishedBackfill || sliceJustDone || stalledEnoughToSpeak)
+    ? (finishedBackfill || stalledEnoughToSpeak)
     : summary.staged > 0;
 
   /* The number a person actually cares about is HOW MANY ARE WAITING, not how
@@ -1405,7 +1374,7 @@ async function _runGrantLocked(grant, ctx) {
     /* A backfill speaks as a digest (count only); a steady-state poll speaks
        with the freshest transaction's voice. scope rides along so the tap can
        land on the personal quick-review sheet instead of the generic queue. */
-    const isDigest = finishedBackfill || sliceJustDone || stalledEnoughToSpeak;
+    const isDigest = finishedBackfill || stalledEnoughToSpeak;
     try {
       await ctx.notify(grant, notifyCount, {
         backfill: isDigest,
@@ -1427,7 +1396,6 @@ async function _runGrantLocked(grant, ctx) {
      budget. The caller (mailbox-sync) re-POSTs on `continue`; the minute lane
      stays as the crash fallback and the 0145 lease keeps the two apart. */
   summary.backfilling = backfilling;
-  summary.sliceDone = sliceJustDone;
   summary.rateLimited = rateLimited;
   summary.cursorAdvanced = cursorAdvanced;
   summary.moreQueued = moreQueued;

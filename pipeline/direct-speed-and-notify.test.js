@@ -183,13 +183,17 @@ const GRANT = (over = {}) => ({
 
   console.log('\n-- 2. constants moved in the intended direction --');
   t('fetch lanes raised from 6', W.FETCH_CONCURRENCY >= 20, String(W.FETCH_CONCURRENCY));
-  /* 150 → 400 (08-29) → 180 (09-15). The number is not the point; what it must
-     satisfy is: one slice fits what ONE run can pay Gmail for. A staged message
-     costs 40 units (headers + body), and a bigger slice reads no more mail per
-     minute, it only risks being killed mid-slice. */
-  t('a backfill slice is bigger than the old 150, and fits one run\'s Gmail budget',
-    W.BACKFILL_STAGE_MAX > 150 && W.BACKFILL_STAGE_MAX * 40 <= W.GMAIL_UNITS_PER_MIN * (W.RUN_BUDGET_MS / 60000),
+  /* 150 → 400 (08-29) → 180 (09-15) → 600 (09-27). The slice is a MEMORY
+     bound now, not a completion promise: a message costs one 20-unit get, the
+     run budget measures WORKED time (pacing sleep excluded — counting it was
+     the measured 2026-09-27 regression), and an unfinished slice resumes from
+     the cursor for free. What must hold instead: the wall stop sits under the
+     platform's 150 s kill, and the work budget sits under the wall. */
+  t('a backfill slice is bigger than the old 150 and stays a bounded slice',
+    W.BACKFILL_STAGE_MAX > 150 && W.BACKFILL_STAGE_MAX <= 1000,
     [W.BACKFILL_STAGE_MAX, W.GMAIL_UNITS_PER_MIN, W.RUN_BUDGET_MS]);
+  t('the wall stop sits under the platform kill, and the work budget under the wall',
+    W.WALL_STOP_MS < 150000 && W.RUN_BUDGET_MS <= W.WALL_STOP_MS, [W.RUN_BUDGET_MS, W.WALL_STOP_MS]);
   t('a run stops itself before the platform kills it at 150 s', W.RUN_BUDGET_MS > 0 && W.RUN_BUDGET_MS < 150000, String(W.RUN_BUDGET_MS));
   t('ordinary poll cap raised from 40', W.MAX_MESSAGES_PER_GRANT >= 120, String(W.MAX_MESSAGES_PER_GRANT));
   t('per-grant model budget exists and is >= 40', W.MAX_MODEL_CALLS_PER_GRANT >= 40, String(W.MAX_MODEL_CALLS_PER_GRANT));
@@ -266,8 +270,8 @@ const GRANT = (over = {}) => ({
        even though it staged nothing (the 333-of-365-days case). */
     t('progress clears the streak', /clearStall\(grant\.id\)/.test(w));
     t('a stalled backfill is allowed to notify', /stalledEnoughToSpeak/.test(w));
-    t('and the notify gate admits finished, FIRST LIGHT (0153) and stalled — each speaks once',
-      /\(finishedBackfill \|\| sliceJustDone \|\| stalledEnoughToSpeak\)/.test(w));
+    t('and the notify gate now admits both finished AND stalled',
+      /\(finishedBackfill \|\| stalledEnoughToSpeak\)/.test(w));
 
     /* The load-bearing one. A stall must change who is TOLD, never what is
        READ — setting backfilled_at here would abandon unread mail. */
