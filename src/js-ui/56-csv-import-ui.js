@@ -1356,26 +1356,35 @@ function csvStagedRowsCard(c, opts){
   h += '<div class="csv-srows">'+rows+'</div>';
 
   /* 0154 receipt enrichment: the joined merchant receipt, KEY rows only —
-     seller/provider + order id, up to three items with prices, and the one
-     line of voucher math that explains why the paid figure differs from the
-     item sum. Read-only: a receipt is the merchant's record. Full detail
-     lives on the transaction's detail screen after import. */
+     seller/order, up to three items with their category, and the one line of
+     voucher math that explains why the paid figure differs from the item sum.
+     Read-only: a receipt is the merchant's record, not a field. Full detail
+     lives on the transaction's detail screen after import.
+     House rules followed here: money through csvFmt (never hand-formatted,
+     DESIGN §6.1), an SVG glyph rather than an emoji (§2.6 — emoji are never
+     functional icons), and the category as the same neutral pill the rest of
+     this card uses. */
   var _rj2 = (typeof c.rowIndex === 'number' && window._fhStagedRows && window._fhStagedRows[c.rowIndex]
               && window._fhStagedRows[c.rowIndex]._rcpt) || null;
   if(_rj2){
-    var _rjFmt = function(n){ return (Number(n)||0).toLocaleString('vi-VN')+'đ'; };
-    var _rjHead = [(_rj2.seller || _rj2.provider), _rj2.order_id ? ('#'+_rj2.order_id) : null].filter(Boolean).join(' · ');
-    var _rjB = '<div class="csv-rc"><div class="csv-rc-h">🧾 '+esc(L('Hoá đơn','Receipt'))+(_rjHead?' <span class="csv-rc-src">'+esc(_rjHead)+'</span>':'')+'</div>';
+    var _rjHead = [(_rj2.seller || _rj2.provider), _rj2.order_id ? ('#'+_rj2.order_id) : null].filter(Boolean).join(' \u00b7 ');
+    var _rjIco = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v18l2-1.4 2 1.4 2-1.4 2 1.4 2-1.4 2 1.4V3l-2 1.4L14 3l-2 1.4L10 3 8 4.4z"/><path d="M9.5 8.5h5"/><path d="M9.5 12h5"/></svg>';
+    var _rjB = '<div class="csv-rc"><div class="csv-rc-h">'+_rjIco+'<span>'+esc(L('Hoá đơn','Receipt'))+'</span>'
+      + (_rjHead?'<span class="csv-rc-src">'+esc(_rjHead)+'</span>':'') + '</div>';
     var _its = _rj2.items || [];
     _its.slice(0,3).forEach(function(it){
       if(!it || !it.name) return;
-      _rjB += '<div class="csv-rc-it"><span class="csv-rc-nm">'+(it.qty&&it.qty>1?esc(it.qty)+' × ':'')+esc(it.name)+'</span>'
-        + (it.unit_price!=null?'<span class="csv-rc-amt num">'+esc(_rjFmt(it.unit_price))+'</span>':'')+'</div>';
+      var _nd = (it.node && typeof fhNodeShort==='function') ? fhNodeShort(it.node) : '';
+      _rjB += '<div class="csv-rc-it">'
+        + '<span class="csv-rc-nm">'+((it.qty&&it.qty>1)?('<b>'+esc(it.qty)+'\u00d7</b> '):'')+esc(it.name)+'</span>'
+        + (_nd?'<span class="csv-rc-cat">'+esc(_nd)+'</span>':'')
+        + (it.unit_price!=null?'<span class="csv-rc-amt num">'+esc(csvFmt(it.unit_price))+'</span>':'')
+        + '</div>';
     });
     if(_its.length>3) _rjB += '<div class="csv-rc-more">'+esc(L('+'+(_its.length-3)+' sản phẩm nữa','+'+(_its.length-3)+' more'))+'</div>';
-    if(_rj2.discount) _rjB += '<div class="csv-rc-it math"><span class="csv-rc-nm">'
-      + esc(L('Tổng '+_rjFmt(_rj2.items_total||0)+' − voucher '+_rjFmt(_rj2.discount),'Total '+_rjFmt(_rj2.items_total||0)+' − voucher '+_rjFmt(_rj2.discount)))
-      + '</span><span class="csv-rc-amt num">'+esc(_rjFmt(_rj2.paid))+'</span></div>';
+    if(_rj2.discount) _rjB += '<div class="csv-rc-math">'
+      + '<span>'+esc(L('Tổng '+csvFmt(_rj2.items_total||0)+', giảm '+csvFmt(_rj2.discount),'Total '+csvFmt(_rj2.items_total||0)+', less '+csvFmt(_rj2.discount)))+'</span>'
+      + '<span class="num">'+esc(csvFmt(_rj2.paid))+'</span></div>';
     _rjB += '</div>';
     h += _rjB;
   }

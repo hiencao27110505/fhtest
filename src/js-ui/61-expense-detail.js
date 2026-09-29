@@ -857,42 +857,49 @@ async function _pexdReceiptLoad(id){
   }
   host.innerHTML=_pexdReceiptHTML(rc);
 }
+/* A personal device is not information about the purchase. Apple prints the
+   Mac or iPhone a rental was watched on as the last attribute; it reads as
+   noise beside the genre and the kind. Dropped at render so blobs written
+   before this still clean up. */
+var _PEXD_RC_DEVICE=/^(iPhone|iPad|iPod|Mac|MacBook|iMac|Apple TV|Apple Watch|Vision Pro)\b|['\u2019]s\s+(MacBook|iPhone|iPad|Mac|iMac|Apple TV|Apple Watch)/i;
+function _pexdRcVariant(v){
+  if(!v) return '';
+  return String(v).split(' \u00b7 ').map(function(x){ return x.trim(); })
+    .filter(function(x){ return x && !_PEXD_RC_DEVICE.test(x); }).join(' \u00b7 ');
+}
 function _pexdReceiptHTML(rc){
-  var fmtD=function(n){ return (Number(n)||0).toLocaleString('vi-VN')+'đ'; };
-  var trim=function(s){ return String(s||'').replace(/[\s.·|•-]+$/,'').trim(); };   // "olanevietnam ." → "olanevietnam" (blobs written before the reader fix)
+  /* Money goes through fmt() like every figure in the app (DESIGN §6.1 — never
+     format an amount by hand). Blob amounts are in đồng; fmt() takes base. */
+  var money=function(n){ return fmt(Number(n||0)/(typeof curMult==='function'?curMult():1000)); };
+  var trim=function(s){ return String(s||'').replace(/[\s.\u00b7|\u2022-]+$/,'').trim(); };
   var items=(rc.items||[]).filter(function(it){ return it && it.name; });
   var h=_exdSecH('Hoá đơn', items.length||'');
   h+='<div class="exd-meta pexd-rc">';
   var head=[trim(rc.seller)||rc.provider, rc.order_id?('#'+rc.order_id):null].filter(Boolean);
-  if(head.length) h+='<div class="pexd-rc-head">'+esc(head.join(' · '))+'</div>';
+  if(head.length) h+='<div class="pexd-rc-head">'+esc(head.join(' \u00b7 '))+'</div>';
   items.forEach(function(it){
-    /* The per-item CATEGORY, which the blob has carried since the first
-       write and nothing ever showed. It is what the basket's own node was
-       voted from (deepest common ancestor), so seeing it is how a wrong
-       transaction category becomes explainable rather than mysterious. The
-       merchant's own words (Apple's "Drama · Movie Rental") ride behind it;
-       either may be absent. */
-    var nd = (it.node && typeof fhNodeShort==='function') ? fhNodeShort(it.node) : '';
-    var meta = '';
-    if(nd) meta += '<span class="pexd-rc-node">'+esc(nd)+'</span>';
-    if(it.variant) meta += (nd?'<span class="pexd-rc-dot">·</span>':'')+esc(it.variant);
-    h+='<div class="pexd-rc-item"><div class="pexd-rc-main">'
-      +'<span class="pexd-rc-name">'+((it.qty&&it.qty>1)?('<b>'+esc(it.qty)+' ×</b> '):'')+esc(it.name)+'</span>'
-      +(it.unit_price!=null?'<span class="pexd-rc-amt num">'+esc(fmtD(it.unit_price))+'</span>':'')
+    var nd=(it.node && typeof fhNodeShort==='function') ? fhNodeShort(it.node) : '';
+    var va=_pexdRcVariant(it.variant);
+    var meta='';
+    if(nd) meta+='<span class="pexd-rc-cat">'+esc(nd)+'</span>';
+    if(va) meta+='<span class="pexd-rc-var">'+esc(va)+'</span>';
+    h+='<div class="pexd-rc-item">'
+      +'<div class="pexd-rc-main">'
+        +'<span class="pexd-rc-name">'+((it.qty&&it.qty>1)?('<b>'+esc(it.qty)+'\u00d7</b> '):'')+esc(it.name)+'</span>'
+        +(it.unit_price!=null?'<span class="pexd-rc-amt num">'+esc(money(it.unit_price))+'</span>':'')
       +'</div>'
-      +(meta?'<div class="pexd-rc-varline">'+meta+'</div>':'')
+      +(meta?'<div class="pexd-rc-meta">'+meta+'</div>':'')
       +'</div>';
   });
-  /* The math, and ONLY what is not already on the screen. A single-item
-     receipt whose one price IS the amount in the hero needs no "Đã trả" row
-     repeating it a third time; the voucher line is the one that earns its
-     place, because the gap between what the shop charged and what left the
-     account is the thing nothing else on this screen says. */
+  /* Only what the screen does not already say: a single-item receipt whose one
+     price IS the hero amount needs no "Đã trả" repeating it a third time; the
+     voucher line always earns its place, because the gap between what the shop
+     charged and what left the account is stated nowhere else. */
   var math=[];
-  if(rc.items_total!=null && rc.items_total!==rc.paid) math.push(['Tổng tiền', fmtD(rc.items_total), '']);
-  if(rc.discount) math.push(['Voucher/giảm giá', '−'+fmtD(rc.discount), 'good']);
-  if(rc.shipping_fee) math.push(['Phí vận chuyển', fmtD(rc.shipping_fee), '']);
-  if(rc.paid!=null && (math.length || items.length>1)) math.push(['Đã trả', fmtD(rc.paid), 'strong']);
+  if(rc.items_total!=null && rc.items_total!==rc.paid) math.push(['Tổng tiền', money(rc.items_total), '']);
+  if(rc.discount) math.push(['Voucher/giảm giá', '\u2212'+money(rc.discount), 'good']);
+  if(rc.shipping_fee) math.push(['Phí vận chuyển', money(rc.shipping_fee), '']);
+  if(rc.paid!=null && (math.length || items.length>1)) math.push(['Đã trả', money(rc.paid), 'strong']);
   if(math.length){
     h+='<div class="pexd-rc-math">'+math.map(function(m){
       return '<div class="pexd-rc-mrow'+(m[2]?' '+m[2]:'')+'"><span>'+esc(m[0])+'</span><span class="num">'+esc(m[1])+'</span></div>';
