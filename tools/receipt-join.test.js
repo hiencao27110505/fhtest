@@ -28,16 +28,16 @@ function t(name, ok, extra) {
 }
 
 const byCode = Object.fromEntries(TREE.nodes.map((n) => [n.code, n]));
-const FH_TAX = {
-  get: (c) => byCode[c] || null,
-  kindOf: (c) => (byCode[c] || {}).kind || null,
-};
+/* The REAL generated tree runs inside the sandbox (11-taxonomy.js is the file
+   the app ships), so keywordNode and ancestors under test are the shipping
+   ones — a hand-rolled stub would let the category rules drift from the tree. */
+const TAX_SRC = fs.readFileSync(path.join(__dirname, '../src/js-ui/11-taxonomy.js'), 'utf8');
 const fhNodeDepth = (c) => (byCode[c] || {}).depth || 0;
 
 function makeEnv(state) {
   const env = {
     console, setTimeout, clearTimeout, Date, JSON, Math, Promise, Array, Object, String, Number, isFinite,
-    FH_TAX, fhNodeDepth,
+    fhNodeDepth,
     curMult: () => 1000,
     sb: {
       from: () => {
@@ -65,6 +65,7 @@ function makeEnv(state) {
   env.window = env;
   env.globalThis = env;
   vm.createContext(env);
+  vm.runInContext(TAX_SRC, env);     // defines window.FH_TAX, exactly as the app loads it
   vm.runInContext(SRC, env);
   return env;
 }
@@ -140,37 +141,45 @@ const freshState = () => ({ receiptRows: [], opened: {}, slice: [], retired: [],
   t('richest copy wins the join', q1._rcptRowId === 'rPay', q1._rcptRowId);
   t('the poorer twin is retired', st.retired.indexOf('rShip') >= 0, st.retired);
 
-  console.log('\n-- DCA + description --');
+  console.log('\n-- item categories: local, refining only, never voting --');
   st = freshState();
-  st.nodeAnswers = { 'Goggles': 'sports', 'Swim cap': 'sports' };
-  rrow(st, 'r1', { paid: 100000, seller: 'olane', items: [{ name: 'Goggles' }, { name: 'Swim cap' }] });
+  rrow(st, 'r1', { paid: 100000, seller: 'olane', items: [{ name: 'Mũ bơi' }, { name: 'Kính bơi' }] });
   env = makeEnv(st);
   q1 = qrow('q1', 100000);
+  q1.raw_extracted.node = 'shopping';                 // the bank-side cascade's answer
   await env.fhReceiptJoinQueue([q1]);
-  t('unanimous basket: the shared node rides the sealed slot', q1.raw_extracted.node === 'sports', q1.raw_extracted.node);
-  t('…and the description is item-derived', /Goggles \+1 món/.test(q1._rcptDesc), q1._rcptDesc);
-  t('item names went to the classifier, names only', st.conceptCalls.length === 1 && st.conceptCalls[0].indexOf('Goggles') >= 0, st.conceptCalls);
+  t('items are categorised on the DEVICE — nothing is sent anywhere',
+    st.conceptCalls.length === 0, st.conceptCalls);
+  t('the tree\'s own keywords answer: swim gear is Đồ thể thao',
+    (q1._rcpt.items || []).every(function (it) { return it.node === 'sportsgear'; }),
+    (q1._rcpt.items || []).map(function (it) { return it.node; }));
+  t('an item node INSIDE the transaction\'s branch is kept (refinement)',
+    q1._rcpt.items[0].node === 'sportsgear');
+  t('the transaction\'s own node is NEVER rewritten by its items',
+    q1.raw_extracted.node === 'shopping', q1.raw_extracted.node);
+  t('an agreeing basket still names itself', /Mũ bơi \+1 món/.test(q1._rcptDesc), q1._rcptDesc);
 
   st = freshState();
-  // rau (groceries, under food) + a plate (housewares, under a different root)
-  const food1 = TREE.nodes.find((n) => n.kind === 'expense' && n.parent && FH_TAX.get(n.parent) && !FH_TAX.get(n.parent).parent);
-  const root1 = FH_TAX.get(food1.parent);
-  const otherRoot = TREE.nodes.find((n) => n.kind === 'expense' && !n.parent && n.code !== root1.code);
-  st.nodeAnswers = { 'itemA': food1.code, 'itemB': otherRoot.code };
-  rrow(st, 'r1', { paid: 100000, seller: 'AEON', items: [{ name: 'itemA' }, { name: 'itemB' }] });
+  rrow(st, 'r1', { paid: 100000, seller: 'olane', items: [{ name: 'Mũ bơi' }] });
   env = makeEnv(st);
   q1 = qrow('q1', 100000);
+  q1.raw_extracted.node = 'streaming';                // a DIFFERENT branch
   await env.fhReceiptJoinQueue([q1]);
-  t('divergent roots: no node forced; the cascade keeps its answer', !q1.raw_extracted.node, q1.raw_extracted.node);
+  t('an item node OUTSIDE the branch is dropped, never shown against it',
+    q1._rcpt.items[0].node === null, q1._rcpt.items[0].node);
+  t('…and it still does not move the transaction',
+    q1.raw_extracted.node === 'streaming', q1.raw_extracted.node);
+
+  st = freshState();
+  rrow(st, 'r1', { paid: 100000, seller: 'AEON', items: [{ name: 'Mũ bơi' }, { name: 'Máy ảnh Canon' }] });
+  env = makeEnv(st);
+  q1 = qrow('q1', 100000);
+  q1.raw_extracted.node = 'shopping';
+  await env.fhReceiptJoinQueue([q1]);
+  t('a mixed basket keeps each item\'s own category', 
+    q1._rcpt.items[0].node === 'sportsgear' && q1._rcpt.items[1].node === 'hobby',
+    (q1._rcpt.items || []).map(function (it) { return it.node; }));
   t('mixed basket description: seller · N món', q1._rcptDesc === 'AEON · 2 món', q1._rcptDesc);
-
-  st = freshState();
-  st.nodeAnswers = { 'itemA': food1.code, 'itemB': food1.parent };  // a leaf and its own parent
-  rrow(st, 'r1', { paid: 100000, items: [{ name: 'itemA' }, { name: 'itemB' }] });
-  env = makeEnv(st);
-  q1 = qrow('q1', 100000);
-  await env.fhReceiptJoinQueue([q1]);
-  t('leaf + its parent: DCA is the parent (shallower, honest)', q1.raw_extracted.node === food1.parent, q1.raw_extracted.node);
 
   st = freshState();
   rrow(st, 'r1', { paid: 100000, items: [{ name: 'One thing' }] });

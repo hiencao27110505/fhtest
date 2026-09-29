@@ -9,15 +9,15 @@
 
          fetch pending receipt rows → open (the same sealed-box opener the
          queue uses) → collapse copies of one order (payment mail + delivered
-         mail share an order id; the richest survives) → resolve each item's
-         tree node (local, then the merchant-concepts backstop, names only) →
-         take the basket's deepest common ancestor → JOIN:
+         mail share an order id; the richest survives) → give each item a
+         category from the tree's own keywords, on the device → JOIN:
 
            queue first — an open review's staged bank rows, matched on the
            exact paid total, ±1 day, with the card tail as confirm/veto. The
-           bank row's card gets the receipt's description, node and 🧾 badge,
-           and on import the blob is written with the ledger row and the
-           receipt retires with the batch.
+           bank row's card gets the receipt's description and its 🧾 badge —
+           never its category: a receipt annotates, it does not re-file. On
+           import the blob is written with the ledger row and the receipt
+           retires with the batch.
 
            ledger second — an already-imported PRIVATE personal expense
            (link_id null; mirrors are machine-owned) with no receipt yet. The
@@ -56,53 +56,41 @@
     }
     function _rjDayMs(iso) { var t = Date.parse(iso || ''); return isFinite(t) ? t : null; }
 
-    /* Deepest common ancestor of the item nodes (spec RC9). Null items
-       abstain; no resolved node, or a DCA that is a whole kind's root with
-       depth 0, means the merchant tier decides as today. */
-    function _rjDca(nodes) {
-      var chains = [];
-      (nodes || []).forEach(function (n) {
-        if (!n || !window.FH_TAX || !FH_TAX.get(n)) return;
-        var chain = [], cur = n;
-        while (cur) { chain.unshift(cur); var nd = FH_TAX.get(cur); cur = nd && nd.parent; }
-        chains.push(chain);
+    /* An item's category may only REFINE the transaction's, never contradict
+       it (receipt-enrichment §RC9, revised 2026-09-29). The transaction's node
+       comes from the bank-side cascade, which exists for every row; a receipt
+       exists for a minority and its items are the weaker signal. So an item
+       node is kept when it IS the transaction's node or sits under it, and
+       dropped otherwise — a swim cap may sharpen "Mua sắm" to "Đồ thể thao",
+       but nothing on a receipt may move a purchase to another root.
+       A transaction with no node of its own has no branch to contradict. */
+    function _rjInBranch(itemNode, txnNode) {
+      if (!itemNode || !window.FH_TAX || !FH_TAX.get(itemNode)) return false;
+      if (!txnNode || !FH_TAX.get(txnNode)) return true;
+      if (itemNode === txnNode) return true;
+      try { return FH_TAX.ancestors(itemNode).indexOf(txnNode) >= 0; } catch (e) { return false; }
+    }
+    function _rjConstrain(rcpt, txnNode) {
+      ((rcpt && rcpt.items) || []).forEach(function (it) {
+        if (it && it.node && !_rjInBranch(it.node, txnNode)) it.node = null;
       });
-      if (!chains.length) return null;
-      var out = null;
-      for (var d = 0; ; d++) {
-        var v = chains[0][d];
-        if (!v) break;
-        var all = chains.every(function (ch) { return ch[d] === v; });
-        if (!all) break;
-        out = v;
-      }
-      return out;
     }
 
-    /* Item → node: the shared concept cache first (statement path's backstop,
-       names only — no price, no qty, no seller). Local lessons and keyword
-       tiers speak Vietnamese family categories, not tree codes, so the
-       backstop IS the local answer's source of nodes here; its cache makes
-       repeat names free. Best-effort: unresolved items abstain. */
-    async function _rjItemNodes(receipts) {
-      var names = [];
-      receipts.forEach(function (r) {
-        ((r._rcpt && r._rcpt.items) || []).forEach(function (it) {
-          if (it && it.name && !it.node) names.push(String(it.name).slice(0, 80));
-        });
-      });
-      names = Array.from(new Set(names)).slice(0, 60);
-      if (!names.length) return;
-      var nodeMap = {};
-      try {
-        var res = await sb.functions.invoke('merchant-concepts', { body: { merchants: names } });
-        nodeMap = (res && res.data && res.data.nodes) || {};
-      } catch (e) { return; }
+    /* Item → node, ON THE DEVICE, from the tree's own keywords.
+       This used to POST item names to merchant-concepts, which is a MERCHANT
+       classifier ("what kind of business is X") answering a product question,
+       and which caches every answer in a table shared by all users — so a
+       wrong product guess was permanent, global, and a shopping list in a
+       table meant for shop names. The tree's keyword tier answers the right
+       question, costs nothing, and never leaves the phone. Unresolved items
+       simply carry no category. */
+    function _rjItemNodes(receipts) {
       receipts.forEach(function (r) {
         ((r._rcpt && r._rcpt.items) || []).forEach(function (it) {
           if (!it || !it.name || it.node) return;
-          var nd = nodeMap[String(it.name).slice(0, 80)];
-          if (nd && window.FH_TAX && FH_TAX.get(nd)) it.node = nd;
+          var nd = null;
+          try { nd = (window.FH_TAX && FH_TAX.keywordNode) ? FH_TAX.keywordNode(it.name, 'expense') : null; } catch (e) { nd = null; }
+          if (nd && FH_TAX.get(nd)) it.node = nd;
         });
       });
     }
@@ -140,7 +128,6 @@
         paid: rc ? Number(rc.paid != null ? rc.paid : x.amount) : Number(x.amount),
         tail: rc ? _rjTail(rc.paid_with_tail) : null,
         orderId: (rc && rc.order_id) || x.reference_number || null,
-        node: (x.node && window.FH_TAX && FH_TAX.get(x.node)) ? x.node : null,
         _rcpt: rc ? {
           v: 1, source: 'email', provider: row.source_provider || null,
           service_type: rc.service_type || null, order_id: rc.order_id || null,
@@ -193,17 +180,9 @@
       });
       receipts = keep.filter(function (r) { return r._rcpt && r.paid > 0; });
 
-      await _rjItemNodes(receipts);
+      _rjItemNodes(receipts);
       receipts.forEach(function (r) {
         if (!r._rcpt) return;
-        var itemNodes = (r._rcpt.items || []).map(function (it) { return it.node; }).filter(Boolean);
-        /* The basket's deepest common ancestor. A depth-1 answer ("Ăn uống"
-           for rau + bún + thịt) is the honest shallow truth RC9 asks for; a
-           basket whose chains share nothing (groceries + housewares) yields
-           null from the walk itself, and the sealed node — the model's
-           merchant-level guess — still stands. */
-        var dca = itemNodes.length ? _rjDca(itemNodes) : null;
-        r._node = dca || r.node || null;
         r._desc = _rjDesc(r._rcpt, r.provider);
       });
 
@@ -235,17 +214,10 @@
           if (!hit) return;
           claimedRows[hit.id] = true;
           r._joined = 'queue';
+          _rjConstrain(r._rcpt, (hit.raw_extracted && hit.raw_extracted.node) || null);
           hit._rcpt = r._rcpt;
           hit._rcptRowId = r.id;
           hit._rcptDesc = r._desc || null;
-          /* The basket's node rides the sealed slot the candidate builder
-             already validates — deeper knowledge from the merchant, same
-             door (57's receipt tier keeps its deeper-wins posture). */
-          if (r._node) {
-            var xx = hit.raw_extracted || (hit.raw_extracted = {});
-            var deeper = !xx.node || (window.fhNodeDepth && fhNodeDepth(r._node) > fhNodeDepth(xx.node));
-            if (deeper) xx.node = r._node;
-          }
         });
       }
 
@@ -290,8 +262,8 @@
           var mine = ((r2._rcpt && r2._rcpt.items) || []).length;
           var theirs = ((have && have.items) || []).length;
           if (have && (theirs || !mine)) continue;       // already as rich, or this one adds nothing
-          var ok = await fhPersonalSetReceipt(cands[0].id,
-            Object.assign({}, r2._rcpt, { node: r2._node || null }), { upgrade: !!have });
+          _rjConstrain(r2._rcpt, cands[0].node || null);
+          var ok = await fhPersonalSetReceipt(cands[0].id, r2._rcpt, { upgrade: !!have });
           if (ok) {
             claimedLedger[cands[0].id] = true;
             r2._joined = 'ledger';
