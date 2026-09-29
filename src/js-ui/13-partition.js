@@ -302,7 +302,11 @@ function fhPersonKey(counterparty, description, amountDong){
 function fhPersonKeyRow(row){
   if (!row) return '';
   var mult = (typeof curMult === 'function') ? curMult() : 1000;
-  return fhPersonKey(row.counterparty || row._cp || '', row.note || '', (Number(row.amt) || 0) * mult);
+  /* A15 (apply-to-similar-spec §9): NEVER `row.who` here. On a personal row `who`
+     is the payee, on a family row it is the paying MEMBER, and this function
+     cannot tell the two apart. Callers that hold a personal row map who → _cp. */
+  var cp = (row._cp != null) ? row._cp : ((row.cp != null) ? row.cp : (row.counterparty || ''));
+  return fhPersonKey(cp || '', row.note || '', (Number(row.amt) || 0) * mult);
 }
 /* The printed name behind a key, for the "Đang xem" bar and the filter chip.
    The normalised form is a KEY and never reaches the screen (P8); the longest

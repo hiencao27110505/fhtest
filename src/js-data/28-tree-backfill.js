@@ -31,8 +31,8 @@
        v5 shipped with a bug that marked a scope done after one batch of
        unresolvable rows, so every device is sitting on a false "done" and v6
        is what undoes that. */
-    if (scope === 'family') return 'fh-tree-bf:v11:fam:' + ((window.DB && window.DB.fid) || '');
-    return 'fh-tree-bf:v11:per:' + ((window.fhPersonalData && fhPersonalData().uid) || '');
+    if (scope === 'family') return 'fh-tree-bf:v12:fam:' + ((window.DB && window.DB.fid) || '');
+    return 'fh-tree-bf:v12:per:' + ((window.fhPersonalData && fhPersonalData().uid) || '');
   }
   function _tbfDone(scope) { try { return localStorage.getItem(_tbfCursorKey(scope)) === 'done'; } catch (e) { return false; } }
   function _tbfMarkDone(scope) { try { localStorage.setItem(_tbfCursorKey(scope), 'done'); } catch (e) {} }
@@ -90,14 +90,16 @@
       try { const xf = fhTransferShape(row.note, _dong); if (xf) return xf; } catch (e) {}
     }
     let guess = null;
-    try { guess = fhNodeGuess({ kind: kind, note: row.note, counterparty: row.counterparty || null, amount: _dong, whatOnly: true }); }
+    /* A15: `who` is the payee only on a PERSONAL row; on a family row it is the member. */
+    const _cp = (scope === 'personal') ? (row.who || null) : null;
+    try { guess = fhNodeGuess({ kind: kind, note: row.note, counterparty: _cp, amount: _dong, whatOnly: true }); }
     catch (e) { guess = null; }
     if (guess) return guess;
     /* The row's own label says WHAT, and outranks WHO. v7 asked who first, and
        re-filed logged Grab rows from "Đi lại" to "Thanh toán cho người bán"; v8
        puts them back, because a who-node is depth 1 and the sweep looks again. */
     let who = null;
-    try { who = (typeof fhWhoNode === 'function') ? fhWhoNode({ kind: kind, note: row.note, counterparty: row.counterparty || null, amount: _dong }) : null; }
+    try { who = (typeof fhWhoNode === 'function') ? fhWhoNode({ kind: kind, note: row.note, counterparty: _cp, amount: _dong }) : null; }
     catch (e) { who = null; }
     if (who === 'p2p') return who;                       // a person keeps the place it had through v6
     return _tbfCoarse(scope, row) || who;

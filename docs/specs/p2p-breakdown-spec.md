@@ -406,6 +406,12 @@ To be appended to `category-tree-spec.md` §16 on landing.
   amount). They never fired in the queue anyway; in the ledger they stop firing
   now. The store is a week old and the next tap re-teaches, so this is recorded,
   not repaired.
+- **Corrected 2026-09-30 (A15, `apply-to-similar-spec.md` §9):** personal rows
+  decrypt the payee into `who`, not `counterparty`, so the v594 person rows and
+  `txnBulkNodePick`'s lesson keyed on the note alone. `fhPersonKeyRow` now reads
+  `_cp`/`cp`/`counterparty` only; personal callers map `who` → `_cp`; family
+  callers pass null (their `who` is the member). Cursor bumped again for the
+  sweep's changed inputs.
 - **The family side has no person rows yet.** `fhTreeRowsFor` carries
   `t.counterparty`, but family rows in memory do not expose one today, so
   `fhTreePersonRows` finds no keys there and the family breakdown shows p2p

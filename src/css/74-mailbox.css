@@ -278,6 +278,22 @@ button.csv-srow:active{background:var(--surface)}
 .csv-cta-ghost{flex:1;min-width:0;min-height:40px;border:1.5px solid var(--hairline);border-radius:9999px;background:var(--white);font:inherit;font-size:13px;font-weight:700;color:var(--ink-2);padding:0 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;-webkit-tap-highlight-color:transparent}
 .csv-cta-go{flex:1;min-height:40px;border:0;border-radius:9999px;background:var(--grad-brand);color:#fff;font:inherit;font-size:13px;font-weight:700;padding:0 10px;white-space:nowrap;box-shadow:0 5px 14px var(--brand-glow);-webkit-tap-highlight-color:transparent}
 .csv-cta-go:active,.csv-cta-ghost:active{opacity:.7}
+/* Corrections that carry (apply-to-similar-spec §3): a quiet block under the
+   rows. One status line, one pill, one text line; the brand ink sits only on
+   the two things that act. Same hairline, same 44px reach as the bar below. */
+.csv-fix{margin-top:12px;padding-top:6px;border-top:1px solid var(--divider)}
+.csv-fix-l{display:flex;align-items:center;gap:8px;min-height:44px}
+.csv-fix-l small{font-size:13px;font-weight:600;color:var(--muted);flex:none}
+.csv-fix-l b{flex:1;min-width:0;font-size:14px;font-weight:650;color:var(--ink);letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.csv-fix-undo{flex:none;min-height:44px;padding:0 6px;border:0;background:none;font:inherit;font-size:14px;font-weight:700;color:var(--brand-ink)}
+.csv-fix-undo:active{opacity:.6}
+.csv-fix-cta{display:block;width:100%;min-height:44px;margin-top:2px;padding:0 14px;border:1.5px solid var(--hairline);border-radius:9999px;background:var(--white);font:inherit;font-size:13.5px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:transform .12s cubic-bezier(.4,0,.2,1)}
+.csv-fix-cta:active{transform:scale(.98);opacity:.8}
+.csv-fix-done{min-height:44px;display:flex;align-items:center;padding:0 2px;font-size:13px;font-weight:600;color:var(--muted)}
+.csv-fix-ledger{display:block;width:100%;min-height:44px;margin-top:2px;padding:0 6px;border:0;border-radius:11px;background:none;font:inherit;font-size:13px;font-weight:700;color:var(--brand-ink);text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:background .15s cubic-bezier(.4,0,.2,1)}
+.csv-fix-ledger.armed{background:var(--brand-tint);padding:0 12px}
+.csv-fix-ledger:disabled{opacity:.5}
+.csv-fix-ledger.done{color:var(--muted)}
 
 /* ── row-picker sheet: an overlay INSIDE #csv-import-modal (the global .sheet
    layer sits under the modal, z 60 vs 62). Anchored to the modal box. ── */

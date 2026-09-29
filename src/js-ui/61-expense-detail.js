@@ -487,7 +487,7 @@ function exdSave(){
     window.fhSetExNode(p.node||'');                        // 0144: a human pick; the composer's own guess may not overwrite it
     t.node=p.node||null;                                   // in-memory row shows it at once
     if(p.node && typeof window.fhLessonLearnNode==='function'){
-      try{ window.fhLessonLearnNode({ note:(p.note!=null?p.note:t.note), counterparty:t.counterparty||t._cp||null, amount:(Number(t.amt)||0)*curMult(), node:p.node }); }catch(e){}   // P10: đồng
+      try{ window.fhLessonLearnNode({ note:(p.note!=null?p.note:t.note), counterparty:null, amount:(Number(t.amt)||0)*curMult(), node:p.node }); }catch(e){}   // P10: đồng · A15: a FAMILY row's `who` is the member, never the payee
     }
   }
   saveExpenseEdit();                                       // wrapped → persists + renderExpenseDetailIfOpen
@@ -1094,7 +1094,7 @@ async function pexdSave(){
       if(p.node!==undefined){                              // 0144: the tree node, staged like every other field
         f.node=p.node||null;
         if(p.node && typeof window.fhLessonLearnNode==='function'){
-          try{ window.fhLessonLearnNode({ note:note, counterparty:t.counterparty||t._cp||null, amount:(Number(amtBase)||0)*curMult(), node:p.node }); }catch(e){}   // P10: đồng
+          try{ window.fhLessonLearnNode({ note:note, counterparty:t.who||null, amount:(Number(amtBase)||0)*curMult(), node:p.node }); }catch(e){}   // P10: đồng · A15: personal row, `who` is the payee
         }
       }
       ok=await window.fhPersonalUpdateExpense(E.id, f);

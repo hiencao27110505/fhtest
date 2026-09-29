@@ -504,7 +504,7 @@ console.log('\n-- the four ways v552 filtered nothing and swept nothing --');
   /* Since p2p-breakdown P5 the filter takes the ROW (an '@key' person selection
      needs counterparty + amount, not just node); the row shape must carry both. */
   t('the filter and the row shape agree on the field name',
-    /fhNodeSelMatchRow\(t\)/.test(tx) && pushes.some((b) => /\b_cp:\s*t\.counterparty/.test(b)));
+    /fhNodeSelMatchRow\(t\)/.test(tx) && pushes.some((b) => /\b_cp:\s*t\.who/.test(b))   /* A15: a personal row's payee is `who` */);
 
   /* 2. The sweep returned 0 both for "this batch needed no writes" and for
      "the ledger is finished", and the caller marked the scope done forever.

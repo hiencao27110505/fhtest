@@ -1103,7 +1103,7 @@ function persCmpData(P, SL){
      the breakdown under it are always describing the same money. Income steps
      aside while a spending group is selected. */
   var _sel=(typeof fhNodeSelMatchRow==='function') && window.fhNodeSel;
-  var _keep=function(t){ return fhCountsAsSpending(t.node) && (!_sel || (t.kind==='expense' && fhNodeSelMatchRow(t))); };   // row form: '@key' narrows to a person (P5)
+  var _keep=function(t){ return fhCountsAsSpending(t.node) && (!_sel || (t.kind==='expense' && fhNodeSelMatchRow({ node:t.node, note:t.note, amt:t.amt, _cp:t.who||null }))); };   // row form: '@key' narrows to a person (P5); A15: personal `who` is the payee, mapped to _cp
   (P.txns||[]).forEach(function(t){
     if(t._unreadable || (t.kind!=='expense' && t.kind!=='income') || !t.date || t.date<win) return;
     if(!_keep(t)) return;

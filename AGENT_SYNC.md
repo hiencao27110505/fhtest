@@ -143,6 +143,23 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-09-30 · Hien · corrections that carry (apply-to-similar) BUILT + A15 fix · claiming SW `v599` · cursor `fh-tree-bf` v11 → v12 · no migration · no deploy.**
+  Spec: `docs/specs/apply-to-similar-spec.md` (new, A1–A15). A corrected queue
+  card stays pinned under a filter (`c._fix`, `csvCatHide` → false; filter change
+  clears), offers "Áp dụng cho N khoản khác của <payee>" across all four buckets
+  without moving them, "… và M khoản đã ghi" (arm-then-confirm, personal book,
+  365-day match slice now decrypts `who`), one lesson per row band, full undo.
+  New `csvFix*` block in `56-csv-import-ui.js` + `.csv-fix*` in `74-mailbox.css`.
+  **A15 — a defect in v594 you should know about:** personal rows carry the payee
+  as `who` (19:515), not `counterparty`, so the p2p person rows keyed on the note.
+  `fhPersonKeyRow` now NEVER reads `who` (on a family row it is the member);
+  personal callers map `who` → `_cp` (60, 21, 28 for scope=personal, 61 detail);
+  family callers pass null. Files: `13-partition`, `19-personal`, `21-personal`,
+  `28-tree-backfill`, `56-csv-import-ui`, `60-transactions`, `61-expense-detail`,
+  `74-mailbox.css`, `sw.js`; tests `apply-to-similar` (new), pins in
+  `tree-cascade` and stubs in `staged-scope`. If you bump the SW next, start from
+  v600.
+
 - **2026-09-29 (chiều) · Hien · cây THỂ THAO tách lại + danh mục từng món chuyển về máy · `taxonomy.json` v2→v3 · sweep cursor v10→**v11** · SW v598 · mailbox-sync **v73**, merchant-concepts **v9** ĐÃ deploy · không migration.**
   Cây: "thể thao" từng đặt tên 3 nút ở 2 gốc, cha gần trùng con, và 2 con chồng nhau (gym CŨNG là sân bãi). Đổi tên `fitness`/`gym`/`sports`/`hobby`/`hobbygoods` (chỉ hiển thị — KHÔNG mã nào biến mất, mọi `node_enc` đã lưu vẫn đọc được), thêm MỘT lá `sportsgear` "Đồ thể thao". Từ khoá `boi` khớp theo TỪ nên "Bồi dưỡng nghiệp vụ" bị gán vào thể thao — đã gỡ; lá NƠI chỉ nhận từ chỉ nơi, đồ dùng về `sportsgear`. `concept` của fitness/gym/sports: "Others" → **"Fun"** (có hệ quả: `familyCatForConcept` đưa khoản MỚI vào danh mục Fun thay vì catch-all; dòng đã lưu không đổi).
   Món hoá đơn: thôi POST tên món sang `merchant-concepts` (bộ phân loại CỬA HÀNG + cache DÙNG CHUNG toàn hệ thống — sai là sai vĩnh viễn cho mọi người, và là danh sách mua sắm cá nhân trong bảng tên shop); nay dùng tầng từ khoá của cây, chạy trên máy. Món KHÔNG còn bỏ phiếu chọn node cho khoản chi (bỏ DCA) và chỉ được làm rõ TRONG nhánh của khoản.

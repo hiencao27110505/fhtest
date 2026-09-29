@@ -612,7 +612,7 @@
            here with link_id set, and indexing both let two staged copies of one
            purchase each claim "their own" booked row. */
         const r = await _pageAll(() => _sb().from('personal_transactions')
-          .select('id,amount_enc,note_enc,cat_name_enc,txn_date,kind,link_id,occurred_time_enc,source,account_id,node_enc,label_id')
+          .select('id,amount_enc,note_enc,counterparty_enc,cat_name_enc,txn_date,kind,link_id,occurred_time_enc,source,account_id,node_enc,label_id')
           .eq('owner_user_id', P.uid)
           .gte('txn_date', from)
           .order('txn_date', { ascending: false }).order('id'));
@@ -622,6 +622,7 @@
           if (a == null || a === _DEC_FAILED) continue;   // unreadable amount → cannot match, skip (fail closed)
           out.push({ id: t.id, date: t.txn_date, kind: t.kind, amt: Number(a), link: t.link_id || null, src: t.source || null, acct: t.account_id || null,
             note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc), node: _okNode(await _decTxt(t.node_enc)), labelId: t.label_id || null,
+            who: t.counterparty_enc ? await _decTxt(t.counterparty_enc) : null,   // A15: the payee, for "… và M khoản đã ghi" (apply-to-similar-spec)
             time: t.occurred_time_enc ? (await _decTxt(t.occurred_time_enc)) : '' });
         }
         _matchSlice = out;
