@@ -195,7 +195,12 @@ export async function runStatementLane(grant, ctx) {
   const rescan = db.statementRescanOwed ? await db.statementRescanOwed(grant.id) : false;
   summary.rescan = rescan;
   const days = rescan ? ctx.backfillDays : ctx.days;
-  const ids = await gmail.listMessageIds(statementQuery(days, ctx.domains), rescan ? 200 : 50, ctx.access, ctx.fetch);
+  /* Gmail calls use ctx.gmailFetch when the worker gives one (it counts the
+     units, reader-budget Phase 0); ctx.fetch stays for everything else,
+     including the model call below. Overriding ctx.fetch instead would count
+     Gemini requests as Gmail units. */
+  const gfetch = ctx.gmailFetch || ctx.fetch;
+  const ids = await gmail.listMessageIds(statementQuery(days, ctx.domains), rescan ? 200 : 50, ctx.access, gfetch);
   summary.listed = ids.length;
 
   // Throws when unreachable, on purpose (see db.statementKnown).
@@ -207,7 +212,7 @@ export async function runStatementLane(grant, ctx) {
   let limited = false;
 
   for (const id of work) {
-    const message = await gmail.getMessage(id, ctx.access, ctx.fetch, mailtext);
+    const message = await gmail.getMessage(id, ctx.access, gfetch, mailtext);
     if (!message) continue;                                            // deleted between list and get
     const sender = senders.match(message.from, ctx.domains);
     if (!sender) continue;                                             // the list query is a filter, this is the check
@@ -253,7 +258,7 @@ export async function runStatementLane(grant, ctx) {
 
     for (const file of files) {
       if (file.size > STATEMENT_MAX_BYTES) { summary.tooLarge++; continue; }
-      const bytes = await gmail.getAttachment(id, file.attachmentId, ctx.access, ctx.fetch);
+      const bytes = await gmail.getAttachment(id, file.attachmentId, ctx.access, gfetch);
       if (!bytes || !bytes.length) continue;
       if (bytes.length > STATEMENT_MAX_BYTES) { summary.tooLarge++; continue; }
 

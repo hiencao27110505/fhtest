@@ -49,7 +49,7 @@ import * as llm from './llm.mjs';
  *  because "which code is actually deployed" once cost hours of guessing; this
  *  worker had no equivalent, and answering that question is exactly what made
  *  the 28 Aug incident review slow. Bump on any deploy. */
-export const BUILD_ID = '2026-09-22-email-reading-v2-parking';
+export const BUILD_ID = '2026-09-27-body-first';
 
 /** How many PARKED messages one run re-reads after its window (email-reading-v2
  *  §10.4), oldest hold first, inside the same model budget. Twenty: the slow
@@ -437,6 +437,64 @@ function _rateLimited(e) {
  *  The lease is optional: a ctx whose db does not offer it (every existing
  *  test, and any caller from before 0145) runs exactly as before. */
 export async function runGrant(grant, ctx) {
+  const startedAt = Date.now();
+  let out;
+  try {
+    out = await _runGrantLeased(grant, ctx);
+  } catch (e) {
+    /* A run that throws still spent time (and maybe Gmail units we can no
+       longer see): record that it happened, so its minutes do not show up as
+       the next run's idle gap, then let the caller handle the throw as before. */
+    await _recordRead(ctx, grant, { status: 'error' }, startedAt);
+    throw e;
+  }
+  await _recordRead(ctx, grant, out, startedAt);
+  return out;
+}
+
+/* ONE ROW PER READ (reader-budget Phase 0; mailbox_reads). Every run of a
+   mailbox that is still on its first read (or a widening) adds what it did to
+   that read's row: how long, how many Gmail units per lane, whether Google said
+   slow down, what it staged and when the first row landed. The row has no key
+   to the grant, so it outlives a disconnect; before this, a deleted grant took
+   its read's timing with it and 9 of 15 reads could not be measured.
+
+   Counts only: no address, no subject, no message id. Best-effort: a read that
+   cannot be recorded is still a read, so nothing here may fail a run. An
+   ordinary poll (backfilled_at set) is not a read and writes nothing. */
+async function _recordRead(ctx, grant, out, startedAt) {
+  if (!out || grant.backfilled_at || !ctx.db.recordReadRun) return;
+  try {
+    await ctx.db.recordReadRun(grant.id, {
+      requested_at: grant.backfill_requested_at || null,
+      window_days: Number(grant.backfill_days) || BACKFILL_DAYS,
+      kind: grant.backfilled_days ? 'widen' : 'first',
+      started_at: new Date(startedAt).toISOString(),
+      ended_at: new Date().toISOString(),
+      busy: out.status === 'busy',
+      status: out.status || null,
+      units: out.units || null,
+      gmail_limited: out.gmailLimited || 0,
+      listed: out.fetched || 0,
+      junk: out.junk || 0,
+      personal: out.personal || 0,
+      staged: out.staged || 0,
+      notices: out.notices || 0,
+      parked: out.parked || 0,
+      given_up: out.givenUp || 0,
+      model_calls: ctx.budget && ctx.budget.used ? ctx.budget.used() : 0,
+      txn_in_promotions: out.txnInPromotions || 0,
+      junk_in_promotions: out.junkInPromotions || 0,
+      first_staged_at: out.firstStagedAt || null,
+      finished: !!out.finishedBackfill,
+      build: ctx.build || BUILD_ID,
+    });
+  } catch (e) {
+    try { console.error('mailbox read not recorded', grant.id, (e && e.message) || e); } catch (_e) {}
+  }
+}
+
+async function _runGrantLeased(grant, ctx) {
   if (!ctx.db.takeMailboxLease) return _runGrantLocked(grant, ctx);
 
   let lease = null;
@@ -486,9 +544,20 @@ async function _runGrantLocked(grant, ctx) {
     }
   };
   const _baseFetch = ctx.fetch || globalThis.fetch;
-  const pacedFetch = async (u, init) => {
+  /* EVERY GMAIL UNIT IS COUNTED, BY LANE (reader-budget Phase 0). Before this
+     a run's spend existed only inside the pacer and died with the run, so no
+     read could say where its minutes went. Prices are Google's (checked
+     2026-09-27): a message or an attachment 20, a list page 5. The statement
+     lane is COUNTED but not paced (pace false), exactly as before this change;
+     putting it under the budget is Phase 1's job, not this one's. */
+  const units = { list: 0, header: 0, body: 0, full: 0, slow: 0, statement: 0, other: 0 };
+  const laneFetch = (lane, pace) => async (u, init) => {
     const s = String(u);
-    if (s.indexOf('gmail.googleapis.com') >= 0) await _spend(s.indexOf('/messages/') >= 0 ? 20 : 5);
+    if (s.indexOf('gmail.googleapis.com') >= 0) {
+      const cost = s.indexOf('/messages/') >= 0 ? 20 : 5;
+      if (pace !== false) await _spend(cost);
+      units[lane] = (units[lane] || 0) + cost;
+    }
     return _baseFetch(u, init);
   };
 
@@ -500,6 +569,11 @@ async function _runGrantLocked(grant, ctx) {
        mail recorded as not worth retrying on this build; notices: rows staged
        with row_kind 'notice' (never counted in `staged`, never notified). */
     parked: 0, retried: 0, givenUp: 0, notices: 0,
+    /* reader-budget Phase 0: what _recordRead writes to mailbox_reads. `units`
+       is this run's live counter object; gmailLimited counts Google's
+       slow-downs (429 / 403 rate) this run met. */
+    units, gmailLimited: 0, junk: 0, personal: 0,
+    txnInPromotions: 0, junkInPromotions: 0, firstStagedAt: null,
   };
 
   // Resolved BEFORE any mail is fetched. A mailbox whose family has no staging
@@ -680,7 +754,8 @@ async function _runGrantLocked(grant, ctx) {
      statement may ever cost a transaction its run. */
   let statementIds = new Set();
   try {
-    const lane = await runStatementLane(grant, { ...ctx, access, domains, days, backfillDays, spendModel });
+    const lane = await runStatementLane(grant, { ...ctx, access, domains, days, backfillDays, spendModel,
+      gmailFetch: laneFetch('statement', false) });
     summary.statements = lane.summary;
     statementIds = lane.messageIds;
   } catch (e) {
@@ -697,10 +772,10 @@ async function _runGrantLocked(grant, ctx) {
     ids = await gmail.listMessageIds(
       query,
       ctx.listMax ?? (backfilling ? BACKFILL_LIST_MAX : LIST_MAX_PER_RUN),
-      access, pacedFetch);
+      access, laneFetch('list'));
   } catch (e) {
     // Quota before anything was read: nothing to keep, try again next tick.
-    if (_rateLimited(e)) return { ...summary, status: 'held', reason: 'gmail_rate_limited' };
+    if (_rateLimited(e)) return { ...summary, gmailLimited: summary.gmailLimited + 1, status: 'held', reason: 'gmail_rate_limited' };
     throw e;
   }
   summary.fetched = ids.length;
@@ -747,6 +822,28 @@ async function _runGrantLocked(grant, ctx) {
   const fresh = allFresh.slice(0, perRun);
   const moreQueued = allFresh.length > fresh.length;
   summary.queued = allFresh.length - fresh.length;
+
+  /* BODY FIRST (2026-09-27; senders.pickBodyFirst has the rule and the why).
+     A list returns bare ids, so the only way to know a message is from a
+     body-first sender BEFORE fetching it is to list those senders on their own:
+     one more list over the same window and position, 5 units a page, and an
+     id it returns skips the 20-unit header fetch. Intersected with `fresh`, so
+     it can only change how a message is fetched, never add one. Any failure
+     leaves the set empty: the header pass for everything, as before. */
+  const direct = new Set();
+  if (fresh.length && ctx.db.bodyFirstSenders) {
+    try {
+      const q = senders.sendersQuery(days, await ctx.db.bodyFirstSenders());
+      if (q) {
+        const inFresh = new Set(fresh);
+        const scoped = await gmail.listMessageIds(
+          q + (cursorMs ? ' before:' + Math.floor(cursorMs / 1000) : ''),
+          ctx.listMax ?? (backfilling ? BACKFILL_LIST_MAX : LIST_MAX_PER_RUN),
+          access, laneFetch('list'));
+        for (const id of scoped) if (inFresh.has(id)) direct.add(id);
+      }
+    } catch (e) { direct.clear(); }
+  }
 
   /* The fingerprint cache for this whole window, warmed in one query, filled in
      as messages arrive. Senders are only known once a message is fetched, so
@@ -833,12 +930,17 @@ async function _runGrantLocked(grant, ctx) {
        a template (never gated) or an unknown fingerprint (never gated). A
        table-readable shape that has not yet graduated is delayed at most one
        run — hitLimit holds the cursor, next run's fresh budget funds it. */
+  const headerFetch = laneFetch('header');
+  const bodyFetch = laneFetch('body');
   const _metaChunk = (slice) => _pooled(slice, lanes, async (id) => {
-    try { return { id, meta: await gmail.getMessageMetadata(id, access, pacedFetch) }; }
+    try { return { id, meta: await gmail.getMessageMetadata(id, access, headerFetch) }; }
     catch (e) { return { id, error: e }; }
   });
+  /* Body-first messages count on their own lane (u_full in mailbox_reads), so
+     units per staged row can be compared before and after. */
+  const fullFetch = laneFetch('full');
   const _fetchBodies = (slice) => _pooled(slice, lanes, async (id) => {
-    try { return { id, message: await gmail.getMessage(id, access, pacedFetch, mailtext) }; }
+    try { return { id, message: await gmail.getMessage(id, access, direct.has(id) ? fullFetch : bodyFetch, mailtext) }; }
     catch (e) { return { id, error: e }; }
   });
   const _senderKey = (from) => {
@@ -949,7 +1051,18 @@ async function _runGrantLocked(grant, ctx) {
         if (retry) await ctx.db.clearMessageHold?.(grant.id, id);
         return 'notice';
       }
-      if (read.reason === 'not_a_transaction') { summary.skipped++; if (retry) await ctx.db.clearMessageHold?.(grant.id, id); return 'skipped'; }
+      if (read.reason === 'not_a_transaction') {
+        summary.skipped++;
+        if (read.personalSender) summary.personal++;
+        /* An exact junk shape the header pass would have counted, met on the
+           body instead because its sender goes body first. */
+        if (direct.has(id) && 'senderWide' in read && !read.senderWide) {
+          summary.junk++;
+          if (message.labelIds && message.labelIds.indexOf('CATEGORY_PROMOTIONS') >= 0) summary.junkInPromotions++;
+        }
+        if (retry) await ctx.db.clearMessageHold?.(grant.id, id);
+        return 'skipped';
+      }
       /* One mail, several transactions (a broker's daily order summary). Not a
          failure and not junk: given up on at once (record_message_hold, cap 1),
          because waiting does not turn it into one transaction; only a better
@@ -1030,6 +1143,8 @@ async function _runGrantLocked(grant, ctx) {
         return 'staged';
       }
       summary.staged++;
+      if (!summary.firstStagedAt) summary.firstStagedAt = new Date().toISOString();
+      if (message.labelIds && message.labelIds.indexOf('CATEGORY_PROMOTIONS') >= 0) summary.txnInPromotions++;
       if (retry) await ctx.db.clearMessageHold?.(grant.id, id);   // read after all: forget the attempts
       /* Newest staged row wins the notification's voice. Gmail lists newest
          first but a widened window can interleave, so compare on the bank's
@@ -1047,10 +1162,29 @@ async function _runGrantLocked(grant, ctx) {
     return 'staged';
   };
 
+  /* Tops up the fingerprint cache for these From headers, one query for the
+     senders not loaded yet. A failure falls back to per-message lookups. */
+  const _warm = async (froms) => {
+    if (!ctx.db.fingerprintsForSenders) return;
+    const need = [];
+    for (const f of froms) {
+      const a = f && _senderKey(f);
+      if (a && !warmFingerprints.has(a + '\u0000__loaded') && need.indexOf(a) < 0) need.push(a);
+    }
+    if (!need.length) return;
+    try {
+      const got = await ctx.db.fingerprintsForSenders(need);
+      for (const [k, v] of got) warmFingerprints.set(k, v);
+      for (const a of need) warmFingerprints.set(a + '\u0000__loaded', true);
+    } catch { /* fall back to per-message lookups */ }
+  };
+
   const chunks = [];
   for (let i = 0; i < fresh.length; i += lanes) chunks.push(fresh.slice(i, i + lanes));
 
-  let inflight = chunks.length ? _metaChunk(chunks[0]) : null;
+  /* Only headers are fetched ahead; a body-first id waits for the body fetch. */
+  const _headed = (chunk) => chunk.filter((id) => !direct.has(id));
+  let inflight = chunks.length ? _metaChunk(_headed(chunks[0])) : null;
 
   for (let c = 0; c < chunks.length; c++) {
     if (rateLimited) break;    // Gmail said slow down; every further fetch spends quota
@@ -1066,24 +1200,11 @@ async function _runGrantLocked(grant, ctx) {
     const metas = (await inflight) || [];
     // Next chunk's HEADERS download while this one is classified and read.
     const more = c + 1 < chunks.length;
-    inflight = more ? _metaChunk(chunks[c + 1]) : null;
+    inflight = more ? _metaChunk(_headed(chunks[c + 1])) : null;
 
     /* One fingerprint query for this chunk's senders — now BEFORE any body is
        paid for, because classification is what the warm cache is for. */
-    if (ctx.db.fingerprintsForSenders) {
-      const need = [];
-      for (const g of metas) {
-        const a = g.meta && _senderKey(g.meta.from);
-        if (a && !warmFingerprints.has(a + '\u0000__loaded')) need.push(a);
-      }
-      if (need.length) {
-        try {
-          const got = await ctx.db.fingerprintsForSenders(need);
-          for (const [k, v] of got) warmFingerprints.set(k, v);
-          for (const a of need) warmFingerprints.set(a + '\u0000__loaded', true);
-        } catch { /* fall back to per-message lookups */ }
-      }
-    }
+    await _warm(metas.map((g) => g.meta && g.meta.from));
 
     /* Classify on headers. Everything that keeps its slot goes to the body
        fetch; everything else is settled for the price of its headers. Errors
@@ -1114,6 +1235,8 @@ async function _runGrantLocked(grant, ctx) {
         // before the body. Same tally stage as before — it means "answered by
         // the junk cache", and it just got 20KB cheaper.
         summary.skipped++;
+        summary.junk++;
+        if (meta.labelIds && meta.labelIds.indexOf('CATEGORY_PROMOTIONS') >= 0) summary.junkInPromotions++;
         await ctx.db.bumpReadTally?.('junk_cache');
         continue;
       }
@@ -1161,18 +1284,32 @@ async function _runGrantLocked(grant, ctx) {
       keep.push(g);
     }
 
-    const fetched = await _fetchBodies(keep.map((g) => (g.error ? g : g.id)).filter((x) => typeof x === 'string'));
+    /* Bodies for what the header pass kept AND for this chunk's body-first
+       ids, in the chunk's own order, so decisions stay in message order. */
+    const kept = new Map(keep.map((g) => [g.id, g]));
+    const toBody = chunks[c].filter((id) => direct.has(id) || (kept.has(id) && !kept.get(id).error));
+    const fetched = await _fetchBodies(toBody);
     // Re-thread metadata-stage errors into position among the fetched results.
     const byId = new Map(fetched.map((f) => [f.id, f]));
-    const batchOrdered = keep.map((g) => (g.error ? g : (byId.get(g.id) || { id: g.id, message: null })));
+    // Body-first senders were never seen by the header pass's warm-up.
+    await _warm(fetched.filter((f) => direct.has(f.id) && f.message).map((f) => f.message.from));
+    const batchOrdered = [];
+    for (const id of chunks[c]) {
+      if (direct.has(id)) { summary.bodyFirst = (summary.bodyFirst || 0) + 1; batchOrdered.push(byId.get(id) || { id, message: null }); }
+      else if (kept.has(id)) { const g = kept.get(id); batchOrdered.push(g.error ? g : (byId.get(id) || { id, message: null })); }
+    }
 
     for (const got of batchOrdered) {
     const id = got.id;
     outcome.set(id, 'done');
+    /* A body-first message never had headers fetched: the position (0136)
+       takes its time from the body, which carries the same internalDate. */
+    if (got.message && got.message.internalDate && !atOf.has(id)) atOf.set(id, got.message.internalDate);
     if (got.error) {
       if (_rateLimited(got.error)) {
         outcome.set(id, 'held');
         summary.held++;
+        summary.gmailLimited++;
         hitLimit = true;
         rateLimited = true;
         continue;
@@ -1199,8 +1336,8 @@ async function _runGrantLocked(grant, ctx) {
       if (modelOff()) break;
       if (Date.now() - _runStartedAt > _runBudgetMs) break;
       let message;
-      try { message = await gmail.getMessage(id, access, pacedFetch, mailtext); }
-      catch (e) { if (_rateLimited(e)) { rateLimited = true; break; } continue; }   // stays parked; next run
+      try { message = await gmail.getMessage(id, access, laneFetch('slow'), mailtext); }
+      catch (e) { if (_rateLimited(e)) { rateLimited = true; summary.gmailLimited++; break; } continue; }   // stays parked; next run
       summary.retried++;
       if (!message) { await ctx.db.clearMessageHold?.(grant.id, id); continue; }    // gone from the mailbox: nothing to wait for
       await readOne(id, message, true);
@@ -1318,6 +1455,7 @@ async function _runGrantLocked(grant, ctx) {
   summary.stalledRuns = stalledRuns;
 
   const finishedBackfill = backfilling && !hitLimit && !moreQueued;
+  summary.finishedBackfill = finishedBackfill;   // read by _recordRead
   /* A backfill that has stopped making progress is allowed to speak once, so
      the person is not left with a full queue and silence. It is still NOT
      marked finished: `backfilled_at` is untouched above, the stragglers keep

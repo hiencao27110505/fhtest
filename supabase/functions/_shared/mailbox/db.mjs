@@ -23,13 +23,14 @@
    two copies of a cache-keying version is how they drift. */
 import { EXTRACTION_LOGIC_VERSION } from './templates.mjs';
 import { seedFor, seedFormats, isSeed } from './formats.mjs';
+import { pickBodyFirst } from './senders.mjs';
 
 export const MAX_GRANTS_PER_RUN = 25;
 
 /* The columns every grant read selects. ONE list, because three copies drifted
    before (statementRescanOwed says why it refused to join them). `reader_v`
    (0147) rides here since 2026-09-22: worker and ingest read it off the grant. */
-const GRANT_COLUMNS = 'id,user_id,member_id,family_id,provider,email,refresh_token_enc,scopes,needs_reauth,history_id,last_synced_at,backfilled_at,connected_at,default_scope,backfill_days,stalled_runs,first_stalled_at,backfill_before,backfill_started_at,reader_v';
+const GRANT_COLUMNS = 'id,user_id,member_id,family_id,provider,email,refresh_token_enc,scopes,needs_reauth,history_id,last_synced_at,backfilled_at,connected_at,default_scope,backfill_days,stalled_runs,first_stalled_at,backfill_before,backfill_started_at,reader_v,backfill_requested_at,backfilled_days';
 
 /* The fingerprint row as the reader needs it. `model_reads` and
    `model_read_build` (0147) are what "one model read per format per build"
@@ -282,6 +283,17 @@ export function createDb(url, serviceKey, fetchImpl, opts) {
         method: 'PATCH',
         body: JSON.stringify({ needs_reauth: true, updated_at: new Date().toISOString() }),
       });
+    },
+
+    /**
+     * One run's share of a read, added to its mailbox_reads row (reader-budget
+     * Phase 0). The row is found or opened by (grant, requested_at) inside the
+     * RPC, so two runs racing on the first minute cannot open two rows, and all
+     * the arithmetic (idle gaps, first row, closing on finish) happens in one
+     * statement rather than as read-modify-write from here.
+     */
+    async recordReadRun(grantId, run) {
+      return rpc('record_read_run', { p_grant: grantId, p_run: run });
     },
 
     /**
@@ -601,6 +613,19 @@ export function createDb(url, serviceKey, fetchImpl, opts) {
         const keep = new Set((parse || []).map(r => String(r.sender_address || '').toLowerCase()));
         return [...new Set(wide.map(r => String(r.sender_address || '').toLowerCase()))]
           .filter(a => a && !keep.has(a));
+      } catch {
+        return [];
+      }
+    },
+
+    /* Senders whose mail goes straight to the body fetch (senders.pickBodyFirst
+       has the rule). One read of the learned shapes per run, a few hundred
+       rows. Any failure returns [] and the run keeps the header pass for
+       everything, which is only slower, never wrong. */
+    async bodyFirstSenders() {
+      try {
+        const rows = await rest('/sender_fingerprints?select=sender_address,subject_template,is_transaction_source,extraction_regex&subject_template=neq.*');
+        return pickBodyFirst(rows || []);
       } catch {
         return [];
       }

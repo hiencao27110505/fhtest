@@ -547,6 +547,49 @@ export function inboxQuery(days, extra, opts) {
   return fromGroup + notPromo + notSkipped + ' newer_than:' + Math.max(1, Math.floor(days)) + 'd';
 }
 
+/** BODY FIRST (2026-09-27). Senders whose mail skips the header pass.
+ *
+ *  A `messages.get` costs 20 units whatever format is asked for, so the header
+ *  pass saves bytes, never quota: for a transaction it is a second 20-unit get
+ *  to learn what the body says anyway. Two 365-day reads that day ran flat at
+ *  ~60 rows a minute against the 4,500-unit pacer, and that pass was half of it.
+ *
+ *  A sender qualifies on its LEARNED shapes (sender_fingerprints rows, the '*'
+ *  sentinel not counted): at least one template, and at least as many
+ *  transaction shapes as junk ones. Junk from it still costs only the 20 units
+ *  its headers would have; the rule just keeps promo-heavy senders from paying
+ *  for bodies they throw away. Capped like SKIP_MAX, because the list is a URL. */
+export const BODY_FIRST_MAX = 25;
+
+export function pickBodyFirst(rows) {
+  const by = new Map();
+  for (const r of rows || []) {
+    if (!r || r.subject_template === '*') continue;
+    const a = String(r.sender_address || '').trim().toLowerCase();
+    if (!a || a.indexOf('@') < 0 || a.indexOf(' ') >= 0 || a.indexOf('"') >= 0) continue;
+    const s = by.get(a) || { a, txn: 0, tmpl: 0, junk: 0 };
+    if (r.is_transaction_source === true) {
+      s.txn++;
+      if (typeof r.extraction_regex === 'string' && r.extraction_regex) s.tmpl++;
+    } else if (r.is_transaction_source === false) s.junk++;
+    by.set(a, s);
+  }
+  return [...by.values()]
+    .filter(s => s.tmpl > 0 && s.txn >= s.junk)
+    .sort((x, y) => (y.tmpl - x.tmpl) || (x.a < y.a ? -1 : 1))
+    .slice(0, BODY_FIRST_MAX)
+    .map(s => s.a);
+}
+
+/** The list query for those senders, over the same window. Null when there are
+ *  none, so the caller spends no list call at all. */
+export function sendersQuery(days, addresses) {
+  const list = [...new Set((addresses || []).map(a => String(a || '').trim().toLowerCase())
+    .filter(a => a && a.indexOf('@') > 0 && a.indexOf(' ') < 0 && a.indexOf('"') < 0))].slice(0, BODY_FIRST_MAX);
+  if (!list.length) return null;
+  return '(' + list.map(a => 'from:' + a).join(' OR ') + ') newer_than:' + Math.max(1, Math.floor(days)) + 'd';
+}
+
 /* `WALLETS` here is still EVERY non-bank, non-receipt domain, as it was before
    the split: tools/pull-mail-corpus.mjs and tools/scoreboard/run.mjs walk these
    groups to know which domains the registry covers, and a caller reading

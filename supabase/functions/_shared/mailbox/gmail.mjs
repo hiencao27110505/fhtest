@@ -147,6 +147,11 @@ export async function getMessage(id, token, fetchImpl, mailtext) {
     subject: headers.subject || '',
     date: headers.date || '',
     internalDate: data.internalDate ? Number(data.internalDate) : null,
+    /* Gmail's own label ids (CATEGORY_PROMOTIONS, INBOX, user labels). Metadata,
+       not content: kept so a read can COUNT how much of what it stages Gmail
+       filed as a promotion, which decides whether category listing is ever safe
+       to use (reader-budget Phase 0). Never stored, never sent anywhere. */
+    labelIds: Array.isArray(data.labelIds) ? data.labelIds : [],
     headers,
     body: mailtext.toText(mailtext.decodeBase64Url(_bodyData(payload))),
     /* The HTML part AS MARKUP, when the mail has one (email-reading-v2 §8.1 step
@@ -199,6 +204,7 @@ export async function getMessageMetadata(id, token, fetchImpl) {
     subject: headers.subject || '',
     date: headers.date || '',
     internalDate: data.internalDate ? Number(data.internalDate) : null,
+    labelIds: Array.isArray(data.labelIds) ? data.labelIds : [],   // see getMessage
     headers,
     body: null,
     dkim: dkimVerdict(headers, headers.from || ''),

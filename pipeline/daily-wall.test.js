@@ -107,7 +107,7 @@ console.log('\n-- 5. priority when short: statements and classification stand do
   t('statement.mjs asks the worker\'s gate before a verdict, and treats no as "decide next run"',
     /ctx\.spendModel && !\(await ctx\.spendModel\('statement'\)\)\) \{ summary\.undecided\+\+; limited = true; continue; \}/.test(src));
   const w = await import('node:fs').then((fs) => fs.readFileSync(new URL('../supabase/functions/_shared/mailbox/worker.mjs', import.meta.url), 'utf8'));
-  t('the worker hands the lane that gate', /runStatementLane\(grant, \{ \.\.\.ctx, access, domains, days, backfillDays, spendModel \}\)/.test(w));
+  t('the worker hands the lane that gate', /runStatementLane\(grant, \{ \.\.\.ctx, access, domains, days, backfillDays, spendModel[,\s}]/.test(w));
   t('...which refuses while extraction keeps fewer than statementMin', /kind === 'statement' && \(modelPaused \|\| \(ctx\.budget && ctx\.budget\.left\(\) < priority\.statementMin\)\)\) return false/.test(w));
 }
 
