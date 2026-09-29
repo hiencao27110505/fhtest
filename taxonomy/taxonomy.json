@@ -1,5 +1,5 @@
 {
- "version": 2,
+ "version": 3,
  "updated": "2026-09-29",
  "kinds": [
   {
@@ -1363,8 +1363,8 @@
    "kind": "expense",
    "parent": "shopping",
    "depth": 2,
-   "vi": "Sách & đồ sở thích",
-   "en": "Books & hobby goods",
+   "vi": "Sách, thể thao & sở thích",
+   "en": "Books, sports & hobby goods",
    "kw": [
     "sach",
     "fahasa"
@@ -1391,14 +1391,37 @@
    "kind": "expense",
    "parent": "hobbygoods",
    "depth": 3,
-   "vi": "Đồ sở thích & thể thao",
-   "en": "Hobby & sports gear",
+   "vi": "Đồ sở thích",
+   "en": "Hobby goods",
+   "kw": [
+    "may anh",
+    "nhac cu"
+   ],
+   "concept": "Shopping"
+  },
+  {
+   "code": "sportsgear",
+   "kind": "expense",
+   "parent": "hobbygoods",
+   "depth": 3,
+   "vi": "Đồ thể thao",
+   "en": "Sports gear",
    "kw": [
     "do the thao",
     "decathlon",
-    "may anh",
-    "nhac cu",
-    "supersports"
+    "supersports",
+    "mu boi",
+    "kinh boi",
+    "ao boi",
+    "quan boi",
+    "phao boi",
+    "vot cau long",
+    "vot tennis",
+    "vot pickleball",
+    "ta tay",
+    "tham yoga",
+    "day nhay",
+    "gang tay boxing"
    ],
    "concept": "Shopping"
   },
@@ -1521,47 +1544,50 @@
    "kind": "expense",
    "parent": "health",
    "depth": 2,
-   "vi": "Thể dục & thể thao",
-   "en": "Fitness",
+   "vi": "Thể dục & vận động",
+   "en": "Fitness & activity",
    "kw": [
-    "gym",
     "the thao"
    ],
-   "concept": "Others"
+   "concept": "Fun"
   },
   {
    "code": "gym",
    "kind": "expense",
    "parent": "fitness",
    "depth": 3,
-   "vi": "Gym & phòng tập",
-   "en": "Gym",
+   "vi": "Phòng tập, yoga & lớp",
+   "en": "Gym, yoga & classes",
    "kw": [
     "gym",
     "phong tap",
     "yoga",
+    "huan luyen vien",
     "california",
     "citigym",
     "fitness",
     "elite fitness"
    ],
-   "concept": "Others"
+   "concept": "Fun"
   },
   {
    "code": "sports",
    "kind": "expense",
    "parent": "fitness",
    "depth": 3,
-   "vi": "Sân bãi & thể thao",
-   "en": "Sports & courts",
+   "vi": "Sân bãi thể thao",
+   "en": "Sports venues",
    "kw": [
     "san bong",
-    "cau long",
-    "pickleball",
-    "boi",
-    "tennis"
+    "san cau long",
+    "san tennis",
+    "san pickleball",
+    "san co nhan tao",
+    "be boi",
+    "ho boi",
+    "pickleball"
    ],
-   "concept": "Others"
+   "concept": "Fun"
   },
   {
    "code": "beauty",

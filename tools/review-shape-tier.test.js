@@ -77,6 +77,13 @@ console.log('\n-- the three gates below the cascade, sliced whole from 56 --');
 }
 
 console.log('\n-- the sweep looks again --');
-t('the backfill cursor moved with the rule (E10): v10', /fh-tree-bf:v10:/.test(rd('src/js-data/28-tree-backfill.js')) && !/fh-tree-bf:v9:/.test(rd('src/js-data/28-tree-backfill.js')));
+/* E10's rule is "the cursor moved past v9 when the shape tier landed", not "it
+   is forever v10" — a later rule change (the 2026-09-29 sport split) bumps it
+   again and must not fail this. */
+t('the backfill cursor moved with the rule (E10)', (function () {
+  const bf = rd('src/js-data/28-tree-backfill.js');
+  const vs = [...new Set((bf.match(/fh-tree-bf:v(\d+):/g) || []))];
+  return vs.length === 1 && Number(vs[0].match(/v(\d+):/)[1]) >= 10;
+})());
 
 console.log('\n'+(fail?fail+' FAILED, ':'ALL ')+pass+' PASSED'); process.exit(fail?1:0);

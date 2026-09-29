@@ -142,7 +142,9 @@ console.log('\n-- three children under p2p, client-assignable only (P3) --');
   t('p2p has exactly split · payback · onbehalf · regular', JSON.stringify(kids)===JSON.stringify(['onbehalf','payback','regular','split']), kids);
   const nw=tax.nodes.filter(n=>['payback','onbehalf','regular'].includes(n.code));
   t('the new children carry no keywords: no worker tier can ever emit them (no redeploy needed)', nw.every(n=>!n.kw) && nw.every(n=>n.depth===2 && n.kind==='expense'), nw);
-  t('taxonomy version bumped to 2, dated 2026-09-29', tax.version===2 && tax.updated==='2026-09-29', [tax.version,tax.updated]);
+  /* The rule is "the tree version moved when the tree changed" — not "it is
+     forever 2". The sport split bumped it to 3 on the same day. */
+  t('taxonomy version bumped when the tree changed', tax.version>=2 && tax.updated==='2026-09-29', [tax.version,tax.updated]);
   const gen=rd('src/js-ui/11-taxonomy.js');
   t('the generated client tree carries them', /"payback"/.test(gen) && /"onbehalf"/.test(gen) && /"regular"/.test(gen));
 }

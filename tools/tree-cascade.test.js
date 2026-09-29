@@ -144,8 +144,11 @@ console.log('\n-- the guess, and what a label may contribute --');
     P.fhNodeGuess({ note: 'xxx', labelClaims: ['eatout', 'tuition'] }));
   /* The rule the SUPERSPORTS bug broke: a merchant the tree knows outranks the
      label, even when the label says something else. */
+  /* SUPERSPORTS is a sports retailer, so it answers `sportsgear` since the
+     2026-09-29 split — the rule under test is unchanged: the merchant the tree
+     knows outranks the label. */
   t('evidence outranks a disagreeing label',
-    P.fhNodeGuess({ note: 'QR2CK3U3TT SUPERSPORTS', labelClaims: ['food'] }) === 'hobby',
+    P.fhNodeGuess({ note: 'QR2CK3U3TT SUPERSPORTS', labelClaims: ['food'] }) === 'sportsgear',
     P.fhNodeGuess({ note: 'QR2CK3U3TT SUPERSPORTS', labelClaims: ['food'] }));
   t('a repayment never guesses (it inherits its loan)', P.fhNodeGuess({ kind: 'repayment', note: 'cafe' }) === null);
   /* (the siblings-first correction list is gone: the picker is the tree itself,
@@ -302,7 +305,13 @@ console.log('\n-- money that moved is not money that was spent --');
   t('the sweep asks the transfer shape before the guess',
     bf.indexOf('fhTransferShape') < bf.indexOf('guess = fhNodeGuess'));
   /* And the rules changing is worthless if the sweep still thinks it is done. */
-  t('the sweep cursor moved with the rules', /fh-tree-bf:v10:/.test(bf) && !/fh-tree-bf:v[1-9]:/.test(bf));
+  /* Version-agnostic on purpose: the rule is "exactly one cursor version, and
+     it is the current one" — pinning a literal made every later bump fail a
+     test that had nothing to say about the change. */
+  t('the sweep cursor moved with the rules', (function () {
+    const vs = [...new Set((bf.match(/fh-tree-bf:v(\d+):/g) || []).map((x) => x))];
+    return vs.length === 1 && Number(vs[0].match(/v(\d+):/)[1]) >= 11;
+  })());
 }
 
 console.log('\n-- who was paid: a seller leaves marks a friend does not --');
