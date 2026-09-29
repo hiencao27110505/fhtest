@@ -320,7 +320,10 @@ export const RECEIPT_SUBJECTS = Object.freeze({
   'shopeefood.vn': ['"đơn hàng"', '"E-Receipt"'],
   'foody.vn': ['"đơn hàng"', '"E-Receipt"'],
   'grab.com': ['"E-Receipt"', '"E-receipt"'],
-  'apple.com': ['"receipt from Apple"', '"hóa đơn"', '"hoá đơn"'],
+  // "Your receipt from Apple." AND "Your invoice from Apple." are the same
+  // kind of mail under two names — 11 of 19 Apple receipts in the corpus were
+  // invoice-titled and never fetched at all until 2026-09-29.
+  'apple.com': ['"receipt from Apple"', '"invoice from Apple"', '"hóa đơn"', '"hoá đơn"'],
   'tiki.vn': ['"đơn hàng"'],
   'lazada.vn': ['"đơn hàng"'],
 });

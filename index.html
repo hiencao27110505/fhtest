@@ -2552,6 +2552,8 @@ label.exd-photo.add{cursor:pointer}
 .pexd-rc-mrow.good span:last-child{color:var(--good)}
 .pexd-rc-mrow.strong{font-weight:650;color:var(--ink)}
 .pexd-rc-miss{font-size:12.5px;color:var(--muted-soft);padding:10px 14px}
+.pexd-rc-node{color:var(--brand-ink);font-weight:600}
+.pexd-rc-dot{margin:0 5px;opacity:.5}
 
 /* ---- collaborative reactions ----
    Inline chip (A), the Phòng khách wall (B), the picker + arrival + burst (C).
@@ -23104,11 +23106,21 @@ function _pexdReceiptHTML(rc){
   var head=[trim(rc.seller)||rc.provider, rc.order_id?('#'+rc.order_id):null].filter(Boolean);
   if(head.length) h+='<div class="pexd-rc-head">'+esc(head.join(' · '))+'</div>';
   items.forEach(function(it){
+    /* The per-item CATEGORY, which the blob has carried since the first
+       write and nothing ever showed. It is what the basket's own node was
+       voted from (deepest common ancestor), so seeing it is how a wrong
+       transaction category becomes explainable rather than mysterious. The
+       merchant's own words (Apple's "Drama · Movie Rental") ride behind it;
+       either may be absent. */
+    var nd = (it.node && typeof fhNodeShort==='function') ? fhNodeShort(it.node) : '';
+    var meta = '';
+    if(nd) meta += '<span class="pexd-rc-node">'+esc(nd)+'</span>';
+    if(it.variant) meta += (nd?'<span class="pexd-rc-dot">·</span>':'')+esc(it.variant);
     h+='<div class="pexd-rc-item"><div class="pexd-rc-main">'
       +'<span class="pexd-rc-name">'+((it.qty&&it.qty>1)?('<b>'+esc(it.qty)+' ×</b> '):'')+esc(it.name)+'</span>'
       +(it.unit_price!=null?'<span class="pexd-rc-amt num">'+esc(fmtD(it.unit_price))+'</span>':'')
       +'</div>'
-      +(it.variant?'<div class="pexd-rc-varline">'+esc(it.variant)+'</div>':'')
+      +(meta?'<div class="pexd-rc-varline">'+meta+'</div>':'')
       +'</div>';
   });
   /* The math, and ONLY what is not already on the screen. A single-item
@@ -26150,7 +26162,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v594';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v595';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',

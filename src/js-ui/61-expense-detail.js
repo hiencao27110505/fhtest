@@ -866,11 +866,21 @@ function _pexdReceiptHTML(rc){
   var head=[trim(rc.seller)||rc.provider, rc.order_id?('#'+rc.order_id):null].filter(Boolean);
   if(head.length) h+='<div class="pexd-rc-head">'+esc(head.join(' · '))+'</div>';
   items.forEach(function(it){
+    /* The per-item CATEGORY, which the blob has carried since the first
+       write and nothing ever showed. It is what the basket's own node was
+       voted from (deepest common ancestor), so seeing it is how a wrong
+       transaction category becomes explainable rather than mysterious. The
+       merchant's own words (Apple's "Drama · Movie Rental") ride behind it;
+       either may be absent. */
+    var nd = (it.node && typeof fhNodeShort==='function') ? fhNodeShort(it.node) : '';
+    var meta = '';
+    if(nd) meta += '<span class="pexd-rc-node">'+esc(nd)+'</span>';
+    if(it.variant) meta += (nd?'<span class="pexd-rc-dot">·</span>':'')+esc(it.variant);
     h+='<div class="pexd-rc-item"><div class="pexd-rc-main">'
       +'<span class="pexd-rc-name">'+((it.qty&&it.qty>1)?('<b>'+esc(it.qty)+' ×</b> '):'')+esc(it.name)+'</span>'
       +(it.unit_price!=null?'<span class="pexd-rc-amt num">'+esc(fmtD(it.unit_price))+'</span>':'')
       +'</div>'
-      +(it.variant?'<div class="pexd-rc-varline">'+esc(it.variant)+'</div>':'')
+      +(meta?'<div class="pexd-rc-varline">'+meta+'</div>':'')
       +'</div>';
   });
   /* The math, and ONLY what is not already on the screen. A single-item

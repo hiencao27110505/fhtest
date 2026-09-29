@@ -98,6 +98,28 @@ const APPLE_RECEIPT = [
   '49.000\u0111',
 ].join('\n');
 
+const APPLE_SUBSCRIPTION = [
+  // Apple's SECOND layout ("Your invoice from Apple."): labelled headers, the
+  // VENDOR as the section line, no TOTAL label at all, and prices written
+  // symbol-first. 11 of 19 Apple receipts in the corpus look like this and
+  // none was readable until 2026-09-29.
+  'Receipt', '',
+  '16 June 2026', '',
+  'Order ID:', '', 'MX7DGBV7YN', '',
+  'Document:', '', '732148239289', '',
+  'Apple Account:', '', 'test@example.com', '',
+  'YouTube', '',
+  'YouTube Premium (Monthly)', '',
+  'Renews 17 July 2026', '',
+  'iPhone HienCao', '',
+  '₫105.000', '',
+  'Billing and Payment', '',
+  'Ng V A', '',
+  '1 Duong X', 'Thanh pho Z 700000', 'Vietnam', '',
+  'MasterCard •••• 4751', '',
+  '₫105.000',
+].join('\n');
+
 const GRAB_RECEIPT = [
   'Your Grab E-Receipt',
   'Booking ID: ADR-8127364512',
@@ -182,11 +204,40 @@ const geminiFetch = (answer) => async (u, init) => {
   t('invoice date is day-only precision', ap._when && ap._when.iso.slice(0, 10) === '2026-09-28' && ap._when.precision === 'day', ap._when);
   t('service_type digital', ap.service_type === 'digital');
 
+  console.log('\n-- Apple layout B: the subscription invoice --');
+  const ab = R.readAppleReceipt(APPLE_SUBSCRIPTION, 'Your invoice from Apple.');
+  t('a mail with NO "TOTAL" label still yields what was charged', ab && ab.paid === 105000, ab && ab.paid);
+  t('the labelled order id reads', ab.order_id === 'MX7DGBV7YN', ab.order_id);
+  t('the bare date line reads when nothing labels it',
+    ab._when && ab._when.iso.slice(0, 10) === '2026-06-16', ab._when);
+  t('the VENDOR line is dropped: the name is the thing bought',
+    ab.items && ab.items.length === 1 && ab.items[0].name === 'YouTube Premium (Monthly)', ab.items);
+  t('its renewal and device ride as the variant',
+    /Renews 17 July 2026/.test(ab.items[0].variant), ab.items[0].variant);
+  t('symbol-first prices parse', ab.items[0].unit_price === 105000, ab.items[0].unit_price);
+  t('the billing ADDRESS is past the stop line and can never be an item',
+    JSON.stringify(ab.items).indexOf('Duong X') === -1 && JSON.stringify(ab.items).indexOf('Ng V A') === -1, ab.items);
+
   console.log('\n-- the Grab reader: minimal by construction --');
   const gr = R.readGrabReceipt(GRAB_RECEIPT, 'Your Grab E-Receipt');
   t('total and booking id', gr && gr.paid === 86000 && gr.order_id === 'ADR-8127364512', gr && [gr.paid, gr.order_id]);
   t('items are ALWAYS null', gr.items === null);
   t('paid-with tail', gr.paid_with_tail === '5913', gr.paid_with_tail);
+  const gp = R.readGrabReceipt([
+    'Car 6 chỗ ngồi', '', 'Picked up on 25 September 2026', '',
+    'Booking ID: A-9SJ7XNSWWVRKAV', '',
+    'Total Paid', '', '109.000 ₫', '',
+    'Breakdown', '', 'Fare', '', '121.000', '', 'Promo', '', '-12.000', '',
+    'Total Paid', '', '109.000', '',
+    'Your Trip', '', '451/10 Nguyen Trai St.', '',
+  ].join('\n'), 'Your Grab E-Receipt');
+  t('"Total Paid" over the figure reads as money, not as the word "Paid"',
+    gp && gp.paid === 109000, gp && gp.paid);
+  t('fare and promo balance against what was charged',
+    gp.items_total === 121000 && gp.discount === 12000 && gp.items_total - gp.discount === gp.paid,
+    [gp.items_total, gp.discount, gp.paid]);
+  t('a trip address never survives, even in the breakdown form',
+    JSON.stringify(gp).indexOf('Nguyen Trai') === -1 && gp.items === null, gp);
   t('no address survives', JSON.stringify(gr).indexOf('Pasteur') === -1 && JSON.stringify(gr).indexOf('443/') === -1, gr);
 
   console.log('\n-- readReceiptMail: the orchestrator --');
@@ -293,6 +344,9 @@ const geminiFetch = (answer) => async (u, init) => {
     SN.RECEIPT_DOMAINS.every((d) => qOn.indexOf('(from:' + d + ' subject:(') >= 0), qOn);
   t('on: the bank group is untouched', qOn.indexOf(qOff.split(' -from:')[0].replace(/^\(/, '')) >= 0
     || qOn.indexOf('from:mbbank') >= 0 || /from:/.test(qOn));
+  t('the Apple filter catches invoice-titled receipts too',
+    (SN.RECEIPT_SUBJECTS['apple.com'] || []).some(function (x) { return /invoice from Apple/i.test(x); }),
+    SN.RECEIPT_SUBJECTS['apple.com']);
   t('the Shopee filter catches the payment mail too, not only the delivery one',
     (SN.RECEIPT_SUBJECTS['shopee.vn'] || []).some(function (x) { return /thanh to/i.test(x); }),
     SN.RECEIPT_SUBJECTS['shopee.vn']);

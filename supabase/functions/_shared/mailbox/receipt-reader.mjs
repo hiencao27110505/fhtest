@@ -210,50 +210,104 @@ export function readShopeeReceipt(text) {
   };
 }
 
-/** Apple receipts: header blocks ("ORDER ID" over its value), then per
- *  storefront a run of item blocks — name, attribute lines, "Report a
- *  Problem", then the price on its own line — closed by "TOTAL" over the
- *  grand total. The attributes ("Thriller · Movie Rental · Hien's MacBook
- *  Pro") ride as the variant: they are the insight ("what kind of thing"). */
-const _APPLE_STORES = /^(Apple TV|App Store|iTunes Store|Apple Music|Apple Books|Apple Arcade|Apple One|Apple Fitness\+?|iCloud\+?|Apple Podcasts)$/i;
+/** Apple sends TWO layouts under three subject lines ("Your receipt from
+ *  Apple.", "Your invoice from Apple.", the Vietnamese "hoá đơn"), and both
+ *  are real receipts:
+ *
+ *    A — the purchase receipt. Unlabelled header blocks ("ORDER ID" over its
+ *        value), a storefront line ("Apple TV"), then per item a name, its
+ *        attribute lines, "Report a Problem", and the price; closed by
+ *        "TOTAL" over the grand total. Prices read "49.000đ".
+ *    B — the subscription invoice. Labelled headers ("Order ID:" over its
+ *        value), the VENDOR as the section line ("YouTube"), one item with
+ *        its renewal date and device, and NO "TOTAL" label at all — the
+ *        charged figure is simply the last price, printed after the card.
+ *        Prices read "₫105.000", symbol first.
+ *
+ *  Reading only A missed every invoice-titled mail (11 of 19 Apple receipts
+ *  in the 2026-09-29 corpus). One walk now covers both: groups end at a
+ *  price, header matter resets the group, and a leading vendor/storefront
+ *  line is dropped so the NAME is the thing bought. The attributes ride as
+ *  the variant — they are the insight ("Drama · Movie Rental").
+ *
+ *  The billing address can never reach an item: in A it sits between two
+ *  reset lines with no price after it, and in B it is past the stop line. */
+const _APPLE_STORES = /^(Apple TV|App Store|iTunes Store|Apple Music|Apple Books|Apple Arcade|Apple One|Apple Fitness\+?|iCloud\+?|Apple Podcasts|Apple News\+?)$/i;
+/* Lines that are header furniture, not item text. A group is cleared at each
+   one, so nothing above an item can ride into it. */
+const _APPLE_RESET = /^(APPLE ACCOUNT|BILLED TO|BILLING AND PAYMENT|ORDER ID|DOCUMENT NO\.?|DOCUMENT|INVOICE DATE|RECEIPT|INVOICE|H[OÓó]A ĐƠN)$/i;
+
+/** A standalone price cell, either way round: "49.000đ" or "₫105.000". */
+function _applePrice(ln) {
+  let m = ln.match(/^([\d.,]+)\s?[đ₫]$/);
+  if (!m) m = ln.match(/^[đ₫]\s?([\d.,]+)$/);
+  return m ? amt(m[1]) : null;
+}
+
+/** One item out of the lines that preceded a price. */
+function _appleItem(group, price, items) {
+  let g = group.filter(function (x) {
+    return !/^Report a Problem/i.test(x) && !/^Báo cáo/i.test(x) && !/^\d{6,}$/.test(x);
+  });
+  /* Drop a leading SECTION line: a known Apple storefront, or the vendor name
+     repeated above its own product ("YouTube" over "YouTube Premium
+     (Monthly)"). What is bought is the name; the shop is not. */
+  while (g.length > 1 && (_APPLE_STORES.test(g[0])
+         || (g[0].length <= 30 && g[1].toLowerCase().indexOf(g[0].toLowerCase()) === 0))) {
+    g = g.slice(1);
+  }
+  if (!g.length) return;
+  items.push({ name: g[0].slice(0, 200), qty: null, unit_price: price, line_discount: null,
+    variant: g.length > 1 ? g.slice(1).join(' · ').slice(0, 80) : null });
+}
+
 export function readAppleReceipt(text, subject) {
   const t = String(text || '');
-  if (!/receipt|invoice|h[o\u00f3]a \u0111\u01a1n/i.test(String(subject || '') + ' ' + t.slice(0, 400))) return null;
+  if (!/receipt|invoice|h[oó]a đơn/i.test(String(subject || '') + ' ' + t.slice(0, 400))) return null;
   const lines = _lines(t);
-  const priceLine = (ln) => ln.match(/^([\d.,]+\s?[\u0111\u20ab])$/);
-  const totalAt = lines.findIndex((ln) => /^(TOTAL|T\u1ed4NG|T\u1ed5ng c\u1ed9ng)$/i.test(ln) || /^(TOTAL|T\u1ed4NG)\b/.test(ln));
+
+  /* Where the items stop: the TOTAL label (A) or the billing block (B). */
+  const totalAt = lines.findIndex(function (ln) { return /^(TOTAL|TỔNG|Tổng cộng)$/i.test(ln); });
+  const billAt = lines.findIndex(function (ln) { return /^(Billing and Payment|Thanh toán)\b/i.test(ln); });
+  let stop = totalAt >= 0 ? totalAt : billAt;
+  if (stop < 0) stop = lines.length;
+
+  /* What was charged. After a TOTAL label it is the next price; with no such
+     label (B) it is the LAST price in the mail — the figure printed under the
+     card, after every line item. */
   let paid = null;
-  if (totalAt >= 0) for (let j = totalAt + 1; j < lines.length && j <= totalAt + 3; j++) {
-    const m = priceLine(lines[j] || ''); if (m) { paid = amt(m[1]); break; }
+  if (totalAt >= 0) {
+    for (let j = totalAt + 1; j < lines.length && j <= totalAt + 3; j++) {
+      const p = _applePrice(lines[j] || ''); if (p) { paid = p; break; }
+    }
+  }
+  if (paid == null) {
+    for (let j = lines.length - 1; j >= 0; j--) { const p = _applePrice(lines[j]); if (p) { paid = p; break; } }
   }
   if (!paid) return null;
 
-  const orderId = _findVal(lines, /^ORDER ID$/i) || _findVal(lines, /^M\u00e3 \u0111\u01a1n h\u00e0ng$/i)
-    || _findVal(lines, /^DOCUMENT NO\.?$/i);
-  const when = receiptWhen(_findVal(lines, /^(INVOICE DATE|Ng\u00e0y h[o\u00f3]a \u0111\u01a1n)$/i));
+  const orderId = _findVal(lines, /^ORDER ID$/i) || _findVal(lines, /^Order ID:/i)
+    || _findVal(lines, /^Mã đơn hàng:?$/i) || _findVal(lines, /^DOCUMENT NO\.?$/i);
+  /* The date is labelled in A and bare in B (the second line of the mail), so
+     fall back to the first line near the top that reads as one. */
+  let when = receiptWhen(_findVal(lines, /^(INVOICE DATE|Ngày h[oó]a đơn)$/i));
+  if (!when) {
+    for (let j = 0; j < lines.length && j < 10; j++) {
+      if (!lines[j] || _LABEL_RE.test(lines[j])) continue;
+      const w = receiptWhen(lines[j]);
+      if (w) { when = w; break; }
+    }
+  }
 
-  /* Item groups exist ONLY between a storefront header ("Apple TV",
-     "App Store", …) and the TOTAL line, and end at each standalone price.
-     Nothing before the first storefront is ever collected — that is where
-     the billing name and ADDRESS live, and the address rule is structural:
-     a cluster the walk never enters cannot leak into a variant. */
   const items = [];
-  let inItems = false, group = [];
-  for (let i = 0; i < totalAt; i++) {
+  let group = [];
+  for (let i = 0; i < stop; i++) {
     const ln = lines[i];
     if (!ln) continue;
-    if (_APPLE_STORES.test(ln)) { inItems = true; group = []; continue; }
-    if (!inItems) continue;
-    const pm = priceLine(ln);
-    if (pm) {
-      const g = group.filter((x) => !/^Report a Problem$/i.test(x) && !/^B\u00e1o c\u00e1o/i.test(x) && !/^\d{6,}$/.test(x));
-      if (g.length) {
-        items.push({ name: g[0].slice(0, 200), qty: null, unit_price: amt(pm[1]), line_discount: null,
-          variant: g.length > 1 ? g.slice(1).join(' \u00b7 ').slice(0, 80) : null });
-      }
-      group = [];
-      continue;
-    }
+    const p = _applePrice(ln);
+    if (p != null) { _appleItem(group, p, items); group = []; continue; }
+    if (_APPLE_RESET.test(ln) || _LABEL_RE.test(ln) || /@/.test(ln)
+        || /^(MasterCard|Visa|VISA|JCB|Amex|Thẻ)/i.test(ln)) { group = []; continue; }
     group.push(ln);
   }
 
@@ -266,23 +320,48 @@ export function readAppleReceipt(text, subject) {
 }
 
 /** Grab, MINIMAL BY CONSTRUCTION (spec §5): service, total, time, paid-with
- *  tail, booking id. Never items — Grab mail carries home addresses, and this
- *  reader has no code path that could emit one. Labels may be same-line or
- *  next-line; both forms are read. */
+ *  tail, booking id, and the fare/promo split — numbers only. NEVER items:
+ *  a Grab mail prints the pickup and drop-off STREET ADDRESSES a few lines
+ *  below the total, and this reader has no code path that could carry one.
+ *
+ *  Its total is labelled "Total Paid" over the figure, which a bare `^TOTAL`
+ *  pattern read as the word "Paid" (2026-09-29). */
 export function readGrabReceipt(text, subject) {
   const t = String(text || '');
   if (!/e-?receipt|grab/i.test(String(subject || '') + ' ' + t.slice(0, 200))) return null;
   const lines = _lines(t);
-  const paid = amt(_findVal(lines, /^(?:TOTAL(?:\s*\(VND\))?|T\u1ed5ng c\u1ed9ng|T\u1ed5ng thanh to\u00e1n)\s*:?/i))
-    || amt(labelled(t, /(?:TOTAL|T\u1ed5ng c\u1ed9ng|T\u1ed5ng thanh to\u00e1n)\s*(?:\(VND\))?\s*:?[\t ]*\n?\s*([\u20ab\u0111\d.,\s]+)/i));
+  /* The amount under a label line, wherever the label sits on it. */
+  const under = (re) => {
+    for (let i = 0; i < lines.length; i++) {
+      if (!re.test(lines[i])) continue;
+      const rest = lines[i].replace(re, '').replace(/^[:\s]+/, '').trim();
+      /* A discount prints as "-12.000"; every label here names a magnitude,
+         so the sign is presentation and the figure is what matters. */
+      const mag = (x) => amt(String(x == null ? '' : x).replace(/^-/, ''));
+      const here = mag(rest);
+      if (here != null) return here;
+      for (let j = i + 1; j < lines.length && j <= i + 2; j++) {
+        if (!lines[j]) continue;
+        const v = mag(lines[j]);
+        if (v != null) return v;
+        break;
+      }
+    }
+    return null;
+  };
+  const paid = under(/^(?:Total Paid|Tổng thanh toán|Tổng cộng|Total)\b\s*(?:\(VND\))?\s*:?/i);
   if (!paid) return null;
-  const booking = _findVal(lines, /^(?:Booking ID|M\u00e3 chuy\u1ebfn)\s*:?/i)
-    || labelled(t, /(?:Booking ID|M\u00e3 chuy\u1ebfn)\s*:?[\t ]*\n?\s*([A-Z]{1,4}-?[A-Z0-9-]{6,})/i);
-  const food = /grabfood|\u0111\u01a1n h\u00e0ng|delivery/i.test(t);
+  const fare = under(/^(?:Fare|Giá cước|Cước phí)\b/i);
+  const promo = under(/^(?:Promo|Khuyến mãi|Giảm giá)\b/i);
+  const booking = _tidyStr(_findVal(lines, /^(?:Booking ID|Mã chuyến)\s*:?/i));
+  const food = /grabfood|đơn hàng|delivery/i.test(t);
   const when = receiptWhen(labelled(t, /(\d{1,2}[\/\-\s](?:Th\s*0?\d{1,2}|[A-Za-z]{3,9}|\d{1,2})[\/\-\s]\d{4}[^\n]*)/));
   return {
-    service_type: food ? 'food' : 'ride', order_id: _tidyStr(booking), seller: null,
-    items: null, items_total: null, discount: null, shipping_fee: null,
+    service_type: food ? 'food' : 'ride', order_id: booking, seller: null,
+    items: null,
+    items_total: (fare != null && fare !== paid) ? fare : null,
+    discount: (promo != null && promo > 0) ? promo : null,
+    shipping_fee: null,
     paid, paid_with_tail: cardTail(t), _when: when,
   };
 }
