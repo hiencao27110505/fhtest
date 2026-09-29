@@ -203,6 +203,39 @@ function fhTreeTapExact(code) {
   else window.fhNodeSel = off ? null : key;
   fhTreeRepaint();
 }
+/* ── Transfers to people, by person (p2p-breakdown-spec P1, P2, P7) ──────────
+   The one node whose axis is WHO. Under "Chuyển cho người khác" the breakdown
+   lists the people the month's transfers went to — grouped on fhPersonKeyRow,
+   which is the lesson key, so a bulk "Tiêu vào gì" over a person teaches
+   exactly the lesson that will re-fire (P4). Offered on p2p ONLY (P2). A person
+   seen once is not a group (P7): singles stay as the node's own rows. */
+function fhTreePersonRows(rows) {
+  if (typeof fhPersonKeyRow !== 'function') return [];
+  var by = {};
+  (rows || []).forEach(function (r) {
+    var amt = Number(r.amt) || 0; if (amt <= 0 || !r.node || !FH_TAX.get(r.node)) return;
+    if (r.node !== 'p2p' && FH_TAX.ancestors(r.node).indexOf('p2p') < 0) return;
+    var key = fhPersonKeyRow(r); if (!key) return;
+    var g = by[key] || (by[key] = { key: key, name: '', n: 0, v: 0 });
+    g.n++; g.v += amt;
+    var nm = String(r.cp || r.counterparty || '').trim(); if (nm.length > g.name.length) g.name = nm;
+  });
+  var out = [];
+  Object.keys(by).forEach(function (k) {
+    var g = by[k]; if (g.n < 2) return;
+    if (typeof fhPersonRemember === 'function') fhPersonRemember(g.key, g.name);
+    out.push(g);
+  });
+  out.sort(function (a, b) { return b.v - a.v; });
+  return out;
+}
+function fhTreePersonTap(key) {
+  var k = '@' + key, off = (window.fhNodeSel === k);
+  _tbOpen.p2p = true;                                       // the person lives under p2p; keep it open
+  if (typeof setTxnNode === 'function') setTxnNode(off ? null : k);
+  else window.fhNodeSel = off ? null : k;
+  fhTreeRepaint();
+}
 window.fhTreeTap = fhTreeTap; window.fhTreeClearSel = fhTreeClearSel;
 window.fhTreeTapExact = fhTreeTapExact;
 function fhTreeBreakdownHTML(rows) {
@@ -234,7 +267,7 @@ function fhTreeBreakdownHTML(rows) {
       ? '<svg class="fh-chev' + (opts.open ? ' open' : '') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>'
       : '<span class="fh-chev"></span>';
     var tappable = opts.kids || opts.go || opts.code;
-    var sel = opts.code && (opts.own ? window.fhNodeSel === '=' + opts.code : window.fhNodeSel === opts.code);
+    var sel = !!opts.psel || (opts.code && (opts.own ? window.fhNodeSel === '=' + opts.code : window.fhNodeSel === opts.code));
     return '<' + (tappable ? 'button type="button"' : 'div') + ' class="fh-lrow tb-l' + opts.depth + (opts.rest ? ' tb-rest' : '') + (sel ? ' tb-sel' : '') + '"'
       + (opts.go ? ' onclick="' + opts.go + '"'
                  : (opts.code ? ' onclick="fhTreeTap(&#39;' + escAttr(opts.code) + '&#39;)" aria-pressed="' + (sel ? 'true' : 'false') + '"' : ''))
@@ -251,8 +284,11 @@ function fhTreeBreakdownHTML(rows) {
     var kids = FH_TAX.children(code).filter(function (c) { return sum[c]; });
     var own = amt - kids.reduce(function (s, c) { return s + (sum[c] || 0); }, 0);
     var open = !!_tbOpen[code];
-    var s = row({ code: code, name: n.vi, amt: amt, depth: depth, kids: kids.length, open: open, xfer: xfer, ico: depth ? '' : (n.emoji || '') });
-    if (kids.length && open) {
+    /* P1/P2: under "Chuyển cho người khác" — and only there — the second level is
+       WHO the money went to, beside whatever child nodes the month has. */
+    var people = (code === 'p2p') ? fhTreePersonRows(_tbRows) : [];
+    var s = row({ code: code, name: n.vi, amt: amt, depth: depth, kids: kids.length || people.length, open: open, xfer: xfer, ico: depth ? '' : (n.emoji || '') });
+    if ((kids.length || people.length) && open) {
       kids.sort(function (a, b) { return sum[b] - sum[a]; });
       kids.forEach(function (c) { s += line(c, depth + 1, xfer); });
       /* What sits ON this node and under none of its children. These rows are
@@ -267,6 +303,15 @@ function fhTreeBreakdownHTML(rows) {
       if (own > 0) {
         s += row({ name: n.vi, amt: own, depth: depth + 1, xfer: xfer, code: code, own: true,
           go: 'fhTreeTapExact(&#39;' + escAttr(code) + '&#39;)' });
+      }
+      if (people.length) {
+        s += '<div class="tb-sect tb-people">' + esc(L('Theo người nhận', 'By recipient'))
+          + '<b class="num">' + esc(L(people.length + ' người', people.length + ' people')) + '</b></div>';
+        people.forEach(function (p) {
+          s += row({ name: p.name + ' ×' + p.n, amt: p.v, depth: depth + 1, xfer: xfer,
+            psel: window.fhNodeSel === '@' + p.key,
+            go: 'fhTreePersonTap(&#39;' + escAttr(p.key) + '&#39;)' });
+        });
       }
     }
     return s;
@@ -322,7 +367,7 @@ function fhTreeRowsFor(txnList, monthKey) {
     if (!t || t.future || t._unreadable) return;
     if (monthKey && t.month && t.month !== monthKey) return;
     var amt = Number(t.amt) || 0; if (amt <= 0) return;
-    out.push({ node: t.node || null, amt: amt });
+    out.push({ node: t.node || null, amt: amt, cp: t.counterparty || null, note: t.note || null });   // cp/note: the person rows under p2p (P1); null on the family side today
   });
   return out;
 }

@@ -1251,6 +1251,23 @@ function buildCsvCandidates(parsed, result) {
         try { node = _okN(window.fhLessonNode({ counterparty: party, memo: desc, amount: amount })); } catch (e) {}
         if (node) nodeSource = 'learned';
       }
+      /* 3b. the memo's SHAPE — was this ever spending? (p2p-breakdown-spec P6)
+             fhTransferShape reads structure, not words: a 20-digit exchange-desk
+             order id, "chuyen tien den <my own name>", an ATM line. The ledger
+             sweep has asked it first among the machine tiers since E2; the review
+             never did, which is how 545tr of exchange funding sat in the queue as
+             "Chuyển cho người khác" while the same rows read as investment once
+             booked. Below `learned` (a person's answer wins), above `keyword`
+             (structure outranks words). It returns a TRANSFER node onto an expense
+             row on purpose — E2's allowance, exactly what the sweep writes — so it
+             bypasses _okN's kind gate, and only for a debit. Kind is not touched:
+             fhCountsAsSpending takes the row out of the totals, per E2. */
+      if (!node && nodeKind === 'expense' && typeof fhTransferShape === 'function') {
+        try {
+          var _shp = fhTransferShape([desc, party].filter(Boolean).join(' | '), amount || 0);
+          if (_shp && FH_TAX.get(_shp) && FH_TAX.kindOf(_shp) === 'transfer') { node = _shp; nodeSource = 'shape'; }
+        } catch (e) {}
+      }
       // 4. the tree's own keywords over counterparty + memo
       if (!node) {
         node = _okN(fhNodeGuess({ kind: nodeKind, note: desc, counterparty: party, amount: amount, whatOnly: true }));

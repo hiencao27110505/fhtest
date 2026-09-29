@@ -582,6 +582,7 @@ function csvBuildReview(sources, opts){
   if(!opts.keepView){
     csvSumZoom='week'; csvSumScroll=null;   // fresh batch → the summary opens at Week, pinned newest
     csvCatFilter=null;                      // and any category filter from the last open is spent
+    csvPersonFilter=null;
   }
 
   csvReview = {
@@ -963,7 +964,8 @@ function csvCatLabel(name){
    nothing is hidden by preferring the better answer here. */
 function csvCatChipText(r, kind){
   if(typeof fhTreeOn==='function' && fhTreeOn() && typeof FH_TAX!=='undefined'
-     && r.node && FH_TAX.get(r.node) && FH_TAX.kindOf(r.node)===kind){
+     && r.node && FH_TAX.get(r.node)
+     && (FH_TAX.kindOf(r.node)===kind || (kind==='expense' && FH_TAX.kindOf(r.node)==='transfer'))){   // P6: a shape-named transfer on an expense row keeps its name on the chip
     var nd=FH_TAX.get(r.node), rt=FH_TAX.get(FH_TAX.root(r.node));
     return ((rt&&rt.emoji)?rt.emoji+' ':'')+esc(nd.vi);
   }
@@ -2359,7 +2361,7 @@ function csvSumData(){
     var c=e.c; n++;
     var a = (typeof csvFxUnresolved==='function' && csvFxUnresolved(c)) ? 0 : csvBaseAmt(c.amount||0);
     if(c.isIncome){ thu+=a; return; }
-    if(c.isTransfer || c._xfer) return;
+    if(c.isTransfer || c._xfer || csvNodeNotSpending(c)) return;   // P6: not spending, out of ↓
     chi+=a;
     if(a>0 && c.dateDisplay){
       byDay[c.dateDisplay]=(byDay[c.dateDisplay]||0)+a;
@@ -2480,7 +2482,65 @@ function csvSumZoomGo(z){ csvSumZoom=z; csvSumScroll=null; renderCsvReview(); }
    treatment; the two filters are different tools.) Staged mode only:
    the file flow keeps csvSpendPanel. */
 var csvCatFilter = null;
+/* ── Transfers to people, by person (p2p-breakdown-spec P1, P4, P7) ──────────
+   Under "Chuyển cho người khác" the widget gains a second level: the people the
+   queued transfers went to. csvPersonFilter narrows the cards to one of them,
+   and the bulk verbs then act on exactly that person's rows. The key is
+   fhPersonKey — the lesson key — so "Tiêu vào gì" over a person teaches the
+   lesson that re-fires on every later row from them (P4). */
+var csvPersonFilter = null;
+function csvPersonKeyOf(c){
+  return (typeof fhPersonKey==='function') ? fhPersonKey(c.counterparty||'', c.description||'', c.amount||0) : '';
+}
+function csvIsP2P(c){
+  var n = c && c._node; if(!n || typeof FH_TAX==='undefined' || !FH_TAX.get(n)) return false;
+  return n==='p2p' || FH_TAX.ancestors(n).indexOf('p2p')>=0;
+}
+function csvPersonRows(){
+  var r = csvReview, by = {}, singles = 0, singlesSum = 0;
+  if(!r) return { groups:[], singles:0, singlesSum:0 };
+  r.ready.forEach(function(c){
+    if(!csvIsP2P(c) || csvRowGroup(c)!=='expense') return;
+    if(typeof csvFxUnresolved==='function' && csvFxUnresolved(c)) return;
+    var a = csvBaseAmt(c.amount||0); if(!(a>0)) return;
+    var k = csvPersonKeyOf(c); if(!k){ singles++; singlesSum += a; return; }
+    var g = by[k] || (by[k] = { key:k, name:'', n:0, v:0 });
+    g.n++; g.v += a;
+    var nm = String(c.counterparty||'').trim(); if(nm.length > g.name.length) g.name = nm;   // P8: the printed name, richest copy
+  });
+  var groups = [];
+  Object.keys(by).forEach(function(k){
+    var g = by[k];
+    if(g.n < 2){ singles++; singlesSum += g.v; return; }                                    // P7: one row is not a group
+    if(typeof fhPersonRemember==='function') fhPersonRemember(g.key, g.name);
+    groups.push(g);
+  });
+  groups.sort(function(a,b){ return b.v-a.v; });
+  return { groups:groups, singles:singles, singlesSum:singlesSum };
+}
+function csvPersonWidgetHTML(){
+  if(!csvCatFilter || typeof FH_TAX==='undefined') return '';
+  var p2p = FH_TAX.get('p2p'); if(!p2p || csvCatFilter!==p2p.vi) return '';            // P2: this level exists on p2p only
+  var pr = csvPersonRows(); if(!pr.groups.length) return '';
+  var total = pr.groups.reduce(function(s,g){ return s+g.v; }, 0) + pr.singlesSum;
+  var html = '<div class="clw clw-people"><div class="ctree-cap">'+esc(L('THEO NGƯỜI NHẬN','BY RECIPIENT'))+'</div>';
+  pr.groups.forEach(function(g){
+    var w = Math.max(1.5, Math.round(g.v/(total||1)*1000)/10), on = csvPersonFilter===g.key;
+    html += '<button type="button" class="clw-l'+(on?' on':'')+'" onclick="csvPersonFilterGo(\''+escAttr(g.key)+'\')">'
+      + '<i style="width:'+w+'%"></i>'
+      + '<span class="t">'+esc(g.name)+' <em class="clw-n">×'+g.n+'</em></span>'
+      + '<span class="a num">'+esc(fmt(g.v))+'</span></button>';
+  });
+  if(pr.singles) html += '<div class="clw-l clw-rest"><span class="t">'+esc(L(pr.singles+' người khác, mỗi người 1 khoản', pr.singles+' others, one row each'))+'</span>'
+      + '<span class="a num">'+esc(fmt(pr.singlesSum))+'</span></div>';
+  return html + '</div>';
+}
+function csvPersonFilterGo(key){
+  csvPersonFilter = (csvPersonFilter===key) ? null : key;
+  renderCsvReview();
+}
 function csvCatFilterGo(name){
+  csvPersonFilter = null;                                   // a new category drops the person under the old one
   csvCatFilter = (csvCatFilter===name) ? null : name;
   renderCsvReview();
 }
@@ -2493,9 +2553,18 @@ function csvCatFilterGo(name){
    repayments, investments — the kinds the two directional lists used to
    drop on the floor (or misfile under an expense fallback name). */
 var _CLW_OTHER_KINDS = { transfer:1, loan:1, repayment:1, investment:1 };
+/* P6 — a candidate the review's shape tier filed on a TRANSFER node (an
+   exchange-desk order, a self-transfer, an ATM line) is not spending, though the
+   queue still holds it as an expense. One predicate, and it is the ledger's own
+   (fhCountsAsSpending, E2), so the widget, the header sum and the booked side
+   can never disagree about the same row. */
+function csvNodeNotSpending(c){
+  return !!(c && c._node && typeof fhCountsAsSpending==='function' && !fhCountsAsSpending(c._node));
+}
 function csvRowGroup(c){
   if(c.isIncome && !c._xfer && !c._repay && !c._invest) return 'income';
   if(c._xfer || c.isTransfer || c._repay || c._invest) return 'other';
+  if(csvNodeNotSpending(c)) return 'other';                       // P6: named a transfer by its shape
   return 'expense';
 }
 function csvTreeLeafOf(c, kind){
@@ -2527,6 +2596,7 @@ function csvTreeLeafOf(c, kind){
    row is judged in its own list's vocabulary, so an income leaf filters
    income cards and a transfer leaf filters the moves. */
 function csvCatHide(c){
+  if(csvPersonFilter) return !csvIsP2P(c) || csvPersonKeyOf(c)!==csvPersonFilter;   // a person is judged by key alone, whichever p2p leaf the row rests on
   if(!csvCatFilter) return false;
   return csvTreeLeafOf(c, csvRowGroup(c)).leaf !== csvCatFilter;
 }
@@ -2583,7 +2653,8 @@ function _clwRender(list, cap, filterable){
 }
 function csvCatTreeHTML(){
   var bk = csvBookedLedger();
-  return _clwRender(_clwCollect('expense', bk && bk.byLeaf), L('TIỀN ĐI ĐÂU','WHERE THE MONEY WENT'), true);
+  return _clwRender(_clwCollect('expense', bk && bk.byLeaf), L('TIỀN ĐI ĐÂU','WHERE THE MONEY WENT'), true)
+    + csvPersonWidgetHTML();                                  // P1: the second level under "Chuyển cho người khác"
 }
 function csvIncomeTreeHTML(){
   var bk = csvBookedLedger();
@@ -2601,7 +2672,11 @@ function csvOtherTreeHTML(){
 function csvCatWidgetsHTML(){
   if(!csvStagedMode || csvSumHidden || !csvReview) return '';
   var html = csvCatTreeHTML() + csvIncomeTreeHTML() + csvOtherTreeHTML();
-  if(csvCatFilter){
+  if(csvPersonFilter){
+    var pn = (typeof fhPersonName==='function' && fhPersonName(csvPersonFilter)) || L('một người','one person');
+    html += '<button type="button" class="ctree-clear" onclick="csvPersonFilterGo(csvPersonFilter)">'
+      + esc(L('Đang lọc theo '+pn+' · bỏ lọc','Filtering by '+pn+' · clear'))+'</button>';
+  } else if(csvCatFilter){
     html += '<button type="button" class="ctree-clear" onclick="csvCatFilterGo(csvCatFilter)">'
       + esc(L('Đang lọc theo '+csvCatFilter+' · bỏ lọc','Filtering by '+csvCatFilter+' · clear'))+'</button>';
   }
@@ -3326,7 +3401,14 @@ function csvStagedSelectAll(on){
   csvDisarmRemove();
   csvFlushExpand(); csvExpand = null;   // an open editor's edits are kept, not dropped
   // Select-all never selects a foreign row with no VND amount — the FX gate.
-  csvReview.ready.forEach(function(c){ c._skipImport = !on || csvFxUnresolved(c); });
+  // With a filter on, it acts on the cards you can SEE: ticking hidden rows
+  // behind a person or category filter is how a bulk verb reaches money the
+  // person never looked at. No filter → exactly what it always did.
+  var filtered = !!(csvCatFilter || csvPersonFilter);
+  csvReview.ready.forEach(function(c){
+    if(filtered && csvCatHide(c)) return;
+    c._skipImport = !on || csvFxUnresolved(c);
+  });
   csvSelTouched = true;
   renderCsvReview();
 }
@@ -3351,6 +3433,26 @@ function csvBulkCat(name){
   var n = sel.length - skipped;
   toast(esc(L('Đã xếp '+n+' khoản vào '+name, 'Filed '+n+' under '+name)
     + (skipped ? L(' · '+skipped+' khoản vay/chuyển khoản giữ nguyên', ' · '+skipped+' loan/transfer rows untouched') : '')));
+}
+/* One tree node across the selection (p2p-breakdown-spec P4, E5's verb in the
+   queue). Learned from per row, exactly as the per-row outline pick is, so a
+   person group assigned once re-files itself next month. Node only: the label
+   is left to the import, which resolves it from the node for a personal row
+   (_persCat) exactly as a per-row pick does today. */
+function csvBulkNode(code){
+  if(!csvReview || !window.FH_TAX || !FH_TAX.get(code)) return;
+  var sel = csvStagedSelected(); if(!sel.length) return;
+  var k = FH_TAX.kindOf(code);
+  if(k!=='expense' && k!=='transfer') return;                // the outline offers expense; transfer is E2's one crossing
+  var skipped = 0, n = 0;
+  sel.forEach(function(c){
+    if(c.isIncome || c.isTransfer || c._xfer || c._repay || c._loan || c._invest){ skipped++; return; }
+    c._node = code; c._nodeSource = 'user'; n++;
+    if(window.fhLessonLearnNode){ try{ fhLessonLearnNode({ counterparty:c.counterparty, memo:c.description, amount:c.amount, node:code }); }catch(e){} }
+  });
+  renderCsvReview();
+  toast(esc(L('Đã xếp '+n+' khoản vào '+FH_TAX.get(code).vi, 'Filed '+n+' into '+FH_TAX.get(code).vi)
+    + (skipped ? L(' · '+skipped+' khoản khác giữ nguyên', ' · '+skipped+' left as they were') : '')));
 }
 
 /* One destination across the selection.
@@ -3672,6 +3774,15 @@ function csvEditCat(name){
   csvToolSheet = null; csvEditRow = null;
   csvBulkCat(name);                  // stamps, learns, re-renders, says so
 }
+/* The "Tiêu vào gì" row of sheet ②: the same whole-tree outline every other
+   surface draws (E9), over the selection. Its open/fold state is file-scope
+   like the row sheet's, because the sheet is rebuilt on every render. */
+var csvBulkNodeOpen = null;
+function csvBulkNodeToggle(code){ csvBulkNodeOpen = csvBulkNodeOpen || {}; csvBulkNodeOpen[code] = !csvBulkNodeOpen[code]; renderCsvReview(); }
+function csvEditNode(code){
+  csvToolSheet = null; csvEditRow = null; csvBulkNodeOpen = null;
+  if(code) csvBulkNode(code); else renderCsvReview();
+}
 function csvEditScope(v){
   if(v === 'personal' && !csvScopeReady()){
     toast(L('Mở khoá sổ cá nhân ở tab Cá nhân trước','Unlock your personal ledger first'));
@@ -3741,6 +3852,21 @@ function csvEditSheetHTML(){
             + ' onclick="csvEditCat(\''+escAttr(name)+'\')">'+st[0]+' '+esc(name)+'</button>';
         }).join('')
       + '</div></div>';
+  }
+  if(typeof fhTreeOn==='function' && fhTreeOn() && typeof fhNodeOutlineHTML==='function'){
+    var nd0 = n ? (sel[0]._node || null) : null;
+    var ndAll = nd0 && sel.every(function(c){ return c._node === nd0; });
+    var ndV = (ndAll && window.FH_TAX && FH_TAX.get(nd0)) ? FH_TAX.get(nd0).vi : L('Chọn…','Pick…');
+    h += row('node', CSV_TXB_I_TAG, L('Tiêu vào gì','What it was'), esc(ndV));
+    if(csvEditRow === 'node'){
+      if(csvBulkNodeOpen===null) csvBulkNodeOpen = (typeof fhNodeOutlineSeed==='function') ? fhNodeOutlineSeed(ndAll ? nd0 : null) : {};
+      h += '<div class="cte-fold">'
+        + '<div class="cte-note">'+esc(L('Áp cho '+n+' khoản đã chọn và ghi nhớ cho lần sau.','Applies to the '+n+' selected and is remembered.'))+'</div>'
+        + '<div id="csvbulknode-list">'+fhNodeOutlineHTML({ cur: ndAll ? nd0 : null, kind:'expense', q:'', open: csvBulkNodeOpen,
+            pick: function(code){ return "csvEditNode('"+escAttr(code)+"')"; },
+            toggle: function(code){ return "csvBulkNodeToggle('"+escAttr(code)+"')"; },
+            clear: "csvEditNode('')" })+'</div></div>';
+    }
   }
   h += row('scope', CSV_TXB_I_BOOK, L('Ghi vào','Goes to'), esc(scV));
   if(csvEditRow === 'scope'){
@@ -3918,7 +4044,13 @@ function csvDeferDrop(di){ csvReview.deferred.splice(di,1); csvExpand = null; re
    the composer's guess, which is what every row got before. */
 function csvPromoteNode(c){
   var nd = c && c._node;
-  if(!nd || !window.FH_TAX || !FH_TAX.get(nd) || FH_TAX.kindOf(nd) !== 'expense') return null;
+  if(!nd || !window.FH_TAX || !FH_TAX.get(nd)) return null;
+  /* P6/E2: a TRANSFER node may ride an expense row — the shape tier names a
+     self-transfer or an exchange-desk order the bank reported as spending. The
+     ledger sweep writes exactly this state; import should land it, not drop
+     the node and wait for the sweep to put it back. Nothing else crosses kinds. */
+  var _pk = FH_TAX.kindOf(nd);
+  if(_pk !== 'expense' && _pk !== 'transfer') return null;
   if(c._nodeSource === 'user') return nd;
   if(c._nodeSource === 'pipeline' && typeof fhPipeNodeOk === 'function'){
     return fhPipeNodeOk(nd, { note: c.description, counterparty: c.counterparty });

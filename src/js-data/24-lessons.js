@@ -55,6 +55,13 @@
        against the running tree on the way out, so a code from a newer build
        reads as "nothing taught" rather than a stray string. */
     function _nodeKey(input) {
+      /* p2p-breakdown-spec P4: THE person key — fhPersonKey in 13-partition — so a
+         person group in the queue or the breakdown and the lesson it teaches can
+         never be keyed differently. `amount` is in ĐỒNG. Until 2026-09-29 the
+         review passed đồng and every ledger caller passed base units, so a 5tr row
+         was band d from the queue and band a from the ledger, and no ledger-taught
+         lesson ever fired in the queue (P10). */
+      if (typeof fhPersonKey === 'function') return fhPersonKey((input && input.counterparty) || '', (input && (input.memo || input.note)) || '', (input && input.amount) || 0);
       if (typeof csvPatternKey !== 'function' || typeof csvAmountBand !== 'function') return '';
       const k = csvPatternKey({ counterparty: (input && input.counterparty) || '',
         description: (input && (input.memo || input.note)) || '' });

@@ -302,7 +302,7 @@ console.log('\n-- money that moved is not money that was spent --');
   t('the sweep asks the transfer shape before the guess',
     bf.indexOf('fhTransferShape') < bf.indexOf('guess = fhNodeGuess'));
   /* And the rules changing is worthless if the sweep still thinks it is done. */
-  t('the sweep cursor moved with the rules', /fh-tree-bf:v9:/.test(bf) && !/fh-tree-bf:v[1-8]:/.test(bf));
+  t('the sweep cursor moved with the rules', /fh-tree-bf:v10:/.test(bf) && !/fh-tree-bf:v[1-9]:/.test(bf));
 }
 
 console.log('\n-- who was paid: a seller leaves marks a friend does not --');
@@ -492,8 +492,10 @@ console.log('\n-- the four ways v552 filtered nothing and swept nothing --');
      saw a ledger with no nodes in it (no options to offer). */
   const pushes = tx.match(/rows\.push\(\{[\s\S]*?\}\);/g) || [];
   t('every personal row shape carries node', pushes.length >= 2 && pushes.every((b) => /\bnode:\s*t\.node/.test(b)), pushes.length);
+  /* Since p2p-breakdown P5 the filter takes the ROW (an '@key' person selection
+     needs counterparty + amount, not just node); the row shape must carry both. */
   t('the filter and the row shape agree on the field name',
-    /fhNodeSelMatch\(t\.node\)/.test(tx));
+    /fhNodeSelMatchRow\(t\)/.test(tx) && pushes.some((b) => /\b_cp:\s*t\.counterparty/.test(b)));
 
   /* 2. The sweep returned 0 both for "this batch needed no writes" and for
      "the ledger is finished", and the caller marked the scope done forever.

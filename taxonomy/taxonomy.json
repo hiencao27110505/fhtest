@@ -1,6 +1,6 @@
 {
- "version": 1,
- "updated": "2026-09-21",
+ "version": 2,
+ "updated": "2026-09-29",
  "kinds": [
   {
    "id": "expense",
@@ -2514,6 +2514,33 @@
     "tien chung",
     "chuyen tien vao quy"
    ],
+   "concept": "Others"
+  },
+  {
+   "code": "payback",
+   "kind": "expense",
+   "parent": "p2p",
+   "depth": 2,
+   "vi": "Trả lại tiền",
+   "en": "Settling up",
+   "concept": "Others"
+  },
+  {
+   "code": "onbehalf",
+   "kind": "expense",
+   "parent": "p2p",
+   "depth": 2,
+   "vi": "Nhờ mua hộ, trả hộ",
+   "en": "Paid on my behalf",
+   "concept": "Others"
+  },
+  {
+   "code": "regular",
+   "kind": "expense",
+   "parent": "p2p",
+   "depth": 2,
+   "vi": "Gửi đều đặn cho người",
+   "en": "Regular transfer to a person",
    "concept": "Others"
   },
   {

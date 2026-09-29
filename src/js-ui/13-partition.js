@@ -253,6 +253,11 @@ window.fhNodeSel = null;
 function fhNodeSelMatch(node){
   var sel = window.fhNodeSel; if (!sel) return true;
   if (sel === '_none') return !node || !FH_TAX.get(node);
+  /* '@key' is a PERSON (p2p-breakdown-spec P5) and cannot be judged from a node
+     alone: callers that have the row use fhNodeSelMatchRow. A caller that only
+     has the node gets false, so a missed switch HIDES rows rather than quietly
+     showing everything under a person's name. */
+  if (sel.charAt(0) === '@') return false;
   /* '=code' is the node ITSELF with none of its children: the rows the tree
      placed in a group but could not place under any leaf in it. That set is the
      whole point of the "chưa rõ chi tiết" line, and it is not expressible as a
@@ -265,15 +270,55 @@ function fhNodeSelMatch(node){
 function fhNodeSelCode(){
   var sel = window.fhNodeSel;
   if (!sel || sel === '_none') return null;
+  if (sel.charAt(0) === '@') return null;      // a person is not a node scope: the bulk picker opens on every root (P3: file OUT)
   return sel.charAt(0) === '=' ? sel.slice(1) : sel;
 }
 /* What to call the current selection in a chip or a header. */
 function fhNodeSelLabel(){
   var sel = window.fhNodeSel; if (!sel) return '';
   if (sel === '_none') return L('Chưa rõ', 'Not sure yet');
+  if (sel.charAt(0) === '@') return fhPersonName(sel.slice(1)) || L('Một người', 'One person');   // P8: the name as the bank printed it
   /* Named at the level that IS known, same as the row it came from. */
   if (sel.charAt(0) === '=') { var e = FH_TAX.get(sel.slice(1)); return e ? e.vi : ''; }
   var n = FH_TAX.get(sel); return n ? n.vi : '';
+}
+/* ── Transfers to people: the person key (p2p-breakdown-spec P4) ──────────────
+   Inside "Chuyển cho người khác" the axis is WHO, not what (P1). This is THE
+   key a person group is built on, in the queue and in the breakdown, and it is
+   also — by construction, 24-lessons.js calls this very function — the key a
+   node lesson is stored under. A group that taught a lesson which did not fire
+   on its own rows would be worse than no grouping; one function makes that
+   impossible. Shape: deburred payee letters (csvPatternKey drops every digit,
+   so "13610000120606 - LE KHA NIN" is "le kha nin") + '|' + the amount band.
+   `amountDong` is in ĐỒNG, always: a 16k coffee and a 5tr rent to the same
+   person are two groups and two lessons, which is the whole point of the band. */
+function fhPersonKey(counterparty, description, amountDong){
+  if (typeof csvPatternKey !== 'function' || typeof csvAmountBand !== 'function') return '';
+  var k = csvPatternKey({ counterparty: counterparty || '', description: description || '' });
+  if (!k || k.length < 6) return '';                       // same floor as the lesson store: too short to mean one person
+  return k + '|' + csvAmountBand(Math.abs(Number(amountDong) || 0));
+}
+/* Ledger rows store base units (thousands); the key wants đồng. One place. */
+function fhPersonKeyRow(row){
+  if (!row) return '';
+  var mult = (typeof curMult === 'function') ? curMult() : 1000;
+  return fhPersonKey(row.counterparty || row._cp || '', row.note || '', (Number(row.amt) || 0) * mult);
+}
+/* The printed name behind a key, for the "Đang xem" bar and the filter chip.
+   The normalised form is a KEY and never reaches the screen (P8); the longest
+   printed counterparty seen for the key wins, the richest-copy rule. */
+window.fhPersonNames = window.fhPersonNames || {};
+function fhPersonName(key){ return (window.fhPersonNames || {})[key] || ''; }
+function fhPersonRemember(key, printed){
+  printed = String(printed || '').trim(); if (!key || !printed) return;
+  var cur = window.fhPersonNames[key] || '';
+  if (printed.length > cur.length) window.fhPersonNames[key] = printed;
+}
+/* fhNodeSelMatch with the ROW in hand, so an '@key' selection can be judged. */
+function fhNodeSelMatchRow(row){
+  var sel = window.fhNodeSel; if (!sel) return true;
+  if (sel.charAt(0) === '@') return !!row && fhPersonKeyRow(row) === sel.slice(1);
+  return fhNodeSelMatch(row ? row.node : null);
 }
 /* DOES THIS ROW COUNT AS SPENDING? The ledger holds a row as kind='expense'
    because that is how the bank reported it, but the tree may know better: money

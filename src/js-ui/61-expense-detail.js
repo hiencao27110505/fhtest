@@ -487,7 +487,7 @@ function exdSave(){
     window.fhSetExNode(p.node||'');                        // 0144: a human pick; the composer's own guess may not overwrite it
     t.node=p.node||null;                                   // in-memory row shows it at once
     if(p.node && typeof window.fhLessonLearnNode==='function'){
-      try{ window.fhLessonLearnNode({ note:(p.note!=null?p.note:t.note), amount:t.amt, node:p.node }); }catch(e){}
+      try{ window.fhLessonLearnNode({ note:(p.note!=null?p.note:t.note), counterparty:t.counterparty||t._cp||null, amount:(Number(t.amt)||0)*curMult(), node:p.node }); }catch(e){}   // P10: đồng
     }
   }
   saveExpenseEdit();                                       // wrapped → persists + renderExpenseDetailIfOpen
@@ -1077,7 +1077,7 @@ async function pexdSave(){
       if(p.node!==undefined){                              // 0144: the tree node, staged like every other field
         f.node=p.node||null;
         if(p.node && typeof window.fhLessonLearnNode==='function'){
-          try{ window.fhLessonLearnNode({ note:note, amount:amtBase, node:p.node }); }catch(e){}
+          try{ window.fhLessonLearnNode({ note:note, counterparty:t.counterparty||t._cp||null, amount:(Number(amtBase)||0)*curMult(), node:p.node }); }catch(e){}   // P10: đồng
         }
       }
       ok=await window.fhPersonalUpdateExpense(E.id, f);

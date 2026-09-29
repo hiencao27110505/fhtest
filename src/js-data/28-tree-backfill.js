@@ -31,8 +31,8 @@
        v5 shipped with a bug that marked a scope done after one batch of
        unresolvable rows, so every device is sitting on a false "done" and v6
        is what undoes that. */
-    if (scope === 'family') return 'fh-tree-bf:v9:fam:' + ((window.DB && window.DB.fid) || '');
-    return 'fh-tree-bf:v9:per:' + ((window.fhPersonalData && fhPersonalData().uid) || '');
+    if (scope === 'family') return 'fh-tree-bf:v10:fam:' + ((window.DB && window.DB.fid) || '');
+    return 'fh-tree-bf:v10:per:' + ((window.fhPersonalData && fhPersonalData().uid) || '');
   }
   function _tbfDone(scope) { try { return localStorage.getItem(_tbfCursorKey(scope)) === 'done'; } catch (e) { return false; } }
   function _tbfMarkDone(scope) { try { localStorage.setItem(_tbfCursorKey(scope), 'done'); } catch (e) {} }
@@ -81,18 +81,23 @@
        which both names it and marks the kind as worth fixing. This has to be
        asked before the guess, which reads "chuyen tien den <my own name>" as
        money sent to another person. */
+    /* P10: the rules speak ĐỒNG. The ledger stores thousands, and passing them
+       raw meant the desk's second shape (amount >= 1tr, not round) could never
+       fire from here, and every lesson the sweep read was in the wrong band. */
+    const _mult = (typeof curMult === 'function') ? curMult() : 1000;
+    const _dong = Math.abs(Number(row.amt) || 0) * _mult;
     if (kind === 'expense') {
-      try { const xf = fhTransferShape(row.note, Math.abs(Number(row.amt) || 0)); if (xf) return xf; } catch (e) {}
+      try { const xf = fhTransferShape(row.note, _dong); if (xf) return xf; } catch (e) {}
     }
     let guess = null;
-    try { guess = fhNodeGuess({ kind: kind, note: row.note, amount: row.amt, whatOnly: true }); }
+    try { guess = fhNodeGuess({ kind: kind, note: row.note, counterparty: row.counterparty || null, amount: _dong, whatOnly: true }); }
     catch (e) { guess = null; }
     if (guess) return guess;
     /* The row's own label says WHAT, and outranks WHO. v7 asked who first, and
        re-filed logged Grab rows from "Đi lại" to "Thanh toán cho người bán"; v8
        puts them back, because a who-node is depth 1 and the sweep looks again. */
     let who = null;
-    try { who = (typeof fhWhoNode === 'function') ? fhWhoNode({ kind: kind, note: row.note, amount: row.amt }) : null; }
+    try { who = (typeof fhWhoNode === 'function') ? fhWhoNode({ kind: kind, note: row.note, counterparty: row.counterparty || null, amount: _dong }) : null; }
     catch (e) { who = null; }
     if (who === 'p2p') return who;                       // a person keeps the place it had through v6
     return _tbfCoarse(scope, row) || who;

@@ -79,13 +79,14 @@ function _pBuildTxnCtx(){
          expense = money out (0109 stores it positive), so its cash flow is −amt. */
       rows.push({ id:t.id, cat:cat, note:t.note||cat, amt:t.amt||0, _d:_d, ico:_ico, who:null, _style:style[cat], _open:eOpen, photos:t.photos||undefined, time:t.time||null, hasReceipt:t.hasReceipt||undefined,
         node:t.node||null,                                      // 0144 — what the tree filter and the chip sheet read
+        _cp:t.counterparty||null,                               // P5 — the person filter ('@key') keys on this
         _kg:'chi', _net:-(t.amt||0), _src:t.src||null, _acct:t.accountId||null, _mirror:!!(t.spaceId||t.linkId) });
       if((t.date||'').slice(0,7)===ym){
         /* Not spending → out of the label totals too, so "Danh mục của tôi" and
            "Tiêu vào gì" add up to the same money. treeRows still gets the row:
            the tree shows it under "Không tính là chi tiêu" rather than hiding it. */
         if(fhCountsAsSpending(t.node)) spent[cat]=(spent[cat]||0)+(t.amt||0);   // hero = this month only (parity with family M())
-        treeRows.push({ node:t.node||null, amt:t.amt||0 });   // 0144: the SAME rows, so both views of this card agree
+        treeRows.push({ node:t.node||null, amt:t.amt||0, cp:t.counterparty||null, note:t.note||null });   // 0144: the SAME rows, so both views of this card agree; cp/note feed the person rows under p2p (P1)
       }
       return;
     }
@@ -450,7 +451,7 @@ function renderTxnScreen(){
     if(catNarrow){ if(kg!=='chi') return false; if(!TXV.cats[t.cat]) return false; }
     /* 0144 — a tree row is selected: that node and everything under it. Spending
        only, since the selection came from the spending breakdown. */
-    if(TXV.node){ if(kg!=='chi') return false; if(!fhNodeSelMatch(t.node)) return false; }
+    if(TXV.node){ if(kg!=='chi') return false; if(!fhNodeSelMatchRow(t)) return false; }   // row form: '@key' selects a person (P5)
     return true;
   });
   var ts=document.getElementById('txn-sum'); if(ts) ts.style.display='none';
@@ -996,7 +997,7 @@ async function txnBulkNodePick(code){
       raw.node=code; ok++;
       /* Teach it once: every past and future row with this wording resolves
          itself, which is what stops the queue refilling next month. */
-      try{ if(window.fhLessonLearnNode) fhLessonLearnNode({ note:raw.note, counterparty:raw.counterparty, amount:raw.amt, node:code }); }catch(_e){}
+      try{ if(window.fhLessonLearnNode) fhLessonLearnNode({ note:raw.note, counterparty:raw.counterparty, amount:(Number(raw.amt)||0)*curMult(), node:code }); }catch(_e){}   // P10: đồng, like the queue
     } else fail++;
   }
   if(personal){ try{ await window.fhPersonalHydrate(); }catch(_e){} }

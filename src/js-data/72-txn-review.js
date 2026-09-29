@@ -1714,7 +1714,13 @@
     var _specNode = function (c, kind) {
       var nd = c && c._node;
       if (!nd || !window.FH_TAX || !FH_TAX.get(nd)) return null;
-      return FH_TAX.kindOf(nd) === kind ? nd : null;
+      var k = FH_TAX.kindOf(nd);
+      /* P6/E2: a TRANSFER node may ride an EXPENSE row — the review's shape tier
+         names a self-transfer or an exchange-desk order the bank reported as
+         spending, and the ledger sweep writes exactly this. Import lands the same
+         state instead of dropping the node for the sweep to restore. No other
+         kind crosses: an expense node still never rides an income row. */
+      return (k === kind || (kind === 'expense' && k === 'transfer')) ? nd : null;
     };
     /* payload v2 seals a node for ANY kind (a transfer is `bankbank`, a payroll
        credit is `wage`). Expense and income have always carried theirs; the other

@@ -143,6 +143,32 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-09-29 · Hien · p2p-breakdown rungs 1–3 BUILT, NOT COMMITTED · claiming SW `v594` (yours landed at v593) · no migration · no deploy · taxonomy v2.**
+  Spec: `docs/specs/p2p-breakdown-spec.md` (new); P series appended to
+  `category-tree-spec.md` §16.2 and its §3.2.1 review row. Client only.
+  (1) Review cascade gains a `shape` tier (`fhTransferShape` between `learned`
+  and `keyword`); five queue/import gates accept a transfer-kind node on an
+  expense row. (2) Person grouping under "Chuyển cho người khác" in the queue
+  widget and the ledger breakdown; `fhPersonKey` in `13-partition.js` IS the
+  lesson key (`24-lessons.js` `_nodeKey` delegates to it). **Units fix you should
+  know about:** every ledger-side `fhLessonLearnNode` / `fhLessonNode` /
+  `fhNodeGuess` caller now passes ĐỒNG (`× curMult()`), not thousands — the
+  queue always did, so ledger-taught lessons had never fired there; lessons
+  taught from the ledger before today are dark (unrecoverable band). New
+  selection form `fhNodeSel = '@key'`; `fhNodeSelMatch(node)` returns FALSE
+  under it — use `fhNodeSelMatchRow(row)` if you add a consumer. Select-all in
+  the queue now respects the card filters. (3) `taxonomy.json` v2: `payback`,
+  `onbehalf`, `regular` under `p2p`, no `kw`; `taxonomy.mjs` REGENERATED AND
+  COMMITTED, NOT DEPLOYED — nothing depends on the worker knowing them. Sweep
+  cursor `fh-tree-bf` v9 → v10. Files: `13-partition`, `21-personal`,
+  `24-lessons`, `28-tree-backfill`, `56-csv-import-ui`, `57-csv-import-review`,
+  `60-transactions`, `61-expense-detail`, `63-tree-ui`, `72-txn-review`,
+  `taxonomy/taxonomy.json` + 3 twins, `sw.js`; tests `review-shape-tier` (new),
+  `p2p-person-groups` (new), pins moved in `tree-cascade`, stubs added in
+  `staged-bulk-select`. If you bump the SW next, start from v595.
+  `pipeline/direct-persist-contract.test.js` fails locally on "Python payload
+  builder failed" (no `earthy/serverless/.venv`) — not from this work.
+
 - **2026-09-29 · Hien · receipt enrichment L1–L5 BUILT (spec `receipt-enrichment-spec.md` Part 4) · `0154_receipt_enrichment` WRITTEN, NOT APPLIED · `mailbox-sync` change NOT deployed · client SW v590 built, NOT pushed.** Merchant e-receipts (Shopee/Grab/Apple + 4) annotate captured txns: `receipt-reader.mjs` + contract receipt block + consent-gated `inboxQuery({receipts})` + `row_kind='receipt'` staging (badge/notify-invisible; no dedup fingerprint) on the worker side; client `78-receipt-join.js` (queue + retroactive ledger join), `receipt_enc` on the personal spine (regen sweep + hydrate flag + promote + detail "Hoá đơn" section + 🧾 markers), `FH_CONSENT_V = 6`. Tests: 138 green (`receipt-contract`, `receipt-reader`, `receipt-join` new; gemini-schema digest re-pinned for the schema's receipt block; notice-rows filter now `row_kind.eq.txn`; consent-gate v6 texts; statement-lane pin relaxed to >=; `direct-persist-contract` fails PRE-EXISTINGLY on this machine, python env). **ALL DEPLOYED 2026-09-29:** `0154` APPLIED via MCP → client pushed (`504ad09`, SW v590, Vercel) → `mailbox-sync` **v70** deployed and boot-verified (403 on bare POST = gate up). ⚠️ The diff-before-deploy rule EARNED ITS KEEP: live was **v69** (BUILD_ID `2026-09-27-body-first` — gmail/statement/db/worker/senders ahead of main, presumably this claim's own follow-up never pushed), not the v67 this file recorded. Resolved by landing live INTO main (`367192b`): gmail/statement/db taken verbatim from live, worker+senders 3-way merged (base 2e6fd47, 0 conflicts), daily-wall's `runStatementLane` pin loosened to the live signature. **main == live v70 now.** Worker change stays inert per grant until bank_email consent ≥ 6 (re-affirm sheet on the new client). Watch after first consents: `read_tally` stages `receipt_read`/`receipt_llm`/`receipt_staged`, and Gmail query cost on receipt-consented grants. `0153` stays reserved/unused as noted below.
 
 - **2026-09-27 (night) · Hien · REVERTED all server backfill changes to the 11m33 baseline. `mailbox-sync` v67 == 2e6fd47 code.** Two builds regressed (15m41, 14m08) and both are backed out; `worker.mjs`, `mailbox-sync/index.ts` and the six affected pipeline/tool tests are byte-identical to 2e6fd47 again. Chaining, the 45-day slice, one-get, work-budget accounting, `WALL_STOP_MS`, `BACKFILL_STAGE_MAX=600` — all GONE. Root cause (production-confirmed): Gmail quota is **per-mailbox not per-grant**; this test mailbox had TWO active grants (`7a221a24` test + orphan `a4b5b845` from 09-15 that the reset skill never deleted) → 9,000 vs ~6,000 units/min → 403 storms → chain can't fire → cron fallback. **Two follow-ups for whoever picks this up:** (a) the `reset-test-user` flow is leaving orphan grants, so every backfill measurement is contaminated — worth fixing before trusting any number; (b) `0153_first_slice` column stays applied+unused (reserved; do not repurpose the name). Real speedups are PARKED in `first-ninety-seconds-spec.md`, each to ship alone with a measurement. Client is unchanged (v587 behaviour, SW v589). `mailbox-connect`/`push-send` untouched.
