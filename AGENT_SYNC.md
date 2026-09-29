@@ -143,6 +143,11 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-09-29 (chiều) · Hien · cây THỂ THAO tách lại + danh mục từng món chuyển về máy · `taxonomy.json` v2→v3 · sweep cursor v10→**v11** · SW v598 · mailbox-sync **v73**, merchant-concepts **v9** ĐÃ deploy · không migration.**
+  Cây: "thể thao" từng đặt tên 3 nút ở 2 gốc, cha gần trùng con, và 2 con chồng nhau (gym CŨNG là sân bãi). Đổi tên `fitness`/`gym`/`sports`/`hobby`/`hobbygoods` (chỉ hiển thị — KHÔNG mã nào biến mất, mọi `node_enc` đã lưu vẫn đọc được), thêm MỘT lá `sportsgear` "Đồ thể thao". Từ khoá `boi` khớp theo TỪ nên "Bồi dưỡng nghiệp vụ" bị gán vào thể thao — đã gỡ; lá NƠI chỉ nhận từ chỉ nơi, đồ dùng về `sportsgear`. `concept` của fitness/gym/sports: "Others" → **"Fun"** (có hệ quả: `familyCatForConcept` đưa khoản MỚI vào danh mục Fun thay vì catch-all; dòng đã lưu không đổi).
+  Món hoá đơn: thôi POST tên món sang `merchant-concepts` (bộ phân loại CỬA HÀNG + cache DÙNG CHUNG toàn hệ thống — sai là sai vĩnh viễn cho mọi người, và là danh sách mua sắm cá nhân trong bảng tên shop); nay dùng tầng từ khoá của cây, chạy trên máy. Món KHÔNG còn bỏ phiếu chọn node cho khoản chi (bỏ DCA) và chỉ được làm rõ TRONG nhánh của khoản.
+  ⚠️ **Có sửa 2 test của phiên p2p-breakdown** (`p2p-person-groups`, `review-shape-tier`): cả hai ghim cứng `v10` / `version===2`; đổi sang `>=` để giữ nguyên ý định mà không vỡ ở mỗi lần bump sau. Đã xoá 1 dòng cache `merchant_concepts` node='sports' để nó tự tính lại theo cây mới. 140 suite xanh (`direct-persist-contract` hỏng sẵn vì thiếu venv python).
+
 - **2026-09-29 · Hien · p2p-breakdown rungs 1–3 BUILT, NOT COMMITTED · claiming SW `v594` (yours landed at v593) · no migration · no deploy · taxonomy v2.**
   Spec: `docs/specs/p2p-breakdown-spec.md` (new); P series appended to
   `category-tree-spec.md` §16.2 and its §3.2.1 review row. Client only.
