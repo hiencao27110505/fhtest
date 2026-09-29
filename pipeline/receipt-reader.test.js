@@ -50,25 +50,27 @@ const SHOPEE_PAYMENT = [
 ].join('\n');
 
 const APPLE_RECEIPT = [
-  'Receipt',
-  'APPLE ACCOUNT',
-  'hiencao27110505@gmail.com',
-  'INVOICE DATE',
-  '28 Sep 2026',
-  'ORDER ID',
-  'MX5XZQWBN5',
-  'DOCUMENT NO.',
-  '718196767166',
-  'BILLED TO',
-  'MasterCard .... 4751',
-  'Cao Hien',
-  '443/119A Le Van Sy',
-  'Apple TV',
-  'The Long Walk   49.000đ',
-  'Thriller',
-  'Movie Rental',
-  'Hien’s MacBook Pro',
-  'TOTAL   49.000đ',
+  // Real shape (corpus 2026-09-29, PII scrubbed): header blocks ("ORDER ID"
+  // over its value), the billing cluster WITH an address (which must never
+  // reach an item), then the storefront line and the item block, the price on
+  // its own line, then TOTAL over the grand total.
+  'Receipt', '',
+  'APPLE ACCOUNT', 'test@example.com', '',
+  'BILLED TO', '',
+  'MasterCard .... 4751', 'Ng V A', '',
+  '1 Duong X', 'Thanh pho Z, 700000', 'VNM', '',
+  'INVOICE DATE', '28 Sep 2026', '',
+  'ORDER ID', 'MX5XZQWBN5', '',
+  'DOCUMENT NO.', '718196767166', '',
+  'Apple TV', '',
+  'The Long Walk', '',
+  'Thriller', '',
+  'Movie Rental', '',
+  'Someone\u2019s MacBook Pro', '',
+  'Report a Problem', '',
+  '49.000\u0111', '',
+  'TOTAL', '',
+  '49.000\u0111',
 ].join('\n');
 
 const GRAB_RECEIPT = [
@@ -122,10 +124,12 @@ const geminiFetch = (answer) => async (u, init) => {
     sp.items_total === 841700 && sp.discount === 160000 && sp.shipping_fee === 0
     && sp.items_total - sp.discount - sp.shipping_fee === sp.paid, [sp.items_total, sp.discount, sp.shipping_fee]);
   t('a voucher CODE is not money', sp.discount !== null && String(sp.discount).indexOf('2620') === -1);
+  t('item 1: empty Mẫu mã cell reads as NO variant, never the next label',
+    sp.items[0].variant === null, sp.items[0].variant);
   t('payment instant, second precision, +07:00',
     sp._when && sp._when.iso === '2026-09-26T13:09:20+07:00' && sp._when.precision === 'second', sp._when);
   t('no address and no phone anywhere in the reading',
-    JSON.stringify(sp).indexOf('443/119') === -1 && JSON.stringify(sp).indexOf('84904911217') === -1);
+    JSON.stringify(sp).indexOf('Đường X') === -1 && JSON.stringify(sp).indexOf('840000000000') === -1);
   t('a campaign mail (no paid total) reads null',
     R.readShopeeReceipt('Flash sale 9.9! đơn hàng ngay hôm nay giảm 50%') === null);
 
@@ -134,8 +138,11 @@ const geminiFetch = (answer) => async (u, init) => {
   t('paid total', ap && ap.paid === 49000, ap && ap.paid);
   t('order id', ap.order_id === 'MX5XZQWBN5', ap.order_id);
   t('the billed card tail, never the PAN', ap.paid_with_tail === '4751', ap.paid_with_tail);
-  t('the item line, price split from name', ap.items && ap.items.length >= 1
+  t('the item block: name from the storefront-gated group', ap.items && ap.items.length === 1
     && ap.items[0].name === 'The Long Walk' && ap.items[0].unit_price === 49000, ap.items);
+  t('attributes ride as the variant', /Thriller · Movie Rental/.test(ap.items[0].variant), ap.items[0].variant);
+  t('the billing ADDRESS can never reach an item (structural)',
+    JSON.stringify(ap.items).indexOf('Duong X') === -1 && JSON.stringify(ap.items).indexOf('Ng V A') === -1, ap.items);
   t('invoice date is day-only precision', ap._when && ap._when.iso.slice(0, 10) === '2026-09-28' && ap._when.precision === 'day', ap._when);
   t('service_type digital', ap.service_type === 'digital');
 

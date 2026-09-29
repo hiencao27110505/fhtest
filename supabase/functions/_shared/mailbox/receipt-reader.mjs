@@ -97,52 +97,91 @@ function cardTail(text) {
 
 /* ── the hand-written readers ────────────────────────────────────────────── */
 
-/** Shopee (and the ShopeeFood/Foody order layout, when it matches): order
- *  confirmations print numbered item blocks over a small labelled vocabulary.
- *  Null unless a paid total is found — a receipt with no paid figure cannot
- *  join anything and the model gets its turn. */
+/* ── label/value line scanning ────────────────────────────────────────────
+   mailtext.mjs turns every table cell into its own LINE, so in the real
+   rendering a label and its value are neighbours, not one line: "Người bán:"
+   then a blank, then "olanevietnam". (The first cut of these readers assumed
+   same-line labels, matched nothing on real mail, and every receipt silently
+   fell to the model — order-level only. Ground truth: the 2026-09-29 corpus
+   pull, tools/pull-mail-corpus.mjs.) */
+const _LABEL_RE = /^[A-Za-z\u00c0-\u1ef9\u0110\u0111 .\/&()\-]{2,40}:$/;
+function _lines(text) {
+  return String(text || '').split('\n').map((l) => l.trim());
+}
+/** The value of "Label:" at line i: same-line remainder, else the next
+ *  non-empty line — unless that line is itself a label (an EMPTY cell:
+ *  Shopee prints "Mẫu mã:" with nothing under it on variant-less items). */
+function _valAt(lines, i, label) {
+  const rest = lines[i].slice(label.length).trim();
+  if (rest) return rest;
+  for (let j = i + 1; j < lines.length && j <= i + 3; j++) {
+    if (!lines[j]) continue;
+    if (_LABEL_RE.test(lines[j])) return null;
+    return lines[j];
+  }
+  return null;
+}
+function _findVal(lines, re) {
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(re);
+    if (m) return _valAt(lines, i, m[0]);
+  }
+  return null;
+}
+/** Trailing punctuation a link cell leaves behind: "olanevietnam ." */
+function _tidyStr(s) {
+  const t = String(s || '').replace(/[\s.·|\u2022-]+$/, '').trim();
+  return t || null;
+}
+
+/** Shopee (and the ShopeeFood/Foody order layout, when it matches): every
+ *  field is a labelled cell; items open with "N. <name>" on one line and
+ *  carry their own Mẫu mã / Số lượng / Giá labels below. Null unless a paid
+ *  total is found — a receipt with no paid figure cannot join anything. */
 export function readShopeeReceipt(text) {
   const t = String(text || '');
-  if (!/đơn hàng/i.test(t)) return null;
-  const paid = amt(labelled(t, /(?:Tổng thanh toán|Số tiền thanh toán)\s*:?[\t ]*([₫đ\d.,\s]+)/i));
+  if (!/\u0111\u01a1n h\u00e0ng/i.test(t)) return null;
+  const lines = _lines(t);
+  const paid = amt(_findVal(lines, /^(?:T\u1ed5ng thanh to\u00e1n|S\u1ed1 ti\u1ec1n thanh to\u00e1n):/i));
   if (!paid) return null;
 
-  const orderId = labelled(t, /Mã đơn hàng\s*:?[\t ]*#?([A-Z0-9]{6,})/i);
-  const seller = labelled(t, /Người bán\s*:?[\t ]*([^\n]{2,60})/i);
-  const itemsTotal = amt(labelled(t, /Tổng tiền\s*:?[\t ]*([₫đ\d.,\s]+)/i));
-  const ship = amt0(labelled(t, /Phí vận chuyển\s*:?[\t ]*([₫đ\d.,\s]+)/i));
-  // Voucher rows carry amounts; "Mã giảm giá" is a code, not money. Summed:
-  // an order can stack a platform voucher and a shop voucher.
+  const orderId = (() => {
+    const v = _findVal(lines, /^M\u00e3 \u0111\u01a1n h\u00e0ng:/i);
+    const m = v && v.match(/#?([A-Z0-9]{6,})/);
+    return m ? m[1] : null;
+  })();
+  const seller = _tidyStr(_findVal(lines, /^Ng\u01b0\u1eddi b\u00e1n:/i));
+  const itemsTotal = amt(_findVal(lines, /^T\u1ed5ng ti\u1ec1n:/i));
+  const ship = amt0(_findVal(lines, /^Ph\u00ed v\u1eadn chuy\u1ec3n:/i));
+  // Voucher labels carry amounts; "Mã giảm giá" carries a CODE. Summed: an
+  // order can stack a platform voucher and a shop voucher.
   let discount = 0;
-  for (const m of t.matchAll(/Voucher[^\n:]*:?[\t ]*([₫đ][\d.,\s]+|[\d.,]+\s*[₫đ])/gi)) {
-    discount += amt(m[1]) || 0;
+  for (let i = 0; i < lines.length; i++) {
+    if (/^Voucher[^:]*:/i.test(lines[i])) discount += amt(_valAt(lines, i, lines[i].match(/^Voucher[^:]*:/i)[0])) || 0;
   }
   if (!discount && itemsTotal && itemsTotal > paid) discount = itemsTotal - paid - (ship || 0);
-  const when = receiptWhen(labelled(t, /Ngày thanh toán\s*:?[\t ]*([^\n]+)/i))
-    || receiptWhen(labelled(t, /Ngày đặt hàng\s*:?[\t ]*([^\n]+)/i));
+  const when = receiptWhen(_findVal(lines, /^Ng\u00e0y thanh to\u00e1n:/i))
+    || receiptWhen(_findVal(lines, /^Ng\u00e0y \u0111\u1eb7t h\u00e0ng:/i));
 
-  /* Item blocks: "1. <name…>" then labelled rows until the next block or the
-     totals. The name may wrap; label lines end it. */
+  /* Items: "N. <name…>" opens one; its labels follow until the next item or
+     the totals. The name can wrap onto plain lines before the first label. */
   const items = [];
-  const lines = t.split('\n');
+  let cur = null;
   for (let i = 0; i < lines.length; i++) {
-    const start = lines[i].match(/^\s*(\d{1,2})\.\s+(\S.{2,})/);
-    if (!start) continue;
-    let name = start[2].trim();
-    let qty = null, unit = null, variant = null;
-    for (let j = i + 1; j < lines.length; j++) {
-      const ln = lines[j];
-      if (/^\s*\d{1,2}\.\s+\S/.test(ln) || /Tổng tiền|Tổng thanh toán/i.test(ln)) { i = j - 1; break; }
-      const q = ln.match(/Số lượng\s*:?[\t ]*(\d+)/i);
-      const g = ln.match(/Giá\s*:?[\t ]*([₫đ\d.,\s]+)/i);
-      const v = ln.match(/(?:Mẫu mã|Phân loại)\s*:?[\t ]*([^\n]{1,60})/i);
-      if (q) qty = +q[1];
-      else if (g) unit = amt(g[1]);
-      else if (v) variant = v[1].trim();
-      else if (!qty && !unit && !variant && ln.trim() && !/:/.test(ln)) name += ' ' + ln.trim();
-      i = j;
+    const ln = lines[i];
+    if (/^T\u1ed5ng ti\u1ec1n:/i.test(ln)) break;
+    const start = ln.match(/^(\d{1,2})\.\s+(\S.{2,})/);
+    if (start) {
+      cur = { name: start[2].trim().slice(0, 200), qty: null, unit_price: null, line_discount: null, variant: null };
+      items.push(cur);
+      continue;
     }
-    items.push({ name: name.slice(0, 200), qty, unit_price: unit, line_discount: null, variant });
+    if (!cur || !ln) continue;
+    if (/^M\u1eabu m\u00e3:|^Ph\u00e2n lo\u1ea1i:/i.test(ln)) cur.variant = _tidyStr(_valAt(lines, i, ln.match(/^[^:]+:/)[0]));
+    else if (/^S\u1ed1 l\u01b0\u1ee3ng:/i.test(ln)) { const v = _valAt(lines, i, 'S\u1ed1 l\u01b0\u1ee3ng:'); cur.qty = v && /^\d+$/.test(v) ? +v : cur.qty; }
+    else if (/^Gi\u00e1:/i.test(ln)) cur.unit_price = amt(_valAt(lines, i, 'Gi\u00e1:'));
+    else if (!_LABEL_RE.test(ln) && cur.qty == null && cur.unit_price == null && cur.variant == null
+             && !/^\u20ab|^\d/.test(ln)) cur.name = (cur.name + ' ' + ln).slice(0, 200);
   }
 
   return {
@@ -153,30 +192,53 @@ export function readShopeeReceipt(text) {
   };
 }
 
-/** Apple receipts ("Your receipt from Apple / Hóa đơn"): a TOTAL, an order
- *  id, the billed card's tail, and item lines whose price ends the line. */
+/** Apple receipts: header blocks ("ORDER ID" over its value), then per
+ *  storefront a run of item blocks — name, attribute lines, "Report a
+ *  Problem", then the price on its own line — closed by "TOTAL" over the
+ *  grand total. The attributes ("Thriller · Movie Rental · Hien's MacBook
+ *  Pro") ride as the variant: they are the insight ("what kind of thing"). */
+const _APPLE_STORES = /^(Apple TV|App Store|iTunes Store|Apple Music|Apple Books|Apple Arcade|Apple One|Apple Fitness\+?|iCloud\+?|Apple Podcasts)$/i;
 export function readAppleReceipt(text, subject) {
   const t = String(text || '');
-  if (!/receipt|h[oó]a đơn/i.test(String(subject || '') + ' ' + t.slice(0, 400))) return null;
-  const paid = amt(labelled(t, /(?:TOTAL|TỔNG|Tổng cộng)\s*:?[\t ]*\n?\s*([₫đ\d.,\s]+)/i));
-  if (!paid) return null;
-  const orderId = labelled(t, /ORDER ID\s*:?[\t ]*\n?\s*([A-Z0-9]{6,})/i)
-    || labelled(t, /Mã đơn hàng\s*:?[\t ]*\n?\s*([A-Z0-9]{6,})/i)
-    || labelled(t, /DOCUMENT NO\.?\s*:?[\t ]*\n?\s*(\d{6,})/i);
-  const when = receiptWhen(labelled(t, /(?:INVOICE DATE|Ngày h[oó]a đơn)\s*:?[\t ]*\n?\s*([^\n]+)/i));
-
-  /* Item lines: a name with its price at the end of the line. Label rows
-     (TOTAL, dates, card) never match: their values are not line-final prices
-     or their text is a known label. */
-  const items = [];
-  for (const ln of t.split('\n')) {
-    const m = ln.match(/^\s*(\S.{2,80}?)\s+([\d.,]+\s?[₫đ])\s*$/);
-    if (!m) continue;
-    if (/TOTAL|TỔNG|INVOICE|ORDER|DOCUMENT|VAT|Subtotal/i.test(m[1])) continue;
-    const price = amt(m[2]);
-    if (price == null) continue;
-    items.push({ name: m[1].trim(), qty: null, unit_price: price, line_discount: null, variant: null });
+  if (!/receipt|invoice|h[o\u00f3]a \u0111\u01a1n/i.test(String(subject || '') + ' ' + t.slice(0, 400))) return null;
+  const lines = _lines(t);
+  const priceLine = (ln) => ln.match(/^([\d.,]+\s?[\u0111\u20ab])$/);
+  const totalAt = lines.findIndex((ln) => /^(TOTAL|T\u1ed4NG|T\u1ed5ng c\u1ed9ng)$/i.test(ln) || /^(TOTAL|T\u1ed4NG)\b/.test(ln));
+  let paid = null;
+  if (totalAt >= 0) for (let j = totalAt + 1; j < lines.length && j <= totalAt + 3; j++) {
+    const m = priceLine(lines[j] || ''); if (m) { paid = amt(m[1]); break; }
   }
+  if (!paid) return null;
+
+  const orderId = _findVal(lines, /^ORDER ID$/i) || _findVal(lines, /^M\u00e3 \u0111\u01a1n h\u00e0ng$/i)
+    || _findVal(lines, /^DOCUMENT NO\.?$/i);
+  const when = receiptWhen(_findVal(lines, /^(INVOICE DATE|Ng\u00e0y h[o\u00f3]a \u0111\u01a1n)$/i));
+
+  /* Item groups exist ONLY between a storefront header ("Apple TV",
+     "App Store", …) and the TOTAL line, and end at each standalone price.
+     Nothing before the first storefront is ever collected — that is where
+     the billing name and ADDRESS live, and the address rule is structural:
+     a cluster the walk never enters cannot leak into a variant. */
+  const items = [];
+  let inItems = false, group = [];
+  for (let i = 0; i < totalAt; i++) {
+    const ln = lines[i];
+    if (!ln) continue;
+    if (_APPLE_STORES.test(ln)) { inItems = true; group = []; continue; }
+    if (!inItems) continue;
+    const pm = priceLine(ln);
+    if (pm) {
+      const g = group.filter((x) => !/^Report a Problem$/i.test(x) && !/^B\u00e1o c\u00e1o/i.test(x) && !/^\d{6,}$/.test(x));
+      if (g.length) {
+        items.push({ name: g[0].slice(0, 200), qty: null, unit_price: amt(pm[1]), line_discount: null,
+          variant: g.length > 1 ? g.slice(1).join(' \u00b7 ').slice(0, 80) : null });
+      }
+      group = [];
+      continue;
+    }
+    group.push(ln);
+  }
+
   return {
     service_type: 'digital', order_id: orderId, seller: null,
     items: items.length ? items : null,
@@ -187,17 +249,21 @@ export function readAppleReceipt(text, subject) {
 
 /** Grab, MINIMAL BY CONSTRUCTION (spec §5): service, total, time, paid-with
  *  tail, booking id. Never items — Grab mail carries home addresses, and this
- *  reader has no code path that could emit one. */
+ *  reader has no code path that could emit one. Labels may be same-line or
+ *  next-line; both forms are read. */
 export function readGrabReceipt(text, subject) {
   const t = String(text || '');
   if (!/e-?receipt|grab/i.test(String(subject || '') + ' ' + t.slice(0, 200))) return null;
-  const paid = amt(labelled(t, /(?:TOTAL|Tổng cộng|Tổng thanh toán)\s*(?:\(VND\))?\s*:?[\t ]*\n?\s*([₫đ\d.,\s]+)/i));
+  const lines = _lines(t);
+  const paid = amt(_findVal(lines, /^(?:TOTAL(?:\s*\(VND\))?|T\u1ed5ng c\u1ed9ng|T\u1ed5ng thanh to\u00e1n)\s*:?/i))
+    || amt(labelled(t, /(?:TOTAL|T\u1ed5ng c\u1ed9ng|T\u1ed5ng thanh to\u00e1n)\s*(?:\(VND\))?\s*:?[\t ]*\n?\s*([\u20ab\u0111\d.,\s]+)/i));
   if (!paid) return null;
-  const booking = labelled(t, /(?:Booking ID|Mã chuyến)\s*:?[\t ]*\n?\s*([A-Z]{1,4}-?[A-Z0-9-]{6,})/i);
-  const food = /grabfood|đơn hàng|delivery/i.test(t);
+  const booking = _findVal(lines, /^(?:Booking ID|M\u00e3 chuy\u1ebfn)\s*:?/i)
+    || labelled(t, /(?:Booking ID|M\u00e3 chuy\u1ebfn)\s*:?[\t ]*\n?\s*([A-Z]{1,4}-?[A-Z0-9-]{6,})/i);
+  const food = /grabfood|\u0111\u01a1n h\u00e0ng|delivery/i.test(t);
   const when = receiptWhen(labelled(t, /(\d{1,2}[\/\-\s](?:Th\s*0?\d{1,2}|[A-Za-z]{3,9}|\d{1,2})[\/\-\s]\d{4}[^\n]*)/));
   return {
-    service_type: food ? 'food' : 'ride', order_id: booking, seller: null,
+    service_type: food ? 'food' : 'ride', order_id: _tidyStr(booking), seller: null,
     items: null, items_total: null, discount: null, shipping_fee: null,
     paid, paid_with_tail: cardTail(t), _when: when,
   };

@@ -2540,9 +2540,12 @@ label.exd-photo.add{cursor:pointer}
 /* ── 0154 receipt enrichment — the Hoá đơn section (view state) ── */
 .pexd-rc{padding:10px 14px}
 .pexd-rc-head{font-size:12.5px;color:var(--muted-soft);padding-bottom:6px;border-bottom:1px solid var(--divider);margin-bottom:4px}
-.pexd-rc-item{display:flex;justify-content:space-between;gap:12px;padding:6px 0;font-size:13.5px}
+.pexd-rc-item{padding:6px 0;font-size:13.5px}
+.pexd-rc-item+.pexd-rc-item{border-top:1px solid var(--divider)}
+.pexd-rc-main{display:flex;justify-content:space-between;gap:12px}
 .pexd-rc-name{flex:1;min-width:0}
-.pexd-rc-var{color:var(--muted-soft)}
+.pexd-rc-name b{font-weight:650}
+.pexd-rc-varline{font-size:12px;color:var(--muted-soft);margin-top:2px}
 .pexd-rc-amt{white-space:nowrap;color:var(--muted)}
 .pexd-rc-math{margin-top:6px;padding-top:6px;border-top:1px solid var(--divider)}
 .pexd-rc-mrow{display:flex;justify-content:space-between;padding:2.5px 0;font-size:12.5px;color:var(--muted)}
@@ -4673,6 +4676,16 @@ button.csv-srow:active{background:var(--surface)}
 .stm-gobar .csv-unlock-skip{text-align:center;width:100%}
 .csv-fxfix-row{margin-top:8px}
 .csv-fxfix{min-height:44px;font-size:13px}
+/* ── 0154 receipt enrichment: the key receipt rows on the expanded card ── */
+.csv-rc{margin:10px 2px 2px;padding:9px 11px;background:var(--surface);border:1px solid var(--divider);border-radius:10px}
+.csv-rc-h{font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--muted);text-transform:uppercase;margin-bottom:5px}
+.csv-rc-h .csv-rc-src{font-weight:500;text-transform:none;letter-spacing:0;margin-left:4px}
+.csv-rc-it{display:flex;justify-content:space-between;gap:10px;padding:3px 0;font-size:12.5px;color:var(--ink-2)}
+.csv-rc-it.math{margin-top:4px;padding-top:5px;border-top:1px dashed var(--divider);color:var(--muted)}
+.csv-rc-nm{flex:1;min-width:0}
+.csv-rc-amt{white-space:nowrap;color:var(--muted)}
+.csv-rc-more{font-size:11.5px;color:var(--muted-soft);padding:2px 0}
+
 /* ---- settings sheet/modal internals (family, members, savings, income) ----
    Tokens only: these screens must re-theme with the rest of the app. */
 .fh-s-cta{width:100%;background:var(--grad-brand);color:#fff;font-size:16px;font-weight:700;letter-spacing:-.02em;padding:15px;border-radius:9999px;box-shadow:0 8px 20px var(--brand-glow);margin-top:6px}
@@ -15237,6 +15250,31 @@ function csvStagedRowsCard(c, opts){
 
   h += '<div class="csv-srows">'+rows+'</div>';
 
+  /* 0154 receipt enrichment: the joined merchant receipt, KEY rows only —
+     seller/provider + order id, up to three items with prices, and the one
+     line of voucher math that explains why the paid figure differs from the
+     item sum. Read-only: a receipt is the merchant's record. Full detail
+     lives on the transaction's detail screen after import. */
+  var _rj2 = (typeof c.rowIndex === 'number' && window._fhStagedRows && window._fhStagedRows[c.rowIndex]
+              && window._fhStagedRows[c.rowIndex]._rcpt) || null;
+  if(_rj2){
+    var _rjFmt = function(n){ return (Number(n)||0).toLocaleString('vi-VN')+'đ'; };
+    var _rjHead = [(_rj2.seller || _rj2.provider), _rj2.order_id ? ('#'+_rj2.order_id) : null].filter(Boolean).join(' · ');
+    var _rjB = '<div class="csv-rc"><div class="csv-rc-h">🧾 '+esc(L('Hoá đơn','Receipt'))+(_rjHead?' <span class="csv-rc-src">'+esc(_rjHead)+'</span>':'')+'</div>';
+    var _its = _rj2.items || [];
+    _its.slice(0,3).forEach(function(it){
+      if(!it || !it.name) return;
+      _rjB += '<div class="csv-rc-it"><span class="csv-rc-nm">'+(it.qty&&it.qty>1?esc(it.qty)+' × ':'')+esc(it.name)+'</span>'
+        + (it.unit_price!=null?'<span class="csv-rc-amt num">'+esc(_rjFmt(it.unit_price))+'</span>':'')+'</div>';
+    });
+    if(_its.length>3) _rjB += '<div class="csv-rc-more">'+esc(L('+'+(_its.length-3)+' sản phẩm nữa','+'+(_its.length-3)+' more'))+'</div>';
+    if(_rj2.discount) _rjB += '<div class="csv-rc-it math"><span class="csv-rc-nm">'
+      + esc(L('Tổng '+_rjFmt(_rj2.items_total||0)+' − voucher '+_rjFmt(_rj2.discount),'Total '+_rjFmt(_rj2.items_total||0)+' − voucher '+_rjFmt(_rj2.discount)))
+      + '</span><span class="csv-rc-amt num">'+esc(_rjFmt(_rj2.paid))+'</span></div>';
+    _rjB += '</div>';
+    h += _rjB;
+  }
+
   /* Bottom CTA bar (ready rows only — dup/defer cards keep their own verbs):
      delete (moved down from the old header ✕, same arm-then-confirm), apply
      this classification to lookalike rows, and import just this one now. */
@@ -22864,19 +22902,25 @@ async function _pexdReceiptLoad(id){
 }
 function _pexdReceiptHTML(rc){
   var fmtD=function(n){ return (Number(n)||0).toLocaleString('vi-VN')+'đ'; };
+  var trim=function(s){ return String(s||'').replace(/[\s.·|•-]+$/,'').trim(); };   // "olanevietnam ." → "olanevietnam" (pre-fix blobs)
   var items=rc.items||[];
   var h=_exdSecH('Hoá đơn', items.length||'');
   h+='<div class="exd-meta pexd-rc">';
-  var head=[rc.seller||rc.provider, rc.order_id?('#'+rc.order_id):null].filter(Boolean);
+  var head=[trim(rc.seller)||rc.provider, rc.order_id?('#'+rc.order_id):null].filter(Boolean);
   if(head.length) h+='<div class="pexd-rc-head">'+esc(head.join(' · '))+'</div>';
   items.forEach(function(it){
     if(!it) return;
-    var qty=(it.qty&&it.qty>1)?(it.qty+' × '):'';
-    h+='<div class="pexd-rc-item"><span class="pexd-rc-name">'+esc(it.name||'—')+(it.variant?' <span class="pexd-rc-var">('+esc(it.variant)+')</span>':'')+'</span>'
-      +(it.unit_price!=null?'<span class="pexd-rc-amt num">'+qty+esc(fmtD(it.unit_price))+'</span>':'')+'</div>';
+    h+='<div class="pexd-rc-item"><div class="pexd-rc-main">'
+      +'<span class="pexd-rc-name">'+((it.qty&&it.qty>1)?('<b>'+esc(it.qty)+' ×</b> '):'')+esc(it.name||'—')+'</span>'
+      +(it.unit_price!=null?'<span class="pexd-rc-amt num">'+esc(fmtD(it.unit_price))+'</span>':'')
+      +'</div>'
+      +(it.variant?'<div class="pexd-rc-varline">'+esc(it.variant)+'</div>':'')
+      +'</div>';
   });
+  /* The honest math — only when there is math to show: a single-price receipt
+     (Apple) reads as one item + Đã trả, not four rows of the same number. */
   var math=[];
-  if(rc.items_total!=null) math.push(['Tổng tiền', fmtD(rc.items_total), '']);
+  if(rc.items_total!=null && rc.items_total!==rc.paid) math.push(['Tổng tiền', fmtD(rc.items_total), '']);
   if(rc.discount) math.push(['Voucher/giảm giá', '−'+fmtD(rc.discount), 'good']);
   if(rc.shipping_fee) math.push(['Phí vận chuyển', fmtD(rc.shipping_fee), '']);
   if(rc.paid!=null) math.push(['Đã trả', fmtD(rc.paid), 'strong']);
@@ -25075,7 +25119,9 @@ function applyLang(){
         _rcpt: rc ? {
           v: 1, source: 'email', provider: row.source_provider || null,
           service_type: rc.service_type || null, order_id: rc.order_id || null,
-          seller: rc.seller || null,
+          /* A link cell leaves "olanevietnam ." — trimmed here so every blob
+             ever written is clean, not only what the fixed reader emits. */
+          seller: String(rc.seller || '').replace(/[\s.·|•-]+$/, '').trim() || null,
           items: Array.isArray(rc.items) ? rc.items.map(function (it) {
             return { name: (it && it.name) || null, qty: it && it.qty != null ? it.qty : null,
               unit_price: it && it.unit_price != null ? it.unit_price : null,
@@ -25848,7 +25894,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v590';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v592';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',

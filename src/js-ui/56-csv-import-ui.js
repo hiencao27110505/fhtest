@@ -1353,6 +1353,31 @@ function csvStagedRowsCard(c, opts){
 
   h += '<div class="csv-srows">'+rows+'</div>';
 
+  /* 0154 receipt enrichment: the joined merchant receipt, KEY rows only —
+     seller/provider + order id, up to three items with prices, and the one
+     line of voucher math that explains why the paid figure differs from the
+     item sum. Read-only: a receipt is the merchant's record. Full detail
+     lives on the transaction's detail screen after import. */
+  var _rj2 = (typeof c.rowIndex === 'number' && window._fhStagedRows && window._fhStagedRows[c.rowIndex]
+              && window._fhStagedRows[c.rowIndex]._rcpt) || null;
+  if(_rj2){
+    var _rjFmt = function(n){ return (Number(n)||0).toLocaleString('vi-VN')+'đ'; };
+    var _rjHead = [(_rj2.seller || _rj2.provider), _rj2.order_id ? ('#'+_rj2.order_id) : null].filter(Boolean).join(' · ');
+    var _rjB = '<div class="csv-rc"><div class="csv-rc-h">🧾 '+esc(L('Hoá đơn','Receipt'))+(_rjHead?' <span class="csv-rc-src">'+esc(_rjHead)+'</span>':'')+'</div>';
+    var _its = _rj2.items || [];
+    _its.slice(0,3).forEach(function(it){
+      if(!it || !it.name) return;
+      _rjB += '<div class="csv-rc-it"><span class="csv-rc-nm">'+(it.qty&&it.qty>1?esc(it.qty)+' × ':'')+esc(it.name)+'</span>'
+        + (it.unit_price!=null?'<span class="csv-rc-amt num">'+esc(_rjFmt(it.unit_price))+'</span>':'')+'</div>';
+    });
+    if(_its.length>3) _rjB += '<div class="csv-rc-more">'+esc(L('+'+(_its.length-3)+' sản phẩm nữa','+'+(_its.length-3)+' more'))+'</div>';
+    if(_rj2.discount) _rjB += '<div class="csv-rc-it math"><span class="csv-rc-nm">'
+      + esc(L('Tổng '+_rjFmt(_rj2.items_total||0)+' − voucher '+_rjFmt(_rj2.discount),'Total '+_rjFmt(_rj2.items_total||0)+' − voucher '+_rjFmt(_rj2.discount)))
+      + '</span><span class="csv-rc-amt num">'+esc(_rjFmt(_rj2.paid))+'</span></div>';
+    _rjB += '</div>';
+    h += _rjB;
+  }
+
   /* Bottom CTA bar (ready rows only — dup/defer cards keep their own verbs):
      delete (moved down from the old header ✕, same arm-then-confirm), apply
      this classification to lookalike rows, and import just this one now. */

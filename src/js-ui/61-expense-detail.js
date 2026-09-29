@@ -859,19 +859,25 @@ async function _pexdReceiptLoad(id){
 }
 function _pexdReceiptHTML(rc){
   var fmtD=function(n){ return (Number(n)||0).toLocaleString('vi-VN')+'đ'; };
+  var trim=function(s){ return String(s||'').replace(/[\s.·|•-]+$/,'').trim(); };   // "olanevietnam ." → "olanevietnam" (pre-fix blobs)
   var items=rc.items||[];
   var h=_exdSecH('Hoá đơn', items.length||'');
   h+='<div class="exd-meta pexd-rc">';
-  var head=[rc.seller||rc.provider, rc.order_id?('#'+rc.order_id):null].filter(Boolean);
+  var head=[trim(rc.seller)||rc.provider, rc.order_id?('#'+rc.order_id):null].filter(Boolean);
   if(head.length) h+='<div class="pexd-rc-head">'+esc(head.join(' · '))+'</div>';
   items.forEach(function(it){
     if(!it) return;
-    var qty=(it.qty&&it.qty>1)?(it.qty+' × '):'';
-    h+='<div class="pexd-rc-item"><span class="pexd-rc-name">'+esc(it.name||'—')+(it.variant?' <span class="pexd-rc-var">('+esc(it.variant)+')</span>':'')+'</span>'
-      +(it.unit_price!=null?'<span class="pexd-rc-amt num">'+qty+esc(fmtD(it.unit_price))+'</span>':'')+'</div>';
+    h+='<div class="pexd-rc-item"><div class="pexd-rc-main">'
+      +'<span class="pexd-rc-name">'+((it.qty&&it.qty>1)?('<b>'+esc(it.qty)+' ×</b> '):'')+esc(it.name||'—')+'</span>'
+      +(it.unit_price!=null?'<span class="pexd-rc-amt num">'+esc(fmtD(it.unit_price))+'</span>':'')
+      +'</div>'
+      +(it.variant?'<div class="pexd-rc-varline">'+esc(it.variant)+'</div>':'')
+      +'</div>';
   });
+  /* The honest math — only when there is math to show: a single-price receipt
+     (Apple) reads as one item + Đã trả, not four rows of the same number. */
   var math=[];
-  if(rc.items_total!=null) math.push(['Tổng tiền', fmtD(rc.items_total), '']);
+  if(rc.items_total!=null && rc.items_total!==rc.paid) math.push(['Tổng tiền', fmtD(rc.items_total), '']);
   if(rc.discount) math.push(['Voucher/giảm giá', '−'+fmtD(rc.discount), 'good']);
   if(rc.shipping_fee) math.push(['Phí vận chuyển', fmtD(rc.shipping_fee), '']);
   if(rc.paid!=null) math.push(['Đã trả', fmtD(rc.paid), 'strong']);

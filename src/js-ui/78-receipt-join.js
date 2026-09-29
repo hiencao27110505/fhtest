@@ -144,7 +144,9 @@
         _rcpt: rc ? {
           v: 1, source: 'email', provider: row.source_provider || null,
           service_type: rc.service_type || null, order_id: rc.order_id || null,
-          seller: rc.seller || null,
+          /* A link cell leaves "olanevietnam ." — trimmed here so every blob
+             ever written is clean, not only what the fixed reader emits. */
+          seller: String(rc.seller || '').replace(/[\s.·|•-]+$/, '').trim() || null,
           items: Array.isArray(rc.items) ? rc.items.map(function (it) {
             return { name: (it && it.name) || null, qty: it && it.qty != null ? it.qty : null,
               unit_price: it && it.unit_price != null ? it.unit_price : null,
