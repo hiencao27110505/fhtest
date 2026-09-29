@@ -244,21 +244,36 @@ function _applePrice(ln) {
   return m ? amt(m[1]) : null;
 }
 
-/** One item out of the lines that preceded a price. */
-function _appleItem(group, price, items) {
+/* The content kinds Apple prints as an attribute line — the half of a
+   layout-A signature that says WHAT KIND of thing was bought. */
+const _APPLE_KINDS = /^(movie rental|movie|film|tv season|tv show|season pass|subscription|in-app purchase|app|game|book|audiobook|song|album|storage plan|icloud\+?)$/i;
+
+/** One item out of the lines that preceded a price. The signature it is
+ *  learned under (spec §20.2) rides on the item: `apple|<storefront>|<kind>`
+ *  for a purchase receipt, `apple|vendor|<vendor>` for a subscription
+ *  invoice, null when neither leads the group. */
+function _appleItem(group, price, items, sectionStore) {
   let g = group.filter(function (x) {
-    return !/^Report a Problem/i.test(x) && !/^Báo cáo/i.test(x) && !/^\d{6,}$/.test(x);
+    return !/^Report a Problem/i.test(x) && !/^B\u00e1o c\u00e1o/i.test(x) && !/^\d{6,}$/.test(x);
   });
   /* Drop a leading SECTION line: a known Apple storefront, or the vendor name
      repeated above its own product ("YouTube" over "YouTube Premium
-     (Monthly)"). What is bought is the name; the shop is not. */
+     (Monthly)"). What is bought is the name; the shop is not — but the shop
+     IS the signature. */
+  let store = sectionStore || null, vendor = null;   // the section's storefront names every item under it
   while (g.length > 1 && (_APPLE_STORES.test(g[0])
          || (g[0].length <= 30 && g[1].toLowerCase().indexOf(g[0].toLowerCase()) === 0))) {
+    if (_APPLE_STORES.test(g[0])) store = g[0]; else vendor = g[0];
     g = g.slice(1);
   }
   if (!g.length) return;
+  const attrs = g.slice(1);
+  const kind = attrs.find(function (x) { return _APPLE_KINDS.test(x.trim()); }) || null;
+  const norm = function (x) { return String(x).toLowerCase().replace(/\s+/g, ' ').trim(); };
+  const sig = store ? ('apple|' + norm(store) + '|' + (kind ? norm(kind) : 'item'))
+    : vendor ? ('apple|vendor|' + norm(vendor)) : null;
   items.push({ name: g[0].slice(0, 200), qty: null, unit_price: price, line_discount: null,
-    variant: g.length > 1 ? g.slice(1).join(' · ').slice(0, 80) : null });
+    variant: attrs.length ? attrs.join(' \u00b7 ').slice(0, 80) : null, sig });
 }
 
 export function readAppleReceipt(text, subject) {
@@ -300,14 +315,15 @@ export function readAppleReceipt(text, subject) {
   }
 
   const items = [];
-  let group = [];
+  let group = [], section = null;      // the storefront line is a SECTION header: it names every item until the next header
   for (let i = 0; i < stop; i++) {
     const ln = lines[i];
     if (!ln) continue;
     const p = _applePrice(ln);
-    if (p != null) { _appleItem(group, p, items); group = []; continue; }
+    if (p != null) { _appleItem(group, p, items, section); group = []; continue; }
     if (_APPLE_RESET.test(ln) || _LABEL_RE.test(ln) || /@/.test(ln)
-        || /^(MasterCard|Visa|VISA|JCB|Amex|Thẻ)/i.test(ln)) { group = []; continue; }
+        || /^(MasterCard|Visa|VISA|JCB|Amex|Thẻ)/i.test(ln)) { group = []; section = null; continue; }
+    if (_APPLE_STORES.test(ln)) section = ln;
     group.push(ln);
   }
 

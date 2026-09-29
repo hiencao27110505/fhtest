@@ -2551,7 +2551,9 @@ label.exd-photo.add{cursor:pointer}
 .pexd-rc-name b{font-weight:600;color:var(--muted)}
 .pexd-rc-amt{flex:none;font-size:15px;font-weight:500;color:var(--ink-2)}
 .pexd-rc-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px}
-.pexd-rc-cat{display:inline-flex;align-items:center;font-size:11.5px;font-weight:600;letter-spacing:-.01em;color:var(--ink-2);background:var(--fill-neutral);padding:3px 9px;border-radius:9999px;white-space:nowrap}
+.pexd-rc-cat{display:inline-flex;align-items:center;font:inherit;font-size:11.5px;font-weight:600;letter-spacing:-.01em;color:var(--ink-2);background:var(--fill-neutral);padding:3px 9px;border:0;border-radius:9999px;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent;min-height:24px}
+.pexd-rc-cat:active{opacity:.6}
+.pexd-rc-cat.soft{color:var(--muted-soft);background:transparent;box-shadow:inset 0 0 0 1px var(--divider)}
 .pexd-rc-var{font-size:13px;color:var(--muted);letter-spacing:-.01em;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pexd-rc-math{margin-top:4px;padding-top:10px;border-top:1px solid var(--divider)}
 .pexd-rc-mrow{display:flex;justify-content:space-between;gap:14px;padding:3px 0;font-size:13.5px;color:var(--muted);letter-spacing:-.01em}
@@ -6485,9 +6487,32 @@ var FH_TAX = (function () {
     }
     return null;
   }
+  /* The TYPE PHRASE of a product listing (receipt-enrichment-spec §20.2): the
+     cache key the item-category ladder learns once. Vietnamese and Shopee-
+     English titles are head-initial — "Mũ Bơi / Nón Bơi Silicon…" is a mũ bơi
+     whatever follows — so the signature is the first two alphabetic tokens
+     after leading promo brackets and quantifiers are dropped. One source for
+     both sides (worker seals it, device reads it back for lessons), because a
+     key computed two ways is two keys. Null when nothing usable leads. */
+  var SIG_SKIP = { bo: 1, combo: 1, set: 1, hot: 1, new: 1, moi: 1, sale: 1, deal: 1, freeship: 1, mua: 1, tang: 1, sieu: 1, ma: 1 };
+  function itemSignature(text) {
+    var t = deburr(text || '').toLowerCase()
+      .replace(/\[[^\]]*\]/g, ' ').replace(/\([^)]*\)/g, ' ')
+      .replace(/[^a-z0-9]+/g, ' ').trim();
+    if (!t) return null;
+    var toks = t.split(' '), out = [], i;
+    for (i = 0; i < toks.length && out.length < 2; i++) {
+      var w = toks[i];
+      if (!w || /\d/.test(w) || w.length < 2) { if (out.length) break; continue; }
+      if (!out.length && SIG_SKIP[w]) continue;
+      out.push(w);
+    }
+    return out.length ? out.join(' ') : null;
+  }
   var API = { version: DATA.version, kinds: DATA.kinds, nodes: NODES, get: get, children: children, isLeaf: isLeaf,
     ancestors: ancestors, root: root, kindOf: kindOf, roots: roots, leaves: leaves, conceptOf: conceptOf, poolOf: poolOf,
-    rollup: rollup, pathVi: pathVi, keywordIndex: keywordIndex, keywordNode: keywordNode, deburr: deburr };
+    rollup: rollup, pathVi: pathVi, keywordIndex: keywordIndex, keywordNode: keywordNode, deburr: deburr,
+    itemSignature: itemSignature };
   return API;
 })();
 window.FH_TAX = FH_TAX;
@@ -23386,13 +23411,46 @@ async function _pexdReceiptLoad(id){
   try{ rc=await fhPersonalGetReceipt(id); }catch(e){ rc=null; }
   var host=document.getElementById('pexd-receipt');
   if(!host || _pexdId!==id) return;                        // screen moved on while decrypting
-  if(!rc){ host.innerHTML=''; return; }
-  if(rc==='_unreadable'){
+  if(!rc){ host.innerHTML=''; _pexdRcCache=null; return; }
+  if(rc==='_unreadable'){ _pexdRcCache=null;
     host.innerHTML=_exdSecH('Hoá đơn','')+'<div class="exd-meta"><div class="pexd-rc-miss">'+L('Chi tiết hoá đơn không đọc được trên máy này.','Receipt detail could not be read on this device.')+'</div></div>';
     return;
   }
+  _pexdRcCache=rc;
   host.innerHTML=_pexdReceiptHTML(rc);
 }
+/* ── correcting an item's category (spec §20.4, RC19) ─────────────────────
+   The pill is the affordance, and the pick takes effect at once: it rewrites
+   the receipt blob AND is learned per person, encrypted, under the item's
+   signature — so the next "mũ bơi" from any shop lands where this person
+   said, with no call to anyone. The same tree picker every category row
+   opens; only the subtitle differs, because nothing here waits for Lưu. */
+var _pexdRcCache=null, _pexdRcIdx=null;
+function _pexdRcSig(it){
+  if(!it) return null;
+  if(it.sig) return String(it.sig);
+  try{ var hn=(typeof FH_TAX!=='undefined'&&FH_TAX.itemSignature)?FH_TAX.itemSignature(it.name):null; return hn?('hn|'+hn):null; }catch(e){ return null; }
+}
+function pexdRcItemPick(i){
+  var rc=_pexdRcCache, it=rc&&rc.items&&rc.items[i]; if(!it||typeof fhNodePickOpen!=='function') return;
+  _pexdRcIdx=i;
+  fhNodePickOpen(it.node||null,'expense','pexdRcItemPicked',
+    L('Chọn loại cho món này. Ghi nhớ luôn cho món cùng loại lần sau.','Pick what this item is. Remembered for the same kind next time.'));
+}
+window.pexdRcItemPick=pexdRcItemPick;
+window.pexdRcItemPicked=async function(code){
+  var rc=_pexdRcCache, i=_pexdRcIdx, id=_pexdId; if(!rc||i==null||!id) return;
+  var it=rc.items&&rc.items[i]; if(!it) return;
+  var node=(code&&typeof FH_TAX!=='undefined'&&FH_TAX.get(code))?code:null;
+  it.node=node;
+  var sig=_pexdRcSig(it);
+  if(sig){ if(node){ if(window.fhLessonLearnItemNode) fhLessonLearnItemNode(sig,node); } else if(window.fhLessonForgetItemNode) fhLessonForgetItemNode(sig); }
+  var ok=false;
+  try{ ok=window.fhPersonalSetReceipt?await fhPersonalSetReceipt(id,rc,{upgrade:true}):false; }catch(e){ ok=false; }
+  if(!ok){ window.toast&&toast(L('Chưa lưu được','Could not save')); return; }
+  if(sig&&node&&window.toast) toast(L('Đã ghi nhớ cho món cùng loại','Remembered for items of this kind'));
+  _pexdReceiptLoad(id);
+};
 /* A personal device is not information about the purchase. Apple prints the
    Mac or iPhone a rental was watched on as the last attribute; it reads as
    noise beside the genre and the kind. Dropped at render so blobs written
@@ -23413,11 +23471,14 @@ function _pexdReceiptHTML(rc){
   h+='<div class="exd-meta pexd-rc">';
   var head=[trim(rc.seller)||rc.provider, rc.order_id?('#'+rc.order_id):null].filter(Boolean);
   if(head.length) h+='<div class="pexd-rc-head">'+esc(head.join(' \u00b7 '))+'</div>';
-  items.forEach(function(it){
+  items.forEach(function(it, idx){
     var nd=(it.node && typeof fhNodeShort==='function') ? fhNodeShort(it.node) : '';
     var va=_pexdRcVariant(it.variant);
     var meta='';
-    if(nd) meta+='<span class="pexd-rc-cat">'+esc(nd)+'</span>';
+    /* Always an affordance: a category to correct, or a soft "Chọn loại" to
+       give one. The pill is a real button — the tap target is the pill. */
+    meta+='<button type="button" class="pexd-rc-cat'+(nd?'':' soft')+'" onclick="pexdRcItemPick('+idx+')">'
+      +esc(nd||L('Chọn loại','Pick a kind'))+'</button>';
     if(va) meta+='<span class="pexd-rc-var">'+esc(va)+'</span>';
     h+='<div class="pexd-rc-item">'
       +'<div class="pexd-rc-main">'
@@ -24149,9 +24210,11 @@ function fhNodeOutlineReveal(listEl) {
 }
 
 /* — the detail screen's sheet (#sheet-node-pick) — */
-var _npKind = 'expense', _npCur = null, _npFn = '', _npQ = '', _npOpen = {};
-function fhNodePickOpen(cur, kind, onPick) {
-  _npCur = cur || null; _npKind = kind || fhNodeKind(cur) || 'expense'; _npFn = onPick || ''; _npQ = '';
+var _npKind = 'expense', _npCur = null, _npFn = '', _npQ = '', _npOpen = {}, _npSub = '';
+/* `sub` overrides the subtitle for a caller whose pick takes effect at once
+   (a receipt item's category), where "waits for Save" would be untrue. */
+function fhNodePickOpen(cur, kind, onPick, sub) {
+  _npCur = cur || null; _npKind = kind || fhNodeKind(cur) || 'expense'; _npFn = onPick || ''; _npQ = ''; _npSub = sub || '';
   _npOpen = fhNodeOutlineSeed(_npCur);
   var q = document.getElementById('npick-q'); if (q) q.value = '';
   fhNodePickRender();
@@ -24165,7 +24228,7 @@ function fhNodePickRender() {
   var head = document.getElementById('npick-h');
   if (head) head.textContent = (_npKind === 'income') ? L('Tiền từ đâu', 'Where it came from') : L('Tiêu vào gì', 'What it was');
   var sub = document.getElementById('npick-sub');
-  if (sub) sub.textContent = L('Bấm tên để chọn, bấm mũi tên để mở. Thay đổi chờ tới khi bấm Lưu.', 'Tap a name to choose, the arrow to open. Waits for Save.');
+  if (sub) sub.textContent = _npSub || L('Bấm tên để chọn, bấm mũi tên để mở. Thay đổi chờ tới khi bấm Lưu.', 'Tap a name to choose, the arrow to open. Waits for Save.');
   list.innerHTML = fhNodeOutlineHTML({
     cur: _npCur, kind: _npKind, q: _npQ, open: _npOpen,
     pick: function (c) { return 'fhNodePicked(&#39;' + escAttr(c) + '&#39;)'; },
@@ -25604,25 +25667,38 @@ function applyLang(){
     }
     function _rjConstrain(rcpt, txnNode) {
       ((rcpt && rcpt.items) || []).forEach(function (it) {
+        if (_rjFromLesson && _rjFromLesson.has(it)) return;        // a person's pick stands
         if (it && it.node && !_rjInBranch(it.node, txnNode)) it.node = null;
       });
     }
 
-    /* Item → node, ON THE DEVICE, from the tree's own keywords.
-       This used to POST item names to merchant-concepts, which is a MERCHANT
-       classifier ("what kind of business is X") answering a product question,
-       and which caches every answer in a table shared by all users — so a
-       wrong product guess was permanent, global, and a shopping list in a
-       table meant for shop names. The tree's keyword tier answers the right
-       question, costs nothing, and never leaves the phone. Unresolved items
-       simply carry no category. */
+    /* Item → node, on the device, in this order (spec §20.4, RC19):
+         1. the person's own lesson for this item's SIGNATURE — what they said
+            a "mũ bơi" is, last time, from any shop;
+         2. the node the worker's ladder sealed beside the item (a proposal);
+         3. the tree's keywords, for blobs written before Phase 2.
+       Nothing here calls anyone. A lesson-resolved item is remembered in a
+       WeakSet so the branch constraint leaves it alone: a human pick is the
+       one thing allowed outside the transaction's branch. */
+    var _rjFromLesson = (typeof WeakSet === 'function') ? new WeakSet() : null;
+    function _rjItemSig(it) {
+      if (it.sig) return String(it.sig);
+      try {
+        var hn = (window.FH_TAX && FH_TAX.itemSignature) ? FH_TAX.itemSignature(it.name) : null;
+        return hn ? 'hn|' + hn : null;
+      } catch (e) { return null; }
+    }
     function _rjItemNodes(receipts) {
       receipts.forEach(function (r) {
         ((r._rcpt && r._rcpt.items) || []).forEach(function (it) {
-          if (!it || !it.name || it.node) return;
+          if (!it || !it.name) return;
+          var sig = _rjItemSig(it);
+          var lesson = (sig && window.fhLessonItemNode) ? fhLessonItemNode(sig) : null;
+          if (lesson) { it.node = lesson; if (_rjFromLesson) _rjFromLesson.add(it); return; }
+          if (it.node && window.FH_TAX && FH_TAX.get(it.node)) return;
           var nd = null;
           try { nd = (window.FH_TAX && FH_TAX.keywordNode) ? FH_TAX.keywordNode(it.name, 'expense') : null; } catch (e) { nd = null; }
-          if (nd && FH_TAX.get(nd)) it.node = nd;
+          it.node = (nd && FH_TAX.get(nd)) ? nd : null;
         });
       });
     }
@@ -25670,7 +25746,11 @@ function applyLang(){
             return { name: (it && it.name) || null, qty: it && it.qty != null ? it.qty : null,
               unit_price: it && it.unit_price != null ? it.unit_price : null,
               line_discount: it && it.line_discount != null ? it.line_discount : null,
-              variant: (it && it.variant) || null, node: null };
+              variant: (it && it.variant) || null,
+              /* Phase 2 (§20): the worker's ladder seals a node PROPOSAL and the
+                 signature it was learned under; both ride through, and the
+                 precedence below decides what is shown. */
+              node: (it && it.node) || null, sig: (it && it.sig) || null };
           }) : null,
           items_total: rc.items_total != null ? rc.items_total : null,
           discount: rc.discount != null ? rc.discount : null,
@@ -26437,7 +26517,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v599';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v600';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -31955,6 +32035,34 @@ window.obGoogle = async function () {
       const key = _nodeKey(input); if (!key) return;
       L.node[key] = { node: node, t: _now() };
       delete L.tomb['node|' + key];
+      _saveSoon();
+    };
+    /* ── receipt ITEMS (receipt-enrichment-spec §20.4) ────────────────────
+       The same encrypted node store, keyed by the item's SIGNATURE — the
+       type phrase or Apple slot the worker sealed beside the node — so what
+       a person says a "mũ bơi" is applies to the next one from any shop,
+       with no call to anyone. Tombstoned like every other lesson, so a
+       forgotten pick does not come back on the next sync. */
+    window.fhLessonItemNode = function (sig) {
+      if (!sig) return null;
+      const key = 'item|' + sig;
+      const l = L.node[key]; if (!l || !l.node) return null;
+      const tomb = L.tomb['node|' + key];
+      if (tomb && !(l.t > tomb.t)) return null;
+      return (window.FH_TAX && FH_TAX.get(l.node)) ? l.node : null;
+    };
+    window.fhLessonLearnItemNode = function (sig, node) {
+      if (!sig || !node || !(window.FH_TAX && FH_TAX.get(node))) return;
+      const key = 'item|' + sig;
+      L.node[key] = { node: node, t: _now() };
+      delete L.tomb['node|' + key];
+      _saveSoon();
+    };
+    window.fhLessonForgetItemNode = function (sig) {
+      if (!sig) return;
+      const key = 'item|' + sig;
+      delete L.node[key];
+      L.tomb['node|' + key] = { t: _now() };
       _saveSoon();
     };
     window.fhLessonForgetNode = function (input) {

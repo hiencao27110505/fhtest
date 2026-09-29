@@ -83,6 +83,34 @@
       delete L.tomb['node|' + key];
       _saveSoon();
     };
+    /* ── receipt ITEMS (receipt-enrichment-spec §20.4) ────────────────────
+       The same encrypted node store, keyed by the item's SIGNATURE — the
+       type phrase or Apple slot the worker sealed beside the node — so what
+       a person says a "mũ bơi" is applies to the next one from any shop,
+       with no call to anyone. Tombstoned like every other lesson, so a
+       forgotten pick does not come back on the next sync. */
+    window.fhLessonItemNode = function (sig) {
+      if (!sig) return null;
+      const key = 'item|' + sig;
+      const l = L.node[key]; if (!l || !l.node) return null;
+      const tomb = L.tomb['node|' + key];
+      if (tomb && !(l.t > tomb.t)) return null;
+      return (window.FH_TAX && FH_TAX.get(l.node)) ? l.node : null;
+    };
+    window.fhLessonLearnItemNode = function (sig, node) {
+      if (!sig || !node || !(window.FH_TAX && FH_TAX.get(node))) return;
+      const key = 'item|' + sig;
+      L.node[key] = { node: node, t: _now() };
+      delete L.tomb['node|' + key];
+      _saveSoon();
+    };
+    window.fhLessonForgetItemNode = function (sig) {
+      if (!sig) return;
+      const key = 'item|' + sig;
+      delete L.node[key];
+      L.tomb['node|' + key] = { t: _now() };
+      _saveSoon();
+    };
     window.fhLessonForgetNode = function (input) {
       const key = _nodeKey(input); if (!key) return;
       delete L.node[key];

@@ -8,10 +8,9 @@ and **attaches it to the bank/wallet transaction the person already has** — li
 items, seller, the voucher math, and a sharper category — so a ledger row stops
 being "spent at Shopee" and becomes "bought swim gear".
 
-> **Status, 2026-09-29.** Designed (design interview with the founder) and
-> **built the same day — L1 through L5 coded, tested and building; NOT yet
-> deployed** (migration 0154 unapplied, `mailbox-sync` not redeployed, client
-> not pushed). See Part 4 for the landing record and the deploy order. This is Wave 2 of email reading v2 as reserved by
+> **Status, 2026-09-30.** Live: L1–L5 (2026-09-29, 0154, mailbox-sync v70–v73,
+> SW ≤ v598) and **Phase 2 — the item-category signature ladder** (0155,
+> SW v600). Part 4 is the landing record. This is Wave 2 of email reading v2 as reserved by
 > `email-reading-v2-spec.md` R12 and the `RECEIPT_DOMAINS` contract in
 > `senders.mjs` — the receipt block, the sender registry entries and the
 > "annotate, never create" rule all pre-exist this spec; this document turns
@@ -581,6 +580,105 @@ From the design interview, 2026-09-29.
 | RC13 | Description pre-fill: single item → name; unanimous basket → summary; mixed → "Seller · N món". Machine-marked; never over a human edit; never on retroactive writes. |
 | RC14 | The blob is **source-agnostic** (`source: 'email' \| 'ocr'`) — the future OCR paper-receipt door (AEON till receipts) lands in the same structure; camera flow out of scope here. |
 | RC15 | Item classification: local tiers first, `merchant-concepts` batch backstop (names only), cached; unresolved abstains. Model never classifies items per-mail. |
+| RC16 | *(supersedes RC15, 2026-09-30)* Items are categorised by a **signature ladder** on the worker at read time: tree keywords → learned `item_signatures` (type word / Apple slot / Apple vendor) → one batched model call per unseen signature → null. `merchant-concepts` is never asked about products. |
+| RC17 | Signatures must be **determinate by construction**: head noun for marketplace goods, storefront+content-type or vendor for Apple, none for Grab (deterministic). A seller and `app store|subscription` are rejected as keys. A coarse-but-honest node is a valid terminal. |
+| RC18 | **Guards, not a replay:** a signature the keywords can read is never asked and names every sibling; a model answer must be an expense code and a goods signature may never resolve to a venue/class; nulls are cached; `CATEGORY_LOGIC_VERSION` on every row, a bump re-learns. |
+| RC19 | Device precedence: **person's lesson (by signature) → sealed node → keywords**, then the RC9 branch constraint. Tapping an item's pill opens the standard tree picker; the pick rewrites the blob and is learned per user, encrypted, by signature. A human pick is the only thing allowed outside the transaction's branch. |
+
+## 20. Item categorisation — the signature ladder (Phase 2)
+
+### 20.1 The problem the first cut had
+
+Item categories came from `merchant-concepts`: a **merchant** classifier
+("what kind of business is HIGHLANDS COFFEE") fed **product** names, with
+every answer cached in a table shared by all users. "The Long Walk" is a famous
+novel, so it answered `books` for a film rental; `bơi` in the merchant keyword
+list means a *pool*, so a swim cap landed on a sports *venue*; and each wrong
+answer was permanent, global, and a personal shopping list in a shop-name
+table. Phase 0 (`7b0d642`) stopped all of it: items are categorised on the
+device from the tree's own keywords, never vote the transaction's node, and
+may only refine within its branch. Phase 1 (`c04cc7b`) gave sports gear a
+real leaf. What remains is the gap: a product the keyword list has never
+heard of gets no category, forever.
+
+### 20.2 The template idea, applied to categories
+
+The email reader pays for a mail format **once** and replays it free because
+formats are few and repeat. A per-product cache can never do that — products
+are unbounded and mostly seen once. The repeating, learnable thing is not the
+product but the **slot it sits in**:
+
+| Source | Signature (the cache key) | Why it converges |
+|---|---|---|
+| Shopee / Tiki / Lazada / ShopeeFood / Foody | `hn|<head noun>` — the product *type* phrase, e.g. `hn|mu boi`, `hn|noi chien` | Vietnamese (and Shopee-English) titles are **head-initial**: the type word leads, brand/model/colour trail. A few hundred type words cover most consumer shopping, and every swim cap ever sold is "mũ bơi". |
+| Apple purchase receipt (layout A) | `apple|<storefront>|<content type>` — `apple|apple tv|movie rental` | the kind is fixed by the slot; only the title varies |
+| Apple subscription invoice (layout B) | `apple|vendor|<vendor>` — `apple|vendor|youtube` | one vendor sells one kind of thing, and it recurs monthly — the most repeating purchase there is |
+| Grab | none — a Grab receipt carries no items (address rule, §5), so there is nothing to categorise below the transaction | — |
+
+**Not a signature, on purpose:** a marketplace *seller* (unbounded, no naming
+convention, bought from once) and the coarse `app store | subscription`
+(spans Giải trí and Giáo dục — Duolingo and YouTube share it). The rule: a
+signature is valid only when its members share a category, and the
+granularity that satisfies that differs per provider. A coarse-but-honest
+node is a legitimate terminal, never a failure: the ladder descends only
+when the evidence justifies it.
+
+### 20.3 The ladder (worker, at read time — `item-category.mjs`)
+
+1. **Tree keywords** — `keywordNode(name)`: deterministic, free.
+2. **Learned signature** — `item_signatures` table, keyed as above. A row is an
+   answer, a null row is "asked, unknowable" (never re-asked on this logic
+   version).
+3. **The model, once per unseen signature** — one batched call per run,
+   spent from the same `classifyBudget` merchant classification uses. The
+   prompt labels *product types and digital purchase kinds*, is handed the
+   signature (never the full title), the provider and `service_type` as
+   context, and the expense menu; it is told a physical product is a THING and
+   never a place or service node.
+4. **Nothing** — the item carries no category. Null always beats a guess.
+
+The resolved node and the signature are sealed into the item
+(`items[].node`, `items[].sig`). What the shared table ever holds is a type
+word or a slot — the privacy story is the same class of data as merchant
+names, and narrower than what the reader already sends the model for a
+first-of-format receipt.
+
+**What keeps a learned answer honest.** A learned email template is kept
+only if replaying it reproduces the model's own answer. Categories have no
+replayable artefact, so the guards are structural rather than a replay:
+a signature the tree's keywords can read is **never asked** — the keyword
+reading is authoritative and free, and every item under that signature
+inherits it directly (a signature *is* a type; one reading names all); a
+model answer must be a machine-fileable expense code, and a goods signature
+(`hn|…`) may never resolve to a venue or class — the exact failure the
+merchant classifier produced; an unknowable is cached as null so it is asked
+once, not per mail; and `CATEGORY_LOGIC_VERSION` rides every row, so a bump
+re-learns everything under a better prompt. A refused answer is neither
+cached nor applied.
+
+### 20.4 On the device — precedence and the correction loop
+
+`78-receipt-join` resolves each item as: **the person's own lesson for that
+signature → the sealed node → the tree keywords** (the last for blobs written
+before Phase 2), then applies Phase 0's branch constraint unchanged. Items
+still never vote the transaction's category.
+
+Correction closes the loop at both levels. Re-filing the *transaction* drops
+every item outside the new branch automatically. On the detail screen, the
+item's category pill is the affordance: tap → the same tree picker every
+other category row opens → the blob is rewritten and the choice is learned
+**per user, encrypted, keyed by the item's signature** in the lessons store —
+the next "mũ bơi" from any shop lands where this person said, with no call to
+anyone. The person's pick outranks the sealed node and the tree; it is the
+one thing that may place an item outside the transaction's branch.
+
+### 20.5 What is deliberately out
+
+- Runtime dispersion tracking (a signature that drifts over time): keys are
+  chosen to be determinate and null is cached; revisit with data.
+- Head-noun extraction for titles that lead with promo junk beyond the
+  stripped set (`[Mã…]`, `Combo`, `Set`, quantities): those fall to the model
+  or to null, never to a wrong answer.
 
 ## 19. Related documents
 
@@ -601,6 +699,39 @@ From the design interview, 2026-09-29.
 ---
 
 # Part 4 — Release notes
+
+### 2026-09-30 — Phase 2: the item-category signature ladder · migration 0155 APPLIED · mailbox-sync redeployed · SW v600
+
+- **For product:** a receipt item's category is now learned **once per
+  type** and replayed free — "mũ bơi" from any shop, "Apple TV · Movie
+  Rental", the YouTube subscription every month — instead of asking a
+  merchant classifier per product and caching everyone's shopping list. On
+  the transaction's detail screen the item's category pill is now a real
+  control: tap it, pick from the same tree every category row uses, and the
+  pick is saved at once **and remembered for the same kind of item next
+  time**. An item whose kind nobody can name simply shows "Chọn loại".
+- **Under the hood:** `item-category.mjs` (new) on the worker — keywords →
+  `item_signatures` (0155; keys are type words `hn|mu boi` and Apple slots
+  `apple|apple tv|movie rental` / `apple|vendor|youtube`; never a title,
+  never per user) → one batched model call per unseen signature from the
+  merchant classifier's own budget → null. A keyword-readable signature is
+  never asked and names its siblings; a goods signature may never resolve
+  to a venue/class; nulls cached; `CATEGORY_LOGIC_VERSION` on every row.
+  `TAX.itemSignature()` (head-noun extractor) generated into both the
+  client and the worker from one source (`gen-taxonomy.js`). Readers seal
+  `items[].sig` (Apple: a section's storefront names every item under it).
+  Contract: items gain `node`, `sig`. Device: `fhLessonItemNode` family in
+  `24-lessons.js` (encrypted, keyed `item|<sig>`); `78-receipt-join`
+  precedence lesson → sealed → keywords, a lesson survives the branch
+  constraint; `fhNodePickOpen` gains a subtitle override so an immediate
+  save never claims "waits for Save". Tests: `pipeline/item-category`
+  (new), join/reader/contract pins. 142 suites green.
+- **Spec sections updated:** §20 (new), decision log RC16–RC19 (RC15
+  superseded), §20.2 Grab row (no items to categorise).
+- **Watch for:** `read_tally` stages `item_sig_asked` / `item_sig_resolved`
+  — asked should fall toward zero within days as the table fills; if it
+  does not, the head-noun extractor is producing one-off keys. A detail
+  screen opened before v600 shows the old inline pill until reload.
 
 ### 2026-09-29 — L1–L5 built in one session · migration 0154 WRITTEN (not applied) · mailbox-sync change NOT deployed · client SW v590 built (not pushed)
 

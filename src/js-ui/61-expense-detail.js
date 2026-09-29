@@ -850,13 +850,46 @@ async function _pexdReceiptLoad(id){
   try{ rc=await fhPersonalGetReceipt(id); }catch(e){ rc=null; }
   var host=document.getElementById('pexd-receipt');
   if(!host || _pexdId!==id) return;                        // screen moved on while decrypting
-  if(!rc){ host.innerHTML=''; return; }
-  if(rc==='_unreadable'){
+  if(!rc){ host.innerHTML=''; _pexdRcCache=null; return; }
+  if(rc==='_unreadable'){ _pexdRcCache=null;
     host.innerHTML=_exdSecH('Hoá đơn','')+'<div class="exd-meta"><div class="pexd-rc-miss">'+L('Chi tiết hoá đơn không đọc được trên máy này.','Receipt detail could not be read on this device.')+'</div></div>';
     return;
   }
+  _pexdRcCache=rc;
   host.innerHTML=_pexdReceiptHTML(rc);
 }
+/* ── correcting an item's category (spec §20.4, RC19) ─────────────────────
+   The pill is the affordance, and the pick takes effect at once: it rewrites
+   the receipt blob AND is learned per person, encrypted, under the item's
+   signature — so the next "mũ bơi" from any shop lands where this person
+   said, with no call to anyone. The same tree picker every category row
+   opens; only the subtitle differs, because nothing here waits for Lưu. */
+var _pexdRcCache=null, _pexdRcIdx=null;
+function _pexdRcSig(it){
+  if(!it) return null;
+  if(it.sig) return String(it.sig);
+  try{ var hn=(typeof FH_TAX!=='undefined'&&FH_TAX.itemSignature)?FH_TAX.itemSignature(it.name):null; return hn?('hn|'+hn):null; }catch(e){ return null; }
+}
+function pexdRcItemPick(i){
+  var rc=_pexdRcCache, it=rc&&rc.items&&rc.items[i]; if(!it||typeof fhNodePickOpen!=='function') return;
+  _pexdRcIdx=i;
+  fhNodePickOpen(it.node||null,'expense','pexdRcItemPicked',
+    L('Chọn loại cho món này. Ghi nhớ luôn cho món cùng loại lần sau.','Pick what this item is. Remembered for the same kind next time.'));
+}
+window.pexdRcItemPick=pexdRcItemPick;
+window.pexdRcItemPicked=async function(code){
+  var rc=_pexdRcCache, i=_pexdRcIdx, id=_pexdId; if(!rc||i==null||!id) return;
+  var it=rc.items&&rc.items[i]; if(!it) return;
+  var node=(code&&typeof FH_TAX!=='undefined'&&FH_TAX.get(code))?code:null;
+  it.node=node;
+  var sig=_pexdRcSig(it);
+  if(sig){ if(node){ if(window.fhLessonLearnItemNode) fhLessonLearnItemNode(sig,node); } else if(window.fhLessonForgetItemNode) fhLessonForgetItemNode(sig); }
+  var ok=false;
+  try{ ok=window.fhPersonalSetReceipt?await fhPersonalSetReceipt(id,rc,{upgrade:true}):false; }catch(e){ ok=false; }
+  if(!ok){ window.toast&&toast(L('Chưa lưu được','Could not save')); return; }
+  if(sig&&node&&window.toast) toast(L('Đã ghi nhớ cho món cùng loại','Remembered for items of this kind'));
+  _pexdReceiptLoad(id);
+};
 /* A personal device is not information about the purchase. Apple prints the
    Mac or iPhone a rental was watched on as the last attribute; it reads as
    noise beside the genre and the kind. Dropped at render so blobs written
@@ -877,11 +910,14 @@ function _pexdReceiptHTML(rc){
   h+='<div class="exd-meta pexd-rc">';
   var head=[trim(rc.seller)||rc.provider, rc.order_id?('#'+rc.order_id):null].filter(Boolean);
   if(head.length) h+='<div class="pexd-rc-head">'+esc(head.join(' \u00b7 '))+'</div>';
-  items.forEach(function(it){
+  items.forEach(function(it, idx){
     var nd=(it.node && typeof fhNodeShort==='function') ? fhNodeShort(it.node) : '';
     var va=_pexdRcVariant(it.variant);
     var meta='';
-    if(nd) meta+='<span class="pexd-rc-cat">'+esc(nd)+'</span>';
+    /* Always an affordance: a category to correct, or a soft "Chọn loại" to
+       give one. The pill is a real button — the tap target is the pill. */
+    meta+='<button type="button" class="pexd-rc-cat'+(nd?'':' soft')+'" onclick="pexdRcItemPick('+idx+')">'
+      +esc(nd||L('Chọn loại','Pick a kind'))+'</button>';
     if(va) meta+='<span class="pexd-rc-var">'+esc(va)+'</span>';
     h+='<div class="pexd-rc-item">'
       +'<div class="pexd-rc-main">'

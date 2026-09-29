@@ -72,25 +72,38 @@
     }
     function _rjConstrain(rcpt, txnNode) {
       ((rcpt && rcpt.items) || []).forEach(function (it) {
+        if (_rjFromLesson && _rjFromLesson.has(it)) return;        // a person's pick stands
         if (it && it.node && !_rjInBranch(it.node, txnNode)) it.node = null;
       });
     }
 
-    /* Item → node, ON THE DEVICE, from the tree's own keywords.
-       This used to POST item names to merchant-concepts, which is a MERCHANT
-       classifier ("what kind of business is X") answering a product question,
-       and which caches every answer in a table shared by all users — so a
-       wrong product guess was permanent, global, and a shopping list in a
-       table meant for shop names. The tree's keyword tier answers the right
-       question, costs nothing, and never leaves the phone. Unresolved items
-       simply carry no category. */
+    /* Item → node, on the device, in this order (spec §20.4, RC19):
+         1. the person's own lesson for this item's SIGNATURE — what they said
+            a "mũ bơi" is, last time, from any shop;
+         2. the node the worker's ladder sealed beside the item (a proposal);
+         3. the tree's keywords, for blobs written before Phase 2.
+       Nothing here calls anyone. A lesson-resolved item is remembered in a
+       WeakSet so the branch constraint leaves it alone: a human pick is the
+       one thing allowed outside the transaction's branch. */
+    var _rjFromLesson = (typeof WeakSet === 'function') ? new WeakSet() : null;
+    function _rjItemSig(it) {
+      if (it.sig) return String(it.sig);
+      try {
+        var hn = (window.FH_TAX && FH_TAX.itemSignature) ? FH_TAX.itemSignature(it.name) : null;
+        return hn ? 'hn|' + hn : null;
+      } catch (e) { return null; }
+    }
     function _rjItemNodes(receipts) {
       receipts.forEach(function (r) {
         ((r._rcpt && r._rcpt.items) || []).forEach(function (it) {
-          if (!it || !it.name || it.node) return;
+          if (!it || !it.name) return;
+          var sig = _rjItemSig(it);
+          var lesson = (sig && window.fhLessonItemNode) ? fhLessonItemNode(sig) : null;
+          if (lesson) { it.node = lesson; if (_rjFromLesson) _rjFromLesson.add(it); return; }
+          if (it.node && window.FH_TAX && FH_TAX.get(it.node)) return;
           var nd = null;
           try { nd = (window.FH_TAX && FH_TAX.keywordNode) ? FH_TAX.keywordNode(it.name, 'expense') : null; } catch (e) { nd = null; }
-          if (nd && FH_TAX.get(nd)) it.node = nd;
+          it.node = (nd && FH_TAX.get(nd)) ? nd : null;
         });
       });
     }
@@ -138,7 +151,11 @@
             return { name: (it && it.name) || null, qty: it && it.qty != null ? it.qty : null,
               unit_price: it && it.unit_price != null ? it.unit_price : null,
               line_discount: it && it.line_discount != null ? it.line_discount : null,
-              variant: (it && it.variant) || null, node: null };
+              variant: (it && it.variant) || null,
+              /* Phase 2 (§20): the worker's ladder seals a node PROPOSAL and the
+                 signature it was learned under; both ride through, and the
+                 precedence below decides what is shown. */
+              node: (it && it.node) || null, sig: (it && it.sig) || null };
           }) : null,
           items_total: rc.items_total != null ? rc.items_total : null,
           discount: rc.discount != null ? rc.discount : null,

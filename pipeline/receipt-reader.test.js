@@ -201,6 +201,11 @@ const geminiFetch = (answer) => async (u, init) => {
   t('attributes ride as the variant', /Thriller · Movie Rental/.test(ap.items[0].variant), ap.items[0].variant);
   t('the billing ADDRESS can never reach an item (structural)',
     JSON.stringify(ap.items).indexOf('Duong X') === -1 && JSON.stringify(ap.items).indexOf('Ng V A') === -1, ap.items);
+  t('layout A: the item carries its storefront + kind as the signature (§20.2)',
+    ap.items[0].sig === 'apple|apple tv|movie rental', ap.items[0].sig);
+  const ap2 = R.readAppleReceipt(APPLE_RECEIPT.replace('TOTAL', 'Second Film\n\nHorror\n\nMovie Rental\n\n49.000đ\n\nTOTAL'), 'Your receipt from Apple.');
+  t('…and the storefront names EVERY item under it, not only the first',
+    ap2 && ap2.items.length === 2 && ap2.items[1].sig === 'apple|apple tv|movie rental', ap2 && ap2.items.map((i) => i.sig));
   t('invoice date is day-only precision', ap._when && ap._when.iso.slice(0, 10) === '2026-09-28' && ap._when.precision === 'day', ap._when);
   t('service_type digital', ap.service_type === 'digital');
 
@@ -215,6 +220,7 @@ const geminiFetch = (answer) => async (u, init) => {
   t('its renewal and device ride as the variant',
     /Renews 17 July 2026/.test(ab.items[0].variant), ab.items[0].variant);
   t('symbol-first prices parse', ab.items[0].unit_price === 105000, ab.items[0].unit_price);
+  t('layout B: the item carries its vendor as the signature', ab.items[0].sig === 'apple|vendor|youtube', ab.items[0].sig);
   t('the billing ADDRESS is past the stop line and can never be an item',
     JSON.stringify(ab.items).indexOf('Duong X') === -1 && JSON.stringify(ab.items).indexOf('Ng V A') === -1, ab.items);
 

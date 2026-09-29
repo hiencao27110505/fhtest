@@ -437,6 +437,26 @@ export function createDb(url, serviceKey, fetchImpl, opts) {
       // {concept, node} — classify.mjs also still accepts the old bare string.
       return { concept: rows[0].concept ?? null, node: rows[0].node ?? null };
     },
+    /* item_signatures (0155, receipt-enrichment-spec §20): the learned
+       category per product TYPE / Apple slot. Read as a Map key → row so a
+       caller can tell "no row = never asked" from "row with null node =
+       asked, unknowable". One request for the run's keys. */
+    async itemSignaturesGet(keys) {
+      const out = new Map();
+      const uniq = [...new Set((keys || []).filter(Boolean))];
+      if (!uniq.length) return out;
+      const rows = await rest('/item_signatures?key=in.(' + uniq.map((k) => '"' + encodeURIComponent(k).replace(/%7C/gi, '|') + '"').join(',') + ')&select=key,node,logic_version');
+      for (const r of rows || []) out.set(r.key, r);
+      return out;
+    },
+    async itemSignaturePut(key, node, source, logicVersion) {
+      await rest('/item_signatures?on_conflict=key', {
+        method: 'POST',
+        headers: { Prefer: 'resolution=merge-duplicates' },
+        body: JSON.stringify({ key, node: node ?? null, source: source || 'llm',
+          logic_version: logicVersion || 1, updated_at: new Date().toISOString() }),
+      });
+    },
     async merchantConceptGet(hash) {
       // Returns the ROW (or null) so the caller can tell "no row = never tried"
       // apart from "row with null concept = tried and unknowable". `pool` is the

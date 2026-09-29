@@ -140,7 +140,11 @@ export const RAW_FIELDS = Object.freeze([
   // (`line_items` was the reserved name pre-build; never emitted in production.)
   { key: 'receipt',          type: 'obj',  since: 2,
     keys: ['service_type', 'order_id', 'seller', 'items', 'items_total', 'discount', 'shipping_fee', 'paid', 'paid_with_tail'],
-    arrays: { items: ['name', 'qty', 'unit_price', 'line_discount', 'variant'] } },
+    // `node` and `sig` (Phase 2, §20): the item's tree code as the worker's
+    // ladder resolved it — a PROPOSAL the device constrains to the row's
+    // branch — and the signature it was learned under, so a person's own
+    // lesson can be keyed the same way on the device without recomputing.
+    arrays: { items: ['name', 'qty', 'unit_price', 'line_discount', 'variant', 'node', 'sig'] } },
   // provenance
   { key: 'v',                type: 'num',  since: 2 },
   { key: 'src',              type: 'obj',  since: 2 },     // { <field>: one of SRC }

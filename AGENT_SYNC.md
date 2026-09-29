@@ -143,6 +143,8 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-09-30 · Hien · Phase 2 (item-category signature ladder) LIVE: `0155_item_signatures` APPLIED · `mailbox-sync` v74 · SW v600 · spec §20, RC16–19.** New table `item_signatures` (key = a product TYPE phrase `hn|mu boi` or an Apple slot `apple|apple tv|movie rental` / `apple|vendor|youtube` → node; type-level words only, never a product title, never per-user). Worker learns a signature ONCE via one batched model call, seals `items[].node` + `items[].sig`; device: per-user lesson override → sealed → keyword, then the Phase-0 branch constraint. Contract: receipt items gain `node`, `sig` (nullable adds, no PAYLOAD_V bump). Spec: `receipt-enrichment-spec.md` §20 + Part 4 note. Detail screen: tap an item's category pill → the existing tree picker (`fhNodePickOpen` gained an optional subtitle arg — additive) → blob + per-user lesson (`fhLessonItemNode` family in 24-lessons). `gen-taxonomy.js` helpers gained `itemSignature()` (regenerated client+worker; python target unchanged). ⚠️ Phiên kia lấy v599 ngay khi tôi build — tôi lấy **v600**; lần bump sau bắt đầu từ v601. Không đụng file nào của phiên kia lần này. 142 suite xanh.
+
 - **2026-09-30 · Hien · corrections that carry (apply-to-similar) BUILT + A15 fix · claiming SW `v599` · cursor `fh-tree-bf` v11 → v12 · no migration · no deploy.**
   Spec: `docs/specs/apply-to-similar-spec.md` (new, A1–A15). A corrected queue
   card stays pinned under a filter (`c._fix`, `csvCatHide` → false; filter change

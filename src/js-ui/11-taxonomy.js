@@ -57,9 +57,32 @@ var FH_TAX = (function () {
     }
     return null;
   }
+  /* The TYPE PHRASE of a product listing (receipt-enrichment-spec §20.2): the
+     cache key the item-category ladder learns once. Vietnamese and Shopee-
+     English titles are head-initial — "Mũ Bơi / Nón Bơi Silicon…" is a mũ bơi
+     whatever follows — so the signature is the first two alphabetic tokens
+     after leading promo brackets and quantifiers are dropped. One source for
+     both sides (worker seals it, device reads it back for lessons), because a
+     key computed two ways is two keys. Null when nothing usable leads. */
+  var SIG_SKIP = { bo: 1, combo: 1, set: 1, hot: 1, new: 1, moi: 1, sale: 1, deal: 1, freeship: 1, mua: 1, tang: 1, sieu: 1, ma: 1 };
+  function itemSignature(text) {
+    var t = deburr(text || '').toLowerCase()
+      .replace(/\[[^\]]*\]/g, ' ').replace(/\([^)]*\)/g, ' ')
+      .replace(/[^a-z0-9]+/g, ' ').trim();
+    if (!t) return null;
+    var toks = t.split(' '), out = [], i;
+    for (i = 0; i < toks.length && out.length < 2; i++) {
+      var w = toks[i];
+      if (!w || /\d/.test(w) || w.length < 2) { if (out.length) break; continue; }
+      if (!out.length && SIG_SKIP[w]) continue;
+      out.push(w);
+    }
+    return out.length ? out.join(' ') : null;
+  }
   var API = { version: DATA.version, kinds: DATA.kinds, nodes: NODES, get: get, children: children, isLeaf: isLeaf,
     ancestors: ancestors, root: root, kindOf: kindOf, roots: roots, leaves: leaves, conceptOf: conceptOf, poolOf: poolOf,
-    rollup: rollup, pathVi: pathVi, keywordIndex: keywordIndex, keywordNode: keywordNode, deburr: deburr };
+    rollup: rollup, pathVi: pathVi, keywordIndex: keywordIndex, keywordNode: keywordNode, deburr: deburr,
+    itemSignature: itemSignature };
   return API;
 })();
 window.FH_TAX = FH_TAX;

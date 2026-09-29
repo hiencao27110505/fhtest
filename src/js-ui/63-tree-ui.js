@@ -98,9 +98,11 @@ function fhNodeOutlineReveal(listEl) {
 }
 
 /* — the detail screen's sheet (#sheet-node-pick) — */
-var _npKind = 'expense', _npCur = null, _npFn = '', _npQ = '', _npOpen = {};
-function fhNodePickOpen(cur, kind, onPick) {
-  _npCur = cur || null; _npKind = kind || fhNodeKind(cur) || 'expense'; _npFn = onPick || ''; _npQ = '';
+var _npKind = 'expense', _npCur = null, _npFn = '', _npQ = '', _npOpen = {}, _npSub = '';
+/* `sub` overrides the subtitle for a caller whose pick takes effect at once
+   (a receipt item's category), where "waits for Save" would be untrue. */
+function fhNodePickOpen(cur, kind, onPick, sub) {
+  _npCur = cur || null; _npKind = kind || fhNodeKind(cur) || 'expense'; _npFn = onPick || ''; _npQ = ''; _npSub = sub || '';
   _npOpen = fhNodeOutlineSeed(_npCur);
   var q = document.getElementById('npick-q'); if (q) q.value = '';
   fhNodePickRender();
@@ -114,7 +116,7 @@ function fhNodePickRender() {
   var head = document.getElementById('npick-h');
   if (head) head.textContent = (_npKind === 'income') ? L('Tiền từ đâu', 'Where it came from') : L('Tiêu vào gì', 'What it was');
   var sub = document.getElementById('npick-sub');
-  if (sub) sub.textContent = L('Bấm tên để chọn, bấm mũi tên để mở. Thay đổi chờ tới khi bấm Lưu.', 'Tap a name to choose, the arrow to open. Waits for Save.');
+  if (sub) sub.textContent = _npSub || L('Bấm tên để chọn, bấm mũi tên để mở. Thay đổi chờ tới khi bấm Lưu.', 'Tap a name to choose, the arrow to open. Waits for Save.');
   list.innerHTML = fhNodeOutlineHTML({
     cur: _npCur, kind: _npKind, q: _npQ, open: _npOpen,
     pick: function (c) { return 'fhNodePicked(&#39;' + escAttr(c) + '&#39;)'; },

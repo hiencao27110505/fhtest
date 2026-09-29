@@ -61,6 +61,7 @@ function makeEnv(state) {
     fhPersonalGetReceipt: async (id) => (state.stored || {})[id] || null,
     fhPersonalMatchSliceInvalidate: () => {},
     fhStagedRetireIds: async (ids) => { state.retired.push(...ids); },
+    fhLessonItemNode: (sig) => (state.lessons || {})[sig] || null,
   };
   env.window = env;
   env.globalThis = env;
@@ -78,7 +79,8 @@ function rrow(state, id, opts) {
   state.opened[id] = { id, raw_extracted: {
     node: o.sealedNode || null,
     receipt: { service_type: 'goods', order_id: o.order || null, seller: o.seller || null,
-      items: o.items || null, items_total: o.itemsTotal || null, discount: o.discount || null,
+      items: o.items || null,   // items may carry {node, sig} exactly as the worker seals them
+      items_total: o.itemsTotal || null, discount: o.discount || null,
       shipping_fee: null, paid: o.paid, paid_with_tail: o.tail || null },
     amount: o.paid, direction: 'debit',
   } };
@@ -187,6 +189,42 @@ const freshState = () => ({ receiptRows: [], opened: {}, slice: [], retired: [],
   q1 = qrow('q1', 100000);
   await env.fhReceiptJoinQueue([q1]);
   t('single item: its name is the description', q1._rcptDesc === 'One thing', q1._rcptDesc);
+
+  console.log('\n-- Phase 2 on the device: lesson → sealed → keywords --');
+  st = freshState();
+  rrow(st, 'r1', { paid: 100000, items: [{ name: 'Qwrty Lock&Lock 5L', node: 'appliance', sig: 'hn|qwrty lock' }] });
+  env = makeEnv(st);
+  q1 = qrow('q1', 100000);
+  q1.raw_extracted.node = 'housing';
+  await env.fhReceiptJoinQueue([q1]);
+  t('a node the worker sealed is used when the keywords know nothing', q1._rcpt.items[0].node === 'appliance', q1._rcpt.items[0].node);
+  t('…and the signature rides through the blob', q1._rcpt.items[0].sig === 'hn|qwrty lock', q1._rcpt.items[0].sig);
+
+  st = freshState();
+  st.lessons = { 'hn|qwrty lock': 'toys' };                              // the person said: this is a toy
+  rrow(st, 'r1', { paid: 100000, items: [{ name: 'Qwrty Lock&Lock 5L', node: 'appliance', sig: 'hn|qwrty lock' }] });
+  env = makeEnv(st);
+  q1 = qrow('q1', 100000);
+  q1.raw_extracted.node = 'housing';                                     // toys is OUTSIDE this branch
+  await env.fhReceiptJoinQueue([q1]);
+  t('the person\'s own lesson outranks the sealed node', q1._rcpt.items[0].node === 'toys', q1._rcpt.items[0].node);
+  t('…and a human pick SURVIVES the branch constraint', q1._rcpt.items[0].node === 'toys' && q1.raw_extracted.node === 'housing');
+
+  st = freshState();
+  st.lessons = { 'hn|mu boi': 'clothes' };                               // a lesson keyed by head noun, no sealed sig
+  rrow(st, 'r1', { paid: 100000, items: [{ name: 'Mũ bơi Speedo' }] });  // a pre-Phase-2 blob: no node, no sig
+  env = makeEnv(st);
+  q1 = qrow('q1', 100000);
+  await env.fhReceiptJoinQueue([q1]);
+  t('an old blob without a signature still finds its lesson by head noun', q1._rcpt.items[0].node === 'clothes', q1._rcpt.items[0].node);
+
+  st = freshState();
+  rrow(st, 'r1', { paid: 100000, items: [{ name: 'Mũ bơi Speedo' }] });
+  env = makeEnv(st);
+  q1 = qrow('q1', 100000);
+  q1.raw_extracted.node = 'shopping';
+  await env.fhReceiptJoinQueue([q1]);
+  t('no lesson, nothing sealed: the keywords answer (pre-Phase-2 blobs)', q1._rcpt.items[0].node === 'sportsgear', q1._rcpt.items[0].node);
 
   console.log('\n-- the ledger pass --');
   const old = new Date(Date.now() - 5 * 864e5).toISOString();

@@ -43,6 +43,7 @@ import * as gmail from './gmail.mjs';
 import * as mailtext from './mailtext.mjs';
 import { decryptToken } from './token-crypto.mjs';
 import { runStatementLane, sweepStatements } from './statement.mjs';
+import { categoriseItems } from './item-category.mjs';
 import * as llm from './llm.mjs';
 
 /** What build is live. The Apps Script logs its own version on every run
@@ -1094,6 +1095,20 @@ async function _runGrantLocked(grant, ctx) {
        silent and staging proceeds unchanged. */
     try { await enrichCategory(read.extraction, grant, classifyBudget ? { ...ctx, classifyBudget } : ctx); }
     catch (_e) { /* the concept is a garnish; never let it fail a real row */ }
+    /* A RECEIPT's items get their categories here, BEFORE the seal, by the
+       signature ladder (item-category.mjs, spec §20): keywords → the learned
+       type/slot → one batched model call for what is still unseen, from the
+       same budget as the merchant classification above. Best-effort like it:
+       an item left without a node is the honest outcome, never a failure. */
+    if (read.extraction.receipt && Array.isArray(read.extraction.receipt.items)) {
+      try {
+        const st = await categoriseItems(read.extraction.receipt,
+          { provider: sender.provider, serviceType: read.extraction.receipt.service_type },
+          classifyBudget ? { ...ctx, classifyBudget } : ctx);
+        if (st.asked) await ctx.db.bumpReadTally?.('item_sig_asked');
+        if (st.resolved) await ctx.db.bumpReadTally?.('item_sig_resolved');
+      } catch (_e) { /* categories are a garnish on a receipt too */ }
+    }
 
     const row = await buildStagedRow({
       gmailMessageId: id,

@@ -39,9 +39,9 @@ function t(name, ok, extra) {
     JSON.stringify(field.keys) === JSON.stringify(
       ['service_type', 'order_id', 'seller', 'items', 'items_total', 'discount', 'shipping_fee', 'paid', 'paid_with_tail']),
     field.keys);
-  t('items is declared an array of pruned elements',
+  t('items is declared an array of pruned elements (Phase 2 adds node + sig)',
     JSON.stringify(field.arrays && field.arrays.items) === JSON.stringify(
-      ['name', 'qty', 'unit_price', 'line_discount', 'variant']),
+      ['name', 'qty', 'unit_price', 'line_discount', 'variant', 'node', 'sig']),
     field.arrays);
   t('line_items (the pre-build reserved name) is gone for good',
     field.keys.indexOf('line_items') === -1);
@@ -67,6 +67,9 @@ function t(name, ok, extra) {
   t('an address at block level cannot ride (no key for it)', sealed && !('address' in sealed));
   t('an address INSIDE an item cannot ride either',
     sealed && sealed.items.every((it) => !('delivery_address' in it) && !('phone' in it)), sealed && sealed.items);
+  t('the ladder\'s node and signature ride inside the item',
+    (() => { const r = seal({ paid: 1, items: [{ name: 'a', node: 'sportsgear', sig: 'hn|mu boi', address: 'x' }] });
+      return r.items[0].node === 'sportsgear' && r.items[0].sig === 'hn|mu boi' && !('address' in r.items[0]); })());
   t('listed item keys survive the prune',
     sealed && sealed.items[0].name === 'Swimming Goggles OLANE 503M'
       && sealed.items[1].variant === 'Cherry' && sealed.items[0].unit_price === 607700);
