@@ -113,7 +113,12 @@
   }
   async function fhStagedTxnOnly(build) {
     if (_fhRowKindCol !== false) {
-      var res = await build(function (q) { return q.or('row_kind.is.null,row_kind.neq.notice'); });
+      /* eq.txn, not neq.notice (0154): a merchant RECEIPT row (row_kind
+         'receipt') is an annotation the join engine reads, and through a
+         neq.notice filter it would render as an importable review card — a
+         second transaction for money the bank row already carries. Naming the
+         one kind that IS pending work keeps any future kind out by default. */
+      var res = await build(function (q) { return q.or('row_kind.is.null,row_kind.eq.txn'); });
       if (!res || !res.error) { _fhRowKindCol = true; return res; }
       if (!_fhRowKindMissing(res.error)) return res;
       _fhRowKindCol = false;
@@ -339,6 +344,11 @@
     }
   }
 
+  /* The sealed-box opener, shared: 78-receipt-join opens receipt rows with
+     the exact machinery the queue uses — same keys, same identity binding,
+     same fail-closed unreadable shape. */
+  window.fhReadStagedRow = fhReadStagedRow;
+
   /* Shapes rows the way buildCsvCandidates() expects: a `parsed` with rows as
      arrays, and a `result` mapping column index -> field. Doing it this way,
      rather than constructing candidates directly, means the whole category
@@ -449,6 +459,12 @@
         : ((_bankGenericMemo(tidied) && r.counterparty)
             ? r.counterparty
             : (tidied || r.counterparty || r.source_provider || ''));
+      /* 0154 receipt enrichment: a joined merchant receipt ANSWERS "chi cho
+         gì" — "Kính bơi Olane +1 món" beats both the bank's generic memo and
+         the marketplace's name. It only ever replaces an answer nobody wrote:
+         a real payer memo ("ca phe voi Trang") still wins, exactly like the
+         never-clobber rule on committed rows (spec RC13). */
+      if (r._rcptDesc && (!tidied || _bankGenericMemo(tidied))) description = r._rcptDesc;
       /* Foreign-currency rows carry the ESTIMATED VND into the amount cell, so
          every downstream reader — totals, the write, csvBaseAmt — works in VND
          and never mistakes "$111" for 111đ. The foreign original stays visible
@@ -1265,6 +1281,14 @@
       } catch (eS) { console.warn('statement load failed', eS); }
     }
 
+    /* 0154 receipt enrichment (78-receipt-join): merchant receipt rows join
+       the bank rows they describe BEFORE candidates are built — description,
+       tree node and the 🧾 badge land on the matched rows in place. Queue
+       first, by design (spec RC10); best-effort, never blocks the queue. */
+    if (window.fhReceiptJoinQueue) {
+      try { await window.fhReceiptJoinQueue(readable); } catch (eR) { console.warn('receipt join failed', eR); }
+    }
+
     if (!readable.length && !stmtCards) {
       _txrLoadHide();
       /* Sparse yield (activation-journey-spec Q27): no blame-the-bank copy —
@@ -1668,6 +1692,12 @@
       var r = (cc && typeof cc.rowIndex === 'number') ? srows[cc.rowIndex] : null;
       return (r && r.id) || null;
     };
+    /* 0154: the merchant receipt the join engine attached to this row — rides
+       the personal expense spec into receipt_enc, item nodes included. */
+    var _specReceipt = function (cc) {
+      var r = (cc && typeof cc.rowIndex === 'number') ? srows[cc.rowIndex] : null;
+      return (r && r._rcpt) || null;
+    };
 
     /* Phase 1 — resolve every personal candidate to row spec(s), in memory.
        Model Y (0079): personal rows are their own owner-scoped table under a
@@ -1979,6 +2009,7 @@
           who: (c.counterparty && String(c.counterparty).trim()) || null,
           catName: _xCat.name,
           catEmoji: _xCat.emoji,
+          receipt: _specReceipt(c),
           dateIso: c.dateDisplay || undefined, time: _t, accountId: acctId, source: src });
         _recBal(acctId);
       }
@@ -2127,6 +2158,13 @@
       window.toast && window.toast(L('Chưa lưu được', 'Could not save'));
       return;
     }
+    /* 0154: a receipt joined to a row this press imported is finished with —
+       its detail is on the ledger row (personal) or was shown at review
+       (family, the named v1 gap). It retires in the same call as its row. */
+    picked.forEach(function (pc) {
+      var pr = (pc && typeof pc.rowIndex === 'number') ? srows[pc.rowIndex] : null;
+      if (pr && pr._rcptRowId && ids.indexOf(pr._rcptRowId) === -1) ids.push(pr._rcptRowId);
+    });
     if (!ids.length) return;
 
     /* Remember locally BEFORE asking the server, and keep it even if the server

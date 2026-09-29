@@ -130,7 +130,17 @@ export const RAW_FIELDS = Object.freeze([
   { key: 'loan',             type: 'obj',  since: 2, keys: ['contract_tail', 'installment_no', 'installment_count', 'due_date', 'principal', 'interest', 'remaining_balance'] },
   { key: 'notice',           type: 'obj',  since: 2, keys: ['statement_date', 'due_date', 'min_payment', 'closing_debt'] },
   { key: 'bill',             type: 'obj',  since: 2, keys: ['biller', 'customer_code', 'period'] },                       // wave 2
-  { key: 'receipt',          type: 'obj',  since: 2, keys: ['service_type', 'order_id', 'paid_with_tail', 'line_items'] }, // wave 2; NEVER an address
+  // The merchant's own account of a purchase (receipt-enrichment-spec.md §9).
+  // `paid` is the JOIN key — the figure that hit the instrument, after voucher;
+  // `items_total`/`discount`/`shipping_fee` exist so the device can show the
+  // honest math (tổng tiền − voucher = đã trả), never to override the amount.
+  // NEVER an address, NEVER a phone number: there is no key for one, and
+  // `_block`/`_item` (stage.mjs) drop any key not listed here — Grab receipts
+  // carry home addresses, and the privacy rule is structural, not prompt-deep.
+  // (`line_items` was the reserved name pre-build; never emitted in production.)
+  { key: 'receipt',          type: 'obj',  since: 2,
+    keys: ['service_type', 'order_id', 'seller', 'items', 'items_total', 'discount', 'shipping_fee', 'paid', 'paid_with_tail'],
+    arrays: { items: ['name', 'qty', 'unit_price', 'line_discount', 'variant'] } },
   // provenance
   { key: 'v',                type: 'num',  since: 2 },
   { key: 'src',              type: 'obj',  since: 2 },     // { <field>: one of SRC }

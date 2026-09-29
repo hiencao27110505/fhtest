@@ -62,7 +62,9 @@ const sentinel = (f) => f.type === 'num' ? 4242 : f.type === 'str' ? 'zq-' + f.k
   : f.type === 'enum' ? f.values[f.values.length - 1]
   : f.type === 'arr' ? ['zq']
   : f.key === 'src' ? { amount: 'printed' }
-  : f.keys ? Object.fromEntries(f.keys.map((k) => [k, 'zq-' + k])) : { zq: 1 };
+  : f.keys ? Object.fromEntries(f.keys.map((k) => [k,
+      f.arrays && f.arrays[k] ? [Object.fromEntries(f.arrays[k].map((ik) => [ik, 'zq-' + ik]))] : 'zq-' + k]))
+  : { zq: 1 };
 
 /* Keys decided AT THE SEAL, whatever a mapper carried: asserted separately. */
 const SEALED_HERE = { v: 2, _transport: 'oauth_direct', sender_kind: 'broker', txn_source: null, transaction_type: 'ecommerce_receipt' };

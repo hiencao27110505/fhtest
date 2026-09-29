@@ -77,7 +77,7 @@ function _pBuildTxnCtx(){
       var eOpen=(t.spaceId||t.linkId)?(t.spaceId?"fhMirrorRowTap('"+t.id+"')":''):"openPersonalTxDetail('"+t.id+"')";
       /* _kg/_net/_src/_acct feed the Giao dịch screen's filters + net heads:
          expense = money out (0109 stores it positive), so its cash flow is −amt. */
-      rows.push({ id:t.id, cat:cat, note:t.note||cat, amt:t.amt||0, _d:_d, ico:_ico, who:null, _style:style[cat], _open:eOpen, photos:t.photos||undefined, time:t.time||null,
+      rows.push({ id:t.id, cat:cat, note:t.note||cat, amt:t.amt||0, _d:_d, ico:_ico, who:null, _style:style[cat], _open:eOpen, photos:t.photos||undefined, time:t.time||null, hasReceipt:t.hasReceipt||undefined,
         node:t.node||null,                                      // 0144 — what the tree filter and the chip sheet read
         _kg:'chi', _net:-(t.amt||0), _src:t.src||null, _acct:t.accountId||null, _mirror:!!(t.spaceId||t.linkId) });
       if((t.date||'').slice(0,7)===ym){
@@ -198,7 +198,7 @@ function txRow(t){
     catTxt=fhNodeShort(t.node)||t.cat;
   }
   return '<div class="row'+tapCls+selCls+(chip?' has-rx':'')+'"'+rxid+open+'>'+selTick+'<div class="r-ico-wrap">'+tile+av+'</div>'
-    +'<div class="r-body"><div class="r-t">'+esc(t.note)+'</div><div class="r-s">'+subTxt+'</div></div>'
+    +'<div class="r-body"><div class="r-t">'+esc(t.note)+(t.hasReceipt?' <span class="r-rc" aria-label="Có hoá đơn">🧾</span>':'')+'</div><div class="r-s">'+subTxt+'</div></div>'
     +'<div class="r-right">'+amtHtml+'<div class="r-cat">'+esc(catTxt)+'</div></div>'+chip+'</div>';
 }
 var txFilter=null; // {type:'cat'|'mem', val:'Fun'|'Emma'}

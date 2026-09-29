@@ -1047,6 +1047,17 @@ function csvCollapsedCard(c, opts){
     var tag = csvStagedSourceTag(c);
     var footBits = [whenTxt, tag].filter(Boolean).map(function(x){ return esc(x); });
     var footHtml = footBits.length ? '<span class="scv-foot">'+footBits.join('<span class="scv-sep">·</span>')+'</span>' : '';
+    /* 0154 receipt enrichment: the merchant's own receipt joined this row —
+       show that the enrichment happened, where trust in capture is built
+       (spec RC12). Quiet: a marker and a count, the note text does the work. */
+    var _rj = (typeof c.rowIndex === 'number' && window._fhStagedRows && window._fhStagedRows[c.rowIndex]
+               && window._fhStagedRows[c.rowIndex]._rcpt) || null;
+    if(_rj){
+      var _rjN = (_rj.items || []).length;
+      footHtml += '<span class="scv-foot">🧾 '+esc(_rjN
+        ? L(_rjN+' sản phẩm · '+(_rj.seller || _rj.provider || ''), _rjN+' item(s) · '+(_rj.seller || _rj.provider || ''))
+        : L('Hoá đơn '+(_rj.provider || ''), 'Receipt · '+(_rj.provider || '')))+'</span>';
+    }
     /* payload v2: the mail printed a fee. It becomes its own small expense, shown
        as one quiet line under its parent and imported or dropped with it. */
     if(c._fee && c._fee.amount > 0){

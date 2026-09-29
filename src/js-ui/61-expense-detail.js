@@ -812,6 +812,10 @@ function renderPersonalTxDetail(){
   if(!ed){
     html='<div class="exd-view">'+heroHTML+_pexdAskHTML(E)
       +'<div class="exd-meta srows"><div class="csv-srows">'+rows+'</div></div>';
+    /* 0154 receipt enrichment: the joined merchant receipt, decrypted on this
+       open only (the hydrate carries presence, never contents). A placeholder
+       fills in when the blob arrives; unreadable says so instead of nothing. */
+    if(t.hasReceipt){ html+='<div id="pexd-receipt"></div>'; _pexdReceiptLoad(t.id); }
     if(ph.length) html+=_exdSecH('Ảnh', ph.length)+'<div class="exd-photos">'+ph.map(function(src){ return '<div class="exd-photo" style="background-image:url('+src+')"></div>'; }).join('')+'</div>';
     html+=_pexdCtxHTML(E);
     if(k==='adjust') html+='<button type="button" class="exd-del" id="pexd-del" onclick="pexdDelete()">'+_pexdDelLbl(E)+'</button>';
@@ -834,6 +838,51 @@ function renderPersonalTxDetail(){
   _pxdResetDel();
 }
 window.renderPersonalTxDetail=renderPersonalTxDetail;
+
+/* ── 0154: the Hoá đơn section — what the money actually bought ───────────────
+   receipt-enrichment-spec RC12: seller, each item (qty × unit price), and the
+   honest math — tổng tiền − voucher (− phí ship) = đã trả — so the paid figure
+   on the row is explained, never contradicted. Read-only always: a receipt is
+   the merchant's record, not an editable list. */
+async function _pexdReceiptLoad(id){
+  if(!window.fhPersonalGetReceipt) return;
+  var rc=null;
+  try{ rc=await fhPersonalGetReceipt(id); }catch(e){ rc=null; }
+  var host=document.getElementById('pexd-receipt');
+  if(!host || _pexdId!==id) return;                        // screen moved on while decrypting
+  if(!rc){ host.innerHTML=''; return; }
+  if(rc==='_unreadable'){
+    host.innerHTML=_exdSecH('Hoá đơn','')+'<div class="exd-meta"><div class="pexd-rc-miss">'+L('Chi tiết hoá đơn không đọc được trên máy này.','Receipt detail could not be read on this device.')+'</div></div>';
+    return;
+  }
+  host.innerHTML=_pexdReceiptHTML(rc);
+}
+function _pexdReceiptHTML(rc){
+  var fmtD=function(n){ return (Number(n)||0).toLocaleString('vi-VN')+'đ'; };
+  var items=rc.items||[];
+  var h=_exdSecH('Hoá đơn', items.length||'');
+  h+='<div class="exd-meta pexd-rc">';
+  var head=[rc.seller||rc.provider, rc.order_id?('#'+rc.order_id):null].filter(Boolean);
+  if(head.length) h+='<div class="pexd-rc-head">'+esc(head.join(' · '))+'</div>';
+  items.forEach(function(it){
+    if(!it) return;
+    var qty=(it.qty&&it.qty>1)?(it.qty+' × '):'';
+    h+='<div class="pexd-rc-item"><span class="pexd-rc-name">'+esc(it.name||'—')+(it.variant?' <span class="pexd-rc-var">('+esc(it.variant)+')</span>':'')+'</span>'
+      +(it.unit_price!=null?'<span class="pexd-rc-amt num">'+qty+esc(fmtD(it.unit_price))+'</span>':'')+'</div>';
+  });
+  var math=[];
+  if(rc.items_total!=null) math.push(['Tổng tiền', fmtD(rc.items_total), '']);
+  if(rc.discount) math.push(['Voucher/giảm giá', '−'+fmtD(rc.discount), 'good']);
+  if(rc.shipping_fee) math.push(['Phí vận chuyển', fmtD(rc.shipping_fee), '']);
+  if(rc.paid!=null) math.push(['Đã trả', fmtD(rc.paid), 'strong']);
+  if(math.length){
+    h+='<div class="pexd-rc-math">'+math.map(function(m){
+      return '<div class="pexd-rc-mrow'+(m[2]?' '+m[2]:'')+'"><span>'+esc(m[0])+'</span><span class="num">'+esc(m[1])+'</span></div>';
+    }).join('')+'</div>';
+  }
+  h+='</div>';
+  return h;
+}
 
 /* ── pickers ── */
 function _pexdChoices(title, sub, listHtml){ setTxt('exdacct-h', title); setTxt('exdacct-sub', sub||''); setHTML('exdacct-list', listHtml); openSheet('sheet-exd-acct'); }

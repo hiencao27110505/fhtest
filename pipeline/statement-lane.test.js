@@ -121,7 +121,10 @@ const SEED = fs.readFileSync(HERE + '../supabase/migrations/0140_statement_shape
 for (const [addr, subj] of [['info@card.vib.com.vn', MAILS.card.subject], ['info@myvib.vib.com.vn', 'Sao kê tài khoản'], ['no-reply@mservice.com.vn', MAILS.wallet.subject]]) {
   t('seed for ' + addr, SEED.includes("('" + addr + "',") && SEED.includes("'" + ST.statementShape(subj) + "'"), ST.statementShape(subj));
 }
-t('the consent version here equals the client\'s', new RegExp('var FH_CONSENT_V = ' + ST.STATEMENT_CONSENT_V + ';').test(fs.readFileSync(HERE + '../src/js-data/75-consent-ui.js', 'utf8')));
+t('the consent version here is covered by the client\'s', (function () {
+  var m = /var FH_CONSENT_V = (\d+);/.exec(fs.readFileSync(HERE + '../src/js-data/75-consent-ui.js', 'utf8'));
+  return !!m && Number(m[1]) >= ST.STATEMENT_CONSENT_V;
+})());
 
 console.log('\n-- the gates: consent, then a key to seal to --');
 var c = makeCtx({ consent: 4 }); var r = await ST.runStatementLane(grant(), c);

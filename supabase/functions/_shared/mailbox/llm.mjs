@@ -210,6 +210,26 @@ export const BLOCKS = {
     // The BORROWING side of the loan tree only: a lender's mail is never the
     // customer lending money out, and 'collect' is a repayment coming IN.
     'node: one of ' + [...LOAN_NODE_CODES.filter((c) => c === 'borrow' || TAX.root(c) === 'borrow'), 'pay'].join(', ') + ', or null.',
+  /* Merchant order/receipt mail (receipt-enrichment-spec §10.2). It ANNOTATES
+     a transaction the bank reports separately; the amount is what was
+     actually charged, and the privacy rule is stated here AND enforced
+     structurally at the seal. */
+  receipt:
+    'THIS SENDER IS A MERCHANT SENDING AN ORDER OR PAYMENT RECEIPT (Shopee, Grab, Apple, Tiki, Lazada, ShopeeFood, Foody).\n' +
+    'The mail is the merchant\'s own account of a purchase that a bank or wallet reports separately.\n' +
+    'mail_kind: transaction ONLY when it confirms a completed order or payment with a total. ' +
+    'Campaigns, vouchers, recommendations, and shipping-status mail with no total: other.\n' +
+    'amount: the total actually paid or charged, AFTER every voucher and discount. direction: debit. signal: purchase.\n' +
+    'Fill `receipt`: service_type (ride = a trip; food = a meal order; goods = physical products; ' +
+    'digital = apps, media, storage; subscription = a recurring plan), order_id (the order or booking id as printed), ' +
+    'seller (the marketplace sub-seller, e.g. a Shopee shop name; null when the merchant itself sold), ' +
+    'items (one entry per product line: name verbatim, qty, unit_price, line_discount, variant), ' +
+    'items_total (the pre-discount sum as printed), discount (voucher/discount total), shipping_fee, ' +
+    'paid (the same figure as amount), paid_with_tail (last 4 digits of the paying card when printed, never more).\n' +
+    'NEVER extract an address, a phone number, or a recipient\'s contact details, in any field, item names included.\n' +
+    'For Grab (any Grab service): items is ALWAYS null; take only the service type, the total, the time, ' +
+    'paid_with_tail and the booking id.\n' +
+    'node: the most specific expense code for what was bought, one of: ' + EXPENSE_NODE_CODES.join(', ') + ', or null.',
 };
 
 /** Which block a sender class reads. Anything unknown reads the bank block:
@@ -217,6 +237,7 @@ export const BLOCKS = {
 export function blockFor(senderKind) {
   if (senderKind === 'broker') return BLOCKS.broker;
   if (senderKind === 'lender') return BLOCKS.lender;
+  if (senderKind === 'receipt') return BLOCKS.receipt;
   return BLOCKS.bank;
 }
 
@@ -299,6 +320,16 @@ export const EXTRACTION_SCHEMA = {
       principal: _NUM, interest: _NUM, remaining_balance: _NUM } },
     notice: { type: ['object', 'null'], properties: {
       statement_date: _STR, due_date: _STR, min_payment: _NUM, closing_debt: _NUM } },
+    /* Merchant receipts only (receipt-enrichment-spec §9). `paid` is the join
+       key — the figure that actually hit the instrument, after every voucher.
+       Item names verbatim; no address key exists, on purpose, and the seal
+       (stage.mjs _block/_item) drops any key not listed regardless. */
+    receipt: { type: ['object', 'null'], properties: {
+      service_type: { type: ['string', 'null'], enum: ['ride', 'food', 'goods', 'digital', 'subscription', null] },
+      order_id: _STR, seller: _STR,
+      items: { type: ['array', 'null'], items: { type: 'object', properties: {
+        name: _STR, qty: _NUM, unit_price: _NUM, line_discount: _NUM, variant: _STR } } },
+      items_total: _NUM, discount: _NUM, shipping_fee: _NUM, paid: _NUM, paid_with_tail: _STR } },
     /* NO `flow` AND NO `category` (2026-09-22). Both were judgements the model
        was asked for and staging then discarded or re-derived: flow comes from
        signal + direction (contract.mjs flowFor), the category from the node.
@@ -350,7 +381,7 @@ export function normaliseAnswer(parsed) {
   if (TIME_PRECISIONS.indexOf(x.time_precision) < 0) x.time_precision = null;
   if (!(SIGNALS[x.signal] || NOTICE_SIGNALS.indexOf(x.signal) >= 0)) x.signal = null;
   if (typeof x.node !== 'string' || !TAX.get(x.node) || TAX.get(x.node).manual) x.node = null;
-  for (const k of ['investment', 'loan', 'notice']) {
+  for (const k of ['investment', 'loan', 'notice', 'receipt']) {
     const b = x[k];
     if (!b || typeof b !== 'object' || Array.isArray(b) || !Object.values(b).some((v) => v != null)) x[k] = null;
   }

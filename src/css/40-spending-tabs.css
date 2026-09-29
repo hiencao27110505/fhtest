@@ -554,3 +554,6 @@
 /* "sau đó bạn sẽ thấy" rows and the data-driven empty states (actions reuse .dbt-empty-cta) */
 .pact-rows .r-ico{color:var(--muted)}
 .pact-rows .r-ico svg{width:20px;height:20px}
+
+/* 0154 receipt enrichment — the quiet "detail exists" marker on list rows */
+.r-rc{font-size:11px;opacity:.75;margin-left:2px}

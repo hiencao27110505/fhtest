@@ -59,6 +59,7 @@ import { labelSignature, learnFormat, applyFormat, isSeed, memoryFormatStore } f
 import { detectSignal, detectChannel, counterpartyKind, crossCheckSignal } from './signals.mjs';
 import { SRC } from './contract.mjs';
 import * as llm from './llm.mjs';
+import { readReceiptMail } from './receipt-reader.mjs';
 
 /**
  * The subject with the parts that vary per message removed, so two mails off
@@ -311,6 +312,22 @@ export async function readTransaction(message, db, deps) {
   const senderKind = (deps && deps.senderKind) || (matched && matched.senderKind) || null;
   const provider = (deps && deps.provider) || (matched && matched.provider) || sender.slice(sender.lastIndexOf('@') + 1);
   const ctx = { subject: message.subject, senderKind, provider };
+
+  /* ── RECEIPT MAIL is a different reading entirely (receipt-enrichment-spec
+     §10.2). A merchant's order mail annotates a transaction the pipeline
+     captures separately; none of the bank machinery below (templates, the
+     label table, signals) is shaped for its repeated item blocks, and letting
+     it fall through would stage a second transaction — the double-count the
+     feature exists to avoid. The junk cache above still answered first, so a
+     campaign shape cached once never reaches this. Outcomes are contract-
+     compatible: the worker's parking and failure handling apply unchanged. */
+  if (senderKind === 'receipt') {
+    return await readReceiptMail(message, db, {
+      provider, sender, template, fp,
+      build: (deps && deps.build) || null,
+      budget: deps && deps.budget, llm: deps && deps.llm, fetch: deps && deps.fetch,
+    });
+  }
   /* The learned vocabulary for THIS sender's domain, if any mappings have
      reached the n>=3 confirmation bar (db.loadLearnedLabels, 0111). Hardcoded LABELS
      always wins inside the reader; an absent map is exactly the old reader. */

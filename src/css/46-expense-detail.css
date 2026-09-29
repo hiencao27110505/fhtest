@@ -161,3 +161,15 @@ label.exd-photo.add{cursor:pointer}
    zoom-ins share its band); one step above so it paints on top, still under
    sheets and modals */
 #pexd-overlay{z-index:50}
+/* ── 0154 receipt enrichment — the Hoá đơn section (view state) ── */
+.pexd-rc{padding:10px 14px}
+.pexd-rc-head{font-size:12.5px;color:var(--muted-soft);padding-bottom:6px;border-bottom:1px solid var(--divider);margin-bottom:4px}
+.pexd-rc-item{display:flex;justify-content:space-between;gap:12px;padding:6px 0;font-size:13.5px}
+.pexd-rc-name{flex:1;min-width:0}
+.pexd-rc-var{color:var(--muted-soft)}
+.pexd-rc-amt{white-space:nowrap;color:var(--muted)}
+.pexd-rc-math{margin-top:6px;padding-top:6px;border-top:1px solid var(--divider)}
+.pexd-rc-mrow{display:flex;justify-content:space-between;padding:2.5px 0;font-size:12.5px;color:var(--muted)}
+.pexd-rc-mrow.good span:last-child{color:var(--good)}
+.pexd-rc-mrow.strong{font-weight:650;color:var(--ink)}
+.pexd-rc-miss{font-size:12.5px;color:var(--muted-soft);padding:10px 14px}

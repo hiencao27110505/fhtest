@@ -397,7 +397,7 @@
            failure-tolerant (a lost photo strip or pre-selection never costs the
            ledger), so they resolve to empty on error instead of failing the all. */
         const [tr, bd, ac, dr, pp, mm, lb] = await Promise.all([
-          _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,occurred_time_enc,txn_date,kind,space_id,link_id,version,updated_at,created_at,account_id,transfer_group_id,position_account_id,quantity_enc,source,node_enc,label_id').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }).order('id')),
+          _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,occurred_time_enc,txn_date,kind,space_id,link_id,version,updated_at,created_at,account_id,transfer_group_id,position_account_id,quantity_enc,source,node_enc,label_id,receipt_enc').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }).order('id')),
           _sb().from('personal_budgets').select('total_enc,cats_enc').eq('owner_user_id', P.uid).eq('month', _monISO()).maybeSingle(),
           _sb().from('personal_accounts').select('id,kind,name_enc,tail,provider,provider_key,credit_limit_enc,human_verified,statement_day,due_day,anchor_balance_enc,anchor_at,ext_balance_enc,ext_balance_date,account_number_enc,asset_symbol_enc,asset_unit_enc,asset_class_enc,manual_price_enc,manual_price_at,setup_skipped_at').eq('owner_user_id', P.uid).is('archived_at', null),
           _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,counterparty_enc,cat_name_enc,cat_emoji,txn_date,kind,account_id,transfer_group_id,position_account_id,quantity_enc,due_date,created_at,node_enc,label_id').eq('owner_user_id', P.uid).or('kind.neq.expense,account_id.not.is.null').order('txn_date', { ascending: false }).order('id')),
@@ -447,6 +447,7 @@
             qty: (qRaw == null || qRaw === _DEC_FAILED) ? null : (Number(qRaw) || null),
             amt: bad ? null : Number(a), _unreadable: bad,
             note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc), node: _okNode(await _decTxt(t.node_enc)), labelId: t.label_id || null, emoji: t.cat_emoji,
+            hasReceipt: !!t.receipt_enc,   // 0154: presence only — the blob decrypts on the detail open (fhPersonalGetReceipt)
             time: await _decTxt(t.occurred_time_enc) });   // local "HH:MM" if the time was known, else null (day-only)
         }
         /* 0144 — labels decode like every other personal value: fail-closed, and
@@ -538,6 +539,10 @@
            old rows a node. Both are best-effort; neither may cost a hydrate. */
         try { if (window.fhPersonalLabelsEnsureDefaults) window.fhPersonalLabelsEnsureDefaults(); } catch (e) {}
         try { if (window.fhTreeBackfill) window.fhTreeBackfill('personal'); } catch (e) {}
+        /* 0154 — receipts that arrived after their transaction was imported:
+           the retroactive join (78-receipt-join), debounced behind the hydrate
+           and never allowed to cost it anything. */
+        try { if (window.fhReceiptLedgerSoon) window.fhReceiptLedgerSoon(); } catch (e) {}
 
       } catch (e) {
         console.warn('personal hydrate failed', e);
@@ -833,6 +838,38 @@
       if (r.error) { console.warn('personal expense update failed', r.error); return false; }
       if (!quiet) await window.fhPersonalHydrate();
       return true;
+    };
+    /* ── 0154 receipt enrichment — the blob, alone ────────────────────────────
+       The RECEIPT only, on a PRIVATE row that has none yet. The retroactive
+       join (78-receipt-join) lands detail on rows the person may since have
+       edited, so this write touches exactly one column — never the note, the
+       category, the amount, the date — and `.is('receipt_enc', null)` makes it
+       first-writer-wins: a row can carry one receipt, and a second candidate
+       receipt loses to whichever attached first rather than overwriting it. */
+    window.fhPersonalSetReceipt = async function (id, receipt) {
+      if (!P.uid || !P.key || !id || !receipt) return false;
+      const r = await _sb().from('personal_transactions')
+        .update({ receipt_enc: await _encP(JSON.stringify(receipt)) })
+        .eq('id', id).eq('owner_user_id', P.uid).is('link_id', null).is('receipt_enc', null)
+        .select('id');
+      if (r.error) { console.warn('personal receipt attach failed', r.error); return false; }
+      if (!(r.data && r.data.length)) return false;   // mirror, or already carrying one
+      window.fhPersonalMatchSliceInvalidate && window.fhPersonalMatchSliceInvalidate();
+      try { await window.fhPersonalHydrate(); } catch (e) {}
+      return true;
+    };
+    /* The blob back, decrypted on demand — the detail screen's read. The
+       hydrate never decrypts receipts (a list needs presence, not contents).
+       Fail-closed: unreadable ciphertext returns the string '_unreadable', so
+       the screen can say "chi tiết không đọc được" instead of nothing. */
+    window.fhPersonalGetReceipt = async function (id) {
+      if (!P.uid || !P.key || !id) return null;
+      const r = await _sb().from('personal_transactions').select('receipt_enc')
+        .eq('id', id).eq('owner_user_id', P.uid).limit(1);
+      if (r.error || !r.data || !r.data.length || !r.data[0].receipt_enc) return null;
+      const txt = await _decP(r.data[0].receipt_enc);
+      if (txt == null || txt === _DEC_FAILED) return '_unreadable';
+      try { return JSON.parse(txt); } catch (e) { return '_unreadable'; }
     };
     window.fhPersonalDeleteExpense = async function (id, quiet) {
       if (!P.uid || !id) return false;
@@ -1130,6 +1167,10 @@
           quantity_enc: (s.qty != null && isFinite(s.qty)) ? await _encP(Number(s.qty)) : null,
           node_enc: _okNode(s.node) ? await _encP(s.node) : null,   // 0144: the tree node the review decided
           label_id: s.labelId || null,
+          /* 0154 receipt enrichment: the joined merchant receipt, one JSON blob
+             under the personal DEK. Detail, never money — stats read amount_enc
+             alone, and an unreadable blob costs a line on the detail screen. */
+          receipt_enc: s.receipt ? await _encP(JSON.stringify(s.receipt)) : null,
           source: s.source || null });
       }
       const CHUNK = 50;
@@ -1587,7 +1628,7 @@
            limits, the 0109 anchor + bank-stated balance) and the budgets. A
            rotation that misses a field makes that field unreadable forever, so
            the list here must grow with every _enc column the schema gains. */
-        const tr = await _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,counterparty_enc,occurred_time_enc,quantity_enc,node_enc').eq('owner_user_id', P.uid);
+        const tr = await _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,counterparty_enc,occurred_time_enc,quantity_enc,node_enc,receipt_enc').eq('owner_user_id', P.uid);
         const lb = await _sb().from('personal_labels').select('id,name_enc,claims_enc').eq('owner_user_id', P.uid);
         const ac = await _sb().from('personal_accounts').select('id,name_enc,credit_limit_enc,anchor_balance_enc,ext_balance_enc,account_number_enc,asset_symbol_enc,asset_unit_enc,asset_class_enc,manual_price_enc').eq('owner_user_id', P.uid);
         const bg = await _sb().from('personal_budgets').select('owner_user_id,month,total_enc,cats_enc').eq('owner_user_id', P.uid);
@@ -1600,7 +1641,7 @@
           if (u.error) throw u.error; n++; if (onProgress) onProgress(n, tot);
         }
         for (const r of (tr.data || [])) {
-          const u = await _sb().from('personal_transactions').update({ amount_enc: await reEnc(r.amount_enc), note_enc: await reEnc(r.note_enc), cat_name_enc: await reEnc(r.cat_name_enc), node_enc: await reEnc(r.node_enc), counterparty_enc: await reEnc(r.counterparty_enc), occurred_time_enc: await reEnc(r.occurred_time_enc), quantity_enc: await reEnc(r.quantity_enc) }).eq('id', r.id);
+          const u = await _sb().from('personal_transactions').update({ amount_enc: await reEnc(r.amount_enc), note_enc: await reEnc(r.note_enc), cat_name_enc: await reEnc(r.cat_name_enc), node_enc: await reEnc(r.node_enc), counterparty_enc: await reEnc(r.counterparty_enc), occurred_time_enc: await reEnc(r.occurred_time_enc), quantity_enc: await reEnc(r.quantity_enc), receipt_enc: await reEnc(r.receipt_enc) }).eq('id', r.id);
           if (u.error) throw u.error; n++; if (onProgress) onProgress(n, tot);
         }
         for (const r of (ac.data || [])) {

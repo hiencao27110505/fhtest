@@ -295,6 +295,32 @@ const RECEIPTS = {
  *  query once it has a subject filter per sender. Not read by inboxQuery. */
 export const RECEIPT_DOMAINS = Object.keys(RECEIPTS);
 
+/** The consent version that first says merchant receipt mail is read
+ *  (receipt-enrichment-spec.md §13). Must equal FH_CONSENT_V's receipt bump
+ *  in src/js-data/75-consent-ui.js. The worker fetches receipt domains only
+ *  for grants whose bank_email consent is at least this — a grant still on
+ *  v5 keeps today's banks-and-wallets query untouched. */
+export const RECEIPT_CONSENT_V = 6;
+
+/** Per-sender SUBJECT filters for the receipt group — the fetch-cost gate the
+ *  RECEIPTS note above demands before these domains may enter the query.
+ *  Every receipt domain is also a marketing firehose, and fetching it bare
+ *  would spend the staging caps and the model budget on campaigns. This is a
+ *  COST gate, not a correctness gate: a receipt whose wording drifts past it
+ *  is missed (watch the tally), and a campaign that matches it is classified
+ *  junk once and cached — nothing here can stage a wrong row. Gmail subject
+ *  matching folds case and most diacritics; both spellings of "hóa đơn" ride
+ *  anyway because the folding of composed forms has been observed to vary. */
+export const RECEIPT_SUBJECTS = Object.freeze({
+  'shopee.vn': ['"đơn hàng"'],
+  'shopeefood.vn': ['"đơn hàng"', '"E-Receipt"'],
+  'foody.vn': ['"đơn hàng"', '"E-Receipt"'],
+  'grab.com': ['"E-Receipt"', '"E-receipt"'],
+  'apple.com': ['"receipt from Apple"', '"hóa đơn"', '"hoá đơn"'],
+  'tiki.vn': ['"đơn hàng"'],
+  'lazada.vn': ['"đơn hàng"'],
+});
+
 /** The address inside a From header, lower-cased. `"MB" <no-reply@mb.vn>`. */
 export function addressOf(fromHeader) {
   const s = String(fromHeader || '');
@@ -475,7 +501,9 @@ export const PROMO_TOKENS = ['marketing', 'promotion'];
 export const SKIP_MAX = 25;
 
 export function inboxQuery(days, extra, opts) {
-  // RECEIPT_DOMAINS are deliberately absent — see the note above RECEIPTS.
+  // RECEIPT_DOMAINS enter only via `opts.receipts` (consent-gated by the
+  // caller against RECEIPT_CONSENT_V) and only WITH their per-sender subject
+  // filters — see the note above RECEIPTS and RECEIPT_SUBJECTS.
   const domains = [
     ...Object.keys(BANKS),
     ...NON_BANK_GROUPS.flatMap(([group]) => Object.keys(group)),
@@ -501,7 +529,22 @@ export function inboxQuery(days, extra, opts) {
     .map(a => String(a || '').trim().toLowerCase())
     .filter(a => a && a.indexOf(' ') < 0 && a.indexOf('"') < 0))].slice(0, SKIP_MAX);
   const notSkipped = skips.map(a => ' -from:' + a).join('');
-  return from + notPromo + notSkipped + ' newer_than:' + Math.max(1, Math.floor(days)) + 'd';
+  /* The receipt group ORs in beside the bank/wallet group; the promo and skip
+     negations then apply to the whole disjunction, so a receipt sender's
+     campaign address is excluded exactly as a bank's is. A domain with no
+     subject terms never enters — an unfiltered receipt domain is the firehose
+     this gate exists to keep out. */
+  let fromGroup = from;
+  if (opts && opts.receipts) {
+    const rec = RECEIPT_DOMAINS
+      .map(d => {
+        const terms = RECEIPT_SUBJECTS[d] || [];
+        return terms.length ? '(from:' + d + ' subject:(' + terms.join(' OR ') + '))' : null;
+      })
+      .filter(Boolean);
+    if (rec.length) fromGroup = '(' + from + ' OR ' + rec.join(' OR ') + ')';
+  }
+  return fromGroup + notPromo + notSkipped + ' newer_than:' + Math.max(1, Math.floor(days)) + 'd';
 }
 
 /* `WALLETS` here is still EVERY non-bank, non-receipt domain, as it was before

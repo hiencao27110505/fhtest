@@ -264,17 +264,17 @@ console.log('\n-- the gate asks exactly when it should --');
     re.indexOf('dữ liệu cá nhân nhạy cảm') >= 0);
   /* The entry carries both halves: what the model now receives, and the
      once-per-format limit that bounds it. Neither alone is the truth. */
-  /* Someone TWO versions behind sees both changes, oldest first. The v4 entry
-     carries both halves: what the model now receives, and the once-per-format
-     limit that bounds it. Neither alone is the truth. */
+  /* Someone TWO versions behind sees both changes, oldest first. At v6 that
+     pair is v5 (statement files, kept at most 90 days) and v6 (merchant
+     receipt mail, annotate-only). Neither alone is the truth. */
   reset({ data: [{ version: FH_CONSENT_V - 2, consented_at: '2026-08-20T10:00:00Z' }], error: null });
   await window.fhConsentSheet({});
   var re2 = SHEETS[0];
   var delta2 = re2.slice(re2.indexOf('cst-changed'), re2.indexOf('cst-fold'));
-  t('two versions behind: both changes are listed', delta2.indexOf('gửi nguyên văn cho AI') >= 0 && delta2.indexOf('tối đa 90 ngày') >= 0);
+  t('two versions behind: both changes are listed', delta2.indexOf('tối đa 90 ngày') >= 0 && delta2.indexOf('email hoá đơn') >= 0);
   t('...oldest first', delta2.indexOf('gửi nguyên văn cho AI') < delta2.indexOf('tối đa 90 ngày'));
   t('and states the once-per-format limit that bounds it',
-    delta2.indexOf('không được gửi đi nữa') >= 0);
+    delta2.indexOf('không gửi đi') >= 0);
 
   reset({ data: [], error: null });
   await window.fhConsentSheet({});

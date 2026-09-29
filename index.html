@@ -1740,6 +1740,9 @@ input{font-family:inherit}
 .pact-rows .r-ico{color:var(--muted)}
 .pact-rows .r-ico svg{width:20px;height:20px}
 
+/* 0154 receipt enrichment — the quiet "detail exists" marker on list rows */
+.r-rc{font-size:11px;opacity:.75;margin-left:2px}
+
 /* ── Nợ & cho vay — bento + zoom-in overlay (23-debts-ui.js) ─────────────────
    Design: mockups/borrowing-lending-ring.html variant 01 (Concentric), on the
    cf-card recipe: white / 22px / --shadow-focal / 16px gutter. Owe = --danger,
@@ -2534,6 +2537,19 @@ label.exd-photo.add{cursor:pointer}
    zoom-ins share its band); one step above so it paints on top, still under
    sheets and modals */
 #pexd-overlay{z-index:50}
+/* ── 0154 receipt enrichment — the Hoá đơn section (view state) ── */
+.pexd-rc{padding:10px 14px}
+.pexd-rc-head{font-size:12.5px;color:var(--muted-soft);padding-bottom:6px;border-bottom:1px solid var(--divider);margin-bottom:4px}
+.pexd-rc-item{display:flex;justify-content:space-between;gap:12px;padding:6px 0;font-size:13.5px}
+.pexd-rc-name{flex:1;min-width:0}
+.pexd-rc-var{color:var(--muted-soft)}
+.pexd-rc-amt{white-space:nowrap;color:var(--muted)}
+.pexd-rc-math{margin-top:6px;padding-top:6px;border-top:1px solid var(--divider)}
+.pexd-rc-mrow{display:flex;justify-content:space-between;padding:2.5px 0;font-size:12.5px;color:var(--muted)}
+.pexd-rc-mrow.good span:last-child{color:var(--good)}
+.pexd-rc-mrow.strong{font-weight:650;color:var(--ink)}
+.pexd-rc-miss{font-size:12.5px;color:var(--muted-soft);padding:10px 14px}
+
 /* ---- collaborative reactions ----
    Inline chip (A), the Phòng khách wall (B), the picker + arrival + burst (C).
    Emoji carry the colour; the surfaces stay neutral (no fills) per the design system,
@@ -9047,7 +9063,7 @@ function _persEmailRow(){
         var _acct = !t.spaceId ? acctName(t.accountId) : null;
         var _catTxt = t.spaceId ? famName(t.spaceId).replace(/</g,'&lt;') : ((t.cat||'Khoản chi').replace(/</g,'&lt;'));
         h += '<div class="row'+(_tap?' tap':'')+'"'+_tap+'>'+_tile
-           + '<div class="r-body"><div class="r-t">'+((t.note||t.cat||'Khoản chi').replace(/</g,'&lt;'))+'</div>'
+           + '<div class="r-body"><div class="r-t">'+((t.note||t.cat||'Khoản chi').replace(/</g,'&lt;'))+(t.hasReceipt?' <span class="r-rc" aria-label="Có hoá đơn">🧾</span>':'')+'</div>'
            + '<div class="r-s">'+meta+(_acct?' · '+_acct.replace(/</g,'&lt;'):'')+'</div></div>'
            + right({v:'−'+fmt(t.amt||0), cls:''}, _catTxt);
       }
@@ -14915,6 +14931,17 @@ function csvCollapsedCard(c, opts){
     var tag = csvStagedSourceTag(c);
     var footBits = [whenTxt, tag].filter(Boolean).map(function(x){ return esc(x); });
     var footHtml = footBits.length ? '<span class="scv-foot">'+footBits.join('<span class="scv-sep">·</span>')+'</span>' : '';
+    /* 0154 receipt enrichment: the merchant's own receipt joined this row —
+       show that the enrichment happened, where trust in capture is built
+       (spec RC12). Quiet: a marker and a count, the note text does the work. */
+    var _rj = (typeof c.rowIndex === 'number' && window._fhStagedRows && window._fhStagedRows[c.rowIndex]
+               && window._fhStagedRows[c.rowIndex]._rcpt) || null;
+    if(_rj){
+      var _rjN = (_rj.items || []).length;
+      footHtml += '<span class="scv-foot">🧾 '+esc(_rjN
+        ? L(_rjN+' sản phẩm · '+(_rj.seller || _rj.provider || ''), _rjN+' item(s) · '+(_rj.seller || _rj.provider || ''))
+        : L('Hoá đơn '+(_rj.provider || ''), 'Receipt · '+(_rj.provider || '')))+'</span>';
+    }
     /* payload v2: the mail printed a fee. It becomes its own small expense, shown
        as one quiet line under its parent and imported or dropped with it. */
     if(c._fee && c._fee.amount > 0){
@@ -20771,7 +20798,7 @@ function _pBuildTxnCtx(){
       var eOpen=(t.spaceId||t.linkId)?(t.spaceId?"fhMirrorRowTap('"+t.id+"')":''):"openPersonalTxDetail('"+t.id+"')";
       /* _kg/_net/_src/_acct feed the Giao dịch screen's filters + net heads:
          expense = money out (0109 stores it positive), so its cash flow is −amt. */
-      rows.push({ id:t.id, cat:cat, note:t.note||cat, amt:t.amt||0, _d:_d, ico:_ico, who:null, _style:style[cat], _open:eOpen, photos:t.photos||undefined, time:t.time||null,
+      rows.push({ id:t.id, cat:cat, note:t.note||cat, amt:t.amt||0, _d:_d, ico:_ico, who:null, _style:style[cat], _open:eOpen, photos:t.photos||undefined, time:t.time||null, hasReceipt:t.hasReceipt||undefined,
         node:t.node||null,                                      // 0144 — what the tree filter and the chip sheet read
         _kg:'chi', _net:-(t.amt||0), _src:t.src||null, _acct:t.accountId||null, _mirror:!!(t.spaceId||t.linkId) });
       if((t.date||'').slice(0,7)===ym){
@@ -20892,7 +20919,7 @@ function txRow(t){
     catTxt=fhNodeShort(t.node)||t.cat;
   }
   return '<div class="row'+tapCls+selCls+(chip?' has-rx':'')+'"'+rxid+open+'>'+selTick+'<div class="r-ico-wrap">'+tile+av+'</div>'
-    +'<div class="r-body"><div class="r-t">'+esc(t.note)+'</div><div class="r-s">'+subTxt+'</div></div>'
+    +'<div class="r-body"><div class="r-t">'+esc(t.note)+(t.hasReceipt?' <span class="r-rc" aria-label="Có hoá đơn">🧾</span>':'')+'</div><div class="r-s">'+subTxt+'</div></div>'
     +'<div class="r-right">'+amtHtml+'<div class="r-cat">'+esc(catTxt)+'</div></div>'+chip+'</div>';
 }
 var txFilter=null; // {type:'cat'|'mem', val:'Fun'|'Emma'}
@@ -22790,6 +22817,10 @@ function renderPersonalTxDetail(){
   if(!ed){
     html='<div class="exd-view">'+heroHTML+_pexdAskHTML(E)
       +'<div class="exd-meta srows"><div class="csv-srows">'+rows+'</div></div>';
+    /* 0154 receipt enrichment: the joined merchant receipt, decrypted on this
+       open only (the hydrate carries presence, never contents). A placeholder
+       fills in when the blob arrives; unreadable says so instead of nothing. */
+    if(t.hasReceipt){ html+='<div id="pexd-receipt"></div>'; _pexdReceiptLoad(t.id); }
     if(ph.length) html+=_exdSecH('Ảnh', ph.length)+'<div class="exd-photos">'+ph.map(function(src){ return '<div class="exd-photo" style="background-image:url('+src+')"></div>'; }).join('')+'</div>';
     html+=_pexdCtxHTML(E);
     if(k==='adjust') html+='<button type="button" class="exd-del" id="pexd-del" onclick="pexdDelete()">'+_pexdDelLbl(E)+'</button>';
@@ -22812,6 +22843,51 @@ function renderPersonalTxDetail(){
   _pxdResetDel();
 }
 window.renderPersonalTxDetail=renderPersonalTxDetail;
+
+/* ── 0154: the Hoá đơn section — what the money actually bought ───────────────
+   receipt-enrichment-spec RC12: seller, each item (qty × unit price), and the
+   honest math — tổng tiền − voucher (− phí ship) = đã trả — so the paid figure
+   on the row is explained, never contradicted. Read-only always: a receipt is
+   the merchant's record, not an editable list. */
+async function _pexdReceiptLoad(id){
+  if(!window.fhPersonalGetReceipt) return;
+  var rc=null;
+  try{ rc=await fhPersonalGetReceipt(id); }catch(e){ rc=null; }
+  var host=document.getElementById('pexd-receipt');
+  if(!host || _pexdId!==id) return;                        // screen moved on while decrypting
+  if(!rc){ host.innerHTML=''; return; }
+  if(rc==='_unreadable'){
+    host.innerHTML=_exdSecH('Hoá đơn','')+'<div class="exd-meta"><div class="pexd-rc-miss">'+L('Chi tiết hoá đơn không đọc được trên máy này.','Receipt detail could not be read on this device.')+'</div></div>';
+    return;
+  }
+  host.innerHTML=_pexdReceiptHTML(rc);
+}
+function _pexdReceiptHTML(rc){
+  var fmtD=function(n){ return (Number(n)||0).toLocaleString('vi-VN')+'đ'; };
+  var items=rc.items||[];
+  var h=_exdSecH('Hoá đơn', items.length||'');
+  h+='<div class="exd-meta pexd-rc">';
+  var head=[rc.seller||rc.provider, rc.order_id?('#'+rc.order_id):null].filter(Boolean);
+  if(head.length) h+='<div class="pexd-rc-head">'+esc(head.join(' · '))+'</div>';
+  items.forEach(function(it){
+    if(!it) return;
+    var qty=(it.qty&&it.qty>1)?(it.qty+' × '):'';
+    h+='<div class="pexd-rc-item"><span class="pexd-rc-name">'+esc(it.name||'—')+(it.variant?' <span class="pexd-rc-var">('+esc(it.variant)+')</span>':'')+'</span>'
+      +(it.unit_price!=null?'<span class="pexd-rc-amt num">'+qty+esc(fmtD(it.unit_price))+'</span>':'')+'</div>';
+  });
+  var math=[];
+  if(rc.items_total!=null) math.push(['Tổng tiền', fmtD(rc.items_total), '']);
+  if(rc.discount) math.push(['Voucher/giảm giá', '−'+fmtD(rc.discount), 'good']);
+  if(rc.shipping_fee) math.push(['Phí vận chuyển', fmtD(rc.shipping_fee), '']);
+  if(rc.paid!=null) math.push(['Đã trả', fmtD(rc.paid), 'strong']);
+  if(math.length){
+    h+='<div class="pexd-rc-math">'+math.map(function(m){
+      return '<div class="pexd-rc-mrow'+(m[2]?' '+m[2]:'')+'"><span>'+esc(m[0])+'</span><span class="num">'+esc(m[1])+'</span></div>';
+    }).join('')+'</div>';
+  }
+  h+='</div>';
+  return h;
+}
 
 /* ── pickers ── */
 function _pexdChoices(title, sub, listHtml){ setTxt('exdacct-h', title); setTxt('exdacct-sub', sub||''); setHTML('exdacct-list', listHtml); openSheet('sheet-exd-acct'); }
@@ -24853,6 +24929,331 @@ function applyLang(){
   document.documentElement.lang = LANG==='vi'?'vi':'en';
   setGreeting();
 }
+  (function () {
+    /* ═══ Receipt join — a merchant receipt annotates the transaction it
+       describes (docs/specs/receipt-enrichment-spec.md §11) ═══════════════════
+
+       The pipeline stages a Shopee / Grab / Apple order mail as a sealed row
+       with row_kind = 'receipt' (0154): never a review card, never in the
+       badge, never a transaction. This module is the receipt's whole life on
+       the device:
+
+         fetch pending receipt rows → open (the same sealed-box opener the
+         queue uses) → collapse copies of one order (payment mail + delivered
+         mail share an order id; the richest survives) → resolve each item's
+         tree node (local, then the merchant-concepts backstop, names only) →
+         take the basket's deepest common ancestor → JOIN:
+
+           queue first — an open review's staged bank rows, matched on the
+           exact paid total, ±1 day, with the card tail as confirm/veto. The
+           bank row's card gets the receipt's description, node and 🧾 badge,
+           and on import the blob is written with the ledger row and the
+           receipt retires with the batch.
+
+           ledger second — an already-imported PRIVATE personal expense
+           (link_id null; mirrors are machine-owned) with no receipt yet. The
+           blob is written retroactively; note and category are NOT touched —
+           the person may have edited them.
+
+         Unmatched: wait. After RECEIPT_GRACE_DAYS with no match anywhere the
+         receipt retires quietly — a receipt with no captured payment
+         describes money this ledger never saw (COD, an unconnected card),
+         and inventing a transaction from it is the double-count the feature
+         exists to avoid (spec RC2 — strictly annotate, never create).
+
+       Mis-attachment is worse than no attachment (RC10): exact amount only,
+       tail disagreement is a veto, ambiguity attaches nothing, one receipt to
+       one transaction. */
+
+    var RECEIPT_GRACE_DAYS = 14;
+
+    /* The queue's own column list (72-txn-review fhFetchStagedTxns), pending
+       receipt rows only. 42703 = the 0154 column is not applied yet: the
+       feature simply is not live, return nothing. */
+    async function _rjFetch() {
+      try {
+        var res = await sb.from('email_transactions')
+          .select('id,member_id,owner_user_id,staging_scope,gmail_message_id,source_provider,occurred_at,amount,currency,direction,counterparty,reference_number,transaction_type,raw_extracted,duplicate_of_id,resolved_before,sealed,eph_pub,nonce,enc_v,created_at')
+          .eq('review_status', 'pending').eq('row_kind', 'receipt')
+          .order('occurred_at', { ascending: false }).limit(200);
+        if (res.error) return [];
+        return res.data || [];
+      } catch (e) { return []; }
+    }
+
+    function _rjTail(s) {
+      var m = String(s || '').match(/(\d{4})(?!.*\d)/);
+      return m ? m[1] : null;
+    }
+    function _rjDayMs(iso) { var t = Date.parse(iso || ''); return isFinite(t) ? t : null; }
+
+    /* Deepest common ancestor of the item nodes (spec RC9). Null items
+       abstain; no resolved node, or a DCA that is a whole kind's root with
+       depth 0, means the merchant tier decides as today. */
+    function _rjDca(nodes) {
+      var chains = [];
+      (nodes || []).forEach(function (n) {
+        if (!n || !window.FH_TAX || !FH_TAX.get(n)) return;
+        var chain = [], cur = n;
+        while (cur) { chain.unshift(cur); var nd = FH_TAX.get(cur); cur = nd && nd.parent; }
+        chains.push(chain);
+      });
+      if (!chains.length) return null;
+      var out = null;
+      for (var d = 0; ; d++) {
+        var v = chains[0][d];
+        if (!v) break;
+        var all = chains.every(function (ch) { return ch[d] === v; });
+        if (!all) break;
+        out = v;
+      }
+      return out;
+    }
+
+    /* Item → node: the shared concept cache first (statement path's backstop,
+       names only — no price, no qty, no seller). Local lessons and keyword
+       tiers speak Vietnamese family categories, not tree codes, so the
+       backstop IS the local answer's source of nodes here; its cache makes
+       repeat names free. Best-effort: unresolved items abstain. */
+    async function _rjItemNodes(receipts) {
+      var names = [];
+      receipts.forEach(function (r) {
+        ((r._rcpt && r._rcpt.items) || []).forEach(function (it) {
+          if (it && it.name && !it.node) names.push(String(it.name).slice(0, 80));
+        });
+      });
+      names = Array.from(new Set(names)).slice(0, 60);
+      if (!names.length) return;
+      var nodeMap = {};
+      try {
+        var res = await sb.functions.invoke('merchant-concepts', { body: { merchants: names } });
+        nodeMap = (res && res.data && res.data.nodes) || {};
+      } catch (e) { return; }
+      receipts.forEach(function (r) {
+        ((r._rcpt && r._rcpt.items) || []).forEach(function (it) {
+          if (!it || !it.name || it.node) return;
+          var nd = nodeMap[String(it.name).slice(0, 80)];
+          if (nd && window.FH_TAX && FH_TAX.get(nd)) it.node = nd;
+        });
+      });
+    }
+
+    /* The description the receipt supplies (spec RC13): one item → its name;
+       an agreeing basket → first name + "+N món"; a mixed basket → seller (or
+       provider) + count — generic, never clueless. */
+    function _rjDesc(rc, provider) {
+      var items = rc.items || [];
+      if (items.length === 1 && items[0].name) return String(items[0].name).slice(0, 120);
+      if (items.length > 1) {
+        var nodes = items.map(function (it) { return it.node || null; });
+        var resolved = nodes.filter(Boolean);
+        var unanimous = resolved.length === items.length && resolved.every(function (n) { return n === resolved[0]; });
+        if (unanimous && items[0].name) {
+          return String(items[0].name).slice(0, 80) + ' +' + (items.length - 1) + ' món';
+        }
+        return (rc.seller || provider || 'Hoá đơn') + ' · ' + items.length + ' món';
+      }
+      return null;   // order-level only: the cascade keeps its answer
+    }
+
+    /* Open + shape one receipt row. Returns null for unreadable (leave it
+       pending; unlocking heals it) and for rows with no receipt block. */
+    async function _rjOpen(row) {
+      if (!window.fhReadStagedRow) return null;
+      var r = await window.fhReadStagedRow(row);
+      if (!r || r._unreadable) return null;
+      var x = r.raw_extracted || {};
+      var rc = x.receipt;
+      if (!rc || typeof rc !== 'object') rc = null;
+      return {
+        id: row.id, created_at: row.created_at, occurred_at: row.occurred_at,
+        provider: row.source_provider || null,
+        paid: rc ? Number(rc.paid != null ? rc.paid : x.amount) : Number(x.amount),
+        tail: rc ? _rjTail(rc.paid_with_tail) : null,
+        orderId: (rc && rc.order_id) || x.reference_number || null,
+        node: (x.node && window.FH_TAX && FH_TAX.get(x.node)) ? x.node : null,
+        _rcpt: rc ? {
+          v: 1, source: 'email', provider: row.source_provider || null,
+          service_type: rc.service_type || null, order_id: rc.order_id || null,
+          seller: rc.seller || null,
+          items: Array.isArray(rc.items) ? rc.items.map(function (it) {
+            return { name: (it && it.name) || null, qty: it && it.qty != null ? it.qty : null,
+              unit_price: it && it.unit_price != null ? it.unit_price : null,
+              line_discount: it && it.line_discount != null ? it.line_discount : null,
+              variant: (it && it.variant) || null, node: null };
+          }) : null,
+          items_total: rc.items_total != null ? rc.items_total : null,
+          discount: rc.discount != null ? rc.discount : null,
+          shipping_fee: rc.shipping_fee != null ? rc.shipping_fee : null,
+          paid: rc.paid != null ? rc.paid : null,
+          paid_with_tail: _rjTail(rc.paid_with_tail),
+        } : null,
+      };
+    }
+
+    function _rjScore(r) {
+      if (!r._rcpt) return -1;
+      return ((r._rcpt.items || []).length * 10) + (r._rcpt.seller ? 1 : 0) + (r._rcpt.paid_with_tail ? 1 : 0);
+    }
+
+    /* One shared pass. `queueRows` — the review's OPENED staged rows when the
+       queue is on screen (queue beats ledger, RC10), else null. Returns the
+       receipts it attached to queue rows so the caller can render them. */
+    async function _rjRun(queueRows) {
+      var raw = await _rjFetch();
+      if (!raw.length) return;
+      var receipts = [];
+      for (var i = 0; i < raw.length; i++) {
+        var o = await _rjOpen(raw[i]);
+        if (o) receipts.push(o);
+      }
+      if (!receipts.length) return;
+
+      /* Collapse copies of one order — richest wins, losers retire. */
+      var byOrder = {}, keep = [], retire = [];
+      receipts.forEach(function (r) {
+        var k = r.orderId ? (r.provider + '|' + r.orderId) : ('row|' + r.id);
+        var held = byOrder[k];
+        if (!held) { byOrder[k] = r; keep.push(r); return; }
+        if (_rjScore(r) > _rjScore(held)) {
+          retire.push(held.id);
+          keep[keep.indexOf(held)] = r; byOrder[k] = r;
+        } else retire.push(r.id);
+      });
+      receipts = keep.filter(function (r) { return r._rcpt && r.paid > 0; });
+
+      await _rjItemNodes(receipts);
+      receipts.forEach(function (r) {
+        if (!r._rcpt) return;
+        var itemNodes = (r._rcpt.items || []).map(function (it) { return it.node; }).filter(Boolean);
+        /* The basket's deepest common ancestor. A depth-1 answer ("Ăn uống"
+           for rau + bún + thịt) is the honest shallow truth RC9 asks for; a
+           basket whose chains share nothing (groceries + housewares) yields
+           null from the walk itself, and the sealed node — the model's
+           merchant-level guess — still stands. */
+        var dca = itemNodes.length ? _rjDca(itemNodes) : null;
+        r._node = dca || r.node || null;
+        r._desc = _rjDesc(r._rcpt, r.provider);
+      });
+
+      /* ── queue first ── */
+      var claimedRows = {};
+      if (queueRows && queueRows.length) {
+        receipts.forEach(function (r) {
+          if (r._joined || !r.paid) return;
+          var rDay = _rjDayMs(r.occurred_at);
+          var hits = [];
+          queueRows.forEach(function (q) {
+            if (!q || q._unreadable || q._rcpt || claimedRows[q.id]) return;
+            var x = q.raw_extracted || {};
+            if (x.receipt) return;                       // a receipt row is never a target
+            if (String(x.direction) !== 'debit') return;
+            if (Math.round(Number(x.amount)) !== Math.round(r.paid)) return;
+            var qDay = _rjDayMs(q.occurred_at);
+            if (rDay != null && qDay != null && Math.abs(rDay - qDay) > 1.5 * 864e5) return;
+            var qTail = _rjTail(x.account_masked) || _rjTail(x.card_masked);
+            if (r.tail && qTail && r.tail !== qTail) return;   // veto
+            hits.push({ q: q, tailHit: !!(r.tail && qTail && r.tail === qTail) });
+          });
+          var hit = null;
+          if (hits.length === 1) hit = hits[0].q;
+          else if (hits.length > 1) {
+            var tails = hits.filter(function (h) { return h.tailHit; });
+            if (tails.length === 1) hit = tails[0].q;    // the tail decides; else ambiguity → nothing
+          }
+          if (!hit) return;
+          claimedRows[hit.id] = true;
+          r._joined = 'queue';
+          hit._rcpt = r._rcpt;
+          hit._rcptRowId = r.id;
+          hit._rcptDesc = r._desc || null;
+          /* The basket's node rides the sealed slot the candidate builder
+             already validates — deeper knowledge from the merchant, same
+             door (57's receipt tier keeps its deeper-wins posture). */
+          if (r._node) {
+            var xx = hit.raw_extracted || (hit.raw_extracted = {});
+            var deeper = !xx.node || (window.fhNodeDepth && fhNodeDepth(r._node) > fhNodeDepth(xx.node));
+            if (deeper) xx.node = r._node;
+          }
+        });
+      }
+
+      /* ── ledger second — retroactive, PRIVATE personal expenses only ── */
+      var rest = receipts.filter(function (r) { return !r._joined; });
+      if (rest.length && window.fhPersonalMatchSlice && window.fhPersonalSetReceipt) {
+        var slice = [];
+        try { slice = await fhPersonalMatchSlice() || []; } catch (e) { slice = []; }
+        var mult = window.curMult ? curMult() : 1000;
+        var claimedLedger = {};
+        for (var ri = 0; ri < rest.length; ri++) {
+          var r2 = rest[ri];
+          /* A young receipt waits for the review: its bank twin usually
+             arrives within hours and is imported through the queue, where the
+             match has the tail and the person's eyes. Attaching a fresh
+             receipt to an older same-amount ledger row here would be exactly
+             the coincidence the ambiguity rule exists to refuse — it just
+             cannot see the pending twin (sealed amount), so time stands in
+             for it. */
+          var born2 = Date.parse(r2.created_at || '') || 0;
+          if (born2 > Date.now() - 2 * 864e5) continue;
+          var rDay2 = _rjDayMs(r2.occurred_at);
+          var cands = slice.filter(function (t) {
+            if (t.kind !== 'expense' || t.link || claimedLedger[t.id]) return false;
+            if (Math.round(t.amt * mult) !== Math.round(r2.paid)) return false;
+            var tDay = _rjDayMs(t.date);
+            return !(rDay2 != null && tDay != null && Math.abs(rDay2 - tDay) > 1.5 * 864e5);
+          });
+          if (cands.length !== 1) continue;              // ambiguity (or nothing): attach nothing
+          /* Only a row that has no receipt yet — asked directly, because the
+             slice does not carry the column. One cheap head query per attach. */
+          var ok = await fhPersonalSetReceipt(cands[0].id, Object.assign({}, r2._rcpt, { node: r2._node || null }));
+          if (ok) {
+            claimedLedger[cands[0].id] = true;
+            r2._joined = 'ledger';
+            retire.push(r2.id);
+          }
+        }
+      }
+
+      /* ── grace: unmatched anywhere, older than the window → retire quietly ── */
+      var cutoff = Date.now() - RECEIPT_GRACE_DAYS * 864e5;
+      receipts.forEach(function (r) {
+        if (r._joined) return;
+        var born = Date.parse(r.created_at || '') || Date.parse(r.occurred_at || '') || Date.now();
+        if (born < cutoff) retire.push(r.id);
+      });
+
+      if (retire.length && window.fhStagedRetireIds) {
+        try { await fhStagedRetireIds(Array.from(new Set(retire))); } catch (e) { /* still pending; next pass retries */ }
+      }
+    }
+
+    /* Review open: enrich the opened rows in place (72 calls this after the
+       decrypt loop, before candidates are built). Failure never blocks the
+       queue. */
+    window.fhReceiptJoinQueue = async function (openedRows) {
+      try { await _rjRun(openedRows || []); } catch (e) { console.warn('receipt join failed', e); }
+    };
+
+    /* Retroactive pass, debounced behind the personal hydrate. No queue rows
+       here: a receipt whose bank twin is still PENDING must wait for the
+       review (queue beats ledger), so this pass only ever attaches to rows
+       already imported — and pending twins are exactly the rows whose amount
+       equality this pass cannot see (their amounts are sealed), so it cannot
+       steal them by construction. */
+    var _rjTimer = null, _rjBusy = false;
+    window.fhReceiptLedgerSoon = function () {
+      if (_rjTimer) clearTimeout(_rjTimer);
+      _rjTimer = setTimeout(async function () {
+        _rjTimer = null;
+        if (_rjBusy) return;
+        _rjBusy = true;
+        try { await _rjRun(null); } catch (e) { /* next hydrate retries */ }
+        finally { _rjBusy = false; }
+      }, 4000);
+    };
+  })();
+
 /* ---------- onboarding ----------
    Curated 2-step flow (0050): intro + Google sign-in → your family (join the
    invite waiting for you, or name a new home) → straight into the app. Locale
@@ -25447,7 +25848,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v589';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v590';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -27365,7 +27766,7 @@ window.obGoogle = async function () {
            failure-tolerant (a lost photo strip or pre-selection never costs the
            ledger), so they resolve to empty on error instead of failing the all. */
         const [tr, bd, ac, dr, pp, mm, lb] = await Promise.all([
-          _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,occurred_time_enc,txn_date,kind,space_id,link_id,version,updated_at,created_at,account_id,transfer_group_id,position_account_id,quantity_enc,source,node_enc,label_id').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }).order('id')),
+          _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,occurred_time_enc,txn_date,kind,space_id,link_id,version,updated_at,created_at,account_id,transfer_group_id,position_account_id,quantity_enc,source,node_enc,label_id,receipt_enc').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }).order('id')),
           _sb().from('personal_budgets').select('total_enc,cats_enc').eq('owner_user_id', P.uid).eq('month', _monISO()).maybeSingle(),
           _sb().from('personal_accounts').select('id,kind,name_enc,tail,provider,provider_key,credit_limit_enc,human_verified,statement_day,due_day,anchor_balance_enc,anchor_at,ext_balance_enc,ext_balance_date,account_number_enc,asset_symbol_enc,asset_unit_enc,asset_class_enc,manual_price_enc,manual_price_at,setup_skipped_at').eq('owner_user_id', P.uid).is('archived_at', null),
           _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,counterparty_enc,cat_name_enc,cat_emoji,txn_date,kind,account_id,transfer_group_id,position_account_id,quantity_enc,due_date,created_at,node_enc,label_id').eq('owner_user_id', P.uid).or('kind.neq.expense,account_id.not.is.null').order('txn_date', { ascending: false }).order('id')),
@@ -27415,6 +27816,7 @@ window.obGoogle = async function () {
             qty: (qRaw == null || qRaw === _DEC_FAILED) ? null : (Number(qRaw) || null),
             amt: bad ? null : Number(a), _unreadable: bad,
             note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc), node: _okNode(await _decTxt(t.node_enc)), labelId: t.label_id || null, emoji: t.cat_emoji,
+            hasReceipt: !!t.receipt_enc,   // 0154: presence only — the blob decrypts on the detail open (fhPersonalGetReceipt)
             time: await _decTxt(t.occurred_time_enc) });   // local "HH:MM" if the time was known, else null (day-only)
         }
         /* 0144 — labels decode like every other personal value: fail-closed, and
@@ -27506,6 +27908,10 @@ window.obGoogle = async function () {
            old rows a node. Both are best-effort; neither may cost a hydrate. */
         try { if (window.fhPersonalLabelsEnsureDefaults) window.fhPersonalLabelsEnsureDefaults(); } catch (e) {}
         try { if (window.fhTreeBackfill) window.fhTreeBackfill('personal'); } catch (e) {}
+        /* 0154 — receipts that arrived after their transaction was imported:
+           the retroactive join (78-receipt-join), debounced behind the hydrate
+           and never allowed to cost it anything. */
+        try { if (window.fhReceiptLedgerSoon) window.fhReceiptLedgerSoon(); } catch (e) {}
 
       } catch (e) {
         console.warn('personal hydrate failed', e);
@@ -27801,6 +28207,38 @@ window.obGoogle = async function () {
       if (r.error) { console.warn('personal expense update failed', r.error); return false; }
       if (!quiet) await window.fhPersonalHydrate();
       return true;
+    };
+    /* ── 0154 receipt enrichment — the blob, alone ────────────────────────────
+       The RECEIPT only, on a PRIVATE row that has none yet. The retroactive
+       join (78-receipt-join) lands detail on rows the person may since have
+       edited, so this write touches exactly one column — never the note, the
+       category, the amount, the date — and `.is('receipt_enc', null)` makes it
+       first-writer-wins: a row can carry one receipt, and a second candidate
+       receipt loses to whichever attached first rather than overwriting it. */
+    window.fhPersonalSetReceipt = async function (id, receipt) {
+      if (!P.uid || !P.key || !id || !receipt) return false;
+      const r = await _sb().from('personal_transactions')
+        .update({ receipt_enc: await _encP(JSON.stringify(receipt)) })
+        .eq('id', id).eq('owner_user_id', P.uid).is('link_id', null).is('receipt_enc', null)
+        .select('id');
+      if (r.error) { console.warn('personal receipt attach failed', r.error); return false; }
+      if (!(r.data && r.data.length)) return false;   // mirror, or already carrying one
+      window.fhPersonalMatchSliceInvalidate && window.fhPersonalMatchSliceInvalidate();
+      try { await window.fhPersonalHydrate(); } catch (e) {}
+      return true;
+    };
+    /* The blob back, decrypted on demand — the detail screen's read. The
+       hydrate never decrypts receipts (a list needs presence, not contents).
+       Fail-closed: unreadable ciphertext returns the string '_unreadable', so
+       the screen can say "chi tiết không đọc được" instead of nothing. */
+    window.fhPersonalGetReceipt = async function (id) {
+      if (!P.uid || !P.key || !id) return null;
+      const r = await _sb().from('personal_transactions').select('receipt_enc')
+        .eq('id', id).eq('owner_user_id', P.uid).limit(1);
+      if (r.error || !r.data || !r.data.length || !r.data[0].receipt_enc) return null;
+      const txt = await _decP(r.data[0].receipt_enc);
+      if (txt == null || txt === _DEC_FAILED) return '_unreadable';
+      try { return JSON.parse(txt); } catch (e) { return '_unreadable'; }
     };
     window.fhPersonalDeleteExpense = async function (id, quiet) {
       if (!P.uid || !id) return false;
@@ -28098,6 +28536,10 @@ window.obGoogle = async function () {
           quantity_enc: (s.qty != null && isFinite(s.qty)) ? await _encP(Number(s.qty)) : null,
           node_enc: _okNode(s.node) ? await _encP(s.node) : null,   // 0144: the tree node the review decided
           label_id: s.labelId || null,
+          /* 0154 receipt enrichment: the joined merchant receipt, one JSON blob
+             under the personal DEK. Detail, never money — stats read amount_enc
+             alone, and an unreadable blob costs a line on the detail screen. */
+          receipt_enc: s.receipt ? await _encP(JSON.stringify(s.receipt)) : null,
           source: s.source || null });
       }
       const CHUNK = 50;
@@ -28555,7 +28997,7 @@ window.obGoogle = async function () {
            limits, the 0109 anchor + bank-stated balance) and the budgets. A
            rotation that misses a field makes that field unreadable forever, so
            the list here must grow with every _enc column the schema gains. */
-        const tr = await _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,counterparty_enc,occurred_time_enc,quantity_enc,node_enc').eq('owner_user_id', P.uid);
+        const tr = await _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,counterparty_enc,occurred_time_enc,quantity_enc,node_enc,receipt_enc').eq('owner_user_id', P.uid);
         const lb = await _sb().from('personal_labels').select('id,name_enc,claims_enc').eq('owner_user_id', P.uid);
         const ac = await _sb().from('personal_accounts').select('id,name_enc,credit_limit_enc,anchor_balance_enc,ext_balance_enc,account_number_enc,asset_symbol_enc,asset_unit_enc,asset_class_enc,manual_price_enc').eq('owner_user_id', P.uid);
         const bg = await _sb().from('personal_budgets').select('owner_user_id,month,total_enc,cats_enc').eq('owner_user_id', P.uid);
@@ -28568,7 +29010,7 @@ window.obGoogle = async function () {
           if (u.error) throw u.error; n++; if (onProgress) onProgress(n, tot);
         }
         for (const r of (tr.data || [])) {
-          const u = await _sb().from('personal_transactions').update({ amount_enc: await reEnc(r.amount_enc), note_enc: await reEnc(r.note_enc), cat_name_enc: await reEnc(r.cat_name_enc), node_enc: await reEnc(r.node_enc), counterparty_enc: await reEnc(r.counterparty_enc), occurred_time_enc: await reEnc(r.occurred_time_enc), quantity_enc: await reEnc(r.quantity_enc) }).eq('id', r.id);
+          const u = await _sb().from('personal_transactions').update({ amount_enc: await reEnc(r.amount_enc), note_enc: await reEnc(r.note_enc), cat_name_enc: await reEnc(r.cat_name_enc), node_enc: await reEnc(r.node_enc), counterparty_enc: await reEnc(r.counterparty_enc), occurred_time_enc: await reEnc(r.occurred_time_enc), quantity_enc: await reEnc(r.quantity_enc), receipt_enc: await reEnc(r.receipt_enc) }).eq('id', r.id);
           if (u.error) throw u.error; n++; if (onProgress) onProgress(n, tot);
         }
         for (const r of (ac.data || [])) {
@@ -38979,7 +39421,12 @@ window.classifyAmount = classifyAmount;
   }
   async function fhStagedTxnOnly(build) {
     if (_fhRowKindCol !== false) {
-      var res = await build(function (q) { return q.or('row_kind.is.null,row_kind.neq.notice'); });
+      /* eq.txn, not neq.notice (0154): a merchant RECEIPT row (row_kind
+         'receipt') is an annotation the join engine reads, and through a
+         neq.notice filter it would render as an importable review card — a
+         second transaction for money the bank row already carries. Naming the
+         one kind that IS pending work keeps any future kind out by default. */
+      var res = await build(function (q) { return q.or('row_kind.is.null,row_kind.eq.txn'); });
       if (!res || !res.error) { _fhRowKindCol = true; return res; }
       if (!_fhRowKindMissing(res.error)) return res;
       _fhRowKindCol = false;
@@ -39205,6 +39652,11 @@ window.classifyAmount = classifyAmount;
     }
   }
 
+  /* The sealed-box opener, shared: 78-receipt-join opens receipt rows with
+     the exact machinery the queue uses — same keys, same identity binding,
+     same fail-closed unreadable shape. */
+  window.fhReadStagedRow = fhReadStagedRow;
+
   /* Shapes rows the way buildCsvCandidates() expects: a `parsed` with rows as
      arrays, and a `result` mapping column index -> field. Doing it this way,
      rather than constructing candidates directly, means the whole category
@@ -39315,6 +39767,12 @@ window.classifyAmount = classifyAmount;
         : ((_bankGenericMemo(tidied) && r.counterparty)
             ? r.counterparty
             : (tidied || r.counterparty || r.source_provider || ''));
+      /* 0154 receipt enrichment: a joined merchant receipt ANSWERS "chi cho
+         gì" — "Kính bơi Olane +1 món" beats both the bank's generic memo and
+         the marketplace's name. It only ever replaces an answer nobody wrote:
+         a real payer memo ("ca phe voi Trang") still wins, exactly like the
+         never-clobber rule on committed rows (spec RC13). */
+      if (r._rcptDesc && (!tidied || _bankGenericMemo(tidied))) description = r._rcptDesc;
       /* Foreign-currency rows carry the ESTIMATED VND into the amount cell, so
          every downstream reader — totals, the write, csvBaseAmt — works in VND
          and never mistakes "$111" for 111đ. The foreign original stays visible
@@ -40131,6 +40589,14 @@ window.classifyAmount = classifyAmount;
       } catch (eS) { console.warn('statement load failed', eS); }
     }
 
+    /* 0154 receipt enrichment (78-receipt-join): merchant receipt rows join
+       the bank rows they describe BEFORE candidates are built — description,
+       tree node and the 🧾 badge land on the matched rows in place. Queue
+       first, by design (spec RC10); best-effort, never blocks the queue. */
+    if (window.fhReceiptJoinQueue) {
+      try { await window.fhReceiptJoinQueue(readable); } catch (eR) { console.warn('receipt join failed', eR); }
+    }
+
     if (!readable.length && !stmtCards) {
       _txrLoadHide();
       /* Sparse yield (activation-journey-spec Q27): no blame-the-bank copy —
@@ -40534,6 +41000,12 @@ window.classifyAmount = classifyAmount;
       var r = (cc && typeof cc.rowIndex === 'number') ? srows[cc.rowIndex] : null;
       return (r && r.id) || null;
     };
+    /* 0154: the merchant receipt the join engine attached to this row — rides
+       the personal expense spec into receipt_enc, item nodes included. */
+    var _specReceipt = function (cc) {
+      var r = (cc && typeof cc.rowIndex === 'number') ? srows[cc.rowIndex] : null;
+      return (r && r._rcpt) || null;
+    };
 
     /* Phase 1 — resolve every personal candidate to row spec(s), in memory.
        Model Y (0079): personal rows are their own owner-scoped table under a
@@ -40845,6 +41317,7 @@ window.classifyAmount = classifyAmount;
           who: (c.counterparty && String(c.counterparty).trim()) || null,
           catName: _xCat.name,
           catEmoji: _xCat.emoji,
+          receipt: _specReceipt(c),
           dateIso: c.dateDisplay || undefined, time: _t, accountId: acctId, source: src });
         _recBal(acctId);
       }
@@ -40993,6 +41466,13 @@ window.classifyAmount = classifyAmount;
       window.toast && window.toast(L('Chưa lưu được', 'Could not save'));
       return;
     }
+    /* 0154: a receipt joined to a row this press imported is finished with —
+       its detail is on the ledger row (personal) or was shown at review
+       (family, the named v1 gap). It retires in the same call as its row. */
+    picked.forEach(function (pc) {
+      var pr = (pc && typeof pc.rowIndex === 'number') ? srows[pc.rowIndex] : null;
+      if (pr && pr._rcptRowId && ids.indexOf(pr._rcptRowId) === -1) ids.push(pr._rcptRowId);
+    });
     if (!ids.length) return;
 
     /* Remember locally BEFORE asking the server, and keep it even if the server
@@ -43253,7 +43733,7 @@ window.classifyAmount = classifyAmount;
      docs/PDPL-COMPLIANCE.md §5: bump the version constant when either
      changes, and everyone re-consents to the new text. */
 
-  var FH_CONSENT_V = 5;   // 5 = statement FILES are stored (sealed) until opened. Must equal STATEMENT_CONSENT_V in _shared/mailbox/statement.mjs.
+  var FH_CONSENT_V = 6;   // 6 = merchant receipt mail (Shopee/Grab/Apple/…) is read to annotate captured txns; bills named under the same consent. Must equal RECEIPT_CONSENT_V in _shared/mailbox/senders.mjs. (5 = statement FILES, = STATEMENT_CONSENT_V in _shared/mailbox/statement.mjs.)
   var FH_CONSENT_KIND = 'bank_email';
   var FH_APPDATA_CONSENT_V = 1;
   var FH_APPDATA_KIND = 'app_data';
@@ -43282,6 +43762,8 @@ window.classifyAmount = classifyAmount;
           'The first time we meet a new email format from a bank, that email is sent to Google’s AI as written, once, so it can learn how to read the format. Later emails in the same format are not sent at all.'],
       5: ['Khi ngân hàng hoặc ví gửi file sao kê (Excel/CSV) kèm email, tụi mình niêm phong file bằng khoá riêng của bạn và giữ tối đa 90 ngày, mở xong là xoá. File chỉ mở trên máy bạn; mật khẩu không rời khỏi máy. Để gợi ý danh mục, máy bạn có thể gửi tên cửa hàng cho AI của Google, không kèm số tiền, ngày hay tên người.',
           'When a bank or wallet emails a statement file (Excel/CSV), we seal it with your own key and keep it for at most 90 days; it is deleted once opened. The file only opens on your device, and its password never leaves it. To suggest categories, your device may send merchant names to Google’s AI, never an amount, a date or a person’s name.'],
+      6: ['Tụi mình đọc thêm email hoá đơn từ Shopee, Grab, Apple, Tiki, Lazada, ShopeeFood và Foody, chỉ để gắn chi tiết món hàng vào giao dịch đã ghi từ email ngân hàng, không bao giờ tự tạo giao dịch mới. Địa chỉ và số điện thoại trong email không bao giờ được đọc hay lưu. Lần đầu gặp một mẫu hoá đơn, email đó được gửi cho AI của Google một lần để học cách đọc (gồm tên món hàng và số tiền); các email sau cùng mẫu được đọc tại hệ thống, không gửi đi. Hoá đơn điện, nước, viễn thông (nếu có) cũng thuộc phạm vi này.',
+          'We now also read receipt emails from Shopee, Grab, Apple, Tiki, Lazada, ShopeeFood and Foody, only to attach item details to transactions already captured from bank email, never to create a transaction by themselves. Addresses and phone numbers in those emails are never read or stored. The first time we meet a new receipt format, that one email is sent to Google’s AI once to learn how to read it (item names and amounts included); later emails in the same format are read on our own systems and go nowhere. Utility, water and telecom bills (where present) fall under the same consent.'],
     },
     app_data: {},
   };
@@ -43858,6 +44340,9 @@ window.classifyAmount = classifyAmount;
         _cstRow(L('Còn file sao kê ngân hàng gửi kèm email?', 'What about statement files attached to an email?'), _esc(L(
           'Tụi mình niêm phong file bằng khoá riêng của bạn và giữ tối đa 90 ngày, mở xong là xoá. File chỉ mở trên máy bạn; mật khẩu không rời khỏi máy. Để gợi ý danh mục, máy bạn có thể gửi tên cửa hàng cho AI của Google, không kèm số tiền, ngày hay tên người.',
           'We seal the file with your own key and keep it for at most 90 days; it is deleted once opened. The file only opens on your device, and its password never leaves it. To suggest categories, your device may send merchant names to Google’s AI, never an amount, a date or a person’s name.'))) +
+        _cstRow(L('Còn email hoá đơn từ Shopee, Grab, Apple?', 'What about receipt emails from Shopee, Grab, Apple?'), _esc(L(
+          'Tụi mình đọc để gắn chi tiết món hàng (mua gì, giá bao nhiêu, giảm giá bao nhiêu) vào đúng giao dịch đã ghi từ email ngân hàng. Hoá đơn không bao giờ tự tạo giao dịch mới, và địa chỉ hay số điện thoại trong email không bao giờ được đọc hay lưu. Hoá đơn điện, nước, viễn thông (nếu có) cũng vậy.',
+          'We read them to attach item details (what was bought, its price, the discount) to the matching transaction already captured from bank email. A receipt never creates a transaction by itself, and addresses or phone numbers in those emails are never read or stored. Utility, water and telecom bills (where present) work the same way.'))) +
         _cstRow(L('Ai mở được các giao dịch này?', 'Who can open these transactions?'), _esc(L(
           'Mỗi giao dịch được niêm phong ngay khi đến, như thư bỏ vào két đã khoá: máy chủ giữ két, còn chìa chỉ nằm trên điện thoại của gia đình bạn.',
           'Each transaction is sealed the moment it arrives, like a letter dropped into a locked safe: the server holds the safe, and the key lives only on your family’s phones.'))) +

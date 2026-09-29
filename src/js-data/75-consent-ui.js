@@ -22,7 +22,7 @@
      docs/PDPL-COMPLIANCE.md §5: bump the version constant when either
      changes, and everyone re-consents to the new text. */
 
-  var FH_CONSENT_V = 5;   // 5 = statement FILES are stored (sealed) until opened. Must equal STATEMENT_CONSENT_V in _shared/mailbox/statement.mjs.
+  var FH_CONSENT_V = 6;   // 6 = merchant receipt mail (Shopee/Grab/Apple/…) is read to annotate captured txns; bills named under the same consent. Must equal RECEIPT_CONSENT_V in _shared/mailbox/senders.mjs. (5 = statement FILES, = STATEMENT_CONSENT_V in _shared/mailbox/statement.mjs.)
   var FH_CONSENT_KIND = 'bank_email';
   var FH_APPDATA_CONSENT_V = 1;
   var FH_APPDATA_KIND = 'app_data';
@@ -51,6 +51,8 @@
           'The first time we meet a new email format from a bank, that email is sent to Google’s AI as written, once, so it can learn how to read the format. Later emails in the same format are not sent at all.'],
       5: ['Khi ngân hàng hoặc ví gửi file sao kê (Excel/CSV) kèm email, tụi mình niêm phong file bằng khoá riêng của bạn và giữ tối đa 90 ngày, mở xong là xoá. File chỉ mở trên máy bạn; mật khẩu không rời khỏi máy. Để gợi ý danh mục, máy bạn có thể gửi tên cửa hàng cho AI của Google, không kèm số tiền, ngày hay tên người.',
           'When a bank or wallet emails a statement file (Excel/CSV), we seal it with your own key and keep it for at most 90 days; it is deleted once opened. The file only opens on your device, and its password never leaves it. To suggest categories, your device may send merchant names to Google’s AI, never an amount, a date or a person’s name.'],
+      6: ['Tụi mình đọc thêm email hoá đơn từ Shopee, Grab, Apple, Tiki, Lazada, ShopeeFood và Foody, chỉ để gắn chi tiết món hàng vào giao dịch đã ghi từ email ngân hàng, không bao giờ tự tạo giao dịch mới. Địa chỉ và số điện thoại trong email không bao giờ được đọc hay lưu. Lần đầu gặp một mẫu hoá đơn, email đó được gửi cho AI của Google một lần để học cách đọc (gồm tên món hàng và số tiền); các email sau cùng mẫu được đọc tại hệ thống, không gửi đi. Hoá đơn điện, nước, viễn thông (nếu có) cũng thuộc phạm vi này.',
+          'We now also read receipt emails from Shopee, Grab, Apple, Tiki, Lazada, ShopeeFood and Foody, only to attach item details to transactions already captured from bank email, never to create a transaction by themselves. Addresses and phone numbers in those emails are never read or stored. The first time we meet a new receipt format, that one email is sent to Google’s AI once to learn how to read it (item names and amounts included); later emails in the same format are read on our own systems and go nowhere. Utility, water and telecom bills (where present) fall under the same consent.'],
     },
     app_data: {},
   };
@@ -627,6 +629,9 @@
         _cstRow(L('Còn file sao kê ngân hàng gửi kèm email?', 'What about statement files attached to an email?'), _esc(L(
           'Tụi mình niêm phong file bằng khoá riêng của bạn và giữ tối đa 90 ngày, mở xong là xoá. File chỉ mở trên máy bạn; mật khẩu không rời khỏi máy. Để gợi ý danh mục, máy bạn có thể gửi tên cửa hàng cho AI của Google, không kèm số tiền, ngày hay tên người.',
           'We seal the file with your own key and keep it for at most 90 days; it is deleted once opened. The file only opens on your device, and its password never leaves it. To suggest categories, your device may send merchant names to Google’s AI, never an amount, a date or a person’s name.'))) +
+        _cstRow(L('Còn email hoá đơn từ Shopee, Grab, Apple?', 'What about receipt emails from Shopee, Grab, Apple?'), _esc(L(
+          'Tụi mình đọc để gắn chi tiết món hàng (mua gì, giá bao nhiêu, giảm giá bao nhiêu) vào đúng giao dịch đã ghi từ email ngân hàng. Hoá đơn không bao giờ tự tạo giao dịch mới, và địa chỉ hay số điện thoại trong email không bao giờ được đọc hay lưu. Hoá đơn điện, nước, viễn thông (nếu có) cũng vậy.',
+          'We read them to attach item details (what was bought, its price, the discount) to the matching transaction already captured from bank email. A receipt never creates a transaction by itself, and addresses or phone numbers in those emails are never read or stored. Utility, water and telecom bills (where present) work the same way.'))) +
         _cstRow(L('Ai mở được các giao dịch này?', 'Who can open these transactions?'), _esc(L(
           'Mỗi giao dịch được niêm phong ngay khi đến, như thư bỏ vào két đã khoá: máy chủ giữ két, còn chìa chỉ nằm trên điện thoại của gia đình bạn.',
           'Each transaction is sealed the moment it arrives, like a letter dropped into a locked safe: the server holds the safe, and the key lives only on your family’s phones.'))) +

@@ -152,7 +152,7 @@ export function carryRaw(source, alias) {
       if (from[name] !== undefined && from[name] !== null) { value = from[name]; break; }
     }
     if (value === undefined) value = null;
-    if (field.type === 'obj' && value && field.keys) value = _block(value, field.keys);
+    if (field.type === 'obj' && value && field.keys) value = _block(value, field.keys, field.arrays);
     if (field.key === 'src') value = _srcMap(value);
     out[field.key] = fieldAccepts(field, value) ? value : null;
   }
@@ -162,9 +162,32 @@ export function carryRaw(source, alias) {
 /* A kind-specific block keeps ONLY the keys the contract lists for it, and is
    null rather than half-filled. This is also the privacy rule for receipts:
    a Grab receipt carries a home address, and a key that is not listed (there
-   is no address key, on purpose) cannot ride into the box. */
-function _block(value, keys) {
+   is no address key, on purpose) cannot ride into the box.
+
+   `arrays` extends the same rule one level down: a key the contract declares
+   as an array of objects (receipt `items`) has each ELEMENT pruned to the
+   listed inner keys — an extractor emitting `{name, price, delivery_address}`
+   per item seals `{name, …}` and nothing else. An element left with no value
+   is dropped; an array left with no elements is null, like any empty block. */
+function _block(value, keys, arrays) {
   if (typeof value !== 'object' || Array.isArray(value)) return null;
+  const out = {};
+  let any = false;
+  for (const k of keys) {
+    let v = value[k] ?? null;
+    if (v != null && arrays && arrays[k]) {
+      v = Array.isArray(v) ? v.map((e) => _item(e, arrays[k])).filter(Boolean) : null;
+      if (v && !v.length) v = null;
+    }
+    out[k] = v;
+    if (v != null) any = true;
+  }
+  return any ? out : null;
+}
+
+/* One array element, pruned to its listed keys. Null when nothing survives. */
+function _item(value, keys) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   const out = {};
   let any = false;
   for (const k of keys) { out[k] = value[k] ?? null; if (out[k] != null) any = true; }
@@ -409,11 +432,16 @@ function _sealV2(raw, reading, senderKind) {
  */
 export async function buildStagedRow(args) {
   const { gmailMessageId, destination, reading, sourceProvider, senderKind, deps } = args;
-  /* 'txn' (the default, and the only kind before 0147) or 'notice'. A notice
-     has no amount, so it has no dedup fingerprint and is never compared with
-     anything: the equality token would hash null, and the review queue has
-     nothing to import from it. The column is CLEAR on the row (0147 says why). */
-  const rowKind = args.rowKind === 'notice' ? 'notice' : 'txn';
+  /* 'txn' (the default, and the only kind before 0147), 'notice' (0147) or
+     'receipt' (0154). A notice has no amount, so it has no dedup fingerprint
+     and is never compared with anything: the equality token would hash null,
+     and the review queue has nothing to import from it. A RECEIPT has an
+     amount (the paid total — the device's join key) but carries no
+     fingerprint either, and is never asked about duplicates: its bank twin
+     reporting the same figure is the whole point of the row, and a fingerprint
+     would flag exactly that twin as a duplicate to dismiss
+     (receipt-enrichment-spec §10.3). The column is CLEAR on the row. */
+  const rowKind = args.rowKind === 'notice' ? 'notice' : args.rowKind === 'receipt' ? 'receipt' : 'txn';
   /* THE READER VERSION OF THIS MAILBOX (email-reading-v2 R15): a plain workflow
      column on mailbox_grants, default 1. At 1 the payload is byte-for-byte what
      it was before payload v2 existed (pinned by pipeline/stage-v1-snapshot.test.js);
@@ -429,7 +457,7 @@ export async function buildStagedRow(args) {
      which is silent loss rather than a refusal anyone can see. */
   if (!destination || !destination.stagingPub) throw new Error('STAGE_NO_DESTINATION');
   if (!destination.ownerUserId && !destination.memberId) throw new Error('STAGE_NO_OWNER');
-  if (!reading || (rowKind === 'txn' && (reading.amount == null || !reading.direction))) {
+  if (!reading || (rowKind !== 'notice' && (reading.amount == null || !reading.direction))) {
     throw new Error('STAGE_NOT_READABLE');
   }
 
@@ -451,7 +479,7 @@ export async function buildStagedRow(args) {
     { nacl: deps.nacl, rng: deps.rng }, destination.scope,
   );
 
-  const dedupFp = rowKind === 'notice' ? null : await dedupFingerprint(
+  const dedupFp = rowKind !== 'txn' ? null : await dedupFingerprint(
     reading.amount, reading.direction, currency, deps.dedupKey, deps.subtle,
   );
 
@@ -491,9 +519,10 @@ export async function buildStagedRow(args) {
        "unreadable row" instead of a clear one. Defaults to 'family' when the
        destination predates scopes, which is what every existing grant means. */
     staging_scope: destination.scope === 'personal' ? 'personal' : 'family',
-    /* Only written on a notice: a txn row omits the key and takes the column's
-       default, so its insert is byte-identical to before 0147 existed. */
-    ...(rowKind === 'notice' ? { row_kind: 'notice' } : {}),
+    /* Only written on a notice or a receipt: a txn row omits the key and takes
+       the column's default, so its insert is byte-identical to before 0147
+       existed. */
+    ...(rowKind !== 'txn' ? { row_kind: rowKind } : {}),
 
     // The envelope. 0068's CHECK requires all four together.
     sealed: envelope.sealed,

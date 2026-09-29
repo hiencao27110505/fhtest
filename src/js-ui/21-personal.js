@@ -971,7 +971,7 @@ function _persEmailRow(){
         var _acct = !t.spaceId ? acctName(t.accountId) : null;
         var _catTxt = t.spaceId ? famName(t.spaceId).replace(/</g,'&lt;') : ((t.cat||'Khoản chi').replace(/</g,'&lt;'));
         h += '<div class="row'+(_tap?' tap':'')+'"'+_tap+'>'+_tile
-           + '<div class="r-body"><div class="r-t">'+((t.note||t.cat||'Khoản chi').replace(/</g,'&lt;'))+'</div>'
+           + '<div class="r-body"><div class="r-t">'+((t.note||t.cat||'Khoản chi').replace(/</g,'&lt;'))+(t.hasReceipt?' <span class="r-rc" aria-label="Có hoá đơn">🧾</span>':'')+'</div>'
            + '<div class="r-s">'+meta+(_acct?' · '+_acct.replace(/</g,'&lt;'):'')+'</div></div>'
            + right({v:'−'+fmt(t.amt||0), cls:''}, _catTxt);
       }

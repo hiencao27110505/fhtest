@@ -557,7 +557,19 @@ async function _runGrantLocked(grant, ctx) {
      `backfill_before` is the point everything newer than has been finished
      with; a backfill lists only mail older than it. */
   const cursorMs = backfilling && grant.backfill_before ? (Date.parse(grant.backfill_before) || null) : null;
-  const query = senders.inboxQuery(days, domains, { skip: skipSenders })
+  /* MERCHANT RECEIPTS ride the query only behind consent (receipt-enrichment-
+     spec §13): the sheet people agreed to at v5 named banks, wallets and
+     statement files, not Shopee orders. Checked the way the statement lane
+     checks its version — one consent read per run, fail-CLOSED: a db surface
+     with no consent reader, or a read that throws, means no receipt domains
+     this run, never a fetch the person did not consent to. */
+  let receiptsOn = false;
+  if (ctx.db.consentVersion) {
+    try {
+      receiptsOn = Number(await ctx.db.consentVersion(grant.user_id, 'bank_email')) >= senders.RECEIPT_CONSENT_V;
+    } catch { receiptsOn = false; }
+  }
+  const query = senders.inboxQuery(days, domains, { skip: skipSenders, receipts: receiptsOn })
     + (cursorMs ? ' before:' + Math.floor(cursorMs / 1000) : '');
 
   /* THE MODEL'S DAILY WALL (email-reading-v2 §10.3; 0116 model_pause,
@@ -973,6 +985,13 @@ async function _runGrantLocked(grant, ctx) {
     const row = await buildStagedRow({
       gmailMessageId: id,
       destination,
+      /* A merchant receipt is an ANNOTATION, not pending work (0154): sealed
+         and staged like a transaction, with row_kind 'receipt', no dedup
+         fingerprint (its bank twin reporting the same figure is the point,
+         not a duplicate), excluded from every pending count by
+         mailbox_read_status(), and joined to its transaction on-device
+         (receipt-enrichment-spec §11). */
+      rowKind: sender.kind === 'receipt' ? 'receipt' : undefined,
       reading: toReading(read.extraction, message),
       /* The DOMAIN-derived name outranks the reader's free-text label
          (account-identity-spec P3, the 2026-09-23 precedence flip): the sender
@@ -1001,6 +1020,15 @@ async function _runGrantLocked(grant, ctx) {
 
     if (row.duplicate_of_id) summary.duplicates++;
     if (await ctx.db.insertStaged(row)) {
+      if (row.row_kind === 'receipt') {
+        /* Not pending work: never counted toward `staged` (which drives the
+           notification), never the notification's voice. Its own tally so the
+           spec's two deferred decisions have their numbers (§16). */
+        summary.receipts = (summary.receipts || 0) + 1;
+        await ctx.db.bumpReadTally?.('receipt_staged');
+        if (retry) await ctx.db.clearMessageHold?.(grant.id, id);
+        return 'staged';
+      }
       summary.staged++;
       if (retry) await ctx.db.clearMessageHold?.(grant.id, id);   // read after all: forget the attempts
       /* Newest staged row wins the notification's voice. Gmail lists newest

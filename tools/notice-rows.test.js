@@ -64,8 +64,8 @@ function fakeSb(state) {
         if (touchesKind && !state.hasColumn) return Promise.resolve({ data: null, error: { code: '42703', message: 'column email_transactions.row_kind does not exist' } }).then(res, rej);
         if (state.networkDown) return Promise.resolve({ data: null, error: { code: '', message: 'Failed to fetch' } }).then(res, rej);
         const wantsNotice = q.filters.some((f) => f[0] === 'eq' && f[1] === 'row_kind' && f[2] === 'notice');
-        const txnOnly = q.filters.some((f) => f[0] === 'or' && /row_kind\.neq\.notice/.test(f[1]));
-        const rows = state.rows.filter((r) => wantsNotice ? r.row_kind === 'notice' : (txnOnly ? r.row_kind !== 'notice' : true));
+        const txnOnly = q.filters.some((f) => f[0] === 'or' && /row_kind\.(neq\.notice|eq\.txn)/.test(f[1]));
+        const rows = state.rows.filter((r) => wantsNotice ? r.row_kind === 'notice' : (txnOnly ? (r.row_kind == null || r.row_kind === 'txn') : true));
         return Promise.resolve(q.head ? { count: rows.length, data: null, error: null } : { data: rows, error: null }).then(res, rej);
       },
     };
@@ -111,7 +111,7 @@ const notice = (id, provider, detail, extra) => Object.assign({ id, row_kind: 'n
     const rows = await vm.runInContext('fhFetchStagedTxns()', ctx);
     ok(rows.length === 2 && rows.every((r) => r.row_kind !== 'notice'), 'fhFetchStagedTxns leaves the notice out', rows.map((r) => r.id));
     ok(ctx.fhStagedTotal === 2, 'and the total behind the badge does not count it', ctx.fhStagedTotal);
-    ok(state.queries.length === 1 && state.queries[0].filters.some((f) => f[0] === 'or' && f[1] === 'row_kind.is.null,row_kind.neq.notice'),
+    ok(state.queries.length === 1 && state.queries[0].filters.some((f) => f[0] === 'or' && f[1] === 'row_kind.is.null,row_kind.eq.txn'),
       'one query, filtered server-side; a NULL row_kind reads as a transaction', state.queries[0].filters);
     ok(/select\('id', \{ count: 'exact', head: true \}\)\s*\.eq\('review_status', 'pending'\)\); \}\);/.test(grab(SRC72, 'async function fhFetchStagedTxns(')),
       'the exact-count follow-up goes through the same helper');
