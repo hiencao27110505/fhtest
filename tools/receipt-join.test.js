@@ -57,7 +57,8 @@ function makeEnv(state) {
     },
     fhReadStagedRow: async (row) => state.opened[row.id] || { id: row.id, _unreadable: 'x' },
     fhPersonalMatchSlice: async () => state.slice || [],
-    fhPersonalSetReceipt: async (id, rc) => { state.attached.push({ id, rc }); return state.setOk !== false; },
+    fhPersonalSetReceipt: async (id, rc, opts) => { state.attached.push({ id, rc, upgrade: !!(opts && opts.upgrade) }); return state.setOk !== false; },
+    fhPersonalGetReceipt: async (id) => (state.stored || {})[id] || null,
     fhPersonalMatchSliceInvalidate: () => {},
     fhStagedRetireIds: async (ids) => { state.retired.push(...ids); },
   };
@@ -207,6 +208,52 @@ const freshState = () => ({ receiptRows: [], opened: {}, slice: [], retired: [],
   env = makeEnv(st);
   await env.fhReceiptJoinQueue([]);
   t('two ledger candidates: ambiguity attaches nothing', st.attached.length === 0);
+
+  console.log('\n-- upgrading a poor receipt (the reader-fix recovery path) --');
+  st = freshState();
+  rrow(st, 'r1', { paid: 681700, created: old, at: old, items: [{ name: 'Goggles' }, { name: 'Cap' }] });
+  st.slice = [{ id: 'p1', kind: 'expense', link: null, amt: 681.7, date: old.slice(0, 10) }];
+  st.stored = { p1: { v: 1, source: 'email', items: null, paid: 681700 } };   // a poor blob from the broken reader
+  env = makeEnv(st);
+  await env.fhReceiptJoinQueue([]);
+  t('a stored receipt with NO items is deepened by one that has them',
+    st.attached.length === 1 && st.attached[0].upgrade === true
+    && (st.attached[0].rc.items || []).length === 2, st.attached);
+
+  st = freshState();
+  rrow(st, 'r1', { paid: 681700, created: old, at: old, items: [{ name: 'Goggles' }] });
+  st.slice = [{ id: 'p1', kind: 'expense', link: null, amt: 681.7, date: old.slice(0, 10) }];
+  st.stored = { p1: { v: 1, items: [{ name: 'Already here' }], paid: 681700 } };
+  env = makeEnv(st);
+  await env.fhReceiptJoinQueue([]);
+  t('a row that already has items is left alone', st.attached.length === 0, st.attached);
+
+  st = freshState();
+  rrow(st, 'r1', { paid: 681700, created: old, at: old });                     // order-level only
+  st.slice = [{ id: 'p1', kind: 'expense', link: null, amt: 681.7, date: old.slice(0, 10) }];
+  st.stored = { p1: { v: 1, items: null, paid: 681700 } };
+  env = makeEnv(st);
+  await env.fhReceiptJoinQueue([]);
+  t('an item-less receipt never overwrites another item-less one', st.attached.length === 0, st.attached);
+
+  st = freshState();
+  rrow(st, 'r1', { paid: 681700, created: old, at: old, items: [{ name: 'Goggles' }] });
+  st.slice = [{ id: 'p1', kind: 'expense', link: null, amt: 681.7, date: old.slice(0, 10) }];
+  st.stored = { p1: '_unreadable' };
+  env = makeEnv(st);
+  await env.fhReceiptJoinQueue([]);
+  t('an UNREADABLE blob is never overwritten (it may be good ciphertext)', st.attached.length === 0, st.attached);
+
+  // the young-receipt wait applies to a bare row, but never to an upgrade
+  st = freshState();
+  const today = new Date().toISOString();
+  rrow(st, 'r1', { paid: 681700, at: today, items: [{ name: 'Goggles' }] });   // created NOW
+  st.slice = [{ id: 'p1', kind: 'expense', link: null, amt: 681.7, date: today.slice(0, 10) }];
+  st.stored = { p1: { v: 1, items: null, paid: 681700 } };
+  env = makeEnv(st);
+  await env.fhReceiptJoinQueue([]);
+  t('a YOUNG receipt may still upgrade a row that already joined (no twin to wait for)',
+    st.attached.length === 1 && st.attached[0].upgrade === true, st.attached);
 
   console.log('\n-- grace --');
   const stale = new Date(Date.now() - 20 * 864e5).toISOString();

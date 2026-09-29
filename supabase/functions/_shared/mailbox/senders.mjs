@@ -312,7 +312,11 @@ export const RECEIPT_CONSENT_V = 6;
  *  matching folds case and most diacritics; both spellings of "hóa đơn" ride
  *  anyway because the folding of composed forms has been observed to vary. */
 export const RECEIPT_SUBJECTS = Object.freeze({
-  'shopee.vn': ['"đơn hàng"'],
+  // BOTH mails of one order: "Đơn hàng #X đã giao hàng thành công" and
+  // "Xác nhận thanh toán thành công" — the second carries no "đơn hàng" at all
+  // and was invisible until 2026-09-29, so only the delivery mail ever arrived.
+  // Collapse by order id keeps the richer of the two.
+  'shopee.vn': ['"đơn hàng"', '"thanh toán"'],
   'shopeefood.vn': ['"đơn hàng"', '"E-Receipt"'],
   'foody.vn': ['"đơn hàng"', '"E-Receipt"'],
   'grab.com': ['"E-Receipt"', '"E-receipt"'],

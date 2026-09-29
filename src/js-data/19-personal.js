@@ -846,12 +846,19 @@
        category, the amount, the date — and `.is('receipt_enc', null)` makes it
        first-writer-wins: a row can carry one receipt, and a second candidate
        receipt loses to whichever attached first rather than overwriting it. */
-    window.fhPersonalSetReceipt = async function (id, receipt) {
+    /* `opts.upgrade` lifts the first-writer guard for ONE case the caller has
+       already proved: the row carries a receipt that has no items and this one
+       does. A reader fix (or a second mail of the same order) is then allowed
+       to deepen what is stored — it only ever adds detail, never removes it.
+       Without this a row enriched by a poor read could never improve, which is
+       exactly what the 2026-09-29 reader fix ran into. */
+    window.fhPersonalSetReceipt = async function (id, receipt, opts) {
       if (!P.uid || !P.key || !id || !receipt) return false;
-      const r = await _sb().from('personal_transactions')
+      let q = _sb().from('personal_transactions')
         .update({ receipt_enc: await _encP(JSON.stringify(receipt)) })
-        .eq('id', id).eq('owner_user_id', P.uid).is('link_id', null).is('receipt_enc', null)
-        .select('id');
+        .eq('id', id).eq('owner_user_id', P.uid).is('link_id', null);
+      if (!(opts && opts.upgrade)) q = q.is('receipt_enc', null);
+      const r = await q.select('id');
       if (r.error) { console.warn('personal receipt attach failed', r.error); return false; }
       if (!(r.data && r.data.length)) return false;   // mirror, or already carrying one
       window.fhPersonalMatchSliceInvalidate && window.fhPersonalMatchSliceInvalidate();

@@ -170,9 +170,27 @@ export function readShopeeReceipt(text) {
   for (let i = 0; i < lines.length; i++) {
     const ln = lines[i];
     if (/^T\u1ed5ng ti\u1ec1n:/i.test(ln)) break;
-    const start = ln.match(/^(\d{1,2})\.\s+(\S.{2,})/);
-    if (start) {
-      cur = { name: start[2].trim().slice(0, 200), qty: null, unit_price: null, line_discount: null, variant: null };
+    /* An item opens with its ordinal. TWO shapes, and the one that matters
+       most is the second: the PAYMENT mail prints "1. <name>" on one line,
+       while the DELIVERY mail — the one Shopee's subject filter actually
+       catches — puts "1." in its own table cell, so the name is the next
+       line. Reading only the first shape found zero items on every real
+       order (2026-09-29). */
+    const startSame = ln.match(/^(\d{1,2})\.\s+(\S.{2,})/);
+    const startBare = !startSame && /^(\d{1,2})\.$/.test(ln);
+    if (startSame || startBare) {
+      let name = startSame ? startSame[2].trim() : null;
+      if (startBare) {
+        for (let j = i + 1; j < lines.length && j <= i + 4; j++) {
+          if (!lines[j]) continue;
+          if (_LABEL_RE.test(lines[j])) break;          // an empty ordinal cell: no name to take
+          name = lines[j].trim();
+          i = j;
+          break;
+        }
+      }
+      if (!name) continue;
+      cur = { name: name.slice(0, 200), qty: null, unit_price: null, line_discount: null, variant: null };
       items.push(cur);
       continue;
     }

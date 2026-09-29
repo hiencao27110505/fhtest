@@ -49,6 +49,31 @@ const SHOPEE_PAYMENT = [
   'Số tiền thanh toán: ₫681,700',
 ].join('\n');
 
+const SHOPEE_DELIVERED = [
+  // The DELIVERY mail — the shape Shopee's subject filter actually catches.
+  // Its ordinal sits in its OWN cell, so "1." and the product name are two
+  // lines; reading only the payment mail's "1. <name>" form found zero items
+  // on every real order (2026-09-29).
+  'THÔNG TIN ĐƠN HÀNG - DÀNH CHO NGƯỜI MUA', '',
+  'Mã đơn hàng:', '', '#2609262Y4DUK5U', '',
+  'Ngày đặt hàng:', '', '26/09/2026 13:09:14', '',
+  'Người bán:', '', 'olanevietnam', '',
+  '1.', '',
+  'Swimming Goggles OLANE 503M Tráng Gương Màu PinkGold', '',
+  'Số lượng:', '', '1', '',
+  'Giá:', '', '₫607,700', '',
+  '2.', '',
+  'Mũ Bơi / Nón Bơi Silicon Người Lớn Olane Cherry', '',
+  'Mẫu mã:', '', 'Cherry', '',
+  'Số lượng:', '', '1', '',
+  'Giá:', '', '₫234,000', '',
+  'Tổng tiền:', '', '₫841,700', '',
+  'Voucher từ Shopee:', '', '₫160,000', '',
+  'Mã giảm giá của Shopee:', '', '2620STYLE700KMM', '',
+  'Phí vận chuyển:', '', '₫0', '',
+  'Tổng thanh toán:', '', '₫681,700',
+].join('\n');
+
 const APPLE_RECEIPT = [
   // Real shape (corpus 2026-09-29, PII scrubbed): header blocks ("ORDER ID"
   // over its value), the billing cluster WITH an address (which must never
@@ -132,6 +157,17 @@ const geminiFetch = (answer) => async (u, init) => {
     JSON.stringify(sp).indexOf('Đường X') === -1 && JSON.stringify(sp).indexOf('840000000000') === -1);
   t('a campaign mail (no paid total) reads null',
     R.readShopeeReceipt('Flash sale 9.9! đơn hàng ngay hôm nay giảm 50%') === null);
+
+  console.log('\n-- the Shopee DELIVERY shape (bare ordinal cell) --');
+  const sd = R.readShopeeReceipt(SHOPEE_DELIVERED);
+  t('the bare "1." cell still opens an item; the name is the next line',
+    sd && sd.items && sd.items.length === 2
+    && /Swimming Goggles/.test(sd.items[0].name) && /M\u0169 B\u01a1i/.test(sd.items[1].name), sd && sd.items);
+  t('prices and the variant survive the split form',
+    sd.items[0].unit_price === 607700 && sd.items[1].unit_price === 234000 && sd.items[1].variant === 'Cherry', sd.items);
+  t('an item name is never the ordinal itself', sd.items.every(function (it) { return !/^\d{1,2}\.?$/.test(it.name); }), sd.items);
+  t('same order, same money as the payment mail', sd.paid === 681700 && sd.order_id === '2609262Y4DUK5U' && sd.discount === 160000);
+  t('dd/mm/yyyy order date reads', sd._when && sd._when.iso.slice(0, 10) === '2026-09-26', sd._when);
 
   console.log('\n-- the Apple reader --');
   const ap = R.readAppleReceipt(APPLE_RECEIPT, 'Your receipt from Apple.');
@@ -257,6 +293,9 @@ const geminiFetch = (answer) => async (u, init) => {
     SN.RECEIPT_DOMAINS.every((d) => qOn.indexOf('(from:' + d + ' subject:(') >= 0), qOn);
   t('on: the bank group is untouched', qOn.indexOf(qOff.split(' -from:')[0].replace(/^\(/, '')) >= 0
     || qOn.indexOf('from:mbbank') >= 0 || /from:/.test(qOn));
+  t('the Shopee filter catches the payment mail too, not only the delivery one',
+    (SN.RECEIPT_SUBJECTS['shopee.vn'] || []).some(function (x) { return /thanh to/i.test(x); }),
+    SN.RECEIPT_SUBJECTS['shopee.vn']);
   t('every receipt domain has subject terms (an unfiltered domain never enters)',
     SN.RECEIPT_DOMAINS.every((d) => (SN.RECEIPT_SUBJECTS[d] || []).length > 0));
 

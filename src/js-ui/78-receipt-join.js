@@ -258,15 +258,7 @@
         var claimedLedger = {};
         for (var ri = 0; ri < rest.length; ri++) {
           var r2 = rest[ri];
-          /* A young receipt waits for the review: its bank twin usually
-             arrives within hours and is imported through the queue, where the
-             match has the tail and the person's eyes. Attaching a fresh
-             receipt to an older same-amount ledger row here would be exactly
-             the coincidence the ambiguity rule exists to refuse — it just
-             cannot see the pending twin (sealed amount), so time stands in
-             for it. */
           var born2 = Date.parse(r2.created_at || '') || 0;
-          if (born2 > Date.now() - 2 * 864e5) continue;
           var rDay2 = _rjDayMs(r2.occurred_at);
           var cands = slice.filter(function (t) {
             if (t.kind !== 'expense' || t.link || claimedLedger[t.id]) return false;
@@ -275,9 +267,31 @@
             return !(rDay2 != null && tDay != null && Math.abs(rDay2 - tDay) > 1.5 * 864e5);
           });
           if (cands.length !== 1) continue;              // ambiguity (or nothing): attach nothing
-          /* Only a row that has no receipt yet — asked directly, because the
-             slice does not carry the column. One cheap head query per attach. */
-          var ok = await fhPersonalSetReceipt(cands[0].id, Object.assign({}, r2._rcpt, { node: r2._node || null }));
+          /* What the row already holds decides whether this write is an attach
+             or an UPGRADE. A row with a receipt that has no items (a poor read,
+             or a mail that only stated the order) may be deepened by one that
+             does; a row already carrying items is left alone, and an unreadable
+             blob is never overwritten — it may be perfectly good ciphertext
+             this device simply cannot open. */
+          var have = null;
+          try { have = window.fhPersonalGetReceipt ? await fhPersonalGetReceipt(cands[0].id) : null; } catch (e) { have = null; }
+          if (have === '_unreadable') continue;
+          /* A young receipt waits for the review BEFORE it may claim a bare
+             ledger row: its bank twin usually arrives within hours and is
+             imported through the queue, where the match has the tail and the
+             person's eyes, and attaching a fresh receipt to an older
+             same-amount row here would be the coincidence the ambiguity rule
+             exists to refuse (this pass cannot see pending twins — their
+             amounts are sealed), so time stands in for it. An UPGRADE needs no
+             such wait: the row already carries this order's own receipt, which
+             is proof the transaction is booked and there is no twin to wait
+             for. */
+          if (!have && born2 > Date.now() - 2 * 864e5) continue;
+          var mine = ((r2._rcpt && r2._rcpt.items) || []).length;
+          var theirs = ((have && have.items) || []).length;
+          if (have && (theirs || !mine)) continue;       // already as rich, or this one adds nothing
+          var ok = await fhPersonalSetReceipt(cands[0].id,
+            Object.assign({}, r2._rcpt, { node: r2._node || null }), { upgrade: !!have });
           if (ok) {
             claimedLedger[cands[0].id] = true;
             r2._joined = 'ledger';

@@ -2543,7 +2543,7 @@ label.exd-photo.add{cursor:pointer}
 .pexd-rc-item{padding:6px 0;font-size:13.5px}
 .pexd-rc-item+.pexd-rc-item{border-top:1px solid var(--divider)}
 .pexd-rc-main{display:flex;justify-content:space-between;gap:12px}
-.pexd-rc-name{flex:1;min-width:0}
+.pexd-rc-name{flex:1;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .pexd-rc-name b{font-weight:650}
 .pexd-rc-varline{font-size:12px;color:var(--muted-soft);margin-top:2px}
 .pexd-rc-amt{white-space:nowrap;color:var(--muted)}
@@ -22902,28 +22902,30 @@ async function _pexdReceiptLoad(id){
 }
 function _pexdReceiptHTML(rc){
   var fmtD=function(n){ return (Number(n)||0).toLocaleString('vi-VN')+'đ'; };
-  var trim=function(s){ return String(s||'').replace(/[\s.·|•-]+$/,'').trim(); };   // "olanevietnam ." → "olanevietnam" (pre-fix blobs)
-  var items=rc.items||[];
+  var trim=function(s){ return String(s||'').replace(/[\s.·|•-]+$/,'').trim(); };   // "olanevietnam ." → "olanevietnam" (blobs written before the reader fix)
+  var items=(rc.items||[]).filter(function(it){ return it && it.name; });
   var h=_exdSecH('Hoá đơn', items.length||'');
   h+='<div class="exd-meta pexd-rc">';
   var head=[trim(rc.seller)||rc.provider, rc.order_id?('#'+rc.order_id):null].filter(Boolean);
   if(head.length) h+='<div class="pexd-rc-head">'+esc(head.join(' · '))+'</div>';
   items.forEach(function(it){
-    if(!it) return;
     h+='<div class="pexd-rc-item"><div class="pexd-rc-main">'
-      +'<span class="pexd-rc-name">'+((it.qty&&it.qty>1)?('<b>'+esc(it.qty)+' ×</b> '):'')+esc(it.name||'—')+'</span>'
+      +'<span class="pexd-rc-name">'+((it.qty&&it.qty>1)?('<b>'+esc(it.qty)+' ×</b> '):'')+esc(it.name)+'</span>'
       +(it.unit_price!=null?'<span class="pexd-rc-amt num">'+esc(fmtD(it.unit_price))+'</span>':'')
       +'</div>'
       +(it.variant?'<div class="pexd-rc-varline">'+esc(it.variant)+'</div>':'')
       +'</div>';
   });
-  /* The honest math — only when there is math to show: a single-price receipt
-     (Apple) reads as one item + Đã trả, not four rows of the same number. */
+  /* The math, and ONLY what is not already on the screen. A single-item
+     receipt whose one price IS the amount in the hero needs no "Đã trả" row
+     repeating it a third time; the voucher line is the one that earns its
+     place, because the gap between what the shop charged and what left the
+     account is the thing nothing else on this screen says. */
   var math=[];
   if(rc.items_total!=null && rc.items_total!==rc.paid) math.push(['Tổng tiền', fmtD(rc.items_total), '']);
   if(rc.discount) math.push(['Voucher/giảm giá', '−'+fmtD(rc.discount), 'good']);
   if(rc.shipping_fee) math.push(['Phí vận chuyển', fmtD(rc.shipping_fee), '']);
-  if(rc.paid!=null) math.push(['Đã trả', fmtD(rc.paid), 'strong']);
+  if(rc.paid!=null && (math.length || items.length>1)) math.push(['Đã trả', fmtD(rc.paid), 'strong']);
   if(math.length){
     h+='<div class="pexd-rc-math">'+math.map(function(m){
       return '<div class="pexd-rc-mrow'+(m[2]?' '+m[2]:'')+'"><span>'+esc(m[0])+'</span><span class="num">'+esc(m[1])+'</span></div>';
@@ -25233,15 +25235,7 @@ function applyLang(){
         var claimedLedger = {};
         for (var ri = 0; ri < rest.length; ri++) {
           var r2 = rest[ri];
-          /* A young receipt waits for the review: its bank twin usually
-             arrives within hours and is imported through the queue, where the
-             match has the tail and the person's eyes. Attaching a fresh
-             receipt to an older same-amount ledger row here would be exactly
-             the coincidence the ambiguity rule exists to refuse — it just
-             cannot see the pending twin (sealed amount), so time stands in
-             for it. */
           var born2 = Date.parse(r2.created_at || '') || 0;
-          if (born2 > Date.now() - 2 * 864e5) continue;
           var rDay2 = _rjDayMs(r2.occurred_at);
           var cands = slice.filter(function (t) {
             if (t.kind !== 'expense' || t.link || claimedLedger[t.id]) return false;
@@ -25250,9 +25244,31 @@ function applyLang(){
             return !(rDay2 != null && tDay != null && Math.abs(rDay2 - tDay) > 1.5 * 864e5);
           });
           if (cands.length !== 1) continue;              // ambiguity (or nothing): attach nothing
-          /* Only a row that has no receipt yet — asked directly, because the
-             slice does not carry the column. One cheap head query per attach. */
-          var ok = await fhPersonalSetReceipt(cands[0].id, Object.assign({}, r2._rcpt, { node: r2._node || null }));
+          /* What the row already holds decides whether this write is an attach
+             or an UPGRADE. A row with a receipt that has no items (a poor read,
+             or a mail that only stated the order) may be deepened by one that
+             does; a row already carrying items is left alone, and an unreadable
+             blob is never overwritten — it may be perfectly good ciphertext
+             this device simply cannot open. */
+          var have = null;
+          try { have = window.fhPersonalGetReceipt ? await fhPersonalGetReceipt(cands[0].id) : null; } catch (e) { have = null; }
+          if (have === '_unreadable') continue;
+          /* A young receipt waits for the review BEFORE it may claim a bare
+             ledger row: its bank twin usually arrives within hours and is
+             imported through the queue, where the match has the tail and the
+             person's eyes, and attaching a fresh receipt to an older
+             same-amount row here would be the coincidence the ambiguity rule
+             exists to refuse (this pass cannot see pending twins — their
+             amounts are sealed), so time stands in for it. An UPGRADE needs no
+             such wait: the row already carries this order's own receipt, which
+             is proof the transaction is booked and there is no twin to wait
+             for. */
+          if (!have && born2 > Date.now() - 2 * 864e5) continue;
+          var mine = ((r2._rcpt && r2._rcpt.items) || []).length;
+          var theirs = ((have && have.items) || []).length;
+          if (have && (theirs || !mine)) continue;       // already as rich, or this one adds nothing
+          var ok = await fhPersonalSetReceipt(cands[0].id,
+            Object.assign({}, r2._rcpt, { node: r2._node || null }), { upgrade: !!have });
           if (ok) {
             claimedLedger[cands[0].id] = true;
             r2._joined = 'ledger';
@@ -25894,7 +25910,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v592';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v593';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -28261,12 +28277,19 @@ window.obGoogle = async function () {
        category, the amount, the date — and `.is('receipt_enc', null)` makes it
        first-writer-wins: a row can carry one receipt, and a second candidate
        receipt loses to whichever attached first rather than overwriting it. */
-    window.fhPersonalSetReceipt = async function (id, receipt) {
+    /* `opts.upgrade` lifts the first-writer guard for ONE case the caller has
+       already proved: the row carries a receipt that has no items and this one
+       does. A reader fix (or a second mail of the same order) is then allowed
+       to deepen what is stored — it only ever adds detail, never removes it.
+       Without this a row enriched by a poor read could never improve, which is
+       exactly what the 2026-09-29 reader fix ran into. */
+    window.fhPersonalSetReceipt = async function (id, receipt, opts) {
       if (!P.uid || !P.key || !id || !receipt) return false;
-      const r = await _sb().from('personal_transactions')
+      let q = _sb().from('personal_transactions')
         .update({ receipt_enc: await _encP(JSON.stringify(receipt)) })
-        .eq('id', id).eq('owner_user_id', P.uid).is('link_id', null).is('receipt_enc', null)
-        .select('id');
+        .eq('id', id).eq('owner_user_id', P.uid).is('link_id', null);
+      if (!(opts && opts.upgrade)) q = q.is('receipt_enc', null);
+      const r = await q.select('id');
       if (r.error) { console.warn('personal receipt attach failed', r.error); return false; }
       if (!(r.data && r.data.length)) return false;   // mirror, or already carrying one
       window.fhPersonalMatchSliceInvalidate && window.fhPersonalMatchSliceInvalidate();
