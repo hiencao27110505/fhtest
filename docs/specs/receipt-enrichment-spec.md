@@ -130,26 +130,41 @@ item name — no per-merchant schema.
 |---|---|
 | Review card (queue) | "🧾 N sản phẩm · <seller>" hint on the collapsed card; the expanded card's description and category arrive pre-filled from the receipt |
 | Transaction lists (Cá nhân tab, Giao dịch cá nhân, Xem chi tiêu) | a small 🧾 marker on rows that carry a receipt; the note text does the informational work — no item snippets in list rows |
-| Transaction detail (`openPersonalTxDetail`) | the full **Hoá đơn** section: seller · items (qty × unit price, per-line discount) · items total · voucher/discount · shipping fee · **paid** · order id · source (email/OCR) |
+| Transaction detail (`openPersonalTxDetail`) | the full **Hoá đơn** section: seller · #order · one row per item — name, the figure right-aligned and tabular, and the item's **category as a tappable pill** (neutral fill, the review card's `.scv-cat` language; a soft "Chọn loại" when none) over the merchant's own words · the honest math (tổng tiền − voucher (− phí ship) = đã trả), printed only where it says something the hero amount does not. Tapping the pill opens the standard tree picker; the pick saves at once and is learned per person by the item's signature (§20.4). Money through `fmt()`; SVG glyph, never an emoji (DESIGN §6.1, §2.6). |
 
 ## 4. Category and description — the rules
 
-Every item name is resolved to a taxonomy node on-device (§11). Then:
+**Who owns the transaction's category.** The bank-side cascade — merchant,
+MCC, history, lessons — which exists for every row. A receipt exists for a
+minority of rows and its items are the weaker signal, so **items never vote
+the transaction's node** (RC16–RC19; the deepest-common-ancestor vote of
+the first design was removed on 2026-09-29). Re-filing the transaction is the
+person's act, through the same category row as always.
+
+**What an item's own category may do.** Refine, within the branch: an item
+node is kept when it *is* the transaction's node or sits under it, and
+dropped otherwise — a swim cap sharpens *Mua sắm* to *Đồ thể thao*; "Sách"
+can never appear under a purchase filed as Streaming. A transaction with no
+node has no branch to contradict. The one exception is a person's own pick
+on the item (§20.4), which stands wherever they put it.
+
+**Where an item's category comes from** — the signature ladder, §20: the
+tree's keywords → the learned type/slot table → one model call per unseen
+signature → nothing. On the device: the person's lesson for that signature →
+what the worker sealed → the keywords (for blobs written before Phase 2).
 
 | Basket | Transaction node | Description pre-fill |
 |---|---|---|
-| 1 item | the item's node | the item name ("The Long Walk") |
-| N items, all one node | that node | short summary ("Kính bơi Olane +1 món") |
-| N items, mixed nodes | **deepest common ancestor** of the item nodes; if the DCA is the tree root (meaningless), the cascade's merchant tier decides as today | "<Seller> · N món" ("Shopee · 2 món") — generic, never clueless |
-| Items unparseable (order-level fields only) | cascade unchanged | cascade unchanged |
+| 1 item | unchanged (bank-side cascade) | the item name ("The Long Walk") |
+| N items, all one item-category | unchanged | short summary ("Kính bơi Olane +1 món") |
+| N items, mixed | unchanged | "<Seller> · N món" ("Shopee · 2 món") — generic, never clueless |
+| Items unparseable (order-level only) | unchanged | cascade unchanged |
 
-- Items whose node cannot be resolved abstain from the DCA vote (`node: null`).
-- The receipt's category enters the cascade as a **high-confidence tier**
-  (below an explicit human pick and a learned lesson, above the merchant
-  tier) — a guess is still never final, and a human pick is still the only
-  thing learned from.
-- Pre-filled values are machine-marked, exactly like every other cascade
-  guess: confidence decides where a row *shows*, never whether it imports.
+- Pre-filled descriptions are machine-marked like every cascade guess, apply
+  only where the note would otherwise be the generic merchant fallback, and
+  never touch a note on retroactive enrichment (RC13).
+- The description's "agreeing basket" test uses the items' own categories,
+  so it inherits every rule above.
 
 ## 5. Privacy and consent
 
@@ -251,6 +266,12 @@ Gmail ──(query + per-sender subject filters)──▶ mailbox-sync worker
 | `_shared/mailbox/formats.mjs`, `htmltable.mjs`, `llm.mjs` | receipt formats: order-level labels + the repeated item-block reader (§10.2); model prompt gains the receipt sender-class block |
 | `_shared/mailbox/stage.mjs`, `worker.mjs`, `ingest.mjs` | `row_kind='receipt'`; both mappers carry the new keys (the mapping is the wire) |
 | `src/js-ui/78-receipt-join.js` (new) | open receipt rows, collapse by order id, the join, attach, retire, grace |
+| `_shared/mailbox/item-category.mjs` (new, Phase 2) | the signature ladder: keywords → `item_signatures` → one batched model call → null; seals `items[].node`/`.sig` (§20.3) |
+| `_shared/mailbox/db.mjs` | `itemSignaturesGet` / `itemSignaturePut` for `item_signatures` (0155) |
+| `tools/gen-taxonomy.js` → `11-taxonomy.js` + `taxonomy.mjs` | `itemSignature()` — the head-noun extractor, ONE source for client and worker |
+| `src/js-data/24-lessons.js` | `fhLessonItemNode` / `fhLessonLearnItemNode` / `fhLessonForgetItemNode` — per-user, encrypted, keyed `item\|<sig>` |
+| `src/js-ui/63-tree-ui.js` | `fhNodePickOpen(cur, kind, onPick, sub)` — the subtitle override for an immediate-save pick |
+| `src/js-ui/61-expense-detail.js` | the Hoá đơn section; the item pill → picker → blob rewrite + lesson (`pexdRcItemPick/Picked`) |
 | `src/js-ui/57-csv-import-review.js`, `56-csv-import-ui.js` | candidate enrichment: description/category pre-fill, 🧾 hint |
 | `src/js-data/19-personal.js` | `receipt_enc` on writers + hydrate + regen sweep (`fhPersonalRegen`, `19-personal.js:1570`) |
 | `src/js-ui/21-personal.js`, `60-transactions.js` | 🧾 list markers; the detail screen's Hoá đơn section |
@@ -267,7 +288,8 @@ Gmail ──(query + per-sender subject filters)──▶ mailbox-sync worker
   'service_type',    // ride | food | goods | digital | subscription — coarse, cross-merchant
   'order_id',        // "#2609262Y4DUK5U" / booking id / Apple order id
   'seller',          // "olanevietnam" — the sub-merchant, when the platform names one
-  'items',           // [{ name, qty, unit_price, line_discount, variant }] — or null (Grab: always null)
+  'items',           // [{ name, qty, unit_price, line_discount, variant, node, sig }] — or null (Grab: always null)
+                     //   node/sig (Phase 2, §20): the ladder's PROPOSAL and the signature it was learned under
   'items_total',     // 841700 — the pre-discount sum the mail prints
   'discount',        // 160000 — voucher/discount total
   'shipping_fee',    // 0
@@ -398,21 +420,21 @@ one-to-one: a receipt attaches to at most one txn; a txn takes at most one recei
   set nothing else — note and category are untouched retroactively. Retire
   the receipt row after the write confirms.
 
-### 11.1 Item classification
+### 11.1 Item categories on the device
 
-Per item name, first hit wins:
+The worker resolves item categories at read time (§20.3) and seals them as
+proposals. The device decides what is shown, in this order, per item:
 
-1. On-device tiers: learned lessons → merchant/brand table → keyword
-   (`guessCat`-class, deburred, over the item name — not the memo).
-2. Backstop: unresolved names batched to `merchant-concepts`
-   (`POST {merchants:[names…]}` — names only, no prices/qty/seller), answers
-   cached in the shared concept cache exactly like merchant names.
-3. Still unresolved → `node: null`, abstains from the DCA vote.
+1. **The person's own lesson** for the item's signature (`fhLessonItemNode`,
+   keyed `item|<sig>`; for a blob written before Phase 2 the signature is
+   recomputed from the name with `FH_TAX.itemSignature`).
+2. **The sealed node**, if the tree knows it.
+3. **The tree's keywords** (`FH_TAX.keywordNode`), for older blobs.
 
-**DCA:** walk each resolved node's `parent` chain in `taxonomy.json`
-(`{code, parent, depth}`), intersect; take the deepest shared node. DCA at a
-kind root → meaningless → merchant tier decides. Deterministic, no tuning;
-dominance-by-value stays a possible later layer, decided on §16's numbers.
+Then the branch constraint (§4): an item node outside the transaction's
+branch is dropped — except a lesson-resolved item, which a person placed.
+Nothing here calls anyone; the `merchant-concepts` call of the first design
+is gone (RC16). Items never write the transaction's node.
 
 ## 12. Storage — `receipt_enc` on the spine
 
@@ -437,7 +459,7 @@ Blob shape (encrypted as one value via `encVal`, decrypted lazily —
   "service_type": "goods",
   "items": [ { "name": "Swimming Goggles OLANE 503M …", "qty": 1,
                "unit_price": 607700, "line_discount": 0,
-               "variant": null, "node": "sports" } ],
+               "variant": null, "node": "sportsgear", "sig": "hn|swimming goggles" } ],
   "items_total": 841700, "discount": 160000, "shipping_fee": 0,
   "paid": 681700, "paid_with_tail": "4751" }
 ```
@@ -487,6 +509,9 @@ Spine integration:
 | Campaign mail slips the subject filter | junk-cached once per shape, as any mail; never reaches a card |
 | Txn filed to Gia đình | no private personal row exists → receipt retires unmatched (named v1 gap) |
 | Person edits note/category after queue pre-fill | their value wins; receipt detail remains attached and visible |
+| Item type the keywords do not know, model unreachable | item carries no category; nothing cached, so the next run asks (§20.3) |
+| Model answers a venue/class for a goods signature | refused: not applied, not cached (structural gate, RC18) |
+| Person picks an item category outside the transaction's branch | stands — a human pick is the one exception to the branch rule (RC19) |
 | Same order, third notification mail after join | collapses by order id against the tombstoned twins' ids? No — it stages fresh, matches a txn that already **has** a receipt → one-to-one rule refuses, grace-retires. Harmless |
 
 ## 15. Testing
@@ -502,19 +527,23 @@ name, fixtures from real mail):
 | `receipt-collapse.test.js` | order-id collapse, richest wins; third-mail-after-join case |
 | `receipt-category.test.js` | item tiers + DCA (unanimous / mixed-climbs / root-falls-back / null-abstains); description rules incl. never-clobber |
 | `receipt-lifecycle.test.js` | row_kind exclusion from pending counts, buckets and notify; grace retirement; local-first retire |
+| `item-category.test.js` (Phase 2) | signatures per source; ladder order; keyword hit teaches the table and names siblings; cached null is an answer, stale logic version is not; one batched call carries signatures not titles; nothing cached when the model is unreachable or unbudgeted; structural gate refuses venue/class for goods; menu is expense-only |
+| Extended: `receipt-join.test.js` | lesson → sealed → keywords; a lesson survives the branch constraint; pre-Phase-2 blobs fall to keywords (runs the REAL generated tree in its sandbox) |
+| Extended: `receipt-reader.test.js` | Apple items carry `apple\|<store>\|<kind>` (the storefront names every item in its section) and `apple\|vendor\|<vendor>` |
 | Extended: `review-notify.test.js` | receipt staging produces zero notifications |
 
 ## 16. Telemetry
 
-`read_tally` gains stages: `receipt_staged`, `receipt_junk`,
+`read_tally` gains stages: `receipt_staged`, `receipt_junk`, `item_sig_asked`, `item_sig_resolved`,
 `receipt_items_ok`, `receipt_items_degraded`, `receipt_joined_queue`,
 `receipt_joined_ledger`, `receipt_unmatched_retired`, `receipt_ambiguous`.
 Two numbers drive the two deferred decisions:
 
 - `receipt_unmatched_retired` high → revisit "never create" (RC2's data
   clause).
-- mixed-basket DCA outcomes (client-side count) → decide dominance-by-value
-  (RC9's data clause).
+- `item_sig_asked` / `item_sig_resolved` (Phase 2) — asked should fall toward
+  zero within days as `item_signatures` fills; if it does not, the head-noun
+  extractor is minting one-off keys.
 
 ## 17. Security invariants
 
@@ -533,6 +562,12 @@ Two numbers drive the two deferred decisions:
    holds, always filtered `link_id IS NULL` on the ledger side.
 6. The item classifier backstop receives item name strings only.
 7. Nothing here notifies; the pending badge is receipt-blind.
+8. `item_signatures` (0155) holds **type words and slots only** — never a
+   product title, never anything per-person; the device never reads it (it
+   reads the node sealed into the item). The model is sent a signature, the
+   provider and service type — never a title, an amount or a person.
+9. A person's item pick is stored per user, encrypted, in the lessons blob —
+   it never enters the shared table.
 
 ---
 
@@ -732,6 +767,60 @@ one thing that may place an item outside the transaction's branch.
   — asked should fall toward zero within days as the table fills; if it
   does not, the head-noun extractor is producing one-off keys. A detail
   screen opened before v600 shows the old inline pill until reload.
+
+### 2026-09-29 (afternoon → evening) — the first real run, and what it exposed · mailbox-sync v71 → v73 · SW v591 → v598 · no migration
+
+Four deploys in one afternoon, each fixing something the previous one's live
+run showed; consolidated here because they are one story.
+
+- **For product:** on the first real mailbox every receipt joined but showed
+  no items. Fixed in three steps, then the detail screen and the review card
+  were rebuilt to the app's own language, then item categories were made
+  honest.
+- **Under the hood:**
+  1. *v71 — the line shape* (`e73808c`, `cf85e82`). `mailtext` puts every table
+     cell on its own line, so a label's value is the NEXT line; the readers
+     had assumed same-line labels and matched nothing — every receipt fell to
+     the model, order-level only. Shopee's DELIVERY mail (the only one the
+     subject filter fetched) puts "1." in its own cell; the PAYMENT mail
+     ("Xác nhận thanh toán thành công") was never fetched at all. Readers
+     rewritten to scan label→next line and both ordinal shapes; Shopee filter
+     gains "thanh toán"; `fhPersonalSetReceipt(…, {upgrade:true})` lets a
+     richer blob replace a poorer one (never over items, never over
+     unreadable), and the join's 2-day young-receipt wait is skipped for an
+     upgrade. Recovery recipe: delete stale receipt rows + their tombstones,
+     nudge `mailbox_grants.last_synced_at` back (`POLL_DAYS` is 2).
+  2. *v72 — Apple has two layouts* (`c9316f0`). "Your **invoice** from Apple."
+     (11 of 19 in the corpus) uses labelled headers, the vendor as the section
+     line, NO `TOTAL` label and symbol-first prices — unreadable and never
+     fetched. One walk now covers both; the storefront names every item in
+     its section; Apple filter gains "invoice from Apple". Grab's "Total Paid"
+     sits above the figure (a bare `^TOTAL` read the word "Paid"); fare/promo
+     now ride as the math, numbers only. Verified on the whole corpus: Apple
+     19/19, Shopee 3/3, Grab 1/1, zero address leaks. Per-item categories
+     rendered for the first time.
+  3. *UI language pass* (`70df93c`, SW v596). Money through `fmt()`/`csvFmt`
+     (§6.1 forbids hand formatting); SVG glyph for the 🧾 (§2.6 forbids emoji
+     as icons); category as the neutral `.scv-cat` pill, brand colour
+     withdrawn from content; row scale 15/500 name, 13 muted meta, tabular
+     figure; device names ("Hien's MacBook Pro") dropped at render.
+  4. *v73 — Phase 1 then Phase 0* (`c04cc7b`, `7b0d642`, SW v598). Tree: the
+     sport subtree restructured (category-tree-spec §13.1, S1–S6) — the
+     `boi` keyword was filing "Bồi dưỡng nghiệp vụ" as sport, live. Items:
+     classified on the device from the tree's keywords (the
+     `merchant-concepts` POST — a merchant classifier answering a product
+     question, caching product titles for everyone — removed), items never
+     vote the transaction's node (DCA removed), items refine within the
+     transaction's branch only (§4). `mailbox-sync` v73 and
+     `merchant-concepts` v9 redeployed for the new tree; one stale
+     `merchant_concepts` row (`sports`) cleared.
+- **Spec sections updated:** §4 rewritten, §11.1 rewritten, §3.4, §7, §14,
+  §20.1; `category-tree-spec.md` §10.1, §13.1, §16.3; `email-reading-v2-spec`
+  §4 receipt row.
+- **Watch for:** rows imported under v70 keep their poor blob until a
+  receipt re-stages and upgrades it; the 30-day re-read covered Aug 30 →
+  now, older subscription receipts (Oct 2025 →) are readable but unfetched.
+  The orphan grant `a4b5b845` still halves this mailbox's Gmail quota.
 
 ### 2026-09-29 — L1–L5 built in one session · migration 0154 WRITTEN (not applied) · mailbox-sync change NOT deployed · client SW v590 built (not pushed)
 

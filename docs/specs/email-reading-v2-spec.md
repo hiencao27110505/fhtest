@@ -180,7 +180,7 @@ clear column is `row_kind` (§6). "New" means no server tier emits it today.
 | Loan block, new | `contract_tail`, `installment_no`, `installment_count`, `due_date`, `principal`, `interest`, `remaining_balance` |
 | Notice block, new | `statement_date`, `due_date`, `min_payment`, `closing_debt` |
 | Bill block, new (wave 2) | `biller`, `customer_code`, `period` |
-| Receipt block, new (wave 2) | `service_type`, `order_id`, `paid_with_tail`, `line_items[]` (names only) |
+| Receipt block (wave 2, built 2026-09-29) | `service_type`, `order_id`, `seller`, `items[]` ({name, qty, unit_price, line_discount, variant, node, sig}), `items_total`, `discount`, `shipping_fee`, `paid`, `paid_with_tail` — owned by `receipt-enrichment-spec.md` §9; `line_items` was the pre-build name and was never emitted |
 | Provenance, new | `v: 2`; `src`, a per-field map of `printed`, `template`, `model`, `heuristic`; `sender_kind`: `bank`, `wallet`, `gateway`, `broker`, `lender`, `biller`, `receipt`. `_transport` and `_sender_auth` unchanged |
 
 Rules of the contract:
