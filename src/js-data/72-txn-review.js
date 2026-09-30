@@ -212,8 +212,10 @@
     try { window.fhBackfillCountForget && window.fhBackfillCountForget(); } catch (e) {}
     try { var rows = await fhFetchStagedTxns(); window.fhStagedCount = (typeof window.fhStagedTotal === 'number') ? window.fhStagedTotal : (rows || []).length; window._fhStagedKnown = true; }
     catch (e) { window.fhStagedCount = 0; }
-    // Statement rows and unopened statement cards wait in the same queue, so the
-    // same badge counts them. Head-only, and never allowed to zero the email count.
+    // Statement rows and the statement cards the list actually shows wait in the
+    // same queue, so the same badge counts them (77 says what it counts and why
+    // the history backlog is not in it). Head-only, and never allowed to zero
+    // the email count.
     try { if (window.fhStmtPendingCount) window.fhStagedCount += (await window.fhStmtPendingCount()) || 0; } catch (e) {}
     try { if (typeof window.renderCashflowEmailCta === 'function') window.renderCashflowEmailCta(); } catch (e) {}
     // The Cá nhân tab carries the same CTA and the same badge; it has to hear
@@ -1267,6 +1269,11 @@
        never persisted, so the card defaults reflect where the screen was opened
        from and a previous open's choice cannot linger. */
     window.csvEntryScope = window.fhNormScope ? window.fhNormScope(ctx) : (ctx || null);
+    /* A statement step left half-finished (the modal closed on it) would keep
+       owning the review body — renderCsvReview stands aside while one is open.
+       A fresh open of the queue abandons it, so the hold can never outlive the
+       screen it was painted on. */
+    try { window.fhStmtFlowReset && window.fhStmtFlowReset(); } catch (e) {}
     _txrLoadShow(L('Đang tải giao dịch…', 'Loading transactions…'));
     var raw;
     try {

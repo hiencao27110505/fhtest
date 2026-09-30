@@ -3085,6 +3085,11 @@ function csvSureSkipAll(){
 
 function renderCsvReview(){
   var out=document.getElementById('csv-result'); if(!out || !csvReview) return;
+  /* A statement is open (77): its unlock / mapping / summary step owns the body.
+     Background renders — a personal _setState while the modal is on screen, the
+     reading watcher's rebuild, a badge refresh — would paint the queue over a
+     half-typed password. The flow calls this itself when it ends. */
+  if(window.fhStmtFlowActive && window.fhStmtFlowActive()) return;
   var r = csvReview;
   var unresolvedDup = r.dup.filter(function(d){return d.resolved===null;});
   var total = r.ready.length + r.groups.reduce(function(n,g){return n+g.items.length;},0)
@@ -3936,7 +3941,31 @@ function csvToolOpen(which){
   csvToolSheet = which; csvEditRow = null;
   renderCsvReview();
 }
-function csvToolClose(){ csvToolSheet = null; csvBulkArmed = false; renderCsvReview(); }
+/* Clear the drawer WITHOUT rendering. A statement step (77) paints into
+   #csv-result, which sits UNDER this sheet's scrim (z 20) — a drawer left open
+   over it swallows every tap, the password field's included. It cannot render
+   its way out either: a render repaints the queue over the step it just
+   painted. So the takeover hides, it does not close. */
+function csvToolSheetHide(){
+  csvToolSheet = null; csvEditRow = null; csvBulkArmed = false;
+  var m = document.getElementById('csv-toolsheet'); if(m) m.innerHTML = '';
+}
+function csvToolClose(){ csvToolSheetHide(); renderCsvReview(); }
+
+/* A statement step owns the review body (77-statement-capture.js): opening one
+   from "Sao kê cũ" used to paint the unlock behind the still-open drawer, which
+   is exactly as usable as it sounds. Everything the queue's chrome would do
+   from outside the body is hushed for the duration — the drawer and the row
+   sheet (both overlay it), the tools header, and Import, which would otherwise
+   promote the queue behind the step. renderCsvReview restores all of it the
+   moment the flow ends. */
+function csvStepTakeover(){
+  csvToolSheetHide();
+  var rs = document.getElementById('csv-rowsheet'); if(rs) rs.innerHTML = '';
+  var head = document.getElementById('txh'); if(head) head.innerHTML = '';
+  var save = document.getElementById('csv-save');
+  if(save){ save.disabled = true; save.textContent = L('Nhập','Import'); }
+}
 
 /* ---- the header: two named buttons ---- */
 function csvTxrHeadSync(){

@@ -17393,6 +17393,11 @@ function csvSureSkipAll(){
 
 function renderCsvReview(){
   var out=document.getElementById('csv-result'); if(!out || !csvReview) return;
+  /* A statement is open (77): its unlock / mapping / summary step owns the body.
+     Background renders — a personal _setState while the modal is on screen, the
+     reading watcher's rebuild, a badge refresh — would paint the queue over a
+     half-typed password. The flow calls this itself when it ends. */
+  if(window.fhStmtFlowActive && window.fhStmtFlowActive()) return;
   var r = csvReview;
   var unresolvedDup = r.dup.filter(function(d){return d.resolved===null;});
   var total = r.ready.length + r.groups.reduce(function(n,g){return n+g.items.length;},0)
@@ -18244,7 +18249,31 @@ function csvToolOpen(which){
   csvToolSheet = which; csvEditRow = null;
   renderCsvReview();
 }
-function csvToolClose(){ csvToolSheet = null; csvBulkArmed = false; renderCsvReview(); }
+/* Clear the drawer WITHOUT rendering. A statement step (77) paints into
+   #csv-result, which sits UNDER this sheet's scrim (z 20) — a drawer left open
+   over it swallows every tap, the password field's included. It cannot render
+   its way out either: a render repaints the queue over the step it just
+   painted. So the takeover hides, it does not close. */
+function csvToolSheetHide(){
+  csvToolSheet = null; csvEditRow = null; csvBulkArmed = false;
+  var m = document.getElementById('csv-toolsheet'); if(m) m.innerHTML = '';
+}
+function csvToolClose(){ csvToolSheetHide(); renderCsvReview(); }
+
+/* A statement step owns the review body (77-statement-capture.js): opening one
+   from "Sao kê cũ" used to paint the unlock behind the still-open drawer, which
+   is exactly as usable as it sounds. Everything the queue's chrome would do
+   from outside the body is hushed for the duration — the drawer and the row
+   sheet (both overlay it), the tools header, and Import, which would otherwise
+   promote the queue behind the step. renderCsvReview restores all of it the
+   moment the flow ends. */
+function csvStepTakeover(){
+  csvToolSheetHide();
+  var rs = document.getElementById('csv-rowsheet'); if(rs) rs.innerHTML = '';
+  var head = document.getElementById('txh'); if(head) head.innerHTML = '';
+  var save = document.getElementById('csv-save');
+  if(save){ save.disabled = true; save.textContent = L('Nhập','Import'); }
+}
 
 /* ---- the header: two named buttons ---- */
 function csvTxrHeadSync(){
@@ -26825,7 +26854,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v603';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v604';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -40678,8 +40707,10 @@ window.classifyAmount = classifyAmount;
     try { window.fhBackfillCountForget && window.fhBackfillCountForget(); } catch (e) {}
     try { var rows = await fhFetchStagedTxns(); window.fhStagedCount = (typeof window.fhStagedTotal === 'number') ? window.fhStagedTotal : (rows || []).length; window._fhStagedKnown = true; }
     catch (e) { window.fhStagedCount = 0; }
-    // Statement rows and unopened statement cards wait in the same queue, so the
-    // same badge counts them. Head-only, and never allowed to zero the email count.
+    // Statement rows and the statement cards the list actually shows wait in the
+    // same queue, so the same badge counts them (77 says what it counts and why
+    // the history backlog is not in it). Head-only, and never allowed to zero
+    // the email count.
     try { if (window.fhStmtPendingCount) window.fhStagedCount += (await window.fhStmtPendingCount()) || 0; } catch (e) {}
     try { if (typeof window.renderCashflowEmailCta === 'function') window.renderCashflowEmailCta(); } catch (e) {}
     // The Cá nhân tab carries the same CTA and the same badge; it has to hear
@@ -41733,6 +41764,11 @@ window.classifyAmount = classifyAmount;
        never persisted, so the card defaults reflect where the screen was opened
        from and a previous open's choice cannot linger. */
     window.csvEntryScope = window.fhNormScope ? window.fhNormScope(ctx) : (ctx || null);
+    /* A statement step left half-finished (the modal closed on it) would keep
+       owning the review body — renderCsvReview stands aside while one is open.
+       A fresh open of the queue abandons it, so the hold can never outlive the
+       screen it was painted on. */
+    try { window.fhStmtFlowReset && window.fhStmtFlowReset(); } catch (e) {}
     _txrLoadShow(L('Đang tải giao dịch…', 'Loading transactions…'));
     var raw;
     try {
@@ -47056,13 +47092,24 @@ window.classifyAmount = classifyAmount;
       return out;
     };
 
-    /* How many statement things are waiting: every row plus every locked card
-       (decision S15: the badge counts everything). Head-only, no decrypt. */
+    /* How many statement things are waiting: every parsed row, plus every locked
+       card THE REVIEW BODY ACTUALLY SHOWS. Head-only, no decrypt.
+
+       The backlog is excluded on purpose. Since the 2026-09-24 declutter, a
+       card found while reading history (backfill) renders only inside the
+       toolbox's "Sao kê cũ" drawer, never as a card in the list — so counting
+       it here made the badge promise work the screen then refused to show: one
+       real mailbox read "25 khoản đang chờ" over a queue of two cards and 23
+       invisible files. The badge counts what the list presents; the backlog
+       carries its own labelled count on the toolbox button, which is the honest
+       place for it. (S15 is about statement ROWS — "the badge counts every row"
+       — and is kept verbatim; it never spoke about unopened files.) */
     window.fhStmtPendingCount = async function () {
       if (!window.sb || !_stmUid()) return 0;
       try {
         const a = await window.sb.from('statement_rows').select('id', { count: 'exact', head: true });
-        const b = await window.sb.from('statement_files').select('id', { count: 'exact', head: true }).eq('status', 'pending');
+        const b = await window.sb.from('statement_files').select('id', { count: 'exact', head: true })
+          .eq('status', 'pending').eq('backfill', false);
         return Math.max(0, (a.count || 0) - _stmRetGet().length) + (b.count || 0);
       } catch (e) { return 0; }
     };
@@ -47213,7 +47260,21 @@ window.classifyAmount = classifyAmount;
        statement being opened. */
     let S = null;
     const _stmHost = () => document.getElementById('csv-result');
-    function _stmPaint(inner) { const h = _stmHost(); if (h) h.innerHTML = '<div class="csv-unlock stm-flow">' + inner + '</div>'; }
+    /* Every step of the flow paints through here, so the takeover belongs here
+       too: the toolbox drawer this statement was very likely opened FROM ("Sao
+       kê cũ" is the only door to a backlog card) lays a scrim over this very
+       element, and a scrim eats the password field's taps. 56's csvStepTakeover
+       hides the drawer, the row sheet, the header and Import in one call; its
+       counterpart is renderCsvReview, which restores them once S is null. */
+    function _stmPaint(inner) {
+      try { window.csvStepTakeover && window.csvStepTakeover(); } catch (e) {}
+      const h = _stmHost(); if (h) h.innerHTML = '<div class="csv-unlock stm-flow">' + inner + '</div>';
+    }
+    /* The one predicate 56 asks before repainting the review body. */
+    window.fhStmtFlowActive = () => !!S;
+    /* A fresh open of the queue abandons a half-finished step (72 calls this), so
+       a flow left behind by a closed modal can never hold the body hostage. */
+    window.fhStmtFlowReset = function () { S = null; };
     function _stmHead(title, sub) { return '<div class="csv-unlock-title">' + _esc(title) + '</div>' + (sub ? '<div class="csv-unlock-sub">' + _esc(sub) + '</div>' : ''); }
     function _stmBusyLine(txt) { return '<div class="stm-wait"><span class="stm-spin" aria-hidden="true"></span>' + _esc(txt) + '</div>'; }
     function _stmBackBtn() { return '<button type="button" class="csv-linkbtn csv-unlock-skip" onclick="fhStmtCancel()">' + _esc(L('Để sau', 'Not now')) + '</button>'; }

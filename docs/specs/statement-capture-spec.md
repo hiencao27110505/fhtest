@@ -90,6 +90,12 @@ The card has two verbs: **Mở sao kê**, and ✕ (arm-then-confirm, gone for go
 
 ### 3.3 Unlock
 
+Each step below paints into the review's own body, and **takes it**: the toolbox
+drawer, the row sheet, the tools header and Import all stand down until the step
+ends (decision S29). They have to — a backlog statement is reached only through
+the "Sao kê cũ" drawer, whose scrim lies over the very element the password field
+is painted into.
+
 One path for every statement:
 
 1. Tap **Mở sao kê**. The device downloads the sealed file and opens the seal with
@@ -588,6 +594,8 @@ Design interview, 2026-09-18 → 19.
 | S25 | A one-time, targeted history re-scan on v5 acceptance, in its own rate-limited lane. |
 | S26 | Own push wording, "Có sao kê mới chờ bạn mở", carrying nothing. |
 | S27 | Everyone on the mailbox allowlist, no separate flag. |
+| S28 | **The badge counts what the LIST shows** (2026-09-30). S15 is about statement rows and is unchanged — every parsed row is counted. What is no longer counted is an unopened **backlog** file: since the 2026-09-24 declutter those render only inside the toolbox's "Sao kê cũ" drawer, never as a card, so counting them made the badge name work the screen then refused to show (a real mailbox: "25 khoản đang chờ" over two cards and 23 invisible files). A FRESH pending file is still counted — it is a card in the body. The backlog keeps its own labelled count on the toolbox button, which says what it is. |
+| S29 | **A statement step owns the review body** (2026-09-30). The unlock, mapping and summary steps paint into `#csv-result`, which every overlay in that modal covers — and the drawer is the only door to a backlog card, so opening one painted the password field under its own scrim. Every painted step now hushes the chrome that overlays or acts on the queue behind it (drawer, row sheet, tools header, Import), and `renderCsvReview` stands aside while a step is open, so a background repaint cannot land on a half-typed password. Leaving the step, committing, or reopening the queue hands the body back. |
 
 ## 17. Related
 

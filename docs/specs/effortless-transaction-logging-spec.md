@@ -1898,6 +1898,35 @@ as — or the same day as — the deploy. A deploy announced only in
 
 ## 28. Releases (newest first)
 
+### 2026-09-30 (later) — the badge stops counting what the list will not show, and a statement step can be typed into · client only, SW v604 · no migration, no deploy
+
+- **For product:** two faults on one real queue. After importing everything, the
+  Cá nhân tab still said transactions were waiting — it was counting 23 statement
+  files found while reading history, which live in the toolbox's "Sao kê cũ"
+  drawer and are never cards in the list. The badge now counts only what the list
+  presents; the backlog keeps its own count on the toolbox button, labelled as
+  what it is. And opening one of those statements was impossible: the unlock step
+  painted *underneath* the drawer it was opened from, so the password field could
+  be seen and not touched. A statement step now takes the screen — the drawer, the
+  row sheet, the tools header and Import all stand down while it is open, and a
+  background repaint can no longer land on a half-typed password.
+- **Under the hood:** `fhStmtPendingCount` (77) adds `.eq('backfill', false)` to
+  its pending-files count; rows are counted in full as before (S15). New
+  `csvStepTakeover` / `csvToolSheetHide` in 56 (hide the drawer WITHOUT a render —
+  a render would repaint the queue over the step it just painted);
+  `renderCsvReview` returns early while `window.fhStmtFlowActive()`; `_stmPaint`
+  (77) calls the takeover, so every step of the flow is covered, not just the
+  entry; `fhStmtFlowReset` from `fhTxnReviewSheet` so a step orphaned by a closed
+  modal cannot hold the body. Guard: `tools/statement-step-takeover.test.js` (17
+  checks) runs the real `renderCsvReview` both ways and drives the real
+  `fhStmtOpen` through a failing download onto a fake drawer.
+- **Spec sections updated:** `statement-capture-spec.md` §3.3 and decisions
+  S28–S29 (S15 untouched: it was always about rows).
+- **Watch for:** a mailbox whose only pending work is backlog statements now shows
+  a zero badge; the review still opens, and the backlog is on the toolbox button.
+  If that turns out to be too quiet, the answer is a body line that opens the
+  drawer, not a number that names invisible cards.
+
 ### 2026-09-23 (later) — the provider half of an account's identity is a registry KEY · mailbox-sync v63, mailbox-dryrun v13 · SW v574 · migrations 0150–0151 APPLIED
 
 - **For product:** the morning's fix stopped duplicates by teaching one

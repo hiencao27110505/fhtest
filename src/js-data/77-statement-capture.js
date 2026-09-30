@@ -242,13 +242,24 @@
       return out;
     };
 
-    /* How many statement things are waiting: every row plus every locked card
-       (decision S15: the badge counts everything). Head-only, no decrypt. */
+    /* How many statement things are waiting: every parsed row, plus every locked
+       card THE REVIEW BODY ACTUALLY SHOWS. Head-only, no decrypt.
+
+       The backlog is excluded on purpose. Since the 2026-09-24 declutter, a
+       card found while reading history (backfill) renders only inside the
+       toolbox's "Sao kê cũ" drawer, never as a card in the list — so counting
+       it here made the badge promise work the screen then refused to show: one
+       real mailbox read "25 khoản đang chờ" over a queue of two cards and 23
+       invisible files. The badge counts what the list presents; the backlog
+       carries its own labelled count on the toolbox button, which is the honest
+       place for it. (S15 is about statement ROWS — "the badge counts every row"
+       — and is kept verbatim; it never spoke about unopened files.) */
     window.fhStmtPendingCount = async function () {
       if (!window.sb || !_stmUid()) return 0;
       try {
         const a = await window.sb.from('statement_rows').select('id', { count: 'exact', head: true });
-        const b = await window.sb.from('statement_files').select('id', { count: 'exact', head: true }).eq('status', 'pending');
+        const b = await window.sb.from('statement_files').select('id', { count: 'exact', head: true })
+          .eq('status', 'pending').eq('backfill', false);
         return Math.max(0, (a.count || 0) - _stmRetGet().length) + (b.count || 0);
       } catch (e) { return 0; }
     };
@@ -399,7 +410,21 @@
        statement being opened. */
     let S = null;
     const _stmHost = () => document.getElementById('csv-result');
-    function _stmPaint(inner) { const h = _stmHost(); if (h) h.innerHTML = '<div class="csv-unlock stm-flow">' + inner + '</div>'; }
+    /* Every step of the flow paints through here, so the takeover belongs here
+       too: the toolbox drawer this statement was very likely opened FROM ("Sao
+       kê cũ" is the only door to a backlog card) lays a scrim over this very
+       element, and a scrim eats the password field's taps. 56's csvStepTakeover
+       hides the drawer, the row sheet, the header and Import in one call; its
+       counterpart is renderCsvReview, which restores them once S is null. */
+    function _stmPaint(inner) {
+      try { window.csvStepTakeover && window.csvStepTakeover(); } catch (e) {}
+      const h = _stmHost(); if (h) h.innerHTML = '<div class="csv-unlock stm-flow">' + inner + '</div>';
+    }
+    /* The one predicate 56 asks before repainting the review body. */
+    window.fhStmtFlowActive = () => !!S;
+    /* A fresh open of the queue abandons a half-finished step (72 calls this), so
+       a flow left behind by a closed modal can never hold the body hostage. */
+    window.fhStmtFlowReset = function () { S = null; };
     function _stmHead(title, sub) { return '<div class="csv-unlock-title">' + _esc(title) + '</div>' + (sub ? '<div class="csv-unlock-sub">' + _esc(sub) + '</div>' : ''); }
     function _stmBusyLine(txt) { return '<div class="stm-wait"><span class="stm-spin" aria-hidden="true"></span>' + _esc(txt) + '</div>'; }
     function _stmBackBtn() { return '<button type="button" class="csv-linkbtn csv-unlock-skip" onclick="fhStmtCancel()">' + _esc(L('Để sau', 'Not now')) + '</button>'; }

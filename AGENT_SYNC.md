@@ -143,6 +143,37 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-09-30 · Hien · the badge counted invisible sao kê, and a sao kê could not be typed into — FIXED · claiming SW `v604` · client only · no migration · no deploy.**
+  Both faults come from the 2026-09-24 declutter that moved backlog statements
+  off the review body into the toolbox drawer.
+  (1) `fhStmtPendingCount` (77) counted every pending `statement_files` row,
+  but `fhStmtCardsHTML` renders only `backfill = false` ones — so the badge
+  named work the list refuses to show. Live DB at the time: kaoheen@ had 2
+  pending txn rows and **23 pending files, all backfill**; the badge read 25
+  over a queue of two cards. The count now adds `.eq('backfill', false)`.
+  **S15 is untouched** — it is about statement ROWS ("the badge counts every
+  row"), and those are still counted in full; it never spoke about unopened
+  files. Recorded as S28 in `statement-capture-spec.md`.
+  (2) The drawer is the ONLY door to a backlog card, and `_stmPaint` paints the
+  unlock into `#csv-result` — under `.cts-scrim` (z 20). The password field was
+  visible, dimmed and untappable. It could not render its way out either: a
+  render repaints the queue over the step. New in 56: `csvToolSheetHide()`
+  (clears the drawer with NO render) and `csvStepTakeover()` (drawer + row sheet
+  + `#txh` + `#csv-save`); `renderCsvReview` now returns early while
+  `window.fhStmtFlowActive()`. 77 calls the takeover from `_stmPaint`, so every
+  step is covered; `fhStmtFlowReset()` from `fhTxnReviewSheet` (72) so a step
+  orphaned by a closed modal can never hold the body. Recorded as S29.
+  **Contract for other sessions: `renderCsvReview` is no longer unconditional.**
+  If you add a surface that must repaint while a statement step is open, it has
+  to paint itself, not call the review.
+  Files: `src/js-ui/56-csv-import-ui.js`, `src/js-data/77-statement-capture.js`,
+  `src/js-data/72-txn-review.js`, `sw.js`, `index.html` (built); new test
+  `tools/statement-step-takeover.test.js` (17 checks, runs the real
+  `renderCsvReview` both ways). 146 suites green
+  (`pipeline/direct-persist-contract` fails pre-existingly, no python venv).
+  Spec: `statement-capture-spec.md` §3.3 + S28/S29, umbrella Part 3 entry.
+  Not committed, not pushed. If you bump the SW next, start from v605.
+
 - **2026-09-30 (Hien's session) — DEPLOYED mailbox-sync v75 and push-send v24.
   A redeploy replaces whatever you deployed; here is exactly what changed.**
   Live before: mailbox-sync v74, push-send v23. I diffed both live bundles
