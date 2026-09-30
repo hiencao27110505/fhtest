@@ -161,7 +161,9 @@ The table above is the design. What shipped, in order, strongest first:
 *(Rewritten 2026-09-23: three rounds landed since the first version of this
 table — E12–E18 on 09-21, the E14a/E14b corrections on 09-21/22, and the v2
 reader (`email-reading-v2-spec.md`) on 09-22. Verified against `main` and the
-deployed `mailbox-sync` v62.)*
+deployed `mailbox-sync` v62. **Amended 2026-09-30** for receipts and the item
+ladder, the P series (§16.2) and the S series (§16.3); re-verified against
+`main` = SW v600 and `mailbox-sync` v74 / `merchant-concepts` v9.)*
 
 | Where | Order, strongest first |
 |---|---|
@@ -170,7 +172,8 @@ deployed `mailbox-sync` v62.)*
 | **Review, on device** (`57-csv-import-review.js`, `nodeSource`) | `pipeline` (the sealed node, dropped by `fhPipeNodeOk` when it rests on a keyword the tree has since retired, E16) → `history` (a ledger row with the same wording, **only when `fhNodeIsEvidence`**: a who-node, or a node the row's own label contradicts, is never evidence, E14b) → `learned` (`fhLessonNode`) → **`shape`** (`fhTransferShape`, 2026-09-29, `p2p-breakdown-spec.md` P6/P9: a TRANSFER node onto an expense row, E2's allowance, debits only; the sweep had asked this first since E2 and the review never had) → `keyword` (`fhNodeGuess({whatOnly})`, plus `p2p` kept in its old place) → `statement` (a fee line's words beat the MCC it inherited) → **`signal`** (the v2 signal's node, when the tiers above knew nothing) → `concept` (the legacy 8-concept lifted to its GROUP, never a leaf) → `label` (`fhNodeFromClaims`) → `who` (`fhWhoNode`: seller marks then person, LAST — E14a) |
 | **Review, the kind** (`fhKindFromSignal`, v2 rows only) | beside the node: lesson → signal + a thing the person owns (an owned card tail, an owned counterpart account — pre-fills it) → signal alone → the lending pass (stands down when a signal held, `_sigHold`) → direction. The free-text kind regexes (card-repayment wording, salary words, own-name transfer) now run **only for v1 rows** (`!_sig`) |
 | **Quick review** (`76-quick-review.js`) | same shape: sealed node (guarded) → lesson → `whatOnly` guess → `p2p` → concept hint → who. `counterparty_kind` outranks the old `p2p_transfer` description-blanking rule |
-| **Backfill, on device** (`28-tree-backfill.js`, cursor **v9**) | **transfer shape first** (`fhTransferShape`), then `fhNodeGuess({whatOnly})`, then `p2p`, then the label's coarse node, then the who-nodes. Rows a who-node displaced from a real category are repaired in the FIRST slice on launch, not in idle time (E14b) |
+| **Receipt join, on device** (`78-receipt-join.js`, `nodeSource: receipt`) | a receipt mail (a Grab ride, an Apple rental) that joins a bank row may replace the row's node with its own when that is DEEPER, never sideways. **Line items** get their own node through a separate ladder and may only REFINE inside the transaction's branch (`_rjInBranch`) — they never vote the transaction's node (Phase 0, 09-29). Worker `item-category.mjs`: tree keywords → learned signature (`item_signatures`, keyed by the product TYPE phrase `hn|<head noun>` or an Apple slot, migration 0155) → one batched model call per unseen signature. Device: the person's own item lesson (`fhLessonItemNode`) → sealed `items[].node` → `FH_TAX.itemSignature` keywords. `receipt-enrichment-spec.md` §11.1, §20 |
+| **Backfill, on device** (`28-tree-backfill.js`, cursor **v12** — v10 the sport subtree, v11 amounts in đồng, v12 apply-to-similar; on a personal row the counterparty is the payee, on a family row nobody, A15) | **transfer shape first** (`fhTransferShape`), then `fhNodeGuess({whatOnly})`, then `p2p`, then the label's coarse node, then the who-nodes. Rows a who-node displaced from a real category are repaired in the FIRST slice on launch, not in idle time (E14b) |
 
 Tiers 1 (shape statics) and 5 (rhythm) are not built as such — the v2 format
 store (`mail_formats`) is tier 1's landing place. Statement rows: `fhStructNode`
