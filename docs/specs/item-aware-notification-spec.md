@@ -10,15 +10,17 @@ the basket.
 Since 2026-09-29 merchant receipts are read, itemised and categorised. This spec
 spends that knowledge on the one surface the person sees without opening the app.
 
-> **Status, 2026-09-30. Phase 1 BUILT, not deployed.** Grown out of
+> **Status, 2026-09-30. Phase 1 LIVE.** Deployed the same day:
+> `mailbox-sync` **v75**, `push-send` **v24**, client SW **v603**. Grown out of
 > `research/notify-items-copy.html` proposal P3 and a design interview the same
 > day. What landed: ten item pools and three basket shapes in
 > `taxonomy/notify-lines.json` (generated into both runtimes), the run-scoped pair
 > index in `worker.mjs`, the `receipt_read` kind end to end, and the three tallies
 > of §12. SW **v603**. No migration. Tests: `pipeline/receipt-pairing.test.js` (17)
 > and the extended `tools/notify-lines.test.js` (40). §7 still stands: the same-run
-> premise has not been observed in production, and the edge functions are not
-> deployed. Phase 2 is the device half and is deliberately a later release.
+> premise has not been observed in production, so the feature is live but unproven
+> until one real order goes through. Phase 2 is the device half and is deliberately
+> a later release.
 
 > **How this relates to its siblings.** `receipt-enrichment-spec.md` owns receipts,
 > items and the branch rule; nothing about item categorisation changes here.

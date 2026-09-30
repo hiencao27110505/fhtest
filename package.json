@@ -10,6 +10,7 @@
     "taxonomy": "node tools/gen-taxonomy.js",
     "providers": "node tools/gen-providers.js",
     "notify-lines": "node tools/gen-notify-lines.js",
+    "notify-matrix": "node tools/gen-notify-matrix.js",
     "parse": "node tools/parse-check.js",
     "test": "node tools/run-tests.js",
     "check": "node build.js && git diff --exit-code -- index.html && echo 'index.html is in sync with src/'",
