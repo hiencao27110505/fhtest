@@ -333,7 +333,7 @@ function openTxns(scope){
   TXV.cgrp=(saved.cgrp==='week'||saved.cgrp==='month')?saved.cgrp:(saved.cgrp==='day'?'day':TXV.grp);
   txnSort=(saved.sort==='amount')?'amount':'date';
   _txInitFilters();
-  TXV.selMode=false; TXV.sel={};
+  TXV.selMode=false; TXV.sel={}; TXV._sig=null;              // a fresh open starts at the first chunk
   var selBtn=document.getElementById('txn-select'); if(selBtn) selBtn.textContent=L('Chọn','Select');
   var q=document.getElementById('txn-q'); if(q)q.value='';
   var _cl=document.getElementById('txn-clear'); if(_cl)_cl.style.display='none';
@@ -365,7 +365,8 @@ function txnRetryOlder(){
 // never be left in personal mode once the overlay is gone.
 function closeTxns(){
   document.getElementById('txn-overlay').classList.remove('on');
-  TXV.selMode=false; TXV.sel={};
+  clearTimeout(_txQTimer); _txQTimer=null;
+  TXV.selMode=false; TXV.sel={}; TXV._sig=null; TXV._segs=null; TXV._cur=null;
   var bar=document.getElementById('txn-bulkbar'); if(bar) bar.classList.remove('on');
   window.__txnScope='family'; _pTxnCtx=null;
 }
@@ -383,8 +384,11 @@ function refreshPersonalTxnOverlay(){
   (_pTxnCtx.acctDefs||[]).forEach(function(a){ TXV.accts[a.k]=(oldAccts[a.k]===0)?0:1; });
   renderTxnScreen(); if(typeof renderFinanceHero==='function') renderFinanceHero();
 }
-function onTxnQ(){ var v=(document.getElementById('txn-q').value||''); var c=document.getElementById('txn-clear'); if(c)c.style.display=v?'grid':'none'; renderTxnScreen(); }
-function txnClear(){ var q=document.getElementById('txn-q'); if(q){ q.value=''; q.focus(); } var c=document.getElementById('txn-clear'); if(c)c.style.display='none'; renderTxnScreen(); }
+/* Search re-renders once typing pauses, not on every keystroke. */
+var _txQTimer=null;
+function onTxnQ(){ var v=(document.getElementById('txn-q').value||''); var c=document.getElementById('txn-clear'); if(c)c.style.display=v?'grid':'none';
+  clearTimeout(_txQTimer); _txQTimer=setTimeout(function(){ _txQTimer=null; renderTxnScreen(); }, 150); }
+function txnClear(){ clearTimeout(_txQTimer); _txQTimer=null; var q=document.getElementById('txn-q'); if(q){ q.value=''; q.focus(); } var c=document.getElementById('txn-clear'); if(c)c.style.display='none'; renderTxnScreen(); }
 
 /* ── grouping keys, labels, cash-flow ─────────────────────────────────────── */
 /* Keys are built from LOCAL date parts — never toISOString (UTC shifts a
@@ -459,36 +463,92 @@ function renderTxnScreen(){
   var groups={}, order=[];
   list.forEach(function(t){ var k=_txGKey(t,TXV.grp); if(!groups[k]){ groups[k]=[]; order.push(k); } groups[k].push(t); });
   order.sort().reverse();
-  var html='';
-  window.__txnDateMode=(TXV.grp==='day')?'time':'date';
-  window.__txnSelMode=!!TXV.selMode;
-  window.__txnSel=TXV.sel||{};
-  window.__txnSelAny=!!Object.keys(TXV.sel||{}).length;
-  window.__txnSelElig=_txSelElig;
-  order.forEach(function(k){
+  /* Heads carry the net of the WHOLE group, computed here over every row, so a
+     group whose rows arrive in several chunks still heads with its true total. */
+  TXV._segs=order.map(function(k){
     var g=groups[k], net=0;
     g.forEach(function(t){ net+=_txNet(t); });
     g.sort(txnSort==='amount'
       ? function(a,b){ return Math.abs(b.amt||0)-Math.abs(a.amt||0); }
       : txNewestFirst);
-    html+='<div class="txn-mhead" id="txnh-'+k+'"><span>'+_txGLabel(k,TXV.grp)+'</span>'+_txNetHTML(net)+'</div>'
-      +'<div class="rows">'+g.map(txRow).join('')+'</div>';
+    return { head:'<div class="txn-mhead" id="txnh-'+k+'"><span>'+_txGLabel(k,TXV.grp)+'</span>'+_txNetHTML(net)+'</div>', rows:g };
   });
-  window.__txnDateMode=null;
-  window.__txnSelMode=false;                       // txRow is shared with the tab lists — never leak the mode
-  if(!list.length) html='<div class="mem-empty" style="margin:22px 16px"><div class="me-emoji">🔍</div><div class="me-t">'+L('Không tìm thấy','No results')+'</div><p>'+L('Thử từ khoá khác hoặc nới bộ lọc.','Try another keyword or loosen the filters.')+'</p></div>';
-  /* tail (personal): older-history state — loading spinner, the 6-month note,
-     or a retry line. Family holds full history and shows nothing here. */
-  if(personal){
-    var ost=(window.fhPersonalOlder||{}).state;
-    if(ost==='loading') html+='<div class="txn-tail"><span class="txn-tail-spin"></span>'+L('Đang mở thêm lịch sử…','Opening older history…')+'</div>';
-    else if(ost==='done') html+='<div class="txn-tailnote">'+L('Sổ chi tiết giữ 6 tháng gần nhất.','Details cover the last 6 months.')+'</div>';
-    else if(ost==='error') html+='<button type="button" class="txn-tailnote link" onclick="txnRetryOlder()">'+L('Chưa tải được lịch sử cũ · Thử lại','Older history didn’t load · Try again')+'</button>';
-  }
+  /* Progressive paint: a 6-month ledger is ~1000 rows / ~10k nodes, and
+     building all of it on every open, keystroke and chip tap is what made the
+     phone run hot. Only the first chunk is built; _txMore() appends the next as
+     the scroll nears the bottom. A re-render of the SAME view (a selection tap,
+     an edit refreshing the overlay) keeps as many rows as were already on
+     screen, so the reader's place survives it. */
+  var sig=[personal?'p':'f', q, TXV.grp, txnSort, JSON.stringify([TXV.kinds,TXV.srcs,TXV.accts,TXV.insts,TXV.cats,TXV.node])].join('|');
+  var want=(sig===TXV._sig)?Math.max(TX_CHUNK, TXV._shown||0):TX_CHUNK;
+  TXV._sig=sig; TXV._cur={ s:0, r:0 }; TXV._shown=0;
+  var html=list.length ? _txTake(want) : '<div class="mem-empty" style="margin:22px 16px"><div class="me-emoji">🔍</div><div class="me-t">'+L('Không tìm thấy','No results')+'</div><p>'+L('Thử từ khoá khác hoặc nới bộ lọc.','Try another keyword or loosen the filters.')+'</p></div>';
+  if(!_txHasMore()) html+=_txTailHTML();
   setHTML('txn-list', html);
+  _txMoreCheck();
   renderTxnStats(list);
   if(TXV.selMode) buildTxnCondChips(); else buildTxnToolChips();
   renderTxnBulkbar();
+}
+var TX_CHUNK=80;                                    // rows per progressive chunk
+/* Rows through txRow with the screen's modes set, then cleared: txRow is shared
+   with the tab lists, so the modes must never leak out of this call. */
+function _txRowsHTML(rows){
+  window.__txnDateMode=(TXV.grp==='day')?'time':'date';
+  window.__txnSelMode=!!TXV.selMode;
+  window.__txnSel=TXV.sel||{};
+  window.__txnSelAny=!!Object.keys(TXV.sel||{}).length;
+  window.__txnSelElig=_txSelElig;
+  var h=rows.map(txRow).join('');
+  window.__txnDateMode=null;
+  window.__txnSelMode=false;
+  return h;
+}
+function _txHasMore(){ var c=TXV._cur, s=TXV._segs||[]; return !!c && c.s<s.length; }
+/* Build up to n more rows from the cursor. A group already open on screen
+   (cursor mid-group) is returned separately as `cont` so the caller can pour
+   those rows into the existing .rows card instead of starting a second one. */
+function _txTakeParts(n){
+  var segs=TXV._segs||[], c=TXV._cur, cont='', html='', left=n;
+  while(left>0 && c.s<segs.length){
+    var sg=segs[c.s], part=sg.rows.slice(c.r, c.r+left), rh=_txRowsHTML(part);
+    if(c.r>0) cont+=rh; else html+=sg.head+'<div class="rows">'+rh+'</div>';
+    c.r+=part.length; left-=part.length; TXV._shown+=part.length;
+    if(c.r>=sg.rows.length){ c.s++; c.r=0; }
+  }
+  return { cont:cont, html:html };
+}
+function _txTake(n){ return _txTakeParts(n).html; }
+/* tail (personal): older-history state — loading spinner, the 6-month note,
+   or a retry line. Family holds full history and shows nothing here. Only
+   painted once the last chunk is on screen. */
+function _txTailHTML(){
+  if(!_txnPersonal()) return '';
+  var ost=(window.fhPersonalOlder||{}).state;
+  if(ost==='loading') return '<div class="txn-tail"><span class="txn-tail-spin"></span>'+L('Đang mở thêm lịch sử…','Opening older history…')+'</div>';
+  if(ost==='done') return '<div class="txn-tailnote">'+L('Sổ chi tiết giữ 6 tháng gần nhất.','Details cover the last 6 months.')+'</div>';
+  if(ost==='error') return '<button type="button" class="txn-tailnote link" onclick="txnRetryOlder()">'+L('Chưa tải được lịch sử cũ · Thử lại','Older history didn’t load · Try again')+'</button>';
+  return '';
+}
+function _txMore(){
+  if(!_txHasMore()) return;
+  var box=document.getElementById('txn-list'); if(!box) return;
+  var p=_txTakeParts(TX_CHUNK);
+  if(p.cont){ var cards=box.querySelectorAll(':scope > .rows'), last=cards[cards.length-1]; if(last) last.insertAdjacentHTML('beforeend', p.cont); }
+  box.insertAdjacentHTML('beforeend', p.html+(_txHasMore()?'':_txTailHTML()));
+}
+/* Append while the bottom is within ~2 screens. Runs on scroll (passive; the
+   check is three number reads, and nothing is built unless rows are pending)
+   and after every render, so a short first chunk that leaves the screen
+   unfilled still pulls the next one. */
+function _txMoreCheck(){
+  var sc=document.getElementById('txn-scroll'); if(!sc) return;
+  if(!sc._txMoreBound){
+    sc._txMoreBound=1;
+    sc.addEventListener('scroll', function(){ if(_txHasMore()) _txMoreCheck(); }, { passive:true });
+  }
+  var guard=0;
+  while(_txHasMore() && guard++<50 && sc.scrollTop+sc.clientHeight > sc.scrollHeight-2*(sc.clientHeight||800)) _txMore();
 }
 /* which rows a selection can hold (Q14): personal = every private row — a
    pair selects as ONE and deletes as a pair; only mirror rows refuse (machine-
@@ -502,8 +562,9 @@ function _txSelElig(t){
 /* the selection, resolved to raw personal rows (2-month window + old cache) */
 function _txSelRaw(ids){
   var P=(typeof fhPersonalData==='function')?fhPersonalData():null;
-  var all=P?((P.txns||[]).concat(P.txnsOld||[])):[];
-  return ids.map(function(id){ return all.find(function(x){ return String(x.id)===id; }); }).filter(Boolean);
+  var all=P?((P.txns||[]).concat(P.txnsOld||[])):[], byId={};
+  all.forEach(function(x){ byId[String(x.id)]=x; });           // "select all shown" = 1000 ids; a find() per id was n²
+  return ids.map(function(id){ return byId[id]; }).filter(Boolean);
 }
 /* ── stat card: Vào · Ra · Ròng of the displayed rows + the .pst bar strip
    with its OWN zoom (TXV.cgrp) — list by day, chart by month is fine. Bars
