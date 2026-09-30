@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Thông báo: ba bề mặt chốt để build</title>
+<style>
+:root{
+  --brand:#2E9E6B; --brand-ink:#1F7E52; --brand-2:#5FD3A0;
+  --brand-tint:#e9f7f0; --brand-glow:rgba(46,158,107,.32);
+  --grad-brand:linear-gradient(135deg,#34B87A,#5FC98D);
+  --danger:#E0322F; --danger-tint:#fdecef;
+  --good:#1a9d5f; --good-tint:#e7f5ee;
+  --amber:#B8730B; --amber-tint:#fbefda;
+  --ink:#191022; --ink-2:#3a2f45; --muted:#6b6576; --muted-soft:#78727f;
+  --canvas:#f4f1f6; --pearl:#fbfafc; --surface:#f9f7f8; --white:#fff;
+  --hairline:#e9e4ee; --divider:#f1edf4; --chev:#cfc8d6;
+  --fill-neutral:rgba(138,132,148,.14);
+  --shadow-card:0 1px 3px rgba(25,16,34,.05),0 8px 24px rgba(25,16,34,.04);
+  --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+body{font-family:var(--text);background:#e7e2ec;color:var(--ink)}
+.num{font-family:var(--disp);font-variant-numeric:tabular-nums}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.87em;color:var(--ink-2)}
+
+.wrap{max-width:1500px;margin:0 auto;padding:46px 26px 100px}
+.hero{max-width:900px}
+.hero .eyebrow{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--brand-ink)}
+.hero h1{font-family:var(--disp);font-size:30px;font-weight:700;letter-spacing:-.8px;margin-top:10px}
+.hero p{margin-top:12px;font-size:15.5px;color:var(--muted);line-height:1.6}
+.hero p b{color:var(--ink-2);font-weight:600}
+
+.panel{max-width:900px;margin-top:28px;background:var(--white);border-radius:20px;padding:24px 26px;box-shadow:var(--shadow-card)}
+.panel h2{font-family:var(--disp);font-size:20px;font-weight:700;letter-spacing:-.4px}
+.panel > p{margin-top:9px;font-size:14.5px;color:var(--muted);line-height:1.55}
+table{width:100%;border-collapse:collapse;margin-top:16px;font-size:13.5px}
+th,td{text-align:left;padding:11px 12px;border-bottom:1px solid var(--divider);vertical-align:top;line-height:1.5}
+th{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+td.was{color:var(--muted);text-decoration:line-through;text-decoration-color:var(--chev)}
+td.now{color:var(--ink);font-weight:600}
+td.why{color:var(--muted);font-size:13px}
+.rules{margin-top:16px;display:grid;gap:13px}
+.rule{border-left:2px solid var(--brand);padding:1px 0 1px 13px}
+.rule b{display:block;font-size:14px;font-weight:650}
+.rule span{display:block;margin-top:3px;font-size:13.5px;color:var(--muted);line-height:1.5}
+
+.grid{margin-top:46px;display:grid;grid-template-columns:repeat(auto-fill,minmax(430px,1fr));gap:56px 36px}
+@media(max-width:480px){.grid{grid-template-columns:1fr}.wrap{padding:30px 14px 70px}.panel{padding:20px 18px}}
+.cap{margin:20px auto 0;max-width:430px}
+.cap .tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.05em;color:#fff;background:var(--brand);border-radius:5px;padding:3px 7px;margin-right:9px;vertical-align:2px}
+.cap b.ttl{font-size:16.5px;font-weight:700}
+.cap p{margin-top:9px;font-size:13.5px;color:var(--muted);line-height:1.55}
+.cap p b{color:var(--ink-2);font-weight:650}
+.cap .note{margin-top:11px;border-top:1px solid var(--divider);padding-top:9px;font-size:12.5px;color:var(--muted-soft);line-height:1.5}
+
+/* phone */
+.phone{width:100%;max-width:402px;height:844px;margin:0 auto;background:var(--white);overflow:hidden;display:flex;flex-direction:column;border-radius:46px;border:11px solid #05030a;box-shadow:0 30px 60px rgba(10,5,20,.28);position:relative}
+.scr{flex:1;overflow:hidden;background:var(--canvas);position:relative;display:flex;flex-direction:column}
+.stat{display:flex;justify-content:space-between;align-items:center;padding:14px 24px 0;font-size:14px;font-weight:600;flex:none}
+.stat .r{display:flex;gap:5px;align-items:center;opacity:.75}
+.stat .r i{display:block;width:16px;height:10px;border-radius:2px;background:var(--ink)}
+.hdr{padding:12px 20px 2px;flex:none}
+.h-title{font-family:var(--disp);font-size:34px;font-weight:700;letter-spacing:-1px}
+.hdr.row{display:flex;align-items:flex-end;justify-content:space-between}
+.avatar{width:34px;height:34px;border-radius:50%;background:var(--grad-brand);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:14px;margin-bottom:5px}
+
+.stat-card{margin:14px 16px 0;background:var(--white);border-radius:22px;padding:18px 18px 16px;box-shadow:var(--shadow-card);flex:none}
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--muted)}
+.fh-spent{font-family:var(--disp);font-size:34px;font-weight:700;letter-spacing:-1px;margin-top:5px}
+.subline{font-size:14px;color:var(--muted);margin-top:4px}
+
+.list{margin:18px 16px 0;background:var(--white);border-radius:18px;box-shadow:var(--shadow-card);overflow:hidden;flex:none}
+.r{display:flex;align-items:center;gap:13px;padding:14px 16px;border-bottom:1px solid var(--divider)}
+.r:last-child{border-bottom:0}
+.r .ic{width:30px;height:30px;border-radius:9px;background:var(--fill-neutral);display:flex;align-items:center;justify-content:center;font-size:15px;flex:none}
+.r .mid{flex:1;min-width:0}
+.r-t{font-size:16px;font-weight:500;letter-spacing:-.01em}
+.r-s{font-size:13.5px;color:var(--muted);margin-top:1px}
+.r .end{display:flex;align-items:center;gap:8px;flex:none;font-size:15px;color:var(--muted);font-family:var(--disp);font-weight:500}
+.r .chev{color:var(--chev);font-size:17px;font-weight:400}
+.dot{width:7px;height:7px;border-radius:50%;flex:none}
+.dot.off{background:var(--amber)}
+.dot.on{background:var(--good)}
+.pill{font-size:12px;font-weight:700;border-radius:9999px;padding:2px 8px;background:var(--danger);color:#fff}
+
+.tabbar{margin-top:auto;flex:none;background:rgba(255,255,255,.94);backdrop-filter:blur(14px);border-top:1px solid var(--divider);display:flex;justify-content:space-around;padding:10px 8px 24px}
+.tab{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10.5px;font-weight:500;color:var(--muted-soft);width:78px}
+.tab .ic{font-size:19px;line-height:1;filter:grayscale(1);opacity:.45}
+.tab.on{color:var(--brand-ink);font-weight:600}
+.tab.on .ic{filter:none;opacity:1}
+
+/* sheet */
+.scrim{position:absolute;inset:0;background:rgba(20,12,28,.4);z-index:5}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:6;background:var(--white);border-radius:26px 26px 0 0;box-shadow:0 -12px 44px rgba(25,16,34,.2);padding:0 20px 24px}
+.grab{width:40px;height:5px;border-radius:99px;background:var(--hairline);margin:9px auto 0}
+.sheet-h{font-family:var(--disp);font-size:25px;font-weight:700;letter-spacing:-.7px;text-align:center;margin-top:20px;line-height:1.24}
+.sheet-sub{font-size:15px;color:var(--muted);line-height:1.5;text-align:center;margin-top:10px;padding:0 6px}
+.cta{display:block;width:100%;margin-top:22px;padding:17px;border:0;border-radius:9999px;background:var(--grad-brand);color:#fff;font-family:var(--text);font-size:17px;font-weight:700;box-shadow:0 8px 22px var(--brand-glow);text-align:center;letter-spacing:-.01em}
+.btn-line{display:block;width:100%;margin-top:10px;padding:15px;border-radius:9999px;border:1.5px solid var(--brand);background:var(--white);color:var(--brand-ink);font-size:16px;font-weight:600;text-align:center}
+.ob-textlink{display:block;width:100%;margin-top:14px;padding:6px;font-size:16px;font-weight:500;color:var(--brand-ink);text-align:center}
+.tiny{font-size:12.5px;color:var(--muted-soft);text-align:center;margin-top:14px;line-height:1.45}
+
+/* notification preview */
+.prev{margin-top:22px;padding:2px 2px 4px}
+.noti{background:var(--white);border-radius:17px;padding:11px 13px;color:var(--ink);
+  box-shadow:0 1px 2px rgba(25,16,34,.06),0 10px 24px rgba(25,16,34,.10),0 22px 48px rgba(25,16,34,.07)}
+.noti + .noti{margin-top:10px}
+.noti .row{display:flex;gap:10px;align-items:flex-start}
+.appic{width:34px;height:34px;border-radius:9px;flex:none;background:var(--grad-brand);display:flex;align-items:center;justify-content:center;box-shadow:inset 0 0 0 .5px rgba(255,255,255,.4)}
+.appic svg{width:18px;height:18px}
+.noti .tx{flex:1;min-width:0}
+.noti .head{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.noti .ttl{font-size:15px;font-weight:600}
+.noti .when{font-size:12px;color:var(--muted-soft);flex:none}
+.noti .bd{font-size:14.5px;color:var(--ink-2);margin-top:1px;line-height:1.3}
+.noti.dim{transform:scale(.973);transform-origin:top center;
+  box-shadow:0 1px 2px rgba(25,16,34,.04),0 6px 16px rgba(25,16,34,.07),0 14px 30px rgba(25,16,34,.05)}
+.noti.dim .ttl,.noti.dim .bd{color:var(--muted)}
+
+/* done card */
+.done{margin:16px 16px 0;background:var(--white);border-radius:22px;padding:26px 20px 20px;box-shadow:var(--shadow-card);flex:none;text-align:center}
+.done .ck{width:54px;height:54px;border-radius:50%;background:var(--good-tint);color:var(--good);margin:0 auto;display:flex;align-items:center;justify-content:center}
+.done .ck svg{width:26px;height:26px}
+.done h2{font-family:var(--disp);font-size:25px;font-weight:700;letter-spacing:-.7px;margin-top:15px}
+.done p{font-size:15px;color:var(--muted);margin-top:8px;line-height:1.5}
+.hr{height:1px;background:var(--divider);margin:20px -20px 0}
+.ask{padding-top:18px;text-align:left}
+.ask b{font-size:17px;font-weight:650;letter-spacing:-.01em;display:block}
+.ask p{font-size:14.5px;color:var(--muted);margin-top:5px;line-height:1.5}
+
+/* states strip */
+.states{margin-top:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
+.st{background:var(--canvas);border-radius:16px;padding:12px}
+.st .lbl{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:9px}
+.st .list{margin:0;box-shadow:none;border:1px solid var(--hairline)}
+.st .why{font-size:12.5px;color:var(--muted);margin-top:9px;line-height:1.45}
+footer{max-width:900px;margin:56px auto 0;font-size:12.5px;color:var(--muted-soft);border-top:1px solid #d9d3e0;padding-top:18px;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="hero">
+  <div class="eyebrow">Story 1 · chốt để build · 30/09/2026</div>
+  <h1>Thông báo: ba bề mặt, một đường đi</h1>
+  <p>Ba phương án đã chốt từ bản tám phương án: <b>06</b> cái công tắc tìm thấy được, <b>04</b> lời mời có bản xem trước thật, <b>03</b> lời mời ngay sau khi ghi sổ. Bản này là bản dựng, không phải bản so sánh: câu chữ đã siết lại, thành phần đã theo đúng DESIGN.md.</p>
+</div>
+
+<div class="panel">
+  <h2>Câu chữ: đã bỏ gì, và vì sao</h2>
+  <p>Nguyên tắc áp dụng: nói việc người dùng nhận được, không nói cơ chế. Bỏ câu giải thích thừa. Không gạch dài, không mũi tên, không emoji trong nút.</p>
+  <table>
+    <tr><th>Chỗ</th><th>Bản cũ</th><th>Bản mới</th><th>Lý do</th></tr>
+    <tr>
+      <td><b>Sheet, tiêu đề</b></td>
+      <td class="was">Đọc xong rồi. Lần sau thì bạn khỏi cần chờ.</td>
+      <td class="now">Lần sau bạn biết ngay</td>
+      <td class="why">Hai câu thành một mệnh đề. Bỏ phần kể lại việc vừa xong, người dùng đang nhìn thấy nó.</td>
+    </tr>
+    <tr>
+      <td><b>Sheet, dòng phụ</b></td>
+      <td class="was">Mỗi khi ngân hàng gửi email về một khoản mới, Earthy đọc và xếp sẵn vào hàng chờ. Bật thông báo để biết ngay lúc đó, kể cả khi app đang đóng.</td>
+      <td class="now">Có khoản mới là Earthy nhắc bạn, kể cả khi app đang đóng.</td>
+      <td class="why">Cắt 26 từ còn 13. Phần cơ chế đọc email đã nằm ở màn trước, không cần kể lại.</td>
+    </tr>
+    <tr>
+      <td><b>Nút chính</b></td>
+      <td class="was">Bật thông báo 🔔</td>
+      <td class="now">Bật thông báo</td>
+      <td class="why">Nút không đeo emoji. Chuông không thêm nghĩa nào mà chữ chưa nói.</td>
+    </tr>
+    <tr>
+      <td><b>Nút phụ</b></td>
+      <td class="was">Không cần, đừng hỏi lại</td>
+      <td class="now">Để sau</td>
+      <td class="why">“Đừng hỏi lại” là một lời hứa hệ thống, không phải một nhãn nút. Việc chặn hỏi lại chuyển vào luật bên dưới.</td>
+    </tr>
+    <tr>
+      <td><b>Hàng cài đặt</b></td>
+      <td class="was">Nhắc khi có khoản mới · Một lời nhắc ngắn mỗi khi email ngân hàng thành khoản chờ duyệt</td>
+      <td class="now">Nhắc khi có khoản mới · Đang tắt</td>
+      <td class="why">Hàng danh sách nói trạng thái, không dạy tính năng. Phần giải thích đã có trong sheet.</td>
+    </tr>
+    <tr>
+      <td><b>Sau khi ghi sổ</b></td>
+      <td class="was">Sổ của bạn có 806 khoản · Một năm chi tiêu vừa vào sổ. Từ giờ mỗi email ngân hàng mới sẽ tự thành một khoản chờ bạn duyệt.</td>
+      <td class="now">806 khoản đã vào sổ</td>
+      <td class="why">Con số tự nói. Câu sau là văn quảng cáo cho một việc vừa xảy ra trước mắt.</td>
+    </tr>
+  </table>
+  <div class="rules">
+    <div class="rule"><b>Luật hỏi lại, thay cho khoá một chiều hiện tại</b><span>Thay <code>fh-push-nudged:&lt;id&gt;</code> bằng một bản ghi có số lần đã hỏi và mốc lần cuối. Tối đa ba lần, cách nhau ít nhất 14 ngày. Ghi mốc khi sheet thật sự mở, không ghi khi bị hoãn vì scrim đang bận.</span></div>
+    <div class="rule"><b>Một màn một lời mời</b><span>Bề mặt 03 và 04 không bao giờ cùng xuất hiện trong một phiên. Nếu 03 đã hỏi, 04 im cho tới chu kỳ sau.</span></div>
+    <div class="rule"><b>Bề mặt 06 không tính là một lần hỏi</b><span>Nó không hỏi gì cả, nên không tiêu một lượt trong ba lượt.</span></div>
+  </div>
+</div>
+
+<div class="grid">
+
+<!-- 06 -->
+<div>
+<div class="phone"><div class="scr">
+  <div class="stat"><span>9:41</span><span class="r"><i></i></span></div>
+  <div class="hdr row"><div class="h-title">Tài Chính</div><div class="avatar">H</div></div>
+  <div class="stat-card">
+    <div class="eyebrow">Còn lại tháng này</div>
+    <div class="fh-spent">4.280.000 ₫</div>
+    <div class="subline">Vào 18tr · Ra 13,7tr</div>
+  </div>
+  <div class="list">
+    <div class="r"><div class="ic">🎯</div><div class="mid"><div class="r-t">Ngân sách cá nhân</div></div><div class="end">12,5tr<span class="chev">›</span></div></div>
+    <div class="r"><div class="ic">📊</div><div class="mid"><div class="r-t">Xem chi tiêu</div></div><div class="end"><span class="chev">›</span></div></div>
+    <div class="r"><div class="ic">✍️</div><div class="mid"><div class="r-t">Ghi giao dịch</div></div><div class="end"><span class="chev">›</span></div></div>
+    <div class="r"><div class="ic">📬</div><div class="mid"><div class="r-t">Khoản thu chi từ email</div></div><div class="end"><span class="pill">12</span><span class="chev">›</span></div></div>
+    <div class="r"><div class="ic">🔔</div><div class="mid"><div class="r-t">Nhắc khi có khoản mới</div><div class="r-s">Đang tắt</div></div><div class="end"><span class="dot off"></span><span class="chev">›</span></div></div>
+  </div>
+  <div class="tabbar">
+    <div class="tab"><span class="ic">🏡</span>Nhà</div>
+    <div class="tab on"><span class="ic">💰</span>Tài Chính</div>
+    <div class="tab"><span class="ic">📸</span>Khoảnh Khắc</div>
+  </div>
+</div></div>
+<div class="cap">
+  <div><span class="tag">06</span><b class="ttl">Hàng “Nhắc khi có khoản mới”</b></div>
+  <p>Hàng thứ năm trong danh sách hành động, ngay dưới hàng email. Chấm hổ phách khi tắt, chấm xanh khi bật, không có chấm khi máy không hỗ trợ. Chạm mở sheet trạng thái đã có.</p>
+  <p><b>Không hỏi gì.</b> Nó chỉ cần tìm thấy được, và nhìn thấy mình đang tắt mỗi lần vào tab là đủ.</p>
+  <div class="note">Sống ở <code>src/js-ui/21-personal.js</code>, khối <code>.cf-cta</code>. Trạng thái từ <code>fhPushState()</code>, đọc một lần mỗi lần vẽ tab.</div>
+</div>
+</div>
+
+<!-- 04 -->
+<div>
+<div class="phone"><div class="scr">
+  <div class="stat"><span>9:41</span><span class="r"><i></i></span></div>
+  <div class="hdr row"><div class="h-title">Tài Chính</div><div class="avatar">H</div></div>
+  <div class="stat-card">
+    <div class="eyebrow">Đã đọc xong hộp thư</div>
+    <div class="fh-spent">806 khoản</div>
+    <div class="subline">Chờ bạn duyệt</div>
+  </div>
+  <div class="scrim"></div>
+  <div class="sheet">
+    <div class="grab"></div>
+    <div class="sheet-h">Lần sau bạn biết ngay</div>
+    <div class="sheet-sub">Có khoản mới là Earthy nhắc bạn, kể cả khi app đang đóng.</div>
+    <div class="prev">
+      <div class="noti"><div class="row">
+        <div class="appic"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></div>
+        <div class="tx"><div class="head"><div class="ttl">😏</div><div class="when">14:32</div></div><div class="bd">Chiều mà cà phê nữa, tối ngủ được không đó!</div></div>
+      </div></div>
+      <div class="noti dim"><div class="row">
+        <div class="appic"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></div>
+        <div class="tx"><div class="head"><div class="ttl">😌</div><div class="when">08:05</div></div><div class="bd">Ghé chợ tí mà đảm đang ghê!</div></div>
+      </div></div>
+    </div>
+    <div class="tiny">Hai khoản thật của bạn hôm nay. Không số tiền, không tên cửa hàng.</div>
+    <div class="cta">Bật thông báo</div>
+    <div class="ob-textlink">Để sau</div>
+  </div>
+</div></div>
+<div class="cap">
+  <div><span class="tag">04</span><b class="ttl">Lời mời có bản xem trước thật</b></div>
+  <p>Mở một lần, ngay sau khi đọc xong hộp thư, khi người dùng còn trong app. Hai thẻ là <b>câu thật</b> mà bộ câu sẽ chọn cho hai khoản mới nhất của chính họ, kèm giờ thật. Chạm vào vùng xem trước đổi sang biến thể khác.</p>
+  <p>Đây là chỗ duy nhất trả lời được câu hỏi người dùng UT đã hỏi mà không ai trả lời: bật rồi thì tôi nhận cái gì.</p>
+  <div class="note">Cần tách hàm chọn câu khỏi <code>push-send</code> để phía máy gọi được. Bản xem trước phải dùng chính hàm đó, không được viết câu riêng, nếu không nó thành lời hứa sai.</div>
+</div>
+</div>
+
+<!-- 03 -->
+<div>
+<div class="phone"><div class="scr">
+  <div class="stat"><span>9:43</span><span class="r"><i></i></span></div>
+  <div class="hdr row"><div class="h-title">Tài Chính</div><div class="avatar">H</div></div>
+  <div class="done">
+    <div class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
+    <h2>806 khoản đã vào sổ</h2>
+    <p>Một năm chi tiêu của bạn, giờ đã ở trong sổ.</p>
+    <div class="hr"></div>
+    <div class="ask">
+      <b>Bật thông báo cho lần sau</b>
+      <p>Khoản mới vẫn vào hàng chờ khi app đóng. Bật thông báo là bạn biết ngay.</p>
+      <div class="cta">Bật thông báo</div>
+      <div class="ob-textlink">Để sau</div>
+    </div>
+  </div>
+  <div class="tabbar">
+    <div class="tab"><span class="ic">🏡</span>Nhà</div>
+    <div class="tab on"><span class="ic">💰</span>Tài Chính</div>
+    <div class="tab"><span class="ic">📸</span>Khoảnh Khắc</div>
+  </div>
+</div></div>
+<div class="cap">
+  <div><span class="tag">03</span><b class="ttl">Ngay sau khi ghi sổ</b></div>
+  <p>Một thẻ, không phải hai. Nhịp hoàn tất và lời mời nằm chung một khối, ngăn bằng một đường mảnh, nên màn hình vẫn chỉ có một hành động chính.</p>
+  <p>Chỉ hiện khi lần nhập này là <b>lần nhập đầu tiên</b> của người dùng. Lần nhập thứ hai trở đi thì thẻ hoàn tất đứng một mình.</p>
+  <div class="note">Sống cùng chỗ nhịp mời chụp ảnh sau khi nhập. Hai nhịp không được cùng xuất hiện: ảnh nhường thông báo ở lần nhập đầu.</div>
+</div>
+</div>
+
+</div>
+
+<div class="panel" style="margin-top:56px">
+  <h2>Hàng 06 ở bốn trạng thái</h2>
+  <p>Một hàng, bốn cách đọc. Trạng thái lấy từ <code>fhPushState()</code> đã có, không thêm trạng thái mới.</p>
+  <div class="states">
+    <div class="st">
+      <div class="lbl">Tắt</div>
+      <div class="list"><div class="r"><div class="ic">🔔</div><div class="mid"><div class="r-t">Nhắc khi có khoản mới</div><div class="r-s">Đang tắt</div></div><div class="end"><span class="dot off"></span><span class="chev">›</span></div></div></div>
+      <div class="why">Chạm mở sheet 04 rút gọn, không có phần xem trước nếu chưa có khoản nào.</div>
+    </div>
+    <div class="st">
+      <div class="lbl">Bật</div>
+      <div class="list"><div class="r"><div class="ic">🔔</div><div class="mid"><div class="r-t">Nhắc khi có khoản mới</div><div class="r-s">Bật cho máy này</div></div><div class="end"><span class="dot on"></span><span class="chev">›</span></div></div></div>
+      <div class="why">“Máy này” là chữ quan trọng: đăng ký theo từng thiết bị, không theo tài khoản.</div>
+    </div>
+    <div class="st">
+      <div class="lbl">Bị chặn ở hệ thống</div>
+      <div class="list"><div class="r"><div class="ic">🔔</div><div class="mid"><div class="r-t">Nhắc khi có khoản mới</div><div class="r-s">Bị chặn trong Cài đặt máy</div></div><div class="end"><span class="dot off"></span><span class="chev">›</span></div></div></div>
+      <div class="why">Không có nút bật, vì bật ở đây sẽ thất bại. Sheet chỉ hướng dẫn mở Cài đặt của máy.</div>
+    </div>
+    <div class="st">
+      <div class="lbl">iPhone, chưa thêm vào MH chính</div>
+      <div class="list"><div class="r"><div class="ic">🔔</div><div class="mid"><div class="r-t">Nhắc khi có khoản mới</div><div class="r-s">Cần thêm Earthy vào MH chính</div></div><div class="end"><span class="dot off"></span><span class="chev">›</span></div></div></div>
+      <div class="why">Đây là cái thang iOS của phương án 07, thu về đúng một hàng. Sheet dẫn qua bước cài, rồi tự hỏi lại khi app mở từ biểu tượng.</div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  Thành phần theo <code>DESIGN.md</code>: sheet 25/700/−.7px, nút chính <code>.cta</code> 17/700 bo tròn hết, nút chữ <code>.ob-textlink</code>, hàng danh sách 16/500 với phụ đề 13,5 muted, thanh tab ba mục. Trạng thái từ <code>fhPushState()</code> trong <code>src/js-data/55-push.js</code>. Nguồn vấn đề: <code>research/UT/UT-onboarding-report.html</code> vấn đề 13.
+</footer>
+
+</div>
+</body>
+</html>

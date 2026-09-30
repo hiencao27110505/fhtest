@@ -662,6 +662,15 @@
       _atxKnownMailbox = conn.email || _atxKnownMailbox;
       _atxReauthCache = conn.needsReauth
         ? { since: conn.lastSyncedAt || null, email: conn.email || '' } : null;
+      /* The reading-finished moment (notification-activation-spec.md §2.2). We
+         fire only on the TRANSITION into 'done' while the app is open, and only
+         once per session: the phase is re-read on every poll, so a level check
+         here would re-ask on every tick for the rest of the session. A person
+         who was away while the read finished simply never sees this surface —
+         the row in Tài Chính is what catches them, by design. */
+      if (_atxPhaseCache && _atxPhaseCache !== 'done' && conn.phase === 'done') {
+        try { window.fhPushOfferAfterRead && window.fhPushOfferAfterRead(); } catch (e) {}
+      }
       _atxPhaseCache = conn.phase;            // the row renderer reads this synchronously
       return conn;
     } catch (e) { return null; }

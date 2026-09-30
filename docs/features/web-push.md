@@ -69,6 +69,16 @@ Both paths converge on `window.fhNavTo` (`55-push.js:171-179`), which polls `win
 
 Production. `push-send/index.ts` line 1 labels itself "v2: emotional copy + tap routing," which implies a plainer v1 (likely generic copy, no `nav`/tap-routing, no per-`kind` REVIEW_LINES) existed before — no v1 code or migration is present in this repo, so that history isn't independently recoverable from source, only from the comment. Migration `0036_push_subscriptions.sql` was applied to production (fhtest) via Supabase MCP on 2026-08-04, and the E2EE `actorName` fallback assumes migration `0038` (encrypted `members.name`) is also live. Settings entry point: `src/index.html:745` (`Notifications` row → `fhPushSheet()`).
 
+**Permission is asked badly, and that is specified but not built.** The offer fires
+once per member seat, 2.6 seconds after the first home visit, and records a dismissal
+as a refusal, so nobody is ever asked twice. UT 2026-09-26 problem 13 (P1) found people
+cannot locate the switch and do not know what they will receive after enabling it.
+`docs/specs/notification-activation-spec.md` replaces that one-shot offer with a findable
+row in Tài Chính, a preview-based ask at the moment the first mailbox read finishes, and
+a card after the first import, plus an ask-again policy of three asks fourteen days apart.
+That spec also introduces a generator so the preview and the real notification cannot
+drift. Not built as of 2026-09-30.
+
 No push events beyond the four `KINDS` (`reaction`, `weather`, `request_new`, `request_response`) exist today — extending push to a new social-write type means adding both a `fhNotify()` call site and a `buildCopy()` branch, and keeping `REVIEW_LINES` in sync with `_reqReviewSet()` if the new kind reuses the review-emoji vocabulary.
 
 ## Related
@@ -77,3 +87,4 @@ No push events beyond the four `KINDS` (`reaction`, `weather`, `request_new`, `r
 - [docs/features/social-alignment.md](social-alignment.md) — reactions and requests, the primary callers of `fhNotify`
 - [docs/features/goals.md](goals.md) — goal creation also notifies via `fhNotify('request_new', ...)`
 - [docs/features/encryption.md](encryption.md) — the E2EE plaintext boundary that `actorName` narrowly crosses
+- [docs/specs/notification-activation-spec.md](../specs/notification-activation-spec.md) — how the permission is asked for, and the ask-again policy

@@ -69,6 +69,10 @@ function build() {
   // Same pattern for the provider registry (taxonomy/providers.json → src/js-ui/09-providers.js
   // + the worker's providers.mjs): account identity resolves through ONE list on both runtimes.
   require('./tools/gen-providers.js').generate();
+  // And for the notification copy (taxonomy/notify-lines.json → src/js-ui/14-notify-lines.js
+  // + the worker's notify-lines.mjs): the permission sheet previews the line the server
+  // would send, so device and edge function must pick from ONE table with ONE rule.
+  require('./tools/gen-notify-lines.js').generate();
   let html = fs.readFileSync(path.join(ROOT, 'src/index.html'), 'utf8');
   for (const m of MARKERS) {
     if (html.indexOf(m.token) < 0) throw new Error('marker not found in src/index.html: ' + m.token);

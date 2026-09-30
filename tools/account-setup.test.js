@@ -24,6 +24,8 @@ const push = R('src/js-data/55-push.js');
 const mbx = R('src/js-data/71-mailbox-ui.js');
 const hyd = R('src/js-data/30-hydrate.js');
 const ob = R('src/js-ui/80-onboard-boot.js');
+const autotxn = R('src/js-data/74-autotxn-ui.js');
+const pers = R('src/js-ui/21-personal.js');
 const detail = R('src/js-ui/61-expense-detail.js');
 const sheet = R('src/js-ui/50-sheets-expense-capture.js');
 const mig = R('supabase/migrations/0134_account_setup_skipped.sql');
@@ -101,13 +103,32 @@ t('the family row gets the same display string as an email import', /fhAccountIn
 t('the author can edit the tag from the family detail', /exdSheetAcctFam/.test(detail) && /fhPersonalMasterSetAccount/.test(detail) && /fhPersonalMasterSetAccount = async function/.test(data));
 t('a master edit is scoped to mirror rows only', /\.not\('link_id', 'is', null\);\s*\n\s*if \(r\.error\) \{ console\.warn\('master account set failed'/.test(data));
 
-console.log('\n-- the push offer moved to the first home visit --');
+/* The first-visit offer was RETIRED on 2026-09-30 by
+   notification-activation-spec.md: it asked before the person had any idea what
+   would be sent, and recorded a dismissal as a refusal. Three surfaces replaced
+   it, and these checks moved with it. `fhPushFirstVisitOffer` survives as a
+   no-op because boot and hydrate both call it. */
+console.log('\n-- the push offer is earned, not sprung (notification-activation-spec) --');
 t('the post-import offer is gone', !/_mbxPushOfferOnce/.test(review) && !/async function _mbxPushOfferOnce/.test(mbx));
-t('a first-visit offer exists and honours the old answer',
-  /fhPushFirstVisitOffer = function/.test(push) && /fh-mbx-push-nudged:' \+ mid/.test(push));
-t('it fires from hydrate and from finishOnboarding', /fhPushFirstVisitOffer\(\)/.test(hyd) && /fhPushFirstVisitOffer\(\)/.test(ob));
-t('it yields to another sheet instead of stacking', /scrim\.classList\.contains\('on'\)\) return;/.test(push));
-t('the key is set only when the sheet actually opens', /localStorage\.setItem\(key, '1'\);\s*\n\s*window\.fhPushSheet\(\);/.test(push));
+t('the first-visit offer no longer asks', /fhPushFirstVisitOffer = function/.test(push)
+  && !/fhPushSheet\(\);?\s*\n\s*\}, 2600\)/.test(push));
+t('it still fires from hydrate and finishOnboarding, to warm the state cache',
+  /fhPushFirstVisitOffer\(\)/.test(hyd) && /fhPushFirstVisitOffer\(\)/.test(ob)
+  && /fhPushStateProbe/.test(push));
+t('one door governs every ask', /fhPushAsk = async function/.test(push) && /fhPushAskable = function/.test(push));
+t('three asks, fourteen days apart', /_ASK_MAX = 3/.test(push) && /_ASK_GAP_MS = 14 \* 24/.test(push));
+t('both legacy one-shot keys are honoured as one ask already spent',
+  /fh-push-nudged:' \+ id/.test(push) && /fh-mbx-push-nudged:' \+ id/.test(push));
+t('it yields to another sheet instead of stacking', /scrim\.classList\.contains\('on'\)\) return false;/.test(push));
+t('an ask is spent only when the sheet actually opens',
+  /_askSpend\(id, _askRec\(id\)\);\s*\n\s*window\.fhPushSheet\(\);/.test(push));
+t('the reading-finished surface fires on the transition, not the level',
+  /_atxPhaseCache && _atxPhaseCache !== 'done' && conn\.phase === 'done'/.test(autotxn)
+  && /fhPushOfferAfterRead/.test(push));
+t('the post-import surface yields outright to the account wizard',
+  /!wizardWillOpen && window\.fhPushOfferAfterImport/.test(review));
+t('the Tài Chính row states its status and never asks',
+  /_persNotifyRow/.test(pers) && /fhPushSheet\(\)/.test(pers) && !/fhPushAsk\(/.test(pers));
 
 console.log('\n-- the two bugs from the first live test (2026-09-13) --');
 t('the wizard never autofocuses on open (iOS blank-modal scroll)', !/wz-amt'\); if \(a && n === 1\) \{ try \{ a\.focus\(\)/.test(debts));

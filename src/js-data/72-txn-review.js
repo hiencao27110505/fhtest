@@ -2301,13 +2301,24 @@
        touched that still have no anchor get the wizard now — the one moment
        the person has just seen the transactions and has the bank app in mind.
        Fired after the review closes below (a modal over a modal is a mess), and
-       only from the full queue, never the one-row quick sheet (Q32). The
-       once-only push offer that used to sit here moved to the first home
-       render (55-push.js), so the two never compete for this moment. */
+       only from the full queue, never the one-row quick sheet (Q32). */
     specs.forEach(function (s) { if (s && s.accountId) touchedAccts[s.accountId] = 1; });
     var touchedIds = Object.keys(touchedAccts);
-    if (touchedIds.length && window.fhAcctSetupAfterImport) {
+    var wizardWillOpen = !!(touchedIds.length && window.fhAcctSetupAfterImport);
+    if (wizardWillOpen) {
       setTimeout(function () { try { window.fhAcctSetupAfterImport(touchedIds); } catch (eW) {} }, 650);
+    }
+    /* Surface 3 of notification-activation-spec.md §2.3: ask for notifications
+       right after the ledger fills, because a person who has just put a year of
+       spending into the book has a reason to want to hear about the next one.
+
+       It yields OUTRIGHT to the account wizard rather than queueing behind it.
+       Two sheets in a row after one press is worse than not asking at all, and
+       the ask has two other surfaces plus a permanent row to fall back on.
+       Spacing across imports is handled by the ask budget itself (three asks,
+       fourteen days apart), so there is no separate first-import flag. */
+    if (!wizardWillOpen && window.fhPushOfferAfterImport) {
+      setTimeout(function () { try { window.fhPushOfferAfterImport(); } catch (eP) {} }, 900);
     }
     try { window.fhRefreshStagedCount && window.fhRefreshStagedCount(); } catch (e) {}   // queue shrank — update the badge
 

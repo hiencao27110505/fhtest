@@ -1008,6 +1008,41 @@
        count alone and the card degrades to a blank deck. Never throws. */
     var _peek = null, _peekAt = 0, _peekFor = -1, _peekBusy = false, _peekInflight = null;
     window.fhStagedPeekCached = function () { return _peek; };
+    /* The notification preview (notification-activation-spec.md §2.2). Returns up
+       to n opened rows reduced to the tiny copy enum plus a display time — the
+       exact pair push-send works from, so the sheet can render the line a person
+       would REALLY have received rather than a written sample.
+
+       It borrows this module's fetch and opener rather than adding its own,
+       which is also why it lives here: the extraction is in hand at _qrOpen and
+       nowhere else on the device. Never throws; a locked ledger, an unopenable
+       row or a missing line table all return fewer items, and the sheet simply
+       shows fewer cards. */
+    window.fhNotifyPreview = async function (n) {
+      var want = Math.max(1, Math.min(3, Number(n) || 2));
+      try {
+        if (!window.FH_NOTIFY || typeof window.FH_NOTIFY.meta !== 'function') return [];
+        if (!window.fhPersonalKeyReady || !fhPersonalKeyReady()) return [];
+        var rows = await _qrFetch();
+        if (!rows || !rows.length) return [];
+        var out = [];
+        for (var i = 0; i < rows.length && out.length < want; i++) {
+          var re = null;
+          try { re = await _qrOpen(rows[i]); } catch (e) { re = null; }
+          if (!re) continue;
+          /* Income and transfers have a voice, but it is not the one this sheet
+             is selling: the promise is "we tell you what you spent". */
+          var flow = re.flow || (re.direction === 'credit' ? 'income' : 'expense');
+          if (flow !== 'expense') continue;
+          var meta = null;
+          try { meta = window.FH_NOTIFY.meta(re); } catch (e) { meta = null; }
+          if (!meta) continue;
+          out.push({ meta: meta, time: _qrTime(rows[i].occurred_at, re) || '' });
+        }
+        return out;
+      } catch (e) { return []; }
+    };
+
     window.fhStagedPeek = async function (forCount) {
       /* A call landing mid-flight gets the IN-FLIGHT promise, never an instant
          null: the deck's .then(renderPersonal) on an instantly-resolved null

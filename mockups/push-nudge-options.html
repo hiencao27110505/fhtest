@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Xin quyền thông báo sau khi đọc xong hộp thư — 8 phương án</title>
+<style>
+/* ===== Tokens — copied from src/css/10-tokens.css (Sage default) ===== */
+:root{
+  --brand:#2E9E6B; --brand-ink:#1F7E52; --brand-2:#5FD3A0;
+  --brand-tint:#e9f7f0; --brand-glow:rgba(46,158,107,.32);
+  --grad-brand:linear-gradient(135deg,#34B87A,#5FC98D);
+  --danger:#E0322F; --danger-tint:#fdecef;
+  --good:#1a9d5f; --good-tint:#e7f5ee;
+  --amber:#B8730B; --amber-tint:#fbefda;
+  --ink:#191022; --ink-2:#3a2f45; --muted:#6b6576; --muted-soft:#78727f;
+  --canvas:#f4f1f6; --pearl:#fbfafc; --surface:#f9f7f8; --white:#fff;
+  --hairline:#e9e4ee; --divider:#f1edf4; --chev:#cfc8d6;
+  --fill-neutral:rgba(138,132,148,.14);
+  --shadow-card:0 1px 3px rgba(25,16,34,.05),0 8px 24px rgba(25,16,34,.04);
+  --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-font-smoothing:antialiased}
+body{font-family:var(--text);background:#e7e2ec;color:var(--ink)}
+.num{font-family:var(--disp);font-variant-numeric:tabular-nums}
+
+/* ===== Page ===== */
+.wrap{max-width:1560px;margin:0 auto;padding:46px 28px 96px}
+.hero{max-width:980px}
+.hero .eyebrow{font-size:11.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--brand-ink)}
+.hero h1{font-family:var(--disp);font-size:31px;font-weight:800;letter-spacing:-.6px;margin-top:10px;line-height:1.2}
+.hero p{margin-top:12px;font-size:15px;color:var(--muted);line-height:1.6}
+.hero p b{color:var(--ink-2)}
+.panel{max-width:980px;margin-top:26px;background:var(--white);border-radius:20px;padding:22px 24px;box-shadow:var(--shadow-card)}
+.panel h2{font-family:var(--disp);font-size:17px;font-weight:750;letter-spacing:-.2px}
+.panel h2 + p{margin-top:8px;font-size:14px;color:var(--muted);line-height:1.55}
+.rules{margin-top:14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+.rule{border-left:2.5px solid var(--brand);padding:2px 0 2px 12px}
+.rule b{display:block;font-size:13.5px;font-weight:700}
+.rule span{display:block;margin-top:3px;font-size:13px;color:var(--muted);line-height:1.5}
+.rule.warn{border-left-color:var(--amber)}
+.rule.bad{border-left-color:var(--danger)}
+table{width:100%;border-collapse:collapse;margin-top:14px}
+th,td{text-align:left;font-size:13px;padding:9px 10px;border-bottom:1px solid var(--divider);vertical-align:top}
+th{font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+td b{font-weight:700}
+td.ok{color:var(--good);font-weight:700}
+td.no{color:var(--danger);font-weight:700}
+
+/* ===== Gallery ===== */
+.grid{margin-top:44px;display:grid;grid-template-columns:repeat(auto-fill,minmax(430px,1fr));gap:56px 36px}
+@media(max-width:480px){.grid{grid-template-columns:1fr}.wrap{padding:32px 14px 70px}}
+.item .cap{margin:18px auto 0;max-width:430px}
+.cap .tag{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.08em;color:var(--brand-ink);background:var(--brand-tint);border-radius:6px;padding:3px 8px;margin-right:8px;vertical-align:2px}
+.cap .tag.pick{color:#fff;background:var(--brand)}
+.cap b.ttl{font-size:16px;font-weight:750}
+.cap dl{margin-top:12px}
+.cap dt{font-size:10.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-top:10px}
+.cap dd{font-size:13.5px;color:var(--ink-2);line-height:1.5;margin-top:2px}
+.pc{margin-top:13px;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pc div{font-size:12.5px;line-height:1.5}
+.pc .h{font-size:10.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;margin-bottom:4px}
+.pc .p .h{color:var(--good)}
+.pc .c .h{color:var(--danger)}
+.pc ul{padding-left:15px;color:var(--muted)}
+.pc li{margin-top:3px}
+.anchor{margin-top:12px;font-size:12px;color:var(--muted-soft);line-height:1.5;border-top:1px solid var(--divider);padding-top:9px}
+.anchor code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;color:var(--ink-2)}
+
+/* ===== Phone ===== */
+.phone{width:100%;max-width:402px;height:846px;margin:0 auto;background:var(--white);overflow:hidden;display:flex;flex-direction:column;border-radius:46px;border:11px solid #05030a;box-shadow:0 30px 60px rgba(10,5,20,.28);position:relative}
+.scr{flex:1;overflow:hidden;background:var(--canvas);position:relative;display:flex;flex-direction:column}
+
+/* Lock screen */
+.lock{flex:1;display:flex;flex-direction:column;background:
+  radial-gradient(120% 70% at 80% -10%,rgba(95,211,160,.16),transparent 55%),
+  radial-gradient(100% 60% at 10% 110%,rgba(46,158,107,.14),transparent 60%),
+  linear-gradient(168deg,#10231b 0%,#0c1a14 48%,#132a20 100%);
+  color:#f4f7f5;padding:0 14px}
+.lk-clock{text-align:center;margin-top:52px}
+.lk-clock .dt{font-size:15px;font-weight:600;color:rgba(244,247,245,.85)}
+.lk-clock .tm{font-family:var(--disp);font-size:78px;font-weight:250;letter-spacing:-1.5px;line-height:1.04;margin-top:2px}
+.lk-stack{margin-top:auto;padding-bottom:22px;display:flex;flex-direction:column;gap:9px}
+.noti{background:rgba(248,248,251,.93);backdrop-filter:blur(18px);border-radius:20px;padding:11px 13px;color:var(--ink);box-shadow:0 6px 20px rgba(5,10,8,.25)}
+.noti .row{display:flex;gap:10px;align-items:flex-start}
+.appic{width:36px;height:36px;border-radius:9px;flex:none;background:var(--grad-brand);display:flex;align-items:center;justify-content:center;box-shadow:inset 0 0 0 .5px rgba(255,255,255,.35)}
+.appic svg{width:19px;height:19px}
+.noti .tx{flex:1;min-width:0}
+.noti .head{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.noti .ttl{font-size:14.5px;font-weight:650;line-height:1.28}
+.noti .when{font-size:12px;color:var(--muted-soft);flex:none}
+.noti .bd{font-size:14px;line-height:1.34;color:var(--ink-2);margin-top:1px}
+.noti.dim{background:rgba(248,248,251,.74);transform:scale(.96);transform-origin:bottom center}
+.noti.ghost{background:rgba(248,248,251,.2);border:1px dashed rgba(244,247,245,.42);box-shadow:none;color:#eef3f0}
+.noti.ghost .ttl,.noti.ghost .bd{color:#eef3f0}
+.noti.ghost .when{color:rgba(238,243,240,.6)}
+.noti.ghost .appic{background:rgba(255,255,255,.16)}
+
+/* App chrome */
+.stat{display:flex;justify-content:space-between;align-items:center;padding:13px 22px 0;font-size:13px;font-weight:650;flex:none;color:var(--ink)}
+.stat .dots{display:flex;gap:4px;align-items:center;opacity:.72}
+.stat .dots i{width:14px;height:9px;border-radius:2px;background:var(--ink);display:block}
+.nav{display:flex;align-items:flex-end;justify-content:space-between;padding:10px 20px 4px;flex:none}
+.nav .h-title{font-family:var(--disp);font-size:31px;font-weight:700;letter-spacing:-.9px}
+.nav .avatar{width:34px;height:34px;border-radius:50%;background:var(--grad-brand);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;margin-bottom:4px}
+.back{font-size:15px;font-weight:600;color:var(--brand-ink)}
+.tabbar{margin-top:auto;flex:none;background:rgba(255,255,255,.95);backdrop-filter:blur(12px);border-top:1px solid var(--divider);display:flex;justify-content:space-around;padding:9px 8px 20px}
+.tab{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10.5px;font-weight:600;color:var(--muted-soft);width:60px}
+.tab .ic{font-size:17px;line-height:1;filter:grayscale(1);opacity:.5}
+.tab.on{color:var(--brand-ink)}
+.tab.on .ic{filter:none;opacity:1}
+
+/* Cards */
+.card{margin:12px 16px 0;background:var(--white);border-radius:20px;padding:16px 17px;box-shadow:var(--shadow-card);flex:none}
+.card .eyebrow{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.card h3{font-family:var(--disp);font-size:19px;font-weight:720;letter-spacing:-.4px;margin-top:5px;line-height:1.28}
+.card p{font-size:14px;color:var(--muted);line-height:1.5;margin-top:7px}
+.big{font-family:var(--disp);font-size:32px;font-weight:750;letter-spacing:-1px}
+.cta{display:block;width:100%;margin-top:14px;padding:16px;border:0;border-radius:9999px;background:var(--grad-brand);color:#fff;font-family:var(--text);font-size:16.5px;font-weight:700;box-shadow:0 8px 22px var(--brand-glow);text-align:center}
+.cta.tint{background:var(--brand-tint);color:var(--brand-ink);box-shadow:none}
+.ghostb{display:block;width:100%;margin-top:9px;padding:14px;border-radius:9999px;border:1.5px solid var(--hairline);background:var(--white);font-size:15px;font-weight:650;color:var(--ink-2);text-align:center}
+.plain{display:block;width:100%;margin-top:7px;padding:12px;font-size:14.5px;font-weight:600;color:var(--muted);text-align:center}
+.link{font-size:14px;font-weight:650;color:var(--brand-ink);margin-top:11px;display:block;text-align:center}
+
+/* queue rows */
+.qrow{margin:9px 16px 0;background:var(--white);border-radius:15px;padding:11px 13px;display:flex;align-items:center;gap:11px;box-shadow:var(--shadow-card);flex:none}
+.qrow .emo{width:37px;height:37px;border-radius:12px;flex:none;display:flex;align-items:center;justify-content:center;font-size:17px;background:var(--fill-neutral)}
+.qrow .mid{flex:1;min-width:0}
+.qrow .t{font-size:14.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.qrow .s{font-size:12.5px;color:var(--muted);margin-top:1px}
+.qrow .amt{font-family:var(--disp);font-size:14.5px;font-weight:650;white-space:nowrap}
+.seclbl{margin:18px 20px 2px;font-size:11px;font-weight:800;letter-spacing:.09em;color:var(--muted);text-transform:uppercase;flex:none}
+
+/* inline nudge card */
+.nudge{margin:12px 16px 0;background:var(--white);border-radius:18px;padding:14px 15px;box-shadow:var(--shadow-card);border-left:3px solid var(--brand);flex:none;position:relative}
+.nudge .x{position:absolute;top:11px;right:12px;font-size:15px;color:var(--chev);font-weight:600}
+.nudge b{font-size:14.5px;font-weight:700;display:block;padding-right:22px}
+.nudge p{font-size:13.5px;color:var(--muted);line-height:1.48;margin-top:5px}
+.nudge .act{margin-top:11px;display:flex;gap:9px;align-items:center}
+.nudge .act .go{padding:9px 15px;border-radius:9999px;background:var(--brand-tint);color:var(--brand-ink);font-size:13.5px;font-weight:700}
+.nudge .act .no{font-size:13.5px;font-weight:600;color:var(--muted)}
+.nudge.amberl{border-left-color:var(--amber)}
+
+/* settings rows */
+.srow{margin:0 16px;background:var(--white);padding:14px 15px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--divider);flex:none}
+.srow:first-of-type{border-radius:18px 18px 0 0}
+.srow:last-of-type{border-radius:0 0 18px 18px;border-bottom:0}
+.srow .ic{width:32px;height:32px;border-radius:9px;background:var(--fill-neutral);display:flex;align-items:center;justify-content:center;font-size:15px;flex:none}
+.srow .mid{flex:1;min-width:0}
+.srow .t{font-size:15px;font-weight:600}
+.srow .s{font-size:12.5px;color:var(--muted);margin-top:2px;line-height:1.4}
+.srow .st{font-size:13px;font-weight:700;color:var(--muted-soft);flex:none;display:flex;align-items:center;gap:6px}
+.srow .st i{width:8px;height:8px;border-radius:50%;background:var(--chev);display:block}
+.srow .st.off i{background:var(--amber)}
+.srow .st.off{color:var(--amber)}
+.badge{background:var(--danger);color:#fff;font-size:11.5px;font-weight:800;border-radius:9999px;padding:2px 7px;flex:none}
+
+/* sheet */
+.scrim{position:absolute;inset:0;background:rgba(20,12,28,.42);z-index:5}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:6;background:var(--white);border-radius:26px 26px 0 0;box-shadow:0 -12px 44px rgba(25,16,34,.22);padding:0 20px 22px}
+.grab{width:44px;height:5px;border-radius:99px;background:var(--hairline);margin:10px auto 6px}
+.sh-h{font-family:var(--disp);font-size:22px;font-weight:740;letter-spacing:-.5px;text-align:center;margin-top:8px;line-height:1.26}
+.sh-sub{font-size:14.5px;color:var(--muted);line-height:1.5;text-align:center;margin-top:9px}
+.prev{margin:16px -4px 0;padding:14px 12px;border-radius:18px;background:
+  radial-gradient(120% 70% at 80% -10%,rgba(95,211,160,.18),transparent 55%),
+  linear-gradient(168deg,#13291f 0%,#0d1c15 100%)}
+.prev .lbl{font-size:10.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:rgba(244,247,245,.6);text-align:center;margin-bottom:9px}
+.steps{margin-top:14px}
+.step{display:flex;gap:11px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--divider)}
+.step:last-child{border-bottom:0}
+.step .n{width:23px;height:23px;border-radius:50%;background:var(--fill-neutral);color:var(--ink-2);font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none;margin-top:1px}
+.step.on .n{background:var(--brand);color:#fff}
+.step.done .n{background:var(--good-tint);color:var(--good)}
+.step .t{font-size:14.5px;font-weight:650}
+.step .s{font-size:13px;color:var(--muted);margin-top:2px;line-height:1.45}
+.toast{position:absolute;left:16px;right:16px;bottom:96px;z-index:7;background:rgba(25,16,34,.93);color:#fff;border-radius:14px;padding:12px 15px;font-size:14px;font-weight:600;box-shadow:0 10px 30px rgba(10,5,20,.3)}
+.shot{margin:14px 16px 0;height:84px;border-radius:16px;background:var(--brand-tint);display:flex;align-items:center;justify-content:center;gap:9px;flex:none}
+.shot b{font-family:var(--disp);font-size:27px;font-weight:780;color:var(--brand-ink);letter-spacing:-.8px}
+.shot span{font-size:13.5px;color:var(--brand-ink);font-weight:600;max-width:150px;line-height:1.35}
+footer{max-width:980px;margin:64px auto 0;font-size:13px;color:var(--muted-soft);line-height:1.6;border-top:1px solid #d9d3e0;padding-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="hero">
+  <div class="eyebrow">Mockup · 30/09/2026</div>
+  <h1>Xin quyền thông báo, đúng lúc vừa đọc xong hộp thư</h1>
+  <p>Hôm nay lời mời bật thông báo xuất hiện <b>một lần duy nhất</b>, 2,6 giây sau lần đầu người dùng thấy màn hình nhà, trước khi họ kịp hiểu app sẽ gửi cho họ cái gì. Ai bỏ qua lần đó thì không bao giờ được hỏi lại, vì khoá <code>fh-push-nudged</code> không phân biệt “từ chối” với “lỡ tay đóng”. Trong phiên UT ngày 26/09, người dùng <b>đi tìm chỗ bật thông báo mà không thấy</b>, bật được rồi <b>vẫn không biết mình sẽ nhận gì</b> (vấn đề 13, mức P1).</p>
+  <p>Thời điểm tự nhiên nhất lại đang bị bỏ trống: <b>lúc app vừa đọc xong hộp thư</b>. Người dùng vừa chờ mười mấy phút, vừa thấy 806 khoản hiện ra, và cái vòng lặp mà quyền thông báo mở ra chính là điều họ sắp cần hằng ngày. Đây cũng là điều kiện đã được ghi trong <code>reading-loop-cost-spec</code> (quyết định H6): chỉ được giãn nhịp thăm dò khi thông báo thật sự chạy được, nếu không thì đọc xong sẽ chẳng ai hay.</p>
+  <p>Tám phương án dưới đây khác nhau ở ba trục: <b>khi nào</b> hỏi, <b>ở đâu</b> hỏi, và <b>hỏi bằng cách nào</b>.</p>
+</div>
+
+<div class="panel">
+  <h2>Luật mà phương án nào cũng phải tôn trọng</h2>
+  <p>Không phải gợi ý thiết kế, đây là những ràng buộc đã có trong code và trong spec.</p>
+  <div class="rules">
+    <div class="rule"><b>Quyền phải xin trong cùng một cái chạm</b><span><code>fhPushEnable</code> gọi <code>requestPermission()</code> trước mọi <code>await</code>: iOS mất ngữ cảnh chạm sau await đầu tiên. Nút bật phải là nút người dùng bấm, không phải hệ quả của một tác vụ nền.</span></div>
+    <div class="rule warn"><b>iOS Safari không nhận được gì</b><span>Trạng thái <code>ios-install</code>: iOS chỉ đẩy thông báo cho PWA đã thêm vào Màn hình chính. Ở tab Safari thường, bật cách nào cũng thất bại, nên phải mời cài trước.</span></div>
+    <div class="rule warn"><b>Một khoảnh khắc chỉ chứa một lời mời</b><span>Lời mời hiện tại tự im nếu scrim đang mở, vì nudge cài đặt PWA cũng nhắm đúng lúc đó. Phương án mới phải xếp hàng, không chồng lên nhau.</span></div>
+    <div class="rule bad"><b>“Đóng” không phải là “không”</b><span>Khoá <code>fh-push-nudged:&lt;mid&gt;</code> ghi 1 ngay khi sheet mở ra. Cần tách thành số lần đã hỏi và mốc thời gian, tối đa 3 lần, cách nhau ít nhất 14 ngày, và dừng hẳn khi người dùng bấm “Không cần”.</span></div>
+    <div class="rule"><b>Nội dung thông báo không mang gì riêng tư</b><span>Payload không có số tiền, không có tên cửa hàng, không có tên danh mục. Câu chữ được chọn từ bộ câu viết sẵn, nên bản xem trước hoàn toàn có thể hiện đúng câu thật.</span></div>
+    <div class="rule"><b>Người chưa có gia đình vẫn phải bật được</b><span>Từ migration 0152, đăng ký thông báo theo người, gia đình chỉ là chỗ ngồi tuỳ chọn. Với người dùng một mình, hàng chờ duyệt là toàn bộ lý do bật.</span></div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Tám phương án, so sánh nhanh</h2>
+  <table>
+    <tr><th>#</th><th>Khi nào</th><th>Ở đâu</th><th>Ngắt mạch</th><th>Hỏi lại được</th><th>Chạy trên iOS Safari</th></tr>
+    <tr><td><b>01</b></td><td>Đọc xong, ngay trong phiên</td><td>Sheet toàn màn</td><td class="no">Có</td><td class="no">Không</td><td class="no">Không</td></tr>
+    <tr><td><b>02</b></td><td>Đọc xong, mọi phiên sau</td><td>Thẻ trong màn duyệt</td><td class="ok">Không</td><td class="ok">Có</td><td class="no">Không</td></tr>
+    <tr><td><b>03</b></td><td>Sau khi ghi 806 khoản vào sổ</td><td>Màn hoàn tất</td><td class="no">Có</td><td class="no">Không</td><td class="no">Không</td></tr>
+    <tr><td><b>04</b></td><td>Đọc xong, ngay trong phiên</td><td>Sheet, nội dung là bản xem trước</td><td class="no">Có</td><td class="ok">Có</td><td class="no">Không</td></tr>
+    <tr><td><b>05</b></td><td>Khoản mới đầu tiên sau khi đọc xong</td><td>Thẻ đầu hàng chờ</td><td class="ok">Không</td><td class="ok">Có</td><td class="no">Không</td></tr>
+    <tr><td><b>06</b></td><td>Luôn luôn</td><td>Hàng trong danh sách Tài Chính</td><td class="ok">Không</td><td class="ok">Có</td><td class="ok">Có (dẫn sang cài đặt)</td></tr>
+    <tr><td><b>07</b></td><td>Đọc xong, chỉ trên iOS Safari</td><td>Sheet hai bước</td><td class="no">Có</td><td class="ok">Có</td><td class="ok">Có</td></tr>
+    <tr><td><b>08</b></td><td>Lần mở app sau khi có khoản mới lúc đóng</td><td>Thẻ đầu hàng chờ</td><td class="ok">Không</td><td class="ok">Có</td><td class="no">Không</td></tr>
+  </table>
+</div>
+
+<div class="grid">
+
+<!-- ═══════════════ 01 ═══════════════ -->
+<div class="item">
+<div class="phone"><div class="scr">
+  <div class="stat"><span>9:41</span><span class="dots"><i></i></span></div>
+  <div class="nav"><div class="h-title">Tài Chính</div><div class="avatar">H</div></div>
+  <div class="shot"><b>806</b><span>khoản đã đọc xong từ hộp thư của bạn</span></div>
+  <div class="qrow"><div class="emo">🍜</div><div class="mid"><div class="t">Highlands Coffee</div><div class="s">Hôm nay · 14:32 · VIB ·1234</div></div><div class="amt num">−92.000 ₫</div></div>
+  <div class="qrow"><div class="emo">🛒</div><div class="mid"><div class="t">Circle K</div><div class="s">Hôm nay · 08:05</div></div><div class="amt num">−45.000 ₫</div></div>
+  <div class="scrim"></div>
+  <div class="sheet">
+    <div class="grab"></div>
+    <div class="sh-h">Đọc xong rồi. Lần sau thì bạn khỏi cần chờ.</div>
+    <div class="sh-sub">Mỗi khi ngân hàng gửi email về một khoản mới, Earthy đọc và xếp sẵn vào hàng chờ. Bật thông báo để biết ngay lúc đó, kể cả khi app đang đóng.</div>
+    <div class="prev">
+      <div class="lbl">Bạn sẽ thấy như thế này</div>
+      <div class="noti"><div class="row">
+        <div class="appic"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></div>
+        <div class="tx"><div class="head"><div class="ttl">😋</div><div class="when">ngay bây giờ</div></div><div class="bd">Ăn ngon nhớ ăn đủ chất nha!</div></div>
+      </div></div>
+    </div>
+    <div class="cta">Bật thông báo 🔔</div>
+    <div class="plain">Để sau</div>
+  </div>
+</div></div>
+<div class="cap">
+  <div><span class="tag">01</span><b class="ttl">Sheet ở vạch đích</b></div>
+  <dl>
+    <dt>Khi nào</dt><dd>Ngay khi <code>backfilled_at</code> vừa được đặt và người dùng đang mở app. Sau nhịp “xong”, trước khi họ bắt đầu duyệt.</dd>
+    <dt>Ở đâu</dt><dd>Sheet phủ lên tab Tài Chính hoặc màn duyệt, chỗ họ đang đứng.</dd>
+    <dt>Hỏi bằng cách nào</dt><dd>Một câu nói thẳng lợi ích của lần sau, một bản xem trước, một nút chính. “Để sau” là chữ nhạt, không phải nút.</dd>
+  </dl>
+  <div class="pc">
+    <div class="p"><div class="h">Được</div><ul><li>Đúng lúc người dùng vừa thấy giá trị lớn nhất của app.</li><li>Tỉ lệ đồng ý cao nhất trong tám phương án, vì lời mời có ngữ cảnh rõ.</li><li>Dùng lại nguyên <code>fhPushSheet</code>, chỉ thêm một điểm gọi.</li></ul></div>
+    <div class="c"><div class="h">Mất</div><ul><li>Ngắt mạch đúng lúc họ định bấm “Kiểm tra 806 giao dịch”.</li><li>Tranh chỗ với hành động chính của màn hình, phá luật một màn một việc.</li><li>Trên iOS Safari thì bật không được, phải nối sang phương án 07.</li><li>Hỏi một lần rồi thôi, y như lỗi hiện tại.</li></ul></div>
+  </div>
+  <div class="anchor">Chạm vào: <code>55-push.js</code> (điểm gọi mới), <code>74-autotxn-ui.js</code> (nơi biết backfill vừa xong).</div>
+</div>
+</div>
+
+<!-- ═══════════════ 02 ═══════════════ -->
+<div class="item">
+<div class="phone"><div class="scr">
+  <div class="stat"><span>9:41</span><span class="dots"><i></i></span></div>
+  <div class="nav"><div class="back">‹ Tài Chính</div></div>
+  <div style="padding:2px 20px 0"><div class="h-title" style="font-family:var(--disp);font-size:28px;font-weight:720;letter-spacing:-.8px">Duyệt giao dịch</div></div>
+  <div class="nudge">
+    <div class="x">✕</div>
+    <b>Muốn biết ngay khi có khoản mới?</b>
+    <p>Đọc xong hộp thư rồi. Từ giờ khoản mới sẽ tự vào đây, nhưng bạn phải mở app mới thấy.</p>
+    <div class="act"><div class="go">Bật thông báo</div><div class="no">Không cần</div></div>
+  </div>
+  <div class="seclbl">Cần bạn xem · 12</div>
+  <div class="qrow"><div class="emo">🧾</div><div class="mid"><div class="t">Shopee</div><div class="s">Chưa rõ tiêu vào gì</div></div><div class="amt num">−607.700 ₫</div></div>
+  <div class="qrow"><div class="emo">💸</div><div class="mid"><div class="t">Chuyển cho Ngọc Anh</div><div class="s">Chưa rõ là khoản gì</div></div><div class="amt num">−500.000 ₫</div></div>
+  <div class="seclbl">Sẵn sàng ghi vào sổ · 794</div>
+  <div class="qrow"><div class="emo">☕</div><div class="mid"><div class="t">Highlands Coffee</div><div class="s">Cà phê · hôm nay</div></div><div class="amt num">−92.000 ₫</div></div>
+  <div class="qrow"><div class="emo">🛒</div><div class="mid"><div class="t">Circle K</div><div class="s">Đi chợ, siêu thị · hôm nay</div></div><div class="amt num">−45.000 ₫</div></div>
+  <div style="margin-top:auto"><div class="cta" style="margin:0 16px 20px">Ghi 794 khoản vào sổ</div></div>
+</div></div>
+<div class="cap">
+  <div><span class="tag">02</span><b class="ttl">Thẻ nằm sẵn trong màn duyệt</b></div>
+  <dl>
+    <dt>Khi nào</dt><dd>Mọi lần mở màn duyệt sau khi đọc xong, nếu trạng thái vẫn là chưa bật. Đóng thì 14 ngày sau mới hiện lại.</dd>
+    <dt>Ở đâu</dt><dd>Trên đầu hàng chờ, cùng ngôn ngữ với thẻ hàng chờ ở tab Tài Chính.</dd>
+    <dt>Hỏi bằng cách nào</dt><dd>Không phủ màn, không scrim. Một dòng lý do, hai lựa chọn nhỏ, có dấu ✕.</dd>
+  </dl>
+  <div class="pc">
+    <div class="p"><div class="h">Được</div><ul><li>Không ngắt mạch, không tranh chỗ với hành động chính.</li><li>Hỏi lại được nhiều lần mà không thành phiền.</li><li>Sống chung với thẻ hàng chờ đã có, không cần khoảnh khắc riêng.</li></ul></div>
+    <div class="c"><div class="h">Mất</div><ul><li>Dễ bị nhìn qua như một banner, tỉ lệ đồng ý thấp nhất nhóm.</li><li>Thêm một thẻ nữa vào màn đang nhiều thẻ.</li><li>Không trả lời được câu “tôi sẽ nhận cái gì”.</li></ul></div>
+  </div>
+  <div class="anchor">Chạm vào: <code>57-csv-import-review.js</code> hoặc <code>56-csv-import-ui.js</code> (đầu màn duyệt), <code>21-personal.js</code> (bản song sinh ở tab Tài Chính).</div>
+</div>
+</div>
+
+<!-- ═══════════════ 03 ═══════════════ -->
+<div class="item">
+<div class="phone"><div class="scr">
+  <div class="stat"><span>9:43</span><span class="dots"><i></i></span></div>
+  <div class="nav"><div class="h-title">Tài Chính</div><div class="avatar">H</div></div>
+  <div class="card" style="text-align:center">
+    <div style="width:52px;height:52px;border-radius:50%;background:var(--good-tint);margin:4px auto 0;display:flex;align-items:center;justify-content:center;font-size:24px">✓</div>
+    <h3 style="margin-top:12px">Sổ của bạn có 806 khoản</h3>
+    <p>Một năm chi tiêu vừa vào sổ. Từ giờ mỗi email ngân hàng mới sẽ tự thành một khoản chờ bạn duyệt.</p>
+  </div>
+  <div class="card">
+    <div class="eyebrow">Việc cuối</div>
+    <h3>Để Earthy nhắc bạn</h3>
+    <p>Khoản mới vào hàng chờ lúc bạn không mở app thì bạn sẽ không hay. Bật thông báo là xong, mỗi khoản một lời nhắc ngắn.</p>
+    <div class="cta">Bật thông báo 🔔</div>
+    <div class="plain">Để sau, tôi tự mở app</div>
+  </div>
+  <div class="tabbar">
+    <div class="tab"><span class="ic">🏡</span>Nhà</div>
+    <div class="tab"><span class="ic">📸</span>Kỷ niệm</div>
+    <div class="tab on"><span class="ic">💰</span>Tài Chính</div>
+    <div class="tab"><span class="ic">⚙️</span>Cài đặt</div>
+  </div>
+</div></div>
+<div class="cap">
+  <div><span class="tag">03</span><b class="ttl">Ngay sau khi ghi vào sổ</b></div>
+  <dl>
+    <dt>Khi nào</dt><dd>Không phải lúc đọc xong, mà lúc bấm “Ghi 806 khoản vào sổ” và sổ đầy lên. Đây là nhịp người dùng vừa nhận được thứ họ chờ.</dd>
+    <dt>Ở đâu</dt><dd>Màn hoàn tất sau khi nhập, ngay dưới thẻ báo kết quả.</dd>
+    <dt>Hỏi bằng cách nào</dt><dd>Là một thẻ trong màn, không phải sheet phủ lên. Đọc như việc cuối của một việc đang làm dở.</dd>
+  </dl>
+  <div class="pc">
+    <div class="p"><div class="h">Được</div><ul><li>Khoảnh khắc “đã nhận được giá trị” rõ hơn cả vạch đích đọc xong.</li><li>Không phải sheet, nên không phá luật một màn một việc.</li><li>Lý do bật gắn liền với việc vừa làm, không phải một lời hứa chung.</li></ul></div>
+    <div class="c"><div class="h">Mất</div><ul><li>Có thể xảy ra nhiều ngày sau khi đọc xong, hoặc không bao giờ nếu người dùng không nhập.</li><li>Nhịp này đã có việc khác nhắm vào (mời chụp ảnh, mời cài PWA).</li><li>Người chỉ nhập một phần thì nhịp này lặp lại nhiều lần, phải chống lặp.</li></ul></div>
+  </div>
+  <div class="anchor">Chạm vào: <code>56-csv-import-ui.js</code> / <code>72-txn-review.js</code> (sau <code>csvPromote</code>), cùng chỗ nhịp mời chụp ảnh đang đứng.</div>
+</div>
+</div>
+
+<!-- ═══════════════ 04 ═══════════════ -->
+<div class="item">
+<div class="phone"><div class="scr">
+  <div class="stat"><span>9:41</span><span class="dots"><i></i></span></div>
+  <div class="nav"><div class="h-title">Tài Chính</div><div class="avatar">H</div></div>
+  <div class="shot"><b>806</b><span>khoản đã đọc xong từ hộp thư của bạn</span></div>
+  <div class="qrow"><div class="emo">☕</div><div class="mid"><div class="t">Highlands Coffee</div><div class="s">Hôm nay · 14:32</div></div><div class="amt num">−92.000 ₫</div></div>
+  <div class="scrim"></div>
+  <div class="sheet">
+    <div class="grab"></div>
+    <div class="sh-h">Khoản 14:32 chiều nay đã có thể nhắc bạn như vầy</div>
+    <div class="prev">
+      <div class="lbl">Màn hình khoá của bạn</div>
+      <div class="noti"><div class="row">
+        <div class="appic"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></div>
+        <div class="tx"><div class="head"><div class="ttl">😏</div><div class="when">14:32</div></div><div class="bd">Chiều mà cà phê nữa, tối ngủ được không đó!</div></div>
+      </div></div>
+      <div style="height:9px"></div>
+      <div class="noti dim"><div class="row">
+        <div class="appic"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></div>
+        <div class="tx"><div class="head"><div class="ttl">😌</div><div class="when">08:05</div></div><div class="bd">Ghé chợ tí mà đảm đang ghê!</div></div>
+      </div></div>
+    </div>
+    <div class="sh-sub" style="margin-top:13px">Không có số tiền, không có tên cửa hàng, chỉ một câu ngắn. Bấm vào là mở đúng khoản đó.</div>
+    <div class="cta">Bật thông báo 🔔</div>
+    <div class="ghostb">Cho tôi xem câu khác</div>
+    <div class="plain">Không cần, đừng hỏi lại</div>
+  </div>
+</div></div>
+<div class="cap">
+  <div><span class="tag pick">04</span><b class="ttl">Cho xem thật, đừng hứa</b> <span style="font-size:12px;color:var(--brand-ink);font-weight:700">· nên chọn</span></div>
+  <dl>
+    <dt>Khi nào</dt><dd>Cùng lúc với phương án 01: vừa đọc xong, còn trong phiên.</dd>
+    <dt>Ở đâu</dt><dd>Sheet, nhưng nội dung chính không phải lời hứa, mà là hai thông báo thật dựng từ hai khoản mới nhất của chính người dùng.</dd>
+    <dt>Hỏi bằng cách nào</dt><dd>Xem trước đúng câu mà bộ câu viết sẵn sẽ chọn cho khoản đó, kèm giờ thật. “Cho tôi xem câu khác” đổi biến thể. “Không cần, đừng hỏi lại” là lời từ chối dứt điểm, ghi lại và không hỏi nữa.</dd>
+  </dl>
+  <div class="pc">
+    <div class="p"><div class="h">Được</div><ul><li>Trả lời trực diện nửa sau của vấn đề 13: bật rồi không biết sẽ nhận gì.</li><li>Câu chữ hài hước là điểm mạnh của app, đây là chỗ duy nhất nó được nhìn thấy trước khi đồng ý.</li><li>Xem trước là thật, không phải ảnh minh hoạ: payload vốn không mang gì riêng tư nên hiện đúng được.</li><li>Có nút từ chối dứt điểm, nên hỏi lại về sau là hợp lễ.</li></ul></div>
+    <div class="c"><div class="h">Mất</div><ul><li>Vẫn là sheet, vẫn ngắt mạch ở vạch đích.</li><li>Phải gọi được bộ chọn câu ở phía máy, hiện nay nó nằm trong <code>push-send</code>. Cần tách phần chọn câu ra chỗ dùng chung được.</li><li>Nếu khoản mới nhất không có giờ thật thì câu rơi về bậc theo số tiền, bản xem trước nhạt hơn.</li><li>Xem trước quá vui có thể đặt kỳ vọng cao hơn đời thật.</li></ul></div>
+  </div>
+  <div class="anchor">Chạm vào: <code>notify-copy.mjs</code> (tách <code>reviewBody</code> để phía máy dùng được), <code>76-quick-review.js</code> (đã có sẵn khoản mới nhất đã mở), <code>55-push.js</code>.</div>
+</div>
+</div>
+
+<!-- ═══════════════ 05 ═══════════════ -->
+<div class="item">
+<div class="phone"><div class="scr">
+  <div class="stat"><span>18:20</span><span class="dots"><i></i></span></div>
+  <div class="nav"><div class="h-title">Tài Chính</div><div class="avatar">H</div></div>
+  <div class="nudge">
+    <div class="x">✕</div>
+    <b>Khoản mới đầu tiên vừa vào, lúc 14:32</b>
+    <p>Bốn tiếng trước Earthy đã xếp nó vào hàng chờ, mà bạn phải tự mở app mới thấy. Lần sau để nó nhắc bạn nha.</p>
+    <div class="act"><div class="go">Bật thông báo</div><div class="no">Không cần</div></div>
+  </div>
+  <div class="card">
+    <div class="eyebrow">Còn lại tháng này · cá nhân</div>
+    <div class="big" style="margin-top:4px">4.280.000 ₫</div>
+    <p style="margin-top:3px">Vào 18tr · Ra 13,7tr</p>
+  </div>
+  <div class="qrow"><div class="emo">☕</div><div class="mid"><div class="t">Highlands Coffee</div><div class="s">Chờ duyệt · 14:32</div></div><div class="amt num">−92.000 ₫</div></div>
+  <div class="tabbar">
+    <div class="tab"><span class="ic">🏡</span>Nhà</div>
+    <div class="tab"><span class="ic">📸</span>Kỷ niệm</div>
+    <div class="tab on"><span class="ic">💰</span>Tài Chính</div>
+    <div class="tab"><span class="ic">⚙️</span>Cài đặt</div>
+  </div>
+</div></div>
+<div class="cap">
+  <div><span class="tag">05</span><b class="ttl">Chờ khoản mới thật rồi mới hỏi</b></div>
+  <dl>
+    <dt>Khi nào</dt><dd>Không hỏi ở vạch đích. Đợi khoản đầu tiên <b>không thuộc đợt đọc lịch sử</b> được xếp vào hàng chờ, rồi hỏi ở lần mở app kế tiếp.</dd>
+    <dt>Ở đâu</dt><dd>Thẻ trên cùng tab Tài Chính, nêu đúng giờ khoản đó vào hàng chờ.</dd>
+    <dt>Hỏi bằng cách nào</dt><dd>Lập luận bằng một việc vừa xảy ra thật, có giờ cụ thể, kèm khoảng thời gian họ đã không hay biết.</dd>
+  </dl>
+  <div class="pc">
+    <div class="p"><div class="h">Được</div><ul><li>Ngữ cảnh mạnh nhất có thể: lời mời nói về một khoản thật, giờ thật.</li><li>Không đụng vào vạch đích đang đông việc.</li><li>Tự nhiên lặp lại được, và tự hết lý do khi người dùng đã bật.</li></ul></div>
+    <div class="c"><div class="h">Mất</div><ul><li>Có thể chờ nhiều ngày, mà giai đoạn quyết định giữ người là mấy ngày đầu.</li><li>Đúng cái khoản dùng làm ví dụ thì đã bị bỏ lỡ rồi.</li><li>Cần phân biệt khoản “mới thật” với khoản của đợt đọc lịch sử, tức là cần mốc thời gian đối chiếu <code>backfilled_at</code>.</li></ul></div>
+  </div>
+  <div class="anchor">Chạm vào: <code>21-personal.js</code> (thẻ), <code>74-autotxn-ui.js</code> (phân biệt khoản mới với khoản lịch sử).</div>
+</div>
+</div>
+
+<!-- ═══════════════ 06 ═══════════════ -->
+<div class="item">
+<div class="phone"><div class="scr">
+  <div class="stat"><span>9:41</span><span class="dots"><i></i></span></div>
+  <div class="nav"><div class="h-title">Tài Chính</div><div class="avatar">H</div></div>
+  <div class="card">
+    <div class="eyebrow">Còn lại tháng này · cá nhân</div>
+    <div class="big" style="margin-top:4px">4.280.000 ₫</div>
+  </div>
+  <div style="height:14px"></div>
+  <div class="srow"><div class="ic">🎯</div><div class="mid"><div class="t">Ngân sách cá nhân</div></div><div class="st">12,5tr ›</div></div>
+  <div class="srow"><div class="ic">📊</div><div class="mid"><div class="t">Xem chi tiêu</div></div><div class="st">›</div></div>
+  <div class="srow"><div class="ic">✍️</div><div class="mid"><div class="t">Ghi giao dịch</div></div><div class="st">›</div></div>
+  <div class="srow"><div class="ic">📬</div><div class="mid"><div class="t">Khoản thu chi từ email</div></div><div class="st"><span class="badge">12</span> ›</div></div>
+  <div class="srow"><div class="ic">🔔</div><div class="mid"><div class="t">Nhắc khi có khoản mới</div><div class="s">Một lời nhắc ngắn mỗi khi email ngân hàng thành khoản chờ duyệt</div></div><div class="st off"><i></i>Tắt ›</div></div>
+  <div class="tabbar">
+    <div class="tab"><span class="ic">🏡</span>Nhà</div>
+    <div class="tab"><span class="ic">📸</span>Kỷ niệm</div>
+    <div class="tab on"><span class="ic">💰</span>Tài Chính</div>
+    <div class="tab"><span class="ic">⚙️</span>Cài đặt</div>
+  </div>
+</div></div>
+<div class="cap">
+  <div><span class="tag pick">06</span><b class="ttl">Một cái công tắc tìm thấy được</b> <span style="font-size:12px;color:var(--brand-ink);font-weight:700">· nền móng</span></div>
+  <dl>
+    <dt>Khi nào</dt><dd>Luôn có mặt, không phụ thuộc khoảnh khắc nào.</dd>
+    <dt>Ở đâu</dt><dd>Một hàng trong danh sách hành động của tab Tài Chính, ngay dưới “Khoản thu chi từ email”, chỗ người UT đã đi tìm. Cài đặt vẫn giữ hàng cũ.</dd>
+    <dt>Hỏi bằng cách nào</dt><dd>Không hỏi. Hàng tự nói mình làm gì, kèm chấm trạng thái Tắt màu hổ phách. Tên hàng nói việc nhận được, không nói cơ chế.</dd>
+  </dl>
+  <div class="pc">
+    <div class="p"><div class="h">Được</div><ul><li>Sửa dứt điểm nửa đầu vấn đề 13: không tìm ra chỗ bật.</li><li>Không ngắt mạch ai, không cần luật chống lặp.</li><li>Là chỗ đáp của mọi phương án khác: ai bấm “Để sau” vẫn còn đường quay lại.</li><li>Nhìn thấy trạng thái Tắt mỗi lần vào tab, tự nó là lời nhắc nhẹ.</li></ul></div>
+    <div class="c"><div class="h">Mất</div><ul><li>Một mình thì tỉ lệ bật rất thấp: không ai đi bật một tính năng chưa thấy giá trị.</li><li>Thêm một hàng vào danh sách đã bốn hàng.</li><li>Là hạ tầng, không phải khoảnh khắc wow.</li></ul></div>
+  </div>
+  <div class="anchor">Chạm vào: <code>21-personal.js</code> (danh sách <code>.cf-cta</code>), <code>fhPushState</code> để vẽ chấm trạng thái.</div>
+</div>
+</div>
+
+<!-- ═══════════════ 07 ═══════════════ -->
+<div class="item">
+<div class="phone"><div class="scr">
+  <div class="stat"><span>9:41</span><span class="dots"><i></i></span></div>
+  <div class="nav"><div class="h-title">Tài Chính</div><div class="avatar">H</div></div>
+  <div class="shot"><b>806</b><span>khoản đã đọc xong từ hộp thư của bạn</span></div>
+  <div class="scrim"></div>
+  <div class="sheet">
+    <div class="grab"></div>
+    <div class="sh-h">Hai bước để Earthy nhắc được bạn</div>
+    <div class="sh-sub">iPhone chỉ gửi thông báo cho app đã nằm ở Màn hình chính. Làm xong bước một, Earthy sẽ tự hỏi tiếp bước hai.</div>
+    <div class="steps">
+      <div class="step on">
+        <div class="n">1</div>
+        <div><div class="t">Thêm Earthy vào Màn hình chính</div><div class="s">Bấm nút Chia sẻ ở thanh dưới của Safari, chọn “Thêm vào MH chính”, rồi mở app từ biểu tượng mới.</div></div>
+      </div>
+      <div class="step">
+        <div class="n">2</div>
+        <div><div class="t">Bật thông báo</div><div class="s">Mở lại từ biểu tượng là Earthy hỏi ngay câu này, bạn chỉ cần bấm Cho phép.</div></div>
+      </div>
+    </div>
+    <div class="cta">Xem cách thêm vào MH chính</div>
+    <div class="plain">Để sau</div>
+  </div>
+</div></div>
+<div class="cap">
+  <div><span class="tag">07</span><b class="ttl">Cái thang cho iOS Safari</b></div>
+  <dl>
+    <dt>Khi nào</dt><dd>Cùng vạch đích, nhưng chỉ khi <code>fhPushState()</code> trả về <code>ios-install</code>.</dd>
+    <dt>Ở đâu</dt><dd>Sheet hai bước, thay cho lời mời bật thông báo mà ở trạng thái này chắc chắn thất bại.</dd>
+    <dt>Hỏi bằng cách nào</dt><dd>Nói rõ hai bước ngay từ đầu, ghi một cờ “đang ở giữa thang”, và khi app mở lại ở chế độ standalone thì tự hỏi tiếp bước hai.</dd>
+  </dl>
+  <div class="pc">
+    <div class="p"><div class="h">Được</div><ul><li>Là phương án duy nhất chạy được cho nhóm iOS Safari, nhóm rất lớn ở Việt Nam.</li><li>Không hứa một điều mà hệ thống không cho phép.</li><li>Kéo luôn việc cài PWA, vốn cũng đang chỉ được mời một lần.</li></ul></div>
+    <div class="c"><div class="h">Mất</div><ul><li>Hai lời mời cho một kết quả, rơi rụng ở giữa là chắc chắn.</li><li>Cần một cờ bền để nối lại bước hai đúng lúc, và cờ đó phải tự hết hạn.</li><li>Người dùng đang muốn duyệt giao dịch thì bị đưa sang việc cài app.</li></ul></div>
+  </div>
+  <div class="anchor">Chạm vào: <code>62-install-ui.js</code> (<code>fhInstallNudge</code>), <code>55-push.js</code> (nối bước hai khi <code>display-mode: standalone</code>).</div>
+</div>
+</div>
+
+<!-- ═══════════════ 08 ═══════════════ -->
+<div class="item">
+<div class="phone"><div class="scr">
+  <div class="lock" style="flex:none;height:300px">
+    <div class="lk-clock" style="margin-top:34px"><div class="dt">Thứ Ba, 30 tháng 9</div><div class="tm" style="font-size:62px">7:12</div></div>
+    <div class="lk-stack" style="padding-bottom:16px">
+      <div class="noti ghost"><div class="row">
+        <div class="appic"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></div>
+        <div class="tx"><div class="head"><div class="ttl">Lẽ ra bạn đã thấy 3 lời nhắc ở đây</div></div><div class="bd" style="font-size:13px">hôm qua, lúc 12:04 · 18:41 · 21:15</div></div>
+      </div></div>
+    </div>
+  </div>
+  <div class="nav" style="padding-top:12px"><div class="h-title">Tài Chính</div><div class="avatar">H</div></div>
+  <div class="nudge amberl">
+    <div class="x">✕</div>
+    <b>Hôm qua có 3 khoản vào hàng chờ mà bạn không hay</b>
+    <p>Lúc 12:04, 18:41 và 21:15. Thông báo đang tắt nên Earthy không nhắc được, bạn phải tự mở app mới thấy.</p>
+    <div class="act"><div class="go">Bật thông báo</div><div class="no">Không cần</div></div>
+  </div>
+  <div class="seclbl">Chờ bạn duyệt · 3</div>
+  <div class="qrow"><div class="emo">🍜</div><div class="mid"><div class="t">Bún bò Huế Đông Ba</div><div class="s">Hôm qua · 12:04</div></div><div class="amt num">−65.000 ₫</div></div>
+  <div class="qrow"><div class="emo">🛒</div><div class="mid"><div class="t">Bách Hoá Xanh</div><div class="s">Hôm qua · 18:41</div></div><div class="amt num">−238.000 ₫</div></div>
+  <div class="qrow"><div class="emo">🧾</div><div class="mid"><div class="t">Shopee</div><div class="s">Hôm qua · 21:15</div></div><div class="amt num">−607.700 ₫</div></div>
+</div></div>
+<div class="cap">
+  <div><span class="tag pick">08</span><b class="ttl">Nói đúng cái bạn đã bỏ lỡ</b> <span style="font-size:12px;color:var(--brand-ink);font-weight:700">· cơ hội thứ hai</span></div>
+  <dl>
+    <dt>Khi nào</dt><dd>Lần mở app mà có khoản đã vào hàng chờ trong lúc app đóng, và thông báo vẫn tắt. Không hỏi ở vạch đích.</dd>
+    <dt>Ở đâu</dt><dd>Thẻ trên cùng tab Tài Chính hoặc màn duyệt, viền hổ phách vì nó nói về một thứ đã mất.</dd>
+    <dt>Hỏi bằng cách nào</dt><dd>Nêu số thật và giờ thật. Không lời hứa, chỉ một bản kê những lần app đã im lặng. Phần màn hình khoá phía trên là minh hoạ cho người đọc mockup, không có trong app.</dd>
+  </dl>
+  <div class="pc">
+    <div class="p"><div class="h">Được</div><ul><li>Bằng chứng riêng của chính người dùng, thuyết phục hơn mọi lời hứa.</li><li>Tự hết lý do tồn tại: bật rồi là không bao giờ hiện lại.</li><li>Không cần khoảnh khắc riêng, và lặp lại được mà vẫn đúng.</li></ul></div>
+    <div class="c"><div class="h">Mất</div><ul><li>Giọng dễ nghiêng sang trách móc, phải viết rất nhẹ tay.</li><li>Cần ghi lại mốc lần mở app trước để biết khoản nào vào lúc đang đóng.</li><li>Chỉ xuất hiện sau khi đã có một quãng bỏ lỡ, nên không giúp gì cho ngày đầu.</li></ul></div>
+  </div>
+  <div class="anchor">Chạm vào: <code>21-personal.js</code> (thẻ), <code>30-hydrate.js</code> (mốc lần mở trước), <code>74-autotxn-ui.js</code> (đếm khoản vào trong quãng đóng).</div>
+</div>
+</div>
+
+</div>
+
+<div class="panel" style="margin-top:56px">
+  <h2>Đề xuất: ba lớp, không phải một phương án</h2>
+  <p>Tám phương án trên không loại nhau. Vấn đề 13 có hai nửa, và một lời mời không chữa được cả hai.</p>
+  <div class="rules" style="grid-template-columns:1fr">
+    <div class="rule"><b>Lớp nền: phương án 06, làm trước</b><span>Một hàng “Nhắc khi có khoản mới” trong danh sách Tài Chính, có chấm trạng thái. Rẻ nhất, không ngắt mạch ai, và là chỗ đáp cho mọi lời mời bị bỏ qua. Không có lớp này thì mọi lời mời đều là cửa một chiều.</span></div>
+    <div class="rule"><b>Lớp mời: phương án 04 ở vạch đích</b><span>Giữ đúng khoảnh khắc đọc xong của phương án 01, nhưng thay lời hứa bằng hai thông báo thật dựng từ hai khoản mới nhất của chính người dùng. Đây là chỗ duy nhất trả lời được “tôi sẽ nhận cái gì”. Trên iOS Safari thì rẽ sang phương án 07.</span></div>
+    <div class="rule"><b>Lớp cơ hội thứ hai: phương án 08</b><span>Ai bấm “Để sau” sẽ được hỏi lại một lần nữa, nhưng bằng bằng chứng của chính họ, không phải bằng lời mời cũ lặp lại. Dừng hẳn khi họ bấm “Không cần, đừng hỏi lại”.</span></div>
+    <div class="rule warn"><b>Phải sửa luật hỏi lại trước khi thêm điểm gọi nào</b><span>Đổi <code>fh-push-nudged:&lt;mid&gt;</code> thành một bản ghi có số lần đã hỏi và mốc lần hỏi cuối. Tối đa 3 lần, cách nhau ít nhất 14 ngày, và một lời từ chối dứt điểm thì khoá vĩnh viễn. Không sửa chỗ này thì thêm điểm gọi chỉ là đổi thời điểm của cùng một cửa một chiều.</span></div>
+    <div class="rule bad"><b>Chưa nên chọn: 02 và 05 làm lời mời chính</b><span>Phương án 02 là phiên bản chưa có bằng chứng của 08, nên cứ dùng 08. Phương án 05 hay về ngữ cảnh nhưng có thể chờ nhiều ngày, quá muộn cho giai đoạn giữ người. Phương án 03 chỉ nên thêm nếu việc nhập sổ diễn ra ngay trong phiên đọc.</span></div>
+  </div>
+  <p style="margin-top:16px">Ghi chú phụ thuộc: quyết định H6 của <code>reading-loop-cost-spec</code> nói rõ không được giãn nhịp thăm dò trước khi vấn đề 13 được sửa. Ba lớp trên chính là điều kiện để mở khoá việc giãn nhịp đó.</p>
+</div>
+
+<footer>
+  Nguồn: <code>research/UT/UT-onboarding-report.html</code> vấn đề 13 và 06 · <code>src/js-data/55-push.js</code> (<code>fhPushState</code>, <code>fhPushSheet</code>, <code>fhPushFirstVisitOffer</code>) · <code>docs/features/web-push.md</code> · <code>docs/specs/reading-loop-cost-spec.md</code> H6 · <code>docs/specs/activation-journey-spec.md</code> §8 Q29a · migration <code>0152_personal_push.sql</code>.
+  <br>Token màu và khung máy lấy từ <code>src/css/10-tokens.css</code> và <code>mockups/quick-review.html</code>.
+</footer>
+
+</div>
+</body>
+</html>

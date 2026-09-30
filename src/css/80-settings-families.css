@@ -10,6 +10,28 @@
 .fh-s-del{display:block!important;margin:18px auto 2px}          /* .ex-del is display:none by default */
 .fh-s-h{font-family:var(--disp);font-weight:700;font-size:25px;letter-spacing:-.7px;color:var(--ink);margin-bottom:5px}
 .fh-s-sub{font-size:14.5px;letter-spacing:-.01em;color:var(--muted);line-height:1.45;margin-bottom:18px}
+/* ── The notification preview inside the permission ask ───────────────────────
+   Two real notifications, lifted off the sheet by shadow rather than sat on a
+   dark plate: the plate read as a screenshot of somewhere else, and the point is
+   that these are the person's own. The second card steps back a little so the
+   pair reads as depth, not as a list. No tint, no brand fill — a notification
+   card is a piece of the OS, and dressing it in our colours makes it a poster. */
+.np-wrap{margin:-4px 2px 0;padding:4px 2px 6px}
+.np-card{display:flex;gap:10px;align-items:flex-start;background:var(--white);border-radius:17px;padding:11px 13px;
+  box-shadow:var(--shadow-raised)}
+.np-card + .np-card{margin-top:10px}
+/* The second card steps back so the pair reads as depth, not as a list: one
+   shadow step down and a hair smaller, which is the whole effect. */
+.np-dim{transform:scale(.973);transform-origin:top center;box-shadow:var(--shadow-focal)}
+.np-ic{flex:0 0 auto;width:34px;height:34px;border-radius:9px;background:var(--brand-tint);color:var(--brand-ink);display:flex;align-items:center;justify-content:center}
+.np-ic svg{width:18px;height:18px}
+.np-tx{flex:1;min-width:0}
+.np-hd{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.np-hd b{font-size:15px;font-weight:600;color:var(--ink)}
+.np-hd i{font-style:normal;font-size:12px;color:var(--muted-soft);flex:none}
+.np-bd{display:block;font-size:14.5px;line-height:1.3;color:var(--ink-2);margin-top:1px}
+.np-note{font-size:12.5px;color:var(--muted-soft);text-align:center;margin:14px 0 18px;line-height:1.45}
+.np-dim .np-hd b,.np-dim .np-bd{color:var(--muted)}
 .fh-s-lab{font-size:13px;font-weight:700;color:var(--muted);letter-spacing:.02em;text-transform:uppercase;margin-bottom:8px}
 /* member / income rows — 44px min height, hairline separated, no fills */
 .fh-s-row{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--divider);min-height:56px}

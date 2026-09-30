@@ -99,6 +99,10 @@
    600 is what makes it a description instead of a second heading. */
 .cc-sub{display:block;margin-top:3px;font-size:12px;font-weight:400;line-height:1.45;color:var(--muted);white-space:normal}
 .cc-badge{flex:0 0 auto;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--brand);color:#fff;font-size:11px;font-weight:800;line-height:20px;text-align:center;font-variant-numeric:tabular-nums}
+/* The notification row's state dot. Deliberately NOT a .cc-badge: a badge is a
+   count and asks to be cleared, this only reports whether the switch is on. */
+.cc-state{flex:0 0 auto;width:7px;height:7px;border-radius:50%;background:var(--chev)}
+.cc-state.on{background:var(--good)}
 .cc-chev{width:18px;height:18px;flex-shrink:0;color:var(--chev)}
 /* Bank-email row with a DEAD connection. Amber, and deliberately no count: a
    number here would read as work waiting, when the truth is that nothing is

@@ -12,7 +12,8 @@ var PIC = {
   mail:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18v14H3z"/><path d="M3 6l9 7 9-7"/></svg>',
   chev:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg>',
   chart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9M9 19V5M14 19v-7M19 19v-11"/></svg>',
-  list:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>'
+  list:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>',
+  bell:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8.5a6 6 0 0 0-12 0c0 6-2.2 7.5-2.2 7.5h16.4S18 14.5 18 8.5"/><path d="M13.7 19.5a2 2 0 0 1-3.4 0"/></svg>'
 };
 var _ccChev='<svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg>';
 /* ── The eye: per-section stat masking (shoulder-surf guard). Device-local
@@ -722,11 +723,49 @@ function renderPersonal(){
         personal, exactly as openPersonalExpense() above presets the expense
         modal. Badge off the same window.fhStagedCount Widget A reads. */
      +   _persEmailRow()
+     /* Fifth row: the notification switch. It is here, under the email row,
+        because this is where the UT participant went looking for it and did not
+        find it (UT 2026-09-26, problem 13). It never ASKS — it states whether
+        this device is on, so it costs none of the three asks the spec allows
+        (notification-activation-spec.md §3). */
+     +   _persNotifyRow()
      + '</div>'
      + '</section>';
   }
 
-  /* The Cá nhân copy of Widget A's email row. It was a hardcoded duplicate, which
+  /* The notification row (notification-activation-spec.md §2.1). Four readable
+   states out of fhPushState()'s five; 'unsupported' hides the row entirely,
+   because a switch that cannot exist should not be advertised.
+
+   fhPushState() is async and this render is one synchronous innerHTML, so the
+   row reads the cached answer and kicks a probe. A changed answer repaints the
+   tab once, which is how the row can never show a stale switch after someone
+   flips permission in system settings and comes back.
+
+   "Máy này" is load-bearing: a subscription belongs to a DEVICE, not to an
+   account, and a person with two phones must not read this as global. */
+function _persNotifyRow(){
+  var st = (typeof window.fhPushStateSync === 'function') ? window.fhPushStateSync() : null;
+  if (typeof window.fhPushStateProbe === 'function') window.fhPushStateProbe();
+  if (!st || st === 'unsupported') return '';
+  /* Amber is reserved for the two states that are actually BLOCKED. "Đang tắt"
+     is a choice, not a fault, so it stays neutral — an amber row for a working
+     app that simply has notifications off is a false alarm every time. */
+  var warn = (st === 'denied' || st === 'ios-install');
+  var sub = st === 'on'          ? 'Bật cho máy này'
+          : st === 'denied'      ? 'Bị chặn trong Cài đặt máy'
+          : st === 'ios-install' ? 'Cần thêm Earthy vào MH chính'
+          :                        'Đang tắt';
+  return '<button class="cc-row" onclick="fhPushSheet()">'
+    + '<span class="cc-ic' + (warn ? ' warn' : '') + '">' + PIC.bell + '</span>'
+    + '<span class="cc-t">Nhắc khi có khoản mới'
+    +   '<span class="cc-sub' + (warn ? ' warn' : '') + '">' + sub + '</span>'
+    + '</span>'
+    + '<span class="cc-state' + (st === 'on' ? ' on' : '') + '"></span>'
+    + _ccChev + '</button>';
+}
+
+/* The Cá nhân copy of Widget A's email row. It was a hardcoded duplicate, which
    is how it missed the first-read progress entirely: renderCashflowEmailCta
    grew a held state and this one kept printing a bare count. Same three states,
    same reasons (see renderCashflowEmailCta in 20-budget.js) — while a first
