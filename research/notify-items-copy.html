@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Câu chữ thông báo, sâu hơn nhờ từng món hàng — 8 đề xuất</title>
+<style>
+:root{
+  --brand:#2E9E6B; --brand-ink:#1F7E52; --brand-2:#5FD3A0;
+  --brand-tint:#e9f7f0; --brand-glow:rgba(46,158,107,.32);
+  --grad-brand:linear-gradient(135deg,#34B87A,#5FC98D);
+  --danger:#E0322F; --danger-tint:#fdecef;
+  --good:#1a9d5f; --good-tint:#e7f5ee;
+  --amber:#B8730B; --amber-tint:#fbefda;
+  --ink:#191022; --ink-2:#3a2f45; --muted:#6b6576; --muted-soft:#78727f;
+  --canvas:#f4f1f6; --pearl:#fbfafc; --surface:#f9f7f8; --white:#fff;
+  --hairline:#e9e4ee; --divider:#f1edf4; --chev:#cfc8d6;
+  --fill-neutral:rgba(138,132,148,.14);
+  --shadow-card:0 1px 3px rgba(25,16,34,.05),0 8px 24px rgba(25,16,34,.04);
+  --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-font-smoothing:antialiased}
+body{font-family:var(--text);background:#e7e2ec;color:var(--ink);line-height:1.55}
+.num{font-family:var(--disp);font-variant-numeric:tabular-nums}
+code{font-family:var(--mono);font-size:.88em;color:var(--ink-2)}
+
+.wrap{max-width:1080px;margin:0 auto;padding:46px 26px 100px}
+.hero .eyebrow{font-size:11.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--brand-ink)}
+.hero h1{font-family:var(--disp);font-size:32px;font-weight:800;letter-spacing:-.7px;margin-top:10px;line-height:1.18}
+.hero p{margin-top:13px;font-size:15.5px;color:var(--muted)}
+.hero p b{color:var(--ink-2)}
+
+.sec{margin-top:40px;background:var(--white);border-radius:22px;padding:26px 28px;box-shadow:var(--shadow-card)}
+.sec > h2{font-family:var(--disp);font-size:21px;font-weight:760;letter-spacing:-.4px}
+.sec > h2 .n{color:var(--chev);margin-right:9px;font-weight:800}
+.sec > p{margin-top:10px;font-size:14.5px;color:var(--muted)}
+.sec > p b{color:var(--ink-2)}
+h3.sub{font-family:var(--disp);font-size:15.5px;font-weight:720;margin-top:22px}
+
+table{width:100%;border-collapse:collapse;margin-top:14px;font-size:13.5px}
+th,td{text-align:left;padding:10px 11px;border-bottom:1px solid var(--divider);vertical-align:top}
+th{font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+td b{font-weight:700}
+td.ok{color:var(--good);font-weight:700;white-space:nowrap}
+td.no{color:var(--danger);font-weight:700;white-space:nowrap}
+td.mid{color:var(--amber);font-weight:700;white-space:nowrap}
+tr.tot td{border-bottom:0;font-weight:700}
+
+.facts{margin-top:16px;display:grid;gap:13px}
+.fact{border-left:2.5px solid var(--brand);padding:1px 0 1px 13px}
+.fact b{display:block;font-size:14px;font-weight:750}
+.fact span{display:block;margin-top:4px;font-size:13.5px;color:var(--muted)}
+.fact.warn{border-left-color:var(--amber)}
+.fact.bad{border-left-color:var(--danger)}
+
+/* notification preview strip */
+.strip{margin-top:14px;border-radius:18px;padding:15px 14px;background:
+  radial-gradient(120% 70% at 85% -10%,rgba(95,211,160,.17),transparent 55%),
+  linear-gradient(168deg,#13291f 0%,#0d1c15 100%)}
+.strip .lbl{font-size:10.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:rgba(244,247,245,.58);margin-bottom:10px}
+.noti{background:rgba(248,248,251,.94);border-radius:18px;padding:11px 13px;color:var(--ink);box-shadow:0 6px 18px rgba(5,10,8,.22)}
+.noti + .noti{margin-top:8px}
+.noti .row{display:flex;gap:10px;align-items:flex-start}
+.appic{width:34px;height:34px;border-radius:9px;flex:none;background:var(--grad-brand);display:flex;align-items:center;justify-content:center}
+.appic svg{width:18px;height:18px}
+.noti .tx{flex:1;min-width:0}
+.noti .head{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.noti .ttl{font-size:14.5px;font-weight:650}
+.noti .when{font-size:11.5px;color:var(--muted-soft);flex:none}
+.noti .bd{font-size:14px;color:var(--ink-2);margin-top:1px}
+.noti.old{background:rgba(248,248,251,.66)}
+.noti.old .bd{color:var(--muted)}
+
+/* proposal blocks */
+.prop{margin-top:22px;border-top:1px solid var(--divider);padding-top:22px}
+.prop:first-of-type{border-top:0;padding-top:6px}
+.prop .ph{display:flex;align-items:baseline;gap:11px;flex-wrap:wrap}
+.pid{font-family:var(--disp);font-size:12px;font-weight:800;letter-spacing:.06em;color:#fff;background:var(--ink-2);border-radius:6px;padding:4px 8px;flex:none}
+.pid.pick{background:var(--brand)}
+.pid.no{background:var(--muted-soft)}
+.prop h3{font-family:var(--disp);font-size:18.5px;font-weight:740;letter-spacing:-.35px}
+.verdict{font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;padding:3px 8px;border-radius:5px}
+.verdict.go{color:var(--brand-ink);background:var(--brand-tint)}
+.verdict.later{color:var(--amber);background:var(--amber-tint)}
+.verdict.stop{color:var(--danger);background:var(--danger-tint)}
+.prop > p{margin-top:9px;font-size:14.5px;color:var(--ink-2)}
+.prop > p.m{color:var(--muted)}
+.meta{margin-top:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.meta div{font-size:12.5px;color:var(--muted)}
+.meta .k{display:block;font-size:10px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--chev);margin-bottom:2px}
+.meta b{color:var(--ink-2);font-weight:700}
+.pc{margin-top:14px;display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:620px){.pc{grid-template-columns:1fr}.wrap{padding:30px 14px 70px}.sec{padding:20px 17px}}
+.pc .h{font-size:10.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;margin-bottom:5px}
+.pc .p .h{color:var(--good)}
+.pc .c .h{color:var(--danger)}
+.pc ul{padding-left:16px;font-size:13.5px;color:var(--muted)}
+.pc li{margin-top:4px}
+.pc li b{color:var(--ink-2)}
+.lands{margin-top:12px;font-size:12.5px;color:var(--muted-soft);border-top:1px solid var(--divider);padding-top:9px}
+.seq{margin-top:16px;display:grid;gap:12px}
+.seq .s{display:flex;gap:13px;align-items:flex-start}
+.seq .s .n{width:26px;height:26px;border-radius:50%;background:var(--brand);color:#fff;font-size:12.5px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none;margin-top:1px}
+.seq .s.later .n{background:var(--fill-neutral);color:var(--ink-2)}
+.seq .s b{font-size:14.5px;font-weight:720}
+.seq .s p{font-size:13.5px;color:var(--muted);margin-top:3px}
+footer{margin-top:54px;font-size:12.5px;color:var(--muted-soft);border-top:1px solid #d9d3e0;padding-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="hero">
+  <div class="eyebrow">Phân tích · 30/09/2026</div>
+  <h1>Câu chữ thông báo, sâu hơn nhờ từng món hàng</h1>
+  <p>Từ 29/09, email hoá đơn của Shopee, Apple và các sàn khác cho Earthy biết <b>từng món trong một khoản chi</b>: tên món, số lượng, giá, và danh mục của riêng món đó. Trước đó thông báo chỉ biết một khoản thuộc nhóm nào và to cỡ nào. Câu hỏi của tài liệu này: <b>phần hiểu biết mới đó đổi được câu chữ tới đâu</b>, mà không phá hợp đồng riêng tư của payload.</p>
+  <p>Kết luận ngắn: đổi được nhiều, nhưng <b>không phải bằng cách nhồi tên món vào payload</b>. Ba đề xuất mở ra gần hết giá trị, ba đề xuất nữa nên chờ, hai nên bỏ.</p>
+</div>
+
+<!-- ══════════ 1. Máy hiện tại ══════════ -->
+<div class="sec">
+  <h2><span class="n">01</span>Cái máy đang chạy hôm nay</h2>
+  <p>Câu chữ không nằm trong payload. Payload chỉ mang <b>một enum bốn ô</b>, và phía gửi chọn một câu đã viết sẵn từ enum đó. Đây là lý do một câu rất cụ thể vẫn không tiết lộ gì.</p>
+  <table>
+    <tr><th>Bước</th><th>Ở đâu</th><th>Làm gì</th></tr>
+    <tr><td><b>1. Chưng cất</b></td><td><code>notify-copy.mjs</code> · <code>copyMeta()</code></td><td>Lúc worker còn giữ bản rõ, nén toàn bộ ngữ cảnh thành <code>{c, t, d, p}</code>: nhóm chi tiêu, bậc số tiền (4 bậc), buổi trong ngày, và “pool” từ khoá của cửa hàng.</td></tr>
+    <tr><td><b>2. Chọn khoản nói</b></td><td><code>worker.mjs</code> · <code>copyBest</code></td><td>Khoản mới nhất theo giờ của ngân hàng được quyền cất tiếng. Khoản bị nghi trùng thì không, vì câu của nó có thể nói về một khoản mà hàng chờ sẽ gọi là “Có thể trùng”.</td></tr>
+    <tr><td><b>3. Gửi</b></td><td><code>mailbox-sync</code> · <code>notifyReview()</code></td><td>Một lần đẩy cho mỗi hộp thư mỗi lượt chạy. Kèm <code>count</code> là số khoản đang chờ, không phải số khoản vừa tìm được.</td></tr>
+    <tr><td><b>4. Chọn câu</b></td><td><code>push-send</code> · <code>reviewBody()</code></td><td>Ưu tiên pool, rồi pool theo buổi, rồi nhóm theo buổi, rồi bảng nhóm × bậc tiền. Mỗi ô 4 biến thể, chọn ngẫu nhiên.</td></tr>
+  </table>
+  <h3 class="sub">Độ phủ của bộ câu hiện tại</h3>
+  <table>
+    <tr><th>Lớp</th><th>Số ô</th><th>Biến thể</th><th>Nói được điều gì</th></tr>
+    <tr><td>Bảng nhóm × bậc tiền</td><td>8 nhóm × 4 bậc</td><td>4 mỗi ô</td><td>“Chi cho nhóm này, cỡ tiền này”</td></tr>
+    <tr><td>Nhóm theo buổi</td><td>Ăn uống, Đi chợ × 4 buổi</td><td>4 mỗi ô</td><td>Thêm giờ thật trong ngày</td></tr>
+    <tr><td>Pool cửa hàng</td><td>cà phê, trà sữa, xe, phim</td><td>4 mỗi ô, có bản theo buổi</td><td>Loại cửa hàng, đoán từ tên</td></tr>
+    <tr class="tot"><td>Tổng</td><td colspan="3">Khoảng 190 câu. Không câu nào biết <b>người dùng đã mua cái gì</b>.</td></tr>
+  </table>
+  <div class="strip">
+    <div class="lbl">Hôm nay · một đơn Shopee 607.700 ₫</div>
+    <div class="noti old"><div class="row">
+      <div class="appic"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></div>
+      <div class="tx"><div class="head"><div class="ttl">😳</div><div class="when">21:15</div></div><div class="bd">Mua sắm mạnh tay ghê, cân lại tháng này nha!</div></div>
+    </div></div>
+    <div style="font-size:12.5px;color:rgba(244,247,245,.66);margin-top:10px;line-height:1.5">Trong khi hoá đơn của chính đơn đó nói rõ: một cái kính bơi OLANE 503M, 607.700 ₫, danh mục <code style="color:#bfe8d4">sportsgear</code>. Câu trên vẫn là “mua sắm”, vì nó được chọn trước khi ai biết tới cái kính bơi.</div>
+  </div>
+</div>
+
+<!-- ══════════ 2. Ba sự thật ══════════ -->
+<div class="sec">
+  <h2><span class="n">02</span>Năm sự thật kỹ thuật quyết định mọi đề xuất</h2>
+  <p>Đây không phải sở thích thiết kế. Đây là những gì code và spec đang quy định, và mỗi đề xuất bên dưới sống hay chết vì chúng.</p>
+  <div class="facts">
+    <div class="fact bad"><b>Hoá đơn hiện nay hoàn toàn không phát ra thông báo nào</b><span>Trong <code>worker.mjs</code>, một dòng <code>row_kind='receipt'</code> được xếp vào rồi <b>thoát sớm</b>, trước cả chỗ tăng <code>summary.staged</code> và chỗ chọn giọng. Nó cũng bị <code>mailbox_read_status()</code> loại khỏi mọi phép đếm chờ duyệt. Nghĩa là: dù đã biết từng món, hệ thống đang im lặng tuyệt đối về chúng.</span></div>
+    <div class="fact"><b>Nhưng phía máy chủ có đúng một cửa sổ nhìn thấy bản rõ</b><span>Ngay trước khi niêm phong, <code>item-category.mjs</code> chạy thang chữ ký để gắn danh mục cho từng món. Tại thời điểm đó worker giữ tên món, giá món và node của món ở dạng rõ. Đây là cửa sổ duy nhất, và nó đủ để chưng cất một enum như <code>copyMeta</code> đang làm.</span></div>
+    <div class="fact warn"><b>Việc ghép hoá đơn vào giao dịch chỉ xảy ra trên máy, và chỉ khi mở màn duyệt</b><span><code>78-receipt-join.js</code> ghép theo <b>đúng số tiền</b>, lệch tối đa 1 ngày, bốn số cuối của thẻ là bằng chứng phủ quyết. Máy chủ không thể tự ghép: số tiền của cả hai phía đều đã niêm phong. Hệ quả nặng: <b>máy chủ không bao giờ biết một hoá đơn thuộc về khoản nào</b>, nên không thể nói “khoản 607k của bạn là cái kính bơi”.</span></div>
+    <div class="fact warn"><b>Thư ngân hàng và thư hoá đơn gần như không bao giờ về cùng một lượt</b><span>Ngân hàng gửi ngay lúc trừ tiền. Shopee có thư thanh toán và thư giao hàng, chia nhau một mã đơn, thư giao hàng có thể tới sau nhiều ngày. Nên ở đúng lúc khoản chi phát thông báo, <b>giỏ hàng thường còn chưa tồn tại</b>. Grab thì không có món nào cả (<code>items</code> luôn null), mà Grab lại là một phần lớn giao dịch.</span></div>
+    <div class="fact"><b>Đã có tiền lệ soạn câu ngay trên máy: bản tin chuỗi thói quen</b><span>Thông báo 6 giờ sáng gửi <code>body</code> rỗng cùng một cờ; service worker mở IndexedDB <code>fh-streaks</code>, đọc ảnh chụp đã giải mã sẵn, rồi <b>tự soạn câu ở thiết bị</b>. Nó từ chối ảnh chụp cũ hơn hôm qua và rơi về câu chung chung. Đây là con đường hợp pháp duy nhất để một <b>tên món</b> xuất hiện trên màn hình khoá.</span></div>
+  </div>
+  <h3 class="sub">Ranh giới riêng tư, nói cho thật chính xác</h3>
+  <p>Payload không được mang số tiền, tên cửa hàng, tên danh mục. Bình luận trong <code>copyMeta</code> còn nói rõ hơn một bậc: ngay cả <b>mã node</b> cũng không được gửi, vì “một mã như <code>coffee</code> đúng là loại khẳng định cụ thể mà payload này tồn tại để không mang theo”. Tên món thì cụ thể hơn mã node, nên <b>không có phiên bản nào của việc nhét tên món vào payload là hợp lệ</b>. Chỉ còn hai đường: enum thô hơn, hoặc soạn câu tại máy.</p>
+</div>
+
+<!-- ══════════ 3. Tám đề xuất ══════════ -->
+<div class="sec">
+  <h2><span class="n">03</span>Tám đề xuất</h2>
+  <p>Mỗi đề xuất được xét ở bốn góc: <b>lớp nào</b> của cái máy nó sửa, <b>cần gì để chạy</b>, <b>riêng tư có sạch không</b>, và <b>bao nhiêu công</b>.</p>
+
+  <!-- P1 -->
+  <div class="prop">
+    <div class="ph"><span class="pid pick">P1</span><h3>Giỏ hàng có giọng riêng, ở mức pool</h3><span class="verdict go">Nên làm</span></div>
+    <p>Thêm một ô vào enum: <code>ip</code>, suy ra từ node của các món, nhưng <b>thô ngang với pool đang có</b>. Một giỏ toàn đồ thể thao ra <code>ip:'sportsgear'</code>; một giỏ toàn đồ ăn tươi ra <code>ip:'fresh'</code>; đồ số, mỹ phẩm, đồ em bé, đồ bếp mỗi loại một pool. Số pool nên dừng ở khoảng 12 tới 16, không phải 103 lá của cây.</p>
+    <div class="strip">
+      <div class="lbl">Câu mới thay cho “Mua sắm mạnh tay ghê”</div>
+      <div class="noti"><div class="row"><div class="appic"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></div><div class="tx"><div class="head"><div class="ttl">🏃</div><div class="when">21:15</div></div><div class="bd">Mua đồ tập rồi, giờ tới phần khó là đi tập!</div></div></div></div>
+      <div class="noti"><div class="row"><div class="appic"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></div><div class="tx"><div class="head"><div class="ttl">🍳</div><div class="when">19:40</div></div><div class="bd">Đồ bếp mới về, cuối tuần nấu gì đây!</div></div></div></div>
+    </div>
+    <div class="meta">
+      <div><span class="k">Sửa lớp</span><b>Chọn câu</b> (bộ câu + enum)</div>
+      <div><span class="k">Cần gì để chạy</span><b>Một cò súng</b>: P2 hoặc P4, vì hoá đơn đang im</div>
+      <div><span class="k">Riêng tư</span><b>Sạch</b>, cùng hạng với <code>p</code> đang gửi</div>
+      <div><span class="k">Công</span><b>Nhỏ</b>: một hàm gộp node + khoảng 60 câu</div>
+    </div>
+    <div class="pc">
+      <div class="p"><div class="h">Được</div><ul>
+        <li>Không mở ranh giới tin cậy nào mới: pool cửa hàng đã đi qua payload từ lâu, đây là pool cùng hạng, chỉ khác nguồn suy ra.</li>
+        <li>Phá được <b>trần độ sâu</b> của các sàn: Shopee vốn chỉ dừng ở “Mua sắm”, nay giỏ hàng nói rõ hơn mà không cần đổi node của khoản chi.</li>
+        <li>Gộp về pool cũng chính là <b>hàng rào an toàn</b>: một món đọc sai vẫn rơi vào pool đúng, câu không sai theo.</li>
+      </ul></div>
+      <div class="c"><div class="h">Mất</div><ul>
+        <li><b>Một mình thì gần như không đổi gì</b>: hoá đơn không phát thông báo, nên enum mới hiếm khi có dịp dùng.</li>
+        <li>Giỏ lẫn lộn thì không có pool nào thắng, phải rơi về câu cũ. Thực tế giỏ Shopee lẫn khá thường.</li>
+        <li>Grab không có món, nên nhóm giao dịch đông nhất không được lợi gì.</li>
+        <li>Thêm một ô enum là thêm một chỗ có thể mang thông tin nhiều hơn dự định, phải khoá danh sách pool ở phía gửi như <code>validPool</code> đang làm.</li>
+      </ul></div>
+    </div>
+    <div class="lands">Sống ở: <code>notify-copy.mjs</code> (<code>copyMeta</code>, một bảng <code>ITEM_POOLS</code>, <code>reviewBody</code>) và <code>taxonomy.mjs</code> (gộp node lên pool).</div>
+  </div>
+
+  <!-- P2 -->
+  <div class="prop">
+    <div class="ph"><span class="pid pick">P2</span><h3>Cho hoá đơn được lên tiếng đúng một lần</h3><span class="verdict go">Nên làm, có chốt chặn</span></div>
+    <p>Mở cái cửa đang đóng: một lượt chạy có đọc được hoá đơn thì được phát <b>một</b> thông báo, thẻ riêng <code>fh-receipt</code> nên không đè lên thông báo giao dịch. Giọng nói về giỏ hàng, không nói về ngân hàng. Chốt chặn bắt buộc: chỉ phát khi người đó <b>đang có khoản chờ duyệt</b> (máy chủ đếm được), và không bao giờ phát trong lúc đọc lịch sử.</p>
+    <div class="strip">
+      <div class="lbl">Một loại thông báo chưa từng có</div>
+      <div class="noti"><div class="row"><div class="appic"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></div><div class="tx"><div class="head"><div class="ttl">🧾</div><div class="when">22:02</div></div><div class="bd">Đọc được hoá đơn rồi, biết bạn mua gì luôn!</div></div></div></div>
+    </div>
+    <div class="meta">
+      <div><span class="k">Sửa lớp</span><b>Cò súng</b> (khi nào được phát)</div>
+      <div><span class="k">Cần gì để chạy</span>Không cần gì, độc lập được</div>
+      <div><span class="k">Riêng tư</span><b>Sạch</b> nếu câu lấy từ bộ viết sẵn</div>
+      <div><span class="k">Công</span><b>Trung bình</b>: một nhánh trong worker + luật chống ồn</div>
+    </div>
+    <div class="pc">
+      <div class="p"><div class="h">Được</div><ul>
+        <li>Mở ra một <b>khoảnh khắc wow thật sự mới</b>: app không chỉ thấy tiền ra, nó đọc được cả hoá đơn. Chưa app ví nào ở Việt Nam nói được câu đó.</li>
+        <li>Là cò súng cho P1, P5, P6. Không có nó thì ba đề xuất kia nằm im.</li>
+        <li>Máy chủ đủ dữ kiện để tự chặn ồn: số khoản chờ duyệt là con số nó đọc được mà không cần khoá.</li>
+      </ul></div>
+      <div class="c"><div class="h">Mất</div><ul>
+        <li><b>Thêm một lần rung cho cùng một lần mua</b>: thư ngân hàng đã rung rồi. Phá luật “một lần ngắt cho một việc thật” nếu không gộp cẩn thận.</li>
+        <li>Máy chủ không biết hoá đơn có ghép được vào khoản nào không, nên có thể nhắc về một thứ mà app rồi sẽ âm thầm bỏ sau 14 ngày không ghép được.</li>
+        <li>Chạm vào chỉ mở được hàng chờ chung, không mở được đúng khoản, vì việc ghép nằm ở máy.</li>
+        <li>Người dùng có thể hiểu sai là có khoản mới cần duyệt, trong khi hoá đơn không phải việc phải làm.</li>
+      </ul></div>
+    </div>
+    <div class="lands">Sống ở: <code>worker.mjs</code> (nhánh thoát sớm của <code>row_kind='receipt'</code>), <code>mailbox-sync/index.ts</code> (<code>notifyReview</code> thêm cờ), <code>push-send</code> (một loại mới + thẻ riêng).</div>
+  </div>
+
+  <!-- P3 -->
+  <div class="prop">
+    <div class="ph"><span class="pid pick">P3</span><h3>Soạn câu ngay trên máy, gọi thẳng tên món</h3><span class="verdict go">Đích đến, làm sau P1 P2</span></div>
+    <p>Đi theo đúng đường bản tin chuỗi thói quen. App, khi đang mở, ghi một <b>ảnh chụp nhỏ đã giải mã sẵn</b> vào IndexedDB: vài món gần nhất kèm node và pool của chúng. Payload chỉ mang một cờ. Service worker mở ảnh chụp và tự soạn câu, có tên món thật. Luật bắt buộc mượn nguyên từ chuỗi: ảnh chụp cũ hơn một ngày thì <b>không được dùng</b>, rơi về câu chung chung, không bao giờ đoán.</p>
+    <div class="strip">
+      <div class="lbl">Trần cao nhất mà kiến trúc cho phép</div>
+      <div class="noti"><div class="row"><div class="appic"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></div><div class="tx"><div class="head"><div class="ttl">🥽</div><div class="when">21:15</div></div><div class="bd">Kính bơi mới về. Hồ bơi đang chờ đó nha!</div></div></div></div>
+      <div class="noti"><div class="row"><div class="appic"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></div><div class="tx"><div class="head"><div class="ttl">🎬</div><div class="when">20:30</div></div><div class="bd">Thuê phim tối nay, nhớ ngủ sớm nha!</div></div></div></div>
+    </div>
+    <div class="meta">
+      <div><span class="k">Sửa lớp</span><b>Kiến trúc</b> (chỗ soạn câu)</div>
+      <div><span class="k">Cần gì để chạy</span>Ảnh chụp trong IndexedDB + ghép hoá đơn sớm hơn</div>
+      <div><span class="k">Riêng tư</span><b>Sạch</b>: tên món không rời khỏi máy</div>
+      <div><span class="k">Công</span><b>Lớn</b>: ảnh chụp, luật cũ mới, soạn câu trong SW</div>
+    </div>
+    <div class="pc">
+      <div class="p"><div class="h">Được</div><ul>
+        <li>Là <b>con đường hợp pháp duy nhất</b> để một tên món hiện trên màn hình khoá. Mọi phương án khác chỉ nói được loại, không nói được món.</li>
+        <li>Khuôn mẫu đã chạy thật trong sản xuất, kèm luật chống nói sai đã kiểm chứng.</li>
+        <li>Mở ra cả P7 sau này: đếm món lặp lại là việc chỉ máy làm được, vì dữ liệu đã giải mã nằm ở đó.</li>
+      </ul></div>
+      <div class="c"><div class="h">Mất</div><ul>
+        <li>Phải <b>dời việc ghép hoá đơn sớm hơn</b>: hiện nay nó chỉ chạy khi mở màn duyệt, tức là đúng lúc không cần thông báo nữa.</li>
+        <li>Ảnh chụp là một bản sao dữ liệu đã giải mã nằm ngoài luồng thường, thêm một chỗ phải nhớ xoá khi đăng xuất và khi đổi thẻ khoá.</li>
+        <li>Máy không mở app nhiều ngày thì ảnh chụp cũ, câu rơi về chung chung, đúng lúc người dùng cần được kéo về nhất.</li>
+        <li>Nhiều mảnh chuyển động: lỗi ở đây là im lặng, không có ai báo.</li>
+      </ul></div>
+    </div>
+    <div class="lands">Sống ở: <code>78-receipt-join.js</code> (ghi ảnh chụp), <code>sw.js</code> (soạn câu, theo mẫu <code>_streakCompose</code>), <code>push-send</code> (gửi cờ thay vì câu).</div>
+  </div>
+
+  <!-- P4 -->
+  <div class="prop">
+    <div class="ph"><span class="pid">P4</span><h3>Nín một nhịp, đợi hoá đơn về rồi hãy nhắc</h3><span class="verdict later">Chưa nên</span></div>
+    <p>Thay vì phát hai lần, hoãn thông báo của khoản chi lại một lượt chạy khi cửa hàng thuộc nhóm có gửi hoá đơn (Shopee, Apple, Tiki, Lazada), để giỏ hàng có cơ hội về trước và một thông báo duy nhất nói được cả hai.</p>
+    <div class="meta">
+      <div><span class="k">Sửa lớp</span><b>Cò súng</b> (thời điểm)</div>
+      <div><span class="k">Cần gì để chạy</span>Khái niệm hoãn, worker chưa có</div>
+      <div><span class="k">Riêng tư</span><b>Sạch</b></div>
+      <div><span class="k">Công</span><b>Trung bình</b>, mà tỉ lệ thắng thấp</div>
+    </div>
+    <div class="pc">
+      <div class="p"><div class="h">Được</div><ul>
+        <li>Giữ đúng luật một lần ngắt cho một việc thật, không sinh loại thông báo mới.</li>
+        <li>Khi thắng thì câu vừa đúng lúc vừa sâu, không cần ảnh chụp, không cần soạn ở máy.</li>
+      </ul></div>
+      <div class="c"><div class="h">Mất</div><ul>
+        <li><b>Tỉ lệ thắng rất thấp</b>: thư giao hàng của Shopee về sau nhiều ngày, nên hoãn một lượt gần như không kịp.</li>
+        <li>Đánh đổi sai hướng: giá trị lớn nhất của thông báo là <b>tức thời</b>, hoãn là bỏ đúng cái mạnh nhất.</li>
+        <li>Ghép vẫn ở phía máy, nên dù hai thư về cùng lượt, máy chủ cũng không biết chúng là một khoản.</li>
+      </ul></div>
+    </div>
+    <div class="lands">Sống ở: <code>worker.mjs</code>. Ghi lại để không ai đề xuất lại, chứ không phải để làm.</div>
+  </div>
+
+  <!-- P5 -->
+  <div class="prop">
+    <div class="ph"><span class="pid pick">P5</span><h3>Nói hình dạng của giỏ, không nói nội dung giỏ</h3><span class="verdict go">Nên làm cùng P1</span></div>
+    <p>Có một lớp dữ kiện vừa sinh động vừa <b>không phải nội dung</b>: số món, giỏ đồng nhất hay lẫn, một món chiếm phần lớn giỏ, voucher cắt nhiều. Đưa các dữ kiện đó vào enum dưới dạng cờ, rồi viết câu cho chúng.</p>
+    <div class="strip">
+      <div class="lbl">Ba hình dạng, ba giọng</div>
+      <div class="noti"><div class="row"><div class="appic"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></div><div class="tx"><div class="head"><div class="ttl">😳</div><div class="when">21:15</div></div><div class="bd">Một món mà ăn hết cả giỏ hàng luôn!</div></div></div></div>
+      <div class="noti"><div class="row"><div class="appic"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></div><div class="tx"><div class="head"><div class="ttl">🛍️</div><div class="when">23:48</div></div><div class="bd">Mười hai món một lượt, đi chợ online hăng ghê!</div></div></div></div>
+      <div class="noti"><div class="row"><div class="appic"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></div><div class="tx"><div class="head"><div class="ttl">🎟️</div><div class="when">10:12</div></div><div class="bd">Voucher gánh gần nửa đơn, khéo thật!</div></div></div></div>
+    </div>
+    <div class="meta">
+      <div><span class="k">Sửa lớp</span><b>Chọn câu</b></div>
+      <div><span class="k">Cần gì để chạy</span>Cò súng P2, như P1</div>
+      <div><span class="k">Riêng tư</span><b>Sạch nhất nhóm</b>: hình dạng không phải nội dung</div>
+      <div><span class="k">Công</span><b>Rất nhỏ</b>: ba cờ, khoảng 24 câu</div>
+    </div>
+    <div class="pc">
+      <div class="p"><div class="h">Được</div><ul>
+        <li>Không thêm chút bề mặt riêng tư nào: “giỏ có 12 món” không nói được món nào, không nói được tiền.</li>
+        <li>Câu đọc lên <b>cảm giác rất riêng</b> dù dữ kiện rất thô, đây là tỉ lệ công trên hiệu quả tốt nhất trong tám đề xuất.</li>
+        <li>Chạy được cho cả giỏ lẫn lộn, tức là bù đúng chỗ P1 bất lực.</li>
+      </ul></div>
+      <div class="c"><div class="h">Mất</div><ul>
+        <li>Ít giọng hơn P1, và dùng lại nhiều lần thì lộ ra là mánh.</li>
+        <li>“Một món chiếm phần lớn giỏ” nghe gần như nói về tiền, phải viết sao cho không thành con số.</li>
+        <li>Vẫn phụ thuộc P2 mới có dịp chạy.</li>
+      </ul></div>
+    </div>
+    <div class="lands">Sống ở: <code>notify-copy.mjs</code>. Cờ tính từ <code>receipt.items</code> ngay trong cửa sổ bản rõ.</div>
+  </div>
+
+  <!-- P6 -->
+  <div class="prop">
+    <div class="ph"><span class="pid">P6</span><h3>Nhân giỏ hàng với buổi trong ngày</h3><span class="verdict later">Chờ số liệu</span></div>
+    <p>Bộ câu đã có cơ chế pool nhân buổi. Mở rộng nó cho pool từ món: đồ ăn đặt lúc khuya, đồ bếp mua sáng chủ nhật, đồ số mua lúc nửa đêm.</p>
+    <div class="meta">
+      <div><span class="k">Sửa lớp</span><b>Chọn câu</b></div>
+      <div><span class="k">Cần gì để chạy</span>P1 trước, rồi số liệu ô nào hay gặp</div>
+      <div><span class="k">Riêng tư</span><b>Sạch</b></div>
+      <div><span class="k">Công</span><b>Lớn ở phần viết câu</b>: mỗi ô 4 biến thể</div>
+    </div>
+    <div class="pc">
+      <div class="p"><div class="h">Được</div><ul>
+        <li>Dùng lại cơ chế đã chạy, không có rủi ro kỹ thuật nào mới.</li>
+        <li>“Đặt đồ ăn lúc 23:48” là loại câu người dùng kể lại cho người khác.</li>
+      </ul></div>
+      <div class="c"><div class="h">Mất</div><ul>
+        <li><b>Bùng nổ số ô</b>: 14 pool × 4 buổi × 4 biến thể là hơn 200 câu phải viết tay, phần lớn hiếm khi gặp.</li>
+        <li>Giá trị thêm so với P1 là mỏng, trong khi công viết câu là dày.</li>
+        <li>Nên làm sau khi có số đếm thật ô nào hay gặp, tránh viết câu cho ô không bao giờ dùng.</li>
+      </ul></div>
+    </div>
+    <div class="lands">Sống ở: <code>notify-copy.mjs</code> (<code>POOL_DAYPART</code> mở rộng).</div>
+  </div>
+
+  <!-- P7 -->
+  <div class="prop">
+    <div class="ph"><span class="pid">P7</span><h3>Nối món lặp lại với chuỗi thói quen</h3><span class="verdict later">Đang tạm gác ở spec khác</span></div>
+    <p>Món hàng cho thấy sự lặp lại mà tên cửa hàng không cho thấy: ly trà sữa thứ ba trong tuần, hộp thuốc lá thứ hai trong tháng. Câu như “Ly thứ ba tuần này rồi đó nha!” là loại chỉ app này nói được.</p>
+    <div class="meta">
+      <div><span class="k">Sửa lớp</span><b>Kiến trúc</b>, nằm trên P3</div>
+      <div><span class="k">Cần gì để chạy</span>P3 xong, và mở lại một epic đang gác</div>
+      <div><span class="k">Riêng tư</span>Sạch, nhưng chỉ khi đếm ở máy</div>
+      <div><span class="k">Công</span><b>Lớn</b></div>
+    </div>
+    <div class="pc">
+      <div class="p"><div class="h">Được</div><ul>
+        <li>Mức gắn kết cao nhất: một câu chứng tỏ app đang thật sự theo dõi cùng bạn.</li>
+        <li>Nối hai tính năng đã có, không phải tính năng mới.</li>
+      </ul></div>
+      <div class="c"><div class="h">Mất</div><ul>
+        <li>Đếm xuyên nhiều khoản là việc máy chủ <b>không thể</b> làm dưới E2EE, nên bắt buộc chờ P3.</li>
+        <li><code>habit-streak-spec</code> §15 đã <b>gác lại</b> cả nhóm “hiểu biết về cửa hàng”, gồm phát hiện chi lặp lại. Làm cái này là mở lại một quyết định đã chốt.</li>
+        <li>Rủi ro giọng điệu cao nhất: đếm số lần ai đó mua trà sữa rồi nhắc, rất dễ thành lên lớp. Hướng dẫn thiết kế nói thẳng là không được lên lớp.</li>
+      </ul></div>
+    </div>
+    <div class="lands">Sống ở: <code>27-streaks.js</code> + <code>sw.js</code>, sau khi P3 có ảnh chụp.</div>
+  </div>
+
+  <!-- P8 -->
+  <div class="prop">
+    <div class="ph"><span class="pid pick">P8</span><h3>Đừng nhồi vào câu, hãy nhồi vào cái chạm</h3><span class="verdict go">Làm trước tiên</span></div>
+    <p>Giữ nguyên câu chữ. Đổi <b>chỗ cái chạm mở ra</b>: thay vì hàng chờ chung, mở đúng khoản đó với phần Hoá đơn đã bung, từng món kèm viên danh mục chạm được. Người dùng chạm vào thông báo là bước thẳng vào vòng dạy danh mục, nơi một lần chạm dạy cho mọi món cùng loại về sau.</p>
+    <div class="meta">
+      <div><span class="k">Sửa lớp</span><b>Điểm đến</b>, không phải câu chữ</div>
+      <div><span class="k">Cần gì để chạy</span>Không cần gì, <code>nav</code> đã mang id khoản</div>
+      <div><span class="k">Riêng tư</span><b>Không đổi gì</b></div>
+      <div><span class="k">Công</span><b>Nhỏ</b></div>
+    </div>
+    <div class="pc">
+      <div class="p"><div class="h">Được</div><ul>
+        <li>Không chạm vào hợp đồng payload, không thêm câu nào, không thêm rủi ro nào.</li>
+        <li>Đúng tinh thần đã ghi trong code: payload nói ít, cái chạm mới là nơi đọc cho tử tế.</li>
+        <li>Biến thông báo thành <b>cửa vào việc dạy máy</b>, mà mỗi lần dạy là một lần bớt việc mãi mãi.</li>
+        <li>Không phụ thuộc đề xuất nào khác, làm được ngay hôm nay.</li>
+      </ul></div>
+      <div class="c"><div class="h">Mất</div><ul>
+        <li>Không có chút wow nào trên màn hình khoá, mà đó là chỗ câu hỏi ban đầu nhắm tới.</li>
+        <li>Chỉ có ích khi khoản đó đã ghép được hoá đơn, tức là không phải lúc nào cũng có gì để bung.</li>
+      </ul></div>
+    </div>
+    <div class="lands">Sống ở: <code>55-push.js</code> (<code>_fhNavGo</code>), <code>61-expense-detail.js</code> (mở sẵn phần Hoá đơn).</div>
+  </div>
+</div>
+
+<!-- ══════════ 4. Thứ tự ══════════ -->
+<div class="sec">
+  <h2><span class="n">04</span>Thứ tự làm, và lý do của thứ tự đó</h2>
+  <p>Xếp theo <b>giá trị trên mỗi đơn vị công</b>, không xếp theo độ hấp dẫn. Ba bước đầu đã lấy được phần lớn giá trị mà chưa cần đụng vào kiến trúc.</p>
+  <div class="seq">
+    <div class="s"><div class="n">1</div><div><b>P8, cái chạm</b><p>Rẻ nhất, không rủi ro, không phụ thuộc gì. Làm được trong một buổi và có ích kể cả khi bảy đề xuất kia không bao giờ làm.</p></div></div>
+    <div class="s"><div class="n">2</div><div><b>P2 có chốt chặn, rồi P5 và P1 cùng lúc</b><p>P2 là cái cò súng: không có nó thì mọi bộ câu mới đều nằm im. P5 rẻ và sạch nhất, P1 sâu hơn nhưng cần giỏ đồng nhất. Hai cái bù nhau đúng chỗ nên nên đi chung một đợt viết câu.</p></div></div>
+    <div class="s"><div class="n">3</div><div><b>Đo trước khi viết thêm</b><p>Đếm thật: bao nhiêu hoá đơn ghép được, giỏ đồng nhất chiếm mấy phần, ô nào hay gặp. <code>read_tally</code> đã có <code>receipt_staged</code> và <code>receipt_unmatched_retired</code> để dựa vào. Không có số này thì P6 là viết câu trong bóng tối.</p></div></div>
+    <div class="s later"><div class="n">4</div><div><b>P3, khi đã muốn cái trần cao nhất</b><p>Đây là đề xuất duy nhất đưa được tên món lên màn hình khoá. Đáng làm, nhưng nó kéo theo việc dời chỗ ghép hoá đơn và một ảnh chụp đã giải mã, nên chỉ nên làm khi ba bước trên đã chứng minh người dùng thật sự phản ứng với câu chữ sâu hơn.</p></div></div>
+    <div class="s later"><div class="n">5</div><div><b>P6 sau khi có số liệu, P7 sau khi P3 xong và epic kia được mở lại</b><p>P4 thì ghi lại rồi bỏ: hoãn thông báo là đánh đổi mất đúng cái mạnh nhất của nó.</p></div></div>
+  </div>
+  <h3 class="sub">Hai điều tuyệt đối không làm</h3>
+  <div class="facts">
+    <div class="fact bad"><b>Không đưa tên món, giá món hay mã node vào payload</b><span>Bình luận trong <code>copyMeta</code> đã loại cả mã node vì quá cụ thể. Tên món cụ thể hơn mã node. Muốn có tên món trên màn hình khoá thì chỉ có một đường là P3, soạn ngay tại máy.</span></div>
+    <div class="fact bad"><b>Không để món hàng đổi danh mục của khoản chi để lấy câu hay hơn</b><span>Luật RC16 tới RC19 đã chốt: món chỉ được <b>làm rõ trong nhánh</b>, không bao giờ bỏ phiếu đổi danh mục của khoản chi. Một câu thông báo hay hơn không phải lý do đủ để mở lại luật đó. Enum của thông báo được suy ra từ món, còn node của khoản chi thì để nguyên.</span></div>
+  </div>
+</div>
+
+<footer>
+  Nguồn: <code>supabase/functions/_shared/mailbox/notify-copy.mjs</code> · <code>worker.mjs</code> (nhánh <code>row_kind='receipt'</code>, <code>copyBest</code>, khối thông báo) · <code>mailbox-sync/index.ts</code> (<code>notifyReview</code>) · <code>push-send/index.ts</code> · <code>_shared/mailbox/item-category.mjs</code> · <code>src/js-ui/78-receipt-join.js</code> · <code>sw.js</code> (<code>_streakCompose</code>) · <code>docs/specs/receipt-enrichment-spec.md</code> §4, §11, §20, RC16–RC19 · <code>docs/specs/habit-streak-spec.md</code> §15 · <code>docs/notify-copy-matrix.html</code> · <code>research/category-patterns.html</code> (trần độ sâu).
+</footer>
+
+</div>
+</body>
+</html>

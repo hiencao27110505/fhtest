@@ -226,14 +226,123 @@ t('both targets carry the same table, and it is the JSON on disk', () => {
   const want = JSON.stringify({
     version: SRC.version, concepts: SRC.concepts, tiers: SRC.tiers, dayparts: SRC.dayparts,
     pools: SRC.pools, matrix: SRC.matrix, daypart: SRC.daypart,
-    poolLines: SRC.poolLines, poolDaypart: SRC.poolDaypart, digest: SRC.digest, statement: SRC.statement,
+    poolLines: SRC.poolLines, poolDaypart: SRC.poolDaypart,
+    itemPools: SRC.itemPools, itemLines: SRC.itemLines,
+    basketLines: SRC.basketLines, receiptRead: SRC.receiptRead,
+    digest: SRC.digest, statement: SRC.statement,
   });
   assert.strictEqual(JSON.stringify(CLIENT.lines), want, 'the client slice drifted from the JSON');
   assert.strictEqual(JSON.stringify({
     version: LINES.NOTIFY_VERSION, concepts: LINES.CONCEPTS, tiers: LINES.TIERS, dayparts: SRC.dayparts,
     pools: LINES.POOLS, matrix: LINES.MATRIX, daypart: LINES.DAYPART,
-    poolLines: LINES.POOL_LINES, poolDaypart: LINES.POOL_DAYPART, digest: LINES.DIGEST, statement: LINES.STATEMENT,
+    poolLines: LINES.POOL_LINES, poolDaypart: LINES.POOL_DAYPART,
+    itemPools: LINES.ITEM_POOLS, itemLines: LINES.ITEM_LINES,
+    basketLines: LINES.BASKET_LINES, receiptRead: LINES.RECEIPT_READ,
+    digest: LINES.DIGEST, statement: LINES.STATEMENT,
   }), want, 'the worker module drifted from the JSON');
+});
+
+/* ── 3b. the basket (item-aware-notification-spec.md §3, §10) ───────────────── */
+
+/* A receipt whose items all file under one pool's categories. `sportsgear` sits
+   under hobbygoods, which the JSON maps to the `hobby` pool. */
+/* The client's enum is built inside the vm realm, so deepStrictEqual would fail
+   on prototypes alone. Values are the whole contract here. */
+function eqMeta(a, b, where) {
+  assert.strictEqual(JSON.stringify(a), JSON.stringify(b), where);
+}
+function receipt(items, extra) {
+  return Object.assign({ paid: 600000, discount: 0, items: items }, extra || {});
+}
+const EXP = { flow: 'expense', direction: 'debit', amount: 600000, currency: 'VND', category: 'Shopping' };
+
+t('an agreeing basket names its pool, identically on both sides', () => {
+  const codes = Object.keys(SRC.itemPools);
+  let checked = 0;
+  for (const pool of codes) {
+    const cat = SRC.itemPools[pool][0];
+    const ex = Object.assign({}, EXP, { receipt: receipt([{ node: cat, qty: 1, unit_price: 600000 }]) });
+    const a = CLIENT.meta(ex), b = NC.copyMeta(ex);
+    eqMeta(a, b, 'meta drifted for ' + pool);
+    assert.strictEqual(a.ip, pool, pool + ' did not survive into the enum');
+    assert.ok(a.ib === undefined, 'a pool and a shape must never ride together');
+    for (const lang of ['vi', 'en']) for (const r of DRAWS) {
+      same(CLIENT.body(a, lang, r), NC.reviewBody(b, lang, r), pool + '/' + lang + '/' + r);
+    }
+    checked++;
+  }
+  assert.ok(checked === codes.length && checked > 0, 'no pools checked');
+});
+
+t('a basket that disagrees falls to its shape, never to a winner', () => {
+  const ex = Object.assign({}, EXP, { receipt: receipt([
+    { node: 'sportsgear', qty: 1, unit_price: 300000 },
+    { node: 'medical', qty: 1, unit_price: 300000 },
+  ]) });
+  const a = CLIENT.meta(ex), b = NC.copyMeta(ex);
+  eqMeta(a, b, 'a disagreeing basket');
+  assert.ok(a.ip === undefined, 'a disagreeing basket must not name a pool');
+});
+
+t('the three shapes read the same on both sides', () => {
+  const cases = {
+    solo:    receipt([{ node: 'xunfiled', qty: 1, unit_price: 600000 }]),
+    many:    receipt(Array.from({ length: 9 }, () => ({ node: 'xunfiled', qty: 1, unit_price: 60000 }))),
+    voucher: receipt([{ node: 'xunfiled', qty: 2, unit_price: 200000 },
+                      { node: 'clothing', qty: 1, unit_price: 200000 }], { discount: 400000 }),
+  };
+  for (const shape of Object.keys(cases)) {
+    const ex = Object.assign({}, EXP, { receipt: cases[shape] });
+    const a = CLIENT.meta(ex), b = NC.copyMeta(ex);
+    eqMeta(a, b, 'meta drifted for ' + shape);
+    assert.strictEqual(a.ib, shape, 'expected shape ' + shape + ', got ' + JSON.stringify(a));
+    for (const lang of ['vi', 'en']) for (const r of DRAWS) {
+      same(CLIENT.body(a, lang, r), NC.reviewBody(b, lang, r), shape + '/' + lang + '/' + r);
+    }
+  }
+});
+
+t('a voucher beats a long basket, and one big line beats many small ones', () => {
+  const heavy = receipt(Array.from({ length: 9 }, () => ({ node: 'xunfiled', qty: 1, unit_price: 60000 })), { discount: 400000 });
+  assert.strictEqual(CLIENT.meta(Object.assign({}, EXP, { receipt: heavy })).ib, 'voucher');
+  const dominated = receipt([{ node: 'xunfiled', qty: 1, unit_price: 500000 },
+                             { node: 'clothing', qty: 1, unit_price: 20000 }]);
+  assert.strictEqual(CLIENT.meta(Object.assign({}, EXP, { receipt: dominated })).ib, 'solo');
+});
+
+t('the enum never carries a name, a code, a count or an amount', () => {
+  const ex = Object.assign({}, EXP, { receipt: receipt([
+    { node: 'sportsgear', name: 'Swimming Goggles OLANE 503M', qty: 1, unit_price: 607700, sig: 'hn|swimming goggles' },
+  ]) });
+  const m = CLIENT.meta(ex);
+  const flat = JSON.stringify(m);
+  assert.ok(!/OLANE|Goggles|607700|sportsgear|hn\|/.test(flat), 'the enum leaked something: ' + flat);
+  assert.strictEqual(Object.keys(m).sort().join(','), 'c,ip,t', 'unexpected enum shape: ' + flat);
+});
+
+t('no receipt at all leaves the line exactly as it was', () => {
+  const bare = Object.assign({}, EXP);
+  const m = CLIENT.meta(bare);
+  assert.ok(m.ip === undefined && m.ib === undefined);
+  for (const lang of ['vi', 'en']) for (const r of DRAWS) {
+    same(CLIENT.body(m, lang, r), NC.reviewBody(NC.copyMeta(bare), lang, r), 'bare/' + lang + '/' + r);
+  }
+});
+
+t('an itemless receipt says nothing rather than guessing', () => {
+  for (const rc of [receipt([]), receipt(null), { paid: 0, items: [{ qty: 1 }] }]) {
+    const m = CLIENT.meta(Object.assign({}, EXP, { receipt: rc }));
+    assert.ok(m.ip === undefined, 'named a pool from nothing: ' + JSON.stringify(m));
+  }
+});
+
+t('the late receipt line names no purchase and matches on both sides', () => {
+  for (const lang of ['vi', 'en']) for (const r of DRAWS) {
+    const a = CLIENT.receiptRead(lang, r);
+    assert.ok(a && a.title && a.body, 'no late line for ' + lang);
+    assert.ok(!/\{|\d/.test(a.body), 'the late line carries a placeholder or a digit: ' + a.body);
+    assert.strictEqual(a.body.slice(-1), '!');
+  }
 });
 
 /* ── 4. shape guards: the generator's rules about its own output ────────────── */
@@ -247,7 +356,7 @@ t('the client slice is a classic script that ends without a newline (CLAUDE.md �
   assert.ok(/window\.FH_TAX/.test(src), 'the tree is read through window.FH_TAX');
   const mjs = R('supabase/functions/_shared/mailbox/notify-lines.mjs');
   assert.ok(!/\n$/.test(mjs));
-  assert.ok(/^import \{ conceptOf, poolOf \} from '\.\/taxonomy\.mjs';$/m.test(mjs), 'the worker reads the real tree');
+  assert.ok(/^import \{ conceptOf, poolOf, ancestors \} from '\.\/taxonomy\.mjs';$/m.test(mjs), 'the worker reads the real tree');
 });
 
 t('the selection logic is emitted once, so both targets hold the same text', () => {
@@ -256,6 +365,7 @@ t('the selection logic is emitted once, so both targets hold the same text', () 
   const client = R('src/js-ui/14-notify-lines.js');
   const mjs = R('supabase/functions/_shared/mailbox/notify-lines.mjs');
   for (const fn of ['function tierOf(', 'function dayPartOf(', 'function keywordPool(', 'function validPool(',
+    'function itemPoolOf(', 'function basketOf(', 'function receiptReadOf(',
     'function metaOf(', 'function _pick(', 'function bodyOf(', 'function digestOf(', 'function statementOf(']) {
     assert.ok(client.indexOf(fn) >= 0, 'client is missing ' + fn);
     assert.ok(mjs.indexOf(fn) >= 0, 'worker is missing ' + fn);

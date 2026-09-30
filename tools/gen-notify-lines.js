@@ -170,6 +170,70 @@ function load() {
     }
   }
 
+  /* ITEM POOLS (item-aware-notification-spec.md §10). A pool is named by the
+     tree CATEGORY codes that roll into it, never by a keyword: the basket is
+     already filed, so re-deriving it from words would be a second opinion with
+     no authority. A category claimed by two pools would make the winner depend
+     on key order, which is exactly the fragility the merchant pools carry. */
+  if (d.itemPools) {
+    const claimed = new Map();
+    for (const pool of Object.keys(d.itemPools)) {
+      if (!/^[a-z][a-z0-9]*$/.test(pool)) throw new Error('notify-lines: bad item pool name ' + pool);
+      const codes = d.itemPools[pool];
+      if (!Array.isArray(codes) || !codes.length) throw new Error('notify-lines: item pool ' + pool + ' names no category');
+      for (const code of codes) {
+        if (!/^[a-z][a-z0-9]*$/.test(code)) throw new Error('notify-lines: item pool ' + pool + ' bad code ' + code);
+        if (claimed.has(code)) throw new Error('notify-lines: category "' + code + '" claimed by ' + claimed.get(code) + ' and ' + pool);
+        claimed.set(code, pool);
+      }
+    }
+    const ipNames = Object.keys(d.itemPools).slice().sort().join(',');
+    for (const lang of LANGS) {
+      if (!d.itemLines || !d.itemLines[lang]) throw new Error('notify-lines: itemLines has no ' + lang);
+      const lineNames = Object.keys(d.itemLines[lang]).slice().sort().join(',');
+      if (lineNames !== ipNames) {
+        throw new Error('notify-lines: itemLines.' + lang + ' [' + lineNames + '] does not match itemPools [' + ipNames + ']');
+      }
+      for (const ip of Object.keys(d.itemLines[lang])) {
+        const arr = d.itemLines[lang][ip];
+        if (!Array.isArray(arr) || arr.length !== 4) throw new Error('notify-lines: itemLines.' + lang + '.' + ip + ' must have exactly 4 variants');
+        arr.forEach((line, j) => checkLine(line, 'itemLines.' + lang + '.' + ip + '[' + j + ']'));
+      }
+    }
+    sameKeys(d.itemLines.vi, d.itemLines.en, 'itemLines');
+  }
+
+  /* BASKET SHAPES. A closed set: the three the spec names and no more, because
+     a shape the selection logic cannot produce is copy nobody will ever read. */
+  if (d.basketLines) {
+    const SHAPES = ['solo', 'many', 'voucher'];
+    for (const lang of LANGS) {
+      if (!d.basketLines[lang]) throw new Error('notify-lines: basketLines has no ' + lang);
+      const got = Object.keys(d.basketLines[lang]).slice().sort().join(',');
+      if (got !== SHAPES.slice().sort().join(',')) {
+        throw new Error('notify-lines: basketLines.' + lang + ' must be exactly [' + SHAPES + '], got [' + got + ']');
+      }
+      for (const sh of SHAPES) {
+        const arr = d.basketLines[lang][sh];
+        if (!Array.isArray(arr) || arr.length !== 4) throw new Error('notify-lines: basketLines.' + lang + '.' + sh + ' must have exactly 4 variants');
+        arr.forEach((line, j) => checkLine(line, 'basketLines.' + lang + '.' + sh + '[' + j + ']'));
+      }
+    }
+  }
+
+  /* The late receipt line (spec §4). It names no purchase, so it takes no
+     placeholder — the validation that keeps it that way is the one below. */
+  if (d.receiptRead) {
+    for (const lang of LANGS) {
+      const arr = d.receiptRead[lang];
+      if (!Array.isArray(arr) || arr.length !== 4) throw new Error('notify-lines: receiptRead.' + lang + ' must have exactly 4 variants');
+      arr.forEach((line, j) => {
+        checkLine(line, 'receiptRead.' + lang + '[' + j + ']');
+        if (line.b.indexOf('{') >= 0) throw new Error('notify-lines: receiptRead.' + lang + '[' + j + '] must carry no placeholder');
+      });
+    }
+  }
+
   /* The digest is the one line allowed a number, and it holds it as the literal
      placeholder {n} — so it still passes the no-digit rule, and only the word
      cap is lifted. The statement line carries nothing at all. */
@@ -199,6 +263,15 @@ function logic() {
   var POOL_LINES = DATA.poolLines, POOL_DAYPART = DATA.poolDaypart;
   var POOL_KEYS = [], _pk;
   for (_pk in POOLS) { if (Object.prototype.hasOwnProperty.call(POOLS, _pk)) POOL_KEYS.push(_pk); }
+  var ITEM_POOLS = DATA.itemPools || {}, ITEM_LINES = DATA.itemLines || {};
+  var BASKET_LINES = DATA.basketLines || {}, RECEIPT_READ = DATA.receiptRead || {};
+  /* category code → item pool, flattened once. The generator has already proved
+     no code is claimed twice, so this map cannot depend on key order. */
+  var ITEM_POOL_BY_CODE = {}, _ip, _ic;
+  for (_ip in ITEM_POOLS) {
+    if (!Object.prototype.hasOwnProperty.call(ITEM_POOLS, _ip)) continue;
+    for (_ic = 0; _ic < ITEM_POOLS[_ip].length; _ic++) ITEM_POOL_BY_CODE[ITEM_POOLS[_ip][_ic]] = _ip;
+  }
 
   /* VND tiers. Tier 1 (≤30k) matches the client's photo-nudge floor. A non-VND
      amount has no honest tier — it reads as tier 2 rather than guessing. */
@@ -250,6 +323,55 @@ function logic() {
     return p && POOLS[p] ? p : undefined;
   }
 
+  /* THE BASKET, BY WHAT IT IS (item-aware-notification-spec.md §3). Every item
+     already carries a tree node, so the pool is read off the tree rather than
+     guessed from words: walk each item up to the category that names a pool and
+     require the whole basket to agree.
+
+     Disagreement returns nothing rather than picking a winner. A basket of
+     goggles and a frying pan has no honest one-word summary, and the shape
+     reading below is the correct fallback for it. Items with no node at all are
+     skipped, so one unfiled line cannot mute a basket that is otherwise clear. */
+  function itemPoolOf(items) {
+    if (!items || !items.length) return undefined;
+    var seen = null, filed = 0, i, j, chain, hit;
+    for (i = 0; i < items.length; i++) {
+      var node = items[i] && typeof items[i].node === 'string' ? items[i].node : null;
+      if (!node) continue;
+      chain = [node];
+      if (TAX.ancestors) chain = chain.concat(TAX.ancestors(node) || []);
+      hit = null;
+      for (j = 0; j < chain.length; j++) { if (ITEM_POOL_BY_CODE[chain[j]]) { hit = ITEM_POOL_BY_CODE[chain[j]]; break; } }
+      if (!hit) return undefined;                 // a filed item this copy has no voice for
+      if (seen && seen !== hit) return undefined; // the basket disagrees
+      seen = hit; filed++;
+    }
+    return filed ? seen : undefined;
+  }
+
+  /* THE BASKET, BY ITS SHAPE. Structure, never content: how many lines, whether
+     one of them swallowed the order, whether a voucher carried much of it. None
+     of these can name a thing that was bought, which is why they are allowed to
+     speak when the pool cannot. Checked in order of how much they say. */
+  function basketOf(receipt) {
+    if (!receipt) return undefined;
+    var items = receipt.items || [];
+    var paid = Number(receipt.paid) || 0;
+    var disc = Number(receipt.discount) || 0;
+    if (paid > 0 && disc >= paid * 0.4) return 'voucher';
+    if (items.length >= 8) return 'many';
+    if (items.length === 1) return 'solo';
+    if (items.length > 1 && paid > 0) {
+      var top = 0, i, v;
+      for (i = 0; i < items.length; i++) {
+        v = (Number(items[i].unit_price) || 0) * (Number(items[i].qty) || 1);
+        if (v > top) top = v;
+      }
+      if (top >= paid * 0.8) return 'solo';
+    }
+    return undefined;
+  }
+
   /* The whole plaintext → the tiny enum that leaves this process.
      c: concept | 'income' | 'unknown' · t: 1..4 · d: daypart | absent · p: pool.
 
@@ -283,7 +405,33 @@ function logic() {
        name a pool that has no lines. */
     var p = keywordPool(extraction) || validPool(extraction.pool) || (node ? validPool(TAX.poolOf(node)) : undefined);
     if (p) meta.p = p;
+    /* THE RECEIPT, when one was understood alongside this transaction
+       (item-aware-notification-spec.md §10). Two optional fields, both from a
+       closed vocabulary of this file's own — never a node code, never an item
+       name, never a count and never an amount. One says what the basket was,
+       the other what shape it had, and only one is ever sent: a pool is
+       strictly more informative than a shape, so a shape alongside it would be
+       payload spent on nothing. */
+    var rc = extraction.receipt;
+    if (rc && typeof rc === 'object') {
+      var ip = itemPoolOf(rc.items);
+      if (ip && ITEM_LINES.vi && ITEM_LINES.vi[ip]) meta.ip = ip;
+      else {
+        var ib = basketOf(rc);
+        if (ib && BASKET_LINES.vi && BASKET_LINES.vi[ib]) meta.ib = ib;
+      }
+    }
     return meta;
+  }
+
+  /* The late receipt line (spec §4). It takes no meta at all: the server does
+     not know which purchase the receipt belongs to, and a line that took an
+     argument would invite someone to pass one. */
+  function receiptReadOf(lang, rnd) {
+    var lg = lang === 'en' ? 'en' : 'vi';
+    var arr = RECEIPT_READ[lg];
+    if (!arr || !arr.length) return null;
+    return _pick(arr, typeof rnd === 'number' ? rnd : Math.random());
   }
 
   function _pick(arr, r) {
@@ -298,6 +446,11 @@ function logic() {
     var lg = lang === 'en' ? 'en' : 'vi';
     var r = typeof rnd === 'number' ? rnd : Math.random();
     var m = meta && typeof meta === 'object' ? meta : {};
+    /* What was in the basket beats every other reading, because it is the only
+       one derived from the thing itself rather than from the merchant's name or
+       the size of the figure. Its shape comes next, then the merchant pool. */
+    if (m.ip && ITEM_LINES[lg] && ITEM_LINES[lg][m.ip]) return _pick(ITEM_LINES[lg][m.ip], r);
+    if (m.ib && BASKET_LINES[lg] && BASKET_LINES[lg][m.ib]) return _pick(BASKET_LINES[lg][m.ib], r);
     if (m.p) {
       var pd = m.d && POOL_DAYPART[lg][m.p] && POOL_DAYPART[lg][m.p][m.d];
       var pool = pd || POOL_LINES[lg][m.p];
@@ -337,9 +490,9 @@ function workerMjs(d, json) {
   return STAMP + '\n' +
     '   The notification line tables + the shared selection logic, for the mailbox\n' +
     '   worker and push-send. notify-copy.mjs wraps these. Version ' + d.version + '. */\n' +
-    "import { conceptOf, poolOf } from './taxonomy.mjs';\n" +
+    "import { conceptOf, poolOf, ancestors } from './taxonomy.mjs';\n" +
     'const DATA = ' + json + ';\n' +
-    'const TAX = { conceptOf: conceptOf, poolOf: poolOf };' +
+    'const TAX = { conceptOf: conceptOf, poolOf: poolOf, ancestors: ancestors };' +
     logic() + '\n' +
     'export const NOTIFY_VERSION = DATA.version;\n' +
     'export const DAYPARTS = DATA.dayparts;\n' +
@@ -347,7 +500,8 @@ function workerMjs(d, json) {
     /* The tables are the template's own vars — re-declaring them here would be a
        second copy, and a second copy is the bug this generator exists to kill. */
     'export { CONCEPTS, TIERS, POOLS, MATRIX, DAYPART, POOL_LINES, POOL_DAYPART };\n' +
-    'export { metaOf, bodyOf, digestOf, statementOf, tierOf, dayPartOf, keywordPool, validPool, deburr };';
+    'export { ITEM_POOLS, ITEM_LINES, BASKET_LINES, RECEIPT_READ };\n' +
+    'export { metaOf, bodyOf, digestOf, statementOf, receiptReadOf, itemPoolOf, basketOf, tierOf, dayPartOf, keywordPool, validPool, deburr };';
 }
 
 function clientJs(d, json) {
@@ -361,11 +515,13 @@ function clientJs(d, json) {
     '     caller that runs before either is parsed still gets an honest null. */\n' +
     '  var TAX = {\n' +
     '    conceptOf: function (code) { return window.FH_TAX ? window.FH_TAX.conceptOf(code) : null; },\n' +
-    '    poolOf: function (code) { return window.FH_TAX ? window.FH_TAX.poolOf(code) : null; }\n' +
+    '    poolOf: function (code) { return window.FH_TAX ? window.FH_TAX.poolOf(code) : null; },\n' +
+    '    ancestors: function (code) { return window.FH_TAX ? window.FH_TAX.ancestors(code) : []; }\n' +
     '  };' +
     logic() + '\n' +
     '  return { version: DATA.version, lines: DATA, meta: metaOf, body: bodyOf,\n' +
-    '    digest: digestOf, statement: statementOf, tierOf: tierOf, dayPartOf: dayPartOf,\n' +
+    '    digest: digestOf, statement: statementOf, receiptRead: receiptReadOf,\n' +
+    '    itemPool: itemPoolOf, basket: basketOf, tierOf: tierOf, dayPartOf: dayPartOf,\n' +
     '    keywordPool: keywordPool, deburr: deburr };\n' +
     '})();\nwindow.FH_NOTIFY = FH_NOTIFY;';
 }
@@ -384,6 +540,8 @@ function generate() {
     version: d.version, concepts: d.concepts, tiers: d.tiers, dayparts: d.dayparts,
     pools: d.pools, matrix: d.matrix, daypart: d.daypart,
     poolLines: d.poolLines, poolDaypart: d.poolDaypart,
+    itemPools: d.itemPools, itemLines: d.itemLines,
+    basketLines: d.basketLines, receiptRead: d.receiptRead,
     digest: d.digest, statement: d.statement,
   });
   const changed = [
@@ -398,7 +556,8 @@ function generate() {
       else Object.keys(v).forEach((k) => walk(v[k]));
     }
   };
-  [d.matrix, d.daypart, d.poolLines, d.poolDaypart, d.digest, d.statement].forEach(walk);
+  [d.matrix, d.daypart, d.poolLines, d.poolDaypart,
+    d.itemLines, d.basketLines, d.receiptRead, d.digest, d.statement].forEach(walk);
   return { lines, changed };
 }
 

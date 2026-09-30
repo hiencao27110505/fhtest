@@ -19,7 +19,7 @@
    verify_jwt=true; the user's JWT is also parsed here to resolve family. */
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import * as webpush from "jsr:@negrel/webpush@0.3";
-import { reviewBody, digestBody, statementBody } from "../_shared/mailbox/notify-copy.mjs";
+import { reviewBody, digestBody, statementBody, receiptBody } from "../_shared/mailbox/notify-copy.mjs";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -198,11 +198,15 @@ Deno.serve(async (req: Request) => {
     // ── service-role entrance: the bank-email pipeline, notifying one member ──
     if (isServiceRole(jwt)) {
       const b = await req.json().catch(() => ({}));
-      // Two kinds come from the pipeline: a transaction waiting for review, and a
-      // statement FILE waiting to be opened (statement-capture-spec.md). Both go to
-      // one member's own devices only, both carry nothing.
+      // Three kinds come from the pipeline: a transaction waiting for review, a
+      // statement FILE waiting to be opened (statement-capture-spec.md), and a
+      // merchant receipt that was read without its transaction in the same run
+      // (item-aware-notification-spec.md §4). All go to one person's own devices
+      // only, and all carry nothing.
       const svcKind = String(b.kind || "");
-      if (svcKind !== "txn_review" && svcKind !== "stmt_new") return json({ error: "bad kind" }, 400);
+      if (svcKind !== "txn_review" && svcKind !== "stmt_new" && svcKind !== "receipt_read") {
+        return json({ error: "bad kind" }, 400);
+      }
       /* The destination is a PERSON (0152). A family-scoped grant names a
          member; a personal-only grant (Model Y, no members row anywhere) can
          only name a user. Either identifies the same thing — whose devices —
@@ -250,7 +254,12 @@ Deno.serve(async (req: Request) => {
       const backfill = b.backfill === true;
       const meta = (b.copy && typeof b.copy === "object") ? b.copy : null;
       const scope = b.scope === "personal" ? "personal" : null;
-      const c2 = svcKind === "stmt_new" ? statementBody(lg) : buildReviewBody(meta, backfill, count, lg);
+      /* The late receipt line takes no meta at all — the server does not know
+         which purchase the receipt belongs to, so there is nothing to pass that
+         could turn the line into a claim. */
+      const c2 = svcKind === "stmt_new" ? statementBody(lg)
+               : svcKind === "receipt_read" ? (receiptBody(lg) || statementBody(lg))
+               : buildReviewBody(meta, backfill, count, lg);
       // tag collapses a burst: three emails in one run replace each other in the
       // tray rather than stacking three identical rows (latest voice wins).
       // title = one face emoji (the reaction), body = text; sw.js renders the
@@ -260,7 +269,11 @@ Deno.serve(async (req: Request) => {
         // A statement keeps its own tag so it never replaces, or is replaced by, a
         // transaction banner in the tray. Its tap opens the full queue (no `s`):
         // the quick-review sheet has nothing to show for a locked file.
-        title: c2.title, body: c2.body, tag: svcKind === "stmt_new" ? "fh-stmt_new" : "fh-txn_review", url: "./",
+        title: c2.title, body: c2.body, url: "./",
+        /* Its own tag, so it never replaces — or is replaced by — a transaction
+           banner in the tray. The two are about different things, and the person
+           decided (Q10) that a later reading stands beside rather than rewrites. */
+        tag: svcKind === "stmt_new" ? "fh-stmt_new" : svcKind === "receipt_read" ? "fh-receipt" : "fh-txn_review",
         nav: { k: "txn_review", ...(scope && svcKind !== "stmt_new" ? { s: "personal" } : {}) },
       });
 

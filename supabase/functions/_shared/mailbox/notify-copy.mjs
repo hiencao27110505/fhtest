@@ -27,7 +27,7 @@
  * public surface and nothing else: copyMeta, reviewBody, digestBody, statementBody,
  * same signatures, same behaviour. */
 
-import { metaOf, bodyOf, digestOf, statementOf } from './notify-lines.mjs';
+import { metaOf, bodyOf, digestOf, statementOf, receiptReadOf, itemPoolOf, basketOf } from './notify-lines.mjs';
 
 /* The whole plaintext → the tiny enum that leaves this process.
  * c: concept | 'income' | 'unknown' · t: 1..4 · d: daypart | absent · p: pool.
@@ -62,4 +62,29 @@ export function digestBody(count, lang) {
  * NOTHING: no bank (where someone banks is itself private), no count, no period. */
 export function statementBody(lang) {
   return statementOf(lang);
+}
+
+
+/* A receipt reduced to the two optional enum fields the voice can use
+ * (item-aware-notification-spec.md §10). Returns {ip} when the basket agrees on
+ * one pool, else {ib} for its shape, else null — and never both, because a pool
+ * already says everything a shape could.
+ *
+ * WHAT THIS DELIBERATELY DOES NOT RETURN: the item names, the prices, the count,
+ * the seller, the node codes. The worker keeps the result alive for the length of
+ * one run to sharpen a line; anything richer would make that a plaintext cache. */
+export function receiptEnum(receipt) {
+  if (!receipt || typeof receipt !== 'object') return null;
+  const ip = itemPoolOf(receipt.items);
+  if (ip) return { ip };
+  const ib = basketOf(receipt);
+  return ib ? { ib } : null;
+}
+
+/* The late receipt notice (spec §4). A receipt whose transaction was not read in
+ * the same run: the server genuinely does not know which purchase it belongs to,
+ * so the line says only that a receipt was read. It takes no meta at all, so
+ * there is nothing to pass that could turn it into a claim. */
+export function receiptBody(lang, rnd) {
+  return receiptReadOf(lang, rnd);
 }

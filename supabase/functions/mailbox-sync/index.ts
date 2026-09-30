@@ -231,7 +231,7 @@ function baseCtx(
     notify: (
       grant: { user_id: string; member_id: string },
       count: number,
-      meta?: { backfill?: boolean; copy?: { c: string; t: number; p?: string }; scope?: string; statement?: boolean },
+      meta?: { backfill?: boolean; copy?: { c: string; t: number; d?: string; p?: string; ip?: string; ib?: string }; scope?: string; statement?: boolean; receipt?: boolean },
     ) => notifyReview(supabaseUrl, serviceKey, grant, count, meta),
   };
 }
@@ -273,7 +273,12 @@ async function notifyReview(
     body: JSON.stringify({
       // `statement: true` comes from the statement lane (statement.mjs): a FILE is
       // waiting to be opened, which push-send voices with its own line and tag.
-      kind: meta && meta.statement ? "stmt_new" : "txn_review",
+      /* `receipt: true` is the late receipt notice (item-aware-notification-spec.md
+         §4): a receipt was read whose transaction this run did not see. Its own
+         kind and its own tag, because it is not a transaction waiting and must
+         never collapse into one. It carries `count` only so the tap has somewhere
+         honest to land; the line itself names no purchase. */
+      kind: meta && meta.statement ? "stmt_new" : (meta && meta.receipt ? "receipt_read" : "txn_review"),
       member_id: grant.member_id,
       // A personal-only grant carries no member (0092); the user is the
       // destination then (0152). An older push-send ignores the field.

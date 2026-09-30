@@ -34,7 +34,7 @@
 
 import { resolveDestination, MailboxHold } from './identity.mjs';
 import { buildStagedRow, carryRaw } from './stage.mjs';
-import { copyMeta } from './notify-copy.mjs';
+import { copyMeta, receiptEnum } from './notify-copy.mjs';
 import { readTransaction, normalizeSubjectTemplate, legacySubjectTemplate, subjectCacheKey, SENDER_SENTINEL } from './extract.mjs';
 import { enrichCategory } from './classify.mjs';
 import * as senders from './senders.mjs';
@@ -871,6 +871,28 @@ async function _runGrantLocked(grant, ctx) {
      voice needs to know "Dining, tier 2, coffee", never the amount itself. */
   let copyBest = null;
 
+  /* THE PAIR INDEX (item-aware-notification-spec.md §9). A Shopee payment mail
+     and its bank debit arrive seconds apart, so they usually land in one run —
+     and inside one run the worker holds both plaintexts, card tails included,
+     which is the only place on the whole path where a receipt can be matched to
+     its transaction on evidence as strong as the device's.
+
+     ACROSS runs it cannot: the amounts are sealed and the tail is inside the
+     envelope, leaving a keyed fingerprint over amount alone, which 28% of rows
+     already share inside the matching window. That is why nothing here is
+     written to a row and why the late notice (§11) claims no transaction.
+
+     What is kept is deliberately NOT the receipt: only the derived enum values
+     {ip, ib} plus the tail to veto with. The invariant above — that no plaintext
+     amount outlives its message — still holds. */
+  const pairIx = new Map();      // amount|direction|currency -> { ip, ib, tail }
+  const _pairKey = (e) => (e && e.amount != null)
+    ? String(e.amount) + '|' + (e.direction || '') + '|' + (e.currency || 'VND') : null;
+  const _tail4 = (v) => { const m = String(v == null ? '' : v).match(/(\d{4})(?!.*\d)/); return m ? m[1] : null; };
+  /* Both present and different is a veto; either missing is simply no evidence,
+     which is the same rule the device's own join uses (RC10). */
+  const _tailOk = (a2, b2) => !(a2 && b2 && a2 !== b2);
+
   /* FETCHED CONCURRENTLY, PROCESSED IN ORDER — and the split is the whole point.
   
      `messages.get` is pure I/O with no dependency on any other message, so
@@ -1150,10 +1172,32 @@ async function _runGrantLocked(grant, ctx) {
     if (await ctx.db.insertStaged(row)) {
       if (row.row_kind === 'receipt') {
         /* Not pending work: never counted toward `staged` (which drives the
-           notification), never the notification's voice. Its own tally so the
-           spec's two deferred decisions have their numbers (§16). */
+           notification). Its own tally so the spec's two deferred decisions
+           have their numbers (§16). */
         summary.receipts = (summary.receipts || 0) + 1;
         await ctx.db.bumpReadTally?.('receipt_staged');
+        /* The basket, reduced to the enum, filed under the amount the BANK will
+           report — `paid`, after vouchers. The item total would never match. */
+        try {
+          const rk = _pairKey(read.extraction);
+          const rEnum = receiptEnum(read.extraction.receipt);
+          if (rk && rEnum) {
+            rEnum.tail = _tail4(read.extraction.receipt && read.extraction.receipt.paid_with_tail);
+            pairIx.set(rk, rEnum);
+            /* The bank mail may already have been read this run. Sharpen the
+               voice it earned rather than letting the order of the mailbox
+               decide whether the person gets the better line. */
+            if (copyBest && copyBest.key === rk && _tailOk(copyBest.tail, rEnum.tail)) {
+              if (rEnum.ip) { copyBest.meta.ip = rEnum.ip; delete copyBest.meta.ib; }
+              else if (rEnum.ib) { copyBest.meta.ib = rEnum.ib; }
+              summary.receiptPaired = (summary.receiptPaired || 0) + 1;
+              await ctx.db.bumpReadTally?.('receipt_paired_inrun');
+            } else {
+              summary.receiptLate = (summary.receiptLate || 0) + 1;
+              await ctx.db.bumpReadTally?.('receipt_late');
+            }
+          }
+        } catch { /* the basket is a garnish; a receipt never fails on it */ }
         if (retry) await ctx.db.clearMessageHold?.(grant.id, id);
         return 'staged';
       }
@@ -1169,7 +1213,21 @@ async function _runGrantLocked(grant, ctx) {
       if (!row.duplicate_of_id) {
         try {
           const at = Date.parse(read.extraction.occurred_at || '') || 0;
-          if (!copyBest || at >= copyBest.at) copyBest = { at, meta: copyMeta(read.extraction) };
+          if (!copyBest || at >= copyBest.at) {
+            const key = _pairKey(read.extraction);
+            const tail = _tail4(read.extraction.account_masked || read.extraction.card_masked);
+            const meta = copyMeta(read.extraction);
+            /* A receipt for this exact paid amount already read in this run:
+               same evidence the device would demand, so the line may say what
+               was bought. Nothing is written to the row — this is voice only. */
+            const rEnum = key ? pairIx.get(key) : null;
+            if (rEnum && _tailOk(tail, rEnum.tail)) {
+              if (rEnum.ip) meta.ip = rEnum.ip; else if (rEnum.ib) meta.ib = rEnum.ib;
+              summary.receiptPaired = (summary.receiptPaired || 0) + 1;
+              await ctx.db.bumpReadTally?.('receipt_paired_inrun');
+            }
+            copyBest = { at, meta, key, tail };
+          }
         } catch { /* copy is a garnish; staging never fails on it */ }
       }
     }
@@ -1528,6 +1586,34 @@ async function _runGrantLocked(grant, ctx) {
     catch { /* never fails a run */ }
   }
   summary.notified = !!(shouldNotify && notifyCount > 0);
+
+  /* THE LATE RECEIPT NOTICE (item-aware-notification-spec.md §4, §11). A receipt
+     whose transaction was not read in this run. It says only that a receipt was
+     read: the server cannot know which purchase it belongs to, and §8 is why.
+
+     Four gates, and the first is the one that keeps this from being noise: it
+     speaks ONLY on a run that sent no transaction notification. The pipeline's
+     rule has always been one push per mailbox per run, and a second buzz in the
+     same minute would spend the person's patience on the quieter of the two
+     things that happened. On a run where only a receipt arrived — which is the
+     whole late case — there is nothing to compete with. */
+  if (!summary.notified && !backfilling && (summary.receiptLate || 0) > 0 && ctx.notify) {
+    let pend = 0;
+    try { pend = ctx.db.pendingCount ? await ctx.db.pendingCount(destination.memberId, destination.ownerUserId) : 0; }
+    catch { pend = 0; }
+    /* Nothing waiting means nothing to open, and a notice that opens an empty
+       screen is worse than silence. */
+    if (pend > 0) {
+      try {
+        await ctx.notify(grant, pend, {
+          receipt: true,
+          ...(destination && destination.scope ? { scope: destination.scope } : {}),
+        });
+        summary.notifiedReceipt = true;
+        await ctx.db.bumpReadTally?.('notify_receipt_read');
+      } catch { /* never fails a run */ }
+    }
+  }
 
   if (hitLimit) summary.status = 'held';
   else if (moreQueued) summary.status = 'more';   // healthy, just not finished
