@@ -139,11 +139,13 @@ window.csvEntryScope = null;
 
 console.log('\n-- the chip un-disables itself when the ledger becomes ready --');
 const pers = fs.readFileSync(path.join(__dirname, '..', 'src', 'js-data', '19-personal.js'), 'utf8');
-const setState = pers.slice(pers.indexOf('function _setState('), pers.indexOf('function _setState(') + 600);
+const setState = pers.slice(pers.indexOf('function _setState('), pers.indexOf('function _setState(') + 1400);
 t('a personal state change re-renders the staged review',
   /renderCsvReview\(\)/.test(setState));
 t('and only when the STAGED review is on screen, never a file import',
   /csvStagedMode && window\.csvReview/.test(setState));
+t('and only while the review modal is actually open (2026-09-30: hidden repaints were the hot phone)',
+  /csv-import-modal/.test(setState) && /classList\.contains\('on'\)/.test(setState));
 
 console.log('\n-- the promote path splits ONE press across both ledgers --');
 const rv = fs.readFileSync(path.join(__dirname, '..', 'src', 'js-data', '72-txn-review.js'), 'utf8');

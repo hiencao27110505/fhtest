@@ -1763,6 +1763,13 @@
   const ATX_LIVE_EXTEND_MS = 3 * 60 * 1000;
   const ATX_LIVE_CEILING_MS = 30 * 60 * 1000;
   let _atxLiveUntil = 0, _atxLiveOn = false, _atxParked = null;
+  /* A promote changes the pending count under the running watcher, whose
+     `known` is a baseline it maintains by adding drained rows. The authoritative
+     refresh (72 fhRefreshStagedCount) bumps this stamp; the next tick then
+     re-baselines with one HEAD count instead of writing its stale number back
+     over the badge for up to eight strides (~4 minutes at the badge cadence). */
+  let _atxCountStamp = 0;
+  window.fhBackfillCountForget = function () { _atxCountStamp++; };
 
   /* Hidden means PARKED: the timer stops, not just its body (H4). The old
      guard skipped the network but kept the setTimeout chain alive, so a
@@ -1787,7 +1794,7 @@
        by adding what the delta drain returns. Exact during a first read, where
        the queue is held and nothing can leave it; re-baselined periodically in
        every other phase, where a promote elsewhere can shrink it. */
-    let known = null, cursor = null, feed = [];
+    let known = null, cursor = null, feed = [], countStamp = _atxCountStamp;
     let conn = null, lastPhase = null, lastPaintKey = '', tickN = 0, quietLast = false;
     (async function tick() {
       if (seq !== _atxLiveSeq) return;
@@ -1861,11 +1868,13 @@
             known = (known || 0) + fresh.length;
             const opened = await _atxOpenRows(fresh);
             feed = opened.reverse().concat(feed).slice(0, ATX_FEED_ROWS);
-          } else if (phase !== 'reading' && tickN % 8 === 0) {
+          } else if (countStamp !== _atxCountStamp || (phase !== 'reading' && tickN % 8 === 0)) {
             /* Outside a first read the queue can SHRINK under us (a promote on
                another device); drift-heal on a slow stride. During the read the
-               queue is held, so baseline + drained is already exact. */
+               queue is held, so baseline + drained is already exact. A promote
+               on THIS device says so through the stamp and is healed at once. */
             known = await _atxPendingCount();
+            countStamp = _atxCountStamp;
           }
         }
         quietLast = cursor != null && fresh.length === 0;

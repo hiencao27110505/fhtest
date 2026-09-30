@@ -89,7 +89,13 @@
       P.state = s;
       try { if (window.renderPersonal) renderPersonal(); } catch (e) {}
       try {
-        if (window.csvStagedMode && window.csvReview && window.renderCsvReview) window.renderCsvReview();
+        /* Only while the review is actually ON SCREEN. The modal keeps its
+           state after it closes, and repainting 800 cards into a hidden sheet
+           twice per hydrate — once for 'loading', once for 'ready', on every
+           write, focus and receipt attach — was the hot phone after a bulk
+           import (2026-09-30). */
+        var _rv = document.getElementById('csv-import-modal');
+        if (window.csvStagedMode && window.csvReview && window.renderCsvReview && _rv && _rv.classList.contains('on')) window.renderCsvReview();
       } catch (e) {}
     }
     function _winFrom() { const d = new Date(); d.setMonth(d.getMonth() - 1); d.setDate(1); return _localDate(d); }

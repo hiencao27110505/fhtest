@@ -113,8 +113,9 @@
        key here keeps a just-imported row from popping back up. */
     function _qrRetired() {
       try {
-        var mid = (window.DB && window.DB.ownerMemberId) || '';
-        var v = JSON.parse(localStorage.getItem('fh-staged-retired:' + mid) || '[]');
+        if (window.fhStagedRetiredIds) return window.fhStagedRetiredIds() || [];
+        var uid = (window.fhUser && window.fhUser.id) || '';
+        var v = JSON.parse(localStorage.getItem('fh-staged-retired:u:' + uid) || '[]');
         return Array.isArray(v) ? v : [];
       } catch (e) { return []; }
     }

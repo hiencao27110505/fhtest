@@ -630,8 +630,11 @@ matched ledger row's note/category, amount, date, which book, and who logged it
 
 ### G. Retirement bookkeeping
 
-Client-side, per-member localStorage key `fh-staged-retired:<memberId>`
-(`src/js-data/72-txn-review.js:59-84`). The pattern is always **local-first**:
+Client-side, per-person localStorage key `fh-staged-retired:u:<userId>`
+(`src/js-data/72-txn-review.js`, `_stagedRetiredKey`). It was keyed on the family
+seat (`members.id`) until 2026-09-30, which left a person with no family — no
+seat — with an empty key and a no-op guard; a seat-keyed list is folded into the
+person's list the first time it is read. The pattern is always **local-first**:
 record the id as retired, *then* call `resolve_email_transactions`. A failed
 server delete still keeps the row out of this device's queue, so it can't
 reappear and be imported twice. The set is pruned against what the server actually
@@ -640,6 +643,28 @@ returns, so it can't grow unbounded. The "finished with" set is computed by
 everything still waiting in a bucket — because the ✕ handlers splice a candidate
 out of the review state, so a rule built from "what was removed" couldn't see
 them. If the review state is unreadable, retire nothing rather than guess.
+
+Three invariants added 2026-09-30, after a bulk import of 808 rows reached the
+ledger and never reached `resolve_email_transactions` (kaoheen@):
+
+- **The staged-row map is never replaced while the review is open.** A resolved
+  row becomes a hole (`null`) in `_fhStagedRows` (`_stagedRowsForget`); the array
+  object and every `rowIndex` stay valid for the candidates left on screen. The
+  old code emptied the array after a one-row "Nhập ngay", so the next press mapped
+  every candidate to nothing.
+- **A written row retires by its own id.** Candidates carry `_stagedId` from
+  build time (57) and `_stagedIdOfCand` resolves through it first; the exclusion
+  rule is a second source, not the only one. Rows written with no id to retire
+  are logged (`fhLogErr`) and toasted — the tail no longer has a silent
+  `if (!ids.length) return;` after the writes.
+- **The badge agrees with the list.** `fhStagedTotal` is corrected after the
+  local retired filter, and `fhRefreshStagedCount` bumps the reading watcher's
+  count stamp (74, `fhBackfillCountForget`) so it re-baselines on its next tick
+  instead of writing a stale count back over the badge.
+
+Also from that day: the personal `_setState` repaints the review modal only while
+`#csv-import-modal` is on screen. Repainting 800 cards into a hidden sheet twice
+per hydrate was the hot phone.
 
 ### H. Key functions index
 

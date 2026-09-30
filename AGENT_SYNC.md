@@ -143,6 +143,25 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-09-30 · Hien · bulk import wrote 808 rows, retired none — FIXED · SW `v601` · no migration · live DB cleaned for kaoheen@ only.**
+  Cause: `72` emptied `window._fhStagedRows` after every promote while the review
+  stayed open, so after a one-row "Nhập ngay" the next bulk press mapped every
+  candidate to nothing and hit `if (!ids.length) return;` AFTER the ledger writes
+  (no `resolve_email_transactions`, no badge refresh, screen left open). Two
+  amplifiers: the retired list was keyed on `members.id` (a famless user had no
+  guard at all), and `fhStagedTotal` was counted before the retired filter.
+  Fix: resolved rows become holes (`_stagedRowsForget`), candidates carry
+  `_stagedId` from build (57), written rows retire by their own id, unmapped
+  writes are logged + toasted, retired list keyed `fh-staged-retired:u:<uid>`
+  (legacy seat list folded in; 76 reads 72's list), badge corrected after the
+  filter, `fhRefreshStagedCount` → `fhBackfillCountForget()` so the 74 watcher
+  re-baselines, and 19 `_setState` repaints the review modal only while it is
+  on screen (the hot phone). Guard: `tools/staged-rows-stable.test.js`. Spec:
+  `transaction-review-spec.md` §G. DB: 809 stale pending rows for uid
+  `09238050-…` tombstoned + deleted by hand (they were all in the ledger); the 18
+  pending receipt rows and the one mail staged after the import were left alone.
+  Files touched: 72, 57, 76, 19, 74, sw.js, index.html (built). Not pushed.
+
 - **2026-09-30 · Hien · Phase 2 (item-category signature ladder) LIVE: `0155_item_signatures` APPLIED · `mailbox-sync` v74 · SW v600 · spec §20, RC16–19.** New table `item_signatures` (key = a product TYPE phrase `hn|mu boi` or an Apple slot `apple|apple tv|movie rental` / `apple|vendor|youtube` → node; type-level words only, never a product title, never per-user). Worker learns a signature ONCE via one batched model call, seals `items[].node` + `items[].sig`; device: per-user lesson override → sealed → keyword, then the Phase-0 branch constraint. Contract: receipt items gain `node`, `sig` (nullable adds, no PAYLOAD_V bump). Spec: `receipt-enrichment-spec.md` §20 + Part 4 note. Detail screen: tap an item's category pill → the existing tree picker (`fhNodePickOpen` gained an optional subtitle arg — additive) → blob + per-user lesson (`fhLessonItemNode` family in 24-lessons). `gen-taxonomy.js` helpers gained `itemSignature()` (regenerated client+worker; python target unchanged). ⚠️ Phiên kia lấy v599 ngay khi tôi build — tôi lấy **v600**; lần bump sau bắt đầu từ v601. Không đụng file nào của phiên kia lần này. 142 suite xanh.
 
 - **2026-09-30 · Hien · corrections that carry (apply-to-similar) BUILT + A15 fix · claiming SW `v599` · cursor `fh-tree-bf` v11 → v12 · no migration · no deploy.**

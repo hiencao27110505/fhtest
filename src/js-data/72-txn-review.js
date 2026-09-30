@@ -57,6 +57,16 @@
      bound: once a row stops coming back it has really gone, and remembering it
      is pointless. */
   function _stagedRetiredKey() {
+    var uid = (window.fhUser && window.fhUser.id) || '';
+    return uid ? 'fh-staged-retired:u:' + uid : '';
+  }
+  /* Keyed on the PERSON, not the family seat. The list used to hang off
+     members.id — and a person with no family has no seat, so for them the key
+     was '' and every add was a silent no-op: the "double-import guard" simply
+     did not exist for the famless (2026-09-30, kaoheen@). The user id is one
+     per signed-in person, which is also one per seat on a shared device. A
+     seat-keyed list from before is folded in the first time it is read. */
+  function _stagedRetiredLegacyKey() {
     var mid = (window.DB && window.DB.ownerMemberId) || '';
     return mid ? 'fh-staged-retired:' + mid : '';
   }
@@ -64,9 +74,18 @@
     try {
       var k = _stagedRetiredKey(); if (!k) return [];
       var v = JSON.parse(localStorage.getItem(k) || '[]');
-      return Array.isArray(v) ? v : [];
+      var out = Array.isArray(v) ? v : [];
+      var lk = _stagedRetiredLegacyKey();
+      if (lk && localStorage.getItem(lk) != null) {
+        var old = JSON.parse(localStorage.getItem(lk) || '[]');
+        if (Array.isArray(old)) old.forEach(function (id) { if (id && out.indexOf(id) === -1) out.push(id); });
+        localStorage.setItem(k, JSON.stringify(out));
+        localStorage.removeItem(lk);
+      }
+      return out;
     } catch (e) { return []; }
   }
+  window.fhStagedRetiredIds = _stagedRetiredGet;   // 76-quick-review reads the same list
   function _stagedRetiredAdd(ids) {
     try {
       var k = _stagedRetiredKey(); if (!k || !ids || !ids.length) return;
@@ -167,7 +186,15 @@
     _stagedRetiredPrune(serverIds);
     var retired = _stagedRetiredGet();
     if (!retired.length) return rows;
-    return rows.filter(function (r) { return retired.indexOf(r.id) === -1; });
+    var kept = rows.filter(function (r) { return retired.indexOf(r.id) === -1; });
+    /* The badge must agree with the list. A row this device already retired is
+       not "waiting", even while the server delete is still catching up — so
+       the total is corrected AFTER the filter, and "N khoản đang chờ" can never
+       name rows the queue itself refuses to show. */
+    if (typeof window.fhStagedTotal === 'number') {
+      window.fhStagedTotal = Math.max(0, window.fhStagedTotal - (rows.length - kept.length));
+    }
+    return kept;
   }
 
   /* Badge count for the "Khoản thu chi từ email" CTA in Widget A. A cheap pending-rows
@@ -179,6 +206,10 @@
      simply has not fetched yet (activation feedback round 4). */
   window._fhStagedKnown = false;
   window.fhRefreshStagedCount = async function () {
+    // The reading watcher (74) keeps its own running count; a promote has just
+    // changed the truth under it, so its next tick must re-baseline rather than
+    // write a stale number back over this one.
+    try { window.fhBackfillCountForget && window.fhBackfillCountForget(); } catch (e) {}
     try { var rows = await fhFetchStagedTxns(); window.fhStagedCount = (typeof window.fhStagedTotal === 'number') ? window.fhStagedTotal : (rows || []).length; window._fhStagedKnown = true; }
     catch (e) { window.fhStagedCount = 0; }
     // Statement rows and unopened statement cards wait in the same queue, so the
@@ -1357,6 +1388,21 @@
        to whatever this device already knows, never blocks the queue. */
     try { if (window.fhLessonsSync) await window.fhLessonsSync(); } catch (e) {}
     csvBuildReview([fhStagedAsCsvSource(readable)], {});
+    /* Every candidate carries its staged row's id from here on (_stagedId), so
+       retirement never depends on rowIndex still pointing at a live entry of
+       _fhStagedRows. Stamped after the build rather than inside it: the review
+       engine's candidate shape is a contract other importers share. */
+    try {
+      var _stamp = function (list) {
+        (list || []).forEach(function (c) {
+          if (c && typeof c.rowIndex === 'number' && readable[c.rowIndex] && readable[c.rowIndex].id) c._stagedId = readable[c.rowIndex].id;
+        });
+      };
+      var _rv = window.csvReview || {};
+      _stamp(_rv.ready); _stamp(_rv.deferred);
+      (_rv.groups || []).forEach(function (g) { _stamp(g && g.items); });
+      (_rv.dup || []).forEach(function (d) { if (d && d.c) _stamp([d.c]); });
+    } catch (eS) {}
     renderCsvReview();
 
     // Same screen, different framing: no file to pick, and the title should say
@@ -1530,6 +1576,30 @@
   }
   window.fhStagedIdsForResolved = fhStagedIdsForResolved;
 
+  /* A resolved row leaves the map by becoming a HOLE, never by the array being
+     replaced. Every candidate on the screen addresses _fhStagedRows by
+     rowIndex, and the review stays OPEN after a partial import — a one-row
+     "Nhập ngay", a few ticked rows. Emptying the array on resolve (as this did
+     until 2026-09-30) made the next press map every remaining candidate to
+     nothing: 808 rows written to the ledger, zero retired on the server, the
+     badge frozen at 8xx, the screen left open with every card still ticked. */
+  function _stagedRowsForget(ids) {
+    var rows = window._fhStagedRows;
+    if (!rows || !rows.length || !ids || !ids.length) return;
+    for (var i = 0; i < rows.length; i++) {
+      if (rows[i] && ids.indexOf(rows[i].id) !== -1) rows[i] = null;
+    }
+  }
+  /* The staged id of a candidate: the one it was born with (57 stamps
+     _stagedId at build time), else the row still at its index. */
+  function _stagedIdOfCand(c) {
+    if (c && c._stagedId) return c._stagedId;
+    var rows = window._fhStagedRows || [];
+    var r = (c && typeof c.rowIndex === 'number') ? rows[c.rowIndex] : null;
+    return (r && r.id) || null;
+  }
+  window.fhStagedIdOfCand = _stagedIdOfCand;
+
   /* Retire ONE row, the moment ✕ confirms it.
 
      Removal used to be banked until an Import, which meant it was banked until
@@ -1541,13 +1611,12 @@
      so a failed delete still keeps the row out of this device's queue instead of
      resurrecting something the person has already said no to twice. */
   window.fhStagedDropOne = async function (c) {
-    var rows = window._fhStagedRows || [];
-    var row = (c && typeof c.rowIndex === 'number') ? rows[c.rowIndex] : null;
-    var id = row && row.id;
+    var id = _stagedIdOfCand(c);
     if (!id) return;
     _stagedRetiredAdd([id]);
     try {
       var removed = await _stagedResolve([id]);
+      _stagedRowsForget([id]);
       if (!removed) console.warn('staged drop: matched 0 rows', { ids: [id] });
     } catch (e) {
       console.warn('staged drop failed', e, { ids: [id] });
@@ -1567,15 +1636,12 @@
      device's queue, rather than resurrecting a whole batch the person has already
      dismissed. */
   window.fhStagedDropMany = async function (list) {
-    var rows = window._fhStagedRows || [];
-    var ids = (list || []).map(function (c) {
-      var row = (c && typeof c.rowIndex === 'number') ? rows[c.rowIndex] : null;
-      return row && row.id;
-    }).filter(Boolean);
+    var ids = (list || []).map(_stagedIdOfCand).filter(Boolean);
     if (!ids.length) return 0;
     _stagedRetiredAdd(ids);
     try {
       var removed = await _stagedResolve(ids);
+      _stagedRowsForget(ids);
       if (!removed) console.warn('staged drop: matched 0 rows', { ids: ids });
     } catch (e) {
       console.warn('staged bulk drop failed', e, { ids: ids });
@@ -1688,7 +1754,10 @@
     if (mine.length && window.fhPersonalHydrateHold) { window.fhPersonalHydrateHold(); _txrHeld = true; }
 
     var srows = window._fhStagedRows || [];
+    /* Same rule as _stagedIdOfCand, kept local: the id the candidate was born
+       with, else the row still at its index (a hole yields null). */
     var stagedIdOf = function (cc) {
+      if (cc && cc._stagedId) return cc._stagedId;
       var r = (cc && typeof cc.rowIndex === 'number') ? srows[cc.rowIndex] : null;
       return (r && r.id) || null;
     };
@@ -2167,45 +2236,65 @@
     /* 0154: a receipt joined to a row this press imported is finished with —
        its detail is on the ledger row (personal) or was shown at review
        (family, the named v1 gap). It retires in the same call as its row. */
+    /* Every candidate this press WROTE retires by its own id, whatever the
+       exclusion rule above concluded: that rule reads the screen, and a screen
+       rebuilt after a partial import is exactly where the two can disagree. */
+    picked.forEach(function (pc) {
+      var sid = stagedIdOf(pc);
+      if (sid && ids.indexOf(sid) === -1) ids.push(sid);
+    });
     picked.forEach(function (pc) {
       var pr = (pc && typeof pc.rowIndex === 'number') ? srows[pc.rowIndex] : null;
       if (pr && pr._rcptRowId && ids.indexOf(pr._rcptRowId) === -1) ids.push(pr._rcptRowId);
     });
-    if (!ids.length) return;
+    /* Written but unmapped is a BUG, never a quiet exit. Until 2026-09-30 this
+       returned early on an empty id list — placed AFTER the ledger writes, so a
+       press whose candidates had lost their staged rows saved everything and
+       told nobody: no server retire, no badge refresh, the review left open
+       with 808 imported cards still ticked. Say so, record it, and carry on to
+       the refresh and the rebuild the person is waiting for. */
+    if (picked.length && !ids.length) {
+      var eMap = new Error('staged retire: ' + picked.length + ' rows written, none mapped to a staged id');
+      try { window.fhLogErr && window.fhLogErr(eMap); } catch (eL) {}
+      window.toast && window.toast(L('Đã lưu, nhưng chưa xoá được bản nháp trên máy chủ.',
+                                     'Saved, but the drafts could not be removed on the server.'));
+    }
 
-    /* Remember locally BEFORE asking the server, and keep it even if the server
-       says no. The ledger write has already happened by this point, so from the
-       person's side these rows are done — and the one thing that must not happen
-       next is seeing them again and importing them twice. */
-    _stagedRetiredAdd(ids);
+    if (ids.length) {
+      /* Remember locally BEFORE asking the server, and keep it even if the server
+         says no. The ledger write has already happened by this point, so from the
+         person's side these rows are done — and the one thing that must not happen
+         next is seeing them again and importing them twice. */
+      _stagedRetiredAdd(ids);
 
-    /* Two failures live here and they need DIFFERENT diagnoses — an earlier
-       version of this printed one sentence for both, which made a permanently
-       broken retirement look like a momentary lag:
+      /* Two failures live here and they need DIFFERENT diagnoses — an earlier
+         version of this printed one sentence for both, which made a permanently
+         broken retirement look like a momentary lag:
 
-         removed === 0  the function ran and matched nothing. The rows are real
-                        and visible, so the mismatch is ownership: p_ids reached
-                        a member_id that is not this user's. Retrying never fixes
-                        it.
-         throw          the call itself failed — 0060 absent, a different
-                        argument name (PostgREST resolves by name AND args), a
-                        revoked grant, or the network.
+           removed === 0  the function ran and matched nothing. The rows are real
+                          and visible, so the mismatch is ownership: p_ids reached
+                          a member_id that is not this user's. Retrying never fixes
+                          it.
+           throw          the call itself failed — 0060 absent, a different
+                          argument name (PostgREST resolves by name AND args), a
+                          revoked grant, or the network.
 
-       Neither is "catching up", so neither says so. The console carries the
-       detail, because this is the one place a person cannot see what went wrong
-       and the queue now looks correct either way. */
-    try {
-      var removed = await _stagedResolve(ids);   // 0060
-      window._fhStagedRows = [];
-      if (!removed) {
-        console.warn('staged retire: matched 0 rows', { ids: ids });
+         Neither is "catching up", so neither says so. The console carries the
+         detail, because this is the one place a person cannot see what went wrong
+         and the queue now looks correct either way. */
+      try {
+        var removed = await _stagedResolve(ids);   // 0060
+        if (typeof _stagedRowsForget === 'function') _stagedRowsForget(ids);
+        if (!removed) {
+          console.warn('staged retire: matched 0 rows', { ids: ids });
+          window.toast && window.toast(L('Đã lưu, nhưng chưa xoá được bản nháp trên máy chủ.',
+                                         'Saved, but the drafts could not be removed on the server.'));
+        }
+      } catch (e2) {
+        console.warn('staged retire failed', e2, { ids: ids });
         window.toast && window.toast(L('Đã lưu, nhưng chưa xoá được bản nháp trên máy chủ.',
                                        'Saved, but the drafts could not be removed on the server.'));
       }
-    } catch (e2) {
-      console.warn('staged retire failed', e2, { ids: ids });
-      window.toast && window.toast(L('Đã lưu, nhưng chưa xoá được bản nháp trên máy chủ.',
-                                     'Saved, but the drafts could not be removed on the server.'));
     }
 
     /* Account setup (0134, account-setup-spec §4): the accounts this import
