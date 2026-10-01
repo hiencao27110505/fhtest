@@ -497,7 +497,14 @@
          the marketplace's name. It only ever replaces an answer nobody wrote:
          a real payer memo ("ca phe voi Trang") still wins, exactly like the
          never-clobber rule on committed rows (spec RC13). */
-      if (r._rcptDesc && (!tidied || _bankGenericMemo(tidied))) description = r._rcptDesc;
+      /* A note that only repeats the merchant's own name ("GRAB" on a wallet
+         statement) was written by nobody either (spec RC24). */
+      var _rcSame = function (a, b) {
+        var n = function (s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
+        return !!n(a) && n(a) === n(b);
+      };
+      if (r._rcptDesc && (!tidied || _bankGenericMemo(tidied)
+          || _rcSame(tidied, r._rcpt && r._rcpt.provider) || _rcSame(tidied, r.counterparty))) description = r._rcptDesc;
       /* Foreign-currency rows carry the ESTIMATED VND into the amount cell, so
          every downstream reader — totals, the write, csvBaseAmt — works in VND
          and never mistakes "$111" for 111đ. The foreign original stays visible

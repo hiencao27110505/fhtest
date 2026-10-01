@@ -1373,6 +1373,8 @@ function csvStagedRowsCard(c, opts){
     var _rjB = '<div class="csv-rc"><div class="csv-rc-h">'+_rjIco+'<span>'+esc(L('Hoá đơn','Receipt'))+'</span>'
       + (_rjHead?'<span class="csv-rc-src">'+esc(_rjHead)+'</span>':'') + '</div>';
     var _its = _rj2.items || [];
+    /* Order-level (a Grab ride): the service's name stands where items would. */
+    if(!_its.length && _rj2.service_label) _rjB += '<div class="csv-rc-it"><span class="csv-rc-nm">'+esc(_rj2.service_label)+'</span></div>';
     _its.slice(0,3).forEach(function(it){
       if(!it || !it.name) return;
       var _nd = (it.node && typeof fhNodeShort==='function') ? fhNodeShort(it.node) : '';
@@ -1383,8 +1385,14 @@ function csvStagedRowsCard(c, opts){
         + '</div>';
     });
     if(_its.length>3) _rjB += '<div class="csv-rc-more">'+esc(L('+'+(_its.length-3)+' sản phẩm nữa','+'+(_its.length-3)+' more'))+'</div>';
-    if(_rj2.discount) _rjB += '<div class="csv-rc-math">'
-      + '<span>'+esc(L('Tổng '+csvFmt(_rj2.items_total||0)+', giảm '+csvFmt(_rj2.discount),'Total '+csvFmt(_rj2.items_total||0)+', less '+csvFmt(_rj2.discount)))+'</span>'
+    /* Every deduction is named, so the line adds up to the paid figure: a
+       ride paid partly in GrabCoins read "47.000, giảm 4.000" beside 11.000. */
+    var _rjPts = Number(_rj2.points_discount) || 0;
+    var _rjPtsNm = _rj2.provider === 'Grab' ? 'GrabCoins' : L('điểm','points');
+    if(_rj2.discount || _rjPts) _rjB += '<div class="csv-rc-math">'
+      + '<span>'+esc(L('Tổng '+csvFmt(_rj2.items_total||0), 'Total '+csvFmt(_rj2.items_total||0))
+          + (_rj2.discount ? L(', giảm '+csvFmt(_rj2.discount), ', less '+csvFmt(_rj2.discount)) : '')
+          + (_rjPts ? L(', '+_rjPtsNm+' '+csvFmt(_rjPts), ', '+_rjPtsNm+' '+csvFmt(_rjPts)) : ''))+'</span>'
       + '<span class="num">'+esc(csvFmt(_rj2.paid))+'</span></div>';
     _rjB += '</div>';
     h += _rjB;

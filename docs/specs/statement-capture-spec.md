@@ -309,6 +309,14 @@ not parsed.
 | `payload_enc` text | One personal-DEK ciphertext of the whole row (amount, direction, time, description, counterparty, reference, balance-after, MCC, funding source, account id, row fingerprint) |
 | `created_at` | |
 
+> **Amended 2026-10-01 — one shape, checked.** A statement row handed to the
+> review (`fhStmtAsStaged`) must be indistinguishable from an opened email row
+> to every reader. It was not: `amount` and `currency` sat at the top of the
+> row only, while an email row also carries them inside `raw_extracted`, and
+> the receipt join read the inner copy, so no statement row ever took a
+> receipt. Both are mirrored now, and `tools/receipt-join.test.js` feeds the
+> join a row this function built (`receipt-enrichment-spec.md` §21, RC20).
+
 Field encryption, not a sealed box: the writer is the owner's own device and
 already holds the key. `email_transactions` stays service-role-only and its
 `(owner_user_id, gmail_message_id)` key from `0137` is untouched.

@@ -244,6 +244,34 @@ const geminiFetch = (answer) => async (u, init) => {
     [gp.items_total, gp.discount, gp.paid]);
   t('a trip address never survives, even in the breakdown form',
     JSON.stringify(gp).indexOf('Nguyen Trai') === -1 && gp.items === null, gp);
+  // spec §21 — the real 2026-10-01 layout: a ride paid partly in GrabCoins
+  const sent = Date.parse('2026-10-01T12:23:00+07:00');
+  const g21 = R.readGrabReceipt([
+    'Car 6 chỗ ngồi', '', 'Hope you enjoyed your ride!', '', 'Picked up on 01 October 2026', '',
+    'Booking ID: A-9TCCAROWX4TGAV', '', 'Vehicle fleet: HCM - GC - CN1 - HTX VT An Bình', '',
+    'Total Paid', '', '11.000 ₫', '',
+    'Breakdown', '', 'Fare', '', '47.000', '', 'Promo', '', '-4.000', '', 'GrabCoins', '', '-32.000', '',
+    'Total Paid', '', '11.000', '',
+    'Passenger', '', 'Hien Cao', '', 'Paid by', '', 'MoMo', '', '11.000', '',
+    'Points earned', '', 'GrabCoins', '', '+100 points', '',
+    'Your Trip', '', '451/10 Nguyen Trai St.', '',
+  ].join('\n'), 'Your Grab E-Receipt', sent);
+  t('the service name is read from the header zone', g21 && g21.service_label === 'Car 6 chỗ ngồi', g21 && g21.service_label);
+  t('GrabCoins redeemed is read from the Breakdown, not from "Points earned"', g21.points_discount === 32000, g21.points_discount);
+  t('the math balances: fare − promo − GrabCoins = paid',
+    g21.items_total - g21.discount - g21.points_discount === g21.paid, [g21.items_total, g21.discount, g21.points_discount, g21.paid]);
+  t('a day-only reading adopts the send time on the same VN day',
+    g21._when.iso === '2026-10-01T12:23:00+07:00' && g21._when.precision === 'minute', g21._when);
+  t('nothing place-like survives: no street, no fleet line, no passenger',
+    !/Nguyen Trai|An Bình|HTX|Hien Cao/.test(JSON.stringify(g21)) && g21.items === null, g21);
+  const gOther = R.readGrabReceipt('Car 6 chỗ ngồi\n\nPicked up on 01 October 2026\n\nTotal Paid\n\n11.000 ₫',
+    'Your Grab E-Receipt', Date.parse('2026-10-02T00:30:00+07:00'));
+  t('a send time on ANOTHER day is ignored: the row stays day-only', gOther._when.precision === 'day', gOther._when);
+  t('a street in the header zone is refused as a label',
+    R.grabServiceLabel(['451/10 Nguyen Trai St.', 'Picked up on 01 October 2026']) === null
+    && R.grabServiceLabel(['Sailing Tower', 'Booking ID: X']) === null
+    && R.grabServiceLabel(['Hope you enjoyed your ride!', 'Booking ID: X']) === null);
+  t('a line below the booking lines is never a label', gr.service_label === null, gr.service_label);
   t('no address survives', JSON.stringify(gr).indexOf('Pasteur') === -1 && JSON.stringify(gr).indexOf('443/') === -1, gr);
 
   console.log('\n-- readReceiptMail: the orchestrator --');

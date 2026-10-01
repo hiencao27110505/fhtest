@@ -120,6 +120,11 @@
         counterparty: p.counterparty || '',
         duplicate_of_id: null, resolved_before: false,
         raw_extracted: Object.assign({
+          /* The cash fields are mirrored inside, as fhReadStagedRow leaves them
+             on an opened email row. They sat at the top only, and the receipt
+             join, reading the inner copy, never matched one statement row
+             (receipt-enrichment-spec §21, RC20). */
+          amount: Math.abs(p.amt), currency: 'VND',
           memo: p.memo, memo_display: p.memo,
           transaction_type: p.person ? 'p2p_transfer' : (p.accountKind === 'ewallet' ? 'ecommerce_receipt' : 'bank_txn'),
           flow: p.flow === 'cardpay' ? 'transfer' : (p.amt < 0 ? 'expense' : 'income'),

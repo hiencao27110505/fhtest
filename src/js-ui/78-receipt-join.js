@@ -56,6 +56,34 @@
     }
     function _rjDayMs(iso) { var t = Date.parse(iso || ''); return isFinite(t) ? t : null; }
 
+    /* The instant a row states, or null when it states only a day (spec RC23).
+       v2 says so outright (time_precision); a statement row and a v1 row use
+       the day-only spelling, midnight UTC, which no real bank clock prints. */
+    var RJ_CLOCK_WINDOW = 30 * 60e3;
+    function _rjClock(occurredAt, precision) {
+      var t = Date.parse(occurredAt || '');
+      if (!isFinite(t) || precision === 'day') return null;
+      if (precision !== 'second' && precision !== 'minute' && t % 864e5 === 0) return null;
+      return t;
+    }
+    /* A ledger row's instant: its date plus the HH:MM it was booked with. */
+    function _rjLedgerClock(t) {
+      var m = String((t && t.time) || '').match(/^(\d{1,2}):(\d{2})/);
+      if (!m || !t.date) return null;
+      var ms = Date.parse(String(t.date).slice(0, 10) + 'T' + ('0' + m[1]).slice(-2) + ':' + m[2] + ':00+07:00');
+      return isFinite(ms) ? ms : null;
+    }
+    /* A clock breaks a tie and only a tie: exactly ONE candidate within the
+       window wins; none or several leaves the ambiguity where it was. */
+    function _rjByClock(rClock, cands, clockOf) {
+      if (rClock == null) return null;
+      var near = cands.filter(function (c) {
+        var k = clockOf(c);
+        return k != null && Math.abs(k - rClock) <= RJ_CLOCK_WINDOW;
+      });
+      return near.length === 1 ? near[0] : null;
+    }
+
     /* An item's category may only REFINE the transaction's, never contradict
        it (receipt-enrichment §RC9, revised 2026-09-29). The transaction's node
        comes from the bank-side cascade, which exists for every row; a receipt
@@ -123,6 +151,9 @@
         }
         return (rc.seller || provider || 'Hoá đơn') + ' · ' + items.length + ' món';
       }
+      /* Order-level, but the merchant named what was bought (a Grab ride's
+         "Car 6 chỗ ngồi"): that still answers "chi cho gì" (spec RC24). */
+      if (rc.service_label) return (provider ? provider + ' \u00b7 ' : '') + rc.service_label;
       return null;   // order-level only: the cascade keeps its answer
     }
 
@@ -140,6 +171,7 @@
         provider: row.source_provider || null,
         paid: rc ? Number(rc.paid != null ? rc.paid : x.amount) : Number(x.amount),
         tail: rc ? _rjTail(rc.paid_with_tail) : null,
+        clock: _rjClock(row.occurred_at, x.time_precision),
         orderId: (rc && rc.order_id) || x.reference_number || null,
         _rcpt: rc ? {
           v: 1, source: 'email', provider: row.source_provider || null,
@@ -162,6 +194,8 @@
           shipping_fee: rc.shipping_fee != null ? rc.shipping_fee : null,
           paid: rc.paid != null ? rc.paid : null,
           paid_with_tail: _rjTail(rc.paid_with_tail),
+          service_label: rc.service_label ? String(rc.service_label).slice(0, 60) : null,
+          points_discount: rc.points_discount != null ? rc.points_discount : null,
         } : null,
       };
     }
@@ -214,8 +248,13 @@
             if (!q || q._unreadable || q._rcpt || claimedRows[q.id]) return;
             var x = q.raw_extracted || {};
             if (x.receipt) return;                       // a receipt row is never a target
-            if (String(x.direction) !== 'debit') return;
-            if (Math.round(Number(x.amount)) !== Math.round(r.paid)) return;
+            /* The cash fields are read where EVERY opened row carries them, at
+               the top (fhReadStagedRow, fhStmtAsStaged). Reading the inner copy
+               alone skipped every statement row (spec §21, RC20). */
+            var qDir = q.direction != null ? q.direction : x.direction;
+            var qAmt = q.amount != null ? q.amount : x.amount;
+            if (String(qDir) !== 'debit') return;
+            if (Math.round(Number(qAmt)) !== Math.round(r.paid)) return;
             var qDay = _rjDayMs(q.occurred_at);
             if (rDay != null && qDay != null && Math.abs(rDay - qDay) > 1.5 * 864e5) return;
             var qTail = _rjTail(x.account_masked) || _rjTail(x.card_masked);
@@ -226,7 +265,13 @@
           if (hits.length === 1) hit = hits[0].q;
           else if (hits.length > 1) {
             var tails = hits.filter(function (h) { return h.tailHit; });
-            if (tails.length === 1) hit = tails[0].q;    // the tail decides; else ambiguity → nothing
+            if (tails.length === 1) hit = tails[0].q;    // the tail decides
+            else if (!tails.length) {
+              var near = _rjByClock(r.clock, hits, function (h) {
+                return _rjClock(h.q.occurred_at, (h.q.raw_extracted || {}).time_precision);
+              });
+              if (near) hit = near.q;                    // the minute decides; else ambiguity → nothing
+            }
           }
           if (!hit) return;
           claimedRows[hit.id] = true;
@@ -255,6 +300,8 @@
             var tDay = _rjDayMs(t.date);
             return !(rDay2 != null && tDay != null && Math.abs(rDay2 - tDay) > 1.5 * 864e5);
           });
+          var clockHit = _rjByClock(r2.clock, cands, _rjLedgerClock);
+          if (cands.length > 1 && clockHit) cands = [clockHit];   // the minute breaks the tie (RC23)
           if (cands.length !== 1) continue;              // ambiguity (or nothing): attach nothing
           /* What the row already holds decides whether this write is an attach
              or an UPGRADE. A row with a receipt that has no items (a poor read,
@@ -275,7 +322,10 @@
              such wait: the row already carries this order's own receipt, which
              is proof the transaction is booked and there is no twin to wait
              for. */
-          if (!have && born2 > Date.now() - 2 * 864e5) continue;
+          /* A matching minute IS the evidence that wait stands in for: the
+             row and the receipt name the same payment, so there is nothing
+             left to wait for (RC23). */
+          if (!have && !clockHit && born2 > Date.now() - 2 * 864e5) continue;
           var mine = ((r2._rcpt && r2._rcpt.items) || []).length;
           var theirs = ((have && have.items) || []).length;
           if (have && (theirs || !mine)) continue;       // already as rich, or this one adds nothing

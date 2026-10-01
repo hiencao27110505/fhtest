@@ -15681,6 +15681,8 @@ function csvStagedRowsCard(c, opts){
     var _rjB = '<div class="csv-rc"><div class="csv-rc-h">'+_rjIco+'<span>'+esc(L('Hoá đơn','Receipt'))+'</span>'
       + (_rjHead?'<span class="csv-rc-src">'+esc(_rjHead)+'</span>':'') + '</div>';
     var _its = _rj2.items || [];
+    /* Order-level (a Grab ride): the service's name stands where items would. */
+    if(!_its.length && _rj2.service_label) _rjB += '<div class="csv-rc-it"><span class="csv-rc-nm">'+esc(_rj2.service_label)+'</span></div>';
     _its.slice(0,3).forEach(function(it){
       if(!it || !it.name) return;
       var _nd = (it.node && typeof fhNodeShort==='function') ? fhNodeShort(it.node) : '';
@@ -15691,8 +15693,14 @@ function csvStagedRowsCard(c, opts){
         + '</div>';
     });
     if(_its.length>3) _rjB += '<div class="csv-rc-more">'+esc(L('+'+(_its.length-3)+' sản phẩm nữa','+'+(_its.length-3)+' more'))+'</div>';
-    if(_rj2.discount) _rjB += '<div class="csv-rc-math">'
-      + '<span>'+esc(L('Tổng '+csvFmt(_rj2.items_total||0)+', giảm '+csvFmt(_rj2.discount),'Total '+csvFmt(_rj2.items_total||0)+', less '+csvFmt(_rj2.discount)))+'</span>'
+    /* Every deduction is named, so the line adds up to the paid figure: a
+       ride paid partly in GrabCoins read "47.000, giảm 4.000" beside 11.000. */
+    var _rjPts = Number(_rj2.points_discount) || 0;
+    var _rjPtsNm = _rj2.provider === 'Grab' ? 'GrabCoins' : L('điểm','points');
+    if(_rj2.discount || _rjPts) _rjB += '<div class="csv-rc-math">'
+      + '<span>'+esc(L('Tổng '+csvFmt(_rj2.items_total||0), 'Total '+csvFmt(_rj2.items_total||0))
+          + (_rj2.discount ? L(', giảm '+csvFmt(_rj2.discount), ', less '+csvFmt(_rj2.discount)) : '')
+          + (_rjPts ? L(', '+_rjPtsNm+' '+csvFmt(_rjPts), ', '+_rjPtsNm+' '+csvFmt(_rjPts)) : ''))+'</span>'
       + '<span class="num">'+esc(csvFmt(_rj2.paid))+'</span></div>';
     _rjB += '</div>';
     h += _rjB;
@@ -23869,6 +23877,10 @@ function _pexdReceiptHTML(rc){
   h+='<div class="exd-meta pexd-rc">';
   var head=[trim(rc.seller)||rc.provider, rc.order_id?('#'+rc.order_id):null].filter(Boolean);
   if(head.length) h+='<div class="pexd-rc-head">'+esc(head.join(' \u00b7 '))+'</div>';
+  /* An order-level receipt (a Grab ride) has no items; the service's own name
+     is the one line that says what was bought (spec §21). */
+  if(!items.length && rc.service_label) h+='<div class="pexd-rc-item"><div class="pexd-rc-main">'
+    +'<span class="pexd-rc-name">'+esc(rc.service_label)+'</span></div></div>';
   items.forEach(function(it, idx){
     var nd=(it.node && typeof fhNodeShort==='function') ? fhNodeShort(it.node) : '';
     var va=_pexdRcVariant(it.variant);
@@ -23893,6 +23905,7 @@ function _pexdReceiptHTML(rc){
   var math=[];
   if(rc.items_total!=null && rc.items_total!==rc.paid) math.push(['Tổng tiền', money(rc.items_total), '']);
   if(rc.discount) math.push(['Voucher/giảm giá', '\u2212'+money(rc.discount), 'good']);
+  if(rc.points_discount) math.push([rc.provider==='Grab'?'GrabCoins':L('Điểm thưởng','Points'), '\u2212'+money(rc.points_discount), 'good']);
   if(rc.shipping_fee) math.push(['Phí vận chuyển', money(rc.shipping_fee), '']);
   if(rc.paid!=null && (math.length || items.length>1)) math.push(['Đã trả', money(rc.paid), 'strong']);
   if(math.length){
@@ -26049,6 +26062,34 @@ function applyLang(){
     }
     function _rjDayMs(iso) { var t = Date.parse(iso || ''); return isFinite(t) ? t : null; }
 
+    /* The instant a row states, or null when it states only a day (spec RC23).
+       v2 says so outright (time_precision); a statement row and a v1 row use
+       the day-only spelling, midnight UTC, which no real bank clock prints. */
+    var RJ_CLOCK_WINDOW = 30 * 60e3;
+    function _rjClock(occurredAt, precision) {
+      var t = Date.parse(occurredAt || '');
+      if (!isFinite(t) || precision === 'day') return null;
+      if (precision !== 'second' && precision !== 'minute' && t % 864e5 === 0) return null;
+      return t;
+    }
+    /* A ledger row's instant: its date plus the HH:MM it was booked with. */
+    function _rjLedgerClock(t) {
+      var m = String((t && t.time) || '').match(/^(\d{1,2}):(\d{2})/);
+      if (!m || !t.date) return null;
+      var ms = Date.parse(String(t.date).slice(0, 10) + 'T' + ('0' + m[1]).slice(-2) + ':' + m[2] + ':00+07:00');
+      return isFinite(ms) ? ms : null;
+    }
+    /* A clock breaks a tie and only a tie: exactly ONE candidate within the
+       window wins; none or several leaves the ambiguity where it was. */
+    function _rjByClock(rClock, cands, clockOf) {
+      if (rClock == null) return null;
+      var near = cands.filter(function (c) {
+        var k = clockOf(c);
+        return k != null && Math.abs(k - rClock) <= RJ_CLOCK_WINDOW;
+      });
+      return near.length === 1 ? near[0] : null;
+    }
+
     /* An item's category may only REFINE the transaction's, never contradict
        it (receipt-enrichment §RC9, revised 2026-09-29). The transaction's node
        comes from the bank-side cascade, which exists for every row; a receipt
@@ -26116,6 +26157,9 @@ function applyLang(){
         }
         return (rc.seller || provider || 'Hoá đơn') + ' · ' + items.length + ' món';
       }
+      /* Order-level, but the merchant named what was bought (a Grab ride's
+         "Car 6 chỗ ngồi"): that still answers "chi cho gì" (spec RC24). */
+      if (rc.service_label) return (provider ? provider + ' \u00b7 ' : '') + rc.service_label;
       return null;   // order-level only: the cascade keeps its answer
     }
 
@@ -26133,6 +26177,7 @@ function applyLang(){
         provider: row.source_provider || null,
         paid: rc ? Number(rc.paid != null ? rc.paid : x.amount) : Number(x.amount),
         tail: rc ? _rjTail(rc.paid_with_tail) : null,
+        clock: _rjClock(row.occurred_at, x.time_precision),
         orderId: (rc && rc.order_id) || x.reference_number || null,
         _rcpt: rc ? {
           v: 1, source: 'email', provider: row.source_provider || null,
@@ -26155,6 +26200,8 @@ function applyLang(){
           shipping_fee: rc.shipping_fee != null ? rc.shipping_fee : null,
           paid: rc.paid != null ? rc.paid : null,
           paid_with_tail: _rjTail(rc.paid_with_tail),
+          service_label: rc.service_label ? String(rc.service_label).slice(0, 60) : null,
+          points_discount: rc.points_discount != null ? rc.points_discount : null,
         } : null,
       };
     }
@@ -26207,8 +26254,13 @@ function applyLang(){
             if (!q || q._unreadable || q._rcpt || claimedRows[q.id]) return;
             var x = q.raw_extracted || {};
             if (x.receipt) return;                       // a receipt row is never a target
-            if (String(x.direction) !== 'debit') return;
-            if (Math.round(Number(x.amount)) !== Math.round(r.paid)) return;
+            /* The cash fields are read where EVERY opened row carries them, at
+               the top (fhReadStagedRow, fhStmtAsStaged). Reading the inner copy
+               alone skipped every statement row (spec §21, RC20). */
+            var qDir = q.direction != null ? q.direction : x.direction;
+            var qAmt = q.amount != null ? q.amount : x.amount;
+            if (String(qDir) !== 'debit') return;
+            if (Math.round(Number(qAmt)) !== Math.round(r.paid)) return;
             var qDay = _rjDayMs(q.occurred_at);
             if (rDay != null && qDay != null && Math.abs(rDay - qDay) > 1.5 * 864e5) return;
             var qTail = _rjTail(x.account_masked) || _rjTail(x.card_masked);
@@ -26219,7 +26271,13 @@ function applyLang(){
           if (hits.length === 1) hit = hits[0].q;
           else if (hits.length > 1) {
             var tails = hits.filter(function (h) { return h.tailHit; });
-            if (tails.length === 1) hit = tails[0].q;    // the tail decides; else ambiguity → nothing
+            if (tails.length === 1) hit = tails[0].q;    // the tail decides
+            else if (!tails.length) {
+              var near = _rjByClock(r.clock, hits, function (h) {
+                return _rjClock(h.q.occurred_at, (h.q.raw_extracted || {}).time_precision);
+              });
+              if (near) hit = near.q;                    // the minute decides; else ambiguity → nothing
+            }
           }
           if (!hit) return;
           claimedRows[hit.id] = true;
@@ -26248,6 +26306,8 @@ function applyLang(){
             var tDay = _rjDayMs(t.date);
             return !(rDay2 != null && tDay != null && Math.abs(rDay2 - tDay) > 1.5 * 864e5);
           });
+          var clockHit = _rjByClock(r2.clock, cands, _rjLedgerClock);
+          if (cands.length > 1 && clockHit) cands = [clockHit];   // the minute breaks the tie (RC23)
           if (cands.length !== 1) continue;              // ambiguity (or nothing): attach nothing
           /* What the row already holds decides whether this write is an attach
              or an UPGRADE. A row with a receipt that has no items (a poor read,
@@ -26268,7 +26328,10 @@ function applyLang(){
              such wait: the row already carries this order's own receipt, which
              is proof the transaction is booked and there is no twin to wait
              for. */
-          if (!have && born2 > Date.now() - 2 * 864e5) continue;
+          /* A matching minute IS the evidence that wait stands in for: the
+             row and the receipt name the same payment, so there is nothing
+             left to wait for (RC23). */
+          if (!have && !clockHit && born2 > Date.now() - 2 * 864e5) continue;
           var mine = ((r2._rcpt && r2._rcpt.items) || []).length;
           var theirs = ((have && have.items) || []).length;
           if (have && (theirs || !mine)) continue;       // already as rich, or this one adds nothing
@@ -26915,7 +26978,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v605';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v606';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -41053,7 +41116,14 @@ window.classifyAmount = classifyAmount;
          the marketplace's name. It only ever replaces an answer nobody wrote:
          a real payer memo ("ca phe voi Trang") still wins, exactly like the
          never-clobber rule on committed rows (spec RC13). */
-      if (r._rcptDesc && (!tidied || _bankGenericMemo(tidied))) description = r._rcptDesc;
+      /* A note that only repeats the merchant's own name ("GRAB" on a wallet
+         statement) was written by nobody either (spec RC24). */
+      var _rcSame = function (a, b) {
+        var n = function (s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
+        return !!n(a) && n(a) === n(b);
+      };
+      if (r._rcptDesc && (!tidied || _bankGenericMemo(tidied)
+          || _rcSame(tidied, r._rcpt && r._rcpt.provider) || _rcSame(tidied, r.counterparty))) description = r._rcptDesc;
       /* Foreign-currency rows carry the ESTIMATED VND into the amount cell, so
          every downstream reader — totals, the write, csvBaseAmt — works in VND
          and never mistakes "$111" for 111đ. The foreign original stays visible
@@ -47031,6 +47101,11 @@ window.classifyAmount = classifyAmount;
         counterparty: p.counterparty || '',
         duplicate_of_id: null, resolved_before: false,
         raw_extracted: Object.assign({
+          /* The cash fields are mirrored inside, as fhReadStagedRow leaves them
+             on an opened email row. They sat at the top only, and the receipt
+             join, reading the inner copy, never matched one statement row
+             (receipt-enrichment-spec §21, RC20). */
+          amount: Math.abs(p.amt), currency: 'VND',
           memo: p.memo, memo_display: p.memo,
           transaction_type: p.person ? 'p2p_transfer' : (p.accountKind === 'ewallet' ? 'ecommerce_receipt' : 'bank_txn'),
           flow: p.flow === 'cardpay' ? 'transfer' : (p.amt < 0 ? 'expense' : 'income'),

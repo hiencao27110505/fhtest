@@ -98,7 +98,7 @@ console.log('\n-- the extraction schema: valid at every depth, and pinned --');
      model is asked is loud and deliberate. Recompute the digest when you
      change EXTRACTION_SCHEMA on purpose, and only then. */
   const digest = async (o) => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(o))))).map((b) => b.toString(16).padStart(2, '0')).join('');
-  t('the converted extraction schema is the pinned one', await digest(g) === '5d80a30e3df74ce56147d89824a922baa65c2e90aa68f0fe4d9774ae96ffddb1', await digest(g));
+  t('the converted extraction schema is the pinned one', await digest(g) === 'ca6c586d7335fc819187da615aa73a8cd4bbce4de90b61480fcce91d9b01ec57', await digest(g));
   t('mail_kind is the primary verdict and is required', g.properties.mail_kind && g.required.includes('mail_kind'));
   t('every nested object declares its properties (Gemini refuses an empty object)',
     ['labels', 'investment', 'loan', 'notice'].every((k) => g.properties[k].type === 'object' && g.properties[k].nullable === true && Object.keys(g.properties[k].properties).length > 0));

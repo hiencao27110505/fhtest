@@ -17,6 +17,13 @@ being "spent at Shopee" and becomes "bought swim gear".
 > that outline into a full design and adds the storage, join, category and
 > presentation layers.
 
+> **Amendment, 2026-10-01 — statement rows and the Grab reading (§21).**
+> A real run showed a MoMo statement's Grab rows sitting in the queue with no
+> receipt although both Grab e-receipts were staged. §21 records the three
+> causes and the design that answers them (RC20–RC24): statement rows are join
+> targets, Grab is read one level richer (still address-free), and a clock
+> breaks same-amount ties. §3.3, §9, §10.2, §11 and §14 are amended in place.
+
 > **Audience & layering.** Part 1 (Behaviour) is for everyone — product,
 > design, QA. Part 2 (Technical Appendix) is for engineers. Part 3 is the
 > implementation plan (landings, in order). The decision log (§18) records
@@ -117,9 +124,12 @@ item name — no per-merchant schema.
   after 14 days it is retired unseen. (Named consequence, accepted: enrichment
   only reaches money the ledger already captured.)
 - It never carries an address or a phone number — Grab receipts in particular
-  contain home addresses, so Grab is read **minimally**: service type, total,
-  time, paid-with tail and booking id only, no line items, per the standing
-  rule in `email-reading-v2-spec.md` §4.
+  contain home addresses, so Grab is read **at order level only**: service
+  type, the service's printed name ("Car 6 chỗ ngồi"), total, fare, promo,
+  GrabCoins redeemed, time, paid-with tail and booking id. No line items, no
+  pickup or drop-off, per the standing rule in `email-reading-v2-spec.md` §4
+  (widened by RC21, 2026-10-01: a product name and a points figure are not an
+  address, and the reader takes the name only from above the trip block).
 - It never overwrites a human's words. A note the person edited is theirs; the
   pre-fill applies only where the note would otherwise be the generic
   merchant fallback, and retroactive enrichment never touches the note at all.
@@ -129,6 +139,7 @@ item name — no per-merchant schema.
 | Surface | What shows |
 |---|---|
 | Review card (queue) | "🧾 N sản phẩm · <seller>" hint on the collapsed card; the expanded card's description and category arrive pre-filled from the receipt |
+| Review card, order-level receipt (Grab) | hint "Hoá đơn Grab"; the Hoá đơn block shows the service name and the math, each deduction on its own figure: Tổng 47.000đ · Khuyến mãi −4.000đ · GrabCoins −32.000đ · **Đã trả 11.000đ**. Description pre-fills "Grab · Car 6 chỗ ngồi" (RC24) |
 | Transaction lists (Cá nhân tab, Giao dịch cá nhân, Xem chi tiêu) | a small 🧾 marker on rows that carry a receipt; the note text does the informational work — no item snippets in list rows |
 | Transaction detail (`openPersonalTxDetail`) | the full **Hoá đơn** section: seller · #order · one row per item — name, the figure right-aligned and tabular, and the item's **category as a tappable pill** (neutral fill, the review card's `.scv-cat` language; a soft "Chọn loại" when none) over the merchant's own words · the honest math (tổng tiền − voucher (− phí ship) = đã trả), printed only where it says something the hero amount does not. Tapping the pill opens the standard tree picker; the pick saves at once and is learned per person by the item's signature (§20.4). Money through `fmt()`; SVG glyph, never an emoji (DESIGN §6.1, §2.6). |
 
@@ -159,10 +170,15 @@ what the worker sealed → the keywords (for blobs written before Phase 2).
 | N items, all one item-category | unchanged | short summary ("Kính bơi Olane +1 món") |
 | N items, mixed | unchanged | "<Seller> · N món" ("Shopee · 2 món") — generic, never clueless |
 | Items unparseable (order-level only) | unchanged | cascade unchanged |
+| Order-level with a service name (Grab) | unchanged | "<Provider> · <service name>" ("Grab · Car 6 chỗ ngồi") |
 
 - Pre-filled descriptions are machine-marked like every cascade guess, apply
   only where the note would otherwise be the generic merchant fallback, and
   never touch a note on retroactive enrichment (RC13).
+- "The generic merchant fallback" includes a note that only repeats the
+  merchant's own name: a statement row whose memo is "GRAB" has been told
+  nothing by anyone, so "Grab · Car 6 chỗ ngồi" may replace it (RC24). A memo
+  with any other word in it is a person's or a bank's sentence and stands.
 - The description's "agreeing basket" test uses the items' own categories,
   so it inherits every rule above.
 
@@ -295,6 +311,8 @@ Gmail ──(query + per-sender subject filters)──▶ mailbox-sync worker
   'shipping_fee',    // 0
   'paid',            // 681700 — THE JOIN KEY; the amount that hit the instrument
   'paid_with_tail',  // "4751" — confirming evidence for the join
+  'service_label',   // "Car 6 chỗ ngồi" — the service's own printed name (RC21); never a place
+  'points_discount', // 32000 — loyalty points redeemed as money (GrabCoins); separate from `discount`
 ] }
 ```
 
@@ -304,6 +322,15 @@ Rules:
   bump, and none does; `line_items` → structured `items` is a rename **in
   prose only**: the stored key is new, `line_items` is never emitted, and no
   production row ever carried it).
+- The honest math is `items_total − discount − points_discount (+ shipping_fee)
+  = paid`. `discount` stays vouchers/promos only, so a row written before
+  `points_discount` existed still reads as it always did.
+- `time_precision` on a receipt row says whether `occurred_at` carries a clock.
+  A Grab mail prints only the day; when the mail's own send time falls on that
+  same Vietnamese calendar day the row takes it, at `minute` precision, with
+  `src.occurred_at = 'heuristic'` (RC22). The e-receipt is sent as the trip
+  ends, which is when the wallet is charged. A send time on another day is
+  ignored and the row stays day-only.
 - **Both mappers in the same change** (`_toReading` in `worker.mjs`,
   `normaliseReading` in `ingest.mjs`) — a box is never amended.
 - Item `node` is **not** sealed — classification is a device judgement over
@@ -365,6 +392,16 @@ cannot express. So receipt formats gain a **repeating-group reader**:
   A format that can't even yield `paid` is `unreadable`, as today.
 - Grab formats **never declare an item block** (address rule) — structural,
   not prompt-dependent.
+- **What the Grab reader takes (RC21).** Numbers under their labels: Total
+  Paid, Fare, Promo, GrabCoins (in the Breakdown only; the "Points earned"
+  block further down also says GrabCoins and is past the stop line). One
+  string: the service name, read **only from the header zone** (above "Picked
+  up on" / "Booking ID") and only when it is shaped like a product name: at
+  most 40 characters, no comma, slash, arrow or digit-led token, no street
+  word, and carrying a service word (car, bike, chỗ, food…). Anything else is
+  null. Every other field is a number under its own label, so a pickup or
+  drop-off line has no path into a field. A label the model returns passes
+  the same shape test.
 
 ### 10.3 Staging and lifecycle
 
@@ -403,10 +440,24 @@ match(receipt, txn):
   tail evidence, when both sides have one:
     tails equal   → confirms (wins any tie)
     tails differ  → VETO (not a match)
-ambiguity: two surviving candidates and no tail to decide → attach nothing
+  clock evidence, when the receipt and candidates carry one (RC23):
+    exactly ONE surviving candidate within 30 minutes → it wins the tie
+    never a veto, never used when a tail already decided
+ambiguity: two surviving candidates and neither tail nor clock decides → attach nothing
 priority: queue candidate beats ledger row (enrich before import when possible)
 one-to-one: a receipt attaches to at most one txn; a txn takes at most one receipt
 ```
+
+**Which rows are candidates (RC20).** Every opened row in the queue, whichever
+door it came through: a sealed email row and a parsed **statement row**
+(`fhStmtAsStaged`) are the same shape by contract, and the join reads the
+fields that shape guarantees at the top of the row (`amount`, `direction`,
+`occurred_at`), falling back to `raw_extracted` only for the tail. A statement
+row whose `occurred_at` is the day-only spelling (`T00:00:00Z`) has no clock and
+takes no part in the clock tie-break. On the ledger side the clock is the
+row's `occurred_time`, and agreement within 30 minutes also waives the 2-day
+young-receipt wait: that wait stands in for evidence the pass cannot see, and
+a matching minute is that evidence.
 
 **Step 3 — attach.**
 
@@ -502,6 +553,8 @@ Spine integration:
 | Receipt arrives, bank mail never does (COD, unconnected card, bank with no alerts) | no match → retired quietly after 14 days; counted in the tally |
 | Bank row imported before the receipt arrives (delivery mail days later) | ledger-side join → `receipt_enc` written retroactively; note/category untouched |
 | Two same-amount txns on the day, receipt has no tail | attach nothing (ambiguity rule); receipt waits — a later hydrate may disambiguate (one candidate imported/removed) before grace expires |
+| Two rides at the same fare on one day, paid by wallet (no tail) | each receipt carries the mail's send time; the statement rows carry theirs; each receipt takes the one row within 30 minutes of it. Receipts read before 2026-10-01 are day-only and still attach nothing here |
+| Transaction came from a statement file, not a bank mail | joins in the queue like any row (RC20) |
 | Tail on both sides disagrees | veto — never attached, even with amount+day equal |
 | Item blocks unparseable | order-level receipt (`items: null`): join + voucher math work, no per-item detail |
 | `receipt_enc` undecryptable | "chi tiết không đọc được" in the detail; txn unaffected |
@@ -530,6 +583,8 @@ name, fixtures from real mail):
 | `item-category.test.js` (Phase 2) | signatures per source; ladder order; keyword hit teaches the table and names siblings; cached null is an answer, stale logic version is not; one batched call carries signatures not titles; nothing cached when the model is unreachable or unbudgeted; structural gate refuses venue/class for goods; menu is expense-only |
 | Extended: `receipt-join.test.js` | lesson → sealed → keywords; a lesson survives the branch constraint; pre-Phase-2 blobs fall to keywords (runs the REAL generated tree in its sandbox) |
 | Extended: `receipt-reader.test.js` | Apple items carry `apple\|<store>\|<kind>` (the storefront names every item in its section) and `apple\|vendor\|<vendor>` |
+| Extended: `receipt-join.test.js` (RC20, RC23) | a row built by the REAL `fhStmtAsStaged` joins; clock tie-break picks the one row within 30 minutes, two within 30 minutes attach nothing, a clock never vetoes a lone candidate; ledger clock agreement waives the young wait |
+| Extended: `receipt-reader.test.js` (RC21, RC22) | the real 2026-10-01 Grab layout: service name, GrabCoins from the Breakdown and not from "Points earned", math balances; a street line in the header zone is refused; send time adopted only on the same VN day |
 | Extended: `review-notify.test.js` | receipt staging produces zero notifications |
 
 ## 16. Telemetry
@@ -619,6 +674,12 @@ From the design interview, 2026-09-29.
 | RC17 | Signatures must be **determinate by construction**: head noun for marketplace goods, storefront+content-type or vendor for Apple, none for Grab (deterministic). A seller and `app store|subscription` are rejected as keys. A coarse-but-honest node is a valid terminal. |
 | RC18 | **Guards, not a replay:** a signature the keywords can read is never asked and names every sibling; a model answer must be an expense code and a goods signature may never resolve to a venue/class; nulls are cached; `CATEGORY_LOGIC_VERSION` on every row, a bump re-learns. |
 | RC19 | Device precedence: **person's lesson (by signature) → sealed node → keywords**, then the RC9 branch constraint. Tapping an item's pill opens the standard tree picker; the pick rewrites the blob and is learned per user, encrypted, by signature. A human pick is the only thing allowed outside the transaction's branch. |
+
+| RC20 | *(2026-10-01)* **A statement row is a join target like any queue row.** The join reads the row shape both doors share (top-level `amount`/`direction`), `fhStmtAsStaged` mirrors `amount`/`currency` into `raw_extracted` so the two shapes stop differing, and a test feeds the join a row the real statement shaper built. |
+| RC21 | **Grab is read at order level, one step richer:** `service_label` and `points_discount` join the block. Still no items, no pickup/drop-off. The label is taken only from the header zone and only when product-name-shaped; every other field is a number. Consent stays **v6**: its copy already names order mail from these merchants, and nothing address-like is added. |
+| RC22 | **A day-only receipt may take the mail's send time** when it falls on the same Vietnamese day (`minute` precision, `src.occurred_at: 'heuristic'`). Grab only for now: it is the one sender that prints no clock and sends at the moment of charge. |
+| RC23 | **A clock breaks a tie, and only a tie.** Exactly one candidate within 30 minutes wins when amount and day leave several and no tail decides. Never a veto, never widens the amount/day rule. On the ledger side the same agreement waives the 2-day young-receipt wait. |
+| RC24 | **An order-level receipt still answers "chi cho gì":** "<Provider> · <service name>". It may replace a note that is empty, a bank's generic phrase, or only the merchant's own name; any other note stands. Never on retroactive writes (RC13 unchanged). |
 
 ## 20. Item categorisation — the signature ladder (Phase 2)
 
@@ -715,6 +776,55 @@ one thing that may place an item outside the transaction's branch.
   stripped set (`[Mã…]`, `Combo`, `Set`, quantities): those fall to the model
   or to null, never to a wrong answer.
 
+## 21. Statement rows and the Grab reading (2026-10-01)
+
+### 21.1 What was seen
+
+01/10/2026: two Grab rides paid from MoMo (11.000đ at 12:23, 40.000đ at
+13:34). Both e-receipts were staged within minutes (`row_kind='receipt'`,
+personal scope, pending). The MoMo statement was opened the same afternoon and
+its two GRAB rows reached "Duyệt giao dịch" with no Hoá đơn, no hint, and the
+description "GRAB".
+
+### 21.2 Causes
+
+1. **The join could not see a statement row's amount.** It compared
+   `receipt.paid` with `raw_extracted.amount`. A sealed email row has that
+   field (the opener flattens the payload into `raw_extracted`); a statement
+   row is built on the device and carried `amount` at the top level only. The
+   comparison was against `undefined` for every statement row of every
+   merchant. The join test built its queue row by hand in the email shape, so
+   it could not fail. (RC20)
+2. **The only path left was the retroactive one**, which waits 2 days for a
+   young receipt and never pre-fills a note. (RC23)
+3. **Grab's reading was too thin to show anything once joined**, and its math
+   was wrong for a ride paid partly in GrabCoins: fare 47.000, promo 4.000,
+   paid 11.000 — the 32.000 in points was never read. The service name was
+   not read at all. (RC21, RC24)
+4. **Latent:** Grab receipts are day-only and a wallet payment has no card
+   tail, so two rides at one fare on one day could never be told apart. (RC22,
+   RC23)
+
+### 21.3 What changes, by layer
+
+| Layer | Change |
+|---|---|
+| Contract (`contract.mjs`, model schema in `llm.mjs`) | receipt block gains `service_label`, `points_discount`; nullable, `PAYLOAD_V` stays 2 |
+| Reader (`receipt-reader.mjs`) | Grab: header-zone service name, GrabCoins from the Breakdown; a day-only reading adopts the mail's send time on the same VN day |
+| Statement shaper (`77-statement-capture.js`) | `raw_extracted.amount` / `.currency` mirrored, so both doors produce one shape |
+| Join (`78-receipt-join.js`) | reads the shared top-level fields; clock tie-break in queue and ledger; clock agreement waives the young wait; order-level description |
+| Review (`72-txn-review.js`, `56-csv-import-ui.js`) | merchant-name-only note counts as generic; the Hoá đơn block prints the service name and each deduction |
+| Detail (`61-expense-detail.js`) | same block on the imported row |
+
+### 21.4 What does not change
+
+Annotate-never-create, exact paid amount, ±1 day, tail confirm/veto,
+one-to-one, queue-before-ledger, no items for Grab, no address anywhere,
+consent v6, nothing notifies. A receipt staged before this build keeps its
+old reading: it now joins (cause 1 is device-side), but shows no service name
+or GrabCoins until its mail is re-read (the §Part 4 recovery recipe of
+2026-09-29).
+
 ## 19. Related documents
 
 - `docs/specs/email-reading-v2-spec.md` — the reader, the contract, Wave 2's
@@ -734,6 +844,20 @@ one thing that may place an item outside the transaction's branch.
 ---
 
 # Part 4 — Release notes
+
+### 2026-10-01 — statement rows join, Grab reads one level richer, a clock breaks ties · no migration · mailbox-sync NOT yet deployed · client built, not pushed
+
+- **For product:** a transaction that came from a "sao kê" file now gets its
+  merchant receipt in the queue, exactly like one that came from a bank mail.
+  A Grab ride shows what it was ("Grab · Car 6 chỗ ngồi") and math that adds
+  up, GrabCoins included. Two rides at the same fare on one day are told
+  apart by the minute.
+- **Under the hood:** §21. RC20–RC24.
+- **Spec sections updated:** §3.3, §3.4, §4, §9, §10.2, §11, §14, §15, §18,
+  §21 (new); `statement-capture-spec.md` §8.2 note.
+- **Deploy order (watch for):** client first is safe (old receipts simply
+  carry no label); `mailbox-sync` after a live-vs-main diff per AGENT_SYNC.
+  The model schema digest changes (two new receipt keys).
 
 ### 2026-09-30 — Phase 2: the item-category signature ladder · migration 0155 APPLIED · mailbox-sync redeployed · SW v600
 

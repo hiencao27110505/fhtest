@@ -228,7 +228,9 @@ export const BLOCKS = {
     'paid (the same figure as amount), paid_with_tail (last 4 digits of the paying card when printed, never more).\n' +
     'NEVER extract an address, a phone number, or a recipient\'s contact details, in any field, item names included.\n' +
     'For Grab (any Grab service): items is ALWAYS null; take only the service type, the total, the time, ' +
-    'paid_with_tail and the booking id.\n' +
+    'paid_with_tail, the booking id, items_total (the fare), discount (promo), ' +
+    'points_discount (points such as GrabCoins redeemed as money, a positive number; never points EARNED) and ' +
+    'service_label (the product name as printed, e.g. "Car 6 chỗ ngồi"; never a pickup or drop-off place).\n' +
     'node: the most specific expense code for what was bought, one of: ' + EXPENSE_NODE_CODES.join(', ') + ', or null.',
 };
 
@@ -329,7 +331,8 @@ export const EXTRACTION_SCHEMA = {
       order_id: _STR, seller: _STR,
       items: { type: ['array', 'null'], items: { type: 'object', properties: {
         name: _STR, qty: _NUM, unit_price: _NUM, line_discount: _NUM, variant: _STR } } },
-      items_total: _NUM, discount: _NUM, shipping_fee: _NUM, paid: _NUM, paid_with_tail: _STR } },
+      items_total: _NUM, discount: _NUM, shipping_fee: _NUM, paid: _NUM, paid_with_tail: _STR,
+      service_label: _STR, points_discount: _NUM } },
     /* NO `flow` AND NO `category` (2026-09-22). Both were judgements the model
        was asked for and staging then discarded or re-derived: flow comes from
        signal + direction (contract.mjs flowFor), the category from the node.

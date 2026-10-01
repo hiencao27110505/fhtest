@@ -143,6 +143,9 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-10-01 · Hien · sao kê rows now take their merchant receipt; Grab read one level richer · claiming SW `v606` · `mailbox-sync` v75 → v76 · no migration.**
+  A statement row never joined a receipt: the join read `raw_extracted.amount`, which `fhStmtAsStaged` did not carry. Fixed on both sides (join reads the top-level cash fields; the shaper mirrors them inside). Receipt block gains two nullable keys, `service_label` and `points_discount` (`PAYLOAD_V` stays 2; the pinned Gemini schema digest changed). Grab reader takes the service name (header zone only, shape-tested) and GrabCoins, and a day-only receipt adopts the mail's send time on the same VN day. Join gains a 30-minute clock tie-break (never a veto). Live `mailbox-sync` was diffed against `main` before deploy: identical. Spec: `receipt-enrichment-spec.md` §21, RC20–RC24. Two suites were already red before this work and still are: `tools/label-fallback-root.test.js`, `pipeline/direct-persist-contract.test.js`.
+
 - **2026-09-30 · Hien · the badge counted invisible sao kê, and a sao kê could not be typed into — FIXED · claiming SW `v604` · client only · no migration · no deploy.**
   Both faults come from the 2026-09-24 declutter that moved backlog statements
   off the review body into the toolbox drawer.

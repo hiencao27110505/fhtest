@@ -37,7 +37,7 @@ function t(name, ok, extra) {
   const field = C.RAW_FIELDS.find((f) => f.key === 'receipt');
   t('receipt is an obj block with the spec §9 keys',
     JSON.stringify(field.keys) === JSON.stringify(
-      ['service_type', 'order_id', 'seller', 'items', 'items_total', 'discount', 'shipping_fee', 'paid', 'paid_with_tail']),
+      ['service_type', 'order_id', 'seller', 'items', 'items_total', 'discount', 'shipping_fee', 'paid', 'paid_with_tail', 'service_label', 'points_discount']),
     field.keys);
   t('items is declared an array of pruned elements (Phase 2 adds node + sig)',
     JSON.stringify(field.arrays && field.arrays.items) === JSON.stringify(

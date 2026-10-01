@@ -335,14 +335,46 @@ export function readAppleReceipt(text, subject) {
   };
 }
 
-/** Grab, MINIMAL BY CONSTRUCTION (spec §5): service, total, time, paid-with
- *  tail, booking id, and the fare/promo split — numbers only. NEVER items:
- *  a Grab mail prints the pickup and drop-off STREET ADDRESSES a few lines
- *  below the total, and this reader has no code path that could carry one.
+/** Grab, ORDER-LEVEL BY CONSTRUCTION (spec §5, §21): service, total, time,
+ *  paid-with tail, booking id, and the fare / promo / GrabCoins split. NEVER
+ *  items: a Grab mail prints the pickup and drop-off STREET ADDRESSES a few
+ *  lines below the total. Every field but one is a NUMBER read under its own
+ *  label, which a street cannot be; the one string is the service's name, and
+ *  it is taken only from the header zone above the booking lines, and only
+ *  when it is shaped like a product name (grabServiceLabel).
  *
  *  Its total is labelled "Total Paid" over the figure, which a bare `^TOTAL`
  *  pattern read as the word "Paid" (2026-09-29). */
-export function readGrabReceipt(text, subject) {
+/* Words a Grab product name is made of, and shapes a street is made of. The
+   label must have one of the first and none of the second: a line that is
+   merely short is not thereby a product. */
+const _GRAB_SVC = /(car|bike|taxi|xe\b|ch\u1ed7|food|mart|express|plus|premium|economy|ti\u1ebft ki\u1ec7m|\bgrab[a-z]+)/i;
+const _GRAB_NOT_SVC = /[,\/\u2192>@]|\d{3,}|^\d|receipt|hope |enjoy|thank|c\u1ea3m \u01a1n|\b(st|street|road|rd|ward|district|city|\u0111\u01b0\u1eddng|ph\u01b0\u1eddng|qu\u1eadn|h\u1ebbm|ng\u00f5|tower|building)\b\.?/i;
+export function grabServiceLabel(lines) {
+  for (let i = 0; i < lines.length && i < 12; i++) {
+    const ln = lines[i];
+    if (!ln) continue;
+    // The header zone ends where the booking lines begin. Nothing at or below
+    // them is a candidate, whatever it looks like.
+    if (/^(Picked up|Booking ID|M\u00e3 chuy\u1ebfn|Total|T\u1ed5ng|Breakdown|Your Trip|\d{1,2}\s*Th)/i.test(ln)) return null;
+    if (ln.length > 40 || _GRAB_NOT_SVC.test(ln) || !_GRAB_SVC.test(ln)) continue;
+    return ln;
+  }
+  return null;
+}
+
+/** A day-only reading may take the mail's own send time, when that falls on
+ *  the SAME Vietnamese calendar day (spec RC22): Grab prints "Picked up on 01
+ *  October 2026" and sends the e-receipt as the trip ends, which is when the
+ *  wallet is charged. A send time on any other day is ignored. */
+export function adoptSendTime(when, internalDate) {
+  if (!when || when.precision !== 'day' || !Number.isFinite(internalDate) || !(internalDate > 0)) return when;
+  const vn = new Date(internalDate + 7 * 3600e3).toISOString();      // VN wall clock, spelled as UTC
+  if (vn.slice(0, 10) !== String(when.iso).slice(0, 10)) return when;
+  return { iso: vn.slice(0, 16) + ':00+07:00', precision: 'minute', adopted: true };
+}
+
+export function readGrabReceipt(text, subject, internalDate) {
   const t = String(text || '');
   if (!/e-?receipt|grab/i.test(String(subject || '') + ' ' + t.slice(0, 200))) return null;
   const lines = _lines(t);
@@ -369,9 +401,15 @@ export function readGrabReceipt(text, subject) {
   if (!paid) return null;
   const fare = under(/^(?:Fare|Giá cước|Cước phí)\b/i);
   const promo = under(/^(?:Promo|Khuyến mãi|Giảm giá)\b/i);
+  /* GrabCoins REDEEMED sits in the Breakdown as "-32.000". The same word heads
+     the "Points earned" block further down, over "+100 points", which is not
+     money and does not parse as an amount, so the first hit is the right one. */
+  const coins = under(/^(?:GrabCoins|GrabRewards|Điểm thưởng)\b/i);
   const booking = _tidyStr(_findVal(lines, /^(?:Booking ID|Mã chuyến)\s*:?/i));
   const food = /grabfood|đơn hàng|delivery/i.test(t);
-  const when = receiptWhen(labelled(t, /(\d{1,2}[\/\-\s](?:Th\s*0?\d{1,2}|[A-Za-z]{3,9}|\d{1,2})[\/\-\s]\d{4}[^\n]*)/));
+  const when = adoptSendTime(
+    receiptWhen(labelled(t, /(\d{1,2}[\/\-\s](?:Th\s*0?\d{1,2}|[A-Za-z]{3,9}|\d{1,2})[\/\-\s]\d{4}[^\n]*)/)),
+    internalDate);
   return {
     service_type: food ? 'food' : 'ride', order_id: booking, seller: null,
     items: null,
@@ -379,6 +417,8 @@ export function readGrabReceipt(text, subject) {
     discount: (promo != null && promo > 0) ? promo : null,
     shipping_fee: null,
     paid, paid_with_tail: cardTail(t), _when: when,
+    service_label: grabServiceLabel(lines),
+    points_discount: (coins != null && coins > 0 && coins < (fare || Infinity)) ? coins : null,
   };
 }
 
@@ -387,7 +427,7 @@ const _READERS = {
   ShopeeFood: (m) => readShopeeReceipt(m.body),
   Foody: (m) => readShopeeReceipt(m.body),
   Apple: (m) => readAppleReceipt(m.body, m.subject),
-  Grab: (m) => readGrabReceipt(m.body, m.subject),
+  Grab: (m) => readGrabReceipt(m.body, m.subject, m.internalDate),
 };
 
 /* ── an extraction the staging path can carry ────────────────────────────── */
@@ -407,7 +447,11 @@ function _extraction(rc, provider) {
     transaction_type: 'ecommerce_receipt', signal: 'purchase',
     source_provider: provider,
     receipt,
-    src: { amount: 'printed', receipt: 'printed' },
+    /* A send time standing in for a clock the mail did not print is a rule's
+       answer, not the mail's, and says so (contract SRC, spec RC22). */
+    src: (when && when.adopted)
+      ? { amount: 'printed', receipt: 'printed', occurred_at: 'heuristic' }
+      : { amount: 'printed', receipt: 'printed' },
   };
 }
 
@@ -497,7 +541,11 @@ export async function readReceiptMail(message, db, o) {
     items: o.provider === 'Grab' ? null : (Array.isArray(rc.items) && rc.items.length ? rc.items : null),
     items_total: rc.items_total ?? null, discount: rc.discount ?? null, shipping_fee: rc.shipping_fee ?? null,
     paid, paid_with_tail: rc.paid_with_tail ?? null,
-    _when: when || (x.occurred_at ? { iso: x.occurred_at, precision: x.time_precision || null } : null),
+    // The model's label goes through the same shape test as the reader's own.
+    service_label: (typeof rc.service_label === 'string' && grabServiceLabel([rc.service_label.trim()])) || null,
+    points_discount: (Number(rc.points_discount) > 0) ? Number(rc.points_discount) : null,
+    _when: adoptSendTime(when, o.provider === 'Grab' ? message.internalDate : NaN)
+      || (x.occurred_at ? { iso: x.occurred_at, precision: x.time_precision || null } : null),
   }, o.provider);
   extraction.src = { amount: 'model', receipt: 'model' };
 

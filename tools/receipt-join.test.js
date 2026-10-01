@@ -81,8 +81,9 @@ function rrow(state, id, opts) {
     receipt: { service_type: 'goods', order_id: o.order || null, seller: o.seller || null,
       items: o.items || null,   // items may carry {node, sig} exactly as the worker seals them
       items_total: o.itemsTotal || null, discount: o.discount || null,
-      shipping_fee: null, paid: o.paid, paid_with_tail: o.tail || null },
-    amount: o.paid, direction: 'debit',
+      shipping_fee: null, paid: o.paid, paid_with_tail: o.tail || null,
+      service_label: o.label || null, points_discount: o.points || null },
+    amount: o.paid, direction: 'debit', time_precision: o.precision || undefined,
   } };
 }
 /* One opened queue (bank) row. */
@@ -314,6 +315,85 @@ const freshState = () => ({ receiptRows: [], opened: {}, slice: [], retired: [],
   env = makeEnv(st);
   await env.fhReceiptJoinQueue([]);
   t('unmatched but young: still waiting', st.retired.length === 0);
+
+  /* ── spec §21 (2026-10-01): statement rows, the clock, order-level detail ── */
+  console.log('\n-- a STATEMENT row is a join target (RC20) --');
+  // The REAL shaper builds the row: a hand-built row in the email shape is
+  // exactly what hid this bug.
+  const win77 = {};
+  new Function('window', 'CSV_MCC_CONCEPT', 'L', '_esc', '_escAttr', '_rpc', 'localStorage', 'sessionStorage', 'document', 'crypto',
+    fs.readFileSync(path.join(__dirname, '../src/js-data/77-statement-capture.js'), 'utf8'))(
+    win77, {}, (vi) => vi, (s) => s, (s) => s, async () => null,
+    { getItem() { return null; }, setItem() {}, removeItem() {} }, { setItem() {} }, {}, require('crypto').webcrypto);
+  const srow = (id, amt, time) => win77.fhStmtAsStaged(id, { sid: 'S1', provider: 'MoMo', accountKind: 'ewallet', tail: '1217',
+    date: '2026-10-01', time: time || '', sec: '00', amt: -amt, memo: 'GRAB', counterparty: 'GRAB' });
+
+  st = freshState();
+  rrow(st, 'g1', { provider: 'Grab', paid: 11000, at: '2026-09-30T17:00:00+00:00', precision: 'day', label: 'Car 6 chỗ ngồi', points: 32000 });
+  env = makeEnv(st);
+  let s1 = srow('s1', 11000, '12:23'), s2 = srow('s2', 40000, '13:34');
+  await env.fhReceiptJoinQueue([s1, s2]);
+  t('a row the real statement shaper built takes its receipt', !!s1._rcpt && !s2._rcpt, [!!s1._rcpt, !!s2._rcpt]);
+  t('the order-level description names the service', s1._rcptDesc === 'Grab · Car 6 chỗ ngồi', s1._rcptDesc);
+  t('label and points ride the blob', s1._rcpt.service_label === 'Car 6 chỗ ngồi' && s1._rcpt.points_discount === 32000, s1._rcpt);
+  t('the shaper mirrors the cash fields inside, like an opened email row',
+    s1.raw_extracted.amount === 11000 && s1.raw_extracted.currency === 'VND', s1.raw_extracted.amount);
+
+  console.log('\n-- the clock breaks a tie, and only a tie (RC23) --');
+  st = freshState();
+  rrow(st, 'g1', { provider: 'Grab', paid: 40000, at: '2026-10-01T12:24:00+07:00', precision: 'minute' });
+  rrow(st, 'g2', { provider: 'Grab', paid: 40000, at: '2026-10-01T18:02:00+07:00', precision: 'minute' });
+  env = makeEnv(st);
+  s1 = srow('s1', 40000, '12:23'); s2 = srow('s2', 40000, '18:01');
+  await env.fhReceiptJoinQueue([s1, s2]);
+  t('two rides at one fare: each receipt takes the row within 30 minutes',
+    s1._rcptRowId === 'g1' && s2._rcptRowId === 'g2', [s1._rcptRowId, s2._rcptRowId]);
+
+  st = freshState();
+  rrow(st, 'g1', { provider: 'Grab', paid: 40000, at: '2026-10-01T12:24:00+07:00', precision: 'minute' });
+  env = makeEnv(st);
+  s1 = srow('s1', 40000, '12:23'); s2 = srow('s2', 40000, '12:40');
+  await env.fhReceiptJoinQueue([s1, s2]);
+  t('two rows inside the window: still ambiguous, attach nothing', !s1._rcpt && !s2._rcpt);
+
+  st = freshState();
+  rrow(st, 'g1', { provider: 'Grab', paid: 40000, at: '2026-09-30T17:00:00+00:00', precision: 'day' });
+  env = makeEnv(st);
+  s1 = srow('s1', 40000, '12:23'); s2 = srow('s2', 40000, '18:01');
+  await env.fhReceiptJoinQueue([s1, s2]);
+  t('a day-only receipt has no clock to break the tie with', !s1._rcpt && !s2._rcpt);
+
+  st = freshState();
+  rrow(st, 'g1', { provider: 'Grab', paid: 40000, at: '2026-10-01T12:24:00+07:00', precision: 'minute' });
+  env = makeEnv(st);
+  s1 = srow('s1', 40000, '21:00');
+  await env.fhReceiptJoinQueue([s1]);
+  t('a clock never VETOES a lone candidate', !!s1._rcpt);
+
+  st = freshState();
+  rrow(st, 'g1', { provider: 'Grab', paid: 40000, at: '2026-10-01T12:24:00+07:00', precision: 'minute' });
+  env = makeEnv(st);
+  s1 = srow('s1', 40000, '');
+  let s2b = srow('s2', 40000, '');
+  await env.fhReceiptJoinQueue([s1, s2b]);
+  t('day-only statement rows take no part in the tie-break', !s1._rcpt && !s2b._rcpt);
+
+  console.log('\n-- ledger: a matching minute waives the young wait --');
+  const nowVN = new Date(Date.now() + 7 * 3600e3).toISOString();          // VN wall clock
+  const atNow = nowVN.slice(0, 16) + ':00+07:00';
+  st = freshState();
+  rrow(st, 'g1', { provider: 'Grab', paid: 40000, at: atNow, precision: 'minute' });   // created NOW
+  st.slice = [{ id: 'p1', kind: 'expense', link: null, amt: 40, date: nowVN.slice(0, 10), time: nowVN.slice(11, 16) }];
+  env = makeEnv(st);
+  await env.fhReceiptJoinQueue([]);
+  t('young receipt + ledger row at the same minute: attached at once', st.attached.length === 1 && st.attached[0].id === 'p1', st.attached);
+
+  st = freshState();
+  rrow(st, 'g1', { provider: 'Grab', paid: 40000, at: atNow, precision: 'minute' });
+  st.slice = [{ id: 'p1', kind: 'expense', link: null, amt: 40, date: nowVN.slice(0, 10), time: '' }];
+  env = makeEnv(st);
+  await env.fhReceiptJoinQueue([]);
+  t('young receipt + ledger row with NO clock: still waits', st.attached.length === 0, st.attached);
 
   if (failed) { console.log('\n' + failed + ' FAILED'); process.exit(1); }
   console.log('\nall passed');

@@ -910,6 +910,10 @@ function _pexdReceiptHTML(rc){
   h+='<div class="exd-meta pexd-rc">';
   var head=[trim(rc.seller)||rc.provider, rc.order_id?('#'+rc.order_id):null].filter(Boolean);
   if(head.length) h+='<div class="pexd-rc-head">'+esc(head.join(' \u00b7 '))+'</div>';
+  /* An order-level receipt (a Grab ride) has no items; the service's own name
+     is the one line that says what was bought (spec §21). */
+  if(!items.length && rc.service_label) h+='<div class="pexd-rc-item"><div class="pexd-rc-main">'
+    +'<span class="pexd-rc-name">'+esc(rc.service_label)+'</span></div></div>';
   items.forEach(function(it, idx){
     var nd=(it.node && typeof fhNodeShort==='function') ? fhNodeShort(it.node) : '';
     var va=_pexdRcVariant(it.variant);
@@ -934,6 +938,7 @@ function _pexdReceiptHTML(rc){
   var math=[];
   if(rc.items_total!=null && rc.items_total!==rc.paid) math.push(['Tổng tiền', money(rc.items_total), '']);
   if(rc.discount) math.push(['Voucher/giảm giá', '\u2212'+money(rc.discount), 'good']);
+  if(rc.points_discount) math.push([rc.provider==='Grab'?'GrabCoins':L('Điểm thưởng','Points'), '\u2212'+money(rc.points_discount), 'good']);
   if(rc.shipping_fee) math.push(['Phí vận chuyển', money(rc.shipping_fee), '']);
   if(rc.paid!=null && (math.length || items.length>1)) math.push(['Đã trả', money(rc.paid), 'strong']);
   if(math.length){
