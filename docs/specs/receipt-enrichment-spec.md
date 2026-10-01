@@ -845,7 +845,7 @@ or GrabCoins until its mail is re-read (the §Part 4 recovery recipe of
 
 # Part 4 — Release notes
 
-### 2026-10-01 — statement rows join, Grab reads one level richer, a clock breaks ties · no migration · mailbox-sync NOT yet deployed · client built, not pushed
+### 2026-10-01 — statement rows join, Grab reads one level richer, a clock breaks ties · no migration · mailbox-sync v76 DEPLOYED · client pushed (e1708cb, SW v606)
 
 - **For product:** a transaction that came from a "sao kê" file now gets its
   merchant receipt in the queue, exactly like one that came from a bank mail.
@@ -855,9 +855,15 @@ or GrabCoins until its mail is re-read (the §Part 4 recovery recipe of
 - **Under the hood:** §21. RC20–RC24.
 - **Spec sections updated:** §3.3, §3.4, §4, §9, §10.2, §11, §14, §15, §18,
   §21 (new); `statement-capture-spec.md` §8.2 note.
-- **Deploy order (watch for):** client first is safe (old receipts simply
-  carry no label); `mailbox-sync` after a live-vs-main diff per AGENT_SYNC.
-  The model schema digest changes (two new receipt keys).
+- **Deploy record:** live `mailbox-sync` v75 was downloaded and was identical
+  to `main` before the deploy. The three Grab receipts staged under the old
+  reader were deleted (pending rows, no tombstones) and the grant's
+  `last_synced_at` set back 8 days; the 08:30 UTC tick re-staged all three
+  with a clock (05:23Z and 06:34Z for the two rides of 01/10, matching the
+  statement's 12:23 and 13:34) and restored the cursor.
+- **Watch for:** the service name and GrabCoins are inside the sealed box, so
+  they are confirmed only by opening the queue on a device. The model schema
+  digest changed (two new receipt keys).
 
 ### 2026-09-30 — Phase 2: the item-category signature ladder · migration 0155 APPLIED · mailbox-sync redeployed · SW v600
 
