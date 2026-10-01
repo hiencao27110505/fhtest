@@ -412,7 +412,10 @@ cannot express. So receipt formats gain a **repeating-group reader**:
 - **Retirement triggers:** (a) joined — its content landed on a txn; (b)
   unmatched and older than `RECEIPT_GRACE_DAYS = 14` (delivery mails and
   statement-captured card rows arrive late; 14 days mirrors the forwarding
-  routing grace); (c) collapsed — a same-`order_id` sibling won the
+  routing grace) — **unless an unopened statement could still explain it**
+  (RC25): while a `statement_files` row is `pending` and was received on or
+  after the receipt's day, the receipt waits. The wait is bounded by the
+  statement's own life: opened, dismissed, or expired at 90 days; (c) collapsed — a same-`order_id` sibling won the
   richest-copy merge. All three are device-initiated, local-first
   (retired-set before server delete), through `resolve_email_transactions`.
 
@@ -420,7 +423,9 @@ cannot express. So receipt formats gain a **repeating-group reader**:
 
 Runs when the review queue opens and after each personal hydrate; pure client.
 
-**Step 0 — collapse.** Open all readable receipt rows (per `staging_scope`,
+**Step 0 — collapse.** Every pending receipt is loaded, in pages of 200
+(RC26; a first connect with a long look-back can stage more than one page,
+and a newest-200 read left older receipts unseen until they aged out). Open all readable receipt rows (per `staging_scope`,
 both keys available on-device), group by `(provider, order_id)`; richest copy
 wins (most items > has seller > has tail), the rest retire.
 
@@ -555,6 +560,8 @@ Spine integration:
 | Two same-amount txns on the day, receipt has no tail | attach nothing (ambiguity rule); receipt waits — a later hydrate may disambiguate (one candidate imported/removed) before grace expires |
 | Two rides at the same fare on one day, paid by wallet (no tail) | each receipt carries the mail's send time; the statement rows carry theirs; each receipt takes the one row within 30 minutes of it. Receipts read before 2026-10-01 are day-only and still attach nothing here |
 | Transaction came from a statement file, not a bank mail | joins in the queue like any row (RC20) |
+| First connect: an old statement is opened weeks after its receipts were staged | the receipts are still there: grace does not run while that statement is unopened (RC25) |
+| The pending-statement check cannot be answered (offline, error) | nothing retires this pass; the next pass asks again |
 | Tail on both sides disagrees | veto — never attached, even with amount+day equal |
 | Item blocks unparseable | order-level receipt (`items: null`): join + voucher math work, no per-item detail |
 | `receipt_enc` undecryptable | "chi tiết không đọc được" in the detail; txn unaffected |
@@ -680,6 +687,8 @@ From the design interview, 2026-09-29.
 | RC22 | **A day-only receipt may take the mail's send time** when it falls on the same Vietnamese day (`minute` precision, `src.occurred_at: 'heuristic'`). Grab only for now: it is the one sender that prints no clock and sends at the moment of charge. |
 | RC23 | **A clock breaks a tie, and only a tie.** Exactly one candidate within 30 minutes wins when amount and day leave several and no tail decides. Never a veto, never widens the amount/day rule. On the ledger side the same agreement waives the 2-day young-receipt wait. |
 | RC24 | **An order-level receipt still answers "chi cho gì":** "<Provider> · <service name>". It may replace a note that is empty, a bank's generic phrase, or only the merchant's own name; any other note stands. Never on retroactive writes (RC13 unchanged). |
+| RC25 | *(2026-10-01)* **Grace waits for unopened statements.** An unmatched receipt is not retired while a `pending` statement file, received on or after the receipt's day (one day of slack), is still unopened: its rows are the likeliest home for the receipt and they do not exist until the person taps. Fail-safe: if the check cannot be answered, nothing retires. Bounded by the statement's own 90-day expiry. An `expired` card holds nothing: its file is gone, and a hand-picked file is an import like any other. |
+| RC26 | **The join sees every pending receipt**, paged 200 at a time up to 2.000, newest first. |
 
 ## 20. Item categorisation — the signature ladder (Phase 2)
 
@@ -844,6 +853,20 @@ or GrabCoins until its mail is re-read (the §Part 4 recovery recipe of
 ---
 
 # Part 4 — Release notes
+
+### 2026-10-01 (later) — a first connect keeps its receipts: grace waits for unopened statements, and the join reads every receipt · client only, SW v607 · no migration, no deploy
+
+- **For product:** someone who connects a mailbox and opens an old "sao kê"
+  three weeks later still gets the Hoá đơn on its rows. Before, those
+  receipts had been quietly retired at 14 days. A heavy shopper's look-back
+  no longer loses the older half of their receipts to a 200-row read.
+- **Under the hood:** `78-receipt-join.js` — `_rjFetch` pages; the grace
+  step asks for the newest `pending` statement and holds receipts it could
+  cover. RC25, RC26.
+- **Spec sections updated:** §10.3, §11 step 0, §14, §18.
+- **Still open (named):** Tiki / Lazada / ShopeeFood / Foody are read once
+  per mail format per build (L6), so a look-back enriches almost none of
+  their history; a day-only statement (VIB) cannot use the clock tie-break.
 
 ### 2026-10-01 — statement rows join, Grab reads one level richer, a clock breaks ties · no migration · mailbox-sync v76 DEPLOYED · client pushed (e1708cb, SW v606)
 

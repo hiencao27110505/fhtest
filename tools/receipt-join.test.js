@@ -40,13 +40,19 @@ function makeEnv(state) {
     fhNodeDepth,
     curMult: () => 1000,
     sb: {
-      from: () => {
+      from: (table) => {
         const q = { _receipt: false };
         const self = {
           select: () => self,
           eq: (k, v) => { if (k === 'row_kind' && v === 'receipt') q._receipt = true; return self; },
           order: () => self,
-          limit: () => Promise.resolve(q._receipt ? { data: state.receiptRows || [], error: null } : { data: [], error: null }),
+          // receipts are read in pages (RC26)
+          range: (a, b) => { state.pages = (state.pages || 0) + 1;
+            return Promise.resolve({ data: q._receipt ? (state.receiptRows || []).slice(a, b + 1) : [], error: null }); },
+          // the pending-statement check (RC25)
+          limit: () => Promise.resolve(table === 'statement_files'
+            ? (state.stmtError ? { data: null, error: { message: 'x' } } : { data: state.pendingStmts || [], error: null })
+            : { data: [], error: null }),
         };
         return self;
       },
@@ -394,6 +400,36 @@ const freshState = () => ({ receiptRows: [], opened: {}, slice: [], retired: [],
   env = makeEnv(st);
   await env.fhReceiptJoinQueue([]);
   t('young receipt + ledger row with NO clock: still waits', st.attached.length === 0, st.attached);
+
+  console.log('\n-- a first connect keeps its receipts (RC25, RC26) --');
+  const days = (n) => new Date(Date.now() - n * 864e5).toISOString();
+  st = freshState();
+  rrow(st, 'r1', { paid: 999999, created: days(20), at: days(40) });
+  st.pendingStmts = [{ received_at: days(30) }];            // an unopened statement sent AFTER the purchase
+  env = makeEnv(st);
+  await env.fhReceiptJoinQueue([]);
+  t('past grace, but an unopened statement could cover it: kept', st.retired.length === 0, st.retired);
+
+  st = freshState();
+  rrow(st, 'r1', { paid: 999999, created: days(20), at: days(20) });
+  st.pendingStmts = [{ received_at: days(30) }];            // sent BEFORE the purchase: it cannot contain it
+  env = makeEnv(st);
+  await env.fhReceiptJoinQueue([]);
+  t('a statement older than the purchase holds nothing: retired', st.retired.indexOf('r1') >= 0, st.retired);
+
+  st = freshState();
+  rrow(st, 'r1', { paid: 999999, created: days(20), at: days(40) });
+  st.stmtError = true;
+  env = makeEnv(st);
+  await env.fhReceiptJoinQueue([]);
+  t('the check could not be answered: nothing retires', st.retired.length === 0, st.retired);
+
+  st = freshState();
+  for (let i = 0; i < 450; i++) rrow(st, 'b' + i, { paid: 1000 + i, order: 'O' + i });
+  env = makeEnv(st);
+  const deep = qrow('qd', 1000 + 449);                      // only the 450th receipt matches it
+  await env.fhReceiptJoinQueue([deep]);
+  t('the join reads past the first 200 receipts', deep._rcptRowId === 'b449' && st.pages === 3, [deep._rcptRowId, st.pages]);
 
   if (failed) { console.log('\n' + failed + ' FAILED'); process.exit(1); }
   console.log('\nall passed');

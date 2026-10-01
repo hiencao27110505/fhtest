@@ -39,15 +39,43 @@
     /* The queue's own column list (72-txn-review fhFetchStagedTxns), pending
        receipt rows only. 42703 = the 0154 column is not applied yet: the
        feature simply is not live, return nothing. */
+    /* EVERY pending receipt, a page at a time (spec RC26). A first connect
+       with a long look-back stages more than one page, and reading only the
+       newest 200 left the older ones unseen until they aged out. */
+    var RJ_PAGE = 200, RJ_MAX = 2000;
     async function _rjFetch() {
+      var out = [];
       try {
-        var res = await sb.from('email_transactions')
-          .select('id,member_id,owner_user_id,staging_scope,gmail_message_id,source_provider,occurred_at,amount,currency,direction,counterparty,reference_number,transaction_type,raw_extracted,duplicate_of_id,resolved_before,sealed,eph_pub,nonce,enc_v,created_at')
-          .eq('review_status', 'pending').eq('row_kind', 'receipt')
-          .order('occurred_at', { ascending: false }).limit(200);
-        if (res.error) return [];
-        return res.data || [];
-      } catch (e) { return []; }
+        for (var from = 0; from < RJ_MAX; from += RJ_PAGE) {
+          var res = await sb.from('email_transactions')
+            .select('id,member_id,owner_user_id,staging_scope,gmail_message_id,source_provider,occurred_at,amount,currency,direction,counterparty,reference_number,transaction_type,raw_extracted,duplicate_of_id,resolved_before,sealed,eph_pub,nonce,enc_v,created_at')
+            .eq('review_status', 'pending').eq('row_kind', 'receipt')
+            .order('occurred_at', { ascending: false }).order('id')
+            .range(from, from + RJ_PAGE - 1);
+          if (res.error) break;
+          var page = res.data || [];
+          out = out.concat(page);
+          if (page.length < RJ_PAGE) break;
+        }
+      } catch (e) { /* what was read stands */ }
+      return out;
+    }
+
+    /* When the newest UNOPENED statement arrived (spec RC25). Its rows are the
+       likeliest home for an unmatched receipt and they do not exist until the
+       person opens it, so grace must not run out underneath them.
+       null = no statement is waiting. Infinity = could not be asked, which
+       holds everything: a receipt retired on a failed read is gone for good. */
+    async function _rjStmtHold() {
+      try {
+        var res = await sb.from('statement_files').select('received_at')
+          .eq('status', 'pending').order('received_at', { ascending: false }).limit(1);
+        if (res.error) return Infinity;
+        var f = (res.data || [])[0];
+        if (!f) return null;
+        var t = Date.parse(f.received_at || '');
+        return isFinite(t) ? t : Infinity;
+      } catch (e) { return Infinity; }
     }
 
     function _rjTail(s) {
@@ -341,11 +369,21 @@
 
       /* ── grace: unmatched anywhere, older than the window → retire quietly ── */
       var cutoff = Date.now() - RECEIPT_GRACE_DAYS * 864e5;
-      receipts.forEach(function (r) {
-        if (r._joined) return;
+      var aged = receipts.filter(function (r) {
+        if (r._joined) return false;
         var born = Date.parse(r.created_at || '') || Date.parse(r.occurred_at || '') || Date.now();
-        if (born < cutoff) retire.push(r.id);
+        return born < cutoff;
       });
+      if (aged.length) {
+        /* A statement can only explain purchases made before it was sent; a
+           day of slack covers the merchant's clock against the bank's. */
+        var hold = await _rjStmtHold();
+        aged.forEach(function (r) {
+          var at = _rjDayMs(r.occurred_at);
+          if (hold != null && (at == null || at <= hold + 864e5)) return;   // an unopened statement may still claim it
+          retire.push(r.id);
+        });
+      }
 
       if (retire.length && window.fhStagedRetireIds) {
         try { await fhStagedRetireIds(Array.from(new Set(retire))); } catch (e) { /* still pending; next pass retries */ }
