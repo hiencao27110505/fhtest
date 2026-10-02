@@ -203,10 +203,11 @@ the memo to a quiet 2-line line, and carries the fixed context on two thin lines
   that opens a small **picker sheet** (`#csv-rowsheet`, an overlay inside the
   modal because the global sheet layer sits *under* it). The picked value writes
   straight onto the candidate; the changed row briefly tints.
-- **Bottom CTA bar:** 🗑 delete (arm-then-confirm) · **"Áp cho N khoản giống"**
-  (copy this row's decisions onto look-alikes — same bank, direction, digit-
-  stripped memo) · **"Nhập khoản này"** (import just this one, via a single
-  `fhPromoteStaged` borrowing the selection).
+- **Bottom CTA bar:** 🗑 delete (arm-then-confirm) · **"Nhập khoản này"** (import
+  just this one, via a single `fhPromoteStaged` borrowing the selection). The
+  bar's third verb, "Áp cho N khoản giống", was retired on 2026-10-02: carrying a
+  change to look-alike rows is one block above the bar, after an edit, with a
+  preview and an undo (`apply-to-similar-spec.md` §6, A16–A21).
 
 **Two "unfilled" states, deliberately different colours.** Amber (`.miss`) is
 reserved for **blocking** — the one no-rate foreign amount that gates import.

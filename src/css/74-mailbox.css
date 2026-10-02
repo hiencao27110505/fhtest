@@ -269,17 +269,16 @@ button.csv-srow:active{background:var(--surface)}
 .csv-spick{position:absolute;inset:0;width:100%;height:100%;opacity:0;margin:0;padding:0;border:0;background:none;color:transparent;font-size:16px;-webkit-appearance:none;appearance:none;z-index:1;cursor:pointer}
 .csv-sclear{position:relative;z-index:2;flex:none;width:22px;height:22px;border:0;border-radius:50%;background:var(--fill-neutral);color:var(--muted);font:inherit;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;padding:0;margin-left:2px}
 
-/* bottom CTA bar: delete (arm-then-confirm) · apply-to-similar · import-one */
+/* bottom CTA bar: delete (arm-then-confirm) · import-one */
 .csv-cta{display:flex;align-items:center;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--divider)}
 .csv-cta-del{flex:none;min-width:40px;height:40px;display:flex;align-items:center;justify-content:center;border:1.5px solid var(--hairline);border-radius:12px;background:var(--white);color:var(--muted);font:inherit;-webkit-tap-highlight-color:transparent}
 .csv-cta-del svg{width:17px;height:17px}
 .csv-cta-del.armed{padding:0 12px;color:var(--danger);border-color:var(--danger);font-size:13.5px;font-weight:700}
 .csv-cta-del:active{color:var(--danger)}
-.csv-cta-ghost{flex:1;min-width:0;min-height:40px;border:1.5px solid var(--hairline);border-radius:9999px;background:var(--white);font:inherit;font-size:13px;font-weight:700;color:var(--ink-2);padding:0 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;-webkit-tap-highlight-color:transparent}
 .csv-cta-go{flex:1;min-height:40px;border:0;border-radius:9999px;background:var(--grad-brand);color:#fff;font:inherit;font-size:13px;font-weight:700;padding:0 10px;white-space:nowrap;box-shadow:0 5px 14px var(--brand-glow);-webkit-tap-highlight-color:transparent}
-.csv-cta-go:active,.csv-cta-ghost:active{opacity:.7}
+.csv-cta-go:active{opacity:.7}
 /* Corrections that carry (apply-to-similar-spec §3): a quiet block under the
-   rows. One status line, one pill, one text line; the brand ink sits only on
+   rows. One status line per changed field, one pill with its look-first door, one text line; the brand ink sits only on
    the two things that act. Same hairline, same 44px reach as the bar below. */
 .csv-fix{margin-top:12px;padding-top:6px;border-top:1px solid var(--divider)}
 .csv-fix-l{display:flex;align-items:center;gap:8px;min-height:44px}
@@ -287,7 +286,12 @@ button.csv-srow:active{background:var(--surface)}
 .csv-fix-l b{flex:1;min-width:0;font-size:14px;font-weight:650;color:var(--ink);letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .csv-fix-undo{flex:none;min-height:44px;padding:0 6px;border:0;background:none;font:inherit;font-size:14px;font-weight:700;color:var(--brand-ink)}
 .csv-fix-undo:active{opacity:.6}
-.csv-fix-cta{display:block;width:100%;min-height:44px;margin-top:2px;padding:0 14px;border:1.5px solid var(--hairline);border-radius:9999px;background:var(--white);font:inherit;font-size:13.5px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:transform .12s cubic-bezier(.4,0,.2,1)}
+.csv-fix-row{display:flex;align-items:center;gap:4px;margin-top:2px}
+.csv-fix-row .csv-fix-done{flex:1;min-width:0}
+.csv-fix-peek{flex:none;min-height:44px;padding:0 8px;border:0;background:none;font:inherit;font-size:14px;font-weight:700;color:var(--brand-ink);-webkit-tap-highlight-color:transparent}
+.csv-fix-peek:active{opacity:.6}
+.csv-fix-skip{padding:2px 2px 6px;font-size:12.5px;font-weight:500;color:var(--muted)}
+.csv-fix-cta{display:block;flex:1;min-width:0;width:100%;min-height:44px;padding:0 14px;border:1.5px solid var(--hairline);border-radius:9999px;background:var(--white);font:inherit;font-size:13.5px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:transform .12s cubic-bezier(.4,0,.2,1)}
 .csv-fix-cta:active{transform:scale(.98);opacity:.8}
 .csv-fix-done{min-height:44px;display:flex;align-items:center;padding:0 2px;font-size:13px;font-weight:600;color:var(--muted)}
 .csv-fix-ledger{display:block;width:100%;min-height:44px;margin-top:2px;padding:0 6px;border:0;border-radius:11px;background:none;font:inherit;font-size:13px;font-weight:700;color:var(--brand-ink);text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:background .15s cubic-bezier(.4,0,.2,1)}

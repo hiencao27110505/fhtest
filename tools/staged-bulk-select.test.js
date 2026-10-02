@@ -41,7 +41,8 @@ const t = (n, ok, d) => { console.log((ok ? '  PASS  ' : '  FAIL  ') + n + (!ok 
 // Stubs for everything the block touches.
 var csvReview, csvStagedMode, csvExpand, renders, dropped, toasts, learned, scopeSaves, personalReady;
 // p2p-breakdown P7: select-all respects the card filters; with none on (these stubs) it is exactly what it was.
-var csvCatFilter = null, csvPersonFilter = null;
+var csvCatFilter = null, csvPersonFilter = null, csvFixPeek = null, csvFixes = {};
+function csvHandMark(c, f){ if(c){ (c._hand || (c._hand = {}))[f] = 1; } }
 function csvCatHide(){ return false; }
 function renderCsvReview(){ renders++; }
 function fmt(n){ return String(n); }

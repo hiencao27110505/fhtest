@@ -1898,6 +1898,29 @@ as — or the same day as — the deploy. A deploy announced only in
 
 ## 28. Releases (newest first)
 
+### 2026-10-02 — review card: one "apply to similar" instead of two · client only, SW v608 · no migration, no deploy
+
+- **For product:** an open card in "Duyệt giao dịch" used to show two offers that
+  read the same with two different counts ("Áp cho N khoản giống" in the bottom
+  bar, "Áp dụng cho N khoản khác của …" under the rows). There is now one, under
+  the rows, and it does more: changing **Loại khoản** carries too (with who /
+  which card / which account), several changes on one card each keep their own
+  line and their own "Hoàn tác", rows you already set by hand are left alone and
+  counted, and **Xem** shows exactly which rows the count means before you apply.
+  The bottom bar is delete and "Nhập khoản này".
+- **Under the hood:** `56-csv-import-ui.js` — `c._fix` is now `{items:{field}}`;
+  new carried fields `kind` and `inccat`; `csvHandMark` (`c._hand`) written by
+  every per-row pick and bulk verb; `csvFixKey` (payee, else wording + bank);
+  `csvFixPeek` narrows through `csvCatHide`; `csvSimilarRows` / `csvApplySimilar`
+  and `.csv-cta-ghost` removed. No pipeline, schema, lesson-store or promote
+  change: a carried kind is learned at import exactly as a picked one. Guard:
+  `tools/apply-to-similar.test.js` (54 checks).
+- **Spec sections updated:** none here; `apply-to-similar-spec.md` (A16–A21, §6
+  rewritten) and `transaction-review-spec.md` §4a.
+- **Watch for:** `renderCsvReview` callers are unaffected, but anything that slices
+  `csvCatHide`, `csvStagedSelectAll` or the bulk verbs into a test harness now
+  needs `csvFixPeek`, `csvFixes` and `csvHandMark` in scope.
+
 ### 2026-09-30 (later) — the badge stops counting what the list will not show, and a statement step can be typed into · client only, SW v604 · no migration, no deploy
 
 - **For product:** two faults on one real queue. After importing everything, the

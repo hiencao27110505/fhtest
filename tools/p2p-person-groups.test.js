@@ -93,7 +93,7 @@ console.log('\n-- the queue groups by person, and one row is not a group (P7) --
 {
   const c=ctxWithTree();
   const fns=['csvNodeNotSpending','csvRowGroup','csvPersonKeyOf','csvIsP2P','csvPersonRows','csvCatHide'].map(n=>sliceFn(S56,n)).join('\n');
-  vm.runInContext('var csvCatFilter=null; '+sliceVar(S56,'csvPersonFilter')+'; var csvBaseAmt=function(a){return a;}; var csvTreeLeafOf=function(){return {leaf:"?"};};\n'+fns,c);
+  vm.runInContext('var csvCatFilter=null, csvFixPeek=null, csvFixes={}; '+sliceVar(S56,'csvPersonFilter')+'; var csvBaseAmt=function(a){return a;}; var csvTreeLeafOf=function(){return {leaf:"?"};};\n'+fns,c);
   const r=vm.runInContext(`(function(){
     var A1={_node:'p2p',counterparty:'13610000120606 - LE KHA NIN',description:'Cam on',amount:5000000};
     var A2={_node:'split',counterparty:'1361 - LE KHA NIN',description:'tien an',amount:5200000};
@@ -118,7 +118,7 @@ console.log('\n-- the queue groups by person, and one row is not a group (P7) --
 console.log('\n-- select-all acts on the cards you can SEE --');
 {
   const c=ctxWithTree();
-  vm.runInContext('var csvCatFilter=null, csvPersonFilter=null, csvSelTouched=false, renders=0; var csvReview=null;'
+  vm.runInContext('var csvCatFilter=null, csvPersonFilter=null, csvFixPeek=null, csvFixes={}, csvSelTouched=false, renders=0; var csvReview=null;'
     +'function csvDisarmRemove(){} function csvFlushExpand(){} function renderCsvReview(){renders++;} function csvFxUnresolved(){return false;}'
     +'var csvTreeLeafOf=function(){return {leaf:"?"};}; var csvBaseAmt=function(a){return a;};\n'
     +['csvNodeNotSpending','csvRowGroup','csvPersonKeyOf','csvIsP2P','csvCatHide','csvStagedSelectAll'].map(n=>sliceFn(S56,n)).join('\n'),c);

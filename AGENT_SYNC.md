@@ -143,6 +143,29 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-10-02 · Hien · review card: ONE "apply to similar" (was two) · claiming SW `v608` · client only · no migration · no deploy · BUILT, pushed to `main` 2026-10-02.**
+  Spec: `docs/specs/apply-to-similar-spec.md` amended (A16–A21, §6 and §10 rewritten).
+  The bottom bar's "Áp cho N khoản giống" (`csvSimilarRows` / `csvApplySimilar`,
+  `.csv-cta-ghost`) is REMOVED; the block under the rows is the only carry surface
+  and now also carries **Loại khoản** with its follow-up (ready list only; reverses
+  the kind half of A7) and **Danh mục thu nhập**. `c._fix` changed shape:
+  `{ id, items:{ field: {f,v,prev,lesson,hand0,applied,ledger} }, peek }` — one line
+  and one undo per field; `csvFixUndo(id, f)`, `csvFixLedgerTap(id, f)`,
+  `csvFixLedgerUndo(id, f)` take the field. New `c._hand[field]` (`csvHandMark`),
+  written by every per-row pick AND by `csvBulkCat` / `csvBulkNode` / `csvBulkScope`
+  / the merchant-group pick: a carry never overwrites a hand-set row. New
+  `csvFixPeek` ("Xem"): `csvCatHide` checks it first.
+  **Contract for other sessions:** a harness that slices `csvCatHide`,
+  `csvStagedSelectAll` or a bulk verb needs `csvFixPeek`, `csvFixes`, `csvHandMark`
+  in scope — I added those stubs to `tools/p2p-person-groups.test.js` and
+  `tools/staged-bulk-select.test.js` (stubs only, no assertion changed).
+  Files: `src/js-ui/56-csv-import-ui.js`, `src/css/74-mailbox.css`, `sw.js`,
+  `index.html` (built), `tools/apply-to-similar.test.js` (54 checks), the two stub
+  edits, specs (`apply-to-similar`, `transaction-review` §4a, umbrella Part 3).
+  145 suites green; the two red ones (`pipeline/direct-persist-contract`,
+  `tools/label-fallback-root`) were red before. If you bump the SW next, start
+  from v609.
+
 - **2026-10-01 (later) · Hien · a first connect keeps its receipts · claiming SW `v607` · client only · no migration · no deploy.**
   `78-receipt-join.js`: the 14-day grace no longer retires a receipt while a `pending` statement file received on or after the receipt's day is still unopened (fail-safe: a failed check retires nothing; bounded by the statement's 90-day expiry), and the join pages through every pending receipt instead of the newest 200. Spec: `receipt-enrichment-spec.md` RC25, RC26.
 
