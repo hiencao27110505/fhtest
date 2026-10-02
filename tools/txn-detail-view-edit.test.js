@@ -98,5 +98,25 @@ t('family ask is the same action row and the same sheet; photos still write thro
 t('no Cập nhật and no trash square in the family detail', !/Cập nhật/.test(F) && !/exd-cta-del/.test(F));
 t('family delete is the muted foot line in edit only', /class="exd-del" id="exd-del" onclick="expDetailDelete\(\)"/.test(F) && /Chạm lần nữa để xoá/.test(ui));
 
+// 2026-10-02: a row from the older months (the 6-month history) is in P.txnsOld, not P.txns. The pickers'
+// row lookup used _pTxById (P.txns only), so Danh mục / Tiêu vào gì / Số tiền did nothing on such a row.
+// Run the real lookups on a ledger where the row lives ONLY in txnsOld.
+{
+  const vm = require('vm');
+  const fn = (name) => { const k = ui.indexOf('function ' + name + '('); return ui.slice(k, ui.indexOf('\n}', k) + 2); };
+  const ctx = { window: {}, opened: null };
+  vm.createContext(ctx);
+  vm.runInContext(`var _exdMode='pers', _pexdId='old1', _expDetailId=null, PXD={}, EXD={};
+    var DATA={ txns:[], txnsOld:[{id:'old1', cat:'Khác', node:'p2p', kind:'expense'}], debts:[] };
+    window.fhPersonalData=function(){ return DATA; }; function fhPersonalData(){ return DATA; }
+    function _pTxById(id){ return DATA.txns.filter(function(t){ return t.id===id; })[0]||null; }
+    function fhNodePickOpen(cur, kind, cb){ opened=[cur, kind, cb]; }
+    ` + fn('_pexdRow') + fn('_exdRowOf') + fn('exdSheetNode'), ctx);
+  const row = vm.runInContext('_exdRowOf()', ctx);
+  vm.runInContext("exdSheetNode('pers','expense')", ctx);
+  t('the pickers find a row that lives only in the older months', !!row && row.id === 'old1');
+  t('Tiêu vào gì opens its picker on such a row', Array.isArray(ctx.opened) && ctx.opened[0] === 'p2p' && ctx.opened[2] === 'exdPickNode', JSON.stringify(ctx.opened));
+}
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

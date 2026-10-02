@@ -368,7 +368,8 @@ function _exdStage(field, val){
 function _exdRowOf(){
   return _exdMode==='fam'
     ? ((typeof txById==='function')?txById(_expDetailId):null)
-    : ((typeof _pTxById==='function')?_pTxById(_pexdId):null);
+    : _pexdRow(_pexdId);   // the detail's own lookup: the window, the debt read AND the older months. _pTxById saw only
+                           // this month and last, so on a row from the 6-month history every picker returned without opening.
 }
 /* 0144 — "Tiêu vào gì" (income: "Tiền từ đâu"): the tree's read of what the
    money bought. Read-only

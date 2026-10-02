@@ -143,6 +143,14 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-10-02 (night) · Hien · detail pickers dead on rows older than last month — FIXED · claiming SW `v611` · client only · pushed to `main` 2026-10-02.**
+  `_exdRowOf()` (61) looked a personal row up with `_pTxById` (P.txns: this month + last). A row opened from the
+  6-month history lives in `P.txnsOld`, so `exdSheetCat` / `exdSheetNode` / `exdSheetAmt` returned at `if(!t) return`
+  and Danh mục / Tiêu vào gì / Số tiền did nothing. In place since `abc9568` (09-12). Now `_pexdRow(_pexdId)`, the
+  detail's own lookup. Guard: two behavioural checks in `tools/txn-detail-view-edit.test.js`. NOT fixed, same cause:
+  "Ghi vào đâu" on such a row (`fhMoveSheetOpen` in 59 still uses `_pTxById`; the move engine was not checked for
+  older rows). If you bump the SW next, start from v612.
+
 - **2026-10-02 (evening) · Hien · ledger carry offered BEFORE Lưu · claiming SW `v610` · client only · no migration · no deploy · BUILT, pushed to `main` 2026-10-02.**
   Spec: `apply-to-similar-spec.md` §16, L8–L13. Personal detail, edit state of an
   expense: a switch line (`.exd-sub`) under each changed Danh mục / Tiêu vào gì row,
