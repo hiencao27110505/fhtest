@@ -587,6 +587,7 @@ function openPersonalTxDetail(id, opts){
   var t=_pexdRow(id);
   if(!t || t._unreadable) return;
   if(t.spaceId || t.linkId){ if(typeof fhMirrorRowTap==='function') fhMirrorRowTap(id); return; }   // a mirror master: its family twin is the detail
+  if(_pexdCarry && _pexdCarry.id!==id) _pexdCarry=null;   // the offer belongs to the row that was just saved
   _pexdId=id; _pexdOpts=opts||{}; PXD={};
   var k=_pexdKindOf(t);
   _pexdEdit=!!(_pexdOpts.edit || (_pexdOpts.from==='zoom' && (k==='xfer'||k==='cardpay'||k==='repay')));
@@ -608,6 +609,7 @@ function closePersonalTxDetail(){
   _pxdResetDel();
   var o=document.getElementById('pexd-overlay'); if(o) o.classList.remove('on');
   var re=_pexdOpts.reopen;
+  if(!(_pexdCarry && _pexdCarry.state==='busy')) _pexdCarry=null;
   _pexdId=null; PXD={}; _pexdEdit=false; _pexdOpts={};
   if(re&&re.length){ try{ if(re[0]==='person'&&window.openDebtPerson) openDebtPerson(re[1]); else if(re[0]==='acct'&&window.openDebtAccount) openDebtAccount(re[1]); else if(re[0]==='pos'&&window.openInvPosition) openInvPosition(re[1]); }catch(e){} }   // refresh the zoom-in underneath
 }
@@ -834,7 +836,7 @@ function renderPersonalTxDetail(){
     html+='<button type="button" class="exd-del" id="pexd-del" onclick="pexdDelete()">'+_pexdDelLbl(E)+'</button></div>';
   }
   body.innerHTML=html;
-  var cta=document.getElementById('pexd-cta'); if(cta) cta.innerHTML='';
+  _pexdCarryPaint();                       // the view state's one foot action, when a saved change can be carried (apply-to-similar-spec §14)
   _pxdResetDel();
 }
 window.renderPersonalTxDetail=renderPersonalTxDetail;
@@ -1126,6 +1128,16 @@ async function pexdSave(){
   if(go){ if(go.disabled) return; go.disabled=true; go.textContent='Đang lưu…'; }
   var note=(p.note!=null?p.note:(t.note||'')), dateIso=(p.dateIso!=null?p.dateIso:t.date);
   var fieldsChanged=Object.keys(p).some(function(x){ return x!=='photos'; });
+  /* apply-to-similar-spec §14 (L1): a category-shaped change on a booked expense
+     can be carried to the payee's other booked rows. What the row said BEFORE the
+     save is captured here: the hydrate after the write replaces `t`. */
+  var _cy=null;
+  if(k==='expense' && !_pexdOpts.edit){
+    var _cf={};
+    if(p.cat!=null && p.cat!==(t.cat||'')) _cf.cat=p.cat;
+    if(p.node!==undefined && (p.node||null)!==(t.node||null)) _cf.node=p.node||null;
+    if(Object.keys(_cf).length) _cy={ id:E.id, who:t.who||'', note:note, fields:_cf, old:{ cat:t.cat||'', node:t.node||null } };
+  }
   var ok=false;
   try{
     if(!fieldsChanged) ok=true;
@@ -1178,9 +1190,183 @@ async function pexdSave(){
   if(typeof refreshPersonalTxnOverlay==='function') refreshPersonalTxnOverlay();
   toast('Đã lưu');
   if(_pexdOpts.edit){ closePersonalTxDetail(); return; }
+  _pexdCarry=null;
   _pexdEdit=false; renderPersonalTxDetail();
+  if(_cy) pexdCarryScan(_cy);
 }
 window.pexdSave=pexdSave;
+
+/* ═══ Corrections that carry, in the book (apply-to-similar-spec §14, L1–L7) ═══
+   The review card's pattern, unchanged: after Lưu the view state shows ONE
+   outlined button at the foot; it opens the same sheet (fhCarryBodyHTML, 56):
+   what changed, the payee's other booked rows with a tick each, one CTA. Fields:
+   Danh mục and Tiêu vào gì. Rows: private expenses in the 365-day match slice,
+   same payee key, mirrors excluded. A row whose value is neither empty nor what
+   THIS row said before the edit looks deliberate, and arrives unticked (L4). */
+var _pexdCarry=null;
+function _pexdCarryNodeLbl(n){ return (n && window.FH_TAX && FH_TAX.get(n)) ? FH_TAX.get(n).vi : 'Chưa rõ'; }
+function _pexdCarryDiffers(cy, x){
+  return (cy.fields.cat!==undefined && (x.cat||'')!==cy.fields.cat)
+      || (cy.fields.node!==undefined && (x.node||null)!==(cy.fields.node||null));
+}
+function _pexdCarryDeliberate(cy, x){
+  if(cy.fields.cat!==undefined && (x.cat||'')!==cy.fields.cat && (x.cat||'') && (x.cat||'')!==(cy.old.cat||'')) return true;
+  if(cy.fields.node!==undefined && (x.node||null)!==(cy.fields.node||null) && x.node && x.node!==cy.old.node) return true;
+  return false;
+}
+async function pexdCarryScan(cy){
+  if(typeof csvPatternKey!=='function' || typeof window.fhPersonalMatchSlice!=='function') return;
+  var key=csvPatternKey({ counterparty:cy.who, description:cy.note });
+  if(!key || key.length<6) return;
+  var name=String(cy.who||'').replace(/^[\d\s.:\-–—]+/,'').trim(); if(name.length<3) name=String(cy.who||'').trim();
+  var cur=_pexdCarry={ id:cy.id, key:key, name:name, fields:cy.fields, old:cy.old, rows:[], off:{}, state:'scan', done:null, fail:0, more:false, prog:0 };
+  var slice=[]; try{ slice=await window.fhPersonalMatchSlice(); }catch(e){ slice=[]; }
+  if(_pexdCarry!==cur) return;                                    // another save or another row since
+  cur.rows=(slice||[]).filter(function(x){
+    if(x.id===cy.id || x.link || x.kind!=='expense' || !(Number(x.amt)>0)) return false;   // mirror rows follow the family copy (A9)
+    if(csvPatternKey({ counterparty:x.who||'', description:x.note||'' })!==key) return false;
+    return _pexdCarryDiffers(cur, x);
+  });
+  cur.rows.forEach(function(x){ if(_pexdCarryDeliberate(cur, x)) cur.off[x.id]=1; });
+  cur.state=cur.rows.length?'idle':'none';
+  _pexdCarryPaint();
+}
+function _pexdCarryOn(cy){ return cy.rows.filter(function(x){ return !cy.off[x.id]; }); }
+/* The foot of the VIEW state. Absent while scanning, in edit, and when nothing
+   similar exists: hidden, never disabled. */
+function _pexdCarryPaint(){
+  var cta=document.getElementById('pexd-cta'); if(!cta) return;
+  var cy=_pexdCarry, h='';
+  if(cy && cy.id===_pexdId && !_pexdEdit && (cy.state==='idle'||cy.state==='busy'||cy.state==='done')){
+    var txt, cls='csv-cta-sec';
+    if(cy.state==='done'){ txt='Đã áp dụng cho '+(cy.done||[]).length+' khoản'; cls+=' done'; }
+    else { var n=_pexdCarryOn(cy).length||cy.rows.length; txt=cy.name?('Áp dụng cho '+n+' khoản khác của '+cy.name):('Áp dụng cho '+n+' khoản giống'); }
+    h='<button type="button" class="'+cls+'" onclick="pexdCarrySheet()"><span>'+esc(txt)+'</span></button>';
+  }
+  cta.innerHTML=h;
+}
+function _pexdCarryWhen(x){
+  var d=String(x.date||''), y=d.slice(0,4), now=String((typeof TODAY!=='undefined'&&TODAY.getFullYear)?TODAY.getFullYear():'');
+  var s=d.slice(8,10)+'/'+d.slice(5,7)+(y&&now&&y!==now?'/'+y.slice(2):'');
+  var t=String(x.note||'').trim().slice(0,26);
+  return s+(t?' · '+t:'');
+}
+function pexdCarryRender(){
+  var cy=_pexdCarry, body=document.getElementById('carry-body'); if(!cy || !body) return;
+  var CAP=5, top=document.getElementById('sheet-carry'); var st=top?top.scrollTop:0;
+  setTxt('carry-h','Áp dụng cho khoản giống');
+  setTxt('carry-sub',cy.name?('Cùng người nhận: '+cy.name):'Cùng nội dung');
+  var fields=[];
+  if(cy.fields.cat!==undefined) fields.push({ label:'Danh mục', value:((catStyle[cy.fields.cat]||['🏷️'])[0])+' '+cy.fields.cat });
+  if(cy.fields.node!==undefined) fields.push({ label:'Tiêu vào gì', value:_pexdCarryNodeLbl(cy.fields.node) });
+  var was=function(x){ return cy.fields.cat!==undefined ? (x.cat||'Chưa rõ') : _pexdCarryNodeLbl(x.node); };
+  var m={ fields:fields, secs:[] };
+  if(cy.state==='done'){
+    var dn=cy.done||[];
+    m.secs.push({ title:'Đã áp dụng · '+dn.length+' khoản', link:{ label:'Hoàn tác', tap:'pexdCarryUndo()' },
+      rows:dn.slice(0,CAP).map(function(d){ return { on:true, ro:true, when:_pexdCarryWhen(d.t), amt:fmt(d.t.amt) }; }) });
+    m.cta={ label:'Xong', tap:'closeSheet()', cls:'cta' };
+  } else {
+    var shown=cy.more?cy.rows:cy.rows.slice(0,CAP), on=_pexdCarryOn(cy).length;
+    m.secs.push({ title:cy.rows.length+' khoản đã ghi',
+      rows:shown.map(function(x){ return { on:!cy.off[x.id], ro:cy.state==='busy', tap:"pexdCarryTick('"+escAttr(String(x.id))+"')", when:_pexdCarryWhen(x), was:was(x), amt:fmt(x.amt) }; }),
+      more:(cy.rows.length>shown.length && cy.state!=='busy')?{ label:'Xem cả '+cy.rows.length+' khoản', tap:'pexdCarryMore()' }:null });
+    m.cta=(cy.state==='busy') ? { label:'Đang đổi '+cy.prog+'/'+on+'…', tap:'', busy:true, cls:'cta' }
+                              : { label:on?('Áp dụng cho '+on+' khoản'):'Xong', tap:on?'pexdCarryGo()':'closeSheet()', cls:'cta' };
+  }
+  body.innerHTML=fhCarryBodyHTML(m);
+  if(top) top.scrollTop=st;
+}
+function pexdCarrySheet(){
+  var cy=_pexdCarry; if(!cy || cy.id!==_pexdId) return;
+  cy.more=false; pexdCarryRender(); openSheet('sheet-carry');
+}
+function pexdCarryTick(id){
+  var cy=_pexdCarry; if(!cy || cy.state!=='idle') return;
+  if(cy.off[id]) delete cy.off[id]; else cy.off[id]=1;
+  pexdCarryRender(); _pexdCarryPaint();
+}
+function pexdCarryMore(){ if(_pexdCarry){ _pexdCarry.more=true; pexdCarryRender(); } }
+function _pexdCarryLrow(t){ return { counterparty:t.who||'', memo:t.note||'', amount:(Number(t.amt)||0)*curMult() }; }   // the lesson speaks đồng (P10); a personal row's payee is `who` (A15)
+/* The writes. One row at a time through the ledger's own writers; a node also
+   teaches that row's banded lesson, exactly as a pick on the row would. The
+   label store is the review's and is not loaded here, so a label teaches nothing
+   from this screen (L6). Success is said only after everything landed. */
+async function pexdCarryGo(){
+  var cy=_pexdCarry; if(!cy || cy.state!=='idle') return;
+  var rows=_pexdCarryOn(cy); if(!rows.length) return;
+  if(navigator.onLine===false){ toast('Cần mạng để đổi khoản đã ghi'); return; }
+  cy.state='busy'; cy.prog=0; pexdCarryRender(); _pexdCarryPaint();
+  var done=[], fail=0;
+  for(var i=0;i<rows.length;i++){
+    var t=rows[i], prev={ cat:t.cat||'', node:t.node||null }, lp=null, taught=false, changed=false, ok=true;
+    try{
+      if(cy.fields.cat!==undefined && (t.cat||'')!==cy.fields.cat){
+        ok=await window.fhPersonalUpdateExpense(t.id, { amt:t.amt, note:t.note, cat:cy.fields.cat, emoji:((catStyle[cy.fields.cat]||['🏷️'])[0]), time:t.time||'', dateIso:t.date }, true);
+        if(ok){ t.cat=cy.fields.cat; changed=true; }
+      }
+      if(ok && cy.fields.node!==undefined && (t.node||null)!==(cy.fields.node||null)){
+        if(typeof window.fhLessonNode==='function') lp=window.fhLessonNode(_pexdCarryLrow(t))||null;
+        ok=await window.fhPersonalSetNode(t.id, cy.fields.node);
+        if(ok){
+          t.node=cy.fields.node; changed=true;
+          if(cy.fields.node && typeof window.fhLessonLearnNode==='function'){ try{ var lr=_pexdCarryLrow(t); lr.node=cy.fields.node; window.fhLessonLearnNode(lr); taught=true; }catch(e){} }
+        }
+      }
+    }catch(e){ ok=false; }
+    if(changed) done.push({ t:t, prev:prev, lesson:lp, taught:taught });
+    if(!ok) fail++;
+    cy.prog=i+1;
+    var b=document.querySelector('#carry-body .cry-cta'); if(b) b.textContent='Đang đổi '+cy.prog+'/'+rows.length+'…';
+  }
+  await _pexdCarrySettle();
+  if(_pexdCarry===cy){ cy.done=done; cy.fail=fail; cy.state=done.length?'done':'idle'; }
+  closeSheet();
+  toast(fail ? ('Đã đổi '+done.length+' khoản · '+fail+' khoản lỗi, thử lại nhé') : ('Đã đổi '+done.length+' khoản'));
+  if(_pexdCarry===cy) _pexdCarryPaint();
+}
+async function _pexdCarrySettle(){
+  if(window.fhPersonalMatchSliceInvalidate) fhPersonalMatchSliceInvalidate();
+  try{ if(window.fhPersonalHydrate) await window.fhPersonalHydrate(); }catch(e){}
+  if(typeof renderPersonal==='function'){ try{ renderPersonal(); }catch(e){} }
+  if(typeof refreshPersonalTxnOverlay==='function'){ try{ refreshPersonalTxnOverlay(); }catch(e){} }
+}
+async function pexdCarryUndo(){
+  var cy=_pexdCarry; if(!cy || cy.state!=='done') return;
+  if(navigator.onLine===false){ toast('Cần mạng để đổi khoản đã ghi'); return; }
+  cy.state='busy'; cy.prog=0; _pexdCarryPaint();
+  var left=[], dn=cy.done||[];
+  var lk=document.querySelector('#carry-body .cry-sec .cry-link'); if(lk){ lk.disabled=true; lk.textContent='Đang hoàn tác…'; }
+  for(var i=dn.length-1;i>=0;i--){
+    var d=dn[i], t=d.t, ok=true;
+    try{
+      if((t.node||null)!==(d.prev.node||null)){
+        ok=await window.fhPersonalSetNode(t.id, d.prev.node);
+        if(ok){
+          t.node=d.prev.node;
+          if(d.taught){ var lr=_pexdCarryLrow(t);
+            if(d.lesson && window.fhLessonLearnNode){ lr.node=d.lesson; window.fhLessonLearnNode(lr); }
+            else if(window.fhLessonForgetNode) window.fhLessonForgetNode(lr); }
+        }
+      }
+      if(ok && (t.cat||'')!==(d.prev.cat||'')){
+        ok=await window.fhPersonalUpdateExpense(t.id, { amt:t.amt, note:t.note, cat:d.prev.cat, emoji:((catStyle[d.prev.cat]||['🏷️'])[0]), time:t.time||'', dateIso:t.date }, true);
+        if(ok) t.cat=d.prev.cat;
+      }
+    }catch(e){ ok=false; }
+    if(!ok) left.push(d);
+  }
+  await _pexdCarrySettle();
+  if(_pexdCarry===cy){
+    if(left.length){ cy.done=left.reverse(); cy.state='done'; }
+    else { cy.done=null; cy.state='idle'; }
+  }
+  closeSheet();
+  toast(left.length ? ('Hoàn tác được một phần · '+left.length+' khoản lỗi') : 'Đã hoàn tác');
+  if(_pexdCarry===cy) _pexdCarryPaint();
+}
+window.pexdCarrySheet=pexdCarrySheet; window.pexdCarryTick=pexdCarryTick; window.pexdCarryMore=pexdCarryMore;
+window.pexdCarryGo=pexdCarryGo; window.pexdCarryUndo=pexdCarryUndo;
 function _pxdResetDel(){
   _pexdDelArmed=false; clearTimeout(_pexdDelT);
   var b=document.getElementById('pexd-del'); if(b){ var E=_pexdEntry(); b.classList.remove('armed'); b.textContent=E?_pexdDelLbl(E):'Xoá khoản này'; }

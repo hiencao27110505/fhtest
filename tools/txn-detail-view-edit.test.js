@@ -42,7 +42,9 @@ t('opens in view; a transfer, card payment or repayment opened from its own zoom
 t('Huỷ closes when the screen was opened straight into edit, else returns to view', /function pexdCancel\(\)\{ PXD=\{\}; if\(_pexdOpts\.edit\)\{ closePersonalTxDetail\(\); return; \}/.test(P));
 t('the nav: ‹ back label per arrival · Sửa (none on an adjustment); Huỷ · kind title · Lưu', /var back=esc\(_pexdOpts\.back\|\|'Cá nhân'\);/.test(P) && /E\.k==='adjust'\?'<span><\/span>':'<button type="button" class="cd-act" onclick="pexdEdit\(\)">Sửa<\/button>'/.test(P) && /class="cd-navtitle">'\+_pexdTitle\(E\)\+'</.test(P));
 t('no Cập nhật button and no trash square anywhere in the personal detail ("Cập nhật giá" is a price action, not a save)', !/Cập nhật<\//.test(P) && !/exd-cta-del/.test(P));
-t('the bottom bar is emptied and hidden', /cta\.innerHTML=''/.test(P) && /#pexd-cta:empty,#exd-cta:empty\{display:none\}/.test(css));
+// 2026-10-02: the bar is still empty in both states, except the view state's one carry door after a saved
+// category change (apply-to-similar-spec §14); empty stays hidden.
+t('the bottom bar is empty and hidden unless a saved change can be carried', /_pexdCarryPaint\(\);/.test(P) && /var cy=_pexdCarry, h='';/.test(P) && /cta\.innerHTML=h;/.test(P) && /#pexd-cta:empty,#exd-cta:empty\{display:none\}/.test(css));
 
 console.log('\n-- rows: the review card\'s vocabulary, read-only in view --');
 t('one row builder: read-only in view unless the row is the fix itself (live)', /ro:\(o\.live\?false:\(!ed\|\|o\.ro\)\)/.test(RENDER));

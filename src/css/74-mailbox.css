@@ -277,27 +277,42 @@ button.csv-srow:active{background:var(--surface)}
 .csv-cta-del:active{color:var(--danger)}
 .csv-cta-go{flex:1;min-height:40px;border:0;border-radius:9999px;background:var(--grad-brand);color:#fff;font:inherit;font-size:13px;font-weight:700;padding:0 10px;white-space:nowrap;box-shadow:0 5px 14px var(--brand-glow);-webkit-tap-highlight-color:transparent}
 .csv-cta-go:active{opacity:.7}
-/* Corrections that carry (apply-to-similar-spec §3): a quiet block under the
-   rows. One status line per changed field, one pill with its look-first door, one text line; the brand ink sits only on
-   the two things that act. Same hairline, same 44px reach as the bar below. */
-.csv-fix{margin-top:12px;padding-top:6px;border-top:1px solid var(--divider)}
-.csv-fix-l{display:flex;align-items:center;gap:8px;min-height:44px}
-.csv-fix-l small{font-size:13px;font-weight:600;color:var(--muted);flex:none}
-.csv-fix-l b{flex:1;min-width:0;font-size:14px;font-weight:650;color:var(--ink);letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.csv-fix-undo{flex:none;min-height:44px;padding:0 6px;border:0;background:none;font:inherit;font-size:14px;font-weight:700;color:var(--brand-ink)}
-.csv-fix-undo:active{opacity:.6}
-.csv-fix-row{display:flex;align-items:center;gap:4px;margin-top:2px}
-.csv-fix-row .csv-fix-done{flex:1;min-width:0}
-.csv-fix-peek{flex:none;min-height:44px;padding:0 8px;border:0;background:none;font:inherit;font-size:14px;font-weight:700;color:var(--brand-ink);-webkit-tap-highlight-color:transparent}
-.csv-fix-peek:active{opacity:.6}
-.csv-fix-skip{padding:2px 2px 6px;font-size:12.5px;font-weight:500;color:var(--muted)}
-.csv-fix-cta{display:block;flex:1;min-width:0;width:100%;min-height:44px;padding:0 14px;border:1.5px solid var(--hairline);border-radius:9999px;background:var(--white);font:inherit;font-size:13.5px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:transform .12s cubic-bezier(.4,0,.2,1)}
-.csv-fix-cta:active{transform:scale(.98);opacity:.8}
-.csv-fix-done{min-height:44px;display:flex;align-items:center;padding:0 2px;font-size:13px;font-weight:600;color:var(--muted)}
-.csv-fix-ledger{display:block;width:100%;min-height:44px;margin-top:2px;padding:0 6px;border:0;border-radius:11px;background:none;font:inherit;font-size:13px;font-weight:700;color:var(--brand-ink);text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:background .15s cubic-bezier(.4,0,.2,1)}
-.csv-fix-ledger.armed{background:var(--brand-tint);padding:0 12px}
-.csv-fix-ledger:disabled{opacity:.5}
-.csv-fix-ledger.done{color:var(--muted)}
+/* Corrections that carry (apply-to-similar-spec A22, A23): the card shows a dot
+   on each changed row and ONE full-width outlined button on its own line in the
+   bottom bar; everything else lives in the sheet. Tokens only, 44px targets. */
+#csv-result.staged .csv-srow.chg .csv-sval b{color:var(--brand-ink)}
+#csv-result.staged .csv-srow.chg small::after{content:"•";color:var(--brand);margin-left:5px;font-size:14px;line-height:0}
+.csv-cta{flex-wrap:wrap}
+.csv-cta-sec{flex:1 1 100%;min-width:0;min-height:44px;display:flex;align-items:center;justify-content:center;border:1.5px solid var(--brand);border-radius:9999px;background:var(--white);color:var(--brand-ink);font:inherit;font-size:13.5px;font-weight:700;padding:0 14px;-webkit-tap-highlight-color:transparent;transition:transform .12s cubic-bezier(.4,0,.2,1)}
+.csv-cta-sec span{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.csv-cta-sec.done{border-color:var(--hairline);color:var(--muted)}
+.csv-cta-sec:active{transform:scale(.98);opacity:.8}
+/* the carry sheet's body — shared by the review card and the ledger detail (fhCarryBodyHTML) */
+.cry-sec{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:16px 2px 6px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.cry-sec:first-child{margin-top:0}
+.cry-list{border:1px solid var(--hairline);border-radius:14px;overflow:hidden}
+.cry-row{display:flex;width:100%;align-items:center;gap:10px;min-height:44px;padding:0 12px;border:0;border-bottom:1px solid var(--divider);background:none;font:inherit;font-size:13.5px;text-align:left;color:var(--ink);-webkit-tap-highlight-color:transparent}
+.cry-list>:last-child{border-bottom:0}
+.cry-row small{flex:none;font-size:13px;font-weight:600;color:var(--muted)}
+.cry-row b{flex:1;min-width:0;text-align:right;font-weight:650;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cry-when{flex:1;min-width:0;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cry-when em{font-style:normal;font-size:11.5px;color:var(--muted-soft)}
+.cry-was{flex:none;max-width:84px;font-size:12px;color:var(--muted-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cry-amt{flex:none;font-weight:600}
+.cry-row.off .cry-when,.cry-row.off .cry-amt{color:var(--muted-soft)}
+.cry-tick{flex:none;width:22px;height:22px;border-radius:50%;border:1.5px solid var(--chev);display:flex;align-items:center;justify-content:center;color:transparent}
+.cry-tick svg{width:12px;height:12px}
+.cry-tick.on{background:var(--brand);border-color:var(--brand);color:var(--white)}
+.cry-link{flex:none;min-height:44px;padding:0 4px;border:0;background:none;font:inherit;font-size:13px;font-weight:700;letter-spacing:0;text-transform:none;color:var(--brand-ink);-webkit-tap-highlight-color:transparent}
+.cry-sec .cry-link{min-height:28px}
+.cry-more{display:block;width:100%;min-height:44px;border:0;background:none;font:inherit;font-size:13px;font-weight:600;color:var(--brand-ink);text-align:center}
+.cry-sw{flex:none;width:42px;height:26px;border-radius:13px;background:var(--hairline);position:relative;transition:background .15s cubic-bezier(.4,0,.2,1)}
+.cry-sw::after{content:"";position:absolute;left:2px;top:2px;width:22px;height:22px;border-radius:50%;background:var(--white);box-shadow:var(--shadow-card);transition:left .15s cubic-bezier(.4,0,.2,1)}
+.cry-sw.on{background:var(--brand)}
+.cry-sw.on::after{left:18px}
+.cry-cta{margin-top:16px}
+.cry-cta:disabled{opacity:.6}
+@media (prefers-reduced-motion:reduce){.cry-sw,.cry-sw::after,.csv-cta-sec{transition:none}}
 
 /* ── row-picker sheet: an overlay INSIDE #csv-import-modal (the global .sheet
    layer sits under the modal, z 60 vs 62). Anchored to the modal box. ── */

@@ -14,6 +14,10 @@
  * the count can be looked at first (A19); Loại khoản carries with its follow-up, over
  * the ready list only (A16); a row with no payee falls back to its wording (A20); the
  * bottom bar's "Áp cho N khoản giống" is gone (A21).
+ *
+ * 2026-10-02, later (A22, A23, L1–L7): the card shows a dot on changed rows and ONE
+ * full-width button in the bottom bar; a sheet lists what changes and which rows,
+ * each tickable; the same sheet serves the ledger detail after Lưu.
  */
 const fs=require('fs'),vm=require('vm'),path=require('path');
 const ROOT=path.join(__dirname,'..');
@@ -47,13 +51,14 @@ function mk(){
     var CARDS=[{id:'card1',name:'VIB thẻ'}], ACCTS=[{id:'acc1',name:'VCB ••1234'},{id:'acc2',name:'MB ••9'}];
     function csvCreditCards(){ return CARDS; } function csvInvPositions(){ return []; }
     function csvXferAccounts(r){ return ACCTS.filter(function(a){ return a.id!==r._ownAcct; }); }
-    function csvPayCardFor(r){ return r._payCardId || r._mailCard || ''; }`,ctx);
+    function csvPayCardFor(r){ return r._payCardId || r._mailCard || ''; }
+    function csvAmtDisp(r){ return String(r.amount); } function csvExpandedCandidate(){ return null; } var csvRowSheet=null;`,ctx);
   // the machinery, whole, from 56
   const fns=['csvScopeClearKinds','csvNodeNotSpending','csvRowGroup','csvPersonKeyOf','csvIsP2P','csvCatHide','csvRowKindCur','csvSimKey','csvHandMark','csvFixKindRow',
     'csvFixKey','csvFixPayee','csvKindLbl','csvFixKindLabel','csvFixValLabel','csvFixSnap','csvFixRestore','csvFixLessonPrev','csvFixTeach','csvFixUnteach',
     'csvFixHolds','csvFixPrune','csvFixDrop','csvFixRecord','csvFixKindTouch','csvFixClearAll','csvFixCandidates','csvFixXferOk','csvFixKindSame','csvFixKindCopy',
-    'csvFixSame','csvFixRowsFor','csvFixPending','csvFixSimilar','csvFixAppliedRows','csvFixApply','csvFixUndo','csvFixPeekRows','csvFixPeekGo','csvFixPeekBarHTML',
-    'csvFixLedgerScan','csvFixBlockHTML'];
+    'csvFixSame','csvFixRowsFor','csvFixPending','csvFixSimilar','csvFixAppliedRows','csvFixApply','csvFixUnapply','csvFixUndo','csvFixPayeeName',
+    'csvFixLedgerScan','csvFixLedgerItems','csvFixLedgerCount','csvFixSheetRows','csvFixBarBtnHTML','csvFixTick','fhCarryBodyHTML','csvFixRowWhen','csvFixRowWas','csvFixSheetHTML'];
   vm.runInContext([sliceVar(S56,'csvPersonFilter'),sliceVar(S56,'csvFixes'),sliceVar(S56,'CSV_FIX_LBL'),sliceVar(S56,'CSV_FIX_ORDER')].join('\n')+'\n'+fns.map(n=>sliceFn(S56,n)).join('\n'),ctx);
   return ctx;
 }
@@ -146,22 +151,49 @@ console.log('\n-- the corrected card stays visible under a filter until the filt
   t('only the corrected card is pinned; its neighbours still obey the filter', r.other===true, r);
 }
 
-console.log('\n-- the block: names the payee and the count, hides the pill at zero, shows the done line after --');
+console.log('\n-- A22: the card shows ONE button; the name drops the account digits; hidden at zero; quiet after --');
 {
   const c=mk(); const R=seed(c); c.__R=R;
   const r=vm.runInContext(`(function(R){
     R.A0._node='rent'; csvFixRecord(R.A0,'node','rent',{_node:'p2p'},null);
-    var h1=csvFixBlockHTML(R.A0);
+    var h1=csvFixBarBtnHTML(R.A0), sh=csvFixSheetHTML(R.A0);
     csvFixApply(R.A0._fix.id);
-    var h2=csvFixBlockHTML(R.A0);
+    var h2=csvFixBarBtnHTML(R.A0), sh2=csvFixSheetHTML(R.A0);
     R.B._node='rent'; csvFixRecord(R.B,'node','rent',{_node:'p2p'},null);
-    var h3=csvFixBlockHTML(R.B);
-    return {h1:h1,h2:h2,h3:h3};
+    return {h1:h1,h2:h2,h3:csvFixBarBtnHTML(R.B),sh:sh,sh2:sh2};
   })(__R)`,c);
-  t('before: "Áp dụng cho 3 khoản khác của <payee>" with the printed name and an undo', /Áp dụng cho 3 khoản khác của 13610000120606 - LE KHA NIN/.test(r.h1) && /Hoàn tác/.test(r.h1) && /Tiền nhà/.test(r.h1), r.h1);
-  t('after: "Đã áp dụng cho 3 khoản …" and no pill', /Đã áp dụng cho 3 khoản/.test(r.h2) && !/csv-fix-cta/.test(r.h2), r.h2);
-  t('a payee with no other cards gets the status line and undo, but no pill (N = 0 is hidden, not disabled)', /Hoàn tác/.test(r.h3) && !/Áp dụng cho/.test(r.h3), r.h3);
-  t('44px reach and tokens only: undo, the pill and the look-first door are real <button>s', (r.h1.match(/<button /g)||[]).length===3 && /csv-fix-peek/.test(r.h1) && !/#[0-9a-f]{3,6}/i.test(r.h1), r.h1);
+  t('before: one outlined button, "Áp dụng cho 3 khoản khác của LE KHA NIN" (no account number)', (r.h1.match(/<button /g)||[]).length===1 && /csv-cta-sec/.test(r.h1) && />Áp dụng cho 3 khoản khác của LE KHA NIN</.test(r.h1) && !/1361/.test(r.h1), r.h1);
+  t('after: the same button turns quiet and keeps the count', /csv-cta-sec done/.test(r.h2) && /Đã áp dụng cho 3 khoản/.test(r.h2), r.h2);
+  t('nothing to carry to → no button at all (hidden, not disabled)', r.h3==='', r.h3);
+  t('the sheet: what changes with its undo, the three rows ticked, one CTA', /Sẽ đổi/.test(r.sh) && /Tiền nhà/.test(r.sh) && /csvFixUndo\(\d+,'node'\)/.test(r.sh) && (r.sh.match(/cry-tick on/g)||[]).length===3 && /Áp dụng cho 3 khoản</.test(r.sh) && /3 khoản đang chờ duyệt/.test(r.sh), r.sh);
+  t('the sheet after: the applied rows with one "Hoàn tác" for the carry, and the CTA is "Xong"', /Đã áp dụng · 3 khoản/.test(r.sh2) && /csvFixUnapply\(\d+\)/.test(r.sh2) && />Xong</.test(r.sh2), r.sh2);
+  t('tokens only in the sheet and the button', !/#[0-9a-f]{3,6}\b/i.test(r.h1+r.sh));
+}
+
+console.log('\n-- A23: the ticks decide; a hand-set row arrives unticked and can be ticked on purpose --');
+{
+  const c=mk(); const R=seed(c); c.__R=R;
+  const r=vm.runInContext(`(function(R){
+    R.A1._node='coffee'; csvHandMark(R.A1,'node');
+    R.A0._node='rent'; csvFixRecord(R.A0,'node','rent',{_node:'p2p'},null);
+    var id=R.A0._fix.id, rows=csvFixSheetRows(R.A0);
+    var shape=rows.map(function(x){ return [x.hand,x.on]; });
+    var iA2=rows.findIndex(function(x){ return x.r===R.A2; }), iA1=rows.findIndex(function(x){ return x.r===R.A1; });
+    csvFixTick(id, iA2);                                   // untick A2
+    var btn1=csvFixBarBtnHTML(R.A0);
+    csvFixTick(id, iA1);                                   // tick the hand-set A1 on purpose
+    var n=csvFixApply(id);
+    var after={a1:R.A1._node,a2:R.A2._node,a4:R.A4._node,n:n, btn:csvFixBarBtnHTML(R.A0)};
+    csvFixUnapply(id);
+    after.back=[R.A1._node,R.A4._node,R.A0._node]; after.items=Object.keys(R.A0._fix.items);
+    return {shape:shape, btn1:btn1, after:after, sheet:csvFixSheetHTML(R.A0)};
+  })(__R)`,c);
+  t('two ticked candidates, then the hand-set row last and unticked', JSON.stringify(r.shape)==='[[false,true],[false,true],[true,false]]', r.shape);
+  t('the button counts only what is ticked', /Áp dụng cho 1 khoản khác/.test(r.btn1), r.btn1);
+  t('apply follows the ticks: the unticked row is left, the hand-set row ticked on purpose is changed', r.after.a2==='p2p' && r.after.a1==='rent' && r.after.a4==='rent' && r.after.n===2, r.after);
+  t('with the unticked row still differing, the button says done, not "apply to 1"', /Đã áp dụng cho 2 khoản/.test(r.after.btn), r.after.btn);
+  t('undoing the carry puts the rows back and keeps the card\'s own edit and its line', r.after.back.join()==='coffee,p2p,rent' && r.after.items.join()==='node', r.after);
+  t('the hand-set row is labelled in the sheet', /bạn đã tự sửa/.test(r.sheet), r.sheet);
 }
 
 console.log('\n-- A17: edits stack, one line and one undo per field; one pill carries them all --');
@@ -170,7 +202,7 @@ console.log('\n-- A17: edits stack, one line and one undo per field; one pill ca
   const r=vm.runInContext(`(function(R){
     var sn=csvFixSnap(R.A0,'node'); R.A0._node='rent'; R.A0._nodeSource='user'; csvFixRecord(R.A0,'node','rent',sn,null);
     var sc=csvFixSnap(R.A0,'cat'); R.A0.categoryName='Nhà ở'; R.A0.catSource='user'; csvFixRecord(R.A0,'cat','Nhà ở',sc,null);
-    var h=csvFixBlockHTML(R.A0), id=R.A0._fix.id, fields=Object.keys(R.A0._fix.items).sort();
+    var h=csvFixSheetHTML(R.A0), id=R.A0._fix.id, fields=Object.keys(R.A0._fix.items).sort();
     csvFixApply(id);
     var both=[R.A1._node,R.A1.categoryName,R.A4._node,R.A4.categoryName];
     csvFixUndo(id,'node');
@@ -180,7 +212,7 @@ console.log('\n-- A17: edits stack, one line and one undo per field; one pill ca
     csvFixUndo(id,'cat');
     return {h:h, fields:fields, both:both, after:after, left:left, catBack:R.A0.categoryName, gone:!R.A0._fix};
   })(__R)`,c);
-  t('two fields, two status lines, each with its own undo, one pill', r.fields.join()==='cat,node' && (r.h.match(/csv-fix-undo/g)||[]).length===2 && (r.h.match(/csv-fix-cta/g)||[]).length===1 && /csvFixUndo\(\d+,'node'\)/.test(r.h) && /csvFixUndo\(\d+,'cat'\)/.test(r.h), r.h);
+  t('two fields, two lines in the sheet, each with its own undo, one CTA', r.fields.join()==='cat,node' && /csvFixUndo\(\d+,'node'\)/.test(r.h) && /csvFixUndo\(\d+,'cat'\)/.test(r.h) && (r.h.match(/cry-cta/g)||[]).length===1, r.h);
   t('the pill carried both edits', r.both.join()==='rent,Nhà ở,rent,Nhà ở', r.both);
   t('undoing the node line takes the node back everywhere and leaves the label standing', r.after[0]==='p2p' && r.after[1]==='Nhà ở' && r.after[2]===null && r.after[3]==='Nhà ở' && r.left.join()==='cat', r);
   t('a field picked twice undoes to what the card said before the FIRST pick, and the block goes with its last line', r.catBack===undefined && r.gone, r);
@@ -192,12 +224,12 @@ console.log('\n-- A18: a row the person set by hand is never overwritten, and th
   const r=vm.runInContext(`(function(R){
     R.A1._node='coffee'; csvHandMark(R.A1,'node');                      // the person filed this one themselves
     R.A0._node='rent'; csvFixRecord(R.A0,'node','rent',{_node:'p2p'},null);
-    var p=csvFixPending(R.A0), h=csvFixBlockHTML(R.A0);
+    var p=csvFixPending(R.A0), h=csvFixSheetHTML(R.A0);
     csvFixApply(R.A0._fix.id);
     return { n:p.rows.length, skipped:p.skipped, a1:R.A1._node, a2:R.A2._node, h:h, carriedHand:!!(R.A2._hand&&R.A2._hand.node), cardHand:!!(R.A0._hand&&R.A0._hand.node) };
   })(__R)`,c);
   t('the hand-set row is not counted and not touched', r.n===2 && r.skipped===1 && r.a1==='coffee' && r.a2==='rent', r);
-  t('the block says how many were left alone', /Giữ nguyên 1 khoản bạn đã tự sửa/.test(r.h), r.h);
+  t('the sheet lists it unticked, marked as set by the person', /bạn đã tự sửa/.test(r.h) && (r.h.match(/cry-tick on/g)||[]).length===2, r.h);
   t('a carry is not a hand pick: the card is marked, the rows it reached are not', r.cardHand && !r.carriedHand, r);
 }
 
@@ -221,14 +253,14 @@ console.log('\n-- A16: Loại khoản carries with its follow-up, over the ready
     var sk=csvFixSnap(R.A0,'kind');
     R.A0._loan=true; R.A0._loanWho='LE KHA NIN'; R.A0._loanDue='2026-11-01'; R.A0._scope='personal';
     csvFixRecord(R.A0,'kind',csvRowKindCur(R.A0),sk,null);
-    var h=csvFixBlockHTML(R.A0), rows=csvFixSimilar(R.A0), id=R.A0._fix.id;
+    var h=csvFixSheetHTML(R.A0), rows=csvFixSimilar(R.A0), id=R.A0._fix.id;
     csvFixApply(id);
     var a1={loan:R.A1._loan, who:R.A1._loanWho, due:R.A1._loanDue, scope:R.A1._scope, picked:R.A1._kindPicked};
     var notReady=[!!R.A2._loan, !!R.A4._loan, !!R.A3._loan], k=[R.K._xfer, !!R.K._loan];
     csvFixUndo(id,'kind');
     return { h:h, n:rows.length, hasK:rows.indexOf(R.K)>=0, a1:a1, notReady:notReady, k:k, back:[!!R.A1._loan, R.A1._loanWho, !!R.K._loan, R.K._xfer, !!R.A0._loan] };
   })(__R)`,c);
-  t('the line names the kind and who: "→ 🤝 Cho vay · LE KHA NIN"', /Đã đổi Loại khoản/.test(r.h) && /🤝 Cho vay · LE KHA NIN/.test(r.h), r.h);
+  t('the sheet names the kind and who: "Loại khoản · 🤝 Cho vay · LE KHA NIN"', /Loại khoản/.test(r.h) && /🤝 Cho vay · LE KHA NIN/.test(r.h), r.h);
   t('ready rows only, and a row of another kind IS a candidate for a kind carry', r.n===2 && r.hasK && r.notReady.every(x=>!x), r);
   t('the row takes the kind, the person and the private book; the due date stays its own', r.a1.loan===true && r.a1.who==='LE KHA NIN' && !r.a1.due && r.a1.scope==='personal' && r.a1.picked===true, r.a1);
   t('the transfer leg became a loan, its counterpart cleared', r.k[0]===false && r.k[1]===true, r.k);
@@ -241,7 +273,7 @@ console.log('\n-- A16: Loại khoản carries with its follow-up, over the ready
     var sk=csvFixSnap(R.A0,'kind'); R.A0._xfer=true; R.A0._xferOtherId='acc1';
     csvFixKindTouch(R.A0, sk, null);
     csvFixApply(R.A0._fix.id);
-    var x={a1:[R.A1._xfer,R.A1._xferOtherId], h:csvFixBlockHTML(R.A0)};
+    var x={a1:[R.A1._xfer,R.A1._xferOtherId], h:csvFixSheetHTML(R.A0)};
     // a card payment: each row asks its own mail unless the person picked the card
     var R2=R; R2.B.counterparty=R2.A0.counterparty; R2.B._mailCard='cardB';
     csvFixUndo(R.A0._fix.id,'kind');
@@ -272,31 +304,21 @@ console.log('\n-- A17: a later pick that takes an earlier one back drops its lin
   t('Gia đình clears the kind: the kind line goes, and undoing the scope line restores the loan', r.b.join()==='scope' && r.loanBack, r);
 }
 
-console.log('\n-- A20: no payee → the wording from the same bank; A19: look before it lifts --');
+console.log('\n-- A20: no payee → the wording from the same bank --');
 {
-  const c=mk(); c.__x=1;
+  const c=mk();
   const r=vm.runInContext(`(function(){
-    var W0={counterparty:'0912',description:'TT HD 1234 tien dien',amount:500000,_bank:'VIB',_node:null};
-    var W1={counterparty:'0912',description:'TT HD 9876 tien dien',amount:520000,_bank:'VIB',_node:null};
+    var W0={counterparty:'0912',description:'TT HD 1234 tien dien',amount:500000,_bank:'VIB',_node:null,dateDisplay:'2026-10-01'};
+    var W1={counterparty:'0912',description:'TT HD 9876 tien dien',amount:520000,_bank:'VIB',_node:null,dateDisplay:'2026-09-01'};
     var W2={counterparty:'0912',description:'TT HD 5555 tien dien',amount:510000,_bank:'MB',_node:null};
-    var Z ={counterparty:'VO DINH PHUC',description:'x',amount:1,_node:null};
-    csvReview={ready:[W0,W1,W2,Z],groups:[],dup:[],deferred:[]};
+    csvReview={ready:[W0,W1,W2],groups:[],dup:[],deferred:[]};
     W0._node='electric'; csvFixRecord(W0,'node','electric',{_node:null},null);
-    var s=csvFixSimilar(W0), h=csvFixBlockHTML(W0), id=W0._fix.id;
-    csvFixPeekGo(id);
-    var hide=[csvCatHide(W0),csvCatHide(W1),csvCatHide(W2),csvCatHide(Z)], bar=csvFixPeekBarHTML();
-    csvFixApply(id);
-    var still=csvCatHide(W1);
-    csvFixPeekGo(id);
-    var off=[csvCatHide(W1),csvCatHide(Z)];
-    csvFixPeekGo(id); csvFixUndo(id,'node');
-    return {n:s.length, w1:s[0]===W1, h:h, hide:hide, bar:bar, still:still, off:off, peekAfterUndo:csvFixPeek, key:csvFixKey(W0)};
+    var s=csvFixSimilar(W0);
+    return {n:s.length, w1:s[0]===W1, btn:csvFixBarBtnHTML(W0), sh:csvFixSheetHTML(W0), key:csvFixKey(W0)};
   })()`,c);
   t('same wording, same bank; another bank is not similar', r.n===1 && r.w1 && r.key.indexOf('w:')===0, r);
-  t('the pill says "cùng nội dung", never a payee it does not have', /Áp dụng cho 1 khoản cùng nội dung/.test(r.h), r.h);
-  t('looking narrows the queue to the card and the rows the pill names', r.hide.join()==='false,false,true,true' && /Đang xem 1 khoản cùng nội dung · xem tất cả/.test(r.bar), r);
-  t('the rows stay in view after the apply; a second tap shows everything again', r.still===false && r.off.join()==='false,false', r);
-  t('undoing the last line ends the look', r.peekAfterUndo===null, r);
+  t('the button says "cùng nội dung", never a payee it does not have', /Áp dụng cho 1 khoản cùng nội dung/.test(r.btn), r.btn);
+  t('the sheet row shows the day and the memo', /01\/09 · TT HD 9876 tien dien/.test(r.sh) && /Cùng nội dung, cùng ngân hàng/.test(r.sh), r.sh);
 }
 
 console.log('\n-- income category carries between money-in rows --');
@@ -315,10 +337,60 @@ console.log('\n-- income category carries between money-in rows --');
 
 console.log('\n-- A21: one carry surface --');
 {
-  t('the bottom bar\'s "Áp cho N khoản giống" is gone', !/csvApplySimilar|csvSimilarRows|khoản giống/.test(S56.replace(/\/\*[\s\S]*?\*\//g,'')) && !/csv-cta-ghost/.test(rd('src/css/74-mailbox.css')));
+  t('the bottom bar\'s "Áp cho N khoản giống" is gone', !/csvApplySimilar|csvSimilarRows|' khoản giống'/.test(S56.replace(/\/\*[\s\S]*?\*\//g,'')) && !/csv-cta-ghost/.test(rd('src/css/74-mailbox.css')));
+  t('the old block, the look filter and the timed ledger confirm are gone', !/csvFixBlockHTML|csvFixPeek|csvFixLedgerTap|csv-fix-/.test(S56) && !/\.csv-fix/.test(rd('src/css/74-mailbox.css')));
+  t('the card: changed rows wear the dot, the bar carries the door, the row sheet knows "carry"', /c\._fix && c\._fix\.items\[f\]/.test(S56) && /'<div class="csv-cta">' \+ fixBtn/.test(S56) && /if\(f==='carry'\) return c\._fix \? csvFixSheetHTML\(c\)/.test(S56));
   t('every hand pick records: kind, its follow-ups, income category', /csvFixRecord\(c, 'kind', csvRowKindCur\(c\), _fxPrevK, null\)/.test(S56) && (S56.match(/csvFixKindTouch\(c, _fx/g)||[]).length>=8 && /csvFixRecord\(c, 'inccat'/.test(S56));
   t('the bulk verbs mark the hand too', /csvHandMark\(c, 'cat'\)/.test(S56) && /csvHandMark\(c, 'node'\)/.test(S56) && /csvHandMark\(c, 'scope'\)/.test(S56));
 }
+
+console.log('\n-- L1–L7: the same carry in the book, after Lưu on the personal detail --');
+const LEDGER=(async()=>{
+  const S61=rd('src/js-ui/61-expense-detail.js');
+  const ctx={window:{},console,esc:x=>String(x),escAttr:x=>String(x),fmt:n=>String(n),curMult:()=>1000,catStyle:{},navigator:{onLine:true},TODAY:new Date(2026,9,2),
+    setTxt:()=>{}, document:{getElementById:()=>null,querySelector:()=>null}, toast:()=>{}, closeSheet:()=>{}, openSheet:()=>{}};
+  vm.createContext(ctx);
+  vm.runInContext(rd('src/js-ui/11-taxonomy.js'),ctx); ctx.window.FH_TAX=ctx.FH_TAX;
+  vm.runInContext([sliceVar(S57,'CSV_GATEWAYS'),sliceVar(S57,'CSV_BANK_NOISE'),sliceFn(S57,'csvPatternKey'),
+    "function deburr(s){ return String(s||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,''); }",
+    'var _pexdCarry=null, _pexdId="me", _pexdEdit=false;',
+    ...['_pexdCarryNodeLbl','_pexdCarryDiffers','_pexdCarryDeliberate','_pexdCarryOn','_pexdCarryPaint','_pexdCarryWhen','_pexdCarryLrow','pexdCarryTick'].map(n=>sliceFn(S61,n)),
+    ...['pexdCarryScan','_pexdCarrySettle','pexdCarryGo','pexdCarryUndo'].map(n=>'async '+sliceFn(S61,n)),
+    'function pexdCarryRender(){}'].join('\n'),ctx);
+  const P2='970400123456 - TRAN MINH KHOA';
+  const r=await vm.runInContext(`(async function(){
+    var W=[], LESS={}, P2='${P2}';
+    var slice=[
+      {id:'me', kind:'expense', amt:5000, who:P2, note:'chuyen tien', cat:'Nhà ở', node:'rent', date:'2026-10-01'},
+      {id:'a',  kind:'expense', amt:5000, who:P2, note:'chuyen tien', cat:'Khác',  node:'p2p',  date:'2026-09-01'},
+      {id:'b',  kind:'expense', amt:5000, who:P2, note:'',            cat:'',      node:null,   date:'2025-12-01'},
+      {id:'c',  kind:'expense', amt:200,  who:P2, note:'cam on anh',  cat:'Ăn ngoài', node:'eatout', date:'2026-07-14'},
+      {id:'d',  kind:'expense', amt:5000, who:P2, note:'x', cat:'Nhà ở', node:'rent', date:'2026-08-01'},
+      {id:'m',  kind:'expense', amt:5000, who:P2, note:'x', cat:'Khác',  node:'p2p', link:'L1', date:'2026-08-02'},
+      {id:'i',  kind:'income',  amt:5000, who:P2, note:'x', cat:'Khác',  node:'p2p', date:'2026-08-03'},
+      {id:'o',  kind:'expense', amt:5000, who:'VO DINH PHUC', note:'x', cat:'Khác', node:'p2p', date:'2026-08-04'}];
+    window.fhPersonalMatchSlice=async function(){ return slice; };
+    window.fhPersonalSetNode=async function(id,n){ W.push(['node',id,n]); return true; };
+    window.fhPersonalUpdateExpense=async function(id,f,q){ W.push(['cat',id,f.cat,q]); return true; };
+    window.fhLessonNode=function(i){ return LESS[i.counterparty+'|'+i.amount]||null; };
+    window.fhLessonLearnNode=function(i){ LESS[i.counterparty+'|'+i.amount]=i.node; };
+    window.fhLessonForgetNode=function(i){ delete LESS[i.counterparty+'|'+i.amount]; };
+    window.fhPersonalHydrate=async function(){ W.push(['hydrate']); };
+    await pexdCarryScan({ id:'me', who:P2, note:'chuyen tien', fields:{cat:'Nhà ở', node:'rent'}, old:{cat:'Khác', node:'p2p'} });
+    var cy=_pexdCarry, ids=cy.rows.map(function(x){return x.id;}).join(), off=Object.keys(cy.off).join(), name=cy.name;
+    await pexdCarryGo();
+    var w1=W.slice(), st1=cy.state, n1=(cy.done||[]).length, less1=Object.assign({},LESS);
+    W.length=0; await pexdCarryUndo();
+    return {ids:ids, off:off, name:name, w1:w1, st1:st1, n1:n1, less1:less1, w2:W.slice(), st2:cy.state, less2:Object.assign({},LESS), a:slice[1], b:slice[2]};
+  })()`,ctx);
+  t('similar = the payee\'s other private expense rows that differ; never the row itself, a mirror, income, another payee, or one already right', r.ids==='a,b,c', r);
+  t('a row whose category is neither empty nor what this row said before arrives unticked (L4)', r.off==='c' && r.name==='TRAN MINH KHOA', r);
+  t('the writes: label quietly through the expense writer, node through the node writer, then ONE hydrate', JSON.stringify(r.w1)===JSON.stringify([['cat','a','Nhà ở',true],['node','a','rent'],['cat','b','Nhà ở',true],['node','b','rent'],['hydrate']]), r.w1);
+  t('one node lesson per row, in đồng, keyed on the payee (P10, A15)', r.less1[P2+'|5000000']==='rent' && r.st1==='done' && r.n1===2, r.less1);
+  t('undo replays backwards through the same writers and forgets the fresh lessons', r.st2==='idle' && r.w2.filter(w=>w[0]!=='hydrate').length===4 && Object.keys(r.less2).length===0 && r.a.cat==='Khác' && r.a.node==='p2p' && r.b.node===null, r);
+  t('61: Lưu captures the before-values and scans only for an expense whose Danh mục or Tiêu vào gì changed', /if\(p\.cat!=null && p\.cat!==\(t\.cat\|\|''\)\) _cf\.cat=p\.cat;/.test(S61) && /if\(_cy\) pexdCarryScan\(_cy\);/.test(S61));
+  t('61: the view state paints the foot button; the sheet body is the shared one', /_pexdCarryPaint\(\);\s+\/\/ the view state/.test(S61) && /body\.innerHTML=fhCarryBodyHTML\(m\);/.test(S61) && /id="sheet-carry"/.test(rd('src/index.html')));
+})().catch(e=>{ t('the ledger block ran', false, String(e && e.stack || e)); });
 
 console.log('\n-- A15: the payee on a personal row is `who`; the key function never reads it --');
 {
@@ -339,4 +411,4 @@ console.log('\n-- A15: the payee on a personal row is `who`; the key function ne
   t('the sweep cursor moved with the rules (E10): one version, ≥ 12', vs.length===1 && Number(vs[0].match(/v(\d+):/)[1])>=12, vs);
 }
 
-console.log('\n'+(fail?fail+' FAILED, ':'ALL ')+pass+' PASSED'); process.exit(fail?1:0);
+LEDGER.then(()=>{ console.log('\n'+(fail?fail+' FAILED, ':'ALL ')+pass+' PASSED'); process.exit(fail?1:0); });

@@ -1898,6 +1898,28 @@ as — or the same day as — the deploy. A deploy announced only in
 
 ## 28. Releases (newest first)
 
+### 2026-10-02 (later) — "apply to similar" becomes a button and a sheet, in the queue and in the book · client only, SW v609 · no migration, no deploy
+
+- **For product:** the block under an open review card is gone. A changed row
+  wears a small dot, and the card's bottom bar gains one outlined button, "Áp
+  dụng cho 9 khoản khác của …". It opens a sheet that lists what will change and
+  exactly which rows, each of which can be unticked; rows you set yourself arrive
+  unticked; "Đổi cả 12 khoản đã ghi" is a switch; one button applies. The same
+  button and sheet now appear in the ledger: fix Danh mục or Tiêu vào gì on a
+  booked transaction, save, and the detail offers to carry it to that payee's
+  other booked rows.
+- **Under the hood:** `56-csv-import-ui.js` (`csvFixBarBtnHTML`, `csvFixSheet*`,
+  `csvFixUnapply`, shared `fhCarryBodyHTML`; `csvFixBlockHTML`, the "Xem" filter
+  and the timed ledger confirm removed), `61-expense-detail.js` (`pexdCarry*`,
+  365-day match slice, the ledger's own writers, one hydrate), `#sheet-carry` in
+  `index.html`, `.csv-cta-sec` / `.cry-*` in `74-mailbox.css`. No pipeline,
+  schema or promote change. Guard: `tools/apply-to-similar.test.js` (69 checks).
+- **Spec sections updated:** none here; `apply-to-similar-spec.md` §3a, §15,
+  A22–A23, L1–L7; `transaction-review-spec.md` §4a; `personal-ledger-spec.md` §16.
+- **Watch for:** `renderCsvReview` is still the only painter of the review sheet
+  layer; `csvRowSheet` has a new value, `'carry'`. From the ledger a label change
+  teaches no lesson (the review's label store is not loaded there).
+
 ### 2026-10-02 — review card: one "apply to similar" instead of two · client only, SW v608 · no migration, no deploy
 
 - **For product:** an open card in "Duyệt giao dịch" used to show two offers that

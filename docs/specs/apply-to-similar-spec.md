@@ -24,6 +24,21 @@ in the queue and in the book — and remembers exactly what you approved.
 > **wording** (A20); **Danh mục thu nhập** carries. §1, §3–§6, §8, §10 and §13 are
 > amended in place; where the A1–A15 text and A16–A21 disagree, the later one runs.
 
+> **Amended again 2026-10-02 (later) — a button and a sheet, and the same in the
+> book (A22, A23, L1–L7). BUILT, client only, SW v609, no migration, no deploy.**
+> The block under the rows is gone. The card now shows a dot on each changed row
+> and **one full-width outlined button on its own line in the bottom bar**; it
+> opens a **sheet**: what will change, the rows it would reach (each can be
+> unticked; a hand-set row arrives unticked), the booked rows as a switch, one
+> CTA (§3a). The sheet replaces both "Xem" (A19's filter) and the timed
+> arm-then-confirm on the booked rows. And the pattern now exists **in the ledger**:
+> after Lưu on a personal expense's detail, the same button and the same sheet
+> carry Danh mục and Tiêu vào gì to the payee's other booked rows (§15). §3, §8's
+> block copy and §10's block, look and ledger-tap paragraphs describe the
+> morning's presentation and are superseded by §3a; the rules about WHAT carries
+> and to WHICH rows (§4, §5, A1–A21) stand. Mockups: `mockups/carry-block-options.html`
+> (direction D, bar 1b), `mockups/carry-ledger-options.html` (option A).
+
 > **How this relates to its siblings.** `transaction-review-spec.md` owns the
 > queue and its card; this spec adds one block to the expanded card and two
 > verbs. `p2p-breakdown-spec.md` owns the person key (P4) this spec's "similar"
@@ -116,6 +131,49 @@ ledger-capable lines, each ledger line is tagged with its field.
 
 The block appears with or without a filter (A13). Clearing or changing the
 filter removes every block (A1) — and the cards that no longer match go with it.
+
+## 3a. The card and the sheet (2026-10-02, later — supersedes §3's presentation)
+
+**On the card.** A carried row the person changed wears the detail screen's
+pending mark: a brand dot after its label and the value in brand ink. Nothing
+else is added to the body. In the bottom bar, on its own line above delete and
+"Nhập khoản này", one outlined button:
+
+```
+[   Áp dụng cho 9 khoản khác của TRAN MINH KHOA   ]
+[🗑] [            ✓ Nhập khoản này               ]
+```
+
+- It is absent until a carried field changed **and** there is something to carry
+  it to: queue rows, or booked rows ("Áp dụng cho 12 khoản đã ghi của …").
+  Hidden, never disabled.
+- The name is the printed payee less the account number the bank prints in front
+  of it (display only; the key is unchanged). No payee: "… khoản cùng nội dung".
+- The count is the rows that are ticked. After a carry, with nothing ticked left,
+  the button turns quiet, "Đã áp dụng cho N khoản", and still opens the sheet.
+- Cards with no bottom bar of their own (Có thể trùng, Để riêng, a merchant
+  group) get the same button on a bar that holds only it.
+
+**The sheet** ("Áp dụng cho khoản giống" · "Cùng người nhận: …"), top to bottom:
+
+1. **Sẽ đổi** — one row per changed field: label, new value, "Hoàn tác". That
+   undo is A17's: the field on the card, every row it was carried to, its lessons.
+2. **N khoản đang chờ duyệt** — the rows a carry would change: day · memo, what
+   the row says today, amount, and a tick. Ticked by default; a row the person
+   set by hand is listed last, unticked, marked "bạn đã tự sửa", and can be
+   ticked on purpose (A23). Four rows show, then "Xem cả N khoản".
+3. **Đã áp dụng · K khoản** (after a carry) with one "Hoàn tác" that takes the
+   carry back and keeps the card's own edit.
+4. **Đã ghi trong sổ** — a switch, "Đổi cả M khoản đã ghi", when a Tiêu vào gì or
+   Danh mục line has booked rows (A4, A9); after it ran, "Đã đổi M khoản đã ghi ·
+   Hoàn tác". The switch is off by default: the CTA is the confirm (A10).
+5. **One CTA** that says exactly what it will do: "Áp dụng cho 8 khoản",
+   "… và 12 khoản đã ghi", "Đổi 12 khoản đã ghi", or "Xong" when nothing is
+   ticked. While booked rows are being written it reads "Đang đổi…" and cannot be
+   fired twice; the sheet closes and the toast speaks only after every write
+   landed (DESIGN §4.2).
+
+Nothing is written before the CTA. Closing the sheet keeps the ticks.
 
 ## 4. What "similar" means
 
@@ -352,18 +410,65 @@ Added 2026-10-02, from the founder's question "why are there two CTAs?":
 | A20 | **No payee → the wording from the same bank.** One fallback, never mixed with the payee space; no lesson and no ledger half under it. | Keeps the bar verb's reach for rows whose counterparty is a number |
 | A21 | **One carry surface.** The bottom bar's "Áp cho N khoản giống" is removed. | Two near-identical sentences with two counts on one card |
 
+Added 2026-10-02 (later), from the UI review (`mockups/carry-block-options.html`):
+
+| # | Decision | Why |
+|---|---|---|
+| A22 | **The card shows a dot per changed row and ONE full-width outlined button in the bottom bar; everything else lives in a sheet.** The block is removed. Chosen from four directions (D), with the bar on its own line (1b). | The block ran to seven rows and 300px, said each change twice, truncated the payee, and put brand ink on eight controls |
+| A23 | **The sheet's ticks decide.** Every row a carry would reach is listed and can be unticked; a hand-set row arrives unticked and may be ticked on purpose. Supersedes A19's "Xem" filter and refines A18: never overwritten *by default*. | A preview that is the rows themselves beats a filter that moves the queue behind the open card |
+| A10′ | **The booked rows are a switch read before the CTA**, not a timed arm-then-confirm line. | A write to booked rows should not hang on a text that swaps for three seconds |
+
+The L series — the same carry in the book (`mockups/carry-ledger-options.html`, option A):
+
+| # | Decision | Why |
+|---|---|---|
+| L1 | **After Lưu on a personal expense's detail, the view state shows the same button; it opens the same sheet.** | One pattern to learn, one sheet body to build (`fhCarryBodyHTML`) |
+| L2 | **Fields: Danh mục and Tiêu vào gì only.** Kind and book are per-row conversions and moves with their own confirm. | The two the queue's ledger half already writes |
+| L3 | **Rows: private expense rows of the same payee in the 365-day match slice.** Mirrors excluded; the family book has no payee (A9). | Same reach as the queue's "khoản đã ghi" |
+| L4 | **A row that looks deliberate arrives unticked:** its value is neither empty nor what the edited row said before. | Booked rows carry no hand mark; this is the honest proxy |
+| L5 | **Nothing is asked and nothing is offered until the save has landed.** The button stays until the person leaves the screen. | E14; a toast would expire, a prompt would interrupt |
+| L6 | **A node teaches one banded lesson per row; a label teaches nothing from this screen.** | The label-lesson store is the review's and is not loaded here; writing it blind could clobber it |
+| L7 | **No switch into the review queue.** Pending rows follow through the lessons the carry wrote, the next time the queue is built. | The queue is sealed and not loaded outside the review |
+
 ## 13. Module map
 
 | File | Change |
 |---|---|
 | `src/js-ui/56-csv-import-ui.js` | `csvFixRecord` / `csvFixSimilar` / `csvFixApply` / `csvFixUndo` / `csvFixLedgerScan` / `csvFixLedgerTap` / `csvFixLedgerUndo` / `csvFixClearAll`; the block in `csvStagedRowsCard`; hooks in `csvSheetPick` and `csvPickRowScope`; `csvCatHide` pin; filter-change clears. **2026-10-02:** `csvHandMark`, `csvFixKey`, `csvKindLbl` / `csvFixKindLabel`, `csvFixHolds` / `csvFixPrune`, `csvFixKindTouch` / `csvFixKindCopy` / `csvFixKindSame` / `csvFixXferOk`, `csvFixRowsFor` / `csvFixPending`, `csvFixPeekGo` / `csvFixPeekBarHTML`; hooks in `csvPickRowKind` and every follow-up pick; hand marks in the bulk verbs; `csvSimilarRows` / `csvApplySimilar` and the bar button removed |
 | `src/css/74-mailbox.css` | `.csv-fix*` — tokens only, 44px targets, one accent. **2026-10-02:** `.csv-fix-row`, `.csv-fix-peek`, `.csv-fix-skip`; `.csv-cta-ghost` removed |
+| `src/js-ui/56-csv-import-ui.js` (later) | **A22/A23:** `csvFixBarBtnHTML`, `csvFixSheetOpen` / `csvFixSheetHTML` / `csvFixSheetRows` / `csvFixTick` / `csvFixSheetMore` / `csvFixLedgerToggle` / `csvFixSheetGo`, `csvFixUnapply`, `csvFixLedgerUndoAll`, `csvFixPayeeName`, the shared `fhCarryBodyHTML`; `csvRowSheet === 'carry'`; `.chg` on changed rows. Removed: `csvFixBlockHTML`, `csvFixPeek*`, `csvFixLedgerTap` |
+| `src/js-ui/61-expense-detail.js`, `src/index.html`, `src/css/46-expense-detail.css` | **L1–L7:** `pexdCarryScan` / `_pexdCarryPaint` / `pexdCarrySheet` / `pexdCarryRender` / `pexdCarryTick` / `pexdCarryGo` / `pexdCarryUndo`; the `#sheet-carry` shell; the foot button |
+| `src/css/74-mailbox.css` (later) | `.csv-cta-sec`, `.cry-*` (the sheet body), the staged `.csv-srow.chg`; every `.csv-fix*` rule removed |
+| `tools/txn-detail-view-edit.test.js` | the "bottom bar is emptied" pin now allows the one carry door |
 | `tools/p2p-person-groups.test.js`, `tools/staged-bulk-select.test.js` | **2026-10-02:** harness stubs for `csvFixPeek` / `csvHandMark` (their sliced `csvCatHide` / `csvStagedSelectAll` / `csvBulkCat` now read them) |
 | `src/js-ui/13-partition.js` | `fhPersonKeyRow` never reads `who` (A15) |
 | `src/js-ui/60-transactions.js`, `21-personal.js`, `61-expense-detail.js`, `src/js-data/28-tree-backfill.js` | personal `who` → payee; family → null (A15) |
 | `src/js-data/19-personal.js` | `fhPersonalMatchSlice` decrypts `who` |
 | `src/js-data/28-tree-backfill.js` | cursor v10 → v11 |
 | `tools/apply-to-similar.test.js` | the contract, on the real functions |
+
+## 15. In the book — the ledger detail (L1–L7)
+
+On the personal transaction detail (`61-expense-detail.js`), `pexdSave` captures
+what the row said before the write. When the row is an expense and Danh mục or
+Tiêu vào gì actually changed, `pexdCarryScan` reads `fhPersonalMatchSlice()` and
+keeps `!link && kind === 'expense'` rows with the same `csvPatternKey` that do
+not already agree, unticking the deliberate ones (L4). `_pexdCarryPaint` then
+draws the button into `#pexd-cta` in the view state only; `pexdCarrySheet` fills
+`#sheet-carry` through the shared `fhCarryBodyHTML`.
+
+`pexdCarryGo` writes one row at a time through the ledger's own writers
+(`fhPersonalUpdateExpense(…, quiet)` for the label, `fhPersonalSetNode` for the
+node, with a node lesson in đồng per row), shows "Đang đổi k/N…", then
+invalidates the slice, hydrates once, refreshes the tab and the list, and only
+then closes the sheet and toasts. The button turns quiet; the sheet then shows
+the applied rows with "Hoàn tác" (`pexdCarryUndo`, backwards through the same
+writers, lessons restored or forgotten). The offer is dropped when the detail
+closes or another row opens.
+
+Not built here: the family detail (family rows carry no payee in memory); a row
+opened straight into edit from a zoom-in (it closes on save, so there is no view
+state to carry the button); label lessons (L6).
 
 ## 14. Related
 

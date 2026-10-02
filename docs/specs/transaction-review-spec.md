@@ -206,8 +206,9 @@ the memo to a quiet 2-line line, and carries the fixed context on two thin lines
 - **Bottom CTA bar:** 🗑 delete (arm-then-confirm) · **"Nhập khoản này"** (import
   just this one, via a single `fhPromoteStaged` borrowing the selection). The
   bar's third verb, "Áp cho N khoản giống", was retired on 2026-10-02: carrying a
-  change to look-alike rows is one block above the bar, after an edit, with a
-  preview and an undo (`apply-to-similar-spec.md` §6, A16–A21).
+  change to look-alike rows is now one outlined button on its own line at the
+  top of this bar, shown after an edit, opening a sheet that lists the rows and
+  holds the undo (`apply-to-similar-spec.md` §3a, A16–A23).
 
 **Two "unfilled" states, deliberately different colours.** Amber (`.miss`) is
 reserved for **blocking** — the one no-rate foreign amount that gates import.

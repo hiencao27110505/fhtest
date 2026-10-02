@@ -1246,7 +1246,8 @@ function csvStagedRowsCard(c, opts){
                       problems. */
   var row = function(f, lbl, val, mods){
     mods = mods || {};
-    var cls = 'csv-srow'+(mods.ro?' ro':'')+(csvRowHot===f && !mods.ro?' hot':'')+(mods.miss?' miss':'')+(mods.soft?' soft':'');
+    var chg = !!(c._fix && c._fix.items[f]);             // a carried field the person changed wears the dot (apply-to-similar-spec A22)
+    var cls = 'csv-srow'+(mods.ro?' ro':'')+(csvRowHot===f && !mods.ro && !chg?' hot':'')+(chg?' chg':'')+(mods.miss?' miss':'')+(mods.soft?' soft':'');
     var inner = '<small>'+lbl+'</small><span class="csv-sval"><b>'+val+'</b>'
       + (mods.ro ? '' : '<svg class="csv-schev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>')
       + '</span>';
@@ -1392,15 +1393,15 @@ function csvStagedRowsCard(c, opts){
     h += _rjB;
   }
 
-  h += csvFixBlockHTML(c);                    // apply-to-similar-spec §3: what changed, carry it, undo it
+  var fixBtn = csvFixBarBtnHTML(c);            // apply-to-similar-spec A22: the one door to the carry sheet
 
   /* Bottom CTA bar (ready rows only — dup/defer cards keep their own verbs):
      delete (moved down from the old header ✕, same arm-then-confirm) and import
-     just this one now. Carrying a change to lookalike rows is the block above,
-     and only that (apply-to-similar-spec §6: the bar's own verb was retired). */
+     just this one now. Above them, on its own line, the door to the carry sheet
+     when a carried field changed (apply-to-similar-spec A22). */
   if(opts.ctaIdx !== undefined){
     var i = opts.ctaIdx;
-    h += '<div class="csv-cta">'
+    h += '<div class="csv-cta">' + fixBtn
       + '<button type="button" class="csv-cta-del'+(csvArmedRemove===i?' armed':'')+'" onclick="csvReadyRemove('+i+')"'
       + ' aria-label="'+escAttr(csvArmedRemove===i ? L('Xác nhận xoá khoản này','Confirm removing this item') : L('Xoá khoản này','Remove this item'))+'">'
       + (csvArmedRemove===i ? esc(L('Xoá?','Delete?'))
@@ -1408,6 +1409,8 @@ function csvStagedRowsCard(c, opts){
       + '</button>'
       + '<button type="button" class="csv-cta-go" onclick="csvImportOne('+i+')">✓ '+esc(L('Nhập khoản này','Import this one'))+'</button>'
       + '</div>';
+  } else if(fixBtn){
+    h += '<div class="csv-cta">'+fixBtn+'</div>';   // cards with their own verbs (trùng, để riêng, nhóm) still get the door
   }
   return h;
 }
@@ -1533,6 +1536,7 @@ function csvNodeToggle(code){ if(!csvNodeOpen) csvNodeOpen = {}; csvNodeOpen[cod
 function csvNodeSearch(el){ csvNodeQ = (el && el.value) || ''; csvNodeRepaint(); }
 function csvRowSheetHTML(c){
   var f = csvRowSheet;
+  if(f==='carry') return c._fix ? csvFixSheetHTML(c) : '';
   var title = '', body = '';
   var chip = function(on, click, label){
     return '<button type="button" class="choice'+(on?' on':'')+'" onclick="'+click+'">'+label+'</button>';
@@ -1682,8 +1686,10 @@ function csvRowSheetHTML(c){
 function csvRowSheetSync(){
   var m = document.getElementById('csv-rowsheet'); if(!m) return;
   var c = (csvRowSheet && csvStagedMode) ? csvExpandedCandidate() : null;
-  if(!c){ if(m.innerHTML) m.innerHTML=''; csvRowSheet = null; return; }
+  if(!c || (csvRowSheet==='carry' && !c._fix)){ if(m.innerHTML) m.innerHTML=''; csvRowSheet = null; return; }
+  var sc0 = (csvRowSheet==='carry') ? m.querySelector('.crs-sheet') : null, top0 = sc0 ? sc0.scrollTop : 0;
   m.innerHTML = csvRowSheetHTML(c);
+  if(top0){ var sc1 = m.querySelector('.crs-sheet'); if(sc1) sc1.scrollTop = top0; }   // a tick must not jump the list back to the top
   if(csvRowSheet==='node' && csvNodeReveal){ csvNodeReveal = false; fhNodeOutlineReveal(document.getElementById('csvnode-list')); }
 }
 
@@ -1699,15 +1705,16 @@ function csvSimKey(c){
 
 /* ═══ Corrections that carry (docs/specs/apply-to-similar-spec.md) ════════════
    The ONE carry surface on a queue card. Every category-shaped edit on a card
-   leaves a line that says what changed and can be undone on its own (A1, A11,
-   A17); one pill carries every pending edit to the payee's other cards (A2, A3,
-   A12, A14) without ever overwriting a row the person set by hand (A18); the
-   count can be looked at before it is applied (A19); node and label edits also
-   reach the payee's booked rows (A4, A9, A10). Loại khoản carries too, with its
+   marks its row and can be undone on its own (A1, A11, A17); ONE full-width
+   button in the card's bottom bar opens a sheet that lists what will change and
+   which rows, each of which can be unticked (A19, A22, A23); the sheet's CTA
+   carries every pending edit to the payee's other cards (A2, A3, A12, A14),
+   leaving rows the person set by hand unticked (A18); node and label edits also
+   reach the payee's booked rows through the sheet's switch (A4, A9, A10). Loại khoản carries too, with its
    follow-up, over the ready list only (A16, which reverses A7's exclusion).
    State lives on the candidate as `_fix = { id, items:{field: item}, peek }`;
    the registry lets an onclick find the card whatever bucket it renders in. */
-var csvFixes = {}, csvFixSeq = 0, csvFixArmTimer = null, csvFixPeek = null;
+var csvFixes = {}, csvFixSeq = 0;
 var CSV_FIX_LBL = { scope:['Ghi vào','Goes to'], kind:['Loại khoản','Kind'], cat:['Danh mục','Category'], inccat:['Danh mục','Category'], node:['Tiêu vào gì','What it was'], who:['Ai trả','Who paid'] };
 var CSV_FIX_ORDER = ['scope','kind','cat','inccat','node','who'];
 /* A field the person set BY HAND on this row (a per-row pick or a bulk verb over
@@ -1724,6 +1731,12 @@ function csvFixKey(c){
 function csvFixPayee(c){                                             // P8: as the bank printed it; none under the wording key
   if(csvFixKey(c).charAt(0)!=='p') return '';
   return String((c && (c.counterparty || c.description)) || '').trim();
+}
+/* The name a person would say: the printed payee less the account number the
+   bank prints in front of it ("970400123456 - TRAN MINH KHOA"). Display only. */
+function csvFixPayeeName(c){
+  var p = csvFixPayee(c), n = p.replace(/^[\d\s.:\-–—]+/, '').trim();
+  return n.length >= 3 ? n : p;
 }
 function csvKindLbl(c, cur){
   var m = { expense:L('Chi tiêu','Spending'), cardpay:L('💳 Trả nợ thẻ','💳 Card payment'),
@@ -1811,7 +1824,6 @@ function csvFixPrune(c, keep){
 }
 function csvFixDrop(c){
   var fx = c && c._fix; if(!fx) return;
-  if(csvFixPeek===fx.id) csvFixPeek = null;
   delete csvFixes[fx.id]; delete c._fix;
 }
 /* One line per field (A17). The same field picked again keeps the FIRST snapshot,
@@ -1819,13 +1831,12 @@ function csvFixDrop(c){
 function csvFixRecord(c, f, v, prev, lessonPrev){
   if(!c || !CSV_FIX_LBL[f]) return;
   var fx = c._fix;
-  if(!fx){ fx = c._fix = { id: ++csvFixSeq, items:{}, peek:null }; csvFixes[fx.id] = c; }
+  if(!fx){ fx = c._fix = { id: ++csvFixSeq, items:{}, off:[], on:[], ledgerOn:false, more:false, busy:false }; csvFixes[fx.id] = c; }
   var it = fx.items[f];
   if(it) it.v = v;
   else it = fx.items[f] = { f:f, v:v, prev:prev, lesson:lessonPrev, hand0: !!(c._hand && c._hand[f]), applied:null, ledger:null };
   csvHandMark(c, f);
   csvFixPrune(c, f);
-  if(csvFixPeek===fx.id) fx.peek = csvFixPeekRows(c);
   if((f==='node' || f==='cat') && window.csvStagedMode && !(it.ledger && (it.ledger.state==='busy' || it.ledger.state==='done'))) csvFixLedgerScan(fx.id, f);
 }
 /* The kind's follow-up answer changed (which card, which account, who, which
@@ -1838,7 +1849,7 @@ function csvFixKindTouch(c, snap, sub){
 }
 function csvFixClearAll(){
   Object.keys(csvFixes).forEach(function(id){ var c = csvFixes[id]; if(c) delete c._fix; });
-  csvFixes = {}; csvFixPeek = null; clearTimeout(csvFixArmTimer);
+  csvFixes = {};
 }
 /* Every card in the queue, whichever bucket holds it (A12). */
 function csvFixCandidates(){
@@ -1921,14 +1932,15 @@ function csvFixRowsFor(c, it){
 /* Everything the pill would touch: the union over the card's lines. */
 function csvFixPending(c){
   var fx = c && c._fix, rows = [], skip = [];
-  if(!fx) return { rows:rows, skipped:0 };
+  if(!fx) return { rows:rows, skipped:0, skipRows:[] };
   CSV_FIX_ORDER.forEach(function(f){
     var it = fx.items[f]; if(!it) return;
     var res = csvFixRowsFor(c, it);
     res.rows.forEach(function(r){ if(rows.indexOf(r)<0) rows.push(r); });
     res.skip.forEach(function(r){ if(skip.indexOf(r)<0) skip.push(r); });
   });
-  return { rows:rows, skipped:skip.filter(function(r){ return rows.indexOf(r)<0; }).length };
+  skip = skip.filter(function(r){ return rows.indexOf(r)<0; });
+  return { rows:rows, skipped:skip.length, skipRows:skip };
 }
 function csvFixSimilar(c){ return csvFixPending(c).rows; }
 function csvFixAppliedRows(c){
@@ -1938,10 +1950,16 @@ function csvFixAppliedRows(c){
 }
 function csvFixApply(id){
   var c = csvFixes[id]; if(!c || !c._fix) return;
-  var fx = c._fix, catTaught = false, n = 0;
+  var fx = c._fix, catTaught = false, n = 0, touched = [];
+  var off = fx.off || [], on = fx.on || [];
   CSV_FIX_ORDER.forEach(function(f){
     var it = fx.items[f]; if(!it) return;
-    var rows = csvFixRowsFor(c, it).rows; if(!rows.length) return;
+    /* the sheet's ticks decide: a row unticked is left alone, a hand-set row
+       ticked on purpose is the person overruling their own earlier pick (A23) */
+    var res = csvFixRowsFor(c, it);
+    var rows = res.rows.filter(function(r){ return off.indexOf(r)<0; })
+      .concat(res.skip.filter(function(r){ return on.indexOf(r)>=0; }));
+    if(!rows.length) return;
     if(!it.applied) it.applied = { rows:[] };
     rows.forEach(function(r){
       var seen = it.applied.rows.some(function(d){ return d.r===r; });
@@ -1955,13 +1973,27 @@ function csvFixApply(id){
       csvFixTeach(f, it.v, r);
       if(f==='cat' && typeof fhSyncMerchantCorrection==='function'){ try{ fhSyncMerchantCorrection(r); }catch(e){} }
       if(!seen) it.applied.rows.push({ r:r, prev:prev, lesson:lp });   // a row carried twice keeps its FIRST snapshot; its bucket is untouched (A14)
-      n++;
+      n++; if(touched.indexOf(r)<0) touched.push(r);
     });
     if(f==='cat') catTaught = true;
   });
-  if(!n) return;
+  if(!n) return 0;
   if(catTaught) csvLearnSave();
-  if(csvFixPeek===fx.id) fx.peek = csvFixPeekRows(c);
+  renderCsvReview();
+  return touched.length;
+}
+/* Take the carry back and keep the card's own edit: every row it reached goes
+   back to what it said, and the lessons those rows wrote are put back (A11). */
+function csvFixUnapply(id){
+  var c = csvFixes[id]; if(!c || !c._fix) return;
+  var fx = c._fix, cat = false;
+  Object.keys(fx.items).forEach(function(f){
+    var it = fx.items[f]; if(!it.applied) return;
+    it.applied.rows.forEach(function(d){ csvFixRestore(d.r, d.prev); csvFixUnteach(f, d.r, d.lesson); });
+    it.applied = null; if(f==='cat') cat = true;
+  });
+  if(cat) csvLearnSave();
+  window.toast && toast(L('Đã hoàn tác','Undone'));
   renderCsvReview();
 }
 /* Undo ONE line: the card's field, every row that line was carried to, and the
@@ -1980,28 +2012,8 @@ function csvFixUndo(id, f){
   delete fx.items[f];
   csvFixPrune(c, null);
   if(!Object.keys(fx.items).length) csvFixDrop(c);
-  else if(csvFixPeek===fx.id) fx.peek = csvFixPeekRows(c);
   window.toast && toast(L('Đã hoàn tác','Undone'));
   renderCsvReview();
-}
-/* ── look before it lifts (A19): narrow the queue to the rows the pill names ── */
-function csvFixPeekRows(c){
-  var rows = csvFixPending(c).rows.slice();
-  csvFixAppliedRows(c).forEach(function(r){ if(rows.indexOf(r)<0) rows.push(r); });
-  return rows;
-}
-function csvFixPeekGo(id){
-  var c = id ? csvFixes[id] : null;
-  if(!c || !c._fix || csvFixPeek===id){ csvFixPeek = null; }
-  else { c._fix.peek = csvFixPeekRows(c); csvFixPeek = id; }
-  renderCsvReview();
-}
-function csvFixPeekBarHTML(){
-  var c = csvFixPeek ? csvFixes[csvFixPeek] : null; if(!c || !c._fix) return '';
-  var n = (c._fix.peek||[]).length, p = csvFixPayee(c);
-  return '<button type="button" class="ctree-clear" onclick="csvFixPeekGo(0)">'
-    + esc(p ? L('Đang xem '+n+' khoản khác của '+p+' · xem tất cả','Showing '+n+' other rows from '+p+' · show all')
-            : L('Đang xem '+n+' khoản cùng nội dung · xem tất cả','Showing '+n+' rows with the same wording · show all'))+'</button>';
 }
 /* ── the book (A4, A9, A10): the payee's booked personal rows, per line ────── */
 function csvFixLedgerScan(id, f){
@@ -2021,23 +2033,7 @@ function csvFixLedgerScan(id, f){
     renderCsvReview();
   }, function(){ if(c._fix && c._fix.items[f]===it) it.ledger = null; });
 }
-function csvFixLedgerTap(id, f){
-  var c = csvFixes[id]; if(!c || !c._fix) return;
-  var it = c._fix.items[f]; if(!it || !it.ledger) return;
-  var lg = it.ledger;
-  if(lg.state==='idle'){
-    if(navigator.onLine===false){ window.toast && toast(L('Cần mạng để đổi khoản đã ghi','You need to be online to change booked rows')); return; }
-    lg.state='armed'; renderCsvReview();                          // arm-then-confirm, in place (DESIGN §3)
-    clearTimeout(csvFixArmTimer);
-    csvFixArmTimer = setTimeout(function(){ if(it.ledger===lg && lg.state==='armed'){ lg.state='idle'; renderCsvReview(); } }, 3200);
-    return;
-  }
-  if(lg.state!=='armed') return;
-  clearTimeout(csvFixArmTimer);
-  lg.state='busy'; renderCsvReview();
-  csvFixLedgerRun(c, it, lg);
-}
-async function csvFixLedgerRun(c, it, lg){
+async function csvFixLedgerRun(c, it, lg, quiet){
   var mult = (typeof curMult==='function') ? curMult() : 1000, done = [], fail = 0;
   for(var i=0;i<lg.rows.length;i++){
     var t = lg.rows[i], ok = false, prev = null;
@@ -2061,10 +2057,12 @@ async function csvFixLedgerRun(c, it, lg){
   try{ if(done.length && window.fhPersonalHydrate) await window.fhPersonalHydrate(); }catch(e){}
   lg.state = 'done'; lg.done = done; lg.fail = fail;
   var n = done.length;                                              // reported only after the writes landed (DESIGN §4.2)
+  if(quiet) return { n:n, fail:fail };
   window.toast && toast(fail
     ? L('Đã đổi '+n+' khoản · '+fail+' khoản lỗi, thử lại nhé','Changed '+n+' · '+fail+' failed, try again')
     : L('Đã đổi '+n+' khoản đã ghi','Changed '+n+' booked rows'));
   renderCsvReview();
+  return { n:n, fail:fail };
 }
 async function csvFixLedgerUndo(id, f){
   var c = csvFixes[id]; if(!c || !c._fix) return;
@@ -2090,45 +2088,188 @@ async function csvFixLedgerUndo(id, f){
   window.toast && toast(fail ? L('Hoàn tác được một phần · '+fail+' khoản lỗi','Partly undone · '+fail+' failed') : L('Đã hoàn tác','Undone'));
   renderCsvReview();
 }
-/* The block under the card's rows (spec §3): one status line with undo per
-   changed field, the queue pill with its look-first door, the skipped note, the
-   ledger lines. Tokens only, 44px targets, the brand ink on the things that act.
-   Hidden lines are absent, not disabled. */
-function csvFixBlockHTML(c){
-  var fx = c && c._fix; if(!fx) return '';
-  var fields = CSV_FIX_ORDER.filter(function(f){ return !!fx.items[f]; }); if(!fields.length) return '';
-  var payee = csvFixPayee(c), h = '<div class="csv-fix">';
-  fields.forEach(function(f){
-    var it = fx.items[f], lbl = CSV_FIX_LBL[f];
-    h += '<div class="csv-fix-l"><small>'+esc(L('Đã đổi '+lbl[0],'Changed '+lbl[1]))+'</small>'
-      + '<b>→ '+esc(csvFixValLabel(f, it.v, c))+'</b>'
-      + '<button type="button" class="csv-fix-undo" onclick="csvFixUndo('+fx.id+',\''+f+'\')">'+esc(L('Hoàn tác','Undo'))+'</button></div>';
-  });
-  var pend = csvFixPending(c), sims = pend.rows.length, done = csvFixAppliedRows(c).length;
-  var peekBtn = '<button type="button" class="csv-fix-peek" onclick="csvFixPeekGo('+fx.id+')">'
-    + esc(csvFixPeek===fx.id ? L('Xem tất cả','Show all') : L('Xem','Look'))+'</button>';
-  if(sims){
-    h += '<div class="csv-fix-row"><button type="button" class="csv-fix-cta" onclick="csvFixApply('+fx.id+')">'
-      + esc(payee ? L('Áp dụng cho '+sims+' khoản khác của '+payee,'Apply to '+sims+' other rows from '+payee)
-                  : L('Áp dụng cho '+sims+' khoản cùng nội dung','Apply to '+sims+' rows with the same wording'))+'</button>'+peekBtn+'</div>';
-  } else if(done){
-    h += '<div class="csv-fix-row"><div class="csv-fix-done">'+esc(payee ? L('Đã áp dụng cho '+done+' khoản khác của '+payee,'Applied to '+done+' other rows from '+payee)
-                                                : L('Đã áp dụng cho '+done+' khoản cùng nội dung','Applied to '+done+' rows with the same wording'))+'</div>'+peekBtn+'</div>';
-  }
-  if(pend.skipped) h += '<div class="csv-fix-skip">'+esc(L('Giữ nguyên '+pend.skipped+' khoản bạn đã tự sửa','Left '+pend.skipped+' rows you set yourself'))+'</div>';
-  var lgFields = fields.filter(function(f){ var lg = fx.items[f].ledger; return lg && lg.rows && lg.rows.length && lg.state!=='scan' && lg.state!=='none'; });
-  lgFields.forEach(function(f){
-    var lg = fx.items[f].ledger, m = lg.rows.length, txt, cls = 'csv-fix-ledger', on = 'csvFixLedgerTap('+fx.id+',\''+f+'\')', dis = '';
-    var tag = lgFields.length>1 ? ' · '+L(CSV_FIX_LBL[f][0], CSV_FIX_LBL[f][1]) : '';
-    if(lg.state==='idle') txt = L('… và '+m+' khoản đã ghi','… and '+m+' booked rows')+tag;
-    else if(lg.state==='armed'){ txt = L('Chạm lần nữa để đổi '+m+' khoản đã ghi','Tap again to change '+m+' booked rows'); cls += ' armed'; }
-    else if(lg.state==='busy'){ txt = L('Đang đổi '+m+' khoản đã ghi…','Changing '+m+' booked rows…'); dis = ' disabled'; }
-    else { var k = (lg.done||[]).length; txt = L('Đã đổi '+k+' khoản đã ghi · Hoàn tác','Changed '+k+' booked rows · Undo')+tag; cls += ' done'; on = 'csvFixLedgerUndo('+fx.id+',\''+f+'\')'; }
-    h += '<button type="button" class="'+cls+'"'+dis+' onclick="'+on+'">'+esc(txt)+'</button>';
-  });
-  return h + '</div>';
+/* ── the door and the sheet (A22, A23) ───────────────────────────────────────
+   The card shows ONE thing: a full-width outlined button in its bottom bar. It
+   is absent until a carried field changed AND there is something to carry it to.
+   The sheet says what will change, lists the rows (each can be unticked; a row
+   the person set by hand arrives unticked), offers the booked rows as a switch,
+   and has one CTA. Nothing is written before that CTA. */
+function csvFixLedgerItems(c, state){
+  var fx = c && c._fix, out = []; if(!fx) return out;
+  ['cat','node'].forEach(function(f){ var it = fx.items[f], lg = it && it.ledger;
+    if(lg && lg.rows && lg.rows.length && lg.state===state) out.push(it); });
+  return out;
 }
-window.csvFixApply = csvFixApply; window.csvFixUndo = csvFixUndo; window.csvFixLedgerTap = csvFixLedgerTap; window.csvFixLedgerUndo = csvFixLedgerUndo; window.csvFixPeekGo = csvFixPeekGo;
+function csvFixLedgerCount(items){ return items.reduce(function(m, it){ return Math.max(m, it.ledger.rows.length); }, 0); }
+/* The rows the sheet lists, in a stable order: the ones a carry would change,
+   then the hand-set ones. `on` is what the CTA will act on. */
+function csvFixSheetRows(c){
+  var fx = c._fix, p = csvFixPending(c), out = [];
+  p.rows.forEach(function(r){ out.push({ r:r, hand:false, on:(fx.off||[]).indexOf(r)<0 }); });
+  p.skipRows.forEach(function(r){ out.push({ r:r, hand:true, on:(fx.on||[]).indexOf(r)>=0 }); });
+  return out;
+}
+function csvFixBarBtnHTML(c){
+  var fx = c && c._fix; if(!fx || !Object.keys(fx.items).length) return '';
+  var n = csvFixSheetRows(c).filter(function(x){ return x.on; }).length;
+  var done = csvFixAppliedRows(c).length;
+  var lgIdle = csvFixLedgerCount(csvFixLedgerItems(c,'idle')), lgDone = csvFixLedgerCount(csvFixLedgerItems(c,'done'));
+  var name = csvFixPayeeName(c), txt, cls = 'csv-cta-sec';
+  if(n) txt = name ? L('Áp dụng cho '+n+' khoản khác của '+name,'Apply to '+n+' other rows from '+name)
+                   : L('Áp dụng cho '+n+' khoản cùng nội dung','Apply to '+n+' rows with the same wording');
+  else if(done || lgDone){ var k = done + lgDone; txt = L('Đã áp dụng cho '+k+' khoản','Applied to '+k+' rows'); cls += ' done'; }
+  else if(lgIdle) txt = name ? L('Áp dụng cho '+lgIdle+' khoản đã ghi của '+name,'Apply to '+lgIdle+' booked rows from '+name)
+                             : L('Áp dụng cho '+lgIdle+' khoản đã ghi','Apply to '+lgIdle+' booked rows');
+  else return '';
+  return '<button type="button" class="'+cls+'" onclick="csvFixSheetOpen('+fx.id+')"><span>'+esc(txt)+'</span></button>';
+}
+function csvFixSheetOpen(id){
+  var c = csvFixes[id]; if(!c || !c._fix || csvExpandedCandidate()!==c) return;
+  csvReadEditor(c); csvDisarmRemove();
+  c._fix.more = false;
+  csvRowSheet = 'carry';
+  renderCsvReview();
+}
+function csvFixTick(id, i){
+  var c = csvFixes[id]; if(!c || !c._fix || c._fix.busy) return;
+  var fx = c._fix, x = csvFixSheetRows(c)[i]; if(!x) return;
+  var list = x.hand ? (fx.on || (fx.on = [])) : (fx.off || (fx.off = []));
+  var k = list.indexOf(x.r);
+  if(k>=0) list.splice(k,1); else list.push(x.r);
+  renderCsvReview();
+}
+function csvFixSheetMore(id){ var c = csvFixes[id]; if(c && c._fix){ c._fix.more = true; renderCsvReview(); } }
+function csvFixLedgerToggle(id){ var c = csvFixes[id]; if(c && c._fix && !c._fix.busy){ c._fix.ledgerOn = !c._fix.ledgerOn; renderCsvReview(); } }
+/* The sheet's one CTA: the queue rows at once, then the booked rows if the
+   switch is on. The button says what it is doing and cannot be fired twice;
+   success is reported only after every write has landed (DESIGN §4.2). */
+async function csvFixSheetGo(id){
+  var c = csvFixes[id]; if(!c || !c._fix || c._fix.busy) return;
+  var fx = c._fix;
+  var n = csvFixSheetRows(c).filter(function(x){ return x.on; }).length;
+  var lgs = fx.ledgerOn ? csvFixLedgerItems(c,'idle') : [];
+  if(!n && !lgs.length){ window.toast && toast(L('Chọn ít nhất một khoản','Pick at least one row')); return; }
+  if(lgs.length && navigator.onLine===false){ window.toast && toast(L('Cần mạng để đổi khoản đã ghi','You need to be online to change booked rows')); return; }
+  var k = n ? (csvFixApply(id) || 0) : 0, m = 0, fail = 0;
+  if(lgs.length){
+    fx.busy = true; renderCsvReview();
+    for(var i=0;i<lgs.length;i++){
+      lgs[i].ledger.state = 'busy';
+      var res = await csvFixLedgerRun(c, lgs[i], lgs[i].ledger, true);
+      m = Math.max(m, res.n); fail = Math.max(fail, res.fail);
+    }
+    fx.busy = false; fx.ledgerOn = false;
+  }
+  if(csvRowSheet==='carry') csvRowSheet = null;
+  var msg = (k && m) ? L('Đã áp dụng cho '+k+' khoản và '+m+' khoản đã ghi','Applied to '+k+' rows and '+m+' booked rows')
+          : k ? L('Đã áp dụng cho '+k+' khoản','Applied to '+k+' rows')
+          : L('Đã đổi '+m+' khoản đã ghi','Changed '+m+' booked rows');
+  if(fail) msg += L(' · '+fail+' khoản lỗi, thử lại nhé',' · '+fail+' failed, try again');
+  window.toast && toast(esc(msg));
+  renderCsvReview();
+}
+async function csvFixLedgerUndoAll(id){
+  var c = csvFixes[id]; if(!c || !c._fix || c._fix.busy) return;
+  var its = csvFixLedgerItems(c,'done');
+  c._fix.busy = true;
+  for(var i=0;i<its.length;i++) await csvFixLedgerUndo(id, its[i].f);
+  if(c._fix) c._fix.busy = false;
+  renderCsvReview();
+}
+/* One sheet body for both places the carry lives: the review card (here) and the
+   ledger detail (61). A pure function of its model, so the two cannot drift.
+   m = { fields:[{label,value,undo}], secs:[{title, link:{label,tap}, rows:[{on,ro,tap,when,was,amt,tag}], more:{label,tap}}],
+         sw:{label,on,tap}, note:{text,label,tap}, cta:{label,tap,busy,cls} } */
+function fhCarryBodyHTML(m){
+  var TK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg>';
+  var h = '';
+  if(m.fields && m.fields.length){
+    h += '<div class="cry-sec"><span>'+esc(L('Sẽ đổi','Will change'))+'</span></div><div class="cry-list">';
+    m.fields.forEach(function(f){
+      h += '<div class="cry-row"><small>'+esc(f.label)+'</small><b>'+esc(f.value)+'</b>'
+        + (f.undo ? '<button type="button" class="cry-link" onclick="'+f.undo+'">'+esc(L('Hoàn tác','Undo'))+'</button>' : '')+'</div>';
+    });
+    h += '</div>';
+  }
+  (m.secs||[]).forEach(function(sec){
+    if(!sec.rows || !sec.rows.length) return;
+    h += '<div class="cry-sec"><span>'+esc(sec.title)+'</span>'
+      + (sec.link ? '<button type="button" class="cry-link" onclick="'+sec.link.tap+'">'+esc(sec.link.label)+'</button>' : '')+'</div><div class="cry-list">';
+    sec.rows.forEach(function(r){
+      var inner = '<span class="cry-tick'+(r.on?' on':'')+'">'+TK+'</span><span class="cry-when">'+esc(r.when)+(r.tag?' <em>'+esc(r.tag)+'</em>':'')+'</span>'
+        + (r.was ? '<span class="cry-was">'+esc(r.was)+'</span>' : '')+'<span class="cry-amt num">'+esc(r.amt)+'</span>';
+      h += r.ro ? '<div class="cry-row'+(r.on?'':' off')+'">'+inner+'</div>'
+                : '<button type="button" class="cry-row'+(r.on?'':' off')+'" role="checkbox" aria-checked="'+(r.on?'true':'false')+'" onclick="'+r.tap+'">'+inner+'</button>';
+    });
+    if(sec.more) h += '<button type="button" class="cry-more" onclick="'+sec.more.tap+'">'+esc(sec.more.label)+'</button>';
+    h += '</div>';
+  });
+  if(m.sw) h += '<div class="cry-sec"><span>'+esc(m.sw.title)+'</span></div><div class="cry-list">'
+    + '<button type="button" class="cry-row" role="switch" aria-checked="'+(m.sw.on?'true':'false')+'" onclick="'+m.sw.tap+'"><span class="cry-when">'+esc(m.sw.label)+'</span><span class="cry-sw'+(m.sw.on?' on':'')+'"></span></button></div>';
+  if(m.note) h += '<div class="cry-sec"><span>'+esc(m.note.title)+'</span></div><div class="cry-list"><div class="cry-row"><span class="cry-when">'+esc(m.note.text)+'</span>'
+    + '<button type="button" class="cry-link" onclick="'+m.note.tap+'">'+esc(m.note.label)+'</button></div></div>';
+  if(m.cta) h += '<button type="button" class="'+(m.cta.cls||'crs-done')+' cry-cta"'+(m.cta.busy?' disabled':'')+' onclick="'+m.cta.tap+'">'+esc(m.cta.label)+'</button>';
+  return h;
+}
+function csvFixRowWhen(r){
+  var d = r.dateDisplay ? (r.dateDisplay.slice(8,10)+'/'+r.dateDisplay.slice(5,7)) : '';
+  var t = String(r.description || '').trim() || String(r.counterparty || '').replace(/^[\d\s.:\-–—]+/, '').trim();
+  t = t.slice(0, 28);
+  return d + (d && t ? ' · ' : '') + t;
+}
+/* What the row says today, for the first changed field it does not yet agree
+   with: the thing the person is about to overwrite. */
+function csvFixRowWas(c, r){
+  var fx = c._fix, f = null;
+  CSV_FIX_ORDER.forEach(function(k){ if(!f && fx.items[k] && !csvFixSame(r, c, fx.items[k])) f = k; });
+  if(f==='kind') return csvKindLbl(r, csvRowKindCur(r));
+  if(f==='cat') return r.categoryName ? csvCatLabel(r.categoryName) : L('Chưa rõ','Not set');
+  if(f==='node') return (r._node && window.FH_TAX && FH_TAX.get(r._node)) ? FH_TAX.get(r._node).vi : L('Chưa rõ','Not sure yet');
+  if(f==='inccat') return r._incomeCat || 'Khác';
+  if(f==='scope') return (typeof csvTxrLbl==='function') ? csvTxrLbl(csvRowScope(r)) : '';
+  if(f==='who') return r.who || '';
+  return '';
+}
+function csvFixSheetHTML(c){
+  var fx = c._fix, id = fx.id, CAP = 4;
+  var fields = CSV_FIX_ORDER.filter(function(f){ return !!fx.items[f]; }).map(function(f){
+    var lbl = CSV_FIX_LBL[f];
+    return { label:L(lbl[0], lbl[1]), value:csvFixValLabel(f, fx.items[f].v, c), undo:fx.busy ? '' : 'csvFixUndo('+id+',\''+f+'\')' };
+  });
+  var cand = csvFixSheetRows(c), on = cand.filter(function(x){ return x.on; }).length;
+  var shown = fx.more ? cand : cand.slice(0, CAP);
+  var secs = [{
+    title: L(cand.length+' khoản đang chờ duyệt', cand.length+' rows waiting for review'),
+    rows: shown.map(function(x, i){ return { on:x.on, tap:'csvFixTick('+id+','+i+')', when:csvFixRowWhen(x.r), was:csvFixRowWas(c, x.r),
+      amt:csvAmtDisp(x.r), tag:x.hand ? L('bạn đã tự sửa','set by you') : '' }; }),
+    more: cand.length > shown.length ? { label:L('Xem cả '+cand.length+' khoản','Show all '+cand.length), tap:'csvFixSheetMore('+id+')' } : null
+  }];
+  var applied = csvFixAppliedRows(c);
+  if(applied.length) secs.push({
+    title: L('Đã áp dụng · '+applied.length+' khoản','Applied · '+applied.length+' rows'),
+    link: fx.busy ? null : { label:L('Hoàn tác','Undo'), tap:'csvFixUnapply('+id+')' },
+    rows: applied.slice(0, CAP).map(function(r){ return { on:true, ro:true, when:csvFixRowWhen(r), amt:csvAmtDisp(r) }; })
+  });
+  var lgIdle = csvFixLedgerItems(c,'idle'), lgBusy = csvFixLedgerItems(c,'busy'), lgDone = csvFixLedgerItems(c,'done');
+  var m = { fields:fields, secs:secs };
+  var M = csvFixLedgerCount(lgIdle.concat(lgBusy));
+  if(M) m.sw = { title:L('Đã ghi trong sổ','Already in the book'), label:L('Đổi cả '+M+' khoản đã ghi','Also change '+M+' booked rows'), on:!!fx.ledgerOn || !!lgBusy.length, tap:'csvFixLedgerToggle('+id+')' };
+  else if(lgDone.length) m.note = { title:L('Đã ghi trong sổ','Already in the book'), text:L('Đã đổi '+csvFixLedgerCount(lgDone)+' khoản đã ghi','Changed '+csvFixLedgerCount(lgDone)+' booked rows'), label:L('Hoàn tác','Undo'), tap:'csvFixLedgerUndoAll('+id+')' };
+  var doL = !!(fx.ledgerOn && lgIdle.length);
+  if(fx.busy) m.cta = { label:L('Đang đổi…','Changing…'), tap:'', busy:true };
+  else if(on || doL) m.cta = { label: on ? (L('Áp dụng cho '+on+' khoản','Apply to '+on+' rows') + (doL ? L(' và '+M+' khoản đã ghi',' and '+M+' booked rows') : ''))
+                                          : L('Đổi '+M+' khoản đã ghi','Change '+M+' booked rows'), tap:'csvFixSheetGo('+id+')' };
+  else m.cta = { label:L('Xong','Done'), tap:'csvRowSheetClose()' };
+  var name = csvFixPayeeName(c);
+  return '<div class="crs-scrim" onclick="'+(fx.busy?'':'csvRowSheetClose()')+'"></div>'
+    + '<div class="crs-sheet"><div class="modal-grip"></div>'
+    + '<div class="crs-t">'+esc(L('Áp dụng cho khoản giống','Apply to similar rows'))+'</div>'
+    + '<div class="crs-sub">'+esc(name ? L('Cùng người nhận: '+name,'Same payee: '+name) : L('Cùng nội dung, cùng ngân hàng','Same wording, same bank'))+'</div>'
+    + '<div class="crs-body">'+fhCarryBodyHTML(m)+'</div></div>';
+}
+window.csvFixApply = csvFixApply; window.csvFixUndo = csvFixUndo; window.csvFixUnapply = csvFixUnapply; window.csvFixLedgerUndo = csvFixLedgerUndo;
+window.csvFixSheetOpen = csvFixSheetOpen; window.csvFixTick = csvFixTick; window.csvFixSheetMore = csvFixSheetMore; window.csvFixLedgerToggle = csvFixLedgerToggle;
+window.csvFixSheetGo = csvFixSheetGo; window.csvFixLedgerUndoAll = csvFixLedgerUndoAll; window.fhCarryBodyHTML = fhCarryBodyHTML;
 /* Import exactly one row, now. Rides the whole fhPromoteStaged machinery —
    write, retire, view rebuild — by borrowing the selection for one call:
    everything else is unticked for the duration and restored after, so the
@@ -3041,10 +3182,6 @@ function csvTreeLeafOf(c, kind){
    row is judged in its own list's vocabulary, so an income leaf filters
    income cards and a transfer leaf filters the moves. */
 function csvCatHide(c){
-  if(csvFixPeek){                               // A19: looking at the rows a carry names; it outranks the other filters while it is on
-    var pc = csvFixes[csvFixPeek];
-    if(pc && pc._fix && pc._fix.peek) return !(c===pc || pc._fix.peek.indexOf(c)>=0);
-  }
   if(c && c._fix) return false;                 // A1: a card you just corrected stays put until the filter is cleared or changed
   if(csvPersonFilter) return !csvIsP2P(c) || csvPersonKeyOf(c)!==csvPersonFilter;   // a person is judged by key alone, whichever p2p leaf the row rests on
   if(!csvCatFilter) return false;
@@ -3120,9 +3257,7 @@ function csvOtherTreeHTML(){
    three, and it must survive even a re-render where every list came back
    empty (say, right after importing the filtered rows). */
 function csvCatWidgetsHTML(){
-  if(!csvStagedMode || !csvReview) return '';
-  if(csvFixPeek && csvFixes[csvFixPeek]) return (csvSumHidden ? '' : csvCatTreeHTML() + csvIncomeTreeHTML() + csvOtherTreeHTML()) + csvFixPeekBarHTML();   // the way out must show even with the chart folded
-  if(csvSumHidden) return '';
+  if(!csvStagedMode || csvSumHidden || !csvReview) return '';
   var html = csvCatTreeHTML() + csvIncomeTreeHTML() + csvOtherTreeHTML();
   if(csvPersonFilter){
     var pn = (typeof fhPersonName==='function' && fhPersonName(csvPersonFilter)) || L('một người','one person');
@@ -3578,7 +3713,7 @@ function renderCsvReview(){
   if(csvStagedMode){
     /* Pair proposals step aside while a category filter is on: they are a
        suggestion spanning two rows, not a card of the chosen category. */
-    var props = (csvCatFilter || csvFixPeek) ? [] : csvXferProposals();
+    var props = csvCatFilter ? [] : csvXferProposals();
     window._csvXferProps = {};
     if(props.length){
       html += '<div class="group-h">'+esc(L('Chuyển khoản nội bộ?','Internal transfer?'))+'</div>';
@@ -3630,7 +3765,7 @@ function renderCsvReview(){
     var revealShown = 0, revealLeft = 0;
     keys.forEach(function(k){
       var hasOpen = openIdx >= 0 && dateBuckets[k].some(function(e){ return e.i === openIdx; });
-      if(revealShown >= csvRevealCount && !hasOpen && !csvFixPeek){ revealLeft += dateBuckets[k].length; return; }
+      if(revealShown >= csvRevealCount && !hasOpen){ revealLeft += dateBuckets[k].length; return; }
       revealShown += dateBuckets[k].length;
       var label = k ? fmtDayMon(dateBuckets[k][0].c.date) : L('Không rõ ngày','No date');
       // id anchors the summary's tap-a-bar scroll (csvSumTap); k is the ISO date
@@ -3861,7 +3996,7 @@ function csvStagedSelectAll(on){
   // With a filter on, it acts on the cards you can SEE: ticking hidden rows
   // behind a person or category filter is how a bulk verb reaches money the
   // person never looked at. No filter → exactly what it always did.
-  var filtered = !!(csvCatFilter || csvPersonFilter || csvFixPeek);
+  var filtered = !!(csvCatFilter || csvPersonFilter);
   csvReview.ready.forEach(function(c){
     if(filtered && csvCatHide(c)) return;
     c._skipImport = !on || csvFxUnresolved(c);

@@ -124,6 +124,12 @@
 .pexd-nav .cd-act:disabled{color:var(--muted-soft)}
 .pexd-nav .cd-navtitle{font-family:var(--disp);font-size:16px;font-weight:700;letter-spacing:-.2px;color:var(--ink)}
 #pexd-cta:empty,#exd-cta:empty{display:none}
+/* the carry door at the foot of the personal detail's view state, and its sheet (apply-to-similar-spec §14) */
+#pexd-cta .csv-cta-sec{min-height:48px;font-size:15px}
+#sheet-carry{max-height:86%}
+#sheet-carry .sheet-h{font-size:22px;letter-spacing:-.5px}
+#sheet-carry #carry-body{margin-top:14px}
+#sheet-carry .cta{width:100%}
 /* view mode: a read-only row keeps ink values (it is the fact, not a disabled control) */
 .exd-view .csv-srow.ro .csv-sval b{color:var(--ink);font-weight:650}
 .exd-view .csv-srow.ro.soft .csv-sval b{color:var(--muted-soft);font-weight:600}

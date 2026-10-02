@@ -542,6 +542,11 @@ sheets:
   account row) and a context card (balance, position, card debt) that hides
   when opened from the zoom-in showing it. Mockups:
   `mockups/txn-detail-kinds.html`, `mockups/txn-detail-slot-variants.html`.
+- **Corrections that carry, in the book** (2026-10-02) — after Lưu on a private
+  expense whose Danh mục or Tiêu vào gì changed, the view state shows one
+  outlined button, "Áp dụng cho N khoản khác của …", opening the review's own
+  carry sheet over the payee's other booked rows (`apply-to-similar-spec.md` §15,
+  L1–L7).
 - **Transaction detail** (2026-09-17) — a private expense row opens
   `openPersonalTxDetail` in a **view** state (receipt block, read-only rows in
   the review card's order and labels, photos) with "Sửa" in the nav; edit is the

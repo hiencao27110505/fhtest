@@ -143,6 +143,29 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-10-02 (later) · Hien · carry = a button + a sheet, queue AND ledger · claiming SW `v609` · client only · no migration · no deploy · BUILT, pushed to `main` 2026-10-02.**
+  Spec: `apply-to-similar-spec.md` §3a, §15, A22–A23, L1–L7. The block under the
+  review card's rows (this morning's `csvFixBlockHTML`, "Xem" filter `csvFixPeek`,
+  timed `csvFixLedgerTap`) is REMOVED. Card: `.chg` dot on changed rows + one
+  full-width `.csv-cta-sec` button on its own line in `.csv-cta` (now
+  `flex-wrap`). Sheet: `csvRowSheet === 'carry'` → `csvFixSheetHTML`; its body is
+  the shared `fhCarryBodyHTML(model)` (56, on `window`). `c._fix` gained
+  `off` / `on` (ticks) / `ledgerOn` / `more` / `busy`; `csvFixApply(id)` honours
+  the ticks and returns the row count; new `csvFixUnapply`, `csvFixSheetGo`.
+  Ledger: `61-expense-detail.js` `pexdCarry*` — after `pexdSave` on an expense
+  whose cat/node changed, `#pexd-cta` (view state) holds the same button and
+  `#sheet-carry` (new shell in `src/index.html`) the same sheet; writes go through
+  `fhPersonalUpdateExpense(…, true)` / `fhPersonalSetNode`, one hydrate at the end.
+  **Contract for other sessions:** `#pexd-cta` is no longer always empty in the
+  view state; `renderPersonalTxDetail` ends with `_pexdCarryPaint()` instead of
+  clearing it (pin moved in `tools/txn-detail-view-edit.test.js`).
+  Files: `56-csv-import-ui.js`, `61-expense-detail.js`, `src/index.html`,
+  `74-mailbox.css`, `46-expense-detail.css`, `sw.js`, `index.html` (built),
+  `tools/apply-to-similar.test.js` (69), `tools/txn-detail-view-edit.test.js`,
+  four specs. 145 suites green; the same two red as before. Untracked, NOT to be
+  committed: `mockups/carry-block-options.html`, `mockups/carry-ledger-options.html`.
+  If you bump the SW next, start from v610.
+
 - **2026-10-02 · Hien · review card: ONE "apply to similar" (was two) · claiming SW `v608` · client only · no migration · no deploy · BUILT, pushed to `main` 2026-10-02.**
   Spec: `docs/specs/apply-to-similar-spec.md` amended (A16–A21, §6 and §10 rewritten).
   The bottom bar's "Áp cho N khoản giống" (`csvSimilarRows` / `csvApplySimilar`,
