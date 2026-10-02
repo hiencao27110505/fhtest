@@ -2059,7 +2059,7 @@ async function csvFixLedgerRun(c, it, lg, quiet){
   var n = done.length;                                              // reported only after the writes landed (DESIGN §4.2)
   if(quiet) return { n:n, fail:fail };
   window.toast && toast(fail
-    ? L('Đã đổi '+n+' khoản · '+fail+' khoản lỗi, thử lại nhé','Changed '+n+' · '+fail+' failed, try again')
+    ? L('Đã đổi '+n+' khoản · '+fail+' khoản lỗi','Changed '+n+' · '+fail+' failed')
     : L('Đã đổi '+n+' khoản đã ghi','Changed '+n+' booked rows'));
   renderCsvReview();
   return { n:n, fail:fail };
@@ -2085,7 +2085,7 @@ async function csvFixLedgerUndo(id, f){
   if(window.fhPersonalMatchSliceInvalidate) fhPersonalMatchSliceInvalidate();
   try{ if(window.fhPersonalHydrate) await window.fhPersonalHydrate(); }catch(e){}
   if(fail){ lg.state='done'; lg.done=left.reverse(); lg.fail=fail; } else { lg.state='idle'; lg.done=null; lg.fail=0; }
-  window.toast && toast(fail ? L('Hoàn tác được một phần · '+fail+' khoản lỗi','Partly undone · '+fail+' failed') : L('Đã hoàn tác','Undone'));
+  window.toast && toast(fail ? L('Còn '+fail+' khoản chưa hoàn tác',fail+' rows not undone') : L('Đã hoàn tác','Undone'));
   renderCsvReview();
 }
 /* ── the door and the sheet (A22, A23) ───────────────────────────────────────
@@ -2161,10 +2161,10 @@ async function csvFixSheetGo(id){
     fx.busy = false; fx.ledgerOn = false;
   }
   if(csvRowSheet==='carry') csvRowSheet = null;
-  var msg = (k && m) ? L('Đã áp dụng cho '+k+' khoản và '+m+' khoản đã ghi','Applied to '+k+' rows and '+m+' booked rows')
+  var msg = (k && m) ? L('Đã áp dụng cho '+k+' khoản và '+m+' đã ghi','Applied to '+k+' rows and '+m+' booked')
           : k ? L('Đã áp dụng cho '+k+' khoản','Applied to '+k+' rows')
           : L('Đã đổi '+m+' khoản đã ghi','Changed '+m+' booked rows');
-  if(fail) msg += L(' · '+fail+' khoản lỗi, thử lại nhé',' · '+fail+' failed, try again');
+  if(fail) msg += L(' · '+fail+' khoản lỗi',' · '+fail+' failed');
   window.toast && toast(esc(msg));
   renderCsvReview();
 }
@@ -2178,7 +2178,7 @@ async function csvFixLedgerUndoAll(id){
 }
 /* One sheet body for both places the carry lives: the review card (here) and the
    ledger detail (61). A pure function of its model, so the two cannot drift.
-   m = { fields:[{label,value,undo}], secs:[{title, link:{label,tap}, rows:[{on,ro,tap,when,was,amt,tag}], more:{label,tap}}],
+   m = { fields:[{label,value,undo | sw:{on,tap}}], secs:[{title, link:{label,tap}, rows:[{on,ro,tap,when,was,amt,tag}], more:{label,tap}}],
          sw:{label,on,tap}, note:{text,label,tap}, cta:{label,tap,busy,cls} } */
 function fhCarryBodyHTML(m){
   var TK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg>';
@@ -2186,6 +2186,7 @@ function fhCarryBodyHTML(m){
   if(m.fields && m.fields.length){
     h += '<div class="cry-sec"><span>'+esc(L('Sẽ đổi','Will change'))+'</span></div><div class="cry-list">';
     m.fields.forEach(function(f){
+      if(f.sw){ h += '<button type="button" class="cry-row" role="switch" aria-checked="'+(f.sw.on?'true':'false')+'" onclick="'+f.sw.tap+'"><small>'+esc(f.label)+'</small><b>'+esc(f.value)+'</b><span class="cry-sw'+(f.sw.on?' on':'')+'"></span></button>'; return; }
       h += '<div class="cry-row"><small>'+esc(f.label)+'</small><b>'+esc(f.value)+'</b>'
         + (f.undo ? '<button type="button" class="cry-link" onclick="'+f.undo+'">'+esc(L('Hoàn tác','Undo'))+'</button>' : '')+'</div>';
     });
@@ -2208,7 +2209,8 @@ function fhCarryBodyHTML(m){
     + '<button type="button" class="cry-row" role="switch" aria-checked="'+(m.sw.on?'true':'false')+'" onclick="'+m.sw.tap+'"><span class="cry-when">'+esc(m.sw.label)+'</span><span class="cry-sw'+(m.sw.on?' on':'')+'"></span></button></div>';
   if(m.note) h += '<div class="cry-sec"><span>'+esc(m.note.title)+'</span></div><div class="cry-list"><div class="cry-row"><span class="cry-when">'+esc(m.note.text)+'</span>'
     + '<button type="button" class="cry-link" onclick="'+m.note.tap+'">'+esc(m.note.label)+'</button></div></div>';
-  if(m.cta) h += '<button type="button" class="'+(m.cta.cls||'crs-done')+' cry-cta"'+(m.cta.busy?' disabled':'')+' onclick="'+m.cta.tap+'">'+esc(m.cta.label)+'</button>';
+  /* the one CTA stays in reach however long the list is: a sticky foot on the sheet's own white */
+  if(m.cta) h += '<div class="cry-foot"><button type="button" class="'+(m.cta.cls||'crs-done')+' cry-cta"'+(m.cta.busy?' disabled':'')+' onclick="'+m.cta.tap+'">'+esc(m.cta.label)+'</button></div>';
   return h;
 }
 function csvFixRowWhen(r){
@@ -2239,9 +2241,9 @@ function csvFixSheetHTML(c){
   var cand = csvFixSheetRows(c), on = cand.filter(function(x){ return x.on; }).length;
   var shown = fx.more ? cand : cand.slice(0, CAP);
   var secs = [{
-    title: L(cand.length+' khoản đang chờ duyệt', cand.length+' rows waiting for review'),
+    title: L(cand.length+' khoản chờ duyệt', cand.length+' rows in review'),
     rows: shown.map(function(x, i){ return { on:x.on, tap:'csvFixTick('+id+','+i+')', when:csvFixRowWhen(x.r), was:csvFixRowWas(c, x.r),
-      amt:csvAmtDisp(x.r), tag:x.hand ? L('bạn đã tự sửa','set by you') : '' }; }),
+      amt:csvAmtDisp(x.r), tag:x.hand ? L('đã tự sửa','set by you') : '' }; }),
     more: cand.length > shown.length ? { label:L('Xem cả '+cand.length+' khoản','Show all '+cand.length), tap:'csvFixSheetMore('+id+')' } : null
   }];
   var applied = csvFixAppliedRows(c);
@@ -2253,18 +2255,18 @@ function csvFixSheetHTML(c){
   var lgIdle = csvFixLedgerItems(c,'idle'), lgBusy = csvFixLedgerItems(c,'busy'), lgDone = csvFixLedgerItems(c,'done');
   var m = { fields:fields, secs:secs };
   var M = csvFixLedgerCount(lgIdle.concat(lgBusy));
-  if(M) m.sw = { title:L('Đã ghi trong sổ','Already in the book'), label:L('Đổi cả '+M+' khoản đã ghi','Also change '+M+' booked rows'), on:!!fx.ledgerOn || !!lgBusy.length, tap:'csvFixLedgerToggle('+id+')' };
-  else if(lgDone.length) m.note = { title:L('Đã ghi trong sổ','Already in the book'), text:L('Đã đổi '+csvFixLedgerCount(lgDone)+' khoản đã ghi','Changed '+csvFixLedgerCount(lgDone)+' booked rows'), label:L('Hoàn tác','Undo'), tap:'csvFixLedgerUndoAll('+id+')' };
+  if(M) m.sw = { title:L('Trong sổ','In the book'), label:L('Đổi cả '+M+' khoản đã ghi','Also change '+M+' booked rows'), on:!!fx.ledgerOn || !!lgBusy.length, tap:'csvFixLedgerToggle('+id+')' };
+  else if(lgDone.length) m.note = { title:L('Trong sổ','In the book'), text:L('Đã đổi '+csvFixLedgerCount(lgDone)+' khoản đã ghi','Changed '+csvFixLedgerCount(lgDone)+' booked rows'), label:L('Hoàn tác','Undo'), tap:'csvFixLedgerUndoAll('+id+')' };
   var doL = !!(fx.ledgerOn && lgIdle.length);
   if(fx.busy) m.cta = { label:L('Đang đổi…','Changing…'), tap:'', busy:true };
-  else if(on || doL) m.cta = { label: on ? (L('Áp dụng cho '+on+' khoản','Apply to '+on+' rows') + (doL ? L(' và '+M+' khoản đã ghi',' and '+M+' booked rows') : ''))
+  else if(on || doL) m.cta = { label: on ? (L('Áp dụng cho '+on+' khoản','Apply to '+on+' rows') + (doL ? L(' và '+M+' đã ghi',' and '+M+' booked') : ''))
                                           : L('Đổi '+M+' khoản đã ghi','Change '+M+' booked rows'), tap:'csvFixSheetGo('+id+')' };
   else m.cta = { label:L('Xong','Done'), tap:'csvRowSheetClose()' };
   var name = csvFixPayeeName(c);
   return '<div class="crs-scrim" onclick="'+(fx.busy?'':'csvRowSheetClose()')+'"></div>'
     + '<div class="crs-sheet"><div class="modal-grip"></div>'
     + '<div class="crs-t">'+esc(L('Áp dụng cho khoản giống','Apply to similar rows'))+'</div>'
-    + '<div class="crs-sub">'+esc(name ? L('Cùng người nhận: '+name,'Same payee: '+name) : L('Cùng nội dung, cùng ngân hàng','Same wording, same bank'))+'</div>'
+    + '<div class="crs-sub">'+esc(name ? L('Cùng người nhận: '+name,'Same payee: '+name) : L('Cùng nội dung','Same wording'))+'</div>'
     + '<div class="crs-body">'+fhCarryBodyHTML(m)+'</div></div>';
 }
 window.csvFixApply = csvFixApply; window.csvFixUndo = csvFixUndo; window.csvFixUnapply = csvFixUnapply; window.csvFixLedgerUndo = csvFixLedgerUndo;

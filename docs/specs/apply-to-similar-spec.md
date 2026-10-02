@@ -39,6 +39,14 @@ in the queue and in the book — and remembers exactly what you approved.
 > and to WHICH rows (§4, §5, A1–A21) stand. Mockups: `mockups/carry-block-options.html`
 > (direction D, bar 1b), `mockups/carry-ledger-options.html` (option A).
 
+> **Amended 2026-10-02 (evening) — in the book, the offer comes BEFORE Lưu (§16,
+> L8–L13). BUILT, client only, SW v610, no migration, no deploy.** On the personal
+> detail's edit state, each changed Danh mục / Tiêu vào gì row gets a switch as its
+> second line, and from the first change a foot button, "Áp dụng n thay đổi cho m
+> khoản", opens the sheet. Nothing is written until Lưu; Huỷ drops it. §15's
+> after-save button remains as the fallback when nothing was switched on. Mockup:
+> `mockups/carry-ledger-presave-options.html` (the combined flow at the top).
+
 > **How this relates to its siblings.** `transaction-review-spec.md` owns the
 > queue and its card; this spec adds one block to the expanded card and two
 > verbs. `p2p-breakdown-spec.md` owns the person key (P4) this spec's "similar"
@@ -158,22 +166,27 @@ else is added to the body. In the bottom bar, on its own line above delete and
 
 1. **Sẽ đổi** — one row per changed field: label, new value, "Hoàn tác". That
    undo is A17's: the field on the card, every row it was carried to, its lessons.
-2. **N khoản đang chờ duyệt** — the rows a carry would change: day · memo, what
+2. **N khoản chờ duyệt** — the rows a carry would change: day · memo, what
    the row says today, amount, and a tick. Ticked by default; a row the person
-   set by hand is listed last, unticked, marked "bạn đã tự sửa", and can be
+   set by hand is listed last, unticked, marked "đã tự sửa", and can be
    ticked on purpose (A23). Four rows show, then "Xem cả N khoản".
 3. **Đã áp dụng · K khoản** (after a carry) with one "Hoàn tác" that takes the
    carry back and keeps the card's own edit.
-4. **Đã ghi trong sổ** — a switch, "Đổi cả M khoản đã ghi", when a Tiêu vào gì or
+4. **Trong sổ** — a switch, "Đổi cả M khoản đã ghi", when a Tiêu vào gì or
    Danh mục line has booked rows (A4, A9); after it ran, "Đã đổi M khoản đã ghi ·
    Hoàn tác". The switch is off by default: the CTA is the confirm (A10).
 5. **One CTA** that says exactly what it will do: "Áp dụng cho 8 khoản",
-   "… và 12 khoản đã ghi", "Đổi 12 khoản đã ghi", or "Xong" when nothing is
+   "… và 12 đã ghi", "Đổi 12 khoản đã ghi", or "Xong" when nothing is
    ticked. While booked rows are being written it reads "Đang đổi…" and cannot be
    fired twice; the sheet closes and the toast speaks only after every write
    landed (DESIGN §4.2).
 
-Nothing is written before the CTA. Closing the sheet keeps the ticks.
+Nothing is written before the CTA, which stays pinned to the foot of the sheet
+however long the list is. Closing the sheet keeps the ticks.
+
+Copy rules for this surface (2026-10-02 pass): one noun per thing (khoản giống,
+khoản đã ghi, khoản chờ duyệt); no softeners ("nhé"), no explanations inside
+labels; errors state the count and stop.
 
 ## 4. What "similar" means
 
@@ -438,6 +451,7 @@ The L series — the same carry in the book (`mockups/carry-ledger-options.html`
 | `src/css/74-mailbox.css` | `.csv-fix*` — tokens only, 44px targets, one accent. **2026-10-02:** `.csv-fix-row`, `.csv-fix-peek`, `.csv-fix-skip`; `.csv-cta-ghost` removed |
 | `src/js-ui/56-csv-import-ui.js` (later) | **A22/A23:** `csvFixBarBtnHTML`, `csvFixSheetOpen` / `csvFixSheetHTML` / `csvFixSheetRows` / `csvFixTick` / `csvFixSheetMore` / `csvFixLedgerToggle` / `csvFixSheetGo`, `csvFixUnapply`, `csvFixLedgerUndoAll`, `csvFixPayeeName`, the shared `fhCarryBodyHTML`; `csvRowSheet === 'carry'`; `.chg` on changed rows. Removed: `csvFixBlockHTML`, `csvFixPeek*`, `csvFixLedgerTap` |
 | `src/js-ui/61-expense-detail.js`, `src/index.html`, `src/css/46-expense-detail.css` | **L1–L7:** `pexdCarryScan` / `_pexdCarryPaint` / `pexdCarrySheet` / `pexdCarryRender` / `pexdCarryTick` / `pexdCarryGo` / `pexdCarryUndo`; the `#sheet-carry` shell; the foot button |
+| `src/js-ui/61-expense-detail.js`, `src/css/46-expense-detail.css` (evening) | **L8–L13:** `_pexdPre*`, `pexdPre*`, `_pexdCarryWrite` (shared write loop), the `.exd-sub` switch line and `.exd-carry-foot`; `fhCarryBodyHTML` field rows accept `sw` |
 | `src/css/74-mailbox.css` (later) | `.csv-cta-sec`, `.cry-*` (the sheet body), the staged `.csv-srow.chg`; every `.csv-fix*` rule removed |
 | `tools/txn-detail-view-edit.test.js` | the "bottom bar is emptied" pin now allows the one carry door |
 | `tools/p2p-person-groups.test.js`, `tools/staged-bulk-select.test.js` | **2026-10-02:** harness stubs for `csvFixPeek` / `csvHandMark` (their sliced `csvCatHide` / `csvStagedSelectAll` / `csvBulkCat` now read them) |
@@ -469,6 +483,68 @@ closes or another row opens.
 Not built here: the family detail (family rows carry no payee in memory); a row
 opened straight into edit from a zoom-in (it closes on save, so there is no view
 state to carry the button); label lessons (L6).
+
+## 16. In the book, before Lưu (L8–L13)
+
+§15 offers the carry after the save. This section moves the offer to the moment
+of the change, while the edit is still staged, and keeps the edit screen's one
+rule: nothing is written until Lưu, and Huỷ takes everything back.
+
+**What the person sees** (edit state of a private expense, `Huỷ · Sửa khoản chi · Lưu`):
+
+```
+Danh mục •                         🏠 Nhà ở  ›
+Áp dụng cho 11 khoản giống              ( o)      ← the row's second line
+Tiêu vào gì •                      Tiền nhà  ›
+Áp dụng cho 11 khoản giống              (o )
+…
+[   Áp dụng 2 thay đổi cho 11 khoản   ]           ← under the rows card
+            Xoá khoản này
+```
+
+- **A switch per change.** The moment Danh mục or Tiêu vào gì is staged to a
+  value different from the saved one, and the payee has other booked rows that
+  differ on it, that row gains a second line: muted label, a switch, off. No
+  fill, no icon: the row drops its hairline and the pair's hairline comes after.
+  On = "carry this change". The number is the ticked rows that differ on that
+  field.
+- **One button for all.** From the first change: "Áp dụng {n} thay đổi cho {m}
+  khoản" — n the carried fields staged, m the ticked rows that differ on any of
+  them. The copy never changes state. It opens the sheet with every change
+  switched on and the rows listed; fields can be switched off and rows unticked
+  there. The sheet's button is "Chọn m khoản": it sets the switches on the
+  screen behind and writes nothing. Closing the sheet any other way changes
+  nothing.
+- **One state.** The switches, the button's sheet and the ticks are the same
+  state (`_pexdPre.use`, `_pexdPre.tick`), so they cannot disagree.
+- **Lưu** saves this row, then carries each switched-on field to its ticked
+  rows, still under "Đang lưu…", and only then says "Đã lưu và đổi K khoản". The
+  view state then shows §15's quiet "Đã áp dụng cho K khoản", whose sheet holds
+  "Hoàn tác". **Huỷ** drops the staged edit and the staged carry together.
+- If nothing was switched on, Lưu behaves as before and §15's after-save button
+  still appears.
+
+| # | Decision | Why |
+|---|---|---|
+| L8 | **The offer appears when a carried field is staged, computed against the staged value.** | The founder: the suggestion belongs right after the change, before the save |
+| L9 | **The foot button is there from the first change, one sentence: "Áp dụng {n} thay đổi cho {m} khoản".** | Founder's copy; a button that changes its words per state was rejected as noise |
+| L10 | **A switch per changed row carries that one change; off by default.** | Flexibility: one specific change, or all of them |
+| L11 | **The button opens the sheet with every change on; "Chọn" commits to the screen, never to the book.** | The sheet is the preview; the screen behind stays the one place a save happens |
+| L12 | **One tick per row, shared by every field.** L4's "looks deliberate" default is judged against everything staged; a tick set by hand wins. | Two answers for one row would let the switches and the sheet disagree |
+| L13 | **Lưu is the only commit and Huỷ the only cancel.** The carry runs inside the save and is reported with it. | The edit screen's standing rule; a sheet that saved would be a second Lưu |
+
+The switch is plain on purpose (founder, 2026-10-02): no tinted group, no
+connector, no note line under the card. It works for a row opened straight into
+edit too, which §15 could not serve.
+
+Mechanics (`61-expense-detail.js`): `_pexdPreEnsure` reads the payee's rows from
+`fhPersonalMatchSlice()` once per edit and re-renders; `_pexdPreFields` is what is
+staged and differs; `_pexdPreRows(t, fields)` the rows that differ and which are
+ticked; `_pexdPreSubHTML` / `_pexdPreFootHTML` draw the switch line and the
+button; `pexdPreSheet` → `pexdPreRender` (the shared `fhCarryBodyHTML`, whose
+field rows now accept a switch) → `pexdPreChoose`; `pexdSave` asks `_pexdPreJob`
+and runs `_pexdCarryWrite`, the write loop it now shares with §15's
+`pexdCarryGo`.
 
 ## 14. Related
 

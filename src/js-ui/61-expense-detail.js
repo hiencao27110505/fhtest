@@ -588,6 +588,7 @@ function openPersonalTxDetail(id, opts){
   if(!t || t._unreadable) return;
   if(t.spaceId || t.linkId){ if(typeof fhMirrorRowTap==='function') fhMirrorRowTap(id); return; }   // a mirror master: its family twin is the detail
   if(_pexdCarry && _pexdCarry.id!==id) _pexdCarry=null;   // the offer belongs to the row that was just saved
+  _pexdPre=null;
   _pexdId=id; _pexdOpts=opts||{}; PXD={};
   var k=_pexdKindOf(t);
   _pexdEdit=!!(_pexdOpts.edit || (_pexdOpts.from==='zoom' && (k==='xfer'||k==='cardpay'||k==='repay')));
@@ -610,12 +611,13 @@ function closePersonalTxDetail(){
   var o=document.getElementById('pexd-overlay'); if(o) o.classList.remove('on');
   var re=_pexdOpts.reopen;
   if(!(_pexdCarry && _pexdCarry.state==='busy')) _pexdCarry=null;
+  _pexdPre=null;
   _pexdId=null; PXD={}; _pexdEdit=false; _pexdOpts={};
   if(re&&re.length){ try{ if(re[0]==='person'&&window.openDebtPerson) openDebtPerson(re[1]); else if(re[0]==='acct'&&window.openDebtAccount) openDebtAccount(re[1]); else if(re[0]==='pos'&&window.openInvPosition) openInvPosition(re[1]); }catch(e){} }   // refresh the zoom-in underneath
 }
 window.closePersonalTxDetail=closePersonalTxDetail;
-function pexdEdit(){ if(_pexdId==null) return; PXD={}; _pexdEdit=true; renderPersonalTxDetail(); }
-function pexdCancel(){ PXD={}; if(_pexdOpts.edit){ closePersonalTxDetail(); return; } _pexdEdit=false; _pxdResetDel(); renderPersonalTxDetail(); }
+function pexdEdit(){ if(_pexdId==null) return; PXD={}; _pexdPre=null; _pexdEdit=true; renderPersonalTxDetail(); }
+function pexdCancel(){ PXD={}; if(_pexdOpts.edit){ closePersonalTxDetail(); return; } _pexdPre=null; _pexdEdit=false; _pxdResetDel(); renderPersonalTxDetail(); }
 var _PEXD_BACK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg>';
 function _pexdNavHTML(E){
   var back=esc(_pexdOpts.back||'Cá nhân');
@@ -777,8 +779,8 @@ function renderPersonalTxDetail(){
   var rows='';
   rows+=R('Ghi vào đâu','🔒 Cá nhân',{ro:k!=='expense', fn:'pexdMove()'});
   rows+=R('Loại khoản',_pexdKindLbl(E),{ro:!(k==='expense'||k==='loan'||k==='invest'), fn:'pexdSheetKind()'});
-  if(k==='expense') rows+=R('Danh mục',esc(em)+' '+esc(vCat||'Chưa rõ'),{chg:PXD.cat!=null, soft:!vCat, fn:"exdSheetCat('pers')"});
-  if(k==='expense'||k==='income') rows+=_exdNodeRow(t, !!ed, 'pers');
+  if(k==='expense') rows+=R('Danh mục',esc(em)+' '+esc(vCat||'Chưa rõ'),{chg:PXD.cat!=null, soft:!vCat, fn:"exdSheetCat('pers')"})+(ed?_pexdPreSubHTML(t,'cat'):'');
+  if(k==='expense'||k==='income') rows+=_exdNodeRow(t, !!ed, 'pers')+((ed&&k==='expense')?_pexdPreSubHTML(t,'node'):'');
   if(k==='income') rows+=R('Danh mục',esc(vCat||'Khác'),{chg:PXD.cat!=null, fn:'pexdSheetIncCat()'});
   if(k==='loan'){
     rows+=R(E.lent?'Cho ai mượn':'Mượn của ai',vWho?esc(vWho):'Chọn',{chg:PXD.who!==undefined, soft:!vWho, fn:"pexdSheetText('who')"});
@@ -833,6 +835,7 @@ function renderPersonalTxDetail(){
         +'<div class="exd-photos">'+ph.map(function(src,i){ return '<div class="exd-photo" style="background-image:url('+src+')"><button type="button" class="x" onclick="pexdPhotoRemove('+i+')" aria-label="Bỏ ảnh này">✕</button></div>'; }).join('')
         +'<label class="exd-photo add" aria-label="Thêm ảnh">＋<input type="file" accept="image/*" multiple onchange="pexdDoorPick(this)" hidden></label></div>';
     } else html+=_pexdAskHTML(E);
+    if(k==='expense') html+=_pexdPreFootHTML(t);          // apply-to-similar-spec §16: the carry, offered while the edit is still staged
     html+='<button type="button" class="exd-del" id="pexd-del" onclick="pexdDelete()">'+_pexdDelLbl(E)+'</button></div>';
   }
   body.innerHTML=html;
@@ -1132,7 +1135,7 @@ async function pexdSave(){
      can be carried to the payee's other booked rows. What the row said BEFORE the
      save is captured here: the hydrate after the write replaces `t`. */
   var _cy=null;
-  if(k==='expense' && !_pexdOpts.edit){
+  if(k==='expense'){
     var _cf={};
     if(p.cat!=null && p.cat!==(t.cat||'')) _cf.cat=p.cat;
     if(p.node!==undefined && (p.node||null)!==(t.node||null)) _cf.node=p.node||null;
@@ -1183,16 +1186,26 @@ async function pexdSave(){
     }
     if(ok && p.photos!==undefined && window.fhPersonalSyncTxnPhotos){ ok=await fhPersonalSyncTxnPhotos(E.id, p.photos); await window.fhPersonalHydrate(); }
   }catch(e){ ok=false; }
+  if(!ok){ if(go){ go.disabled=false; go.textContent='Lưu'; } toast('Chưa lưu được, thử lại nhé'); return; }
+  /* §16 (L8–L13): what the person switched on before Lưu is written now, in the
+     same commit as far as they can tell — the button still says "Đang lưu…". */
+  var _job=(_cy && _pexdPre && _pexdPre.id===E.id)?_pexdPreJob(_cy):null, _res=null;
+  if(_job){ try{ _res=await _pexdCarryWrite(_job.fields, _job.rows, null); await _pexdCarrySettle(); }catch(e){ _res={done:[],fail:_job.rows.length}; } }
   if(go){ go.disabled=false; go.textContent='Lưu'; }
-  if(!ok){ toast('Chưa lưu được, thử lại nhé'); return; }
+  var _pre=_pexdPre; _pexdPre=null;
   PXD={};
-  if(typeof renderPersonal==='function'){ try{ renderPersonal(); }catch(e){} }
-  if(typeof refreshPersonalTxnOverlay==='function') refreshPersonalTxnOverlay();
-  toast('Đã lưu');
+  if(!_job){
+    if(typeof renderPersonal==='function'){ try{ renderPersonal(); }catch(e){} }
+    if(typeof refreshPersonalTxnOverlay==='function') refreshPersonalTxnOverlay();
+  }
+  toast(_res ? ('Đã lưu và đổi '+_res.done.length+' khoản'+(_res.fail?' · '+_res.fail+' khoản lỗi':'')) : 'Đã lưu');
   if(_pexdOpts.edit){ closePersonalTxDetail(); return; }
   _pexdCarry=null;
+  if(_res && _res.done.length){                          // the view state then shows "Đã áp dụng cho K khoản", whose sheet holds the undo (L1)
+    _pexdCarry={ id:E.id, key:_pre.key, name:_pre.name, fields:_job.fields, old:_cy.old, rows:_job.rows, off:{}, state:'done', done:_res.done, fail:_res.fail, more:false, prog:0 };
+  }
   _pexdEdit=false; renderPersonalTxDetail();
-  if(_cy) pexdCarryScan(_cy);
+  if(_cy && !_job) pexdCarryScan(_cy);                   // nothing was switched on: the after-save offer still stands
 }
 window.pexdSave=pexdSave;
 
@@ -1292,37 +1305,43 @@ function _pexdCarryLrow(t){ return { counterparty:t.who||'', memo:t.note||'', am
    teaches that row's banded lesson, exactly as a pick on the row would. The
    label store is the review's and is not loaded here, so a label teaches nothing
    from this screen (L6). Success is said only after everything landed. */
-async function pexdCarryGo(){
-  var cy=_pexdCarry; if(!cy || cy.state!=='idle') return;
-  var rows=_pexdCarryOn(cy); if(!rows.length) return;
-  if(navigator.onLine===false){ toast('Cần mạng để đổi khoản đã ghi'); return; }
-  cy.state='busy'; cy.prog=0; pexdCarryRender(); _pexdCarryPaint();
+async function _pexdCarryWrite(fields, rows, tick){
   var done=[], fail=0;
   for(var i=0;i<rows.length;i++){
     var t=rows[i], prev={ cat:t.cat||'', node:t.node||null }, lp=null, taught=false, changed=false, ok=true;
     try{
-      if(cy.fields.cat!==undefined && (t.cat||'')!==cy.fields.cat){
-        ok=await window.fhPersonalUpdateExpense(t.id, { amt:t.amt, note:t.note, cat:cy.fields.cat, emoji:((catStyle[cy.fields.cat]||['🏷️'])[0]), time:t.time||'', dateIso:t.date }, true);
-        if(ok){ t.cat=cy.fields.cat; changed=true; }
+      if(fields.cat!==undefined && (t.cat||'')!==fields.cat){
+        ok=await window.fhPersonalUpdateExpense(t.id, { amt:t.amt, note:t.note, cat:fields.cat, emoji:((catStyle[fields.cat]||['🏷️'])[0]), time:t.time||'', dateIso:t.date }, true);
+        if(ok){ t.cat=fields.cat; changed=true; }
       }
-      if(ok && cy.fields.node!==undefined && (t.node||null)!==(cy.fields.node||null)){
+      if(ok && fields.node!==undefined && (t.node||null)!==(fields.node||null)){
         if(typeof window.fhLessonNode==='function') lp=window.fhLessonNode(_pexdCarryLrow(t))||null;
-        ok=await window.fhPersonalSetNode(t.id, cy.fields.node);
+        ok=await window.fhPersonalSetNode(t.id, fields.node);
         if(ok){
-          t.node=cy.fields.node; changed=true;
-          if(cy.fields.node && typeof window.fhLessonLearnNode==='function'){ try{ var lr=_pexdCarryLrow(t); lr.node=cy.fields.node; window.fhLessonLearnNode(lr); taught=true; }catch(e){} }
+          t.node=fields.node; changed=true;
+          if(fields.node && typeof window.fhLessonLearnNode==='function'){ try{ var lr=_pexdCarryLrow(t); lr.node=fields.node; window.fhLessonLearnNode(lr); taught=true; }catch(e){} }
         }
       }
     }catch(e){ ok=false; }
     if(changed) done.push({ t:t, prev:prev, lesson:lp, taught:taught });
     if(!ok) fail++;
-    cy.prog=i+1;
-    var b=document.querySelector('#carry-body .cry-cta'); if(b) b.textContent='Đang đổi '+cy.prog+'/'+rows.length+'…';
+    if(tick) tick(i+1, rows.length);
   }
+  return { done:done, fail:fail };
+}
+async function pexdCarryGo(){
+  var cy=_pexdCarry; if(!cy || cy.state!=='idle') return;
+  var rows=_pexdCarryOn(cy); if(!rows.length) return;
+  if(navigator.onLine===false){ toast('Cần mạng để đổi khoản đã ghi'); return; }
+  cy.state='busy'; cy.prog=0; pexdCarryRender(); _pexdCarryPaint();
+  var res=await _pexdCarryWrite(cy.fields, rows, function(k, n){
+    cy.prog=k; var b=document.querySelector('#carry-body .cry-cta'); if(b) b.textContent='Đang đổi '+k+'/'+n+'…';
+  });
+  var done=res.done, fail=res.fail;
   await _pexdCarrySettle();
   if(_pexdCarry===cy){ cy.done=done; cy.fail=fail; cy.state=done.length?'done':'idle'; }
   closeSheet();
-  toast(fail ? ('Đã đổi '+done.length+' khoản · '+fail+' khoản lỗi, thử lại nhé') : ('Đã đổi '+done.length+' khoản'));
+  toast(fail ? ('Đã đổi '+done.length+' khoản · '+fail+' khoản lỗi') : ('Đã đổi '+done.length+' khoản'));
   if(_pexdCarry===cy) _pexdCarryPaint();
 }
 async function _pexdCarrySettle(){
@@ -1362,9 +1381,133 @@ async function pexdCarryUndo(){
     else { cy.done=null; cy.state='idle'; }
   }
   closeSheet();
-  toast(left.length ? ('Hoàn tác được một phần · '+left.length+' khoản lỗi') : 'Đã hoàn tác');
+  toast(left.length ? ('Còn '+left.length+' khoản chưa hoàn tác') : 'Đã hoàn tác');
   if(_pexdCarry===cy) _pexdCarryPaint();
 }
+/* ── before Lưu (apply-to-similar-spec §16, L8–L13) ──────────────────────────
+   The same offer while the edit is still staged. Each changed carried row gets a
+   switch as its second line ("this change, for the similar rows too"); from the
+   first change a foot button, "Áp dụng n thay đổi cho m khoản", opens the sheet
+   with every change switched on and the rows listed. The switches, the button
+   and the sheet are ONE state (_pexdPre.use + the ticks). Nothing is written
+   here: Lưu writes this row and the others, Huỷ drops it all. */
+var _pexdPre=null;
+function _pexdPreFields(t){
+  var f={};
+  if(PXD.cat!=null && PXD.cat!==(t.cat||'')) f.cat=PXD.cat;
+  if(PXD.node!==undefined && (PXD.node||null)!==(t.node||null)) f.node=PXD.node||null;
+  return f;
+}
+/* Start (once per edit) the read of the payee's other booked rows. */
+function _pexdPreEnsure(t){
+  if(_pexdPre && _pexdPre.id===t.id) return _pexdPre;
+  if(typeof csvPatternKey!=='function' || typeof window.fhPersonalMatchSlice!=='function') return null;
+  var key=csvPatternKey({ counterparty:t.who||'', description:t.note||'' });
+  if(!key || key.length<6) return null;
+  var name=String(t.who||'').replace(/^[\d\s.:\-–—]+/,'').trim(); if(name.length<3) name=String(t.who||'').trim();
+  var pre=_pexdPre={ id:t.id, key:key, name:name, slice:null, tick:{}, use:{}, draft:null, more:false };
+  window.fhPersonalMatchSlice().then(function(sl){
+    if(_pexdPre!==pre) return;
+    pre.slice=(sl||[]).filter(function(x){
+      return x.id!==t.id && !x.link && x.kind==='expense' && Number(x.amt)>0 && csvPatternKey({ counterparty:x.who||'', description:x.note||'' })===key;
+    });
+    if(_pexdEdit && _pexdId===t.id) renderPersonalTxDetail();
+  }, function(){ if(_pexdPre===pre) pre.slice=[]; });
+  return pre;
+}
+function _pexdPreCy(t, fields){ return { fields:fields, old:{ cat:t.cat||'', node:t.node||null } }; }
+function _pexdPreTicked(pre, cy, x){
+  if(pre.tick[x.id]!==undefined) return !!pre.tick[x.id];
+  return !_pexdCarryDeliberate(cy, x);                       // L4: a row that looks deliberate starts unticked
+}
+/* The rows ONE set of fields would change, and which of them are ticked. */
+function _pexdPreRows(t, fields){
+  var pre=_pexdPre; if(!pre || pre.id!==t.id || !pre.slice) return { all:[], on:[] };
+  var cy=_pexdPreCy(t, fields), all=pre.slice.filter(function(x){ return _pexdCarryDiffers(cy, x); });
+  var cyAll=_pexdPreCy(t, _pexdPreFields(t));                // the tick is one answer per row, judged against everything staged
+  return { all:all, on:all.filter(function(x){ return _pexdPreTicked(pre, cyAll, x); }) };
+}
+function _pexdPreOne(f, v){ var o={}; o[f]=v; return o; }
+function _pexdPreSubHTML(t, f){
+  var fields=_pexdPreFields(t); if(fields[f]===undefined) return '';
+  var pre=_pexdPreEnsure(t); if(!pre || !pre.slice) return '';
+  var n=_pexdPreRows(t, _pexdPreOne(f, fields[f])).on.length; if(!n) return '';
+  var on=!!pre.use[f];
+  return '<button type="button" class="exd-sub" role="switch" aria-checked="'+(on?'true':'false')+'" onclick="pexdPreToggle(\''+f+'\')">'
+    +'<span class="t">Áp dụng cho '+n+' khoản giống</span><span class="cry-sw'+(on?' on':'')+'"></span></button>';
+}
+function _pexdPreFootHTML(t){
+  var fields=_pexdPreFields(t), n=Object.keys(fields).length; if(!n) return '';
+  var pre=_pexdPreEnsure(t); if(!pre || !pre.slice) return '';
+  var m=_pexdPreRows(t, fields).on.length; if(!m) return '';
+  return '<div class="exd-carry-foot"><button type="button" class="csv-cta-sec" onclick="pexdPreSheet()"><span>Áp dụng '+n+' thay đổi cho '+m+' khoản</span></button></div>';
+}
+function pexdPreToggle(f){
+  var pre=_pexdPre; if(!pre) return;
+  pre.use[f]=!pre.use[f];
+  renderPersonalTxDetail();
+}
+/* The sheet opens with every staged change switched on (the button means "all
+   of them"); "Chọn" commits that to the screen behind, closing it does not. */
+function pexdPreSheet(){
+  var t=_exdModeRow(); if(!t || !_pexdPre) return;
+  pexdReadFields();
+  var fields=_pexdPreFields(t); _pexdPre.draft={};
+  Object.keys(fields).forEach(function(f){ _pexdPre.draft[f]=true; });
+  _pexdPre.more=false;
+  pexdPreRender(); openSheet('sheet-carry');
+}
+function _exdModeRow(){ var E=_pexdEntry(); return E?E.t:null; }
+function _pexdPreDraftFields(t){
+  var all=_pexdPreFields(t), d=(_pexdPre&&_pexdPre.draft)||{}, out={};
+  Object.keys(all).forEach(function(f){ if(d[f]) out[f]=all[f]; });
+  return out;
+}
+function pexdPreRender(){
+  var pre=_pexdPre, t=_exdModeRow(), body=document.getElementById('carry-body'); if(!pre || !t || !body) return;
+  var CAP=5, top=document.getElementById('sheet-carry'), st=top?top.scrollTop:0;
+  setTxt('carry-h','Áp dụng cho khoản giống');
+  setTxt('carry-sub',pre.name?('Cùng người nhận: '+pre.name):'Cùng nội dung');
+  var all=_pexdPreFields(t), fields=[];
+  if(all.cat!==undefined) fields.push({ label:'Danh mục', value:((catStyle[all.cat]||['🏷️'])[0])+' '+all.cat, sw:{ on:!!pre.draft.cat, tap:"pexdPreDraft('cat')" } });
+  if(all.node!==undefined) fields.push({ label:'Tiêu vào gì', value:_pexdCarryNodeLbl(all.node), sw:{ on:!!pre.draft.node, tap:"pexdPreDraft('node')" } });
+  var df=_pexdPreDraftFields(t), r=_pexdPreRows(t, df), cyAll=_pexdPreCy(t, all);
+  var shown=pre.more?r.all:r.all.slice(0,CAP);
+  var was=function(x){ return df.cat!==undefined ? (x.cat||'Chưa rõ') : _pexdCarryNodeLbl(x.node); };
+  var m={ fields:fields, secs:[{ title:r.all.length+' khoản đã ghi',
+    rows:shown.map(function(x){ return { on:_pexdPreTicked(pre, cyAll, x), tap:"pexdPreTick('"+escAttr(String(x.id))+"')", when:_pexdCarryWhen(x), was:was(x), amt:fmt(x.amt) }; }),
+    more:(r.all.length>shown.length)?{ label:'Xem cả '+r.all.length+' khoản', tap:'pexdPreMore()' }:null }] };
+  m.cta=r.on.length ? { label:'Chọn '+r.on.length+' khoản', tap:'pexdPreChoose()', cls:'cta' } : { label:'Xong', tap:'pexdPreChoose()', cls:'cta' };
+  body.innerHTML=fhCarryBodyHTML(m);
+  if(top) top.scrollTop=st;
+}
+function pexdPreDraft(f){ if(_pexdPre && _pexdPre.draft){ _pexdPre.draft[f]=!_pexdPre.draft[f]; pexdPreRender(); } }
+function pexdPreTick(id){
+  var pre=_pexdPre, t=_exdModeRow(); if(!pre || !t || !pre.slice) return;
+  var x=pre.slice.filter(function(r){ return String(r.id)===String(id); })[0]; if(!x) return;
+  pre.tick[x.id]=!_pexdPreTicked(pre, _pexdPreCy(t, _pexdPreFields(t)), x);
+  pexdPreRender();
+}
+function pexdPreMore(){ if(_pexdPre){ _pexdPre.more=true; pexdPreRender(); } }
+function pexdPreChoose(){
+  var pre=_pexdPre; if(!pre) return;
+  var t=_exdModeRow(), has=t?_pexdPreRows(t, _pexdPreDraftFields(t)).on.length:0;
+  pre.use={}; if(has) Object.keys(pre.draft||{}).forEach(function(f){ if(pre.draft[f]) pre.use[f]=true; });
+  pre.draft=null;
+  closeSheet(); renderPersonalTxDetail();
+}
+/* What Lưu will carry: the fields that were both changed and switched on, over
+   the ticked rows that differ on them. Null when nothing was switched on. */
+function _pexdPreJob(cy){
+  var pre=_pexdPre; if(!pre || !pre.slice) return null;
+  var fields={}; Object.keys(cy.fields).forEach(function(f){ if(pre.use[f]) fields[f]=cy.fields[f]; });
+  if(!Object.keys(fields).length) return null;
+  var one={ fields:fields, old:cy.old }, all={ fields:cy.fields, old:cy.old };
+  var rows=pre.slice.filter(function(x){ return _pexdCarryDiffers(one, x) && _pexdPreTicked(pre, all, x); });
+  return rows.length ? { fields:fields, rows:rows } : null;
+}
+window.pexdPreToggle=pexdPreToggle; window.pexdPreSheet=pexdPreSheet; window.pexdPreDraft=pexdPreDraft; window.pexdPreTick=pexdPreTick;
+window.pexdPreMore=pexdPreMore; window.pexdPreChoose=pexdPreChoose;
 window.pexdCarrySheet=pexdCarrySheet; window.pexdCarryTick=pexdCarryTick; window.pexdCarryMore=pexdCarryMore;
 window.pexdCarryGo=pexdCarryGo; window.pexdCarryUndo=pexdCarryUndo;
 function _pxdResetDel(){

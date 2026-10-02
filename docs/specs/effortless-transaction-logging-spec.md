@@ -1898,6 +1898,20 @@ as — or the same day as — the deploy. A deploy announced only in
 
 ## 28. Releases (newest first)
 
+### 2026-10-02 (evening) — in the book, "apply to similar" is offered before Lưu · client only, SW v610 · no migration, no deploy
+
+- **For product:** editing a booked personal expense, the moment Danh mục or Tiêu
+  vào gì changes, that row gains a switch ("Áp dụng cho 11 khoản giống") and a
+  button appears under the card ("Áp dụng 2 thay đổi cho 11 khoản") that opens the
+  sheet with the rows. Nothing is written until Lưu, which then says "Đã lưu và
+  đổi 11 khoản"; Huỷ drops it all. The after-save button from this afternoon
+  remains for when nothing was switched on.
+- **Under the hood:** `61-expense-detail.js` `_pexdPre*` / `pexdPre*`,
+  `_pexdCarryWrite` shared with the after-save path; `fhCarryBodyHTML` field rows
+  accept a switch; `.exd-sub`, `.exd-carry-foot` in `46-expense-detail.css`. No
+  capture, review or promote change.
+- **Spec sections updated:** none here; `apply-to-similar-spec.md` §16, L8–L13.
+
 ### 2026-10-02 (later) — "apply to similar" becomes a button and a sheet, in the queue and in the book · client only, SW v609 · no migration, no deploy
 
 - **For product:** the block under an open review card is gone. A changed row

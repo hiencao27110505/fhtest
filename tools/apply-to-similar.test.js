@@ -165,7 +165,7 @@ console.log('\n-- A22: the card shows ONE button; the name drops the account dig
   t('before: one outlined button, "Áp dụng cho 3 khoản khác của LE KHA NIN" (no account number)', (r.h1.match(/<button /g)||[]).length===1 && /csv-cta-sec/.test(r.h1) && />Áp dụng cho 3 khoản khác của LE KHA NIN</.test(r.h1) && !/1361/.test(r.h1), r.h1);
   t('after: the same button turns quiet and keeps the count', /csv-cta-sec done/.test(r.h2) && /Đã áp dụng cho 3 khoản/.test(r.h2), r.h2);
   t('nothing to carry to → no button at all (hidden, not disabled)', r.h3==='', r.h3);
-  t('the sheet: what changes with its undo, the three rows ticked, one CTA', /Sẽ đổi/.test(r.sh) && /Tiền nhà/.test(r.sh) && /csvFixUndo\(\d+,'node'\)/.test(r.sh) && (r.sh.match(/cry-tick on/g)||[]).length===3 && /Áp dụng cho 3 khoản</.test(r.sh) && /3 khoản đang chờ duyệt/.test(r.sh), r.sh);
+  t('the sheet: what changes with its undo, the three rows ticked, one CTA', /Sẽ đổi/.test(r.sh) && /Tiền nhà/.test(r.sh) && /csvFixUndo\(\d+,'node'\)/.test(r.sh) && (r.sh.match(/cry-tick on/g)||[]).length===3 && /Áp dụng cho 3 khoản</.test(r.sh) && /3 khoản chờ duyệt/.test(r.sh), r.sh);
   t('the sheet after: the applied rows with one "Hoàn tác" for the carry, and the CTA is "Xong"', /Đã áp dụng · 3 khoản/.test(r.sh2) && /csvFixUnapply\(\d+\)/.test(r.sh2) && />Xong</.test(r.sh2), r.sh2);
   t('tokens only in the sheet and the button', !/#[0-9a-f]{3,6}\b/i.test(r.h1+r.sh));
 }
@@ -193,7 +193,7 @@ console.log('\n-- A23: the ticks decide; a hand-set row arrives unticked and can
   t('apply follows the ticks: the unticked row is left, the hand-set row ticked on purpose is changed', r.after.a2==='p2p' && r.after.a1==='rent' && r.after.a4==='rent' && r.after.n===2, r.after);
   t('with the unticked row still differing, the button says done, not "apply to 1"', /Đã áp dụng cho 2 khoản/.test(r.after.btn), r.after.btn);
   t('undoing the carry puts the rows back and keeps the card\'s own edit and its line', r.after.back.join()==='coffee,p2p,rent' && r.after.items.join()==='node', r.after);
-  t('the hand-set row is labelled in the sheet', /bạn đã tự sửa/.test(r.sheet), r.sheet);
+  t('the hand-set row is labelled in the sheet', /đã tự sửa/.test(r.sheet), r.sheet);
 }
 
 console.log('\n-- A17: edits stack, one line and one undo per field; one pill carries them all --');
@@ -229,7 +229,7 @@ console.log('\n-- A18: a row the person set by hand is never overwritten, and th
     return { n:p.rows.length, skipped:p.skipped, a1:R.A1._node, a2:R.A2._node, h:h, carriedHand:!!(R.A2._hand&&R.A2._hand.node), cardHand:!!(R.A0._hand&&R.A0._hand.node) };
   })(__R)`,c);
   t('the hand-set row is not counted and not touched', r.n===2 && r.skipped===1 && r.a1==='coffee' && r.a2==='rent', r);
-  t('the sheet lists it unticked, marked as set by the person', /bạn đã tự sửa/.test(r.h) && (r.h.match(/cry-tick on/g)||[]).length===2, r.h);
+  t('the sheet lists it unticked, marked as set by the person', /đã tự sửa/.test(r.h) && (r.h.match(/cry-tick on/g)||[]).length===2, r.h);
   t('a carry is not a hand pick: the card is marked, the rows it reached are not', r.cardHand && !r.carriedHand, r);
 }
 
@@ -318,7 +318,7 @@ console.log('\n-- A20: no payee → the wording from the same bank --');
   })()`,c);
   t('same wording, same bank; another bank is not similar', r.n===1 && r.w1 && r.key.indexOf('w:')===0, r);
   t('the button says "cùng nội dung", never a payee it does not have', /Áp dụng cho 1 khoản cùng nội dung/.test(r.btn), r.btn);
-  t('the sheet row shows the day and the memo', /01\/09 · TT HD 9876 tien dien/.test(r.sh) && /Cùng nội dung, cùng ngân hàng/.test(r.sh), r.sh);
+  t('the sheet row shows the day and the memo', /01\/09 · TT HD 9876 tien dien/.test(r.sh) && /Cùng nội dung</.test(r.sh), r.sh);
 }
 
 console.log('\n-- income category carries between money-in rows --');
@@ -354,9 +354,12 @@ const LEDGER=(async()=>{
   vm.runInContext([sliceVar(S57,'CSV_GATEWAYS'),sliceVar(S57,'CSV_BANK_NOISE'),sliceFn(S57,'csvPatternKey'),
     "function deburr(s){ return String(s||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,''); }",
     'var _pexdCarry=null, _pexdId="me", _pexdEdit=false;',
-    ...['_pexdCarryNodeLbl','_pexdCarryDiffers','_pexdCarryDeliberate','_pexdCarryOn','_pexdCarryPaint','_pexdCarryWhen','_pexdCarryLrow','pexdCarryTick'].map(n=>sliceFn(S61,n)),
-    ...['pexdCarryScan','_pexdCarrySettle','pexdCarryGo','pexdCarryUndo'].map(n=>'async '+sliceFn(S61,n)),
-    'function pexdCarryRender(){}'].join('\n'),ctx);
+    'var _pexdPre=null, PXD={}, renders=0; function renderPersonalTxDetail(){ renders++; } function pexdReadFields(){} function _pexdEntry(){ return { t:ROW }; } var ROW=null;',
+    ...['_pexdCarryNodeLbl','_pexdCarryDiffers','_pexdCarryDeliberate','_pexdCarryOn','_pexdCarryPaint','_pexdCarryWhen','_pexdCarryLrow','pexdCarryTick',
+        '_pexdPreFields','_pexdPreEnsure','_pexdPreCy','_pexdPreTicked','_pexdPreRows','_pexdPreOne','_pexdPreSubHTML','_pexdPreFootHTML','pexdPreToggle','_exdModeRow',
+        '_pexdPreDraftFields','pexdPreTick','pexdPreChoose','_pexdPreJob'].map(n=>sliceFn(S61,n)),
+    ...['pexdCarryScan','_pexdCarrySettle','_pexdCarryWrite','pexdCarryGo','pexdCarryUndo'].map(n=>'async '+sliceFn(S61,n)),
+    'function pexdCarryRender(){} function pexdPreRender(){}'].join('\n'),ctx);
   const P2='970400123456 - TRAN MINH KHOA';
   const r=await vm.runInContext(`(async function(){
     var W=[], LESS={}, P2='${P2}';
@@ -388,7 +391,43 @@ const LEDGER=(async()=>{
   t('the writes: label quietly through the expense writer, node through the node writer, then ONE hydrate', JSON.stringify(r.w1)===JSON.stringify([['cat','a','Nhà ở',true],['node','a','rent'],['cat','b','Nhà ở',true],['node','b','rent'],['hydrate']]), r.w1);
   t('one node lesson per row, in đồng, keyed on the payee (P10, A15)', r.less1[P2+'|5000000']==='rent' && r.st1==='done' && r.n1===2, r.less1);
   t('undo replays backwards through the same writers and forgets the fresh lessons', r.st2==='idle' && r.w2.filter(w=>w[0]!=='hydrate').length===4 && Object.keys(r.less2).length===0 && r.a.cat==='Khác' && r.a.node==='p2p' && r.b.node===null, r);
-  t('61: Lưu captures the before-values and scans only for an expense whose Danh mục or Tiêu vào gì changed', /if\(p\.cat!=null && p\.cat!==\(t\.cat\|\|''\)\) _cf\.cat=p\.cat;/.test(S61) && /if\(_cy\) pexdCarryScan\(_cy\);/.test(S61));
+  /* ── before Lưu (L8–L13) ── */
+  const q=await vm.runInContext(`(async function(){
+    var P2='${P2}';
+    var slice=[
+      {id:'me', kind:'expense', amt:5000, who:P2, note:'chuyen tien', cat:'Khác', node:'p2p', date:'2026-10-01'},
+      {id:'a',  kind:'expense', amt:5000, who:P2, note:'chuyen tien', cat:'Khác',  node:'p2p',  date:'2026-09-01'},
+      {id:'b',  kind:'expense', amt:5000, who:P2, note:'',            cat:'Nhà ở', node:null,   date:'2025-12-01'},
+      {id:'c',  kind:'expense', amt:200,  who:P2, note:'cam on anh',  cat:'Ăn ngoài', node:'eatout', date:'2026-07-14'}];
+    window.fhPersonalMatchSlice=async function(){ return slice; };
+    ROW=slice[0]; _pexdId='me'; _pexdEdit=true; _pexdPre=null; _pexdCarry=null;
+    PXD={};
+    var none=_pexdPreFootHTML(ROW);                      // nothing staged
+    PXD={cat:'Nhà ở'};
+    _pexdPreFootHTML(ROW); await Promise.resolve(); await Promise.resolve(); await Promise.resolve();   // first paint starts the read; the read re-renders
+    var sub1=_pexdPreSubHTML(ROW,'cat'), subN=_pexdPreSubHTML(ROW,'node'), foot1=_pexdPreFootHTML(ROW), job0=_pexdPreJob({fields:{cat:'Nhà ở'},old:{cat:'Khác',node:'p2p'}});
+    pexdPreToggle('cat');
+    var sub1on=_pexdPreSubHTML(ROW,'cat');
+    PXD={cat:'Nhà ở', node:'rent'};
+    var foot2=_pexdPreFootHTML(ROW), sub2=_pexdPreSubHTML(ROW,'node');
+    var jobCat=_pexdPreJob({fields:{cat:'Nhà ở',node:'rent'},old:{cat:'Khác',node:'p2p'}});
+    _pexdPre.draft={cat:true,node:true}; pexdPreChoose();                         // the button: every change
+    var jobAll=_pexdPreJob({fields:{cat:'Nhà ở',node:'rent'},old:{cat:'Khác',node:'p2p'}});
+    pexdPreTick('c');                                                             // tick the deliberate row on purpose
+    var jobC=_pexdPreJob({fields:{cat:'Nhà ở',node:'rent'},old:{cat:'Khác',node:'p2p'}});
+    return { none:none, sub1:sub1, subN:subN, foot1:foot1, job0:job0, sub1on:sub1on, foot2:foot2, sub2:sub2,
+      jobCat:jobCat&&{f:Object.keys(jobCat.fields).join(), r:jobCat.rows.map(function(x){return x.id;}).join()},
+      jobAll:jobAll&&{f:Object.keys(jobAll.fields).join(), r:jobAll.rows.map(function(x){return x.id;}).join()},
+      jobC:jobC&&jobC.rows.map(function(x){return x.id;}).join(), use:Object.keys(_pexdPre.use).join() };
+  })()`,ctx);
+  t('L8: nothing staged → nothing offered; a staged Danh mục → the switch under that row, off, and the foot button', q.none==='' && /role="switch" aria-checked="false"/.test(q.sub1) && /Áp dụng cho 1 khoản giống/.test(q.sub1) && q.subN==='', q);
+  t('L9: the button says "Áp dụng 1 thay đổi cho 1 khoản", then recounts to 2 thay đổi cho 2 khoản', />Áp dụng 1 thay đổi cho 1 khoản</.test(q.foot1) && />Áp dụng 2 thay đổi cho 2 khoản</.test(q.foot2), [q.foot1,q.foot2]);
+  t('L10: off by default → Lưu carries nothing', q.job0===null, q.job0);
+  t('L10: one switch on carries that field only, to the rows that differ on it and are ticked', /aria-checked="true"/.test(q.sub1on) && q.jobCat.f==='cat' && q.jobCat.r==='a' && /aria-checked="false"/.test(q.sub2), q);
+  t('L11: the sheet\'s "Chọn" switches every change on; the rows are the union, the deliberate one still out', q.use==='cat,node' && q.jobAll.f==='cat,node' && q.jobAll.r==='a,b', q.jobAll);
+  t('L4/L12: a deliberate row ticked on purpose is carried', q.jobC==='a,b,c', q.jobC);
+  t('L13: Lưu runs the staged carry before it reports, and the after-save offer stands only when nothing was switched on', /_res=await _pexdCarryWrite\(_job\.fields, _job\.rows, null\)/.test(S61) && /'Đã lưu và đổi '\+_res\.done\.length\+' khoản'/.test(S61) && /return; \} _pexdPre=null; _pexdEdit=false;/.test(S61));
+  t('61: Lưu captures the before-values and scans only for an expense whose Danh mục or Tiêu vào gì changed', /if\(p\.cat!=null && p\.cat!==\(t\.cat\|\|''\)\) _cf\.cat=p\.cat;/.test(S61) && /if\(_cy && !_job\) pexdCarryScan\(_cy\);/.test(S61));
   t('61: the view state paints the foot button; the sheet body is the shared one', /_pexdCarryPaint\(\);\s+\/\/ the view state/.test(S61) && /body\.innerHTML=fhCarryBodyHTML\(m\);/.test(S61) && /id="sheet-carry"/.test(rd('src/index.html')));
 })().catch(e=>{ t('the ledger block ran', false, String(e && e.stack || e)); });
 

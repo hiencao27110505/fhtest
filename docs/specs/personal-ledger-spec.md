@@ -546,7 +546,9 @@ sheets:
   expense whose Danh mục or Tiêu vào gì changed, the view state shows one
   outlined button, "Áp dụng cho N khoản khác của …", opening the review's own
   carry sheet over the payee's other booked rows (`apply-to-similar-spec.md` §15,
-  L1–L7).
+  L1–L7). Since the same evening the offer also comes before Lưu: a switch under
+  each changed row and a foot button, "Áp dụng n thay đổi cho m khoản", staged
+  with the edit and written by Lưu (§16, L8–L13).
 - **Transaction detail** (2026-09-17) — a private expense row opens
   `openPersonalTxDetail` in a **view** state (receipt block, read-only rows in
   the review card's order and labels, photos) with "Sửa" in the nav; edit is the

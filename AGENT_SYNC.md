@@ -143,6 +143,23 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-10-02 (evening) · Hien · ledger carry offered BEFORE Lưu · claiming SW `v610` · client only · no migration · no deploy · BUILT, pushed to `main` 2026-10-02.**
+  Spec: `apply-to-similar-spec.md` §16, L8–L13. Personal detail, edit state of an
+  expense: a switch line (`.exd-sub`) under each changed Danh mục / Tiêu vào gì row,
+  a foot button "Áp dụng n thay đổi cho m khoản" (`.exd-carry-foot`) opening
+  `#sheet-carry` in a second mode (`pexdPreRender`). State `_pexdPre` (use / tick /
+  draft); `pexdSave` now runs the staged carry via `_pexdCarryWrite` (the write
+  loop shared with `pexdCarryGo`) before it toasts, and `_cy` is captured for every
+  expense save, not only non-`opts.edit` ones. `fhCarryBodyHTML` (56) field rows
+  accept `sw:{on,tap}`. Uses `:has()` in `46-expense-detail.css` (iOS 15.4+).
+  Files: `61-expense-detail.js`, `56-csv-import-ui.js` (one branch),
+  `46-expense-detail.css`, `sw.js`, `index.html` (built),
+  `tools/apply-to-similar.test.js` (76), three specs. Untracked, not to be
+  committed: `mockups/carry-ledger-presave-options.html`. Same build, a copy and
+  design pass on the carry surfaces: shorter labels, no softeners, the switch at iOS
+  size, per-field undo in muted ink, the sheet's CTA pinned (`.cry-foot`, sticky),
+  `74-mailbox.css` touched too. If you bump the SW next, start from v611.
+
 - **2026-10-02 (later) · Hien · carry = a button + a sheet, queue AND ledger · claiming SW `v609` · client only · no migration · no deploy · BUILT, pushed to `main` 2026-10-02.**
   Spec: `apply-to-similar-spec.md` §3a, §15, A22–A23, L1–L7. The block under the
   review card's rows (this morning's `csvFixBlockHTML`, "Xem" filter `csvFixPeek`,
