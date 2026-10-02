@@ -24470,6 +24470,9 @@ async function pexdSave(){
     if(p.node!==undefined && (p.node||null)!==(t.node||null)) _cf.node=p.node||null;
     if(Object.keys(_cf).length) _cy={ id:E.id, who:t.who||'', note:note, fields:_cf, old:{ cat:t.cat||'', node:t.node||null } };
   }
+  /* §17 (L14): what was switched on before Lưu goes out WITH this row, in one
+     transaction — so the job is settled before anything is written. */
+  var _job=(_cy && _pexdPre && _pexdPre.id===E.id)?_pexdPreJob(_cy):null, _res=null;
   var ok=false;
   try{
     if(!fieldsChanged) ok=true;
@@ -24482,7 +24485,8 @@ async function pexdSave(){
           try{ window.fhLessonLearnNode({ note:note, counterparty:t.who||null, amount:(Number(amtBase)||0)*curMult(), node:p.node }); }catch(e){}   // P10: đồng · A15: personal row, `who` is the payee
         }
       }
-      ok=await window.fhPersonalUpdateExpense(E.id, f);
+      if(_job){ _res=await _pexdCarryWrite(_job.fields, _job.rows, { id:E.id, fields:f }); ok=_res.ok; }
+      else ok=await window.fhPersonalUpdateExpense(E.id, f);
     } else if(k==='income'){
       var fi={ amt:amtBase, note:note, dateIso:dateIso };
       if(p.hasOwnProperty('accountId')) fi.accountId=p.accountId;
@@ -24516,10 +24520,7 @@ async function pexdSave(){
     if(ok && p.photos!==undefined && window.fhPersonalSyncTxnPhotos){ ok=await fhPersonalSyncTxnPhotos(E.id, p.photos); await window.fhPersonalHydrate(); }
   }catch(e){ ok=false; }
   if(!ok){ if(go){ go.disabled=false; go.textContent='Lưu'; } toast('Chưa lưu được, thử lại nhé'); return; }
-  /* §16 (L8–L13): what the person switched on before Lưu is written now, in the
-     same commit as far as they can tell — the button still says "Đang lưu…". */
-  var _job=(_cy && _pexdPre && _pexdPre.id===E.id)?_pexdPreJob(_cy):null, _res=null;
-  if(_job){ try{ _res=await _pexdCarryWrite(_job.fields, _job.rows, null); await _pexdCarrySettle(); }catch(e){ _res={done:[],fail:_job.rows.length}; } }
+  if(_job){ try{ await _pexdCarrySettle(); }catch(e){} }   // §16/§17: one reload for the row and everything it carried
   if(go){ go.disabled=false; go.textContent='Lưu'; }
   var _pre=_pexdPre; _pexdPre=null;
   PXD={};
@@ -24527,7 +24528,7 @@ async function pexdSave(){
     if(typeof renderPersonal==='function'){ try{ renderPersonal(); }catch(e){} }
     if(typeof refreshPersonalTxnOverlay==='function') refreshPersonalTxnOverlay();
   }
-  toast(_res ? ('Đã lưu và đổi '+_res.done.length+' khoản'+(_res.fail?' · '+_res.fail+' khoản lỗi':'')) : 'Đã lưu');
+  toast(_res ? ('Đã lưu và đổi '+_res.done.length+' khoản'+(_res.fail?' · '+_res.fail+' khoản không còn':'')) : 'Đã lưu');
   if(_pexdOpts.edit){ closePersonalTxDetail(); return; }
   _pexdCarry=null;
   if(_res && _res.done.length){                          // the view state then shows "Đã áp dụng cho K khoản", whose sheet holds the undo (L1)
@@ -24613,7 +24614,7 @@ function pexdCarryRender(){
     m.secs.push({ title:cy.rows.length+' khoản đã ghi',
       rows:shown.map(function(x){ return { on:!cy.off[x.id], ro:cy.state==='busy', tap:"pexdCarryTick('"+escAttr(String(x.id))+"')", when:_pexdCarryWhen(x), was:was(x), amt:fmt(x.amt) }; }),
       more:(cy.rows.length>shown.length && cy.state!=='busy')?{ label:'Xem cả '+cy.rows.length+' khoản', tap:'pexdCarryMore()' }:null });
-    m.cta=(cy.state==='busy') ? { label:'Đang đổi '+cy.prog+'/'+on+'…', tap:'', busy:true, cls:'cta' }
+    m.cta=(cy.state==='busy') ? { label:'Đang đổi…', tap:'', busy:true, cls:'cta' }
                               : { label:on?('Áp dụng cho '+on+' khoản'):'Xong', tap:on?'pexdCarryGo()':'closeSheet()', cls:'cta' };
   }
   body.innerHTML=fhCarryBodyHTML(m);
@@ -24630,47 +24631,55 @@ function pexdCarryTick(id){
 }
 function pexdCarryMore(){ if(_pexdCarry){ _pexdCarry.more=true; pexdCarryRender(); } }
 function _pexdCarryLrow(t){ return { counterparty:t.who||'', memo:t.note||'', amount:(Number(t.amt)||0)*curMult() }; }   // the lesson speaks đồng (P10); a personal row's payee is `who` (A15)
-/* The writes. One row at a time through the ledger's own writers; a node also
-   teaches that row's banded lesson, exactly as a pick on the row would. The
-   label store is the review's and is not loaded here, so a label teaches nothing
-   from this screen (L6). Success is said only after everything landed. */
-async function _pexdCarryWrite(fields, rows, tick){
-  var done=[], fail=0;
-  for(var i=0;i<rows.length;i++){
-    var t=rows[i], prev={ cat:t.cat||'', node:t.node||null }, lp=null, taught=false, changed=false, ok=true;
-    try{
-      if(fields.cat!==undefined && (t.cat||'')!==fields.cat){
-        ok=await window.fhPersonalUpdateExpense(t.id, { amt:t.amt, note:t.note, cat:fields.cat, emoji:((catStyle[fields.cat]||['🏷️'])[0]), time:t.time||'', dateIso:t.date }, true);
-        if(ok){ t.cat=fields.cat; changed=true; }
-      }
-      if(ok && fields.node!==undefined && (t.node||null)!==(fields.node||null)){
-        if(typeof window.fhLessonNode==='function') lp=window.fhLessonNode(_pexdCarryLrow(t))||null;
-        ok=await window.fhPersonalSetNode(t.id, fields.node);
-        if(ok){
-          t.node=fields.node; changed=true;
-          if(fields.node && typeof window.fhLessonLearnNode==='function'){ try{ var lr=_pexdCarryLrow(t); lr.node=fields.node; window.fhLessonLearnNode(lr); taught=true; }catch(e){} }
-        }
-      }
-    }catch(e){ ok=false; }
-    if(changed) done.push({ t:t, prev:prev, lesson:lp, taught:taught });
-    if(!ok) fail++;
-    if(tick) tick(i+1, rows.length);
-  }
-  return { done:done, fail:fail };
+/* The writes (§17, L14–L18): ONE request, one transaction, through
+   fhPersonalPatchMany. Each row is sent only the columns that change on it — a
+   carried label never re-sends that row's amount or note. `lead` is the row
+   being saved on the edit screen, when the carry rides with Lưu: it and the
+   others land together or not at all. Nothing local is touched until the
+   database answers; a node then teaches that row's banded lesson, exactly as a
+   pick on the row would. The label store is the review's and is not loaded
+   here, so a label teaches nothing from this screen (L6). */
+async function _pexdCarryWrite(fields, rows, lead){
+  var plan=[], patches=lead?[lead]:[];
+  rows.forEach(function(t){
+    var f={}, n=0;
+    if(fields.cat!==undefined && (t.cat||'')!==fields.cat){ f.cat=fields.cat; f.emoji=((catStyle[fields.cat]||['🏷️'])[0]); n++; }
+    if(fields.node!==undefined && (t.node||null)!==(fields.node||null)){ f.node=fields.node||null; n++; }
+    if(n){ plan.push({ t:t, f:f }); patches.push({ id:t.id, fields:f }); }
+  });
+  if(!patches.length) return { ok:true, done:[], fail:0 };
+  var ids=null;
+  try{ ids=await window.fhPersonalPatchMany(patches); }catch(e){ ids=null; }
+  if(!ids) return { ok:false, done:[], fail:plan.length };
+  var hit={}, done=[], fail=0; ids.forEach(function(x){ hit[String(x)]=1; });
+  plan.forEach(function(p){
+    var t=p.t; if(!hit[String(t.id)]){ fail++; return; }       // gone since the list was read
+    var prev={ cat:t.cat||'', node:t.node||null }, lp=null, taught=false;
+    if(p.f.cat!==undefined) t.cat=p.f.cat;
+    if(p.f.node!==undefined){
+      if(typeof window.fhLessonNode==='function'){ try{ lp=window.fhLessonNode(_pexdCarryLrow(t))||null; }catch(e){} }
+      t.node=p.f.node;
+      if(p.f.node && typeof window.fhLessonLearnNode==='function'){ try{ var lr=_pexdCarryLrow(t); lr.node=p.f.node; window.fhLessonLearnNode(lr); taught=true; }catch(e){} }
+    }
+    done.push({ t:t, prev:prev, lesson:lp, taught:taught });
+  });
+  return { ok:true, done:done, fail:fail };
 }
 async function pexdCarryGo(){
   var cy=_pexdCarry; if(!cy || cy.state!=='idle') return;
   var rows=_pexdCarryOn(cy); if(!rows.length) return;
   if(navigator.onLine===false){ toast('Cần mạng để đổi khoản đã ghi'); return; }
-  cy.state='busy'; cy.prog=0; pexdCarryRender(); _pexdCarryPaint();
-  var res=await _pexdCarryWrite(cy.fields, rows, function(k, n){
-    cy.prog=k; var b=document.querySelector('#carry-body .cry-cta'); if(b) b.textContent='Đang đổi '+k+'/'+n+'…';
-  });
+  cy.state='busy'; pexdCarryRender(); _pexdCarryPaint();
+  var res=await _pexdCarryWrite(cy.fields, rows, null);
+  if(!res.ok){                                             // nothing was written: the sheet stays, as it was
+    if(_pexdCarry===cy){ cy.state='idle'; pexdCarryRender(); _pexdCarryPaint(); }
+    toast('Chưa đổi được, thử lại nhé'); return;
+  }
   var done=res.done, fail=res.fail;
   await _pexdCarrySettle();
   if(_pexdCarry===cy){ cy.done=done; cy.fail=fail; cy.state=done.length?'done':'idle'; }
   closeSheet();
-  toast(fail ? ('Đã đổi '+done.length+' khoản · '+fail+' khoản lỗi') : ('Đã đổi '+done.length+' khoản'));
+  toast(fail ? ('Đã đổi '+done.length+' khoản · '+fail+' khoản không còn') : ('Đã đổi '+done.length+' khoản'));
   if(_pexdCarry===cy) _pexdCarryPaint();
 }
 async function _pexdCarrySettle(){
@@ -24682,35 +24691,37 @@ async function _pexdCarrySettle(){
 async function pexdCarryUndo(){
   var cy=_pexdCarry; if(!cy || cy.state!=='done') return;
   if(navigator.onLine===false){ toast('Cần mạng để đổi khoản đã ghi'); return; }
-  cy.state='busy'; cy.prog=0; _pexdCarryPaint();
-  var left=[], dn=cy.done||[];
+  cy.state='busy'; _pexdCarryPaint();
+  var dn=cy.done||[], plan=[];
   var lk=document.querySelector('#carry-body .cry-sec .cry-link'); if(lk){ lk.disabled=true; lk.textContent='Đang hoàn tác…'; }
-  for(var i=dn.length-1;i>=0;i--){
-    var d=dn[i], t=d.t, ok=true;
-    try{
-      if((t.node||null)!==(d.prev.node||null)){
-        ok=await window.fhPersonalSetNode(t.id, d.prev.node);
-        if(ok){
-          t.node=d.prev.node;
-          if(d.taught){ var lr=_pexdCarryLrow(t);
-            if(d.lesson && window.fhLessonLearnNode){ lr.node=d.lesson; window.fhLessonLearnNode(lr); }
-            else if(window.fhLessonForgetNode) window.fhLessonForgetNode(lr); }
-        }
-      }
-      if(ok && (t.cat||'')!==(d.prev.cat||'')){
-        ok=await window.fhPersonalUpdateExpense(t.id, { amt:t.amt, note:t.note, cat:d.prev.cat, emoji:((catStyle[d.prev.cat]||['🏷️'])[0]), time:t.time||'', dateIso:t.date }, true);
-        if(ok) t.cat=d.prev.cat;
-      }
-    }catch(e){ ok=false; }
-    if(!ok) left.push(d);
+  dn.forEach(function(d){                                   // each row back to what IT said, all in one transaction (§17)
+    var t=d.t, f={}, n=0;
+    if((t.node||null)!==(d.prev.node||null)){ f.node=d.prev.node||null; n++; }
+    if((t.cat||'')!==(d.prev.cat||'')){ f.cat=d.prev.cat; f.emoji=((catStyle[d.prev.cat]||['🏷️'])[0]); n++; }
+    if(n) plan.push({ d:d, f:f });
+  });
+  var ids=[];
+  if(plan.length){ try{ ids=await window.fhPersonalPatchMany(plan.map(function(p){ return { id:p.d.t.id, fields:p.f }; })); }catch(e){ ids=null; } }
+  if(!ids){                                                // nothing was undone: the offer to undo stands
+    if(_pexdCarry===cy){ cy.state='done'; _pexdCarryPaint(); }
+    if(lk){ lk.disabled=false; lk.textContent='Hoàn tác'; }
+    toast('Chưa hoàn tác được, thử lại nhé'); return;
   }
+  var hit={}; ids.forEach(function(x){ hit[String(x)]=1; });
+  plan.slice().reverse().forEach(function(p){              // lessons unwind newest first: a later row's 'before' may be an earlier row's lesson
+    var d=p.d, t=d.t; if(!hit[String(t.id)]) return;        // the row is gone: nothing left to undo on it
+    if(p.f.node!==undefined){
+      t.node=d.prev.node;
+      if(d.taught){ var lr=_pexdCarryLrow(t);
+        if(d.lesson && window.fhLessonLearnNode){ lr.node=d.lesson; window.fhLessonLearnNode(lr); }
+        else if(window.fhLessonForgetNode) window.fhLessonForgetNode(lr); }
+    }
+    if(p.f.cat!==undefined) t.cat=d.prev.cat;
+  });
   await _pexdCarrySettle();
-  if(_pexdCarry===cy){
-    if(left.length){ cy.done=left.reverse(); cy.state='done'; }
-    else { cy.done=null; cy.state='idle'; }
-  }
+  if(_pexdCarry===cy){ cy.done=null; cy.state='idle'; }
   closeSheet();
-  toast(left.length ? ('Còn '+left.length+' khoản chưa hoàn tác') : 'Đã hoàn tác');
+  toast('Đã hoàn tác');
   if(_pexdCarry===cy) _pexdCarryPaint();
 }
 /* ── before Lưu (apply-to-similar-spec §16, L8–L13) ──────────────────────────
@@ -27707,7 +27718,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v611';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v612';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -30069,10 +30080,86 @@ window.obGoogle = async function () {
       // 0144: node / labelId follow the same undefined = untouched, null = clear rule
       if (fields.hasOwnProperty('node')) row.node_enc = _okNode(fields.node) ? await _encP(fields.node) : null;
       if (fields.hasOwnProperty('labelId')) row.label_id = fields.labelId || null;
-      const r = await _sb().from('personal_transactions').update(row).eq('id', id).eq('owner_user_id', P.uid).is('link_id', null);
+      const r = await _netRetry((sig) => _sb().from('personal_transactions').update(row).eq('id', id).eq('owner_user_id', P.uid).is('link_id', null).abortSignal(sig));
       if (r.error) { console.warn('personal expense update failed', r.error); return false; }
       if (!quiet) await window.fhPersonalHydrate();
       return true;
+    };
+
+    /* ── A write that survives a dead socket (apply-to-similar-spec §17, L15) ──
+       The client's 60 s fetch cap (10-client-auth) only guarantees no promise is
+       immortal; for a save it meant a minute of "Đang lưu…" and then a failure,
+       on a request that never left the phone (2026-10-02). A ledger edit gets a
+       short deadline of its own and is repeated on a fresh connection, up to
+       three attempts. Only a NETWORK failure is repeated: an answer from the
+       database (it has a `code`) is final. Safe because every write sent through
+       here sets fixed values — the second landing changes nothing. The deadline
+       also covers a hang BEFORE the request is sent, which abort alone cannot. */
+    const _NET_TRIES = 3, _NET_DEADLINE = 10000;
+    const _isNetFail = (e) => !!e && !e.code && /abort|timeout|network|fetch|load failed|connection|offline/i.test(String(e.message || e.details || e));
+    async function _netRetry(build) {
+      let r = null;
+      for (let i = 0; i < _NET_TRIES; i++) {
+        const c = new AbortController(); let timer = null;
+        const late = new Promise((res) => { timer = setTimeout(() => { try { c.abort(); } catch (e) {} res({ data: null, error: { message: 'timeout' } }); }, _NET_DEADLINE); });
+        try { r = await Promise.race([Promise.resolve(build(c.signal)), late]); }
+        catch (e) { r = { data: null, error: { message: String((e && e.message) || e || 'fetch failed') } }; }
+        clearTimeout(timer);
+        if (!r || !r.error || !_isNetFail(r.error) || navigator.onLine === false) return r;
+        if (i < _NET_TRIES - 1) await new Promise((res) => setTimeout(res, 400 * (i + 1)));
+      }
+      return r;
+    }
+
+    /* ── Several booked rows, ONE transaction (0156 · apply-to-similar-spec §17) ──
+       patches = [{ id, fields }], where `fields` speaks the same language as
+       fhPersonalUpdateExpense — amt, note, cat, emoji, time, dateIso, accountId,
+       node, labelId — except that ONLY the keys present are written: a carried
+       category never re-sends the amount or the note of the row it lands on.
+       Returns the ids the database wrote (a row deleted meanwhile is simply
+       absent), or null when nothing was written at all. Never hydrates: the
+       caller settles once. */
+    async function _patchSet(f) {
+      const has = (k) => Object.prototype.hasOwnProperty.call(f, k), s = {};
+      if (has('amt')) s.amount_enc = await _encP(Number(f.amt));
+      if (has('note')) s.note_enc = f.note ? await _encP(f.note) : null;
+      if (has('cat')) s.cat_name_enc = f.cat ? await _encP(f.cat) : null;
+      if (has('emoji')) s.cat_emoji = f.emoji || null;
+      if (has('time')) { const t = _okTime(f.time); s.occurred_time_enc = t ? await _encP(t) : null; }
+      if (has('dateIso') && f.dateIso) s.txn_date = f.dateIso;
+      if (has('accountId')) s.account_id = f.accountId || null;
+      if (has('node')) s.node_enc = _okNode(f.node) ? await _encP(f.node) : null;
+      if (has('labelId')) s.label_id = f.labelId || null;
+      return s;
+    }
+    window.fhPersonalPatchMany = async function (patches) {
+      if (!P.uid || !P.key) return null;
+      const rows = [];
+      for (const p of (patches || [])) { if (p && p.id) rows.push({ id: p.id, set: await _patchSet(p.fields || {}) }); }
+      if (!rows.length) return [];
+      const r = await _netRetry((sig) => _sb().rpc('personal_txn_patch', { p_rows: rows }).abortSignal(sig));
+      if (!r.error) { window.fhPersonalMatchSliceInvalidate && window.fhPersonalMatchSliceInvalidate(); return (r.data || []).map(String); }
+      /* The function is not on this database yet (the app can ship before the
+         migration): the same rows, one at a time, each with its own retry. Not
+         atomic — which is exactly what 0156 is for — but never a dead end. */
+      if (r.error.code === 'PGRST202' || r.error.code === '42883') {
+        const done = [];
+        for (const x of rows) {
+          if (!Object.keys(x.set).length) continue;
+          const nodeOnly = Object.keys(x.set).join() === 'node_enc';
+          const u = await _netRetry((sig) => {
+            let q = _sb().from('personal_transactions').update(x.set).eq('id', x.id).eq('owner_user_id', P.uid);
+            if (!nodeOnly) q = q.is('link_id', null);
+            return q.select('id').abortSignal(sig);
+          });
+          if (u.error) { console.warn('personal patch (row) failed', u.error); break; }
+          if (u.data && u.data.length) done.push(String(x.id));
+        }
+        window.fhPersonalMatchSliceInvalidate && window.fhPersonalMatchSliceInvalidate();
+        return done.length ? done : null;
+      }
+      console.warn('personal patch failed', r.error);
+      return null;
     };
     /* ── 0154 receipt enrichment — the blob, alone ────────────────────────────
        The RECEIPT only, on a PRIVATE row that has none yet. The retroactive

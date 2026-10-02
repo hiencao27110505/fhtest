@@ -841,10 +841,86 @@
       // 0144: node / labelId follow the same undefined = untouched, null = clear rule
       if (fields.hasOwnProperty('node')) row.node_enc = _okNode(fields.node) ? await _encP(fields.node) : null;
       if (fields.hasOwnProperty('labelId')) row.label_id = fields.labelId || null;
-      const r = await _sb().from('personal_transactions').update(row).eq('id', id).eq('owner_user_id', P.uid).is('link_id', null);
+      const r = await _netRetry((sig) => _sb().from('personal_transactions').update(row).eq('id', id).eq('owner_user_id', P.uid).is('link_id', null).abortSignal(sig));
       if (r.error) { console.warn('personal expense update failed', r.error); return false; }
       if (!quiet) await window.fhPersonalHydrate();
       return true;
+    };
+
+    /* ── A write that survives a dead socket (apply-to-similar-spec §17, L15) ──
+       The client's 60 s fetch cap (10-client-auth) only guarantees no promise is
+       immortal; for a save it meant a minute of "Đang lưu…" and then a failure,
+       on a request that never left the phone (2026-10-02). A ledger edit gets a
+       short deadline of its own and is repeated on a fresh connection, up to
+       three attempts. Only a NETWORK failure is repeated: an answer from the
+       database (it has a `code`) is final. Safe because every write sent through
+       here sets fixed values — the second landing changes nothing. The deadline
+       also covers a hang BEFORE the request is sent, which abort alone cannot. */
+    const _NET_TRIES = 3, _NET_DEADLINE = 10000;
+    const _isNetFail = (e) => !!e && !e.code && /abort|timeout|network|fetch|load failed|connection|offline/i.test(String(e.message || e.details || e));
+    async function _netRetry(build) {
+      let r = null;
+      for (let i = 0; i < _NET_TRIES; i++) {
+        const c = new AbortController(); let timer = null;
+        const late = new Promise((res) => { timer = setTimeout(() => { try { c.abort(); } catch (e) {} res({ data: null, error: { message: 'timeout' } }); }, _NET_DEADLINE); });
+        try { r = await Promise.race([Promise.resolve(build(c.signal)), late]); }
+        catch (e) { r = { data: null, error: { message: String((e && e.message) || e || 'fetch failed') } }; }
+        clearTimeout(timer);
+        if (!r || !r.error || !_isNetFail(r.error) || navigator.onLine === false) return r;
+        if (i < _NET_TRIES - 1) await new Promise((res) => setTimeout(res, 400 * (i + 1)));
+      }
+      return r;
+    }
+
+    /* ── Several booked rows, ONE transaction (0156 · apply-to-similar-spec §17) ──
+       patches = [{ id, fields }], where `fields` speaks the same language as
+       fhPersonalUpdateExpense — amt, note, cat, emoji, time, dateIso, accountId,
+       node, labelId — except that ONLY the keys present are written: a carried
+       category never re-sends the amount or the note of the row it lands on.
+       Returns the ids the database wrote (a row deleted meanwhile is simply
+       absent), or null when nothing was written at all. Never hydrates: the
+       caller settles once. */
+    async function _patchSet(f) {
+      const has = (k) => Object.prototype.hasOwnProperty.call(f, k), s = {};
+      if (has('amt')) s.amount_enc = await _encP(Number(f.amt));
+      if (has('note')) s.note_enc = f.note ? await _encP(f.note) : null;
+      if (has('cat')) s.cat_name_enc = f.cat ? await _encP(f.cat) : null;
+      if (has('emoji')) s.cat_emoji = f.emoji || null;
+      if (has('time')) { const t = _okTime(f.time); s.occurred_time_enc = t ? await _encP(t) : null; }
+      if (has('dateIso') && f.dateIso) s.txn_date = f.dateIso;
+      if (has('accountId')) s.account_id = f.accountId || null;
+      if (has('node')) s.node_enc = _okNode(f.node) ? await _encP(f.node) : null;
+      if (has('labelId')) s.label_id = f.labelId || null;
+      return s;
+    }
+    window.fhPersonalPatchMany = async function (patches) {
+      if (!P.uid || !P.key) return null;
+      const rows = [];
+      for (const p of (patches || [])) { if (p && p.id) rows.push({ id: p.id, set: await _patchSet(p.fields || {}) }); }
+      if (!rows.length) return [];
+      const r = await _netRetry((sig) => _sb().rpc('personal_txn_patch', { p_rows: rows }).abortSignal(sig));
+      if (!r.error) { window.fhPersonalMatchSliceInvalidate && window.fhPersonalMatchSliceInvalidate(); return (r.data || []).map(String); }
+      /* The function is not on this database yet (the app can ship before the
+         migration): the same rows, one at a time, each with its own retry. Not
+         atomic — which is exactly what 0156 is for — but never a dead end. */
+      if (r.error.code === 'PGRST202' || r.error.code === '42883') {
+        const done = [];
+        for (const x of rows) {
+          if (!Object.keys(x.set).length) continue;
+          const nodeOnly = Object.keys(x.set).join() === 'node_enc';
+          const u = await _netRetry((sig) => {
+            let q = _sb().from('personal_transactions').update(x.set).eq('id', x.id).eq('owner_user_id', P.uid);
+            if (!nodeOnly) q = q.is('link_id', null);
+            return q.select('id').abortSignal(sig);
+          });
+          if (u.error) { console.warn('personal patch (row) failed', u.error); break; }
+          if (u.data && u.data.length) done.push(String(x.id));
+        }
+        window.fhPersonalMatchSliceInvalidate && window.fhPersonalMatchSliceInvalidate();
+        return done.length ? done : null;
+      }
+      console.warn('personal patch failed', r.error);
+      return null;
     };
     /* ── 0154 receipt enrichment — the blob, alone ────────────────────────────
        The RECEIPT only, on a PRIVATE row that has none yet. The retroactive

@@ -1898,6 +1898,20 @@ as — or the same day as — the deploy. A deploy announced only in
 
 ## 28. Releases (newest first)
 
+### 2026-10-02 (night) — a carry in the book is saved in one transaction, with a retry · SW v612 · migration 0156 (written, not applied) · no deploy
+
+- **For product:** saving an edit that also changes 12 similar booked rows could
+  wait a minute and then fail, and a second tap worked. The save now goes out as
+  one request that lands entirely or not at all, and a request that stalls is
+  repeated by itself within seconds. The same holds for the after-save button and
+  for Hoàn tác.
+- **Under the hood:** `personal_txn_patch` (0156) applies `[{id, set}]` in one
+  transaction; `19-personal.js` `_netRetry` + `fhPersonalPatchMany`;
+  `61-expense-detail.js` `_pexdCarryWrite` is one call. Until 0156 is applied the
+  client writes row by row with the same retry. No capture, review or promote
+  change.
+- **Spec sections updated:** none here; `apply-to-similar-spec.md` §17, L14–L18.
+
 ### 2026-10-02 (evening) — in the book, "apply to similar" is offered before Lưu · client only, SW v610 · no migration, no deploy
 
 - **For product:** editing a booked personal expense, the moment Danh mục or Tiêu

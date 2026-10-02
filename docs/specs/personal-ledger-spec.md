@@ -548,7 +548,9 @@ sheets:
   carry sheet over the payee's other booked rows (`apply-to-similar-spec.md` §15,
   L1–L7). Since the same evening the offer also comes before Lưu: a switch under
   each changed row and a foot button, "Áp dụng n thay đổi cho m khoản", staged
-  with the edit and written by Lưu (§16, L8–L13).
+  with the edit and written by Lưu (§16, L8–L13). The edited row and the rows it
+  carries to are written in one transaction, with a retry on a stalled request
+  (§17, L14–L18; migration 0156).
 - **Transaction detail** (2026-09-17) — a private expense row opens
   `openPersonalTxDetail` in a **view** state (receipt block, read-only rows in
   the review card's order and labels, photos) with "Sửa" in the nav; edit is the

@@ -143,6 +143,16 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-10-02 (late night) · Hien · ledger carry saved in ONE transaction + retry · CLAIMING migration `0156_personal_txn_patch.sql` (next free is `0157`) · claiming SW `v612` · NOT pushed, 0156 NOT applied.**
+  A 12-row "Áp dụng cho khoản giống" save failed once: the server log shows no request for 99 s, then the retry's
+  1 + 12 PATCHes, all 204. The first write never left the phone and waited out the 60 s fetch cap. Now
+  `fhPersonalPatchMany` (19) sends the edited row and the carried rows to `personal_txn_patch` in one call
+  (security invoker, owner-only, mirror accepts node only, present keys only); `_netRetry` gives ledger writes a
+  10 s deadline and three attempts on network failures only, and `fhPersonalUpdateExpense` uses it too.
+  `_pexdCarryWrite` / `pexdCarryGo` / `pexdCarryUndo` (61) are one call each, all-or-nothing. If the RPC is
+  missing (PGRST202) the client falls back to row-by-row, so the app can ship before the migration.
+  **0156 must be applied by a human or an approved session: the MCP apply was refused in this one.**
+  Spec: `apply-to-similar-spec.md` §17 (L14–L18). If you bump the SW next, start from v612.
 - **2026-10-02 (night) · Hien · detail pickers dead on rows older than last month — FIXED · claiming SW `v611` · client only · pushed to `main` 2026-10-02.**
   `_exdRowOf()` (61) looked a personal row up with `_pTxById` (P.txns: this month + last). A row opened from the
   6-month history lives in `P.txnsOld`, so `exdSheetCat` / `exdSheetNode` / `exdSheetAmt` returned at `if(!t) return`

@@ -47,6 +47,15 @@ in the queue and in the book — and remembers exactly what you approved.
 > after-save button remains as the fallback when nothing was switched on. Mockup:
 > `mockups/carry-ledger-presave-options.html` (the combined flow at the top).
 
+> **Amended 2026-10-02 (night) — in the book, the carry is written in ONE
+> transaction, with a retry (§17, L14–L18). BUILT, SW v612, migration
+> `0156_personal_txn_patch.sql` WRITTEN, NOT YET APPLIED.** A 12-row carry failed
+> on a request that never reached the server; the row being saved and the rows it
+> carries to now travel in one call that lands entirely or not at all, and a
+> ledger write that stalls is repeated on a fresh connection. Until 0156 is on
+> the database the client writes the same rows one at a time (L15). No visible
+> change except that the failure is gone and progress no longer counts rows.
+
 > **How this relates to its siblings.** `transaction-review-spec.md` owns the
 > queue and its card; this spec adds one block to the expanded card and two
 > verbs. `p2p-breakdown-spec.md` owns the person key (P4) this spec's "similar"
@@ -460,6 +469,7 @@ The L series — the same carry in the book (`mockups/carry-ledger-options.html`
 | `src/js-data/19-personal.js` | `fhPersonalMatchSlice` decrypts `who` |
 | `src/js-data/28-tree-backfill.js` | cursor v10 → v11 |
 | `tools/apply-to-similar.test.js` | the contract, on the real functions |
+| `supabase/migrations/0156_personal_txn_patch.sql`, `src/js-data/19-personal.js`, `src/js-ui/61-expense-detail.js` (night) | **L14–L18:** `personal_txn_patch`, `_netRetry`, `fhPersonalPatchMany`; `_pexdCarryWrite` is one call; `pexdCarryGo` / `pexdCarryUndo` all-or-nothing |
 
 ## 15. In the book — the ledger detail (L1–L7)
 
@@ -545,6 +555,74 @@ button; `pexdPreSheet` → `pexdPreRender` (the shared `fhCarryBodyHTML`, whose
 field rows now accept a switch) → `pexdPreChoose`; `pexdSave` asks `_pexdPreJob`
 and runs `_pexdCarryWrite`, the write loop it now shares with §15's
 `pexdCarryGo`.
+
+## 17. In the book — how the carry is written (L14–L18)
+
+**The failure this answers (2026-10-02).** A carry to 12 booked rows showed "Đang
+lưu…", then "Chưa lưu được, thử lại nhé"; the second tap worked. The server log
+has the second attempt only: 1 write for the edited row and 12 for the others,
+all successful, after 99 seconds with no request at all. The first attempt's
+first write never arrived. The likeliest cause is a socket that died while the
+app sat idle, and the app then waited out its 60-second fetch cap
+(`10-client-auth.js`). A hang before the request is sent would look the same in
+the log, so the fix covers both.
+
+**What was fragile.** One save was 1 + N requests and two full ledger reloads.
+Any one of them stalling failed the save, nothing retried, and a failure in the
+middle would have left some rows changed and the rest not. A carried label also
+re-sent each row's amount, note, time and date from a cached copy.
+
+**What happens now.**
+
+1. **Lưu with a carry switched on** sends the edited row and every ticked row in
+   one call. The database applies them in one transaction.
+2. **The after-save button** (§15) sends its rows the same way; so does
+   **Hoàn tác**, each row going back to what that row said.
+3. A call that gets no answer within 10 seconds is abandoned and repeated on a
+   new connection, at most three attempts. The person sees "Đang lưu…" a few
+   seconds longer, then the normal toast.
+4. If all attempts fail, nothing was written anywhere. The edit screen keeps
+   everything staged, the sheet keeps its ticks, the undo keeps its offer.
+
+**Copy.**
+
+| Where | Copy |
+|---|---|
+| Sheet button while writing | Đang đổi… |
+| After-save carry failed | Chưa đổi được, thử lại nhé |
+| Undo failed | Chưa hoàn tác được, thử lại nhé |
+| Some rows were deleted meanwhile | Đã đổi 11 khoản · 1 khoản không còn |
+| Save with carry, same case | Đã lưu và đổi 11 khoản · 1 khoản không còn |
+
+"Đang đổi 3/12…" is retired: one request has no steps to count. "n khoản lỗi" is
+retired: a row can no longer fail on its own.
+
+**Decisions.**
+
+| # | Decision | Why |
+|---|---|---|
+| L14 | **One call, one transaction** (`personal_txn_patch`, 0156). With Lưu, the edited row leads the same call. | A save the person made once should land once. Half-applied carries cannot exist |
+| L15 | **Ledger writes get a 10 s deadline and up to three attempts, on network failures only.** An answer from the database is final. The single-row expense save uses the same retry. Without 0156 the client falls back to one row at a time, each with the retry. | The observed failure was a request that never left the phone. Repeating is safe because every write sets fixed values. The fallback lets the app ship before the migration |
+| L16 | **A row is sent only the columns that change on it.** | A carried category has no business rewriting an amount or a note from a cached copy |
+| L17 | **Nothing local changes until the database answers.** A failed call leaves rows, lessons, ticks and switches as they were. | Retry must start from the truth, and the screen must not show changes that did not land |
+| L18 | **A row deleted since the list was read is skipped and counted**, not an error. | The other rows are still right to change; the toast says how many are gone |
+
+**Guards in the function.** Owner only (`auth.uid()`, on top of RLS; security
+invoker). A mirror row accepts a node and nothing else, as `fhPersonalSetNode`
+allowed. Only editable columns are accepted and an unknown one is refused. 500
+rows a call. Values arrive as ciphertext made on the device.
+
+**Not done.** Income, debt, investment and transfer saves still have no retry.
+The review queue's carry into the book (`csvFixLedgerToggle`, 56) still writes
+row by row. A local-first queue for the personal ledger (save now, sync later)
+was considered and left for its own epic.
+
+Mechanics: `19-personal.js` `_netRetry` (deadline, attempts, network-only),
+`_patchSet` (fields → columns, present keys only), `fhPersonalPatchMany`
+(returns the ids written, or null); `61-expense-detail.js` `_pexdCarryWrite(fields,
+rows, lead)` builds the plan, calls once, then applies locally and teaches
+lessons; `pexdSave` decides the job before the write and passes the edited row
+as `lead`; `pexdCarryGo` and `pexdCarryUndo` are one call each.
 
 ## 14. Related
 

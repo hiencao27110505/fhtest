@@ -373,24 +373,39 @@ const LEDGER=(async()=>{
       {id:'i',  kind:'income',  amt:5000, who:P2, note:'x', cat:'Khác',  node:'p2p', date:'2026-08-03'},
       {id:'o',  kind:'expense', amt:5000, who:'VO DINH PHUC', note:'x', cat:'Khác', node:'p2p', date:'2026-08-04'}];
     window.fhPersonalMatchSlice=async function(){ return slice; };
-    window.fhPersonalSetNode=async function(id,n){ W.push(['node',id,n]); return true; };
-    window.fhPersonalUpdateExpense=async function(id,f,q){ W.push(['cat',id,f.cat,q]); return true; };
+    var FAIL=false, GONE={};
+    window.fhPersonalPatchMany=async function(ps){ W.push(['patch', ps.map(function(p){ return [p.id, Object.keys(p.fields).sort().join('+'), p.fields.cat, p.fields.node]; })]); if(FAIL) return null; return ps.map(function(p){ return p.id; }).filter(function(id){ return !GONE[id]; }); };
     window.fhLessonNode=function(i){ return LESS[i.counterparty+'|'+i.amount]||null; };
     window.fhLessonLearnNode=function(i){ LESS[i.counterparty+'|'+i.amount]=i.node; };
     window.fhLessonForgetNode=function(i){ delete LESS[i.counterparty+'|'+i.amount]; };
     window.fhPersonalHydrate=async function(){ W.push(['hydrate']); };
     await pexdCarryScan({ id:'me', who:P2, note:'chuyen tien', fields:{cat:'Nhà ở', node:'rent'}, old:{cat:'Khác', node:'p2p'} });
     var cy=_pexdCarry, ids=cy.rows.map(function(x){return x.id;}).join(), off=Object.keys(cy.off).join(), name=cy.name;
+    FAIL=true; await pexdCarryGo();                                 // the request never lands: nothing changes anywhere
+    var f0={ st:cy.state, a:slice[1].cat+'/'+slice[1].node, less:Object.keys(LESS).length, w:W.length, hyd:W.filter(function(w){ return w[0]==='hydrate'; }).length };
+    FAIL=false; W.length=0;
     await pexdCarryGo();
     var w1=W.slice(), st1=cy.state, n1=(cy.done||[]).length, less1=Object.assign({},LESS);
-    W.length=0; await pexdCarryUndo();
-    return {ids:ids, off:off, name:name, w1:w1, st1:st1, n1:n1, less1:less1, w2:W.slice(), st2:cy.state, less2:Object.assign({},LESS), a:slice[1], b:slice[2]};
+    W.length=0; FAIL=true; await pexdCarryUndo();
+    var u0={ st:cy.state, a:slice[1].cat+'/'+slice[1].node, less:Object.keys(LESS).length };
+    FAIL=false; W.length=0; await pexdCarryUndo();
+    var w2=W.slice(), st2=cy.state, less2=Object.assign({},LESS);
+    /* riding with Lưu: the edited row leads the same single call; a row deleted meanwhile is reported, not written */
+    W.length=0; GONE={b:1}; slice[1].cat='Khác'; slice[1].node='p2p';
+    var lead=await _pexdCarryWrite({cat:'Nhà ở', node:'rent'}, [slice[1], slice[2]], { id:'me', fields:{ amt:5000, note:'x', cat:'Nhà ở', node:'rent' } });
+    var w3=W.slice(); GONE={};
+    return {f0:f0, u0:u0, w3:w3, lead:{ ok:lead.ok, n:lead.done.length, fail:lead.fail, b:slice[2].cat+'/'+slice[2].node }, ids:ids, off:off, name:name, w1:w1, st1:st1, n1:n1, less1:less1, w2:w2, st2:st2, less2:less2, a:{cat:'Khác',node:'p2p',_:0}, b:{node:null}, aNow:slice[1]};
   })()`,ctx);
   t('similar = the payee\'s other private expense rows that differ; never the row itself, a mirror, income, another payee, or one already right', r.ids==='a,b,c', r);
   t('a row whose category is neither empty nor what this row said before arrives unticked (L4)', r.off==='c' && r.name==='TRAN MINH KHOA', r);
-  t('the writes: label quietly through the expense writer, node through the node writer, then ONE hydrate', JSON.stringify(r.w1)===JSON.stringify([['cat','a','Nhà ở',true],['node','a','rent'],['cat','b','Nhà ở',true],['node','b','rent'],['hydrate']]), r.w1);
+  t('L14: the writes are ONE call carrying every row, then ONE hydrate', JSON.stringify(r.w1)===JSON.stringify([['patch',[['a','cat+emoji+node','Nhà ở','rent'],['b','cat+emoji+node','Nhà ở','rent']]],['hydrate']]), r.w1);
+  t('L16: a row is sent only the columns that change on it, never its amount, note, time or date', r.w1[0][1].every(x=>!/amt|note|time|dateIso/.test(x[1])), r.w1[0]);
+  t('L17: a call that fails changes nothing: no row, no lesson, no reload, and the sheet is back to idle', r.f0.st==='idle' && r.f0.a==='Khác/p2p' && r.f0.less===0 && r.f0.w===1 && r.f0.hyd===0, r.f0);
+  t('L14: with Lưu the edited row leads the same single call', r.w3.length===1 && r.w3[0][1].length===3 && r.w3[0][1][0][0]==='me' && r.lead.ok===true, r.w3);
+  t('L18: a row deleted meanwhile is skipped and counted, and is not changed locally', r.lead.n===1 && r.lead.fail===1 && r.lead.b==='/null', r.lead);
   t('one node lesson per row, in đồng, keyed on the payee (P10, A15)', r.less1[P2+'|5000000']==='rent' && r.st1==='done' && r.n1===2, r.less1);
-  t('undo replays backwards through the same writers and forgets the fresh lessons', r.st2==='idle' && r.w2.filter(w=>w[0]!=='hydrate').length===4 && Object.keys(r.less2).length===0 && r.a.cat==='Khác' && r.a.node==='p2p' && r.b.node===null, r);
+  t('undo is one call putting each row back to what it said, and forgets the fresh lessons', r.st2==='idle' && r.w2.filter(w=>w[0]==='patch').length===1 && JSON.stringify(r.w2[0][1])===JSON.stringify([['a','cat+emoji+node','Khác','p2p'],['b','cat+emoji+node','',null]]) && Object.keys(r.less2).length===0, r.w2);
+  t('L17: an undo that fails undoes nothing and the offer to undo stands', r.u0.st==='done' && r.u0.a==='Nhà ở/rent' && r.u0.less===1, r.u0);
   /* ── before Lưu (L8–L13) ── */
   const q=await vm.runInContext(`(async function(){
     var P2='${P2}';
@@ -426,9 +441,26 @@ const LEDGER=(async()=>{
   t('L10: one switch on carries that field only, to the rows that differ on it and are ticked', /aria-checked="true"/.test(q.sub1on) && q.jobCat.f==='cat' && q.jobCat.r==='a' && /aria-checked="false"/.test(q.sub2), q);
   t('L11: the sheet\'s "Chọn" switches every change on; the rows are the union, the deliberate one still out', q.use==='cat,node' && q.jobAll.f==='cat,node' && q.jobAll.r==='a,b', q.jobAll);
   t('L4/L12: a deliberate row ticked on purpose is carried', q.jobC==='a,b,c', q.jobC);
-  t('L13: Lưu runs the staged carry before it reports, and the after-save offer stands only when nothing was switched on', /_res=await _pexdCarryWrite\(_job\.fields, _job\.rows, null\)/.test(S61) && /'Đã lưu và đổi '\+_res\.done\.length\+' khoản'/.test(S61) && /return; \} _pexdPre=null; _pexdEdit=false;/.test(S61));
+  t('L13: Lưu runs the staged carry before it reports, and the after-save offer stands only when nothing was switched on', /_res=await _pexdCarryWrite\(_job\.fields, _job\.rows, \{ id:E\.id, fields:f \}\); ok=_res\.ok;/.test(S61) && /'Đã lưu và đổi '\+_res\.done\.length\+' khoản'/.test(S61) && /return; \} _pexdPre=null; _pexdEdit=false;/.test(S61));
   t('61: Lưu captures the before-values and scans only for an expense whose Danh mục or Tiêu vào gì changed', /if\(p\.cat!=null && p\.cat!==\(t\.cat\|\|''\)\) _cf\.cat=p\.cat;/.test(S61) && /if\(_cy && !_job\) pexdCarryScan\(_cy\);/.test(S61));
   t('61: the view state paints the foot button; the sheet body is the shared one', /_pexdCarryPaint\(\);\s+\/\/ the view state/.test(S61) && /body\.innerHTML=fhCarryBodyHTML\(m\);/.test(S61) && /id="sheet-carry"/.test(rd('src/index.html')));
+  /* ── §17: the writer underneath ── */
+  const P19=rd('src/js-data/19-personal.js'), M156=rd('supabase/migrations/0156_personal_txn_patch.sql');
+  t('L14: fhPersonalPatchMany sends everything to one RPC, and 0156 is security invoker, owner-scoped, mirror-safe', /rpc\('personal_txn_patch', \{ p_rows: rows \}\)/.test(P19) && /security invoker/.test(M156) && /t\.owner_user_id = v_uid/.test(M156) && /t\.link_id is null or \(v_set - 'node_enc'\) = '\{\}'::jsonb/.test(M156));
+  t('L15: ledger writes get a short deadline and are repeated on a network failure only', /const _NET_TRIES = 3, _NET_DEADLINE = 10000;/.test(P19) && /!e\.code && \/abort\|timeout\|network/.test(P19) && /_netRetry\(\(sig\) => _sb\(\)\.from\('personal_transactions'\)\.update\(row\)/.test(P19));
+  t('L15: without 0156 on the database the same rows go one at a time, never a dead end', /r\.error\.code === 'PGRST202' \|\| r\.error\.code === '42883'/.test(P19));
+  {
+    const mk=(answers)=>{ const c={ console:{warn(){}}, navigator:{onLine:true}, setTimeout:(f)=>{ f(); return 0; }, clearTimeout(){}, AbortController, Promise, calls:0 };
+      vm.createContext(c);
+      const i=P19.indexOf('const _NET_TRIES'), j=P19.indexOf('/* ── Several booked rows');
+      vm.runInContext(P19.slice(i,j).replace(/setTimeout\(\(\) => \{ try \{ c\.abort[^;]*;[^;]*;[^;]*; \}, _NET_DEADLINE\)/, '0')+';this.run=function(a){ var n=0; return _netRetry(function(){ return Promise.resolve(a[n++]); }).then(function(r){ return {r:r,n:n}; }); };', c);
+      return c.run(answers); };
+    const net={ data:null, error:{ message:'TypeError: Load failed' } }, db={ data:null, error:{ code:'42501', message:'permission denied' } }, okr={ data:['x'], error:null };
+    const a=await mk([net,okr]), b=await mk([db,okr]), c3=await mk([net,net,net,okr]);
+    t('L15: a network failure is retried and the second answer wins', a.n===2 && !a.r.error, a);
+    t('L15: an answer from the database is final, never repeated', b.n===1 && b.r.error.code==='42501', b);
+    t('L15: three attempts, then it gives up', c3.n===3 && !!c3.r.error, c3);
+  }
 })().catch(e=>{ t('the ledger block ran', false, String(e && e.stack || e)); });
 
 console.log('\n-- A15: the payee on a personal row is `who`; the key function never reads it --');

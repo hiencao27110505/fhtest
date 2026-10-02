@@ -1142,6 +1142,9 @@ async function pexdSave(){
     if(p.node!==undefined && (p.node||null)!==(t.node||null)) _cf.node=p.node||null;
     if(Object.keys(_cf).length) _cy={ id:E.id, who:t.who||'', note:note, fields:_cf, old:{ cat:t.cat||'', node:t.node||null } };
   }
+  /* §17 (L14): what was switched on before Lưu goes out WITH this row, in one
+     transaction — so the job is settled before anything is written. */
+  var _job=(_cy && _pexdPre && _pexdPre.id===E.id)?_pexdPreJob(_cy):null, _res=null;
   var ok=false;
   try{
     if(!fieldsChanged) ok=true;
@@ -1154,7 +1157,8 @@ async function pexdSave(){
           try{ window.fhLessonLearnNode({ note:note, counterparty:t.who||null, amount:(Number(amtBase)||0)*curMult(), node:p.node }); }catch(e){}   // P10: đồng · A15: personal row, `who` is the payee
         }
       }
-      ok=await window.fhPersonalUpdateExpense(E.id, f);
+      if(_job){ _res=await _pexdCarryWrite(_job.fields, _job.rows, { id:E.id, fields:f }); ok=_res.ok; }
+      else ok=await window.fhPersonalUpdateExpense(E.id, f);
     } else if(k==='income'){
       var fi={ amt:amtBase, note:note, dateIso:dateIso };
       if(p.hasOwnProperty('accountId')) fi.accountId=p.accountId;
@@ -1188,10 +1192,7 @@ async function pexdSave(){
     if(ok && p.photos!==undefined && window.fhPersonalSyncTxnPhotos){ ok=await fhPersonalSyncTxnPhotos(E.id, p.photos); await window.fhPersonalHydrate(); }
   }catch(e){ ok=false; }
   if(!ok){ if(go){ go.disabled=false; go.textContent='Lưu'; } toast('Chưa lưu được, thử lại nhé'); return; }
-  /* §16 (L8–L13): what the person switched on before Lưu is written now, in the
-     same commit as far as they can tell — the button still says "Đang lưu…". */
-  var _job=(_cy && _pexdPre && _pexdPre.id===E.id)?_pexdPreJob(_cy):null, _res=null;
-  if(_job){ try{ _res=await _pexdCarryWrite(_job.fields, _job.rows, null); await _pexdCarrySettle(); }catch(e){ _res={done:[],fail:_job.rows.length}; } }
+  if(_job){ try{ await _pexdCarrySettle(); }catch(e){} }   // §16/§17: one reload for the row and everything it carried
   if(go){ go.disabled=false; go.textContent='Lưu'; }
   var _pre=_pexdPre; _pexdPre=null;
   PXD={};
@@ -1199,7 +1200,7 @@ async function pexdSave(){
     if(typeof renderPersonal==='function'){ try{ renderPersonal(); }catch(e){} }
     if(typeof refreshPersonalTxnOverlay==='function') refreshPersonalTxnOverlay();
   }
-  toast(_res ? ('Đã lưu và đổi '+_res.done.length+' khoản'+(_res.fail?' · '+_res.fail+' khoản lỗi':'')) : 'Đã lưu');
+  toast(_res ? ('Đã lưu và đổi '+_res.done.length+' khoản'+(_res.fail?' · '+_res.fail+' khoản không còn':'')) : 'Đã lưu');
   if(_pexdOpts.edit){ closePersonalTxDetail(); return; }
   _pexdCarry=null;
   if(_res && _res.done.length){                          // the view state then shows "Đã áp dụng cho K khoản", whose sheet holds the undo (L1)
@@ -1285,7 +1286,7 @@ function pexdCarryRender(){
     m.secs.push({ title:cy.rows.length+' khoản đã ghi',
       rows:shown.map(function(x){ return { on:!cy.off[x.id], ro:cy.state==='busy', tap:"pexdCarryTick('"+escAttr(String(x.id))+"')", when:_pexdCarryWhen(x), was:was(x), amt:fmt(x.amt) }; }),
       more:(cy.rows.length>shown.length && cy.state!=='busy')?{ label:'Xem cả '+cy.rows.length+' khoản', tap:'pexdCarryMore()' }:null });
-    m.cta=(cy.state==='busy') ? { label:'Đang đổi '+cy.prog+'/'+on+'…', tap:'', busy:true, cls:'cta' }
+    m.cta=(cy.state==='busy') ? { label:'Đang đổi…', tap:'', busy:true, cls:'cta' }
                               : { label:on?('Áp dụng cho '+on+' khoản'):'Xong', tap:on?'pexdCarryGo()':'closeSheet()', cls:'cta' };
   }
   body.innerHTML=fhCarryBodyHTML(m);
@@ -1302,47 +1303,55 @@ function pexdCarryTick(id){
 }
 function pexdCarryMore(){ if(_pexdCarry){ _pexdCarry.more=true; pexdCarryRender(); } }
 function _pexdCarryLrow(t){ return { counterparty:t.who||'', memo:t.note||'', amount:(Number(t.amt)||0)*curMult() }; }   // the lesson speaks đồng (P10); a personal row's payee is `who` (A15)
-/* The writes. One row at a time through the ledger's own writers; a node also
-   teaches that row's banded lesson, exactly as a pick on the row would. The
-   label store is the review's and is not loaded here, so a label teaches nothing
-   from this screen (L6). Success is said only after everything landed. */
-async function _pexdCarryWrite(fields, rows, tick){
-  var done=[], fail=0;
-  for(var i=0;i<rows.length;i++){
-    var t=rows[i], prev={ cat:t.cat||'', node:t.node||null }, lp=null, taught=false, changed=false, ok=true;
-    try{
-      if(fields.cat!==undefined && (t.cat||'')!==fields.cat){
-        ok=await window.fhPersonalUpdateExpense(t.id, { amt:t.amt, note:t.note, cat:fields.cat, emoji:((catStyle[fields.cat]||['🏷️'])[0]), time:t.time||'', dateIso:t.date }, true);
-        if(ok){ t.cat=fields.cat; changed=true; }
-      }
-      if(ok && fields.node!==undefined && (t.node||null)!==(fields.node||null)){
-        if(typeof window.fhLessonNode==='function') lp=window.fhLessonNode(_pexdCarryLrow(t))||null;
-        ok=await window.fhPersonalSetNode(t.id, fields.node);
-        if(ok){
-          t.node=fields.node; changed=true;
-          if(fields.node && typeof window.fhLessonLearnNode==='function'){ try{ var lr=_pexdCarryLrow(t); lr.node=fields.node; window.fhLessonLearnNode(lr); taught=true; }catch(e){} }
-        }
-      }
-    }catch(e){ ok=false; }
-    if(changed) done.push({ t:t, prev:prev, lesson:lp, taught:taught });
-    if(!ok) fail++;
-    if(tick) tick(i+1, rows.length);
-  }
-  return { done:done, fail:fail };
+/* The writes (§17, L14–L18): ONE request, one transaction, through
+   fhPersonalPatchMany. Each row is sent only the columns that change on it — a
+   carried label never re-sends that row's amount or note. `lead` is the row
+   being saved on the edit screen, when the carry rides with Lưu: it and the
+   others land together or not at all. Nothing local is touched until the
+   database answers; a node then teaches that row's banded lesson, exactly as a
+   pick on the row would. The label store is the review's and is not loaded
+   here, so a label teaches nothing from this screen (L6). */
+async function _pexdCarryWrite(fields, rows, lead){
+  var plan=[], patches=lead?[lead]:[];
+  rows.forEach(function(t){
+    var f={}, n=0;
+    if(fields.cat!==undefined && (t.cat||'')!==fields.cat){ f.cat=fields.cat; f.emoji=((catStyle[fields.cat]||['🏷️'])[0]); n++; }
+    if(fields.node!==undefined && (t.node||null)!==(fields.node||null)){ f.node=fields.node||null; n++; }
+    if(n){ plan.push({ t:t, f:f }); patches.push({ id:t.id, fields:f }); }
+  });
+  if(!patches.length) return { ok:true, done:[], fail:0 };
+  var ids=null;
+  try{ ids=await window.fhPersonalPatchMany(patches); }catch(e){ ids=null; }
+  if(!ids) return { ok:false, done:[], fail:plan.length };
+  var hit={}, done=[], fail=0; ids.forEach(function(x){ hit[String(x)]=1; });
+  plan.forEach(function(p){
+    var t=p.t; if(!hit[String(t.id)]){ fail++; return; }       // gone since the list was read
+    var prev={ cat:t.cat||'', node:t.node||null }, lp=null, taught=false;
+    if(p.f.cat!==undefined) t.cat=p.f.cat;
+    if(p.f.node!==undefined){
+      if(typeof window.fhLessonNode==='function'){ try{ lp=window.fhLessonNode(_pexdCarryLrow(t))||null; }catch(e){} }
+      t.node=p.f.node;
+      if(p.f.node && typeof window.fhLessonLearnNode==='function'){ try{ var lr=_pexdCarryLrow(t); lr.node=p.f.node; window.fhLessonLearnNode(lr); taught=true; }catch(e){} }
+    }
+    done.push({ t:t, prev:prev, lesson:lp, taught:taught });
+  });
+  return { ok:true, done:done, fail:fail };
 }
 async function pexdCarryGo(){
   var cy=_pexdCarry; if(!cy || cy.state!=='idle') return;
   var rows=_pexdCarryOn(cy); if(!rows.length) return;
   if(navigator.onLine===false){ toast('Cần mạng để đổi khoản đã ghi'); return; }
-  cy.state='busy'; cy.prog=0; pexdCarryRender(); _pexdCarryPaint();
-  var res=await _pexdCarryWrite(cy.fields, rows, function(k, n){
-    cy.prog=k; var b=document.querySelector('#carry-body .cry-cta'); if(b) b.textContent='Đang đổi '+k+'/'+n+'…';
-  });
+  cy.state='busy'; pexdCarryRender(); _pexdCarryPaint();
+  var res=await _pexdCarryWrite(cy.fields, rows, null);
+  if(!res.ok){                                             // nothing was written: the sheet stays, as it was
+    if(_pexdCarry===cy){ cy.state='idle'; pexdCarryRender(); _pexdCarryPaint(); }
+    toast('Chưa đổi được, thử lại nhé'); return;
+  }
   var done=res.done, fail=res.fail;
   await _pexdCarrySettle();
   if(_pexdCarry===cy){ cy.done=done; cy.fail=fail; cy.state=done.length?'done':'idle'; }
   closeSheet();
-  toast(fail ? ('Đã đổi '+done.length+' khoản · '+fail+' khoản lỗi') : ('Đã đổi '+done.length+' khoản'));
+  toast(fail ? ('Đã đổi '+done.length+' khoản · '+fail+' khoản không còn') : ('Đã đổi '+done.length+' khoản'));
   if(_pexdCarry===cy) _pexdCarryPaint();
 }
 async function _pexdCarrySettle(){
@@ -1354,35 +1363,37 @@ async function _pexdCarrySettle(){
 async function pexdCarryUndo(){
   var cy=_pexdCarry; if(!cy || cy.state!=='done') return;
   if(navigator.onLine===false){ toast('Cần mạng để đổi khoản đã ghi'); return; }
-  cy.state='busy'; cy.prog=0; _pexdCarryPaint();
-  var left=[], dn=cy.done||[];
+  cy.state='busy'; _pexdCarryPaint();
+  var dn=cy.done||[], plan=[];
   var lk=document.querySelector('#carry-body .cry-sec .cry-link'); if(lk){ lk.disabled=true; lk.textContent='Đang hoàn tác…'; }
-  for(var i=dn.length-1;i>=0;i--){
-    var d=dn[i], t=d.t, ok=true;
-    try{
-      if((t.node||null)!==(d.prev.node||null)){
-        ok=await window.fhPersonalSetNode(t.id, d.prev.node);
-        if(ok){
-          t.node=d.prev.node;
-          if(d.taught){ var lr=_pexdCarryLrow(t);
-            if(d.lesson && window.fhLessonLearnNode){ lr.node=d.lesson; window.fhLessonLearnNode(lr); }
-            else if(window.fhLessonForgetNode) window.fhLessonForgetNode(lr); }
-        }
-      }
-      if(ok && (t.cat||'')!==(d.prev.cat||'')){
-        ok=await window.fhPersonalUpdateExpense(t.id, { amt:t.amt, note:t.note, cat:d.prev.cat, emoji:((catStyle[d.prev.cat]||['🏷️'])[0]), time:t.time||'', dateIso:t.date }, true);
-        if(ok) t.cat=d.prev.cat;
-      }
-    }catch(e){ ok=false; }
-    if(!ok) left.push(d);
+  dn.forEach(function(d){                                   // each row back to what IT said, all in one transaction (§17)
+    var t=d.t, f={}, n=0;
+    if((t.node||null)!==(d.prev.node||null)){ f.node=d.prev.node||null; n++; }
+    if((t.cat||'')!==(d.prev.cat||'')){ f.cat=d.prev.cat; f.emoji=((catStyle[d.prev.cat]||['🏷️'])[0]); n++; }
+    if(n) plan.push({ d:d, f:f });
+  });
+  var ids=[];
+  if(plan.length){ try{ ids=await window.fhPersonalPatchMany(plan.map(function(p){ return { id:p.d.t.id, fields:p.f }; })); }catch(e){ ids=null; } }
+  if(!ids){                                                // nothing was undone: the offer to undo stands
+    if(_pexdCarry===cy){ cy.state='done'; _pexdCarryPaint(); }
+    if(lk){ lk.disabled=false; lk.textContent='Hoàn tác'; }
+    toast('Chưa hoàn tác được, thử lại nhé'); return;
   }
+  var hit={}; ids.forEach(function(x){ hit[String(x)]=1; });
+  plan.slice().reverse().forEach(function(p){              // lessons unwind newest first: a later row's 'before' may be an earlier row's lesson
+    var d=p.d, t=d.t; if(!hit[String(t.id)]) return;        // the row is gone: nothing left to undo on it
+    if(p.f.node!==undefined){
+      t.node=d.prev.node;
+      if(d.taught){ var lr=_pexdCarryLrow(t);
+        if(d.lesson && window.fhLessonLearnNode){ lr.node=d.lesson; window.fhLessonLearnNode(lr); }
+        else if(window.fhLessonForgetNode) window.fhLessonForgetNode(lr); }
+    }
+    if(p.f.cat!==undefined) t.cat=d.prev.cat;
+  });
   await _pexdCarrySettle();
-  if(_pexdCarry===cy){
-    if(left.length){ cy.done=left.reverse(); cy.state='done'; }
-    else { cy.done=null; cy.state='idle'; }
-  }
+  if(_pexdCarry===cy){ cy.done=null; cy.state='idle'; }
   closeSheet();
-  toast(left.length ? ('Còn '+left.length+' khoản chưa hoàn tác') : 'Đã hoàn tác');
+  toast('Đã hoàn tác');
   if(_pexdCarry===cy) _pexdCarryPaint();
 }
 /* ── before Lưu (apply-to-similar-spec §16, L8–L13) ──────────────────────────
