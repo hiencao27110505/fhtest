@@ -1914,7 +1914,7 @@ as — or the same day as — the deploy. A deploy announced only in
   backfill cursor v13. No server change; nothing new leaves the device.
 - **Spec sections updated:** none here; `carry-rules-spec.md` (new).
 
-### 2026-10-02 (night) — a carry in the book is saved in one transaction, with a retry · SW v612 · migration 0156 (written, not applied) · no deploy
+### 2026-10-02 (night) — a carry in the book is saved in one transaction, with a retry · SW v612 · migration 0156 (applied 2026-10-04) · no deploy
 
 - **For product:** saving an edit that also changes 12 similar booked rows could
   wait a minute and then fail, and a second tap worked. The save now goes out as

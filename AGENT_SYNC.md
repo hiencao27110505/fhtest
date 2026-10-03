@@ -143,6 +143,7 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-10-04 · Hien · `0156_personal_txn_patch` APPLIED live via MCP (Hien approved) · next free migration is `0157`.** Checked: security invoker, `authenticated` may execute, `anon` may not; a call as a stranger writes nothing; an uneditable column is refused. The client's row-by-row fallback (PGRST202) no longer triggers.
 - **2026-10-03 (later) · Hien · rules for later rows (carry-rules-spec.md) — BUILT · claiming SW `v614` · client only, no migration · tree-backfill cursor v12 → v13.**
   New `src/js-ui/66-rules.js`, `src/css/75-rules.css`, `#rule-modal` in `src/index.html`, Cài đặt row `set-rules-row`.
   Touched: `24-lessons.js` (rule/pin/route namespaces, amount-free merchant node lesson `m|key`), `56` (`fhCarryBodyHTML` m.rule,

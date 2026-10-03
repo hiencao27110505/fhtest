@@ -49,7 +49,7 @@ in the queue and in the book — and remembers exactly what you approved.
 
 > **Amended 2026-10-02 (night) — in the book, the carry is written in ONE
 > transaction, with a retry (§17, L14–L18). BUILT, SW v612, migration
-> `0156_personal_txn_patch.sql` WRITTEN, NOT YET APPLIED.** A 12-row carry failed
+> `0156_personal_txn_patch.sql` APPLIED live 2026-10-04.** A 12-row carry failed
 > on a request that never reached the server; the row being saved and the rows it
 > carries to now travel in one call that lands entirely or not at all, and a
 > ledger write that stalls is repeated on a fresh connection. Until 0156 is on
