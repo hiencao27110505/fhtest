@@ -357,7 +357,7 @@ const LEDGER=(async()=>{
     'var _pexdPre=null, PXD={}, renders=0; function renderPersonalTxDetail(){ renders++; } function pexdReadFields(){} function _pexdEntry(){ return { t:ROW }; } var ROW=null;',
     ...['_pexdCarryNodeLbl','_pexdCarryDiffers','_pexdCarryDeliberate','_pexdCarryOn','_pexdCarryPaint','_pexdCarryWhen','_pexdCarryLrow','pexdCarryTick',
         '_pexdPreFields','_pexdPreEnsure','_pexdPreCy','_pexdPreTicked','_pexdPreRows','_pexdPreOne','_pexdPreSubHTML','_pexdPreFootHTML','pexdPreToggle','_exdModeRow',
-        '_pexdPreDraftFields','pexdPreTick','pexdPreChoose','_pexdPreJob'].map(n=>sliceFn(S61,n)),
+        '_pexdPreDraftFields','pexdPreTick','pexdPreChoose','_pexdPreJob','_pexdCarryRuleSave','pexdCarryRuleToggle','pexdCarryRuleUndo'].map(n=>sliceFn(S61,n)),
     ...['pexdCarryScan','_pexdCarrySettle','_pexdCarryWrite','pexdCarryGo','pexdCarryUndo'].map(n=>'async '+sliceFn(S61,n)),
     'function pexdCarryRender(){} function pexdPreRender(){}'].join('\n'),ctx);
   const P2='970400123456 - TRAN MINH KHOA';

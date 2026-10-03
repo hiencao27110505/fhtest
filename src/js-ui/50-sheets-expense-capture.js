@@ -318,6 +318,11 @@ function _applyExLayout(){
 /* Drag a bottom sheet / modal DOWN to dismiss — axis-locked so it never fights scrolling. */
 function initSheetDrag(sheet, closeFn){
   if(sheet.classList.contains('fh-screen')) return;   // a screen is a place, not a sheet: back, never drag-away
+  /* The first binding wins. A layer that must close only ITSELF (the rules modal,
+     which opens over the review queue) binds its own close before the boot loop's
+     blanket closeModals, which would take the queue down with it. */
+  if(sheet.getAttribute('data-drag')) return;
+  sheet.setAttribute('data-drag','1');
   closeFn = closeFn || closeSheet;
   var scroller = sheet.querySelector('.modal-body, .sh-body') || sheet;   // scrolls its own body, not the sheet/modal shell
   var x0=0, y0=0, dy=0, active=false, dragging=false, decided=false;

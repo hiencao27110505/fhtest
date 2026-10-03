@@ -31,8 +31,8 @@
        v5 shipped with a bug that marked a scope done after one batch of
        unresolvable rows, so every device is sitting on a false "done" and v6
        is what undoes that. */
-    if (scope === 'family') return 'fh-tree-bf:v12:fam:' + ((window.DB && window.DB.fid) || '');
-    return 'fh-tree-bf:v12:per:' + ((window.fhPersonalData && fhPersonalData().uid) || '');
+    if (scope === 'family') return 'fh-tree-bf:v13:fam:' + ((window.DB && window.DB.fid) || '');
+    return 'fh-tree-bf:v13:per:' + ((window.fhPersonalData && fhPersonalData().uid) || '');
   }
   function _tbfDone(scope) { try { return localStorage.getItem(_tbfCursorKey(scope)) === 'done'; } catch (e) { return false; } }
   function _tbfMarkDone(scope) { try { localStorage.setItem(_tbfCursorKey(scope), 'done'); } catch (e) {} }
@@ -217,7 +217,11 @@
         if (r.n === 0 && scope === 'personal' && window.renderPersonal) { try { renderPersonal(); } catch (e) {} }
       }).catch(() => { _tbfRunning[scope] = false; });
     };
-    if (urgent) Promise.resolve().then(step); else _tbfIdle(step);
+    /* The guess reads the person's lessons (24-lessons), which load lazily: a
+       sweep that ran before them filed rows without them and then marked itself
+       done. v13 (carry-rules-spec §9): wait for the lessons, whatever the answer. */
+    const ready = (window.fhRulesReady ? Promise.resolve(window.fhRulesReady()).catch(() => false) : Promise.resolve(false));
+    ready.then(() => { if (urgent) step(); else _tbfIdle(step); });
   };
   /* Re-run a scope from scratch: used after a regroup changes what labels claim,
      and available by hand when a tree version lands with new leaves. */

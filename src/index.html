@@ -1131,6 +1131,7 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
          a mailbox can never have a row to review, so this hides an empty
          screen from them and nothing else. -->
     <button id="set-mailbox-row" class="set-row" style="display:none" onclick="closeSheet();fhMailboxSheet()"><span class="set-ic">📧</span><span class="set-t" data-t="setMailbox">Connect bank email</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+    <button id="set-rules-row" class="set-row" onclick="closeSheet();fhRulesOpen()"><span class="set-ic">🔁</span><span class="set-t" data-t="setRules">Rules</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button id="set-review-row" class="set-row" style="display:none" onclick="closeSheet();fhTxnReviewSheet()"><span class="set-ic">📥</span><span class="set-t" data-t="setReviewTxns">Review transactions</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhManageFamily()"><span class="set-ic">👥</span><span class="set-t" data-t="setManageFamily">Manage family &amp; members</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhDevicesSheet()"><span class="set-ic">📱</span><span class="set-t" data-t="setDevices">Signed-in devices</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
@@ -1192,6 +1193,19 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
     <button class="modal-save" id="fh-modal-save" onclick="fhModalSave()" data-t="save">Save</button>
   </div>
   <div class="modal-body" id="fh-modal-body"></div>
+</div>
+
+<!-- QUY TẮC — the person's rules for later rows (docs/specs/carry-rules-spec.md). Its own
+     modal, above the review queue, so Cài đặt, Chỉnh sửa and a card's "Theo quy tắc" open it alike. -->
+<div class="modal" id="rule-modal">
+  <div class="modal-grip"></div>
+  <div class="modal-nav">
+    <button class="modal-cancel" id="rl-back" onclick="fhRulesBack()">Xong</button>
+    <div class="modal-title" id="rl-title">Quy tắc</div>
+    <button class="modal-save" id="rl-save" onclick="fhRuleSaveTap()"></button>
+  </div>
+  <div class="modal-body" id="rl-body"></div>
+  <div id="rl-as"></div>
 </div>
 
 <!-- CELEBRATE -->

@@ -56,6 +56,12 @@ in the queue and in the book — and remembers exactly what you approved.
 > the database the client writes the same rows one at a time (L15). No visible
 > change except that the failure is gone and progress no longer counts rows.
 
+> **Amended 2026-10-03 — rules for later rows (BUILT, SW v614).** Every carry sheet
+> (queue, ledger before and after Lưu) ends with one more switch, "Cả các khoản sau
+> này", off by default, which saves a visible rule that pre-fills matching waiting
+> rows; with no similar rows yet the card's button reads "Áp dụng cho khoản sau
+> này". `fhCarryBodyHTML` gained `m.rule`. Spec: `carry-rules-spec.md`.
+
 > **How this relates to its siblings.** `transaction-review-spec.md` owns the
 > queue and its card; this spec adds one block to the expanded card and two
 > verbs. `p2p-breakdown-spec.md` owns the person key (P4) this spec's "similar"

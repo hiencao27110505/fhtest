@@ -1898,6 +1898,22 @@ as — or the same day as — the deploy. A deploy announced only in
 
 ## 28. Releases (newest first)
 
+### 2026-10-03 — rules for later rows · SW v614 · no migration, no deploy beyond the client
+
+- **For product:** when applying a change to similar rows, one more switch, "Cả
+  các khoản sau này", saves a rule: matching transactions that arrive later are
+  filled in the same way (Phạm vi, Loại khoản, Danh mục, Tiêu vào gì, Người). The
+  person still imports them; the queue says "12 khoản theo quy tắc" with one
+  "Nhập 12 khoản" button, and each filled value says "Theo quy tắc". Rules live in
+  Cài đặt → Quy tắc (also from Chỉnh sửa), with Theo nguồn's banks, and can be
+  edited or deleted. Also: Tiêu vào gì lessons now survive a reload (they did not),
+  and a merchant's lesson is no longer tied to the amount.
+- **Under the hood:** new `66-rules.js` and `75-rules.css`; rules, pins and bank
+  routes in the encrypted lessons record (`24-lessons.js`); the queue pass runs
+  in `72` after every build, quick review asks the same rules (`76`); tree
+  backfill cursor v13. No server change; nothing new leaves the device.
+- **Spec sections updated:** none here; `carry-rules-spec.md` (new).
+
 ### 2026-10-02 (night) — a carry in the book is saved in one transaction, with a retry · SW v612 · migration 0156 (written, not applied) · no deploy
 
 - **For product:** saving an edit that also changes 12 similar booked rows could

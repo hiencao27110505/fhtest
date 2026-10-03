@@ -851,7 +851,7 @@ function csvRowShape(c, isDup){
               so loadRow() hands it to addExpense() like every other field. A
               node the person picked on the card is marked touched so the
               composer's own guess cannot overwrite it. */
-           node: c._node || null, _nodeTouched: c._nodeSource === 'user' || undefined,
+           node: c._node || null, _nodeTouched: c._nodeSource === 'user' || c._nodeSource === 'rule' || undefined,
            cat: (c.isIncome && !c._xfer && !c._repay && !c._invest) ? (c._incomeCat || '') : (c.categoryName || ''),
            /* Foreign currency (foreign-currency-emails-spec.md): _fxAmt is the
               card's WHOLE amount only in the no-rate fallback ("$111", asks for
@@ -1247,10 +1247,11 @@ function csvStagedRowsCard(c, opts){
   var row = function(f, lbl, val, mods){
     mods = mods || {};
     var chg = !!(c._fix && c._fix.items[f]);             // a carried field the person changed wears the dot (apply-to-similar-spec A22)
-    var cls = 'csv-srow'+(mods.ro?' ro':'')+(csvRowHot===f && !mods.ro && !chg?' hot':'')+(chg?' chg':'')+(mods.miss?' miss':'')+(mods.soft?' soft':'');
-    var inner = '<small>'+lbl+'</small><span class="csv-sval"><b>'+val+'</b>'
+    var by = (!mods.ro && typeof csvRuleLineHTML === 'function') ? csvRuleLineHTML(c, f) : '';   // carry-rules-spec R8
+    var cls = 'csv-srow'+(mods.ro?' ro':'')+(csvRowHot===f && !mods.ro && !chg?' hot':'')+(chg?' chg':'')+(mods.miss?' miss':'')+(mods.soft?' soft':'')+(by?' rl-has':'');
+    var inner = '<small>'+lbl+'</small>'+(by?'<span class="rl-col">':'')+'<span class="csv-sval"><b>'+val+'</b>'
       + (mods.ro ? '' : '<svg class="csv-schev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>')
-      + '</span>';
+      + '</span>'+(by?by+'</span>':'');
     return mods.ro ? '<div class="'+cls+'">'+inner+'</div>'
       : '<button type="button" class="'+cls+'" onclick="csvRowSheetOpen(\''+f+'\')">'+inner+'</button>';
   };
@@ -1993,6 +1994,7 @@ function csvFixUnapply(id){
     it.applied = null; if(f==='cat') cat = true;
   });
   if(cat) csvLearnSave();
+  if(fx.rule && typeof fhRuleRevert === 'function'){ fhRuleRevert(fx.rule); fx.rule = null; }   // one act, one undo (carry-rules-spec R19)
   window.toast && toast(L('Đã hoàn tác','Undone'));
   renderCsvReview();
 }
@@ -2120,7 +2122,7 @@ function csvFixBarBtnHTML(c){
   else if(done || lgDone){ var k = done + lgDone; txt = L('Đã áp dụng cho '+k+' khoản','Applied to '+k+' rows'); cls += ' done'; }
   else if(lgIdle) txt = name ? L('Áp dụng cho '+lgIdle+' khoản đã ghi của '+name,'Apply to '+lgIdle+' booked rows from '+name)
                              : L('Áp dụng cho '+lgIdle+' khoản đã ghi','Apply to '+lgIdle+' booked rows');
-  else return '';
+  else return (typeof csvFixRuleDoor === 'function') ? csvFixRuleDoor(c) : '';
   return '<button type="button" class="'+cls+'" onclick="csvFixSheetOpen('+fx.id+')"><span>'+esc(txt)+'</span></button>';
 }
 function csvFixSheetOpen(id){
@@ -2148,7 +2150,8 @@ async function csvFixSheetGo(id){
   var fx = c._fix;
   var n = csvFixSheetRows(c).filter(function(x){ return x.on; }).length;
   var lgs = fx.ledgerOn ? csvFixLedgerItems(c,'idle') : [];
-  if(!n && !lgs.length){ window.toast && toast(L('Chọn ít nhất một khoản','Pick at least one row')); return; }
+  var rl = !!(fx.ruleOn && !fx.rule);
+  if(!n && !lgs.length && !rl){ window.toast && toast(L('Chọn ít nhất một khoản','Pick at least one row')); return; }
   if(lgs.length && navigator.onLine===false){ window.toast && toast(L('Cần mạng để đổi khoản đã ghi','You need to be online to change booked rows')); return; }
   var k = n ? (csvFixApply(id) || 0) : 0, m = 0, fail = 0;
   if(lgs.length){
@@ -2161,10 +2164,15 @@ async function csvFixSheetGo(id){
     fx.busy = false; fx.ledgerOn = false;
   }
   if(csvRowSheet==='carry') csvRowSheet = null;
+  /* the rule is saved after the rows it rides with (carry-rules-spec §5.1) */
+  var ru = rl && typeof csvFixRuleSave === 'function' ? csvFixRuleSave(c) : null;
+  var rmsg = ru ? (ru.prev ? L('Đã đổi quy tắc','Rule changed') : L('Đã tạo quy tắc','Rule added')) : '';
   var msg = (k && m) ? L('Đã áp dụng cho '+k+' khoản và '+m+' đã ghi','Applied to '+k+' rows and '+m+' booked')
           : k ? L('Đã áp dụng cho '+k+' khoản','Applied to '+k+' rows')
-          : L('Đã đổi '+m+' khoản đã ghi','Changed '+m+' booked rows');
+          : m ? L('Đã đổi '+m+' khoản đã ghi','Changed '+m+' booked rows')
+          : '';
   if(fail) msg += L(' · '+fail+' khoản lỗi',' · '+fail+' failed');
+  msg = msg ? (rmsg ? msg+' · '+rmsg : msg) : rmsg;
   window.toast && toast(esc(msg));
   renderCsvReview();
 }
@@ -2179,7 +2187,7 @@ async function csvFixLedgerUndoAll(id){
 /* One sheet body for both places the carry lives: the review card (here) and the
    ledger detail (61). A pure function of its model, so the two cannot drift.
    m = { fields:[{label,value,undo | sw:{on,tap}}], secs:[{title, link:{label,tap}, rows:[{on,ro,tap,when,was,amt,tag}], more:{label,tap}}],
-         sw:{label,on,tap}, note:{text,label,tap}, cta:{label,tap,busy,cls} } */
+         sw:{label,on,tap}, note:{text,label,tap}, rule:{title,label,sub,on,tap | done,link:{label,tap}}, cta:{label,tap,busy,cls} } */
 function fhCarryBodyHTML(m){
   var TK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg>';
   var h = '';
@@ -2209,6 +2217,15 @@ function fhCarryBodyHTML(m){
     + '<button type="button" class="cry-row" role="switch" aria-checked="'+(m.sw.on?'true':'false')+'" onclick="'+m.sw.tap+'"><span class="cry-when">'+esc(m.sw.label)+'</span><span class="cry-sw'+(m.sw.on?' on':'')+'"></span></button></div>';
   if(m.note) h += '<div class="cry-sec"><span>'+esc(m.note.title)+'</span></div><div class="cry-list"><div class="cry-row"><span class="cry-when">'+esc(m.note.text)+'</span>'
     + '<button type="button" class="cry-link" onclick="'+m.note.tap+'">'+esc(m.note.label)+'</button></div></div>';
+  /* carry-rules-spec §5.1: "Cả các khoản sau này", the last section before the CTA */
+  if(m.rule){
+    h += '<div class="cry-sec"><span>'+esc(m.rule.title)+'</span></div><div class="cry-list">';
+    if(m.rule.done) h += '<div class="cry-row"><span class="cry-when">'+esc(m.rule.done)+'</span>'
+      + (m.rule.link ? '<button type="button" class="cry-link" onclick="'+m.rule.link.tap+'">'+esc(m.rule.link.label)+'</button>' : '')+'</div>';
+    else h += '<button type="button" class="cry-row cry-rule" role="switch" aria-checked="'+(m.rule.on?'true':'false')+'" onclick="'+m.rule.tap+'">'
+      + '<span class="cry-rule-t"><b>'+esc(m.rule.label)+'</b><small>'+esc(m.rule.sub)+'</small></span><span class="cry-sw'+(m.rule.on?' on':'')+'"></span></button>';
+    h += '</div>';
+  }
   /* the one CTA stays in reach however long the list is: a sticky foot on the sheet's own white */
   if(m.cta) h += '<div class="cry-foot"><button type="button" class="'+(m.cta.cls||'crs-done')+' cry-cta"'+(m.cta.busy?' disabled':'')+' onclick="'+m.cta.tap+'">'+esc(m.cta.label)+'</button></div>';
   return h;
@@ -2258,9 +2275,11 @@ function csvFixSheetHTML(c){
   if(M) m.sw = { title:L('Trong sổ','In the book'), label:L('Đổi cả '+M+' khoản đã ghi','Also change '+M+' booked rows'), on:!!fx.ledgerOn || !!lgBusy.length, tap:'csvFixLedgerToggle('+id+')' };
   else if(lgDone.length) m.note = { title:L('Trong sổ','In the book'), text:L('Đã đổi '+csvFixLedgerCount(lgDone)+' khoản đã ghi','Changed '+csvFixLedgerCount(lgDone)+' booked rows'), label:L('Hoàn tác','Undo'), tap:'csvFixLedgerUndoAll('+id+')' };
   var doL = !!(fx.ledgerOn && lgIdle.length);
+  if(typeof csvFixRuleBlock === 'function') m.rule = csvFixRuleBlock(c);
   if(fx.busy) m.cta = { label:L('Đang đổi…','Changing…'), tap:'', busy:true };
   else if(on || doL) m.cta = { label: on ? (L('Áp dụng cho '+on+' khoản','Apply to '+on+' rows') + (doL ? L(' và '+M+' đã ghi',' and '+M+' booked') : ''))
                                           : L('Đổi '+M+' khoản đã ghi','Change '+M+' booked rows'), tap:'csvFixSheetGo('+id+')' };
+  else if(fx.ruleOn && !fx.rule) m.cta = { label:L('Lưu quy tắc','Save rule'), tap:'csvFixSheetGo('+id+')' };
   else m.cta = { label:L('Xong','Done'), tap:'csvRowSheetClose()' };
   var name = csvFixPayeeName(c);
   return '<div class="crs-scrim" onclick="'+(fx.busy?'':'csvRowSheetClose()')+'"></div>'
@@ -3630,6 +3649,7 @@ function renderCsvReview(){
   // card each, above everything else. Opening one turns it into ordinary rows in
   // the buckets below, so this is the only statement-specific thing on the screen.
   if(csvStagedMode && typeof window.fhStmtCardsHTML === 'function') html += window.fhStmtCardsHTML();
+  if(csvStagedMode && typeof csvRulesSumHTML === 'function') html += csvRulesSumHTML();   // "12 khoản theo quy tắc · Nhập 12 khoản" (carry-rules-spec §6)
 
   // In-review summary — above the first bucket in both flows (top of the list
   // in staged mode, after the file chrome in import mode). Non-sticky by
@@ -4130,6 +4150,7 @@ var CSV_TXB_I_EDIT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
 var CSV_TXB_I_CHART = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9M9 19V5M14 19v-7M19 19v-11"/></svg>';
 var CSV_TXB_I_TAG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8Z"/><path d="M7.5 7.5h.01"/></svg>';
 var CSV_TXB_I_BOOK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5h13l3.5 7v5a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-5Z"/></svg>';
+var CSV_TXB_I_RULE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/></svg>';
 var CSV_TXB_I_BANK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 4l9 5.5"/><path d="M5 10v7M9.7 10v7M14.3 10v7M19 10v7"/><path d="M3 20h18"/></svg>';
 var CSV_TXB_I_TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6.5 7l1 13h9l1-13"/></svg>';
 
@@ -4153,7 +4174,17 @@ var csvTxrRoutes = (function(){
 })();
 function csvTxrRouteSave(){
   try{ localStorage.setItem(FH_SRC_ROUTES, JSON.stringify(csvTxrRoutes)); }catch(e){}
+  if(window.fhRoutesChanged){ try{ fhRoutesChanged(csvTxrRoutes); }catch(e){} }   // carry-rules-spec §8: routes now sync
 }
+/* The synced copy arrived (24-lessons, first load): it is the newer truth for
+   every bank it names, because every local change is pushed the moment it is
+   made. A bank only this device knew is sent up in the same breath. */
+window.csvTxrRoutesMergeIn = function(remote){
+  var ch = false;
+  Object.keys(remote || {}).forEach(function(b){ if(csvTxrRoutes[b] !== remote[b]){ csvTxrRoutes[b] = remote[b]; ch = true; } });
+  if(ch){ try{ localStorage.setItem(FH_SRC_ROUTES, JSON.stringify(csvTxrRoutes)); }catch(e){} }
+  if(window.fhRoutesChanged){ try{ fhRoutesChanged(csvTxrRoutes); }catch(e){} }
+};
 
 /* The queue grouped by source bank — the unit ② routes and ① filters by. */
 function csvTxrGroups(){
@@ -4387,6 +4418,7 @@ function csvPickSheetHTML(){
 
 /* ---- sheet ②: Chỉnh sửa ---- */
 function csvEditRowGo(k){ csvEditRow = (csvEditRow === k) ? null : k; csvBulkArmed = false; renderCsvReview(); }
+function csvEditRules(){ csvToolSheet = null; csvEditRow = null; csvBulkArmed = false; renderCsvReview(); if(typeof fhRulesOpen === 'function') fhRulesOpen(); }
 
 function csvEditCat(name){
   csvToolSheet = null; csvEditRow = null;
@@ -4512,6 +4544,11 @@ function csvEditSheetHTML(){
         }).join('')
       + '</div>';
   }
+  /* carry-rules-spec §5.3: the rules list opens over the queue, from here too */
+  var ruleN = (typeof fhRulesList === 'function') ? fhRulesList().length : 0;
+  h += '<button type="button" class="cte-row" onclick="csvEditRules()">'
+    + '<span class="cte-ic">'+CSV_TXB_I_RULE+'</span><span class="cte-t">'+esc(L('Quy tắc','Rules'))+'</span>'
+    + '<span class="cte-v">'+esc(ruleN ? String(ruleN) : L('Chưa có','None'))+'<i>›</i></span></button>';
   /* Delete has no fold: one tap arms it in place with the count spelled out,
      a second carries it out. Any other tap disarms (csvDisarmRemove). */
   h += csvBulkArmed
@@ -4669,7 +4706,7 @@ function csvPromoteNode(c){
      the node and wait for the sweep to put it back. Nothing else crosses kinds. */
   var _pk = FH_TAX.kindOf(nd);
   if(_pk !== 'expense' && _pk !== 'transfer') return null;
-  if(c._nodeSource === 'user') return nd;
+  if(c._nodeSource === 'user' || c._nodeSource === 'rule') return nd;
   if(c._nodeSource === 'pipeline' && typeof fhPipeNodeOk === 'function'){
     return fhPipeNodeOk(nd, { note: c.description, counterparty: c.counterparty });
   }
@@ -4733,7 +4770,7 @@ function csvPromote(subset, opts){
       return { note: c.description, amt: String(Math.round(c.amount)), cat: c.categoryName,
                who: c.who || csvDefaultWho(), date: c.dateDisplay, _invalid: false,
                _catTouched: true,
-               node: _pn, _nodeTouched: (_pn && c._nodeSource === 'user') || undefined,
+               node: _pn, _nodeTouched: (_pn && (c._nodeSource === 'user' || c._nodeSource === 'rule')) || undefined,
                // 0100 provenance: a staged row's transport ('direct-email'/'forwarding-email'),
                // or 'csv-import' for a file. submitBulk hands this to the writethrough.
                source: csvStagedMode ? (window.fhStagedSource ? window.fhStagedSource(c) : 'forwarding-email') : 'csv-import',

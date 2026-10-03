@@ -1140,7 +1140,7 @@ async function pexdSave(){
     var _cf={};
     if(p.cat!=null && p.cat!==(t.cat||'')) _cf.cat=p.cat;
     if(p.node!==undefined && (p.node||null)!==(t.node||null)) _cf.node=p.node||null;
-    if(Object.keys(_cf).length) _cy={ id:E.id, who:t.who||'', note:note, fields:_cf, old:{ cat:t.cat||'', node:t.node||null } };
+    if(Object.keys(_cf).length) _cy={ id:E.id, who:t.who||'', note:note, amt:amtBase, fields:_cf, old:{ cat:t.cat||'', node:t.node||null } };
   }
   /* §17 (L14): what was switched on before Lưu goes out WITH this row, in one
      transaction — so the job is settled before anything is written. */
@@ -1195,16 +1195,21 @@ async function pexdSave(){
   if(_job){ try{ await _pexdCarrySettle(); }catch(e){} }   // §16/§17: one reload for the row and everything it carried
   if(go){ go.disabled=false; go.textContent='Lưu'; }
   var _pre=_pexdPre; _pexdPre=null;
+  /* carry-rules-spec §5.1 (R21): a rule switched on before Lưu is saved by Lưu */
+  var _ru=null;
+  if(_cy && _pre && _pre.rule && typeof fhRuleCommit==='function'){ try{ _ru=fhRuleCommit(fhRuleDraftLedger(_cy, _cy.fields, _pre.name)); }catch(e){ _ru=null; } }
   PXD={};
   if(!_job){
     if(typeof renderPersonal==='function'){ try{ renderPersonal(); }catch(e){} }
     if(typeof refreshPersonalTxnOverlay==='function') refreshPersonalTxnOverlay();
   }
-  toast(_res ? ('Đã lưu và đổi '+_res.done.length+' khoản'+(_res.fail?' · '+_res.fail+' khoản không còn':'')) : 'Đã lưu');
+  toast((_res ? ('Đã lưu và đổi '+_res.done.length+' khoản'+(_res.fail?' · '+_res.fail+' khoản không còn':'')) : 'Đã lưu')
+    + (_ru ? (_ru.prev ? ' · Đã đổi quy tắc' : ' · Đã tạo quy tắc') : ''));
   if(_pexdOpts.edit){ closePersonalTxDetail(); return; }
   _pexdCarry=null;
   if(_res && _res.done.length){                          // the view state then shows "Đã áp dụng cho K khoản", whose sheet holds the undo (L1)
-    _pexdCarry={ id:E.id, key:_pre.key, name:_pre.name, fields:_job.fields, old:_cy.old, rows:_job.rows, off:{}, state:'done', done:_res.done, fail:_res.fail, more:false, prog:0 };
+    _pexdCarry={ id:E.id, key:_pre.key, name:_pre.name, fields:_job.fields, old:_cy.old, rows:_job.rows, off:{}, state:'done', done:_res.done, fail:_res.fail, more:false, prog:0,
+                 src:{ who:_cy.who, note:_cy.note, amt:_cy.amt }, ruleU:_ru };
   }
   _pexdEdit=false; renderPersonalTxDetail();
   if(_cy && !_job) pexdCarryScan(_cy);                   // nothing was switched on: the after-save offer still stands
@@ -1234,7 +1239,8 @@ async function pexdCarryScan(cy){
   var key=csvPatternKey({ counterparty:cy.who, description:cy.note });
   if(!key || key.length<6) return;
   var name=String(cy.who||'').replace(/^[\d\s.:\-–—]+/,'').trim(); if(name.length<3) name=String(cy.who||'').trim();
-  var cur=_pexdCarry={ id:cy.id, key:key, name:name, fields:cy.fields, old:cy.old, rows:[], off:{}, state:'scan', done:null, fail:0, more:false, prog:0 };
+  var cur=_pexdCarry={ id:cy.id, key:key, name:name, fields:cy.fields, old:cy.old, rows:[], off:{}, state:'scan', done:null, fail:0, more:false, prog:0,
+                       src:{ who:cy.who, note:cy.note, amt:cy.amt }, ruleOn:false, ruleU:null };
   var slice=[]; try{ slice=await window.fhPersonalMatchSlice(); }catch(e){ slice=[]; }
   if(_pexdCarry!==cur) return;                                    // another save or another row since
   cur.rows=(slice||[]).filter(function(x){
@@ -1280,14 +1286,18 @@ function pexdCarryRender(){
     var dn=cy.done||[];
     m.secs.push({ title:'Đã áp dụng · '+dn.length+' khoản', link:{ label:'Hoàn tác', tap:'pexdCarryUndo()' },
       rows:dn.slice(0,CAP).map(function(d){ return { on:true, ro:true, when:_pexdCarryWhen(d.t), amt:fmt(d.t.amt) }; }) });
+    if(cy.ruleU) m.rule={ title:'Khoản sau này', done: cy.ruleU.prev ? 'Đã đổi quy tắc' : 'Đã tạo quy tắc' };   // Hoàn tác above takes it back too (R19)
     m.cta={ label:'Xong', tap:'closeSheet()', cls:'cta' };
   } else {
     var shown=cy.more?cy.rows:cy.rows.slice(0,CAP), on=_pexdCarryOn(cy).length;
     m.secs.push({ title:cy.rows.length+' khoản đã ghi',
       rows:shown.map(function(x){ return { on:!cy.off[x.id], ro:cy.state==='busy', tap:"pexdCarryTick('"+escAttr(String(x.id))+"')", when:_pexdCarryWhen(x), was:was(x), amt:fmt(x.amt) }; }),
       more:(cy.rows.length>shown.length && cy.state!=='busy')?{ label:'Xem cả '+cy.rows.length+' khoản', tap:'pexdCarryMore()' }:null });
+    if(cy.ruleU) m.rule={ title:'Khoản sau này', done: cy.ruleU.prev ? 'Đã đổi quy tắc' : 'Đã tạo quy tắc', link: cy.state==='busy' ? null : { label:'Hoàn tác', tap:'pexdCarryRuleUndo()' } };
+    else if(typeof fhRuleBlock==='function') m.rule=fhRuleBlock(fhRuleDraftLedger(cy.src||{}, cy.fields, cy.name), cy.ruleOn, 'pexdCarryRuleToggle()');
+    var _rOnly=!on && cy.ruleOn && !cy.ruleU;
     m.cta=(cy.state==='busy') ? { label:'Đang đổi…', tap:'', busy:true, cls:'cta' }
-                              : { label:on?('Áp dụng cho '+on+' khoản'):'Xong', tap:on?'pexdCarryGo()':'closeSheet()', cls:'cta' };
+                              : { label:on?('Áp dụng cho '+on+' khoản'):(_rOnly?'Lưu quy tắc':'Xong'), tap:(on||_rOnly)?'pexdCarryGo()':'closeSheet()', cls:'cta' };
   }
   body.innerHTML=fhCarryBodyHTML(m);
   if(top) top.scrollTop=st;
@@ -1302,6 +1312,17 @@ function pexdCarryTick(id){
   pexdCarryRender(); _pexdCarryPaint();
 }
 function pexdCarryMore(){ if(_pexdCarry){ _pexdCarry.more=true; pexdCarryRender(); } }
+function pexdCarryRuleToggle(){ var cy=_pexdCarry; if(cy && cy.state==='idle' && !cy.ruleU){ cy.ruleOn=!cy.ruleOn; pexdCarryRender(); } }
+function pexdCarryRuleUndo(){
+  var cy=_pexdCarry; if(!cy || !cy.ruleU || typeof fhRuleRevert!=='function') return;
+  fhRuleRevert(cy.ruleU); cy.ruleU=null; toast('Đã hoàn tác'); pexdCarryRender();
+}
+function _pexdCarryRuleSave(cy){
+  if(!cy || !cy.ruleOn || cy.ruleU || typeof fhRuleCommit!=='function') return null;
+  var u=null; try{ u=fhRuleCommit(fhRuleDraftLedger(cy.src||{}, cy.fields, cy.name)); }catch(e){ u=null; }
+  cy.ruleOn=false; cy.ruleU=u;
+  return u;
+}
 function _pexdCarryLrow(t){ return { counterparty:t.who||'', memo:t.note||'', amount:(Number(t.amt)||0)*curMult() }; }   // the lesson speaks đồng (P10); a personal row's payee is `who` (A15)
 /* The writes (§17, L14–L18): ONE request, one transaction, through
    fhPersonalPatchMany. Each row is sent only the columns that change on it — a
@@ -1339,7 +1360,11 @@ async function _pexdCarryWrite(fields, rows, lead){
 }
 async function pexdCarryGo(){
   var cy=_pexdCarry; if(!cy || cy.state!=='idle') return;
-  var rows=_pexdCarryOn(cy); if(!rows.length) return;
+  var rows=_pexdCarryOn(cy);
+  if(!rows.length){                                          // the rule alone: nothing to write in the book
+    var u0=_pexdCarryRuleSave(cy); if(!u0) return;
+    closeSheet(); toast(u0.prev ? 'Đã đổi quy tắc' : 'Đã tạo quy tắc'); _pexdCarryPaint(); return;
+  }
   if(navigator.onLine===false){ toast('Cần mạng để đổi khoản đã ghi'); return; }
   cy.state='busy'; pexdCarryRender(); _pexdCarryPaint();
   var res=await _pexdCarryWrite(cy.fields, rows, null);
@@ -1348,10 +1373,12 @@ async function pexdCarryGo(){
     toast('Chưa đổi được, thử lại nhé'); return;
   }
   var done=res.done, fail=res.fail;
+  var u=_pexdCarryRuleSave(cy);                              // after the rows landed, never before (R21)
   await _pexdCarrySettle();
   if(_pexdCarry===cy){ cy.done=done; cy.fail=fail; cy.state=done.length?'done':'idle'; }
   closeSheet();
-  toast(fail ? ('Đã đổi '+done.length+' khoản · '+fail+' khoản không còn') : ('Đã đổi '+done.length+' khoản'));
+  toast((fail ? ('Đã đổi '+done.length+' khoản · '+fail+' khoản không còn') : ('Đã đổi '+done.length+' khoản'))
+    + (u ? (u.prev ? ' · Đã đổi quy tắc' : ' · Đã tạo quy tắc') : ''));
   if(_pexdCarry===cy) _pexdCarryPaint();
 }
 async function _pexdCarrySettle(){
@@ -1390,6 +1417,7 @@ async function pexdCarryUndo(){
     }
     if(p.f.cat!==undefined) t.cat=d.prev.cat;
   });
+  if(cy.ruleU && typeof fhRuleRevert==='function'){ fhRuleRevert(cy.ruleU); cy.ruleU=null; }   // one act, one undo (R19)
   await _pexdCarrySettle();
   if(_pexdCarry===cy){ cy.done=null; cy.state='idle'; }
   closeSheet();
@@ -1417,7 +1445,7 @@ function _pexdPreEnsure(t){
   var key=csvPatternKey({ counterparty:t.who||'', description:t.note||'' });
   if(!key || key.length<6) return null;
   var name=String(t.who||'').replace(/^[\d\s.:\-–—]+/,'').trim(); if(name.length<3) name=String(t.who||'').trim();
-  var pre=_pexdPre={ id:t.id, key:key, name:name, slice:null, tick:{}, use:{}, draft:null, more:false };
+  var pre=_pexdPre={ id:t.id, key:key, name:name, slice:null, tick:{}, use:{}, draft:null, more:false, rule:false };
   window.fhPersonalMatchSlice().then(function(sl){
     if(_pexdPre!==pre) return;
     pre.slice=(sl||[]).filter(function(x){
@@ -1451,7 +1479,11 @@ function _pexdPreSubHTML(t, f){
 function _pexdPreFootHTML(t){
   var fields=_pexdPreFields(t), n=Object.keys(fields).length; if(!n) return '';
   var pre=_pexdPreEnsure(t); if(!pre || !pre.slice) return '';
-  var m=_pexdPreRows(t, fields).on.length; if(!m) return '';
+  var m=_pexdPreRows(t, fields).on.length;
+  if(!m){                                                    // a payee with no similar rows yet: the door to a rule (carry-rules-spec §5.1)
+    if(typeof fhRuleDraftLedger!=='function' || typeof fhRulesUsable!=='function' || !fhRulesUsable() || !fhRuleDraftLedger(t, fields, pre.name)) return '';
+    return '<div class="exd-carry-foot"><button type="button" class="csv-cta-sec" onclick="pexdPreSheet()"><span>Áp dụng cho khoản sau này</span></button></div>';
+  }
   return '<div class="exd-carry-foot"><button type="button" class="csv-cta-sec" onclick="pexdPreSheet()"><span>Áp dụng '+n+' thay đổi cho '+m+' khoản</span></button></div>';
 }
 function pexdPreToggle(f){
@@ -1464,7 +1496,7 @@ function pexdPreToggle(f){
 function pexdPreSheet(){
   var t=_exdModeRow(); if(!t || !_pexdPre) return;
   pexdReadFields();
-  var fields=_pexdPreFields(t); _pexdPre.draft={};
+  var fields=_pexdPreFields(t); _pexdPre.draft={ rule:!!_pexdPre.rule };
   Object.keys(fields).forEach(function(f){ _pexdPre.draft[f]=true; });
   _pexdPre.more=false;
   pexdPreRender(); openSheet('sheet-carry');
@@ -1489,6 +1521,8 @@ function pexdPreRender(){
   var m={ fields:fields, secs:[{ title:r.all.length+' khoản đã ghi',
     rows:shown.map(function(x){ return { on:_pexdPreTicked(pre, cyAll, x), tap:"pexdPreTick('"+escAttr(String(x.id))+"')", when:_pexdCarryWhen(x), was:was(x), amt:fmt(x.amt) }; }),
     more:(r.all.length>shown.length)?{ label:'Xem cả '+r.all.length+' khoản', tap:'pexdPreMore()' }:null }] };
+  if(!r.all.length){ m.secs=[]; m.fields.forEach(function(x){ delete x.sw; }); }   // nothing to carry to: the change is shown, not switched
+  if(typeof fhRuleBlock==='function') m.rule=fhRuleBlock(fhRuleDraftLedger(t, all, pre.name), pre.draft.rule, 'pexdPreDraft(&#39;rule&#39;)');
   m.cta=r.on.length ? { label:'Chọn '+r.on.length+' khoản', tap:'pexdPreChoose()', cls:'cta' } : { label:'Xong', tap:'pexdPreChoose()', cls:'cta' };
   body.innerHTML=fhCarryBodyHTML(m);
   if(top) top.scrollTop=st;
@@ -1504,7 +1538,8 @@ function pexdPreMore(){ if(_pexdPre){ _pexdPre.more=true; pexdPreRender(); } }
 function pexdPreChoose(){
   var pre=_pexdPre; if(!pre) return;
   var t=_exdModeRow(), has=t?_pexdPreRows(t, _pexdPreDraftFields(t)).on.length:0;
-  pre.use={}; if(has) Object.keys(pre.draft||{}).forEach(function(f){ if(pre.draft[f]) pre.use[f]=true; });
+  pre.use={}; if(has) Object.keys(pre.draft||{}).forEach(function(f){ if(f!=='rule' && pre.draft[f]) pre.use[f]=true; });
+  pre.rule=!!(pre.draft && pre.draft.rule);                  // staged with the edit: Lưu saves it, Huỷ drops it (R21)
   pre.draft=null;
   closeSheet(); renderPersonalTxDetail();
 }
@@ -1521,7 +1556,7 @@ function _pexdPreJob(cy){
 window.pexdPreToggle=pexdPreToggle; window.pexdPreSheet=pexdPreSheet; window.pexdPreDraft=pexdPreDraft; window.pexdPreTick=pexdPreTick;
 window.pexdPreMore=pexdPreMore; window.pexdPreChoose=pexdPreChoose;
 window.pexdCarrySheet=pexdCarrySheet; window.pexdCarryTick=pexdCarryTick; window.pexdCarryMore=pexdCarryMore;
-window.pexdCarryGo=pexdCarryGo; window.pexdCarryUndo=pexdCarryUndo;
+window.pexdCarryGo=pexdCarryGo; window.pexdCarryUndo=pexdCarryUndo; window.pexdCarryRuleToggle=pexdCarryRuleToggle; window.pexdCarryRuleUndo=pexdCarryRuleUndo;
 function _pxdResetDel(){
   _pexdDelArmed=false; clearTimeout(_pexdDelT);
   var b=document.getElementById('pexd-del'); if(b){ var E=_pexdEntry(); b.classList.remove('armed'); b.textContent=E?_pexdDelLbl(E):'Xoá khoản này'; }

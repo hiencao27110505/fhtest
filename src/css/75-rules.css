@@ -1,0 +1,84 @@
+/* ═══ Quy tắc — rules for future rows (docs/specs/carry-rules-spec.md) ═══════
+   Tokens only. Everything here borrows a shape the app already has: the card's
+   label/value rows, the carry sheet's list, the settings rows, the iOS switch,
+   the .choices chips. */
+
+/* ── the queue card: "Theo quy tắc" under a value a rule set (R8) ── */
+.csv-srow.rl-has{align-items:flex-start}
+.csv-srow.rl-has small{padding-top:1px}
+.rl-col{display:flex;flex-direction:column;align-items:flex-end;min-width:0}
+.rl-by{display:inline-block;margin-top:2px;padding:2px 0 2px 8px;font-size:12px;font-weight:500;color:var(--muted);cursor:pointer;-webkit-tap-highlight-color:transparent}
+.rl-by:active{color:var(--brand-ink)}
+
+/* ── the queue's summary row (R20) ── */
+.rl-sum{display:flex;align-items:center;gap:10px;margin:0 0 12px;padding:6px 6px 6px 14px;background:var(--white);border:1px solid var(--hairline);border-radius:14px}
+.rl-sum span{flex:1;min-width:0;font-size:13.5px;font-weight:600;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rl-sum button{flex:none;min-height:40px;padding:0 14px;border:0;border-radius:9999px;background:var(--brand-tint);color:var(--brand-ink);font:inherit;font-size:13px;font-weight:700;-webkit-tap-highlight-color:transparent;transition:transform .12s cubic-bezier(.4,0,.2,1)}
+.rl-sum button:active{transform:scale(.97)}
+
+/* ── the carry sheet's rule row: two lines and a switch ── */
+.cry-row.cry-rule{min-height:60px;padding:10px 12px}
+.cry-rule-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.cry-rule-t b{flex:none;text-align:left;font-size:14.5px;font-weight:600;letter-spacing:-.01em;color:var(--ink);white-space:normal}
+.cry-rule-t small{flex:none;font-size:12.5px;font-weight:500;color:var(--muted);line-height:1.35;white-space:normal}
+
+/* ── the modal: above the review queue (62) and the move sheet (64) ── */
+#rule-modal{z-index:66}
+#rule-modal .modal-cancel{display:inline-flex;align-items:center;gap:2px}
+#rule-modal .modal-cancel svg{width:22px;height:22px;margin-left:-6px}
+#rule-modal .modal-body{background:var(--canvas);padding:8px 16px calc(32px + env(safe-area-inset-bottom))}
+#rule-modal.picking::after{content:"";position:absolute;inset:0;background:var(--ink);opacity:.38;z-index:5}
+
+/* the list: settings grammar */
+.rl-sec{margin:18px 6px 6px;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.rl-sec:first-child{margin-top:6px}
+.rl-list{background:var(--white);border-radius:16px;box-shadow:var(--shadow-card);overflow:hidden}
+.rl-row{display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:9px 14px;border:0;border-bottom:1px solid var(--divider);background:none;font:inherit;text-align:left;color:var(--ink);-webkit-tap-highlight-color:transparent}
+.rl-list>:last-child{border-bottom:0}
+button.rl-row:active{background:var(--canvas)}
+.rl-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.rl-t b{font-size:15px;font-weight:600;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rl-t small{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rl-chev{width:15px;height:15px;color:var(--chev);flex:none}
+.rl-segs{display:inline-flex;flex:none;padding:2px;border-radius:9px;background:var(--fill-neutral)}
+.rl-seg{min-height:32px;padding:0 10px;border:0;border-radius:7px;background:none;font:inherit;font-size:12.5px;font-weight:600;color:var(--ink-2);-webkit-tap-highlight-color:transparent}
+.rl-seg.on{background:var(--white);box-shadow:var(--shadow-card);color:var(--ink)}
+.rl-foot{margin:8px 10px 0;font-size:12.5px;line-height:1.45;color:var(--muted)}
+.rl-lessons{margin:22px 10px 0;font-size:12.5px;line-height:1.5;color:var(--muted)}
+.rl-forget{display:inline;min-height:44px;padding:0;border:0;background:none;font:inherit;font-size:12.5px;font-weight:700;color:var(--brand-ink);-webkit-tap-highlight-color:transparent}
+.rl-forget.armed{color:var(--danger)}
+.rl-empty{display:flex;flex-direction:column;gap:6px;margin:28px 12px 4px;text-align:center}
+.rl-empty b{font-family:var(--disp);font-size:17px;font-weight:700;letter-spacing:-.2px;color:var(--ink)}
+.rl-empty span{font-size:13.5px;line-height:1.5;color:var(--muted)}
+
+/* one rule: the card's own rows */
+.rl-head{padding:6px 6px 14px}
+.rl-head b{display:block;font-family:var(--disp);font-size:24px;font-weight:700;letter-spacing:-.6px;color:var(--ink);overflow-wrap:anywhere}
+.rl-head small{display:block;margin-top:3px;font-size:13px;color:var(--muted)}
+.rl-card{background:var(--white);border-radius:16px;box-shadow:var(--shadow-card);padding:0 14px;margin-bottom:12px}
+.rl-frow{display:flex;width:100%;align-items:center;justify-content:space-between;gap:10px;min-height:48px;padding:12px 2px;border:0;border-bottom:1px solid var(--divider);background:none;font:inherit;text-align:left;color:inherit;-webkit-tap-highlight-color:transparent}
+.rl-card>.rl-frow:last-child,.rl-card>.rl-fold:last-child{border-bottom:0}
+.rl-frow small{flex:none;font-size:13px;font-weight:600;color:var(--muted)}
+.rl-fv{display:flex;align-items:center;gap:5px;min-width:0}
+.rl-fv b{font-size:14px;font-weight:650;letter-spacing:-.01em;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rl-frow.soft .rl-fv b{color:var(--muted-soft);font-weight:600}
+.rl-frow.open small{color:var(--brand-ink)}
+.rl-fold{padding:4px 0 14px;border-bottom:1px solid var(--divider)}
+.rl-fold .choices{margin:0}
+.rl-del{display:block;width:fit-content;min-height:44px;margin:18px auto 4px;padding:0 16px;border:0;background:none;font:inherit;font-size:15px;font-weight:600;color:var(--danger);-webkit-tap-highlight-color:transparent}
+
+/* the choice on delete / edit (R27): Apple's action sheet */
+.rl-as-scrim{position:absolute;inset:0;z-index:7;background:var(--ink);opacity:.38;animation:rl-fade .2s ease-out}
+.rl-as{position:absolute;left:10px;right:10px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:8;animation:rl-rise .32s cubic-bezier(.32,.72,0,1)}
+.rl-as-grp{background:var(--white);border-radius:14px;overflow:hidden}
+.rl-as-msg{padding:14px 18px 12px;text-align:center;border-bottom:1px solid var(--divider)}
+.rl-as-msg b{display:block;font-size:13px;font-weight:700;color:var(--ink-2)}
+.rl-as-msg small{display:block;margin-top:3px;font-size:13px;line-height:1.4;color:var(--muted)}
+.rl-as-btn{display:block;width:100%;min-height:56px;border:0;border-bottom:1px solid var(--divider);background:none;font:inherit;font-size:17px;font-weight:500;text-align:center;color:var(--brand-ink);-webkit-tap-highlight-color:transparent}
+.rl-as-btn:last-child{border-bottom:0}
+.rl-as-btn:active,.rl-as-cancel:active{background:var(--canvas)}
+.rl-as-btn.dgr{color:var(--danger)}
+.rl-as-cancel{display:block;width:100%;min-height:56px;margin-top:8px;border:0;border-radius:14px;background:var(--white);font:inherit;font-size:17px;font-weight:700;text-align:center;color:var(--brand-ink);-webkit-tap-highlight-color:transparent}
+@keyframes rl-rise{from{transform:translateY(110%)}to{transform:none}}
+@keyframes rl-fade{from{opacity:0}to{opacity:.38}}
+@media (prefers-reduced-motion:reduce){.rl-as,.rl-as-scrim{animation:none}.rl-sum button{transition:none}}

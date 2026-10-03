@@ -1417,6 +1417,10 @@
       (_rv.groups || []).forEach(function (g) { _stamp(g && g.items); });
       (_rv.dup || []).forEach(function (d) { if (d && d.c) _stamp([d.c]); });
     } catch (eS) {}
+    /* carry-rules-spec §4: the person's rules fill the waiting rows LAST, over
+       every machine tier, and never over a field set by hand. After the stamp,
+       because a pin is keyed on the staged row's id. */
+    try { if (window.csvRulesApplyQueue) window.csvRulesApplyQueue(readable); } catch (eR) { console.warn('rules pass failed', eR); }
     renderCsvReview();
 
     // Same screen, different framing: no file to pick, and the title should say

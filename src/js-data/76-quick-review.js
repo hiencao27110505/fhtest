@@ -441,6 +441,13 @@
         }
 
         var desc = _qrDesc(re);
+        /* carry-rules-spec R28: the person's rules fill this row too, over every
+           machine tier. A rule that sets a kind quick review cannot show (a loan,
+           a transfer) sends the row to the full queue, which can. */
+        var rq = null;
+        try { if (window.fhRuleForQuick) rq = window.fhRuleForQuick({ counterparty: re.counterparty || '', description: desc, provider: row.source_provider || '',
+          amount: Number(re.amount) || 0, dir: flow === 'income' ? 'in' : 'out', stagedId: row.id }); } catch (eR) { rq = null; }
+        if (rq && rq.full) { if (opts.force && window.fhTxnReviewSheet) window.fhTxnReviewSheet(); return; }
         var cat = flow !== 'income' ? _qrSuggestCat(re, desc) : '';
         var oa = row.occurred_at ? new Date(row.occurred_at) : new Date();
         QR = {
@@ -470,6 +477,14 @@
            goes below the others (E14a), same place the full review gives it. */
         if (!QR.node && sig && sig.node && typeof FH_TAX !== 'undefined' && FH_TAX.get(sig.node)
             && FH_TAX.kindOf(sig.node) === (flow === 'income' ? 'income' : 'expense')) QR.node = sig.node;
+        if (rq && rq.m) {
+          var rm = rq.m, rk = flow === 'income' ? 'income' : 'expense'; QR._rule = {};
+          if (rm.scope && (rm.scope.v === 'personal' || (rm.scope.v === 'family' && !_qrFamilyLocked()))) { QR.dest = rm.scope.v; QR._rule.scope = rm.scope.id; }
+          if (rm.cat && flow !== 'income' && rm.cat.v) { QR.cat = rm.cat.v; QR._rule.cat = rm.cat.id; }
+          if (rm.inccat && flow === 'income' && rm.inccat.v) { QR.incomeCat = rm.inccat.v; QR._rule.inccat = rm.inccat.id; }
+          if (rm.node && rm.node.v && typeof FH_TAX !== 'undefined' && FH_TAX.get(rm.node.v)
+              && (FH_TAX.kindOf(rm.node.v) === rk || (rk === 'expense' && FH_TAX.kindOf(rm.node.v) === 'transfer'))) { QR.node = rm.node.v; QR._rule.node = rm.node.id; }
+        }
         _qrSessionSkip[row.id] = true;                          // shown this run — no re-pop on the next tab switch
         _qrRender();
       } finally { _qrInFlight = false; }
@@ -533,12 +548,12 @@
       }
       return _qrInstrLabel();
     }
-    function _qrDestVal() { return QR.dest === 'family' ? L('🏡 Gia đình', '🏡 Family') : L('🔒 Cá nhân', '🔒 Personal'); }
+    function _qrDestVal() { return (QR.dest === 'family' ? L('🏡 Gia đình', '🏡 Family') : L('🔒 Cá nhân', '🔒 Personal')) + ((QR._rule && QR._rule.scope) ? ' · ' + L('theo quy tắc', 'by rule') : ''); }
     function _qrCatCell() {
       if (QR.flow === 'income') return '💰 ' + L('Thu nhập', 'Income');
       if (!QR.cat) return L('Chưa chọn', 'Not set');
       var emo = (window.catStyle && window.catStyle[QR.cat] && window.catStyle[QR.cat][0]) || '';
-      return (emo ? emo + ' ' : '') + QR.cat + (QR.editedCat ? '' : ' · ' + L('gợi ý', 'suggested'));
+      return (emo ? emo + ' ' : '') + QR.cat + (QR.editedCat ? '' : ' · ' + ((QR._rule && QR._rule.cat) ? L('theo quy tắc', 'by rule') : L('gợi ý', 'suggested')));
     }
     /* Chip groups — the app's global .choices/.choice components, so they are
        pixel-identical to the ones in the expense sheet. */
@@ -988,7 +1003,7 @@
       if (a === 'cat-pick') { QR.cat = v || QR.cat; QR.editedCat = true; QR.edit = null; _qrRender(); return; }
       if (a === 'dest-pick') {
         if (v === 'family' && _qrFamilyLocked()) { window.toast && window.toast(L('Sổ gia đình đang khoá', 'The family ledger is locked')); return; }
-        QR.dest = v || QR.dest; QR.edit = null; _qrRender(); return;
+        QR.dest = v || QR.dest; if (QR._rule) delete QR._rule.scope; QR.edit = null; _qrRender(); return;
       }
       if (a === 'approve') { _qrApprove(); return; }
       if (a === 'later') { _qrClose(); return; }             // session-suppressed only → eligible again next app open

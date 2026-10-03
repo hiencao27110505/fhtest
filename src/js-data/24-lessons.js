@@ -33,7 +33,10 @@
   (function () {
     const _sb = () => window.sb;
     const _P = () => (window.fhPersonalData ? fhPersonalData() : null);
-    let L = { kind: {}, cat: {}, node: {}, tomb: {} };   // 0144: `node` joins kind/cat in the same encrypted blob
+    /* 0144: `node` joins kind/cat in the same encrypted blob. carry-rules-spec §7:
+       `rule` (the person's standing rules), `pin` (values held on waiting rows
+       after a rule changed under them) and `route` (Theo nguồn, per bank). */
+    let L = { kind: {}, cat: {}, node: {}, tomb: {}, rule: {}, pin: {}, route: {} };
     let _loaded = false, _saveSeq = 0, _saveTimer = null;
 
     const _now = () => Date.now();
@@ -68,12 +71,27 @@
       if (!k || k.length < 6) return '';
       return k + '|' + csvAmountBand((input && input.amount) || 0);
     }
-    window.fhLessonNode = function (input) {
-      const key = _nodeKey(input); if (!key) return null;
-      const l = L.node[key]; if (!l || !l.node) return null;
+    /* carry-rules-spec §9 (2, 3): a merchant also gets an amount-free lesson, as
+       the category store has had all along — Grab is Grab at 30k and at 300k. A
+       person-to-person transfer does not: the same name is rent at 7tr and a
+       coffee repaid at 35k. The banded key is read first and always wins. */
+    function _nodeBare(input) {
+      const key = _nodeKey(input); if (!key) return '';
+      const cp = (input && input.counterparty) || '', memo = (input && (input.memo || input.note)) || '';
+      if (typeof window.fhLooksPersonToPerson === 'function') {
+        try { if (window.fhLooksPersonToPerson({ note: memo, counterparty: cp, memo: memo })) return ''; } catch (e) { return ''; }
+      } else return '';
+      return 'm|' + key.slice(0, key.lastIndexOf('|'));
+    }
+    function _nodeAt(key) {
+      const l = key && L.node[key]; if (!l || !l.node) return null;
       const tomb = L.tomb['node|' + key];
       if (tomb && !(l.t > tomb.t)) return null;
       return (window.FH_TAX && FH_TAX.get(l.node)) ? l.node : null;
+    }
+    window.fhLessonNode = function (input) {
+      const key = _nodeKey(input); if (!key) return null;
+      return _nodeAt(key) || _nodeAt(_nodeBare(input));
     };
     window.fhLessonLearnNode = function (input) {
       const node = input && input.node;
@@ -81,6 +99,8 @@
       const key = _nodeKey(input); if (!key) return;
       L.node[key] = { node: node, t: _now() };
       delete L.tomb['node|' + key];
+      const bare = _nodeBare(input);
+      if (bare) { L.node[bare] = { node: node, t: _now() }; delete L.tomb['node|' + bare]; }
       _saveSoon();
     };
     /* ── receipt ITEMS (receipt-enrichment-spec §20.4) ────────────────────
@@ -113,8 +133,12 @@
     };
     window.fhLessonForgetNode = function (input) {
       const key = _nodeKey(input); if (!key) return;
+      const was = L.node[key] && L.node[key].node, bare = _nodeBare(input);
       delete L.node[key];
       L.tomb['node|' + key] = { t: _now() };
+      /* the amount-free lesson goes with it only when it says the same thing:
+         forgetting one size must not erase what another size taught */
+      if (bare && L.node[bare] && L.node[bare].node === was) { delete L.node[bare]; L.tomb['node|' + bare] = { t: _now() }; }
       _saveSoon();
     };
 
@@ -156,11 +180,12 @@
     async function _pull() {
       const P = _P(); if (!P || !P.uid || !P.key) return null;
       const r = await _sb().from('personal_lessons').select('lessons_enc').eq('owner_user_id', P.uid).maybeSingle();
-      if (r.error || !r.data || !r.data.lessons_enc) return r.error ? null : { kind: {}, cat: {}, node: {}, tomb: {} };
+      if (r.error || !r.data || !r.data.lessons_enc) return r.error ? null : { kind: {}, cat: {}, node: {}, tomb: {}, rule: {}, pin: {}, route: {} };
       try {
         const pt = await FHCrypto.decVal(P.key, r.data.lessons_enc);
         const d = JSON.parse(pt);
-        return { kind: d.kind || {}, cat: d.cat || {}, node: d.node || {}, tomb: d.tomb || {} };   // 2026-10-03: `node` was left out here, so every node lesson died on reload
+        return { kind: d.kind || {}, cat: d.cat || {}, node: d.node || {}, tomb: d.tomb || {},   // 2026-10-03: `node` was left out here, so every node lesson died on reload
+                 rule: d.rule || {}, pin: d.pin || {}, route: d.route || {} };
       } catch (e) { return null; }                        // unreadable blob: leave the server copy alone
     }
     function _mergeIn(remote) {
@@ -182,6 +207,16 @@
         const r = remote.node[k], mine = L.node[k];
         if (!mine || r.t > mine.t) { L.node[k] = r; changed = true; }
       }
+      /* rules, pins and routes: newest wins per id; a tombstone (rule|id, pin|id)
+         newer than the copy keeps a deletion from coming back */
+      ['rule', 'pin', 'route'].forEach(function (ns) {
+        const src = remote[ns] || {};
+        for (const k in src) {
+          const r = src[k], mine = L[ns][k];
+          if (!r || typeof r !== 'object') continue;
+          if (!mine || (r.t || 0) > (mine.t || 0)) { L[ns][k] = r; changed = true; }
+        }
+      });
       return changed;
     }
     /* Load before the first save, always. The blob is ONE row that a save
@@ -198,7 +233,9 @@
         const remote = await _pull();
         if (!remote) return false;
         if (_mergeIn(remote) && typeof window.csvLearnedMergeIn === 'function') { try { window.csvLearnedMergeIn(L.cat); } catch (e) {} }
-        _loaded = true; return true;
+        _loaded = true;
+        if (typeof window.csvTxrRoutesMergeIn === 'function') { try { window.csvTxrRoutesMergeIn(window.fhRoutesSynced()); } catch (e) {} }
+        return true;
       })().finally(() => { _loading = null; });
       return _loading;
     }
@@ -235,6 +272,94 @@
     /* A category lesson just changed locally — mirror + schedule a push. */
     window.fhLessonsCatChanged = function (map) {
       L.cat = Object.assign({}, map || {});
+      _saveSoon();
+    };
+
+    /* ═══ Rules (carry-rules-spec §7) ═════════════════════════════════════════
+       A rule is { id, k, dir, band, set, name, t } — see 66-rules.js for what
+       each part means. This module only keeps them: encrypted with everything
+       else, merged newest-wins across devices, deleted by tombstone. */
+    const _live = (ns, id) => {
+      const r = L[ns][id]; if (!r) return null;
+      const tomb = L.tomb[ns + '|' + id];
+      return (tomb && !((r.t || 0) > tomb.t)) ? null : r;
+    };
+    window.fhRulesReady = function () { return _ensureLoaded(); };
+    window.fhRulesAll = function () {
+      return Object.keys(L.rule).map(function (id) { return _live('rule', id); }).filter(Boolean);
+    };
+    window.fhRuleGet = function (id) { return id ? _live('rule', id) : null; };
+    window.fhRuleSave = function (rule) {
+      if (!rule || !rule.id) return null;
+      const r = JSON.parse(JSON.stringify(rule));
+      r.t = Math.max(_now(), ((L.tomb['rule|' + r.id] || {}).t || 0) + 1);
+      L.rule[r.id] = r;
+      _saveSoon();
+      return r;
+    };
+    window.fhRuleDelete = function (id) {
+      if (!id) return;
+      delete L.rule[id];
+      L.tomb['rule|' + id] = { t: _now() };
+      _saveSoon();
+    };
+    /* Pins: values held on ONE waiting row (by its staged id) after the rule that
+       filled it was deleted or changed and the person chose to keep them. */
+    window.fhRulePins = function () {
+      const out = {};
+      Object.keys(L.pin).forEach(function (id) { const p = _live('pin', id); if (p) out[id] = p; });
+      return out;
+    };
+    window.fhRulePinSet = function (ids, set) {
+      (ids || []).forEach(function (id) {
+        if (!id) return;
+        const cur = _live('pin', id);
+        L.pin[id] = { set: Object.assign({}, (cur && cur.set) || {}, set || {}), t: _now() };
+        delete L.tomb['pin|' + id];
+      });
+      _saveSoon();
+    };
+    window.fhRulePinDrop = function (ids) {
+      let n = 0;
+      (ids || []).forEach(function (id) { if (L.pin[id]) { delete L.pin[id]; L.tomb['pin|' + id] = { t: _now() }; n++; } });
+      if (n) _saveSoon();
+    };
+    /* Theo nguồn, per bank: { bank: { v:'personal'|'family', t } }. The queue keeps
+       its own map (56 csvTxrRoutes); this is the copy that travels. */
+    window.fhRoutesSynced = function () {
+      const out = {};
+      Object.keys(L.route).forEach(function (b) { const r = L.route[b]; if (r && (r.v === 'personal' || r.v === 'family')) out[b] = r.v; });
+      return out;
+    };
+    window.fhRoutesChanged = function (map) {
+      let n = 0;
+      Object.keys(map || {}).forEach(function (b) {
+        const v = map[b]; if (v !== 'personal' && v !== 'family') return;
+        if (!L.route[b] || L.route[b].v !== v) { L.route[b] = { v: v, t: _now() }; n++; }
+      });
+      if (n) _saveSoon();
+    };
+    /* The silent lessons, counted and forgotten as one thing: the list's last line
+       (carry-rules-spec §5.3). Category lessons live in 57's store and are
+       counted and cleared there. */
+    window.fhLessonsCount = function () {
+      let n = 0;
+      Object.keys(L.node).forEach(function (k) {
+        if (k.indexOf('m|') === 0) return;                 // the amount-free twin is the same lesson
+        const l = L.node[k], tomb = L.tomb['node|' + k];
+        if (l && l.node && !(tomb && !(l.t > tomb.t))) n++;
+      });
+      Object.keys(L.kind).forEach(function (k) {
+        const l = L.kind[k], tomb = L.tomb['kind|' + k];
+        if (l && l.n > 0 && !(tomb && !(l.t > tomb.t))) n++;
+      });
+      return n;
+    };
+    window.fhLessonsForgetAll = function () {
+      const t = _now();
+      Object.keys(L.node).forEach(function (k) { L.tomb['node|' + k] = { t: t }; });
+      Object.keys(L.kind).forEach(function (k) { L.tomb['kind|' + k] = { t: t }; });
+      L.node = {}; L.kind = {};
       _saveSoon();
     };
   })();

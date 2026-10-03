@@ -143,6 +143,13 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-10-03 (later) · Hien · rules for later rows (carry-rules-spec.md) — BUILT · claiming SW `v614` · client only, no migration · tree-backfill cursor v12 → v13.**
+  New `src/js-ui/66-rules.js`, `src/css/75-rules.css`, `#rule-modal` in `src/index.html`, Cài đặt row `set-rules-row`.
+  Touched: `24-lessons.js` (rule/pin/route namespaces, amount-free merchant node lesson `m|key`), `56` (`fhCarryBodyHTML` m.rule,
+  queue sheet switch + door, card "Theo quy tắc" line, summary row, Chỉnh sửa row, route sync, `_nodeSource 'rule'` counts as a
+  person's at import), `61` (ledger sheets), `72` (`csvRulesApplyQueue` after the stamp), `76` (quick review), `28` (cursor v13,
+  sweep waits for lessons), `50` (`initSheetDrag`: FIRST binding of an element wins, so the rules modal's drag closes only itself;
+  every other element is bound exactly once as before). Guard: `tools/carry-rules.test.js` (39). If you bump the SW next, start from v614.
 - **2026-10-03 · Hien · lessons blob: node lessons lost on every reload + ledger-first save wiped the server copy — FIXED · claiming SW `v613` · client only, no migration.**
   `24-lessons.js` `_pull()` returned `{kind, cat, tomb}` without `node`, so every Tiêu vào gì lesson (and item-signature lesson)
   died on reload and the next save erased the server's copy. Worse: the pull ran only when the review queue opened

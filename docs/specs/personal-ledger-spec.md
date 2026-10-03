@@ -550,7 +550,8 @@ sheets:
   each changed row and a foot button, "Áp dụng n thay đổi cho m khoản", staged
   with the edit and written by Lưu (§16, L8–L13). The edited row and the rows it
   carries to are written in one transaction, with a retry on a stalled request
-  (§17, L14–L18; migration 0156).
+  (§17, L14–L18; migration 0156). A switch in the same sheet also saves a rule
+  for later rows (`carry-rules-spec.md`, built 2026-10-03, SW v614).
 - **Transaction detail** (2026-09-17) — a private expense row opens
   `openPersonalTxDetail` in a **view** state (receipt block, read-only rows in
   the review card's order and labels, photos) with "Sửa" in the nav; edit is the
