@@ -143,6 +143,13 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-10-03 · Hien · lessons blob: node lessons lost on every reload + ledger-first save wiped the server copy — FIXED · claiming SW `v613` · client only, no migration.**
+  `24-lessons.js` `_pull()` returned `{kind, cat, tomb}` without `node`, so every Tiêu vào gì lesson (and item-signature lesson)
+  died on reload and the next save erased the server's copy. Worse: the pull ran only when the review queue opened
+  (`fhLessonsSync` from 72/76), so a lesson taught from the ledger first (detail edit, carry) uploaded this session's
+  few keys over the whole blob, loans and tombstones included. Now `_ensureLoaded()` reads the blob before ANY save,
+  and a failed or unreadable pull means no save. Guard: `tools/lessons-sync.test.js` (9 checks; 6 fail on the old code).
+  Lessons already lost are not recoverable. If you bump the SW next, start from v613.
 - **2026-10-02 (late night) · Hien · ledger carry saved in ONE transaction + retry · CLAIMING migration `0156_personal_txn_patch.sql` (next free is `0157`) · claiming SW `v612` · NOT pushed, 0156 NOT applied.**
   A 12-row "Áp dụng cho khoản giống" save failed once: the server log shows no request for 99 s, then the retry's
   1 + 12 PATCHes, all 204. The first write never left the phone and waited out the 60 s fetch cap. Now

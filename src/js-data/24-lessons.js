@@ -160,7 +160,7 @@
       try {
         const pt = await FHCrypto.decVal(P.key, r.data.lessons_enc);
         const d = JSON.parse(pt);
-        return { kind: d.kind || {}, cat: d.cat || {}, tomb: d.tomb || {} };
+        return { kind: d.kind || {}, cat: d.cat || {}, node: d.node || {}, tomb: d.tomb || {} };   // 2026-10-03: `node` was left out here, so every node lesson died on reload
       } catch (e) { return null; }                        // unreadable blob: leave the server copy alone
     }
     function _mergeIn(remote) {
@@ -184,8 +184,27 @@
       }
       return changed;
     }
+    /* Load before the first save, always. The blob is ONE row that a save
+       replaces whole, and the pull used to happen only when the review queue
+       opened: a lesson taught from the ledger first (the detail screen, the
+       carry) uploaded this session's few keys over everything the server held —
+       loans, tombstones, every node lesson. A pull that fails, or a blob that
+       will not decrypt, means NO save at all: the server copy is the only one
+       and it is left alone until a later save can read it. */
+    let _loading = null;
+    async function _ensureLoaded() {
+      if (_loaded) return true;
+      if (!_loading) _loading = (async () => {
+        const remote = await _pull();
+        if (!remote) return false;
+        if (_mergeIn(remote) && typeof window.csvLearnedMergeIn === 'function') { try { window.csvLearnedMergeIn(L.cat); } catch (e) {} }
+        _loaded = true; return true;
+      })().finally(() => { _loading = null; });
+      return _loading;
+    }
     async function _push() {
       const P = _P(); if (!P || !P.uid || !P.key) return;
+      if (!(await _ensureLoaded())) return;               // never overwrite a copy we have not read
       const seq = ++_saveSeq;
       const ct = await FHCrypto.encVal(P.key, JSON.stringify(L));
       if (!ct || seq !== _saveSeq) return;                // a newer save superseded this one
@@ -209,10 +228,7 @@
         const local = window.csvLearnedExport() || {};
         for (const k in local) if (L.cat[k] !== local[k]) L.cat[k] = local[k];
       }
-      const remote = _loaded ? null : await _pull();
-      let changed = false;
-      if (remote) { changed = _mergeIn(remote); _loaded = true; }
-      if (changed && typeof window.csvLearnedMergeIn === 'function') window.csvLearnedMergeIn(L.cat);
+      await _ensureLoaded();
       _saveSoon();
       return true;
     };

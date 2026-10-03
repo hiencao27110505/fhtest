@@ -27718,7 +27718,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v612';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v613';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -33397,7 +33397,7 @@ window.obGoogle = async function () {
       try {
         const pt = await FHCrypto.decVal(P.key, r.data.lessons_enc);
         const d = JSON.parse(pt);
-        return { kind: d.kind || {}, cat: d.cat || {}, tomb: d.tomb || {} };
+        return { kind: d.kind || {}, cat: d.cat || {}, node: d.node || {}, tomb: d.tomb || {} };   // 2026-10-03: `node` was left out here, so every node lesson died on reload
       } catch (e) { return null; }                        // unreadable blob: leave the server copy alone
     }
     function _mergeIn(remote) {
@@ -33421,8 +33421,27 @@ window.obGoogle = async function () {
       }
       return changed;
     }
+    /* Load before the first save, always. The blob is ONE row that a save
+       replaces whole, and the pull used to happen only when the review queue
+       opened: a lesson taught from the ledger first (the detail screen, the
+       carry) uploaded this session's few keys over everything the server held —
+       loans, tombstones, every node lesson. A pull that fails, or a blob that
+       will not decrypt, means NO save at all: the server copy is the only one
+       and it is left alone until a later save can read it. */
+    let _loading = null;
+    async function _ensureLoaded() {
+      if (_loaded) return true;
+      if (!_loading) _loading = (async () => {
+        const remote = await _pull();
+        if (!remote) return false;
+        if (_mergeIn(remote) && typeof window.csvLearnedMergeIn === 'function') { try { window.csvLearnedMergeIn(L.cat); } catch (e) {} }
+        _loaded = true; return true;
+      })().finally(() => { _loading = null; });
+      return _loading;
+    }
     async function _push() {
       const P = _P(); if (!P || !P.uid || !P.key) return;
+      if (!(await _ensureLoaded())) return;               // never overwrite a copy we have not read
       const seq = ++_saveSeq;
       const ct = await FHCrypto.encVal(P.key, JSON.stringify(L));
       if (!ct || seq !== _saveSeq) return;                // a newer save superseded this one
@@ -33446,10 +33465,7 @@ window.obGoogle = async function () {
         const local = window.csvLearnedExport() || {};
         for (const k in local) if (L.cat[k] !== local[k]) L.cat[k] = local[k];
       }
-      const remote = _loaded ? null : await _pull();
-      let changed = false;
-      if (remote) { changed = _mergeIn(remote); _loaded = true; }
-      if (changed && typeof window.csvLearnedMergeIn === 'function') window.csvLearnedMergeIn(L.cat);
+      await _ensureLoaded();
       _saveSoon();
       return true;
     };
