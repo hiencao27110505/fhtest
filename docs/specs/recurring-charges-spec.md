@@ -166,7 +166,7 @@ column): `recurrence` and `recurrence_source`, written by the receipt join or
 a lesson on device, never by the worker (the worker only knows `period`).
 
 Both personal RPCs (`personal_txn_insert`, `personal_txn_patch` from 0156)
-and the family write path accept the two fields. `get_family_snapshot` and the
+and the family write path accept the two fields. `get_family_snapshot` (which names its transaction columns one by one, so `0158` adds the two; found after `0157` went live) and the
 personal hydrate select them.
 
 ## 7. Why plaintext, and what it does and does not give
