@@ -71,58 +71,85 @@ the pattern, and the person can always just say so. Three sources, one mark.
 
 ### 3.1 The mark
 
-A small "Định kỳ" tag in the card's meta line, next to the receipt glyph
-where one exists: `Định kỳ · hàng tháng`. On a pattern of only two charges it
-reads `Có vẻ định kỳ · hàng tháng` in the soft text colour. When the latest
-charge in a series is more than 5 percent above the previous one, the amount
-carries a trailing `↑ 40.000` in `--warn`; the detail row says `Tăng 40.000
-so với kỳ trước`. House rules: SVG glyph if any, no emoji, `fmt()` for every
-figure, tokens only.
+One quiet line under a card's meta, beside the receipt line where there is
+one: `Định kỳ · hàng tháng`. Only a settled value wears it; a guess shows on
+the card's Định kỳ row and nowhere else. No glyph, no badge, no colour.
 
 ### 3.2 The row in the detail screen and the expanded queue card
 
-A **Định kỳ** row in the same row language as Danh mục and Ngày:
+A **Định kỳ** row in the row language Danh mục and Ngày use. The value is one
+word. When there is more to say it goes on a second line under the value, in
+the shape the rule line ("Theo quy tắc") already has there:
 
 ```
-Định kỳ                    Hàng tháng · kỳ tới 6/11  ›
+Định kỳ                              Hàng tháng  ›
+                          Kỳ tới 16/10 · tăng 24.000 ₫
 ```
 
-Tapping opens the shared choices sheet with four options, Không / Hàng tuần
-/ Hàng tháng / Hàng năm. A pick **writes at once** (the Loại khoản precedent:
-"Chọn xong là lưu ngay"), through the ledger's own door, and teaches the
-merchant. Choosing Không on a receipt-marked or pattern-marked row sets
-`recurrence_source = 'person'` with `recurrence = null`, which the engine
-reads as "asked and declined": no pattern re-marks it, and the lesson for the
-merchant is forgotten (RR5). The soft "Có vẻ" guess has one more button in the
-sheet: **Đúng rồi, hàng tháng**, which confirms the period as `person`. The
-next date is derived (RR2) and not editable in release 1 (§17).
+| State | Value | Second line |
+|---|---|---|
+| In a series | `Hàng tháng` | `Kỳ tới 16/10`, or `Dự kiến 5/10` when that date has passed and the charge has not been seen. `tăng 24.000 ₫` in amber when this charge cost more than the last (§12) |
+| A guess, or a first charge on a recurring leaf | `Có vẻ hàng tháng`, in the soft ink | the date when a series gave one |
+| On the queue card | as above | where it came from: `Theo hoá đơn`, `Theo các kỳ trước`, `Theo bài học`. A leaf hint has none: "Có vẻ" already says it |
+| None | `Không`, soft | |
 
-Queue rows carry the same row; a value from a lesson reads "Theo bài học",
-from the receipt "Theo hoá đơn", with the usual provenance styling.
+"Dự kiến" and never "quá hạn" or "trễ": a charge that has not arrived is a
+fact about the pattern, not a verdict on the person.
+
+Tapping opens the shared choices sheet with four chips, Không / Hàng tuần /
+Hàng tháng / Hàng năm (single-select, DESIGN §3). The subtitle is "Chọn xong
+là lưu ngay."; for a guess it is "Có vẻ lặp lại hàng tháng. Chọn xong là lưu
+ngay." and no chip is selected: picking the period confirms it, Không
+declines. A pick **writes at once** (the Loại khoản precedent), through the
+ledger's own door, and teaches the merchant. Choosing Không on a marked row
+sets `recurrence_source = 'person'` with `recurrence = null`, which the engine
+reads as "asked and declined": no pattern re-marks it, and the lesson is
+forgotten (RR5). The next date is derived (RR2) and not editable in release 1
+(§17).
 
 ### 3.3 The Định kỳ tile and sheet
 
-In Tài Chính, a bento tile beside Đầu tư:
+In Tài Chính, a bento tile beside Đầu tư, in the same tile language
+(`.dbt-tile`): one head line, one big figure, then up to three single-line
+rows of name, date and amount, and at most two quiet footer lines.
 
 ```
-ĐỊNH KỲ
-3 khoản trong 30 ngày tới           ~1.280.000 / tháng
-Google One · 6/11 · 50.000
-Netflix · 12/11 · 220.000  ↑ 40.000
-Gym · 15/11 · 1.010.000
+ĐỊNH KỲ                                            Tất cả
+3 khoản trong 30 ngày tới
+~10.599.000 ₫ / tháng
+NGUYEN VAN QUANG          dự kiến 5/10     7.500.000 ₫
+YouTube Premium                  16/10       129.000 ₫
+ANTHROPIC* CLAUDE SUB            18/10     2.970.000 ₫
+YouTube Premium tăng 24.000 ₫                    (amber)
+Có vẻ định kỳ: Netflix, FPT Telecom
 ```
 
-The sheet opens on the same list, then every series grouped by period, each
-with merchant, product when a receipt gave one, amount of the latest charge,
-next date, charges count, and the creep flag. A series row opens the latest
-transaction. "Mỗi tháng ~X" is the sum of monthly amounts plus yearly over
-twelve plus weekly times 52 over 12, computed on device from decrypted
-amounts (amounts are ciphertext on the server, §7). Family tab: the same tile
-in the family finance view, over family rows, same engine.
+A charge is named by its receipt when it has one ("YouTube Premium"), else by
+who it was paid to, as the bank writes it. The tile is one tap target and
+opens the sheet. With nothing confirmed yet, its head reads "1 khoản có vẻ
+định kỳ" and the guesses are the rows, in the soft ink.
 
-Empty states: no series yet reads "Chưa có khoản định kỳ nào. Khi một khoản
-lặp lại, nó sẽ hiện ở đây." A single soft guess reads "Có vẻ Netflix lặp lại
-hàng tháng. Đúng không?" with Đúng rồi / Không.
+The sheet is the list: rows of title and subtitle with a right-aligned figure
+and a chevron (DESIGN §3 "List row"), under eyebrow labels "30 ngày tới",
+"Hàng tháng", "Hàng năm", "Hàng tuần", "Có vẻ định kỳ". A row opens its latest
+transaction. A guess carries a question and two small pills under its row:
+
+```
+Netflix                                      260.000 ₫  ›
+10/10
+Lặp lại hàng tháng?                  [ Không ] [ Đúng rồi ]
+```
+
+The pills are the app's quiet secondary action (neutral and brand-tint
+fills), never filled brand buttons: five guesses must not put five accents on
+one sheet. The subtitle is "Mỗi tháng ~X": monthly amounts, plus yearly over
+twelve, plus weekly times 52 over 12, confirmed series only, computed on
+device from decrypted amounts (§7). The family home shows the same tile over
+family rows.
+
+Empty: the tile is absent until something repeats. The sheet, opened while
+the history is still being read, says "Đang xem lại lịch sử chi tiêu…"; with
+nothing found, "Chưa có khoản nào lặp lại. Khi có sẽ hiện ở đây."
 
 ## 4. Safety rules
 

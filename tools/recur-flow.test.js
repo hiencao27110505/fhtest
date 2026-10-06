@@ -54,7 +54,7 @@ function ledger() {
   const months = ['2025-11', '2025-12', '2026-01', '2026-02', '2026-03', '2026-04', '2026-05', '2026-06', '2026-07', '2026-08', '2026-09'];
   months.forEach((m, i) => rows.push(row(m + (i % 2 ? '-05' : '-06'), 7500, { payee: 'NGUYEN VAN QUANG', note: i % 2 ? 'Em gui tien nha. Cam on anh Quang.' : 'Em gui tien nha. Cam on a Quang.', node: 'rentpay' })));
   ['2026-06-18', '2026-07-18', '2026-08-18', '2026-09-18'].forEach((d) => rows.push(row(d, 2970, { payee: 'ANTHROPIC* CLAUDE SUB', note: 'ANTHROPIC* CLAUDE SUB [111.11 USD]', node: 'software' })));
-  rows.push(row('2026-09-16', 105, { payee: 'APPLE.COM/BILL', note: 'YouTube Premium (Monthly)', node: 'streaming', rcPeriod: 'monthly', recurSig: 'sub|youtube|youtube premium' }));
+  rows.push(row('2026-09-16', 105, { payee: 'APPLE.COM/BILL', note: 'YouTube Premium (Monthly)', node: 'streaming', rcPeriod: 'monthly', recurSig: 'sub|youtube|youtube premium', rcLabel: 'YouTube Premium' }));
   ['2026-09-02', '2026-09-04', '2026-09-05', '2026-09-09', '2026-09-10', '2026-09-10', '2026-09-17'].forEach((d) =>
     rows.push(row(d, 60, { payee: 'REVI PHU MY HUNG TOWER', note: 'REVI PHU MY HUNG TOWER', node: 'coffee' })));
   rows[rows.length - 1].recur = 'weekly'; rows[rows.length - 1].recurSrc = 'pattern';   // what v1 wrote on 2026-09-17
@@ -85,7 +85,8 @@ function ledger() {
     t('names the rent and the subscriptions', /NGUYEN VAN QUANG/.test(html) && /ANTHROPIC/.test(html), html.slice(0, 400));
     t('never names the coffee shop', !/REVI/.test(html));
     t('mỗi tháng is rent + Anthropic + YouTube', html.indexOf('~10575') >= 0, (html.match(/~\d+/) || [])[0]);
-    t('rent is due (it was paid on the 5th, today is the 7th): shown as late, not lapsed', /quá \d+ ngày/.test(html), html.match(/rcr-when">[^<]*/g));
+    t('rent expected yesterday and not seen yet reads "dự kiến 6/10": a fact, not a verdict', /dự kiến 6\/10/.test(html) && !/quá|trễ/.test(html), html.match(/rcr-when">[^<]*/g));
+    t('YouTube shows under the receipt\'s own name, not the bank\'s payee string', /YouTube Premium/.test(html) && !/APPLE\.COM/.test(html), html.slice(0, 600));
 
     console.log('\n-- the detail row reads the same view --');
     a.ctx.dRent = { id: rows[3].id, node: 'rentpay', recur: null, recurSrc: null };          // a rent row from February, never marked itself
@@ -93,10 +94,11 @@ function ledger() {
     a.ctx.dNew = { id: 'not-in-any-series', node: 'internet', recur: null, recurSrc: null };
     a.ctx.dNo = { id: 'declined-here', node: 'internet', recur: null, recurSrc: 'person' };
     let d = a.run('_exdRecurRow(dRent, "pers")');
-    t('an OLD rent row says Hàng tháng with the next date, though only the latest row is stored', /Hàng tháng · kỳ tới 6\/10/.test(d) && !/soft/.test(d), d);
+    t('an OLD rent row says Hàng tháng, though only the latest row is stored', /<b>Hàng tháng<\/b>/.test(d) && !/ soft/.test(d), d);
+    t('…with the date on a second line, in the rule line\'s shape', /rl-has/.test(d) && /class="rl-col"/.test(d) && /class="rcr-by">Dự kiến 6\/10</.test(d), d);
     t('the coffee row says Không', />Không</.test(a.run('_exdRecurRow(dCafe, "pers")')), a.run('_exdRecurRow(dCafe, "pers")'));
     d = a.run('_exdRecurRow(dNew, "pers")');
-    t('a first charge on a recurring leaf says "Có vẻ hàng tháng", soft', /Có vẻ hàng tháng/.test(d) && /soft/.test(d), d);
+    t('a first charge on a recurring leaf says "Có vẻ hàng tháng", soft, one line', /Có vẻ hàng tháng/.test(d) && / soft/.test(d) && !/rl-has/.test(d), d);
     t("…unless the person already said Không on that row", />Không</.test(a.run('_exdRecurRow(dNo, "pers")')));
 
     console.log('\n-- the queue card (the incident\'s fifth cause) --');
@@ -105,13 +107,13 @@ function ledger() {
     let r = a.run('csvRecurOf(c1)');
     t("October's rent, new wording, filed under Khác: continues the series", r.period === 'monthly' && r.src === 'series' && r.soft === false, r);
     t('…and is stored as pattern on import', JSON.stringify(a.run('csvRecurStore(c1)')) === '{"recur":"monthly","src":"pattern"}', a.run('csvRecurStore(c1)'));
-    const rowHtml = a.run('csvRecurRow(function(f,l,v,m){ return f+"|"+v+"|"+(m&&m.soft); }, c1)');
-    t('the card says "Hàng tháng · Theo các kỳ trước", not soft', /Hàng tháng/.test(rowHtml) && /Theo các kỳ trước/.test(rowHtml) && /\|false$/.test(rowHtml), rowHtml);
+    const rowHtml = a.run('csvRecurRow(function(f,l,v,m){ return f+"|"+v+"|"+m.by+"|"+m.soft; }, c1)');
+    t('the card says "Hàng tháng", with "Theo các kỳ trước" as its second line, not soft', /\|Hàng tháng\|/.test(rowHtml) && /class="rcr-by">Theo các kỳ trước</.test(rowHtml) && /\|false$/.test(rowHtml), rowHtml);
 
     a.ctx.c2 = { counterparty: 'New Landlord Co', description: 'tien nha thang 10', amount: 9000000, _node: 'rentpay', dateDisplay: '2026-10-06' };
     r = a.run('csvRecurOf(c2)');
     t('a first rent to someone new: the leaf hint, soft', r.period === 'monthly' && r.src === 'prior' && r.soft === true, r);
-    t('…shown as "Có vẻ hàng tháng"', /Có vẻ hàng tháng/.test(a.run('csvRecurRow(function(f,l,v,m){ return v+"|"+m.soft; }, c2)')));
+    t('…shown as "Có vẻ hàng tháng", with no second line (the words already say it is a guess)', a.run('csvRecurRow(function(f,l,v,m){ return v+"|"+m.by+"|"+m.soft; }, c2)') === 'Có vẻ hàng tháng||true');
     t('…and NOT stored', JSON.stringify(a.run('csvRecurStore(c2)')) === '{"recur":null,"src":null}');
 
     a.ctx.c3 = { counterparty: 'REVI PHU MY HUNG TOWER', description: 'REVI PHU MY HUNG TOWER', amount: 60000, _node: 'coffee', dateDisplay: '2026-10-06' };
@@ -138,7 +140,7 @@ function ledger() {
     await b.ctx.fhRecurRunPersonal();
     const s0 = b.ctx.fhRecurState('pers').series[0];
     t('three monthly charges on no leaf: a guess, nothing written', s0 && s0.soft === true && wrote2.length === 0, s0);
-    t('the tile names it in one quiet line and counts nothing', /Có vẻ định kỳ: Netflix/.test(b.ctx.persRecurSection()) && !/~\d/.test(b.ctx.persRecurSection()), b.ctx.persRecurSection().slice(0, 300));
+    t('with nothing confirmed, the tile lists the guess in soft ink and counts nothing', /1 khoản có vẻ định kỳ/.test(b.ctx.persRecurSection()) && /rcr-row soft/.test(b.ctx.persRecurSection()) && !/~\d/.test(b.ctx.persRecurSection()), b.ctx.persRecurSection().slice(0, 400));
     await b.ctx.fhRecurAnswer('pers', s0.id, true);
     t('Đúng rồi: a person mark on the latest row', wrote2.length === 1 && wrote2[0].fields.recur === 'monthly' && wrote2[0].fields.recurSrc === 'person', wrote2);
     t('…the lesson taught under the series key, with the amount', learned.length === 1 && learned[0][0] === 'p|netflix' && learned[0][3] === 220, learned);

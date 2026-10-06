@@ -692,7 +692,7 @@
           payee: t.counterparty_enc ? await _decTxt(t.counterparty_enc) : null,
           note: await _decTxt(t.note_enc), node: _okNode(await _decTxt(t.node_enc)),
           recur: t.recurrence || null, recurSrc: t.recurrence_source || null,
-          rcPeriod: m ? m.period : null, recurSig: m ? m.sig : null, renewsOn: m ? m.renewsOn : null });
+          rcPeriod: m ? m.period : null, recurSig: m ? m.sig : null, rcLabel: m ? m.label : null, renewsOn: m ? m.renewsOn : null });
       }
       return { rows, complete, ids: new Set(rows.map((r) => r.id)) };
     }
@@ -735,7 +735,7 @@
           const m = _rcMeta.get(t.id) || null;
           rows.push({ id: t.id, date: t.date, kind: 'expense', amt: t.amt, payee: t.payee || null, note: t.note || '', node: t.node || null,
             recur: t.recur || null, recurSrc: t.recurSrc || null,
-            rcPeriod: m ? m.period : null, recurSig: m ? m.sig : null, renewsOn: m ? m.renewsOn : null });
+            rcPeriod: m ? m.period : null, recurSig: m ? m.sig : null, rcLabel: m ? m.label : null, renewsOn: m ? m.renewsOn : null });
         }
         return { rows, complete };
       } catch (e) { console.warn('personal recurrence slice failed', e); return null; }

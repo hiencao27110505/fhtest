@@ -151,7 +151,18 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
-- **2026-10-07 · Hien · recurring-charge detection v2 (incident fix) — BUILT, tests green except the two pre-existing, committed, NOT PUSHED · claiming SW `v616` · client only · no migration · no Edge Function deploy.**
+- **2026-10-07 (later) · Hien · UI and copy pass over everything the two releases added — PUSHED with detection v2 · SW `v616` · client only.**
+  Every new screen was rendered in headless Chrome with the app's real CSS and judged by eye against DESIGN.md. What changed:
+  the Định kỳ sheet no longer uses `.choice` chips as list rows (it overflowed the sheet) but title/subtitle rows with a chevron;
+  guesses are answered with two small tinted pills, not filled brand buttons; the tile's rows are single-line and name a charge by its
+  receipt ("YouTube Premium") when it has one; the detail row and the queue card put their second fact on a second line in the
+  `rl-col` shape; Settings › Hoá đơn is rebuilt from the status sheet's own kit (`.atx-seq-lbl`, `.rl-row`, **`.cry-sw`**) and its
+  confirmation uses the sheet's `.cta` + `.btn-skip`. Copy: no softeners ("nhé"), no "quá N ngày" (now "dự kiến 5/10"), consent v7
+  entry rewritten in short sentences. Removed: the "suggest a store" link (the app has no feedback entry point for it to open).
+  **Touches a component that is not mine, on purpose:** `76-recur.css` adds `.csv-srow.rl-has .rl-col{flex:1 1 0;min-width:0}` and makes
+  a tree path give way before its leaf. Before it, a long "Tiêu vào gì" value with a "Theo quy tắc" line slid UNDER its own label
+  (visible in Hien's 2026-10-06 screenshot). If you restyle `.rl-col` in `75-rules.css`, that rule is the one to fold in.
+- **2026-10-07 · Hien · recurring-charge detection v2 (incident fix) — BUILT, tests green except the two pre-existing · claiming SW `v616` · client only · no migration · no Edge Function deploy.**
   Incident: `docs/incidents/2026-10-06-recurring-detection.md`. Spec: `recurring-charges-spec.md` §18 (RR10–RR19).
   `29-recur.js` rewritten (cadence rule, payee identity, one view, derived pattern marks that clear themselves); `19-personal.js` gains
   `fhPersonalRecurRows` (760-day expense slice, older part cached, dropped by `_recurDrop` on writes) and **`payee` on `P.txns` rows**

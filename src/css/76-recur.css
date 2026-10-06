@@ -1,36 +1,61 @@
-/* ═══ Định kỳ — recurring charges (recurring-charges-spec §3) ═══════════════
-   Tile rows, the small mark on cards, and the sheet list. Tokens only. */
+/* ═══ Định kỳ — recurring charges (recurring-charges-spec §3, §18.7) ═════════
+   Tokens only. The tile borrows the bento tile (.dbt-tile, 41-debts.css); the
+   sheet's rows are the list row of DESIGN §3 — title, subtitle, right figure,
+   chevron — sized like .rl-row so two lists in the app never disagree. */
+
+/* ── the tile ── */
 .rcr-tile{cursor:pointer}
-.rcr-per{font-size:13px;font-weight:600;color:var(--muted)}
-.rcr-list{margin-top:10px;display:flex;flex-direction:column}
-.rcr-row{display:flex;align-items:center;gap:10px;min-height:34px;padding:6px 0;border-top:1px solid var(--divider);font-size:13.5px;color:var(--ink)}
-.rcr-list .rcr-row:first-child{border-top:0}
-.rcr-nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
-.rcr-soft{margin-left:6px;font-size:11px;font-weight:500;color:var(--muted-soft)}
-.rcr-when{flex:none;font-size:12.5px;color:var(--muted)}
-.rcr-amt{flex:none;font-weight:700;display:inline-flex;align-items:center;gap:6px}
-.rcr-up{display:inline-flex;align-items:center;gap:2px;font-size:11.5px;font-weight:600;color:var(--amber)}
-.rcr-up-ic{width:11px;height:11px}
-.rcr-sec{margin:14px 6px 6px;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
-.rcr-choice{display:block;width:100%;text-align:left;padding:4px 14px}
-.rcr-choice .rcr-row{border-top:0}
-.rcr-empty{padding:18px 8px;font-size:13.5px;line-height:1.5;color:var(--muted)}
-/* The mark on a card's meta line and in a detail row: a word, not a badge. */
-.scv-recur{display:inline-flex;align-items:center;gap:4px}
-.scv-recur-soft{color:var(--muted-soft)}
-.exd-recur-up{margin-left:8px;font-size:12px;font-weight:600;color:var(--amber)}
-.exd-soft{font-weight:500;color:var(--muted-soft)}
-.csv-sby{display:block;font-size:11px;font-weight:500;color:var(--muted-soft)}
-.csv-sheet-note{margin:10px 6px 0;font-size:12.5px;line-height:1.45;color:var(--muted)}
-/* detection v2 (§18.7): the one quiet line for guesses on the tile, and the
-   sheet's Đúng rồi / Không under each guess. No badge, no prompt. */
-.rcr-hint{margin-top:10px;padding-top:10px;border-top:1px solid var(--divider);font-size:12.5px;line-height:1.4;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.rcr-sheet{display:flex;flex-direction:column}
-.rcr-choice.ro{cursor:default}
-.rcr-maybe{border-bottom:1px solid var(--divider);padding-bottom:10px;margin-bottom:6px}
-.rcr-maybe:last-child{border-bottom:0;margin-bottom:0}
-.rcr-ask{display:flex;align-items:center;gap:8px;padding:2px 14px 0}
-.rcr-q{flex:1;min-width:0;font-size:12.5px;color:var(--muted)}
-.rcr-yes,.rcr-no{flex:none;min-height:34px;padding:0 14px;border-radius:9px;font:inherit;font-size:13px;font-weight:600;-webkit-tap-highlight-color:transparent}
-.rcr-yes{border:0;background:var(--brand-ink);color:var(--white)}
-.rcr-no{border:1px solid var(--hairline);background:var(--white);color:var(--ink-2)}
+.rcr-per{font-family:var(--text);font-size:13px;font-weight:600;letter-spacing:-.01em;color:var(--muted)}
+.rcr-list{margin-top:12px;border-top:1px solid var(--divider)}
+.rcr-row{display:flex;align-items:baseline;gap:10px;padding:10px 0;border-bottom:1px solid var(--divider)}
+.rcr-list .rcr-row:last-child{border-bottom:0;padding-bottom:2px}
+.rcr-nm{flex:1;min-width:0;font-size:14px;font-weight:500;letter-spacing:-.01em;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rcr-when{flex:none;font-size:13px;color:var(--muted)}
+.rcr-row .rcr-amt{flex:none;min-width:86px;text-align:right;font-size:14px;font-weight:600;letter-spacing:-.2px;color:var(--ink)}
+/* nothing confirmed yet: the guesses are the rows, in the soft ink a guess wears everywhere */
+.rcr-row.soft .rcr-nm,.rcr-row.soft .rcr-amt{color:var(--muted);font-weight:500}
+.rcr-feet{margin-top:10px;padding-top:10px;border-top:1px solid var(--divider);display:flex;flex-direction:column;gap:3px}
+.rcr-foot{font-size:12.5px;line-height:1.4;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rcr-foot.rose{color:var(--amber);font-weight:600}
+
+/* ── the sheet ── (its container is the shared .choices flex row: take the whole line) */
+.rcr-sheet{flex:1 1 100%;min-width:0;display:flex;flex-direction:column}
+.rcr-sec{margin:18px 0 2px;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.rcr-sec:first-child{margin-top:0}
+.rcr-item{display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:9px 0;border:0;border-bottom:1px solid var(--divider);background:none;font:inherit;text-align:left;color:var(--ink);-webkit-tap-highlight-color:transparent}
+button.rcr-item:active{opacity:.55}
+.rcr-group>.rcr-item:last-child,.rcr-group>.rcr-guess:last-child{border-bottom:0}
+.rcr-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.rcr-t b{font-size:15px;font-weight:600;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rcr-t small{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rcr-up{color:var(--amber);font-weight:600}
+.rcr-item .rcr-amt{flex:none;font-size:15px;font-weight:600;letter-spacing:-.3px;color:var(--ink)}
+.rcr-chev{width:15px;height:15px;color:var(--chev);flex:none}
+/* a guess: its row, then the question and two small pills. The quiet pill and
+   the tinted one are the app's secondary-action language (.dbt-empty-cta); a
+   filled brand button per row would put five accents on one sheet. */
+.rcr-guess{border-bottom:1px solid var(--divider);padding-bottom:12px}
+.rcr-guess .rcr-item{border-bottom:0;min-height:52px;padding-bottom:4px}
+.rcr-ask{display:flex;align-items:center;gap:8px}
+.rcr-q{flex:1;min-width:0;font-size:13px;color:var(--muted)}
+.rcr-pill{position:relative;flex:none;min-height:36px;padding:0 16px;border:0;border-radius:9999px;background:var(--fill-neutral);font:inherit;font-size:13.5px;font-weight:600;letter-spacing:-.01em;color:var(--ink-2);-webkit-tap-highlight-color:transparent;transition:transform .12s cubic-bezier(.4,0,.2,1)}
+.rcr-pill::before{content:"";position:absolute;inset:-4px 0}   /* a 44px target under a 36px pill */
+.rcr-pill.yes{background:var(--brand-tint);color:var(--brand-ink)}
+.rcr-pill:active{transform:scale(.96)}
+.rcr-empty{padding:6px 0 10px;font-size:15px;line-height:1.45;color:var(--muted)}
+
+/* ── the mark on a card, and the second line under a Định kỳ value ── */
+.scv-recur{display:block}
+/* the same shape as the rule line under a value (.rl-by, 75-rules.css), without the link behaviour */
+.rcr-by{display:inline-block;margin-top:2px;padding:2px 0 2px 8px;font-size:12px;font-weight:500;color:var(--muted);white-space:nowrap}
+.rcr-by .rose{color:var(--amber);font-weight:600}
+/* A row whose value has a second line (ours, and the rule line it borrows the
+   shape from): the value column takes the space the label leaves and may
+   shrink, so a long value ellipsizes instead of sliding under its label. */
+.csv-srow.rl-has .rl-col{flex:1 1 0;min-width:0}
+.csv-srow.rl-has .rl-col .csv-sval{max-width:100%}
+@media (prefers-reduced-motion:reduce){.rcr-pill{transition:none}}
+/* …and when that value is a tree path, the PATH gives way first, so the leaf
+   ("Tiền thuê nhà"), which is the answer, is the part that stays whole. */
+.csv-srow.rl-has .csv-sval b:has(> .exd-node-up){display:flex;gap:.25em;min-width:0}
+.csv-srow.rl-has .csv-sval b > .exd-node-up{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:pre}

@@ -74,38 +74,41 @@ spec makes it true.
 
 ### 3.1 Settings → Email ngân hàng → Hoá đơn
 
-One section, three parts, list language identical to the accounts list
-(`DESIGN.md` list rows: label, trailing value, chevron or switch, hairline
-dividers, no cards inside cards).
+Two short lists inside the mailbox status sheet, built only from the kit that
+sheet already has: its eyebrow label (`.atx-seq-lbl`), the list row
+(`.rl-row`), the iOS switch (`.cry-sw`), and for the one confirmation its
+primary and skip buttons. On the white sheet the rows carry hairlines and no
+card around them.
 
-**Đang đọc.** Every store the pipeline reads for this mailbox, one row each:
-store label, a one-line "từ hoá đơn đơn hàng" / "hoá đơn thuê bao" / "hoá đơn
-chuyến đi" sub-line taken from the family, and a switch. Stores a member added
-carry the sub-line "Do thành viên thêm". The switch is **Tắt cho hộp thư này**:
-it mutes the store for this mailbox only and never for anyone else (§6).
+**Đọc hoá đơn từ.** Every store the pipeline reads for this mailbox, one row
+each: the store's name and a switch. The whole row is the switch. A store a
+member added carries one sub-line, "Do thành viên thêm"; the others carry
+none (the reading family is our vocabulary, not the person's). Under the
+list, one footnote: "Chỉ để gắn chi tiết món hàng vào giao dịch đã ghi. Tắt ở
+đây chỉ tắt cho hộp thư này." Switching a store off mutes it for this mailbox
+and never for anyone else (§6).
 
-**Gợi ý.** Senders discovery found in this mailbox that are not yet read:
-store name as the mail signs it, "N email · gần nhất 3 thg 10", the model's
-one-line reading of what the mail is ("Hoá đơn đơn hàng"), and a **Thêm**
-button. Tapping it shows one sheet:
+**Gợi ý thêm.** Senders discovery found that are not yet read: the store name
+as the mail signs it, "2 email · gần nhất 1 thg 7", and a **Thêm** pill (the
+app's tinted secondary action). Tapping it asks once, in the same sheet:
 
 > **Đọc hoá đơn từ Tiki?**
-> Tụi mình sẽ đọc email hoá đơn từ Tiki trong hộp thư này và của các thành
-> viên khác đã đồng ý, chỉ để gắn chi tiết món hàng vào giao dịch đã ghi.
-> Không bao giờ tự tạo giao dịch. Địa chỉ và số điện thoại không được đọc.
-> [Thêm Tiki]  [Để sau]
+> Tụi mình sẽ đọc email hoá đơn từ Tiki ở hộp thư này và của các thành viên
+> khác đã đồng ý, chỉ để gắn chi tiết món hàng vào giao dịch đã ghi. Không tự
+> tạo giao dịch, không đọc địa chỉ hay số điện thoại.
+> [Thêm Tiki]  Để sau
 
-After **Thêm**, the store moves to Đang đọc on the spot and is read on the
-next run. If the sender is one discovery never surfaced, there is no way to
-type it (§6).
+**Thêm Tiki** is the sheet's one primary button; **Để sau** returns to the
+list. After an add the store is in the first list and is read on the next
+run. A sender discovery never surfaced cannot be typed in (§6).
 
-**Đề xuất cửa hàng.** One plain row at the bottom: "Thiếu cửa hàng nào? Gửi
-đề xuất" opening the existing feedback sheet with the subject pre-filled.
-Discovery is expected to make this rare.
+*Not built: a "suggest a store" line.* The app has no feedback entry point
+for it to open, and a link to nowhere is worse than none. Discovery is the
+mechanism; it returns if a feedback surface ever exists.
 
-Copy rules: no store list in prose, store names only as rows; no "AI" in
-section copy (the consent sheet already says it once); sentences under
-fifteen words where they can be.
+Copy rules: store names appear only as rows; no "AI" in the section (the
+consent sheet says it once); toasts follow the app's own wording ("Đã tắt cho
+hộp thư này", "Chưa lưu được, thử lại").
 
 ### 3.2 On a transaction
 
@@ -119,26 +122,24 @@ as the description, one item row with its pill, and the math line
 
 The v6 text names seven stores. v7 names none:
 
-> **vi.** Tụi mình đọc email hoá đơn từ các cửa hàng và dịch vụ trong danh sách
-> ở Cài đặt, chỉ để gắn chi tiết món hàng vào giao dịch đã ghi từ email ngân
-> hàng, không bao giờ tự tạo giao dịch mới. Danh sách này có thể dài thêm khi
-> một thành viên thêm cửa hàng, và bạn tắt được từng cửa hàng cho hộp thư của
-> mình. Để biết nên thêm cửa hàng nào, tụi mình cũng nhìn tiêu đề và người gửi
-> của email trông giống hoá đơn từ cửa hàng chưa có trong danh sách; nội dung
-> email đó không được lưu. Lần đầu gặp một mẫu hoá đơn, email đó được gửi cho
-> AI của Google một lần để học cách đọc; các email sau cùng mẫu được đọc tại
-> hệ thống. Địa chỉ và số điện thoại trong email không bao giờ được đọc hay lưu.
+> **vi.** Danh sách cửa hàng được đọc hoá đơn giờ nằm ở Cài đặt, và có thể
+> dài thêm khi một thành viên thêm cửa hàng. Bạn tắt được từng cửa hàng cho
+> hộp thư của mình. Để gợi ý cửa hàng mới, tụi mình xem tiêu đề và người gửi
+> của những email trông giống hoá đơn. Nội dung các email đó không được đọc
+> hay lưu. Phần còn lại vẫn vậy. Hoá đơn chỉ gắn chi tiết vào giao dịch đã
+> ghi, không tự tạo giao dịch. Địa chỉ và số điện thoại không được đọc.
 >
-> **en.** We read receipt emails from the stores and services listed in
-> Settings, only to attach item details to transactions already captured from
-> bank email, never to create a transaction by themselves. That list can grow
-> when a member adds a store, and you can switch any store off for your own
-> mailbox. To learn which stores to add, we also look at the subject and sender
-> of emails that look like receipts from stores not yet listed; their contents
-> are not kept. The first time we meet a new receipt format, that one email is
-> sent to Google's AI once to learn how to read it; later emails in the same
-> format are read on our own systems. Addresses and phone numbers in those
-> emails are never read or stored.
+> **en.** The list of stores whose receipts we read now lives in Settings,
+> and it can grow when a member adds a store. You can switch any store off
+> for your own mailbox. To suggest new stores, we look at the subject and
+> sender of emails that look like receipts. The contents of those emails are
+> not read or stored. Everything else stays the same. A receipt only attaches
+> details to a transaction already captured and never creates one. Addresses
+> and phone numbers are not read.
+
+This is the change entry a person on v6 reads (written as the change, per
+`75-consent-ui.js`); the sheet's standing Q&A row says the same in the
+present tense. Short sentences, no list in brackets, no semicolons.
 
 Gating (RP3): a grant on v6 keeps exactly today's behaviour, the seven named
 senders with their curated subjects. Discovery, member-added stores, registry
@@ -474,7 +475,7 @@ And one count in the Settings sheet for operators: candidates by verdict, from
 | L4 | Store-neutral signatures, logic version 2, prompt | `item-category.mjs`, tests |
 | L5 | Discovery pass in the worker, budget-last, tallies | `worker.mjs`, `discovery.mjs` (new), `gmail.mjs` unchanged |
 | L6 | Consent v7 copy and gates | `75-consent-ui.js`, `senders.mjs` (`RECEIPT_REGISTRY_V`), `consent-gate.test.js` |
-| L7 | Settings › Hoá đơn (Đang đọc, Gợi ý, Đề xuất) | `71-mailbox-ui.js` or sibling, CSS, copy review |
+| L7 | Settings › Hoá đơn (Đọc hoá đơn từ, Gợi ý thêm) | `71-mailbox-ui.js` or sibling, CSS, copy review |
 | L8 | Taxonomy v4: bare brand words out; cursor bump | `taxonomy.json`, `gen-taxonomy`, cursor |
 | L9 | Deploy: `0157` applied, `mailbox-sync`, `mailbox-dryrun`, SW bump; Part 4 entry | AGENT_SYNC claims first |
 
@@ -505,7 +506,7 @@ From the design interview, 2026-10-06.
 | RP8 | **Store-neutral signatures:** `sub\|vendor\|product` for subscriptions, `store\|storefront\|kind` for one-off content; Apple-only keys retire via `CATEGORY_LOGIC_VERSION = 2`. `sub\|` is asked of the model; the subscriptions leaf is the fallback on null. |
 | RP9 | **Bare `google` and `apple` leave the streaming node.** Taxonomy v4, cursor bump. |
 | RP10 | **Recipe engine:** stored in `extraction_regex` as JSON per shape per build; born from the model's values by locating them in the line stream (the model never writes rules); kept only if it reproduces those values; used only when paid > 0 and the math balances within ±1; two failures replace it. Four primitives. |
-| RP11 | **Settings › Hoá đơn** with Đang đọc (provenance, mute), Gợi ý (count, verdict, Thêm), Đề xuất cửa hàng. House list language, concise copy, no GenAI tells. |
+| RP11 | **Settings › Hoá đơn** with two lists: Đọc hoá đơn từ (each row a switch; "Do thành viên thêm" where true) and Gợi ý thêm (count, last seen, a Thêm pill, one confirmation in the same sheet). Built only from the status sheet's own kit; plain, short copy. No "suggest a store" line: the app has nowhere for it to lead. |
 | RP12 | **Release 1 hand-dictionaries Google Play only.** Tiki and Lazada are release 2's first proof. |
 | RP13 | **The survey is the method.** Before registering a store, the dry-run function's `survey` mode (headers only, personal senders counted not named) lists who writes to a mailbox; `peek` returns a few mails' text lines for the label dictionary. Both are read-only and secret-gated like the dry run. |
 

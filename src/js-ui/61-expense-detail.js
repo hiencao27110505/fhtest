@@ -985,16 +985,30 @@ function _exdRecurRow(t, mode){
   var o = _exdRecurInfo(t, mode), s = o.s, p = o.period;
   var lbl = p ? FH_RECUR.labelVi(p) : '';
   var txt = !p ? L('Không','No') : (o.soft ? L('Có vẻ '+lbl, 'Maybe '+FH_RECUR.labelEn(p)) : lbl.replace(/^./, function(c){ return c.toUpperCase(); }));
-  var next = (s && !s.lapsed && s.next) ? L(' · kỳ tới '+s.next.slice(8,10).replace(/^0/,'')+'/'+s.next.slice(5,7).replace(/^0/,''), ' · next '+s.next.slice(8,10)+'/'+s.next.slice(5,7)) : '';
-  var up = (s && s.creep>0 && s.latest.id===o.id) ? '<span class="exd-recur-up">'+esc(L('tăng '+fmt(s.creep)+' so với kỳ trước','up '+fmt(s.creep)+' vs last'))+'</span>' : '';
-  return _exdRow({label:L('Định kỳ','Recurring'), val:'<b>'+esc(txt)+esc(next)+'</b>'+up, soft:(!p||o.soft), fn: mode==='fam' ? 'exdSheetRecur()' : 'pexdSheetRecur()'});
+  /* The second line, in the shape the rule line already has under a value
+     (.rl-col): when the next charge is due, and whether this one cost more
+     than the last. One fact per line; the value itself stays one word. */
+  var dm = function(iso){ return iso.slice(8,10).replace(/^0/,'')+'/'+iso.slice(5,7).replace(/^0/,''); };
+  var bits = [];
+  if(s && !s.lapsed && s.next) bits.push(esc(s.dueInDays<0 ? L('Dự kiến '+dm(s.next),'Expected '+dm(s.next)) : L('Kỳ tới '+dm(s.next),'Next '+dm(s.next))));
+  if(s && s.creep>0 && s.latest.id===o.id) bits.push('<span class="rose">'+esc(L('tăng '+fmt(s.creep),'up '+fmt(s.creep)))+'</span>');
+  var chev = '<svg class="csv-schev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>';
+  var fn = mode==='fam' ? 'exdSheetRecur()' : 'pexdSheetRecur()';
+  var cls = 'csv-srow'+((!p||o.soft)?' soft':'')+(bits.length?' rl-has':'');
+  var val = '<span class="csv-sval"><b>'+esc(txt)+'</b>'+chev+'</span>';
+  return '<button type="button" class="'+cls+'" onclick="'+fn+'"><small>'+L('Định kỳ','Recurring')+'</small>'
+    + (bits.length ? '<span class="rl-col">'+val+'<span class="rcr-by">'+bits.join(' · ')+'</span></span>' : val) + '</button>';
 }
+/* Four options, as chips (single-select, DESIGN §3). A guess selects nothing:
+   the person confirms by picking the period, or declines with Không. */
 function _exdRecurSheet(o, onPick){
-  var cur = (o.period && !o.soft) ? o.period : '';
+  var cur = (o.period && !o.soft) ? o.period : (o.soft ? null : '');
   var opts=[['','Không','No'],['weekly','Hàng tuần','Weekly'],['monthly','Hàng tháng','Monthly'],['yearly','Hàng năm','Yearly']];
   var h = opts.map(function(x){ return '<button type="button" class="choice'+(cur===x[0]?' on':'')+'" onclick="'+onPick+'(&#39;'+x[0]+'&#39;)">'+esc(L(x[1],x[2]))+'</button>'; }).join('');
-  if(o.soft && o.period) h = '<button type="button" class="choice" onclick="'+onPick+'(&#39;'+o.period+'&#39;)">'+esc(L('Đúng rồi, '+FH_RECUR.labelVi(o.period),'Yes, '+FH_RECUR.labelEn(o.period)))+'</button>'+h;
-  _pexdChoices(L('Định kỳ','Recurring'), L('Chọn xong là lưu ngay. Khoản lặp lại gom vào Định kỳ ở Tài chính.','Saves at once. Repeating charges gather under Recurring.'), h);
+  var sub = (o.soft && o.period)
+    ? L('Có vẻ lặp lại '+FH_RECUR.labelVi(o.period)+'. Chọn xong là lưu ngay.', 'Looks '+FH_RECUR.labelEn(o.period)+'. Your pick saves at once.')
+    : L('Chọn xong là lưu ngay.', 'Your pick saves at once.');
+  _pexdChoices(L('Định kỳ','Recurring'), sub, h);
 }
 /* After a pick: the row's own mark is the answer; the lesson carries it to the
    series (its key) or, for a row in no series, to the payee. */
@@ -1007,7 +1021,7 @@ function _exdRecurTeach(o, t, p){
     if(key){ if(p && window.fhLessonLearnRecur) fhLessonLearnRecur(key, p, 'person', amt); else if(!p && window.fhLessonForgetRecur) fhLessonForgetRecur(key); }
   }catch(e){}
   if(window.fhRecurReanalyse) fhRecurReanalyse(o.scope);
-  toast(p ? L('Đã đánh dấu '+FH_RECUR.labelVi(p),'Marked '+FH_RECUR.labelEn(p)) : L('Đã bỏ dấu định kỳ','Recurring mark removed'));
+  toast(p ? L('Đã đánh dấu '+FH_RECUR.labelVi(p),'Marked '+FH_RECUR.labelEn(p)) : L('Đã bỏ khỏi Định kỳ','Removed from Recurring'));
 }
 function pexdSheetRecur(){ var E=_pexdEntry(); if(!E) return; _exdRecurSheet(_exdRecurInfo(E.t,'pers'), 'pexdPickRecur'); }
 async function pexdPickRecur(v){
@@ -1016,7 +1030,7 @@ async function pexdPickRecur(v){
   if(!window.fhPersonalPatchMany) return;
   var o = _exdRecurInfo(t,'pers');
   var ok = await fhPersonalPatchMany([{ id:E.id, fields:{ recur:p, recurSrc:'person' } }]);
-  if(!ok || !ok.length){ toast(L('Chưa lưu được, thử lại nhé','Could not save, try again')); return; }
+  if(!ok || !ok.length){ toast(L('Chưa lưu được, thử lại','Couldn’t save, try again')); return; }
   t.recur=p; t.recurSrc='person';
   if(window.fhPersonalRecurTouch) fhPersonalRecurTouch(E.id, p, 'person');
   _exdRecurTeach(o, t, p);
@@ -1028,7 +1042,7 @@ async function exdPickRecur(v){
   var p = (v==='weekly'||v==='monthly'||v==='yearly') ? v : null;
   if(!window.fhTxnBulkPatch) return;
   var o = _exdRecurInfo(t,'fam');
-  try{ await fhTxnBulkPatch(t._dbId, { recurrence:p, recurrence_source:'person' }); }catch(e){ toast(L('Chưa lưu được, thử lại nhé','Could not save, try again')); return; }
+  try{ await fhTxnBulkPatch(t._dbId, { recurrence:p, recurrence_source:'person' }); }catch(e){ toast(L('Chưa lưu được, thử lại','Couldn’t save, try again')); return; }
   t.recur=p; t.recurSrc='person';
   _exdRecurTeach(o, t, p);
   renderExpenseDetail();

@@ -1253,6 +1253,7 @@ function csvStagedRowsCard(c, opts){
     mods = mods || {};
     var chg = !!(c._fix && c._fix.items[f]);             // a carried field the person changed wears the dot (apply-to-similar-spec A22)
     var by = (!mods.ro && typeof csvRuleLineHTML === 'function') ? csvRuleLineHTML(c, f) : '';   // carry-rules-spec R8
+    if(!by && mods.by) by = mods.by;   // a row's own second line, in the rule line's shape (Định kỳ: "Theo các kỳ trước")
     var cls = 'csv-srow'+(mods.ro?' ro':'')+(csvRowHot===f && !mods.ro && !chg?' hot':'')+(chg?' chg':'')+(mods.miss?' miss':'')+(mods.soft?' soft':'')+(by?' rl-has':'');
     var inner = '<small>'+lbl+'</small>'+(by?'<span class="rl-col">':'')+'<span class="csv-sval"><b>'+val+'</b>'
       + (mods.ro ? '' : '<svg class="csv-schev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>')
@@ -1573,15 +1574,16 @@ function csvRowSheetHTML(c){
       + '</div>'
       + (locked ? '<div class="csv-scope-note">'+esc(L('Sổ cá nhân đang khoá — mở ở tab Cá nhân để chọn được.','Personal ledger is locked — unlock it on the Cá nhân tab to pick it.'))+'</div>' : '');
   } else if(f==='recur'){
-    var rr = csvRecurOf(c), rcur = (rr.period && !rr.soft) ? rr.period : '';
+    /* Four chips, single-select. A guess selects nothing: picking the period
+       confirms it, Không declines. Same sheet as the detail screen's. */
+    var rr = csvRecurOf(c), rcur = (rr.period && !rr.soft) ? rr.period : (rr.soft ? null : '');
     title = L('Định kỳ','Recurring');
     body = '<div class="choices">'
-      + ((rr.soft && rr.period) ? chip(false, "csvSheetPick('recur','"+rr.period+"')", esc(L('Đúng rồi, '+csvRecurLbl(rr.period), 'Yes, '+FH_RECUR.labelEn(rr.period)))) : '')
-      + chip(!rcur, "csvSheetPick('recur','')", esc(L('Không','No')))
+      + chip(rcur==='', "csvSheetPick('recur','')", esc(L('Không','No')))
       + chip(rcur==='weekly', "csvSheetPick('recur','weekly')", esc(L('Hàng tuần','Weekly')))
       + chip(rcur==='monthly', "csvSheetPick('recur','monthly')", esc(L('Hàng tháng','Monthly')))
       + chip(rcur==='yearly', "csvSheetPick('recur','yearly')", esc(L('Hàng năm','Yearly')))
-      + '</div><div class="csv-sheet-note">'+esc(L('Khoản lặp lại được gom vào Định kỳ ở Tài chính, kèm ngày thu tiếp theo.', 'Repeating charges gather under Recurring in Finance, with the next date.'))+'</div>';
+      + '</div>';
   } else if(f==='kind'){
     var credit = !!c.isIncome || c._xferDir === 'in';
     var cur = csvRowKindCur(c);
@@ -1795,9 +1797,11 @@ function csvRecurRow(mkRow, cand){
   var r = csvRecurOf(cand);
   var lbl = r.period ? csvRecurLbl(r.period) : '';
   var val = !r.period ? L('Không','No') : esc(r.soft ? L('Có vẻ '+lbl, 'Maybe '+FH_RECUR.labelEn(r.period)) : lbl.replace(/^./, function(ch){ return ch.toUpperCase(); }));
-  var why = { receipt:['Theo hoá đơn','From the receipt'], series:['Theo các kỳ trước','From earlier charges'], lesson:['Theo bài học','From a lesson'], prior:['Theo Tiêu vào gì','From its kind'] }[r.src];
-  var by = (r.period && why) ? '<span class="csv-sby">'+esc(L(why[0], why[1]))+'</span>' : '';
-  return mkRow('recur', L('Định kỳ','Recurring'), val+by, { soft: !r.period || r.soft });
+  /* Where the value came from, on a second line under it. The leaf's hint
+     carries none: "Có vẻ" already says it is a guess. */
+  var why = { receipt:['Theo hoá đơn','From the receipt'], series:['Theo các kỳ trước','From earlier charges'], lesson:['Theo bài học','From a lesson'] }[r.src];
+  var by = (r.period && why) ? '<span class="rcr-by">'+esc(L(why[0], why[1]))+'</span>' : '';
+  return mkRow('recur', L('Định kỳ','Recurring'), val, { soft: !r.period || r.soft, by: by });
 }
 var CSV_FIX_ORDER = ['scope','kind','cat','inccat','node','who'];
 /* A field the person set BY HAND on this row (a per-row pick or a bulk verb over

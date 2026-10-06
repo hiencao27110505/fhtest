@@ -143,7 +143,8 @@ no[1].recurSrc = 'person'; no[1].recur = 'monthly'; no[3].recurSrc = null;
 t('a person mark is never overwritten by the pass', an(no).patches.every((p) => p.id !== no[1].id), an(no).patches);
 const yt = [row('2026-09-16', 105, { payee: 'APPLE.COM/BILL', rcPeriod: 'monthly', recurSig: 'sub|youtube|youtube premium' })];
 v = an(yt);
-t('a receipt that reads a period anchors a series at one charge', v.series.length === 1 && v.series[0].source === 'receipt' && v.series[0].product === 'youtube premium', brief(v));
+t('a receipt that reads a period anchors a series at one charge', v.series.length === 1 && v.series[0].source === 'receipt', brief(v));
+t('the series is named by the receipt\'s own label when the row carries one', an([row('2026-09-16', 105, { payee: 'APPLE.COM/BILL', rcPeriod: 'monthly', rcLabel: 'YouTube Premium' })]).series[0].product === 'YouTube Premium');
 t('…and the row is written as receipt', v.patches.length === 1 && v.patches[0].src === 'receipt' && v.patches[0].recur === 'monthly', v.patches);
 const lessonOf = (k) => (k === 'p|gym x' ? { period: 'monthly', source: 'person', amt: 1010 } : null);
 v = an([row('2026-10-01', 1010, { payee: 'Gym X' })], { lesson: lessonOf });
@@ -156,6 +157,8 @@ t('the reader\'s period key', R.receiptMeta({ period: 'month', items: [] }).peri
 let m = R.receiptMeta({ service_type: 'digital', items: [{ name: 'YouTube Premium (Monthly)', variant: 'Renews 17 July 2026 · iPhone', sig: 'apple|vendor|youtube' }] });
 t('a receipt read before the period key existed: wording decides', m.period === 'monthly', m);
 t('…and the renew date is read', m.renewsOn === '2026-07-17', m);
+t('…and the label is the item\'s own name without its "(Monthly)" tail', m.label === 'YouTube Premium', m.label);
+t('a plain order gets no label (a basket has no name)', R.receiptMeta({ service_type: 'goods', items: [{ name: 'Kính bơi' }, { name: 'Mũ bơi' }] }).label === null);
 m = R.receiptMeta({ period: 'month', items: [{ name: '100 GB (Google One)', variant: 'Auto-renewing subscription', sig: 'sub|google|google one' }] });
 t('the signature rides', m.sig === 'sub|google|google one' && m.period === 'monthly', m);
 t('yearly wording beats monthly wording', R.receiptMeta({ items: [{ name: 'Capture One Pro - Annual Subscription' }] }).period === 'yearly');

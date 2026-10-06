@@ -151,11 +151,12 @@
   const _YEAR_RE = /\(yearly\)|\(annual\)|\byearly\b|\bannual(ly)?\b|\/\s?year\b|\/\s?n[aă]m\b|h[aà]ng n[aă]m/i;
   const _MONTH_RE = /\(monthly\)|\bmonthly\b|auto-?\s?renew|\brenews?\b|subscription|gia h[aạ]n|thu[eê] bao|\/\s?month\b|\/\s?th[aá]ng\b|h[aà]ng th[aá]ng/i;
   const _MON = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
-  /** A decrypted receipt blob → { period, sig, renewsOn }. `period` is
+  const _PERIOD_TAIL = /\s*\((monthly|yearly|annual|weekly|h[aà]ng th[aá]ng|h[aà]ng n[aă]m)\)\s*$/i;
+  /** A decrypted receipt blob → { period, sig, renewsOn, label }. `period` is
    *  weekly|monthly|yearly or null: the reader's own `period` key, else the
    *  service type, else renewal wording in the items' own text. */
   function receiptMeta(blob) {
-    const out = { period: null, sig: null, renewsOn: null };
+    const out = { period: null, sig: null, renewsOn: null, label: null };
     if (!blob || typeof blob !== 'object') return out;
     const items = Array.isArray(blob.items) ? blob.items : [];
     const text = items.map((it) => ((it && it.name) || '') + ' ' + ((it && it.variant) || '')).join(' ');
@@ -166,6 +167,12 @@
     else if (blob.service_type === 'subscription' || _MONTH_RE.test(text)) out.period = 'monthly';
     const subItem = items.find((it) => it && typeof it.sig === 'string' && it.sig.indexOf('sub|') === 0);
     if (subItem) { out.sig = subItem.sig; if (!out.period) out.period = 'monthly'; }
+    /* The name the receipt itself gives the thing ("YouTube Premium", "100 GB
+       (Google One)"): what a person calls the charge, where the bank's payee
+       string says only "APPLE.COM/BILL". One item only; a basket has no name. */
+    if (out.period && items.length === 1 && items[0] && items[0].name) {
+      out.label = String(items[0].name).replace(_PERIOD_TAIL, '').trim().slice(0, 40) || null;
+    }
     const m = text.match(/renews?\s+(?:on\s+)?(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{4})/i);
     if (m && _MON[m[2].slice(0, 3).toLowerCase()]) {
       out.renewsOn = m[3] + '-' + String(_MON[m[2].slice(0, 3).toLowerCase()]).padStart(2, '0') + '-' + String(+m[1]).padStart(2, '0');
@@ -204,6 +211,7 @@
     const next = nextDate(latest.date, period, latest.renewsOn || null);
     const dueInDays = next ? Math.round((_dateOf(next) - today) / _dayMs) : null;
     const sigRow = rows.slice().reverse().find((r) => r.recurSig);
+    const lblRow = rows.slice().reverse().find((r) => r.rcLabel);
     return { series: {
       id: latest.id, key: groupKey + '|' + period + (sigRow ? '|' + sigRow.recurSig : ''), groupKey, pass,
       period, source, soft, inCadence: inCad, variable: !!(leaf && leaf.variable),
@@ -212,7 +220,7 @@
       creep: previous ? creep(latest.amt, previous.amt) : 0,
       perMonth: perMonth(latest.amt, period),
       name: latest.payee || latest.note || '', node: latest.node || null,
-      product: sigRow ? String(sigRow.recurSig).split('|').pop() : null,
+      product: lblRow ? lblRow.rcLabel : null,
     } };
   }
 
@@ -416,7 +424,7 @@
     if (!Array.isArray(window.txns)) return [];
     return window.txns.filter((t) => t && t._dbId && !t.future && (t.amt > 0)).map((t) => ({
       id: t._dbId, date: _txnIsoOf(t), amt: t.amt, payee: null, note: t.note, node: t.node || null, kind: 'expense',
-      recur: t.recur || null, recurSrc: t.recurSrc || null, rcPeriod: null, recurSig: null, renewsOn: null, _t: t }));
+      recur: t.recur || null, recurSrc: t.recurSrc || null, rcPeriod: null, recurSig: null, rcLabel: null, renewsOn: null, _t: t }));
   }
   let _famBusy = false;
   window.fhRecurRunFamily = async function () {

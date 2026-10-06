@@ -4843,57 +4843,85 @@ button.rl-row:active{background:var(--canvas)}
 @keyframes rl-fade{from{opacity:0}to{opacity:.38}}
 @media (prefers-reduced-motion:reduce){.rl-as,.rl-as-scrim{animation:none}.rl-sum button{transition:none}}
 
-/* ═══ Định kỳ — recurring charges (recurring-charges-spec §3) ═══════════════
-   Tile rows, the small mark on cards, and the sheet list. Tokens only. */
+/* ═══ Định kỳ — recurring charges (recurring-charges-spec §3, §18.7) ═════════
+   Tokens only. The tile borrows the bento tile (.dbt-tile, 41-debts.css); the
+   sheet's rows are the list row of DESIGN §3 — title, subtitle, right figure,
+   chevron — sized like .rl-row so two lists in the app never disagree. */
+
+/* ── the tile ── */
 .rcr-tile{cursor:pointer}
-.rcr-per{font-size:13px;font-weight:600;color:var(--muted)}
-.rcr-list{margin-top:10px;display:flex;flex-direction:column}
-.rcr-row{display:flex;align-items:center;gap:10px;min-height:34px;padding:6px 0;border-top:1px solid var(--divider);font-size:13.5px;color:var(--ink)}
-.rcr-list .rcr-row:first-child{border-top:0}
-.rcr-nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
-.rcr-soft{margin-left:6px;font-size:11px;font-weight:500;color:var(--muted-soft)}
-.rcr-when{flex:none;font-size:12.5px;color:var(--muted)}
-.rcr-amt{flex:none;font-weight:700;display:inline-flex;align-items:center;gap:6px}
-.rcr-up{display:inline-flex;align-items:center;gap:2px;font-size:11.5px;font-weight:600;color:var(--amber)}
-.rcr-up-ic{width:11px;height:11px}
-.rcr-sec{margin:14px 6px 6px;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
-.rcr-choice{display:block;width:100%;text-align:left;padding:4px 14px}
-.rcr-choice .rcr-row{border-top:0}
-.rcr-empty{padding:18px 8px;font-size:13.5px;line-height:1.5;color:var(--muted)}
-/* The mark on a card's meta line and in a detail row: a word, not a badge. */
-.scv-recur{display:inline-flex;align-items:center;gap:4px}
-.scv-recur-soft{color:var(--muted-soft)}
-.exd-recur-up{margin-left:8px;font-size:12px;font-weight:600;color:var(--amber)}
-.exd-soft{font-weight:500;color:var(--muted-soft)}
-.csv-sby{display:block;font-size:11px;font-weight:500;color:var(--muted-soft)}
-.csv-sheet-note{margin:10px 6px 0;font-size:12.5px;line-height:1.45;color:var(--muted)}
-/* detection v2 (§18.7): the one quiet line for guesses on the tile, and the
-   sheet's Đúng rồi / Không under each guess. No badge, no prompt. */
-.rcr-hint{margin-top:10px;padding-top:10px;border-top:1px solid var(--divider);font-size:12.5px;line-height:1.4;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.rcr-sheet{display:flex;flex-direction:column}
-.rcr-choice.ro{cursor:default}
-.rcr-maybe{border-bottom:1px solid var(--divider);padding-bottom:10px;margin-bottom:6px}
-.rcr-maybe:last-child{border-bottom:0;margin-bottom:0}
-.rcr-ask{display:flex;align-items:center;gap:8px;padding:2px 14px 0}
-.rcr-q{flex:1;min-width:0;font-size:12.5px;color:var(--muted)}
-.rcr-yes,.rcr-no{flex:none;min-height:34px;padding:0 14px;border-radius:9px;font:inherit;font-size:13px;font-weight:600;-webkit-tap-highlight-color:transparent}
-.rcr-yes{border:0;background:var(--brand-ink);color:var(--white)}
-.rcr-no{border:1px solid var(--hairline);background:var(--white);color:var(--ink-2)}
+.rcr-per{font-family:var(--text);font-size:13px;font-weight:600;letter-spacing:-.01em;color:var(--muted)}
+.rcr-list{margin-top:12px;border-top:1px solid var(--divider)}
+.rcr-row{display:flex;align-items:baseline;gap:10px;padding:10px 0;border-bottom:1px solid var(--divider)}
+.rcr-list .rcr-row:last-child{border-bottom:0;padding-bottom:2px}
+.rcr-nm{flex:1;min-width:0;font-size:14px;font-weight:500;letter-spacing:-.01em;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rcr-when{flex:none;font-size:13px;color:var(--muted)}
+.rcr-row .rcr-amt{flex:none;min-width:86px;text-align:right;font-size:14px;font-weight:600;letter-spacing:-.2px;color:var(--ink)}
+/* nothing confirmed yet: the guesses are the rows, in the soft ink a guess wears everywhere */
+.rcr-row.soft .rcr-nm,.rcr-row.soft .rcr-amt{color:var(--muted);font-weight:500}
+.rcr-feet{margin-top:10px;padding-top:10px;border-top:1px solid var(--divider);display:flex;flex-direction:column;gap:3px}
+.rcr-foot{font-size:12.5px;line-height:1.4;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rcr-foot.rose{color:var(--amber);font-weight:600}
+
+/* ── the sheet ── (its container is the shared .choices flex row: take the whole line) */
+.rcr-sheet{flex:1 1 100%;min-width:0;display:flex;flex-direction:column}
+.rcr-sec{margin:18px 0 2px;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.rcr-sec:first-child{margin-top:0}
+.rcr-item{display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:9px 0;border:0;border-bottom:1px solid var(--divider);background:none;font:inherit;text-align:left;color:var(--ink);-webkit-tap-highlight-color:transparent}
+button.rcr-item:active{opacity:.55}
+.rcr-group>.rcr-item:last-child,.rcr-group>.rcr-guess:last-child{border-bottom:0}
+.rcr-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.rcr-t b{font-size:15px;font-weight:600;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rcr-t small{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rcr-up{color:var(--amber);font-weight:600}
+.rcr-item .rcr-amt{flex:none;font-size:15px;font-weight:600;letter-spacing:-.3px;color:var(--ink)}
+.rcr-chev{width:15px;height:15px;color:var(--chev);flex:none}
+/* a guess: its row, then the question and two small pills. The quiet pill and
+   the tinted one are the app's secondary-action language (.dbt-empty-cta); a
+   filled brand button per row would put five accents on one sheet. */
+.rcr-guess{border-bottom:1px solid var(--divider);padding-bottom:12px}
+.rcr-guess .rcr-item{border-bottom:0;min-height:52px;padding-bottom:4px}
+.rcr-ask{display:flex;align-items:center;gap:8px}
+.rcr-q{flex:1;min-width:0;font-size:13px;color:var(--muted)}
+.rcr-pill{position:relative;flex:none;min-height:36px;padding:0 16px;border:0;border-radius:9999px;background:var(--fill-neutral);font:inherit;font-size:13.5px;font-weight:600;letter-spacing:-.01em;color:var(--ink-2);-webkit-tap-highlight-color:transparent;transition:transform .12s cubic-bezier(.4,0,.2,1)}
+.rcr-pill::before{content:"";position:absolute;inset:-4px 0}   /* a 44px target under a 36px pill */
+.rcr-pill.yes{background:var(--brand-tint);color:var(--brand-ink)}
+.rcr-pill:active{transform:scale(.96)}
+.rcr-empty{padding:6px 0 10px;font-size:15px;line-height:1.45;color:var(--muted)}
+
+/* ── the mark on a card, and the second line under a Định kỳ value ── */
+.scv-recur{display:block}
+/* the same shape as the rule line under a value (.rl-by, 75-rules.css), without the link behaviour */
+.rcr-by{display:inline-block;margin-top:2px;padding:2px 0 2px 8px;font-size:12px;font-weight:500;color:var(--muted);white-space:nowrap}
+.rcr-by .rose{color:var(--amber);font-weight:600}
+/* A row whose value has a second line (ours, and the rule line it borrows the
+   shape from): the value column takes the space the label leaves and may
+   shrink, so a long value ellipsizes instead of sliding under its label. */
+.csv-srow.rl-has .rl-col{flex:1 1 0;min-width:0}
+.csv-srow.rl-has .rl-col .csv-sval{max-width:100%}
+@media (prefers-reduced-motion:reduce){.rcr-pill{transition:none}}
+/* …and when that value is a tree path, the PATH gives way first, so the leaf
+   ("Tiền thuê nhà"), which is the answer, is the part that stays whole. */
+.csv-srow.rl-has .csv-sval b:has(> .exd-node-up){display:flex;gap:.25em;min-width:0}
+.csv-srow.rl-has .csv-sval b > .exd-node-up{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:pre}
 
 /* ═══ Settings › Hoá đơn — receipt stores (receipt-providers-spec §3.1) ══════
-   Reuses the rules list (.rl-list / .rl-row / .rl-t). Only the switch, the
-   Thêm button and the section furniture are new. Tokens only. */
-.rcs-sec{margin:22px 6px 6px;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
-.rcs-lbl{margin:14px 6px 6px;font-size:12.5px;font-weight:600;color:var(--muted)}
-.rcs-note{margin:0 6px 4px;font-size:13px;line-height:1.45;color:var(--muted)}
-.rl-row small{font-size:12px;color:var(--muted);line-height:1.3}
-.rcs-sw{flex:none;width:44px;height:26px;padding:2px;border:0;border-radius:13px;background:var(--fill-neutral);position:relative;-webkit-tap-highlight-color:transparent;transition:background .18s}
-.rcs-sw.on{background:var(--brand-ink)}
-.rcs-knob{display:block;width:22px;height:22px;border-radius:11px;background:var(--white);box-shadow:var(--shadow-card);transform:translateX(0);transition:transform .18s}
-.rcs-sw.on .rcs-knob{transform:translateX(18px)}
-.rcs-add{flex:none;min-height:32px;padding:0 14px;border:1px solid var(--hairline);border-radius:9px;background:var(--white);font:inherit;font-size:13px;font-weight:600;color:var(--brand-ink);-webkit-tap-highlight-color:transparent}
-.rcs-propose{display:block;margin:12px 6px 0;padding:6px 0;border:0;background:none;font:inherit;font-size:13px;font-weight:600;color:var(--brand-ink);text-align:left;-webkit-tap-highlight-color:transparent}
-.rcs-ask{margin:0 6px 12px;font-size:13.5px;line-height:1.5;color:var(--ink-2)}
+   Everything here is borrowed: the sheet's eyebrow (.atx-seq-lbl), the list
+   row (.rl-row / .rl-t, 75-rules.css) and the iOS switch (.cry-sw,
+   74-mailbox.css). On a white sheet the rows need no card around them, only
+   their hairlines, so the list drops the row's side padding and that is all.
+   The Thêm pill is the app's tinted secondary action. Tokens only. */
+.rcs{margin:6px 0 18px}
+.rcs .atx-seq-lbl{margin:18px 0 2px}
+.rcs .atx-seq-lbl:first-child{margin-top:0}
+.rcs-list .rl-row{padding-left:0;padding-right:0}
+.rcs-list>:last-child{border-bottom:0}
+button.rl-row[role="switch"]:active{opacity:.6}
+.rcs-foot{margin:8px 0 0;font-size:12.5px;line-height:1.45;color:var(--muted)}
+.rcs-add{position:relative;flex:none;min-height:36px;padding:0 16px;border:0;border-radius:9999px;background:var(--brand-tint);font:inherit;font-size:13.5px;font-weight:600;letter-spacing:-.01em;color:var(--brand-ink);-webkit-tap-highlight-color:transparent;transition:transform .12s cubic-bezier(.4,0,.2,1)}
+.rcs-add::before{content:"";position:absolute;inset:-4px 0}   /* a 44px target under a 36px pill */
+.rcs-add:active{transform:scale(.96)}
+@media (prefers-reduced-motion:reduce){.rcs-add{transition:none}}
 
 /* ---- settings sheet/modal internals (family, members, savings, income) ----
    Tokens only: these screens must re-theme with the rest of the app. */
@@ -15789,6 +15817,7 @@ function csvStagedRowsCard(c, opts){
     mods = mods || {};
     var chg = !!(c._fix && c._fix.items[f]);             // a carried field the person changed wears the dot (apply-to-similar-spec A22)
     var by = (!mods.ro && typeof csvRuleLineHTML === 'function') ? csvRuleLineHTML(c, f) : '';   // carry-rules-spec R8
+    if(!by && mods.by) by = mods.by;   // a row's own second line, in the rule line's shape (Định kỳ: "Theo các kỳ trước")
     var cls = 'csv-srow'+(mods.ro?' ro':'')+(csvRowHot===f && !mods.ro && !chg?' hot':'')+(chg?' chg':'')+(mods.miss?' miss':'')+(mods.soft?' soft':'')+(by?' rl-has':'');
     var inner = '<small>'+lbl+'</small>'+(by?'<span class="rl-col">':'')+'<span class="csv-sval"><b>'+val+'</b>'
       + (mods.ro ? '' : '<svg class="csv-schev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>')
@@ -16109,15 +16138,16 @@ function csvRowSheetHTML(c){
       + '</div>'
       + (locked ? '<div class="csv-scope-note">'+esc(L('Sổ cá nhân đang khoá — mở ở tab Cá nhân để chọn được.','Personal ledger is locked — unlock it on the Cá nhân tab to pick it.'))+'</div>' : '');
   } else if(f==='recur'){
-    var rr = csvRecurOf(c), rcur = (rr.period && !rr.soft) ? rr.period : '';
+    /* Four chips, single-select. A guess selects nothing: picking the period
+       confirms it, Không declines. Same sheet as the detail screen's. */
+    var rr = csvRecurOf(c), rcur = (rr.period && !rr.soft) ? rr.period : (rr.soft ? null : '');
     title = L('Định kỳ','Recurring');
     body = '<div class="choices">'
-      + ((rr.soft && rr.period) ? chip(false, "csvSheetPick('recur','"+rr.period+"')", esc(L('Đúng rồi, '+csvRecurLbl(rr.period), 'Yes, '+FH_RECUR.labelEn(rr.period)))) : '')
-      + chip(!rcur, "csvSheetPick('recur','')", esc(L('Không','No')))
+      + chip(rcur==='', "csvSheetPick('recur','')", esc(L('Không','No')))
       + chip(rcur==='weekly', "csvSheetPick('recur','weekly')", esc(L('Hàng tuần','Weekly')))
       + chip(rcur==='monthly', "csvSheetPick('recur','monthly')", esc(L('Hàng tháng','Monthly')))
       + chip(rcur==='yearly', "csvSheetPick('recur','yearly')", esc(L('Hàng năm','Yearly')))
-      + '</div><div class="csv-sheet-note">'+esc(L('Khoản lặp lại được gom vào Định kỳ ở Tài chính, kèm ngày thu tiếp theo.', 'Repeating charges gather under Recurring in Finance, with the next date.'))+'</div>';
+      + '</div>';
   } else if(f==='kind'){
     var credit = !!c.isIncome || c._xferDir === 'in';
     var cur = csvRowKindCur(c);
@@ -16331,9 +16361,11 @@ function csvRecurRow(mkRow, cand){
   var r = csvRecurOf(cand);
   var lbl = r.period ? csvRecurLbl(r.period) : '';
   var val = !r.period ? L('Không','No') : esc(r.soft ? L('Có vẻ '+lbl, 'Maybe '+FH_RECUR.labelEn(r.period)) : lbl.replace(/^./, function(ch){ return ch.toUpperCase(); }));
-  var why = { receipt:['Theo hoá đơn','From the receipt'], series:['Theo các kỳ trước','From earlier charges'], lesson:['Theo bài học','From a lesson'], prior:['Theo Tiêu vào gì','From its kind'] }[r.src];
-  var by = (r.period && why) ? '<span class="csv-sby">'+esc(L(why[0], why[1]))+'</span>' : '';
-  return mkRow('recur', L('Định kỳ','Recurring'), val+by, { soft: !r.period || r.soft });
+  /* Where the value came from, on a second line under it. The leaf's hint
+     carries none: "Có vẻ" already says it is a guess. */
+  var why = { receipt:['Theo hoá đơn','From the receipt'], series:['Theo các kỳ trước','From earlier charges'], lesson:['Theo bài học','From a lesson'] }[r.src];
+  var by = (r.period && why) ? '<span class="rcr-by">'+esc(L(why[0], why[1]))+'</span>' : '';
+  return mkRow('recur', L('Định kỳ','Recurring'), val, { soft: !r.period || r.soft, by: by });
 }
 var CSV_FIX_ORDER = ['scope','kind','cat','inccat','node','who'];
 /* A field the person set BY HAND on this row (a per-row pick or a bulk verb over
@@ -24618,16 +24650,30 @@ function _exdRecurRow(t, mode){
   var o = _exdRecurInfo(t, mode), s = o.s, p = o.period;
   var lbl = p ? FH_RECUR.labelVi(p) : '';
   var txt = !p ? L('Không','No') : (o.soft ? L('Có vẻ '+lbl, 'Maybe '+FH_RECUR.labelEn(p)) : lbl.replace(/^./, function(c){ return c.toUpperCase(); }));
-  var next = (s && !s.lapsed && s.next) ? L(' · kỳ tới '+s.next.slice(8,10).replace(/^0/,'')+'/'+s.next.slice(5,7).replace(/^0/,''), ' · next '+s.next.slice(8,10)+'/'+s.next.slice(5,7)) : '';
-  var up = (s && s.creep>0 && s.latest.id===o.id) ? '<span class="exd-recur-up">'+esc(L('tăng '+fmt(s.creep)+' so với kỳ trước','up '+fmt(s.creep)+' vs last'))+'</span>' : '';
-  return _exdRow({label:L('Định kỳ','Recurring'), val:'<b>'+esc(txt)+esc(next)+'</b>'+up, soft:(!p||o.soft), fn: mode==='fam' ? 'exdSheetRecur()' : 'pexdSheetRecur()'});
+  /* The second line, in the shape the rule line already has under a value
+     (.rl-col): when the next charge is due, and whether this one cost more
+     than the last. One fact per line; the value itself stays one word. */
+  var dm = function(iso){ return iso.slice(8,10).replace(/^0/,'')+'/'+iso.slice(5,7).replace(/^0/,''); };
+  var bits = [];
+  if(s && !s.lapsed && s.next) bits.push(esc(s.dueInDays<0 ? L('Dự kiến '+dm(s.next),'Expected '+dm(s.next)) : L('Kỳ tới '+dm(s.next),'Next '+dm(s.next))));
+  if(s && s.creep>0 && s.latest.id===o.id) bits.push('<span class="rose">'+esc(L('tăng '+fmt(s.creep),'up '+fmt(s.creep)))+'</span>');
+  var chev = '<svg class="csv-schev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>';
+  var fn = mode==='fam' ? 'exdSheetRecur()' : 'pexdSheetRecur()';
+  var cls = 'csv-srow'+((!p||o.soft)?' soft':'')+(bits.length?' rl-has':'');
+  var val = '<span class="csv-sval"><b>'+esc(txt)+'</b>'+chev+'</span>';
+  return '<button type="button" class="'+cls+'" onclick="'+fn+'"><small>'+L('Định kỳ','Recurring')+'</small>'
+    + (bits.length ? '<span class="rl-col">'+val+'<span class="rcr-by">'+bits.join(' · ')+'</span></span>' : val) + '</button>';
 }
+/* Four options, as chips (single-select, DESIGN §3). A guess selects nothing:
+   the person confirms by picking the period, or declines with Không. */
 function _exdRecurSheet(o, onPick){
-  var cur = (o.period && !o.soft) ? o.period : '';
+  var cur = (o.period && !o.soft) ? o.period : (o.soft ? null : '');
   var opts=[['','Không','No'],['weekly','Hàng tuần','Weekly'],['monthly','Hàng tháng','Monthly'],['yearly','Hàng năm','Yearly']];
   var h = opts.map(function(x){ return '<button type="button" class="choice'+(cur===x[0]?' on':'')+'" onclick="'+onPick+'(&#39;'+x[0]+'&#39;)">'+esc(L(x[1],x[2]))+'</button>'; }).join('');
-  if(o.soft && o.period) h = '<button type="button" class="choice" onclick="'+onPick+'(&#39;'+o.period+'&#39;)">'+esc(L('Đúng rồi, '+FH_RECUR.labelVi(o.period),'Yes, '+FH_RECUR.labelEn(o.period)))+'</button>'+h;
-  _pexdChoices(L('Định kỳ','Recurring'), L('Chọn xong là lưu ngay. Khoản lặp lại gom vào Định kỳ ở Tài chính.','Saves at once. Repeating charges gather under Recurring.'), h);
+  var sub = (o.soft && o.period)
+    ? L('Có vẻ lặp lại '+FH_RECUR.labelVi(o.period)+'. Chọn xong là lưu ngay.', 'Looks '+FH_RECUR.labelEn(o.period)+'. Your pick saves at once.')
+    : L('Chọn xong là lưu ngay.', 'Your pick saves at once.');
+  _pexdChoices(L('Định kỳ','Recurring'), sub, h);
 }
 /* After a pick: the row's own mark is the answer; the lesson carries it to the
    series (its key) or, for a row in no series, to the payee. */
@@ -24640,7 +24686,7 @@ function _exdRecurTeach(o, t, p){
     if(key){ if(p && window.fhLessonLearnRecur) fhLessonLearnRecur(key, p, 'person', amt); else if(!p && window.fhLessonForgetRecur) fhLessonForgetRecur(key); }
   }catch(e){}
   if(window.fhRecurReanalyse) fhRecurReanalyse(o.scope);
-  toast(p ? L('Đã đánh dấu '+FH_RECUR.labelVi(p),'Marked '+FH_RECUR.labelEn(p)) : L('Đã bỏ dấu định kỳ','Recurring mark removed'));
+  toast(p ? L('Đã đánh dấu '+FH_RECUR.labelVi(p),'Marked '+FH_RECUR.labelEn(p)) : L('Đã bỏ khỏi Định kỳ','Removed from Recurring'));
 }
 function pexdSheetRecur(){ var E=_pexdEntry(); if(!E) return; _exdRecurSheet(_exdRecurInfo(E.t,'pers'), 'pexdPickRecur'); }
 async function pexdPickRecur(v){
@@ -24649,7 +24695,7 @@ async function pexdPickRecur(v){
   if(!window.fhPersonalPatchMany) return;
   var o = _exdRecurInfo(t,'pers');
   var ok = await fhPersonalPatchMany([{ id:E.id, fields:{ recur:p, recurSrc:'person' } }]);
-  if(!ok || !ok.length){ toast(L('Chưa lưu được, thử lại nhé','Could not save, try again')); return; }
+  if(!ok || !ok.length){ toast(L('Chưa lưu được, thử lại','Couldn’t save, try again')); return; }
   t.recur=p; t.recurSrc='person';
   if(window.fhPersonalRecurTouch) fhPersonalRecurTouch(E.id, p, 'person');
   _exdRecurTeach(o, t, p);
@@ -24661,7 +24707,7 @@ async function exdPickRecur(v){
   var p = (v==='weekly'||v==='monthly'||v==='yearly') ? v : null;
   if(!window.fhTxnBulkPatch) return;
   var o = _exdRecurInfo(t,'fam');
-  try{ await fhTxnBulkPatch(t._dbId, { recurrence:p, recurrence_source:'person' }); }catch(e){ toast(L('Chưa lưu được, thử lại nhé','Could not save, try again')); return; }
+  try{ await fhTxnBulkPatch(t._dbId, { recurrence:p, recurrence_source:'person' }); }catch(e){ toast(L('Chưa lưu được, thử lại','Couldn’t save, try again')); return; }
   t.recur=p; t.recurSrc='person';
   _exdRecurTeach(o, t, p);
   renderExpenseDetail();
@@ -28207,41 +28253,50 @@ function applyLang(){
   })();
 
 /* ═══ Định kỳ — the tile and the sheet (recurring-charges-spec §3.3, §18.7)
-   Reads the ONE series view 29-recur.js builds (fhRecurState). A bento tile
-   beside Đầu tư: what is due in the next 30 days and "mỗi tháng ~X", confirmed
-   series only. Guesses ("có vẻ") are named in one quiet line on the tile and
-   answered in the sheet with Đúng rồi / Không: no prompt, no badge.
+   Reads the ONE series view 29-recur.js builds (fhRecurState).
+
+   THE TILE sits beside Đầu tư and speaks the same bento language (.dbt-tile):
+   one head line, one big figure ("mỗi tháng"), then up to three single-line
+   rows — name · date · amount — and at most two quiet footer lines: a price
+   that rose, and what only LOOKS recurring. Glanceable, nothing to tap but
+   the tile.
+   THE SHEET is the list: title + subtitle rows with a right-aligned figure
+   and a chevron (DESIGN §3 "List row"), grouped under eyebrow labels. A guess
+   carries its question and two small pills, Không · Đúng rồi. No prompt ever
+   opens by itself.
    The view arrives a moment after the tab paints (the history slice is read
-   in the background), so the tile lives in a wrapper that fhRecurPainted
-   refills in place. House rules: fmt() for money, tokens only, SVG. */
+   in the background), so the tile lives in a wrapper fhRecurPainted refills
+   in place. House rules: fmt() for money, tokens only, SVG, no emoji. */
 (function () {
   'use strict';
   const R = () => window.FH_RECUR;
   const _e = (s) => (typeof esc === 'function' ? esc(s) : String(s == null ? '' : s));
   const _money = (k) => (typeof fmt === 'function' ? fmt(k) : String(k));
-  const _dayLbl = (iso) => iso ? (iso.slice(8, 10).replace(/^0/, '') + '/' + iso.slice(5, 7).replace(/^0/, '')) : '';
+  const _dm = (iso) => iso ? (iso.slice(8, 10).replace(/^0/, '') + '/' + iso.slice(5, 7).replace(/^0/, '')) : '';
   const _cap = (s) => String(s || '').replace(/^./, (c) => c.toUpperCase());
-  const _due = (s) => {
+  /* When it is due. A charge expected a few days ago and not seen yet is
+     "dự kiến 5/10": a fact about the pattern, not a verdict on the person. */
+  const _when = (s) => {
     if (s.dueInDays == null) return '';
-    if (s.dueInDays < 0) return L('quá ' + Math.abs(s.dueInDays) + ' ngày', Math.abs(s.dueInDays) + ' days late');
+    if (s.dueInDays < 0) return L('dự kiến ' + _dm(s.next), 'expected ' + _dm(s.next));
     if (s.dueInDays === 0) return L('hôm nay', 'today');
     if (s.dueInDays === 1) return L('ngày mai', 'tomorrow');
-    return _dayLbl(s.next);
+    return _dm(s.next);
   };
-  const _upSvg = '<svg class="rcr-up-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>';
+  const _chev = '<svg class="rcr-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>';
   const _state = (scope) => (window.fhRecurState ? window.fhRecurState(scope) : { ready: false, series: [] });
-  const _name = (s) => (s.product ? (s.name + ' · ' + s.product) : s.name) || L('Khoản định kỳ', 'Recurring charge');
+  /* What a person calls the charge: the receipt's own name when there is one
+     ("YouTube Premium"), else who it was paid to. */
+  const _name = (s) => s.product || s.name || L('Khoản định kỳ', 'Recurring charge');
 
-  function _line(s) {
-    return '<span class="rcr-row">'
-      + '<span class="rcr-nm">' + _e(_name(s)) + '</span>'
-      + '<span class="rcr-when">' + _e(_due(s)) + '</span>'
-      + '<span class="rcr-amt num">' + _e(_money(s.amount)) + (s.creep > 0 ? '<span class="rcr-up">' + _upSvg + _e(_money(s.creep)) + '</span>' : '') + '</span>'
-      + '</span>';
+  /* ── the tile ── */
+  function _tileRow(s) {
+    return '<div class="rcr-row' + (s.soft ? ' soft' : '') + '"><span class="rcr-nm">' + _e(_name(s)) + '</span>'
+      + '<span class="rcr-when">' + _e(_when(s)) + '</span>'
+      + '<span class="rcr-amt num">' + _e(_money(s.amount)) + '</span></div>';
   }
-
-  /* The tile's inside. Empty until the ledger shows something that comes back:
-     the section earns its place, it is not a promise. */
+  /* Empty until the ledger shows something that comes back: the section earns
+     its place, it is not a promise. */
   function inner(scope) {
     const st = _state(scope);
     if (!R() || !st.ready) return '';
@@ -28249,19 +28304,20 @@ function applyLang(){
     const sure = all.filter((s) => !s.soft), maybe = all.filter((s) => s.soft);
     if (!sure.length && !maybe.length) return '';
     const up = R().upcoming(all), total = R().monthlyTotal(all);
-    const shown = (up.length ? up : sure).slice(0, 3);
+    const shown = (up.length ? up : (sure.length ? sure : maybe)).slice(0, 3);
     const head = sure.length
       ? (up.length ? L(up.length + ' khoản trong 30 ngày tới', up.length + ' due in the next 30 days') : L(sure.length + ' khoản định kỳ', sure.length + ' recurring'))
-      : L('Có vẻ có ' + maybe.length + ' khoản định kỳ', maybe.length + ' possible recurring');
-    const hint = maybe.length
-      ? '<div class="rcr-hint">' + _e(L('Có vẻ định kỳ: ', 'Possibly recurring: ') + maybe.slice(0, 3).map(_name).join(', ') + (maybe.length > 3 ? '…' : '')) + '</div>' : '';
+      : L(maybe.length + ' khoản có vẻ định kỳ', maybe.length + ' possibly recurring');
+    const rose = sure.find((s) => s.creep > 0);
+    const foot = (rose ? '<div class="rcr-foot rose">' + _e(L(_name(rose) + ' tăng ' + _money(rose.creep), _name(rose) + ' is up ' + _money(rose.creep))) + '</div>' : '')
+      + ((maybe.length && sure.length) ? '<div class="rcr-foot">' + _e(L('Có vẻ định kỳ: ', 'Possibly recurring: ') + maybe.slice(0, 2).map(_name).join(', ') + (maybe.length > 2 ? L(' và ' + (maybe.length - 2) + ' khoản nữa', ' and ' + (maybe.length - 2) + ' more') : '')) + '</div>' : '');
     return '<div class="section-h" id="' + scope + '-recur-h"><span class="tl"><span class="t">' + _e(L('Định kỳ', 'Recurring')) + '</span></span>'
       + '<span class="acts"><a onclick="fhRecurSheet(\'' + scope + '\')">' + _e(L('Tất cả', 'All')) + '</a></span></div>'
       + '<div class="debt-bento"><section class="dbt-tile wide rcr-tile" onclick="fhRecurSheet(\'' + scope + '\')">'
       + '<div class="dbt-tk">' + _e(head) + '</div>'
-      + (total > 0 ? '<div class="dbt-tv">' + _e('~' + _money(total)) + '<span class="rcr-per"> / ' + _e(L('tháng', 'month')) + '</span></div>' : '')
-      + (shown.length ? '<div class="rcr-list">' + shown.map(_line).join('') + '</div>' : '')
-      + hint
+      + (total > 0 ? '<div class="dbt-tv num">' + _e('~' + _money(total)) + '<span class="rcr-per">' + _e(L(' / tháng', ' / month')) + '</span></div>' : '')
+      + (shown.length ? '<div class="rcr-list">' + shown.map(_tileRow).join('') + '</div>' : '')
+      + (foot ? '<div class="rcr-feet">' + foot + '</div>' : '')
       + '</section></div>';
   }
   const wrap = (scope) => '<div id="' + scope + '-recur-wrap">' + inner(scope) + '</div>';
@@ -28277,6 +28333,7 @@ function applyLang(){
     if (_sheetScope === scope) { const l = document.getElementById('exdacct-list'); if (l && l.querySelector('.rcr-sheet')) _fill(scope); }
   };
 
+  /* ── the sheet ── */
   /* A row opens its latest transaction, when that row is one the detail
      screen can reach (the personal detail reads the tab's rows and the
      history screen's, not the recurrence slice). */
@@ -28286,16 +28343,18 @@ function applyLang(){
     const has = P && ((P.txns || []).some((x) => x.id === s.latest.id) || (P.txnsOld || []).some((x) => x.id === s.latest.id));
     return has ? 'closeSheet();openPersonalTxDetail&&openPersonalTxDetail(\'' + _e(s.latest.id) + '\')' : '';
   }
-  function _row(scope, s) {
+  function _item(scope, s) {
     const on = _openAttr(scope, s);
-    return on ? '<button type="button" class="choice rcr-choice" onclick="' + on + '">' + _line(s) + '</button>'
-              : '<div class="choice rcr-choice ro">' + _line(s) + '</div>';
+    const sub = _e(_when(s)) + (s.creep > 0 ? '<span class="rcr-up">' + _e(L(' · tăng ' + _money(s.creep), ' · up ' + _money(s.creep))) + '</span>' : '');
+    const body = '<span class="rcr-t"><b>' + _e(_name(s)) + '</b><small>' + sub + '</small></span>'
+      + '<span class="rcr-amt num">' + _e(_money(s.amount)) + '</span>' + (on ? _chev : '');
+    return on ? '<button type="button" class="rcr-item" onclick="' + on + '">' + body + '</button>' : '<div class="rcr-item">' + body + '</div>';
   }
-  function _soft(scope, s) {
-    return '<div class="rcr-maybe">' + _row(scope, s)
+  function _guess(scope, s) {
+    return '<div class="rcr-guess">' + _item(scope, s)
       + '<div class="rcr-ask"><span class="rcr-q">' + _e(L('Lặp lại ' + R().labelVi(s.period) + '?', 'Repeats ' + R().labelEn(s.period) + '?')) + '</span>'
-      + '<button type="button" class="rcr-yes" onclick="fhRecurAnswer(\'' + scope + '\',\'' + _e(s.id) + '\',true)">' + _e(L('Đúng rồi', 'Yes')) + '</button>'
-      + '<button type="button" class="rcr-no" onclick="fhRecurAnswer(\'' + scope + '\',\'' + _e(s.id) + '\',false)">' + _e(L('Không', 'No')) + '</button>'
+      + '<button type="button" class="rcr-pill" onclick="fhRecurAnswer(\'' + scope + '\',\'' + _e(s.id) + '\',false)">' + _e(L('Không', 'No')) + '</button>'
+      + '<button type="button" class="rcr-pill yes" onclick="fhRecurAnswer(\'' + scope + '\',\'' + _e(s.id) + '\',true)">' + _e(L('Đúng rồi', 'Yes')) + '</button>'
       + '</div></div>';
   }
   function _fill(scope) {
@@ -28303,19 +28362,20 @@ function applyLang(){
     const all = R() ? R().live(st.series) : [];
     const sure = all.filter((s) => !s.soft), maybe = all.filter((s) => s.soft);
     const total = R() ? R().monthlyTotal(all) : 0;
+    const sec = (label, rows) => '<div class="rcr-sec">' + _e(label) + '</div><div class="rcr-group">' + rows + '</div>';
     let h = '<div class="rcr-sheet">';
     if (!all.length) {
       h += '<div class="rcr-empty">' + _e(st.ready
-        ? L('Chưa có khoản định kỳ nào. Khi một khoản lặp lại, nó sẽ hiện ở đây.', 'Nothing recurring yet. When a charge repeats, it shows up here.')
+        ? L('Chưa có khoản nào lặp lại. Khi có sẽ hiện ở đây.', 'Nothing repeats yet. When something does, it shows here.')
         : L('Đang xem lại lịch sử chi tiêu…', 'Reading your spending history…')) + '</div>';
     }
     const up = R() ? R().upcoming(all) : [];
-    if (up.length) h += '<div class="rcr-sec">' + _e(L('30 ngày tới', 'Next 30 days')) + '</div>' + up.map((s) => _row(scope, s)).join('');
+    if (up.length) h += sec(L('30 ngày tới', 'Next 30 days'), up.map((s) => _item(scope, s)).join(''));
     for (const p of ['monthly', 'yearly', 'weekly']) {
       const g = sure.filter((s) => s.period === p && up.indexOf(s) < 0);
-      if (g.length) h += '<div class="rcr-sec">' + _e(_cap(R().labelVi(p))) + '</div>' + g.map((s) => _row(scope, s)).join('');
+      if (g.length) h += sec(_cap(R().labelVi(p)), g.map((s) => _item(scope, s)).join(''));
     }
-    if (maybe.length) h += '<div class="rcr-sec">' + _e(L('Có vẻ định kỳ', 'Possibly recurring')) + '</div>' + maybe.map((s) => _soft(scope, s)).join('');
+    if (maybe.length) h += sec(L('Có vẻ định kỳ', 'Possibly recurring'), maybe.map((s) => _guess(scope, s)).join(''));
     h += '</div>';
     if (typeof setTxt === 'function') { setTxt('exdacct-h', L('Định kỳ', 'Recurring')); setTxt('exdacct-sub', total > 0 ? L('Mỗi tháng ~' + _money(total), 'About ' + _money(total) + ' a month') : ''); }
     if (typeof setHTML === 'function') setHTML('exdacct-list', h);
@@ -28347,13 +28407,13 @@ function applyLang(){
         await fhTxnBulkPatch(id, { recurrence: period, recurrence_source: 'person' });
         if (s.latest._t) { s.latest._t.recur = period; s.latest._t.recurSrc = 'person'; }
       }
-    } catch (e) { if (window.toast) toast(L('Chưa lưu được, thử lại nhé', 'Could not save, try again')); return; }
+    } catch (e) { if (window.toast) toast(L('Chưa lưu được, thử lại', 'Couldn’t save, try again')); return; }
     s.latest.recur = period; s.latest.recurSrc = 'person';
     try {
       if (yes && window.fhLessonLearnRecur) fhLessonLearnRecur(s.groupKey, s.period, 'person', s.amount);
       else if (!yes && window.fhLessonForgetRecur) fhLessonForgetRecur(s.groupKey);
     } catch (e) { /* the row's own mark already holds the answer */ }
-    if (window.toast) toast(yes ? L('Đã ghi nhận: ' + R().labelVi(s.period), 'Noted: ' + R().labelEn(s.period)) : L('Đã bỏ khỏi Định kỳ', 'Removed from Recurring'));
+    if (window.toast) toast(yes ? L('Đã đánh dấu ' + R().labelVi(s.period), 'Marked ' + R().labelEn(s.period)) : L('Đã bỏ khỏi Định kỳ', 'Removed from Recurring'));
     if (window.fhRecurReanalyse) fhRecurReanalyse(k);
   };
 })();
@@ -31165,7 +31225,7 @@ window.obGoogle = async function () {
           payee: t.counterparty_enc ? await _decTxt(t.counterparty_enc) : null,
           note: await _decTxt(t.note_enc), node: _okNode(await _decTxt(t.node_enc)),
           recur: t.recurrence || null, recurSrc: t.recurrence_source || null,
-          rcPeriod: m ? m.period : null, recurSig: m ? m.sig : null, renewsOn: m ? m.renewsOn : null });
+          rcPeriod: m ? m.period : null, recurSig: m ? m.sig : null, rcLabel: m ? m.label : null, renewsOn: m ? m.renewsOn : null });
       }
       return { rows, complete, ids: new Set(rows.map((r) => r.id)) };
     }
@@ -31208,7 +31268,7 @@ window.obGoogle = async function () {
           const m = _rcMeta.get(t.id) || null;
           rows.push({ id: t.id, date: t.date, kind: 'expense', amt: t.amt, payee: t.payee || null, note: t.note || '', node: t.node || null,
             recur: t.recur || null, recurSrc: t.recurSrc || null,
-            rcPeriod: m ? m.period : null, recurSig: m ? m.sig : null, renewsOn: m ? m.renewsOn : null });
+            rcPeriod: m ? m.period : null, recurSig: m ? m.sig : null, rcLabel: m ? m.label : null, renewsOn: m ? m.renewsOn : null });
         }
         return { rows, complete };
       } catch (e) { console.warn('personal recurrence slice failed', e); return null; }
@@ -36927,11 +36987,12 @@ window.obGoogle = async function () {
   const _YEAR_RE = /\(yearly\)|\(annual\)|\byearly\b|\bannual(ly)?\b|\/\s?year\b|\/\s?n[aă]m\b|h[aà]ng n[aă]m/i;
   const _MONTH_RE = /\(monthly\)|\bmonthly\b|auto-?\s?renew|\brenews?\b|subscription|gia h[aạ]n|thu[eê] bao|\/\s?month\b|\/\s?th[aá]ng\b|h[aà]ng th[aá]ng/i;
   const _MON = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
-  /** A decrypted receipt blob → { period, sig, renewsOn }. `period` is
+  const _PERIOD_TAIL = /\s*\((monthly|yearly|annual|weekly|h[aà]ng th[aá]ng|h[aà]ng n[aă]m)\)\s*$/i;
+  /** A decrypted receipt blob → { period, sig, renewsOn, label }. `period` is
    *  weekly|monthly|yearly or null: the reader's own `period` key, else the
    *  service type, else renewal wording in the items' own text. */
   function receiptMeta(blob) {
-    const out = { period: null, sig: null, renewsOn: null };
+    const out = { period: null, sig: null, renewsOn: null, label: null };
     if (!blob || typeof blob !== 'object') return out;
     const items = Array.isArray(blob.items) ? blob.items : [];
     const text = items.map((it) => ((it && it.name) || '') + ' ' + ((it && it.variant) || '')).join(' ');
@@ -36942,6 +37003,12 @@ window.obGoogle = async function () {
     else if (blob.service_type === 'subscription' || _MONTH_RE.test(text)) out.period = 'monthly';
     const subItem = items.find((it) => it && typeof it.sig === 'string' && it.sig.indexOf('sub|') === 0);
     if (subItem) { out.sig = subItem.sig; if (!out.period) out.period = 'monthly'; }
+    /* The name the receipt itself gives the thing ("YouTube Premium", "100 GB
+       (Google One)"): what a person calls the charge, where the bank's payee
+       string says only "APPLE.COM/BILL". One item only; a basket has no name. */
+    if (out.period && items.length === 1 && items[0] && items[0].name) {
+      out.label = String(items[0].name).replace(_PERIOD_TAIL, '').trim().slice(0, 40) || null;
+    }
     const m = text.match(/renews?\s+(?:on\s+)?(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{4})/i);
     if (m && _MON[m[2].slice(0, 3).toLowerCase()]) {
       out.renewsOn = m[3] + '-' + String(_MON[m[2].slice(0, 3).toLowerCase()]).padStart(2, '0') + '-' + String(+m[1]).padStart(2, '0');
@@ -36980,6 +37047,7 @@ window.obGoogle = async function () {
     const next = nextDate(latest.date, period, latest.renewsOn || null);
     const dueInDays = next ? Math.round((_dateOf(next) - today) / _dayMs) : null;
     const sigRow = rows.slice().reverse().find((r) => r.recurSig);
+    const lblRow = rows.slice().reverse().find((r) => r.rcLabel);
     return { series: {
       id: latest.id, key: groupKey + '|' + period + (sigRow ? '|' + sigRow.recurSig : ''), groupKey, pass,
       period, source, soft, inCadence: inCad, variable: !!(leaf && leaf.variable),
@@ -36988,7 +37056,7 @@ window.obGoogle = async function () {
       creep: previous ? creep(latest.amt, previous.amt) : 0,
       perMonth: perMonth(latest.amt, period),
       name: latest.payee || latest.note || '', node: latest.node || null,
-      product: sigRow ? String(sigRow.recurSig).split('|').pop() : null,
+      product: lblRow ? lblRow.rcLabel : null,
     } };
   }
 
@@ -37192,7 +37260,7 @@ window.obGoogle = async function () {
     if (!Array.isArray(window.txns)) return [];
     return window.txns.filter((t) => t && t._dbId && !t.future && (t.amt > 0)).map((t) => ({
       id: t._dbId, date: _txnIsoOf(t), amt: t.amt, payee: null, note: t.note, node: t.node || null, kind: 'expense',
-      recur: t.recur || null, recurSrc: t.recurSrc || null, rcPeriod: null, recurSig: null, renewsOn: null, _t: t }));
+      recur: t.recur || null, recurSrc: t.recurSrc || null, rcPeriod: null, recurSig: null, rcLabel: null, renewsOn: null, _t: t }));
   }
   let _famBusy = false;
   window.fhRecurRunFamily = async function () {
@@ -48037,8 +48105,8 @@ window.classifyAmount = classifyAmount;
           'When a bank or wallet emails a statement file (Excel/CSV), we seal it with your own key and keep it for at most 90 days; it is deleted once opened. The file only opens on your device, and its password never leaves it. To suggest categories, your device may send merchant names to Google’s AI, never an amount, a date or a person’s name.'],
       6: ['Tụi mình đọc thêm email hoá đơn từ Shopee, Grab, Apple, Tiki, Lazada, ShopeeFood và Foody, chỉ để gắn chi tiết món hàng vào giao dịch đã ghi từ email ngân hàng, không bao giờ tự tạo giao dịch mới. Địa chỉ và số điện thoại trong email không bao giờ được đọc hay lưu. Lần đầu gặp một mẫu hoá đơn, email đó được gửi cho AI của Google một lần để học cách đọc (gồm tên món hàng và số tiền); các email sau cùng mẫu được đọc tại hệ thống, không gửi đi. Hoá đơn điện, nước, viễn thông (nếu có) cũng thuộc phạm vi này.',
           'We now also read receipt emails from Shopee, Grab, Apple, Tiki, Lazada, ShopeeFood and Foody, only to attach item details to transactions already captured from bank email, never to create a transaction by themselves. Addresses and phone numbers in those emails are never read or stored. The first time we meet a new receipt format, that one email is sent to Google’s AI once to learn how to read it (item names and amounts included); later emails in the same format are read on our own systems and go nowhere. Utility, water and telecom bills (where present) fall under the same consent.'],
-      7: ['Danh sách cửa hàng được đọc hoá đơn giờ nằm ở Cài đặt, thay vì ghi cứng bảy cái tên ở đây. Danh sách có thể dài thêm khi một thành viên thêm cửa hàng từ gợi ý của app, và bạn tắt được từng cửa hàng cho hộp thư của mình. Để biết nên gợi ý cửa hàng nào, tụi mình nhìn tiêu đề và người gửi của email trông giống hoá đơn từ cửa hàng chưa có trong danh sách; nội dung email đó không được đọc hay lưu. Mọi quy tắc cũ vẫn giữ: hoá đơn chỉ gắn chi tiết vào giao dịch đã ghi, không bao giờ tự tạo giao dịch; địa chỉ và số điện thoại không được đọc.',
-          'The list of stores whose receipts we read now lives in Settings instead of seven names written here. It can grow when a member adds a store from the app\u2019s suggestions, and you can switch any store off for your own mailbox. To know which stores to suggest, we look at the subject and sender of emails that look like receipts from stores not yet listed; the contents of those emails are not read or stored. Every earlier rule stands: a receipt only attaches details to a transaction already captured, never creates one; addresses and phone numbers are never read.'],
+      7: ['Danh sách cửa hàng được đọc hoá đơn giờ nằm ở Cài đặt, và có thể dài thêm khi một thành viên thêm cửa hàng. Bạn tắt được từng cửa hàng cho hộp thư của mình. Để gợi ý cửa hàng mới, tụi mình xem tiêu đề và người gửi của những email trông giống hoá đơn. Nội dung các email đó không được đọc hay lưu. Phần còn lại vẫn vậy. Hoá đơn chỉ gắn chi tiết vào giao dịch đã ghi, không tự tạo giao dịch. Địa chỉ và số điện thoại không được đọc.',
+          'The list of stores whose receipts we read now lives in Settings, and it can grow when a member adds a store. You can switch any store off for your own mailbox. To suggest new stores, we look at the subject and sender of emails that look like receipts. The contents of those emails are not read or stored. Everything else stays the same. A receipt only attaches details to a transaction already captured and never creates one. Addresses and phone numbers are not read.'],
     },
     app_data: {},
   };
@@ -48616,8 +48684,8 @@ window.classifyAmount = classifyAmount;
           'Tụi mình niêm phong file bằng khoá riêng của bạn và giữ tối đa 90 ngày, mở xong là xoá. File chỉ mở trên máy bạn; mật khẩu không rời khỏi máy. Để gợi ý danh mục, máy bạn có thể gửi tên cửa hàng cho AI của Google, không kèm số tiền, ngày hay tên người.',
           'We seal the file with your own key and keep it for at most 90 days; it is deleted once opened. The file only opens on your device, and its password never leaves it. To suggest categories, your device may send merchant names to Google’s AI, never an amount, a date or a person’s name.'))) +
         _cstRow(L('Còn email hoá đơn từ các cửa hàng?', 'What about receipt emails from stores?'), _esc(L(
-          'Tụi mình đọc hoá đơn từ các cửa hàng và dịch vụ trong danh sách ở Cài đặt, để gắn chi tiết món hàng (mua gì, giá bao nhiêu, giảm giá bao nhiêu) vào đúng giao dịch đã ghi từ email ngân hàng. Hoá đơn không bao giờ tự tạo giao dịch. Bạn tắt được từng cửa hàng cho hộp thư của mình. Địa chỉ và số điện thoại trong email không bao giờ được đọc hay lưu.',
-          'We read receipts from the stores and services listed in Settings, to attach item details (what was bought, its price, the discount) to the matching transaction already captured from bank email. A receipt never creates a transaction by itself. You can switch any store off for your own mailbox. Addresses and phone numbers in those emails are never read or stored.'))) +
+          'Tụi mình đọc hoá đơn từ các cửa hàng trong danh sách ở Cài đặt, để gắn món hàng và giá vào đúng giao dịch đã ghi từ email ngân hàng. Hoá đơn không tự tạo giao dịch. Bạn tắt được từng cửa hàng cho hộp thư của mình. Địa chỉ và số điện thoại trong email không được đọc hay lưu.',
+          'We read receipts from the stores listed in Settings, to attach the items and their prices to the matching transaction already captured from bank email. A receipt never creates a transaction. You can switch any store off for your own mailbox. Addresses and phone numbers in those emails are not read or stored.'))) +
         _cstRow(L('Ai mở được các giao dịch này?', 'Who can open these transactions?'), _esc(L(
           'Mỗi giao dịch được niêm phong ngay khi đến, như thư bỏ vào két đã khoá: máy chủ giữ két, còn chìa chỉ nằm trên điện thoại của gia đình bạn.',
           'Each transaction is sealed the moment it arrives, like a letter dropped into a locked safe: the server holds the safe, and the key lives only on your family’s phones.'))) +
@@ -50571,121 +50639,123 @@ window.classifyAmount = classifyAmount;
 /* ═══ Settings › Hoá đơn — which stores' receipts this mailbox reads
    (receipt-providers-spec.md §3.1, §10, RP5, RP11)
 
-   Three lists in the mailbox status sheet, rendered from the same data the
-   worker reads so the consent's "listed in Settings" is true by construction:
-     Đang đọc   — registry receipt senders (FH_PROVIDERS.receiptSenders) plus
-                  global fast-lane rows (known_provider_domains, kind receipt),
-                  each with a per-mailbox switch (receipt_sender_mutes);
-     Gợi ý      — discovery's candidates with a receipt/bill verdict and no
-                  promotion yet, with a Thêm button (RPC receipt_sender_add);
-     Đề xuất    — one line for a store discovery never saw.
+   Two short lists in the mailbox status sheet, rendered from the same data
+   the worker reads, so the consent's "listed in Settings" is true by
+   construction:
+     Đọc hoá đơn từ — registry receipt senders (FH_PROVIDERS.receiptSenders)
+                      plus global fast-lane rows (known_provider_domains, kind
+                      receipt). Each ROW is the switch (receipt_sender_mutes);
+     Gợi ý thêm     — discovery's candidates with a receipt/bill verdict and no
+                      promotion yet, each with a Thêm pill (receipt_sender_add).
    A member's add is GLOBAL (every consenting mailbox reads the store from the
-   next run); mute is this mailbox only. There is no field to type an address
-   into, by design. */
+   next run); a switch is this mailbox only. There is no field to type an
+   address into, by design.
+
+   Built from the sheet's own kit, nothing new to learn: the eyebrow label
+   (.atx-seq-lbl), the list row (.rl-row / .rl-t), the iOS switch (.cry-sw),
+   and for the one confirmation the sheet's primary and skip buttons. */
 (function () {
   'use strict';
-  const _sb = () => window.sb;
+  const _sbc = () => window.sb;
   const _e = (s) => (typeof esc === 'function' ? esc(s) : String(s == null ? '' : s));
-  const _famLbl = { marketplace_order: ['hoá đơn đơn hàng', 'order receipts'], subscription_invoice: ['hoá đơn thuê bao', 'subscription receipts'],
-                    service_receipt: ['hoá đơn chuyến đi, dịch vụ', 'ride and service receipts'], model_only: ['hoá đơn', 'receipts'] };
-  const _sw = (on, click, label) => '<button type="button" class="rcs-sw' + (on ? ' on' : '') + '" role="switch" aria-checked="' + (on ? 'true' : 'false') + '" aria-label="' + _e(label) + '" onclick="' + click + '"><span class="rcs-knob"></span></button>';
+  const _toast = (m) => { if (window.toast) window.toast(m); };
 
   async function load(conn) {
-    const out = { reading: [], suggested: [], mutes: new Set(), consentOk: true };
+    const out = { reading: [], suggested: [], mutes: new Set() };
     try {
       const reg = (window.FH_PROVIDERS && FH_PROVIDERS.receiptSenders) ? FH_PROVIDERS.receiptSenders() : [];
       const seen = new Set();
-      for (const r of reg) { if (seen.has(r.key)) continue; seen.add(r.key); out.reading.push({ key: r.key, label: r.label, sender: r.sender, family: r.family, since: r.since, by: null }); }
-      const sb = _sb(); if (!sb) return out;
+      for (const r of reg) { if (seen.has(r.key)) continue; seen.add(r.key); out.reading.push({ label: r.label, sender: r.sender, by: null }); }
+      const sb = _sbc(); if (!sb) return out;
       const [kpd, cand, mut] = await Promise.all([
-        sb.from('known_provider_domains').select('domain_or_address,provider_name,family,added_by').eq('kind', 'receipt').eq('active', true),
-        sb.from('receipt_candidates').select('id,sender,subject_template,store_name,verdict,seen,last_seen_at').in('verdict', ['receipt', 'bill']).is('promoted_at', null).order('seen', { ascending: false }).limit(30),
+        sb.from('known_provider_domains').select('domain_or_address,provider_name,added_by').eq('kind', 'receipt').eq('active', true),
+        sb.from('receipt_candidates').select('id,sender,store_name,seen,last_seen_at').in('verdict', ['receipt', 'bill']).is('promoted_at', null).order('seen', { ascending: false }).limit(30),
         conn && conn.id ? sb.from('receipt_sender_mutes').select('sender').eq('grant_id', conn.id) : Promise.resolve({ data: [] }),
       ]);
-      for (const r of (kpd && kpd.data) || []) out.reading.push({ key: 'kpd:' + r.domain_or_address, label: r.provider_name || r.domain_or_address, sender: r.domain_or_address, family: r.family || 'model_only', since: 7, by: r.added_by ? 'member' : 'operator' });
-      // One row per sender in Gợi ý: the templates fold into a count.
+      for (const r of (kpd && kpd.data) || []) out.reading.push({ label: r.provider_name || r.domain_or_address, sender: r.domain_or_address, by: r.added_by ? 'member' : null });
+      // One row per sender under Gợi ý: its subject shapes fold into one count.
       const bySender = new Map();
       for (const c of (cand && cand.data) || []) {
-        const k = c.sender; const g = bySender.get(k) || { id: c.id, sender: k, store: c.store_name || k.split('@')[1], verdict: c.verdict, seen: 0, last: null };
-        g.seen += Number(c.seen || 0); if (c.last_seen_at && (!g.last || c.last_seen_at > g.last)) g.last = c.last_seen_at;
-        if (!g.store && c.store_name) g.store = c.store_name;
-        bySender.set(k, g);
+        const g = bySender.get(c.sender) || { id: c.id, sender: c.sender, store: c.store_name || String(c.sender).split('@')[1] || c.sender, seen: 0, last: null };
+        g.seen += Number(c.seen || 0);
+        if (c.last_seen_at && (!g.last || c.last_seen_at > g.last)) g.last = c.last_seen_at;
+        bySender.set(c.sender, g);
       }
-      out.suggested = [...bySender.values()].sort((a, b) => b.seen - a.seen);
+      out.suggested = [...bySender.values()].sort((a, b) => b.seen - a.seen).slice(0, 6);
       for (const m of (mut && mut.data) || []) out.mutes.add(String(m.sender || '').toLowerCase());
     } catch (e) { /* the section degrades to the registry list */ }
     return out;
   }
 
-  function _dateShort(iso) { if (!iso) return ''; const d = new Date(iso); return isNaN(d) ? '' : (d.getDate() + ' thg ' + (d.getMonth() + 1)); }
+  const _day = (iso) => { if (!iso) return ''; const d = new Date(iso); return isNaN(d) ? '' : (d.getDate() + ' thg ' + (d.getMonth() + 1)); };
 
-  function render(st, conn) {
-    const muted = st.mutes;
-    let h = '<div class="rcs-sec">' + _e(L('Hoá đơn', 'Receipts')) + '</div>';
-    h += '<div class="rcs-note">' + _e(L('Tụi mình đọc hoá đơn từ các cửa hàng dưới đây, chỉ để gắn chi tiết món hàng vào giao dịch đã ghi.', 'We read receipts from the stores below, only to attach item details to transactions already captured.')) + '</div>';
-    h += '<div class="rcs-lbl">' + _e(L('Đang đọc', 'Reading')) + '</div><div class="rl-list">';
+  function render(st) {
+    let h = '<div class="rcs">';
+    h += '<div class="atx-seq-lbl">' + _e(L('Đọc hoá đơn từ', 'Reading receipts from')) + '</div><div class="rcs-list">';
     for (const r of st.reading) {
-      const fam = _famLbl[r.family] || _famLbl.model_only;
-      const sub = (r.by === 'member' ? L('Do thành viên thêm · ', 'Added by a member · ') : '') + L(fam[0], fam[1]);
-      const on = !muted.has(String(r.sender).toLowerCase());
-      h += '<div class="rl-row"><span class="rl-t"><b>' + _e(r.label) + '</b><small>' + _e(sub) + '</small></span>'
-        + _sw(on, 'fhReceiptStoreToggle(\'' + _e(r.sender) + '\',' + (on ? 'false' : 'true') + ')', L((on ? 'Tắt ' : 'Bật ') + r.label + ' cho hộp thư này', (on ? 'Turn off ' : 'Turn on ') + r.label + ' for this mailbox')) + '</div>';
+      const on = !st.mutes.has(String(r.sender).toLowerCase());
+      h += '<button type="button" class="rl-row" role="switch" aria-checked="' + (on ? 'true' : 'false') + '" onclick="fhReceiptStoreToggle(\'' + _e(r.sender) + '\',' + (on ? 'false' : 'true') + ')">'
+        + '<span class="rl-t"><b>' + _e(r.label) + '</b>' + (r.by === 'member' ? '<small>' + _e(L('Do thành viên thêm', 'Added by a member')) + '</small>' : '') + '</span>'
+        + '<span class="cry-sw' + (on ? ' on' : '') + '"></span></button>';
     }
-    h += '</div>';
+    h += '</div><div class="rcs-foot">' + _e(L('Chỉ để gắn chi tiết món hàng vào giao dịch đã ghi. Tắt ở đây chỉ tắt cho hộp thư này.',
+      'Only to attach item details to transactions already captured. Switching one off affects this mailbox only.')) + '</div>';
     if (st.suggested.length) {
-      h += '<div class="rcs-lbl">' + _e(L('Gợi ý', 'Suggested')) + '</div><div class="rl-list">';
+      h += '<div class="atx-seq-lbl">' + _e(L('Gợi ý thêm', 'Suggested')) + '</div><div class="rcs-list">';
       for (const c of st.suggested) {
-        const meta = [c.seen + ' email', c.last ? L('gần nhất ' + _dateShort(c.last), 'last ' + _dateShort(c.last)) : null, c.verdict === 'bill' ? L('hoá đơn dịch vụ', 'a bill') : L('hoá đơn mua hàng', 'a receipt')].filter(Boolean).join(' · ');
+        const meta = c.seen + ' email' + (c.last ? L(' · gần nhất ' + _day(c.last), ' · last ' + _day(c.last)) : '');
         h += '<div class="rl-row"><span class="rl-t"><b>' + _e(c.store) + '</b><small>' + _e(meta) + '</small></span>'
           + '<button type="button" class="rcs-add" onclick="fhReceiptStoreAddAsk(\'' + _e(c.id) + '\',\'' + _e(c.store).replace(/'/g, '') + '\')">' + _e(L('Thêm', 'Add')) + '</button></div>';
       }
       h += '</div>';
     }
-    h += '<button type="button" class="rcs-propose" onclick="fhReceiptStorePropose()">' + _e(L('Thiếu cửa hàng nào? Gửi đề xuất', 'Missing a store? Suggest one')) + '</button>';
-    return h;
+    return h + '</div>';
   }
 
-  let _conn = null, _state = null;
+  let _conn = null;
   window.fhReceiptStoresPaint = async function (conn) {
     _conn = conn || _conn;
-    const el = document.getElementById('atx-rc'); if (!el) return;
-    _state = await load(_conn);
-    const el2 = document.getElementById('atx-rc'); if (!el2) return;
-    el2.innerHTML = render(_state, _conn);
+    if (!document.getElementById('atx-rc')) return;
+    const st = await load(_conn);
+    const el = document.getElementById('atx-rc'); if (el) el.innerHTML = render(st);
   };
 
   window.fhReceiptStoreToggle = async function (sender, on) {
-    const sb = _sb(); if (!sb || !_conn || !_conn.id) return;
+    const sb = _sbc(); if (!sb || !_conn || !_conn.id) return;
     try {
-      if (on) await sb.from('receipt_sender_mutes').delete().eq('grant_id', _conn.id).eq('sender', sender);
-      else await sb.from('receipt_sender_mutes').insert({ grant_id: _conn.id, sender: sender });
-      if (window.toast) toast(on ? L('Sẽ đọc lại từ lần kế', 'Reading again from the next run') : L('Đã tắt cho hộp thư này', 'Off for this mailbox'));
-    } catch (e) { if (window.toast) toast(L('Chưa lưu được, thử lại nhé', 'Could not save, try again')); }
+      const r = on ? await sb.from('receipt_sender_mutes').delete().eq('grant_id', _conn.id).eq('sender', sender)
+                   : await sb.from('receipt_sender_mutes').insert({ grant_id: _conn.id, sender: sender });
+      if (r && r.error) throw r.error;
+      _toast(on ? L('Đã bật lại', 'Back on') : L('Đã tắt cho hộp thư này', 'Off for this mailbox'));
+    } catch (e) { _toast(L('Chưa lưu được, thử lại', 'Couldn’t save, try again')); }
     fhReceiptStoresPaint(_conn);
   };
 
-  /* The one sheet before a global add: says plainly that other members'
-     mailboxes read the store too. */
+  /* The one question before a global add, asked in the sheet the list lives
+     in, with the sheet's own primary and skip buttons. It says plainly that
+     other members' mailboxes will read the store too. Để sau goes back. */
   window.fhReceiptStoreAddAsk = function (candidateId, store) {
-    if (typeof _pexdChoices !== 'function') { fhReceiptStoreAdd(candidateId); return; }
-    const body = '<div class="rcs-ask">' + _e(L('Tụi mình sẽ đọc email hoá đơn từ ' + store + ' trong hộp thư này và của các thành viên khác đã đồng ý, chỉ để gắn chi tiết món hàng vào giao dịch đã ghi. Không bao giờ tự tạo giao dịch. Địa chỉ và số điện thoại không được đọc.',
-      'We will read receipt emails from ' + store + ' in this mailbox and in other consenting members\' mailboxes, only to attach item details to transactions already captured. Never to create a transaction. Addresses and phone numbers are not read.')) + '</div>'
-      + '<button type="button" class="choice on" onclick="closeSheet();fhReceiptStoreAdd(\'' + _e(candidateId) + '\')">' + _e(L('Thêm ' + store, 'Add ' + store)) + '</button>'
-      + '<button type="button" class="choice" onclick="closeSheet()">' + _e(L('Để sau', 'Later')) + '</button>';
-    _pexdChoices(L('Đọc hoá đơn từ ' + store + '?', 'Read receipts from ' + store + '?'), '', body);
+    const back = 'fhReceiptStoreBack()';
+    const html = '<div class="sheet-h">' + _e(L('Đọc hoá đơn từ ' + store + '?', 'Read receipts from ' + store + '?')) + '</div>'
+      + '<div class="sheet-sub">' + _e(L(
+        'Tụi mình sẽ đọc email hoá đơn từ ' + store + ' ở hộp thư này và của các thành viên khác đã đồng ý, chỉ để gắn chi tiết món hàng vào giao dịch đã ghi. Không tự tạo giao dịch, không đọc địa chỉ hay số điện thoại.',
+        'We’ll read receipt emails from ' + store + ' in this mailbox and in other consenting members’ mailboxes, only to attach item details to transactions already captured. No transaction is created, and no address or phone number is read.')) + '</div>'
+      + '<button class="cta" onclick="fhReceiptStoreAdd(\'' + _e(candidateId) + '\',\'' + _e(store).replace(/'/g, '') + '\')">' + _e(L('Thêm ' + store, 'Add ' + store)) + '</button>'
+      + '<button class="btn-skip" onclick="' + back + '">' + _e(L('Để sau', 'Not now')) + '</button>';
+    if (typeof _fhSheet === 'function') _fhSheet(html);
   };
-  window.fhReceiptStoreAdd = async function (candidateId) {
-    const sb = _sb(); if (!sb) return;
+  window.fhReceiptStoreBack = function () {
+    if (_conn && typeof window.fhAutoTxnStatus === 'function') window.fhAutoTxnStatus(_conn);
+    else if (typeof window._closeOv === 'function') window._closeOv();
+  };
+  window.fhReceiptStoreAdd = async function (candidateId, store) {
+    const sb = _sbc(); if (!sb) return;
     try {
       const r = await sb.rpc('receipt_sender_add', { p_candidate: candidateId });
       if (r.error) throw r.error;
-      if (window.toast) toast(L('Đã thêm. Đọc từ lần kế.', 'Added. Reading from the next run.'));
-    } catch (e) { if (window.toast) toast(L('Chưa thêm được, thử lại nhé', 'Could not add, try again')); }
-    fhReceiptStoresPaint(_conn);
-  };
-  window.fhReceiptStorePropose = function () {
-    if (typeof window.fhFeedbackOpen === 'function') { fhFeedbackOpen(L('Đề xuất cửa hàng đọc hoá đơn: ', 'Suggest a receipt store: ')); return; }
-    if (typeof _pexdChoices === 'function') _pexdChoices(L('Đề xuất cửa hàng', 'Suggest a store'), '', '<div class="rcs-ask">' + _e(L('Gửi tên cửa hàng cho tụi mình qua mục Góp ý trong Cài đặt. Khi app gặp email hoá đơn từ cửa hàng đó, nó sẽ hiện ở Gợi ý.', 'Send the store name through Feedback in Settings. Once the app meets a receipt email from it, it appears under Suggested.')) + '</div>');
+      _toast(L('Đã thêm ' + (store || 'cửa hàng'), 'Added ' + (store || 'the store')));
+    } catch (e) { _toast(L('Chưa thêm được, thử lại', 'Couldn’t add, try again')); }
+    window.fhReceiptStoreBack();
   };
 })();
 
