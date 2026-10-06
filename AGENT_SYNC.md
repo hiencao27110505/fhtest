@@ -124,6 +124,14 @@ If your work depends on one, check the artifact: the function's version in the
 dashboard, the migration in the database, the version string in the Executions log.
 Cheap, and it has been wrong.
 
+**The same goes for your own code's inputs.** Anything that derives a conclusion on
+the device (dedup, streaks, recurrence) runs on what is IN MEMORY when it runs, and
+the personal tab holds two months, not the ledger. Before shipping one: name the
+rows it will be handed, and compare their count with the ledger's using one
+plaintext query (`txn_date`, `kind` and counts are not encrypted). On 2026-10-06 the
+recurrence engine was handed 83 rows of 723, marked a coffee shop "weekly" and missed
+the rent; its 24 tests passed (`docs/incidents/2026-10-06-recurring-detection.md`).
+
 ### 8. If you point someone at a doc section, the section must exist.
 
 `AGENT_SYNC` currently points at *"the transfers + import sections of
@@ -143,6 +151,17 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-10-07 · Hien · recurring-charge detection v2 (incident fix) — BUILT, tests green except the two pre-existing, committed, NOT PUSHED · claiming SW `v616` · client only · no migration · no Edge Function deploy.**
+  Incident: `docs/incidents/2026-10-06-recurring-detection.md`. Spec: `recurring-charges-spec.md` §18 (RR10–RR19).
+  `29-recur.js` rewritten (cadence rule, payee identity, one view, derived pattern marks that clear themselves); `19-personal.js` gains
+  `fhPersonalRecurRows` (760-day expense slice, older part cached, dropped by `_recurDrop` on writes) and **`payee` on `P.txns` rows**
+  (a new field name on purpose; `who`/`cp`/`_cp` keep their meanings, A15); `24-lessons.js` recur lessons carry `amt`;
+  `79-recur-ui.js` rewritten (tile in a refillable wrapper, Đúng rồi / Không in the sheet); `61` detail row and `56` queue card read the
+  same view (`csvRecurOf` / `csvRecurStore`; `72` calls `csvRecurStore`).
+  **Taxonomy:** nine leaves carry `recurs` (+ `recurs_var`), emitted to the CLIENT target only: `gen-taxonomy` strips both keys from the
+  worker and Python targets, so `taxonomy.mjs` is byte-identical and live `mailbox-sync` v77 still equals main. Tree `version` unchanged (4).
+  New tests: `tools/recur-flow.test.js`, `tools/taxonomy-recurs.test.js`; `tools/recur-engine.test.js` rewritten around the incident's rows.
+  If you bump the SW next, start from v616. Next free migration is still `0159`.
 - **2026-10-06 (late) · Hien · `0158_snapshot_recurrence` APPLIED via MCP (Hien's standing approval for this epic) · next free migration is `0159`.** `get_family_snapshot()` names its transaction columns explicitly (0130/0131/0144 each added theirs), so after 0157 the family hydrate's RPC fast path returned rows without `recurrence`/`recurrence_source` while the direct-select fallback had them. 0158 is the LIVE function text (pg_get_functiondef) plus the two columns; nothing else changed. Also added the two tests the providers spec §18 promised: `pipeline/gen-providers.test.js` (registry rules) and `pipeline/discovery.test.js` (header-only, cap, budget-last). Rule for next time: a new column on `transactions` is not visible to the app until the snapshot RPC names it.
 - **2026-10-06 (night) · Hien · receipt providers + recurring charges — LIVE. `0157_receipt_providers_recurrence` APPLIED via MCP (Hien approved; the first two MCP attempts were declined by the harness for the `drop … if exists` lines, so the applied text has no drops — same end state as the file, which keeps them for a re-run). `mailbox-sync` v77 and `mailbox-dryrun` v17 deployed from main (live v76 was byte-identical to main@4f51f97 before deploy, checked file by file). SW `v615`. Pushed to main. Next free migration is `0158`. If you bump the SW next, start from v615.**
   0157 REDEFINES `personal_txn_patch` (recurrence columns join v_ok). Tests pinning versions: `receipt-contract` now asserts FH_CONSENT_V == RECEIPT_REGISTRY_V (7) and RECEIPT_CONSENT_V (6) <= it; `consent-gate` checks the v6/v7 pair. Watch `read_tally`: `discovery_*`, `receipt_capped`, `receipt_read` for Google Play.

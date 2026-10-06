@@ -22,3 +22,15 @@
 .exd-soft{font-weight:500;color:var(--muted-soft)}
 .csv-sby{display:block;font-size:11px;font-weight:500;color:var(--muted-soft)}
 .csv-sheet-note{margin:10px 6px 0;font-size:12.5px;line-height:1.45;color:var(--muted)}
+/* detection v2 (§18.7): the one quiet line for guesses on the tile, and the
+   sheet's Đúng rồi / Không under each guess. No badge, no prompt. */
+.rcr-hint{margin-top:10px;padding-top:10px;border-top:1px solid var(--divider);font-size:12.5px;line-height:1.4;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rcr-sheet{display:flex;flex-direction:column}
+.rcr-choice.ro{cursor:default}
+.rcr-maybe{border-bottom:1px solid var(--divider);padding-bottom:10px;margin-bottom:6px}
+.rcr-maybe:last-child{border-bottom:0;margin-bottom:0}
+.rcr-ask{display:flex;align-items:center;gap:8px;padding:2px 14px 0}
+.rcr-q{flex:1;min-width:0;font-size:12.5px;color:var(--muted)}
+.rcr-yes,.rcr-no{flex:none;min-height:34px;padding:0 14px;border-radius:9px;font:inherit;font-size:13px;font-weight:600;-webkit-tap-highlight-color:transparent}
+.rcr-yes{border:0;background:var(--brand-ink);color:var(--white)}
+.rcr-no{border:1px solid var(--hairline);background:var(--white);color:var(--ink-2)}

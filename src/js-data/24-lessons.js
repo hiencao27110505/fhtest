@@ -142,7 +142,7 @@
       const l = L.recur && L.recur[key]; if (!l || !l.period) return null;
       const tomb = L.tomb[key];
       if (tomb && !(l.t > tomb.t)) return null;
-      return { period: l.period, source: l.source || 'person' };
+      return { period: l.period, source: l.source || 'person', amt: l.amt > 0 ? l.amt : null };
     };
     window.fhLessonRecurDeclined = function (mkey) {
       if (!mkey) return false;
@@ -150,11 +150,16 @@
       const tomb = L.tomb[key], l = L.recur && L.recur[key];
       return !!(tomb && !(l && l.t > tomb.t));
     };
-    window.fhLessonLearnRecur = function (mkey, period, source) {
+    /* `amt` (detection v2, §18.6): the charge the lesson was taught about, in
+       ledger units. One payee can bill a subscription AND one-off purchases
+       (Apple), so the lesson applies to charges near that amount, not to
+       everything the payee ever charges. */
+    window.fhLessonLearnRecur = function (mkey, period, source, amt) {
       if (!mkey || ['weekly', 'monthly', 'yearly'].indexOf(period) < 0) return;
       const key = 'recur|' + mkey;
       if (!L.recur) L.recur = {};
       L.recur[key] = { period: period, source: source || 'person', t: _now() };
+      if (Number(amt) > 0) L.recur[key].amt = Number(amt);
       delete L.tomb[key];
       _saveSoon();
     };

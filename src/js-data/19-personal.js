@@ -403,7 +403,7 @@
            failure-tolerant (a lost photo strip or pre-selection never costs the
            ledger), so they resolve to empty on error instead of failing the all. */
         const [tr, bd, ac, dr, pp, mm, lb] = await Promise.all([
-          _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,occurred_time_enc,txn_date,kind,space_id,link_id,version,updated_at,created_at,account_id,transfer_group_id,position_account_id,quantity_enc,source,node_enc,label_id,receipt_enc,recurrence,recurrence_source').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }).order('id')),
+          _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,counterparty_enc,cat_name_enc,cat_emoji,occurred_time_enc,txn_date,kind,space_id,link_id,version,updated_at,created_at,account_id,transfer_group_id,position_account_id,quantity_enc,source,node_enc,label_id,receipt_enc,recurrence,recurrence_source').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }).order('id')),
           _sb().from('personal_budgets').select('total_enc,cats_enc').eq('owner_user_id', P.uid).eq('month', _monISO()).maybeSingle(),
           _sb().from('personal_accounts').select('id,kind,name_enc,tail,provider,provider_key,credit_limit_enc,human_verified,statement_day,due_day,anchor_balance_enc,anchor_at,ext_balance_enc,ext_balance_date,account_number_enc,asset_symbol_enc,asset_unit_enc,asset_class_enc,manual_price_enc,manual_price_at,setup_skipped_at').eq('owner_user_id', P.uid).is('archived_at', null),
           _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,counterparty_enc,cat_name_enc,cat_emoji,txn_date,kind,account_id,transfer_group_id,position_account_id,quantity_enc,due_date,created_at,node_enc,label_id').eq('owner_user_id', P.uid).or('kind.neq.expense,account_id.not.is.null').order('txn_date', { ascending: false }).order('id')),
@@ -455,6 +455,11 @@
             note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc), node: _okNode(await _decTxt(t.node_enc)), labelId: t.label_id || null, emoji: t.cat_emoji,
             hasReceipt: !!t.receipt_enc,   // 0154: presence only — the blob decrypts on the detail open (fhPersonalGetReceipt)
             recur: t.recurrence || null, recurSrc: t.recurrence_source || null,   // 0157 recurring-charges-spec RR1 (plaintext enum)
+            /* recurring-charges-spec §18.1: who it was paid to, for the recurrence
+               engine's identity. A NEW name on purpose — `who`, `cp` and `_cp` each
+               already mean something to other readers (apply-to-similar A15), and
+               nothing that reads them may change because this row now knows more. */
+            payee: t.counterparty_enc ? await _decTxt(t.counterparty_enc) : null,
             time: await _decTxt(t.occurred_time_enc) });   // local "HH:MM" if the time was known, else null (day-only)
         }
         /* 0144 — labels decode like every other personal value: fail-closed, and
@@ -641,6 +646,100 @@
     };
     /* A write through this module makes the cached slice stale by definition. */
     window.fhPersonalMatchSliceInvalidate = function () { _matchSlice = null; };
+
+    /* ── Recurrence slice (recurring-charges-spec §18.1, RR10) ───────────────
+       The tab holds two months. A monthly charge needs two occurrences to be
+       seen and a yearly one needs two years, so the recurrence engine cannot
+       run on the tab's memory: on 2026-10-06 it was handed 83 rows of a
+       723-row ledger, marked a coffee shop weekly and missed the rent
+       (docs/incidents/2026-10-06-recurring-detection.md).
+
+       This returns every EXPENSE row of the last FH_RECUR.HISTORY_DAYS as the
+       engine's row shape. Two parts:
+         recent — P.txns itself, which the hydrate keeps fresh (and which now
+                  carries `payee`);
+         older  — one query for rows before _winFrom(), decrypted once and
+                  cached. It is dropped when a write touches a row in it, when
+                  an import adds an older row, and after ten minutes; unlike
+                  the match slice it is NOT dropped on every hydrate, because
+                  months-old rows do not change when the tab refreshes.
+       Receipts: a row that carries one has the blob read into rcPeriod /
+       recurSig / renewsOn by FH_RECUR.receiptMeta (few rows have one).
+       `complete` is false when anything could not be read whole; the engine's
+       pass then shows what it found and writes nothing. Never on the boot
+       path: 29-recur.js calls it from the deferred slot after hydrate. */
+    const _RECUR_OLD_TTL = 10 * 60 * 1000;
+    let _recurOld = null, _recurOldAt = 0, _recurOldBusy = null;
+    const _rcMeta = new Map();                               // row id → receiptMeta, recent rows only
+    const _recurMeta = (blobTxt) => {
+      try { return (window.FH_RECUR && blobTxt && blobTxt !== _DEC_FAILED) ? window.FH_RECUR.receiptMeta(JSON.parse(blobTxt)) : null; }
+      catch (e) { return null; }
+    };
+    async function _recurOldLoad() {
+      const to = _winFrom();
+      const d = new Date(); d.setDate(d.getDate() - ((window.FH_RECUR && window.FH_RECUR.HISTORY_DAYS) || 760));
+      const tr = await _pageAll(() => _sb().from('personal_transactions')
+        .select('id,amount_enc,note_enc,counterparty_enc,node_enc,txn_date,recurrence,recurrence_source,receipt_enc')
+        .eq('owner_user_id', P.uid).eq('kind', 'expense').gte('txn_date', _localDate(d)).lt('txn_date', to)
+        .order('txn_date', { ascending: false }).order('id'));
+      const rows = [];
+      let complete = tr.complete;
+      for (const t of tr.rows) {
+        const a = await _decP(t.amount_enc);
+        if (a == null || a === _DEC_FAILED) { complete = false; continue; }   // an unreadable row is a hole in the history
+        const m = t.receipt_enc ? _recurMeta(await _decP(t.receipt_enc)) : null;
+        rows.push({ id: t.id, date: t.txn_date, kind: 'expense', amt: Number(a),
+          payee: t.counterparty_enc ? await _decTxt(t.counterparty_enc) : null,
+          note: await _decTxt(t.note_enc), node: _okNode(await _decTxt(t.node_enc)),
+          recur: t.recurrence || null, recurSrc: t.recurrence_source || null,
+          rcPeriod: m ? m.period : null, recurSig: m ? m.sig : null, renewsOn: m ? m.renewsOn : null });
+      }
+      return { rows, complete, ids: new Set(rows.map((r) => r.id)) };
+    }
+    /** Drop the older part when a write touched a row in it (id), or
+     *  unconditionally (no id). Recent rows need nothing: P.txns is the truth. */
+    function _recurDrop(id) {
+      if (id) _rcMeta.delete(id);
+      if (!_recurOld) return;
+      if (!id || _recurOld.ids.has(id)) { _recurOld = null; _recurOldAt = 0; }
+    }
+    window.fhPersonalRecurDrop = _recurDrop;
+    /** The engine wrote (or the person picked) a recurrence: keep every copy of
+     *  the row in step without refetching anything. */
+    window.fhPersonalRecurTouch = function (id, recur, src) {
+      const set = (t) => { if (t) { t.recur = recur || null; t.recurSrc = src || null; } };
+      set((P.txns || []).find((x) => x.id === id));
+      set((P.txnsOld || []).find((x) => x.id === id));
+      if (_recurOld) set(_recurOld.rows.find((x) => x.id === id));
+    };
+    window.fhPersonalRecurRows = async function () {
+      if (!P.uid || !P.key || P.state !== 'ready') return null;
+      try {
+        if (!_recurOld || (Date.now() - _recurOldAt) > _RECUR_OLD_TTL) {
+          if (!_recurOldBusy) _recurOldBusy = _recurOldLoad().then((o) => { _recurOld = o; _recurOldAt = Date.now(); }).finally(() => { _recurOldBusy = null; });
+          await _recurOldBusy;
+        }
+        const old = _recurOld; if (!old) return null;
+        const recent = (P.txns || []).filter((t) => t && t.kind === 'expense');
+        let complete = old.complete && !recent.some((t) => t._unreadable);
+        // receipts on recent rows: one query for the ones not read yet
+        const need = recent.filter((t) => t.hasReceipt && !_rcMeta.has(t.id)).map((t) => t.id);
+        if (need.length) {
+          const r = await _sb().from('personal_transactions').select('id,receipt_enc').eq('owner_user_id', P.uid).in('id', need.slice(0, 200));
+          if (r.error) complete = false;
+          for (const x of (r.data || [])) _rcMeta.set(x.id, x.receipt_enc ? _recurMeta(await _decP(x.receipt_enc)) : null);
+        }
+        const rows = old.rows.slice();
+        for (const t of recent) {
+          if (t._unreadable || old.ids.has(t.id)) continue;
+          const m = _rcMeta.get(t.id) || null;
+          rows.push({ id: t.id, date: t.date, kind: 'expense', amt: t.amt, payee: t.payee || null, note: t.note || '', node: t.node || null,
+            recur: t.recur || null, recurSrc: t.recurSrc || null,
+            rcPeriod: m ? m.period : null, recurSig: m ? m.sig : null, renewsOn: m ? m.renewsOn : null });
+        }
+        return { rows, complete };
+      } catch (e) { console.warn('personal recurrence slice failed', e); return null; }
+    };
 
     /* ── Full-history stats slice — "Toàn thời gian" and the months timeline ──
        The tab cache reaches back one month (a flow view); lifetime totals and
@@ -849,6 +948,7 @@
       if (fields.hasOwnProperty('recurSrc')) row.recurrence_source = ['receipt', 'pattern', 'person'].indexOf(fields.recurSrc) >= 0 ? fields.recurSrc : null;
       const r = await _netRetry((sig) => _sb().from('personal_transactions').update(row).eq('id', id).eq('owner_user_id', P.uid).is('link_id', null).abortSignal(sig));
       if (r.error) { console.warn('personal expense update failed', r.error); return false; }
+      _recurDrop(id);   // an edited amount, date or payee changes what the recurrence engine sees
       if (!quiet) await window.fhPersonalHydrate();
       return true;
     };
@@ -907,6 +1007,10 @@
       const rows = [];
       for (const p of (patches || [])) { if (p && p.id) rows.push({ id: p.id, set: await _patchSet(p.fields || {}) }); }
       if (!rows.length) return [];
+      /* A patch that changes more than the recurrence label makes the older
+         slice stale for that row; the label alone is kept in step by
+         fhPersonalRecurTouch, so the engine's own writes cost no refetch. */
+      for (const x of rows) { if (Object.keys(x.set).some((k) => k !== 'recurrence' && k !== 'recurrence_source')) _recurDrop(x.id); }
       const r = await _netRetry((sig) => _sb().rpc('personal_txn_patch', { p_rows: rows }).abortSignal(sig));
       if (!r.error) { window.fhPersonalMatchSliceInvalidate && window.fhPersonalMatchSliceInvalidate(); return (r.data || []).map(String); }
       /* The function is not on this database yet (the app can ship before the
@@ -954,6 +1058,7 @@
       if (r.error) { console.warn('personal receipt attach failed', r.error); return false; }
       if (!(r.data && r.data.length)) return false;   // mirror, or already carrying one
       window.fhPersonalMatchSliceInvalidate && window.fhPersonalMatchSliceInvalidate();
+      _recurDrop(id);   // §18.5: the pass after this hydrate reads the receipt's period and marks the row
       try { await window.fhPersonalHydrate(); } catch (e) {}
       return true;
     };
@@ -976,6 +1081,7 @@
       try { await window.fhPersonalRemovePhotoRows(id); } catch (e) {}
       const r = await _sb().from('personal_transactions').delete().eq('id', id).eq('owner_user_id', P.uid).is('link_id', null);
       if (r.error) { console.warn('personal expense delete failed', r.error); return false; }
+      _recurDrop(id);
       if (!quiet) await window.fhPersonalHydrate();
       return true;
     };
@@ -1242,6 +1348,8 @@
        paint yield live there, not here. */
     window.fhPersonalAddMany = async function (specs, onChunk) {
       if (!P.uid || !P.key || !specs || !specs.length) return { ok: false, written: 0 };
+      // a re-read mailbox imports rows a year old: the recurrence slice's older part is then stale
+      try { const w = _winFrom(); if (specs.some((x) => x && x.dateIso && x.dateIso < w)) _recurDrop(); } catch (e) {}
       const rows = [];
       /* glue[i]: spec i must land in the SAME insert as spec i-1 (`withPrev`). A
          printed fee rides with the row it belongs to (email-reading-v2-spec §4):

@@ -543,7 +543,8 @@
     "thanh toan tien nha",
     "tt tien nha"
    ],
-   "concept": "Housing"
+   "concept": "Housing",
+   "recurs": "monthly"
   },
   {
    "code": "mgmt",
@@ -562,7 +563,8 @@
     "vinhomes",
     "phi dich vu chung cu"
    ],
-   "concept": "Housing"
+   "concept": "Housing",
+   "recurs": "monthly"
   },
   {
    "code": "repair",
@@ -608,7 +610,9 @@
     "dien luc",
     "hoa don dien"
    ],
-   "concept": "Housing"
+   "concept": "Housing",
+   "recurs": "monthly",
+   "recurs_var": true
   },
   {
    "code": "waterbill",
@@ -623,7 +627,9 @@
     "sawaco",
     "hoa don nuoc"
    ],
-   "concept": "Housing"
+   "concept": "Housing",
+   "recurs": "monthly",
+   "recurs_var": true
   },
   {
    "code": "gas",
@@ -707,7 +713,8 @@
     "viettel",
     "fpt internet"
    ],
-   "concept": "Housing"
+   "concept": "Housing",
+   "recurs": "monthly"
   },
   {
    "code": "tv",
@@ -1734,7 +1741,8 @@
     "apple com bill",
     "google one"
    ],
-   "concept": "Fun"
+   "concept": "Fun",
+   "recurs": "monthly"
   },
   {
    "code": "games",
@@ -1923,7 +1931,9 @@
     "tien truong",
     "dong hoc phi"
    ],
-   "concept": "Others"
+   "concept": "Others",
+   "recurs": "monthly",
+   "recurs_var": true
   },
   {
    "code": "courses",
@@ -2228,7 +2238,9 @@
    "kw": [
     "bao hiem"
    ],
-   "concept": "Others"
+   "concept": "Others",
+   "recurs": "yearly",
+   "recurs_var": true
   },
   {
    "code": "lifeins",
@@ -2395,7 +2407,8 @@
     "claude sub",
     "claude pro"
    ],
-   "concept": "Others"
+   "concept": "Others",
+   "recurs": "monthly"
   },
   {
    "code": "client",

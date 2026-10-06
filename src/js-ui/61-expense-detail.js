@@ -962,56 +962,75 @@ function _pexdReceiptHTML(rc){
 /* "hàng tháng" / "hàng năm" / "hàng tuần" for a receipt's billing period. */
 function _pexdPeriodVi(p){ return p==='year' ? L('hàng năm','yearly') : p==='week' ? L('hàng tuần','weekly') : L('hàng tháng','monthly'); }
 
-/* ── Định kỳ (recurring-charges-spec §3.2, RR6) ──────────────────────────
-   One row on both ledgers' detail screens: the period, the next date derived
-   on device, a creep note when the latest charge rose. Tapping opens the
-   shared choices sheet; a pick WRITES AT ONCE (like Loại khoản), through the
-   ledger's own door, and teaches the merchant. */
-function _exdRecurSeriesOf(t, mode){
-  try{
-    var list = mode==='fam' ? (window.fhRecurFamilySeries ? fhRecurFamilySeries() : []) : (window.fhRecurPersonalSeries ? fhRecurPersonalSeries() : []);
-    var id = mode==='fam' ? t._dbId : t.id;
-    for(var i=0;i<list.length;i++){ var s=list[i]; for(var j=0;j<s.rows.length;j++){ var r=s.rows[j]; if((r._t?r._t._dbId:r.id)===id) return s; } }
-  }catch(e){}
-  return null;
+/* ── Định kỳ (recurring-charges-spec §3.2, §18.7) ────────────────────────
+   One row on both ledgers' detail screens, read from the ONE series view
+   (29-recur.js): the series this row belongs to; else its stored mark; else
+   the leaf's hint ("Có vẻ hàng tháng"); else Không. A pick WRITES AT ONCE
+   (like Loại khoản), through the ledger's own door, and teaches the merchant
+   under the series' key. */
+function _exdRecurInfo(t, mode){
+  var scope = mode==='fam' ? 'fam' : 'pers', id = mode==='fam' ? t._dbId : t.id;
+  var s = window.fhRecurSeriesOfRow ? fhRecurSeriesOfRow(scope, id) : null;
+  var o = { scope:scope, id:id, s:s, period:null, soft:false, hint:false };
+  if(s){ o.period = s.period; o.soft = s.soft; }
+  else if(t.recur){ o.period = t.recur; }
+  else if(t.recurSrc!=='person' && !(window.fhRecurRowDeclined && fhRecurRowDeclined(scope, id))
+          && window.FH_TAX && FH_TAX.recursOf){
+    var h = FH_TAX.recursOf(t.node);
+    if(h){ o.period = h.period; o.soft = true; o.hint = true; }
+  }
+  return o;
 }
 function _exdRecurRow(t, mode){
-  var p = t.recur||null, src = t.recurSrc||null;
-  var s = p ? _exdRecurSeriesOf(t, mode) : null;
-  var lbl = p ? FH_RECUR.labelVi(p).replace(/^./, function(c){ return c.toUpperCase(); }) : L('Không','No');
-  var next = s && s.next ? L(' · kỳ tới '+s.next.slice(8,10).replace(/^0/,'')+'/'+s.next.slice(5,7).replace(/^0/,''), ' · next '+s.next.slice(8,10)+'/'+s.next.slice(5,7)) : '';
-  var soft = p && src==='pattern' && s && s.soft;
-  var val = (soft ? '<span class="exd-soft">'+esc(L('Có vẻ ','Maybe '))+'</span>' : '')+esc(lbl)+esc(next)
-    + ((s && s.creep>0) ? '<span class="exd-recur-up">'+esc(L('tăng '+fmt(s.creep)+' so với kỳ trước','up '+fmt(s.creep)+' vs last'))+'</span>' : '');
-  return _exdRow({label:L('Định kỳ','Recurring'), val:'<b>'+val+'</b>', soft:!p, fn: mode==='fam' ? 'exdSheetRecur()' : 'pexdSheetRecur()'});
+  var o = _exdRecurInfo(t, mode), s = o.s, p = o.period;
+  var lbl = p ? FH_RECUR.labelVi(p) : '';
+  var txt = !p ? L('Không','No') : (o.soft ? L('Có vẻ '+lbl, 'Maybe '+FH_RECUR.labelEn(p)) : lbl.replace(/^./, function(c){ return c.toUpperCase(); }));
+  var next = (s && !s.lapsed && s.next) ? L(' · kỳ tới '+s.next.slice(8,10).replace(/^0/,'')+'/'+s.next.slice(5,7).replace(/^0/,''), ' · next '+s.next.slice(8,10)+'/'+s.next.slice(5,7)) : '';
+  var up = (s && s.creep>0 && s.latest.id===o.id) ? '<span class="exd-recur-up">'+esc(L('tăng '+fmt(s.creep)+' so với kỳ trước','up '+fmt(s.creep)+' vs last'))+'</span>' : '';
+  return _exdRow({label:L('Định kỳ','Recurring'), val:'<b>'+esc(txt)+esc(next)+'</b>'+up, soft:(!p||o.soft), fn: mode==='fam' ? 'exdSheetRecur()' : 'pexdSheetRecur()'});
 }
-function _exdRecurSheet(cur, onPick, soft){
+function _exdRecurSheet(o, onPick){
+  var cur = (o.period && !o.soft) ? o.period : '';
   var opts=[['','Không','No'],['weekly','Hàng tuần','Weekly'],['monthly','Hàng tháng','Monthly'],['yearly','Hàng năm','Yearly']];
-  var h = opts.map(function(o){ return '<button type="button" class="choice'+((cur||'')===o[0]?' on':'')+'" onclick="'+onPick+'(&#39;'+o[0]+'&#39;)">'+esc(L(o[1],o[2]))+'</button>'; }).join('');
-  if(soft) h = '<button type="button" class="choice" onclick="'+onPick+'(&#39;'+cur+'&#39;)">'+esc(L('Đúng rồi, '+FH_RECUR.labelVi(cur),'Yes, '+FH_RECUR.labelEn(cur)))+'</button>'+h;
+  var h = opts.map(function(x){ return '<button type="button" class="choice'+(cur===x[0]?' on':'')+'" onclick="'+onPick+'(&#39;'+x[0]+'&#39;)">'+esc(L(x[1],x[2]))+'</button>'; }).join('');
+  if(o.soft && o.period) h = '<button type="button" class="choice" onclick="'+onPick+'(&#39;'+o.period+'&#39;)">'+esc(L('Đúng rồi, '+FH_RECUR.labelVi(o.period),'Yes, '+FH_RECUR.labelEn(o.period)))+'</button>'+h;
   _pexdChoices(L('Định kỳ','Recurring'), L('Chọn xong là lưu ngay. Khoản lặp lại gom vào Định kỳ ở Tài chính.','Saves at once. Repeating charges gather under Recurring.'), h);
 }
-function pexdSheetRecur(){ var E=_pexdEntry(); if(!E) return; var t=E.t; _exdRecurSheet(t.recur||'', 'pexdPickRecur', t.recur && t.recurSrc==='pattern'); }
+/* After a pick: the row's own mark is the answer; the lesson carries it to the
+   series (its key) or, for a row in no series, to the payee. */
+function _exdRecurTeach(o, t, p){
+  try{
+    var er = window.fhRecurRowOf ? fhRecurRowOf(o.scope, o.id) : null;
+    if(er){ er.recur = p; er.recurSrc = 'person'; }
+    var key = o.s ? o.s.groupKey : FH_RECUR.primaryKey(er || { payee:(o.scope==='pers' ? (t.payee||'') : ''), note:t.note||'' });
+    var amt = (er && er.amt) || t.amt || 0;
+    if(key){ if(p && window.fhLessonLearnRecur) fhLessonLearnRecur(key, p, 'person', amt); else if(!p && window.fhLessonForgetRecur) fhLessonForgetRecur(key); }
+  }catch(e){}
+  if(window.fhRecurReanalyse) fhRecurReanalyse(o.scope);
+  toast(p ? L('Đã đánh dấu '+FH_RECUR.labelVi(p),'Marked '+FH_RECUR.labelEn(p)) : L('Đã bỏ dấu định kỳ','Recurring mark removed'));
+}
+function pexdSheetRecur(){ var E=_pexdEntry(); if(!E) return; _exdRecurSheet(_exdRecurInfo(E.t,'pers'), 'pexdPickRecur'); }
 async function pexdPickRecur(v){
   closeSheet(); var E=_pexdEntry(); if(!E) return; var t=E.t;
   var p = (v==='weekly'||v==='monthly'||v==='yearly') ? v : null;
   if(!window.fhPersonalPatchMany) return;
+  var o = _exdRecurInfo(t,'pers');
   var ok = await fhPersonalPatchMany([{ id:E.id, fields:{ recur:p, recurSrc:'person' } }]);
-  if(!ok){ toast(L('Chưa lưu được, thử lại nhé','Could not save, try again')); return; }
+  if(!ok || !ok.length){ toast(L('Chưa lưu được, thử lại nhé','Could not save, try again')); return; }
   t.recur=p; t.recurSrc='person';
-  try{ var mk = FH_RECUR.merchantKey({ who:t.who||'', note:t.note||'', amt:t.amt||0 }); if(mk){ if(p && window.fhLessonLearnRecur) fhLessonLearnRecur(mk, p, 'person'); else if(!p && window.fhLessonForgetRecur) fhLessonForgetRecur(mk); } }catch(e){}
-  toast(p ? L('Đã đánh dấu '+FH_RECUR.labelVi(p),'Marked '+FH_RECUR.labelEn(p)) : L('Đã bỏ dấu định kỳ','Recurring mark removed'));
+  if(window.fhPersonalRecurTouch) fhPersonalRecurTouch(E.id, p, 'person');
+  _exdRecurTeach(o, t, p);
   renderPersonalTxDetail();
 }
-function exdSheetRecur(){ var t=(typeof txById==='function')?txById(_expDetailId):null; if(!t) return; _exdRecurSheet(t.recur||'', 'exdPickRecur', t.recur && t.recurSrc==='pattern'); }
+function exdSheetRecur(){ var t=(typeof txById==='function')?txById(_expDetailId):null; if(!t) return; _exdRecurSheet(_exdRecurInfo(t,'fam'), 'exdPickRecur'); }
 async function exdPickRecur(v){
   closeSheet(); var t=(typeof txById==='function')?txById(_expDetailId):null; if(!t||!t._dbId) return;
   var p = (v==='weekly'||v==='monthly'||v==='yearly') ? v : null;
   if(!window.fhTxnBulkPatch) return;
+  var o = _exdRecurInfo(t,'fam');
   try{ await fhTxnBulkPatch(t._dbId, { recurrence:p, recurrence_source:'person' }); }catch(e){ toast(L('Chưa lưu được, thử lại nhé','Could not save, try again')); return; }
   t.recur=p; t.recurSrc='person';
-  try{ var mk = FH_RECUR.merchantKey({ who:null, note:t.note||'', cat:t.cat, catId:t._catId, amt:t.amt||0 }); if(mk){ if(p && window.fhLessonLearnRecur) fhLessonLearnRecur(mk, p, 'person'); else if(!p && window.fhLessonForgetRecur) fhLessonForgetRecur(mk); } }catch(e){}
-  toast(p ? L('Đã đánh dấu '+FH_RECUR.labelVi(p),'Marked '+FH_RECUR.labelEn(p)) : L('Đã bỏ dấu định kỳ','Recurring mark removed'));
+  _exdRecurTeach(o, t, p);
   renderExpenseDetail();
 }
 

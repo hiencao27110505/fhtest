@@ -1064,7 +1064,7 @@ function csvCollapsedCard(c, opts){
     /* recurring-charges-spec §3.1: the mark, a word on the meta line. */
     if(!c.isIncome && typeof csvRecurOf==='function'){
       var _rc = csvRecurOf(c);
-      if(_rc.period) footHtml += '<span class="scv-foot scv-recur">'+esc(L('Định kỳ · '+csvRecurLbl(_rc.period), 'Recurring · '+(window.FH_RECUR?FH_RECUR.labelEn(_rc.period):_rc.period)))+'</span>';
+      if(_rc.period && !_rc.soft) footHtml += '<span class="scv-foot scv-recur">'+esc(L('Định kỳ · '+csvRecurLbl(_rc.period), 'Recurring · '+(window.FH_RECUR?FH_RECUR.labelEn(_rc.period):_rc.period)))+'</span>';
     }
     /* payload v2: the mail printed a fee. It becomes its own small expense, shown
        as one quiet line under its parent and imported or dropped with it. */
@@ -1459,8 +1459,8 @@ function csvSheetPick(f, v){
        teaches the merchant; Không forgets and blocks the pattern. */
     c._recur = (v==='weekly'||v==='monthly'||v==='yearly') ? v : null; c._recurSrc = 'person';
     try{
-      var _rk = (window.FH_RECUR) ? FH_RECUR.merchantKey({ who:c.counterparty||'', note:c.description||'', amt:0 }) : '';
-      if(_rk){ if(c._recur && window.fhLessonLearnRecur) fhLessonLearnRecur(_rk, c._recur, 'person'); else if(!c._recur && window.fhLessonForgetRecur) fhLessonForgetRecur(_rk); }
+      var _rcd = csvRecurCand(c), _rk = (window.FH_RECUR) ? FH_RECUR.primaryKey(_rcd) : '';
+      if(_rk){ if(c._recur && window.fhLessonLearnRecur) fhLessonLearnRecur(_rk, c._recur, 'person', _rcd.amt); else if(!c._recur && window.fhLessonForgetRecur) fhLessonForgetRecur(_rk); }
     }catch(e){}
     csvRowSheet = null; renderCsvReview(); return;
   }
@@ -1573,13 +1573,14 @@ function csvRowSheetHTML(c){
       + '</div>'
       + (locked ? '<div class="csv-scope-note">'+esc(L('Sổ cá nhân đang khoá — mở ở tab Cá nhân để chọn được.','Personal ledger is locked — unlock it on the Cá nhân tab to pick it.'))+'</div>' : '');
   } else if(f==='recur'){
-    var rr = csvRecurOf(c);
+    var rr = csvRecurOf(c), rcur = (rr.period && !rr.soft) ? rr.period : '';
     title = L('Định kỳ','Recurring');
     body = '<div class="choices">'
-      + chip(!rr.period, "csvSheetPick('recur','')", esc(L('Không','No')))
-      + chip(rr.period==='weekly', "csvSheetPick('recur','weekly')", esc(L('Hàng tuần','Weekly')))
-      + chip(rr.period==='monthly', "csvSheetPick('recur','monthly')", esc(L('Hàng tháng','Monthly')))
-      + chip(rr.period==='yearly', "csvSheetPick('recur','yearly')", esc(L('Hàng năm','Yearly')))
+      + ((rr.soft && rr.period) ? chip(false, "csvSheetPick('recur','"+rr.period+"')", esc(L('Đúng rồi, '+csvRecurLbl(rr.period), 'Yes, '+FH_RECUR.labelEn(rr.period)))) : '')
+      + chip(!rcur, "csvSheetPick('recur','')", esc(L('Không','No')))
+      + chip(rcur==='weekly', "csvSheetPick('recur','weekly')", esc(L('Hàng tuần','Weekly')))
+      + chip(rcur==='monthly', "csvSheetPick('recur','monthly')", esc(L('Hàng tháng','Monthly')))
+      + chip(rcur==='yearly', "csvSheetPick('recur','yearly')", esc(L('Hàng năm','Yearly')))
       + '</div><div class="csv-sheet-note">'+esc(L('Khoản lặp lại được gom vào Định kỳ ở Tài chính, kèm ngày thu tiếp theo.', 'Repeating charges gather under Recurring in Finance, with the next date.'))+'</div>';
   } else if(f==='kind'){
     var credit = !!c.isIncome || c._xferDir === 'in';
@@ -1749,27 +1750,54 @@ function csvSimKey(c){
 var csvFixes = {}, csvFixSeq = 0;
 var CSV_FIX_LBL = { scope:['Ghi vào','Goes to'], kind:['Loại khoản','Kind'], cat:['Danh mục','Category'], inccat:['Danh mục','Category'], node:['Tiêu vào gì','What it was'], who:['Ai trả','Who paid'], recur:['Định kỳ','Recurring'] };
 
-/* recurring-charges-spec §3.2 — the Định kỳ row on an expense card. The value
-   is the person's pick, else the receipt's stated period, else the merchant's
-   lesson; the source rides as a quiet provenance word, like Theo hoá đơn. */
+/* recurring-charges-spec §3.2, §18.8 — the Định kỳ row on an expense card.
+   In order: the person's pick on the card; the joined receipt (its period key
+   or its renewal wording); a series the LEDGER already shows that this row
+   continues; a merchant lesson; the leaf's hint. `soft` means "Có vẻ": shown,
+   never stored. The view is 29-recur.js's, the same one the tile reads. */
+function csvRecurCand(c){
+  var pers = csvRowScope(c)==='personal';
+  return { payee: pers ? (c.counterparty||'') : '', note: c.description||'', amt: Math.abs(csvBaseAmt(c.amount)), node: c._node||null, date: c.dateDisplay||'' };
+}
 function csvRecurOf(c){
-  if(c._recurSrc==='person') return { period: c._recur||null, src:'person' };
-  if(c._recur) return { period: c._recur, src: c._recurSrc||'receipt' };
+  var none = { period:null, src:null, soft:false };
+  if(c._recurSrc==='person') return { period: c._recur||null, src:'person', soft:false };
+  if(!window.FH_RECUR) return none;
   var rj = (typeof c.rowIndex==='number' && window._fhStagedRows && window._fhStagedRows[c.rowIndex] && window._fhStagedRows[c.rowIndex]._rcpt) || null;
-  if(rj && rj.period){ var p = rj.period==='year'?'yearly':rj.period==='week'?'weekly':'monthly'; return { period:p, src:'receipt' }; }
-  if(window.FH_RECUR && window.fhLessonRecur){
-    try{ var l = fhLessonRecur(FH_RECUR.merchantKey({ who:c.counterparty||'', note:c.description||'', amt:0 })); if(l) return { period:l.period, src:'lesson' }; }catch(e){}
-  }
-  return { period:null, src:null };
+  if(rj){ var rm = FH_RECUR.receiptMeta(rj); if(rm.period) return { period:rm.period, src:'receipt', soft:false }; }
+  try{
+    var st = window.fhRecurState ? fhRecurState(csvRowScope(c)==='personal' ? 'pers' : 'fam') : null;
+    /* The view is built a moment after boot. A queue opened before then asks
+       for it once; the cards read it on their next render. */
+    if(st && !st.ready && !csvRecurOf._kicked){ csvRecurOf._kicked = true; try{ if(window.fhRecurRunPersonal) fhRecurRunPersonal(); if(window.fhRecurRunFamily) fhRecurRunFamily(); }catch(e){} }
+    var m = FH_RECUR.matchCandidate((st && st.ready) ? st : null, csvRecurCand(c), window.fhRecurOpts ? fhRecurOpts() : {});
+    if(!m) return none;
+    if(m.source==='person') return { period:null, src:'declined', soft:false };   // Không on this series, said in the ledger
+    return { period:m.period, src:m.source, soft:!!m.soft, lsrc:(m.source==='lesson') };
+  }catch(e){ return none; }
+}
+/* What an import WRITES (§18.8): a pick, a receipt, a lesson, or a confirmed
+   series. A guess and a leaf hint are not stored: the pass decides once the
+   row is in the ledger. */
+function csvRecurStore(c){
+  if(!c || c.isIncome) return { recur:null, src:null };
+  var r = csvRecurOf(c);
+  if(r.src==='person' || r.src==='declined') return { recur: r.src==='person' ? (r.period||null) : null, src:'person' };
+  if(!r.period || r.soft) return { recur:null, src:null };
+  if(r.src==='receipt') return { recur:r.period, src:'receipt' };
+  if(r.src==='series') return { recur:r.period, src:'pattern' };
+  if(r.src==='lesson') return { recur:r.period, src:'person' };
+  return { recur:null, src:null };
 }
 function csvRecurLbl(p){ return window.FH_RECUR ? FH_RECUR.labelVi(p) : (p||''); }
 function csvRecurRow(mkRow, cand){
   if(cand.isIncome || !window.FH_RECUR) return '';
   var r = csvRecurOf(cand);
-  var val = r.period ? esc(csvRecurLbl(r.period).replace(/^./, function(ch){ return ch.toUpperCase(); })) : L('Không','No');
-  var by = r.period && r.src==='receipt' ? '<span class="csv-sby">'+esc(L('Theo hoá đơn','From the receipt'))+'</span>'
-         : r.period && r.src==='lesson' ? '<span class="csv-sby">'+esc(L('Theo bài học','From a lesson'))+'</span>' : '';
-  return mkRow('recur', L('Định kỳ','Recurring'), val+by, { soft: !r.period });
+  var lbl = r.period ? csvRecurLbl(r.period) : '';
+  var val = !r.period ? L('Không','No') : esc(r.soft ? L('Có vẻ '+lbl, 'Maybe '+FH_RECUR.labelEn(r.period)) : lbl.replace(/^./, function(ch){ return ch.toUpperCase(); }));
+  var why = { receipt:['Theo hoá đơn','From the receipt'], series:['Theo các kỳ trước','From earlier charges'], lesson:['Theo bài học','From a lesson'], prior:['Theo Tiêu vào gì','From its kind'] }[r.src];
+  var by = (r.period && why) ? '<span class="csv-sby">'+esc(L(why[0], why[1]))+'</span>' : '';
+  return mkRow('recur', L('Định kỳ','Recurring'), val+by, { soft: !r.period || r.soft });
 }
 var CSV_FIX_ORDER = ['scope','kind','cat','inccat','node','who'];
 /* A field the person set BY HAND on this row (a per-row pick or a bulk verb over
@@ -4838,8 +4866,7 @@ function csvPromote(subset, opts){
                time: csvRowTime(c), _timeAuto: false,   // reviewed time (edited value wins, else derived); '' = day-only
                /* recurring-charges-spec RR1/§10 (family rows): the person's pick, the
                   receipt's period or the merchant lesson ride with the row. */
-               recur: (!c.isIncome && typeof csvRecurOf==='function') ? (csvRecurOf(c).period || null) : null,
-               recurSrc: (!c.isIncome && typeof csvRecurOf==='function') ? (function(){ var r = csvRecurOf(c); return r.period ? (r.src==='person' ? 'person' : 'receipt') : (r.src==='person' ? 'person' : null); })() : null };
+               recur: csvRecurStore(c).recur, recurSrc: csvRecurStore(c).src };
     });
     /* payload v2: a printed fee the person left on is its own small expense, right
        after its parent (full-ledger-spec §3.4). Same payer, day, time and money

@@ -7,12 +7,14 @@ back and how we know, so the app can show what is coming, total what the
 family pays every month without thinking, and notice when a subscription
 quietly costs more than it did last time.
 
-> **Status, 2026-10-06 (evening).** BUILT with `receipt-providers-spec.md`
-> release 1, not yet deployed (`0157` written, SW `v615` built). Decisions
-> RR1–RR9 (§15) from the design interview of 2026-10-06. This unblocks the
-> "merchant intelligence" epic that `habit-streak-spec.md` §15 parked.
-> Two deliberate release-1 cuts, recorded in §17: no hand-set next date, and
-> no filter chip yet.
+> **Status, 2026-10-07.** Release 1 went live on 2026-10-06 and failed its
+> first real test the same evening: it marked a coffee shop and missed rent
+> and every subscription (`docs/incidents/2026-10-06-recurring-detection.md`).
+> **§18 is detection v2**, the resolution: it supersedes §8 and §9 and
+> completes §10. Built on 2026-10-07 (SW `v616`, client only, no migration,
+> no function deploy); Part 4 records the release when it is pushed. Decisions RR1–RR9 (§15) stand except where RR10–RR19 amend
+> them. Release-1 cuts are in §17. This unblocks the "merchant intelligence"
+> epic that `habit-streak-spec.md` §15 parked.
 
 > **Audience & layering.** Part 1 Behaviour, Part 2 Technical, Part 3 Build
 > plan, §15 decision log.
@@ -39,9 +41,12 @@ quietly costs more than it did last time.
   the encrypted receipt blob and wins on display.
 - Charges link into a **series** by a derived key (merchant, period, product)
   with no amount in it, so a price change stays in the same series.
-- A **pattern** is two or more charges from the same merchant, amounts within
-  10 percent, spaced like a period. Two charges show as a soft guess; a third,
-  or the person, confirms.
+- A **pattern** is a merchant's charges arriving in cadence: at most one per
+  period, most gaps the length of a period (§18.3). On a recurring leaf of
+  the category tree (rent, a bill, a subscription) two monthly charges are a
+  soft guess and a third confirms; elsewhere three are the guess and four the
+  fact. The person confirms at any time. A coffee shop visited seven times in five weeks is not a pattern,
+  whatever one pair of visits looks like.
 - The mark **teaches**: a receipt that says monthly marks the next MoMo
   "Google" row monthly before its receipt even arrives, through the same
   encrypted device lessons items use.
@@ -183,6 +188,10 @@ the personal-ledger column table (that table gains the two rows).
 
 ## 8. Series key
 
+> **Superseded by §18.2 (2026-10-07).** The key below put the category in a
+> family row's identity and, because personal rows in memory carry no payee,
+> was what personal rows used too. Kept for the record.
+
 ```
 recurKey(row) = merchantKey(row) + '|' + period + ('|' + productSig when a receipt gave one)
 ```
@@ -202,6 +211,10 @@ Series are a **view** over rows, computed in `fhRecurSeries(rows)` on device;
 nothing is stored per series.
 
 ## 9. Pattern detection
+
+> **Superseded by §18.1 and §18.3 (2026-10-07).** The rule below let one
+> qualifying pair mark a merchant, and it ran over a five-week window. Kept
+> for the record.
 
 `fhRecurDetect(rows)` runs after personal hydrate and after the family
 snapshot, in the same deferred slot as the receipt join (`fhReceiptLedgerSoon`
@@ -223,6 +236,11 @@ Detection writes through the normal row patch so the mark syncs like any
 field.
 
 ## 10. Receipt source and `period`
+
+> **Completed by §18.5 (2026-10-07).** Release 1 built only the first
+> sentence's queue-import path. The retroactive attach, receipts read before
+> the `period` key existed, and the renewal-word fallback were NOT BUILT until
+> detection v2.
 
 When the join (`78-receipt-join.js`) attaches a receipt whose block has
 `period`, or whose variant text matches the renewal words (`auto-renewing`,
@@ -304,6 +322,16 @@ From the design interview, 2026-10-06.
 | RR7 | **Định kỳ tile beside Đầu tư** with the 30-day list and "mỗi tháng ~X"; sheet lists every series. Family ledgers get the same, consistently. |
 | RR8 | **Price creep at > 5 %** over the previous charge in the series, shown on the row and in the sheet, in-app only. |
 | RR9 | **No push** in this epic; the generic "có khoản định kỳ ngày mai" reminder waits for the merchant-intelligence release. |
+| RR10 | *(2026-10-07, detection v2)* **The engine reads a recurrence slice, not the tab's memory:** 25 months of expense rows with payee, note, node, amount and receipt, fetched in the background, never on the boot path. Amends RR4's "after hydrate". |
+| RR11 | **Cadence, not a pair.** A series needs at most one charge per period and most gaps the length of one; a merchant's charges are split by amount first. Weekly needs four charges to be even a guess. |
+| RR12 | **Softness counts charges in cadence**, never rows at the merchant. Off a leaf: monthly is a guess at 3 and fact at 4, yearly 2 and 3, weekly 4 and 6. On a recurring leaf: monthly a guess at 2 and fact at 3, yearly fact at 2. Two monthly charges are never fact. Only confirmed series enter "mỗi tháng". |
+| RR13 | **Identity is the payee**, then a recurring leaf of the tree, then an exact amount. The category leaves the key. Amends RR3: a series' key is the grouping key plus period plus product, still with no amount for payee and leaf series. |
+| RR14 | **The tree knows what recurs.** A short list of leaves carries `recurs` (and `recurs_var` for bills whose amount moves). It is a hint and a lower threshold, never a stored mark, and a single charge on such a leaf is hinted on its own row only. |
+| RR15 | **Receipts mark rows wherever they attach**, and wording counts: `period`, else the service type, else renewal words in the item's own text. Rows that already carry a receipt are marked by the pass. |
+| RR16 | **The queue card asks the ledger:** a candidate that continues a series shows its period, "Theo các kỳ trước". A soft series or a leaf hint shows "Có vẻ", and is not stored on import. |
+| RR17 | **A pattern mark is derived, never trusted.** Only a person's or a receipt's mark anchors a merchant. Each run re-derives pattern marks, writes the latest row of a confirmed series, and clears a `pattern` mark no series explains. |
+| RR18 | **One truth.** Tile, sheet, detail row and queue card read the same series view. The stored column is the durable trace of it, not a second opinion. |
+| RR19 | **A series that stops, lapses.** More than one full period overdue and it leaves the tile, the upcoming list and the monthly total. Its rows keep their history. |
 
 ## 17. Release-1 cuts (2026-10-06)
 
@@ -311,6 +339,7 @@ From the design interview, 2026-10-06.
 |---|---|---|
 | No hand-set next date ("Kỳ tới" picker) | It needs a place to live that is neither a clear column (RR2) nor the receipt blob; the note block was the candidate and deserves its own small design. | Merchant-intelligence epic |
 | No filter chip on the list | The mark on the card and the tile cover the reading need; a chip is a list-filter change across both ledgers' lists. | Same |
+| Queue-wide detection | Twelve rent payments all waiting in the queue, none in the ledger, show Không on their cards; the pass marks them after import (§18.9). | Merchant-intelligence epic |
 | Apple keeps its own reader | Two layouts and storefront sections; the registry carries its labels so folding it into the family walk is a data change later. | Providers release 2 |
 
 ## 16. Related documents
@@ -320,6 +349,265 @@ From the design interview, 2026-10-06.
 - `personal-ledger-spec.md`, `full-ledger-spec.md`: the rows and their RPCs.
 - `apply-to-similar-spec.md`, `carry-rules-spec.md`: lesson mechanics reused.
 - `habit-streak-spec.md` §15: the parked epic this unblocks.
+
+---
+
+## 18. Detection v2 (2026-10-07)
+
+The answer to `docs/incidents/2026-10-06-recurring-detection.md`. Five causes,
+one section each, then the pieces that follow from them.
+
+### 18.1 What the engine reads (RR10)
+
+`fhPersonalRecurRows()` in `19-personal.js` returns the personal ledger's
+expense rows for the last **760 days** as
+`{ id, date, amt, payee, note, node, recur, recurSrc, rcPeriod, recurSig, renewsOn }`:
+
+- **The recent part** is `P.txns` itself. The tab hydrate now decrypts
+  `counterparty_enc` into `payee` (one more field on the ~80 rows it already
+  holds; the name is new so that nothing which reads `who`, `cp` or `_cp`
+  changes meaning: apply-to-similar A15).
+- **The older part** is one query for rows before `_winFrom()`, decrypted once
+  and cached for the session. It is dropped when a write touches a row in it,
+  when an import adds a row older than the window, and after ten minutes.
+- **Receipts:** rows that carry `receipt_enc` have the blob read into
+  `rcPeriod`, `recurSig` and `renewsOn` (§18.5). There are few of them (22 of
+  723 on the first real ledger).
+
+It is called from the deferred slot after hydrate and when the review opens,
+never awaited by a paint. 760 days is what lets two yearly charges be seen for
+a year after the second.
+
+The family ledger already holds full history in `window.txns` (the first
+hydrate of a session is never windowed), so it needs no slice.
+
+### 18.2 Who a charge was paid to (RR13)
+
+A row is offered to three groupings, in this order, and belongs to the first
+series that claims it:
+
+| Pass | Key | When |
+|---|---|---|
+| A | `p\|<payee>`, folded (case, diacritics, punctuation) | the row has a payee. Else `n\|<first three words of the note>`, but only for a row that is NOT on a recurring leaf: family rows and hand-typed personal rows |
+| B | `k\|<leaf>` | the row has NO payee and its node (or an ancestor) carries `recurs` (§18.4). Such a row comes here before its note is ever used: the note is free text, and rent paid with new wording each month must not be split by it. Rows that have a payee never enter this pass, or two purchases from two software vendors would chain into one "subscription" |
+| C | `a\|<exact amount>` | the row is unclaimed and has no payee. Monthly or yearly only, three charges, every gap in cadence, always soft until a person confirms |
+
+Inside a pass-A or pass-B group the charges are first **split by amount**:
+sorted by date, each joins the cluster whose latest amount is within 25
+percent, else starts one. Two subscriptions billed by one payee (Apple:
+YouTube and iCloud) become two series; a price rise up to 25 percent stays in
+one, which is what lets §12's creep flag see it. When most of the group sits
+on a `recurs_var` leaf (electricity, water) the split is skipped: the amount
+is expected to move.
+
+The category is in no key. A row recategorised from Khác to Nhà ở stays in
+its series.
+
+### 18.3 Cadence (RR11, RR12)
+
+For a cluster of `n` charges with `G = n − 1` gaps, and a period with window
+`[lo, hi]`:
+
+| Gap | Called | Monthly | Weekly | Yearly |
+|---|---|---|---|---|
+| `lo … hi` | fit | 25–37 d | 6–8 d | 350–380 d |
+| `2·lo … 2·hi` | skip (one missed cycle) | 50–74 d | 12–16 d | 700–760 d |
+| `< lo` | short | | | |
+
+The cluster is in cadence for that period when **all** hold:
+
+1. at least one fit;
+2. short gaps are at most a fifth of the gaps (`short ≤ ⌊0.2·G⌋`), so with
+   up to five gaps none may be short: *at most one charge per period*;
+3. fits and skips are at least three fifths of the gaps.
+
+The period with the most fits wins; a tie goes to monthly.
+`inCadence = fits + 1`.
+
+| | A guess from | Confirmed from | On a recurring leaf: guess / confirmed |
+|---|---|---|---|
+| Monthly | 3 | 4 | 2 / 3 |
+| Yearly | 2 | 3 | 2 / 2 |
+| Weekly | 4 | 6 | 4 / 6 |
+
+Below "a guess from" there is no series. Between the two it is **soft**: "Có
+vẻ", outside the monthly total, never stored. Softness is `inCadence`
+against the table, and has nothing to do with how many rows the merchant has.
+
+Why monthly starts at three off a leaf: two charges a month apart at a
+similar amount describe any shop visited twice, and a year of history is full
+of such pairs. A guess tier that fires on them would refill the tile with the
+noise this section exists to remove. On a leaf the tree has already said what
+kind of charge it is (rent, a bill, a subscription), so two are a guess and
+three are fact. Two monthly charges are never fact anywhere: two film rentals
+a month apart sit on the streaming leaf as well. A new subscription on no
+leaf is seen at its third charge; its receipt, or the person, says so sooner.
+
+The coffee shop from the incident: gaps 2, 1, 4, 1, 0, 7. Five short of six.
+Rule 2 fails for every period. No series.
+
+Known limit: a habit that really is weekly (the same coffee every Saturday for
+six weeks) is in cadence and will be shown, first as a guess. Không ends it.
+
+### 18.4 What the tree already knows (RR14)
+
+`taxonomy/taxonomy.json` nodes may carry `recurs: "monthly" | "yearly"` and
+`recurs_var: true`. `FH_TAX.recursOf(code)` answers from the node or its
+nearest ancestor.
+
+| Leaf | `recurs` | `recurs_var` |
+|---|---|---|
+| `rentpay` Tiền thuê nhà, `mgmt` Phí quản lý & chung cư | monthly | |
+| `electric` Tiền điện, `waterbill` Tiền nước | monthly | yes |
+| `internet` Internet & wifi | monthly | |
+| `streaming` Streaming & thuê bao số, `software` Phần mềm & công cụ | monthly | |
+| `tuition` Học phí trường | monthly | yes |
+| `insurance` Bảo hiểm | yearly | yes |
+
+Deliberately absent: `mobile` (top-ups are not charges that come back), `gym`
+(a class pack is not a membership), anything under food or transport.
+
+What the hint does, and all it does:
+
+- opens pass B (§18.2) for payee-less rows and waives the amount split for `recurs_var` leaves;
+- lowers both thresholds by one charge (§18.3);
+- on a row whose charge is in no series yet, shows "Có vẻ hàng tháng" on that
+  row's Định kỳ line, in the detail and on the queue card. Not in the tile.
+
+It is never written to `recurrence`. A one-off software purchase is hinted and
+nothing more; Không on it is one tap and teaches the merchant.
+
+The two attributes are emitted to the client target only. The worker's and the
+Python reader's taxonomy files stay byte-identical, so no function redeploys
+for a client-side hint, and the tree's `version` does not move (no
+classification changes).
+
+### 18.5 Receipts (RR15, completes §10)
+
+`FH_RECUR.receiptMeta(blob)` reads a decrypted receipt blob into
+`{ period, sig, renewsOn }`:
+
+1. `blob.period` (`month | year | week`) when the reader set it;
+2. else `service_type === 'subscription'` reads monthly;
+3. else renewal words in the items' names and variants: "(Monthly)",
+   "Auto-renewing", "Renews", "subscription", "gia hạn", "thuê bao",
+   "/tháng" read monthly; "(Yearly)", "Annual", "/year", "/năm" read yearly;
+4. `sig` is the first item's `sub|…` signature; `renewsOn` is a date after
+   "Renews" when one parses.
+
+Where it is applied:
+
+- **the pass** (§18.6) marks any row whose receipt reads a period and which
+  carries no mark: `receipt`. This covers receipts attached to ledger rows
+  after import, and every receipt read before the `period` key existed;
+- **queue import**, as in release 1, now through `receiptMeta` so wording
+  counts there too.
+
+A receipt-marked row anchors its payee's series at one charge.
+
+### 18.6 The pass: what is written, what is cleared (RR17)
+
+`fhRecurRunPersonal()` and `fhRecurRunFamily()` analyse, then reconcile the
+stored column with the view:
+
+| Row | Write |
+|---|---|
+| latest row of a **confirmed** pattern series, unmarked | `pattern` |
+| a row whose receipt reads a period, unmarked | `receipt` |
+| a row marked `pattern` that is in no series | cleared |
+
+Nothing else. A soft series writes nothing. A `person` mark is never touched.
+A `pattern` mark never anchors a merchant: only `person`, `receipt` and a
+lesson do. That is what makes the third row safe, and it is what removes the
+incident's one wrong mark without a migration.
+
+Personal writes go in one `personal_txn_patch` call. Family writes go row by
+row (`fhTxnBulkPatch`), which is why only the latest row of a series is
+marked: a family of four devices must not exchange forty realtime updates
+about a label.
+
+### 18.7 One view (RR18, RR19)
+
+`FH_RECUR.analyse(rows, today, opts)` returns `{ series, patches, byRow }`.
+`opts` carries `lesson(key)`, `declined(key)` and `prior(node)`, so the engine
+stays a pure function. A series:
+
+```
+{ key, groupKey, period, source: 'person'|'receipt'|'lesson'|'pattern',
+  soft, lapsed, inCadence, rows, latest, previous, amount, next, dueInDays,
+  creep, perMonth, name, product, node }
+```
+
+- **Detail row** (both ledgers): the series the row belongs to; else its
+  stored mark; else the leaf hint; else Không.
+- **Tile and sheet:** series that are not lapsed. Soft ones are listed under
+  "Có vẻ định kỳ" with **Đúng rồi** and **Không**, and stay out of the total.
+- **Lapsed:** `dueInDays` below minus one full period (monthly −37, weekly −8,
+  yearly −380). The rows keep "Hàng tháng"; the tile forgets them.
+
+Đúng rồi and Không write a `person` mark on the series' latest row and teach
+or forget the lesson under `groupKey`, so the answer covers the series and
+every later charge.
+
+### 18.8 The queue card (RR16)
+
+`FH_RECUR.matchCandidate(series, cand, opts)` takes
+`{ payee, note, amt, node, date }` and returns the first that applies:
+
+| Order | Source | Card shows |
+|---|---|---|
+| 1 | the person's pick on the card | the pick |
+| 2 | the joined receipt (`receiptMeta`) | "Theo hoá đơn" |
+| 3 | a series in the ledger with the candidate's key, an amount in its cluster, and a date one period (or one skipped period) from one of its charges | "Theo các kỳ trước"; "Có vẻ" when the series is soft |
+| 4 | a merchant lesson | "Theo bài học" |
+| 5 | the leaf hint | "Có vẻ hàng tháng" |
+
+On import, 1, 2 and 4 are stored as before; 3 is stored as `pattern` only
+when the series is confirmed; a soft 3 and 5 are not stored. The pass decides
+later with the row in the ledger.
+
+Amounts: a candidate is in đồng, the ledger in base units; the card converts
+with `curMult()` before asking.
+
+### 18.9 Limits
+
+- **A queue with no ledger behind it.** After a reset and a year-long
+  re-read, hundreds of rows wait and none is booked. Their cards show Không
+  or a leaf hint; the pass marks the series after import. Analysing the queue
+  with the ledger is the natural next step and is not built.
+- **Fortnightly and quarterly** charges are not periods. A quarterly charge
+  reads as nothing; the person's mark is the way.
+- **A price rise above 25 percent** starts a new series beside the old one,
+  which then lapses.
+- **Pass C** can pair unrelated hand-typed rows of the same amount that happen
+  to fall a month apart three times. It is soft by rule for that reason.
+
+### 18.10 Tests
+
+`tools/recur-engine.test.js`, rewritten around the incident:
+
+- the coffee shop, seven visits, one weekly pair: no series, and a stored
+  `pattern` mark on it is cleared;
+- rent whose wording and category change: one series through the leaf;
+- the same charges through a five-week window and through the slice;
+- two subscriptions from one payee, different amounts: two series;
+- electricity with a 40 percent swing on a `recurs_var` leaf: one series;
+- softness from charges in cadence; thresholds with and without a leaf;
+- skip (one missed month), lapse, creep, yearly over 25 months;
+- `person` precedence and decline, lessons anchoring and blocking;
+- `receiptMeta` over the YouTube and Google Play blob shapes;
+- `matchCandidate`: continues a series, wrong amount, wrong date, leaf hint.
+
+`tools/recur-flow.test.js` runs the real engine, tile, tree and the queue
+card's functions together over the incident's ledger: the pass over a complete
+slice (four writes, one of them the clear), over an incomplete one (no
+writes), the tile's wording and total, the detail row on an old rent row, the
+queue card for October's rent, and Đúng rồi / Không on a guess. It also
+covers the family ledger: electricity with drifting notes and amounts gathers
+through its leaf, and only the latest row is written.
+
+`tools/taxonomy-recurs.test.js`: the nine leaves, `recursOf` on the client
+with inheritance, and the worker and Python targets carrying neither key.
 
 ---
 
