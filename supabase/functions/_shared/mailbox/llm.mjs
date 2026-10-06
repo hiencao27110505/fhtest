@@ -215,7 +215,7 @@ export const BLOCKS = {
      actually charged, and the privacy rule is stated here AND enforced
      structurally at the seal. */
   receipt:
-    'THIS SENDER IS A MERCHANT SENDING AN ORDER OR PAYMENT RECEIPT (Shopee, Grab, Apple, Tiki, Lazada, ShopeeFood, Foody).\n' +
+    'THIS SENDER IS A MERCHANT SENDING AN ORDER OR PAYMENT RECEIPT (a marketplace, a ride or food service, an app store, a subscription).\n' +
     'The mail is the merchant\'s own account of a purchase that a bank or wallet reports separately.\n' +
     'mail_kind: transaction ONLY when it confirms a completed order or payment with a total. ' +
     'Campaigns, vouchers, recommendations, and shipping-status mail with no total: other.\n' +
@@ -225,7 +225,9 @@ export const BLOCKS = {
     'seller (the marketplace sub-seller, e.g. a Shopee shop name; null when the merchant itself sold), ' +
     'items (one entry per product line: name verbatim, qty, unit_price, line_discount, variant), ' +
     'items_total (the pre-discount sum as printed), discount (voucher/discount total), shipping_fee, ' +
-    'paid (the same figure as amount), paid_with_tail (last 4 digits of the paying card when printed, never more).\n' +
+    'paid (the same figure as amount), paid_with_tail (last 4 digits of the paying card or wallet when printed, never more), ' +
+    'tax (a separate tax or VAT line when printed; null when prices are inclusive), ' +
+    'period (week | month | year when the receipt states a billing period such as "/month" or "Auto-renewing subscription"; else null).\n' +
     'NEVER extract an address, a phone number, or a recipient\'s contact details, in any field, item names included.\n' +
     'For Grab (any Grab service): items is ALWAYS null; take only the service type, the total, the time, ' +
     'paid_with_tail, the booking id, items_total (the fare), discount (promo), ' +
@@ -332,7 +334,8 @@ export const EXTRACTION_SCHEMA = {
       items: { type: ['array', 'null'], items: { type: 'object', properties: {
         name: _STR, qty: _NUM, unit_price: _NUM, line_discount: _NUM, variant: _STR } } },
       items_total: _NUM, discount: _NUM, shipping_fee: _NUM, paid: _NUM, paid_with_tail: _STR,
-      service_label: _STR, points_discount: _NUM } },
+      service_label: _STR, points_discount: _NUM,
+      tax: _NUM, period: { type: ['string', 'null'], enum: ['week', 'month', 'year', null] } } },
     /* NO `flow` AND NO `category` (2026-09-22). Both were judgements the model
        was asked for and staging then discarded or re-derived: flow comes from
        signal + direction (contract.mjs flowFor), the category from the node.

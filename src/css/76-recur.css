@@ -1,0 +1,24 @@
+/* ═══ Định kỳ — recurring charges (recurring-charges-spec §3) ═══════════════
+   Tile rows, the small mark on cards, and the sheet list. Tokens only. */
+.rcr-tile{cursor:pointer}
+.rcr-per{font-size:13px;font-weight:600;color:var(--muted)}
+.rcr-list{margin-top:10px;display:flex;flex-direction:column}
+.rcr-row{display:flex;align-items:center;gap:10px;min-height:34px;padding:6px 0;border-top:1px solid var(--divider);font-size:13.5px;color:var(--ink)}
+.rcr-list .rcr-row:first-child{border-top:0}
+.rcr-nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.rcr-soft{margin-left:6px;font-size:11px;font-weight:500;color:var(--muted-soft)}
+.rcr-when{flex:none;font-size:12.5px;color:var(--muted)}
+.rcr-amt{flex:none;font-weight:700;display:inline-flex;align-items:center;gap:6px}
+.rcr-up{display:inline-flex;align-items:center;gap:2px;font-size:11.5px;font-weight:600;color:var(--amber)}
+.rcr-up-ic{width:11px;height:11px}
+.rcr-sec{margin:14px 6px 6px;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.rcr-choice{display:block;width:100%;text-align:left;padding:4px 14px}
+.rcr-choice .rcr-row{border-top:0}
+.rcr-empty{padding:18px 8px;font-size:13.5px;line-height:1.5;color:var(--muted)}
+/* The mark on a card's meta line and in a detail row: a word, not a badge. */
+.scv-recur{display:inline-flex;align-items:center;gap:4px}
+.scv-recur-soft{color:var(--muted-soft)}
+.exd-recur-up{margin-left:8px;font-size:12px;font-weight:600;color:var(--amber)}
+.exd-soft{font-weight:500;color:var(--muted-soft)}
+.csv-sby{display:block;font-size:11px;font-weight:500;color:var(--muted-soft)}
+.csv-sheet-note{margin:10px 6px 0;font-size:12.5px;line-height:1.45;color:var(--muted)}

@@ -143,6 +143,16 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-10-06 (evening) · Hien · receipt providers + recurring charges — BUILT, tests green (except the two pre-existing: direct-persist-contract, label-fallback-root), SW `v615` BUILT · `0157_receipt_providers_recurrence.sql` WRITTEN, NOT APPLIED (awaiting Hien's go) · `mailbox-sync` NOT redeployed yet (shared modules changed: senders/receipt-reader/item-category/contract/llm/db/worker + new discovery.mjs) · `mailbox-dryrun` IS live from main (survey/peek). Next free migration stays `0158`. If you bump the SW next, start from v615.**
+  Deploy order when approved: apply 0157 → deploy mailbox-sync (--no-verify-jwt) → deploy mailbox-dryrun → push main. 0157 also REDEFINES `personal_txn_patch` (adds recurrence columns to v_ok); the client falls back row-by-row if the RPC is missing, and sends `recurrence` only from the Định kỳ row, so the app can ship before the migration but the recurrence write will 400 until it is applied.
+- **2026-10-06 · Hien · receipt providers + recurring charges (receipt-providers-spec.md, recurring-charges-spec.md) · CLAIMING migration `0157_receipt_providers_recurrence.sql` (next free after it: `0158`) · claiming SW `v615` · `mailbox-dryrun` REDEPLOYED from main today (read-only `survey` + `peek` modes added; live was a pre-receipt build) · `mailbox-sync` will redeploy when release 1 lands.**
+  Registry receipt block in `taxonomy/providers.json` (gen-providers emits it; `senders.mjs` RECEIPTS/RECEIPT_SUBJECTS become generated views),
+  `known_provider_domains` gains kind/subjects/family/added_by, new `receipt_sender_mutes` + `receipt_candidates`, RPC `receipt_sender_add`;
+  `recurrence`/`recurrence_source` on `personal_transactions` AND `transactions`; consent v7 (`FH_CONSENT_V`, new `RECEIPT_REGISTRY_V`);
+  taxonomy v4 (bare `google`/`apple` leave streaming) + tree-backfill cursor v13 → v14; `CATEGORY_LOGIC_VERSION` 1 → 2.
+  Touching: `senders.mjs`, `receipt-reader.mjs`, `item-category.mjs`, `contract.mjs`, `stage.mjs`, `worker.mjs`, `ingest.mjs`, `db.mjs`, new `discovery.mjs`,
+  `75-consent-ui.js`, `78-receipt-join.js`, `24-lessons.js`, `19-personal.js`, `21-personal.js`, `56`, `61`, `72`, new `26-recur.js`, mailbox settings UI.
+  If you bump the SW next, start from v615. If you need a migration, take `0158`.
 - **2026-10-04 · Hien · `0156_personal_txn_patch` APPLIED live via MCP (Hien approved) · next free migration is `0157`.** Checked: security invoker, `authenticated` may execute, `anon` may not; a call as a stranger writes nothing; an uneditable column is refused. The client's row-by-row fallback (PGRST202) no longer triggers.
 - **2026-10-03 (later) · Hien · rules for later rows (carry-rules-spec.md) — BUILT · claiming SW `v614` · client only, no migration · tree-backfill cursor v12 → v13.**
   New `src/js-ui/66-rules.js`, `src/css/75-rules.css`, `#rule-modal` in `src/index.html`, Cài đặt row `set-rules-row`.

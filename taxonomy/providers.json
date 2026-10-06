@@ -1,6 +1,6 @@
 {
- "version": 1,
- "updated": "2026-09-23",
+ "version": 2,
+ "updated": "2026-10-06",
  "deny": [
   "ngan hang lien ket",
   "lien ket",
@@ -75,7 +75,50 @@
    "kind": "receipt",
    "names": [],
    "bins": [],
-   "codes": []
+   "codes": [],
+   "receipt": {
+    "senders": [
+     "apple.com"
+    ],
+    "subjects": [
+     "\"receipt from Apple\"",
+     "\"invoice from Apple\"",
+     "\"hóa đơn\"",
+     "\"hoá đơn\""
+    ],
+    "family": "subscription_invoice",
+    "labels": {
+     "order_id": [
+      "Order ID",
+      "ORDER ID"
+     ],
+     "order_date": [
+      "Invoice Date",
+      "INVOICE DATE",
+      "Date"
+     ],
+     "items_head": [],
+     "tax": [
+      "VAT",
+      "Tax"
+     ],
+     "total": [
+      "TOTAL",
+      "Total"
+     ],
+     "payment": [
+      "Billed to",
+      "BILLED TO",
+      "Payment method"
+     ],
+     "period": [
+      "/month",
+      "/year",
+      "/tháng",
+      "/năm"
+     ]
+    }
+   }
   },
   {
    "key": "appotapay",
@@ -187,7 +230,33 @@
    "kind": "receipt",
    "names": [],
    "bins": [],
-   "codes": []
+   "codes": [],
+   "receipt": {
+    "senders": [
+     "foody.vn"
+    ],
+    "subjects": [
+     "\"đơn hàng\"",
+     "\"E-Receipt\""
+    ],
+    "family": "marketplace_order",
+    "labels": {
+     "order_id": [
+      "Mã đơn hàng"
+     ],
+     "total": [
+      "Tổng thanh toán",
+      "Tổng cộng"
+     ],
+     "discount": [
+      "Giảm giá",
+      "Voucher"
+     ],
+     "shipping": [
+      "Phí vận chuyển"
+     ]
+    }
+   }
   },
   {
    "key": "fundiin",
@@ -196,6 +265,54 @@
    "names": [],
    "bins": [],
    "codes": []
+  },
+  {
+   "key": "googleplay",
+   "label": "Google Play",
+   "kind": "receipt",
+   "names": [
+    "google play",
+    "googleplay"
+   ],
+   "bins": [],
+   "codes": [],
+   "receipt": {
+    "senders": [
+     "googleplay-noreply@google.com"
+    ],
+    "subjects": [
+     "\"Google Play Order Receipt\""
+    ],
+    "family": "subscription_invoice",
+    "since": 7,
+    "labels": {
+     "order_id": [
+      "Order number"
+     ],
+     "order_date": [
+      "Order date"
+     ],
+     "items_head": [
+      "Item"
+     ],
+     "tax": [
+      "Tax"
+     ],
+     "total": [
+      "Total"
+     ],
+     "payment": [
+      "Payment method"
+     ],
+     "period": [
+      "/month",
+      "/year"
+     ],
+     "renewal": [
+      "Auto-renewing subscription"
+     ]
+    }
+   }
   },
   {
    "key": "gpay",
@@ -219,7 +336,32 @@
    "kind": "receipt",
    "names": [],
    "bins": [],
-   "codes": []
+   "codes": [],
+   "receipt": {
+    "senders": [
+     "grab.com"
+    ],
+    "subjects": [
+     "\"E-Receipt\"",
+     "\"E-receipt\""
+    ],
+    "family": "service_receipt",
+    "labels": {
+     "total": [
+      "Total Paid",
+      "TOTAL (VND)",
+      "Total"
+     ],
+     "promo": [
+      "Promo",
+      "Discount"
+     ],
+     "points": [
+      "GrabRewards",
+      "Points"
+     ]
+    }
+   }
   },
   {
    "key": "hdbank",
@@ -303,7 +445,16 @@
    "kind": "receipt",
    "names": [],
    "bins": [],
-   "codes": []
+   "codes": [],
+   "receipt": {
+    "senders": [
+     "lazada.vn"
+    ],
+    "subjects": [
+     "\"đơn hàng\""
+    ],
+    "family": "model_only"
+   }
   },
   {
    "key": "liobank",
@@ -537,7 +688,33 @@
    "kind": "receipt",
    "names": [],
    "bins": [],
-   "codes": []
+   "codes": [],
+   "receipt": {
+    "senders": [
+     "shopee.vn"
+    ],
+    "subjects": [
+     "\"đơn hàng\"",
+     "\"thanh toán\""
+    ],
+    "family": "marketplace_order",
+    "labels": {
+     "order_id": [
+      "Mã đơn hàng"
+     ],
+     "total": [
+      "Tổng thanh toán",
+      "Tổng cộng"
+     ],
+     "discount": [
+      "Giảm giá",
+      "Voucher"
+     ],
+     "shipping": [
+      "Phí vận chuyển"
+     ]
+    }
+   }
   },
   {
    "key": "shopeefood",
@@ -545,7 +722,33 @@
    "kind": "receipt",
    "names": [],
    "bins": [],
-   "codes": []
+   "codes": [],
+   "receipt": {
+    "senders": [
+     "shopeefood.vn"
+    ],
+    "subjects": [
+     "\"đơn hàng\"",
+     "\"E-Receipt\""
+    ],
+    "family": "marketplace_order",
+    "labels": {
+     "order_id": [
+      "Mã đơn hàng"
+     ],
+     "total": [
+      "Tổng thanh toán",
+      "Tổng cộng"
+     ],
+     "discount": [
+      "Giảm giá",
+      "Voucher"
+     ],
+     "shipping": [
+      "Phí vận chuyển"
+     ]
+    }
+   }
   },
   {
    "key": "shopeepay",
@@ -602,7 +805,16 @@
    "kind": "receipt",
    "names": [],
    "bins": [],
-   "codes": []
+   "codes": [],
+   "receipt": {
+    "senders": [
+     "tiki.vn"
+    ],
+    "subjects": [
+     "\"đơn hàng\""
+    ],
+    "family": "model_only"
+   }
   },
   {
    "key": "timo",

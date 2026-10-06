@@ -36,7 +36,7 @@
     /* 0144: `node` joins kind/cat in the same encrypted blob. carry-rules-spec §7:
        `rule` (the person's standing rules), `pin` (values held on waiting rows
        after a rule changed under them) and `route` (Theo nguồn, per bank). */
-    let L = { kind: {}, cat: {}, node: {}, tomb: {}, rule: {}, pin: {}, route: {} };
+    let L = { kind: {}, cat: {}, node: {}, tomb: {}, rule: {}, pin: {}, route: {}, recur: {} };
     let _loaded = false, _saveSeq = 0, _saveTimer = null;
 
     const _now = () => Date.now();
@@ -131,6 +131,40 @@
       L.tomb['node|' + key] = { t: _now() };
       _saveSoon();
     };
+    /* recurring-charges-spec RR5: a receipt's or a person's recurrence mark
+       teaches the MERCHANT, so the next row from it is pre-marked before any
+       receipt arrives. Key is the merchant key the engine derives
+       (FH_RECUR.merchantKey); value is the period and who said so. A person's
+       Không is a tombstone: it forgets AND blocks the pattern from re-marking. */
+    window.fhLessonRecur = function (mkey) {
+      if (!mkey) return null;
+      const key = 'recur|' + mkey;
+      const l = L.recur && L.recur[key]; if (!l || !l.period) return null;
+      const tomb = L.tomb[key];
+      if (tomb && !(l.t > tomb.t)) return null;
+      return { period: l.period, source: l.source || 'person' };
+    };
+    window.fhLessonRecurDeclined = function (mkey) {
+      if (!mkey) return false;
+      const key = 'recur|' + mkey;
+      const tomb = L.tomb[key], l = L.recur && L.recur[key];
+      return !!(tomb && !(l && l.t > tomb.t));
+    };
+    window.fhLessonLearnRecur = function (mkey, period, source) {
+      if (!mkey || ['weekly', 'monthly', 'yearly'].indexOf(period) < 0) return;
+      const key = 'recur|' + mkey;
+      if (!L.recur) L.recur = {};
+      L.recur[key] = { period: period, source: source || 'person', t: _now() };
+      delete L.tomb[key];
+      _saveSoon();
+    };
+    window.fhLessonForgetRecur = function (mkey) {
+      if (!mkey) return;
+      const key = 'recur|' + mkey;
+      if (L.recur) delete L.recur[key];
+      L.tomb[key] = { t: _now() };
+      _saveSoon();
+    };
     window.fhLessonForgetNode = function (input) {
       const key = _nodeKey(input); if (!key) return;
       const was = L.node[key] && L.node[key].node, bare = _nodeBare(input);
@@ -180,12 +214,13 @@
     async function _pull() {
       const P = _P(); if (!P || !P.uid || !P.key) return null;
       const r = await _sb().from('personal_lessons').select('lessons_enc').eq('owner_user_id', P.uid).maybeSingle();
-      if (r.error || !r.data || !r.data.lessons_enc) return r.error ? null : { kind: {}, cat: {}, node: {}, tomb: {}, rule: {}, pin: {}, route: {} };
+      if (r.error || !r.data || !r.data.lessons_enc) return r.error ? null : { kind: {}, cat: {}, node: {}, tomb: {}, rule: {}, pin: {}, route: {}, recur: {} };
       try {
         const pt = await FHCrypto.decVal(P.key, r.data.lessons_enc);
         const d = JSON.parse(pt);
         return { kind: d.kind || {}, cat: d.cat || {}, node: d.node || {}, tomb: d.tomb || {},   // 2026-10-03: `node` was left out here, so every node lesson died on reload
-                 rule: d.rule || {}, pin: d.pin || {}, route: d.route || {} };
+                 rule: d.rule || {}, pin: d.pin || {}, route: d.route || {},
+                 recur: d.recur || {} };   // recurring-charges-spec RR5: merchant → period
       } catch (e) { return null; }                        // unreadable blob: leave the server copy alone
     }
     function _mergeIn(remote) {

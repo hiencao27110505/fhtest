@@ -696,6 +696,7 @@ function, loaded from the whole file, on the real shapes.
 | S4 | **`concept: Fun` on fitness/gym/sports** (was `Others`, inherited from the root). | Every gym membership read as "Khác" in the legacy concept layer |
 | S5 | **Two dials bumped**: `taxonomy.json` v2→v3, sweep cursor v10→v11. The two other-session pins that hard-coded `v10`/`version===2` were changed to `>=` — the intent ("it moved") kept, the literal dropped. | A second session bumped the same file the same day |
 | S6 | **Sport stays form-faceted** (venues under Sức khỏe, gear under Mua sắm, tickets under Giải trí) — the tree is COICOP-shaped and re-faceting would strand history for little gain. Rolling "all swimming spend" up across roots is an open question (§14), not a tree change. | "how much on swimming?" is unanswerable today; accepted |
+| S7 | *(2026-10-06, taxonomy v4)* Bare brand words leave `streaming.kw` (`google`, `apple`): a MoMo row saying only "Google" was filed as Streaming whatever was bought. `google one`, `youtube premium`, `icloud`, `apple.com/bill` stay; the receipt's item signature decides the rest. Cursor v13 → v14. | receipt-providers-spec RP9 |
 
 ## 17. Related
 

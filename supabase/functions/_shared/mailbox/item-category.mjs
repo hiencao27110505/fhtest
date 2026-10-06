@@ -4,9 +4,11 @@
  * A receipt item's category, learned ONCE per TYPE and replayed free — the
  * template economics the email reader already has, applied to categories.
  * The thing that repeats is not the product (unbounded, seen once) but the
- * slot it sits in: the head-noun phrase of a listing ("mu boi"), an Apple
- * storefront+content slot ("apple tv | movie rental"), an Apple vendor
- * ("youtube"). Each is asked about once, cached in `item_signatures`, and
+ * slot it sits in: the head-noun phrase of a listing ("mu boi"), a
+ * subscription's vendor and product ("sub|google|google one" — the same key
+ * whether billed through Apple or Google Play), or a store's content slot
+ * ("store|apple tv|movie rental"). Each is asked about once, cached in
+ * `item_signatures`, and
  * every later item under it costs nothing.
  *
  * The ladder, per item, first hit wins:
@@ -44,7 +46,7 @@ import { callGemini, toGeminiSchema } from './llm.mjs';
 
 /** Bump when the prompt or the ladder changes MEANING: every older row in
  *  item_signatures becomes a miss and is re-learned. */
-export const CATEGORY_LOGIC_VERSION = 1;
+export const CATEGORY_LOGIC_VERSION = 2;   // 2 (2026-10-06): store-neutral `sub|`/`store|` keys replace `apple|…`
 
 /* Receipt senders whose items are goods with head-initial titles. */
 const HEAD_NOUN_PROVIDERS = { Shopee: 1, ShopeeFood: 1, Foody: 1, Tiki: 1, Lazada: 1 };
@@ -74,8 +76,9 @@ const ITEM_SYSTEM =
   'You label PRODUCT TYPES and digital purchase kinds for a Vietnamese family\'s spending ledger. ' +
   'You are given a numbered list of SIGNATURES, each with its source. A signature is either a product-type ' +
   'phrase taken from the start of an e-commerce listing (Vietnamese without diacritics or English: "mu boi" = swim cap, ' +
-  '"noi chien" = air fryer, "ao thun" = t-shirt, "swimming goggles"), an Apple storefront and content kind ' +
-  '("apple tv | movie rental"), or an Apple vendor ("vendor youtube"). ' +
+  '"noi chien" = air fryer, "ao thun" = t-shirt, "swimming goggles"), a SUBSCRIPTION as vendor and product ' +
+  '("subscription google | google one", "subscription youtube | youtube premium", "subscription duolingo | duolingo plus"), ' +
+  'or a store\'s content slot ("store apple tv | movie rental", "store google play | app"). ' +
   'Reply as JSON {"items":[{"i":<number>,"node":...}]} with one item per line. ' +
   'node is the MOST SPECIFIC expense category code you are confident about, EXACTLY one of: ' + MENU + ' -- ' +
   'a leaf when the type clearly is that, its group when you know the area but not the exact kind, ' +
@@ -103,7 +106,7 @@ const ITEM_SCHEMA = {
 async function askModel(entries, provider, serviceType, cfg, fetchImpl) {
   if (!cfg || !cfg.apiKey || !entries.length) return null;
   const list = entries.map((e, i) => (i + 1) + '. [' + provider + (serviceType ? ' / ' + serviceType : '') + '] '
-    + e.key.replace(/^hn\|/, '').replace(/^apple\|vendor\|/, 'vendor ').replace(/^apple\|/, '').replace(/\|/g, ' | ')).join('\n');
+    + e.key.replace(/^hn\|/, '').replace(/^sub\|/, 'subscription ').replace(/^store\|/, 'store ').replace(/\|/g, ' | ')).join('\n');
   const r = await callGemini('classify_item_batch', {
     systemInstruction: { parts: [{ text: ITEM_SYSTEM }] },
     contents: [{ role: 'user', parts: [{ text: list }] }],

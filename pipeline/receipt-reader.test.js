@@ -120,6 +120,32 @@ const APPLE_SUBSCRIPTION = [
   '₫105.000',
 ].join('\n');
 
+const GOOGLE_PLAY = [
+  // Google Play subscription renewal, as the HTML→text pass renders it
+  // (survey + peek, 2026-10-06; 12 of 14 mails in the test mailbox). Label
+  // and value share a line here, unlike Apple; the item row carries its
+  // price on the SAME line; the vendor rides as "(by …)"; tax is separate.
+  'Google Play',
+  'Thank you',
+  'Your subscription from Google Digital Inc. on Google Play continues and',
+  "you've been charged. Manage your subscriptions",
+  'Order number: SOP.0000-0000-0000-00000..33',
+  'Order date: Oct 6, 2026 1:27:40 PM GMT+7',
+  'Your account: test@example.com',
+  'Item Price',
+  '100 GB (Google One) (by Google LLC) 45.000 ₫/month',
+  'Auto-renewing subscription',
+  'Tax: 5.000 ₫',
+  'Total: 50.000 ₫/month',
+  'Payment method:',
+  'MoMo e-wallet: •••• 1217',
+  'By subscribing, you authorize us to charge you the subscription cost (as',
+  'described above) automatically, charged to the payment method provided',
+  'until canceled. Learn how to cancel. Keep this for your records.',
+  'Google Asia Pacific Pte. Limited, 70 Pasir Panjang Road, #03-71, Mapletree',
+  'Business City, Singapore 117371',
+].join('\n');
+
 const GRAB_RECEIPT = [
   'Your Grab E-Receipt',
   'Booking ID: ADR-8127364512',
@@ -202,10 +228,10 @@ const geminiFetch = (answer) => async (u, init) => {
   t('the billing ADDRESS can never reach an item (structural)',
     JSON.stringify(ap.items).indexOf('Duong X') === -1 && JSON.stringify(ap.items).indexOf('Ng V A') === -1, ap.items);
   t('layout A: the item carries its storefront + kind as the signature (§20.2)',
-    ap.items[0].sig === 'apple|apple tv|movie rental', ap.items[0].sig);
+    ap.items[0].sig === 'store|apple tv|movie rental', ap.items[0].sig);
   const ap2 = R.readAppleReceipt(APPLE_RECEIPT.replace('TOTAL', 'Second Film\n\nHorror\n\nMovie Rental\n\n49.000đ\n\nTOTAL'), 'Your receipt from Apple.');
   t('…and the storefront names EVERY item under it, not only the first',
-    ap2 && ap2.items.length === 2 && ap2.items[1].sig === 'apple|apple tv|movie rental', ap2 && ap2.items.map((i) => i.sig));
+    ap2 && ap2.items.length === 2 && ap2.items[1].sig === 'store|apple tv|movie rental', ap2 && ap2.items.map((i) => i.sig));
   t('invoice date is day-only precision', ap._when && ap._when.iso.slice(0, 10) === '2026-09-28' && ap._when.precision === 'day', ap._when);
   t('service_type digital', ap.service_type === 'digital');
 
@@ -220,9 +246,30 @@ const geminiFetch = (answer) => async (u, init) => {
   t('its renewal and device ride as the variant',
     /Renews 17 July 2026/.test(ab.items[0].variant), ab.items[0].variant);
   t('symbol-first prices parse', ab.items[0].unit_price === 105000, ab.items[0].unit_price);
-  t('layout B: the item carries its vendor as the signature', ab.items[0].sig === 'apple|vendor|youtube', ab.items[0].sig);
+  t('layout B: the item carries a store-neutral subscription signature', ab.items[0].sig === 'sub|youtube|youtube premium', ab.items[0].sig);
+  t('layout B: the billing period is lifted to the receipt', ab.period === 'month' && ab.service_type === 'subscription', ab.period);
   t('the billing ADDRESS is past the stop line and can never be an item',
     JSON.stringify(ab.items).indexOf('Duong X') === -1 && JSON.stringify(ab.items).indexOf('Ng V A') === -1, ab.items);
+
+  console.log('\n-- the subscription-invoice family: Google Play by label dictionary --');
+  const gpEntry = SN.receiptEntryFor('Google Play <googleplay-noreply@google.com>');
+  t('the registry names Google Play as a subscription_invoice with labels', gpEntry && gpEntry.family === 'subscription_invoice' && gpEntry.labels && gpEntry.labels.total, gpEntry);
+  const gpl = R.readSubscriptionInvoice(GOOGLE_PLAY, gpEntry && gpEntry.labels);
+  t('paid is the TOTAL incl. tax, not the item price', gpl && gpl.paid === 50000, gpl && gpl.paid);
+  t('tax is its own figure', gpl.tax === 5000, gpl.tax);
+  t('the billing period is read from the price suffix', gpl.period === 'month' && gpl.service_type === 'subscription', gpl.period);
+  t('order number reads from a same-line label', gpl.order_id === 'SOP.0000-0000-0000-00000..33', gpl.order_id);
+  t('"Oct 6, 2026 1:27:40 PM GMT+7" reads as 13:27:40 +07:00 at second precision',
+    gpl._when && gpl._when.iso === '2026-10-06T13:27:40+07:00' && gpl._when.precision === 'second', gpl._when);
+  t('one item, price on the same line, vendor stripped from the name',
+    gpl.items && gpl.items.length === 1 && gpl.items[0].name === '100 GB (Google One)' && gpl.items[0].unit_price === 45000, gpl.items);
+  t('the renewal line rides as the variant', /Auto-renewing/.test(gpl.items[0].variant), gpl.items[0].variant);
+  t('store-neutral subscription signature: vendor | product', gpl.items[0].sig === 'sub|google|google one', gpl.items[0].sig);
+  t('items_total is the item sum, so the card can say 45.000 + thuế 5.000 = 50.000', gpl.items_total === 45000, gpl.items_total);
+  t('the wallet tail is read ("MoMo e-wallet: •••• 1217")', gpl.paid_with_tail === '1217', gpl.paid_with_tail);
+  t('no account email and no address anywhere in the reading',
+    JSON.stringify(gpl).indexOf("example.com") === -1 && JSON.stringify(gpl).indexOf("Pasir Panjang") === -1, gpl);
+  t('a ToS notice from the same sender (no Total) reads null', R.readSubscriptionInvoice('Google Play\nUpdates to Google Play Terms of Service\nWe are updating…', gpEntry && gpEntry.labels) === null);
 
   console.log('\n-- the Grab reader: minimal by construction --');
   const gr = R.readGrabReceipt(GRAB_RECEIPT, 'Your Grab E-Receipt');
@@ -374,8 +421,20 @@ const geminiFetch = (answer) => async (u, init) => {
   const qOff = SN.inboxQuery(2, [], { skip: [] });
   const qOn = SN.inboxQuery(2, [], { skip: [], receipts: true });
   t('off by default', !/apple\.com|grab\.com|tiki\.vn/.test(qOff));
-  t('on: every receipt domain rides WITH a subject filter',
-    SN.RECEIPT_DOMAINS.every((d) => qOn.indexOf('(from:' + d + ' subject:(') >= 0), qOn);
+  // receipt-providers-spec §4: a v6 grant sees exactly the senders consent v6
+  // named (since 6); anything registered later (since 7) waits for v7.
+  const v6 = SN.RECEIPT_DOMAINS.filter((d) => (SN.RECEIPT_SINCE[d] || 6) <= 6);
+  const v7only = SN.RECEIPT_DOMAINS.filter((d) => (SN.RECEIPT_SINCE[d] || 6) > 6);
+  t('on: every v6 receipt sender rides WITH a subject filter',
+    v6.length >= 7 && v6.every((d) => qOn.indexOf('(from:' + d + ' subject:(') >= 0), qOn);
+  t('on (v6): a sender registered under v7 does NOT ride yet',
+    v7only.length > 0 && v7only.every((d) => qOn.indexOf('from:' + d) < 0), v7only);
+  const q7 = SN.inboxQuery(2, [], { skip: [], consentV: 7 });
+  t('v7: every registry sender rides, each WITH its subject filter',
+    SN.RECEIPT_DOMAINS.every((d) => q7.indexOf('(from:' + d + ' subject:(') >= 0), q7);
+  t('an address-level sender is matched by address, not by its domain',
+    SN.match('Google Play <googleplay-noreply@google.com>') && SN.match('Google Play <googleplay-noreply@google.com>').kind === 'receipt'
+    && SN.match('Google <no-reply@accounts.google.com>') === null);
   t('on: the bank group is untouched', qOn.indexOf(qOff.split(' -from:')[0].replace(/^\(/, '')) >= 0
     || qOn.indexOf('from:mbbank') >= 0 || /from:/.test(qOn));
   t('the Apple filter catches invoice-titled receipts too',

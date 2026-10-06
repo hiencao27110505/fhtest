@@ -271,8 +271,10 @@ console.log('\n-- the gate asks exactly when it should --');
   await window.fhConsentSheet({});
   var re2 = SHEETS[0];
   var delta2 = re2.slice(re2.indexOf('cst-changed'), re2.indexOf('cst-fold'));
-  t('two versions behind: both changes are listed', delta2.indexOf('tối đa 90 ngày') >= 0 && delta2.indexOf('email hoá đơn') >= 0);
-  t('...oldest first', delta2.indexOf('gửi nguyên văn cho AI') < delta2.indexOf('tối đa 90 ngày'));
+  /* v7 (2026-10-06, receipt-providers-spec §4): V-2 is now v5, so the pair
+     shown is v6 (seven named stores) and v7 (the list lives in Settings). */
+  t('two versions behind: both changes are listed', delta2.indexOf('email hoá đơn từ Shopee') >= 0 && delta2.indexOf('Danh sách cửa hàng') >= 0);
+  t('...oldest first', delta2.indexOf('email hoá đơn từ Shopee') < delta2.indexOf('Danh sách cửa hàng'));
   t('and states the once-per-format limit that bounds it',
     delta2.indexOf('không gửi đi') >= 0);
 

@@ -1,5 +1,5 @@
 {
- "version": 3,
+ "version": 4,
  "updated": "2026-09-29",
  "kinds": [
   {
@@ -1728,13 +1728,11 @@
     "netflix",
     "spotify",
     "youtube premium",
-    "apple",
     "icloud",
     "fpt play",
     "apple.com/bill",
     "apple com bill",
-    "google one",
-    "google"
+    "google one"
    ],
    "concept": "Fun"
   },

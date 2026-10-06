@@ -49,7 +49,7 @@ const down = async () => ({ ok: false, status: 429, text: async () => 'rate limi
   const cfg = { apiKey: 'k' };
 
   console.log('-- the signature an item is learned under --');
-  t('an Apple item keeps the slot the reader gave it', M.itemSignatureFor({ name: 'The Long Walk', sig: 'apple|apple tv|movie rental' }, 'Apple') === 'apple|apple tv|movie rental');
+  t('an Apple item keeps the slot the reader gave it', M.itemSignatureFor({ name: 'The Long Walk', sig: 'store|apple tv|movie rental' }, 'Apple') === 'store|apple tv|movie rental');
   t('a marketplace item takes its head noun', M.itemSignatureFor({ name: 'Mũ Bơi / Nón Bơi Silicon Người Lớn' }, 'Shopee') === 'hn|mu boi');
   t('promo junk and quantities are skipped', M.itemSignatureFor({ name: '[Mã GIAM50] Nồi chiên không dầu Lock&Lock 5L' }, 'Tiki') === 'hn|noi chien');
   t('a provider whose items are not goods gets no head-noun signature', M.itemSignatureFor({ name: 'Car 6 chỗ' }, 'Grab') === null);
@@ -87,7 +87,7 @@ const down = async () => ({ ok: false, status: 429, text: async () => 'rate limi
   rc = { items: [
     { name: 'Vrelk zzyx không dầu' }, { name: 'Vrelk zzyx Philips 4L' },   // same signature, twice
     { name: 'Plorf gna 500ml' },
-    { name: 'YouTube Premium (Monthly)', sig: 'apple|vendor|youtube' },
+    { name: 'YouTube Premium (Monthly)', sig: 'sub|youtube|youtube premium' },
     { name: 'Xyzzy quux' },                                              // unknowable
   ] };
   const budget = { left: 3 };
@@ -130,7 +130,7 @@ const down = async () => ({ ok: false, status: 429, text: async () => 'rate limi
   await M.categoriseItems(rc, { provider: 'Shopee' }, { db, llm: cfg, fetch: m.fetchImpl, classifyBudget: { left: 5 } });
   t('…nor to a class or membership', rc.items[0].node == null && db.puts.length === 0);
   db = fakeDb(); m = fakeModel(() => 'streaming');
-  rc = { items: [{ name: 'Some Show', sig: 'apple|apple tv|movie rental' }] };
+  rc = { items: [{ name: 'Some Show', sig: 'store|apple tv|movie rental' }] };
   await M.categoriseItems(rc, { provider: 'Apple' }, { db, llm: cfg, fetch: m.fetchImpl, classifyBudget: { left: 5 } });
   t('the venue rule is for GOODS only: an Apple slot may resolve anywhere on the menu', rc.items[0].node === 'streaming');
 

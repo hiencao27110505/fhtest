@@ -883,6 +883,10 @@
          and fills is honest, a number that starts wrong is not. */
       '<div id="atx-pg"></div>' +
       '<div id="atx-feed"></div>' +
+      /* receipt-providers-spec §3.1: the stores whose receipts this mailbox
+         reads, with Gợi ý from discovery. Painted after the sheet opens, from
+         the same registry the worker reads (78-receipt-stores.js). */
+      '<div id="atx-rc"></div>' +
 
       /* ONE MAILBOX AT A TIME, said here because this is the screen someone is
          on when they think about adding another. `mailbox_grants` is unique on
@@ -913,6 +917,7 @@
     );
     // guarded so fhAutoTxnStatus stays extractable on its own (tools/autotxn-connected-live.test.js)
     if (typeof _atxStatusProgress === 'function') _atxStatusProgress(conn);
+    if (typeof window.fhReceiptStoresPaint === 'function') { try { window.fhReceiptStoresPaint(conn); } catch (e) {} }
   }
   window.fhAutoTxnStatus = fhAutoTxnStatus;
 

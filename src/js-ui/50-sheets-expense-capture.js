@@ -985,6 +985,8 @@ function submitBulk(opts){
     window._fhImportAcct = (rows[k] && rows[k].pAcct) || null;   // 0134 the author's account id → the mirror master's tag
     window._fhImportLink = (rows[k] && rows[k].link) || null;    // 0134 pre-reserved link_id for that master
     window._fhImportNode = (rows[k] && rows[k].node) || null;    // 0144 the node reviewed for this row; null on a hand-typed row → the composer's guess stands
+    window._fhImportRecur = (rows[k] && rows[k].recur) || null;        // recurring-charges-spec RR1
+    window._fhImportRecurSrc = (rows[k] && rows[k].recurSrc) || null;
     BULK_SAVING=true;
     try{ window.addExpense(); } finally{ BULK_SAVING=false; }
   }
@@ -993,6 +995,7 @@ function submitBulk(opts){
   window._fhImportAcct=null;
   window._fhImportLink=null;
   window._fhImportNode=null;
+  window._fhImportRecur=null; window._fhImportRecurSrc=null;
   exPhotos=[];
   // One nudge for the whole batch — each row's own addExpense() stayed silent under
   // BULK_SAVING. A lone surviving row is a single expense, not a batch (the composer

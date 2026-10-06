@@ -698,7 +698,8 @@
       try { if (typeof loadRow === 'function') loadRow(0); } catch (e) {}
       window._fhImportSrc = src || null;
       window._fhImportInst = (QR && QR.inst) || null;   // 0131 — explicit null, never a stale value from a prior bulk
-      window._fhImportNode = _qrNode('expense');        // 0144 — the node this sheet resolved (or the person picked) rides to the family row too
+      window._fhImportNode = _qrNode('expense');
+      window._fhImportRecur = null; window._fhImportRecurSrc = null;   // a quick review carries no recurrence pick        // 0144 — the node this sheet resolved (or the person picked) rides to the family row too
       /* 0134 — the author's instrument rides to the mirror master even from
          the one-row sheet (account-setup-spec §6): resolve the account, reserve
          the link_id; the family writer creates the tagged master. Locked

@@ -37,7 +37,7 @@ function t(name, ok, extra) {
   const field = C.RAW_FIELDS.find((f) => f.key === 'receipt');
   t('receipt is an obj block with the spec §9 keys',
     JSON.stringify(field.keys) === JSON.stringify(
-      ['service_type', 'order_id', 'seller', 'items', 'items_total', 'discount', 'shipping_fee', 'paid', 'paid_with_tail', 'service_label', 'points_discount']),
+      ['service_type', 'order_id', 'seller', 'items', 'items_total', 'discount', 'shipping_fee', 'paid', 'paid_with_tail', 'service_label', 'points_discount', 'tax', 'period']),
     field.keys);
   t('items is declared an array of pruned elements (Phase 2 adds node + sig)',
     JSON.stringify(field.arrays && field.arrays.items) === JSON.stringify(
@@ -84,8 +84,11 @@ function t(name, ok, extra) {
   console.log('\n-- the consent coupling --');
   const clientSrc = fs.readFileSync(HERE + '../src/js-data/75-consent-ui.js', 'utf8');
   const m = /var FH_CONSENT_V = (\d+);/.exec(clientSrc);
-  t('RECEIPT_CONSENT_V equals the client\'s FH_CONSENT_V',
-    !!m && Number(m[1]) === SN.RECEIPT_CONSENT_V, { client: m && m[1], senders: SN.RECEIPT_CONSENT_V });
+  /* receipt-providers-spec §4: the client's consent is the REGISTRY version
+     (7); the seven named stores keep their v6 floor beneath it. */
+  t('the client\'s FH_CONSENT_V is RECEIPT_REGISTRY_V, and RECEIPT_CONSENT_V sits at or below it',
+    !!m && Number(m[1]) === SN.RECEIPT_REGISTRY_V && SN.RECEIPT_CONSENT_V <= Number(m[1]),
+    { client: m && m[1], registry: SN.RECEIPT_REGISTRY_V, senders: SN.RECEIPT_CONSENT_V });
   t('the v6 change entry names the annotate-only rule',
     /không bao giờ tự tạo giao dịch mới/.test(clientSrc));
   t('inboxQuery still does NOT fetch receipt domains (that is L2, gated)',

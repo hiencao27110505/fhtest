@@ -55,6 +55,8 @@
          global (a hand-typed bulk row, or a review that found none) leaves the
          composer's guess standing, exactly as before. */
       if (window.BULK_SAVING && window._fhImportNode) nt.node = window._fhImportNode;
+      /* recurring-charges-spec RR1: the reviewed recurrence rides the same hand-off. */
+      if (window.BULK_SAVING) { nt.recur = window._fhImportRecur || null; nt.recurSrc = window._fhImportRecurSrc || null; }
     }
     const newKeys = (window.order || []).filter((k) => beforeOrder.indexOf(k) < 0);
     const inserted = nt ? _dbInsertTxn(nt, exD) : Promise.resolve();

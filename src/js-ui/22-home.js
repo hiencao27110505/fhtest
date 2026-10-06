@@ -546,6 +546,9 @@ function renderHome(){
     html += _sectionH(L('Mục tiêu chung', 'Shared goals'), 'openGoal()', '＋ ' + L('Mục tiêu', 'Goal')) + '<div class="hgoals">' + gRows + '</div>';
   }
 
+  /* ============ ĐỊNH KỲ — what the family pays every month without deciding (recurring-charges-spec RR7) ============ */
+  html += (window.famRecurSection ? famRecurSection() : '');
+
   /* ============ NHỚ LẠI — a big nostalgia photo when a memory shares today's date ============ */
   if(onThis.length){
     var rr = onThis[0], refN = rr.type + ':' + rr.ref;

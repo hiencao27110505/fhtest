@@ -326,6 +326,7 @@
       { family_id: fid, category_id: catId, member_id: _memberIdForWho(t.who), txn_date: _txnIso(t, exD), status: t.future ? 'planned' : 'realized', created_by: (window.DB && window.DB.ownerMemberId) || null,
         source: t.source || null,     // 0100 provenance: 'direct-email' | 'forwarding-email' | 'csv-import'; null = hand-entered
         instrument: t.inst || null,   // 0131 money source string; email-staged rows + a tagged manual log (0134)
+        recurrence: t.recur || null, recurrence_source: t.recur ? (t.recurSrc || 'person') : (t.recurSrc === 'person' ? 'person' : null),   // 0157 recurring-charges-spec
         link_id: linkId },            // 0134: pre-reserved so the tagged master below is THE master
       await fhField('amount', t.amt), await fhField('note', t.note),
       await fhField('occurred_time', _okTxnTime(t.time)),   // local "HH:MM" or null (day-only)
@@ -360,7 +361,8 @@
     try {
       const catId = window.DB.catByName[t.cat] || await _categoryIdForName(t.cat, t.ico, window.catOrder.indexOf(t.cat) + 1);
       const patch = Object.assign(
-        { category_id: catId, member_id: _memberIdForWho(t.who), txn_date: _txnIso(t, exD), status: t.future ? 'planned' : 'realized' },
+        { category_id: catId, member_id: _memberIdForWho(t.who), txn_date: _txnIso(t, exD), status: t.future ? 'planned' : 'realized',
+          recurrence: t.recur || null, recurrence_source: t.recur ? (t.recurSrc || 'person') : (t.recurSrc === 'person' ? 'person' : null) },
         await fhField('amount', t.amt), await fhField('note', t.note),
         await fhField('occurred_time', _okTxnTime(t.time)),   // clearing the time drops back to day-only
         await fhField('node', _okNode(t.node)));               // 0144: tree node code, or null

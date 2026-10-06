@@ -32,6 +32,38 @@ const ROOT = path.join(__dirname, '..');
 const SRC = path.join(ROOT, 'taxonomy', 'providers.json');
 const KINDS = ['bank', 'wallet', 'gateway', 'broker', 'lender', 'receipt'];
 
+/* Receipt block (receipt-providers-spec.md §9). A `kind: receipt` entry says
+   who sends its receipts, which subjects are receipts (the fetch-cost gate),
+   which reading family the mail belongs to, and the labels that family's
+   walk anchors on. senders.mjs builds RECEIPTS / RECEIPT_SUBJECTS from this,
+   so a bad block here reads the wrong mail for everyone: hence the rules. */
+const FAMILIES = ['marketplace_order', 'subscription_invoice', 'service_receipt', 'model_only'];
+/* A bare domain that also carries a person's own mail or a platform's
+   unrelated mail may never be a receipt sender: register the full address. */
+const REFUSE_BARE = new Set([
+  'gmail.com', 'googlemail.com', 'yahoo.com', 'yahoo.com.vn', 'ymail.com', 'outlook.com', 'outlook.com.vn',
+  'hotmail.com', 'live.com', 'msn.com', 'icloud.com', 'me.com', 'mac.com', 'aol.com', 'proton.me', 'protonmail.com',
+  'zoho.com', 'mail.com', 'gmx.com', 'yandex.com', 'google.com', 'microsoft.com', 'facebook.com', 'amazon.com',
+]);
+function checkReceipt(p, senderIx) {
+  const r = p.receipt;
+  if (p.kind !== 'receipt') { if (r) throw new Error('providers: ' + p.key + ' has a receipt block but kind ' + p.kind); return; }
+  if (!r) return; // a receipt provider with no block is a label only (resolves prose, never fetched)
+  if (!Array.isArray(r.senders) || !r.senders.length) throw new Error('providers: ' + p.key + ' receipt.senders empty');
+  for (const s0 of r.senders) {
+    const s = String(s0 || '').trim().toLowerCase();
+    if (!s || /\s|"/.test(s) || s !== s0) throw new Error('providers: ' + p.key + ' bad sender "' + s0 + '"');
+    if (s.indexOf('@') < 0 && REFUSE_BARE.has(s)) throw new Error('providers: ' + p.key + ' bare domain ' + s + ' refused; register the full address');
+    if (senderIx.has(s)) throw new Error('providers: sender ' + s + ' claimed by ' + senderIx.get(s) + ' and ' + p.key);
+    senderIx.set(s, p.key);
+  }
+  if (!Array.isArray(r.subjects) || !r.subjects.length) throw new Error('providers: ' + p.key + ' receipt.subjects empty (the cost gate is not optional)');
+  for (const t of r.subjects) if (typeof t !== 'string' || !t.trim()) throw new Error('providers: ' + p.key + ' bad subject term');
+  if (FAMILIES.indexOf(r.family) < 0) throw new Error('providers: ' + p.key + ' bad family ' + r.family);
+  if (r.family !== 'model_only' && (!r.labels || typeof r.labels !== 'object')) throw new Error('providers: ' + p.key + ' family ' + r.family + ' needs labels');
+  if (r.since != null && !(Number.isInteger(r.since) && r.since >= 6)) throw new Error('providers: ' + p.key + ' bad since ' + r.since);
+}
+
 function squash(s) {
   return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
     .replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -39,8 +71,9 @@ function squash(s) {
 
 function load() {
   const reg = JSON.parse(fs.readFileSync(SRC, 'utf8'));
-  const keys = new Set(), nameIx = new Map(), binIx = new Map(), codeIx = new Map();
+  const keys = new Set(), nameIx = new Map(), binIx = new Map(), codeIx = new Map(), senderIx = new Map();
   for (const p of reg.providers) {
+    checkReceipt(p, senderIx);
     if (!/^[a-z0-9]+$/.test(p.key)) throw new Error('providers: bad key ' + p.key);
     if (keys.has(p.key)) throw new Error('providers: duplicate key ' + p.key);
     keys.add(p.key);
@@ -114,10 +147,26 @@ function helpers() {
   function kindOf(key) { return BY[key] ? BY[key].kind : ''; }
   function resolve(prose) { var k = keyOf(prose); return k ? { key: k, label: BY[k].label, kind: BY[k].kind } : null; }
   function all() { return LIST.slice(); }
+  /* Receipt senders, one row per sender (receipt-providers-spec.md §9):
+     { key, label, sender, subjects, family, labels, since }. 'since' is the
+     bank_email consent version that first covers the sender (6 = the seven
+     named in v6; 7 = anything added under the registry consent). */
+  function receiptSenders() {
+    var out = [], k, r;
+    for (k = 0; k < LIST.length; k++) {
+      p = LIST[k]; r = p.receipt;
+      if (p.kind !== 'receipt' || !r) continue;
+      for (j = 0; j < r.senders.length; j++) {
+        out.push({ key: p.key, label: p.label, sender: r.senders[j], subjects: (r.subjects || []).slice(),
+                   family: r.family, labels: r.labels || null, since: r.since || 6 });
+      }
+    }
+    return out;
+  }
 `;
 }
 
-const API = 'version: DATA.version, get: get, labelOf: labelOf, kindOf: kindOf, keyOf: keyOf, slugOf: slugOf, keyFromBin: keyFromBin, keyFromCode: keyFromCode, resolve: resolve, all: all';
+const API = 'version: DATA.version, get: get, labelOf: labelOf, kindOf: kindOf, keyOf: keyOf, slugOf: slugOf, keyFromBin: keyFromBin, keyFromCode: keyFromCode, resolve: resolve, all: all, receiptSenders: receiptSenders';
 
 function generate() {
   const reg = load();

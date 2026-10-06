@@ -31,8 +31,8 @@
        v5 shipped with a bug that marked a scope done after one batch of
        unresolvable rows, so every device is sitting on a false "done" and v6
        is what undoes that. */
-    if (scope === 'family') return 'fh-tree-bf:v13:fam:' + ((window.DB && window.DB.fid) || '');
-    return 'fh-tree-bf:v13:per:' + ((window.fhPersonalData && fhPersonalData().uid) || '');
+    if (scope === 'family') return 'fh-tree-bf:v14:fam:' + ((window.DB && window.DB.fid) || '');
+    return 'fh-tree-bf:v14:per:' + ((window.fhPersonalData && fhPersonalData().uid) || '');
   }
   function _tbfDone(scope) { try { return localStorage.getItem(_tbfCursorKey(scope)) === 'done'; } catch (e) { return false; } }
   function _tbfMarkDone(scope) { try { localStorage.setItem(_tbfCursorKey(scope), 'done'); } catch (e) {} }

@@ -31,6 +31,7 @@
 
 import * as llm from './llm.mjs';
 import { SENDER_JUNK_THRESHOLD, SENDER_SENTINEL } from './extract.mjs';
+import { receiptEntryFor } from './senders.mjs';
 
 /* ── small parsers ───────────────────────────────────────────────────────── */
 
@@ -77,10 +78,16 @@ export function receiptWhen(s) {
     m = t.match(/(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{4})/);             // "28 Sep 2026"
     if (m && _EN_MONTHS[m[2].slice(0, 3).toLowerCase()]) { d = +m[1]; mo = _EN_MONTHS[m[2].slice(0, 3).toLowerCase()]; y = +m[3]; }
   }
+  if (!y) {
+    m = t.match(/([A-Za-z]{3,9})\s+(\d{1,2}),\s*(\d{4})/);            // "Oct 6, 2026" (Google Play)
+    if (m && _EN_MONTHS[m[1].slice(0, 3).toLowerCase()]) { d = +m[2]; mo = _EN_MONTHS[m[1].slice(0, 3).toLowerCase()]; y = +m[3]; }
+  }
   if (!y || !mo || !d || mo > 12 || d > 31) return null;
-  const tm = t.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  const tm = t.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/i);
   const p2 = (n) => String(n).padStart(2, '0');
-  const time = tm ? p2(+tm[1]) + ':' + tm[2] + ':' + (tm[3] || '00') : '00:00:00';
+  let hh = tm ? +tm[1] : 0;
+  if (tm && tm[4]) { const pm = /pm/i.test(tm[4]); if (pm && hh < 12) hh += 12; if (!pm && hh === 12) hh = 0; }
+  const time = tm ? p2(hh) + ':' + tm[2] + ':' + (tm[3] || '00') : '00:00:00';
   return {
     iso: y + '-' + p2(mo) + '-' + p2(d) + 'T' + time + '+07:00',
     precision: tm ? (tm[3] ? 'second' : 'minute') : 'day',
@@ -90,12 +97,113 @@ export function receiptWhen(s) {
 /** The paying card's last four, from "MasterCard .... 4751" / "VISA ••5913"
  *  / "478466******5913" — never a full PAN. */
 function cardTail(text) {
-  const m = String(text || '').match(/(?:mastercard|visa|jcb|amex|card|thẻ)[^\n\d]{0,24}(?:[.•*x#]\s*){2,}(\d{4})(?!\d)/i)
+  const m = String(text || '').match(/(?:mastercard|visa|jcb|amex|card|thẻ|wallet|ví)[^\n\d]{0,24}(?:[.•*x#]\s*){2,}(\d{4})(?!\d)/i)
     || String(text || '').match(/\d{6}[•*x#]{4,}(\d{4})(?!\d)/);
   return m ? m[1] : null;
 }
 
 /* ── the hand-written readers ────────────────────────────────────────────── */
+
+/* ── the subscription-invoice FAMILY (receipt-providers-spec.md §11) ──────
+   One walk, parameterised by a label dictionary from the registry. Google
+   Play is its first dictionary; Apple keeps its own reader for now (two
+   layouts, storefront sections) and will fold in when its dictionary covers
+   both. Labels may sit on the value's own line ("Total: 50.000 ₫/month") or
+   on the line before it ("Payment method:" / "MoMo e-wallet: •••• 1217") —
+   `_labelVal` reads both. */
+function _fold(s) {
+  return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase().trim();
+}
+/** The value for any of `labels`: the rest of the label's own line after
+ *  the colon, or the next non-empty line when the label stands alone. */
+function _labelVal(lines, labels) {
+  for (let i = 0; i < lines.length; i++) {
+    const f = _fold(lines[i]);
+    for (const lb of labels || []) {
+      const l = _fold(lb);
+      if (!l) continue;
+      if (f === l || f === l + ':') { for (let j = i + 1; j < lines.length && j <= i + 2; j++) if (lines[j]) return lines[j]; return null; }
+      if (f.indexOf(l + ':') === 0 || f.indexOf(l + ' :') === 0) {
+        const v = lines[i].slice(lines[i].indexOf(':') + 1).trim();
+        if (v) return v;
+        for (let j = i + 1; j < lines.length && j <= i + 2; j++) if (lines[j]) return lines[j];
+      }
+    }
+  }
+  return null;
+}
+/** "45.000 ₫/month" → { amount, period }; "₫105.000" too. Null when no money. */
+function _moneyPeriod(s) {
+  const t = String(s || '');
+  const m = t.match(/([\d][\d.,]*)\s?[đ₫](?:\s?\/\s?(month|year|week|thang|nam|tuan|tháng|năm|tuần))?/i)
+    || t.match(/[đ₫]\s?([\d][\d.,]*)(?:\s?\/\s?(month|year|week|thang|nam|tuan|tháng|năm|tuần))?/i);
+  if (!m) return null;
+  const a = amt(m[1]);
+  if (!(a > 0)) return null;
+  const p = m[2] ? _fold(m[2]) : '';
+  const period = /^(month|thang)$/.test(p) ? 'month' : /^(year|nam)$/.test(p) ? 'year' : /^(week|tuan)$/.test(p) ? 'week' : null;
+  return { amount: a, period, index: m.index };
+}
+const _VENDOR_NOISE = /\b(llc|inc\.?|ltd\.?|limited|pte\.?|co\.?|corp\.?|gmbh|s\.a\.|company)\b/gi;
+
+export function readSubscriptionInvoice(text, labels) {
+  const L = labels || {};
+  const t = String(text || '');
+  const lines = _lines(t);
+  if (!lines.length) return null;
+
+  const totalRaw = _labelVal(lines, L.total || ['Total']);
+  const total = _moneyPeriod(totalRaw);
+  if (!total) return null;                       // a receipt with no paid figure cannot join anything
+  const taxRaw = _labelVal(lines, L.tax || ['Tax']);
+  const tax = taxRaw ? _moneyPeriod(taxRaw) : null;
+  const orderId = _labelVal(lines, L.order_id || ['Order number', 'Order ID']);
+  const when = receiptWhen(_labelVal(lines, L.order_date || ['Order date', 'Date']) || '');
+
+  /* Items: from the header line to the first tax/total label. A row is a
+     line that ends in money; the lines after it, until the next money line
+     or label, are its attributes. A "(by Vendor)" tail names the vendor. */
+  const headSet = (L.items_head || ['Item']).map(_fold);
+  const stopSet = [].concat(L.tax || ['Tax'], L.total || ['Total'], L.payment || ['Payment method']).map(_fold);
+  let start = lines.findIndex(function (ln) { const f = _fold(ln); return headSet.some(function (h) { return h && (f === h || f.indexOf(h + ' ') === 0); }); });
+  let stop = lines.findIndex(function (ln, i) { const f = _fold(ln); return i > start && stopSet.some(function (h) { return h && (f === h || f === h + ':' || f.indexOf(h + ':') === 0); }); });
+  if (stop < 0) stop = lines.length;
+  const items = [];
+  let period = total.period || null;
+  if (start >= 0) {
+    for (let i = start + 1; i < stop; i++) {
+      const ln = lines[i];
+      const mp = _moneyPeriod(ln);
+      if (!mp) continue;
+      let name = ln.slice(0, mp.index).trim().replace(/[:\-–]\s*$/, '').trim();
+      if (!name) continue;
+      let vendor = null;
+      const by = name.match(/\(by\s+([^)]+)\)/i);
+      if (by) { vendor = by[1].trim(); name = name.replace(by[0], '').replace(/\s+/g, ' ').trim(); }
+      const attrs = [];
+      for (let j = i + 1; j < stop; j++) { if (!lines[j] || _moneyPeriod(lines[j])) break; attrs.push(lines[j]); }
+      const renewal = (L.renewal || ['Auto-renewing subscription']).map(_fold);
+      const isSub = !!mp.period || attrs.some(function (a) { const f = _fold(a); return renewal.some(function (r) { return r && f.indexOf(r) >= 0; }) || _SUB_RE.test(a); });
+      const paren = name.match(/\(([^)]+)\)/);
+      const product = String(paren ? paren[1] : name).toLowerCase().replace(/\s+/g, ' ').trim().slice(0, 40);
+      const vend = (vendor || '').replace(_VENDOR_NOISE, '').replace(/[.,]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+      const sig = isSub ? ('sub|' + (vend || product.split(' ')[0]) + '|' + product) : null;
+      if (isSub && !period) period = mp.period || 'month';
+      items.push({ name: name.slice(0, 200), qty: null, unit_price: mp.amount, line_discount: null,
+        variant: attrs.length ? attrs.join(' \u00b7 ').slice(0, 80) : null, sig });
+    }
+  }
+  const itemsTotal = items.length && items.every(function (i) { return i.unit_price != null; })
+    ? items.reduce(function (s, i) { return s + i.unit_price; }, 0) : null;
+
+  return {
+    service_type: period ? 'subscription' : 'digital', order_id: orderId || null, seller: null,
+    items: items.length ? items : null,
+    items_total: itemsTotal, discount: null, shipping_fee: null,
+    tax: tax ? tax.amount : null, period,
+    paid: total.amount, paid_with_tail: cardTail(t), _when: when,
+  };
+}
 
 /* ── label/value line scanning ────────────────────────────────────────────
    mailtext.mjs turns every table cell into its own LINE, so in the real
@@ -248,10 +356,16 @@ function _applePrice(ln) {
    layout-A signature that says WHAT KIND of thing was bought. */
 const _APPLE_KINDS = /^(movie rental|movie|film|tv season|tv show|season pass|subscription|in-app purchase|app|game|book|audiobook|song|album|storage plan|icloud\+?)$/i;
 
+/** Subscription wording on an item's own lines: the content kind, a
+ *  "(Monthly)" tail, a renewal line. receipt-providers-spec §13. */
+const _SUB_RE = /subscription|storage plan|icloud|\b(monthly|yearly|annual|weekly)\b|hàng tháng|hàng năm|gia hạn|thuê bao/i;
+const _YEAR_RE = /yearly|annual|hàng năm|\/year|\/năm/i;
 /** One item out of the lines that preceded a price. The signature it is
- *  learned under (spec §20.2) rides on the item: `apple|<storefront>|<kind>`
- *  for a purchase receipt, `apple|vendor|<vendor>` for a subscription
- *  invoice, null when neither leads the group. */
+ *  learned under (spec §20.2, receipt-providers-spec §13) rides on the item,
+ *  store-neutral: `sub|<vendor>|<product>` for anything subscribed (the same
+ *  key whether it was billed through Apple or Google Play),
+ *  `store|<storefront>|<kind>` for one-off store content, null when neither
+ *  leads the group. `_period` is lifted to the receipt by the caller. */
 function _appleItem(group, price, items, sectionStore) {
   let g = group.filter(function (x) {
     return !/^Report a Problem/i.test(x) && !/^B\u00e1o c\u00e1o/i.test(x) && !/^\d{6,}$/.test(x);
@@ -270,10 +384,14 @@ function _appleItem(group, price, items, sectionStore) {
   const attrs = g.slice(1);
   const kind = attrs.find(function (x) { return _APPLE_KINDS.test(x.trim()); }) || null;
   const norm = function (x) { return String(x).toLowerCase().replace(/\s+/g, ' ').trim(); };
-  const sig = store ? ('apple|' + norm(store) + '|' + (kind ? norm(kind) : 'item'))
-    : vendor ? ('apple|vendor|' + norm(vendor)) : null;
-  items.push({ name: g[0].slice(0, 200), qty: null, unit_price: price, line_discount: null,
-    variant: attrs.length ? attrs.join(' \u00b7 ').slice(0, 80) : null, sig });
+  const isSub = !!vendor || (kind && _SUB_RE.test(kind)) || attrs.some(function (a) { return _SUB_RE.test(a); }) || /\((monthly|yearly|annual|weekly)\)/i.test(g[0]);
+  const product = norm(g[0].replace(/\((monthly|yearly|annual|weekly)\)/ig, '').replace(/\s+/g, ' ')).slice(0, 40);
+  const sig = isSub ? ('sub|' + norm(vendor || store || 'apple') + '|' + product)
+    : store ? ('store|' + norm(store) + '|' + (kind ? norm(kind) : 'item')) : null;
+  const item = { name: g[0].slice(0, 200), qty: null, unit_price: price, line_discount: null,
+    variant: attrs.length ? attrs.join(' \u00b7 ').slice(0, 80) : null, sig };
+  if (isSub) item._period = _YEAR_RE.test(attrs.join(' ') + ' ' + g[0]) ? 'year' : 'month';
+  items.push(item);
 }
 
 export function readAppleReceipt(text, subject) {
@@ -327,10 +445,16 @@ export function readAppleReceipt(text, subject) {
     group.push(ln);
   }
 
+  /* The billing period rides at receipt level (contract §12); the item key
+     list has no slot for it and `_item` would drop it anyway. */
+  const periodItem = items.find(function (i) { return i._period; });
+  const period = periodItem ? periodItem._period : null;
+  items.forEach(function (i) { delete i._period; });
+
   return {
-    service_type: 'digital', order_id: orderId, seller: null,
+    service_type: period ? 'subscription' : 'digital', order_id: orderId, seller: null,
     items: items.length ? items : null,
-    items_total: null, discount: null, shipping_fee: null,
+    items_total: null, discount: null, shipping_fee: null, tax: null, period,
     paid, paid_with_tail: cardTail(t), _when: when,
   };
 }
@@ -463,7 +587,14 @@ function _extraction(rc, provider) {
  * @param o        { provider, sender, template, fp, build, budget, llm, fetch }
  */
 export async function readReceiptMail(message, db, o) {
-  const det = _READERS[o.provider] ? _READERS[o.provider](message) : null;
+  /* A provider with its own reader keeps it; otherwise the registry's FAMILY
+     and label dictionary decide (receipt-providers-spec §11). A model_only
+     family, or no entry, falls through to the model under the per-shape cap. */
+  let det = _READERS[o.provider] ? _READERS[o.provider](message) : null;
+  if (!det && !_READERS[o.provider]) {
+    const entry = o.family ? { family: o.family, labels: o.labels || null } : receiptEntryFor(message.from || o.sender || '');
+    if (entry && entry.family === 'subscription_invoice' && entry.labels) det = readSubscriptionInvoice(message.body, entry.labels);
+  }
   if (det) {
     /* The shape is a confirmed source — which is what keeps the sender-wide
        junk sentinel off a real receipt sender (`txn === 0` guard). Written
@@ -484,6 +615,8 @@ export async function readReceiptMail(message, db, o) {
   if (o.build && o.fp && !o.fp._sender_wide && o.fp.is_transaction_source === true
       && Number(o.fp.model_reads) >= 1 && o.fp.model_read_build === o.build) {
     await db.bumpReadTally?.('format_cap');
+    // receipt-providers-spec §16 RP6: the number release 2 (recipes) must beat.
+    await db.bumpReadTally?.('receipt_capped');
     return { ok: false, reason: 'format_cap' };
   }
 
@@ -544,6 +677,8 @@ export async function readReceiptMail(message, db, o) {
     // The model's label goes through the same shape test as the reader's own.
     service_label: (typeof rc.service_label === 'string' && grabServiceLabel([rc.service_label.trim()])) || null,
     points_discount: (Number(rc.points_discount) > 0) ? Number(rc.points_discount) : null,
+    tax: (Number(rc.tax) > 0) ? Number(rc.tax) : null,
+    period: ['week', 'month', 'year'].indexOf(rc.period) >= 0 ? rc.period : null,
     _when: adoptSendTime(when, o.provider === 'Grab' ? message.internalDate : NaN)
       || (x.occurred_at ? { iso: x.occurred_at, precision: x.time_precision || null } : null),
   }, o.provider);

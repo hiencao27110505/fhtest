@@ -150,6 +150,7 @@ function renderExpenseDetail(){
     rows+=_exdRow({label:L('Loại khoản','Kind'), ro:true, val:'<b>'+(isFuture?L('Chi tiêu dự kiến','Planned expense'):L('Chi tiêu','Spending'))+'</b>'});
     rows+=_exdRow({label:L('Danh mục','Category'), chg:EXD.cat!=null, val:'<b>'+s[0]+' '+esc(vCat)+'</b>', fn:"exdSheetCat('fam')"});
     rows+=_exdNodeRow(t, true);
+    if(window.FH_RECUR && !isFuture) rows+=_exdRecurRow(t, 'fam');
     rows+=_exdRow({label:whoLbl, chg:EXD.who!=null, ro:isFuture, val:whoVal, fn:"exdSheetWho()"});
     rows+=fhPickRow({label:L('Ngày','Date'), type:'date', value:fIso, on:'exdPickDate', arg:'fam', chg:EXD.dateIso!=null,
       val:'<b class="num">'+esc(fDateLbl)+'</b>'});
@@ -782,6 +783,7 @@ function renderPersonalTxDetail(){
   rows+=R('Loại khoản',_pexdKindLbl(E),{ro:!(k==='expense'||k==='loan'||k==='invest'), fn:'pexdSheetKind()'});
   if(k==='expense') rows+=R('Danh mục',esc(em)+' '+esc(vCat||'Chưa rõ'),{chg:PXD.cat!=null, soft:!vCat, fn:"exdSheetCat('pers')"})+(ed?_pexdPreSubHTML(t,'cat'):'');
   if(k==='expense'||k==='income') rows+=_exdNodeRow(t, !!ed, 'pers')+((ed&&k==='expense')?_pexdPreSubHTML(t,'node'):'');
+  if(k==='expense' && window.FH_RECUR) rows+=_exdRecurRow(t, 'pers');
   if(k==='income') rows+=R('Danh mục',esc(vCat||'Khác'),{chg:PXD.cat!=null, fn:'pexdSheetIncCat()'});
   if(k==='loan'){
     rows+=R(E.lent?'Cho ai mượn':'Mượn của ai',vWho?esc(vWho):'Chọn',{chg:PXD.who!==undefined, soft:!vWho, fn:"pexdSheetText('who')"});
@@ -946,7 +948,8 @@ function _pexdReceiptHTML(rc){
   if(rc.discount) math.push(['Voucher/giảm giá', '\u2212'+money(rc.discount), 'good']);
   if(rc.points_discount) math.push([rc.provider==='Grab'?'GrabCoins':L('Điểm thưởng','Points'), '\u2212'+money(rc.points_discount), 'good']);
   if(rc.shipping_fee) math.push(['Phí vận chuyển', money(rc.shipping_fee), '']);
-  if(rc.paid!=null && (math.length || items.length>1)) math.push(['Đã trả', money(rc.paid), 'strong']);
+  if(rc.tax) math.push(['Thuế', money(rc.tax), '']);
+  if(rc.paid!=null && (math.length || items.length>1)) math.push([rc.period ? L('Đã trả · '+_pexdPeriodVi(rc.period), 'Paid · '+_pexdPeriodVi(rc.period)) : 'Đã trả', money(rc.paid), 'strong']);
   if(math.length){
     h+='<div class="pexd-rc-math">'+math.map(function(m){
       return '<div class="pexd-rc-mrow'+(m[2]?' '+m[2]:'')+'"><span>'+esc(m[0])+'</span><span class="num">'+esc(m[1])+'</span></div>';
@@ -954,6 +957,62 @@ function _pexdReceiptHTML(rc){
   }
   h+='</div>';
   return h;
+}
+
+/* "hàng tháng" / "hàng năm" / "hàng tuần" for a receipt's billing period. */
+function _pexdPeriodVi(p){ return p==='year' ? L('hàng năm','yearly') : p==='week' ? L('hàng tuần','weekly') : L('hàng tháng','monthly'); }
+
+/* ── Định kỳ (recurring-charges-spec §3.2, RR6) ──────────────────────────
+   One row on both ledgers' detail screens: the period, the next date derived
+   on device, a creep note when the latest charge rose. Tapping opens the
+   shared choices sheet; a pick WRITES AT ONCE (like Loại khoản), through the
+   ledger's own door, and teaches the merchant. */
+function _exdRecurSeriesOf(t, mode){
+  try{
+    var list = mode==='fam' ? (window.fhRecurFamilySeries ? fhRecurFamilySeries() : []) : (window.fhRecurPersonalSeries ? fhRecurPersonalSeries() : []);
+    var id = mode==='fam' ? t._dbId : t.id;
+    for(var i=0;i<list.length;i++){ var s=list[i]; for(var j=0;j<s.rows.length;j++){ var r=s.rows[j]; if((r._t?r._t._dbId:r.id)===id) return s; } }
+  }catch(e){}
+  return null;
+}
+function _exdRecurRow(t, mode){
+  var p = t.recur||null, src = t.recurSrc||null;
+  var s = p ? _exdRecurSeriesOf(t, mode) : null;
+  var lbl = p ? FH_RECUR.labelVi(p).replace(/^./, function(c){ return c.toUpperCase(); }) : L('Không','No');
+  var next = s && s.next ? L(' · kỳ tới '+s.next.slice(8,10).replace(/^0/,'')+'/'+s.next.slice(5,7).replace(/^0/,''), ' · next '+s.next.slice(8,10)+'/'+s.next.slice(5,7)) : '';
+  var soft = p && src==='pattern' && s && s.soft;
+  var val = (soft ? '<span class="exd-soft">'+esc(L('Có vẻ ','Maybe '))+'</span>' : '')+esc(lbl)+esc(next)
+    + ((s && s.creep>0) ? '<span class="exd-recur-up">'+esc(L('tăng '+fmt(s.creep)+' so với kỳ trước','up '+fmt(s.creep)+' vs last'))+'</span>' : '');
+  return _exdRow({label:L('Định kỳ','Recurring'), val:'<b>'+val+'</b>', soft:!p, fn: mode==='fam' ? 'exdSheetRecur()' : 'pexdSheetRecur()'});
+}
+function _exdRecurSheet(cur, onPick, soft){
+  var opts=[['','Không','No'],['weekly','Hàng tuần','Weekly'],['monthly','Hàng tháng','Monthly'],['yearly','Hàng năm','Yearly']];
+  var h = opts.map(function(o){ return '<button type="button" class="choice'+((cur||'')===o[0]?' on':'')+'" onclick="'+onPick+'(&#39;'+o[0]+'&#39;)">'+esc(L(o[1],o[2]))+'</button>'; }).join('');
+  if(soft) h = '<button type="button" class="choice" onclick="'+onPick+'(&#39;'+cur+'&#39;)">'+esc(L('Đúng rồi, '+FH_RECUR.labelVi(cur),'Yes, '+FH_RECUR.labelEn(cur)))+'</button>'+h;
+  _pexdChoices(L('Định kỳ','Recurring'), L('Chọn xong là lưu ngay. Khoản lặp lại gom vào Định kỳ ở Tài chính.','Saves at once. Repeating charges gather under Recurring.'), h);
+}
+function pexdSheetRecur(){ var E=_pexdEntry(); if(!E) return; var t=E.t; _exdRecurSheet(t.recur||'', 'pexdPickRecur', t.recur && t.recurSrc==='pattern'); }
+async function pexdPickRecur(v){
+  closeSheet(); var E=_pexdEntry(); if(!E) return; var t=E.t;
+  var p = (v==='weekly'||v==='monthly'||v==='yearly') ? v : null;
+  if(!window.fhPersonalPatchMany) return;
+  var ok = await fhPersonalPatchMany([{ id:E.id, fields:{ recur:p, recurSrc:'person' } }]);
+  if(!ok){ toast(L('Chưa lưu được, thử lại nhé','Could not save, try again')); return; }
+  t.recur=p; t.recurSrc='person';
+  try{ var mk = FH_RECUR.merchantKey({ who:t.who||'', note:t.note||'', amt:t.amt||0 }); if(mk){ if(p && window.fhLessonLearnRecur) fhLessonLearnRecur(mk, p, 'person'); else if(!p && window.fhLessonForgetRecur) fhLessonForgetRecur(mk); } }catch(e){}
+  toast(p ? L('Đã đánh dấu '+FH_RECUR.labelVi(p),'Marked '+FH_RECUR.labelEn(p)) : L('Đã bỏ dấu định kỳ','Recurring mark removed'));
+  renderPersonalTxDetail();
+}
+function exdSheetRecur(){ var t=(typeof txById==='function')?txById(_expDetailId):null; if(!t) return; _exdRecurSheet(t.recur||'', 'exdPickRecur', t.recur && t.recurSrc==='pattern'); }
+async function exdPickRecur(v){
+  closeSheet(); var t=(typeof txById==='function')?txById(_expDetailId):null; if(!t||!t._dbId) return;
+  var p = (v==='weekly'||v==='monthly'||v==='yearly') ? v : null;
+  if(!window.fhTxnBulkPatch) return;
+  try{ await fhTxnBulkPatch(t._dbId, { recurrence:p, recurrence_source:'person' }); }catch(e){ toast(L('Chưa lưu được, thử lại nhé','Could not save, try again')); return; }
+  t.recur=p; t.recurSrc='person';
+  try{ var mk = FH_RECUR.merchantKey({ who:null, note:t.note||'', cat:t.cat, catId:t._catId, amt:t.amt||0 }); if(mk){ if(p && window.fhLessonLearnRecur) fhLessonLearnRecur(mk, p, 'person'); else if(!p && window.fhLessonForgetRecur) fhLessonForgetRecur(mk); } }catch(e){}
+  toast(p ? L('Đã đánh dấu '+FH_RECUR.labelVi(p),'Marked '+FH_RECUR.labelEn(p)) : L('Đã bỏ dấu định kỳ','Recurring mark removed'));
+  renderExpenseDetail();
 }
 
 /* ── pickers ── */

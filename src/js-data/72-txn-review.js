@@ -1781,6 +1781,11 @@
     };
     /* 0154: the merchant receipt the join engine attached to this row — rides
        the personal expense spec into receipt_enc, item nodes included. */
+    var _recurFromPeriod = function (p) { return p === 'year' ? 'yearly' : p === 'week' ? 'weekly' : p === 'month' ? 'monthly' : null; };
+    var _recurLesson = function (cc) {
+      if (!window.FH_RECUR || !window.fhLessonRecur) return null;
+      try { var l = fhLessonRecur(FH_RECUR.merchantKey({ who: cc.counterparty || '', note: cc.description || '', amt: 0 })); return l ? l.period : null; } catch (e) { return null; }
+    };
     var _specReceipt = function (cc) {
       var r = (cc && typeof cc.rowIndex === 'number') ? srows[cc.rowIndex] : null;
       return (r && r._rcpt) || null;
@@ -2103,6 +2108,12 @@
           catName: _xCat.name,
           catEmoji: _xCat.emoji,
           receipt: _specReceipt(c),
+          /* recurring-charges-spec §10/RR5: the person's pick on the card, else
+             the receipt's stated period, else the merchant's lesson. */
+          recur: (c._recurSrc === 'person') ? (c._recur || null)
+            : (c._recur || ((_specReceipt(c) && _specReceipt(c).period) ? _recurFromPeriod(_specReceipt(c).period) : null) || _recurLesson(c)),
+          recurSrc: (c._recurSrc === 'person') ? 'person'
+            : (c._recur ? (c._recurSrc || 'receipt') : ((_specReceipt(c) && _specReceipt(c).period) ? 'receipt' : (_recurLesson(c) ? 'receipt' : null))),
           dateIso: c.dateDisplay || undefined, time: _t, accountId: acctId, source: src });
         _recBal(acctId);
       }

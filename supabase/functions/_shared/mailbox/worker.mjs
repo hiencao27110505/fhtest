@@ -34,6 +34,7 @@
 
 import { resolveDestination, MailboxHold } from './identity.mjs';
 import { buildStagedRow, carryRaw } from './stage.mjs';
+import { runDiscovery } from './discovery.mjs';
 import { copyMeta, receiptEnum } from './notify-copy.mjs';
 import { readTransaction, normalizeSubjectTemplate, legacySubjectTemplate, subjectCacheKey, SENDER_SENTINEL } from './extract.mjs';
 import { enrichCategory } from './classify.mjs';
@@ -638,13 +639,19 @@ async function _runGrantLocked(grant, ctx) {
      checks its version — one consent read per run, fail-CLOSED: a db surface
      with no consent reader, or a read that throws, means no receipt domains
      this run, never a fetch the person did not consent to. */
-  let receiptsOn = false;
+  let receiptsOn = false, consentV = 0;
   if (ctx.db.consentVersion) {
     try {
-      receiptsOn = Number(await ctx.db.consentVersion(grant.user_id, 'bank_email')) >= senders.RECEIPT_CONSENT_V;
-    } catch { receiptsOn = false; }
+      consentV = Number(await ctx.db.consentVersion(grant.user_id, 'bank_email')) || 0;
+      receiptsOn = consentV >= senders.RECEIPT_CONSENT_V;
+    } catch { receiptsOn = false; consentV = 0; }
   }
-  const query = senders.inboxQuery(days, domains, { skip: skipSenders, receipts: receiptsOn })
+  /* receipt-providers-spec §4: the grant's consent VERSION decides which
+     receipt senders ride — the seven named in v6, the registry and the fast
+     lanes from v7 — and a member's mutes come off this grant's query only. */
+  const registryOn = consentV >= senders.RECEIPT_REGISTRY_V;
+  const muted = (registryOn && ctx.db.receiptMutes) ? await ctx.db.receiptMutes(grant.id) : [];
+  const query = senders.inboxQuery(days, domains, { skip: skipSenders, receipts: receiptsOn, consentV, muted })
     + (cursorMs ? ' before:' + Math.floor(cursorMs / 1000) : '');
 
   /* THE MODEL'S DAILY WALL (email-reading-v2 §10.3; 0116 model_pause,
@@ -1613,6 +1620,17 @@ async function _runGrantLocked(grant, ctx) {
         await ctx.db.bumpReadTally?.('notify_receipt_read');
       } catch { /* never fails a run */ }
     }
+  }
+
+  /* DISCOVERY, LAST (receipt-providers-spec §5, RP4): a header pass over
+     receipt-shaped mail from senders this worker does not read, for a grant
+     on the registry consent, on an ordinary (non-backfill) run, spending
+     only what the classify budget has left. Never a body, never a row. */
+  if (registryOn && !backfilling && ctx.discovery !== false) {
+    try {
+      const d = await runDiscovery(grant, { db: ctx.db, fetch: ctx.fetch, llm: ctx.llm, classifyBudget }, { access, days, domains });
+      if (d && (d.listed || d.asked)) summary.discovery = d;
+    } catch { /* a hint pass never fails a run */ }
   }
 
   if (hitLimit) summary.status = 'held';

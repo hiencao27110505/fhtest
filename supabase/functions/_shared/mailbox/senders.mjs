@@ -48,6 +48,8 @@
  *
  * Subdomains match automatically, so `no-reply@mail.acb.com.vn` needs no entry.
  */
+import { FH_PROVIDERS } from './providers.mjs';
+
 const BANKS = {
   'abbank.com.vn': 'ABBANK',
   'abbank.vn': 'ABBANK',
@@ -281,15 +283,30 @@ const NON_BANK_GROUPS = [
  *                  (a subdomain, so the dot-boundary rule matches it)
  *   tiki.vn        order confirmations
  *   lazada.vn      order confirmations (own IPs + Alibaba mail in SPF) */
-const RECEIPTS = {
-  'grab.com': 'Grab',
-  'shopeefood.vn': 'ShopeeFood',
-  'shopee.vn': 'Shopee',
-  'foody.vn': 'Foody',
-  'apple.com': 'Apple',
-  'tiki.vn': 'Tiki',
-  'lazada.vn': 'Lazada',
-};
+/* GENERATED VIEW (2026-10-06, receipt-providers-spec.md §9). The sender list,
+   the subject gate and the reading family now live in taxonomy/providers.json
+   under each receipt provider's `receipt` block; gen-providers validates the
+   block (no bare personal/platform domain, subjects never empty, family from
+   the closed set) and emits receiptSenders(). The seven senders named in
+   consent v6 carry `since: 6`; anything added since carries `since: 7` and is
+   fetched only for a grant on the registry consent (RECEIPT_REGISTRY_V). */
+const RECEIPT_ROWS = FH_PROVIDERS.receiptSenders();
+const RECEIPTS = Object.freeze(Object.fromEntries(RECEIPT_ROWS.map((r) => [r.sender, r.label])));
+/** sender → reading family (marketplace_order | subscription_invoice | service_receipt | model_only). */
+export const RECEIPT_FAMILY = Object.freeze(Object.fromEntries(RECEIPT_ROWS.map((r) => [r.sender, r.family])));
+/** sender → the family's label dictionary, or null for model_only. */
+export const RECEIPT_LABELS = Object.freeze(Object.fromEntries(RECEIPT_ROWS.map((r) => [r.sender, r.labels || null])));
+/** sender → the bank_email consent version that first covers it. */
+export const RECEIPT_SINCE = Object.freeze(Object.fromEntries(RECEIPT_ROWS.map((r) => [r.sender, r.since])));
+/** sender → registry key ('googleplay'), for the Settings list and candidates. */
+export const RECEIPT_KEY = Object.freeze(Object.fromEntries(RECEIPT_ROWS.map((r) => [r.sender, r.key])));
+
+/** Every bank and non-bank (wallet, gateway, broker, lender) sender domain
+ *  the worker reads, for discovery's exclusion list (discovery.mjs). */
+export const KNOWN_SENDER_DOMAINS = Object.freeze([
+  ...Object.keys(BANKS),
+  ...NON_BANK_GROUPS.flatMap(([group]) => Object.keys(group)),
+]);
 
 /** The receipt sender domains, for the receipt-join feature to put in the
  *  query once it has a subject filter per sender. Not read by inboxQuery. */
@@ -311,22 +328,37 @@ export const RECEIPT_CONSENT_V = 6;
  *  junk once and cached — nothing here can stage a wrong row. Gmail subject
  *  matching folds case and most diacritics; both spellings of "hóa đơn" ride
  *  anyway because the folding of composed forms has been observed to vary. */
-export const RECEIPT_SUBJECTS = Object.freeze({
-  // BOTH mails of one order: "Đơn hàng #X đã giao hàng thành công" and
-  // "Xác nhận thanh toán thành công" — the second carries no "đơn hàng" at all
-  // and was invisible until 2026-09-29, so only the delivery mail ever arrived.
-  // Collapse by order id keeps the richer of the two.
-  'shopee.vn': ['"đơn hàng"', '"thanh toán"'],
-  'shopeefood.vn': ['"đơn hàng"', '"E-Receipt"'],
-  'foody.vn': ['"đơn hàng"', '"E-Receipt"'],
-  'grab.com': ['"E-Receipt"', '"E-receipt"'],
-  // "Your receipt from Apple." AND "Your invoice from Apple." are the same
-  // kind of mail under two names — 11 of 19 Apple receipts in the corpus were
-  // invoice-titled and never fetched at all until 2026-09-29.
-  'apple.com': ['"receipt from Apple"', '"invoice from Apple"', '"hóa đơn"', '"hoá đơn"'],
-  'tiki.vn': ['"đơn hàng"'],
-  'lazada.vn': ['"đơn hàng"'],
-});
+export const RECEIPT_SUBJECTS = Object.freeze(Object.fromEntries(RECEIPT_ROWS.map((r) => [r.sender, r.subjects])));
+
+/** The consent version under which the receipt list stopped being seven
+ *  names and became "the stores listed in Settings" (receipt-providers-spec
+ *  §4). Registry senders with `since: 7`, operator/member-added senders and
+ *  discovery all require a grant at or above this. Equals FH_CONSENT_V's v7
+ *  bump in src/js-data/75-consent-ui.js. */
+export const RECEIPT_REGISTRY_V = 7;
+
+/** The registry receipt entry that covers an address, or null:
+ *  { sender, label, key, family, labels, since }. Used by the receipt reader
+ *  to pick a family reader and its label dictionary by the mail's From,
+ *  which is an address ('no_reply@email.apple.com') while the registry key
+ *  may be a domain ('apple.com'). */
+export function receiptEntryFor(fromOrAddress) {
+  const address = addressOf(fromOrAddress);
+  const domain = domainOf(address);
+  for (const d of RECEIPT_DOMAINS) {
+    if (senderCovers(address, domain, d)) {
+      return { sender: d, label: RECEIPTS[d], key: RECEIPT_KEY[d], family: RECEIPT_FAMILY[d], labels: RECEIPT_LABELS[d], since: RECEIPT_SINCE[d] };
+    }
+  }
+  return null;
+}
+
+/** Does a sender entry (bare domain or full address) cover this From? */
+export function senderCovers(address, domain, entry) {
+  const d = String(entry || '').toLowerCase();
+  if (!d) return false;
+  return d.indexOf('@') >= 0 ? address === d : domainMatches(domain, d);
+}
 
 /** The address inside a From header, lower-cased. `"MB" <no-reply@mb.vn>`. */
 export function addressOf(fromHeader) {
@@ -451,7 +483,9 @@ export function match(fromHeader, extra) {
     }
   }
   for (const [d, provider] of Object.entries(RECEIPTS)) {
-    if (domainMatches(domain, d)) return { provider, kind: 'receipt', senderKind: 'receipt' };
+    if (senderCovers(address, domain, d)) {
+      return { provider, kind: 'receipt', senderKind: 'receipt', family: RECEIPT_FAMILY[d], sender: d };
+    }
   }
   for (const row of extra || []) {
     const d = String(row.domain_or_address || '').toLowerCase();
@@ -459,6 +493,12 @@ export function match(fromHeader, extra) {
     // A row may name a full address rather than a domain, which is why the
     // address is compared too.
     if (address === d || domainMatches(domain, d)) {
+      /* known_provider_domains rows carry a `kind` since 0157: a receipt row
+         (operator or member fast lane, receipt-providers-spec §10) is a
+         receipt sender like a registry one, read by its family or the model. */
+      if (row.kind === 'receipt') {
+        return { provider: row.provider_name || d, kind: 'receipt', senderKind: 'receipt', family: row.family || 'model_only', sender: d };
+      }
       return { provider: row.provider_name || d, kind: 'bank', senderKind: 'bank' };
     }
   }
@@ -511,10 +551,14 @@ export function inboxQuery(days, extra, opts) {
   // RECEIPT_DOMAINS enter only via `opts.receipts` (consent-gated by the
   // caller against RECEIPT_CONSENT_V) and only WITH their per-sender subject
   // filters — see the note above RECEIPTS and RECEIPT_SUBJECTS.
+  /* Fast-lane receipt rows (0157, kind 'receipt') never join the bare
+     bank/wallet group: they enter only below, with their subject gate. */
+  const extraBank = (extra || []).filter(r => r && r.kind !== 'receipt');
+  const extraReceipt = (extra || []).filter(r => r && r.kind === 'receipt');
   const domains = [
     ...Object.keys(BANKS),
     ...NON_BANK_GROUPS.flatMap(([group]) => Object.keys(group)),
-    ...(extra || []).map(r => String(r.domain_or_address || '').toLowerCase()).filter(Boolean),
+    ...extraBank.map(r => String(r.domain_or_address || '').toLowerCase()).filter(Boolean),
   ];
   const uniq = [...new Set(domains)];
   const from = '(' + uniq.map(d => 'from:' + d).join(' OR ') + ')';
@@ -542,13 +586,26 @@ export function inboxQuery(days, extra, opts) {
      subject terms never enters — an unfiltered receipt domain is the firehose
      this gate exists to keep out. */
   let fromGroup = from;
-  if (opts && opts.receipts) {
+  /* `consentV` is the grant's bank_email consent; `receipts: true` alone
+     means "at least v6" for callers written before the registry consent. A
+     registry sender enters when the grant covers its `since`; a fast-lane row
+     (and a member's mute, `opts.muted`) only under RECEIPT_REGISTRY_V. */
+  const consentV = opts ? (Number.isFinite(Number(opts.consentV)) ? Number(opts.consentV) : (opts.receipts ? RECEIPT_CONSENT_V : 0)) : 0;
+  if (consentV >= RECEIPT_CONSENT_V) {
+    const muted = new Set(((opts && opts.muted) || []).map(a => String(a || '').trim().toLowerCase()).filter(Boolean));
+    const gate = (d, terms) => (terms && terms.length && !muted.has(d) && d.indexOf(' ') < 0 && d.indexOf('"') < 0)
+      ? '(from:' + d + ' subject:(' + terms.join(' OR ') + '))' : null;
     const rec = RECEIPT_DOMAINS
-      .map(d => {
-        const terms = RECEIPT_SUBJECTS[d] || [];
-        return terms.length ? '(from:' + d + ' subject:(' + terms.join(' OR ') + '))' : null;
-      })
+      .filter(d => (RECEIPT_SINCE[d] || RECEIPT_CONSENT_V) <= consentV)
+      .map(d => gate(d, RECEIPT_SUBJECTS[d]))
       .filter(Boolean);
+    if (consentV >= RECEIPT_REGISTRY_V) {
+      for (const r of extraReceipt) {
+        const d = String(r.domain_or_address || '').toLowerCase();
+        const q = gate(d, Array.isArray(r.subjects) ? r.subjects.map(t => (t.indexOf('"') >= 0 ? t : '"' + t + '"')) : []);
+        if (q) rec.push(q);
+      }
+    }
     if (rec.length) fromGroup = '(' + from + ' OR ' + rec.join(' OR ') + ')';
   }
   return fromGroup + notPromo + notSkipped + ' newer_than:' + Math.max(1, Math.floor(days)) + 'd';

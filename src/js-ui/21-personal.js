@@ -821,6 +821,10 @@ function _persEmailRow(){
   /* ── Đầu tư — the asset dimension, the debts bento's sibling (0123). Built
      by 26-investment-ui.js (js-data) for the same modal-helper reason. ── */
   h += hasStats ? (act.state===3 ? persInvestDriven(P, mon) : (window.persInvestSection ? persInvestSection() : '')) : '';
+  /* ── Định kỳ — what comes back every month (recurring-charges-spec RR7).
+     Built by 79-recur-ui.js over the engine's series view; empty until the
+     ledger shows something repeating, so it never promises. ── */
+  h += hasStats && window.persRecurSection ? persRecurSection() : '';
 
   /* No stats yet → no money sections at all (feedback round 5): Tiền đi đâu
      and Giao dịch của bạn join streaks and investment in waiting for the first

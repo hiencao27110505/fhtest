@@ -437,6 +437,52 @@ export function createDb(url, serviceKey, fetchImpl, opts) {
       // {concept, node} — classify.mjs also still accepts the old bare string.
       return { concept: rows[0].concept ?? null, node: rows[0].node ?? null };
     },
+    /* receipt_sender_mutes (0157, receipt-providers-spec §10): the stores
+       this grant's owner switched off for this mailbox. Subtracted from the
+       query; a failure means no mutes this run (the muted mail is still a
+       receipt the person consented to, so fail-open is the safe side). */
+    async receiptMutes(grantId) {
+      try {
+        const rows = await rest('/receipt_sender_mutes?select=sender&grant_id=eq.' + encodeURIComponent(grantId));
+        return (rows || []).map((r) => String(r.sender || '').toLowerCase()).filter(Boolean);
+      } catch { return []; }
+    },
+
+    /* receipt_candidates (0157, receipt-providers-spec §5): what discovery
+       remembers — senders and subject shapes, counts, a verdict. No body,
+       no person. */
+    async candidateSenders() {
+      const rows = await rest('/receipt_candidates?select=sender&limit=400');
+      return [...new Set((rows || []).map((r) => String(r.sender || '').toLowerCase()).filter(Boolean))];
+    },
+    async candidatesGet(pairs) {
+      const out = new Map();
+      const senders = [...new Set((Array.isArray(pairs) ? pairs : []).map((p) => p && p.sender).filter(Boolean))];
+      // A read is a read (dry-db.mjs walks every listed one against the wire):
+      // with nothing to look up it asks for nothing, but still asks.
+      const rows = await rest('/receipt_candidates?select=id,sender,subject_template,verdict,store_name,seen'
+        + (senders.length ? '&sender=in.(' + senders.map((s) => '"' + encodeURIComponent(s) + '"').join(',') + ')' : '&limit=0'));
+      for (const r of rows || []) out.set(r.sender + '\u0001' + r.subject_template, r);
+      return out;
+    },
+    async candidateInsert(row) {
+      return rest('/receipt_candidates', { method: 'POST', headers: { Prefer: 'return=minimal,resolution=ignore-duplicates' }, body: JSON.stringify(row) });
+    },
+    async candidateBump(id, n, lastSeen) {
+      // seen += n needs a read-modify-write under PostgREST; one row, one PATCH.
+      const cur = await rest('/receipt_candidates?select=seen,last_seen_at&id=eq.' + encodeURIComponent(id));
+      const row = cur && cur[0];
+      if (!row) return null;
+      const body = { seen: Number(row.seen || 0) + Number(n || 1), mailboxes: undefined };
+      if (lastSeen && (!row.last_seen_at || lastSeen > row.last_seen_at)) body.last_seen_at = lastSeen;
+      delete body.mailboxes;
+      return rest('/receipt_candidates?id=eq.' + encodeURIComponent(id), { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(body) });
+    },
+    async candidateVerdict(sender, template, verdict, store) {
+      return rest('/receipt_candidates?sender=eq.' + encodeURIComponent(sender) + '&subject_template=eq.' + encodeURIComponent(template),
+        { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ verdict, store_name: store || null }) });
+    },
+
     /* item_signatures (0155, receipt-enrichment-spec §20): the learned
        category per product TYPE / Apple slot. Read as a Map key → row so a
        caller can tell "no row = never asked" from "row with null node =
@@ -653,7 +699,12 @@ export function createDb(url, serviceKey, fetchImpl, opts) {
 
     async providerDomains() {
       try {
-        return (await rest('/known_provider_domains?select=domain_or_address,provider_name&active=eq.true')) || [];
+        /* 0157: a row carries its kind; a receipt row (operator or member
+           fast lane) brings its subject gate and family. Older databases
+           without the columns still answer: PostgREST ignores nothing here
+           because the columns exist from 0157 on; before it, the select
+           would 400 and the catch below returns [] exactly as before. */
+        return (await rest('/known_provider_domains?select=domain_or_address,provider_name,kind,subjects,family&active=eq.true')) || [];
       } catch {
         // A table this worker does not depend on must not be able to stop a run.
         return [];

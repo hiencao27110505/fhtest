@@ -321,6 +321,7 @@ policy at all; the only RLS policy is owner `SELECT`.
 | `amount_enc`, `note_enc`, `cat_name_enc` | Ciphertext |
 | `cat_emoji` | Plaintext (a content mark, not sensitive) |
 | `txn_date` (date), `kind` | Plaintext, indexable; `kind ∈ ('expense','transfer')` |
+| `recurrence`, `recurrence_source` (`0157`) | Plaintext enums (weekly/monthly/yearly; receipt/pattern/person): says a row comes back, never who or how much — recurring-charges-spec §7 |
 | `occurred_time_enc` | Encrypted local "HH:MM"; null = day-only |
 | `space_id` → `families`, null = private | Which space a master mirrors to |
 | `link_id` | Pairs with `transactions.link_id`; null = private row |

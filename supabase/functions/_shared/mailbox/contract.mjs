@@ -144,7 +144,12 @@ export const RAW_FIELDS = Object.freeze([
       // service's own printed name ("Car 6 chỗ ngồi") and loyalty points
       // redeemed as money (GrabCoins), kept apart from `discount` so the math
       // prints each deduction. Neither is ever a place.
-      'service_label', 'points_discount'],
+      'service_label', 'points_discount',
+      // receipt-providers-spec §12: a separate tax/VAT line when the mail
+      // prints one (Google Play: 45.000 + 5.000 = 50.000), and the billing
+      // period a subscription receipt states — the input recurring-charges-spec
+      // RR1 reads. Both nullable; PAYLOAD_V unchanged.
+      'tax', 'period'],
     // `node` and `sig` (Phase 2, §20): the item's tree code as the worker's
     // ladder resolved it — a PROPOSAL the device constrains to the row's
     // branch — and the signature it was learned under, so a person's own

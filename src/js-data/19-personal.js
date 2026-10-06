@@ -403,7 +403,7 @@
            failure-tolerant (a lost photo strip or pre-selection never costs the
            ledger), so they resolve to empty on error instead of failing the all. */
         const [tr, bd, ac, dr, pp, mm, lb] = await Promise.all([
-          _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,occurred_time_enc,txn_date,kind,space_id,link_id,version,updated_at,created_at,account_id,transfer_group_id,position_account_id,quantity_enc,source,node_enc,label_id,receipt_enc').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }).order('id')),
+          _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,occurred_time_enc,txn_date,kind,space_id,link_id,version,updated_at,created_at,account_id,transfer_group_id,position_account_id,quantity_enc,source,node_enc,label_id,receipt_enc,recurrence,recurrence_source').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }).order('id')),
           _sb().from('personal_budgets').select('total_enc,cats_enc').eq('owner_user_id', P.uid).eq('month', _monISO()).maybeSingle(),
           _sb().from('personal_accounts').select('id,kind,name_enc,tail,provider,provider_key,credit_limit_enc,human_verified,statement_day,due_day,anchor_balance_enc,anchor_at,ext_balance_enc,ext_balance_date,account_number_enc,asset_symbol_enc,asset_unit_enc,asset_class_enc,manual_price_enc,manual_price_at,setup_skipped_at').eq('owner_user_id', P.uid).is('archived_at', null),
           _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,counterparty_enc,cat_name_enc,cat_emoji,txn_date,kind,account_id,transfer_group_id,position_account_id,quantity_enc,due_date,created_at,node_enc,label_id').eq('owner_user_id', P.uid).or('kind.neq.expense,account_id.not.is.null').order('txn_date', { ascending: false }).order('id')),
@@ -454,6 +454,7 @@
             amt: bad ? null : Number(a), _unreadable: bad,
             note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc), node: _okNode(await _decTxt(t.node_enc)), labelId: t.label_id || null, emoji: t.cat_emoji,
             hasReceipt: !!t.receipt_enc,   // 0154: presence only — the blob decrypts on the detail open (fhPersonalGetReceipt)
+            recur: t.recurrence || null, recurSrc: t.recurrence_source || null,   // 0157 recurring-charges-spec RR1 (plaintext enum)
             time: await _decTxt(t.occurred_time_enc) });   // local "HH:MM" if the time was known, else null (day-only)
         }
         /* 0144 — labels decode like every other personal value: fail-closed, and
@@ -549,6 +550,8 @@
            the retroactive join (78-receipt-join), debounced behind the hydrate
            and never allowed to cost it anything. */
         try { if (window.fhReceiptLedgerSoon) window.fhReceiptLedgerSoon(); } catch (e) {}
+        // recurring-charges-spec RR4: the pattern pass, after the ledger settled
+        try { if (window.fhRecurRunPersonal) setTimeout(function () { window.fhRecurRunPersonal(); }, 2500); } catch (e) {}
 
       } catch (e) {
         console.warn('personal hydrate failed', e);
@@ -589,6 +592,7 @@
             positionId: t.position_account_id || null, qty: null,
             amt: bad ? null : Number(a), _unreadable: bad,
             note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc), node: _okNode(await _decTxt(t.node_enc)), labelId: t.label_id || null, emoji: t.cat_emoji,
+            recur: t.recurrence || null, recurSrc: t.recurrence_source || null,
             time: await _decTxt(t.occurred_time_enc) });
         }
         P.txnsOld = old;
@@ -841,6 +845,8 @@
       // 0144: node / labelId follow the same undefined = untouched, null = clear rule
       if (fields.hasOwnProperty('node')) row.node_enc = _okNode(fields.node) ? await _encP(fields.node) : null;
       if (fields.hasOwnProperty('labelId')) row.label_id = fields.labelId || null;
+      if (fields.hasOwnProperty('recur')) row.recurrence = ['weekly', 'monthly', 'yearly'].indexOf(fields.recur) >= 0 ? fields.recur : null;
+      if (fields.hasOwnProperty('recurSrc')) row.recurrence_source = ['receipt', 'pattern', 'person'].indexOf(fields.recurSrc) >= 0 ? fields.recurSrc : null;
       const r = await _netRetry((sig) => _sb().from('personal_transactions').update(row).eq('id', id).eq('owner_user_id', P.uid).is('link_id', null).abortSignal(sig));
       if (r.error) { console.warn('personal expense update failed', r.error); return false; }
       if (!quiet) await window.fhPersonalHydrate();
@@ -891,6 +897,9 @@
       if (has('accountId')) s.account_id = f.accountId || null;
       if (has('node')) s.node_enc = _okNode(f.node) ? await _encP(f.node) : null;
       if (has('labelId')) s.label_id = f.labelId || null;
+      // recurring-charges-spec RR1: plaintext enum + source, through the same door
+      if (has('recur')) s.recurrence = ['weekly', 'monthly', 'yearly'].indexOf(f.recur) >= 0 ? f.recur : null;
+      if (has('recurSrc')) s.recurrence_source = ['receipt', 'pattern', 'person'].indexOf(f.recurSrc) >= 0 ? f.recurSrc : null;
       return s;
     }
     window.fhPersonalPatchMany = async function (patches) {
@@ -1261,6 +1270,10 @@
              under the personal DEK. Detail, never money — stats read amount_enc
              alone, and an unreadable blob costs a line on the detail screen. */
           receipt_enc: s.receipt ? await _encP(JSON.stringify(s.receipt)) : null,
+          /* recurring-charges-spec RR1/§10: a receipt's period, a lesson, or a
+             person's pick on the queue card ride in as the row is born. */
+          recurrence: ['weekly', 'monthly', 'yearly'].indexOf(s.recur) >= 0 ? s.recur : null,
+          recurrence_source: ['receipt', 'pattern', 'person'].indexOf(s.recurSrc) >= 0 ? s.recurSrc : null,
           source: s.source || null });
       }
       const CHUNK = 50;

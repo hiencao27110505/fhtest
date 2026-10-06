@@ -224,6 +224,10 @@
           paid_with_tail: _rjTail(rc.paid_with_tail),
           service_label: rc.service_label ? String(rc.service_label).slice(0, 60) : null,
           points_discount: rc.points_discount != null ? rc.points_discount : null,
+          /* receipt-providers-spec §12: a printed tax line and the billing
+             period (recurring-charges-spec RR1 reads `period`). */
+          tax: rc.tax != null ? rc.tax : null,
+          period: rc.period || null,
         } : null,
       };
     }
