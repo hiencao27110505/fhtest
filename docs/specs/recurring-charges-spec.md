@@ -325,4 +325,9 @@ From the design interview, 2026-10-06.
 
 # Part 4 — Release notes
 
-_(empty until the first deploy)_
+**2026-10-06 — Live with receipt providers release 1.** `0157` adds
+`recurrence` / `recurrence_source` to both ledgers and widens
+`personal_txn_patch`; engine `29-recur.js` + `tools/recur-engine.test.js`;
+Định kỳ row on both detail screens and the queue card (pick saves at once);
+mark on cards; tile and sheet in Tài chính and on the home tab; lessons
+`recur|<merchantKey>`. Cuts in §17 (no hand-set next date, no filter chip).

@@ -601,4 +601,12 @@ Tiki, Lazada, ShopeeFood, Foody: none in this mailbox.
 
 # Part 4 — Release notes
 
-_(empty until the first deploy)_
+**2026-10-06 — Release 1 live.** `0157` applied; `mailbox-sync` v77,
+`mailbox-dryrun` v17 (survey + peek); SW `v615`; taxonomy v4, sweep cursor
+v14; `CATEGORY_LOGIC_VERSION` 2; consent v7. Google Play reads
+deterministically by label dictionary; registry receipt block generated into
+`senders.mjs`; fast lanes (operator row, member Thêm, per-mailbox mute);
+discovery last in the run for v7 grants; Settings › Hoá đơn. Tiki and Lazada
+stay model-only until release 2 (`receipt_capped` is the number to beat).
+Known gap: USD receipts (FastSpring, Stripe) are not joinable until the
+foreign-currency work lands.
