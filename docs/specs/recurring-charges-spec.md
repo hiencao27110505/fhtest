@@ -11,8 +11,8 @@ quietly costs more than it did last time.
 > first real test the same evening: it marked a coffee shop and missed rent
 > and every subscription (`docs/incidents/2026-10-06-recurring-detection.md`).
 > **§18 is detection v2**, the resolution: it supersedes §8 and §9 and
-> completes §10. Built on 2026-10-07 (SW `v616`, client only, no migration,
-> no function deploy); Part 4 records the release when it is pushed. Decisions RR1–RR9 (§15) stand except where RR10–RR19 amend
+> completes §10. Released 2026-10-07 (SW `v616`, client only, no migration,
+> no function deploy); see Part 4. Decisions RR1–RR9 (§15) stand except where RR10–RR19 amend
 > them. Release-1 cuts are in §17. This unblocks the "merchant intelligence"
 > epic that `habit-streak-spec.md` §15 parked.
 
@@ -646,3 +646,13 @@ with inheritance, and the worker and Python targets carrying neither key.
 Định kỳ row on both detail screens and the queue card (pick saves at once);
 mark on cards; tile and sheet in Tài chính and on the home tab; lessons
 `recur|<merchantKey>`. Cuts in §17 (no hand-set next date, no filter chip).
+
+**2026-10-07 — Detection v2 (§18) and the UI pass, SW `v616`.** Client only:
+no migration, no function deploy (`taxonomy.mjs` byte-identical). Fixes the
+incident of 2026-10-06 (`docs/incidents/2026-10-06-recurring-detection.md`):
+760-day recurrence slice, cadence rule, payee identity, derived pattern marks
+that clear themselves, receipts mark wherever they attach, the queue card
+asks the ledger, one view for tile, detail and card. §3 rewritten to the
+screens as shipped (rendered and checked against DESIGN.md before release).
+First check after release: the 2026-09-17 mark is cleared and rent, Anthropic
+and YouTube Premium are marked.

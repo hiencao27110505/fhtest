@@ -5,7 +5,7 @@
 | Date | 2026-10-06, found the same evening in the first real test |
 | Feature | Recurring charges, release 1 (`recurring-charges-spec.md`), live since 19:35 ICT that day |
 | Severity | Low for data, high for trust. A label was wrong; no amount, date, category or scope changed. |
-| Status | Root causes confirmed by replay on 2026-10-07. Resolution specified in `recurring-charges-spec.md` §18 (detection v2) and built the same day (SW v616); not yet released. |
+| Status | Root causes confirmed by replay on 2026-10-07. Resolution specified in `recurring-charges-spec.md` §18 (detection v2) and released the same day (SW v616, commits `3a8b2d2`, `acc256a`). Follow-up 5 is the open check. |
 | Found by | Hien, testing on the test account's personal ledger |
 
 ## What happened
