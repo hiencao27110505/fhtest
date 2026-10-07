@@ -151,6 +151,7 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-10-07 (night) · Hien · "Sắp tới" is THIS MONTH (RR20) · SW `v617` · client only.** The tile and the sheet's first group now show the confirmed charges still due before the month ends, with their sum; when none is left they roll to next month and say so (`FH_RECUR.upcomingMonth`). Hien also asked for eight design directions each for the tile and the sheet: `mockups/recurring-options.html` (real data from the test ledger, app tokens verbatim). The shipped UI is unchanged until a direction is picked. If you bump the SW next, start from v617.
 - **2026-10-07 (later) · Hien · UI and copy pass over everything the two releases added — PUSHED with detection v2 · SW `v616` · client only.**
   Every new screen was rendered in headless Chrome with the app's real CSS and judged by eye against DESIGN.md. What changed:
   the Định kỳ sheet no longer uses `.choice` chips as list rows (it overflowed the sheet) but title/subtitle rows with a chevron;

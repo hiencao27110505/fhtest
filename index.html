@@ -28285,6 +28285,8 @@ function applyLang(){
   };
   const _chev = '<svg class="rcr-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>';
   const _state = (scope) => (window.fhRecurState ? window.fhRecurState(scope) : { ready: false, series: [] });
+  const _todayIso = () => { const d = window.TODAY ? new Date(window.TODAY.getTime()) : new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  const _monthEn = (m) => ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][m - 1] || '';
   /* What a person calls the charge: the receipt's own name when there is one
      ("YouTube Premium"), else who it was paid to. */
   const _name = (s) => s.product || s.name || L('Khoản định kỳ', 'Recurring charge');
@@ -28303,10 +28305,13 @@ function applyLang(){
     const all = R().live(st.series);
     const sure = all.filter((s) => !s.soft), maybe = all.filter((s) => s.soft);
     if (!sure.length && !maybe.length) return '';
-    const up = R().upcoming(all), total = R().monthlyTotal(all);
+    const um = R().upcomingMonth(all, _todayIso()), up = um.items, total = R().monthlyTotal(all);
     const shown = (up.length ? up : (sure.length ? sure : maybe)).slice(0, 3);
     const head = sure.length
-      ? (up.length ? L(up.length + ' khoản trong 30 ngày tới', up.length + ' due in the next 30 days') : L(sure.length + ' khoản định kỳ', sure.length + ' recurring'))
+      ? (up.length
+          ? (um.isNext ? L('Tháng ' + um.month + ': ' + up.length + ' khoản · ' + _money(um.total), up.length + ' due in ' + _monthEn(um.month) + ' · ' + _money(um.total))
+                       : L('Còn ' + up.length + ' khoản tháng này · ' + _money(um.total), up.length + ' left this month · ' + _money(um.total)))
+          : L(sure.length + ' khoản định kỳ', sure.length + ' recurring'))
       : L(maybe.length + ' khoản có vẻ định kỳ', maybe.length + ' possibly recurring');
     const rose = sure.find((s) => s.creep > 0);
     const foot = (rose ? '<div class="rcr-foot rose">' + _e(L(_name(rose) + ' tăng ' + _money(rose.creep), _name(rose) + ' is up ' + _money(rose.creep))) + '</div>' : '')
@@ -28369,8 +28374,8 @@ function applyLang(){
         ? L('Chưa có khoản nào lặp lại. Khi có sẽ hiện ở đây.', 'Nothing repeats yet. When something does, it shows here.')
         : L('Đang xem lại lịch sử chi tiêu…', 'Reading your spending history…')) + '</div>';
     }
-    const up = R() ? R().upcoming(all) : [];
-    if (up.length) h += sec(L('30 ngày tới', 'Next 30 days'), up.map((s) => _item(scope, s)).join(''));
+    const um = R() ? R().upcomingMonth(all, _todayIso()) : { items: [] }, up = um.items;
+    if (up.length) h += sec(um.isNext ? L('Tháng ' + um.month, _monthEn(um.month)) : L('Còn lại tháng này', 'Left this month'), up.map((s) => _item(scope, s)).join(''));
     for (const p of ['monthly', 'yearly', 'weekly']) {
       const g = sure.filter((s) => s.period === p && up.indexOf(s) < 0);
       if (g.length) h += sec(_cap(R().labelVi(p)), g.map((s) => _item(scope, s)).join(''));
@@ -29012,7 +29017,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v616';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v617';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -37137,6 +37142,25 @@ window.obGoogle = async function () {
     const h = days || UPCOMING_DAYS;
     return live(series).filter((s) => !s.soft && s.dueInDays != null && s.dueInDays <= h);
   }
+  /* "Sắp tới" is THIS MONTH (RR20): the confirmed charges still expected
+     before the month ends, as a person thinks of it ("còn gì phải trả tháng
+     này"). When nothing is left this month the view rolls to next month, and
+     says so. Lapsed and soft series never enter. */
+  function upcomingMonth(series, todayIso) {
+    const today = _dateOf(todayIso || new Date().toISOString());
+    const d = new Date(today), y = d.getUTCFullYear(), m = d.getUTCMonth();
+    const inMonth = (iso, yy, mm) => { const t = new Date(_dateOf(iso)); return t.getUTCFullYear() === yy && t.getUTCMonth() === mm; };
+    const pool = live(series).filter((s) => !s.soft && s.next);
+    let items = pool.filter((s) => inMonth(s.next, y, m) || (s.dueInDays != null && s.dueInDays < 0 && s.dueInDays >= -3));
+    let month = m + 1, year = y, isNext = false;
+    if (!items.length) {
+      const ny = m === 11 ? y + 1 : y, nm = (m + 1) % 12;
+      items = pool.filter((s) => inMonth(s.next, ny, nm));
+      month = nm + 1; year = ny; isNext = true;
+    }
+    items.sort((a, b) => (a.dueInDays == null ? 1e9 : a.dueInDays) - (b.dueInDays == null ? 1e9 : b.dueInDays));
+    return { items, total: items.reduce((t, s) => t + s.amount, 0), month, year, isNext };
+  }
   function monthlyTotal(series) {
     return live(series).reduce((sum, s) => sum + (s.soft ? 0 : s.perMonth), 0);
   }
@@ -37173,7 +37197,7 @@ window.obGoogle = async function () {
   window.FH_RECUR = Object.freeze({
     WINDOWS, GUESS, CONFIRM, GUESS_LEAF, CONFIRM_LEAF, CLUSTER_TOL, CREEP, UPCOMING_DAYS, HISTORY_DAYS,
     fold, periodOf, primaryKey, amountKey, clusters, cadence, addPeriod, nextDate, creep,
-    labelVi, labelEn, perMonth, receiptMeta, analyse, live, upcoming, monthlyTotal, matchCandidate,
+    labelVi, labelEn, perMonth, receiptMeta, analyse, live, upcoming, upcomingMonth, monthlyTotal, matchCandidate,
   });
 
   /* ═══ the two ledgers ══════════════════════════════════════════════════════

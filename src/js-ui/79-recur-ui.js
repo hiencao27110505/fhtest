@@ -31,6 +31,8 @@
   };
   const _chev = '<svg class="rcr-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>';
   const _state = (scope) => (window.fhRecurState ? window.fhRecurState(scope) : { ready: false, series: [] });
+  const _todayIso = () => { const d = window.TODAY ? new Date(window.TODAY.getTime()) : new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  const _monthEn = (m) => ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][m - 1] || '';
   /* What a person calls the charge: the receipt's own name when there is one
      ("YouTube Premium"), else who it was paid to. */
   const _name = (s) => s.product || s.name || L('Khoản định kỳ', 'Recurring charge');
@@ -49,10 +51,13 @@
     const all = R().live(st.series);
     const sure = all.filter((s) => !s.soft), maybe = all.filter((s) => s.soft);
     if (!sure.length && !maybe.length) return '';
-    const up = R().upcoming(all), total = R().monthlyTotal(all);
+    const um = R().upcomingMonth(all, _todayIso()), up = um.items, total = R().monthlyTotal(all);
     const shown = (up.length ? up : (sure.length ? sure : maybe)).slice(0, 3);
     const head = sure.length
-      ? (up.length ? L(up.length + ' khoản trong 30 ngày tới', up.length + ' due in the next 30 days') : L(sure.length + ' khoản định kỳ', sure.length + ' recurring'))
+      ? (up.length
+          ? (um.isNext ? L('Tháng ' + um.month + ': ' + up.length + ' khoản · ' + _money(um.total), up.length + ' due in ' + _monthEn(um.month) + ' · ' + _money(um.total))
+                       : L('Còn ' + up.length + ' khoản tháng này · ' + _money(um.total), up.length + ' left this month · ' + _money(um.total)))
+          : L(sure.length + ' khoản định kỳ', sure.length + ' recurring'))
       : L(maybe.length + ' khoản có vẻ định kỳ', maybe.length + ' possibly recurring');
     const rose = sure.find((s) => s.creep > 0);
     const foot = (rose ? '<div class="rcr-foot rose">' + _e(L(_name(rose) + ' tăng ' + _money(rose.creep), _name(rose) + ' is up ' + _money(rose.creep))) + '</div>' : '')
@@ -115,8 +120,8 @@
         ? L('Chưa có khoản nào lặp lại. Khi có sẽ hiện ở đây.', 'Nothing repeats yet. When something does, it shows here.')
         : L('Đang xem lại lịch sử chi tiêu…', 'Reading your spending history…')) + '</div>';
     }
-    const up = R() ? R().upcoming(all) : [];
-    if (up.length) h += sec(L('30 ngày tới', 'Next 30 days'), up.map((s) => _item(scope, s)).join(''));
+    const um = R() ? R().upcomingMonth(all, _todayIso()) : { items: [] }, up = um.items;
+    if (up.length) h += sec(um.isNext ? L('Tháng ' + um.month, _monthEn(um.month)) : L('Còn lại tháng này', 'Left this month'), up.map((s) => _item(scope, s)).join(''));
     for (const p of ['monthly', 'yearly', 'weekly']) {
       const g = sure.filter((s) => s.period === p && up.indexOf(s) < 0);
       if (g.length) h += sec(_cap(R().labelVi(p)), g.map((s) => _item(scope, s)).join(''));

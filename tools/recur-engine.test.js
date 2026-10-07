@@ -187,6 +187,24 @@ t('mỗi tháng sums confirmed, live series only', Math.round(R.monthlyTotal(tot
 t('upcoming is confirmed series due inside the horizon', R.upcoming(tot.series).length === 1 && R.upcoming(tot.series)[0].groupKey === 'p|anthropic claude sub', R.upcoming(tot.series).map((s) => s.groupKey));
 t('perMonth: yearly /12, weekly ×52/12', R.perMonth(120000, 'yearly') === 10000 && Math.round(R.perMonth(12000, 'weekly')) === 52000);
 
+console.log('\n-- upcoming is THIS MONTH (RR20) --');
+{
+  const mk = (next, amt, soft) => ({ next, amount: amt, soft: !!soft, lapsed: false, dueInDays: Math.round((Date.UTC(+next.slice(0, 4), +next.slice(5, 7) - 1, +next.slice(8, 10)) - Date.UTC(2026, 9, 7)) / 86400000) });
+  const S = [mk('2026-10-18', 2970), mk('2026-10-20', 88), mk('2026-11-05', 50), mk('2026-11-06', 7500), mk('2027-01-25', 475), mk('2026-10-28', 14, true)];
+  let u = R.upcomingMonth(S, '2026-10-07');
+  t('on 7 Oct: the two charges still due in October, and their sum', u.items.length === 2 && u.total === 3058 && u.isNext === false && u.month === 10, u);
+  t('a guess is not an upcoming payment', !u.items.some((s) => s.soft));
+  // After the October charges were paid their series' `next` moved to November.
+  const paid = S.map((x) => (x.next.slice(0, 7) === '2026-10' && !x.soft) ? Object.assign({}, x, { next: x.next.replace('2026-10', '2026-11') }) : x);
+  u = R.upcomingMonth(paid, '2026-10-21');
+  t('after the last October charge: November\'s, and says so', u.items.length === 4 && u.isNext === true && u.month === 11 && u.total === 10608, u);
+  u = R.upcomingMonth(S, '2026-10-21');
+  t('a charge still expected this month and not seen stays listed (dự kiến), the month does not roll', u.isNext === false && u.items.length === 2, u);
+  u = R.upcomingMonth([mk('2026-12-31', 10)], '2026-12-30');
+  t('December rolls into January of next year', R.upcomingMonth([mk('2027-01-02', 10)], '2026-12-30').isNext === true && R.upcomingMonth([mk('2027-01-02', 10)], '2026-12-30').year === 2027);
+  t('a charge expected a day or two ago still counts as this month\'s', R.upcomingMonth([mk('2026-10-05', 7500)], '2026-10-07').items.length === 1);
+}
+
 console.log('\n-- pass C: hand-typed rows, same amount --');
 const typed = ['2026-07-05', '2026-08-05', '2026-09-05'].map((d, i) => row(d, 500, { note: ['tien hoc', 'hoc phi be', 'dong hoc'][i] }));
 v = an(typed, { prior: () => null });

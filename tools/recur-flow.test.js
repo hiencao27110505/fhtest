@@ -83,6 +83,7 @@ function ledger() {
     const html = a.ctx.persRecurSection();
     t('lives in a wrapper the pass can refill', html.indexOf('id="pers-recur-wrap"') >= 0);
     t('names the rent and the subscriptions', /NGUYEN VAN QUANG/.test(html) && /ANTHROPIC/.test(html), html.slice(0, 400));
+    t('the head counts what is still due THIS month (rent 6/10 expected, Anthropic 18/10, YouTube 16/10)', /Còn 3 khoản tháng này · 10575/.test(html), (html.match(/dbt-tk">[^<]*/) || [])[0]);
     t('never names the coffee shop', !/REVI/.test(html));
     t('mỗi tháng is rent + Anthropic + YouTube', html.indexOf('~10575') >= 0, (html.match(/~\d+/) || [])[0]);
     t('rent expected yesterday and not seen yet reads "dự kiến 6/10": a fact, not a verdict', /dự kiến 6\/10/.test(html) && !/quá|trễ/.test(html), html.match(/rcr-when">[^<]*/g));

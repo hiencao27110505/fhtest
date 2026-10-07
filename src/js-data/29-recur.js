@@ -301,6 +301,25 @@
     const h = days || UPCOMING_DAYS;
     return live(series).filter((s) => !s.soft && s.dueInDays != null && s.dueInDays <= h);
   }
+  /* "Sắp tới" is THIS MONTH (RR20): the confirmed charges still expected
+     before the month ends, as a person thinks of it ("còn gì phải trả tháng
+     này"). When nothing is left this month the view rolls to next month, and
+     says so. Lapsed and soft series never enter. */
+  function upcomingMonth(series, todayIso) {
+    const today = _dateOf(todayIso || new Date().toISOString());
+    const d = new Date(today), y = d.getUTCFullYear(), m = d.getUTCMonth();
+    const inMonth = (iso, yy, mm) => { const t = new Date(_dateOf(iso)); return t.getUTCFullYear() === yy && t.getUTCMonth() === mm; };
+    const pool = live(series).filter((s) => !s.soft && s.next);
+    let items = pool.filter((s) => inMonth(s.next, y, m) || (s.dueInDays != null && s.dueInDays < 0 && s.dueInDays >= -3));
+    let month = m + 1, year = y, isNext = false;
+    if (!items.length) {
+      const ny = m === 11 ? y + 1 : y, nm = (m + 1) % 12;
+      items = pool.filter((s) => inMonth(s.next, ny, nm));
+      month = nm + 1; year = ny; isNext = true;
+    }
+    items.sort((a, b) => (a.dueInDays == null ? 1e9 : a.dueInDays) - (b.dueInDays == null ? 1e9 : b.dueInDays));
+    return { items, total: items.reduce((t, s) => t + s.amount, 0), month, year, isNext };
+  }
   function monthlyTotal(series) {
     return live(series).reduce((sum, s) => sum + (s.soft ? 0 : s.perMonth), 0);
   }
@@ -337,7 +356,7 @@
   window.FH_RECUR = Object.freeze({
     WINDOWS, GUESS, CONFIRM, GUESS_LEAF, CONFIRM_LEAF, CLUSTER_TOL, CREEP, UPCOMING_DAYS, HISTORY_DAYS,
     fold, periodOf, primaryKey, amountKey, clusters, cadence, addPeriod, nextDate, creep,
-    labelVi, labelEn, perMonth, receiptMeta, analyse, live, upcoming, monthlyTotal, matchCandidate,
+    labelVi, labelEn, perMonth, receiptMeta, analyse, live, upcoming, upcomingMonth, monthlyTotal, matchCandidate,
   });
 
   /* ═══ the two ledgers ══════════════════════════════════════════════════════

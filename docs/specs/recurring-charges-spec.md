@@ -358,6 +358,7 @@ From the design interview, 2026-10-06.
 | RR16 | **The queue card asks the ledger:** a candidate that continues a series shows its period, "Theo các kỳ trước". A soft series or a leaf hint shows "Có vẻ", and is not stored on import. |
 | RR17 | **A pattern mark is derived, never trusted.** Only a person's or a receipt's mark anchors a merchant. Each run re-derives pattern marks, writes the latest row of a confirmed series, and clears a `pattern` mark no series explains. |
 | RR18 | **One truth.** Tile, sheet, detail row and queue card read the same series view. The stored column is the durable trace of it, not a second opinion. |
+| RR20 | *(2026-10-07)* **"Sắp tới" is this month.** The tile and the sheet's first group show the confirmed charges still expected before the month ends, with their sum ("Còn 2 khoản tháng này · 3.058.000 ₫"). When none is left, the view rolls to next month and says so ("Tháng 11: 4 khoản"). Replaces the rolling 30-day horizon of RR7. |
 | RR19 | **A series that stops, lapses.** More than one full period overdue and it leaves the tile, the upcoming list and the monthly total. Its rows keep their history. |
 
 ## 17. Release-1 cuts (2026-10-06)
