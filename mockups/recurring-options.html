@@ -299,6 +299,56 @@ h2{font-family:var(--disp);font-size:21px;font-weight:800;letter-spacing:-.4px;m
 .s8 .sv.gs .btns{display:flex;gap:6px;margin-top:8px}
 .s8 .sv.gs .pill{min-height:28px;padding:0 8px;font-size:12px;flex:1;justify-content:center}
 .s8 .sv .ok{color:var(--good);font-weight:600}
+
+/* ════ Vòng tháng · tám biến thể (vòng 2) ════ */
+.vt .tile{padding:16px 17px}
+.vt .ring{position:relative;flex:none}
+.vt .ring svg{transform:rotate(-90deg);display:block}
+.vt .ring .c{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1;font-family:var(--disp)}
+.vt .ring .c b{font-weight:700;letter-spacing:-.4px}
+.vt .ring .c small{margin-top:3px;font-family:var(--text);font-weight:600;color:var(--muted);letter-spacing:.02em}
+.vt .lines{margin-top:12px;padding-top:8px;border-top:1px solid var(--divider)}
+.vt .ln{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:5px 0;font-size:13.5px}
+.vt .ln .d{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--brand);margin-right:9px;vertical-align:1px}
+.vt .ln.pd,.vt .ln.pd b{color:var(--muted);font-weight:500}
+.vt .ln.pd .d{background:var(--chev)}
+.vt .ln b{font-weight:600}
+/* v2 ring left */
+.v2 .top{display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:center}
+/* v3 segments */
+.v3 .seg{fill:none;stroke-width:9;stroke-linecap:butt}
+.v3 .leg{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;margin-top:12px;font-size:12.5px;color:var(--muted)}
+.v3 .leg span{display:flex;align-items:center;gap:7px;min-width:0}.v3 .leg i{width:9px;height:9px;border-radius:3px;flex:none}.v3 .leg em{font-style:normal;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* v4 gauge */
+.v4 .gauge{position:relative;height:92px;margin-top:6px}
+.v4 .gauge svg{width:100%;height:92px;display:block}
+.v4 .gauge .c{position:absolute;left:0;right:0;bottom:0;text-align:center}
+.v4 .gauge .c b{font-family:var(--disp);font-size:26px;font-weight:700;letter-spacing:-.8px;display:block}
+.v4 .gauge .c small{font-size:12px;font-weight:600;color:var(--muted)}
+.v4 .ends{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted-soft);margin-top:4px}
+/* v5 double ring */
+.v5 .top{display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center}
+.v5 .keys{display:flex;flex-direction:column;gap:6px;margin-top:10px;font-size:12.5px;color:var(--muted)}
+.v5 .keys i{display:inline-block;width:14px;height:4px;border-radius:2px;margin-right:8px;vertical-align:2px}
+/* v6 centered */
+.v6 .mid{display:flex;flex-direction:column;align-items:center;text-align:center;padding:4px 0 2px}
+.v6 .mono{width:40px;height:40px;border-radius:50%;background:var(--id-3);color:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--disp);font-weight:700;font-size:17px}
+.v6 .big{font-family:var(--disp);font-size:24px;font-weight:700;letter-spacing:-.6px;margin-top:12px}
+.v6 .cap6{font-size:13px;color:var(--muted);margin-top:4px}
+/* v7 compact */
+.v7 .one{display:flex;align-items:center;gap:12px}
+.v7 .one .t{flex:1;min-width:0}
+.v7 .one .h{font-size:13px;font-weight:600;color:var(--ink)}
+.v7 .one .b{font-family:var(--disp);font-size:20px;font-weight:700;letter-spacing:-.5px;margin-top:2px;white-space:nowrap}
+.v7 .one .s{font-size:12.5px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* v8 guide-tinted */
+.v8 .tile{background:var(--sage-50);box-shadow:none}
+.v8 .top{display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center}
+.v8 .lbl{font-size:12px;font-weight:600;color:#107460}
+.v8 .amt{font-family:var(--disp);font-size:24px;font-weight:700;letter-spacing:-.7px;color:var(--brand);margin-top:5px;white-space:nowrap}
+.v8 .s8{font-size:12.5px;color:#107460;margin-top:4px}
+.v8 .lines{border-top-color:rgba(20,157,131,.18)}
+.v8 .ln.pd,.v8 .ln.pd b{color:#4a917f}
 </style>
 </head>
 <body>
@@ -597,6 +647,27 @@ h2{font-family:var(--disp);font-size:21px;font-weight:800;letter-spacing:-.4px;m
       </div></div>
       <div class="cap"><h3><span class="k">8</span>Lưới dịch vụ</h3><p>Mỗi dịch vụ một ô vuông: chữ cái, tên, số tiền, ngày. Khoản đoán là ô đứt nét với hai nút. <b>Nhìn như một bộ sưu tập</b>, hợp với người có 5–8 thuê bao. Đánh đổi: thứ tự thời gian yếu hơn danh sách; tên dài phải cắt.</p><span class="tag">điểm nhấn · lưới ô</span></div>
     </div>
+  </div>
+
+  <h2>Vòng tháng · tám biến thể cho vòng sau</h2>
+  <p class="sub">Hướng 3 đã được chọn và đang chạy trong app (biến thể 1). Tám cách khác để cùng một ý "tháng là một tiến độ" đứng trong ô: vòng ở đâu, vòng nói gì, ô dày hay mỏng.</p>
+  <div class="grid">
+    <div class="opt vt v1"><div class="frame"><div class="section-h"><span class="t">Định kỳ</span><a>Tất cả</a></div><div class="tile"><div style="display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center"><div><div class="tk">Tháng 10 còn</div><div class="tv num">3.058.000 ₫</div><div class="ts">trên 10.558.000 ₫ định kỳ · 2 khoản</div></div><div class="ring" style="width:84px;height:84px"><svg viewBox="0 0 84 84" width="84" height="84"><circle cx="42.0" cy="42.0" r="36" fill="none" stroke="var(--sage-wash)" stroke-width="8"/><circle cx="42.0" cy="42.0" r="36" fill="none" stroke="var(--brand)" stroke-width="8" stroke-linecap="round" stroke-dasharray="226.2" stroke-dashoffset="65.6"/></svg><div class="c"><b style="font-size:17px">71%</b><small style="font-size:10px">đã trả</small></div></div></div><div class="lines"><div class="ln pd"><span><i class="d"></i>Tiền thuê nhà · 6/10</span><b class="num">7.500.000 ₫</b></div><div class="ln"><span><i class="d"></i>Anthropic · 18/10</span><b class="num">2.970.000 ₫</b></div><div class="ln"><span><i class="d"></i>YouTube Premium · 20/10</span><b class="num">88.000 ₫</b></div></div></div></div>
+      <div class="cap"><h3><span class="k">1</span>Như đang chạy</h3><p>Chữ trái, vòng phải, danh sách dưới. Chuẩn để so với bảy biến thể còn lại.</p><span class="tag">đang chạy</span></div></div>
+    <div class="opt vt v2"><div class="frame"><div class="section-h"><span class="t">Định kỳ</span><a>Tất cả</a></div><div class="tile"><div class="top"><div class="ring" style="width:72px;height:72px"><svg viewBox="0 0 72 72" width="72" height="72"><circle cx="36.0" cy="36.0" r="30" fill="none" stroke="var(--sage-wash)" stroke-width="8"/><circle cx="36.0" cy="36.0" r="30" fill="none" stroke="var(--brand)" stroke-width="8" stroke-linecap="round" stroke-dasharray="188.5" stroke-dashoffset="54.7"/></svg><div class="c"><b style="font-size:15px">71%</b></div></div><div style="min-width:0"><div class="tk">Tháng 10 còn</div><div class="tv num">3.058.000 ₫</div><div class="ts">2 khoản · gần nhất 18/10</div></div></div><div class="lines"><div class="ln pd"><span><i class="d"></i>Tiền thuê nhà · 6/10</span><b class="num">7.500.000 ₫</b></div><div class="ln"><span><i class="d"></i>Anthropic · 18/10</span><b class="num">2.970.000 ₫</b></div><div class="ln"><span><i class="d"></i>YouTube Premium · 20/10</span><b class="num">88.000 ₫</b></div></div></div></div>
+      <div class="cap"><h3><span class="k">2</span>Vòng dẫn</h3><p>Vòng đứng đầu dòng như một biểu tượng, chữ theo sau; vòng nhỏ hơn một chút. Đọc theo thói quen trái sang phải: trạng thái trước, con số sau.</p><span class="tag">điểm nhấn · vòng ở đầu</span></div></div>
+    <div class="opt vt v3"><div class="frame"><div class="section-h"><span class="t">Định kỳ</span><a>Tất cả</a></div><div class="tile"><div style="display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center"><div><div class="tk">Tháng 10 còn</div><div class="tv num">3.058.000 ₫</div><div class="ts">trên 10.558.000 ₫ định kỳ</div></div><div class="ring" style="width:84px;height:84px"><svg viewBox="0 0 84 84" width="84" height="84"><circle class="seg" cx="42" cy="42" r="36" stroke="var(--stone-300)" stroke-dasharray="158.6 67.6" stroke-dashoffset="-0.0"/><circle class="seg" cx="42" cy="42" r="36" stroke="var(--brand)" stroke-dasharray="61.6 164.6" stroke-dashoffset="-160.6"/><circle class="seg" cx="42" cy="42" r="36" stroke="var(--brand-2)" stroke-dasharray="0.0 226.2" stroke-dashoffset="-224.2"/></svg><div class="c"><b style="font-size:17px">3</b><small style="font-size:10px">KHOẢN</small></div></div></div><div class="leg"><span><i style="background:var(--stone-300)"></i><em>Tiền thuê nhà</em><b>đã trả</b></span><span><i style="background:var(--brand)"></i><em>Anthropic</em><b>18/10</b></span><span><i style="background:var(--brand-2)"></i><em>YouTube Premium</em><b>20/10</b></span></div></div></div>
+      <div class="cap"><h3><span class="k">3</span>Vòng chia khoản</h3><p>Mỗi khoản là một cung: xám đã trả, xanh sắp tới. Vòng vừa là tiến độ vừa là tỉ trọng; danh sách nhường chỗ cho chú giải hai cột. Đánh đổi: khoản 88.000 chỉ là một khe.</p><span class="tag">điểm nhấn · cung theo khoản</span></div></div>
+    <div class="opt vt v4"><div class="frame"><div class="section-h"><span class="t">Định kỳ</span><a>Tất cả</a></div><div class="tile"><div class="tk">Tháng 10</div><div class="gauge"><svg viewBox="0 0 200 100"><path d="M14 96 A86 86 0 0 1 186 96" fill="none" stroke="var(--sage-wash)" stroke-width="10" stroke-linecap="round"/><path d="M14 96 A86 86 0 0 1 186 96" fill="none" stroke="var(--brand)" stroke-width="10" stroke-linecap="round" stroke-dasharray="270" stroke-dashoffset="78"/></svg><div class="c"><b class="num">3.058.000 ₫</b><small>còn phải trả · 2 khoản</small></div></div><div class="ends"><span>đã trả 7.500.000 ₫</span><span>10.558.000 ₫</span></div><div class="lines"><div class="ln pd"><span><i class="d"></i>Tiền thuê nhà · 6/10</span><b class="num">7.500.000 ₫</b></div><div class="ln"><span><i class="d"></i>Anthropic · 18/10</span><b class="num">2.970.000 ₫</b></div><div class="ln"><span><i class="d"></i>YouTube Premium · 20/10</span><b class="num">88.000 ₫</b></div></div></div></div>
+      <div class="cap"><h3><span class="k">4</span>Nửa vòng</h3><p>Cung nửa vòng ôm lấy con số như đồng hồ đo; hai đầu cung ghi đã trả và tổng tháng. Ô cao hơn một chút nhưng số tiền là trung tâm tuyệt đối. Đánh đổi: hình đồng hồ đo gợi "tốc độ" hơn "tiến độ".</p><span class="tag">điểm nhấn · đồng hồ nửa vòng</span></div></div>
+    <div class="opt vt v5"><div class="frame"><div class="section-h"><span class="t">Định kỳ</span><a>Tất cả</a></div><div class="tile"><div class="top"><div><div class="tk">Tháng 10 còn</div><div class="tv num">3.058.000 ₫</div><div class="keys"><span><i style="background:var(--brand)"></i>Đã trả 71% định kỳ</span><span><i style="background:var(--stone-300)"></i>Đã qua 23% tháng</span></div></div><div class="ring" style="width:84px;height:84px"><svg viewBox="0 0 84 84" width="84" height="84"><circle cx="42" cy="42" r="37" fill="none" stroke="var(--sage-wash)" stroke-width="6"/><circle cx="42" cy="42" r="37" fill="none" stroke="var(--brand)" stroke-width="6" stroke-linecap="round" stroke-dasharray="232.5" stroke-dashoffset="67.4"/><circle cx="42" cy="42" r="27" fill="none" stroke="var(--divider)" stroke-width="6"/><circle cx="42" cy="42" r="27" fill="none" stroke="var(--stone-300)" stroke-width="6" stroke-linecap="round" stroke-dasharray="169.6" stroke-dashoffset="130.6"/></svg></div></div><div class="lines"><div class="ln pd"><span><i class="d"></i>Tiền thuê nhà · 6/10</span><b class="num">7.500.000 ₫</b></div><div class="ln"><span><i class="d"></i>Anthropic · 18/10</span><b class="num">2.970.000 ₫</b></div><div class="ln"><span><i class="d"></i>YouTube Premium · 20/10</span><b class="num">88.000 ₫</b></div></div></div></div>
+      <div class="cap"><h3><span class="k">5</span>Hai vòng</h3><p>Vòng ngoài là tiền đã trả, vòng trong là ngày đã qua của tháng. Khi ngoài đi trước trong, tiền định kỳ dồn đầu tháng; đọc được một điều mà danh sách không nói. Đánh đổi: cần một giây để hiểu hai vòng.</p><span class="tag">điểm nhấn · tiền so với lịch</span></div></div>
+    <div class="opt vt v6"><div class="frame"><div class="section-h"><span class="t">Định kỳ</span><a>Tất cả</a></div><div class="tile"><div class="mid"><div class="ring" style="width:96px;height:96px"><svg viewBox="0 0 96 96" width="96" height="96"><circle cx="48" cy="48" r="42" fill="none" stroke="var(--sage-wash)" stroke-width="7"/><circle cx="48" cy="48" r="42" fill="none" stroke="var(--brand)" stroke-width="7" stroke-linecap="round" stroke-dasharray="263.9" stroke-dashoffset="76.5"/></svg><div class="c"><div class="mono">A</div></div></div><div class="big num">2.970.000 ₫</div><div class="cap6">Anthropic · thứ bảy 18/10 · còn 11 ngày</div></div><div class="lines"><div class="ln"><span>Tháng 10 còn <b>3.058.000 ₫</b></span><b class="num">71% đã trả</b></div></div></div></div>
+      <div class="cap"><h3><span class="k">6</span>Vòng ôm khoản kế tiếp</h3><p>Chữ cái của khoản sắp tới nằm giữa vòng tiến độ tháng; bố cục xếp giữa như một huy hiệu. Trả lời "cái gì tới, bao nhiêu" trước, "tháng đến đâu" sau. Đánh đổi: không thấy ba khoản cùng lúc.</p><span class="tag">điểm nhấn · huy hiệu</span></div></div>
+    <div class="opt vt v7"><div class="frame"><div class="section-h"><span class="t">Định kỳ</span><a>Tất cả</a></div><div class="tile" style="padding:14px 16px"><div class="one"><div class="ring" style="width:46px;height:46px"><svg viewBox="0 0 46 46" width="46" height="46"><circle cx="23.0" cy="23.0" r="19" fill="none" stroke="var(--sage-wash)" stroke-width="5"/><circle cx="23.0" cy="23.0" r="19" fill="none" stroke="var(--brand)" stroke-width="5" stroke-linecap="round" stroke-dasharray="119.4" stroke-dashoffset="34.6"/></svg><div class="c"><b style="font-size:11px">71%</b></div></div><div class="t"><div class="h">Tháng 10 còn 2 khoản</div><div class="b num">3.058.000 ₫</div><div class="s">Anthropic 18/10 · YouTube 20/10</div></div><svg class="chev" style="width:16px;height:16px;color:var(--chev)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="m9 6 6 6-6 6"/></svg></div></div></div>
+      <div class="cap"><h3><span class="k">7</span>Gọn một dòng</h3><p>Vòng 46px như một biểu tượng dòng, ba dòng chữ, mũi tên. Thấp bằng nửa các ô khác, hợp khi Tài chính đã dài. Đánh đổi: chi tiết chuyển hết sang màn Tất cả.</p><span class="tag">điểm nhấn · ô mỏng</span></div></div>
+    <div class="opt vt v8"><div class="frame"><div class="section-h"><span class="t">Định kỳ</span><a>Tất cả</a></div><div class="tile"><div class="top"><div><div class="lbl">Tháng 10 còn phải trả</div><div class="amt num">3.058.000 ₫</div><div class="s8">2 khoản · gần nhất thứ bảy 18/10</div></div><div class="ring" style="width:72px;height:72px"><svg viewBox="0 0 72 72" width="72" height="72"><circle cx="36.0" cy="36.0" r="30" fill="none" stroke="rgba(20,157,131,.18)" stroke-width="8"/><circle cx="36.0" cy="36.0" r="30" fill="none" stroke="var(--brand)" stroke-width="8" stroke-linecap="round" stroke-dasharray="188.5" stroke-dashoffset="54.7"/></svg><div class="c"><b style="font-size:15px;color:var(--brand)">71%</b></div></div></div><div class="lines"><div class="ln pd"><span><i class="d"></i>Tiền thuê nhà · 6/10</span><b class="num">7.500.000 ₫</b></div><div class="ln"><span><i class="d"></i>Anthropic · 18/10</span><b class="num">2.970.000 ₫</b></div><div class="ln"><span><i class="d"></i>YouTube Premium · 20/10</span><b class="num">88.000 ₫</b></div></div></div></div>
+      <div class="cap"><h3><span class="k">8</span>Cùng họ với "Hôm nay còn tiêu được"</h3><p>Lấy nguyên bảng màu của ô hướng dẫn hằng ngày: nền xanh rất nhạt, số và vòng màu thương hiệu. Hai ô "còn bao nhiêu" trên tab nhìn như một gia đình. Đánh đổi: nền màu là ngoại lệ hiếm của hệ thống, phải chắc là xứng đáng.</p><span class="tag">điểm nhấn · bảng màu hướng dẫn</span></div></div>
   </div>
 </div>
 </body>

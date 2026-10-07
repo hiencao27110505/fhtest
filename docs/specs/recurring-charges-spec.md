@@ -109,43 +109,57 @@ forgotten (RR5). The next date is derived (RR2) and not editable in release 1
 
 ### 3.3 The Định kỳ tile and sheet
 
-In Tài Chính, a bento tile beside Đầu tư, in the same tile language
-(`.dbt-tile`): one head line, one big figure, then up to three single-line
-rows of name, date and amount, and at most two quiet footer lines.
+Picked on 2026-10-07 from `mockups/recurring-options.html` (eight directions
+each): tile 3 "Vòng tháng", sheet 5 "Thuê bao". The file also holds eight
+variants of the ring tile for the next round.
+
+**The tile: the month as a progress.** Beside Đầu tư, in the bento tile
+language. Left: "Tháng 10 còn", the amount still due this month, and "trên
+10.558.000 ₫ định kỳ · 2 khoản". Right: the daily-guide ring reused, the paid
+share filled in brand, the due share the track, "71% đã trả" inside. Under a
+hairline, one line per charge of the month: grey dot and soft ink for paid
+("Tiền thuê nhà · 6/10"), sage dot for due. Footer lines only when there is
+something to say: a price that rose, and "Có vẻ định kỳ: …". When the month
+is done the view rolls to next month (RR20): "Tháng 11", the ring at zero.
+With nothing confirmed yet the tile lists the guesses in soft ink with no ring
+and no total.
 
 ```
-ĐỊNH KỲ                                            Tất cả
-3 khoản trong 30 ngày tới
-~10.599.000 ₫ / tháng
-NGUYEN VAN QUANG          dự kiến 5/10     7.500.000 ₫
-YouTube Premium                  16/10       129.000 ₫
-ANTHROPIC* CLAUDE SUB            18/10     2.970.000 ₫
-YouTube Premium tăng 24.000 ₫                    (amber)
-Có vẻ định kỳ: Netflix, FPT Telecom
+Tháng 10 còn                              ╭───╮
+3.058.000 ₫                               │71%│
+trên 10.558.000 ₫ định kỳ · 2 khoản       ╰───╯
+──────────────────────────────────────────────
+○ Tiền thuê nhà · 6/10              7.500.000 ₫
+● Anthropic · 18/10                 2.970.000 ₫
+● YouTube Premium · 20/10              88.000 ₫
 ```
 
-A charge is named by its receipt when it has one ("YouTube Premium"), else by
-who it was paid to, as the bank writes it. The tile is one tap target and
-opens the sheet. With nothing confirmed yet, its head reads "1 khoản có vẻ
-định kỳ" and the guesses are the rows, in the soft ink.
-
-The sheet is the list: rows of title and subtitle with a right-aligned figure
-and a chevron (DESIGN §3 "List row"), under eyebrow labels "30 ngày tới",
-"Hàng tháng", "Hàng năm", "Hàng tuần", "Có vẻ định kỳ". A row opens its latest
-transaction. A guess carries a question and two small pills under its row:
+**The sheet: the language of Cài đặt › Thuê bao.** Subtitle "4 dịch vụ ·
+~10,6 tr ₫ mỗi tháng". A square monogram tile per service in one of the six
+identity slots (picked by the series key, so a service keeps its colour), the
+name, a renewal line, the amount with its cycle underneath ("/tháng",
+"/năm"). Groups in order: **Còn lại tháng này** (or "Tháng 11" once rolled),
+with a countdown in the renewal line: "Gia hạn 18/10 · còn 11 ngày", "hôm
+nay", "ngày mai", or "dự kiến, chưa thấy"; then each later month as its own
+group ("Tháng 11"), renewal line "Gia hạn thứ sáu 6/11"; then **Hàng năm**;
+then **Có vẻ định kỳ**, each guess with its question and two pills, Không and
+Đúng rồi. A price that rose takes the cycle's place under the amount, in
+amber: "tăng 24.000 ₫". Rows open the latest transaction.
 
 ```
-Netflix                                      260.000 ₫  ›
-10/10
-Lặp lại hàng tháng?                  [ Không ] [ Đúng rồi ]
+CÒN LẠI THÁNG NÀY
+[A] Anthropic                          2.970.000 ₫  ›
+    Gia hạn 18/10 · còn 11 ngày             /tháng
+[Y] YouTube Premium                      129.000 ₫  ›
+    Gia hạn 16/10 · còn 9 ngày          tăng 24.000 ₫
+THÁNG 11
+[N] NGUYEN VAN QUANG                   7.500.000 ₫  ›
+    Gia hạn thứ sáu 6/11                    /tháng
 ```
 
-The pills are the app's quiet secondary action (neutral and brand-tint
-fills), never filled brand buttons: five guesses must not put five accents on
-one sheet. The subtitle is "Mỗi tháng ~X": monthly amounts, plus yearly over
-twelve, plus weekly times 52 over 12, confirmed series only, computed on
-device from decrypted amounts (§7). The family home shows the same tile over
-family rows.
+Names: the receipt's own ("YouTube Premium") when the row carries one, else
+the payee as the bank writes it. Naming a payee-less bank string by its leaf
+("Tiền thuê nhà") is shown in the mockups and not built (§17).
 
 Empty: the tile is absent until something repeats. The sheet, opened while
 the history is still being read, says "Đang xem lại lịch sử chi tiêu…"; with
@@ -358,6 +372,7 @@ From the design interview, 2026-10-06.
 | RR16 | **The queue card asks the ledger:** a candidate that continues a series shows its period, "Theo các kỳ trước". A soft series or a leaf hint shows "Có vẻ", and is not stored on import. |
 | RR17 | **A pattern mark is derived, never trusted.** Only a person's or a receipt's mark anchors a merchant. Each run re-derives pattern marks, writes the latest row of a confirmed series, and clears a `pattern` mark no series explains. |
 | RR18 | **One truth.** Tile, sheet, detail row and queue card read the same series view. The stored column is the durable trace of it, not a second opinion. |
+| RR21 | *(2026-10-07)* **Tile 3 "Vòng tháng", sheet 5 "Thuê bao"** chosen from sixteen rendered directions (`mockups/recurring-options.html`); the ring is the daily-guide ring reused, the sheet is the iPhone Subscriptions language with a countdown on this month's rows. Eight ring variants are in the same file for the next round. |
 | RR20 | *(2026-10-07)* **"Sắp tới" is this month.** The tile and the sheet's first group show the confirmed charges still expected before the month ends, with their sum ("Còn 2 khoản tháng này · 3.058.000 ₫"). When none is left, the view rolls to next month and says so ("Tháng 11: 4 khoản"). Replaces the rolling 30-day horizon of RR7. |
 | RR19 | **A series that stops, lapses.** More than one full period overdue and it leaves the tile, the upcoming list and the monthly total. Its rows keep their history. |
 
@@ -365,6 +380,7 @@ From the design interview, 2026-10-06.
 
 | Cut | Why | Returns |
 |---|---|---|
+| Leaf naming for payee-less bank strings ("Tiền thuê nhà" for "6209991888 - NGUYEN VINH") | Shown in the mockups; needs a rule for when a leaf name beats the payee, and the detail screen must say which it chose. | Next round |
 | No hand-set next date ("Kỳ tới" picker) | It needs a place to live that is neither a clear column (RR2) nor the receipt blob; the note block was the candidate and deserves its own small design. | Merchant-intelligence epic |
 | No filter chip on the list | The mark on the card and the tile cover the reading need; a chip is a list-filter change across both ledgers' lists. | Same |
 | Queue-wide detection | Twelve rent payments all waiting in the queue, none in the ledger, show Không on their cards; the pass marks them after import (§18.9). | Merchant-intelligence epic |

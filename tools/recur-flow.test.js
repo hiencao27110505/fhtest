@@ -83,10 +83,12 @@ function ledger() {
     const html = a.ctx.persRecurSection();
     t('lives in a wrapper the pass can refill', html.indexOf('id="pers-recur-wrap"') >= 0);
     t('names the rent and the subscriptions', /NGUYEN VAN QUANG/.test(html) && /ANTHROPIC/.test(html), html.slice(0, 400));
-    t('the head counts what is still due THIS month (rent 6/10 expected, Anthropic 18/10, YouTube 16/10)', /Còn 3 khoản tháng này · 10575/.test(html), (html.match(/dbt-tk">[^<]*/) || [])[0]);
+    t('the tile is the month: "Tháng 10 còn" with what is still due (rent 6/10 expected, YouTube 16/10, Anthropic 18/10)', /dbt-tk">Tháng 10 còn</.test(html) && /dbt-tv num">10575</.test(html), (html.match(/dbt-tk">[^<]*/) || [])[0]);
+    t('…and the ring: nothing paid yet this month, so 0%', /rcr-ring-c"><b class="num">0%</.test(html), (html.match(/rcr-ring-c">[^/]*/) || [])[0]);
+    t('…over the month\'s recurring total', /trên 10575 định kỳ · 3 khoản/.test(html), (html.match(/rcr-sub">[^<]*/) || [])[0]);
     t('never names the coffee shop', !/REVI/.test(html));
-    t('mỗi tháng is rent + Anthropic + YouTube', html.indexOf('~10575') >= 0, (html.match(/~\d+/) || [])[0]);
-    t('rent expected yesterday and not seen yet reads "dự kiến 6/10": a fact, not a verdict', /dự kiến 6\/10/.test(html) && !/quá|trễ/.test(html), html.match(/rcr-when">[^<]*/g));
+    t('each charge of the month is a line, due ones with a sage dot', (html.match(/class="rcr-ln"/g) || []).length === 3 && !/class="rcr-ln paid"/.test(html), (html.match(/rcr-ln[^"]*"/g) || []));
+    t('no "quá hạn" anywhere: an expected charge is a fact, not a verdict', !/quá|trễ/.test(html));
     t('YouTube shows under the receipt\'s own name, not the bank\'s payee string', /YouTube Premium/.test(html) && !/APPLE\.COM/.test(html), html.slice(0, 600));
 
     console.log('\n-- the detail row reads the same view --');
@@ -141,7 +143,7 @@ function ledger() {
     await b.ctx.fhRecurRunPersonal();
     const s0 = b.ctx.fhRecurState('pers').series[0];
     t('three monthly charges on no leaf: a guess, nothing written', s0 && s0.soft === true && wrote2.length === 0, s0);
-    t('with nothing confirmed, the tile lists the guess in soft ink and counts nothing', /1 khoản có vẻ định kỳ/.test(b.ctx.persRecurSection()) && /rcr-row soft/.test(b.ctx.persRecurSection()) && !/~\d/.test(b.ctx.persRecurSection()), b.ctx.persRecurSection().slice(0, 400));
+    t('with nothing confirmed, the tile lists the guess in soft ink, no ring, no total', /1 khoản có vẻ định kỳ/.test(b.ctx.persRecurSection()) && /rcr-ln paid/.test(b.ctx.persRecurSection()) && !/rcr-ring/.test(b.ctx.persRecurSection()) && !/~\d/.test(b.ctx.persRecurSection()), b.ctx.persRecurSection().slice(0, 400));
     await b.ctx.fhRecurAnswer('pers', s0.id, true);
     t('Đúng rồi: a person mark on the latest row', wrote2.length === 1 && wrote2[0].fields.recur === 'monthly' && wrote2[0].fields.recurSrc === 'person', wrote2);
     t('…the lesson taught under the series key, with the amount', learned.length === 1 && learned[0][0] === 'p|netflix' && learned[0][3] === 220, learned);

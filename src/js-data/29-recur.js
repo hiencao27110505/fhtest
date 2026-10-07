@@ -320,6 +320,26 @@
     items.sort((a, b) => (a.dueInDays == null ? 1e9 : a.dueInDays) - (b.dueInDays == null ? 1e9 : b.dueInDays));
     return { items, total: items.reduce((t, s) => t + s.amount, 0), month, year, isNext };
   }
+  /* The month as a whole (tile option "Vòng tháng"): what this month's
+     confirmed series have already charged (rows dated in the month) and what
+     is still due (upcomingMonth). When the view has rolled to next month,
+     paid is empty by definition. */
+  function monthView(series, todayIso) {
+    const um = upcomingMonth(series, todayIso);
+    const paid = [];
+    if (!um.isNext) {
+      for (const s of live(series)) {
+        if (s.soft) continue;
+        for (const r of s.rows) {
+          const t = new Date(_dateOf(r.date));
+          if (t.getUTCFullYear() === um.year && t.getUTCMonth() === um.month - 1) paid.push({ series: s, row: r, amount: r.amt, date: r.date });
+        }
+      }
+      paid.sort((a, b) => (a.date < b.date ? -1 : 1));
+    }
+    const paidTotal = paid.reduce((t, p) => t + p.amount, 0);
+    return { month: um.month, year: um.year, isNext: um.isNext, due: um.items, dueTotal: um.total, paid, paidTotal, total: paidTotal + um.total };
+  }
   function monthlyTotal(series) {
     return live(series).reduce((sum, s) => sum + (s.soft ? 0 : s.perMonth), 0);
   }
@@ -356,7 +376,7 @@
   window.FH_RECUR = Object.freeze({
     WINDOWS, GUESS, CONFIRM, GUESS_LEAF, CONFIRM_LEAF, CLUSTER_TOL, CREEP, UPCOMING_DAYS, HISTORY_DAYS,
     fold, periodOf, primaryKey, amountKey, clusters, cadence, addPeriod, nextDate, creep,
-    labelVi, labelEn, perMonth, receiptMeta, analyse, live, upcoming, upcomingMonth, monthlyTotal, matchCandidate,
+    labelVi, labelEn, perMonth, receiptMeta, analyse, live, upcoming, upcomingMonth, monthView, monthlyTotal, matchCandidate,
   });
 
   /* ═══ the two ledgers ══════════════════════════════════════════════════════

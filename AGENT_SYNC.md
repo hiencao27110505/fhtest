@@ -151,6 +151,7 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-10-07 (late night) · Hien · Định kỳ tile 3 "Vòng tháng" + sheet 5 "Thuê bao" BUILT (RR21) · SW `v618` · client only.** Picked from the sixteen mockups. Tile: `FH_RECUR.monthView` (paid vs due this month) drives the reused daily-guide ring; sheet: monogram tiles on the six identity slots, "Gia hạn 18/10 · còn 11 ngày" on this month's rows, later months as their own groups, Hàng năm, guesses with Không / Đúng rồi. `mockups/recurring-options.html` gained eight ring-tile variants for the next round. If you bump the SW next, start from v618.
 - **2026-10-07 (night) · Hien · "Sắp tới" is THIS MONTH (RR20) · SW `v617` · client only.** The tile and the sheet's first group now show the confirmed charges still due before the month ends, with their sum; when none is left they roll to next month and say so (`FH_RECUR.upcomingMonth`). Hien also asked for eight design directions each for the tile and the sheet: `mockups/recurring-options.html` (real data from the test ledger, app tokens verbatim). The shipped UI is unchanged until a direction is picked. If you bump the SW next, start from v617.
 - **2026-10-07 (later) · Hien · UI and copy pass over everything the two releases added — PUSHED with detection v2 · SW `v616` · client only.**
   Every new screen was rendered in headless Chrome with the app's real CSS and judged by eye against DESIGN.md. What changed:

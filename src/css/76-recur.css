@@ -3,18 +3,26 @@
    sheet's rows are the list row of DESIGN §3 — title, subtitle, right figure,
    chevron — sized like .rl-row so two lists in the app never disagree. */
 
-/* ── the tile ── */
+/* ── the tile: the month as a progress ── */
 .rcr-tile{cursor:pointer}
-.rcr-per{font-family:var(--text);font-size:13px;font-weight:600;letter-spacing:-.01em;color:var(--muted)}
-.rcr-list{margin-top:12px;border-top:1px solid var(--divider)}
-.rcr-row{display:flex;align-items:baseline;gap:10px;padding:10px 0;border-bottom:1px solid var(--divider)}
-.rcr-list .rcr-row:last-child{border-bottom:0;padding-bottom:2px}
-.rcr-nm{flex:1;min-width:0;font-size:14px;font-weight:500;letter-spacing:-.01em;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.rcr-when{flex:none;font-size:13px;color:var(--muted)}
-.rcr-row .rcr-amt{flex:none;min-width:86px;text-align:right;font-size:14px;font-weight:600;letter-spacing:-.2px;color:var(--ink)}
-/* nothing confirmed yet: the guesses are the rows, in the soft ink a guess wears everywhere */
-.rcr-row.soft .rcr-nm,.rcr-row.soft .rcr-amt{color:var(--muted);font-weight:500}
-.rcr-feet{margin-top:10px;padding-top:10px;border-top:1px solid var(--divider);display:flex;flex-direction:column;gap:3px}
+.rcr-top{display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center}
+.rcr-top-l{min-width:0}
+.rcr-top .dbt-tv{white-space:nowrap}
+.rcr-sub{font-weight:500;line-height:1.35;white-space:normal}
+.rcr-ring{position:relative;width:84px;height:84px;flex:none}
+.rcr-ring svg{width:84px;height:84px;transform:rotate(-90deg)}
+.rcr-ring-c{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1}
+.rcr-ring-c b{font-size:17px;font-weight:700;letter-spacing:-.4px;color:var(--ink)}
+.rcr-ring-c small{margin-top:3px;font-size:10px;font-weight:600;letter-spacing:.02em;color:var(--muted)}
+.rcr-lines{margin-top:12px;padding-top:8px;border-top:1px solid var(--divider)}
+.rcr-ln{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:5px 0;font-size:13.5px;color:var(--ink)}
+.rcr-ln-t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rcr-ln b{flex:none;font-weight:600;letter-spacing:-.2px}
+.rcr-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--brand);margin-right:9px;vertical-align:1px}
+.rcr-ln.paid{color:var(--muted)}
+.rcr-ln.paid b{color:var(--muted);font-weight:500}
+.rcr-ln.paid .rcr-dot{background:var(--chev)}
+.rcr-feet{margin-top:8px;padding-top:10px;border-top:1px solid var(--divider);display:flex;flex-direction:column;gap:3px}
 .rcr-foot{font-size:12.5px;line-height:1.4;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rcr-foot.rose{color:var(--amber);font-weight:600}
 
@@ -22,14 +30,20 @@
 .rcr-sheet{flex:1 1 100%;min-width:0;display:flex;flex-direction:column}
 .rcr-sec{margin:18px 0 2px;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
 .rcr-sec:first-child{margin-top:0}
-.rcr-item{display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:9px 0;border:0;border-bottom:1px solid var(--divider);background:none;font:inherit;text-align:left;color:var(--ink);-webkit-tap-highlight-color:transparent}
+.rcr-item{display:flex;align-items:center;gap:12px;width:100%;min-height:64px;padding:9px 0;border:0;border-bottom:1px solid var(--divider);background:none;font:inherit;text-align:left;color:var(--ink);-webkit-tap-highlight-color:transparent}
 button.rcr-item:active{opacity:.55}
 .rcr-group>.rcr-item:last-child,.rcr-group>.rcr-guess:last-child{border-bottom:0}
 .rcr-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
-.rcr-t b{font-size:15px;font-weight:600;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.rcr-t small{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rcr-t b{font-size:16px;font-weight:600;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rcr-t small{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
 .rcr-up{color:var(--amber);font-weight:600}
-.rcr-item .rcr-amt{flex:none;font-size:15px;font-weight:600;letter-spacing:-.3px;color:var(--ink)}
+.rcr-r{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:1px}
+.rcr-item .rcr-amt{font-size:15px;font-weight:600;letter-spacing:-.3px;color:var(--ink);white-space:nowrap}
+.rcr-cyc{font-size:11.5px;font-weight:600;color:var(--muted-soft);white-space:nowrap}
+.rcr-cyc.rose{color:var(--amber)}
+/* the monogram tile: a square, one of the six identity slots (DESIGN §2.1) */
+.rcr-mono{flex:none;width:42px;height:42px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;font-family:var(--disp);font-size:17px;font-weight:700;color:var(--white)}
+.rcr-guess .rcr-mono{opacity:.55}
 .rcr-chev{width:15px;height:15px;color:var(--chev);flex:none}
 /* a guess: its row, then the question and two small pills. The quiet pill and
    the tinted one are the app's secondary-action language (.dbt-empty-cta); a
