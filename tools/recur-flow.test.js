@@ -178,6 +178,17 @@ function ledger() {
     t('two coffees a week apart are nothing', !fs2.some((s) => /cafe/.test(s.name)));
   }
 
+  console.log('\n-- v3 wiring (recurring-charges-spec §19) --');
+  {
+    const S19 = rd('src/js-data/19-personal.js'), S29 = rd('src/js-data/29-recur.js'), S79 = rd('src/js-ui/79-recur-ui.js');
+    t('both personal row builders hand the engine what the receipt is (rcHas) and what it names (rcProd)', (S19.match(/rcHas: !!\(m && m\.has\), rcProd: m \? \(m\.prod \|\| null\) : null/g) || []).length === 2);
+    t('family rows say they carry no receipt facts', /rcHas: false, rcProd: null, _t: t/.test(S29));
+    t('the engine is told who is a biller by the registry', /biller: \(payee\) => !!\(window\.FH_BRANDS && typeof window\.FH_BRANDS\.isBiller === 'function' && window\.FH_BRANDS\.isBiller\(payee\)\)/.test(S29));
+    t('the queue card passes its own receipt\'s verdict to the engine', /cand\.notRenewal = !!\(rm && rm\.has && !rm\.period\)/.test(S56));
+    t('a tap on a series opens the row that proves it', /const a = s\.anchor \|\| s\.latest;/.test(S79) && /openPersonalTxDetail\(\\'' \+ _e\(a\.id\)/.test(S79));
+    t('the price-rise note sits on the proof row', /\(s\.anchor\|\|s\.latest\)\.id===o\.id/.test(S61));
+  }
+
   if (failed) { console.log('\n' + failed + ' FAILED, ' + passed + ' passed'); process.exit(1); }
   console.log('\nall ' + passed + ' passed');
 })().catch((e) => { console.error(e); process.exit(1); });

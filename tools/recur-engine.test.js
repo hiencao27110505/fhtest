@@ -22,7 +22,7 @@ function t(name, ok, detail) {
 }
 let _n = 0;
 const row = (date, amt, o) => Object.assign({ id: 'r' + (++_n), date, amt, payee: null, note: '', node: null, kind: 'expense',
-  recur: null, recurSrc: null, rcPeriod: null, recurSig: null, renewsOn: null }, o || {});
+  recur: null, recurSrc: null, rcPeriod: null, recurSig: null, renewsOn: null, rcHas: false, rcProd: null }, o || {});
 const brief = (v) => v.series.map((s) => ({ g: s.groupKey, p: s.period, src: s.source, soft: s.soft, n: s.inCadence, next: s.next, lapsed: s.lapsed }));
 
 /* The short list of recurring leaves, as FH_TAX.recursOf answers it. */
@@ -211,6 +211,95 @@ v = an(typed, { prior: () => null });
 t('three charges, every gap monthly: a series, soft by rule', v.series.length === 1 && v.series[0].pass === 'C' && v.series[0].soft === true, brief(v));
 v = an(typed.slice(0, 2), { prior: () => null });
 t('two is not enough for pass C', v.series.length === 0, brief(v));
+
+/* ═══ v3: the wrong member (docs/incidents/2026-10-09-recurring-wrong-member.md) ═══
+   The shape is the real one, read from the test mailbox: YouTube Premium at
+   105 on the 16th of every month through Apple (March missing), three 39 film
+   rentals, and an 88 rental four days after September's charge. The biller
+   test is the app's own (FH_BRANDS.isBiller), not a stand-in. */
+const _bw = {}; vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'src', 'js-ui', '08-brands.js'), 'utf8'), { window: _bw });
+const biller = (p) => _bw.FH_BRANDS.isBiller(p);
+const A = 'APPLE.COM/BILL';
+const ytRow = (d, amt, o) => row(d, amt == null ? 105 : amt, Object.assign({ payee: A, node: 'streaming', rcHas: true, rcPeriod: 'monthly', rcProd: 'youtube premium', rcLabel: 'YouTube Premium', recur: 'monthly', recurSrc: 'receipt' }, o || {}));
+const film = (d, amt, o) => row(d, amt, Object.assign({ payee: A, node: 'streaming', rcHas: true, note: 'The Pursuit of Happyness +1 món' }, o || {}));
+const YT_DATES = ['2025-10-16', '2025-11-16', '2025-12-16', '2026-01-16', '2026-02-16', '2026-04-16', '2026-05-16', '2026-06-16', '2026-07-16', '2026-08-16', '2026-09-16'];
+const real = () => { const yt = YT_DATES.map((d) => ytRow(d)); const small = ['2026-07-20', '2026-08-02', '2026-09-13'].map((d) => film(d, 39)); const rental = film('2026-09-20', 88); return { yt, small, rental, all: yt.concat(small, [rental]) }; };
+const an3 = (rows, opts, today) => R.analyse(rows, today || '2026-10-08', Object.assign({ prior, biller }, opts || {}));
+
+console.log('\n-- v3: the film rental and the subscription (the incident, real shape) --');
+let k = real(); v = an3(k.all);
+let ys = v.series.find((s) => s.product === 'YouTube Premium');
+t('one series, and it is YouTube Premium', v.series.length === 1 && !!ys, brief(v));
+t('its amount is the subscription\'s, 105, not the rental\'s 88', ys && ys.amount === 105, ys && ys.amount);
+t('its next date is the 16th, not the 20th', ys && ys.next === '2026-10-16', ys && ys.next);
+t('a tap opens September\'s YouTube charge, not the rental', ys && ys.id === k.yt[k.yt.length - 1].id && ys.anchor.id === ys.id);
+t('the rental belongs to no series, so its own screen says nothing about recurring', !v.byRow.has(k.rental.id));
+t('no film rental is in any series', k.small.every((r) => !v.byRow.has(r.id)));
+t('"mỗi tháng" counts 105', R.monthlyTotal(v.series) === 105, R.monthlyTotal(v.series));
+t('nothing is written to the rental', !v.patches.some((p) => p.id === k.rental.id), v.patches.map((p) => p.id));
+
+console.log('\n-- v3 §19.1: the product is the identity --');
+k = real(); k.rental.rcHas = false; v = an3(k.all, { biller: () => false });
+t('a rental with NO receipt, at a seller that is not a biller, is still kept out (four days after a charge is not a month)', !v.byRow.has(k.rental.id) && v.series.find((s) => s.product === 'YouTube Premium').amount === 105);
+let two = YT_DATES.slice(-4).map((d) => ytRow(d)).concat(['2026-06-20', '2026-07-20', '2026-08-20', '2026-09-20'].map((d) => ytRow(d, 19, { rcProd: 'icloud 50 gb', rcLabel: 'iCloud+ 50 GB' })));
+v = an3(two);
+t('two products of one biller are two series with two keys', v.series.length === 2 && v.series[0].key !== v.series[1].key && v.series.map((s) => s.amount).sort((a, b) => a - b).join() === '19,105', brief(v));
+let rise = ['2026-06-16', '2026-07-16', '2026-08-16'].map((d) => ytRow(d)).concat([ytRow('2026-09-16', 139)]);
+v = an3(rise);
+t('a price rise of a third stays one series, because the receipt names the same product', v.series.length === 1 && v.series[0].amount === 139 && v.series[0].creep === 34, v.series.map((s) => [s.amount, s.creep]));
+let mOld = R.receiptMeta({ service_type: 'digital', items: [{ name: 'YouTube Premium (Monthly)', variant: 'Renews 16 October 2026', sig: 'apple|vendor|youtube' }] });
+let mNew = R.receiptMeta({ period: 'month', items: [{ name: 'YouTube Premium', sig: 'sub|youtube|youtube premium' }] });
+t('an older label-only receipt and a newer signed one name the same product', mOld.prod === 'youtube premium' && mNew.prod === 'youtube premium', [mOld.prod, mNew.prod]);
+let mFilm = R.receiptMeta({ service_type: 'digital', items: [{ name: 'The Pursuit of Happyness', variant: 'Drama · Movie Rental', sig: 'store|apple tv|movie rental' }, { name: 'Up', variant: 'Movie Rental' }] });
+t('a rental\'s receipt is a receipt, states no period and names no renewing product', mFilm.has === true && mFilm.period === null && mFilm.prod === null, mFilm);
+t('no receipt at all is not "a receipt that says no"', R.receiptMeta(null).has === false && R.receiptMeta({ items: [] }).has === false);
+
+console.log('\n-- v3 §19.2: membership is timed --');
+k = real(); let oct = row('2026-10-16', 105, { payee: A, node: 'streaming' });
+v = an3(k.all.concat([oct]), null, '2026-10-20'); ys = v.series.find((s) => s.product === 'YouTube Premium');
+t('a month whose receipt never arrived still joins: same amount, one period on', v.byRow.get(oct.id) === ys);
+t('...the series is still described by its last PROVEN row (amount, tap target)', ys.id === k.yt[k.yt.length - 1].id && ys.amount === 105);
+t('...and the next date steps past the unproven month: 16/11', ys.next === '2026-11-16', ys.next);
+t('...and that month is the series\' newest charge', ys.latest.id === oct.id && ys.rows.length === YT_DATES.length + 1);
+k = real(); let wrongAmt = row('2026-10-16', 99, { payee: A, node: 'streaming' });
+v = an3(k.all.concat([wrongAmt]), null, '2026-10-20');
+t('under a biller, a receipt-less row 6% off does not join, even in step', !v.byRow.has(wrongAmt.id));
+v = an3(k.all.concat([wrongAmt]), { biller: () => false }, '2026-10-20');
+t('at a seller it does (within 10%), and 16% off never does', v.byRow.has(wrongAmt.id) && !an3(real().all.concat([row('2026-10-16', 88, { payee: A })]), { biller: () => false }, '2026-10-20').series.some((s) => s.rows.some((r) => r.amt === 88)));
+let nf = ['2026-05-10', '2026-06-10', '2026-07-10', '2026-08-10', '2026-09-10'].map((d) => row(d, 260, { payee: 'NETFLIX.COM', node: 'streaming' }));
+let nfExtra = row('2026-09-14', 260, { payee: 'NETFLIX.COM', node: 'streaming' });
+v = an3(nf.concat([nfExtra]));
+t('a seller\'s pattern keeps one charge per period: a second charge four days later is not the series', v.series.length === 1 && !v.byRow.has(nfExtra.id) && v.series[0].next === '2026-10-10' && v.series[0].inCadence === 5, brief(v));
+let pr = R.prune([row('2026-07-16', 105), row('2026-08-16', 105), row('2026-09-12', 105), row('2026-09-16', 105, { rcPeriod: 'monthly' })], 'monthly');
+t('when two rows compete for a slot, the proven one stays, whichever came first', pr.kept.length === 3 && pr.kept[2].date === '2026-09-16' && pr.extras[0].date === '2026-09-12', pr.kept.map((r) => r.date));
+pr = R.prune([row('2026-07-16', 105), row('2026-08-16', 105), row('2026-09-12', 105), row('2026-09-16', 105)], 'monthly');
+t('with no proof on either, the one more in step with the charge before stays', pr.kept[2].date === '2026-09-16', pr.kept.map((r) => r.date));
+pr = R.prune([row('2026-03-16', 105, { rcPeriod: 'monthly' }), row('2026-03-16', 50, { rcPeriod: 'monthly' })], 'monthly');
+t('two proven rows are both kept', pr.kept.length === 2 && pr.extras.length === 0);
+
+console.log('\n-- v3 §19.3: a biller is not a seller --');
+const appleRow = (d, amt) => row(d, amt, { payee: A, node: 'streaming' });
+let noRc = ['2026-04-16', '2026-05-16', '2026-06-16', '2026-08-16', '2026-09-16'].map((d) => appleRow(d, 105));
+v = an3(noRc);
+t('with no receipts, one exact amount in step (a missed month allowed) is a guess, never a fact', v.series.length === 1 && v.series[0].soft === true && v.series[0].source === 'pattern' && v.series[0].biller === true, brief(v));
+t('...and a guess is not counted in "mỗi tháng" nor written', R.monthlyTotal(v.series) === 0 && v.patches.length === 0);
+v = an3(noRc.concat([appleRow('2026-09-20', 88), appleRow('2026-08-20', 75), appleRow('2026-07-21', 99)]));
+t('different amounts do not chain under a biller, even a month apart (99, 75, 88 are three purchases)', v.series.length === 1 && v.series[0].rows.every((r) => r.amt === 105), brief(v));
+v = an3(noRc, { biller: () => false });
+t('the same rows at a seller are a fact (five charges in cadence on a leaf)', v.series.length === 1 && v.series[0].soft === false);
+v = an3(noRc.concat([appleRow('2026-09-20', 88)]), { lesson: () => ({ period: 'monthly', amt: 0 }) });
+t('a lesson for the biller with no amount confirms nothing', v.series.every((s) => s.source !== 'lesson'), brief(v));
+v = an3(noRc.concat([appleRow('2026-09-20', 88)]), { lesson: () => ({ period: 'monthly', amt: 105 }) });
+t('a lesson for the biller AT 105 confirms the 105 charges and not the 88', v.series.length === 1 && v.series[0].source === 'lesson' && v.series[0].amount === 105 && v.series[0].soft === false, brief(v));
+t('the app\'s own biller test: Apple\'s billing line, Google Play, a bare rail; not a named seller', biller('APPLE.COM/BILL') && biller('GOOGLE PLAY') && biller('MOMO') && !biller('GOOGLE *YouTube Premium') && !biller('NETFLIX.COM') && !biller('99ZP24 - ZALOPAY_Chickita') && !biller('PAYPAL *NETFLIX') && !biller(null));
+
+console.log('\n-- v3: the queue card asks the same questions --');
+k = real(); v = an3(k.all);
+const mc = (c) => R.matchCandidate(v, Object.assign({ payee: A, note: '', node: null }, c), { prior: () => null, biller });
+t('October\'s charge, 105 on the 16th, continues the series', (mc({ amt: 105, date: '2026-10-16' }) || {}).source === 'series');
+t('a card whose own receipt says "not a renewal" continues nothing', mc({ amt: 105, date: '2026-10-16', notRenewal: true }) === null);
+t('an 88 purchase from Apple continues nothing', mc({ amt: 88, date: '2026-10-16' }) === null);
+t('a 105 purchase four days after a charge continues nothing', mc({ amt: 105, date: '2026-09-20' }) === null);
 
 if (failed) { console.log('\n' + failed + ' FAILED, ' + passed + ' passed'); process.exit(1); }
 console.log('\nall ' + passed + ' passed');

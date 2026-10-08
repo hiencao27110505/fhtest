@@ -36,6 +36,8 @@ r = generateWith((reg) => { find(reg, 'spotify').hex = 'green'; });
 t('a bad colour is refused', !r.ok && /bad hex/.test(r.err), r.err && r.err.slice(0, 100));
 r = generateWith((reg) => { reg.rails.push('ZaloPay'); });
 t('a rail that is not folded lower-case is refused', !r.ok && /rail must be folded/.test(r.err), r.err && r.err.slice(0, 100));
+r = generateWith((reg) => { reg.billers.push('Apple.com/Bill'); });
+t('a biller that is not folded lower-case is refused', !r.ok && /biller must be folded/.test(r.err), r.err && r.err.slice(0, 100));
 r = generateWith((reg) => { reg.rails.push('netflix'); });
 t('a rail that is also a brand word is refused', !r.ok && /is also a match word/.test(r.err), r.err && r.err.slice(0, 100));
 
@@ -75,6 +77,14 @@ t('a row filed under an expense leaf wears its seller', fr({ node: 'streaming', 
 t('a row filed under a person wears none, whatever the memo says', fr({ node: 'split', payee: 'NGUYEN THU TRANG', note: 'chia tien netflix' }) === null && fr({ node: 'p2p', note: 'netflix' }) === null);
 t('a row that is not spending wears none', fr({ node: 'wage', note: 'google payroll' }) === null);
 t('forRow asks signature, payee, memo, provider in that order', fr({ sig: 'sub|google|google one', payee: 'APPLE.COM/BILL' }) === 'Google One' && fr({ payee: 'x', note: 'y', provider: 'Grab' }) === 'Grab');
+
+console.log('\n-- billers: a payee that names no product (recurring-charges-spec §19.3) --');
+t('Apple\'s billing line, iTunes and Google Play are billers', B.isBiller('APPLE.COM/BILL') && B.isBiller('APPLE.COM/BILL ITUNES.COM') && B.isBiller('GOOGLE PLAY'));
+t('a rail with no merchant beside it is a biller ("MOMO", "ZALOPAY 0123")', B.isBiller('MOMO') && B.isBiller('ZALOPAY 0123'));
+t('a rail WITH a merchant is not: the merchant is the seller', !B.isBiller('99ZP24281M07 - ZALOPAY_Chickita - Crescent') && !B.isBiller('VIB MOCA GRAB') && !B.isBiller('PAYPAL *NETFLIX'));
+t('a descriptor that names its product is not ("GOOGLE *YouTube Premium")', !B.isBiller('GOOGLE *YouTube Premium'));
+t('a seller, a person, nothing: not billers', !B.isBiller('NETFLIX.COM') && !B.isBiller('NGUYEN VAN QUANG') && !B.isBiller(null) && !B.isBiller(''));
+t('Apple is a biller AND still a logo', B.isBiller('APPLE.COM/BILL') && m(null, 'APPLE.COM/BILL') === 'Apple');
 
 console.log('\n-- where the mark is drawn (RR23) --');
 const S60 = fs.readFileSync(path.join(ROOT, 'src', 'js-ui', '60-transactions.js'), 'utf8');

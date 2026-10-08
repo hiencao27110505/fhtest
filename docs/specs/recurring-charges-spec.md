@@ -491,6 +491,10 @@ From the design interview, 2026-10-06.
 | RR22 | *(2026-10-08)* **A service wears its logo.** Faces in the tile lines and the sheet rows: brand glyph on brand colour from a bundled registry (`taxonomy/brands.json`, CC0 Simple Icons), else the node's emoji inherited from its nearest ancestor, else the row's category emoji, else the monogram. A matched brand also names a receipt-less series. Recognition only; a brand is removed on an owner's request. The sixteen logo-led mockups in `mockups/recurring-options.html` are for the next round. Built as treatment 1 of the eight placements (white glyph on brand colour, 42 px in the sheet, 22 px in the tile), picked 2026-10-08; the renewal line dropped its "Gia hạn" prefix the same day. |
 | RR23 | *(2026-10-09)* **The logo leaves Định kỳ.** Every ledger row in both ledgers wears it in the tile it already had (photo, then brand, then category emoji; treatment A), and the queue card wears it inside the category pill (placement 5), picked from `mockups/logo-queue-ledger-options.html`. Only spent money, never a row filed under a person. Family rows match on the note alone. |
 | RR24 | *(2026-10-09)* **Rails are not sellers, and a word must start a token.** Payment rails live in the registry and are struck before matching; matching is per token start; answers are memoised. Measured on 773 real rows: 25.1% wear a logo; the 194 hits come from 15 distinct merchant strings, each read and correct. |
+| RR25 | *(2026-10-09, detection v3)* **The product is the identity** when a receipt names one: rows of one payee are split by what their receipts say before amounts are compared, and a row whose own receipt is not a renewal never joins a renewal. Completes RR3. |
+| RR26 | **Membership is timed.** A row with no proof joins a proven series only in an empty slot of its cadence within 10% of its neighbour; no series keeps two charges inside one period. |
+| RR27 | **A biller is not a seller.** Apple's billing line, Google Play and bare payment rails are data in `brands.json`. Under one, a series needs a product or one exact amount in step, a pattern is always a guess, and a lesson holds for one amount. Amends RR13. |
+| RR28 | **A series is described by its proof.** Amount, name and tap target come from the newest row with a receipt or a person's word; the next date steps past newer members. |
 | RR20 | *(2026-10-07)* **"Sắp tới" is this month.** The tile and the sheet's first group show the confirmed charges still expected before the month ends, with their sum ("Còn 2 khoản tháng này · 3.058.000 ₫"). When none is left, the view rolls to next month and says so ("Tháng 11: 4 khoản"). Replaces the rolling 30-day horizon of RR7. |
 | RR19 | **A series that stops, lapses.** More than one full period overdue and it leaves the tile, the upcoming list and the monthly total. Its rows keep their history. |
 
@@ -505,6 +509,7 @@ From the design interview, 2026-10-06.
 | A mark for Vietnamese chains (AEON, Circle K, Co.op, Tiki, CGV, Viettel, FPT) | Simple Icons carries none of them, checked 2026-10-09 against 16.34.0. They are 16% of real rows. Options: a brand-colour monogram, or glyphs sourced elsewhere with their own licence review. | Next round |
 | Faces on the detail hero, the expanded queue card, group cards, quick review, tree rows | RR23 covers the collapsed card and the list rows, where scanning happens. | Next round |
 | Dark glyph on light brand colours | White on Spotify green is weak. Needs an `ink` field in the registry and a contrast check in the generator. | Next round |
+| A per-row "Không thuộc khoản này" control | v3 fixes membership at the source; a manual detach is the remaining half of the incident's fourth approach. | Next round |
 | Apple keeps its own reader | Two layouts and storefront sections; the registry carries its labels so folding it into the family walk is a data change later. | Providers release 2 |
 
 ## 16. Related documents
@@ -773,6 +778,107 @@ through its leaf, and only the latest row is written.
 
 `tools/taxonomy-recurs.test.js`: the nine leaves, `recursOf` on the client
 with inheritance, and the worker and Python targets carrying neither key.
+
+## 19. Detection v3: who is a member (2026-10-09)
+
+After `docs/incidents/2026-10-09-recurring-wrong-member.md`: an 88.000 ₫ film
+rental billed by Apple was shown as the YouTube Premium subscription. v2
+answered "does this merchant recur". v3 answers the question underneath it:
+**which rows are the subscription**.
+
+### 19.1 The product is the identity (RR25)
+
+`receiptMeta` now also says `has` (the row carries a real receipt, whatever
+it is for) and `prod` (what renews: the product part of a `sub|vendor|product`
+signature, else the receipt's label, folded, so an older label-only receipt
+and a newer signed one agree). Rows carry them as `rcHas` and `rcProd`.
+
+In pass A, the rows of one payee are split before any amount is compared:
+
+1. Rows whose receipt states a period are grouped by `rcProd`, then by amount
+   band inside a product (two plans of one vendor). Each such cluster is
+   proven. A price rise of any size stays one series when the receipt names
+   the same product.
+2. A row whose own receipt states no period (`rcHas`, no `rcPeriod`) is **not
+   a renewal** and may not join one. Two films, an app, a top-up.
+3. The rest go on as before.
+
+A stored `receipt` mark with no blob in memory (family rows) still proves its
+row.
+
+### 19.2 Membership is timed (RR26)
+
+- **Joining a proven series** (`attach`). A row with no proof joins only when
+  it lands one period, or one skipped period, from its neighbours on both
+  sides, within 10% of the nearer neighbour's amount (`ANCHOR_TOL`; 5% under a
+  biller). A month whose receipt never arrived joins. A purchase four days
+  after a charge does not.
+- **One charge per period** (`prune`), for every series, proven or pattern.
+  Walking by date, a row that comes sooner than the period allows competes
+  with the last kept row for the slot: proof wins, then the one more in step
+  with the charge before. Two proven rows both stay. Rows pruned out are not
+  members: not counted, not opened, not marked.
+
+### 19.3 A biller is not a seller (RR27)
+
+Apple's billing line, iTunes, the App Store and Google Play collect for many
+products, so their payee string names nothing. They are listed in
+`taxonomy/brands.json` (`billers`). A payment rail printed with no merchant
+beside it ("MOMO", "ZALOPAY 0123") is a biller too; with a merchant
+("ZALOPAY_Chickita", "PAYPAL *NETFLIX") the merchant is the seller.
+`FH_BRANDS.isBiller` answers, and the engine receives it as `opts.biller`.
+
+Under a biller:
+
+- a series needs a product (19.1), **or** one exact amount (within 5%) whose
+  every gap is one period or a skipped one;
+- such a pattern is always a guess, shown under "Có vẻ định kỳ" with Không /
+  Đúng rồi, never counted and never written;
+- a lesson holds for one amount only: "Apple, monthly" with no amount confirms
+  nothing.
+
+A descriptor that names its product ("GOOGLE *YouTube Premium") is not a
+biller: the payee already is the product.
+
+### 19.4 A series is described by its proof (RR28)
+
+`series.anchor` is the newest member that itself says it recurs (a receipt
+that states a period, or a person's word); with none, the newest member.
+The amount, the name, the price-rise note and the row a tap opens come from
+the anchor. `series.latest` stays the newest member. The next date runs on
+the anchor's grid and steps past any newer member, so a month paid without a
+receipt still moves the date on.
+
+### 19.5 The queue card
+
+`matchCandidate` asks the same: a card whose own receipt is not a renewal
+continues nothing; a proven or biller series is continued only by nearly the
+same amount; and a card that would be a second charge inside one period
+continues nothing.
+
+### 19.6 Limits
+
+- An unlisted biller behaves as a seller, guarded by 19.1 and 19.2 only.
+- A foreign row with no receipt, at a seller, within 10% and exactly one
+  period after a charge, still joins. It no longer becomes the series' face
+  while a proven row exists.
+- Two subscriptions of one product at one price (two family members' plans on
+  one card) read as one series with two charges a period.
+- There is no per-row "not this one" control; Không on the row's Định kỳ
+  picker blocks the row's own cluster.
+
+### 19.7 Tests
+
+`tools/recur-engine.test.js` gains 35 checks on the real shape (eleven 105
+charges on the 16th with receipts, March missing, three 39 rentals, the 88
+rental of 20 September): the series reads 105 / 16 October / opens
+September's charge and the rental is in nothing; a rental with no receipt is
+kept out by timing alone; two products of one biller; a price rise under one
+product; old and new receipt shapes naming one product; a receipt-less month
+joining and stepping the date; biller rows with no receipts as a guess;
+biller lessons by amount; `prune` choosing the proven row; `matchCandidate`.
+`tools/brands.test.js` covers `isBiller`; `tools/recur-flow.test.js` the
+wiring.
 
 ---
 

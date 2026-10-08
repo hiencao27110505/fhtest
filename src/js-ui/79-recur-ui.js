@@ -128,10 +128,12 @@
      screen can reach (the personal detail reads the tab's rows and the
      history screen's, not the recurrence slice). */
   function _openAttr(scope, s) {
-    if (scope === 'fam') { const t = s.latest._t; return t ? 'closeSheet();openExpenseDetail&&openExpenseDetail(\'' + _e(t.id) + '\')' : ''; }
+    /* §19.4: the row a tap opens is the one that proves the series */
+    const a = s.anchor || s.latest;
+    if (scope === 'fam') { const t = a._t; return t ? 'closeSheet();openExpenseDetail&&openExpenseDetail(\'' + _e(t.id) + '\')' : ''; }
     const P = (typeof window.fhPersonalData === 'function') ? fhPersonalData() : null;
-    const has = P && ((P.txns || []).some((x) => x.id === s.latest.id) || (P.txnsOld || []).some((x) => x.id === s.latest.id));
-    return has ? 'closeSheet();openPersonalTxDetail&&openPersonalTxDetail(\'' + _e(s.latest.id) + '\')' : '';
+    const has = P && ((P.txns || []).some((x) => x.id === a.id) || (P.txnsOld || []).some((x) => x.id === a.id));
+    return has ? 'closeSheet();openPersonalTxDetail&&openPersonalTxDetail(\'' + _e(a.id) + '\')' : '';
   }
   function _item(scope, s, withCount) {
     const on = _openAttr(scope, s);

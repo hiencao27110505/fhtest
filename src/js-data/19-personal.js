@@ -664,7 +664,9 @@
                   the match slice it is NOT dropped on every hydrate, because
                   months-old rows do not change when the tab refreshes.
        Receipts: a row that carries one has the blob read into rcPeriod /
-       recurSig / renewsOn by FH_RECUR.receiptMeta (few rows have one).
+       recurSig / renewsOn / rcHas / rcProd by FH_RECUR.receiptMeta (few rows
+       have one). rcHas with no rcPeriod is a receipt that says "not a
+       renewal", which keeps the row out of every subscription (§19.1).
        `complete` is false when anything could not be read whole; the engine's
        pass then shows what it found and writes nothing. Never on the boot
        path: 29-recur.js calls it from the deferred slot after hydrate. */
@@ -692,7 +694,8 @@
           payee: t.counterparty_enc ? await _decTxt(t.counterparty_enc) : null,
           note: await _decTxt(t.note_enc), node: _okNode(await _decTxt(t.node_enc)), emoji: t.cat_emoji || null,
           recur: t.recurrence || null, recurSrc: t.recurrence_source || null,
-          rcPeriod: m ? m.period : null, recurSig: m ? m.sig : null, rcLabel: m ? m.label : null, renewsOn: m ? m.renewsOn : null });
+          rcPeriod: m ? m.period : null, recurSig: m ? m.sig : null, rcLabel: m ? m.label : null, renewsOn: m ? m.renewsOn : null,
+            rcHas: !!(m && m.has), rcProd: m ? (m.prod || null) : null });
       }
       return { rows, complete, ids: new Set(rows.map((r) => r.id)) };
     }
@@ -735,7 +738,8 @@
           const m = _rcMeta.get(t.id) || null;
           rows.push({ id: t.id, date: t.date, kind: 'expense', amt: t.amt, payee: t.payee || null, note: t.note || '', node: t.node || null, emoji: t.emoji || null,
             recur: t.recur || null, recurSrc: t.recurSrc || null,
-            rcPeriod: m ? m.period : null, recurSig: m ? m.sig : null, rcLabel: m ? m.label : null, renewsOn: m ? m.renewsOn : null });
+            rcPeriod: m ? m.period : null, recurSig: m ? m.sig : null, rcLabel: m ? m.label : null, renewsOn: m ? m.renewsOn : null,
+            rcHas: !!(m && m.has), rcProd: m ? (m.prod || null) : null });
         }
         return { rows, complete };
       } catch (e) { console.warn('personal recurrence slice failed', e); return null; }

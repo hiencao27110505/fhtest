@@ -18,9 +18,26 @@
      - ONE VIEW: tile, sheet, detail row and queue card all read analyse()'s
        result; the stored column is its durable trace (§18.7).
 
+   WHY v3 (docs/incidents/2026-10-09-recurring-wrong-member.md). v2 put an
+   88.000 ₫ film rental into the YouTube Premium series: both were billed by
+   Apple, the amounts were 16% apart, and the rental was the newest row, so the
+   series took its amount, its date and its tap target. So:
+     - THE PRODUCT IS THE IDENTITY when a receipt names one. Rows of one payee
+       are split by what their receipts say they are before any amount is
+       compared; a row whose own receipt says it is not a renewal never joins
+       a renewal (§19.1).
+     - MEMBERSHIP IS TIMED. A row without proof joins a proven series only in
+       an empty slot of its cadence, at nearly the same amount; and no series
+       keeps two charges inside one period (§19.2).
+     - A BILLER IS NOT A SELLER. Apple, Google Play and the payment rails
+       collect for many products, so their payee names nothing: there a series
+       needs a product, or one exact amount in step, and stays a guess (§19.3).
+     - A SERIES IS DESCRIBED BY ITS PROOF: amount, name and tap target come
+       from the newest row that carries a receipt or a person's word (§19.4).
+
    Row shape (both ledgers):
      { id, date:'YYYY-MM-DD', amt, payee, note, node,
-       recur, recurSrc, rcPeriod, recurSig, renewsOn }
+       recur, recurSrc, rcPeriod, recurSig, renewsOn, rcHas, rcProd }
    Only expense rows with a positive amount take part. analyse() is PURE: the
    lessons and the tree arrive as callbacks in `opts`. */
 (function () {
@@ -41,6 +58,7 @@
   const GUESS_LEAF = { monthly: 2, yearly: 2, weekly: 4 };
   const CONFIRM_LEAF = { monthly: 3, yearly: 2, weekly: 6 };
   const CLUSTER_TOL = 0.25;  // one subscription's price may move this much and stay one series
+  const ANCHOR_TOL = 0.10;   // a row with no proof joins a proven series only this close to its neighbour
   const CREEP = 0.05;        // price-creep floor: below it is FX noise (RR8)
   const UPCOMING_DAYS = 30;  // the tile's horizon (RR7)
   const HISTORY_DAYS = 760;  // what the slice reads: two yearly charges stay visible for a year
@@ -77,14 +95,15 @@
   /** Rows sorted by date → clusters; each row joins the cluster whose LATEST
    *  amount is nearest within CLUSTER_TOL, else starts one. `loose` (a bill
    *  whose amount is expected to move) keeps everything together. */
-  function clusters(rows, loose) {
+  function clusters(rows, loose, tol) {
     if (loose) return rows.length ? [rows.slice()] : [];
+    const T = tol > 0 ? tol : CLUSTER_TOL;
     const out = [];
     for (const r of rows) {
       let best = null, bestD = Infinity;
       for (const c of out) {
         const ref = c[c.length - 1].amt;
-        if (!_near(ref, r.amt, CLUSTER_TOL)) continue;
+        if (!_near(ref, r.amt, T)) continue;
         const d = Math.abs(ref - r.amt);
         if (d < bestD) { bestD = d; best = c; }
       }
@@ -98,7 +117,7 @@
    *  → { period, fits, skips, shorts, inCadence } or null. `strict` (pass C)
    *  demands every gap fit and never reads weekly. `leaf`: the cluster sits on
    *  a recurring leaf, which lowers the bar (see GUESS). */
-  function cadence(rows, strict, leaf) {
+  function cadence(rows, strict, leaf, inStep) {
     const G = rows.length - 1;
     if (G < 1) return null;
     const gaps = [];
@@ -108,8 +127,10 @@
       if (strict && p === 'weekly') continue;
       let fits = 0, skips = 0, shorts = 0;
       for (const g of gaps) { if (_fits(g, p)) fits++; else if (_skips(g, p)) skips++; else if (g < WINDOWS[p][0]) shorts++; }
-      const ok = strict
-        ? (fits === G)
+      /* inStep (a biller's rows, §19.3): every gap is one period or a skipped
+         one. A missed month is allowed; a charge out of step is not. */
+      const ok = strict ? (fits === G)
+        : inStep ? (fits >= 1 && fits + skips === G)
         : (fits >= 1 && shorts <= Math.floor(0.2 * G) && (fits + skips) / G >= 0.6);
       if (!ok || fits + 1 < (leaf ? GUESS_LEAF : GUESS)[p]) continue;
       if (!best || fits > best.fits) best = { period: p, fits, skips, shorts, inCadence: fits + 1 };
@@ -147,6 +168,59 @@
   const labelEn = (p) => p === 'weekly' ? 'weekly' : p === 'yearly' ? 'yearly' : p === 'monthly' ? 'monthly' : '';
   const perMonth = (amt, p) => p === 'weekly' ? amt * 52 / 12 : p === 'yearly' ? amt / 12 : amt;
 
+  /* ── proof and membership (§19) ────────────────────────────────────────── */
+  /** How strongly a row itself says "I recur": 2 a person's word, 1 a receipt
+   *  that states a period (read now, or stored when the row was imported), 0 nothing. */
+  function _proof(r) {
+    if (r.recurSrc === 'person' && _ok(r.recur)) return 2;
+    if (_ok(r.rcPeriod) || (r.recurSrc === 'receipt' && _ok(r.recur))) return 1;
+    return 0;
+  }
+  /** The row's own receipt says what it is, and it is not a renewal (two films,
+   *  an app, a top-up). Such a row is evidence AGAINST joining a subscription. */
+  const _notRenewal = (r) => !!r.rcHas && !_ok(r.rcPeriod) && _proof(r) === 0 && r.recurSrc !== 'person';
+  const _inStep = (g, p) => _fits(g, p) || _skips(g, p);
+
+  /** Rows with no proof that may join a PROVEN cluster (§19.2): each must land
+   *  in an empty slot of the cadence (one period, or a skipped one, from its
+   *  neighbours on both sides) at nearly its neighbour's amount. → the rows
+   *  that joined; `members` is extended in place and stays sorted. */
+  function attach(members, candidates, period, tol) {
+    const joined = [];
+    for (const c of candidates) {
+      let prev = null, next = null;
+      for (const m of members) { if (m.date <= c.date) prev = m; else { next = m; break; } }
+      if (!prev && !next) continue;
+      const near = prev && next ? (_gap(prev.date, c.date) <= _gap(c.date, next.date) ? prev : next) : (prev || next);
+      if (!_near(near.amt, c.amt, tol)) continue;
+      if (prev && !_inStep(_gap(prev.date, c.date), period)) continue;
+      if (next && !_inStep(_gap(c.date, next.date), period)) continue;
+      members.splice(prev ? members.indexOf(prev) + 1 : 0, 0, c);
+      joined.push(c);
+    }
+    return joined;
+  }
+  /** No series keeps two charges inside one period (§19.2). Walking by date,
+   *  a row that lands sooner than the period allows after the last kept one
+   *  competes with it for the slot: proof wins, then the one more in step with
+   *  the charge before; two proven rows both stay. → { kept, extras }. */
+  function prune(rows, period) {
+    const kept = [], extras = [], min = WINDOWS[period][0];
+    for (const r of rows) {
+      const last = kept[kept.length - 1];
+      if (!last || _gap(last.date, r.date) >= min) { kept.push(r); continue; }
+      const pl = _proof(last), pr = _proof(r);
+      if (pl && pr) { kept.push(r); continue; }
+      let takeNew = pr > pl;
+      if (pr === pl && kept.length >= 2) {
+        const before = kept[kept.length - 2], nominal = period === 'weekly' ? 7 : period === 'yearly' ? 365 : 30;
+        takeNew = Math.abs(_gap(before.date, r.date) - nominal) < Math.abs(_gap(before.date, last.date) - nominal);
+      }
+      if (takeNew) { extras.push(kept.pop()); kept.push(r); } else extras.push(r);
+    }
+    return { kept, extras };
+  }
+
   /* ── receipts (§18.5) ──────────────────────────────────────────────────── */
   const _YEAR_RE = /\(yearly\)|\(annual\)|\byearly\b|\bannual(ly)?\b|\/\s?year\b|\/\s?n[aă]m\b|h[aà]ng n[aă]m/i;
   const _MONTH_RE = /\(monthly\)|\bmonthly\b|auto-?\s?renew|\brenews?\b|subscription|gia h[aạ]n|thu[eê] bao|\/\s?month\b|\/\s?th[aá]ng\b|h[aà]ng th[aá]ng/i;
@@ -156,9 +230,10 @@
    *  weekly|monthly|yearly or null: the reader's own `period` key, else the
    *  service type, else renewal wording in the items' own text. */
   function receiptMeta(blob) {
-    const out = { period: null, sig: null, renewsOn: null, label: null };
+    const out = { period: null, sig: null, renewsOn: null, label: null, has: false, prod: null };
     if (!blob || typeof blob !== 'object') return out;
     const items = Array.isArray(blob.items) ? blob.items : [];
+    out.has = items.length > 0;                                 // a real receipt, whatever it is for
     const text = items.map((it) => ((it && it.name) || '') + ' ' + ((it && it.variant) || '')).join(' ');
     if (blob.period === 'month') out.period = 'monthly';
     else if (blob.period === 'year') out.period = 'yearly';
@@ -173,6 +248,9 @@
     if (out.period && items.length === 1 && items[0] && items[0].name) {
       out.label = String(items[0].name).replace(_PERIOD_TAIL, '').trim().slice(0, 40) || null;
     }
+    /* WHAT renews (§19.1): the product, spelled the same whether an older
+       receipt gave only a label or a newer one a `sub|vendor|product` key. */
+    if (out.period) out.prod = (out.sig ? fold(out.sig.split('|').slice(2).join(' ')) : '') || (out.label ? fold(out.label) : '') || null;
     const m = text.match(/renews?\s+(?:on\s+)?(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{4})/i);
     if (m && _MON[m[2].slice(0, 3).toLowerCase()]) {
       out.renewsOn = m[3] + '-' + String(_MON[m[2].slice(0, 3).toLowerCase()]).padStart(2, '0') + '-' + String(+m[1]).padStart(2, '0');
@@ -181,8 +259,10 @@
   }
 
   /* ── one cluster → a series, a block, or nothing ───────────────────────── */
-  function _resolve(rows, groupKey, pass, opts, today) {
-    const latest = rows[rows.length - 1];
+  function _resolve(rows, groupKey, pass, opts, today, flags) {
+    flags = flags || {};
+    const tol = flags.biller ? CREEP : CLUSTER_TOL;             // how close a lesson's amount must be
+    let latest = rows[rows.length - 1];
     const leaf = opts.prior ? opts.prior(latest.node) : null;
     /* The person's latest word on this cluster decides it either way. */
     const said = rows.filter((r) => r.recurSrc === 'person');
@@ -197,31 +277,46 @@
     }
     if (!period && opts.lesson) {
       const l = opts.lesson(groupKey);
-      if (l && _ok(l.period) && (!(l.amt > 0) || _near(l.amt, latest.amt, CLUSTER_TOL) || (leaf && leaf.variable))) { period = l.period; source = 'lesson'; }
+      /* A biller's lesson holds for one amount only: "Apple, monthly" must
+         not mark every Apple purchase (§19.3). */
+      if (l && _ok(l.period) && ((!(l.amt > 0) && !flags.biller) || _near(l.amt, latest.amt, tol) || (leaf && leaf.variable && !flags.biller))) { period = l.period; source = 'lesson'; }
     }
-    if (period) inCad = _inCadenceFor(rows, period);
-    else {
-      const c = cadence(rows, pass === 'C', !!leaf);
+    if (!period) {
+      const c = cadence(rows, pass === 'C', !!leaf, !!flags.biller);
       if (!c) return null;
-      period = c.period; source = 'pattern'; inCad = c.inCadence;
+      period = c.period; source = 'pattern';
       const need = (leaf ? CONFIRM_LEAF : CONFIRM)[period];
-      soft = pass === 'C' ? true : inCad < need;
+      /* A biller's payee proves nothing about what was bought, so a pattern
+         under it is a question for the person, never a fact. */
+      soft = (pass === 'C' || flags.biller) ? true : c.inCadence < need;
     }
-    const previous = rows.length > 1 ? rows[rows.length - 2] : null;
-    const next = nextDate(latest.date, period, latest.renewsOn || null);
+    /* One charge per period (§19.2). What does not fit is not this series. */
+    const pr = prune(rows, period);
+    rows = pr.kept; latest = rows[rows.length - 1];
+    inCad = _inCadenceFor(rows, period);
+    /* Described by its proof (§19.4): the newest row that itself says it
+       recurs gives the amount, the name and the row a tap opens. The date
+       grid runs from that row and steps past any newer member, so a month
+       whose receipt never arrived still moves the next date on. */
+    const proven = rows.filter((r) => _proof(r) > 0);
+    const face = proven.length ? proven[proven.length - 1] : latest;
+    const fi = rows.indexOf(face);
+    const previous = fi > 0 ? rows[fi - 1] : null;
+    let next = nextDate(face.date, period, face.renewsOn || null);
+    for (let i = 0; next && i < 36 && _gap(latest.date, next) < WINDOWS[period][0]; i++) next = addPeriod(next, period);
     const dueInDays = next ? Math.round((_dateOf(next) - today) / _dayMs) : null;
     const sigRow = rows.slice().reverse().find((r) => r.recurSig);
     const lblRow = rows.slice().reverse().find((r) => r.rcLabel);
-    return { series: {
-      id: latest.id, key: groupKey + '|' + period + (sigRow ? '|' + sigRow.recurSig : ''), groupKey, pass,
+    return { extras: pr.extras, series: {
+      id: face.id, key: groupKey + '|' + period + (sigRow ? '|' + sigRow.recurSig : '') + (flags.prod ? '|' + flags.prod : ''), groupKey, pass,
       period, source, soft, inCadence: inCad, variable: !!(leaf && leaf.variable),
       lapsed: dueInDays != null && dueInDays < -WINDOWS[period][1],
-      rows, latest, previous, amount: latest.amt, next, dueInDays,
-      creep: previous ? creep(latest.amt, previous.amt) : 0,
-      perMonth: perMonth(latest.amt, period),
-      name: latest.payee || latest.note || '', node: latest.node || null, emoji: latest.emoji || null,
-      note: latest.note || '', payee: latest.payee || null,
-      product: lblRow ? lblRow.rcLabel : null,
+      rows, latest, anchor: face, previous, amount: face.amt, next, dueInDays,
+      creep: previous ? creep(face.amt, previous.amt) : 0,
+      perMonth: perMonth(face.amt, period),
+      name: face.payee || face.note || '', node: face.node || null, emoji: face.emoji || null,
+      note: face.note || '', payee: face.payee || null,
+      product: lblRow ? lblRow.rcLabel : null, biller: !!flags.biller,
     } };
   }
 
@@ -263,7 +358,35 @@
     // strand the series at two charges — the incident's third cause again.
     const keyA = (r) => (fold(r.payee).length < 3 && opts.prior && opts.prior(r.node)) ? '' : primaryKey(r);
     for (const [k, g] of group(all, keyA)) {
-      for (const c of clusters(g, looseOf(g))) take(_resolve(c, k, 'A', opts, today));
+      /* A biller collects for many products: its name is not who was paid
+         (§19.3). Only a payee can be one; a note-keyed group never is. */
+      const biller = !!(opts.biller && fold(g[0].payee).length >= 3 && opts.biller(g[0].payee));
+      /* 1. What the receipts name (§19.1). Rows whose receipt states a period
+            are split by product first, then by amount inside a product (two
+            plans of one vendor), and each such cluster is proven. */
+      const named = g.filter((r) => _ok(r.rcPeriod));
+      const rest = g.filter((r) => !_ok(r.rcPeriod));
+      const free = rest.filter((r) => !_notRenewal(r));          // a row whose receipt says "not a renewal" may not join one
+      for (const [prod, pg] of group(named, (r) => r.rcProd || '?')) {
+        for (const c of clusters(pg, false)) {
+          const period = c[c.length - 1].rcPeriod;
+          /* 2. Rows with no proof join only in step, at nearly the same amount (§19.2). */
+          const joined = attach(c, free.filter((r) => !claimed.has(r.id)), period, biller ? CREEP : ANCHOR_TOL);
+          for (const j of joined) claimed.add(j.id);
+          take(_resolve(c, k, 'A', opts, today, { biller, prod: prod === '?' ? null : prod }));
+        }
+      }
+      /* 3. Everything else under this payee. A seller's rows cluster by amount
+            band as before; a biller's only by one exact amount, in step. */
+      const left = rest.filter((r) => !claimed.has(r.id));
+      for (const c of clusters(left, !biller && looseOf(left), biller ? CREEP : 0)) {
+        const res = _resolve(c, k, 'A', opts, today, { biller });
+        take(res);
+        /* rows pruned out of a series get one more chance among themselves */
+        if (res && res.extras && res.extras.length > 1) {
+          for (const c2 of clusters(res.extras, false, biller ? CREEP : 0)) take(_resolve(c2, k, 'A', opts, today, { biller }));
+        }
+      }
     }
     // Pass B — a recurring leaf of the tree, for rows with NO payee (rent paid
     // with new wording each month). A row that has a payee was offered to pass A
@@ -360,23 +483,31 @@
     for (const b of (view && view.blocked) || []) {
       if (has(b.groupKey) && _near(b.amount, cand.amt, CLUSTER_TOL)) return { period: null, source: 'person', soft: false };
     }
+    /* The candidate's own receipt says it is not a renewal (§19.1): nothing
+       in the ledger can make it one. A person can still say so on the card. */
+    if (cand.notRenewal) return null;
+    const biller = !!(opts.biller && !bare && opts.biller(cand.payee));
     for (const s of (view && view.series) || []) {
       if (!has(s.groupKey)) continue;
-      if (!s.variable && !_near(s.amount, cand.amt, CLUSTER_TOL)) continue;
-      const inStep = s.rows.some((r) => { const g = Math.abs(_gap(r.date, cand.date)); return _fits(g, s.period) || _skips(g, s.period); });
-      if (inStep) return { period: s.period, source: 'series', soft: s.soft, series: s };
+      /* A proven or biller series is continued only by nearly the same amount
+         (§19.2, §19.3); a seller's pattern keeps the wide band. */
+      const tol = (biller || s.biller) ? CREEP : (s.anchor && _proof(s.anchor) > 0) ? ANCHOR_TOL : CLUSTER_TOL;
+      if (!s.variable && !_near(s.amount, cand.amt, tol)) continue;
+      const gaps = s.rows.map((r) => Math.abs(_gap(r.date, cand.date)));
+      /* in step with some charge, and not a second charge inside one period */
+      if (gaps.some((g) => _inStep(g, s.period)) && !gaps.some((g) => g < WINDOWS[s.period][0])) return { period: s.period, source: 'series', soft: s.soft, series: s };
     }
     if (opts.lesson) {
       const l = opts.lesson(primaryKey(cand));
-      if (l && _ok(l.period) && (!(l.amt > 0) || _near(l.amt, cand.amt, CLUSTER_TOL))) return { period: l.period, source: 'lesson', soft: false };
+      if (l && _ok(l.period) && ((!(l.amt > 0) && !biller) || _near(l.amt, cand.amt, biller ? CREEP : CLUSTER_TOL))) return { period: l.period, source: 'lesson', soft: false };
     }
     if (leaf && _ok(leaf.period)) return { period: leaf.period, source: 'prior', soft: true };
     return null;
   }
 
   window.FH_RECUR = Object.freeze({
-    WINDOWS, GUESS, CONFIRM, GUESS_LEAF, CONFIRM_LEAF, CLUSTER_TOL, CREEP, UPCOMING_DAYS, HISTORY_DAYS,
-    fold, periodOf, primaryKey, amountKey, clusters, cadence, addPeriod, nextDate, creep,
+    WINDOWS, GUESS, CONFIRM, GUESS_LEAF, CONFIRM_LEAF, CLUSTER_TOL, ANCHOR_TOL, CREEP, UPCOMING_DAYS, HISTORY_DAYS,
+    fold, periodOf, primaryKey, amountKey, clusters, cadence, attach, prune, addPeriod, nextDate, creep,
     labelVi, labelEn, perMonth, receiptMeta, analyse, live, upcoming, upcomingMonth, monthView, monthlyTotal, matchCandidate,
   });
 
@@ -389,6 +520,7 @@
   const _opts = () => ({
     lesson: (k) => (typeof window.fhLessonRecur === 'function' ? window.fhLessonRecur(k) : null),
     prior: (node) => (window.FH_TAX && typeof window.FH_TAX.recursOf === 'function' ? window.FH_TAX.recursOf(node) : null),
+    biller: (payee) => !!(window.FH_BRANDS && typeof window.FH_BRANDS.isBiller === 'function' && window.FH_BRANDS.isBiller(payee)),
   });
   window.fhRecurOpts = _opts;
   const _todayIso = () => { const d = window.TODAY ? new Date(window.TODAY.getTime()) : new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
@@ -464,7 +596,7 @@
     if (!Array.isArray(window.txns)) return [];
     return window.txns.filter((t) => t && t._dbId && !t.future && (t.amt > 0)).map((t) => ({
       id: t._dbId, date: _txnIsoOf(t), amt: t.amt, payee: null, note: t.note, node: t.node || null, emoji: t.ico || null, kind: 'expense',
-      recur: t.recur || null, recurSrc: t.recurSrc || null, rcPeriod: null, recurSig: null, rcLabel: null, renewsOn: null, _t: t }));
+      recur: t.recur || null, recurSrc: t.recurSrc || null, rcPeriod: null, recurSig: null, rcLabel: null, renewsOn: null, rcHas: false, rcProd: null, _t: t }));
   }
   let _famBusy = false;
   window.fhRecurRunFamily = async function () {

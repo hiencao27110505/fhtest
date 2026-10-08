@@ -991,7 +991,7 @@ function _exdRecurRow(t, mode){
   var dm = function(iso){ return iso.slice(8,10).replace(/^0/,'')+'/'+iso.slice(5,7).replace(/^0/,''); };
   var bits = [];
   if(s && !s.lapsed && s.next) bits.push(esc(s.dueInDays<0 ? L('Dự kiến '+dm(s.next),'Expected '+dm(s.next)) : L('Kỳ tới '+dm(s.next),'Next '+dm(s.next))));
-  if(s && s.creep>0 && s.latest.id===o.id) bits.push('<span class="rose">'+esc(L('tăng '+fmt(s.creep),'up '+fmt(s.creep)))+'</span>');
+  if(s && s.creep>0 && (s.anchor||s.latest).id===o.id) bits.push('<span class="rose">'+esc(L('tăng '+fmt(s.creep),'up '+fmt(s.creep)))+'</span>');
   var chev = '<svg class="csv-schev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>';
   var fn = mode==='fam' ? 'exdSheetRecur()' : 'pexdSheetRecur()';
   var cls = 'csv-srow'+((!p||o.soft)?' soft':'')+(bits.length?' rl-has':'');

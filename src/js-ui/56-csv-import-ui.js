@@ -1779,13 +1779,17 @@ function csvRecurOf(c){
   if(c._recurSrc==='person') return { period: c._recur||null, src:'person', soft:false };
   if(!window.FH_RECUR) return none;
   var rj = (typeof c.rowIndex==='number' && window._fhStagedRows && window._fhStagedRows[c.rowIndex] && window._fhStagedRows[c.rowIndex]._rcpt) || null;
-  if(rj){ var rm = FH_RECUR.receiptMeta(rj); if(rm.period) return { period:rm.period, src:'receipt', soft:false }; }
+  var rm = rj ? FH_RECUR.receiptMeta(rj) : null;
+  if(rm && rm.period) return { period:rm.period, src:'receipt', soft:false };
   try{
     var st = window.fhRecurState ? fhRecurState(csvRowScope(c)==='personal' ? 'pers' : 'fam') : null;
     /* The view is built a moment after boot. A queue opened before then asks
        for it once; the cards read it on their next render. */
     if(st && !st.ready && !csvRecurOf._kicked){ csvRecurOf._kicked = true; try{ if(window.fhRecurRunPersonal) fhRecurRunPersonal(); if(window.fhRecurRunFamily) fhRecurRunFamily(); }catch(e){} }
-    var m = FH_RECUR.matchCandidate((st && st.ready) ? st : null, csvRecurCand(c), window.fhRecurOpts ? fhRecurOpts() : {});
+    /* §19.1: a card whose own receipt names something that does not renew
+       (two films, an app) is never read as the next charge of a series. */
+    var cand = csvRecurCand(c); cand.notRenewal = !!(rm && rm.has && !rm.period);
+    var m = FH_RECUR.matchCandidate((st && st.ready) ? st : null, cand, window.fhRecurOpts ? fhRecurOpts() : {});
     if(!m) return none;
     if(m.source==='person') return { period:null, src:'declined', soft:false };   // Không on this series, said in the ledger
     return { period:m.period, src:m.source, soft:!!m.soft, lsrc:(m.source==='lesson') };
