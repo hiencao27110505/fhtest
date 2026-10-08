@@ -28341,8 +28341,9 @@ function applyLang(){
    paid, a sage dot for due. When the month is done the view rolls to next
    month and the ring rests at zero.
    THE SHEET ("Thuê bao", same pick): the language of Cài đặt › Thuê bao on
-   iPhone. A square monogram tile per service, "Gia hạn thứ bảy 18/10 · còn
-   11 ngày", the amount with its cycle underneath. Groups: this month, the
+   iPhone. The service's face (brand glyph, else emoji, else monogram),
+   "18/10 · còn 11 ngày", the amount with its cycle underneath. The group
+   header already says these are renewals, so the line does not repeat it. Groups: this month, the
    months after, yearly, then guesses with Không / Đúng rồi.
    The view arrives a moment after the tab paints (the history slice is read
    in the background), so the tile lives in a wrapper fhRecurPainted refills
@@ -28384,14 +28385,15 @@ function applyLang(){
     return '<span class="rcr-face mono ' + (cls || '') + '" style="background:var(--id-' + _slot(s.groupKey) + ')">' + _e(_cap(_name(s)).replace(/^\s+/, '').charAt(0) || '·') + '</span>';
   }
   const _mono = (s) => _face(s, 42, 'lg');
-  /* This month: "Gia hạn 18/10 · còn 11 ngày" (the countdown is the point,
-     so the weekday gives way to it). Later months: "Gia hạn thứ sáu 6/11". */
+  /* This month: "18/10 · còn 11 ngày" (the countdown is the point, so the
+     weekday gives way to it). Later months: "Thứ sáu 6/11". No "Gia hạn"
+     prefix: the group header says it once for every row. */
   const _renew = (s, withCount) => {
     if (!s.next) return '';
-    if (!withCount || s.dueInDays == null) return _e(L('Gia hạn ' + _wd(s.next) + ' ' + _dm(s.next), 'Renews ' + _wd(s.next) + ' ' + _dm(s.next)));
+    if (!withCount || s.dueInDays == null) return _e(L(_cap(_wd(s.next)) + ' ' + _dm(s.next), _cap(_wd(s.next)) + ' ' + _dm(s.next)));
     const n = s.dueInDays;
     const count = n < 0 ? L('dự kiến, chưa thấy', 'expected, not seen yet') : n === 0 ? L('hôm nay', 'today') : n === 1 ? L('ngày mai', 'tomorrow') : L('còn ' + n + ' ngày', 'in ' + n + ' days');
-    return _e(L('Gia hạn ' + _dm(s.next) + ' · ' + count, 'Renews ' + _dm(s.next) + ' · ' + count));
+    return _e(_dm(s.next) + ' · ' + count);
   };
   const _cycle = (p) => p === 'yearly' ? L('/năm', '/yr') : p === 'weekly' ? L('/tuần', '/wk') : L('/tháng', '/mo');
   const _chev = '<svg class="rcr-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>';

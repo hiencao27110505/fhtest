@@ -141,9 +141,10 @@ trên 10.558.000 ₫ định kỳ · 2 khoản       ╰───╯
 ~10,6 tr ₫ mỗi tháng". The service's face (§3.4) at 42 px, the
 name, a renewal line, the amount with its cycle underneath ("/tháng",
 "/năm"). Groups in order: **Còn lại tháng này** (or "Tháng 11" once rolled),
-with a countdown in the renewal line: "Gia hạn 18/10 · còn 11 ngày", "hôm
-nay", "ngày mai", or "dự kiến, chưa thấy"; then each later month as its own
-group ("Tháng 11"), renewal line "Gia hạn thứ sáu 6/11"; then **Hàng năm**;
+with a countdown in the renewal line: "18/10 · còn 11 ngày", "hôm nay",
+"ngày mai", or "dự kiến, chưa thấy"; then each later month as its own group
+("Tháng 11"), renewal line "Thứ sáu 6/11"; then **Hàng năm**. The line
+never says "Gia hạn": the group header says it once (2026-10-08);
 then **Có vẻ định kỳ**, each guess with its question and two pills, Không and
 Đúng rồi. A price that rose takes the cycle's place under the amount, in
 amber: "tăng 24.000 ₫". Rows open the latest transaction.
@@ -151,12 +152,12 @@ amber: "tăng 24.000 ₫". Rows open the latest transaction.
 ```
 CÒN LẠI THÁNG NÀY
 [✳︎] Claude                            2.970.000 ₫  ›
-    Gia hạn 18/10 · còn 11 ngày             /tháng
+    18/10 · còn 11 ngày                     /tháng
 [▶] YouTube Premium                      129.000 ₫  ›
-    Gia hạn 16/10 · còn 9 ngày          tăng 24.000 ₫
+    16/10 · còn 9 ngày                  tăng 24.000 ₫
 THÁNG 11
 [N] NGUYEN VAN QUANG                   7.500.000 ₫  ›
-    Gia hạn thứ sáu 6/11                    /tháng
+    Thứ sáu 6/11                            /tháng
 ```
 
 Names: the receipt's own ("YouTube Premium") when the row carries one, else
@@ -420,7 +421,7 @@ From the design interview, 2026-10-06.
 | RR17 | **A pattern mark is derived, never trusted.** Only a person's or a receipt's mark anchors a merchant. Each run re-derives pattern marks, writes the latest row of a confirmed series, and clears a `pattern` mark no series explains. |
 | RR18 | **One truth.** Tile, sheet, detail row and queue card read the same series view. The stored column is the durable trace of it, not a second opinion. |
 | RR21 | *(2026-10-07)* **Tile 3 "Vòng tháng", sheet 5 "Thuê bao"** chosen from sixteen rendered directions (`mockups/recurring-options.html`); the ring is the daily-guide ring reused, the sheet is the iPhone Subscriptions language with a countdown on this month's rows. Eight ring variants are in the same file for the next round. |
-| RR22 | *(2026-10-08)* **A service wears its logo.** Faces in the tile lines and the sheet rows: brand glyph on brand colour from a bundled registry (`taxonomy/brands.json`, CC0 Simple Icons), else the node's emoji inherited from its nearest ancestor, else the row's category emoji, else the monogram. A matched brand also names a receipt-less series. Recognition only; a brand is removed on an owner's request. The sixteen logo-led mockups in `mockups/recurring-options.html` are for the next round. |
+| RR22 | *(2026-10-08)* **A service wears its logo.** Faces in the tile lines and the sheet rows: brand glyph on brand colour from a bundled registry (`taxonomy/brands.json`, CC0 Simple Icons), else the node's emoji inherited from its nearest ancestor, else the row's category emoji, else the monogram. A matched brand also names a receipt-less series. Recognition only; a brand is removed on an owner's request. The sixteen logo-led mockups in `mockups/recurring-options.html` are for the next round. Built as treatment 1 of the eight placements (white glyph on brand colour, 42 px in the sheet, 22 px in the tile), picked 2026-10-08; the renewal line dropped its "Gia hạn" prefix the same day. |
 | RR20 | *(2026-10-07)* **"Sắp tới" is this month.** The tile and the sheet's first group show the confirmed charges still expected before the month ends, with their sum ("Còn 2 khoản tháng này · 3.058.000 ₫"). When none is left, the view rolls to next month and says so ("Tháng 11: 4 khoản"). Replaces the rolling 30-day horizon of RR7. |
 | RR19 | **A series that stops, lapses.** More than one full period overdue and it leaves the tile, the upcoming list and the monthly total. Its rows keep their history. |
 
