@@ -92,6 +92,16 @@ decided to connect" and connecting. Same legal substance, same
 change to what is sent to the model changes the consent text in the same
 commit is untouched.
 
+**Revised 2026-10-08 (SW v619).** The
+merge above was by position only, and the UT of 2026-09-26 read step 1 as
+two designers on one screen, three screens of scrolling from its button
+(report problem 15). Step 1 is now one document: the three promises as a
+ticked summary, the consent rows in the promise rows' own shape and in the
+sheet's own scroll, the agree pinned to the foot. The note about Google's
+screen moved to step 2, above the button that opens it. Consent text and
+version are unchanged. Detail: `effortless-transaction-logging-spec.md`
+§4.1 and its Part 3 entry of the same date.
+
 ## 5. The review screen
 
 The staged-email review surface is promoted from `#csv-import-modal` (a

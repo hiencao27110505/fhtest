@@ -32,10 +32,15 @@
      forwarding intro was corrected to the same ceiling on 2026-08-16 — keep the
      two screens saying the same true thing. */
 
-  /* Two glyphs this screen needs that the forwarding journey doesn't; everything
+  /* The glyphs this screen needs that the forwarding journey doesn't; everything
      else falls through to the shared mailbox set, so the whole feature keeps one
-     stroke weight and one visual voice (DESIGN §2.6). */
+     stroke weight and one visual voice (DESIGN §2.6). book / file / receipt are
+     drawn by the consent rows (75-consent-ui, _cstBankFlowRows) now that those
+     rows wear the same glyph chip as the promises. */
   const _ATX_SVG = {
+    book:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 18.6V6.2a2.7 2.7 0 0 1 2.7-2.7H19v12.4H7.7A2.7 2.7 0 0 0 5 18.6a2.4 2.4 0 0 0 2.4 2.4H19"/><path d="M9.3 8.2h5.6"/></svg>',
+    file:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 3.5H8.2a2.6 2.6 0 0 0-2.6 2.6v11.8a2.6 2.6 0 0 0 2.6 2.6h7.6a2.6 2.6 0 0 0 2.6-2.6V8.4z"/><path d="M13.5 3.5v4.9h4.9"/><path d="M9.2 12.6h5.6"/><path d="M9.2 16.2h3.6"/></svg>',
+    receipt: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.6v16.8l2-1.3 2 1.3 2-1.3 2 1.3 2-1.3 2 1.3V3.6z"/><path d="M9.4 8.4h5.2"/><path d="M9.4 12.2h5.2"/></svg>',
     auto:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 11.2V7.4a2.6 2.6 0 0 0-2.6-2.6H5.8a2.6 2.6 0 0 0-2.6 2.6v9a2.6 2.6 0 0 0 2.6 2.6h6.4"/><path d="m4.3 7.6 7.7 5.2 7.7-5.2"/><path d="m18.4 13.4-2.1 3.9h3.4l-2.1 3.9"/></svg>',
     eyeoff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.9 5.6a8.6 8.6 0 0 1 2.1-.26c4.6 0 8 4.2 9.2 6.06a1.2 1.2 0 0 1 0 1.2 17 17 0 0 1-2.5 3.1"/><path d="M15.5 16.9a8.7 8.7 0 0 1-3.5.75c-4.6 0-8-4.2-9.2-6.06a1.2 1.2 0 0 1 0-1.2A17.4 17.4 0 0 1 6 6.6"/><path d="M10.3 10.3a2.4 2.4 0 0 0 3.4 3.4"/><path d="m4.6 4.6 14.8 14.8"/></svg>',
   };
@@ -163,25 +168,38 @@
   }
 
   /* HOW FAR BACK the first read reaches.
-     
+
      This was a constant, and it moved from 90 to 15 and back in one afternoon
      because it is genuinely a judgement call that is not ours to make: someone
      who has been running a household on spreadsheets wants a year, someone
      trying the feature out wants a fortnight and is annoyed when 52 rows land
      at once. The person knows which they are; we do not.
-     
+
      THE CEILING IS OURS, NOT GMAIL'S. Gmail's `newer_than:` has no documented
      limit. What stops us is that Gmail returns newest-first and a staged
      message still matches the query, so past our own list cap the oldest mail
      becomes unreachable rather than merely slow — plus every row lands in a
      queue somebody works through by hand.
-     
-     Three presets and a free field, because the presets cover almost everyone
-     and the field costs one line to support. Typing is clamped rather than
-     rejected: someone who types 800 gets a year, not an error. */
+
+     FOUR PRESETS, NO FIELD (2026-10-07). There used to be three presets and a
+     free field, and the one value people wanted most was the one they had to
+     type: in the UT of 2026-09-26 the participant typed 365 by hand, under a
+     placeholder that itself said the maximum was 365, and asked why there was
+     no button for it (report problem 16). The ceiling is now the fourth
+     preset, and nothing here is typed.
+
+     A YEAR IS ALSO THE PICKED DEFAULT. The first picture of someone's money is
+     the reason to connect at all, and a year is the picture; the shorter
+     choices stay one tap away for anyone who would rather start small. The
+     cost is the first read's length, which belongs to the reader
+     (first-ninety-seconds-spec.md), not to this row. */
   const ATX_MAX_DAYS = 365;
-  const ATX_DEFAULT_DAYS = 90;   // also the server default (0093); the status screens read it back
-  let _atxDays = ATX_DEFAULT_DAYS;
+  /* NOT the picked default: this is what a grant row means when it carries no
+     `backfill_days` (the server default, 0093). The status screens read it
+     back for those rows, so it must keep saying 90. */
+  const ATX_DEFAULT_DAYS = 90;
+  const ATX_DAY_CHOICES = [30, 60, 90, ATX_MAX_DAYS];
+  let _atxDays = ATX_MAX_DAYS;
 
   window.fhAutoTxnPickDays = function (v) {
     _atxDays = _atxClampDays(v);
@@ -189,57 +207,30 @@
     if (box) Array.prototype.forEach.call(box.querySelectorAll('.atx-seg'), function (b) {
       b.classList.toggle('on', Number(b.dataset.v) === _atxDays);
     });
-    const custom = document.getElementById('atx-days-custom');
-    // Only mirror the value in when a preset was tapped, so typing is not fought.
-    if (custom && document.activeElement !== custom) custom.value = '';
-    const note = document.getElementById('atx-days-note');
-    if (note) note.textContent = _atxDaysNote();
   };
 
-  window.fhAutoTxnTypeDays = function (el) {
-    const raw = String(el.value || '').replace(/[^0-9]/g, '');
-    if (!raw) return;
-    _atxDays = _atxClampDays(raw);
-    if (Number(raw) > ATX_MAX_DAYS) el.value = String(ATX_MAX_DAYS);
-    const box = document.getElementById('atx-days');
-    if (box) Array.prototype.forEach.call(box.querySelectorAll('.atx-seg'), function (b) {
-      b.classList.toggle('on', Number(b.dataset.v) === _atxDays);
-    });
-    const note = document.getElementById('atx-days-note');
-    if (note) note.textContent = _atxDaysNote();
-  };
-
+  /* Only a listed choice is ever kept, so the signed state can never carry a
+     window this screen did not offer. */
   function _atxClampDays(v) {
     const n = Math.round(Number(v));
-    if (!isFinite(n) || n < 1) return 90;
-    return Math.min(ATX_MAX_DAYS, n);
+    return ATX_DAY_CHOICES.indexOf(n) >= 0 ? n : ATX_MAX_DAYS;
   }
 
+  /* One line, and it no longer repeats the number: the lit chip already says
+     how many days, so the note is left with the one thing the chips cannot
+     say, which is what happens after the first read. */
   function _atxDaysNote() {
-    const d = _atxDays;
-    if (d >= ATX_MAX_DAYS) {
-      return L('Một năm là mức xa nhất tụi mình đọc được.',
-               'A year is as far back as we can reach.');
-    }
-    return L('Đọc email ngân hàng trong ' + d + ' ngày gần đây. Sau lần đầu, chỉ đọc email mới.',
-             'Reads bank email from the last ' + d + ' days. After the first time, only new mail.');
+    return L('Sau lần đầu, chỉ đọc email mới.', 'After the first time, only new mail is read.');
   }
 
   function _atxDaysRow() {
-    const chip = (v, label) =>
+    const chip = (v) =>
       '<button class="atx-seg' + (_atxDays === v ? ' on' : '') + '" data-v="' + v + '" ' +
-      'onclick="fhAutoTxnPickDays(' + v + ')">' + _esc(label) + '</button>';
+      'onclick="fhAutoTxnPickDays(' + v + ')">' + _esc(L(v + ' ngày', v + ' days')) + '</button>';
     return '<div class="atx-row atx-row-last" id="atx-daysfield">' +
       '<div class="atx-row-h"><span class="atx-row-lbl">' +
         _esc(L('Đọc lại bao xa', 'How far back')) + '</span></div>' +
-      '<div class="atx-segs" id="atx-days">' +
-        chip(30, L('30 ngày', '30 days')) +
-        chip(60, L('60 ngày', '60 days')) +
-        chip(90, L('90 ngày', '90 days')) +
-      '</div>' +
-      '<input id="atx-days-custom" class="atx-days-in" inputmode="numeric" ' +
-        'placeholder="' + _escAttr(L('hoặc nhập số ngày (tối đa 365)', 'or type a number of days (max 365)')) + '" ' +
-        'oninput="fhAutoTxnTypeDays(this)"/>' +
+      '<div class="atx-segs" id="atx-days">' + ATX_DAY_CHOICES.map(chip).join('') + '</div>' +
       '<div class="atx-row-note" id="atx-days-note">' + _esc(_atxDaysNote()) + '</div>' +
       '</div>';
   }
@@ -434,14 +425,37 @@
       if (conn && seq === _atxSheetSeq) fhAutoTxnStatus(conn);
     });
 
-    /* STEP 1 OF 2 — what this is and why it is safe.
-    
-       Split from the settings because one sheet was carrying both, and on a
-       real phone it read as a wall: three assurances, a scope note Google's
-       breadth obliges us to print, an account row, two chip groups, a free
-       field and a CTA, all stacked. The person could not tell what they were
-       being asked. Nothing here needs a decision, so nothing here has a
-       control — this screen only has to earn the tap. */
+    /* STEP 1 OF 2 — what this is, why it is safe, and the consent itself.
+
+       ONE DOCUMENT, ONE SCROLL, ONE BUTTON THAT NEVER LEAVES (2026-10-07).
+       Consent moved into this step on 2026-09-24 (activation-journey-spec
+       Q28a) so that read → agree → Google is one continuous motion. It was
+       merged by position only: three promise rows, a note about Google's
+       screen, then a legal block in its own type, in its own scroll box inside
+       this scrolling sheet, with the button underneath all of it. In the UT of
+       2026-09-26 that read as two designers on one screen and took three
+       screens of scrolling to reach the agree (report problems 15, and the
+       "ba màn hình cuộn" in its summary). What changed:
+
+       · The promises are the SUMMARY: three ticked lines, their titles only.
+         The consent rows below say the same things in full, so repeating the
+         promise bodies above them was the same sentence twice.
+       · The consent rows wear the promise rows' own shape (75-consent-ui,
+         _cstBankFlowRows). Every word is the recorded text, unfolded, in the
+         sheet's own scroll. No box that scrolls inside a sheet that scrolls.
+       · The agree is pinned to the sheet's foot (`.atx-foot`), so it is one
+         reach away at every scroll position. Nothing is hidden to get there:
+         the text is all above it, and reading on is a scroll, not a hunt.
+       · The note about Google's screen moved to step 2, which is the screen
+         the person is on when Google's actually opens.
+       · The sheet opens in its FINAL shape. It used to paint a plain Continue
+         and grow the consent block when the record arrived; now it assumes
+         the ask is needed unless this tab already knows otherwise, and a
+         record that says "already agreed" shrinks it. Wrong in the safe
+         direction: the agree only ever disappears, it never appears under a
+         thumb that was aiming at Continue. */
+    const known = window.fhConsentCached ? window.fhConsentCached() : null;
+    const ask = !!window.fhConsentInlineHTML && (!known || known.needed);
     _fhSheet(
       '<div class="mbx-hero">' + _atxGlyph('auto') + '</div>' +
       '<div class="sheet-h">' + _esc(L('Tự động ghi giao dịch', 'Automatic transaction logging')) + '</div>' +
@@ -449,50 +463,71 @@
         'Cho phép Earthy đọc email để tìm biên lai và thông báo giao dịch từ ngân hàng, rồi điền sẵn vào sổ chi tiêu cho bạn. Không phải gõ tay nữa.',
         'Let Earthy read your email to find receipts and bank transaction alerts, then fill your ledger in for you. No more typing them in by hand.')) + '</div>' +
 
-      '<div class="mbx-assure">' +
-        _mbxAssure('eyeoff', L('Chỉ biên lai và giao dịch', 'Only receipts and transactions'),
-          L('Tụi mình chỉ tìm email từ ngân hàng và cửa hàng. Những thư khác không bao giờ được tải về.',
-            'We only look for mail from banks and merchants. Everything else is never downloaded.')) +
-        _mbxAssure('lock', L('Chỉ bạn mở được', 'Only you can open it'),
-          L('Giao dịch được niêm phong ngay khi lưu, chỉ thiết bị của bạn mở được.',
-            'Transactions are sealed the moment they are stored, and only your devices can open them.')) +
-        _mbxAssure('check', L('Bạn duyệt rồi mới vào sổ', 'You approve before anything is logged'),
-          L('Mỗi khoản đều nằm chờ bạn xem qua. Không có gì tự vào sổ chi tiêu.',
-            'Every transaction waits for you to look it over. Nothing enters your ledger on its own.')) +
-      '</div>' +
+      '<div id="atx-s1-body">' + _atxStep1Body(ask, known && known.prior) + '</div>' +
 
-      '<div class="mbx-note">' + _mbxGlyph('mail') + '<span>' + _esc(L(
-        'Màn hình của Google sẽ xin quyền đọc thư. Google chỉ có đúng một quyền như vậy và nó bao trùm cả hộp thư, không có quyền nào hẹp hơn. Tụi mình chỉ tải email ngân hàng, và bạn gỡ quyền trong tài khoản Google bất cứ lúc nào.',
-        'Google’s screen asks for permission to read your mail. Google offers exactly one such permission and it covers the whole mailbox, there is no narrower one. We only ever fetch bank email, and you can revoke access in your Google account at any time.')) + '</span></div>' +
-
-      /* Consent lives INSIDE this step (activation-journey-spec Q28a): the slot
-         fills with the full PDPL text when no current record exists, and the
-         CTA becomes the agree. One continuous read → agree → the choices →
-         Google, instead of a separate sheet popping between the decision and
-         the connect. Same record, same version machinery (75-consent-ui). */
-      '<div id="atx-consent-slot"></div>' +
-
-      '<button class="cta" id="atx-step1-cta" onclick="fhAutoTxnSetup()">' +
-        _esc(L('Tiếp tục', 'Continue')) + '</button>' +
-      '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Để sau', 'Not now')) + '</button>'
+      '<div class="atx-foot">' +
+        '<button class="cta" id="atx-step1-cta" onclick="' + _atxStep1Act(ask) + '">' +
+          _esc(_atxStep1Label(ask)) + '</button>' +
+        '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Để sau', 'Not now')) + '</button>' +
+      '</div>'
     );
-    _atxConsentPrep(seq);
+    _atxConsentPrep(seq, ask, known && known.prior);
   };
 
-  /* Fill the step-1 consent slot once the record is known. Fire-and-forget:
-     a slow read leaves the plain Continue, and fhConsentEnsure inside
-     fhAutoTxnGrant stays as the belt for that path. */
-  async function _atxConsentPrep(seq) {
-    if (!window.fhConsentState) return;
+  /* The three things we control and can hold to (see the note on copy at the
+     top of this file). One list, two renderings: titles alone as the summary
+     above the consent, and title + line when the consent is already on record
+     and these rows are the whole screen. */
+  function _atxPromises() {
+    return [
+      ['eyeoff', L('Chỉ biên lai và giao dịch', 'Only receipts and transactions'),
+        L('Tụi mình chỉ tìm email từ ngân hàng và cửa hàng. Những thư khác không bao giờ được tải về.',
+          'We only look for mail from banks and merchants. Everything else is never downloaded.')],
+      ['lock', L('Chỉ bạn mở được', 'Only you can open it'),
+        L('Giao dịch được niêm phong ngay khi lưu, chỉ thiết bị của bạn mở được.',
+          'Transactions are sealed the moment they are stored, and only your devices can open them.')],
+      ['check', L('Bạn duyệt rồi mới vào sổ', 'You approve before anything is logged'),
+        L('Mỗi khoản đều nằm chờ bạn xem qua. Không có gì tự vào sổ chi tiêu.',
+          'Every transaction waits for you to look it over. Nothing enters your ledger on its own.')],
+    ];
+  }
+
+  function _atxStep1Body(ask, prior) {
+    const p = _atxPromises();
+    if (!ask) {
+      return '<div class="mbx-assure">' +
+        p.map(function (r) { return _mbxAssure(r[0], r[1], r[2]); }).join('') + '</div>';
+    }
+    return '<ul class="atx-ticks">' +
+        p.map(function (r) { return '<li>' + _mbxGlyph('done') + '<span>' + _esc(r[1]) + '</span></li>'; }).join('') +
+      '</ul>' +
+      '<div class="atx-consent">' + window.fhConsentInlineHTML(prior || null) + '</div>';
+  }
+  const _atxStep1Label = (ask) => ask
+    ? L('Tôi hiểu và đồng ý, tiếp tục', 'I understand and agree, continue')
+    : L('Tiếp tục', 'Continue');
+  const _atxStep1Act = (ask) => ask ? 'fhAutoTxnAgreeGo(this)' : 'fhAutoTxnSetup()';
+
+  /* Check the painted shape against the record, and repaint only if they
+     disagree: the ask shown to someone who has already agreed (a second tab,
+     an earlier session), or a first-time text shown to someone owed the
+     what-changed delta. Fire-and-forget. An unreadable record answers
+     `needed`, so a failed read leaves the ask standing, and fhConsentEnsure
+     inside fhAutoTxnGrant stays as the belt behind every path. */
+  async function _atxConsentPrep(seq, shownAsk, shownPrior) {
+    if (!window.fhConsentState || !window.fhConsentInlineHTML) return;
     let st = null;
     try { st = await window.fhConsentState(); } catch (e) { return; }
-    if (!st || !st.needed || seq !== _atxSheetSeq) return;
-    const slot = document.getElementById('atx-consent-slot');
+    if (!st || seq !== _atxSheetSeq) return;
+    const ask = !!st.needed;
+    const ver = (r) => (r && r.version) || 0;
+    if (ask === shownAsk && (!ask || ver(st.prior) === ver(shownPrior))) return;
+    const body = document.getElementById('atx-s1-body');
     const cta = document.getElementById('atx-step1-cta');
-    if (!slot || !cta) return;
-    slot.innerHTML = window.fhConsentInlineHTML ? window.fhConsentInlineHTML(st.prior) : '';
-    cta.textContent = L('Tôi hiểu và đồng ý, tiếp tục', 'I understand and agree, continue');
-    cta.setAttribute('onclick', 'fhAutoTxnAgreeGo(this)');
+    if (!body || !cta || cta.disabled) return;          // mid-agree: leave the screen alone
+    body.innerHTML = _atxStep1Body(ask, st.prior);
+    cta.textContent = _atxStep1Label(ask);
+    cta.setAttribute('onclick', _atxStep1Act(ask));
   }
 
   /* The step-1 agree: record the consent, then straight into the choices.
@@ -503,7 +538,7 @@
     let ok = false;
     try { ok = window.fhConsentRecord ? await window.fhConsentRecord() : false; } catch (e) { ok = false; }
     if (!ok) {
-      if (btn) { btn.disabled = false; btn.textContent = L('Tôi hiểu và đồng ý, tiếp tục', 'I understand and agree, continue'); }
+      if (btn) { btn.disabled = false; btn.textContent = _atxStep1Label(true); }
       window.toast && window.toast(L('Chưa ghi nhận được, thử lại nhé', 'Could not record it, try again'));
       return;
     }
@@ -511,15 +546,25 @@
   };
 
   /* STEP 2 OF 2 — the three decisions, as a grouped list.
-  
+
      Every row is the same shape: a label, the current answer, and a way to
      change it. That sameness is the point — three questions that look like one
      kind of thing are read as one screen, where three differently-shaped
      controls stacked up read as a form to fill in.
-     
+
      The answers are all pre-filled with a working default, so this screen is
      legible without being touched: someone who reads nothing and taps the
-     button gets their own mailbox, sealed to themselves, ninety days back. */
+     button gets their own mailbox, sealed to themselves, a year back.
+
+     THE NOTE ABOUT GOOGLE'S SCREEN LIVES HERE (moved from step 1, 2026-10-07).
+     It describes the screen that opens when this button is tapped, so this is
+     where it is read with the least distance between the warning and the
+     thing warned about. The words are the ones reviewed against
+     pipeline/OAUTH-COMPLIANCE-FINDINGS.md §3.3 and they have not been
+     softened: Google's one mail scope covers the whole mailbox, and "only
+     bank email" is our promise, not Google's boundary. It is flow copy, not
+     consent text, so moving it changes no version (oauth-trust-spec §3 draws
+     the same line). */
   window.fhAutoTxnSetup = function () {
     _atxSheetSeq++;
     _fhSheet(
@@ -534,6 +579,13 @@
         _atxDaysRow() +
       '</div>' +
 
+      '<div class="mbx-note plain">' + _mbxGlyph('mail') + '<span>' + _esc(L(
+        'Màn hình của Google sẽ xin quyền đọc thư. Google chỉ có đúng một quyền như vậy và nó bao trùm cả hộp thư, không có quyền nào hẹp hơn. Tụi mình chỉ tải email ngân hàng, và bạn gỡ quyền trong tài khoản Google bất cứ lúc nào.',
+        'Google’s screen asks for permission to read your mail. Google offers exactly one such permission and it covers the whole mailbox, there is no narrower one. We only ever fetch bank email, and you can revoke access in your Google account at any time.')) + '</span></div>' +
+
+      /* Not pinned, unlike step 1's agree: on a short phone a pinned button
+         would sit over the note above and let it go unread. Here the button
+         is where the reading ends. */
       '<button class="cta" id="atx-go" onclick="fhAutoTxnGrant()">' +
         _esc(L('Cho phép đọc email', 'Allow email access')) + '</button>' +
       '<button class="btn-skip" onclick="fhAutoTxnSheet()">' + _esc(L('Quay lại', 'Back')) + '</button>'

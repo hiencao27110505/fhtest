@@ -100,19 +100,23 @@ the Cá nhân tab. If nothing is set up yet, a chooser names the two transports:
 - **Connect Gmail (direct read)** — listed first because it is better for
   almost everyone who can use it: one tap instead of a mail-client filter
   rule, and it reads history rather than starting from now. Consent is
-  recorded in the app (v4) *before* Google's own consent screen. At connect
+  recorded in the app *before* Google's own consent screen. At connect
   you choose two things: where new rows go by default (**Cá nhân** is the
-  default) and how far back the first read reaches (90 days by default, up to
-  a year).
+  default) and how far back the first read reaches: 30, 60, 90 or 365 days,
+  with 365 picked (since 2026-10-08; nothing is typed).
 - **Forward your bank email** — you receive a personal `txn+<tag>@…` address
   and add a Gmail forwarding rule yourself. It stays because it is the only
   thing that works for a mailbox Google does not host.
 
 Neither is labelled "recommended": the thing that actually decides it is
 whether the bank writes to a Gmail address, which the person knows and we do
-not. The connect flow itself is two steps — step 1 only earns the tap and
-holds no controls; step 2 is the three decisions as one grouped list, every
-answer pre-filled with a working default.
+not. The connect flow itself is two steps. Step 1 earns the tap and takes
+the consent, and holds no controls: three ticked promises as a summary, the
+consent rows in full underneath in the same row shape, and the agree button
+pinned to the foot of the sheet so it is in reach at every scroll position.
+Step 2 is the three decisions as one grouped list, every answer pre-filled
+with a working default, then the note about what Google's screen will ask,
+right above the button that opens it.
 
 **Right after Allow, the screen works for its keep** (2026-09-05). The
 callback returns you to the app immediately (nothing on the redirect path
@@ -1897,6 +1901,42 @@ as — or the same day as — the deploy. A deploy announced only in
 `AGENT_SYNC.md` is coordination; this is the record.
 
 ## 28. Releases (newest first)
+
+### 2026-10-08 — connect: step 1 is one document with the agree in reach, and a year is a tap · SW v619 · no migration, no deploy beyond the client
+
+- **For product:** the screen that asks for consent used to stack three
+  promise rows, a note about Google, then the legal text in a different style
+  inside its own small scroll box, with the button under all of it. It is now
+  one page: the three promises as ticked lines, the consent questions in the
+  same row style as the rest of the screen, and "Tôi hiểu và đồng ý, tiếp tục"
+  pinned at the bottom the whole time. The words of the consent are unchanged
+  and nobody is asked to agree again. On the next screen, "Đọc lại bao xa" is
+  four buttons (30, 60, 90, 365 ngày) with 365 already picked; the field for
+  typing a number is gone. The note about Google's permission moved to that
+  second screen, directly above "Cho phép đọc email".
+- **Under the hood:** `74-autotxn-ui.js`: `fhAutoTxnSheet` paints from
+  `fhConsentCached()` and assumes the ask is needed until told otherwise
+  (`_atxConsentPrep` now only repaints on a mismatch, so the agree can
+  disappear but never appear late); `_atxStep1Body`, `_atxPromises`;
+  `ATX_DAY_CHOICES = [30, 60, 90, 365]`, `_atxDays` starts at `ATX_MAX_DAYS`,
+  `_atxClampDays` keeps listed values only, `fhAutoTxnTypeDays` removed.
+  `ATX_DEFAULT_DAYS` stays 90: it is the meaning of a grant row without
+  `backfill_days` (0093), not the picked default. `75-consent-ui.js`:
+  `_cstBankItems` is the one list, rendered by `_cstBankRows` (standalone
+  sheet, unchanged look) and `_cstBankFlowRows` (connect flow);
+  `FH_CONSENT_V` is still 7. `74-mailbox.css`: `.atx-ticks`, `.atx-consent`,
+  `.atx-foot` (sticky, the `.cry-foot` recipe); `.atx-days-in` removed.
+  Tests: `tools/autotxn-connect-steps.test.js` (new, 37 checks);
+  `tools/email-transport-chooser.test.js` now expects the Google note on
+  step 2 and the picked window on `ATX_MAX_DAYS`.
+- **Spec sections updated:** §4.1 (the two steps, the four windows).
+- **Watch for:** a year is now what an untouched connect reads, so the long
+  first read (`first-ninety-seconds-spec.md`, problem 01 of the 26/09 UT) is
+  what every new person meets unless they pick a shorter window. This
+  release changes nothing about how long that read takes. The standalone
+  consent sheet (Settings, the re-consent offer on the way into review) still
+  has its old look. From the 26/09 UT: problems 15 (the consent half) and 16
+  (the 365 button) are addressed; "đổi hộp thư không cần gõ" in 16 is not.
 
 ### 2026-10-03 — rules for later rows · SW v614 · no migration, no deploy beyond the client
 

@@ -82,12 +82,12 @@
 
      <details> rather than a JS toggle: open/close, keyboard and screen-reader
      behaviour all come free and correct. */
-  function _cstFullTextFold(inner, version) {
+  function _cstFullTextFold(inner, version, bare) {
     return '<details class="cst-fold">' +
       '<summary class="cst-fold-s">' +
         _esc(L('Đọc toàn bộ nội dung bản v' + version, 'Read the full v' + version + ' text')) +
       '</summary>' +
-      '<div class="cst-body">' + inner + '</div>' +
+      (bare ? inner : '<div class="cst-body">' + inner + '</div>') +
       '</details>';
   }
 
@@ -548,12 +548,22 @@
        Settings re-read); both render the same rows, so the recorded version
        is always the text that was actually on screen. */
     window.fhConsentInlineHTML = function (accepted) {
-      var rows = _cstBankRows();
+      var rows = _cstBankFlowRows();
       var changed = _cstChangedBlock(FH_CONSENT_KIND, accepted, FH_CONSENT_V);
       return _cstKicker(L('EMAIL NGÂN HÀNG', 'BANK EMAIL')) +
         changed +
-        (changed ? _cstFullTextFold(rows, FH_CONSENT_V) : '<div class="cst-body">' + rows + '</div>') +
+        (changed ? _cstFullTextFold(rows, FH_CONSENT_V, true) : rows) +
         _cstBankSmallPrint();
+    };
+    /* What this tab already knows, WITHOUT a round trip: {needed, prior}, or
+       null when nothing has been read yet for the signed-in person. The connect
+       flow paints from this so step 1 opens in its final shape instead of
+       growing a consent block a moment after the person started reading. Same
+       per-person rule as _cstFetch: another account's answer is not an answer. */
+    window.fhConsentCached = function () {
+      var _uid = (window.fhUser && window.fhUser.id) || '';
+      if (_cstUid !== _uid || !_cstKnown) return null;
+      return { needed: !(_cstKnown.version >= FH_CONSENT_V), prior: _cstKnown };
     };
     /* {needed, prior}: is a bank-email consent at the current version on
        record? Unreadable fails closed to "needed": the ask costs a screen,
@@ -615,31 +625,52 @@
     /* Ordered to the statutory triad -- what, why, how -- then the rest of
        the "quyền được biết" list: who else receives it, how long it is kept,
        the rights, and who is answerable (small print). The Q&A voice stays
-       because it reads; the coverage is what the law fixes. One builder, so
-       the standalone sheet and the connect flow's inline block cannot drift. */
-    function _cstBankRows() {
-      return (
-        _cstRow(L('Earthy lấy gì từ email?', 'What does Earthy take from the email?'), _esc(L(
+       because it reads; the coverage is what the law fixes. One list, so
+       the standalone sheet and the connect flow's inline block cannot drift.
+       The first field is a glyph key: only the connect flow draws it. */
+    function _cstBankItems() {
+      return [
+        ['mail', L('Earthy lấy gì từ email?', 'What does Earthy take from the email?'), L(
           'Số tiền, thời điểm, người nhận hoặc cửa hàng, lời nhắn chuyển khoản, số tài khoản đã che bớt, và tên ngân hàng.',
-          'The amount, the time, who was paid, the transfer note, the partially hidden account number, and the bank’s name.'))) +
-        _cstRow(L('Để làm gì?', 'What for?'), _esc(L(
+          'The amount, the time, who was paid, the transfer note, the partially hidden account number, and the bank’s name.')],
+        ['book', L('Để làm gì?', 'What for?'), L(
           'Chỉ để ghi vào sổ chi tiêu của gia đình bạn. Không bán, không quảng cáo, không chấm điểm tín dụng.',
-          'Only to record spending in your family’s ledger. Never sold, never ads, never credit scoring.'))) +
-        _cstRow(L('Có ai đọc được email của tôi không?', 'Can anyone read my emails?'), _esc(L(
+          'Only to record spending in your family’s ledger. Never sold, never ads, never credit scoring.')],
+        ['eyeoff', L('Có ai đọc được email của tôi không?', 'Can anyone read my emails?'), L(
           'Lần đầu gặp một mẫu email của ngân hàng, tụi mình gửi email đó cho AI của Google một lần, để học cách đọc mẫu đó. Những email sau cùng mẫu được đọc ngay tại hệ thống, không gửi đi đâu nữa. Email trong hộp thư trung gian tự xoá sau 7 ngày; email không đọc được giữ tối đa 90 ngày rồi cũng xoá. Giao dịch chờ duyệt giữ đến khi bạn duyệt hoặc ngắt kết nối.',
-          'The first time we meet a new email format from a bank, we send that one email to Google’s AI once, to learn how to read that format. Every later email in the same format is read on our own systems and goes nowhere. Emails in the relay inbox delete themselves after 7 days; ones we could not read are kept at most 90 days, then deleted too. Pending transactions are kept until you review them or disconnect.'))) +
-        _cstRow(L('Còn file sao kê ngân hàng gửi kèm email?', 'What about statement files attached to an email?'), _esc(L(
+          'The first time we meet a new email format from a bank, we send that one email to Google’s AI once, to learn how to read that format. Every later email in the same format is read on our own systems and goes nowhere. Emails in the relay inbox delete themselves after 7 days; ones we could not read are kept at most 90 days, then deleted too. Pending transactions are kept until you review them or disconnect.')],
+        ['file', L('Còn file sao kê ngân hàng gửi kèm email?', 'What about statement files attached to an email?'), L(
           'Tụi mình niêm phong file bằng khoá riêng của bạn và giữ tối đa 90 ngày, mở xong là xoá. File chỉ mở trên máy bạn; mật khẩu không rời khỏi máy. Để gợi ý danh mục, máy bạn có thể gửi tên cửa hàng cho AI của Google, không kèm số tiền, ngày hay tên người.',
-          'We seal the file with your own key and keep it for at most 90 days; it is deleted once opened. The file only opens on your device, and its password never leaves it. To suggest categories, your device may send merchant names to Google’s AI, never an amount, a date or a person’s name.'))) +
-        _cstRow(L('Còn email hoá đơn từ các cửa hàng?', 'What about receipt emails from stores?'), _esc(L(
+          'We seal the file with your own key and keep it for at most 90 days; it is deleted once opened. The file only opens on your device, and its password never leaves it. To suggest categories, your device may send merchant names to Google’s AI, never an amount, a date or a person’s name.')],
+        ['receipt', L('Còn email hoá đơn từ các cửa hàng?', 'What about receipt emails from stores?'), L(
           'Tụi mình đọc hoá đơn từ các cửa hàng trong danh sách ở Cài đặt, để gắn món hàng và giá vào đúng giao dịch đã ghi từ email ngân hàng. Hoá đơn không tự tạo giao dịch. Bạn tắt được từng cửa hàng cho hộp thư của mình. Địa chỉ và số điện thoại trong email không được đọc hay lưu.',
-          'We read receipts from the stores listed in Settings, to attach the items and their prices to the matching transaction already captured from bank email. A receipt never creates a transaction. You can switch any store off for your own mailbox. Addresses and phone numbers in those emails are not read or stored.'))) +
-        _cstRow(L('Ai mở được các giao dịch này?', 'Who can open these transactions?'), _esc(L(
+          'We read receipts from the stores listed in Settings, to attach the items and their prices to the matching transaction already captured from bank email. A receipt never creates a transaction. You can switch any store off for your own mailbox. Addresses and phone numbers in those emails are not read or stored.')],
+        ['lock', L('Ai mở được các giao dịch này?', 'Who can open these transactions?'), L(
           'Mỗi giao dịch được niêm phong ngay khi đến, như thư bỏ vào két đã khoá: máy chủ giữ két, còn chìa chỉ nằm trên điện thoại của gia đình bạn.',
-          'Each transaction is sealed the moment it arrives, like a letter dropped into a locked safe: the server holds the safe, and the key lives only on your family’s phones.'))) +
-        _cstRow(L('Giao dịch có tự vào sổ không?', 'Do transactions enter the ledger by themselves?'), _esc(L(
+          'Each transaction is sealed the moment it arrives, like a letter dropped into a locked safe: the server holds the safe, and the key lives only on your family’s phones.')],
+        ['check', L('Giao dịch có tự vào sổ không?', 'Do transactions enter the ledger by themselves?'), L(
           'Không. Bạn duyệt từng khoản một. Muốn dừng, vào Cài đặt bấm Ngắt kết nối: dừng ngay và các khoản đang chờ được xoá hết.',
-          'No. You review every one. To stop, tap Disconnect in Settings: it stops at once and pending items are deleted.'))));
+          'No. You review every one. To stop, tap Disconnect in Settings: it stops at once and pending items are deleted.')],
+      ];
+    }
+    /* The standalone sheet's rows (Settings re-read, the soft re-consent offer). */
+    function _cstBankRows() {
+      return _cstBankItems().map(function (i) { return _cstRow(i[1], _esc(i[2])); }).join('');
+    }
+    /* The connect flow's rows: the SAME items in the row shape the flow's own
+       promises use (glyph chip, title, one calm paragraph), so step 1 reads as
+       one document. In the UT of 2026-09-26 the two halves of that screen were
+       read as "two designers on one screen" (report problem 15); the text was
+       never the problem, the second visual language was. Words are untouched,
+       which is why this is not a version bump. */
+    function _cstBankFlowRows() {
+      var glyph = (typeof _mbxGlyph === 'function') ? _mbxGlyph : function () { return ''; };
+      return '<div class="mbx-assure">' + _cstBankItems().map(function (i) {
+        return '<div class="mbx-assure-row">' +
+          '<div class="mbx-ic">' + glyph(i[0]) + '</div>' +
+          '<div class="mbx-txt"><div class="mbx-rt">' + _esc(i[1]) + '</div>' +
+          '<div class="mbx-rs">' + _esc(i[2]) + '</div></div></div>';
+      }).join('') + '</div>';
     }
 
     function _cstBankSmallPrint() {

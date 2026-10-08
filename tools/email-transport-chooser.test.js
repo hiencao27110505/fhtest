@@ -84,8 +84,16 @@ console.log('\n-- the connect flow is two steps, not one wall --');
      the tap and nothing else, so it holds no controls at all. */
   t('step 1 asks for no decisions',
     !/_atxScopeRow|_atxDaysRow|_atxAcctRow/.test(step1));
-  t('step 1 still prints the honest Google-scope note',
-    /không có quyền nào hẹp hơn/.test(step1));
+  /* MOVED 2026-10-07, not dropped. The note describes the screen that opens
+     when step 2's button is tapped, so it now sits right above that button
+     instead of one screen earlier, where it was the fourth block of a sheet
+     that also had to carry the consent. What this guards is unchanged: the
+     person reads, in our words and before Google's screen loads, that the
+     grant covers the whole mailbox. Dropping it from the flow must still fail. */
+  t('the honest Google-scope note is printed on the screen before Google\'s',
+    /không có quyền nào hẹp hơn/.test(step2) && !/không có quyền nào hẹp hơn/.test(step1));
+  t('and the person reaches it before the button it warns about',
+    step2.indexOf('không có quyền nào hẹp hơn') < step2.indexOf('fhAutoTxnGrant()'));
   t('step 1 leads to step 2 rather than straight to Google',
     /fhAutoTxnSetup\(\)/.test(step1) && !/fhAutoTxnGrant\(\)/.test(step1));
 
@@ -98,13 +106,16 @@ console.log('\n-- the connect flow is two steps, not one wall --');
     /fhAutoTxnSheet\(\)/.test(step2));
 
   // Every answer pre-filled, so the screen is legible without being touched.
-  /* The window default moved behind ATX_DEFAULT_DAYS (2026-09-05) so the status
-     screens can read the same number back when a grant predates backfill_days.
-     Same intent, asserted through the constant instead of the literal. */
+  /* Two numbers since 2026-10-07, and they must not be confused. The PICKED
+     window is a year (the ceiling became a tappable choice and the default).
+     ATX_DEFAULT_DAYS stays 90: it is what a grant row with no backfill_days
+     means (the server default, 0093), and the status screens read it back. */
   t('every choice has a working default',
     /_atxScope = 'personal'/.test(autotxn)
-    && /ATX_DEFAULT_DAYS = 90/.test(autotxn)
-    && /_atxDays = ATX_DEFAULT_DAYS/.test(autotxn));
+    && /let _atxDays = ATX_MAX_DAYS;/.test(autotxn)
+    && /ATX_MAX_DAYS = 365/.test(autotxn));
+  t('a grant that predates backfill_days still reads back as 90',
+    /ATX_DEFAULT_DAYS = 90/.test(autotxn));
 }
 
 console.log('\n-- the styling the chooser depends on exists --');

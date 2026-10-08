@@ -124,16 +124,49 @@
 .atx-seg:active{transform:scale(.97)}
 @media (prefers-reduced-motion:reduce){.atx-seg{transition:none}.atx-seg:active{transform:none}}
 
-/* The free-entry half of the backfill window picker, sitting under the presets.
-   Deliberately quieter than a primary field: the chips are the answer for
-   almost everyone, and this is the escape hatch — so it reads as an alternative
-   to them rather than as a second question. inputmode numeric, never
-   type=number (DESIGN §6): the spinner is useless on a phone and Safari's
-   stepper fights a clamped value. */
-.atx-days-in{width:100%;margin-top:7px;padding:10px 12px;border:1px solid var(--line);
-  border-radius:10px;background:var(--white);font:inherit;font-size:13.5px;color:var(--ink)}
-.atx-days-in::placeholder{color:var(--muted);font-size:12.5px}
-.atx-days-in:focus{outline:2px solid var(--brand-ink);outline-offset:1px;border-color:transparent}
+/* Step 1's summary: the three promises as ticked lines, titles only. The
+   consent rows right under them carry the same promises in full, so the
+   summary stays a glance (15/600, one line each) and the tick is the brand
+   ink on no chip: a chip here would make these compete with the rows below,
+   which are the ones that have to be read. */
+.atx-ticks{list-style:none;margin:0 0 20px;padding:0;display:flex;flex-direction:column;gap:10px}
+.atx-ticks li{display:flex;align-items:center;gap:13px;font-size:15px;font-weight:600;
+  letter-spacing:-.01em;line-height:1.3;color:var(--ink)}
+/* The tick sits in a slot as wide as a row's glyph chip (38 + the same 13 gap),
+   so the three lines and every row title under them share one left edge. */
+.atx-ticks svg{width:38px;height:19px;flex-shrink:0;color:var(--brand-ink)}
+
+/* The consent, inside the flow. A hairline and the kicker open it; the rows
+   are `.mbx-assure-row`, untouched, so the legal half of the screen is set in
+   the same type and the same glyph chips as everything else on it. No scroll
+   box of its own: the sheet is the scroller, and `.atx-foot` keeps the agree
+   in reach. */
+.atx-consent{border-top:1px solid var(--divider);padding-top:18px}
+.atx-consent .cst-kicker{margin-bottom:16px}
+.atx-consent .mbx-assure{margin:0 0 18px}
+.atx-consent .mbx-rs{color:var(--ink-2)}            /* text someone is agreeing to is body ink, not caption grey */
+.atx-consent .cst-changed{margin:0 0 14px}
+.atx-consent .cst-fold{margin:0 0 14px}
+.atx-consent .cst-fold .mbx-assure{margin-top:14px}
+.atx-consent .cst-meta{margin:0 0 20px}             /* clears the foot's fade at the end of the scroll */
+.atx-consent .cst-meta a{color:var(--brand-ink);text-decoration:underline}   /* the policy link was the browser's default blue */
+
+/* Step 1's foot: the primary action and its way out, pinned to the bottom
+   of the sheet while the content scrolls under it. Step 2 does NOT use it, on
+   purpose: its last block is the note about Google's screen, and a pinned
+   button on a short phone would let that note be skipped unseen. There the
+   button stays where the reading ends. Same recipe as `.cry-foot`:
+   it sticks at the sheet's content edge, and the shadow paints the sheet's
+   bottom padding white so rows do not show through below the buttons. The
+   fade above it is what says "there is more" without a scrollbar. On a sheet
+   short enough not to scroll, none of this is visible and it is just the
+   buttons. */
+.atx-foot{position:sticky;bottom:0;z-index:1;background:var(--white);margin-top:4px;padding-top:6px;
+  box-shadow:0 calc(24px + env(safe-area-inset-bottom)) 0 var(--white)}
+.atx-foot::before{content:"";position:absolute;left:0;right:0;bottom:100%;height:22px;
+  background:linear-gradient(to top,var(--white),transparent);pointer-events:none}
+.atx-foot .cta{margin-top:0}
+.atx-group + .mbx-note{margin-top:-8px;margin-bottom:22px}
 
 .atx-acct{display:flex;align-items:center;gap:11px;background:var(--surface);
   border-radius:14px;padding:10px 10px 10px 12px;margin-bottom:14px}
