@@ -92,7 +92,8 @@ same budget sheet as the family tab, opened in personal scope.
 ### 3.4 Giao dịch của bạn — the transaction list
 
 The latest transactions (30 on the tab; the full list opens via *Xem chi
-tiêu*). Each row shows the category emoji, note, date — plus a clock time when
+tiêu*). Each row shows the category emoji (or the seller's logo when the registry
+recognises the payee, `recurring-charges-spec.md` §3.5), note, date — plus a clock time when
 one is known — and where it went: a family name, or "riêng tư".
 
 Two row types matter:

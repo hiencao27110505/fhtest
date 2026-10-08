@@ -157,7 +157,13 @@ function txRow(t){
   // observer decrypts .enc backgrounds in place); category text moves under the
   // bold amount, so the subline holds only the date.
   var ph=(t.photos&&t.photos.length)?t.photos[0]:t.photo;
+  /* RR23: photo, then the seller's logo, then the category emoji. Only money
+     that was spent can wear a logo (a personal row's payee is _cp; a family
+     row has only its note, since `who` there is the member who paid). */
+  var bd=(!ph && (!personal || t._kg==='chi') && !t.future && window.FH_BRANDS && FH_BRANDS.forRow)
+        ? FH_BRANDS.forRow({ node:t.node, payee:personal?t._cp:null, note:t.note }) : null;
   var tile=ph?'<div class="r-ico ph" style="background-image:url('+escAttr(ph)+')"></div>'
+          :bd?'<div class="r-ico brand" style="--bh:#'+bd.hex+'" role="img" aria-label="'+escAttr(bd.label)+'">'+FH_BRANDS.svg(bd,23)+'</div>'
             :'<div class="r-ico" style="background:'+s[1]+';color:'+s[2]+'">'+esc(t.ico)+'</div>';
   var av=personal?'':spAv(t.who);                                 // personal ledger has no members
   // Family rows open the detail screen; personal rows carry their own door

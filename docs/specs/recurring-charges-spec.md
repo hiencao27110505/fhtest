@@ -202,8 +202,72 @@ Disney+) are not in the registry. If an owner asks, the brand is removed from
 `brands.json` and the row falls back to its emoji; `LICENSE.md` beside the
 glyphs says so.
 
-Not yet: the queue card and the transaction list rows keep their category
-mark (§17).
+### 3.5 The same mark on every ledger row and queue card (RR23, 2026-10-09)
+
+The registry now faces three more places, in both ledgers at once.
+
+**Ledger rows** (the Giao dịch screen for the personal and the family ledger,
+and the Cá nhân tab list). The row already had a 42 px tile. Its order is
+now: the receipt photo, then the seller's glyph white on the seller's colour
+(treatment A of `mockups/logo-queue-ledger-options.html`, the same as Định
+kỳ), then the category emoji on the category's tint as before. The member
+avatar and the 🏡 mirror badge keep their corner. The category's name stays
+under the amount, so a row with a logo loses only the category's colour.
+
+**The queue card.** The collapsed card has no leading tile and stays
+amount-anchored (`transaction-review-spec.md` §4a). The seller's glyph, 18 px,
+stands where the category emoji stood inside the category pill (placement 5
+of the same mockup file). Nothing else on the card moves and no card grows.
+A card with no category yet shows the glyph in the "Chọn danh mục" pill,
+because who was paid is known before what it was for.
+
+**Which rows.** One rule, `FH_BRANDS.forRow`, for all three:
+
+- Only money that was spent. Income, transfers, loans, repayments,
+  investments and future rows wear no logo.
+- A row filed under a person (the `p2p` branch) wears none, whatever its memo
+  mentions. A person is not a shop (`p2p-breakdown-spec.md` §7).
+- The texts are asked in order: the receipt's product signature, the payee,
+  the memo, the receipt's provider. A personal row's payee is its
+  counterparty. A family row has only its note, because `who` there is the
+  member who paid, and receipts do not join family rows (RC6).
+- The person's own note is never rewritten. A matched brand names a
+  receipt-less series in Định kỳ only.
+
+**A matcher strict enough for every row (RR24).** In Định kỳ the matcher saw
+a handful of confirmed series. Here it sees every row and free-text notes,
+and on 773 captured rows from the test mailbox it made two mistakes that are
+now rules:
+
+- **A rail is how the money moved, not who was paid.** `brands.json` lists
+  them (`rails`: ZaloPay, ShopeePay, GrabPay, Google Pay, Apple Pay, Samsung
+  Pay, MoMo, VNPay, Payoo, Moca). They are struck from a text before it is
+  read, so "ZALOPAY_Chickita" is no longer Zalo while "GOOGLE PAY *NETFLIX"
+  is still Netflix. A receipt signature is never read as a rail. The
+  generator refuses a rail that is also a brand's word.
+- **A word counts only where a token starts.** "hbo" inside another word is
+  not HBO. "grab" at the start of "grabfood" is still Grab.
+- Answers are remembered per text, because a list asks for the same strings
+  on every paint.
+
+**What it covers, measured on those 773 rows.**
+
+| | Rows | Share |
+|---|---|---|
+| Wears a logo (registry v2, 76 brands) | 194 | 25.1% |
+| A known chain with no glyph in Simple Icons (AEON, Circle K, Co.op, Tiki, CGV) or a rail-only string (Payoo, MoMo, VNPay) | 124 | 16.0% |
+| People and small shops: category emoji, as before | 455 | 58.9% |
+
+Registry v1 scored 18.8%. The gain is ShopeeFood (the Foody strings, wearing
+its parent's glyph) and Starbucks. Ten everyday brands the icon set carries
+were added with it (KFC, Uber, Gojek, Booking.com, Airbnb, Klook, IKEA, Zara,
+Nike, Starbucks). Vietnamese chains are not in Simple Icons; a mark for them
+is an open design question (§17), not a registry edit.
+
+**Not built.** The detail screens' hero tile, the expanded queue card, the
+merchant group card, quick review, and the tree drill rows keep their
+category mark. A glyph on a light brand colour (Spotify's green) is weak in
+white; the registry has no dark-glyph field yet.
 
 Empty: the tile is absent until something repeats. The sheet, opened while
 the history is still being read, says "Đang xem lại lịch sử chi tiêu…"; with
@@ -364,9 +428,12 @@ month. The 5 percent floor absorbs exchange-rate drift on USD-billed services
   precedence and decline, creep at 4.9 / 5.1 percent, `nextDate` month clamp,
   yearly over leap years.
 - `tools/brands.test.js`: the registry's rules (a word claimed twice, an
-  unfolded word, a missing glyph, a bad colour are refused); the matcher on
-  real ledger strings (signature before payee, longest word wins, a landlord
-  and a coffee shop match nothing); the UI's face order (§3.4).
+  unfolded word, a missing glyph, a bad colour, an unfolded rail, a rail that
+  is a brand word are refused); the matcher on real ledger strings (signature
+  before payee, longest word wins, a landlord and a coffee shop match
+  nothing, rails struck, token starts only); the row rule (`forRow`: no logo
+  under a person or on money that is not spending); the three draw sites and
+  the UI's face order (§3.4, §3.5).
 - `tools/receipt-join.test.js`: a receipt with `period` marks the row; a
   renewal variant without `period` marks monthly; a `person` row is untouched.
 - `pipeline/receipt-contract.test.js`: `period` sealed (shared with the
@@ -422,6 +489,8 @@ From the design interview, 2026-10-06.
 | RR18 | **One truth.** Tile, sheet, detail row and queue card read the same series view. The stored column is the durable trace of it, not a second opinion. |
 | RR21 | *(2026-10-07)* **Tile 3 "Vòng tháng", sheet 5 "Thuê bao"** chosen from sixteen rendered directions (`mockups/recurring-options.html`); the ring is the daily-guide ring reused, the sheet is the iPhone Subscriptions language with a countdown on this month's rows. Eight ring variants are in the same file for the next round. |
 | RR22 | *(2026-10-08)* **A service wears its logo.** Faces in the tile lines and the sheet rows: brand glyph on brand colour from a bundled registry (`taxonomy/brands.json`, CC0 Simple Icons), else the node's emoji inherited from its nearest ancestor, else the row's category emoji, else the monogram. A matched brand also names a receipt-less series. Recognition only; a brand is removed on an owner's request. The sixteen logo-led mockups in `mockups/recurring-options.html` are for the next round. Built as treatment 1 of the eight placements (white glyph on brand colour, 42 px in the sheet, 22 px in the tile), picked 2026-10-08; the renewal line dropped its "Gia hạn" prefix the same day. |
+| RR23 | *(2026-10-09)* **The logo leaves Định kỳ.** Every ledger row in both ledgers wears it in the tile it already had (photo, then brand, then category emoji; treatment A), and the queue card wears it inside the category pill (placement 5), picked from `mockups/logo-queue-ledger-options.html`. Only spent money, never a row filed under a person. Family rows match on the note alone. |
+| RR24 | *(2026-10-09)* **Rails are not sellers, and a word must start a token.** Payment rails live in the registry and are struck before matching; matching is per token start; answers are memoised. Measured on 773 real rows: 25.1% wear a logo; the 194 hits come from 15 distinct merchant strings, each read and correct. |
 | RR20 | *(2026-10-07)* **"Sắp tới" is this month.** The tile and the sheet's first group show the confirmed charges still expected before the month ends, with their sum ("Còn 2 khoản tháng này · 3.058.000 ₫"). When none is left, the view rolls to next month and says so ("Tháng 11: 4 khoản"). Replaces the rolling 30-day horizon of RR7. |
 | RR19 | **A series that stops, lapses.** More than one full period overdue and it leaves the tile, the upcoming list and the monthly total. Its rows keep their history. |
 
@@ -433,7 +502,9 @@ From the design interview, 2026-10-06.
 | No hand-set next date ("Kỳ tới" picker) | It needs a place to live that is neither a clear column (RR2) nor the receipt blob; the note block was the candidate and deserves its own small design. | Merchant-intelligence epic |
 | No filter chip on the list | The mark on the card and the tile cover the reading need; a chip is a list-filter change across both ledgers' lists. | Same |
 | Queue-wide detection | Twelve rent payments all waiting in the queue, none in the ledger, show Không on their cards; the pass marks them after import (§18.9). | Merchant-intelligence epic |
-| Faces on the queue card and the transaction list rows | The brand face lives in the recurring surfaces first (RR22); the list and the queue card each have their own leading mark (category, member) and a rule is needed for when a logo displaces it. | Next round |
+| A mark for Vietnamese chains (AEON, Circle K, Co.op, Tiki, CGV, Viettel, FPT) | Simple Icons carries none of them, checked 2026-10-09 against 16.34.0. They are 16% of real rows. Options: a brand-colour monogram, or glyphs sourced elsewhere with their own licence review. | Next round |
+| Faces on the detail hero, the expanded queue card, group cards, quick review, tree rows | RR23 covers the collapsed card and the list rows, where scanning happens. | Next round |
+| Dark glyph on light brand colours | White on Spotify green is weak. Needs an `ink` field in the registry and a contrast check in the generator. | Next round |
 | Apple keeps its own reader | Two layouts and storefront sections; the registry carries its labels so folding it into the family walk is a data change later. | Providers release 2 |
 
 ## 16. Related documents

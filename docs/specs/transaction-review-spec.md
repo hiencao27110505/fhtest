@@ -189,6 +189,11 @@ the memo to a quiet 2-line line, and carries the fixed context on two thin lines
 - **Bottom line:** the datetime led by its weekday (**"Thứ 5, 03/09"**,
   `csvWhenLine`), then the import method inline (Trực tiếp / Chuyển tiếp).
 - The **checkbox** sits top-right in both collapsed and expanded states.
+- **The seller's mark (2026-10-09).** When the registry recognises who was
+  paid, an 18 px brand glyph stands where the category emoji stood inside the
+  category pill, also in the "Chọn danh mục" pill of a card with no category.
+  Plain expenses only. The card keeps its height and the amounts keep their
+  column (`recurring-charges-spec.md` §3.5, RR23).
 
 **Expanded card — rows + top inputs.** Tapping a card opens it in place:
 

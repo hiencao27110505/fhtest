@@ -963,19 +963,21 @@ function csvCatLabel(name){
    "Chuyển cho người khác" rather than a catch-all "Others". The person's own
    label is the fallback, and both are on the expanded card either way, so
    nothing is hidden by preferring the better answer here. */
-function csvCatChipText(r, kind){
+/* `lead` (RR23): the seller's mark as ready HTML. When given it stands where
+   the emoji would, in the pill's own gap, so nothing else on the card moves. */
+function csvCatChipText(r, kind, lead){
   if(typeof fhTreeOn==='function' && fhTreeOn() && typeof FH_TAX!=='undefined'
      && r.node && FH_TAX.get(r.node)
      && (FH_TAX.kindOf(r.node)===kind || (kind==='expense' && FH_TAX.kindOf(r.node)==='transfer'))){   // P6: a shape-named transfer on an expense row keeps its name on the chip
     var nd=FH_TAX.get(r.node), rt=FH_TAX.get(FH_TAX.root(r.node));
-    return ((rt&&rt.emoji)?rt.emoji+' ':'')+esc(nd.vi);
+    return (lead || ((rt&&rt.emoji)?rt.emoji+' ':''))+esc(nd.vi);
   }
   if(r.cat && (typeof catValid!=='function' || catValid(r.cat))){
     /* guard and read the SAME reference — the copied idiom tests
        window.catStyle then indexes the bare global, which only works because
        they happen to be one object. */
     var st=(window.catStyle&&window.catStyle[r.cat])||['🏷️'];
-    return st[0]+' '+esc(csvCatLabel(r.cat));
+    return (lead || (st[0]+' '))+esc(csvCatLabel(r.cat));
   }
   return null;
 }
@@ -1002,6 +1004,17 @@ function csvCollapsedCard(c, opts){
   if(csvStagedMode){
     var r = csvRowShape(c, opts.isDup || opts.repeat);
     var scope = !opts.isDup ? (csvRowScope(c)==='personal' ? L('🔒 Riêng tư','🔒 Private') : L('🏡 Gia đình','🏡 Family')) : '';
+    /* RR23, placement 5: a plain expense whose seller the registry knows wears
+       that seller's mark inside the category pill. The texts are asked in the
+       order the row trusts them: the receipt's own product signature, the
+       payee, the bank memo, then the receipt's provider. */
+    var _rcJ = (typeof c.rowIndex === 'number' && window._fhStagedRows && window._fhStagedRows[c.rowIndex]
+                && window._fhStagedRows[c.rowIndex]._rcpt) || null;
+    var _plain = !(r._loan||r._invest||r._transfer||r._xfer||r._repay||r._income);
+    var _bd = (_plain && window.FH_BRANDS && FH_BRANDS.forRow) ? FH_BRANDS.forRow({
+      node: r.node, sig: _rcJ && _rcJ.items && _rcJ.items[0] && _rcJ.items[0].sig,
+      payee: c.counterparty, note: c.description, provider: _rcJ && _rcJ.provider }) : null;
+    var _bm = _bd ? '<span class="scv-bm" style="--bh:#'+_bd.hex+'" role="img" aria-label="'+escAttr(_bd.label)+'">'+FH_BRANDS.svg(_bd,11)+'</span>' : '';
     var catTxt;
     if(r._loan)          catTxt = '🤝 '+(c.isIncome?L('Đi vay','Borrowed'):L('Cho vay','Loan out'))+(c._loanWho?' · '+esc(c._loanWho):'');
     else if(r._invest)   catTxt = '📈 '+(c.isIncome?L('Bán đầu tư','Sold investment'):L('Đầu tư','Investment'))
@@ -1010,10 +1023,10 @@ function csvCollapsedCard(c, opts){
     else if(r._xfer)     catTxt = '🔁 '+L('Chuyển khoản nội bộ','Internal transfer');
     else if(r._repay)    catTxt = '🤝 '+(c.isIncome?L('Thu nợ','Repayment in'):L('Trả nợ','Repay'))+(c._repayWho?' · '+esc(c._repayWho):'');
     else if(r._income)   catTxt = csvCatChipText(r,'income') || esc(csvCatLabel(r.cat)||L('Thu nhập','Income'));
-    else                 catTxt = csvCatChipText(r,'expense');
+    else                 catTxt = csvCatChipText(r,'expense',_bm);
     var catHtml = catTxt
       ? '<span class="scv-cat">'+catTxt+'</span>'
-      : '<span class="scv-cat unset">'+L('Chọn danh mục','Pick a category')+'</span>';
+      : '<span class="scv-cat unset">'+_bm+L('Chọn danh mục','Pick a category')+'</span>';
     /* The pre-select's provenance chip — with lesson hits going straight to the
        ready list (spec Q9a), this chip carries the entire "you can catch a
        wrong firing at a glance" story. */

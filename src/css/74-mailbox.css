@@ -237,7 +237,11 @@
 .scv-amt.warn{font-size:15px;font-weight:700}
 .scv-cat{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--ink-2);padding:4px 10px;background:var(--fill-neutral);border-radius:9999px;white-space:nowrap}
 .scv-cat.warn{background:var(--amber-tint);color:var(--amber)}
-.scv-cat.unset{color:var(--muted-soft)}   /* category not set is optional, not a blocker */
+.scv-cat.unset{color:var(--muted-soft)}
+/* RR23: the seller's mark stands where the category emoji stood, so the card
+   keeps its height and the amounts keep their column. */
+.scv-bm{flex:none;display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:5px;margin-left:-4px;background:var(--bh);color:var(--white)}
+.scv-bm svg{display:block}   /* category not set is optional, not a blocker */
 .scv-dup{font-size:11px;font-weight:700;color:var(--muted);background:var(--fill-neutral);border-radius:9999px;padding:3px 9px;white-space:nowrap}
 /* Certainty wears amber (a fact worth stopping for), a near-miss stays quiet
    (the weakest guess must not shout louder than a real match). */

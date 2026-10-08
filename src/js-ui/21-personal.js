@@ -1007,8 +1007,12 @@ function _persEmailRow(){
            would; a private row shows its own category there. */
         var _tap = t.spaceId ? ' onclick="fhMirrorRowTap(\''+t.id+'\')"'
                  : (!t.linkId ? ' onclick="openPersonalTxDetail(\''+t.id+'\')"' : '');
+        /* RR23: photo, then the seller's logo, then the category emoji */
+        var _bd = (!(t.photos&&t.photos.length) && window.FH_BRANDS && FH_BRANDS.forRow)
+          ? FH_BRANDS.forRow({ node:t.node, payee:t.who, note:t.note }) : null;
         var _tile = (t.photos&&t.photos.length)
           ? '<div class="r-ico ph" style="background-image:url('+escAttr(t.photos[0])+')"></div>'
+          : _bd ? '<div class="r-ico brand" style="--bh:#'+_bd.hex+'" role="img" aria-label="'+escAttr(_bd.label)+'">'+FH_BRANDS.svg(_bd,23)+'</div>'
           : '<div class="r-ico personal-ico">'+(t.emoji||'🗂️')+'</div>';
         if(t.spaceId) _tile='<div class="r-ico-wrap">'+_tile+'<div class="r-scope">🏡</div></div>';
         var _acct = !t.spaceId ? acctName(t.accountId) : null;

@@ -152,7 +152,9 @@ expenses, farthest due date first, each labelled with who proposed it and
 where it stands ("chờ sếp duyệt" / "sếp duyệt rồi") — then realized spending
 from **today and yesterday only**; the full history lives behind "Xem tất cả".
 The header flips from "Giao dịch gần đây" to "Hoạt động" whenever future rows
-exist. Rows carry the category emoji (or the receipt photo as the tile), the
+exist. Rows carry the category emoji (or the receipt photo as the tile, or the
+seller's logo when the note names a brand the registry knows,
+`recurring-charges-spec.md` §3.5), the
 payer's avatar, note, date + optional clock time, amount, and any reactions.
 A brand-new family sees a first-run card: "Ghi khoản chi đầu tiên."
 

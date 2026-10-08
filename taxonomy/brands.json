@@ -1,628 +1,747 @@
 {
- "version": 1,
- "updated": "2026-10-08",
- "license": "Glyphs: Simple Icons, CC0 1.0 (taxonomy/brand-glyphs/LICENSE.md). Trademarks belong to their owners and are shown only to identify a charge the person already made.",
- "brands": [
-  {
-   "key": "netflix",
-   "label": "Netflix",
-   "glyph": "netflix",
-   "hex": "E50914",
-   "match": [
-    "netflix"
-   ]
-  },
-  {
-   "key": "spotify",
-   "label": "Spotify",
-   "glyph": "spotify",
-   "hex": "1ED760",
-   "match": [
-    "spotify"
-   ]
-  },
-  {
-   "key": "youtube",
-   "label": "YouTube Premium",
-   "glyph": "youtube",
-   "hex": "FF0000",
-   "match": [
-    "youtube premium",
-    "youtube",
-    "google *youtube",
-    "sub|youtube|"
-   ]
-  },
-  {
-   "key": "youtubemusic",
-   "label": "YouTube Music",
-   "glyph": "youtubemusic",
-   "hex": "FF0000",
-   "match": [
-    "youtube music"
-   ]
-  },
-  {
-   "key": "apple",
-   "label": "Apple",
-   "glyph": "apple",
-   "hex": "000000",
-   "match": [
-    "apple.com/bill",
-    "apple com bill",
-    "apple.com",
-    "itunes",
-    "app store",
-    "apple services"
-   ]
-  },
-  {
-   "key": "icloud",
-   "label": "iCloud+",
-   "glyph": "icloud",
-   "hex": "3693F3",
-   "match": [
-    "icloud",
-    "sub|apple|icloud",
-    "storage plan"
-   ]
-  },
-  {
-   "key": "appletv",
-   "label": "Apple TV+",
-   "glyph": "appletv",
-   "hex": "000000",
-   "match": [
-    "apple tv"
-   ]
-  },
-  {
-   "key": "applemusic",
-   "label": "Apple Music",
-   "glyph": "applemusic",
-   "hex": "FA243C",
-   "match": [
-    "apple music"
-   ]
-  },
-  {
-   "key": "applearcade",
-   "label": "Apple Arcade",
-   "glyph": "applearcade",
-   "hex": "000000",
-   "match": [
-    "apple arcade"
-   ]
-  },
-  {
-   "key": "google",
-   "label": "Google",
-   "glyph": "google",
-   "hex": "4285F4",
-   "match": [
-    "google",
-    "sub|google|"
-   ]
-  },
-  {
-   "key": "googleone",
-   "label": "Google One",
-   "glyph": "google",
-   "hex": "4285F4",
-   "match": [
-    "google one",
-    "sub|google|google one",
-    "100 gb (google one)",
-    "2 tb (google one)"
-   ]
-  },
-  {
-   "key": "googleplay",
-   "label": "Google Play",
-   "glyph": "googleplay",
-   "hex": "414141",
-   "match": [
-    "google play",
-    "googleplay"
-   ]
-  },
-  {
-   "key": "googledrive",
-   "label": "Google Drive",
-   "glyph": "googledrive",
-   "hex": "4285F4",
-   "match": [
-    "google drive"
-   ]
-  },
-  {
-   "key": "googlecloud",
-   "label": "Google Cloud",
-   "glyph": "googlecloud",
-   "hex": "4285F4",
-   "match": [
-    "google cloud",
-    "gcp",
-    "cloud 9mx"
-   ]
-  },
-  {
-   "key": "anthropic",
-   "label": "Anthropic",
-   "glyph": "anthropic",
-   "hex": "191919",
-   "match": [
-    "anthropic",
-    "sub|anthropic|"
-   ]
-  },
-  {
-   "key": "claude",
-   "label": "Claude",
-   "glyph": "claude",
-   "hex": "D97757",
-   "match": [
-    "claude sub",
-    "claude.ai",
-    "claude pro",
-    "claude max"
-   ]
-  },
-  {
-   "key": "chatgpt",
-   "label": "ChatGPT",
-   "glyph": "openai",
-   "hex": "412991",
-   "match": [
-    "chatgpt",
-    "openai",
-    "sub|openai|"
-   ]
-  },
-  {
-   "key": "grab",
-   "label": "Grab",
-   "glyph": "grab",
-   "hex": "00B14F",
-   "match": [
-    "grab",
-    "grabunlimited",
-    "grab unlimited"
-   ]
-  },
-  {
-   "key": "shopee",
-   "label": "Shopee",
-   "glyph": "shopee",
-   "hex": "EE4D2D",
-   "match": [
-    "shopee"
-   ]
-  },
-  {
-   "key": "duolingo",
-   "label": "Duolingo",
-   "glyph": "duolingo",
-   "hex": "58CC02",
-   "match": [
-    "duolingo",
-    "sub|duolingo|"
-   ]
-  },
-  {
-   "key": "canva",
-   "label": "Canva",
-   "glyph": "canva",
-   "hex": "00C4CC",
-   "match": [
-    "canva"
-   ]
-  },
-  {
-   "key": "notion",
-   "label": "Notion",
-   "glyph": "notion",
-   "hex": "000000",
-   "match": [
-    "notion labs",
-    "notion"
-   ]
-  },
-  {
-   "key": "dropbox",
-   "label": "Dropbox",
-   "glyph": "dropbox",
-   "hex": "0061FF",
-   "match": [
-    "dropbox"
-   ]
-  },
-  {
-   "key": "zalo",
-   "label": "Zalo",
-   "glyph": "zalo",
-   "hex": "0068FF",
-   "match": [
-    "zalo"
-   ]
-  },
-  {
-   "key": "strava",
-   "label": "Strava",
-   "glyph": "strava",
-   "hex": "FC4C02",
-   "match": [
-    "strava"
-   ]
-  },
-  {
-   "key": "garmin",
-   "label": "Garmin",
-   "glyph": "garmin",
-   "hex": "000000",
-   "match": [
-    "garmin"
-   ]
-  },
-  {
-   "key": "figma",
-   "label": "Figma",
-   "glyph": "figma",
-   "hex": "F24E1E",
-   "match": [
-    "figma"
-   ]
-  },
-  {
-   "key": "github",
-   "label": "GitHub",
-   "glyph": "github",
-   "hex": "181717",
-   "match": [
-    "github"
-   ]
-  },
-  {
-   "key": "slack",
-   "label": "Slack",
-   "glyph": "slack",
-   "hex": "4A154B",
-   "match": [
-    "slack"
-   ]
-  },
-  {
-   "key": "discord",
-   "label": "Discord",
-   "glyph": "discord",
-   "hex": "5865F2",
-   "match": [
-    "discord"
-   ]
-  },
-  {
-   "key": "telegram",
-   "label": "Telegram",
-   "glyph": "telegram",
-   "hex": "26A5E4",
-   "match": [
-    "telegram"
-   ]
-  },
-  {
-   "key": "amazonprime",
-   "label": "Amazon Prime",
-   "glyph": "amazonprime",
-   "hex": "00A8E1",
-   "match": [
-    "amazon prime",
-    "prime video"
-   ]
-  },
-  {
-   "key": "amazon",
-   "label": "Amazon",
-   "glyph": "amazon",
-   "hex": "FF9900",
-   "match": [
-    "amazon"
-   ]
-  },
-  {
-   "key": "hbomax",
-   "label": "HBO Max",
-   "glyph": "hbomax",
-   "hex": "000000",
-   "match": [
-    "hbo max",
-    "hbo"
-   ]
-  },
-  {
-   "key": "tinder",
-   "label": "Tinder",
-   "glyph": "tinder",
-   "hex": "FF6B6B",
-   "match": [
-    "tinder"
-   ]
-  },
-  {
-   "key": "coursera",
-   "label": "Coursera",
-   "glyph": "coursera",
-   "hex": "0056D2",
-   "match": [
-    "coursera"
-   ]
-  },
-  {
-   "key": "udemy",
-   "label": "Udemy",
-   "glyph": "udemy",
-   "hex": "A435F0",
-   "match": [
-    "udemy"
-   ]
-  },
-  {
-   "key": "grammarly",
-   "label": "Grammarly",
-   "glyph": "grammarly",
-   "hex": "027E6F",
-   "match": [
-    "grammarly"
-   ]
-  },
-  {
-   "key": "1password",
-   "label": "1Password",
-   "glyph": "1password",
-   "hex": "3B66BC",
-   "match": [
-    "1password"
-   ]
-  },
-  {
-   "key": "nordvpn",
-   "label": "NordVPN",
-   "glyph": "nordvpn",
-   "hex": "4687FF",
-   "match": [
-    "nordvpn",
-    "nord vpn"
-   ]
-  },
-  {
-   "key": "zoom",
-   "label": "Zoom",
-   "glyph": "zoom",
-   "hex": "0B5CFF",
-   "match": [
-    "zoom.us",
-    "zoom video"
-   ]
-  },
-  {
-   "key": "supabase",
-   "label": "Supabase",
-   "glyph": "supabase",
-   "hex": "3FCF8E",
-   "match": [
-    "supabase"
-   ]
-  },
-  {
-   "key": "vercel",
-   "label": "Vercel",
-   "glyph": "vercel",
-   "hex": "000000",
-   "match": [
-    "vercel"
-   ]
-  },
-  {
-   "key": "cloudflare",
-   "label": "Cloudflare",
-   "glyph": "cloudflare",
-   "hex": "F38020",
-   "match": [
-    "cloudflare"
-   ]
-  },
-  {
-   "key": "digitalocean",
-   "label": "DigitalOcean",
-   "glyph": "digitalocean",
-   "hex": "0080FF",
-   "match": [
-    "digitalocean"
-   ]
-  },
-  {
-   "key": "steam",
-   "label": "Steam",
-   "glyph": "steam",
-   "hex": "000000",
-   "match": [
-    "steam games",
-    "steampowered"
-   ]
-  },
-  {
-   "key": "playstation",
-   "label": "PlayStation",
-   "glyph": "playstation",
-   "hex": "0070D1",
-   "match": [
-    "playstation"
-   ]
-  },
-  {
-   "key": "twitch",
-   "label": "Twitch",
-   "glyph": "twitch",
-   "hex": "9146FF",
-   "match": [
-    "twitch"
-   ]
-  },
-  {
-   "key": "patreon",
-   "label": "Patreon",
-   "glyph": "patreon",
-   "hex": "000000",
-   "match": [
-    "patreon"
-   ]
-  },
-  {
-   "key": "medium",
-   "label": "Medium",
-   "glyph": "medium",
-   "hex": "000000",
-   "match": [
-    "medium.com",
-    "a medium corporation"
-   ]
-  },
-  {
-   "key": "substack",
-   "label": "Substack",
-   "glyph": "substack",
-   "hex": "FF6719",
-   "match": [
-    "substack"
-   ]
-  },
-  {
-   "key": "headspace",
-   "label": "Headspace",
-   "glyph": "headspace",
-   "hex": "F47D31",
-   "match": [
-    "headspace"
-   ]
-  },
-  {
-   "key": "facebook",
-   "label": "Facebook",
-   "glyph": "facebook",
-   "hex": "0866FF",
-   "match": [
-    "facebook",
-    "facebk"
-   ]
-  },
-  {
-   "key": "meta",
-   "label": "Meta",
-   "glyph": "meta",
-   "hex": "0467DF",
-   "match": [
-    "meta platforms"
-   ]
-  },
-  {
-   "key": "instagram",
-   "label": "Instagram",
-   "glyph": "instagram",
-   "hex": "FF0069",
-   "match": [
-    "instagram"
-   ]
-  },
-  {
-   "key": "tiktok",
-   "label": "TikTok",
-   "glyph": "tiktok",
-   "hex": "000000",
-   "match": [
-    "tiktok"
-   ]
-  },
-  {
-   "key": "whatsapp",
-   "label": "WhatsApp",
-   "glyph": "whatsapp",
-   "hex": "25D366",
-   "match": [
-    "whatsapp"
-   ]
-  },
-  {
-   "key": "proton",
-   "label": "Proton",
-   "glyph": "proton",
-   "hex": "6D4AFF",
-   "match": [
-    "proton.me",
-    "protonmail",
-    "proton mail"
-   ]
-  },
-  {
-   "key": "bitwarden",
-   "label": "Bitwarden",
-   "glyph": "bitwarden",
-   "hex": "175DDC",
-   "match": [
-    "bitwarden"
-   ]
-  },
-  {
-   "key": "todoist",
-   "label": "Todoist",
-   "glyph": "todoist",
-   "hex": "E44332",
-   "match": [
-    "todoist"
-   ]
-  },
-  {
-   "key": "trello",
-   "label": "Trello",
-   "glyph": "trello",
-   "hex": "0052CC",
-   "match": [
-    "trello"
-   ]
-  },
-  {
-   "key": "miro",
-   "label": "Miro",
-   "glyph": "miro",
-   "hex": "050038",
-   "match": [
-    "miro"
-   ]
-  },
-  {
-   "key": "perplexity",
-   "label": "Perplexity",
-   "glyph": "perplexity",
-   "hex": "1FB8CD",
-   "match": [
-    "perplexity"
-   ]
-  },
-  {
-   "key": "jetbrains",
-   "label": "JetBrains",
-   "glyph": "jetbrains",
-   "hex": "000000",
-   "match": [
-    "jetbrains"
-   ]
-  },
-  {
-   "key": "replit",
-   "label": "Replit",
-   "glyph": "replit",
-   "hex": "F26207",
-   "match": [
-    "replit"
-   ]
-  }
- ]
+  "version": 2,
+  "updated": "2026-10-09",
+  "license": "Glyphs: Simple Icons, CC0 1.0 (taxonomy/brand-glyphs/LICENSE.md). Trademarks belong to their owners and are shown only to identify a charge the person already made.",
+  "rails": [
+    "zalopay",
+    "zalo pay",
+    "shopeepay",
+    "shopee pay",
+    "grabpay",
+    "grab pay",
+    "google pay",
+    "gpay",
+    "apple pay",
+    "samsung pay",
+    "momo",
+    "vnpay",
+    "payoo",
+    "moca"
+  ],
+  "brands": [
+    {
+      "key": "netflix",
+      "label": "Netflix",
+      "glyph": "netflix",
+      "hex": "E50914",
+      "match": [
+        "netflix"
+      ]
+    },
+    {
+      "key": "spotify",
+      "label": "Spotify",
+      "glyph": "spotify",
+      "hex": "1ED760",
+      "match": [
+        "spotify"
+      ]
+    },
+    {
+      "key": "youtube",
+      "label": "YouTube Premium",
+      "glyph": "youtube",
+      "hex": "FF0000",
+      "match": [
+        "youtube premium",
+        "youtube",
+        "google *youtube",
+        "sub|youtube|"
+      ]
+    },
+    {
+      "key": "youtubemusic",
+      "label": "YouTube Music",
+      "glyph": "youtubemusic",
+      "hex": "FF0000",
+      "match": [
+        "youtube music"
+      ]
+    },
+    {
+      "key": "apple",
+      "label": "Apple",
+      "glyph": "apple",
+      "hex": "000000",
+      "match": [
+        "apple.com/bill",
+        "apple com bill",
+        "apple.com",
+        "itunes",
+        "app store",
+        "apple services"
+      ]
+    },
+    {
+      "key": "icloud",
+      "label": "iCloud+",
+      "glyph": "icloud",
+      "hex": "3693F3",
+      "match": [
+        "icloud",
+        "sub|apple|icloud",
+        "storage plan"
+      ]
+    },
+    {
+      "key": "appletv",
+      "label": "Apple TV+",
+      "glyph": "appletv",
+      "hex": "000000",
+      "match": [
+        "apple tv"
+      ]
+    },
+    {
+      "key": "applemusic",
+      "label": "Apple Music",
+      "glyph": "applemusic",
+      "hex": "FA243C",
+      "match": [
+        "apple music"
+      ]
+    },
+    {
+      "key": "applearcade",
+      "label": "Apple Arcade",
+      "glyph": "applearcade",
+      "hex": "000000",
+      "match": [
+        "apple arcade"
+      ]
+    },
+    {
+      "key": "google",
+      "label": "Google",
+      "glyph": "google",
+      "hex": "4285F4",
+      "match": [
+        "google",
+        "sub|google|"
+      ]
+    },
+    {
+      "key": "googleone",
+      "label": "Google One",
+      "glyph": "google",
+      "hex": "4285F4",
+      "match": [
+        "google one",
+        "sub|google|google one",
+        "100 gb (google one)",
+        "2 tb (google one)"
+      ]
+    },
+    {
+      "key": "googleplay",
+      "label": "Google Play",
+      "glyph": "googleplay",
+      "hex": "414141",
+      "match": [
+        "google play",
+        "googleplay"
+      ]
+    },
+    {
+      "key": "googledrive",
+      "label": "Google Drive",
+      "glyph": "googledrive",
+      "hex": "4285F4",
+      "match": [
+        "google drive"
+      ]
+    },
+    {
+      "key": "googlecloud",
+      "label": "Google Cloud",
+      "glyph": "googlecloud",
+      "hex": "4285F4",
+      "match": [
+        "google cloud",
+        "gcp",
+        "cloud 9mx",
+        "google*cloud"
+      ]
+    },
+    {
+      "key": "anthropic",
+      "label": "Anthropic",
+      "glyph": "anthropic",
+      "hex": "191919",
+      "match": [
+        "anthropic",
+        "sub|anthropic|"
+      ]
+    },
+    {
+      "key": "claude",
+      "label": "Claude",
+      "glyph": "claude",
+      "hex": "D97757",
+      "match": [
+        "claude sub",
+        "claude.ai",
+        "claude pro",
+        "claude max"
+      ]
+    },
+    {
+      "key": "chatgpt",
+      "label": "ChatGPT",
+      "glyph": "openai",
+      "hex": "412991",
+      "match": [
+        "chatgpt",
+        "openai",
+        "sub|openai|"
+      ]
+    },
+    {
+      "key": "grab",
+      "label": "Grab",
+      "glyph": "grab",
+      "hex": "00B14F",
+      "match": [
+        "grab",
+        "grabunlimited",
+        "grab unlimited"
+      ]
+    },
+    {
+      "key": "shopee",
+      "label": "Shopee",
+      "glyph": "shopee",
+      "hex": "EE4D2D",
+      "match": [
+        "shopee"
+      ]
+    },
+    {
+      "key": "duolingo",
+      "label": "Duolingo",
+      "glyph": "duolingo",
+      "hex": "58CC02",
+      "match": [
+        "duolingo",
+        "sub|duolingo|"
+      ]
+    },
+    {
+      "key": "canva",
+      "label": "Canva",
+      "glyph": "canva",
+      "hex": "00C4CC",
+      "match": [
+        "canva"
+      ]
+    },
+    {
+      "key": "notion",
+      "label": "Notion",
+      "glyph": "notion",
+      "hex": "000000",
+      "match": [
+        "notion labs",
+        "notion"
+      ]
+    },
+    {
+      "key": "dropbox",
+      "label": "Dropbox",
+      "glyph": "dropbox",
+      "hex": "0061FF",
+      "match": [
+        "dropbox"
+      ]
+    },
+    {
+      "key": "zalo",
+      "label": "Zalo",
+      "glyph": "zalo",
+      "hex": "0068FF",
+      "match": [
+        "zalo"
+      ]
+    },
+    {
+      "key": "strava",
+      "label": "Strava",
+      "glyph": "strava",
+      "hex": "FC4C02",
+      "match": [
+        "strava"
+      ]
+    },
+    {
+      "key": "garmin",
+      "label": "Garmin",
+      "glyph": "garmin",
+      "hex": "000000",
+      "match": [
+        "garmin"
+      ]
+    },
+    {
+      "key": "figma",
+      "label": "Figma",
+      "glyph": "figma",
+      "hex": "F24E1E",
+      "match": [
+        "figma"
+      ]
+    },
+    {
+      "key": "github",
+      "label": "GitHub",
+      "glyph": "github",
+      "hex": "181717",
+      "match": [
+        "github"
+      ]
+    },
+    {
+      "key": "slack",
+      "label": "Slack",
+      "glyph": "slack",
+      "hex": "4A154B",
+      "match": [
+        "slack"
+      ]
+    },
+    {
+      "key": "discord",
+      "label": "Discord",
+      "glyph": "discord",
+      "hex": "5865F2",
+      "match": [
+        "discord"
+      ]
+    },
+    {
+      "key": "telegram",
+      "label": "Telegram",
+      "glyph": "telegram",
+      "hex": "26A5E4",
+      "match": [
+        "telegram"
+      ]
+    },
+    {
+      "key": "amazonprime",
+      "label": "Amazon Prime",
+      "glyph": "amazonprime",
+      "hex": "00A8E1",
+      "match": [
+        "amazon prime",
+        "prime video"
+      ]
+    },
+    {
+      "key": "amazon",
+      "label": "Amazon",
+      "glyph": "amazon",
+      "hex": "FF9900",
+      "match": [
+        "amazon"
+      ]
+    },
+    {
+      "key": "hbomax",
+      "label": "HBO Max",
+      "glyph": "hbomax",
+      "hex": "000000",
+      "match": [
+        "hbo max",
+        "hbo"
+      ]
+    },
+    {
+      "key": "tinder",
+      "label": "Tinder",
+      "glyph": "tinder",
+      "hex": "FF6B6B",
+      "match": [
+        "tinder"
+      ]
+    },
+    {
+      "key": "coursera",
+      "label": "Coursera",
+      "glyph": "coursera",
+      "hex": "0056D2",
+      "match": [
+        "coursera"
+      ]
+    },
+    {
+      "key": "udemy",
+      "label": "Udemy",
+      "glyph": "udemy",
+      "hex": "A435F0",
+      "match": [
+        "udemy"
+      ]
+    },
+    {
+      "key": "grammarly",
+      "label": "Grammarly",
+      "glyph": "grammarly",
+      "hex": "027E6F",
+      "match": [
+        "grammarly"
+      ]
+    },
+    {
+      "key": "1password",
+      "label": "1Password",
+      "glyph": "1password",
+      "hex": "3B66BC",
+      "match": [
+        "1password"
+      ]
+    },
+    {
+      "key": "nordvpn",
+      "label": "NordVPN",
+      "glyph": "nordvpn",
+      "hex": "4687FF",
+      "match": [
+        "nordvpn",
+        "nord vpn"
+      ]
+    },
+    {
+      "key": "zoom",
+      "label": "Zoom",
+      "glyph": "zoom",
+      "hex": "0B5CFF",
+      "match": [
+        "zoom.us",
+        "zoom video"
+      ]
+    },
+    {
+      "key": "supabase",
+      "label": "Supabase",
+      "glyph": "supabase",
+      "hex": "3FCF8E",
+      "match": [
+        "supabase"
+      ]
+    },
+    {
+      "key": "vercel",
+      "label": "Vercel",
+      "glyph": "vercel",
+      "hex": "000000",
+      "match": [
+        "vercel"
+      ]
+    },
+    {
+      "key": "cloudflare",
+      "label": "Cloudflare",
+      "glyph": "cloudflare",
+      "hex": "F38020",
+      "match": [
+        "cloudflare"
+      ]
+    },
+    {
+      "key": "digitalocean",
+      "label": "DigitalOcean",
+      "glyph": "digitalocean",
+      "hex": "0080FF",
+      "match": [
+        "digitalocean"
+      ]
+    },
+    {
+      "key": "steam",
+      "label": "Steam",
+      "glyph": "steam",
+      "hex": "000000",
+      "match": [
+        "steam games",
+        "steampowered"
+      ]
+    },
+    {
+      "key": "playstation",
+      "label": "PlayStation",
+      "glyph": "playstation",
+      "hex": "0070D1",
+      "match": [
+        "playstation"
+      ]
+    },
+    {
+      "key": "twitch",
+      "label": "Twitch",
+      "glyph": "twitch",
+      "hex": "9146FF",
+      "match": [
+        "twitch"
+      ]
+    },
+    {
+      "key": "patreon",
+      "label": "Patreon",
+      "glyph": "patreon",
+      "hex": "000000",
+      "match": [
+        "patreon"
+      ]
+    },
+    {
+      "key": "medium",
+      "label": "Medium",
+      "glyph": "medium",
+      "hex": "000000",
+      "match": [
+        "medium.com",
+        "a medium corporation"
+      ]
+    },
+    {
+      "key": "substack",
+      "label": "Substack",
+      "glyph": "substack",
+      "hex": "FF6719",
+      "match": [
+        "substack"
+      ]
+    },
+    {
+      "key": "headspace",
+      "label": "Headspace",
+      "glyph": "headspace",
+      "hex": "F47D31",
+      "match": [
+        "headspace"
+      ]
+    },
+    {
+      "key": "facebook",
+      "label": "Facebook",
+      "glyph": "facebook",
+      "hex": "0866FF",
+      "match": [
+        "facebook",
+        "facebk"
+      ]
+    },
+    {
+      "key": "meta",
+      "label": "Meta",
+      "glyph": "meta",
+      "hex": "0467DF",
+      "match": [
+        "meta platforms"
+      ]
+    },
+    {
+      "key": "instagram",
+      "label": "Instagram",
+      "glyph": "instagram",
+      "hex": "FF0069",
+      "match": [
+        "instagram"
+      ]
+    },
+    {
+      "key": "tiktok",
+      "label": "TikTok",
+      "glyph": "tiktok",
+      "hex": "000000",
+      "match": [
+        "tiktok"
+      ]
+    },
+    {
+      "key": "whatsapp",
+      "label": "WhatsApp",
+      "glyph": "whatsapp",
+      "hex": "25D366",
+      "match": [
+        "whatsapp"
+      ]
+    },
+    {
+      "key": "proton",
+      "label": "Proton",
+      "glyph": "proton",
+      "hex": "6D4AFF",
+      "match": [
+        "proton.me",
+        "protonmail",
+        "proton mail"
+      ]
+    },
+    {
+      "key": "bitwarden",
+      "label": "Bitwarden",
+      "glyph": "bitwarden",
+      "hex": "175DDC",
+      "match": [
+        "bitwarden"
+      ]
+    },
+    {
+      "key": "todoist",
+      "label": "Todoist",
+      "glyph": "todoist",
+      "hex": "E44332",
+      "match": [
+        "todoist"
+      ]
+    },
+    {
+      "key": "trello",
+      "label": "Trello",
+      "glyph": "trello",
+      "hex": "0052CC",
+      "match": [
+        "trello"
+      ]
+    },
+    {
+      "key": "miro",
+      "label": "Miro",
+      "glyph": "miro",
+      "hex": "050038",
+      "match": [
+        "miro"
+      ]
+    },
+    {
+      "key": "perplexity",
+      "label": "Perplexity",
+      "glyph": "perplexity",
+      "hex": "1FB8CD",
+      "match": [
+        "perplexity"
+      ]
+    },
+    {
+      "key": "jetbrains",
+      "label": "JetBrains",
+      "glyph": "jetbrains",
+      "hex": "000000",
+      "match": [
+        "jetbrains"
+      ]
+    },
+    {
+      "key": "replit",
+      "label": "Replit",
+      "glyph": "replit",
+      "hex": "F26207",
+      "match": [
+        "replit"
+      ]
+    },
+    {
+      "key": "shopeefood",
+      "label": "ShopeeFood",
+      "glyph": "shopee",
+      "hex": "EE4D2D",
+      "match": [
+        "shopeefood",
+        "shopee food",
+        "foody"
+      ]
+    },
+    {
+      "key": "starbucks",
+      "label": "Starbucks",
+      "glyph": "starbucks",
+      "hex": "006241",
+      "match": [
+        "starbucks"
+      ]
+    },
+    {
+      "key": "kfc",
+      "label": "KFC",
+      "glyph": "kfc",
+      "hex": "F40027",
+      "match": [
+        "kfc"
+      ]
+    },
+    {
+      "key": "uber",
+      "label": "Uber",
+      "glyph": "uber",
+      "hex": "000000",
+      "match": [
+        "uber"
+      ]
+    },
+    {
+      "key": "gojek",
+      "label": "Gojek",
+      "glyph": "gojek",
+      "hex": "00AA13",
+      "match": [
+        "gojek"
+      ]
+    },
+    {
+      "key": "booking",
+      "label": "Booking.com",
+      "glyph": "bookingdotcom",
+      "hex": "003A9A",
+      "match": [
+        "booking.com",
+        "booking com"
+      ]
+    },
+    {
+      "key": "airbnb",
+      "label": "Airbnb",
+      "glyph": "airbnb",
+      "hex": "FF5A5F",
+      "match": [
+        "airbnb"
+      ]
+    },
+    {
+      "key": "klook",
+      "label": "Klook",
+      "glyph": "klook",
+      "hex": "FF5722",
+      "match": [
+        "klook"
+      ]
+    },
+    {
+      "key": "ikea",
+      "label": "IKEA",
+      "glyph": "ikea",
+      "hex": "0058A3",
+      "match": [
+        "ikea"
+      ]
+    },
+    {
+      "key": "zara",
+      "label": "Zara",
+      "glyph": "zara",
+      "hex": "000000",
+      "match": [
+        "zara"
+      ]
+    },
+    {
+      "key": "nike",
+      "label": "Nike",
+      "glyph": "nike",
+      "hex": "111111",
+      "match": [
+        "nike"
+      ]
+    }
+  ]
 }

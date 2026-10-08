@@ -34,9 +34,16 @@ r = generateWith((reg) => { find(reg, 'spotify').glyph = 'nope'; });
 t('a missing glyph file is refused', !r.ok && /glyph file missing/.test(r.err), r.err && r.err.slice(0, 100));
 r = generateWith((reg) => { find(reg, 'spotify').hex = 'green'; });
 t('a bad colour is refused', !r.ok && /bad hex/.test(r.err), r.err && r.err.slice(0, 100));
+r = generateWith((reg) => { reg.rails.push('ZaloPay'); });
+t('a rail that is not folded lower-case is refused', !r.ok && /rail must be folded/.test(r.err), r.err && r.err.slice(0, 100));
+r = generateWith((reg) => { reg.rails.push('netflix'); });
+t('a rail that is also a brand word is refused', !r.ok && /is also a match word/.test(r.err), r.err && r.err.slice(0, 100));
 
 console.log('\n-- the matcher, on real ledger strings --');
-const w = {}; vm.runInNewContext(fs.readFileSync(path.join(ROOT, 'src', 'js-ui', '08-brands.js'), 'utf8'), { window: w });
+/* the row rule reads the tree, so the real taxonomy is loaded beside it */
+const w = {}; const ctx = { window: w };
+vm.runInNewContext(fs.readFileSync(path.join(ROOT, 'src', 'js-ui', '11-taxonomy.js'), 'utf8') + '\n;this.FH_TAX = (typeof FH_TAX !== "undefined") ? FH_TAX : window.FH_TAX;', ctx);
+vm.runInNewContext(fs.readFileSync(path.join(ROOT, 'src', 'js-ui', '08-brands.js'), 'utf8'), ctx);
 const B = w.FH_BRANDS;
 const m = (...texts) => { const x = B.match(texts); return x ? x.label : null; };
 t('a receipt signature wins before the payee: Google One, not Apple', m('sub|google|google one', 'APPLE.COM/BILL') === 'Google One');
@@ -51,6 +58,36 @@ t('a coffee shop matches nothing', m(null, 'REVI PHU MY HUNG TOWER') === null);
 t('ChatGPT wears the OpenAI glyph (parent brand), Google One the Google glyph', B.match(['chatgpt']).path === B.get('chatgpt').path && B.get('googleone').path === B.get('google').path);
 t('svg() draws the glyph in currentColor at the asked size', /width="22"/.test(B.svg(B.get('netflix'), 22)) && /fill="currentColor"/.test(B.svg(B.get('netflix'), 22)));
 t('every registered brand resolves', B.all().every((b) => B.get(b.key) && B.get(b.key).path));
+
+console.log('\n-- strict enough for every row of a ledger (RR23) --');
+t('a rail is how the money moved, not who was paid: "ZALOPAY_Chickita" is not Zalo', m(null, '99ZP24281M07 - ZALOPAY_Chickita - Crescent') === null);
+t('the merchant behind a rail still matches: "GOOGLE PAY *NETFLIX"', m(null, 'GOOGLE PAY *NETFLIX.COM') === 'Netflix');
+t('"SHOPEEPAY" alone is a wallet top-up, not a Shopee order', m(null, 'SHOPEEPAY TOPUP') === null);
+t('a receipt signature is never read as a rail', m('sub|google|google one') === 'Google One');
+t('a word counts only where a token starts: "nhbo", "duber", "bikea" match nothing', m(null, 'NHBO TRADING') === null && m(null, 'duber co') === null && m(null, 'bikea shop') === null);
+t('...and still matches inside a longer token it starts: "GRABFOOD"', m(null, 'GRABFOOD HCM') === 'Grab');
+t('"GOOGLE*CLOUD 2RNVCV" is Google Cloud, not Google', m(null, 'GOOGLE*CLOUD 2RNVCV') === 'Google Cloud');
+t('Foody wears its parent\'s mark as ShopeeFood', m(null, 'FOODY CORPORATION') === 'ShopeeFood' && B.get('shopeefood').path === B.get('shopee').path);
+t('the answer for a text is remembered (same object key, asked twice)', B.match(['NETFLIX.COM']).key === B.match(['NETFLIX.COM']).key);
+const fr = (o) => { const x = B.forRow(o); return x ? x.label : null; };
+t('a row with no node wears its seller', fr({ payee: 'SHOPEE VN', note: null }) === 'Shopee');
+t('a row filed under an expense leaf wears its seller', fr({ node: 'streaming', note: 'Netflix tháng 10' }) === 'Netflix');
+t('a row filed under a person wears none, whatever the memo says', fr({ node: 'split', payee: 'NGUYEN THU TRANG', note: 'chia tien netflix' }) === null && fr({ node: 'p2p', note: 'netflix' }) === null);
+t('a row that is not spending wears none', fr({ node: 'wage', note: 'google payroll' }) === null);
+t('forRow asks signature, payee, memo, provider in that order', fr({ sig: 'sub|google|google one', payee: 'APPLE.COM/BILL' }) === 'Google One' && fr({ payee: 'x', note: 'y', provider: 'Grab' }) === 'Grab');
+
+console.log('\n-- where the mark is drawn (RR23) --');
+const S60 = fs.readFileSync(path.join(ROOT, 'src', 'js-ui', '60-transactions.js'), 'utf8');
+const S21 = fs.readFileSync(path.join(ROOT, 'src', 'js-ui', '21-personal.js'), 'utf8');
+const S56 = fs.readFileSync(path.join(ROOT, 'src', 'js-ui', '56-csv-import-ui.js'), 'utf8');
+t('ledger row: photo, then brand, then the category emoji', /var tile=ph\?'<div class="r-ico ph"[\s\S]{0,140}:bd\?'<div class="r-ico brand"[\s\S]{0,220}:'<div class="r-ico" style="background:'\+s\[1\]/.test(S60));
+t('ledger row: a family row is matched on its note only (who is the member)', /payee:personal\?t\._cp:null, note:t\.note/.test(S60));
+t('ledger row: only spending, never a future row or a non-expense kind', /\(!personal \|\| t\._kg==='chi'\) && !t\.future/.test(S60));
+t('personal tab row: the same order, payee first', /FH_BRANDS\.forRow\(\{ node:t\.node, payee:t\.who, note:t\.note \}\)/.test(S21) && /: _bd \? '<div class="r-ico brand"/.test(S21));
+t('queue card: the mark replaces the emoji inside the category pill', /csvCatChipText\(r,'expense',_bm\)/.test(S56) && /return \(lead \|\| \(\(rt&&rt\.emoji\)/.test(S56) && /return \(lead \|\| \(st\[0\]\+' '\)\)/.test(S56));
+t('queue card: only a plain expense wears one', /var _plain = !\(r\._loan\|\|r\._invest\|\|r\._transfer\|\|r\._xfer\|\|r\._repay\|\|r\._income\)/.test(S56));
+t('queue card: an uncategorised card still shows who was paid', /'<span class="scv-cat unset">'\+_bm\+L\('Chọn danh mục'/.test(S56));
+t('every mark names its brand for a screen reader', /role="img" aria-label="'\+escAttr\(bd\.label\)/.test(S60) && /aria-label="'\+escAttr\(_bd\.label\)/.test(S21) && /aria-label="'\+escAttr\(_bd\.label\)/.test(S56));
 
 console.log('\n-- the face, as the recurring UI picks it --');
 const S79 = fs.readFileSync(path.join(ROOT, 'src', 'js-ui', '79-recur-ui.js'), 'utf8');
