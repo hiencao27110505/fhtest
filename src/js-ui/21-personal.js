@@ -261,6 +261,25 @@ function persActivation(P, SL){
   _persActLast = (!open.length || persSetupHidden(P)) ? 4 : 3;
   return { state: _persActLast, steps: steps, open: open, queue: queue };
 }
+/* The start card's button opens the Gmail connect itself, not the sheet that
+   asks "Kết nối Gmail hay Chuyển tiếp email?" first (2026-10-08). Someone who
+   has just tapped "Kết nối email ngân hàng" on an empty ledger has made the
+   decision; a second question between that tap and the thing it named is one
+   more place to stop, and forwarding is the slower road for almost everyone
+   who gets this far (a rule pasted into the mailbox, and no history).
+   Forwarding is not removed: every other email door still offers both, and
+   Settings reaches it directly.
+
+   The connect sheet paints at once and replaces itself with the status screen
+   if a mailbox turns out to be connected already (fhAutoTxnSheet), so this
+   needs no round trip before the tap shows something. If this tab already
+   knows mail is on (state 2 painted as state 1 for the moment a probe takes),
+   the router decides instead, as it does for every other door. */
+window.persConnectEmail = function(){
+  var on = !!(_persMail && (_persMail.fwd || _persMail.oauth));
+  if(!on && window.fhAutoTxnSheet) return window.fhAutoTxnSheet({ scope:'personal' });
+  if(window.fhEmailTxnCta) return window.fhEmailTxnCta({ scope:'personal' });
+};
 /* state 1 + 2: the one card */
 function persActCard(act, mon){
   var link = '<button class="ob-textlink pact-link" onclick="openPersonalExpense()">Hoặc ghi tay một khoản</button>';
@@ -269,7 +288,7 @@ function persActCard(act, mon){
   if(act.state===1){
     return '<section class="cf-card"><div class="cf-lbl">Sổ cá nhân</div><div class="pact-h">Bắt đầu sổ của bạn</div>'
       + '<p class="pact-p">Kết nối email ngân hàng, app tự ghi lại vài tháng giao dịch gần nhất. Bạn chỉ duyệt, không nhập tay.</p>'
-      + '<button class="cta pact-cta" onclick="fhEmailTxnCta({scope:\'personal\'})">'+_PI.mail+'Kết nối email ngân hàng</button>'+trust+link+'</section>';
+      + '<button class="cta pact-cta" onclick="persConnectEmail()">'+_PI.mail+'Kết nối email ngân hàng</button>'+trust+link+'</section>';
   }
   var rx = (typeof window.fhReauthState==='function') ? fhReauthState() : null;
   var pg = (typeof window.fhBackfillProgress==='function') ? fhBackfillProgress() : null;

@@ -26,8 +26,39 @@ t('the state is read from the ledger, the badge count and the mailbox, nothing s
 t('states 1 and 2 replace the dashboard: no 0 ₫ hero, no chart, no empty sections (famless door cards allowed)',
   /if\(act\.state<=2\)\{[\s\S]{0,300}_persCommit\(host, persInviteWidgetHTML\(\) \+ persActCard\(act, mon\) \+ persWillSeeHTML\(\) \+ persFamCardHTML\(\), isCur, false\);\s*return;/.test(ui));
 t('state 1 has one primary CTA (connect email) and manual entry as a text link',
-  /act\.state===1[\s\S]{0,600}class="cta pact-cta" onclick="fhEmailTxnCta\(\{scope:\\'personal\\'\}\)"[\s\S]{0,200}Kết nối email ngân hàng/.test(ui)
+  /act\.state===1[\s\S]{0,600}class="cta pact-cta" onclick="persConnectEmail\(\)"[\s\S]{0,200}Kết nối email ngân hàng/.test(ui)
   && /class="ob-textlink pact-link" onclick="openPersonalExpense\(\)">Hoặc ghi tay một khoản/.test(ui));
+
+/* The start card's button, run for real: it names one thing, so it opens that
+   thing. The "Gmail or forwarding?" sheet stays on every other email door. */
+{
+  const a = ui.indexOf('window.persConnectEmail = function(){');
+  const body = ui.slice(a, ui.indexOf('\n};', a) + 3);
+  const run = (mail, has) => {
+    const calls = [];
+    const win = {};
+    if (has.direct) win.fhAutoTxnSheet = (p) => { calls.push(['direct', p]); };
+    if (has.router) win.fhEmailTxnCta = (p) => { calls.push(['router', p]); };
+    new Function('window', '_persMail', body + '\nwindow.persConnectEmail();')(win, mail);
+    return calls;
+  };
+  let c = run(null, { direct: true, router: true });
+  t('the start CTA opens the Gmail connect directly, never the transport chooser',
+    c.length === 1 && c[0][0] === 'direct', JSON.stringify(c));
+  t('...scoped to the personal ledger', c[0] && c[0][1] && c[0][1].scope === 'personal', JSON.stringify(c));
+  c = run({ fwd: false, oauth: false }, { direct: true, router: true });
+  t('...also when the probe has answered "no mailbox"', c.length === 1 && c[0][0] === 'direct', JSON.stringify(c));
+  c = run({ fwd: true, oauth: false }, { direct: true, router: true });
+  t('a mailbox this tab already knows about goes through the router instead',
+    c.length === 1 && c[0][0] === 'router' && c[0][1].scope === 'personal', JSON.stringify(c));
+  c = run({ fwd: false, oauth: true }, { direct: true, router: true });
+  t('...for either transport', c.length === 1 && c[0][0] === 'router', JSON.stringify(c));
+  c = run(null, { direct: false, router: true });
+  t('before the connect module is up, the router still answers the tap', c.length === 1 && c[0][0] === 'router', JSON.stringify(c));
+  t('every other email door on the tab still goes through the router',
+    (ui.match(/fhEmailTxnCta\(\{ ?scope: ?\\?'personal\\?' ?\}\)/g) || []).length >= 8 &&
+    (ui.match(/persConnectEmail\(\)/g) || []).length === 1);
+}
 t('state 2 shows the newest staged row as the top of a deck, read-only, tap = the queue',
   /class="pq-card" onclick="fhEmailTxnCta\(\{scope:\\'personal\\'\}\)"/.test(ui) && /<i class="k2"><\/i><i class="k3"><\/i>/.test(ui)
   && !/pq-card[^\n]*onclick="[^"]*(fhPersonalAddExpense|fhQuickReview|Ghi vào sổ)/.test(ui));

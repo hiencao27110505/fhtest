@@ -95,7 +95,9 @@ Two consequences worth internalising:
 ### 4.1 Setting up, once
 
 The door is **"Khoản thu chi từ email"** — on the family Finance tab and on
-the Cá nhân tab. If nothing is set up yet, a chooser names the two transports:
+the Cá nhân tab. If nothing is set up yet, a chooser names the two transports
+(one exception since 2026-10-08: the start card of an empty personal ledger,
+"Kết nối email ngân hàng", skips the chooser and opens Connect Gmail):
 
 - **Connect Gmail (direct read)** — listed first because it is better for
   almost everyone who can use it: one tap instead of a mail-client filter
@@ -1901,6 +1903,20 @@ as — or the same day as — the deploy. A deploy announced only in
 `AGENT_SYNC.md` is coordination; this is the record.
 
 ## 28. Releases (newest first)
+
+### 2026-10-08 (later) — the start card connects Gmail without asking which way · SW v622 · no migration, no deploy beyond the client
+
+- **For product:** on an empty personal ledger, "Kết nối email ngân hàng" used
+  to open a sheet asking Gmail or forwarding. It now opens the Gmail connect
+  straight away. Forwarding is still offered from every other email entry and
+  from Settings.
+- **Under the hood:** `persConnectEmail` in `21-personal.js` calls
+  `fhAutoTxnSheet({scope:'personal'})`; a mailbox the tab already knows about
+  still routes through `fhEmailTxnCta`. Nothing in the chooser, the router or
+  the connect flow changed. `tools/personal-activation.test.js` +7 checks.
+- **Spec sections updated:** §4.1; `personal-activation-spec.md` §2 and P8.
+- **Watch for:** a brand-new person whose bank writes to a non-Gmail mailbox
+  has no forwarding door on the start card any more; Settings is the way in.
 
 ### 2026-10-08 — connect: step 1 is one document with the agree in reach, and a year is a tap · SW v619 · no migration, no deploy beyond the client
 

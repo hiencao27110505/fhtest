@@ -42,7 +42,7 @@ of four states, each with one job.
 
 | State | When | What the tab shows |
 |---|---|---|
-| 1 · Chưa thiết lập | No rows in the ledger, no queue, no mailbox connected | Start card: "Bắt đầu sổ của bạn", CTA "Kết nối email ngân hàng", link "Hoặc ghi tay một khoản". Then "Sau đó bạn sẽ thấy": four quiet rows naming the dimensions the tab will grow. |
+| 1 · Chưa thiết lập | No rows in the ledger, no queue, no mailbox connected | Start card: "Bắt đầu sổ của bạn", CTA "Kết nối email ngân hàng" (opens the Gmail connect directly since 2026-10-08, P8), link "Hoặc ghi tay một khoản". Then "Sau đó bạn sẽ thấy": four quiet rows naming the dimensions the tab will grow. |
 | 2 · Đã nối email | No rows in the ledger, but a mailbox is connected or the queue is non-empty | The same card with the queue on it: "N khoản đang chờ bạn duyệt", the newest staged row as the top card of a deck (two blank cards behind), CTA "Kiểm tra N giao dịch". Two sub-states cover a first read still running (a progress bar) and a dead grant ("Kết nối email cần làm mới"); a connected mailbox with an empty queue offers manual entry first. |
 | 3 · Đã có giao dịch | Rows exist, at least one setup step open | The widget "Thiết lập · k / 3" listing only the remaining steps, then (when rows are waiting) the queue widget, then the real cash-flow card, then the sections. Streaks and investment, when empty, name a concrete trigger from this month's private rows. |
 | 4 · Kích hoạt đủ | All three steps done, or the widget hidden | The dashboard as before this spec, plus the queue widget right under the cash-flow card whenever rows are waiting. |
@@ -180,6 +180,7 @@ From the mockup rounds, 2026-09-15.
 | P5 | Step 2 is named "Cài đặt tài khoản, thẻ", not "Chốt số dư". |
 | P6 | The privacy footer is dropped from the guidance cards. |
 | P7 | Nothing on the state 2 card is actionable except opening the queue. |
+| P8 | 2026-10-08: the state 1 button opens the Gmail connect itself (`persConnectEmail`), skipping the sheet that asks Gmail or forwarding. The button already named the decision. Forwarding stays on every other email door and in Settings; a brand-new person whose bank does not write to Gmail reaches it from Settings. |
 
 ## 11. Related
 
