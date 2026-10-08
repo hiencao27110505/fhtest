@@ -679,7 +679,7 @@
       const to = _winFrom();
       const d = new Date(); d.setDate(d.getDate() - ((window.FH_RECUR && window.FH_RECUR.HISTORY_DAYS) || 760));
       const tr = await _pageAll(() => _sb().from('personal_transactions')
-        .select('id,amount_enc,note_enc,counterparty_enc,node_enc,txn_date,recurrence,recurrence_source,receipt_enc')
+        .select('id,amount_enc,note_enc,counterparty_enc,node_enc,cat_emoji,txn_date,recurrence,recurrence_source,receipt_enc')
         .eq('owner_user_id', P.uid).eq('kind', 'expense').gte('txn_date', _localDate(d)).lt('txn_date', to)
         .order('txn_date', { ascending: false }).order('id'));
       const rows = [];
@@ -690,7 +690,7 @@
         const m = t.receipt_enc ? _recurMeta(await _decP(t.receipt_enc)) : null;
         rows.push({ id: t.id, date: t.txn_date, kind: 'expense', amt: Number(a),
           payee: t.counterparty_enc ? await _decTxt(t.counterparty_enc) : null,
-          note: await _decTxt(t.note_enc), node: _okNode(await _decTxt(t.node_enc)),
+          note: await _decTxt(t.note_enc), node: _okNode(await _decTxt(t.node_enc)), emoji: t.cat_emoji || null,
           recur: t.recurrence || null, recurSrc: t.recurrence_source || null,
           rcPeriod: m ? m.period : null, recurSig: m ? m.sig : null, rcLabel: m ? m.label : null, renewsOn: m ? m.renewsOn : null });
       }
@@ -733,7 +733,7 @@
         for (const t of recent) {
           if (t._unreadable || old.ids.has(t.id)) continue;
           const m = _rcMeta.get(t.id) || null;
-          rows.push({ id: t.id, date: t.date, kind: 'expense', amt: t.amt, payee: t.payee || null, note: t.note || '', node: t.node || null,
+          rows.push({ id: t.id, date: t.date, kind: 'expense', amt: t.amt, payee: t.payee || null, note: t.note || '', node: t.node || null, emoji: t.emoji || null,
             recur: t.recur || null, recurSrc: t.recurSrc || null,
             rcPeriod: m ? m.period : null, recurSig: m ? m.sig : null, rcLabel: m ? m.label : null, renewsOn: m ? m.renewsOn : null });
         }

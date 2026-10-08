@@ -111,14 +111,17 @@ forgotten (RR5). The next date is derived (RR2) and not editable in release 1
 
 Picked on 2026-10-07 from `mockups/recurring-options.html` (eight directions
 each): tile 3 "Vòng tháng", sheet 5 "Thuê bao". The file also holds eight
-variants of the ring tile for the next round.
+variants of the ring tile, and since 2026-10-08 eight placements of the
+service face on these two structures plus eight whole-screen alternatives
+built around the face (§3.4), all for the next round.
 
 **The tile: the month as a progress.** Beside Đầu tư, in the bento tile
 language. Left: "Tháng 10 còn", the amount still due this month, and "trên
 10.558.000 ₫ định kỳ · 2 khoản". Right: the daily-guide ring reused, the paid
 share filled in brand, the due share the track, "71% đã trả" inside. Under a
-hairline, one line per charge of the month: grey dot and soft ink for paid
-("Tiền thuê nhà · 6/10"), sage dot for due. Footer lines only when there is
+hairline, one line per charge of the month, each led by the service's face
+(§3.4) at 22 px: a paid charge in soft ink, its face desaturated ("Tiền thuê
+nhà · 6/10"); a due charge in ink. Footer lines only when there is
 something to say: a price that rose, and "Có vẻ định kỳ: …". When the month
 is done the view rolls to next month (RR20): "Tháng 11", the ring at zero.
 With nothing confirmed yet the tile lists the guesses in soft ink with no ring
@@ -129,14 +132,13 @@ Tháng 10 còn                              ╭───╮
 3.058.000 ₫                               │71%│
 trên 10.558.000 ₫ định kỳ · 2 khoản       ╰───╯
 ──────────────────────────────────────────────
-○ Tiền thuê nhà · 6/10              7.500.000 ₫
-● Anthropic · 18/10                 2.970.000 ₫
-● YouTube Premium · 20/10              88.000 ₫
+[🏠] Tiền thuê nhà · 6/10            7.500.000 ₫
+[✳︎] Claude · 18/10                   2.970.000 ₫
+[▶] YouTube Premium · 20/10            88.000 ₫
 ```
 
 **The sheet: the language of Cài đặt › Thuê bao.** Subtitle "4 dịch vụ ·
-~10,6 tr ₫ mỗi tháng". A square monogram tile per service in one of the six
-identity slots (picked by the series key, so a service keeps its colour), the
+~10,6 tr ₫ mỗi tháng". The service's face (§3.4) at 42 px, the
 name, a renewal line, the amount with its cycle underneath ("/tháng",
 "/năm"). Groups in order: **Còn lại tháng này** (or "Tháng 11" once rolled),
 with a countdown in the renewal line: "Gia hạn 18/10 · còn 11 ngày", "hôm
@@ -148,9 +150,9 @@ amber: "tăng 24.000 ₫". Rows open the latest transaction.
 
 ```
 CÒN LẠI THÁNG NÀY
-[A] Anthropic                          2.970.000 ₫  ›
+[✳︎] Claude                            2.970.000 ₫  ›
     Gia hạn 18/10 · còn 11 ngày             /tháng
-[Y] YouTube Premium                      129.000 ₫  ›
+[▶] YouTube Premium                      129.000 ₫  ›
     Gia hạn 16/10 · còn 9 ngày          tăng 24.000 ₫
 THÁNG 11
 [N] NGUYEN VAN QUANG                   7.500.000 ₫  ›
@@ -158,8 +160,49 @@ THÁNG 11
 ```
 
 Names: the receipt's own ("YouTube Premium") when the row carries one, else
-the payee as the bank writes it. Naming a payee-less bank string by its leaf
-("Tiền thuê nhà") is shown in the mockups and not built (§17).
+the brand's label when the face matched a brand ("Claude" for "ANTHROPIC*
+CLAUDE SUB"), else the payee as the bank writes it. Naming a payee-less bank
+string by its leaf ("Tiền thuê nhà") is shown in the mockups and not built
+(§17).
+
+### 3.4 The face of a service (RR22)
+
+A charge is recognised faster by a logo than by a name. Every row in the
+sheet and every line in the tile leads with a **face**, chosen in this order:
+
+1. **The brand's glyph**, white on the brand's colour, in a rounded square
+   (12 px radius at 42 px, 6 px at 22 px). The registry is
+   `taxonomy/brands.json`: key, label, glyph file, colour, and the folded
+   words that match it. Matching asks, in order, the receipt signature
+   (`sub|google|google one`), the receipt product, the payee, the memo; the
+   longest matching word wins, so "ANTHROPIC* CLAUDE SUB" is Claude, not
+   Anthropic, and "GOOGLE *YouTube" is YouTube Premium, not Google. A product
+   wears its parent's glyph when it has no mark of its own people know
+   (Google One wears Google's, ChatGPT wears OpenAI's).
+2. **The node's emoji**, on the neutral fill. Leaves carry no emoji of their
+   own in the tree, so this is the nearest ancestor's: rent and internet
+   show 🏠, streaming 🎉, software 💼. In practice this is the category's
+   emoji, the same mark the row wears elsewhere.
+3. **The row's own category emoji**, when the series has no node.
+4. **A monogram** in one of the six identity slots, picked by the series
+   key, as before.
+
+A paid charge keeps its face, desaturated. Glyphs are the CC0 Simple Icons
+set, vendored as single-path SVGs under `taxonomy/brand-glyphs/` and
+generated into `src/js-ui/08-brands.js` by `tools/gen-brands.js`, so nothing
+is fetched at runtime and no merchant name leaves the device. The generator
+refuses a word claimed by two brands, a word that is not folded, a missing
+glyph, a bad colour.
+
+Trademark stance: the glyphs are used only to recognise a charge the person
+already pays, never to suggest endorsement, and never on anything the app
+sells. Brands whose owners police their marks (Adobe, Microsoft, LinkedIn,
+Disney+) are not in the registry. If an owner asks, the brand is removed from
+`brands.json` and the row falls back to its emoji; `LICENSE.md` beside the
+glyphs says so.
+
+Not yet: the queue card and the transaction list rows keep their category
+mark (§17).
 
 Empty: the tile is absent until something repeats. The sheet, opened while
 the history is still being read, says "Đang xem lại lịch sử chi tiêu…"; with
@@ -319,6 +362,10 @@ month. The 5 percent floor absorbs exchange-rate drift on USD-billed services
   splits), detection windows at each boundary, soft vs confirmed, `person`
   precedence and decline, creep at 4.9 / 5.1 percent, `nextDate` month clamp,
   yearly over leap years.
+- `tools/brands.test.js`: the registry's rules (a word claimed twice, an
+  unfolded word, a missing glyph, a bad colour are refused); the matcher on
+  real ledger strings (signature before payee, longest word wins, a landlord
+  and a coffee shop match nothing); the UI's face order (§3.4).
 - `tools/receipt-join.test.js`: a receipt with `period` marks the row; a
   renewal variant without `period` marks monthly; a `person` row is untouched.
 - `pipeline/receipt-contract.test.js`: `period` sealed (shared with the
@@ -373,6 +420,7 @@ From the design interview, 2026-10-06.
 | RR17 | **A pattern mark is derived, never trusted.** Only a person's or a receipt's mark anchors a merchant. Each run re-derives pattern marks, writes the latest row of a confirmed series, and clears a `pattern` mark no series explains. |
 | RR18 | **One truth.** Tile, sheet, detail row and queue card read the same series view. The stored column is the durable trace of it, not a second opinion. |
 | RR21 | *(2026-10-07)* **Tile 3 "Vòng tháng", sheet 5 "Thuê bao"** chosen from sixteen rendered directions (`mockups/recurring-options.html`); the ring is the daily-guide ring reused, the sheet is the iPhone Subscriptions language with a countdown on this month's rows. Eight ring variants are in the same file for the next round. |
+| RR22 | *(2026-10-08)* **A service wears its logo.** Faces in the tile lines and the sheet rows: brand glyph on brand colour from a bundled registry (`taxonomy/brands.json`, CC0 Simple Icons), else the node's emoji inherited from its nearest ancestor, else the row's category emoji, else the monogram. A matched brand also names a receipt-less series. Recognition only; a brand is removed on an owner's request. The sixteen logo-led mockups in `mockups/recurring-options.html` are for the next round. |
 | RR20 | *(2026-10-07)* **"Sắp tới" is this month.** The tile and the sheet's first group show the confirmed charges still expected before the month ends, with their sum ("Còn 2 khoản tháng này · 3.058.000 ₫"). When none is left, the view rolls to next month and says so ("Tháng 11: 4 khoản"). Replaces the rolling 30-day horizon of RR7. |
 | RR19 | **A series that stops, lapses.** More than one full period overdue and it leaves the tile, the upcoming list and the monthly total. Its rows keep their history. |
 
@@ -384,6 +432,7 @@ From the design interview, 2026-10-06.
 | No hand-set next date ("Kỳ tới" picker) | It needs a place to live that is neither a clear column (RR2) nor the receipt blob; the note block was the candidate and deserves its own small design. | Merchant-intelligence epic |
 | No filter chip on the list | The mark on the card and the tile cover the reading need; a chip is a list-filter change across both ledgers' lists. | Same |
 | Queue-wide detection | Twelve rent payments all waiting in the queue, none in the ledger, show Không on their cards; the pass marks them after import (§18.9). | Merchant-intelligence epic |
+| Faces on the queue card and the transaction list rows | The brand face lives in the recurring surfaces first (RR22); the list and the queue card each have their own leading mark (category, member) and a rule is needed for when a logo displaces it. | Next round |
 | Apple keeps its own reader | Two layouts and storefront sections; the registry carries its labels so folding it into the family walk is a data change later. | Providers release 2 |
 
 ## 16. Related documents

@@ -29,11 +29,28 @@
   const _wd = (iso) => { const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/); if (!m) return ''; const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])).getUTCDay(); return L(_WD_VI[d], _WD_EN[d]); };
   /* What a person calls the charge: the receipt's own name when there is one
      ("YouTube Premium"), else who it was paid to. */
-  const _name = (s) => s.product || s.name || L('Khoản định kỳ', 'Recurring charge');
-  /* The monogram tile: first letter, one of the six identity slots picked by
-     the series key so the same service keeps its colour across opens. */
+  const _name = (s) => { if (s.product) return s.product; const b = _brand(s); return (b && b.label) || s.name || L('Khoản định kỳ', 'Recurring charge'); };
+  /* The face of a charge (RR22), in order:
+       1. the brand's glyph on its own colour, when the registry recognises the
+          receipt signature, the payee or the memo (FH_BRANDS, offline);
+       2. the emoji of the row's "Tiêu vào gì" node, else of its category;
+       3. a monogram on one of the six identity slots, picked by the series
+          key so the same service keeps its colour across opens. */
   const _slot = (key) => { let h = 0; for (const c of String(key || '')) h = (h * 31 + c.charCodeAt(0)) >>> 0; return (h % 6) + 1; };
-  const _mono = (s) => '<span class="rcr-mono" style="background:var(--id-' + _slot(s.groupKey) + ')">' + _e(_cap(_name(s)).replace(/^\s+/, '').charAt(0) || '·') + '</span>';
+  const _brand = (s) => (window.FH_BRANDS ? FH_BRANDS.match([s.product ? ('sub|' + String(s.product).toLowerCase()) : null, s.product, s.payee, s.note]) : null);
+  /* Leaves carry no emoji of their own in the tree; the nearest ancestor's is the node's mark. */
+  const _emoji = (s) => {
+    if (s.node && window.FH_TAX && FH_TAX.get) { let n = FH_TAX.get(s.node); while (n) { if (n.emoji) return n.emoji; n = n.parent ? FH_TAX.get(n.parent) : null; } }
+    return s.emoji || null;
+  };
+  function _face(s, size, cls) {
+    const b = _brand(s);
+    if (b) return '<span class="rcr-face brand ' + (cls || '') + '" style="--bh:#' + b.hex + '">' + FH_BRANDS.svg(b, Math.round(size * 0.55)) + '</span>';
+    const em = _emoji(s);
+    if (em) return '<span class="rcr-face emo ' + (cls || '') + '">' + _e(em) + '</span>';
+    return '<span class="rcr-face mono ' + (cls || '') + '" style="background:var(--id-' + _slot(s.groupKey) + ')">' + _e(_cap(_name(s)).replace(/^\s+/, '').charAt(0) || '·') + '</span>';
+  }
+  const _mono = (s) => _face(s, 42, 'lg');
   /* This month: "Gia hạn 18/10 · còn 11 ngày" (the countdown is the point,
      so the weekday gives way to it). Later months: "Gia hạn thứ sáu 6/11". */
   const _renew = (s, withCount) => {
@@ -53,8 +70,8 @@
       + '<circle cx="42" cy="42" r="' + r + '" fill="none" stroke="var(--brand)" stroke-width="8" stroke-linecap="round" stroke-dasharray="' + c.toFixed(1) + '" stroke-dashoffset="' + off.toFixed(1) + '"/></svg>'
       + '<div class="rcr-ring-c"><b class="num">' + Math.round(pct * 100) + '%</b><small>' + _e(L('đã trả', 'paid')) + '</small></div></div>';
   }
-  function _mline(label, date, amt, paid) {
-    return '<div class="rcr-ln' + (paid ? ' paid' : '') + '"><span class="rcr-ln-t"><i class="rcr-dot"></i>' + _e(label) + ' · ' + _e(_dm(date)) + '</span><b class="num">' + _e(_money(amt)) + '</b></div>';
+  function _mline(s, date, amt, paid) {
+    return '<div class="rcr-ln' + (paid ? ' paid' : '') + '">' + _face(s, 22, 'sm') + '<span class="rcr-ln-t">' + _e(_name(s)) + ' · ' + _e(_dm(date)) + '</span><b class="num">' + _e(_money(amt)) + '</b></div>';
   }
   /* Empty until the ledger shows something that comes back: the section earns
      its place, it is not a promise. */
@@ -70,7 +87,7 @@
     if (!sure.length) {
       return head + '<div class="debt-bento"><section class="dbt-tile wide rcr-tile" onclick="' + open + '">'
         + '<div class="dbt-tk">' + _e(L(maybe.length + ' khoản có vẻ định kỳ', maybe.length + ' possibly recurring')) + '</div>'
-        + '<div class="rcr-lines">' + maybe.slice(0, 3).map((s) => _mline(_name(s), s.next, s.amount, true)).join('') + '</div>'
+        + '<div class="rcr-lines">' + maybe.slice(0, 3).map((s) => _mline(s, s.next, s.amount, true)).join('') + '</div>'
         + '</section></div>';
     }
     const mv = R().monthView(all, _todayIso());
@@ -79,7 +96,7 @@
     const sub = mv.due.length
       ? L('trên ' + _money(mv.total) + ' định kỳ · ' + mv.due.length + ' khoản', 'of ' + _money(mv.total) + ' recurring · ' + mv.due.length + ' charges')
       : L('Tháng này xong rồi · ' + _money(mv.total) + ' định kỳ', 'All paid this month · ' + _money(mv.total) + ' recurring');
-    const lines = mv.paid.map((p) => _mline(_name(p.series), p.date, p.amount, true)).concat(mv.due.map((s) => _mline(_name(s), s.next, s.amount, false))).slice(0, 5);
+    const lines = mv.paid.map((p) => _mline(p.series, p.date, p.amount, true)).concat(mv.due.map((s) => _mline(s, s.next, s.amount, false))).slice(0, 5);
     const rose = sure.find((s) => s.creep > 0);
     const feet = (rose ? '<div class="rcr-foot rose">' + _e(L(_name(rose) + ' tăng ' + _money(rose.creep), _name(rose) + ' is up ' + _money(rose.creep))) + '</div>' : '')
       + (maybe.length ? '<div class="rcr-foot">' + _e(L('Có vẻ định kỳ: ', 'Possibly recurring: ') + maybe.slice(0, 2).map(_name).join(', ') + (maybe.length > 2 ? L(' và ' + (maybe.length - 2) + ' khoản nữa', ' and ' + (maybe.length - 2) + ' more') : '')) + '</div>' : '');

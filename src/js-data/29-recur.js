@@ -219,7 +219,8 @@
       rows, latest, previous, amount: latest.amt, next, dueInDays,
       creep: previous ? creep(latest.amt, previous.amt) : 0,
       perMonth: perMonth(latest.amt, period),
-      name: latest.payee || latest.note || '', node: latest.node || null,
+      name: latest.payee || latest.note || '', node: latest.node || null, emoji: latest.emoji || null,
+      note: latest.note || '', payee: latest.payee || null,
       product: lblRow ? lblRow.rcLabel : null,
     } };
   }
@@ -462,7 +463,7 @@
   function _famRows() {
     if (!Array.isArray(window.txns)) return [];
     return window.txns.filter((t) => t && t._dbId && !t.future && (t.amt > 0)).map((t) => ({
-      id: t._dbId, date: _txnIsoOf(t), amt: t.amt, payee: null, note: t.note, node: t.node || null, kind: 'expense',
+      id: t._dbId, date: _txnIsoOf(t), amt: t.amt, payee: null, note: t.note, node: t.node || null, emoji: t.ico || null, kind: 'expense',
       recur: t.recur || null, recurSrc: t.recurSrc || null, rcPeriod: null, recurSig: null, rcLabel: null, renewsOn: null, _t: t }));
   }
   let _famBusy = false;
