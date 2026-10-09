@@ -149,7 +149,11 @@ export const RAW_FIELDS = Object.freeze([
       // prints one (Google Play: 45.000 + 5.000 = 50.000), and the billing
       // period a subscription receipt states — the input recurring-charges-spec
       // RR1 reads. Both nullable; PAYLOAD_V unchanged.
-      'tax', 'period'],
+      'tax', 'period',
+      // receipt-enrichment-spec RC27: a tip printed on the receipt. A tip mail
+      // carries its ride's Booking ID and is a separate payment; this is how
+      // the device tells them apart. Nullable; PAYLOAD_V unchanged.
+      'tip'],
     // `node` and `sig` (Phase 2, §20): the item's tree code as the worker's
     // ladder resolved it — a PROPOSAL the device constrains to the row's
     // branch — and the signature it was learned under, so a person's own

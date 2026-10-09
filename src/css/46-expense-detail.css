@@ -199,3 +199,9 @@ label.exd-photo.add{cursor:pointer}
 .pexd-rc-mrow.good span:last-child{color:var(--good)}
 .pexd-rc-mrow.strong{font-size:15px;font-weight:600;color:var(--ink);padding-top:7px}
 .pexd-rc-miss{font-size:13px;color:var(--muted-soft);padding:12px 16px}
+/* RC31: take a receipt off (quiet, armed on the first tap, like .exd-del) and
+   attach a waiting one (the pill the item category already uses, in brand). */
+.pexd-rc-off{display:block;width:fit-content;margin:10px auto 0;background:none;border:none;color:var(--muted);font-size:13.5px;font-weight:500;letter-spacing:-.01em;padding:10px 16px;min-height:44px;cursor:pointer}
+.pexd-rc-off.armed{color:var(--danger);font-weight:600}
+.pexd-rc-take{position:relative;margin-left:auto;color:var(--brand-ink);background:var(--brand-tint)}
+.pexd-rc-take::after{content:"";position:absolute;inset:-11px -8px}   /* a 44px target around a small pill */

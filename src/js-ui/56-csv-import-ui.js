@@ -1068,12 +1068,23 @@ function csvCollapsedCard(c, opts){
        (spec RC12). Quiet: a marker and a count, the note text does the work. */
     var _rj = (typeof c.rowIndex === 'number' && window._fhStagedRows && window._fhStagedRows[c.rowIndex]
                && window._fhStagedRows[c.rowIndex]._rcpt) || null;
+    var _rjRow = (typeof c.rowIndex === 'number' && window._fhStagedRows && window._fhStagedRows[c.rowIndex]) || null;
     if(_rj){
       var _rjN = (_rj.items || []).length;
       footHtml += '<span class="scv-foot">🧾 '+esc(_rjN
         ? L(_rjN+' sản phẩm · '+(_rj.seller || _rj.provider || ''), _rjN+' item(s) · '+(_rj.seller || _rj.provider || ''))
         : L('Hoá đơn '+(_rj.provider || ''), 'Receipt · '+(_rj.provider || '')))+'</span>';
+      /* RC30: the wallet took more and gave some back; the receipt is the net. */
+      if(_rj.adjusted && _rj.adjusted.refunded > 0) footHtml += '<span class="scv-foot">'+esc(L('Thực trả '+csvFmt(_rj.paid)+', đã hoàn '+csvFmt(_rj.adjusted.refunded), 'Paid '+csvFmt(_rj.paid)+' after a '+csvFmt(_rj.adjusted.refunded)+' refund'))+'</span>';
+    } else if(_rjRow && window.fhReceiptOffers){
+      /* RC31: a receipt fits this row and the rules could not decide. One
+         quiet line; the pick is on the open card. A receipt the person already
+         said no to is not mentioned again. */
+      var _rjOff = fhReceiptOffers(_rjRow.id).filter(function(o){ return !o.said; });
+      if(_rjOff.length) footHtml += '<span class="scv-foot">'+esc(L('Có hoá đơn '+(_rjOff[0].provider||'')+' chưa gắn', 'A '+(_rjOff[0].provider||'')+' receipt is waiting'))+'</span>';
     }
+    /* RC30: the refund names the charge it adjusts. */
+    if(_rjRow && _rjRow._adjOf && _rjRow._adjInfo) footHtml += '<span class="scv-foot">'+esc(L('Hoàn của khoản '+(_rjRow._adjInfo.provider||'')+' '+csvFmt(_rjRow._adjInfo.charged), 'Refund of the '+(_rjRow._adjInfo.provider||'')+' '+csvFmt(_rjRow._adjInfo.charged)+' charge'))+'</span>';
     /* recurring-charges-spec §3.1: the mark, a word on the meta line. */
     if(!c.isIncome && typeof csvRecurOf==='function'){
       var _rc = csvRecurOf(c);
@@ -1371,6 +1382,10 @@ function csvStagedRowsCard(c, opts){
      read-only rows here. They are fixed provenance, so they moved up to the
      card's top line (csvActiveCard header) and no longer take a row. */
 
+  /* RC31: receipts that fit this row and are still waiting. The row is here
+     only when there is something to pick. */
+  var _rcSid = csvRcStagedId(c), _rcOffers = (_rcSid && window.fhReceiptOffers) ? fhReceiptOffers(_rcSid) : [];
+  if(_rcOffers.length) rows += row('rcpt', L('Hoá đơn','Receipt'), esc(L('Chọn hoá đơn','Pick a receipt')), { soft: true });
   h += '<div class="csv-srows">'+rows+'</div>';
 
   /* 0154 receipt enrichment: the joined merchant receipt, KEY rows only —
@@ -1388,7 +1403,9 @@ function csvStagedRowsCard(c, opts){
     var _rjHead = [(_rj2.seller || _rj2.provider), _rj2.order_id ? ('#'+_rj2.order_id) : null].filter(Boolean).join(' \u00b7 ');
     var _rjIco = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v18l2-1.4 2 1.4 2-1.4 2 1.4 2-1.4 2 1.4V3l-2 1.4L14 3l-2 1.4L10 3 8 4.4z"/><path d="M9.5 8.5h5"/><path d="M9.5 12h5"/></svg>';
     var _rjB = '<div class="csv-rc"><div class="csv-rc-h">'+_rjIco+'<span>'+esc(L('Hoá đơn','Receipt'))+'</span>'
-      + (_rjHead?'<span class="csv-rc-src">'+esc(_rjHead)+'</span>':'') + '</div>';
+      + (_rjHead?'<span class="csv-rc-src">'+esc(_rjHead)+'</span>':'')
+      /* RC31: not this purchase's? One tap takes it off; nothing is deleted. */
+      + '<button type="button" class="csv-rc-off" onclick="csvRcDetach()">'+esc(L('Gỡ','Remove'))+'</button></div>';
     var _its = _rj2.items || [];
     /* Order-level (a Grab ride): the service's name stands where items would. */
     if(!_its.length && _rj2.service_label) _rjB += '<div class="csv-rc-it"><span class="csv-rc-nm">'+esc(_rj2.service_label)+'</span></div>';
@@ -1416,6 +1433,10 @@ function csvStagedRowsCard(c, opts){
           + (_rjPts ? L(', '+_rjPtsNm+' '+csvFmt(_rjPts), ', '+_rjPtsNm+' '+csvFmt(_rjPts)) : '')
           + (_rjTax ? L(', thuế '+csvFmt(_rjTax), ', tax '+csvFmt(_rjTax)) : ''))+'</span>'
       + '<span class="num">'+esc(csvFmt(_rj2.paid))+'</span></div>';
+    /* RC30: charged, then partly refunded; the receipt states the net. */
+    if(_rj2.adjusted && _rj2.adjusted.refunded > 0) _rjB += '<div class="csv-rc-math">'
+      + '<span>'+esc(L('Đã trừ '+csvFmt(_rj2.adjusted.charged)+', hoàn '+csvFmt(_rj2.adjusted.refunded), 'Charged '+csvFmt(_rj2.adjusted.charged)+', refunded '+csvFmt(_rj2.adjusted.refunded)))+'</span>'
+      + '<span class="num">'+esc(csvFmt(_rj2.paid))+'</span></div>';
     _rjB += '</div>';
     h += _rjB;
   }
@@ -1442,6 +1463,61 @@ function csvStagedRowsCard(c, opts){
   return h;
 }
 
+/* ── a receipt attached or taken off by hand (receipt-enrichment-spec RC31) ──
+   The join engine (78) holds the opened receipts and re-settles in memory;
+   nothing is written or retired until the row is imported. */
+function csvRcStagedId(c){
+  var r = (c && typeof c.rowIndex==='number' && window._fhStagedRows) ? window._fhStagedRows[c.rowIndex] : null;
+  return (r && r.id) || null;
+}
+/* "09:32", or "08/10 · 09:32" when the day needs saying. Vietnamese wall clock. */
+function csvRcWhen(iso){
+  var t = Date.parse(iso || ''); if(!isFinite(t)) return '';
+  var d = new Date(t + 7*3600e3), p2 = function(n){ return ('0'+n).slice(-2); };
+  return (t % 864e5 === 0) ? (p2(d.getUTCDate())+'/'+p2(d.getUTCMonth()+1)) : (p2(d.getUTCHours())+':'+p2(d.getUTCMinutes()));
+}
+/* One waiting receipt in words: "Grab · Car 6 chỗ ngồi · 09:32". */
+function csvRcOfferLbl(o){
+  var prov = String(o.provider||''), lbl = String(o.label||'');
+  if(prov && lbl.toLowerCase().indexOf(prov.toLowerCase())===0) prov = '';   // the label already leads with it
+  return [prov, lbl, csvRcWhen(o.at)].filter(Boolean).join(' · ');
+}
+/* A card's words follow its receipt: the receipt's description stands in only
+   for an answer nobody wrote, and the bank's own words come back when the
+   receipt leaves. A note the person typed is never touched. */
+function csvRcSyncDesc(c){
+  var row = (c && typeof c.rowIndex==='number' && window._fhStagedRows) ? window._fhStagedRows[c.rowIndex] : null;
+  if(!row) return;
+  var want = row._rcptDesc || null;
+  if(row._descRc && row._descRc !== want){
+    if(c.description === row._descRc) c.description = row._descBank || '';
+    row._descRc = null;
+  }
+  if(want && row._descRc !== want && window.fhRcDescApplies && fhRcDescApplies(c.description, row)){
+    row._descBank = c.description; c.description = want; row._descRc = want;
+  }
+}
+function csvRcSyncAll(){
+  if(!csvReview) return;
+  (csvReview.ready||[]).forEach(csvRcSyncDesc);
+  (csvReview.deferred||[]).forEach(csvRcSyncDesc);
+  (csvReview.dup||[]).forEach(function(d){ if(d && d.c) csvRcSyncDesc(d.c); });
+  (csvReview.groups||[]).forEach(function(g){ (g.items||[]).forEach(csvRcSyncDesc); });
+}
+function csvRcAttach(receiptId){
+  var c = csvExpandedCandidate(), sid = csvRcStagedId(c);
+  if(!c || !sid || !window.fhReceiptAttach){ renderCsvReview(); return; }
+  fhReceiptAttach(sid, receiptId);
+  csvRcSyncAll(); renderCsvReview();
+}
+function csvRcDetach(){
+  var c = csvExpandedCandidate(), sid = csvRcStagedId(c);
+  if(!c || !sid || !window.fhReceiptDetach) return;
+  csvReadEditor(c);          // keep a note someone was mid-typing
+  fhReceiptDetach(sid);
+  csvRcSyncAll(); renderCsvReview();
+}
+
 /* ── the row-picker sheet ── */
 function csvRowSheetOpen(f){
   var c = csvExpandedCandidate(); if(!c) return;
@@ -1458,6 +1534,7 @@ function csvRowSheetClose(){ csvRowSheet = null; renderCsvReview(); }
    data path is unchanged, only the surface moved. */
 function csvSheetPick(f, v){
   csvRowSheet = null; csvRowHot = f;
+  if(f==='rcpt'){ csvRcAttach(v); return; }
   if(f==='scope'){ csvPickRowScope(v); renderCsvReview(); return; }   // locked pick refuses without rendering
   if(f==='kind'){ csvPickRowKind(v); return; }
   if(f==='paycard'){ csvPickPayCard(v); return; }
@@ -1586,6 +1663,14 @@ function csvRowSheetHTML(c){
       + chip(sc==='family', "csvSheetPick('scope','family')", esc(L('🏡 Gia đình','🏡 Family')))
       + '</div>'
       + (locked ? '<div class="csv-scope-note">'+esc(L('Sổ cá nhân đang khoá — mở ở tab Cá nhân để chọn được.','Personal ledger is locked — unlock it on the Cá nhân tab to pick it.'))+'</div>' : '');
+  } else if(f==='rcpt'){
+    var rOff = (window.fhReceiptOffers && csvRcStagedId(c)) ? fhReceiptOffers(csvRcStagedId(c)) : [];
+    title = L('Hoá đơn nào của khoản này?','Which receipt is this?');
+    body = '<div class="choices">'
+      + rOff.map(function(o){
+          return chip(false, "csvSheetPick('rcpt','"+escAttr(o.id)+"')", esc(csvRcOfferLbl(o)) + ' · <span class="num">'+esc(csvFmt(o.paid))+'</span>');
+        }).join('')
+      + '</div>';
   } else if(f==='recur'){
     /* Four chips, single-select. A guess selects nothing: picking the period
        confirms it, Không declines. Same sheet as the detail screen's. */

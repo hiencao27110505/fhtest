@@ -30,9 +30,23 @@
          and inventing a transaction from it is the double-count the feature
          exists to avoid (spec RC2 — strictly annotate, never create).
 
-       Mis-attachment is worse than no attachment (RC10): exact amount only,
-       tail disagreement is a veto, ambiguity attaches nothing, one receipt to
-       one transaction. */
+       Mis-attachment is worse than no attachment (RC10): tail disagreement
+       is a veto, ambiguity attaches nothing, one receipt to one transaction.
+
+       Since 2026-10-09 (spec §22, RC27–RC31), after a morning of Grab rides
+       where two of four receipts found no row and one was deleted:
+         - A COPY is the same order AND the same paid total. A tip mail carries
+           its ride's Booking ID and is a different payment (RC27).
+         - A copy is never deleted on sight. It waits with its winner and
+           retires only when the winner does (RC28).
+         - THE MINUTE DECIDES among rows of one amount: receipts and rows are
+           paired closest-first, and a pair is taken only when nothing else is
+           within five minutes of being as good (RC29).
+         - A CHARGE LATER ADJUSTED still finds its receipt: charge minus a
+           refund from the same account equals the receipt (RC30).
+         - What the rules cannot settle, the person can: fitting receipts are
+           offered on the card, and a pick or a "not this one" is remembered
+           (RC31). */
 
     var RECEIPT_GRACE_DAYS = 14;
 
@@ -88,6 +102,9 @@
        v2 says so outright (time_precision); a statement row and a v1 row use
        the day-only spelling, midnight UTC, which no real bank clock prints. */
     var RJ_CLOCK_WINDOW = 30 * 60e3;
+    var RJ_CLOCK_MARGIN = 5 * 60e3;     // a pair wins only when the runner-up is this much farther (RC29)
+    var RJ_HOLD_BEFORE = 90 * 60e3;     // a hold may be placed this long before its refund lands (RC30)
+    var RJ_HOLD_AFTER = 10 * 60e3;      // ...or the two may print a few minutes apart either way
     function _rjClock(occurredAt, precision) {
       var t = Date.parse(occurredAt || '');
       if (!isFinite(t) || precision === 'day') return null;
@@ -181,6 +198,9 @@
       }
       /* Order-level, but the merchant named what was bought (a Grab ride's
          "Car 6 chỗ ngồi"): that still answers "chi cho gì" (spec RC24). */
+      /* A tip is its own payment and says so (RC27): "Grab · Tip tài xế", not
+         the ride's name a second time. */
+      if (rc.tip != null && rc.paid != null && Math.round(rc.tip) === Math.round(rc.paid)) return (provider ? provider + ' \u00b7 ' : '') + 'Tip t\u00e0i x\u1ebf';
       if (rc.service_label) return (provider ? provider + ' \u00b7 ' : '') + rc.service_label;
       return null;   // order-level only: the cascade keeps its answer
     }
@@ -228,6 +248,7 @@
              period (recurring-charges-spec RR1 reads `period`). */
           tax: rc.tax != null ? rc.tax : null,
           period: rc.period || null,
+          tip: rc.tip != null ? rc.tip : null,
         } : null,
       };
     }
@@ -237,83 +258,268 @@
       return ((r._rcpt.items || []).length * 10) + (r._rcpt.seller ? 1 : 0) + (r._rcpt.paid_with_tail ? 1 : 0);
     }
 
-    /* One shared pass. `queueRows` — the review's OPENED staged rows when the
-       queue is on screen (queue beats ledger, RC10), else null. Returns the
-       receipts it attached to queue rows so the caller can render them. */
-    async function _rjRun(queueRows) {
+    /* ── what the person settled (RC31) ───────────────────────────────────────
+       A pick ("this receipt is this row's") and a block ("not this one") are
+       remembered on the device by row id and receipt id alone: no amount, no
+       name. They outlive a reopened queue and die with the rows they name. */
+    var RJ_PICK_KEY = 'fh-rj-picks:v1';
+    var _rjMem = null;
+    function _rjPicks() {
+      if (_rjMem) return _rjMem;
+      var st = { p: {}, b: {} };
+      try { var raw = window.localStorage && localStorage.getItem(RJ_PICK_KEY); if (raw) { var o = JSON.parse(raw); if (o && o.p && o.b) st = o; } } catch (e) { /* in-memory only */ }
+      _rjMem = st; return st;
+    }
+    function _rjPicksSave() { try { if (window.localStorage) localStorage.setItem(RJ_PICK_KEY, JSON.stringify(_rjMem || { p: {}, b: {} })); } catch (e) { /* in-memory only */ } }
+    function _rjBlocked(rowId, rcptId) { var b = _rjPicks().b[rowId]; return !!(b && b.indexOf(rcptId) >= 0); }
+
+    /* The last opened receipts and queue rows, so a pick on a card can be
+       applied and the rest re-settled without another fetch. */
+    var RJ = { receipts: [], queue: null, at: 0 };
+
+    function _rjRowCash(q) {
+      var x = q.raw_extracted || {};
+      /* The cash fields are read where EVERY opened row carries them, at the
+         top (fhReadStagedRow, fhStmtAsStaged). Reading the inner copy alone
+         skipped every statement row (spec §21, RC20). */
+      return { dir: String(q.direction != null ? q.direction : x.direction),
+        amt: Math.round(Number(q.amount != null ? q.amount : x.amount)),
+        tail: _rjTail(x.account_masked) || _rjTail(x.card_masked),
+        clock: _rjClock(q.occurred_at, x.time_precision),
+        day: _rjDayMs(q.occurred_at),
+        acct: String(q.source_provider || x.source_provider || '') + '|' + (_rjTail(x.account_masked) || _rjTail(x.card_masked) || '') };
+    }
+    function _rjIsTarget(q) { return !!q && !q._unreadable && !(q.raw_extracted || {}).receipt; }
+    function _rjDayOk(r, c) { var rDay = _rjDayMs(r.occurred_at); return !(rDay != null && c.day != null && Math.abs(rDay - c.day) > 1.5 * 864e5); }
+    function _rjFold(s) { return String(s == null ? '' : s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ''); }
+    /* Does the row's own text name the receipt's provider ("GRAB" on a wallet
+       statement row, for a Grab receipt)? What lets a receipt of a different
+       total be OFFERED, never auto-attached. */
+    function _rjNames(q, provider) {
+      var p = _rjFold(provider); if (p.length < 3) return false;
+      var x = q.raw_extracted || {};
+      return _rjFold([q.counterparty, x.counterparty, x.memo, x.memo_display, q.description].join(' ')).indexOf(p) >= 0;
+    }
+
+    function _rjAttachQueue(r, q, how, adj) {
+      r._joined = 'queue';
+      _rjConstrain(r._rcpt, (q.raw_extracted && q.raw_extracted.node) || null);
+      q._rcpt = r._rcpt;
+      q._rcptRowId = r.id;
+      q._rcptCopyIds = (r._copies || []).slice();
+      q._rcptDesc = r._desc || null;
+      q._rcptHow = how;                       // 'amount' | 'tail' | 'clock' | 'net' | 'pick'
+      q._rcptAdj = adj || null;
+      /* The blob that will be written says so itself: the row is the charge,
+         the receipt is what was finally paid. */
+      if (adj) q._rcpt.adjusted = { charged: adj.charged, refunded: adj.refunded }; else if (q._rcpt.adjusted) delete q._rcpt.adjusted;
+    }
+
+    /* ── the queue pass: pure over what is in memory ────────────────────────── */
+    function _rjQueuePass(receipts, queueRows) {
+      var rows = (queueRows || []).filter(_rjIsTarget);
+      if (!rows.length) return;
+      var cash = {}; rows.forEach(function (q) { cash[q.id] = _rjRowCash(q); });
+      var byId = {}; receipts.forEach(function (r) { byId[r.id] = r; });
+      var st = _rjPicks();
+
+      /* 0. What the person picked stands first. */
+      rows.forEach(function (q) {
+        var rid = st.p[q.id]; if (!rid || q._rcpt) return;
+        var r = byId[rid]; if (!r || r._joined || !r._rcpt) return;
+        var c = cash[q.id];
+        var adj = (c.amt > Math.round(r.paid)) ? { charged: c.amt, refunded: c.amt - Math.round(r.paid), refundRowId: null } : null;
+        _rjAttachQueue(r, q, 'pick', adj);
+      });
+
+      /* 1. Exact paid total, within a day and a half, tail as confirm or veto. */
+      var hitsOf = {};
+      receipts.forEach(function (r) {
+        if (r._joined || !r.paid) return;
+        var hits = [];
+        rows.forEach(function (q) {
+          var c = cash[q.id];
+          if (c.dir !== 'debit' || c.amt !== Math.round(r.paid)) return;
+          if (!_rjDayOk(r, c)) return;
+          if (r.tail && c.tail && r.tail !== c.tail) return;          // veto
+          if (_rjBlocked(q.id, r.id)) return;                         // the person said no
+          hits.push({ q: q, tailHit: !!(r.tail && c.tail && r.tail === c.tail) });
+        });
+        hitsOf[r.id] = hits;
+      });
+      /* Settle one pair at a time, then look again: a row claimed by a clear
+         pair leaves the others' choices narrower, and often decided (RC29). */
+      for (var guard = 0; guard < 500; guard++) {
+        var open = receipts.filter(function (r) { return !r._joined && hitsOf[r.id]; });
+        var avail = {};
+        open.forEach(function (r) { avail[r.id] = hitsOf[r.id].filter(function (h) { return !h.q._rcpt; }); });
+        var done = false, i2, r2;
+        // a) the card tail names the row
+        for (i2 = 0; i2 < open.length && !done; i2++) {
+          r2 = open[i2];
+          var tails = avail[r2.id].filter(function (h) { return h.tailHit; });
+          if (tails.length === 1) { _rjAttachQueue(r2, tails[0].q, 'tail'); done = true; }
+        }
+        if (done) continue;
+        // b) one row fits, and no other waiting receipt wants it
+        for (i2 = 0; i2 < open.length && !done; i2++) {
+          r2 = open[i2];
+          if (avail[r2.id].length !== 1) continue;
+          var only = avail[r2.id][0].q;
+          var contested = open.some(function (o) { return o !== r2 && avail[o.id].some(function (h) { return h.q === only; }); });
+          if (!contested) { _rjAttachQueue(r2, only, 'amount'); done = true; }
+        }
+        if (done) continue;
+        // c) the minute decides: closest pair first, and only a clear winner
+        var pairs = [];
+        open.forEach(function (r) {
+          if (r.clock == null) return;
+          if (avail[r.id].some(function (h) { return h.tailHit; })) return;   // tails disagree among themselves: not the clock's call
+          avail[r.id].forEach(function (h) {
+            var k = cash[h.q.id].clock; if (k == null) return;
+            var dt = Math.abs(k - r.clock);
+            if (dt <= RJ_CLOCK_WINDOW) pairs.push({ r: r, q: h.q, dt: dt });
+          });
+        });
+        pairs.sort(function (a, b) { return a.dt - b.dt; });
+        for (i2 = 0; i2 < pairs.length && !done; i2++) {
+          var pr = pairs[i2];
+          var clear = pairs.every(function (o) { return o === pr || (o.r !== pr.r && o.q !== pr.q) || (o.dt - pr.dt) >= RJ_CLOCK_MARGIN; });
+          if (clear) { _rjAttachQueue(pr.r, pr.q, 'clock'); done = true; }
+        }
+        if (!done) break;
+      }
+
+      /* 2. A charge later adjusted (RC30). The wallet shows the hold and, a
+            moment or an hour later, a refund of the difference; the receipt
+            states what was finally paid. Only for a receipt whose total equals
+            NO row at all, only with clocks on all three, only inside one
+            account, and only when exactly one charge-and-refund pair fits. */
+      receipts.forEach(function (r) {
+        if (r._joined || !r.paid || r.clock == null) return;
+        if ((hitsOf[r.id] || []).length) return;                      // an exact row exists: that is the ambiguity rule's business
+        var paid = Math.round(r.paid), combos = [];
+        rows.forEach(function (C) {
+          var c = cash[C.id];
+          if (c.dir !== 'credit' || C._adjOf || c.clock == null) return;
+          if (Math.abs(c.clock - r.clock) > RJ_CLOCK_WINDOW) return;  // the refund lands as the trip ends, when the receipt is sent
+          rows.forEach(function (D) {
+            var d = cash[D.id];
+            if (D === C || d.dir !== 'debit' || D._rcpt || d.clock == null) return;
+            if (d.acct !== c.acct || d.acct.charAt(0) === '|') return; // one account, and a named one
+            if (d.amt - c.amt !== paid) return;
+            if (d.clock < c.clock - RJ_HOLD_BEFORE || d.clock > c.clock + RJ_HOLD_AFTER) return;
+            if (r.tail && d.tail && r.tail !== d.tail) return;
+            if (_rjBlocked(D.id, r.id)) return;
+            combos.push({ D: D, C: C, charged: d.amt, refunded: c.amt });
+          });
+        });
+        if (combos.length !== 1) return;
+        var k = combos[0];
+        _rjAttachQueue(r, k.D, 'net', { charged: k.charged, refunded: k.refunded, refundRowId: k.C.id });
+        k.C._adjOf = k.D.id;
+        k.C._adjInfo = { charged: k.charged, provider: r.provider || null };
+      });
+    }
+
+    /* Receipts that could be this row's and are still waiting (RC31): the
+       exact total first, then a smaller total from a provider the row names
+       (an adjusted fare the rules could not prove). */
+    function _rjOffersFor(q) {
+      if (!_rjIsTarget(q) || q._rcpt) return [];
+      var c = _rjRowCash(q);
+      if (c.dir !== 'debit') return [];
+      var out = [];
+      RJ.receipts.forEach(function (r) {
+        if (r._joined || !r._rcpt || !r.paid) return;
+        var paid = Math.round(r.paid);
+        if (!_rjDayOk(r, c)) return;
+        if (r.tail && c.tail && r.tail !== c.tail) return;
+        var exact = paid === c.amt;
+        if (!exact && !(paid < c.amt && _rjNames(q, r.provider))) return;
+        out.push({ id: r.id, provider: r.provider || null, label: (r._rcpt.service_label || r._desc || null), paid: paid, at: r.occurred_at || null,
+          exact: exact, dt: (r.clock != null && c.clock != null) ? Math.abs(r.clock - c.clock) : 9e15, said: _rjBlocked(q.id, r.id) });
+      });
+      out.sort(function (a, b) { return (b.exact - a.exact) || (a.dt - b.dt); });
+      return out.slice(0, 6);
+    }
+    function _rjRowById(id) { return (RJ.queue || []).filter(function (q) { return q && q.id === id; })[0] || null; }
+    /* Forget what this session's pass attached (never a ledger write, never a
+       retire) and settle again with the person's word in place. */
+    function _rjResettle() {
+      (RJ.queue || []).forEach(function (q) {
+        if (!q) return;
+        if (q._rcptRowId) { delete q._rcpt; delete q._rcptRowId; delete q._rcptCopyIds; delete q._rcptDesc; delete q._rcptHow; delete q._rcptAdj; }
+        delete q._adjOf; delete q._adjInfo;
+      });
+      RJ.receipts.forEach(function (r) { if (r._joined === 'queue') { r._joined = null; if (r._rcpt && r._rcpt.adjusted) delete r._rcpt.adjusted; } });
+      _rjQueuePass(RJ.receipts, RJ.queue);
+    }
+    window.fhReceiptOffers = function (stagedRowId) { var q = _rjRowById(stagedRowId); return q ? _rjOffersFor(q) : []; };
+    window.fhReceiptAttach = function (stagedRowId, receiptId) {
+      var st = _rjPicks();
+      st.p[stagedRowId] = receiptId;
+      Object.keys(st.p).forEach(function (k) { if (k !== stagedRowId && st.p[k] === receiptId) delete st.p[k]; });   // one receipt, one row
+      if (st.b[stagedRowId]) st.b[stagedRowId] = st.b[stagedRowId].filter(function (x) { return x !== receiptId; });
+      _rjPicksSave(); _rjResettle();
+      var q = _rjRowById(stagedRowId); return !!(q && q._rcptRowId === receiptId);
+    };
+    window.fhReceiptDetach = function (stagedRowId) {
+      var q = _rjRowById(stagedRowId); if (!q || !q._rcptRowId) return false;
+      var st = _rjPicks(), rid = q._rcptRowId;
+      if (st.p[stagedRowId] === rid) delete st.p[stagedRowId];
+      (st.b[stagedRowId] || (st.b[stagedRowId] = [])).push(rid);
+      _rjPicksSave(); _rjResettle();
+      return true;
+    };
+
+    /* fetch → open → collapse copies → categories and descriptions */
+    async function _rjLoad() {
       var raw = await _rjFetch();
-      if (!raw.length) return;
       var receipts = [];
       for (var i = 0; i < raw.length; i++) {
         var o = await _rjOpen(raw[i]);
         if (o) receipts.push(o);
       }
-      if (!receipts.length) return;
-
-      /* Collapse copies of one order — richest wins, losers retire. */
-      var byOrder = {}, keep = [], retire = [];
+      /* Copies of one PAYMENT: the same order id AND the same paid total (a
+         payment mail and a delivered mail). The richest stands for them; the
+         others wait behind it and are retired only with it (RC27, RC28). */
+      var byPay = {}, keep = [];
       receipts.forEach(function (r) {
-        var k = r.orderId ? (r.provider + '|' + r.orderId) : ('row|' + r.id);
-        var held = byOrder[k];
-        if (!held) { byOrder[k] = r; keep.push(r); return; }
+        var k = r.orderId ? (r.provider + '|' + r.orderId + '|' + Math.round(r.paid || 0)) : ('row|' + r.id);
+        var held = byPay[k];
+        if (!held) { byPay[k] = r; r._copies = []; keep.push(r); return; }
         if (_rjScore(r) > _rjScore(held)) {
-          retire.push(held.id);
-          keep[keep.indexOf(held)] = r; byOrder[k] = r;
-        } else retire.push(r.id);
+          r._copies = held._copies.concat([held.id]); held._copies = [];
+          keep[keep.indexOf(held)] = r; byPay[k] = r;
+        } else held._copies.push(r.id);
       });
       receipts = keep.filter(function (r) { return r._rcpt && r.paid > 0; });
-
       _rjItemNodes(receipts);
-      receipts.forEach(function (r) {
-        if (!r._rcpt) return;
-        r._desc = _rjDesc(r._rcpt, r.provider);
-      });
+      receipts.forEach(function (r) { r._desc = _rjDesc(r._rcpt, r.provider); });
+      return receipts;
+    }
+
+    /* One shared pass. `queueRows` — the review's OPENED staged rows when the
+       queue is on screen (queue beats ledger, RC10), else null. */
+    async function _rjRun(queueRows) {
+      var receipts = await _rjLoad();
+      _rjLedgerCache = null;                 // this pass may attach or retire; the next detail screen reads afresh
+      if (queueRows) {
+        RJ.receipts = receipts; RJ.queue = queueRows; RJ.at = Date.now();
+        /* a pick or a block for a row that is gone has nothing left to say */
+        var st = _rjPicks(), live = {}, dirty = false;
+        queueRows.forEach(function (q) { if (q && q.id) live[q.id] = 1; });
+        Object.keys(st.p).forEach(function (k) { if (!live[k]) { delete st.p[k]; dirty = true; } });
+        Object.keys(st.b).forEach(function (k) { if (!live[k]) { delete st.b[k]; dirty = true; } });
+        if (dirty) _rjPicksSave();
+      }
+      if (!receipts.length) return;
+      var retire = [];
+      var retireWith = function (r) { retire.push(r.id); (r._copies || []).forEach(function (id) { retire.push(id); }); };
 
       /* ── queue first ── */
-      var claimedRows = {};
-      if (queueRows && queueRows.length) {
-        receipts.forEach(function (r) {
-          if (r._joined || !r.paid) return;
-          var rDay = _rjDayMs(r.occurred_at);
-          var hits = [];
-          queueRows.forEach(function (q) {
-            if (!q || q._unreadable || q._rcpt || claimedRows[q.id]) return;
-            var x = q.raw_extracted || {};
-            if (x.receipt) return;                       // a receipt row is never a target
-            /* The cash fields are read where EVERY opened row carries them, at
-               the top (fhReadStagedRow, fhStmtAsStaged). Reading the inner copy
-               alone skipped every statement row (spec §21, RC20). */
-            var qDir = q.direction != null ? q.direction : x.direction;
-            var qAmt = q.amount != null ? q.amount : x.amount;
-            if (String(qDir) !== 'debit') return;
-            if (Math.round(Number(qAmt)) !== Math.round(r.paid)) return;
-            var qDay = _rjDayMs(q.occurred_at);
-            if (rDay != null && qDay != null && Math.abs(rDay - qDay) > 1.5 * 864e5) return;
-            var qTail = _rjTail(x.account_masked) || _rjTail(x.card_masked);
-            if (r.tail && qTail && r.tail !== qTail) return;   // veto
-            hits.push({ q: q, tailHit: !!(r.tail && qTail && r.tail === qTail) });
-          });
-          var hit = null;
-          if (hits.length === 1) hit = hits[0].q;
-          else if (hits.length > 1) {
-            var tails = hits.filter(function (h) { return h.tailHit; });
-            if (tails.length === 1) hit = tails[0].q;    // the tail decides
-            else if (!tails.length) {
-              var near = _rjByClock(r.clock, hits, function (h) {
-                return _rjClock(h.q.occurred_at, (h.q.raw_extracted || {}).time_precision);
-              });
-              if (near) hit = near.q;                    // the minute decides; else ambiguity → nothing
-            }
-          }
-          if (!hit) return;
-          claimedRows[hit.id] = true;
-          r._joined = 'queue';
-          _rjConstrain(r._rcpt, (hit.raw_extracted && hit.raw_extracted.node) || null);
-          hit._rcpt = r._rcpt;
-          hit._rcptRowId = r.id;
-          hit._rcptDesc = r._desc || null;
-        });
-      }
+      if (queueRows && queueRows.length) _rjQueuePass(receipts, queueRows);
 
       /* ── ledger second — retroactive, PRIVATE personal expenses only ── */
       var rest = receipts.filter(function (r) { return !r._joined; });
@@ -322,18 +528,36 @@
         try { slice = await fhPersonalMatchSlice() || []; } catch (e) { slice = []; }
         var mult = window.curMult ? curMult() : 1000;
         var claimedLedger = {};
-        for (var ri = 0; ri < rest.length; ri++) {
-          var r2 = rest[ri];
-          var born2 = Date.parse(r2.created_at || '') || 0;
+        var candsOf = function (r2) {
           var rDay2 = _rjDayMs(r2.occurred_at);
-          var cands = slice.filter(function (t) {
+          return slice.filter(function (t) {
             if (t.kind !== 'expense' || t.link || claimedLedger[t.id]) return false;
             if (Math.round(t.amt * mult) !== Math.round(r2.paid)) return false;
             var tDay = _rjDayMs(t.date);
             return !(rDay2 != null && tDay != null && Math.abs(rDay2 - tDay) > 1.5 * 864e5);
           });
-          var clockHit = _rjByClock(r2.clock, cands, _rjLedgerClock);
-          if (cands.length > 1 && clockHit) cands = [clockHit];   // the minute breaks the tie (RC23)
+        };
+        /* The minute, read the same way as in the queue (RC29): the closest
+           row wins when no other row, and no other waiting receipt of this
+           total, is within five minutes of being as close. */
+        var clockPick = function (r2, cands) {
+          if (r2.clock == null) return null;
+          var near = cands.map(function (t) { var k = _rjLedgerClock(t); return k == null ? null : { t: t, dt: Math.abs(k - r2.clock) }; })
+            .filter(function (x) { return x && x.dt <= RJ_CLOCK_WINDOW; }).sort(function (a, b) { return a.dt - b.dt; });
+          if (!near.length) return null;
+          if (near.length > 1 && near[1].dt - near[0].dt < RJ_CLOCK_MARGIN) return null;
+          var rivalK = _rjLedgerClock(near[0].t);
+          var rival = rest.some(function (o) {
+            return o !== r2 && !o._joined && o.clock != null && Math.round(o.paid) === Math.round(r2.paid) && Math.abs(rivalK - o.clock) - near[0].dt < RJ_CLOCK_MARGIN;
+          });
+          return rival ? null : near[0].t;
+        };
+        for (var ri = 0; ri < rest.length; ri++) {
+          var r2 = rest[ri];
+          var born2 = Date.parse(r2.created_at || '') || 0;
+          var cands = candsOf(r2);
+          var clockHit = clockPick(r2, cands);
+          if (cands.length > 1 && clockHit) cands = [clockHit];   // the minute breaks the tie (RC23, RC29)
           if (cands.length !== 1) continue;              // ambiguity (or nothing): attach nothing
           /* What the row already holds decides whether this write is an attach
              or an UPGRADE. A row with a receipt that has no items (a poor read,
@@ -366,7 +590,7 @@
           if (ok) {
             claimedLedger[cands[0].id] = true;
             r2._joined = 'ledger';
-            retire.push(r2.id);
+            retireWith(r2);
           }
         }
       }
@@ -385,7 +609,7 @@
         aged.forEach(function (r) {
           var at = _rjDayMs(r.occurred_at);
           if (hold != null && (at == null || at <= hold + 864e5)) return;   // an unopened statement may still claim it
-          retire.push(r.id);
+          retireWith(r);
         });
       }
 
@@ -399,6 +623,46 @@
        queue. */
     window.fhReceiptJoinQueue = async function (openedRows) {
       try { await _rjRun(openedRows || []); } catch (e) { console.warn('receipt join failed', e); }
+    };
+
+    /* ── a ledger row's own door (RC31) ────────────────────────────────────────
+       The detail screen of an imported private expense may attach a waiting
+       receipt by hand. `t` = { id, date, time, amt (app units), note, who, node }. */
+    /* Opening a detail screen must not re-read every waiting receipt each
+       time: what was opened is kept for two minutes. */
+    var _rjLedgerCache = null;
+    window.fhReceiptOffersLedger = async function (t) {
+      if (!t || !t.id) return [];
+      var receipts;
+      try {
+        if (!_rjLedgerCache || Date.now() - _rjLedgerCache.at > 120e3) _rjLedgerCache = { at: Date.now(), receipts: await _rjLoad() };
+        receipts = _rjLedgerCache.receipts.filter(function (r) { return !r._joined; });
+      } catch (e) { return []; }
+      var mult = window.curMult ? curMult() : 1000;
+      var amt = Math.round(Number(t.amt) * mult), clock = _rjLedgerClock(t), tDay = _rjDayMs(t.date);
+      var names = _rjFold([t.note, t.who].join(' '));
+      var out = [];
+      receipts.forEach(function (r) {
+        var paid = Math.round(r.paid), rDay = _rjDayMs(r.occurred_at);
+        if (rDay != null && tDay != null && Math.abs(rDay - tDay) > 1.5 * 864e5) return;
+        var exact = paid === amt, p = _rjFold(r.provider);
+        if (!exact && !(paid < amt && p.length >= 3 && names.indexOf(p) >= 0)) return;
+        out.push({ id: r.id, provider: r.provider || null, label: (r._rcpt.service_label || r._desc || null), paid: paid, at: r.occurred_at || null,
+          exact: exact, dt: (r.clock != null && clock != null) ? Math.abs(r.clock - clock) : 9e15, _r: r });
+      });
+      out.sort(function (a, b) { return (b.exact - a.exact) || (a.dt - b.dt); });
+      return out.slice(0, 6);
+    };
+    window.fhReceiptAttachLedger = async function (t, offer) {
+      var r = offer && offer._r; if (!t || !r || !window.fhPersonalSetReceipt) return false;
+      var mult = window.curMult ? curMult() : 1000, amt = Math.round(Number(t.amt) * mult), paid = Math.round(r.paid);
+      if (paid < amt) r._rcpt.adjusted = { charged: amt, refunded: amt - paid };
+      _rjConstrain(r._rcpt, t.node || null);
+      var ok = await fhPersonalSetReceipt(t.id, r._rcpt, { upgrade: false });
+      if (!ok) return false;
+      r._joined = 'ledger';
+      if (window.fhStagedRetireIds) { try { await fhStagedRetireIds([r.id].concat(r._copies || [])); } catch (e) { /* next pass retries */ } }
+      return true;
     };
 
     /* Retroactive pass, debounced behind the personal hydrate. No queue rows

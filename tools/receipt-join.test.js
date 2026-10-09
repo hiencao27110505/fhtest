@@ -88,7 +88,7 @@ function rrow(state, id, opts) {
       items: o.items || null,   // items may carry {node, sig} exactly as the worker seals them
       items_total: o.itemsTotal || null, discount: o.discount || null,
       shipping_fee: null, paid: o.paid, paid_with_tail: o.tail || null,
-      service_label: o.label || null, points_discount: o.points || null },
+      service_label: o.label || null, points_discount: o.points || null, tip: o.tip != null ? o.tip : null },
     amount: o.paid, direction: 'debit', time_precision: o.precision || undefined,
   } };
 }
@@ -148,7 +148,8 @@ const freshState = () => ({ receiptRows: [], opened: {}, slice: [], retired: [],
   q1 = qrow('q1', 681700);
   await env.fhReceiptJoinQueue([q1]);
   t('richest copy wins the join', q1._rcptRowId === 'rPay', q1._rcptRowId);
-  t('the poorer twin is retired', st.retired.indexOf('rShip') >= 0, st.retired);
+  t('the poorer twin is NOT deleted on sight (RC28): it waits behind the winner', st.retired.indexOf('rShip') === -1, st.retired);
+  t('...and is handed to the row so the import retires both together', JSON.stringify(q1._rcptCopyIds) === '["rShip"]', q1._rcptCopyIds);
 
   console.log('\n-- item categories: local, refining only, never voting --');
   st = freshState();
@@ -360,7 +361,14 @@ const freshState = () => ({ receiptRows: [], opened: {}, slice: [], retired: [],
   env = makeEnv(st);
   s1 = srow('s1', 40000, '12:23'); s2 = srow('s2', 40000, '12:40');
   await env.fhReceiptJoinQueue([s1, s2]);
-  t('two rows inside the window: still ambiguous, attach nothing', !s1._rcpt && !s2._rcpt);
+  t('two rows inside the window, one a minute away and one sixteen: the minute decides (RC29)', s1._rcptRowId === 'g1' && !s2._rcpt, [s1._rcptRowId, !!s2._rcpt]);
+
+  st = freshState();
+  rrow(st, 'g1', { provider: 'Grab', paid: 40000, at: '2026-10-01T12:24:00+07:00', precision: 'minute' });
+  env = makeEnv(st);
+  s1 = srow('s1', 40000, '12:23'); s2 = srow('s2', 40000, '12:26');
+  await env.fhReceiptJoinQueue([s1, s2]);
+  t('two rows one and two minutes away: no clear winner, attach nothing', !s1._rcpt && !s2._rcpt);
 
   st = freshState();
   rrow(st, 'g1', { provider: 'Grab', paid: 40000, at: '2026-09-30T17:00:00+00:00', precision: 'day' });
@@ -430,6 +438,133 @@ const freshState = () => ({ receiptRows: [], opened: {}, slice: [], retired: [],
   const deep = qrow('qd', 1000 + 449);                      // only the 450th receipt matches it
   await env.fhReceiptJoinQueue([deep]);
   t('the join reads past the first 200 receipts', deep._rcptRowId === 'b449' && st.pages === 3, [deep._rcptRowId, st.pages]);
+
+  /* ═══ 2026-10-09: a morning of Grab rides (spec §22) ═══════════════════════
+     The real shape, from the MoMo statement and the four mails: three 43.000
+     charges (09:18, 09:32, 11:11), an 11.000 refund at 09:18, a 20.000 tip at
+     09:53 and a 47.000 ride at 12:32; receipts for 32.000 (09:18), 43.000
+     (09:32), a 20.000 tip under the 09:32 ride's Booking ID, 43.000 (11:11)
+     and 47.000 (12:32). Statement rows are built by the real shaper. */
+  console.log('\n-- 2026-10-09: the Grab morning (RC27–RC31) --');
+  const day = (id, signed, hhmm, sec, memo) => win77.fhStmtAsStaged(id, { sid: 'S9', provider: 'MoMo', accountKind: 'ewallet', tail: '1217',
+    date: '2026-10-09', time: hhmm, sec: sec || '00', amt: signed, memo: memo || 'GRAB', counterparty: memo ? '' : 'GRAB' });
+  const grabDay = () => {
+    const stg = freshState();
+    const g = (id, paid, at, order, extra) => rrow(stg, id, Object.assign({ provider: 'Grab', paid, at: '2026-10-09T' + at + '+07:00', precision: 'minute', order, label: 'Car 6 chỗ ngồi' }, extra || {}));
+    g('rc0918', 32000, '09:18:00', 'A-9UCONULGWTN3AV', { label: 'Car' });
+    g('rc0932', 43000, '09:32:00', 'A-9UCQUQDWX3LTAV');
+    g('rcTip', 20000, '09:53:00', 'A-9UCQUQDWX3LTAV', { tip: 20000 });
+    g('rc1111', 43000, '11:11:00', 'A-9UD4DB4WW94MAV');
+    g('rc1232', 47000, '12:32:00', 'A-9UD9XXXXXXXXXXX');
+    const rows = { a: day('a0918', -43000, '09:18', '05'), ref: day('ref0918', 11000, '09:18', '40', 'Hoàn tiền giao dịch từ Đối tác MoMo'),
+      b: day('b0932', -43000, '09:32', '30'), tip: day('t0953', -20000, '09:53', '40'), c: day('c1111', -43000, '11:11', '10'), d: day('d1232', -47000, '12:32', '10') };
+    return { stg, rows, list: [rows.a, rows.ref, rows.b, rows.tip, rows.c, rows.d] };
+  };
+  let G = grabDay(); env = makeEnv(G.stg);
+  await env.fhReceiptJoinQueue(G.list);
+  t('RC27: the tip and its ride share a Booking ID and are NOT copies: nothing is retired', G.stg.retired.length === 0, G.stg.retired);
+  t('RC27: the tip takes the 20.000 row and is named a tip', G.rows.tip._rcptRowId === 'rcTip' && G.rows.tip._rcptDesc === 'Grab · Tip tài xế', [G.rows.tip._rcptRowId, G.rows.tip._rcptDesc]);
+  t('RC29: the 09:32 ride takes the 09:32 row, though the 09:18 row is fourteen minutes away', G.rows.b._rcptRowId === 'rc0932' && G.rows.b._rcptHow === 'clock', [G.rows.b._rcptRowId, G.rows.b._rcptHow]);
+  t('RC29: the 11:11 ride takes the 11:11 row', G.rows.c._rcptRowId === 'rc1111');
+  t('a lone amount still joins on amount alone', G.rows.d._rcptRowId === 'rc1232' && G.rows.d._rcptHow === 'amount');
+  t('RC30: the 43.000 charge with an 11.000 refund takes the 32.000 receipt', G.rows.a._rcptRowId === 'rc0918' && G.rows.a._rcptHow === 'net', [G.rows.a._rcptRowId, G.rows.a._rcptHow]);
+  t('RC30: the row says what was charged and what came back, and so does the blob', G.rows.a._rcptAdj && G.rows.a._rcptAdj.charged === 43000 && G.rows.a._rcptAdj.refunded === 11000 && G.rows.a._rcptAdj.refundRowId === 'ref0918'
+    && G.rows.a._rcpt.adjusted.charged === 43000 && G.rows.a._rcpt.adjusted.refunded === 11000, G.rows.a._rcptAdj);
+  t('RC30: the refund row knows which charge it belongs to', G.rows.ref._adjOf === 'a0918' && !G.rows.ref._rcpt);
+  t('every receipt found its row, one each', new Set(G.list.map((q) => q._rcptRowId).filter(Boolean)).size === 5);
+
+  G = grabDay(); env = makeEnv(G.stg);
+  G.stg.receiptRows = G.stg.receiptRows.filter((r) => r.id !== 'rcTip');
+  G.stg.receiptRows.push({ id: 'rc0932b', created_at: new Date().toISOString(), occurred_at: '2026-10-09T09:33:00+07:00', source_provider: 'Grab' });
+  G.stg.opened.rc0932b = JSON.parse(JSON.stringify(G.stg.opened.rc0932)); G.stg.opened.rc0932b.id = 'rc0932b';
+  await env.fhReceiptJoinQueue(G.list);
+  t('a true copy (same Booking ID, same total) still stands behind one winner', G.rows.b._rcptRowId === 'rc0932' && JSON.stringify(G.rows.b._rcptCopyIds) === '["rc0932b"]' && G.stg.retired.length === 0, [G.rows.b._rcptRowId, G.rows.b._rcptCopyIds, G.stg.retired]);
+
+  console.log('\n-- RC30: the net rule refuses what it cannot prove --');
+  G = grabDay(); env = makeEnv(G.stg);
+  let other = day('x0916', -43000, '09:16', '00');                   // a second 43.000 charge two minutes earlier, never matched by a 43.000 receipt
+  G.stg.receiptRows = G.stg.receiptRows.filter((r) => r.id === 'rc0918');
+  await env.fhReceiptJoinQueue([G.rows.a, other, G.rows.ref]);
+  t('two charges could be the adjusted one: attach nothing', !G.rows.a._rcpt && !other._rcpt && !G.rows.ref._adjOf);
+  G = grabDay(); env = makeEnv(G.stg);
+  G.stg.receiptRows = G.stg.receiptRows.filter((r) => r.id === 'rc0918');
+  let vcb = win77.fhStmtAsStaged('v1', { sid: 'S8', provider: 'Vietcombank', accountKind: 'bank', tail: '2279', date: '2026-10-09', time: '09:18', sec: '30', amt: 11000, memo: 'hoan tien' });
+  await env.fhReceiptJoinQueue([G.rows.a, vcb]);
+  t('a refund into ANOTHER account proves nothing', !G.rows.a._rcpt);
+  G = grabDay(); env = makeEnv(G.stg);
+  G.stg.receiptRows = G.stg.receiptRows.filter((r) => r.id === 'rc0918');
+  let lateRef = day('ref1130', 11000, '11:30', '00', 'Hoàn tiền');
+  await env.fhReceiptJoinQueue([G.rows.a, lateRef]);
+  t('a refund two hours after the receipt was sent proves nothing', !G.rows.a._rcpt);
+  G = grabDay(); env = makeEnv(G.stg);
+  let hold = day('h0850', -43000, '08:50', '00');                   // the hold placed at booking, the refund at trip end
+  G.stg.receiptRows = G.stg.receiptRows.filter((r) => r.id === 'rc0918');
+  await env.fhReceiptJoinQueue([hold, G.rows.ref]);
+  t('a hold placed half an hour before its refund is still the charge', hold._rcptRowId === 'rc0918' && hold._rcptHow === 'net');
+
+  console.log('\n-- RC31: what the person settles --');
+  G = grabDay(); env = makeEnv(G.stg);
+  G.stg.receiptRows = G.stg.receiptRows.filter((r) => r.id === 'rc0918');
+  await env.fhReceiptJoinQueue([G.rows.a]);                          // no refund row on screen: the rules cannot prove it
+  t('the rules attach nothing without the refund row', !G.rows.a._rcpt);
+  let off = env.fhReceiptOffers('a0918');
+  t('...but the 32.000 Grab receipt is OFFERED on the GRAB row (smaller total, provider named)', off.length === 1 && off[0].id === 'rc0918' && off[0].exact === false && off[0].paid === 32000, off);
+  t('a pick attaches it and records the difference', env.fhReceiptAttach('a0918', 'rc0918') === true && G.rows.a._rcptHow === 'pick' && G.rows.a._rcptAdj.refunded === 11000);
+  t('...and the offer is gone once attached', env.fhReceiptOffers('a0918').length === 0);
+  t('a detach takes it off and it is offered again, marked as declined', env.fhReceiptDetach('a0918') === true && !G.rows.a._rcpt && env.fhReceiptOffers('a0918')[0].said === true);
+  t('nothing was retired or written by a pick or a detach', G.stg.retired.length === 0 && G.stg.attached.length === 0);
+
+  G = grabDay(); env = makeEnv(G.stg);
+  await env.fhReceiptJoinQueue(G.list);
+  env.fhReceiptDetach('b0932');                                       // "the 09:32 receipt is not this row's"
+  t('"not this one" is respected: the rules do not put it back', G.rows.b._rcptRowId !== 'rc0932');
+  t('...and rows the block does not touch keep what they had', G.rows.c._rcptRowId === 'rc1111' && G.rows.tip._rcptRowId === 'rcTip' && G.rows.d._rcptRowId === 'rc1232');
+  t('...and no receipt sits on two rows', (() => { const ids = G.list.map((q) => q._rcptRowId).filter(Boolean); return new Set(ids).size === ids.length; })());
+  await env.fhReceiptJoinQueue(G.list.map((q) => { const c = Object.assign({}, q); delete c._rcpt; delete c._rcptRowId; return c; }));
+  t('the block outlives a reopened queue', true === !env.fhReceiptOffers('b0932').some((o) => o.id === 'rc0932' && !o.said));
+  let offUnnamed = (() => { const q = qrow('plain', 43000, '2026-10-09T02:20:00+00:00'); return q; })();
+  G = grabDay(); env = makeEnv(G.stg);
+  G.stg.receiptRows = G.stg.receiptRows.filter((r) => r.id === 'rc0918');
+  await env.fhReceiptJoinQueue([offUnnamed]);
+  t('a smaller receipt is never offered to a row that does not name its provider', env.fhReceiptOffers('plain').length === 0);
+
+  console.log('\n-- RC31: a ledger row attaches a waiting receipt by hand --');
+  G = grabDay(); env = makeEnv(G.stg);
+  G.stg.receiptRows = G.stg.receiptRows.filter((r) => r.id === 'rc0918' || r.id === 'rc1111');
+  let lrow = { id: 'L1', date: '2026-10-09', time: '09:18', amt: 43, note: 'GRAB', who: 'GRAB', node: null };
+  let lo = await env.fhReceiptOffersLedger(lrow);
+  t('offers: the exact 43.000 first, then the smaller Grab one', lo.length === 2 && lo[0].id === 'rc1111' && lo[1].id === 'rc0918', lo.map((o) => o.id));
+  t('attaching writes the blob with the difference and retires the receipt', (await env.fhReceiptAttachLedger(lrow, lo[1])) === true
+    && G.stg.attached[0].id === 'L1' && G.stg.attached[0].rc.adjusted.refunded === 11000 && G.stg.retired.indexOf('rc0918') >= 0, [G.stg.attached, G.stg.retired]);
+
+  console.log('\n-- RC29 on the ledger: the minute, with a margin --');
+  st = freshState();
+  rrow(st, 'g1', { provider: 'Grab', paid: 43000, at: '2026-10-09T09:32:00+07:00', precision: 'minute', created: new Date().toISOString() });
+  st.slice = [{ id: 'L1', kind: 'expense', amt: 43, date: '2026-10-09', time: '09:18' }, { id: 'L2', kind: 'expense', amt: 43, date: '2026-10-09', time: '09:32' }];
+  env = makeEnv(st);
+  await env.fhReceiptJoinQueue([]);
+  t('two booked rows fourteen minutes apart: the receipt takes the one in its minute', st.attached.length === 1 && st.attached[0].id === 'L2', st.attached.map((a) => a.id));
+  st = freshState();
+  rrow(st, 'g1', { provider: 'Grab', paid: 43000, at: '2026-10-09T09:32:00+07:00', precision: 'minute' });
+  st.slice = [{ id: 'L1', kind: 'expense', amt: 43, date: '2026-10-09', time: '09:30' }, { id: 'L2', kind: 'expense', amt: 43, date: '2026-10-09', time: '09:33' }];
+  env = makeEnv(st);
+  await env.fhReceiptJoinQueue([]);
+  t('two booked rows a minute and two away: nothing', st.attached.length === 0);
+
+  console.log('\n-- wiring: the import, the card, the detail screen (RC28, RC30, RC31) --');
+  {
+    const rd = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
+    const S72 = rd('src/js-data/72-txn-review.js'), S56 = rd('src/js-ui/56-csv-import-ui.js'), S61 = rd('src/js-ui/61-expense-detail.js'), S19 = rd('src/js-data/19-personal.js');
+    t('RC28: the import retires a receipt\'s copies together with it', /pr\._rcptRowId && pr\._rcptCopyIds\) \|\| \[\]\)\.forEach\(function \(cid\) \{ if \(ids\.indexOf\(cid\) === -1\) ids\.push\(cid\); \}\)/.test(S72));
+    t('the bank\'s own words are kept beside the receipt\'s', /r\._descBank = description; description = r\._rcptDesc; r\._descRc = description;/.test(S72) && /window\.fhRcDescApplies = function/.test(S72));
+    t('RC31: the card offers a pick only when a receipt is waiting', /if\(_rcOffers\.length\) rows \+= row\('rcpt'/.test(S56) && /if\(f==='rcpt'\)\{ csvRcAttach\(v\); return; \}/.test(S56));
+    t('RC31: a declined receipt is not mentioned again on the closed card', /fhReceiptOffers\(_rjRow\.id\)\.filter\(function\(o\)\{ return !o\.said; \}\)/.test(S56));
+    t('RC31: taking a receipt off gives the card its bank words back, never a typed note', /if\(c\.description === row\._descRc\) c\.description = row\._descBank \|\| '';/.test(S56));
+    t('RC30: the closed card and the open card both say charged, refunded, paid', /Thực trả '\+csvFmt\(_rj\.paid\)\+', đã hoàn '/.test(S56) && /Đã trừ '\+csvFmt\(_rj2\.adjusted\.charged\)\+', hoàn '/.test(S56));
+    t('RC30: the refund card names its charge', /_rjRow\._adjOf && _rjRow\._adjInfo/.test(S56));
+    t('RC31: the detail screen attaches a waiting receipt and takes one off in two taps', /_pexdOfferLoad\(t\)/.test(S61) && /fhReceiptAttachLedger\(o\.t, o\.list\[i\]\)/.test(S61) && /if\(!_pexdRcOffArmed\)\{/.test(S61) && /fhPersonalClearReceipt\(id\)/.test(S61));
+    t('RC31: taking a receipt off a ledger row touches one column of a private row', /update\(\{ receipt_enc: null \}\)\s*\.eq\('id', id\)\.eq\('owner_user_id', P\.uid\)\.is\('link_id', null\)/.test(S19));
+  }
 
   if (failed) { console.log('\n' + failed + ' FAILED'); process.exit(1); }
   console.log('\nall passed');

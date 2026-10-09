@@ -529,6 +529,11 @@ export function readGrabReceipt(text, subject, internalDate) {
      the "Points earned" block further down, over "+100 points", which is not
      money and does not parse as an amount, so the first hit is the right one. */
   const coins = under(/^(?:GrabCoins|GrabRewards|Điểm thưởng)\b/i);
+  /* A tip is its own payment, sent in its own mail under the RIDE's Booking
+     ID ("Thanks! Your tip goes a long way for your driver."), with one line in
+     the breakdown: "Tip 20.000". Read so the device can tell the two payments
+     of one booking apart and name this one (receipt-enrichment-spec RC27). */
+  const tip = under(/^(?:Tip|Tiền tip|Tiền boa|Tiền thưởng tài xế)\b/i);
   const booking = _tidyStr(_findVal(lines, /^(?:Booking ID|Mã chuyến)\s*:?/i));
   const food = /grabfood|đơn hàng|delivery/i.test(t);
   const when = adoptSendTime(
@@ -543,6 +548,7 @@ export function readGrabReceipt(text, subject, internalDate) {
     paid, paid_with_tail: cardTail(t), _when: when,
     service_label: grabServiceLabel(lines),
     points_discount: (coins != null && coins > 0 && coins < (fare || Infinity)) ? coins : null,
+    tip: (tip != null && tip > 0 && tip <= paid) ? tip : null,
   };
 }
 

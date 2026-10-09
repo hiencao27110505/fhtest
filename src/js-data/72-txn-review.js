@@ -401,6 +401,16 @@
     'giao dich the', 'giao dich the ghi no', 'giao dich the tin dung',
     'thanh toan dich vu', 'nap tien dien thoai',
   ];
+  /* May a joined receipt's description stand in for this text on this row?
+     The one rule, for the load above and for a receipt attached by hand on the
+     card (56 csvRcSyncDesc): only an answer nobody wrote is replaced. */
+  window.fhRcDescApplies = function (text, row) {
+    var n = function (s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
+    var t = String(text || '').trim();
+    if (!t || _bankGenericMemo(t)) return true;
+    var prov = row && row._rcpt && row._rcpt.provider, cp = row && row.counterparty;
+    return (!!n(t) && n(t) === n(prov)) || (!!n(t) && n(t) === n(cp));
+  };
   function _bankGenericMemo(s) {
     if (!s) return false;
     var flat = String(s).normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -503,8 +513,10 @@
         var n = function (s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
         return !!n(a) && n(a) === n(b);
       };
+      /* What the bank said is kept beside what the receipt said, so a receipt
+         taken off the card by hand gives the card its own words back (RC31). */
       if (r._rcptDesc && (!tidied || _bankGenericMemo(tidied)
-          || _rcSame(tidied, r._rcpt && r._rcpt.provider) || _rcSame(tidied, r.counterparty))) description = r._rcptDesc;
+          || _rcSame(tidied, r._rcpt && r._rcpt.provider) || _rcSame(tidied, r.counterparty))) { r._descBank = description; description = r._rcptDesc; r._descRc = description; }
       /* Foreign-currency rows carry the ESTIMATED VND into the amount cell, so
          every downstream reader — totals, the write, csvBaseAmt — works in VND
          and never mistakes "$111" for 111đ. The foreign original stays visible
@@ -2273,6 +2285,9 @@
     picked.forEach(function (pc) {
       var pr = (pc && typeof pc.rowIndex === 'number') ? srows[pc.rowIndex] : null;
       if (pr && pr._rcptRowId && ids.indexOf(pr._rcptRowId) === -1) ids.push(pr._rcptRowId);
+      /* RC28: copies of the same payment waited behind the receipt that won;
+         they leave with it, and only now. */
+      ((pr && pr._rcptRowId && pr._rcptCopyIds) || []).forEach(function (cid) { if (ids.indexOf(cid) === -1) ids.push(cid); });
     });
     /* Written but unmapped is a BUG, never a quiet exit. Until 2026-09-30 this
        returned early on an empty id list — placed AFTER the ledger writes, so a

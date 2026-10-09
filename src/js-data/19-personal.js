@@ -1066,6 +1066,21 @@
       try { await window.fhPersonalHydrate(); } catch (e) {}
       return true;
     };
+    /* Take the receipt OFF a private row (receipt-enrichment-spec RC31): the
+       person says it is not this purchase's. One column, like the attach; the
+       note, category, amount and date are not touched. The receipt is gone
+       from the ledger after this (its staged row retired when it attached). */
+    window.fhPersonalClearReceipt = async function (id) {
+      if (!P.uid || !P.key || !id) return false;
+      const r = await _sb().from('personal_transactions').update({ receipt_enc: null })
+        .eq('id', id).eq('owner_user_id', P.uid).is('link_id', null).select('id');
+      if (r.error) { console.warn('personal receipt detach failed', r.error); return false; }
+      if (!(r.data && r.data.length)) return false;
+      window.fhPersonalMatchSliceInvalidate && window.fhPersonalMatchSliceInvalidate();
+      _recurDrop(id);
+      try { await window.fhPersonalHydrate(); } catch (e) {}
+      return true;
+    };
     /* The blob back, decrypted on demand — the detail screen's read. The
        hydrate never decrypts receipts (a list needs presence, not contents).
        Fail-closed: unreadable ciphertext returns the string '_unreadable', so

@@ -689,6 +689,11 @@ From the design interview, 2026-09-29.
 | RC24 | **An order-level receipt still answers "chi cho gì":** "<Provider> · <service name>". It may replace a note that is empty, a bank's generic phrase, or only the merchant's own name; any other note stands. Never on retroactive writes (RC13 unchanged). |
 | RC25 | *(2026-10-01)* **Grace waits for unopened statements.** An unmatched receipt is not retired while a `pending` statement file, received on or after the receipt's day (one day of slack), is still unopened: its rows are the likeliest home for the receipt and they do not exist until the person taps. Fail-safe: if the check cannot be answered, nothing retires. Bounded by the statement's own 90-day expiry. An `expired` card holds nothing: its file is gone, and a hand-picked file is an import like any other. |
 | RC26 | **The join sees every pending receipt**, paged 200 at a time up to 2.000, newest first. |
+| RC27 | *(2026-10-09, §22)* **A copy is the same order AND the same paid total.** A tip mail carries its ride's Booking ID and is a different payment. The reader seals `tip` when the mail prints one, and a receipt whose tip is its whole total is named "Grab · Tip tài xế". Amends RC11. |
+| RC28 | **A copy is never deleted on sight.** It waits behind the receipt that stands for it and retires only when that one does: on import, on a ledger attach, or when it ages out. A wrong copy call can therefore still be undone by the next pass. |
+| RC29 | **The minute decides, with a margin.** Among rows of one amount, receipts and rows are paired closest-first, and a pair is taken only when no other row for that receipt and no other receipt for that row is within five minutes of being as close. A receipt contested by another waiting receipt no longer wins a row just by being read first. Replaces "exactly one within 30 minutes" (RC23). |
+| RC30 | **A charge later adjusted still finds its receipt.** When a receipt's total equals no row, a charge minus a refund from the same account may: the refund within 30 minutes of the receipt, the charge from 90 minutes before the refund to 10 after, clocks on all three, and exactly one such pair. The receipt attaches to the charge, the blob records `adjusted {charged, refunded}`, and the refund card names its charge. Amends RC10's "exact amount only". |
+| RC31 | **What the rules cannot settle, the person can.** A waiting receipt that fits a row (the exact total, or a smaller total from a provider the row names) is offered on the card and on a ledger row's detail screen. A pick and a "not this one" are remembered on the device by row id and receipt id. A receipt can be taken off a card (nothing is deleted) or off a ledger row (two taps; the receipt is then gone). |
 
 ## 20. Item categorisation — the signature ladder (Phase 2)
 
@@ -833,6 +838,87 @@ consent v6, nothing notifies. A receipt staged before this build keeps its
 old reading: it now joins (cause 1 is device-side), but shows no service name
 or GrabCoins until its mail is re-read (the §Part 4 recovery recipe of
 2026-09-29).
+
+## 22. One booking, several payments (2026-10-09)
+
+On 2026-10-09 the test account imported a MoMo statement with five Grab
+charges and had four Grab receipts in the mailbox. Two charges got no
+receipt, and one receipt was deleted.
+
+| MoMo row | Mail | What happened | Cause |
+|---|---|---|---|
+| 09:18, 43.000 | 09:18, Total Paid 32.000 | no link | MoMo took 43.000 and refunded 11.000 in the same minute; the receipt states the net |
+| 09:32, 43.000 | 09:32, 43.000 | no link, receipt deleted | the 09:53 tip mail carries the same Booking ID; the two were read as copies and one was retired |
+| 09:53, 20.000 | 09:53, tip 20.000 | linked | one row at that amount |
+| 11:11, 43.000 | 11:11, 43.000 | waiting | three rows at 43.000 |
+
+The server shows it exactly: the 09:32 mail's staged row was deleted at
+09:55:29, seventy-nine seconds after the tip mail was staged, and its Gmail
+id sits in `resolved_email_messages`, so the worker will not read it again.
+Had it survived, it would still have found no row: the 09:18 and 09:32
+charges are fourteen minutes apart and RC23 took a row only when it was the
+one row within thirty minutes.
+
+MoMo's statement prints its own transaction code and a time to the second,
+and no Grab booking code, so there is no shared key to join on. The times are
+the evidence: all five mails were sent in the same minute as their charge.
+
+### 22.1 What changed
+
+**Copies (RC27, RC28).** The collapse key is `provider | order id | paid`.
+Copies are kept: the richest stands for the payment, the others ride with it
+as `_copies` and are retired with it. `fhPromoteStaged` retires
+`_rcptCopyIds` beside `_rcptRowId`.
+
+**The minute (RC29).** The queue pass settles one pair at a time and looks
+again, so a row claimed by a clear pair narrows the others' choices. In
+order: a unique card-tail hit; a single fitting row that no other waiting
+receipt wants; then clock pairs, closest first, each taken only with a
+five-minute margin over every rival pair that shares its receipt or its row.
+The ledger pass reads the minute the same way.
+
+**Net (RC30).** Runs after the exact pass, for receipts with no row at their
+total. A refund into another account, a refund hours later, or two charges
+that could both be the adjusted one, attach nothing.
+
+**By hand (RC31).** `fhReceiptOffers(rowId)`, `fhReceiptAttach(rowId,
+receiptId)` and `fhReceiptDetach(rowId)` work on what the last pass opened
+and re-settle in memory. Nothing is written or retired until import. On the
+card: a quiet line "Có hoá đơn Grab chưa gắn" when closed; when open, a
+"Hoá đơn" row that opens the picker, or "Gỡ" on an attached receipt's own
+header. The card's description follows: a receipt's words stand in only for
+an answer nobody wrote, and the bank's words come back when it leaves. On a
+ledger row: the detail screen lists waiting receipts with "Gắn vào khoản
+này", and an attached receipt has "Gỡ hoá đơn" under it.
+
+**The tip (RC27).** `readGrabReceipt` reads the "Tip" line into `tip`
+(contract key, nullable, `PAYLOAD_V` unchanged). This part needs a
+`mailbox-sync` deploy to reach new mail. The device rules above do not
+depend on it; only the name "Grab · Tip tài xế" does.
+
+### 22.2 Limits
+
+- The deleted 09:32 receipt stays deleted until its row in
+  `resolved_email_messages` is removed and the mailbox is read again.
+- A hold placed more than 90 minutes before its refund is not paired; the
+  receipt is offered on the charge instead.
+- Net matching runs in the queue only. A charge and refund imported before
+  the receipt arrived are joined by hand on the detail screen.
+- A receipt taken off a ledger row is discarded: its staged row retired when
+  it attached, and the mail is not read twice.
+- Picks and blocks live in this device's storage. Another device settles by
+  the rules alone.
+
+### 22.3 Tests
+
+`tools/receipt-join.test.js` gains the morning itself, built with the real
+statement shaper: all five receipts find their rows, one each, nothing
+retired; a true copy still stands behind one winner; the net rule's four
+refusals; offers, pick, detach, and a block that outlives a reopened queue;
+the ledger's attach by hand; the ledger's minute with a margin; and the
+wiring in the import, the card and the detail screen.
+`pipeline/receipt-reader.test.js` reads the real tip mail;
+`pipeline/receipt-contract.test.js` pins the `tip` key.
 
 ## 19. Related documents
 

@@ -804,6 +804,10 @@ button.csv-srow:active{background:var(--surface)}
 .csv-rc{margin:12px 2px 2px;padding:10px 12px;background:var(--surface);border:1px solid var(--divider);border-radius:12px}
 .csv-rc-h{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
 .csv-rc-h svg{width:14px;height:14px;flex:none}
+/* RC31: "Gỡ" at the end of the receipt's own header. The hit area is 44px
+   tall through negative margins, so the header keeps its height. */
+.csv-rc-off{margin:-15px -8px -15px auto;padding:15px 8px;background:none;border:0;font:inherit;font-size:12px;font-weight:600;letter-spacing:-.01em;text-transform:none;color:var(--brand-ink);cursor:pointer;flex:none}
+.csv-rc-off:active{opacity:.6}
 .csv-rc-h .csv-rc-src{font-weight:500;text-transform:none;letter-spacing:-.01em;color:var(--muted-soft);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .csv-rc-it{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px;letter-spacing:-.01em}
 .csv-rc-it+.csv-rc-it{border-top:1px solid var(--divider)}

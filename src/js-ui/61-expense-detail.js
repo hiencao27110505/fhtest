@@ -823,6 +823,10 @@ function renderPersonalTxDetail(){
        open only (the hydrate carries presence, never contents). A placeholder
        fills in when the blob arrives; unreadable says so instead of nothing. */
     if(t.hasReceipt){ html+='<div id="pexd-receipt"></div>'; _pexdReceiptLoad(t.id); }
+    /* RC31: a private expense with no receipt may have one waiting that the
+       rules could not place. Asked on this open only; nothing shows unless a
+       receipt fits. */
+    else if(k==='expense' && !t.spaceId && !t.linkId){ html+='<div id="pexd-receipt"></div>'; _pexdOfferLoad(t); }
     if(ph.length) html+=_exdSecH('Ảnh', ph.length)+'<div class="exd-photos">'+ph.map(function(src){ return '<div class="exd-photo" style="background-image:url('+src+')"></div>'; }).join('')+'</div>';
     html+=_pexdCtxHTML(E);
     if(k==='adjust') html+='<button type="button" class="exd-del" id="pexd-del" onclick="pexdDelete()">'+_pexdDelLbl(E)+'</button>';
@@ -944,6 +948,9 @@ function _pexdReceiptHTML(rc){
      voucher line always earns its place, because the gap between what the shop
      charged and what left the account is stated nowhere else. */
   var math=[];
+  /* RC30: the account was charged more and part came back. Both lines are
+     said, so the paid figure and the row's own amount explain each other. */
+  if(rc.adjusted && rc.adjusted.refunded>0){ math.push(['Đã trừ', money(rc.adjusted.charged), '']); math.push(['Hoàn lại', '\u2212'+money(rc.adjusted.refunded), 'good']); }
   if(rc.items_total!=null && rc.items_total!==rc.paid) math.push(['Tổng tiền', money(rc.items_total), '']);
   if(rc.discount) math.push(['Voucher/giảm giá', '\u2212'+money(rc.discount), 'good']);
   if(rc.points_discount) math.push([rc.provider==='Grab'?'GrabCoins':L('Điểm thưởng','Points'), '\u2212'+money(rc.points_discount), 'good']);
@@ -956,8 +963,74 @@ function _pexdReceiptHTML(rc){
     }).join('')+'</div>';
   }
   h+='</div>';
+  /* RC31: not this purchase's receipt? Low-prominence, two taps (DESIGN §7:
+     destructive is quiet and confirmed). */
+  h+='<button type="button" class="pexd-rc-off" id="pexd-rc-off" onclick="pexdRcDetach()">'+esc(L('Gỡ hoá đơn','Remove receipt'))+'</button>';
   return h;
 }
+
+/* ── RC31: attach a waiting receipt, or take one off, by hand ─────────────── */
+var _pexdOffers=null, _pexdRcOffArmed=false, _pexdRcOffT=null;
+/* "09:18" on the Vietnamese wall clock, or "09/10" when the receipt states only a day. */
+function _pexdRcWhen(iso){
+  var ms=Date.parse(iso||''); if(!isFinite(ms)) return '';
+  var d=new Date(ms+7*3600e3), p2=function(n){ return ('0'+n).slice(-2); };
+  return (ms%864e5===0) ? (p2(d.getUTCDate())+'/'+p2(d.getUTCMonth()+1)) : (p2(d.getUTCHours())+':'+p2(d.getUTCMinutes()));
+}
+async function _pexdOfferLoad(t){
+  _pexdOffers=null;
+  if(!window.fhReceiptOffersLedger) return;
+  var id=t.id, offers=[];
+  try{ offers=await fhReceiptOffersLedger({ id:t.id, date:t.date, time:t.time||'', amt:t.amt||0, note:t.note||'', who:t.who||'', node:t.node||null }); }catch(e){ offers=[]; }
+  var host=document.getElementById('pexd-receipt');
+  if(!host || _pexdId!==id) return;                        // screen moved on while reading
+  if(!offers.length){ host.innerHTML=''; return; }
+  _pexdOffers={ id:id, t:t, list:offers };
+  var money=function(n){ return fmt(Number(n||0)/(typeof curMult==='function'?curMult():1000)); };
+  var h=_exdSecH('Hoá đơn','')+'<div class="exd-meta pexd-rc">'
+    +'<div class="pexd-rc-head">'+esc(L('Có hoá đơn chưa gắn với khoản nào','A receipt is waiting for its transaction'))+'</div>';
+  offers.forEach(function(o, i){
+    var prov=String(o.provider||''), lbl=String(o.label||'');
+    if(prov && lbl.toLowerCase().indexOf(prov.toLowerCase())===0) prov='';
+    h+='<div class="pexd-rc-item"><div class="pexd-rc-main">'
+      +'<span class="pexd-rc-name">'+esc([prov,lbl].filter(Boolean).join(' \u00b7 ')||L('Hoá đơn','Receipt'))+'</span>'
+      +'<span class="pexd-rc-amt num">'+esc(money(o.paid))+'</span></div>'
+      +'<div class="pexd-rc-meta"><span class="pexd-rc-var">'+esc(_pexdRcWhen(o.at))+'</span>'
+      +'<button type="button" class="pexd-rc-cat pexd-rc-take" onclick="pexdRcAttach('+i+')">'+esc(L('Gắn vào khoản này','Attach to this'))+'</button></div></div>';
+  });
+  host.innerHTML=h+'</div>';
+}
+async function pexdRcAttach(i){
+  var o=_pexdOffers; if(!o || o.id!==_pexdId || !o.list[i] || !window.fhReceiptAttachLedger) return;
+  var ok=false;
+  try{ ok=await fhReceiptAttachLedger(o.t, o.list[i]); }catch(e){ ok=false; }
+  if(!ok){ toast(L('Chưa gắn được, thử lại','Could not attach, try again')); return; }
+  _pexdOffers=null;
+  toast(L('Đã gắn hoá đơn','Receipt attached'));
+  if(_pexdId===o.id) renderPersonalTxDetail();
+}
+function _pexdRcOffReset(){
+  _pexdRcOffArmed=false; clearTimeout(_pexdRcOffT);
+  var b=document.getElementById('pexd-rc-off'); if(b){ b.classList.remove('armed'); b.textContent=L('Gỡ hoá đơn','Remove receipt'); }
+}
+async function pexdRcDetach(){
+  var b=document.getElementById('pexd-rc-off'), id=_pexdId;
+  if(id==null || !window.fhPersonalClearReceipt) return;
+  if(!_pexdRcOffArmed){
+    _pexdRcOffArmed=true; if(b){ b.classList.add('armed'); b.textContent=L('Chạm lần nữa để gỡ','Tap again to remove'); }
+    clearTimeout(_pexdRcOffT); _pexdRcOffT=setTimeout(_pexdRcOffReset,3000); return;
+  }
+  _pexdRcOffReset();
+  if(b) b.disabled=true;
+  var ok=false;
+  try{ ok=await fhPersonalClearReceipt(id); }catch(e){ ok=false; }
+  if(b) b.disabled=false;
+  if(!ok){ toast(L('Chưa gỡ được, thử lại','Could not remove, try again')); return; }
+  _pexdRcCache=null;
+  toast(L('Đã gỡ hoá đơn','Receipt removed'));
+  if(_pexdId===id) renderPersonalTxDetail();
+}
+window.pexdRcAttach=pexdRcAttach; window.pexdRcDetach=pexdRcDetach;
 
 /* "hàng tháng" / "hàng năm" / "hàng tuần" for a receipt's billing period. */
 function _pexdPeriodVi(p){ return p==='year' ? L('hàng năm','yearly') : p==='week' ? L('hàng tuần','weekly') : L('hàng tháng','monthly'); }

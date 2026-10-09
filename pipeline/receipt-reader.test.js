@@ -446,6 +446,26 @@ const geminiFetch = (answer) => async (u, init) => {
   t('every receipt domain has subject terms (an unfiltered domain never enters)',
     SN.RECEIPT_DOMAINS.every((d) => (SN.RECEIPT_SUBJECTS[d] || []).length > 0));
 
+  /* receipt-enrichment-spec RC27: the tip mail of 2026-10-09, laid out as
+     Gmail renders it. It carries the RIDE's Booking ID and the ride's own
+     product name, and it is a separate 20.000 payment. */
+  console.log('\n-- the Grab reader: a tip is its own payment (RC27) --');
+  const TIP_MAIL = [
+    'Car 6 chỗ ngồi', '', 'Thanks! Your tip goes a long way for your driver.', '09 Oct 26 09:20 +0700', '',
+    'Total Paid', '', '20.000 ₫', '',
+    'Tip', '20.000',
+    'From: Nguyễn Khắc Viện, Tan My Ward, Ho Chi Minh City, 70000, Vietnam',
+    'To: 348 Nguyen Van Linh St., Tan Thuan Ward, Ho Chi Minh City, 70000, Vietnam',
+    'Date: 09 Oct 26 09:20 +0700', 'Booking ID: A-9UCQUQDWX3LTAV', '',
+    'Total Paid', '20.000', '100% goes to your driver.', '',
+    'Issued by driver', 'Nguyễn Bá Hiệp', 'Issued to', 'Hien Cao', 'Profile', 'PERSONAL', 'Paid by', 'MoMo', '20.000',
+  ].join('\n');
+  const gt = R.readGrabReceipt(TIP_MAIL, 'Your Grab E-Receipt', Date.parse('2026-10-09T09:53:42+07:00'));
+  t('the tip is read, and it is the whole payment', gt && gt.tip === 20000 && gt.paid === 20000, gt && [gt.tip, gt.paid]);
+  t('it keeps the ride\'s Booking ID (which is why the id alone cannot mean "same payment")', gt.order_id === 'A-9UCQUQDWX3LTAV', gt.order_id);
+  t('still no items, and no address in any field', gt.items === null && !/Nguy|Linh|Ward/.test(JSON.stringify(gt)), JSON.stringify(gt));
+  t('an ordinary ride prints no tip', R.readGrabReceipt(GRAB_RECEIPT, 'Your Grab E-Receipt').tip === null);
+
   if (failed) { console.log('\n' + failed + ' FAILED'); process.exit(1); }
   console.log('\nall passed');
 })().catch((e) => { console.error(e); process.exit(1); });
