@@ -125,7 +125,7 @@ const nodeCrypto = require('crypto');
     let parses = 0;
     new Function('window', 'CSV_MCC_CONCEPT', 'L', '_esc', '_escAttr', '_rpc', 'localStorage', 'sessionStorage', 'document', 'crypto', 'fhParseXlsxBuffer', 'csvFmt', 'indexedDB',
       SRC)(
-      window, {}, (vi) => vi, (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;'), (s) => String(s), async (fn, args) => { calls.rpc.push({ fn, args }); return 0; },
+      window, {}, (vi) => vi, (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;'), (s) => String(s), async (fn, args) => { calls.rpc.push({ fn, args }); if (opts.rpcFail && fn === 'stage_statement_rows') throw new Error('net'); return 0; },
       { _m: {}, getItem(k) { return this._m[k] || null; }, setItem(k, v) { this._m[k] = v; }, removeItem(k) { delete this._m[k]; } }, { setItem() {} }, doc, nodeCrypto.webcrypto,
       async () => { parses++; return GRID; }, (n) => Math.round(n).toLocaleString('vi-VN') + 'đ', opts.idb);
     return { window, doc, calls, parses: () => parses };
@@ -135,16 +135,20 @@ const nodeCrypto = require('crypto');
   console.log('\n-- C4. the grid is kept by file hash --');
   const idb = fakeIDB();
   const files = [mkFile('w1', 'm1', 'MoMo', 'Sao kê lịch sử giao dịch', { period_from: '2026-06-20', period_to: '2026-09-18' }), mkFile('c1', 'm2', 'VIB', 'SAO KE THE', { period_month: '2026-09' })];
-  let A = boot({ files, idb });
+  /* Since S30 a tap that reads and proves goes straight on to the write, and a
+     statement that is written leaves the cache. What still reaches the cache
+     and stays there is a statement whose flow STOPPED after the read: a column
+     check put off with "Để sau", or, as here, a write that did not land. */
+  let A = boot({ files, idb, rpcFail: true });
   await A.window.fhStmtLoad();
   await A.window.fhStmtOpen('w1');
   let html = A.doc.el('csv-result').innerHTML;
-  t('first open: downloads, unseals, reads the table, shows the summary', A.calls.downloads === 1 && A.parses() === 1 && /csv-unlock-title">13 giao dịch</.test(html), { d: A.calls.downloads, p: A.parses() });
+  t('first open: downloads, unseals, reads the table, and stops on the write that failed', A.calls.downloads === 1 && A.parses() === 1 && /Chưa lưu được/.test(html), { d: A.calls.downloads, p: A.parses() });
   t('the grid is now cached under the file hash', A.window.fhStmtGridCached(sha) === true);
   A.window.fhStmtCancel();
   await A.window.fhStmtOpen('w1');
   html = A.doc.el('csv-result').innerHTML;
-  t('"Để sau" then re-open: no download, no parse, summary shown at once', A.calls.downloads === 1 && A.parses() === 1 && /csv-unlock-title">13 giao dịch</.test(html), { d: A.calls.downloads, p: A.parses() });
+  t('"Để sau" then re-open: no download, no parse, straight back to the write', A.calls.downloads === 1 && A.parses() === 1 && A.calls.rpc.filter((c) => c.fn === 'stage_statement_rows').length === 2, { d: A.calls.downloads, p: A.parses() });
   A.window.fhStmtCancel();
   await A.window.fhStmtOpen('w1');
   t('a third tap is still free', A.calls.downloads === 1 && A.parses() === 1);
@@ -157,19 +161,18 @@ const nodeCrypto = require('crypto');
   let B = boot({ files, idb });
   await B.window.fhStmtLoad();
   await B.window.fhStmtOpen('w1');
-  html = B.doc.el('csv-result').innerHTML;
-  t('a new session finds the sealed grid: no download at all', B.calls.downloads === 0 && B.parses() === 0 && /csv-unlock-title">13 giao dịch</.test(html), { d: B.calls.downloads, p: B.parses() });
+  t('a new session finds the sealed grid: no download at all', B.calls.downloads === 0 && B.parses() === 0, { d: B.calls.downloads, p: B.parses() });
 
-  // commit → the cache entry is gone, memory and store
-  await B.window.fhStmtCommit();
+  // the write landed → the cache entry is gone, memory and store
   await settle();
   t('the rows were queued', B.calls.rpc.some((c) => c.fn === 'stage_statement_rows' && c.args.p_rows.length === 13));
   t('a committed statement leaves the cache (memory and store)', B.window.fhStmtGridCached(sha) === false && !store.get(sha));
+  await B.window.fhStmtLoad();                         // (the stub server still lists the card)
   await B.window.fhStmtOpen('w1');
   t('...so opening it again downloads again', B.calls.downloads === 1);
 
   // dismiss → gone as well
-  let C = boot({ files, idb });
+  let C = boot({ files, idb, rpcFail: true });
   await C.window.fhStmtLoad();
   await C.window.fhStmtOpen('c1'); C.window.fhStmtCancel();
   t('(setup) c1 cached', C.window.fhStmtGridCached(sha) === true);
@@ -193,7 +196,7 @@ const nodeCrypto = require('crypto');
     many.push({ row: { id: 'x' + i, gmail_message_id: 'mm' + i, part_index: 0, source_provider: 'VIB', received_at: '2026-09-18T16:38:00+00:00', file_ext: 'xlsx', byte_size: 64,
       object_path: OWNER + '/x' + i, meta_sealed: m.sealed, meta_eph_pub: m.eph_pub, meta_nonce: m.nonce, enc_v: m.enc_v, status: 'pending', backfill: false }, bytes, h });
   }
-  const F = boot({ files: many.map((x) => x.row), idb });
+  const F = boot({ files: many.map((x) => x.row), idb, rpcFail: true });
   F.window.sb.storage.from = () => ({ download: async (p) => { const x = many.find((y) => y.row.object_path === p); const b = SB.sealBytes(x.bytes, pub, { nacl, rng: nodeCrypto.webcrypto }); return { data: { arrayBuffer: async () => b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) }, error: null }; }, remove: async () => ({}) });
   await F.window.fhStmtLoad();
   for (const x of many) { await F.window.fhStmtOpen(x.row.id); F.window.fhStmtCancel(); }

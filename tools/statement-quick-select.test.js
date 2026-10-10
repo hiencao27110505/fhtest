@@ -11,9 +11,9 @@ const path = require('path');
 const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'js-ui', '56-csv-import-ui.js'), 'utf8');
 const fx = (name) => { const j = src.indexOf('function ' + name + '('); if (j < 0) { console.error(name + ' not found'); process.exit(1); } return src.slice(j, src.indexOf('\n}', j) + 2); };
 var window = { fhStmtOfCand: (c) => c.sid ? { id: c.sid, title: 'Sao kê ' + c.sid } : null };
-var csvPickF, renderCsvReview = () => {};
+var csvPickF, csvReview = null, opened = [], renderCsvReview = () => {}, csvToolOpen = (w) => { opened.push(w); };
 function csvStagedProvider(c){ return c.prov; } function csvIsFlaggedDup(c){ return !!c.dup; } function csvDupTier(c){ return c.dup || ''; } function L(vi){ return vi; }
-eval(['csvPickBlank', 'csvPickCount', 'csvPickMatch', 'csvStmtOf', 'csvPickViaTgl', 'csvPickStmtTgl'].map(fx).join('\n'));
+eval(['csvPickBlank', 'csvPickCount', 'csvPickMatch', 'csvStmtOf', 'csvPickViaTgl', 'csvPickStmtTgl', 'csvPickStmtOnly'].map(fx).join('\n'));
 csvPickF = csvPickBlank();
 
 let pass = 0, fail = 0;
@@ -33,6 +33,13 @@ t('two statements are an OR', pick().length === 3);
 csvPickStmtTgl('B'); csvPickF.dup = 'sure';
 t('...and AND with the other groups: statement A, already booked', JSON.stringify(pick()) === JSON.stringify(['stmtA-2']), pick());
 t('the badge counts each condition', csvPickCount() === 2, csvPickCount());
+/* "Xem" on the line a staged statement leaves (77, statement-capture-spec S30). */
+csvPickF = csvPickBlank(); csvPickF.dup = 'sure'; csvReview = { ready: rows };
+csvPickStmtOnly('A');
+t('"Xem": Chọn nhanh opens on that statement alone, earlier conditions cleared', JSON.stringify(pick()) === JSON.stringify(['stmtA-1', 'stmtA-2']) && csvPickF.dup === null && opened.join() === 'pick', { pick: pick(), opened: opened });
+csvReview = { ready: rows.filter((c) => c.sid !== 'B') };
+csvPickStmtOnly('A');
+t('...with one statement in the queue it uses "Từ sao kê", the chip the drawer actually shows', csvPickF.via === 'stmt' && Object.keys(csvPickF.stmt).length === 0 && JSON.stringify(csvReview.ready.filter((c) => csvPickMatch(c, 0)).map((c) => c.k)) === JSON.stringify(['stmtA-1', 'stmtA-2']), csvPickF);
 csvPickF = csvPickBlank(); window.fhStmtOfCand = undefined;
 t('an app with no statement module behaves exactly as before', pick().length === 4);
 

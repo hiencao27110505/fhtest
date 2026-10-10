@@ -1904,6 +1904,39 @@ as — or the same day as — the deploy. A deploy announced only in
 
 ## 28. Releases (newest first)
 
+### 2026-10-10 — a statement goes into the queue without being asked to · client only, SW v626 · no migration, no deploy · on branch `feat/statement-auto`, NOT merged to `main` yet
+
+- **For product:** a bank statement used to cost two taps before any of its
+  transactions could be reviewed: one on its card in "Duyệt giao dịch", one on a
+  summary screen ("Đưa vào hàng chờ duyệt"). The summary screen is gone. And a
+  statement that needs nothing from the person no longer waits to be tapped at
+  all: if its file is not locked, or its password is remembered on this device,
+  its transactions are already in the queue when the queue opens, with one line
+  where the card would have stood ("13 khoản đã vào hàng chờ · Ví MoMo ••1217 ·
+  Xem"). A statement still shows as a card when there is a password to type or a
+  column reading to confirm, and everything under "Sao kê cũ" still waits to be
+  opened by hand. Nothing reaches a ledger without "Nhập", as before.
+- **Under the hood:** `77-statement-capture.js` is split into steps that touch
+  only the run they are handed (`_stmFetch`, `_stmRead`, `_stmPlan`, `_stmWrite`)
+  and two callers: the tap flow (`fhStmtOpen` → `_stmGo`, no `_stmSummary`) and
+  `_stmAuto`, run from `fhStmtLoad({ auto: true })`, which `fhTxnReviewSheet`
+  (72) now passes with its loader's message setter. Caps: 2 files and 8 s per
+  open, 4 s for the merchant-concepts hint. `fh-stmt-auto:<uid>` in localStorage
+  remembers a locked or unreadable card so it is not downloaded again to find
+  that out. A remembered column reading is no longer put to a proof it cannot
+  pass. `csvPickStmtOnly` in 56 is the line's "Xem". The preview's CSS is
+  removed; `.stm-note*` added in `74-mailbox.css`. Tests:
+  `tools/statement-auto.test.js` (new, 56 checks), `statement-flow` rewritten
+  for the tap flow, `heat-statement-cache` and `statement-quick-select` adjusted.
+- **Spec sections updated:** none in this document. `statement-capture-spec.md`
+  §1, §3.2, §3.3, §5, §6, §14 and decisions S30 to S32.
+- **Watch for:** the push still says "Có sao kê mới chờ bạn mở" (server copy,
+  not changed). The badge counts a fresh statement as 1 until the queue has
+  been opened once. The first open after a statement arrives is slower by a
+  download and a parse; not measured on a phone yet. There is no undo back to a
+  locked card: rows staged by mistake are removed with the bulk delete, which
+  remembers them as removed.
+
 ### 2026-10-08 (later) — the start card connects Gmail without asking which way · SW v622 · no migration, no deploy beyond the client
 
 - **For product:** on an empty personal ledger, "Kết nối email ngân hàng" used

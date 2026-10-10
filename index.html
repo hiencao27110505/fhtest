@@ -4789,6 +4789,14 @@ button.csv-srow:active{background:var(--surface)}
 .stm-title{font-size:14.5px;font-weight:700;color:var(--ink);letter-spacing:-.1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .stm-sub{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .stm-tap .chev{color:var(--chev);flex-shrink:0}
+/* The line a staged statement leaves where its card stood (77 _stmNotesHTML): a
+   card's shape without a card's weight, so it reads as a receipt, not as work. */
+.stm-notes{margin-top:12px}
+.stm-note{display:flex;align-items:center;border:1.5px dashed var(--hairline);border-radius:13px;overflow:hidden}
+.stm-note .stm-txt{padding:10px 4px 10px 14px;min-height:56px;justify-content:center}
+.stm-note .stm-title{font-weight:600;color:var(--ink-2)}
+.stm-note .stm-sub{white-space:normal}
+.stm-note-go{flex-shrink:0;min-width:44px;min-height:44px;padding:0 8px;background:none;border:0;color:var(--brand-ink);font-size:13px;font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .stm-provs{margin:-2px 2px 10px}
 .stm-old-h{margin-top:6px}
 .stm-flow .csv-unlock-go{margin-top:14px}
@@ -4800,24 +4808,6 @@ button.csv-srow:active{background:var(--surface)}
 .stm-map{margin-top:12px;border-top:1px solid var(--hairline)}
 .stm-maprow{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--hairline);font-size:13px;color:var(--muted)}
 .stm-maprow b{color:var(--ink);font-weight:600;text-align:right;min-width:0;overflow:hidden;text-overflow:ellipsis}
-.stm-bits{font-size:12.5px;color:var(--muted);margin-top:6px}
-.stm-preview{margin-top:14px;background:var(--canvas);border-radius:14px;padding:2px 0}
-.stm-prow{display:flex;align-items:baseline;gap:8px;padding:9px 14px;border-top:1px solid var(--divider);font-size:12.5px}
-.stm-prow:first-child{border-top:0}
-.stm-prow.known{opacity:.5}
-.stm-pwhen{flex:0 0 44px;color:var(--muted);font-variant-numeric:tabular-nums}
-.stm-pwhat{flex:1;min-width:0;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.stm-pwhat i{font-style:normal;color:var(--muted)}
-.stm-pwhat i::before{content:" · "}
-.stm-pamt{color:var(--ink-2);font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
-.stm-pamt.in{color:var(--good)}
-.stm-pmore{display:block;width:100%;min-height:44px;background:none;border:0;border-top:1px solid var(--divider);color:var(--brand-ink);font-size:13px;font-weight:700;cursor:pointer}
-.stm-gobar{padding:14px 0 2px}
-.stm-gobar .csv-unlock-note{margin:0 0 10px;text-align:center}
-.stm-gobar .cta{margin-top:0}
-.stm-gobar .cta:disabled,.stm-gobar .cta.busy{opacity:.75;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:none}
-.stm-gobar .cta .stm-spin{border-color:var(--brand-tint);border-top-color:var(--white);opacity:.9}
-.stm-gobar .csv-unlock-skip{text-align:center;width:100%}
 .csv-fxfix-row{margin-top:8px}
 .csv-fxfix{min-height:44px;font-size:13px}
 /* ── 0154 receipt enrichment: the key receipt rows on the expanded card ──
@@ -19930,6 +19920,17 @@ function csvPickStmtTgl(id){
   if(csvPickF.via === 'email') csvPickF.via = null;     // picking a statement and "email only" cannot both hold
   renderCsvReview();
 }
+/* "Xem" on the line a staged statement leaves (77 fhStmtNoteSee): Chọn nhanh
+   opens already narrowed to that statement's rows, which is where the verbs for
+   them live. With one statement in the queue the drawer shows no per-statement
+   chip, so the two-way "Từ sao kê" chip carries the same set and stays visible. */
+function csvPickStmtOnly(id){
+  var ids = {};
+  ((csvReview && csvReview.ready) || []).forEach(function(c){ var st = csvStmtOf(c); if(st) ids[st.id] = 1; });
+  csvPickF = csvPickBlank();
+  if(Object.keys(ids).length > 1) csvPickF.stmt[id] = 1; else csvPickF.via = 'stmt';
+  csvToolOpen('pick');
+}
 function csvPickMatches(){
   var wk = csvPickWeekMax();
   return ((csvReview && csvReview.ready) || []).filter(function(c){ return csvPickMatch(c, wk); });
@@ -30658,7 +30659,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v625';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v626';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -47543,11 +47544,16 @@ window.classifyAmount = classifyAmount;
        statement join the SAME array, shaped exactly like an opened email row, so
        every accessor below that indexes _fhStagedRows by rowIndex reads them with
        no second code path. Unopened statements ride beside as cards. A failure
-       here costs the statements, never the email queue. */
+       here costs the statements, never the email queue.
+
+       `auto` (statement-capture-spec S31): a fresh statement that needs nothing
+       from the person, no password and no column check, is staged inside this
+       load, so it arrives below as rows instead of as a card to tap. It runs
+       under the loader this function already shows, which says which file. */
     var stmtCards = 0;
     if (window.fhStmtLoad) {
       try {
-        var stmt = await window.fhStmtLoad();
+        var stmt = await window.fhStmtLoad({ auto: true, say: _txrLoadMsg });
         readable = readable.concat(stmt.rows || []);
         locked += stmt.locked || 0;
         stmtCards = (stmt.cards || []).length;
@@ -52776,10 +52782,16 @@ window.classifyAmount = classifyAmount;
        A bank's statement arrives by email as a spreadsheet, usually locked with a
        password. The server's whole part is custody: it seals the file to THIS
        person's personal key and queues one locked card. Everything that needs the
-       file's contents happens here, after a tap:
+       file's contents happens here:
 
          card -> download -> open the seal -> (password) -> read the table ->
          prove the column reading -> pick the account -> write N encrypted rows
+
+       Since 2026-10-10 that chain runs with no tap when it has nothing to ask:
+       the queue's own open stages a fresh statement whose file is not locked (or
+       whose password is remembered here) and whose reading is proved (_stmAuto,
+       S31). A tap is for what is left, and it ends at the queue too: there is no
+       summary to confirm in between (S30).
 
        From that last step on, a statement row is an ordinary staged row. It is
        shaped exactly like an opened email_transactions row (fhStmtAsStaged), so the
@@ -52993,6 +53005,10 @@ window.classifyAmount = classifyAmount;
     /* ── load: cards + rows, for the review queue ──────────────────────────── */
     let _stmCards = [];
     window.fhStmtCards = () => _stmCards;
+    /* What a statement left behind when its rows went into the queue with no
+       summary step (S30): one line where the card stood. This session only. */
+    let _stmNotes = [];                              // { sid, title, n, acct, born }
+    let _stmLoadSeq = 0;
 
     /* Decrypted row payloads, kept across queue opens. Keyed by row id and
        checked against the ciphertext string itself (a re-sealed row is a new
@@ -53024,9 +53040,15 @@ window.classifyAmount = classifyAmount;
         owner_user_id: _stmUid(), gmail_message_id: f.gmail_message_id }, priv);
     }
 
-    window.fhStmtLoad = async function () { window.fhHeat && window.fhHeat.tick('fhStmtLoad');
-      const out = { rows: [], cards: [], locked: 0 };
+    /* `opts.auto` is the review queue's own open (72): fresh statements that ask
+       nothing of the person are staged here, before the rows are read, so they
+       arrive in this very load as rows. `opts.say` gets one line of progress.
+       Every other caller gets the cards and rows as they stand. */
+    window.fhStmtLoad = async function (opts) { window.fhHeat && window.fhHeat.tick('fhStmtLoad');
+      const out = { rows: [], cards: [], locked: 0, staged: [] };
       if (!window.sb || !_stmUid()) return out;
+      _stmLoadSeq++;
+      _stmNotes = _stmNotes.filter((n) => n.n > 0 || _stmLoadSeq - n.born < 2);   // "no new rows" is said for one open
       const ready = !!(window.fhPersonalKeyReady && window.fhPersonalKeyReady());
 
       const fres = await window.sb.from('statement_files')
@@ -53041,6 +53063,18 @@ window.classifyAmount = classifyAmount;
         return card;
       });
       _stmCards = out.cards;
+
+      if (opts && opts.auto && priv) {
+        try {
+          out.staged = await _stmAuto(out.cards, opts.say);
+          if (out.staged.length) {
+            const went = new Set(out.staged.map((s) => s.sid));
+            out.cards = out.cards.filter((c) => !went.has(c.id));
+            _stmCards = out.cards;
+            setTimeout(() => { try { window.fhRefreshStagedCount && window.fhRefreshStagedCount(); } catch (e) {} }, 0);   // one file became N rows
+          }
+        } catch (e) { out.staged = []; }               // costs the shortcut, never the queue
+      }
 
       const rres = await window.sb.from('statement_rows')
         .select('id,statement_id,row_index,txn_date,payload_enc').order('txn_date', { ascending: false }).limit(STM_ROW_PAGE);
@@ -53063,6 +53097,10 @@ window.classifyAmount = classifyAmount;
       });
       server.forEach((r, i) => { if (slots[i]) out.rows.push(fhStmtAsStaged(r.id, slots[i])); });
       _stmRowCachePrune(server.map((r) => r.id));      // retired or deleted rows leave with the server copy
+      /* A note outlives its rows by nothing: once the statement's last row is
+         imported or removed there is nothing left for "Xem" to show. */
+      const here = new Set(out.rows.map((r) => r.statement_id));
+      _stmNotes = _stmNotes.filter((n) => n.n === 0 || here.has(n.sid));
       return out;
     };
 
@@ -53222,9 +53260,40 @@ window.classifyAmount = classifyAmount;
     /* The wrapper stays while there is any fresh card, filtered out or not, so
        a chip tap has somewhere to repaint into; a backlog-only queue adds nothing. */
     window.fhStmtCardsHTML = function () {
-      if (!_stmCards.some((c) => !c.backfill)) return '';
-      return '<div id="stm-cards">' + _stmFreshHTML() + '</div>';
+      return _stmNotesHTML() + (_stmCards.some((c) => !c.backfill) ? '<div id="stm-cards">' + _stmFreshHTML() + '</div>' : '');
     };
+    /* The line a staged statement leaves where its card stood: which statement,
+       how many rows went into the queue, and the account they were filed under
+       (the one thing the retired summary step said that the queue does not).
+       "Xem" narrows the queue to those rows; ✕ only hides the line. */
+    function _stmNoteAdd(X, res) {
+      const bank = window.fhProviderName ? window.fhProviderName(X.card.source_provider) : X.card.source_provider;
+      const kind = { ewallet: L('Ví', 'Wallet'), credit_card: L('Thẻ tín dụng', 'Credit card'), deposit: L('Tài khoản', 'Account') }[X.acct && X.acct.kind] || '';
+      const tail = X.acct && X.acct.tail ? ' ••' + X.acct.tail : '';
+      _stmNotes = _stmNotes.filter((n) => n.sid !== X.card.id);
+      /* No-break spaces inside the account's name: when the line wraps on a phone
+         it breaks before the account, never between the bank and its number. */
+      _stmNotes.unshift({ sid: X.card.id, title: _stmTitle(X.card), n: res.n, acct: ((kind ? kind + ' ' : '') + bank + tail).replace(/ /g, '\u00a0'), born: X.auto ? _stmLoadSeq - 1 : _stmLoadSeq });
+    }
+    function _stmNotesHTML() {
+      if (!_stmNotes.length) return '';
+      return '<div class="csv-cards stm-notes">' + _stmNotes.map((n) =>
+        '<div class="stm-note" data-stm-note="' + _escAttr(n.sid) + '">' +
+          '<span class="stm-txt"><span class="stm-title">' + _esc(n.title) + '</span>' +
+          '<span class="stm-sub">' + _esc(n.n
+            ? L(n.n + ' khoản đã vào hàng chờ · ' + n.acct, n.n + ' rows added to the queue · ' + n.acct)
+            : L('Không có khoản mới', 'No new rows')) + '</span></span>' +
+          (n.n ? '<button type="button" class="stm-note-go" onclick="fhStmtNoteSee(\'' + _escAttr(n.sid) + '\')">' + _esc(L('Xem', 'View')) + '</button>' : '') +
+          '<button type="button" class="bulk-x" aria-label="' + _escAttr(L('Ẩn dòng này', 'Hide this line')) + '" onclick="fhStmtNoteHide(\'' + _escAttr(n.sid) + '\')">✕</button>' +
+        '</div>').join('') + '</div>';
+    }
+    function _stmNotesRepaint() {
+      if (typeof window.csvStmtCardsRepaint === 'function') window.csvStmtCardsRepaint();
+      else window.renderCsvReview && window.renderCsvReview();
+    }
+    window.fhStmtNotes = () => _stmNotes;
+    window.fhStmtNoteHide = function (sid) { _stmNotes = _stmNotes.filter((n) => n.sid !== sid); _stmNotesRepaint(); };
+    window.fhStmtNoteSee = function (sid) { if (typeof window.csvPickStmtOnly === 'function') window.csvPickStmtOnly(sid); };
     window.fhStmtPickChipsHTML = function () { return _stmProvChips(); };
     window.fhStmtOldCards = function () {
       return _stmCards.filter((c) => c.backfill && (!_stmProvF || _stmProvOf(c) === _stmProvF));
@@ -53355,10 +53424,304 @@ window.classifyAmount = classifyAmount;
     }
     window.fhStmtGridCached = (sha) => _stmGridMem.has(sha);
 
-    /* ── the unlock flow ───────────────────────────────────────────────────────
-       Painted INTO the review's own body (#csv-result), like the file import's
-       password step: the global sheet layer sits under this modal. `S` is the one
-       statement being opened. */
+    /* ── one statement, card to rows, with no screen of its own ───────────────
+       The steps below read and write only the run they are handed (`X`), never
+       the screen, so two callers share them: the tap flow further down, which
+       paints around them and can ask for a password or a column check, and the
+       queue's own open (_stmAuto), which runs them unseen and leaves the card
+       alone the moment anything would have to be asked.
+
+       X = { card, bytes, ab, grid, cached, verified, password, localExt, parsed,
+             keptMap, confirmedMap, acct, fresh, decidedCount, auto } */
+
+    /* Download the sealed file, open the seal, and check it is THIS card's file. */
+    async function _stmFetch(X) {
+      const card = X.card;
+      const dl = await window.sb.storage.from(STM_BUCKET).download(card.object_path);
+      if (dl.error || !dl.data) throw new Error('download');
+      const blob = new Uint8Array(await dl.data.arrayBuffer());
+      const priv = await window.fhPersonalStagingPrivKey();
+      const opened = window.nacl.box.open(blob.subarray(56), blob.subarray(32, 56), blob.subarray(0, 32), priv);
+      if (!opened) throw new Error('open');
+      /* The blob carries no identity of its own. The sealed METADATA does (owner +
+         message, checked in fhStagingOpenRow) and names this file's hash -- so a
+         blob moved under another card is refused here rather than parsed. */
+      const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', opened))).map((b) => b.toString(16).padStart(2, '0')).join('');
+      if (!card.meta || card.meta.file_sha256 !== hash) throw new Error('identity');
+      X.bytes = opened; X.verified = true;             // the hash matched: this grid may be kept under it
+    }
+
+    async function _stmGrid(X) {
+      if (X.cached && X.grid) return X.grid;
+      const ext = X.localExt || X.card.file_ext;
+      if (ext === 'csv') {
+        const u = X.bytes; let text;
+        if (u[0] === 0xFF && u[1] === 0xFE) text = new TextDecoder('utf-16le').decode(u);
+        else if (u[0] === 0xFE && u[1] === 0xFF) text = new TextDecoder('utf-16be').decode(u);
+        else text = new TextDecoder('utf-8').decode(u);
+        const p = window.fhParseCsvFile(text);
+        return [p.headers].concat(p.rows);
+      }
+      // One copy of the bytes per open, however many passwords are tried on it.
+      if (!X.ab) X.ab = X.bytes.buffer.slice(X.bytes.byteOffset, X.bytes.byteOffset + X.bytes.byteLength);
+      return fhParseXlsxBuffer(X.ab, X.password || undefined);
+    }
+
+    /* Grid -> table -> proof. Throws what the reader throws ('xlsx_encrypted',
+       'bad_password', ...); a file with no table comes back with `table: null`. */
+    async function _stmRead(X) {
+      const grid = await _stmGrid(X);
+      /* Read from the verified file: keep the grid, so no tap on this card spins again. */
+      if (X.verified && !X.cached) { X.cached = true; X.grid = grid; _stmGridPut(X.card.meta && X.card.meta.file_sha256, grid); }
+
+      /* Reading order: the vocabulary, and when its proof does not pass, a reading
+         the person confirmed before for this sender and header shape. */
+      /* The sender is half of how the issuer profile is recognised (59
+         STMT_ISSUERS): the same column names under another bank must not be
+         read as this wallet's account ids. */
+      const pctx = { provider: X.card.source_provider };
+      let parsed = window.fhStmtParse(grid, null, pctx);
+      X.keptMap = false;
+      if (parsed.table && !parsed.proof.ok) {
+        const kept = _stmMapGet(X.card.source_provider, parsed.sig);
+        if (kept) { parsed = window.fhStmtParse(grid, kept, pctx); X.keptMap = !!parsed.table; }
+      }
+      X.parsed = parsed; X.grid = grid;
+      return parsed;
+    }
+    /* Does the reading still need the person? Not when the arithmetic proves it,
+       and not when they confirmed this very reading on an earlier statement: a
+       file with no balance and no totals can never prove itself, and asking the
+       same question every month is the chore the remembered mapping exists to
+       remove (spec section 3.3, step 3). */
+    const _stmNeedsAsk = (X) => !X.parsed.proof.ok && !X.keptMap;
+
+    /* Which kind of account the statement belongs to: a wallet by provider, a card when
+       the summary block speaks of debt, otherwise a deposit account. */
+    function _stmAcctKind(X) {
+      const prov = String(X.card.source_provider || '').toLowerCase();
+      if (/momo|zalopay|shopeepay|viettel|vnpay/.test(prov)) return 'ewallet';
+      const sum = X.parsed.summary || {};
+      return (sum.prevDebt !== undefined || sum.endDebt !== undefined) ? 'credit_card' : 'deposit';
+    }
+
+    /* The account, and which rows are new to this person. Rows they already
+       decided on (imported or removed) are not written again -- the one place a
+       statement row is dropped unseen, allowed because the key is exact and the
+       decision was theirs. */
+    async function _stmPlan(X) {
+      const p = X.parsed, sum = p.summary || {};
+      const tail = sum.accountTail || (X.card.meta && X.card.meta.account_tail) || '';
+      X.acct = { provider: X.card.source_provider, kind: _stmAcctKind(X), tail: tail };
+      const fps = await _stmBatched(p.rows, (r) => _stmFp(fhStmtCanonical(X.card.source_provider, tail, r)));
+      let decided = new Set();
+      try {
+        /* 50 at a time: a fingerprint is 44 base64 characters and rides in the URL
+           (`row_fp=in.(...)`), so a 145-row statement in one request is a ~9 KB query
+           string, which is where proxies start refusing. */
+        for (let i = 0; i < fps.length; i += 50) {
+          const q = await window.sb.from('resolved_statement_rows').select('row_fp').in('row_fp', fps.slice(i, i + 50));
+          if (q.error && X.auto) throw q.error;
+          (q.data || []).forEach((x) => decided.add(x.row_fp));
+        }
+      } catch (e) {
+        /* On a tap the rows are shown rather than held back. Unseen, a failed
+           lookup stops the run instead: staging rows the person already removed,
+           with nobody watching, is worse than waiting for the next open. */
+        if (X.auto) throw e;
+        decided = new Set();
+      }
+      X.fresh = [];
+      p.rows.forEach((r, i) => { if (!decided.has(fps[i])) X.fresh.push({ r: r, fp: fps[i] }); });
+      X.decidedCount = p.rows.length - X.fresh.length;
+    }
+
+    /* Merchant names only -- never a person, an amount or a date -- to the
+       merchant-concepts function. Best-effort: a limited model just means those rows
+       arrive without a category. `gate.closed` drops an answer that comes back
+       after the caller stopped waiting, so it cannot land on rows already sealed. */
+    async function _stmConcepts(payloads, gate) {
+      const names = [...new Set(payloads.filter((p) => !p.person && !p.concept && p.amt < 0 && p.flow !== 'cardpay' && !p.xfer && (p.counterparty || p.memo))
+        .map((p) => String(p.counterparty || p.memo).slice(0, 80)))].slice(0, 60);
+      if (!names.length) return;
+      try {
+        const res = await window.sb.functions.invoke('merchant-concepts', { body: { merchants: names } });
+        if (gate && gate.closed) return;
+        const map = (res && res.data && res.data.concepts) || {};
+        const nodeMap = (res && res.data && res.data.nodes) || {};   // 0144 — the tree node beside the legacy concept
+        payloads.forEach((p) => {
+          const key = String(p.counterparty || p.memo).slice(0, 80);
+          const c = map[key]; if (c && !p.concept) p.concept = c;
+          const nd = nodeMap[key]; if (nd && !p.node && window.FH_TAX && FH_TAX.get(nd)) p.node = nd;
+        });
+      } catch (e) { /* rows simply arrive without a hint */ }
+    }
+
+    /* Write the rows and close the card. `say(text)` is told what is happening.
+       Returns { n } = rows written. Throws with nothing half-done: the rows and
+       the card change state in ONE transaction. */
+    async function _stmWrite(X, say) {
+      const card = X.card; say = say || (() => {});
+      if (X.confirmedMap && X.parsed.table) _stmMapSet(card.source_provider, X.parsed.sig, X.parsed.table.roles);
+      if (X.acct && window.fhPersonalAccountEnsure) {
+        try {
+          const acctId = await window.fhPersonalAccountEnsure({ kind: X.acct.kind, provider: X.acct.provider, tail: X.acct.tail,
+            name: (window.fhProviderName ? window.fhProviderName(X.acct.provider) : X.acct.provider) + (X.acct.tail ? ' ••' + X.acct.tail : '') });
+          /* A statement KNOWS what its account is: a running balance is a deposit
+             account, a debt summary is a card. The email classifier only guessed, and
+             it filed a real VIB account as a credit card. Correct a guessed kind; leave
+             one the person set themselves (human_verified) alone. */
+          const acct = acctId && window.fhPersonalData ? (window.fhPersonalData().accounts || []).find((a) => a.id === acctId) : null;
+          if (acct && acct.kind !== X.acct.kind && !acct.humanVerified && window.fhPersonalAccountUpdate) {
+            try { await window.fhPersonalAccountUpdate(acctId, { kind: X.acct.kind }); acct.kind = X.acct.kind; } catch (e) {}
+          }
+        } catch (e) {}
+      }
+      const stitle = _stmTitle(card);
+      const payloads = X.fresh.map((x) => Object.assign(fhStmtRowPayload(x.r, X.acct, card.id), { fp: x.fp, stitle: stitle }));
+      say(L('Đang gợi ý danh mục…', 'Suggesting categories…'));
+      if (X.auto) {
+        /* Nobody is watching a spinner here, they are waiting for their queue: the
+           hint gets a few seconds, and rows it misses are placed by the review's
+           own cascade like any row a limited model left bare. */
+        const gate = { closed: false };
+        await Promise.race([_stmConcepts(payloads, gate), new Promise((r) => setTimeout(r, STM_AUTO_HINT_MS))]);
+        gate.closed = true;
+      } else await _stmConcepts(payloads);
+      const rows = new Array(payloads.length);
+      for (let i = 0; i < payloads.length; i += STM_BATCH) {
+        say(L('Đang mã hoá ' + (i + 1) + '/' + payloads.length + '…', 'Encrypting ' + (i + 1) + '/' + payloads.length + '…'));
+        await Promise.all(payloads.slice(i, i + STM_BATCH).map(async (pl, k) => {
+          rows[i + k] = { id: crypto.randomUUID(), row_index: i + k, txn_date: pl.date, payload_enc: await _stmEncJson(pl) };
+        }));
+        await _stmYield();
+      }
+      say(L('Đang đưa vào hàng chờ…', 'Adding to the queue…'));
+      /* ONE transaction: every row, and the card marked opened. A dropped connection
+         leaves the card as it was and no partial rows. A second device that got
+         there first makes this a no-op (0139), and the queue reads that device's rows. */
+      await _rpc('stage_statement_rows', { p_statement_id: card.id, p_rows: rows });
+      /* The queue will read these very rows next; it already holds their plaintext. */
+      rows.forEach((r, i) => _stmRowCacheSet(r.id, r.payload_enc, payloads[i]));
+      _stmGridDel(card.meta && card.meta.file_sha256);   // the statement is in; its grid has no job left
+      /* The rows are in. The sealed file has no job left, so it goes NOW (decision
+         S13); the worker's sweep is only the net for a delete that fails here. */
+      if (card.object_path) { try { await window.sb.storage.from(STM_BUCKET).remove([card.object_path]); } catch (e) {} }
+      /* The statement's balance needs no step of its own here. Every row carries its
+         running balance (raw_extracted.balance), and the import already records the
+         newest one per account as the bank-stated balance (72 _recBal ->
+         fhPersonalExtBalanceSet). From there the existing surfaces take over: an
+         account with no anchor is asked for one by the post-import setup, and one
+         with an anchor shows the drift badge with its two resolutions. */
+      _stmCards = _stmCards.filter((c) => c.id !== card.id);
+      return { n: rows.length };
+    }
+
+    /* ── no tap at all: a fresh statement that asks nothing stages itself ─────
+       (decision S31.) When the review queue opens, each statement that arrived
+       since the mailbox was connected is tried here, before the queue paints. One
+       that needs nothing from the person -- the file is not locked, or its
+       password is remembered on this device, or it was unlocked earlier and its
+       grid is kept; and its column reading is proved or was confirmed before --
+       becomes rows in this very open. Anything else is left exactly as it was: a
+       card, waiting for a tap.
+
+       Never the history backlog ("Sao kê cũ", S11): a first connect can find
+       dozens of old statements, and the person decides when each one expands.
+       Never more than STM_AUTO_MAX files in one open, and no new file is started
+       once STM_AUTO_MS has passed: the person asked for their queue, not for a
+       wait.
+
+       WHY A CARD WAS LEFT is remembered per card on this device only when
+       finding it out costs a download: 'password' (locked, and no password that
+       works is remembered) and 'unsupported' (a lock or a format this device
+       cannot read). A locked card is tried again once a password for its bank is
+       remembered. A reading that needs confirming leaves no mark: its grid is
+       kept, so asking again is free. A failure that may pass (offline, a dropped
+       request) is retried in the next session, not on every open of this one. */
+    const STM_AUTO_MAX = 2, STM_AUTO_MS = 8000, STM_AUTO_HINT_MS = 4000;
+    const _stmAutoKey = () => { const u = _stmUid(); return u ? 'fh-stmt-auto:' + u : ''; };
+    function _stmAutoGet() { try { return JSON.parse(localStorage.getItem(_stmAutoKey()) || '{}') || {}; } catch (e) { return {}; } }
+    function _stmAutoSet(m) { const k = _stmAutoKey(); if (!k) return; try { localStorage.setItem(k, JSON.stringify(m)); } catch (e) {} }
+    const _stmAutoTried = new Set();
+
+    /* One card. Resolves { n } when its rows were written, { left: why } when it
+       needs the person (why is '' when nothing is worth remembering). Throws on a
+       failure that may pass. */
+    async function _stmAutoOne(card, why) {
+      const X = { card: card, auto: true, bytes: null, password: '', parsed: null, acct: null };
+      const kept = await _stmGridGet(card.meta && card.meta.file_sha256);
+      if (kept) { X.grid = kept; X.cached = true; }
+      else {
+        const pw = await _stmPwGet(card.source_provider);
+        if (why === 'password' && !pw) return { left: 'password' };   // still locked, still no password: not worth the download
+        await _stmFetch(X);
+        X.password = pw;
+      }
+      let parsed;
+      try { parsed = await _stmRead(X); }
+      catch (e) {
+        const code = String(e && e.message || '');
+        if (code === 'bad_password') { await _stmPwSet(card.source_provider, ''); return { left: 'password' }; }   // a remembered password stopped working
+        if (code === 'xlsx_encrypted') return { left: 'password' };
+        if (code === 'xlsx_enc_unsupported' || code === 'xls_legacy' || code === 'xlsx_unsupported') return { left: 'unsupported' };
+        throw e;
+      }
+      if (!parsed.table || !parsed.rows.length || _stmNeedsAsk(X)) return { left: '' };
+      await _stmPlan(X);
+      const res = await _stmWrite(X);
+      _stmNoteAdd(X, res);
+      return res;
+    }
+
+    /* Every open of the queue shares one pass: a second open while the first is
+       still writing waits for it instead of staging the same file twice. */
+    let _stmAutoBusy = null;
+    function _stmAuto(cards, say) {
+      if (_stmAutoBusy) return _stmAutoBusy;
+      _stmAutoBusy = (async () => {
+        const done = [], t0 = Date.now(), memo = _stmAutoGet();
+        let dirty = false;
+        const live = new Set(cards.map((c) => c.id));
+        Object.keys(memo).forEach((k) => { if (!live.has(k)) { delete memo[k]; dirty = true; } });
+        for (const card of cards) {
+          if (done.length >= STM_AUTO_MAX || Date.now() - t0 > STM_AUTO_MS) break;
+          if (card.backfill || card.status !== 'pending' || card.keyLocked || !card.meta || !card.object_path) continue;
+          if (_stmAutoTried.has(card.id) || memo[card.id] === 'unsupported') continue;
+          if (S && S.card && S.card.id === card.id) continue;        // the person is in this one right now
+          window.fhHeat && window.fhHeat.tick('fhStmtAuto');
+          try { say && say(L('Đang đọc ', 'Reading ') + _stmTitle(card) + '…'); } catch (e) {}
+          try {
+            const r = await _stmAutoOne(card, memo[card.id] || '');
+            if (r && r.left !== undefined) {
+              if (r.left && memo[card.id] !== r.left) { memo[card.id] = r.left; dirty = true; }
+              continue;
+            }
+            if (memo[card.id]) { delete memo[card.id]; dirty = true; }
+            done.push({ sid: card.id, n: r.n });
+          } catch (e) { _stmAutoTried.add(card.id); }
+        }
+        if (dirty) _stmAutoSet(memo);
+        return done;
+      })();
+      const p = _stmAutoBusy;
+      p.then(() => { if (_stmAutoBusy === p) _stmAutoBusy = null; }, () => { if (_stmAutoBusy === p) _stmAutoBusy = null; });
+      return p;
+    }
+
+    /* ── the tap flow ──────────────────────────────────────────────────────────
+       For a card the queue's open left alone, and for every card under "Sao kê
+       cũ". Painted INTO the review's own body (#csv-result), like the file
+       import's password step: the global sheet layer sits under this modal. `S` is
+       the one statement being opened.
+
+       There is no summary step (decision S30, 2026-10-10). It used to stand between
+       the reading and the queue: a count, the account, forty rows and a button.
+       The rows it guarded go to the REVIEW queue, where every one of them is
+       looked at before "Nhập"; the arithmetic proof is what decides whether the
+       reading is believed, and a reading it cannot prove still stops and asks. So
+       the flow ends the moment nothing is left to ask, and says what it did in
+       one line where the card stood (_stmNoteAdd). */
     let S = null;
     const _stmHost = () => document.getElementById('csv-result');
     /* Every step of the flow paints through here, so the takeover belongs here
@@ -53377,39 +53740,30 @@ window.classifyAmount = classifyAmount;
        a flow left behind by a closed modal can never hold the body hostage. */
     window.fhStmtFlowReset = function () { S = null; };
     function _stmHead(title, sub) { return '<div class="csv-unlock-title">' + _esc(title) + '</div>' + (sub ? '<div class="csv-unlock-sub">' + _esc(sub) + '</div>' : ''); }
-    function _stmBusyLine(txt) { return '<div class="stm-wait"><span class="stm-spin" aria-hidden="true"></span>' + _esc(txt) + '</div>'; }
+    function _stmBusyLine(txt) { return '<div class="stm-wait"><span class="stm-spin" aria-hidden="true"></span><span id="stm-say">' + _esc(txt) + '</span></div>'; }
     function _stmBackBtn() { return '<button type="button" class="csv-linkbtn csv-unlock-skip" onclick="fhStmtCancel()">' + _esc(L('Để sau', 'Not now')) + '</button>'; }
     window.fhStmtCancel = function () { S = null; window.renderCsvReview && window.renderCsvReview(); };
 
     window.fhStmtOpen = async function (id) {
       const card = _stmCards.find((c) => c.id === id); if (!card) return;
-      S = { card: card, bytes: null, password: '', remember: false, parsed: null, acct: null };
+      const X = S = { card: card, bytes: null, password: '', remember: false, parsed: null, acct: null };
       if (card.status === 'expired') return _stmAskFile();
       /* Opened before, this session or an earlier one: the grid is at hand, so
          there is nothing to fetch, unseal or derive. Straight to the table. */
       const kept = await _stmGridGet(card.meta && card.meta.file_sha256);
-      if (!S || S.card !== card) return;                 // cancelled or reset while the store answered
-      if (kept) { S.grid = kept; S.cached = true; return _stmParse(); }
+      if (S !== X) return;                               // cancelled or reset while the store answered
+      if (kept) { X.grid = kept; X.cached = true; return _stmParse(); }
       _stmPaint(_stmHead(_stmTitle(card)) + _stmBusyLine(L('Đang tải file…', 'Fetching the file…')));
-      try {
-        const dl = await window.sb.storage.from(STM_BUCKET).download(card.object_path);
-        if (dl.error || !dl.data) throw new Error('download');
-        const blob = new Uint8Array(await dl.data.arrayBuffer());
-        const priv = await window.fhPersonalStagingPrivKey();
-        const opened = window.nacl.box.open(blob.subarray(56), blob.subarray(32, 56), blob.subarray(0, 32), priv);
-        if (!opened) throw new Error('open');
-        /* The blob carries no identity of its own. The sealed METADATA does (owner +
-           message, checked in fhStagingOpenRow) and names this file's hash -- so a
-           blob moved under another card is refused here rather than parsed. */
-        const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', opened))).map((b) => b.toString(16).padStart(2, '0')).join('');
-        if (!card.meta || card.meta.file_sha256 !== hash) throw new Error('identity');
-        S.bytes = opened; S.verified = true;             // the hash matched: this grid may be kept under it
-      } catch (e) {
+      try { await _stmFetch(X); }
+      catch (e) {
+        if (S !== X) return;
         return _stmFail(e && e.message === 'identity'
           ? L('File không khớp với sao kê này nên tụi mình không mở.', 'The file does not match this statement, so it stays closed.')
           : L('Chưa tải được file. Thử lại, hoặc chọn file từ máy.', 'Could not fetch the file. Try again, or pick it from your device.'), true);
       }
-      S.password = await _stmPwGet(card.source_provider);
+      if (S !== X) return;
+      X.password = await _stmPwGet(card.source_provider);
+      if (S !== X) return;
       return _stmParse();
     };
 
@@ -53431,55 +53785,27 @@ window.classifyAmount = classifyAmount;
       return _stmParse();
     };
 
-    async function _stmGrid() {
-      if (S.cached && S.grid) return S.grid;
-      const ext = S.localExt || S.card.file_ext;
-      if (ext === 'csv') {
-        const u = S.bytes; let text;
-        if (u[0] === 0xFF && u[1] === 0xFE) text = new TextDecoder('utf-16le').decode(u);
-        else if (u[0] === 0xFE && u[1] === 0xFF) text = new TextDecoder('utf-16be').decode(u);
-        else text = new TextDecoder('utf-8').decode(u);
-        const p = window.fhParseCsvFile(text);
-        return [p.headers].concat(p.rows);
-      }
-      // One copy of the bytes per open, however many passwords are tried on it.
-      if (!S.ab) S.ab = S.bytes.buffer.slice(S.bytes.byteOffset, S.bytes.byteOffset + S.bytes.byteLength);
-      return fhParseXlsxBuffer(S.ab, S.password || undefined);
-    }
-
     async function _stmParse(wrong) {
-      if (!S) return;
-      let grid;
-      try { grid = await _stmGrid(); }
+      const X = S; if (!X) return;
+      let parsed;
+      try { parsed = await _stmRead(X); }
       catch (e) {
+        if (S !== X) return;
         const code = String(e && e.message || '');
         if (code === 'xlsx_encrypted' || code === 'bad_password') {
-          if (code === 'bad_password' && S.password && !wrong) { await _stmPwSet(S.card.source_provider, ''); }   // a remembered password stopped working
-          return _stmAskPassword(code === 'bad_password' && (wrong || S.password));
+          if (code === 'bad_password' && X.password && !wrong) { await _stmPwSet(X.card.source_provider, ''); }   // a remembered password stopped working
+          return _stmAskPassword(code === 'bad_password' && (wrong || X.password));
         }
         if (code === 'xlsx_enc_unsupported' || code === 'xls_legacy') return _stmFail(L('Kiểu khoá của file này tụi mình chưa mở được.', 'This file is locked in a way we cannot open yet.'), false);
         if (code === 'xlsx_unsupported') return _stmFail(L('Trình duyệt chưa đọc được file Excel. Cập nhật rồi thử lại nhé.', 'This browser cannot read Excel files. Update it and try again.'), false);
         return _stmFail(L('Chưa đọc được file này.', 'Could not read this file.'), false);
       }
-      if (S.remember && S.password) await _stmPwSet(S.card.source_provider, S.password);
-      /* Read from the verified file: keep the grid, so no tap on this card spins again. */
-      if (S.verified && !S.cached) { S.cached = true; S.grid = grid; _stmGridPut(S.card.meta && S.card.meta.file_sha256, grid); }
-
-      /* Reading order: a confirmed reading for this sender and header shape, else the
-         vocabulary. The proof below decides whether either is believed. */
-      /* The sender is half of how the issuer profile is recognised (59
-         STMT_ISSUERS): the same column names under another bank must not be
-         read as this wallet's account ids. */
-      const pctx = { provider: S.card.source_provider };
-      let parsed = window.fhStmtParse(grid, null, pctx);
-      if (parsed.table) {
-        const kept = _stmMapGet(S.card.source_provider, parsed.sig);
-        if (kept && !parsed.proof.ok) parsed = window.fhStmtParse(grid, kept, pctx);
-      }
-      S.parsed = parsed; S.grid = grid;
+      if (S !== X) return;
+      if (X.remember && X.password) await _stmPwSet(X.card.source_provider, X.password);
+      if (S !== X) return;
       if (!parsed.table || !parsed.rows.length) return _stmFail(L('Không thấy bảng giao dịch trong file này.', 'No transaction table found in this file.'), false);
-      if (!parsed.proof.ok) return _stmAskMapping();
-      return _stmSummary();
+      if (_stmNeedsAsk(X)) return _stmAskMapping();
+      return _stmGo();
     }
 
     function _stmAskPassword(wrong) {
@@ -53489,7 +53815,7 @@ window.classifyAmount = classifyAmount;
         (wrong ? '<div class="csv-unlock-err">' + _esc(L('Mật khẩu chưa đúng, thử lại nhé', 'That password didn\'t work, try again')) + '</div>' : '') +
         '<label class="stm-remember"><input type="checkbox" id="stm-rem"' + (S.remember ? ' checked' : '') + '> <span>' + _esc(L('Nhớ mật khẩu sao kê ' + bank + ' trên máy này', 'Remember ' + bank + ' statement password on this device')) + '</span></label>' +
         '<button type="button" class="btn-line csv-unlock-go" onclick="fhStmtUnlock()">' + _esc(L('Mở file', 'Unlock')) + '</button>' +
-        '<div class="csv-unlock-note">' + _esc(L('Mật khẩu chỉ dùng trên máy bạn, không gửi đi đâu. Nếu chọn nhớ, tụi mình giữ nó trên máy này, có mã hoá.', 'The password stays on your device and is never sent anywhere. If you choose to remember it, it is kept on this device, encrypted.')) + '</div>' + _stmBackBtn());
+        '<div class="csv-unlock-note">' + _esc(L('Mật khẩu chỉ dùng trên máy bạn, không gửi đi đâu. Nếu chọn nhớ, tụi mình giữ nó trên máy này, có mã hoá, và sao kê ' + bank + ' lần sau tự vào hàng chờ.', 'The password stays on your device and is never sent anywhere. If you choose to remember it, it is kept on this device, encrypted, and the next ' + bank + ' statement goes into the queue by itself.')) + '</div>' + _stmBackBtn());
       const el = document.getElementById('stm-pw'); if (el) { try { el.focus(); } catch (e) {} }
     }
     window.fhStmtUnlock = function () {
@@ -53510,192 +53836,40 @@ window.classifyAmount = classifyAmount;
       _stmPaint(_stmHead(L('Tụi mình đọc cột thế này, đúng chưa?', 'Did we read the columns right?'),
           L('File không có số dư hay tổng để tự kiểm, nên nhờ bạn xem qua.', 'This file has no balance or totals to check against, so please take a look.')) +
         '<div class="stm-map">' + rowsHtml + '</div>' +
-        '<div class="csv-unlock-note">' + _esc(p.rows.length + L(' giao dịch', ' transactions')) + '</div>' +
+        '<div class="csv-unlock-note">' + _esc(L(p.rows.length + ' giao dịch. Bấm "Đúng rồi" là vào hàng chờ duyệt, chưa ghi vào sổ.', p.rows.length + ' transactions. "Looks right" sends them to the review queue, not to the ledger.')) + '</div>' +
         '<button type="button" class="btn-line csv-unlock-go" onclick="fhStmtMappingOk()">' + _esc(L('Đúng rồi', 'Looks right')) + '</button>' + _stmBackBtn());
     }
-    window.fhStmtMappingOk = function () { if (S && S.parsed) { S.confirmedMap = true; _stmSummary(); } };
+    window.fhStmtMappingOk = function () { if (S && S.parsed) { S.confirmedMap = true; return _stmGo(); } };
 
-    /* Which of the parsed rows the ledger already has -- the same engine the review
-       uses, run early so the summary can say "16 mới". A count for the person, never
-       a filter: every row is still written (decision S15). */
-    async function _stmVerdicts(rows) {
-      try {
-        if (!window.fhDedupAssess || !window.fhDedupLedgerIndex) return null;
-        if (!window._fhPersonalMatchSlice && window.fhPersonalMatchSlice) window._fhPersonalMatchSlice = await window.fhPersonalMatchSlice();
-        const cands = rows.map((r) => ({ amount: Math.abs(r.amt), date: new Date(r.date + 'T00:00:00'), dateDisplay: r.date, time: r.time || '',
-          description: (r.cls && r.cls.memo) || r.description || '', counterparty: (r.cls && r.cls.counterparty) || '', isIncome: r.amt > 0, isTransfer: false, currency: 'VND', kind: 'bank', provider: S.card.source_provider }));
-        return window.fhDedupAssess(cands, window.fhDedupLedgerIndex(), {});
-      } catch (e) { return null; }
-    }
-
-    /* The rows about to be written, newest first, so the person sees WHAT before they
-       agree to it: a summary line alone asks for trust in a parser they have never
-       watched work. Read-only on purpose -- editing belongs to the review, where every
-       row gets the full card. */
-    const STM_PREVIEW_STEP = 40;
-    let _stmPreviewN = STM_PREVIEW_STEP;
-    window.fhStmtPreviewMore = function () { _stmPreviewN += 200; _stmRenderSummary(); };
-    function _stmPreviewHTML() {
-      const list = (S.fresh || []).slice().reverse();
-      if (!list.length) return '';
-      const money = (n) => (typeof csvFmt === 'function' ? csvFmt(Math.abs(n)) : String(Math.abs(n)));
-      const rows = list.slice(0, _stmPreviewN).map((x) => {
-        const r = x.r, c = r.cls || {}, v = x.verdict, known = !!(v && v.tier === 'sure');
-        const what = c.counterparty || c.memo || r.description || '';
-        const tag = known ? L('đã có trong sổ', 'already booked')
-          : c.flow === 'cardpay' ? L('trả nợ thẻ', 'card payment')
-          : (c.flow === 'topup' || c.selfTransfer) ? L('chuyển nội bộ?', 'own transfer?')
-          : c.fundedElsewhere ? L('qua ngân hàng liên kết', 'via a linked bank') : '';
-        return '<div class="stm-prow' + (known ? ' known' : '') + '">' +
-          '<span class="stm-pwhen">' + _esc(_stmDM(r.date)) + '</span>' +
-          '<span class="stm-pwhat">' + _esc(what || L('(không có nội dung)', '(no description)')) + (tag ? '<i>' + _esc(tag) + '</i>' : '') + '</span>' +
-          '<span class="stm-pamt' + (r.amt > 0 ? ' in' : '') + '">' + (r.amt > 0 ? '+' : '−') + _esc(money(r.amt)) + '</span></div>';
-      }).join('');
-      const left = list.length - Math.min(list.length, _stmPreviewN);
-      return '<div class="stm-preview">' + rows +
-        (left > 0 ? '<button type="button" class="stm-pmore" onclick="fhStmtPreviewMore()">' + _esc(L('Xem thêm ' + left + ' khoản', 'Show ' + left + ' more')) + '</button>' : '') + '</div>';
-    }
-    /* Which kind of account the statement belongs to: a wallet by provider, a card when
-       the summary block speaks of debt, otherwise a deposit account. */
-    function _stmAcctKind() {
-      const prov = String(S.card.source_provider || '').toLowerCase();
-      if (/momo|zalopay|shopeepay|viettel|vnpay/.test(prov)) return 'ewallet';
-      const sum = S.parsed.summary || {};
-      return (sum.prevDebt !== undefined || sum.endDebt !== undefined) ? 'credit_card' : 'deposit';
-    }
-
-    async function _stmSummary() {
-      const p = S.parsed, sum = p.summary || {};
-      const tail = sum.accountTail || (S.card.meta && S.card.meta.account_tail) || '';
-      S.acct = { provider: S.card.source_provider, kind: _stmAcctKind(), tail: tail };
-
-      /* Rows this person already decided on (imported or removed) are not written
-         again -- the one place a statement row is dropped unseen, allowed because the
-         key is exact and the decision was theirs. */
-      S.payloads = [];
-      const fps = await _stmBatched(p.rows, (r) => _stmFp(fhStmtCanonical(S.card.source_provider, tail, r)));
-      let decided = new Set();
-      try {
-        /* 50 at a time: a fingerprint is 44 base64 characters and rides in the URL
-           (`row_fp=in.(...)`), so a 145-row statement in one request is a ~9 KB query
-           string, which is where proxies start refusing. */
-        for (let i = 0; i < fps.length; i += 50) {
-          const q = await window.sb.from('resolved_statement_rows').select('row_fp').in('row_fp', fps.slice(i, i + 50));
-          (q.data || []).forEach((x) => decided.add(x.row_fp));
-        }
-      } catch (e) { decided = new Set(); }
-      const fresh = [];
-      p.rows.forEach((r, i) => { if (!decided.has(fps[i])) fresh.push({ r: r, fp: fps[i] }); });
-      S.fresh = fresh; S.decidedCount = p.rows.length - fresh.length;
-      const verdicts = await _stmVerdicts(fresh.map((x) => x.r));
-      if (verdicts) fresh.forEach((x, i) => { x.verdict = verdicts[i] || null; });
-      S.known = verdicts ? verdicts.filter((x) => x && x.tier === 'sure').length : null;
-      _stmPreviewN = STM_PREVIEW_STEP;
-      _stmRenderSummary();
-    }
-
-    function _stmRenderSummary() {
-      const p = S.parsed, fresh = S.fresh, known = S.known, tail = S.acct.tail;
-      const bank = window.fhProviderName ? window.fhProviderName(S.card.source_provider) : S.card.source_provider;
-      const kindLabel = { ewallet: L('Ví', 'Wallet'), credit_card: L('Thẻ tín dụng', 'Credit card'), deposit: L('Tài khoản', 'Account') }[S.acct.kind];
-      const bits = [];
-      if (known !== null) { bits.push((fresh.length - known) + L(' mới', ' new')); if (known) bits.push(known + L(' đã có trong sổ', ' already booked')); }
-      else if (fresh.length) bits.push(fresh.length + L(' khoản', ' rows'));
-      if (S.decidedCount) bits.push(S.decidedCount + L(' đã xử lý', ' handled before'));
-      if (p.failed) bits.push(p.failed + L(' thất bại', ' failed'));
-      _stmPaint(_stmHead(p.rows.length + L(' giao dịch', ' transactions'), _stmTitle(S.card)) +
-        (bits.length ? '<div class="stm-bits">' + _esc(bits.join(' · ')) + '</div>' : '') +
-        '<div class="stm-map"><div class="stm-maprow"><span>' + _esc(L('Thuộc về', 'Belongs to')) + '</span><b>' + _esc(kindLabel + ' · ' + bank + (tail ? ' ••' + tail : '')) + '</b></div></div>' +
-        _stmPreviewHTML() +
-        '<div class="stm-gobar">' +
-          (fresh.length ? '<div class="csv-unlock-note">' + _esc(L('Vào hàng chờ duyệt, chưa ghi vào sổ.', 'Goes to the review queue, not to the ledger.')) + '</div>' : '') +
-          '<button type="button" class="cta" id="stm-go" onclick="fhStmtCommit()">' + _esc(fresh.length ? L('Đưa vào hàng chờ duyệt', 'Add to review queue') : L('Xong', 'Done')) + '</button>' +
-          '<div id="stm-back">' + _stmBackBtn() + '</div></div>');
-    }
-    /* Merchant names only -- never a person, an amount or a date -- to the
-       merchant-concepts function. Best-effort: a limited model just means those rows
-       arrive without a category. */
-    async function _stmConcepts(payloads) {
-      const names = [...new Set(payloads.filter((p) => !p.person && !p.concept && p.amt < 0 && p.flow !== 'cardpay' && !p.xfer && (p.counterparty || p.memo))
-        .map((p) => String(p.counterparty || p.memo).slice(0, 80)))].slice(0, 60);
-      if (!names.length) return;
-      try {
-        const res = await window.sb.functions.invoke('merchant-concepts', { body: { merchants: names } });
-        const map = (res && res.data && res.data.concepts) || {};
-        const nodeMap = (res && res.data && res.data.nodes) || {};   // 0144 — the tree node beside the legacy concept
-        payloads.forEach((p) => {
-          const key = String(p.counterparty || p.memo).slice(0, 80);
-          const c = map[key]; if (c && !p.concept) p.concept = c;
-          const nd = nodeMap[key]; if (nd && !p.node && window.FH_TAX && FH_TAX.get(nd)) p.node = nd;
-        });
-      } catch (e) { /* rows simply arrive without a hint */ }
-    }
-
-    window.fhStmtCommit = async function () {
-      if (!S || !S.fresh || S.committing) return;      // a second tap while the first is in flight does nothing
-      S.committing = true;
-      const btn = document.getElementById('stm-go'), back = document.getElementById('stm-back');
-      /* Encrypting a hundred-odd rows and one round trip take a few seconds on a phone.
-         A button that just sits there gets tapped again, so it goes busy at once, says
-         what it is doing, counts as it goes, and the way out is hidden until it ends. */
-      const busy = (txt) => { if (btn) { btn.disabled = true; btn.classList.add('busy'); btn.innerHTML = '<span class="stm-spin" aria-hidden="true"></span>' + _esc(txt); } };
-      busy(L('Đang chuẩn bị…', 'Getting ready…'));
-      if (back) back.hidden = true;
-      const card = S.card;
-      try {
-        if (S.confirmedMap && S.parsed.table) _stmMapSet(card.source_provider, S.parsed.sig, S.parsed.table.roles);
-        if (S.acct && window.fhPersonalAccountEnsure) {
-          try {
-            const acctId = await window.fhPersonalAccountEnsure({ kind: S.acct.kind, provider: S.acct.provider, tail: S.acct.tail,
-              name: (window.fhProviderName ? window.fhProviderName(S.acct.provider) : S.acct.provider) + (S.acct.tail ? ' ••' + S.acct.tail : '') });
-            /* A statement KNOWS what its account is: a running balance is a deposit
-               account, a debt summary is a card. The email classifier only guessed, and
-               it filed a real VIB account as a credit card. Correct a guessed kind; leave
-               one the person set themselves (human_verified) alone. */
-            const acct = acctId && window.fhPersonalData ? (window.fhPersonalData().accounts || []).find((a) => a.id === acctId) : null;
-            if (acct && acct.kind !== S.acct.kind && !acct.humanVerified && window.fhPersonalAccountUpdate) {
-              try { await window.fhPersonalAccountUpdate(acctId, { kind: S.acct.kind }); acct.kind = S.acct.kind; } catch (e) {}
-            }
-          } catch (e) {}
-        }
-        const stitle = _stmTitle(card);
-        const payloads = S.fresh.map((x) => Object.assign(fhStmtRowPayload(x.r, S.acct, card.id), { fp: x.fp, stitle: stitle }));
-        busy(L('Đang gợi ý danh mục…', 'Suggesting categories…'));
-        await _stmConcepts(payloads);
-        const rows = new Array(payloads.length);
-        for (let i = 0; i < payloads.length; i += STM_BATCH) {
-          busy(L('Đang mã hoá ' + (i + 1) + '/' + payloads.length + '…', 'Encrypting ' + (i + 1) + '/' + payloads.length + '…'));
-          await Promise.all(payloads.slice(i, i + STM_BATCH).map(async (pl, k) => {
-            rows[i + k] = { id: crypto.randomUUID(), row_index: i + k, txn_date: pl.date, payload_enc: await _stmEncJson(pl) };
-          }));
-          await _stmYield();
-        }
-        busy(L('Đang đưa vào hàng chờ…', 'Adding to the queue…'));
-        /* ONE transaction: every row, and the card marked opened. A dropped connection
-           leaves the card as it was and no partial rows. */
-        await _rpc('stage_statement_rows', { p_statement_id: card.id, p_rows: rows });
-        /* The queue will read these very rows next; it already holds their plaintext. */
-        rows.forEach((r, i) => _stmRowCacheSet(r.id, r.payload_enc, payloads[i]));
-        _stmGridDel(card.meta && card.meta.file_sha256);   // the statement is in; its grid has no job left
-        /* The rows are in. The sealed file has no job left, so it goes NOW (decision
-           S13); the worker's sweep is only the net for a delete that fails here. */
-        if (card.object_path) { try { await window.sb.storage.from(STM_BUCKET).remove([card.object_path]); } catch (e) {} }
-        /* The statement's balance needs no step of its own here. Every row carries its
-           running balance (raw_extracted.balance), and the import already records the
-           newest one per account as the bank-stated balance (72 _recBal ->
-           fhPersonalExtBalanceSet). From there the existing surfaces take over: an
-           account with no anchor is asked for one by the post-import setup, and one
-           with an anchor shows the drift badge with its two resolutions. */
-        S = null;
-        window.toast && window.toast(L('Đã thêm ' + rows.length + ' khoản vào hàng chờ', rows.length + ' rows added to the queue'));
-        window.fhTxnReviewSheet && window.fhTxnReviewSheet(window.csvEntryScope);
-      } catch (e) {
-        if (S) S.committing = false;
-        if (btn) { btn.disabled = false; btn.classList.remove('busy'); btn.textContent = L('Đưa vào hàng chờ duyệt', 'Add to review queue'); }
-        if (back) back.hidden = false;
-        window.toast && window.toast(L('Chưa lưu được, thử lại nhé', 'Could not save, try again'));
+    /* Nothing is left to ask: the rows go to the queue. Encrypting a hundred-odd
+       rows and one round trip take a few seconds on a phone, so the step says what
+       it is doing as it goes, and offers no way out until it ends: a write cannot
+       be half-abandoned. However many times it is called, ONE write. */
+    async function _stmGo() {
+      const X = S; if (!X || !X.parsed || X.committing) return;
+      X.committing = true;
+      const title = _stmTitle(X.card);
+      _stmPaint(_stmHead(title, L('Vào hàng chờ duyệt, chưa ghi vào sổ.', 'Goes to the review queue, not to the ledger.')) + _stmBusyLine(L('Đang chuẩn bị…', 'Getting ready…')));
+      const say = (txt) => { if (S !== X) return; const e = document.getElementById('stm-say'); if (e) e.textContent = txt; };
+      let res;
+      try { await _stmPlan(X); res = await _stmWrite(X, say); }
+      catch (e) {
+        X.committing = false;
+        if (S !== X) return;
+        _stmPaint(_stmHead(title) + '<div class="csv-unlock-err">' + _esc(L('Chưa lưu được, thử lại nhé', 'Could not save, try again')) + '</div>' +
+          '<button type="button" class="btn-line csv-unlock-go" id="stm-go" onclick="fhStmtCommit()">' + _esc(L('Thử lại', 'Try again')) + '</button>' + _stmBackBtn());
+        return;
       }
-    };
+      _stmNoteAdd(X, res);
+      window.toast && window.toast(res.n ? L('Đã thêm ' + res.n + ' khoản vào hàng chờ', res.n + ' rows added to the queue') : L('Sao kê này không có khoản mới', 'No new rows in this statement'));
+      /* The modal was closed on the write and the queue opened again meanwhile:
+         that open owns the screen now. The rows are in; its next load shows them. */
+      if (S !== X) { try { window.fhRefreshStagedCount && window.fhRefreshStagedCount(); } catch (e) {} return; }
+      S = null;
+      window.fhTxnReviewSheet && window.fhTxnReviewSheet(window.csvEntryScope);
+    }
+    /* The retry button's handler, and the name every caller has always used. */
+    window.fhStmtCommit = function () { return _stmGo(); };
 
     /* Disconnecting the mailbox deletes what capture stored: the parsed rows, the
        cards, the sealed files, and the two on-device memories. */
@@ -53704,8 +53878,8 @@ window.classifyAmount = classifyAmount;
         const paths = await _rpc('purge_my_statements', {});
         if (paths && paths.length) { try { await window.sb.storage.from(STM_BUCKET).remove(paths); } catch (e) {} }
       } catch (e) {}
-      try { localStorage.removeItem(_stmPwKey()); localStorage.removeItem(_stmMapKey()); localStorage.removeItem(_stmRetKey()); } catch (e) {}
-      _stmCards = []; _stmRowCache.clear();
+      try { localStorage.removeItem(_stmPwKey()); localStorage.removeItem(_stmMapKey()); localStorage.removeItem(_stmRetKey()); localStorage.removeItem(_stmAutoKey()); } catch (e) {}
+      _stmCards = []; _stmNotes = []; _stmRowCache.clear();
       await _stmGridClear();
     };
   })();

@@ -16,6 +16,13 @@ rows captured from ordinary transaction emails.
 > deployed from `main`.
 > §6 lists what is built and what is not, plainly.
 
+> **Amended 2026-10-10: no summary step, and a statement that asks nothing stages
+> itself (S30 to S32).** Built on branch `feat/statement-auto` (worktree
+> `.worktrees/statement-auto`), client only, SW `v626`, no migration, no Edge
+> Function deploy. **Pushed as a branch; not merged to `main` at the time of writing.** §1, §3.2,
+> §3.3 and §5 below describe the journey as it is after this change; the decision
+> log says what was removed and why.
+
 > **Audience & layering.** Part 1 (Behaviour) is for everyone. Part 2 (Technical
 > Appendix) is for engineers and Claude sessions. §15 records what three real
 > statement files look like, because the design leans on those facts.
@@ -37,16 +44,19 @@ rows captured from ordinary transaction emails.
   the dedup engine, kinds, the Gia đình / Cá nhân choice per row, import, and
   retirement.
 - What changes is the front end of the chain, and the password is why. The
-  server cannot open a locked file, so **parsing happens on the device, on a tap**,
-  not on the server in the background.
+  server cannot open a locked file, so **parsing happens on the device**, not on
+  the server in the background. Since 2026-10-10 the device does it **when the
+  review queue opens**, with no tap, for a statement that has nothing to ask;
+  a tap is needed only when there is a password to type or a column reading to
+  confirm (§3.3).
 
 | | Transaction email | Statement email |
 |---|---|---|
-| Who parses | Server, nobody involved | Your device, after one tap (plus a password if the file is locked) |
+| Who parses | Server, nobody involved | Your device: when the queue opens if the file asks nothing, otherwise after one tap (plus a password if the file is locked) |
 | Parser | Email reader (template, label-table, model) | The spreadsheet reader and column mapper that file import already uses |
 | Who writes the queue rows | Server, sealed to your public key | Your device, encrypted under your personal key |
-| Steps | email → rows | email → **locked card** → unlock → rows |
-| Push | When rows are queued | When the locked card arrives |
+| Steps | email → rows | email → rows when the queue opens, or email → **locked card** → unlock → rows |
+| Push | When rows are queued | When the statement arrives |
 
 - A statement serves two jobs at once. For a bank that also sends per-transaction
   emails it is a **gap filler** (fees, interest, money-in the bank never emailed);
@@ -88,6 +98,27 @@ expands.
 
 The card has two verbs: **Mở sao kê**, and ✕ (arm-then-confirm, gone for good).
 
+**A fresh statement is a card only when it needs something from you** (S31,
+2026-10-10). When the review queue opens, each statement that arrived after the
+mailbox was connected is read on the device before the queue paints. If its file
+is not locked, or its password is remembered on this device, and its column
+reading is proved by arithmetic or was confirmed on an earlier statement of the
+same format, its transactions are in the queue as rows by the time you see the
+queue. Where the card would have stood there is one line instead:
+
+> **Sao kê MoMo ví · 10/07 – 08/10**
+> 13 khoản đã vào hàng chờ · Ví MoMo ••1217 · **Xem** · ✕
+
+"Xem" opens Chọn nhanh narrowed to that statement's rows; ✕ hides the line. The
+line lasts for the session and leaves with the statement's last row. A statement
+with no new rows says "Không có khoản mới" for one open.
+
+What is never staged this way: anything under "Sao kê cũ" (S11 stands: the
+person decides when history expands), a file whose password this device does not
+have, a reading that cannot be proved and was never confirmed, and anything at
+all while the personal ledger is locked. At most two statements are staged in
+one open; a third waits for the next.
+
 ### 3.3 Unlock
 
 Each step below paints into the review's own body, and **takes it**: the toolbox
@@ -96,7 +127,9 @@ ends (decision S29). They have to — a backlog statement is reached only throug
 the "Sao kê cũ" drawer, whose scrim lies over the very element the password field
 is painted into.
 
-One path for every statement:
+One path for every statement that is still a card (the queue's own open walks
+the same four steps unseen, and stops without a trace at the first one that
+would have to ask):
 
 1. Tap **Mở sao kê**. The device downloads the sealed file and opens the seal with
    the personal key. If the personal ledger is locked on this device, the card says
@@ -105,16 +138,30 @@ One path for every statement:
    ("File này có mật khẩu"). The password is used on the device only. An opt-in
    switch, **"Nhớ mật khẩu cho sao kê {bank} trên máy này"**, keeps it on this
    device, encrypted under the personal key. It is never sent anywhere. An unlocked
-   file skips this step entirely.
+   file skips this step entirely. The switch says what it buys: with the password
+   remembered, that bank's next statement goes into the queue by itself.
 3. The columns are read and the reading is **proved by arithmetic** (§10). When
    the proof passes, nothing is asked. When it cannot pass (a file with no balance
    column and no totals), the person is shown which column was read as what and
    confirms or backs out. A confirmed reading is remembered per sender and header
-   shape on the device, so next month is password-only, or tap-only.
-4. A summary line: **"Tìm được 145 giao dịch · 16 mới · 126 đã có trong sổ · 3 thất
-   bại đã bỏ qua"**, and the **account** the statement belongs to, read from the file
-   and the bank ("Ví điện tử · MoMo ••1217"). The rows are written to the queue in
-   one step, the statement card is marked done, and the sealed file is deleted.
+   shape on the device, so next month asks nothing. *(Until 2026-10-10 the code
+   asked again on every statement of such a file: the remembered reading was
+   tried, failed the same proof it could never pass, and the question came back.
+   A reading the person confirmed now counts as confirmed.)*
+4. **The rows go to the queue, with no step in between** (S30). The screen says
+   "Vào hàng chờ duyệt, chưa ghi vào sổ" and what it is doing ("Đang mã hoá
+   51/145…"), offers no way out while the write is in flight, and then reopens
+   the queue on the new rows. The rows are written in one step, the statement
+   card is marked done, and the sealed file is deleted. The **account** the
+   statement belongs to, read from the file and the bank, is named on the line
+   left where the card stood (§3.2). A write that fails leaves the card and
+   says "Chưa lưu được, thử lại nhé" with **Thử lại**.
+
+   *Until 2026-10-10 this was a summary screen: "Tìm được 145 giao dịch · 16 mới ·
+   126 đã có trong sổ · 3 thất bại đã bỏ qua", the account, the first forty rows,
+   and a button, "Đưa vào hàng chờ duyệt". Everything it counted is visible in the
+   queue itself (new rows in the list, booked ones under "Đã có trong sổ"); the
+   failed-row count is the one figure no longer shown anywhere.*
 
 ### 3.4 The rows
 
@@ -180,7 +227,16 @@ per-row Gia đình / Cá nhân, bulk tools, "Nhập N". Differences worth statin
 
 ## 5. Safety rules
 
-- **Nothing auto-imports.** Rows reach a ledger only through "Nhập".
+- **Nothing auto-imports.** Rows reach a ledger only through "Nhập". Staging a
+  statement with no tap (S31) moves rows into the *review queue*, the same place
+  the server puts a transaction email's row with no tap. The human gate is where
+  it always was.
+- **Unseen, the device never asks and never guesses.** With no tap it stages a
+  statement only when every answer is already in hand: no password to type, a
+  reading the arithmetic proves or the person confirmed before, and a working
+  lookup of the rows they already decided on. If any of those is missing the
+  statement stays a card. A failure costs the shortcut, never the queue, and is
+  never announced.
 - **Seal or hold.** A statement that cannot be sealed (no personal staging key
   yet) waits for the next run. There is no plaintext fallback.
 - **A model limit slows, never loses.** Every model use degrades to a manual step
@@ -205,6 +261,10 @@ correction (`fx_final`, "Cập nhật theo sao kê"); remembered ✕; server-sid
 categories in one batched call; the one-time history re-scan; consent v5 with a
 non-blocking offer; the 90-day sweep; erasure on disconnect.
 
+**Built 2026-10-10 (S30 to S32, not yet merged):** the tap flow without a summary
+step; staging with no tap when the queue opens; the line left where the card
+stood, with "Xem"; a confirmed column reading that is not asked about again.
+
 **Decided but NOT built yet:**
 - *The model as a fallback for column reading* (S19's middle step). The vocabulary
   reader handles all three real layouts, so nothing calls the masked-sample mapping
@@ -215,6 +275,20 @@ non-blocking offer; the 90-day sweep; erasure on disconnect.
   only when the booked twin is in the personal book; a family twin shows the
   difference and is edited by hand.
 - *A card's closing debt* as a balance check.
+- *A real undo of a staged statement* (asked 2026-10-10, left open). Rows staged
+  by mistake are removed with the bulk delete over the statement's selection,
+  which **remembers them as removed** (§12), and the sealed file is already gone
+  (S13). Putting a statement back as a locked card means keeping the sealed file
+  past the write, an RPC that deletes rows without recording their fingerprints,
+  and a change to the worker's sweep: a migration and a `mailbox-sync` deploy.
+- *The push wording.* "Có sao kê mới chờ bạn mở" is now often untrue: the
+  statement may need no opening. It is server copy (`notify-copy.mjs`,
+  `push-send`), so changing it is a deploy and was left out of a client-only
+  change.
+- *Staging in the background*, on app open or on the push, rather than when the
+  queue opens. The runner is the same one; what it needs first is a measured
+  cost on a phone (`device-heat-spec.md`). Until then the badge says "1" for a
+  fresh statement and becomes the row count once the queue has been opened.
 - *Changing the statement's account on the summary.* The account is derived (bank,
   tail, and wallet / card / deposit from the file) and shown, not picked. A wrong
   guess is fixed the way it is for email rows: per row at review, or once on the
@@ -547,6 +621,8 @@ three real files on the machine that owns them: all three prove.
 | `pipeline/statement-lane.test.js` | The lane with a fake Gmail and real encryption; the seeds match the code |
 | `pipeline/merchant-concepts-batch.test.js` | One model call; a limit is never cached as "unknowable" |
 | `tools/consent-gate.test.js` | The v5 change is what someone holding v4 is shown |
+| `tools/statement-flow.test.js` | The tap flow on real sealing: read, proved, written ONCE however often it is asked, the line left behind, the retry after a failed write |
+| `tools/statement-auto.test.js` | Staging with no tap (S31) against a stateful fake server: what stages itself, and every case that must stay a card (backlog, locked, unproved, offline, a failed lookup, a locked ledger); the caps; two opens and two devices at once |
 
 ## 15. What real statement files look like (2026-09-19)
 
@@ -612,6 +688,9 @@ Design interview, 2026-09-18 → 19.
 | S27 | Everyone on the mailbox allowlist, no separate flag. |
 | S28 | **The badge counts what the LIST shows** (2026-09-30). S15 is about statement rows and is unchanged — every parsed row is counted. What is no longer counted is an unopened **backlog** file: since the 2026-09-24 declutter those render only inside the toolbox's "Sao kê cũ" drawer, never as a card, so counting them made the badge name work the screen then refused to show (a real mailbox: "25 khoản đang chờ" over two cards and 23 invisible files). A FRESH pending file is still counted — it is a card in the body. The backlog keeps its own labelled count on the toolbox button, which says what it is. |
 | S29 | **A statement step owns the review body** (2026-09-30). The unlock, mapping and summary steps paint into `#csv-result`, which every overlay in that modal covers — and the drawer is the only door to a backlog card, so opening one painted the password field under its own scrim. Every painted step now hushes the chrome that overlays or acts on the queue behind it (drawer, row sheet, tools header, Import), and `renderCsvReview` stands aside while a step is open, so a background repaint cannot land on a half-typed password. Leaving the step, committing, or reopening the queue hands the body back. |
+| S30 | **No summary step** (2026-10-10). Between the reading and the queue stood a screen with a count, the account, forty rows and a button. It guarded a write to the *review queue*, where every row is looked at before "Nhập", and when the arithmetic proof passes a wrong reading is not a live risk (§10: a wrong mapping reconciles roughly none). What it uniquely held was the last look at the account, which moved to the line left where the card stood. So the tap flow ends the moment nothing is left to ask. This supersedes the first-use request of 2026-09-19, "the person sees the rows before agreeing to queue them", after a month of use. |
+| S31 | **A statement that asks nothing stages itself when the queue opens** (2026-10-10). Fresh statements only, never the backlog (S11). Eligible = file not locked, or password remembered on this device (S8), or grid already kept from an earlier unlock; and reading proved, or confirmed before for this sender and header shape (S14). Runs inside the queue's own load, before first paint, so there is no repaint under the person's hands; at most 2 files and no new file after 8 s; the category hint gets 4 s and rows it misses are placed by the review's cascade. Why a card was left is remembered on the device only when finding out costs a download (`fh-stmt-auto:<uid>`: locked with no working password, or a lock this device cannot open). Unseen, a failed "already decided?" lookup stops the run; on a tap it still shows the rows. Chosen over staging on app open (cost on a phone not yet measured), over server-side parsing of unlocked files (covers one of three real formats, never the remembered-password case, and needs a new sealed row shape, a migration and a worker deploy), and over a per-bank "from now on" switch (the proof is already the gate). |
+| S32 | **A confirmed reading is confirmed** (2026-10-10). §3.3 always said a hand-confirmed column reading makes the next statement ask nothing. The code re-read the file with the remembered columns and then put the same proof to it, which a file with no balance and no totals can never pass, so the question returned every month. A remembered reading now counts as the answer, on a tap and unseen. |
 
 ## 17. Related
 

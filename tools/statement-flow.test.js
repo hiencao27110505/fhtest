@@ -85,34 +85,49 @@ const nodeCrypto = require('crypto');
   t('a card is a tappable row with a chevron and the queue\'s own remove control', /class="stm-tap" onclick="fhStmtOpen/.test(html) && /class="chev"/.test(html) && /class="bulk-x"/.test(html) && !/Mở sao kê/.test(html));
   t('the row says what the statement is of', /Thẻ tín dụng/.test(html) && /Tài khoản/.test(html));
 
-  console.log('\n-- 2. open -> the rows are SHOWN before anything is queued --');
-  await window.fhStmtOpen('w1');
-  html = el('csv-result').innerHTML;
-  t('the file opened: sealed details, hash check, table read', /csv-unlock-title">13 giao dịch</.test(html), html.slice(0, 160));
-  t('failed rows are counted, not shown', /1 thất bại/.test(html) && (html.match(/class="stm-prow/g) || []).length === 13);
-  t('each row shows when, what and how much', /REVI COFFEE/.test(html) && /27\/08/.test(html) && /−55\.000đ/.test(html), (html.match(/stm-pamt[^>]*>[^<]*/g) || []).slice(0, 3));
-  t('money in is marked as money in', /stm-pamt in">\+2\.000\.000đ/.test(html));
-  t('newest first', html.indexOf('27/08') < html.indexOf('01/08'));
-  t('a top-up says what the app thinks it is', /chuyển nội bộ\?/.test(html));
-  t('a payment funded by a bank says so', /qua ngân hàng liên kết/.test(html));
-  t('nothing has been written yet', calls.rpc.length === 0 && /chưa ghi vào sổ/.test(html));
-
-  console.log('\n-- 3. the button: works once, and says it is working --');
+  console.log('\n-- 2. tap -> the rows go straight to the queue, no summary step (S30) --');
   let release; rpcGate = new Promise((r) => { release = r; });
-  const first = window.fhStmtCommit();
-  await new Promise((r) => setTimeout(r, 60));                                // encryption done, RPC now "in flight"
-  const btn = el('stm-go');
-  t('busy at once: disabled, spinner, and it says what it is doing', btn.disabled === true && btn.classList.has('busy') && /stm-spin/.test(btn.innerHTML) && /Đang đưa vào hàng chờ/.test(btn.innerHTML), btn.innerHTML);
-  t('the way out is hidden while it works', el('stm-back').hidden === true);
+  const first = window.fhStmtOpen('w1');
+  await new Promise((r) => setTimeout(r, 80));                                // read, proved, encrypted; RPC now "in flight"
+  html = el('csv-result').innerHTML;
+  t('no summary, no preview, no button to press: the step is already writing', !/stm-prow|stm-preview|Đưa vào hàng chờ duyệt/.test(html) && /stm-spin/.test(html), html.slice(0, 200));
+  t('it says where the rows are going', /chưa ghi vào sổ/.test(html));
+  t('and what it is doing right now', /Đang đưa vào hàng chờ/.test(el('stm-say').textContent), el('stm-say').textContent);
+  t('no way out while a write is in flight', !/fhStmtCancel/.test(html));
+  t('the flow owns the body until it ends', window.fhStmtFlowActive() === true);
   await window.fhStmtCommit(); await window.fhStmtCommit(); await window.fhStmtCommit();   // an impatient thumb
-  t('three more taps while it is in flight: still ONE write', calls.rpc.filter((c) => c.fn === 'stage_statement_rows').length === 1, calls.rpc.length);
-  release(); await first;
+  t('three more calls while it is in flight: still ONE write', calls.rpc.filter((c) => c.fn === 'stage_statement_rows').length === 1, calls.rpc.length);
+  release(); await first; rpcGate = null;
   const staged = calls.rpc.find((c) => c.fn === 'stage_statement_rows');
   t('13 rows queued for this statement, in order', staged.args.p_statement_id === 'w1' && staged.args.p_rows.length === 13 && staged.args.p_rows.every((r, i) => r.row_index === i && /^\d{4}-\d\d-\d\d$/.test(r.txn_date)));
   const one = JSON.parse(Buffer.from(staged.args.p_rows[0].payload_enc, 'base64').toString('utf8'));
   t('each row carries its statement\'s title, for "Chọn nhanh"', one.stitle === 'Sao kê MoMo ví · 20/06 – 18/09', one.stitle);
   t('the sealed file is deleted the moment the rows are in', calls.removed.length === 1 && calls.removed[0] === OWNER + '/w1.sealed');
-  t('and the review reopens on the new rows', calls.reopened === 1);
+  t('and the review reopens on the new rows', calls.reopened === 1 && window.fhStmtFlowActive() === false);
+  t('the person is told how many went in', calls.toasts.some((m) => /Đã thêm 13 khoản vào hàng chờ/.test(m)), calls.toasts);
+
+  console.log('\n-- 3. what the summary used to say is said where the card stood --');
+  html = window.fhStmtCardsHTML();
+  t('one line: which statement, how many rows, and the account they were filed under',
+    /class="stm-note" data-stm-note="w1"/.test(html) && /Sao kê MoMo ví · 20\/06 – 18\/09/.test(html) && /13 khoản đã vào hàng chờ · Ví\sMoMo/.test(html), (html.match(/stm-sub">[^<]*/g) || []));
+  t('the staged card itself is gone from the cards', !/data-stm="w1"/.test(html) && (html.match(/class="stm-card/g) || []).length === 2);
+  let seen = null; window.csvPickStmtOnly = (id) => { seen = id; };
+  window.fhStmtNoteSee('w1');
+  t('"Xem" hands the statement to Chọn nhanh', /fhStmtNoteSee\('w1'\)/.test(html) && seen === 'w1');
+  window.fhStmtNoteHide('w1');
+  t('✕ hides the line and nothing else', !/stm-note/.test(window.fhStmtCardsHTML()) && calls.rpc.length === 1);
+
+  console.log('\n-- 3b. a failed write keeps the card and offers one retry --');
+  await window.fhStmtLoad();
+  let failNext = true; const rpcWas = calls.rpc.length;
+  rpcGate = { then: (res, rej) => { if (failNext) { failNext = false; rej(new Error('net')); } else res(); } };
+  await window.fhStmtOpen('c1');
+  html = el('csv-result').innerHTML;
+  t('the step says it could not save, with "Thử lại" and a way out', /Chưa lưu được/.test(html) && /fhStmtCommit\(\)/.test(html) && /Thử lại/.test(html) && /fhStmtCancel/.test(html), html.slice(0, 200));
+  t('the card is still there', window.fhStmtCards().some((c) => c.id === 'c1'));
+  await window.fhStmtCommit();
+  t('the retry writes', calls.rpc.length === rpcWas + 2 && !window.fhStmtCards().some((c) => c.id === 'c1') && window.fhStmtFlowActive() === false, calls.rpc.length - rpcWas);
+  rpcGate = null;
 
   console.log('\n-- 4. "Chọn nhanh" can find a statement\'s rows --');
   window._fhStagedRows = [window.fhStmtAsStaged('r0', one), { id: 'e1', raw_extracted: {} }];

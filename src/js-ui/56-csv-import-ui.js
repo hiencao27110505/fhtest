@@ -4759,6 +4759,17 @@ function csvPickStmtTgl(id){
   if(csvPickF.via === 'email') csvPickF.via = null;     // picking a statement and "email only" cannot both hold
   renderCsvReview();
 }
+/* "Xem" on the line a staged statement leaves (77 fhStmtNoteSee): Chọn nhanh
+   opens already narrowed to that statement's rows, which is where the verbs for
+   them live. With one statement in the queue the drawer shows no per-statement
+   chip, so the two-way "Từ sao kê" chip carries the same set and stays visible. */
+function csvPickStmtOnly(id){
+  var ids = {};
+  ((csvReview && csvReview.ready) || []).forEach(function(c){ var st = csvStmtOf(c); if(st) ids[st.id] = 1; });
+  csvPickF = csvPickBlank();
+  if(Object.keys(ids).length > 1) csvPickF.stmt[id] = 1; else csvPickF.via = 'stmt';
+  csvToolOpen('pick');
+}
 function csvPickMatches(){
   var wk = csvPickWeekMax();
   return ((csvReview && csvReview.ready) || []).filter(function(c){ return csvPickMatch(c, wk); });

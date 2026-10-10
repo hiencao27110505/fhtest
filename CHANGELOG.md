@@ -20,6 +20,34 @@ Going forward, add an entry here when a feature area changes meaningfully — se
 
 ## 2026-10-10
 
+### Sao kê tự vào hàng chờ, bỏ bước xác nhận (SW v626) — on `feat/statement-auto`, not merged
+
+Receiving a statement cost a tap on its card and a second tap on a summary screen
+before one row reached the review queue. Spec: `docs/specs/statement-capture-spec.md`
+S30 to S32. Client only, no migration, no Edge Function deploy.
+
+- **No summary step (S30).** `fhStmtOpen` ends at the write: read, prove, encrypt,
+  `stage_statement_rows`, reopen the queue. `_stmSummary`, the forty-row preview and
+  `_stmVerdicts` are removed (the queue's own dedup engine says what is already
+  booked). A failed write paints "Chưa lưu được" with "Thử lại" (`fhStmtCommit`).
+- **No tap at all when nothing has to be asked (S31).** `fhTxnReviewSheet` calls
+  `fhStmtLoad({ auto: true, say })`; `_stmAuto` tries each fresh pending statement
+  before the rows are read, so it arrives in the same load as rows. Eligible: not
+  locked, or password remembered, or grid kept; and reading proved or confirmed
+  before. Never the backlog. 2 files and 8 s per open; the merchant-concepts hint
+  gets 4 s and a late answer is dropped (`gate.closed`). Why a card was left is kept
+  in `fh-stmt-auto:<uid>` only when learning it costs a download.
+- **One runner, two callers.** `_stmFetch` / `_stmGrid` / `_stmRead` / `_stmPlan` /
+  `_stmWrite` take the run they work on (`X`) instead of reading the module's `S`,
+  so the unseen path cannot paint, and cannot hold the review body.
+- **The line left behind.** `fhStmtCardsHTML` now leads with `.stm-note` rows
+  (statement, row count, account) with "Xem" → `csvPickStmtOnly` (56) and ✕.
+- **A confirmed reading is confirmed (S32).** A remembered column mapping used to be
+  re-proved and re-asked every month for a file with no balance or totals.
+- Tests: `tools/statement-auto.test.js` (56), `statement-flow` (29, rewritten),
+  `heat-statement-cache`, `statement-quick-select`. Suite: 167 pass, the same two
+  failures as before (`direct-persist-contract`, `label-fallback-root`).
+
 ### Danh sách, hàng chờ và sao kê thôi làm nóng máy (SW v625)
 
 Third heat report in three weeks (list 2026-10-01, reading loop 2026-09-26, now the

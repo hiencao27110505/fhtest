@@ -1390,11 +1390,16 @@
        statement join the SAME array, shaped exactly like an opened email row, so
        every accessor below that indexes _fhStagedRows by rowIndex reads them with
        no second code path. Unopened statements ride beside as cards. A failure
-       here costs the statements, never the email queue. */
+       here costs the statements, never the email queue.
+
+       `auto` (statement-capture-spec S31): a fresh statement that needs nothing
+       from the person, no password and no column check, is staged inside this
+       load, so it arrives below as rows instead of as a card to tap. It runs
+       under the loader this function already shows, which says which file. */
     var stmtCards = 0;
     if (window.fhStmtLoad) {
       try {
-        var stmt = await window.fhStmtLoad();
+        var stmt = await window.fhStmtLoad({ auto: true, say: _txrLoadMsg });
         readable = readable.concat(stmt.rows || []);
         locked += stmt.locked || 0;
         stmtCards = (stmt.cards || []).length;
