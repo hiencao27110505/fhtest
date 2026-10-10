@@ -89,6 +89,9 @@ const good = { is_transaction: true, document_kind: 'paper_receipt', amount_text
   t('the category is the concept, never a family category', r.body.category === 'Groceries');
   t('amount found in the transcription: not flagged', r.body.flags.amount_unverified === false);
   t('raw_text never reaches the client', !('raw_text' in r.body));
+  t('timings ride back, and they are durations and counts only',
+    r.body._t && typeof r.body._t.total === 'number' && typeof r.body._t.gemini === 'number' && typeof r.body._t.auth === 'number'
+    && Object.keys(r.body._t).every((k) => ['model', 'total', 'auth', 'gemini', 'validate', 'retried', 'tok_in', 'tok_out', 'tok_think'].includes(k)));
 
   console.log('\n-- Gemini failures never leak content --');
   r = res(); f = fakeFetch({ geminiStatus: 429 });

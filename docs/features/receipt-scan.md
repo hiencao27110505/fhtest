@@ -51,6 +51,30 @@ Open:
 - **iPhone-only:** the system picker, the tap-gesture camera rule, torch support, and `100vh` behaviour are verifiable only on a phone.
 - **Not measurable without a migration:** scan attempts, abandons, consent declines.
 
+## Measuring a read
+
+Every read writes one row to `scan_read_log` (migration 0159) from the device, after it settles. It records where the time went and never what was read: no user, family or device id, no amount, merchant, date, text or image.
+
+| Column | Leg |
+|---|---|
+| `ms_compress` | the phone shrinking the photo |
+| `ms_token` | fetching the session |
+| `ms_request` | upload, server and download together |
+| `ms_server`, `ms_auth`, `ms_gemini`, `ms_validate` | the function's own clock, returned in `_t` |
+| `tok_in`, `tok_out`, `tok_think`, `retried`, `model` | what the model call cost, and whether the thinking setting was refused |
+| `outcome`, `err`, `net`, `bytes_sent`, `doc_kind` | how it ended, on what connection, with how big a payload |
+
+`ms_request - ms_server` is the network. Compare as rates and medians, not counts:
+
+```sql
+select outcome, count(*) n,
+       percentile_cont(0.5) within group (order by ms_total)   as p50_total,
+       percentile_cont(0.5) within group (order by ms_gemini)  as p50_gemini,
+       percentile_cont(0.5) within group (order by ms_request - ms_server) as p50_network,
+       percentile_cont(0.5) within group (order by tok_think)  as p50_think
+from scan_read_log where created_at > now() - interval '7 days' group by outcome;
+```
+
 ## Related
 
 - [docs/briefs/receipt-scan.md](../briefs/receipt-scan.md) — the brief: end state, thresholds, the journey with feasibility per stage, acceptance criteria.

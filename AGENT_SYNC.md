@@ -151,6 +151,15 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-10-10 (afternoon) · Trang · `0159_scan_read_log` APPLIED via `supabase db query --linked -f` · next free migration is `0160` · PUSHED to `main` · no SW bump.**
+  Receipt scan reads took about a minute per photo on 4G and the site's request logs sit in a
+  hosting account this side cannot read. `scan_read_log` is the measurement: one row per read,
+  written by the device (`logRead` in `78-receipt-scan.js`), carrying its own legs plus the ones
+  `api/receipt-extract.js` now returns in `_t`. **No user, family or device id, and nothing that
+  was read**: durations, token counts, outcome. Insert-only for `authenticated`, RLS on, no select
+  policy; read it with SQL. Safe to drop. Same day, earlier: the read asks Gemini for number lines
+  only and no thinking pass (a 400 retries without it), the function has `maxDuration` 60, a
+  failed read names its code on the row, and money coming in is no longer filed as an expense. — Trang
 - **2026-10-10 · Hien (statement session) · sao kê: no summary step, and a statement that asks nothing stages itself (S30 to S32) — PUSHED to `main` (built in worktree `.worktrees/statement-auto`, branch `feat/statement-auto`, rebased onto `cb06d56`) · SW `v626` · if you bump the SW next, start from `v626` · client only · no migration (next free is still `0159`) · no Edge Function deploy.**
   Files: `src/js-data/77-statement-capture.js` (the flow below the grid cache is rewritten: `_stmFetch` / `_stmRead` / `_stmPlan` / `_stmWrite` take a run object, `_stmAuto` is new, `_stmSummary` and the preview are gone), `src/js-data/72-txn-review.js` (one line: `fhStmtLoad({ auto: true, say: _txrLoadMsg })`), `src/js-ui/56-csv-import-ui.js` (new `csvPickStmtOnly`, nothing else), `src/css/74-mailbox.css` (`.stm-note*` added; `.stm-preview`, `.stm-prow*`, `.stm-gobar*`, `.stm-bits` removed), `sw.js`, `index.html`.
   Tests: `tools/statement-auto.test.js` (new, 56), `tools/statement-flow.test.js` (rewritten for the tap flow, 29). **Two tests I did not write were changed, on purpose:** `tools/heat-statement-cache.test.js` (a tap now writes at once and a written statement leaves the cache, so the kept-grid cases run against a write that fails; same assertions about downloads and parses) and `tools/statement-quick-select.test.js` (+2 checks for `csvPickStmtOnly`).

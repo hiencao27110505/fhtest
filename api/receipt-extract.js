@@ -130,8 +130,16 @@ async function handler(req, res, deps) {
   const apiKey = env.GEMINI_API_KEY;
   if (!apiKey) { res.status(500).json({ error: 'GEMINI_API_KEY not configured on the server' }); return; }
 
+  /* Timings for scan_read_log (0159): durations and token counts only, never anything read.
+     They ride back on every answer after sign-in, failures included, because a slow failure
+     is the one most worth explaining. The device writes the row; this function logs nothing. */
+  const t0 = Date.now();
+  const T = { model: GEMINI_MODEL };
+  const send = (code, obj) => { T.total = Date.now() - t0; res.status(code).json(Object.assign(obj, { _t: T })); };
+
   const authz = req.headers['authorization'] || req.headers['Authorization'] || '';
   const uid = await _verifyUser(authz.replace(/^Bearer\s+/i, ''), fetchFn);
+  T.auth = Date.now() - t0;
   if (!uid) { res.status(401).json({ error: 'sign-in required' }); return; }
   if (_rateLimited(uid)) { res.status(429).json({ error: 'rate limited — try again in a minute' }); return; }
 
@@ -155,6 +163,7 @@ async function handler(req, res, deps) {
   const ask = (b) => fetchFn(`${GEMINI_URL}?key=${apiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) });
 
   let geminiRes;
+  const g0 = Date.now();
   try {
     geminiRes = await ask(geminiBody);
     /* "-latest" tracks whatever Google's current Flash is, and not every model accepts a
@@ -163,21 +172,28 @@ async function handler(req, res, deps) {
     if (geminiRes.status === 400) {
       const plain = Object.assign({}, geminiBody, { generationConfig: Object.assign({}, geminiBody.generationConfig) });
       delete plain.generationConfig.thinkingConfig;
+      T.retried = true;
       geminiRes = await ask(plain);
     }
-  } catch (e) { res.status(502).json({ error: 'Gemini request failed' }); return; }
-  if (!geminiRes.ok) { res.status(502).json({ error: `Gemini returned ${geminiRes.status}` }); return; }   // no body echoed: it could quote the image text
+  } catch (e) { T.gemini = Date.now() - g0; send(502, { error: 'Gemini request failed' }); return; }
+  if (!geminiRes.ok) { T.gemini = Date.now() - g0; send(502, { error: `Gemini returned ${geminiRes.status}` }); return; }   // no body echoed: it could quote the image text
 
   const data = await geminiRes.json();
+  T.gemini = Date.now() - g0;                                   // headers to full body: the whole model call
+  const um = data && data.usageMetadata;
+  if (um) { T.tok_in = um.promptTokenCount || 0; T.tok_out = um.candidatesTokenCount || 0; T.tok_think = um.thoughtsTokenCount || 0; }
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) { res.status(502).json({ error: 'Gemini returned no content' }); return; }
+  if (!text) { send(502, { error: 'Gemini returned no content' }); return; }
   let parsed;
-  try { parsed = JSON.parse(text); } catch (e) { res.status(502).json({ error: 'Gemini response was not valid JSON' }); return; }
+  try { parsed = JSON.parse(text); } catch (e) { send(502, { error: 'Gemini response was not valid JSON' }); return; }
 
   let parsers;
+  const v0 = Date.now();
   try { parsers = (deps && deps.parsers) || await _loadParsers(); }
-  catch (e) { res.status(500).json({ error: 'validator unavailable' }); return; }   // fail closed, never unvalidated
-  res.status(200).json(validate(parsed, parsers));
+  catch (e) { send(500, { error: 'validator unavailable' }); return; }   // fail closed, never unvalidated
+  const out = validate(parsed, parsers);
+  T.validate = Date.now() - v0;
+  send(200, out);
 }
 
 module.exports = (req, res) => handler(req, res);

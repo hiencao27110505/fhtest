@@ -380,20 +380,45 @@
     const lanes = []; for (let k = 0; k < Math.min(CONC, todo.length); k++) lanes.push(next());
     Promise.all(lanes).then(render, render);
   }
+  /* One row per read in scan_read_log (0159): where the time went, never what was read.
+     No user, no family, no amount, no text. Best effort: a log that fails is not the
+     person's problem, so it never waits, never retries and never toasts. */
+  const now = () => (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+  const ms = (a, b) => (a == null || b == null) ? null : Math.max(0, Math.round(b - a));
+  function logRead(it, M) {
+    try {
+      const s = M.srv || {}, n = navigator.connection && navigator.connection.effectiveType;
+      const int = (v) => (typeof v === 'number' && isFinite(v)) ? Math.round(v) : null;
+      const q = sb.from('scan_read_log').insert({
+        outcome: it.state === 'offline' ? 'offline' : (it.err ? 'err' : (it.credit ? 'credit' : (it.state === 'bad' ? 'unread' : it.state))),
+        err: it.err || null, net: n ? String(n).slice(0, 12) : null, lang: vi() ? 'vi' : 'en', doc_kind: M.kind ? String(M.kind).slice(0, 24) : null,
+        bytes_sent: int(M.bytes), ms_total: ms(M.t0, now()), ms_compress: ms(M.t0, M.t1), ms_token: ms(M.t1, M.t2), ms_request: ms(M.t2, M.t3),
+        ms_server: int(s.total), ms_auth: int(s.auth), ms_gemini: int(s.gemini), ms_validate: int(s.validate), retried: s.retried === true,
+        model: s.model ? String(s.model).slice(0, 48) : null, tok_in: int(s.tok_in), tok_out: int(s.tok_out), tok_think: int(s.tok_think) });
+      if (q && q.then) q.then(function () {}, function () {});
+    } catch (e) {}
+  }
   async function readOne(it) {
+    const M = { t0: now() };
     try {
       const cmp = await window.fhCompressImage(it.src);
       const m = String(cmp || '').match(/^data:([^;]+);base64,(.*)$/); if (!m) throw new Error('no image');
+      M.t1 = now(); M.bytes = m[2].length;
       const tk = await token(); if (!tk) throw new Error('no session');
+      M.t2 = now();
       const r = await fetch(ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tk },
         body: JSON.stringify({ image: m[2], mime: m[1], lang: vi() ? 'vi' : 'en' }) });
+      let j = null; try { j = await r.json(); } catch (e) {}
+      M.t3 = now(); M.srv = j && j._t; M.kind = j && j.document_kind;
       if (!r.ok) { it.err = String(r.status); throw new Error('http ' + r.status); }
-      apply(it, await r.json());
+      apply(it, j);
+      logRead(it, M);
     } catch (e) {
       const m = String(e && e.message);
-      if (!it.err && !navigator.onLine) { it.state = 'offline'; return; }            // the signal dropped mid-read: not sent, not a fault
+      if (!it.err && !navigator.onLine) { it.state = 'offline'; logRead(it, M); return; }   // the signal dropped mid-read: not sent, not a fault
       it.state = 'bad';
       if (!it.err && !/no image/.test(m)) it.err = /session/.test(m) ? 'auth' : 'net';   // a photo that failed on the phone never reached the reader
+      logRead(it, M);
     }
     /* it.err = the reader never answered (a status code, 'net', 'auth'), as opposed to
        answering "this is not a receipt". The row says which: a server fault shown as
