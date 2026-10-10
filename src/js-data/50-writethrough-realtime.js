@@ -455,7 +455,7 @@
   };
 
   // ---- realtime: reload on any change to this family's rows ----
-  let _rtTimer = null;
+  // (the debounce timer is _scheduleHydrate in 20-data-helpers, shared with _syncSoon)
   /* A realtime change to a transaction OLDER than our loaded window can't be captured
      by a windowed refresh, so force a full hydrate for it. INSERT/UPDATE carry the row
      (txn_date on payload.new); DELETE carries only the replica-identity columns (the PK
@@ -487,13 +487,13 @@
           // R6: a remote change to an out-of-window transaction needs a full hydrate;
           // everything else refreshes windowed (all other tables come back full anyway).
           const full = (tbl === 'transactions') && _rtTxnOutOfWindow(payload);
-          clearTimeout(_rtTimer); _rtTimer = setTimeout(() => { if (window.editingTx != null) return; window.loadFamilyData && window.loadFamilyData(full ? {} : { windowed: true }); }, 900);
+          _scheduleHydrate(900, full);
         });
       });
       // the families row itself (house customization lives here) — keyed on id, not family_id
       ch.on('postgres_changes', { event: '*', schema: 'public', table: 'families', filter: 'id=eq.' + fid }, () => {
         if (Date.now() - (window.DB._lastLocalWrite || 0) < 2500) return;
-        clearTimeout(_rtTimer); _rtTimer = setTimeout(() => { if (window.editingTx != null) return; window.loadFamilyData && window.loadFamilyData({ windowed: true }); }, 900);
+        _scheduleHydrate(900, false);
       });
       ch.subscribe();
     } catch (e) { console.warn('realtime subscribe failed', e); }
@@ -507,17 +507,24 @@
     const now = Date.now();
     if (now - _lastRefresh < 2000) return;
     _lastRefresh = now;
-    window.loadFamilyData && window.loadFamilyData({ windowed: true });   // R6: focus refresh is windowed; FULL_EVERY caps out-of-window staleness
     /* The staged queue is NOT part of loadFamilyData: `email_transactions` is
        not in the hydrate snapshot and carries no realtime subscription, because
        every row in it is sealed and the client has to open each one to know what
-       it is. So without this line the badge only ever moved at boot and after a
-       promote — mail could arrive while the app sat open and nothing said so,
-       which reads as "it didn't work" rather than "look again".
+       it is. So the badge has to be refreshed on resume too, or mail that
+       arrived while the app sat open reads as "it didn't work".
 
-       Deliberately not awaited and separately caught: it is one count for a
-       badge, and it must never delay or fail the ledger refresh beside it. */
-    try { window.fhRefreshStagedCount && window.fhRefreshStagedCount(); } catch (e) {}
+       Exactly ONE refresh per resume. A successful loadFamilyData already runs
+       fhRefreshStagedCount in its tail (30-hydrate), and that refresh is a
+       1000-row sealed fetch; running it here as well meant two of them on every
+       focus/visibilitychange. So this path only fills in when the hydrate did
+       NOT reach its tail (no session, no family, or it threw). Not awaited by
+       anything, separately caught: a badge count must never delay or fail the
+       ledger refresh beside it. */
+    let _p = null;
+    try { _p = window.loadFamilyData && window.loadFamilyData({ windowed: true }); } catch (e) { _p = null; }   // R6: focus refresh is windowed; FULL_EVERY caps out-of-window staleness
+    const _fallback = () => { try { window.fhRefreshStagedCount && window.fhRefreshStagedCount(); } catch (e) {} };
+    if (_p && typeof _p.then === 'function') _p.then((ok) => { if (!ok) _fallback(); }, _fallback);
+    else _fallback();
   }
   document.addEventListener('visibilitychange', _refreshOnResume);
   window.addEventListener('focus', _refreshOnResume);

@@ -39,7 +39,10 @@
       if (enc && !fhKeyReady()) return;                    // locked: better no snapshot than a plaintext one
       let payload, isEnc = false;
       if (enc) {
-        const ct = await fhEnc(JSON.stringify(data)); if (!ct) return;
+        let ct = null;
+        try { ct = await fhEnc(JSON.stringify(data)); }
+        catch (e) { if (!window._fhSnapEncWarned) { window._fhSnapEncWarned = true; console.warn('snapshot encrypt failed; warm boot disabled this session', e); } return; }
+        if (!ct) return;
         payload = { v: 3, at: data.at, fid: window.DB.fid, ct: ct }; isEnc = true;
       } else {
         payload = data;

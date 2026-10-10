@@ -293,7 +293,7 @@ function csvFixRuleBlock(c){
                        link: fx.busy ? null : { label:L('Hoàn tác','Undo'), tap:'csvFixRuleUndo('+fx.id+')' } };
   return fhRuleBlock(csvRuleDraft(c), fx.ruleOn, 'csvFixRuleToggle('+fx.id+')');
 }
-function csvFixRuleToggle(id){ var c = csvFixes[id]; if(c && c._fix && !c._fix.busy){ c._fix.ruleOn = !c._fix.ruleOn; renderCsvReview(); } }
+function csvFixRuleToggle(id){ var c = csvFixes[id]; if(c && c._fix && !c._fix.busy){ c._fix.ruleOn = !c._fix.ruleOn; if(typeof csvCardRepaintFor==='function') csvCardRepaintFor(c); else renderCsvReview(); } }   // one card, not the whole queue
 function csvFixRuleSave(c){
   var fx = c && c._fix; if(!fx || !fx.ruleOn) return null;
   var u = fhRuleCommit(csvRuleDraft(c));
@@ -305,7 +305,7 @@ function csvFixRuleUndo(id){
   var c = csvFixes[id]; if(!c || !c._fix || !c._fix.rule) return;
   fhRuleRevert(c._fix.rule); c._fix.rule = null;
   window.toast && toast(L('Đã hoàn tác','Undone'));
-  renderCsvReview();
+  if(typeof csvCardRepaintFor==='function') csvCardRepaintFor(c); else renderCsvReview();
 }
 /* The door with nothing to carry to yet: a payee seen for the first time. */
 function csvFixRuleDoor(c){

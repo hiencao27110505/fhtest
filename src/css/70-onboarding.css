@@ -45,7 +45,7 @@ html.fh-newver #fh-newver{display:flex}
    field shows the brand-colored active ring instead of red (DESIGN §4.4). */
 #onboarding .field.invalid input,#onboarding .field.invalid input:focus{border-color:var(--danger);box-shadow:none}
 /* screens slide like a native push; reduced motion gets a plain cross-fade */
-.ob-screen{position:absolute;inset:0;display:flex;flex-direction:column;opacity:0;pointer-events:none;transform:translateX(100%);transition:transform .42s cubic-bezier(.32,.72,0,1),opacity .32s;will-change:transform}
+.ob-screen{position:absolute;inset:0;display:flex;flex-direction:column;opacity:0;pointer-events:none;transform:translateX(100%);transition:transform .42s cubic-bezier(.32,.72,0,1),opacity .32s}
 .ob-screen.on{opacity:1;pointer-events:auto;transform:none}
 .ob-screen.past{opacity:0;transform:translateX(-32px);pointer-events:none}
 .ob-top{flex-shrink:0;padding:calc(max(env(safe-area-inset-top),0px) + 15px) 8px 2px;display:flex;align-items:center}

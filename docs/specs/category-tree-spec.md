@@ -419,7 +419,11 @@ Runs after hydrate, idle-scheduled, resumable from a local cursor, both ledgers:
    `linkId` takes its node from `fhPersonalMirror`; writing one here starts a
    rewrite → version bump → full `fhPersonalHydrate` ping-pong (a hot device and
    a stuck "Đang đồng bộ…").
-5. **The cursor is versioned and moves with the rules (E10).**
+5. **The cursor is versioned and moves with the rules (E10).** Since 2026-10-10
+   (`device-heat-spec.md`, approach F) the cursor is **v15**: the sweep keeps its
+   marks in a module-level Set keyed by `id|node|note` that survives hydrates,
+   walks a wanted list built once per ledger generation, and marks unresolvable
+   rows so a finished walk can mark the scope done.
    `fh-tree-bf:v<N>:fam:<fid>` / `:per:<uid>`, currently **v6**. A device that
    finished a pass never looks again, so ANY change to what a row resolves to
    (`fhNodeGuess`, `fhTransferShape`, the keywords, `_tbfWants`) ships with a

@@ -47,15 +47,32 @@
        HMAC under a key derived (HKDF) from the personal staging PRIVATE key, which
        only this person's devices can unwrap. The canonical string is the bank's own
        transaction id when the file has one -- an exact key -- else the row's facts. */
+    /* The PROMISE is what is cached: fingerprints are now taken fifty at a time,
+       and fifty first callers must share one derivation, not run fifty. */
     let _stmFpKeyCache = null;
-    async function _stmFpKey() {
+    function _stmFpKey() {
       if (_stmFpKeyCache) return _stmFpKeyCache;
-      const priv = await window.fhPersonalStagingPrivKey();
-      const base = await crypto.subtle.importKey('raw', priv, 'HKDF', false, ['deriveKey']);
-      _stmFpKeyCache = await crypto.subtle.deriveKey(
-        { name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(32), info: new TextEncoder().encode('stmt-row-fp-v1') },
-        base, { name: 'HMAC', hash: 'SHA-256', length: 256 }, false, ['sign']);
+      _stmFpKeyCache = (async () => {
+        const priv = await window.fhPersonalStagingPrivKey();
+        const base = await crypto.subtle.importKey('raw', priv, 'HKDF', false, ['deriveKey']);
+        return crypto.subtle.deriveKey(
+          { name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(32), info: new TextEncoder().encode('stmt-row-fp-v1') },
+          base, { name: 'HMAC', hash: 'SHA-256', length: 256 }, false, ['sign']);
+      })();
+      _stmFpKeyCache.catch(() => { _stmFpKeyCache = null; });
       return _stmFpKeyCache;
+    }
+    /* Work in batches of this many, with a breath for the screen between them:
+       one awaited WebCrypto call per row serialises a thousand round trips. */
+    const STM_BATCH = 50;
+    const _stmYield = () => new Promise((r) => setTimeout(r, 0));
+    async function _stmBatched(items, fn) {
+      const out = new Array(items.length);
+      for (let i = 0; i < items.length; i += STM_BATCH) {
+        await Promise.all(items.slice(i, i + STM_BATCH).map((x, k) => Promise.resolve(fn(x, i + k)).then((v) => { out[i + k] = v; })));
+        if (i + STM_BATCH < items.length) await _stmYield();
+      }
+      return out;
     }
     function fhStmtCanonical(provider, tail, row) {
       const p = String(provider || '').toLowerCase().replace(/\s+/g, '');
@@ -204,6 +221,25 @@
     let _stmCards = [];
     window.fhStmtCards = () => _stmCards;
 
+    /* Decrypted row payloads, kept across queue opens. Keyed by row id and
+       checked against the ciphertext string itself (a re-sealed row is a new
+       string, so there is no staleness to track), so the second open of a
+       thousand-row queue decrypts nothing. The staged row object is rebuilt
+       from the payload on every load: downstream mutates those in place
+       (receipt join, review edits) and must never see last open's copy. */
+    const STM_ROW_CACHE_MAX = 3000;
+    const _stmRowCache = new Map();                  // row id -> { enc, p }
+    function _stmRowCacheSet(id, enc, p) {
+      if (_stmRowCache.has(id)) _stmRowCache.delete(id);
+      _stmRowCache.set(id, { enc: enc, p: p });
+      while (_stmRowCache.size > STM_ROW_CACHE_MAX) _stmRowCache.delete(_stmRowCache.keys().next().value);
+    }
+    function _stmRowCachePrune(liveIds) {
+      const live = new Set(liveIds);
+      Array.from(_stmRowCache.keys()).forEach((k) => { if (!live.has(k)) _stmRowCache.delete(k); });
+    }
+    window.fhStmtRowCacheSize = () => _stmRowCache.size;
+
     /* SYNCHRONOUS, and it must stay so: fhStagingOpenRow is. Declared `async` it
        handed back a Promise, the caller stored that as `card.meta`, and every field
        read off it was undefined -- no period in the title, no file name, and a
@@ -215,7 +251,7 @@
         owner_user_id: _stmUid(), gmail_message_id: f.gmail_message_id }, priv);
     }
 
-    window.fhStmtLoad = async function () {
+    window.fhStmtLoad = async function () { window.fhHeat && window.fhHeat.tick('fhStmtLoad');
       const out = { rows: [], cards: [], locked: 0 };
       if (!window.sb || !_stmUid()) return out;
       const ready = !!(window.fhPersonalKeyReady && window.fhPersonalKeyReady());
@@ -239,11 +275,21 @@
       const server = rres.data || [];
       _stmRetPrune(server.map((r) => r.id));
       const gone = new Set(_stmRetGet());
-      for (const r of server) {
-        if (gone.has(r.id)) continue;
-        if (!ready) { out.locked++; continue; }
-        try { out.rows.push(fhStmtAsStaged(r.id, await _stmDecJson(r.payload_enc))); } catch (e) { out.locked++; }
-      }
+      const slots = new Array(server.length).fill(null), todo = [];
+      server.forEach((r, i) => {
+        if (gone.has(r.id)) return;
+        if (!ready) { out.locked++; return; }
+        const hit = _stmRowCache.get(r.id);
+        if (hit && hit.enc === r.payload_enc) { slots[i] = hit.p; return; }
+        todo.push(i);
+      });
+      await _stmBatched(todo, async (i) => {
+        const r = server[i];
+        try { const p = await _stmDecJson(r.payload_enc); _stmRowCacheSet(r.id, r.payload_enc, p); slots[i] = p; }
+        catch (e) { out.locked++; }
+      });
+      server.forEach((r, i) => { if (slots[i]) out.rows.push(fhStmtAsStaged(r.id, slots[i])); });
+      _stmRowCachePrune(server.map((r) => r.id));      // retired or deleted rows leave with the server copy
       return out;
     };
 
@@ -293,6 +339,7 @@
     window.fhStmtRetire = async function (ids) {
       const rows = _stmPick(ids); if (!rows.length) return 0;
       _stmRetAdd(rows.map((r) => r.id));
+      rows.forEach((r) => _stmRowCache.delete(r.id));
       return _rpc('resolve_statement_rows', { p_ids: rows.map((r) => r.id), p_fps: rows.map((r) => r.row_fp).filter(Boolean) });
     };
 
@@ -331,7 +378,7 @@
     }
     function _stmCardHTML(card) {
       const armed = _stmArmed === card.id, dead = !!card.keyLocked, sub = _stmSub(card);
-      return '<div class="stm-card' + (dead ? ' dim' : '') + '">' +
+      return '<div class="stm-card' + (dead ? ' dim' : '') + '" data-stm="' + _escAttr(card.id) + '">' +
         '<button type="button" class="stm-tap"' + (dead ? ' disabled' : ' onclick="fhStmtOpen(\'' + card.id + '\')"') + '>' +
           '<span class="stm-txt"><span class="stm-title">' + _esc(_stmTitle(card)) + '</span>' +
           (sub ? '<span class="stm-sub">' + _esc(sub) + '</span>' : '') + '</span>' +
@@ -346,7 +393,41 @@
        the same chip style as "Chọn nhanh", so it reads as the same kind of control. */
     let _stmProvF = null;
     const _stmProvOf = (c) => (window.fhProviderName ? window.fhProviderName(c.source_provider) : c.source_provider) || L('Khác', 'Other');
-    window.fhStmtProvTgl = function (p) { _stmProvF = (_stmProvF === p || p === '') ? null : p; window.renderCsvReview && window.renderCsvReview(); };
+    window.fhStmtProvTgl = function (p) {
+      _stmProvF = (_stmProvF === p || p === '') ? null : p;
+      if (!_stmPatchProv()) window.renderCsvReview && window.renderCsvReview();
+    };
+    /* In-place repaints. The review body is a long list, and renderCsvReview
+       rebuilds all of it; a chip tap or an armed ✕ changes a few elements. Each
+       of those is swapped where it stands, and the whole queue is repainted
+       only when one of them is not on screen (a list rebuilt meanwhile, or a
+       test with no DOM), where the full render is still right. */
+    function _stmQ(sel) {
+      if (typeof document === 'undefined' || typeof document.querySelectorAll !== 'function') return null;
+      try { return Array.prototype.slice.call(document.querySelectorAll(sel)); } catch (e) { return null; }
+    }
+    function _stmPatchArm(id) {
+      const els = _stmQ('.stm-card[data-stm="' + String(id).replace(/["\\]/g, '') + '"]');
+      if (!els || !els.length) return false;
+      const armed = _stmArmed === id;
+      els.forEach((el) => {
+        const x = el.querySelector && el.querySelector('.bulk-x'); if (!x) return;
+        x.className = 'bulk-x' + (armed ? ' armed' : '');
+        x.textContent = armed ? L('Bỏ?', 'Remove?') : '✕';
+      });
+      return true;
+    }
+    /* A chip tap changes three things: the chips, the fresh cards in the body,
+       and the backlog count on the toolbox button (56's header). */
+    function _stmPatchProv() {
+      const chips = _stmQ('.stm-provs'), body = _stmQ('#stm-cards');
+      if (!chips || !chips.length || !body || !body.length) return false;
+      body[0].innerHTML = _stmFreshHTML();
+      const html = _stmProvChips();
+      chips.forEach((el) => { el.outerHTML = html; });
+      try { window.csvTxrHeadSync && window.csvTxrHeadSync(); } catch (e) {}
+      return true;
+    }
     function _stmProvChips() {
       const n = {}; _stmCards.forEach((c) => { const p = _stmProvOf(c); n[p] = (n[p] || 0) + 1; });
       const ps = Object.keys(n).sort(); if (ps.length < 2) { _stmProvF = null; return ''; }
@@ -359,12 +440,17 @@
        into the Chọn nhanh drawer (fhStmtPickChipsHTML) and the backlog moved
        into the toolbox as its own tool (fhStmtOldListHTML) — two rows of
        chrome off the top of every open. */
-    window.fhStmtCardsHTML = function () {
-      if (!_stmCards.length) return '';
+    function _stmFreshHTML() {
       const fresh = _stmCards.filter((c) => !c.backfill && (!_stmProvF || _stmProvOf(c) === _stmProvF));
       if (!fresh.length) return '';
       return '<div class="group-h attn">' + _esc(L('Sao kê', 'Statements')) + ' · ' + fresh.length + '</div>' +
         '<div class="csv-cards">' + fresh.map(_stmCardHTML).join('') + '</div>';
+    }
+    /* The wrapper stays while there is any fresh card, filtered out or not, so
+       a chip tap has somewhere to repaint into; a backlog-only queue adds nothing. */
+    window.fhStmtCardsHTML = function () {
+      if (!_stmCards.some((c) => !c.backfill)) return '';
+      return '<div id="stm-cards">' + _stmFreshHTML() + '</div>';
     };
     window.fhStmtPickChipsHTML = function () { return _stmProvChips(); };
     window.fhStmtOldCards = function () {
@@ -378,16 +464,27 @@
         'Statements found while reading email history. Open what you need, dismiss the rest.')) + '</div>';
       return h + '<div class="csv-cards">' + old.map(_stmCardHTML).join('') + '</div>';
     };
-    window.fhStmtToggleOld = function () { _stmOldOpen = !_stmOldOpen; window.renderCsvReview && window.renderCsvReview(); };
+    /* Kept for the bridge. Nothing reads _stmOldOpen since the backlog moved into
+       the toolbox drawer (56 csvToolOpen('stmtold')), so the flip repaints nothing. */
+    window.fhStmtToggleOld = function () { _stmOldOpen = !_stmOldOpen; };
 
     window.fhStmtDismiss = async function (id) {
-      if (_stmArmed !== id) { _stmArmed = id; window.renderCsvReview && window.renderCsvReview(); setTimeout(() => { if (_stmArmed === id) { _stmArmed = null; window.renderCsvReview && window.renderCsvReview(); } }, 3500); return; }
+      if (_stmArmed !== id) {
+        /* Arm: this card's ✕ becomes "Bỏ?", a previously armed one goes back to ✕,
+           and both revert after 3.5 s. Two button swaps, not two full repaints. */
+        const was = _stmArmed; _stmArmed = id;
+        const ok = (!was || _stmPatchArm(was)) && _stmPatchArm(id);
+        if (!ok) window.renderCsvReview && window.renderCsvReview();
+        setTimeout(() => { if (_stmArmed === id) { _stmArmed = null; if (!_stmPatchArm(id)) window.renderCsvReview && window.renderCsvReview(); } }, 3500);
+        return;
+      }
       _stmArmed = null;
       const card = _stmCards.find((c) => c.id === id);
       try {
         await _rpc('dismiss_statement_file', { p_statement_id: id });
         if (card && card.object_path) { try { await window.sb.storage.from(STM_BUCKET).remove([card.object_path]); } catch (e) {} }
         _stmCards = _stmCards.filter((c) => c.id !== id);
+        _stmGridDel(card && card.meta && card.meta.file_sha256);
         window.fhRefreshStagedCount && window.fhRefreshStagedCount();
       } catch (e) { window.toast && window.toast(L('Chưa bỏ được, thử lại nhé', 'Could not remove it, try again')); }
       window.renderCsvReview && window.renderCsvReview();
@@ -408,6 +505,82 @@
     const _stmMapKey = () => 'fh-stmt-map:' + (_stmUid() || '');
     function _stmMapGet(provider, sig) { try { return (JSON.parse(localStorage.getItem(_stmMapKey()) || '{}'))[String(provider).toLowerCase() + '|' + sig] || null; } catch (e) { return null; } }
     function _stmMapSet(provider, sig, roles) { try { const all = JSON.parse(localStorage.getItem(_stmMapKey()) || '{}'); all[String(provider).toLowerCase() + '|' + sig] = roles; localStorage.setItem(_stmMapKey(), JSON.stringify(all)); } catch (e) {} }
+
+    /* ── the unlock cache: the opened grid, by file hash ──────────────────────
+       Opening a locked statement is a download, a sealed-box open, a SHA-256 and
+       a 100,000-hash key derivation. None of it changes between taps, and the
+       file's identity IS its hash (file_sha256, sealed in the card's details and
+       checked on open). So the cell grid the reader produced is kept for the
+       session under that hash, and sealed under the personal key into IndexedDB
+       for the next session, the twenty most recent. "Để sau" and back, a second
+       tap, a backlog card reopened, a remembered password: none spins again. A
+       committed or dismissed statement leaves the cache. The raw file is never
+       stored -- only what the reader read -- and nothing is written while the
+       personal key is locked. Writes are serialised so a delete can never land
+       before the put it is meant to undo. */
+    const STM_GRID_DB = 'fh-stmt', STM_GRID_STORE = 'grid', STM_GRID_MAX = 20;
+    const _stmGridMem = new Map();                   // sha -> grid, this session
+    function _stmGridMemSet(sha, grid) {
+      if (_stmGridMem.has(sha)) _stmGridMem.delete(sha);
+      _stmGridMem.set(sha, grid);
+      while (_stmGridMem.size > STM_GRID_MAX) _stmGridMem.delete(_stmGridMem.keys().next().value);
+    }
+    function _stmGridIdb() {
+      return new Promise((res, rej) => {
+        if (typeof indexedDB === 'undefined') return rej(new Error('no idb'));
+        let rq; try { rq = indexedDB.open(STM_GRID_DB, 1); } catch (e) { return rej(e); }
+        rq.onupgradeneeded = () => { const db = rq.result; if (!db.objectStoreNames.contains(STM_GRID_STORE)) db.createObjectStore(STM_GRID_STORE); };
+        rq.onsuccess = () => res(rq.result); rq.onerror = () => rej(rq.error);
+      });
+    }
+    function _stmGridTx(mode, fn) {
+      return _stmGridIdb().then((db) => new Promise((res, rej) => {
+        const tx = db.transaction(STM_GRID_STORE, mode);
+        let rq; try { rq = fn(tx.objectStore(STM_GRID_STORE)); } catch (e) { return rej(e); }
+        tx.oncomplete = () => res(rq && typeof rq === 'object' && 'result' in rq ? rq.result : undefined);
+        tx.onerror = () => rej(tx.error); tx.onabort = () => rej(tx.error);
+      }));
+    }
+    let _stmGridQ = Promise.resolve();
+    const _stmGridSeq = (fn) => { const p = _stmGridQ.then(fn, fn); _stmGridQ = p.catch(() => {}); return p; };
+    async function _stmGridGet(sha) {
+      if (!sha) return null;
+      if (_stmGridMem.has(sha)) return _stmGridMem.get(sha);
+      if (!(window.fhPersonalKeyReady && window.fhPersonalKeyReady())) return null;
+      try {
+        const rec = await _stmGridSeq(() => _stmGridTx('readonly', (st) => st.get(sha)));
+        if (!rec || rec.uid !== _stmUid() || !rec.ct) return null;
+        const grid = JSON.parse(new TextDecoder().decode(await window.fhPersonalDecBytes(rec.ct)));
+        if (!Array.isArray(grid)) return null;
+        _stmGridMemSet(sha, grid);
+        return grid;
+      } catch (e) { return null; }
+    }
+    function _stmGridPut(sha, grid) {
+      if (!sha || !grid) return Promise.resolve();
+      _stmGridMemSet(sha, grid);
+      if (!(window.fhPersonalKeyReady && window.fhPersonalKeyReady())) return Promise.resolve();
+      return _stmGridSeq(async () => {
+        try {
+          const ct = await window.fhPersonalEncBytes(new TextEncoder().encode(JSON.stringify(grid)));
+          const rec = { sha: sha, uid: _stmUid(), at: Date.now(), ct: ct };
+          await _stmGridTx('readwrite', (st) => st.put(rec, sha));
+          const all = (await _stmGridTx('readonly', (st) => st.getAll())) || [];
+          const old = all.filter((r) => r && r.sha).sort((a, b) => (b.at || 0) - (a.at || 0)).slice(STM_GRID_MAX);
+          if (old.length) await _stmGridTx('readwrite', (st) => { old.forEach((r) => st.delete(r.sha)); });
+        } catch (e) { /* no persistence only means a slower next session */ }
+      });
+    }
+    function _stmGridDel(sha) {
+      if (!sha) return Promise.resolve();
+      _stmGridMem.delete(sha);
+      return _stmGridSeq(() => _stmGridTx('readwrite', (st) => st.delete(sha)).catch(() => {}));
+    }
+    function _stmGridClear() {
+      _stmGridMem.clear();
+      return _stmGridSeq(() => _stmGridTx('readwrite', (st) => st.clear()).catch(() => {}));
+    }
+    window.fhStmtGridCached = (sha) => _stmGridMem.has(sha);
 
     /* ── the unlock flow ───────────────────────────────────────────────────────
        Painted INTO the review's own body (#csv-result), like the file import's
@@ -439,6 +612,11 @@
       const card = _stmCards.find((c) => c.id === id); if (!card) return;
       S = { card: card, bytes: null, password: '', remember: false, parsed: null, acct: null };
       if (card.status === 'expired') return _stmAskFile();
+      /* Opened before, this session or an earlier one: the grid is at hand, so
+         there is nothing to fetch, unseal or derive. Straight to the table. */
+      const kept = await _stmGridGet(card.meta && card.meta.file_sha256);
+      if (!S || S.card !== card) return;                 // cancelled or reset while the store answered
+      if (kept) { S.grid = kept; S.cached = true; return _stmParse(); }
       _stmPaint(_stmHead(_stmTitle(card)) + _stmBusyLine(L('Đang tải file…', 'Fetching the file…')));
       try {
         const dl = await window.sb.storage.from(STM_BUCKET).download(card.object_path);
@@ -452,7 +630,7 @@
            blob moved under another card is refused here rather than parsed. */
         const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', opened))).map((b) => b.toString(16).padStart(2, '0')).join('');
         if (!card.meta || card.meta.file_sha256 !== hash) throw new Error('identity');
-        S.bytes = opened;
+        S.bytes = opened; S.verified = true;             // the hash matched: this grid may be kept under it
       } catch (e) {
         return _stmFail(e && e.message === 'identity'
           ? L('File không khớp với sao kê này nên tụi mình không mở.', 'The file does not match this statement, so it stays closed.')
@@ -475,11 +653,13 @@
     window.fhStmtFilePicked = async function (input) {
       const f = input && input.files && input.files[0]; if (!f || !S) return;
       S.bytes = new Uint8Array(await f.arrayBuffer());
+      S.ab = null; S.grid = null; S.cached = false; S.verified = false;   // a file from the device is not checked against the hash, so it is not kept
       S.localExt = /\.csv$/i.test(f.name) ? 'csv' : 'xlsx';
       return _stmParse();
     };
 
     async function _stmGrid() {
+      if (S.cached && S.grid) return S.grid;
       const ext = S.localExt || S.card.file_ext;
       if (ext === 'csv') {
         const u = S.bytes; let text;
@@ -489,10 +669,13 @@
         const p = window.fhParseCsvFile(text);
         return [p.headers].concat(p.rows);
       }
-      return fhParseXlsxBuffer(S.bytes.buffer.slice(S.bytes.byteOffset, S.bytes.byteOffset + S.bytes.byteLength), S.password || undefined);
+      // One copy of the bytes per open, however many passwords are tried on it.
+      if (!S.ab) S.ab = S.bytes.buffer.slice(S.bytes.byteOffset, S.bytes.byteOffset + S.bytes.byteLength);
+      return fhParseXlsxBuffer(S.ab, S.password || undefined);
     }
 
     async function _stmParse(wrong) {
+      if (!S) return;
       let grid;
       try { grid = await _stmGrid(); }
       catch (e) {
@@ -506,6 +689,8 @@
         return _stmFail(L('Chưa đọc được file này.', 'Could not read this file.'), false);
       }
       if (S.remember && S.password) await _stmPwSet(S.card.source_provider, S.password);
+      /* Read from the verified file: keep the grid, so no tap on this card spins again. */
+      if (S.verified && !S.cached) { S.cached = true; S.grid = grid; _stmGridPut(S.card.meta && S.card.meta.file_sha256, grid); }
 
       /* Reading order: a confirmed reading for this sender and header shape, else the
          vocabulary. The proof below decides whether either is believed. */
@@ -615,8 +800,7 @@
          again -- the one place a statement row is dropped unseen, allowed because the
          key is exact and the decision was theirs. */
       S.payloads = [];
-      const fps = [];
-      for (const r of p.rows) { const fp = await _stmFp(fhStmtCanonical(S.card.source_provider, tail, r)); fps.push(fp); }
+      const fps = await _stmBatched(p.rows, (r) => _stmFp(fhStmtCanonical(S.card.source_provider, tail, r)));
       let decided = new Set();
       try {
         /* 50 at a time: a fingerprint is 44 base64 characters and rides in the URL
@@ -705,15 +889,21 @@
         const payloads = S.fresh.map((x) => Object.assign(fhStmtRowPayload(x.r, S.acct, card.id), { fp: x.fp, stitle: stitle }));
         busy(L('Đang gợi ý danh mục…', 'Suggesting categories…'));
         await _stmConcepts(payloads);
-        const rows = [];
-        for (let i = 0; i < payloads.length; i++) {
-          rows.push({ id: crypto.randomUUID(), row_index: i, txn_date: payloads[i].date, payload_enc: await _stmEncJson(payloads[i]) });
-          if (i % 10 === 0) { busy(L('Đang mã hoá ' + (i + 1) + '/' + payloads.length + '…', 'Encrypting ' + (i + 1) + '/' + payloads.length + '…')); await new Promise((r) => setTimeout(r, 0)); }
+        const rows = new Array(payloads.length);
+        for (let i = 0; i < payloads.length; i += STM_BATCH) {
+          busy(L('Đang mã hoá ' + (i + 1) + '/' + payloads.length + '…', 'Encrypting ' + (i + 1) + '/' + payloads.length + '…'));
+          await Promise.all(payloads.slice(i, i + STM_BATCH).map(async (pl, k) => {
+            rows[i + k] = { id: crypto.randomUUID(), row_index: i + k, txn_date: pl.date, payload_enc: await _stmEncJson(pl) };
+          }));
+          await _stmYield();
         }
         busy(L('Đang đưa vào hàng chờ…', 'Adding to the queue…'));
         /* ONE transaction: every row, and the card marked opened. A dropped connection
            leaves the card as it was and no partial rows. */
         await _rpc('stage_statement_rows', { p_statement_id: card.id, p_rows: rows });
+        /* The queue will read these very rows next; it already holds their plaintext. */
+        rows.forEach((r, i) => _stmRowCacheSet(r.id, r.payload_enc, payloads[i]));
+        _stmGridDel(card.meta && card.meta.file_sha256);   // the statement is in; its grid has no job left
         /* The rows are in. The sealed file has no job left, so it goes NOW (decision
            S13); the worker's sweep is only the net for a delete that fails here. */
         if (card.object_path) { try { await window.sb.storage.from(STM_BUCKET).remove([card.object_path]); } catch (e) {} }
@@ -742,6 +932,7 @@
         if (paths && paths.length) { try { await window.sb.storage.from(STM_BUCKET).remove(paths); } catch (e) {} }
       } catch (e) {}
       try { localStorage.removeItem(_stmPwKey()); localStorage.removeItem(_stmMapKey()); localStorage.removeItem(_stmRetKey()); } catch (e) {}
-      _stmCards = [];
+      _stmCards = []; _stmRowCache.clear();
+      await _stmGridClear();
     };
   })();

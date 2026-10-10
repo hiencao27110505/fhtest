@@ -71,6 +71,72 @@
       return payload;
     }
 
+    /* ── opened rows are opened ONCE, for every surface (2026-10-10) ─────────
+       A sealed row's content never changes: the pipeline writes the box once
+       and only the workflow columns (review_status, duplicate_of_id,
+       resolved_before) move afterwards. Yet every surface that read the queue
+       ran nacl.box.open again on rows another surface had opened seconds
+       earlier: the review sheet (a thousand rows per open), the quick-review
+       teaser, the streak peek, the reading watcher and the receipt join each
+       paid pure-JS X25519 per row, several times a session. That was most of
+       the heat on a phone with a long queue. One cache, one owner, shared.
+
+       Key = row id + nonce. The nonce is 24 random bytes minted at seal time,
+       so it is the ciphertext's own identity: a row re-sealed for any reason
+       reads as a different key and is opened again. The value is the FLATTENED
+       payload (72 fhReadStagedRow's shape); callers copy before they annotate.
+       Only successful opens are cached, so a locked ledger or a wrong key is
+       retried after unlock. Scoped to the session (family + user): it empties
+       with the DEK (fhStagingKeysForget) and never crosses an account switch.
+       Insertion-ordered Map, oldest evicted: a working set, not storage. */
+    var _openCache = new Map(), _openScope = '';
+    var OPEN_CACHE_MAX = 3000;
+    function _openScopeNow() { return ((window.DB && window.DB.fid) || '') + '|' + ((window.fhUser && window.fhUser.id) || ''); }
+    function _openGuard() { var s = _openScopeNow(); if (s !== _openScope) { _openCache.clear(); _openScope = s; } }
+    window.fhStagedOpenCache = {
+      keyOf: function (row) {
+        if (!row || row.id == null) return null;
+        return row.id + '|' + (row.nonce || row.updated_at || row.created_at || '');
+      },
+      has: function (key) { _openGuard(); return !!key && _openCache.has(key); },
+      get: function (key) {
+        _openGuard();
+        if (!key || !_openCache.has(key)) return undefined;
+        var v = _openCache.get(key);
+        _openCache.delete(key); _openCache.set(key, v);        // most recently used last
+        return v;
+      },
+      set: function (key, payload) {
+        if (!key || !payload) return;
+        _openGuard();
+        _openCache.set(key, payload);
+        if (_openCache.size > OPEN_CACHE_MAX) {
+          for (var k of _openCache.keys()) { if (_openCache.size <= OPEN_CACHE_MAX) break; _openCache.delete(k); }
+        }
+      },
+      clear: function () { _openCache.clear(); },
+      size: function () { return _openCache.size; },
+    };
+
+    /* One private-key resolve per BATCH of opens, not one per row. The unwrap
+       behind fh(Personal)StagingPrivKey is a DEK AES-GCM operation (and a round
+       trip the first time), and the review sheet paid it once per row. The
+       pool memoizes the promise per scope for one loop's lifetime; a rejected
+       resolve is dropped so the next row asks again rather than inheriting a
+       transient failure. */
+    function fhStagedPrivPool() {
+      var memo = {};
+      return function (personal) {
+        var k = personal ? 'p' : 'f';
+        if (!memo[k]) {
+          memo[k] = personal ? window.fhPersonalStagingPrivKey() : window.fhStagingPrivKey();
+          memo[k].catch(function () { delete memo[k]; });
+        }
+        return memo[k];
+      };
+    }
+    window.fhStagedPrivPool = fhStagedPrivPool;
+
     /* The staging keypair for the ACTIVE family, cached per family so unlock
        costs one round trip, not one per row. Keyed by fid — a multi-family user
        switching families must never open one family's rows with another's key. */
@@ -83,7 +149,7 @@
       _stagingCacheFid = fid; _stagingCacheData = data;
       return data;
     }
-    function fhStagingKeysForget() { _stagingCacheFid = null; _stagingCacheData = null; }
+    function fhStagingKeysForget() { _stagingCacheFid = null; _stagingCacheData = null; _openCache.clear(); }   // the opened rows leave with the key
 
     /* The family's staging private key, unwrapped with the DEK. Requires an
        unlocked safe — fhKeyReady() must be true. */

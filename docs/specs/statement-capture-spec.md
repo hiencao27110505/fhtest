@@ -554,6 +554,14 @@ Three real files, read on the device that owns them. The shipping decrypter
 (`41-xlsx-decrypt.js`) opens both locked files: agile encryption, AES-128-CBC,
 SHA-1, spin count 100000 (the Apache POI default), about 1.1 s on a laptop.
 
+> **2026-10-10 (`device-heat-spec.md`, approach C).** The spin is now a synchronous
+> JS hash loop inside a Blob-URL worker, about 0.25 to 0.35 s and off the main
+> thread; the container is parsed once per attempt and sized to its streams. A
+> verified unlock is cached: the parsed grid by `file_sha256`, in memory and in the
+> `fh-stmt` IndexedDB store sealed under the personal DEK, cap 20, evicted on
+> commit, dismiss and purge. Cancel, re-open, backlog and a second session never
+> spin again for the same file.
+
 | | VIB account | VIB credit card | MoMo |
 |---|---|---|---|
 | Sender · subject | `info@myvib.vib.com.vn` · "Sao kê tài khoản" | `info@card.vib.com.vn` · "SAO KE THE TIN DUNG … THANG 09 NAM 2026" | `no-reply@mservice.com.vn` · "Sao kê lịch sử giao dịch" |

@@ -4018,3 +4018,16 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 - **2026-08-04** — CSV import × encryption compatibility (Gemini masking
   approach, promotion-write reuse, staging-table encryption columns). See
   `CSV-IMPORT-ENCRYPTION.md`.
+
+- **2026-10-10** — Device heat, big-bang (Hien): `docs/specs/device-heat-spec.md`,
+  SW **v625**, client only, no migration. Touches the data layer everyone sits on:
+  family decrypt cache in `15-crypto.js` (cleared with the DEK), `fhPersonalSig()` and
+  signature-gated paints in `19-personal.js`, one shared hydrate timer
+  (`_scheduleHydrate` in `20-data-helpers.js`, used by `50-writethrough-realtime.js`),
+  every family write now stamps `DB._lastLocalWrite` (add the stamp to any new writer),
+  `renderCsvReview` skips on an unchanged signature (a new state field that changes the
+  markup MUST be added to `csvReviewSigCompute`), shared staged-row unseal cache
+  `fhStagedOpenCache` (18), tree-backfill cursor **v15**, new IndexedDB store `fh-stmt`
+  (wiped at sign-out), always-on meter `window.fhHeat` (file 07, js-ui; call
+  `fhHeat.tick(name)` in a new render entry point). Harness: `tools/boot-harness/queue-perf.js`,
+  `statement-perf.js`. Not pushed yet.

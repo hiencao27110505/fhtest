@@ -30,9 +30,11 @@
        sweep again, so it moves with every change to what a row resolves to.
        v5 shipped with a bug that marked a scope done after one batch of
        unresolvable rows, so every device is sitting on a false "done" and v6
-       is what undoes that. */
-    if (scope === 'family') return 'fh-tree-bf:v14:fam:' + ((window.DB && window.DB.fid) || '');
-    return 'fh-tree-bf:v14:per:' + ((window.fhPersonalData && fhPersonalData().uid) || '');
+       is what undoes that. v15 (2026-10-10): the walk now settles unresolvable
+       rows as it passes them and keeps its marks across hydrates, so "done"
+       means the whole ledger was actually walked once under these rules. */
+    if (scope === 'family') return 'fh-tree-bf:v15:fam:' + ((window.DB && window.DB.fid) || '');
+    return 'fh-tree-bf:v15:per:' + ((window.fhPersonalData && fhPersonalData().uid) || '');
   }
   function _tbfDone(scope) { try { return localStorage.getItem(_tbfCursorKey(scope)) === 'done'; } catch (e) { return false; } }
   function _tbfMarkDone(scope) { try { localStorage.setItem(_tbfCursorKey(scope), 'done'); } catch (e) {} }
@@ -111,16 +113,51 @@
      bare GROUP, which is what the first version wrote whenever it preferred the
      label over the words. A leaf or a mid-level node is left alone — it either
      came from the pipeline, a person, or a keyword, and all three outrank this. */
-  function _tbfWants(t) {
+  /* ── what the sweep remembers between slices (2026-10-10) ──────────────────
+     Progress used to live on the row objects (`t._tbfSkip`), and every slice
+     re-filtered the WHOLE ledger to find its next twelve rows, running the
+     deburr-and-regex of fhPipeNodeOk over every row that had a node. A hydrate
+     replaces P.txns / window.txns wholesale and fires on realtime, on focus and
+     after every write (including this sweep's own), so the marks were lost
+     every few seconds, the same rows were decided again and again, and on a
+     busy device the sweep never reached the end of the ledger: it ran all
+     session and this was most of the heat.
+
+     Now the marks live HERE, keyed by id + node + note, so a row that comes
+     back from a hydrate unchanged is still settled and a row a person edited
+     (its node or note moved) is looked at again. The rows still to walk are
+     listed ONCE per ledger generation (the array identity the hydrate gives
+     us) and walked with a cursor; the retired-keyword verdict is cached per
+     row so an unchanged row is never deburred twice. */
+  const _tbfMarks = { family: new Set(), personal: new Set() };   // settled rows: written, skipped or not this sweep's
+  const _tbfGen = { family: null, personal: null };               // { src, list, i } for the generation being walked
+  const _tbfOk = new Map();                                       // id|node|note → "this node is retired for these words"
+  const _TBF_MARKS_MAX = 50000;
+  const _tbfId = (scope, t) => (scope === 'family' ? t._dbId : t.id);
+  const _tbfMarkKey = (scope, t, node) => _tbfId(scope, t) + '|' + ((node === undefined ? t.node : node) || '') + '|' + (t.note || '');
+  function _tbfMark(scope, t, node) {
+    const set = _tbfMarks[scope];
+    if (set.size > _TBF_MARKS_MAX) set.clear();
+    set.add(_tbfMarkKey(scope, t, node));
+  }
+  function _tbfRetired(scope, t, n) {
+    const k = _tbfMarkKey(scope, t);
+    if (_tbfOk.has(k)) return _tbfOk.get(k);
+    let v = false;
+    try { v = !!(n && typeof fhPipeNodeOk === 'function' && fhPipeNodeOk(t.node, { note: t.note }, true) === null); } catch (e) { v = false; }
+    if (_tbfOk.size > _TBF_MARKS_MAX) _tbfOk.clear();
+    _tbfOk.set(k, v);
+    return v;
+  }
+  function _tbfWants(scope, t) {
     if (t._tbfSkip) return false;
     if (!t.node) return true;
     const n = (typeof FH_TAX !== 'undefined') ? FH_TAX.get(t.node) : null;
     if (n && n.depth === 1) return true;
     /* …or one that rests on a keyword the tree has since retired for filing real
        rows wrongly (a catering firm under Phần mềm). Only the entries marked safe
-       for the ledger: fhPipeNodeOk's third argument. */
-    try { if (n && typeof fhPipeNodeOk === 'function' && fhPipeNodeOk(t.node, { note: t.note }, true) === null) return true; } catch (e) {}
-    return false;
+       for the ledger: fhPipeNodeOk's third argument. Cached per row. */
+    return _tbfRetired(scope, t, n);
   }
   /* Displaced rows ahead of everything else; the rest keep ledger order. */
   function _tbfRepairFirst(scope, rows) {
@@ -128,22 +165,17 @@
     for (const t of rows) (_tbfDisplaced(scope, t) ? fix : rest).push(t);
     return fix.concat(rest);
   }
-  async function _tbfSlice(scope) {
-    /* Session cap: stop, but NEVER mark the scope done — n:0 is reserved for
-       "walked the whole ledger". Next launch picks up where this left off. */
-    if (_tbfDoneThisSession >= _TBF_SESSION_MAX) return { n: -1, more: false };
-    if (typeof document !== 'undefined' && document.hidden) return { n: -1, more: false };   // backgrounded: resume next launch
-    const rows = [];
-    if (scope === 'family') {
-      if (typeof _fhWriteLocked === 'function' && _fhWriteLocked()) return { n: -1, more: false };
-      const all = (window.txns || []).filter((t) => t._dbId && _tbfWants(t));
-      for (const t of _tbfRepairFirst('family', all)) { rows.push(t); if (rows.length >= _TBF_BATCH) break; }
-    } else {
-      const P = window.fhPersonalData ? fhPersonalData() : null;
-      if (!P || !P.key || P.state !== 'ready') return { n: -1, more: false };
-      const all = [];
-      for (const t of (P.txns || [])) {
-        if (t._unreadable || !_tbfWants(t)) continue;
+  /* The rows still to look at in THIS ledger generation, listed once. A row
+     already settled (same id, node and note) is passed over without a look;
+     a row the sweep does not want is settled on the spot. */
+  function _tbfListFor(scope, src) {
+    const g = _tbfGen[scope];
+    if (g && g.src === src) return g;
+    const marks = _tbfMarks[scope], all = [];
+    for (const t of (src || [])) {
+      if (!t || _tbfId(scope, t) == null) continue;
+      if (scope === 'personal') {
+        if (t._unreadable) continue;                           // locked bytes: not a verdict, looked at after unlock
         /* MIRROR ROWS BELONG TO THE FAMILY LEDGER, NOT TO THIS SWEEP. Their node
            is copied down by fhPersonalMirror from the family row. Writing one
            here starts a ping-pong: the mirror sees the master disagree with its
@@ -151,18 +183,44 @@
            fhPersonalHydrate — a whole ledger re-decrypted per round. That is
            the hot device and the stuck "Đang đồng bộ…". */
         if (t.spaceId || t.linkId) { t._tbfSkip = 1; continue; }
-        all.push(t);
       }
-      for (const t of _tbfRepairFirst('personal', all)) { rows.push(t); if (rows.length >= _TBF_BATCH) break; }
+      if (marks.has(_tbfMarkKey(scope, t))) continue;
+      if (!_tbfWants(scope, t)) { _tbfMark(scope, t); continue; }
+      all.push(t);
+    }
+    const next = { src: src, list: _tbfRepairFirst(scope, all), i: 0 };
+    _tbfGen[scope] = next;
+    return next;
+  }
+  async function _tbfSlice(scope) {
+    /* Session cap: stop, but NEVER mark the scope done — n:0 is reserved for
+       "walked the whole ledger". Next launch picks up where this left off. */
+    if (_tbfDoneThisSession >= _TBF_SESSION_MAX) return { n: -1, more: false };
+    if (typeof document !== 'undefined' && document.hidden) return { n: -1, more: false };   // backgrounded: resume next launch
+    let src;
+    if (scope === 'family') {
+      if (typeof _fhWriteLocked === 'function' && _fhWriteLocked()) return { n: -1, more: false };
+      src = window.txns || [];
+    } else {
+      const P = window.fhPersonalData ? fhPersonalData() : null;
+      if (!P || !P.key || P.state !== 'ready') return { n: -1, more: false };
+      src = P.txns || [];
+    }
+    const g = _tbfListFor(scope, src), marks = _tbfMarks[scope], rows = [];
+    while (g.i < g.list.length && rows.length < _TBF_BATCH) {
+      const t = g.list[g.i++];
+      if (marks.has(_tbfMarkKey(scope, t))) continue;          // settled by an earlier generation's write
+      rows.push(t);
     }
     if (!rows.length) return { n: 0, more: false };            // the ledger really is finished
     /* Decide first (pure, instant), then write what actually changed, a few at
        a time. Sequential awaits over a whole ledger is what made the app feel
-       stuck on open. */
+       stuck on open. A row with nothing to write is settled as it stands, so
+       the chain ends even when every remaining row is unresolvable. */
     const work = [];
     for (const t of rows) {
       const node = _tbfNodeFor(scope, t);
-      if (!node || node === t.node) { t._tbfSkip = 1; continue; }
+      if (!node || node === t.node) { _tbfMark(scope, t); continue; }
       work.push({ t: t, node: node });
     }
     if (!work.length) return { n: 0, more: true };             // nothing to write HERE; keep walking
@@ -177,7 +235,12 @@
         } catch (e) { return false; }
       }));
       for (let k = 0; k < lane.length; k++) {
-        if (res[k]) { lane[k].t.node = lane[k].node; wrote++; _tbfDoneThisSession++; }
+        if (res[k]) {
+          /* Settled under the node it now carries: the hydrate that echoes this
+             write brings the row back with that node, and the mark still fits. */
+          _tbfMark(scope, lane[k].t, lane[k].node);
+          lane[k].t.node = lane[k].node; wrote++; _tbfDoneThisSession++;
+        }
         else refused = true;
       }
       if (refused) break;                                       // next launch retries; the cursor stays put
@@ -229,4 +292,5 @@
     scope = (scope === 'personal') ? 'personal' : 'family';
     try { localStorage.removeItem(_tbfCursorKey(scope)); } catch (e) {}
     _tbfStarted[scope] = false; _tbfDoneThisSession = 0;
+    _tbfMarks[scope] = new Set(); _tbfGen[scope] = null;         // from scratch means every row is looked at again
   };

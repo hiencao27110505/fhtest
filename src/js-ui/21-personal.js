@@ -505,18 +505,19 @@ function persInvestDriven(P, mon){
 /* shared paint: skip the innerHTML swap when nothing changed (flicker) */
 function _persCommit(host, h, isCur, full){
   if(h === window._persLastHTML){
-    if(full){ persChartAfterRender(isCur); if(window.persDebtAfterRender) persDebtAfterRender(); }
+    if(full) persChartAfterRender(isCur);   // identical markup: the space-balance RPCs have nothing new to show, skip them
     return;
   }
   window._persLastHTML = h;
   window._persHadReady = true;
+  window.fhHeat&&fhHeat.tick('renderPersonal:paint');
   host.innerHTML = h;
   if(!full) return;
   persChartAfterRender(isCur);   // strip scroll + auto label + (current month) guide & sync note
   if(window.persDebtAfterRender) persDebtAfterRender();   // async space balances → section refreshes in place
   if(window.persInvestAfterRender) persInvestAfterRender();   // throttled price refresh → bento redraws in place
 }
-function renderPersonal(){
+function renderPersonal(){ window.fhHeat&&fhHeat.tick('renderPersonal');
   var host = document.getElementById('pers-body'); if(!host) return;
   persRenderAvatar();     // header disc — independent of personal-ledger state
   var P = window.fhPersonalData ? fhPersonalData() : null;

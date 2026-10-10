@@ -167,19 +167,25 @@
       return h;
     };
 
-    /* Space data arrives async — refresh ONLY this section in place. */
-    let _spaceInvites = [];
-    window.persDebtAfterRender = function () {
+    /* Space data arrives async — refresh ONLY this section in place.
+       opts.force re-reads the roster and the invites regardless of age; the
+       plain call (what every renderPersonal makes) accepts a roster and an
+       invite list at most 60s old, since both used to be two RPCs per paint. */
+    let _spaceInvites = [], _invitesAt = 0;
+    const INVITES_EVERY = 60000;
+    window.persDebtAfterRender = function (opts) {
       const S = _S(); if (!S || _spinning) return;
+      const force = !!(opts && opts.force);
       _spinning = true;
       (async function () {
         try {
-          await fhSpacesBoot();
+          await fhSpacesBoot(force ? { force: true } : undefined);
           let changed = false;
           /* Pending SPACE invites (filtered out of the onboarding door) land
              here: "bạn được mời vào nhóm X". */
-          try {
+          if (force || Date.now() - _invitesAt >= INVITES_EVERY) try {
             const r = await window.sb.rpc('find_my_invites');
+            _invitesAt = Date.now();
             const invs = (Array.isArray(r.data) ? r.data : []).filter((i) =>
               (i.family_type === 'friend' || i.family_type === 'trip')
               && !(S.list || []).some((sp) => sp.id === i.family_id));
@@ -200,7 +206,8 @@
       const r = await fhSpaceJoin(fid);
       if (!r.ok) { window.toast && toast('Chưa tham gia được — nhờ chủ nhóm mời lại nhé'); return; }
       _spaceInvites = _spaceInvites.filter((i) => i.family_id !== fid);
-      await fhSpacesBoot();
+      _invitesAt = 0;                       // the next pass re-reads the invites
+      await fhSpacesBoot({ force: true });  // the roster just changed
       _redraw();
       window.toast && toast('Đã vào nhóm — nhập thẻ nhóm để đọc sổ');
       openDebtSpace(fid);

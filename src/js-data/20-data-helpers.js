@@ -114,8 +114,25 @@
   // WINDOWED refresh (recent txns/photos/reactions merged onto what we hold); pass
   // full=true for a write that can touch an out-of-window row (txn edit/delete, a
   // reaction on an old txn), so the change can't be silently dropped by the window.
-  let _syncTimer = null;
-  function _syncSoon(full) { try { window.DB._lastLocalWrite = Date.now(); } catch (e) {} try { if (window.fhPersonalMirrorSoon) window.fhPersonalMirrorSoon(); } catch (e) {} clearTimeout(_syncTimer); _syncTimer = setTimeout(() => { if (window.editingTx != null) return; window.loadFamilyData && window.loadFamilyData(full ? {} : { windowed: true }); }, 700); }
+  /* ONE pending hydrate, shared by the post-write path (_syncSoon, 700ms) and the
+     realtime handlers in 50-writethrough-realtime (900ms). They used to own separate
+     timers, and the echo of our own write could beat the REST response back: the
+     realtime tick arrived before _syncSoon had stamped _lastLocalWrite, so the echo
+     armed its timer, then _syncSoon armed another, and one tap cost two full
+     loadFamilyData runs on this device. A single timer coalesces them whatever the
+     order; `full` is sticky across the coalesced requests so a full request can
+     never be downgraded to a windowed one by a later windowed request. */
+  let _hydTimer = null, _hydFull = false;
+  function _scheduleHydrate(ms, full) {
+    _hydFull = _hydFull || !!full;
+    clearTimeout(_hydTimer);
+    _hydTimer = setTimeout(() => {
+      const f = _hydFull; _hydFull = false; _hydTimer = null;
+      if (window.editingTx != null) return;
+      window.loadFamilyData && window.loadFamilyData(f ? {} : { windowed: true });
+    }, ms);
+  }
+  function _syncSoon(full) { try { window.DB._lastLocalWrite = Date.now(); } catch (e) {} try { if (window.fhPersonalMirrorSoon) window.fhPersonalMirrorSoon(); } catch (e) {} _scheduleHydrate(700, full); }
   // Is a loaded transaction (by DB id) older than the current refresh window? Unknown
   // id → treated as old (forces full) so an out-of-window change is never missed.
   function _isOldTxnById(dbId) {

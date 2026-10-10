@@ -121,11 +121,18 @@
         .eq('owner_user_id', P.uid).eq('kind', 'expense').gte('txn_date', fromIso)
         .order('txn_date', { ascending: false }).limit(4000);
       if (r.error) return null;
+      /* Through the personal ledger's decrypt cache (19-personal, keyed by
+         ciphertext): the hydrate has already opened most of these rows, and
+         this recompute runs on every renderPersonal whose signature moved.
+         Opening up to 4000 x 4 values cold each time was a measurable share of
+         the hot phone. Falls back to a cold decVal if the bridge is absent. */
+      const decP = window.fhPersonalDecP, decT = window.fhPersonalDecTxt, FAILED = window.FH_PDEC_FAILED;
       const out = [];
       for (const t of r.data || []) {
         let amt = null, bad = false;
-        try { amt = Number(await FHCrypto.decVal(P.key, t.amount_enc)); } catch (e) { bad = true; }
-        const dec = async (c) => { if (!c) return null; try { return await FHCrypto.decVal(P.key, c); } catch (e) { return null; } };
+        if (decP) { const a = await decP(t.amount_enc); if (a === FAILED || a == null) bad = true; else amt = Number(a); }
+        else { try { amt = Number(await FHCrypto.decVal(P.key, t.amount_enc)); } catch (e) { bad = true; } }
+        const dec = decT || (async (c) => { if (!c) return null; try { return await FHCrypto.decVal(P.key, c); } catch (e) { return null; } });
         out.push({ date: t.txn_date, amt: bad ? null : amt, _unreadable: bad,
           note: await dec(t.note_enc), cat: await dec(t.cat_name_enc), emoji: t.cat_emoji,
           who: await dec(t.counterparty_enc) });
@@ -240,10 +247,23 @@
       } catch (e) {}
     }
 
-    /* ── staged peek adapter ── */
+    /* ── staged peek adapter ──
+       The peek (72-txn-review) fetches and OPENS every sealed staged row, up to
+       1000, to learn their dates and amounts. The badge already knows how many
+       there are (window.fhStagedCount, _fhStagedKnown once answered): a known
+       empty queue needs no peek at all, and a non-empty one is re-read at most
+       once a minute unless the count moved. */
+    let _stagedMemo = null;   // { at, count, rows }
     async function _staged() {
       if (!window.fhStagedStreakPeek) return [];
-      try { return await window.fhStagedStreakPeek(); } catch (e) { return []; }
+      const count = (window.fhStagedCount | 0);
+      if (window._fhStagedKnown && count === 0) return [];
+      if (_stagedMemo && _stagedMemo.count === count && Date.now() - _stagedMemo.at < 60000) return _stagedMemo.rows;
+      try {
+        const rows = await window.fhStagedStreakPeek();
+        _stagedMemo = { at: Date.now(), count: count, rows: rows };
+        return rows;
+      } catch (e) { return []; }
     }
 
     /* ── orchestration — section render calls ensure(); recompute re-renders ── */

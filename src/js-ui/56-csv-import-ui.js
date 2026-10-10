@@ -36,6 +36,31 @@ var CSV_REVEAL_STEP = 150;
 var csvRevealCount = CSV_REVEAL_STEP;
 var csvRevealLeft = 0;      // cards currently past the window (0 = all shown)
 function csvRevealMore(){ csvRevealCount += 2 * CSV_REVEAL_STEP; renderCsvReview(); }
+/* The same window for the other long sections. A statement lands mostly in "Đã
+   có trong sổ" (126 of 145 rows in the spec's example), and "Cần bạn xem", "Tụi
+   mình để riêng" and the money-in list can each run long on a backfill, so each
+   keeps its own count and its own "Hiện thêm" button. Header counts stay the
+   full count; selection and the bulk verbs read csvReview.ready, never the DOM,
+   so a row past the window is still selected, imported, skipped or retired. */
+function csvRevealSecBlank(){ return { attn:CSV_REVEAL_STEP, sure:CSV_REVEAL_STEP, handled:CSV_REVEAL_STEP, inflow:CSV_REVEAL_STEP }; }
+var csvRevealSec = csvRevealSecBlank();
+function csvRevealMoreIn(sec){ if(csvRevealSec[sec] == null) return; csvRevealSec[sec] += 2 * CSV_REVEAL_STEP; renderCsvReview(); }
+/* The first `cap` visible entries of a section ({c, i} pairs), always including
+   the one holding the open editor, and how many visible entries were left out.
+   Rows the category filter hides are neither drawn nor counted. */
+function csvRevealWindow(entries, cap, openIdx){
+  var keep = [], left = 0, shown = 0;
+  entries.forEach(function(e){
+    if(csvStagedMode && csvCatHide(e.c)) return;
+    if(shown >= cap && e.i !== openIdx){ left++; return; }
+    shown++; keep.push(e);
+  });
+  return { keep:keep, left:left };
+}
+function csvRevealBtnHTML(left, sec){
+  return '<div class="csv-cards" style="margin-top:12px"><button type="button" class="btn-line" onclick="csvRevealMoreIn(\''+sec+'\')">'
+    + esc(L('Hiện thêm '+left+' khoản','Show '+left+' more'))+'</button></div>';
+}
 
 /* One Save button, two flows: the file import (csvPromote) and the bank-email
    staged review (fhPromoteStaged). The button's onclick is FIXED to this
@@ -540,7 +565,7 @@ function csvBuildReview(sources, opts){
   opts = opts || {};
   /* keepView: the reading-mode watcher rebuilds every few seconds as rows
      stage — the person's zoom, pan, filter and reveal must survive those. */
-  if(!opts.keepView) csvRevealCount = CSV_REVEAL_STEP;   // a fresh review starts at the first window
+  if(!opts.keepView){ csvRevealCount = CSV_REVEAL_STEP; csvRevealSec = csvRevealSecBlank(); }   // a fresh review starts at the first window
 
   csvCatMerges = {}; csvCatAmbiguous = {};   // recomputed every build
   csvPendingCats = [];                       // adoption is re-decided each build
@@ -620,6 +645,11 @@ function csvBuildReview(sources, opts){
     declinedAdopt: !!opts.declined,
   };
   csvExpand = null;
+  csvRenderTick++;                 // per-render memos (csvAcctOf) must not outlive the rows they were read from
+  /* The transfer pairing is computed here, once, and kept on the review with the
+     signature of what it read (B3); renderCsvReview reuses it until a ready row
+     changes. */
+  if(csvStagedMode){ try{ csvXferProposals(); }catch(e){} }
 }
 
 /* Adds category names to the family's client-side list (DB rows are created
@@ -905,7 +935,7 @@ function csvStagedSourceTag(c){
    no confident answer (Q16), which reads as today's header, not as "unknown". */
 function csvStagedAcctChip(c){
   if(!csvStagedMode || !window.fhStagedAcct) return '';
-  var ai = fhStagedAcct(c); if(!ai) return '';
+  var ai = (typeof csvAcctOf === 'function') ? csvAcctOf(c) : fhStagedAcct(c); if(!ai) return '';   // the per-render memo (B3) when the file is whole
   var k = ai.kind==='credit_card' ? L('tín dụng','credit') : (ai.kind==='ewallet' ? L('ví','wallet') : 'TK');
   return k + (ai.tail ? ' ••'+ai.tail : '');
 }
@@ -1097,7 +1127,7 @@ function csvCollapsedCard(c, opts){
         ? L('Kèm phí '+csvFmt(c._fee.amount)+', ghi thành một khoản riêng','Plus a '+csvFmt(c._fee.amount)+' fee, logged as its own item')
         : L('Có phí '+csvFmt(c._fee.amount)+', chưa ghi','Has a '+csvFmt(c._fee.amount)+' fee, not logged'))+'</span>';
     }
-    return '<div class="bulk-card'+(opts.invalid?' invalid':(opts.attn?' attn':''))+(opts.dim?' is-dim':'')+'">' + ck
+    return '<div class="bulk-card'+(opts.invalid?' invalid':(opts.attn?' attn':''))+(opts.dim?' is-dim':'')+(opts.key?' data-ck="'+escAttr(opts.key)+'"':'')+'">' + ck
       + '<button type="button" class="bulk-tap scv-tap" onclick="'+opts.tapFn+'" aria-label="'+L('Sửa khoản này','Edit this item')+'">'
       + topHtml
       + '<span class="scv-money">'+amtHtml+catHtml+learnHtml+dupHtml+'</span>'
@@ -1106,7 +1136,7 @@ function csvCollapsedCard(c, opts){
   }
 
   // File-import flow: unchanged — index label + date header, note, amount·category.
-  return '<div class="bulk-card'+(opts.invalid?' invalid':(opts.attn?' attn':''))+(opts.dim?' is-dim':'')+'">' + ck
+  return '<div class="bulk-card'+(opts.invalid?' invalid':(opts.attn?' attn':''))+(opts.dim?' is-dim':'')+(opts.key?' data-ck="'+escAttr(opts.key)+'"':'')+'">' + ck
     + '<button type="button" class="bulk-tap" onclick="'+opts.tapFn+'" aria-label="'+L('Sửa khoản này','Edit this item')+'">'
     + csvCardHead(opts.label, opts.dateIso, null, opts.invalid || opts.attn, opts.invalid, opts.timeStr, csvStagedProvider(c), '', '', '')
     + (opts.noPick
@@ -1230,7 +1260,7 @@ function csvActiveCard(c, opts){
         + '<span class="bulk-chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></svg></span>'
       + '</button>'
     : headInner;
-  return '<div class="bulk-card active'+(opts.invalid?' invalid':(opts.attn?' attn':''))+'">'
+  return '<div class="bulk-card active'+(opts.invalid?' invalid':(opts.attn?' attn':''))+(opts.key?' data-ck="'+escAttr(opts.key)+'"':'')+'">'
     + '<div class="bulk-head">'+head+rm+'</div>'
     + '<div class="csv-card-body">'+body+'</div></div>';
 }
@@ -1913,9 +1943,18 @@ function csvFixKindRow(r){ return !!(r.isTransfer || r._xfer || r._repay || r._l
 /* What "similar" is keyed on (A2, A20): the payee when the row names one, else
    the wording from the same bank. The prefix keeps the two spaces apart. */
 function csvFixKey(c){
-  var k = csvPatternKey(c); if(k && k.length>=6) return 'p:'+k;
-  var s = csvSimKey(c); if(!s) return '';
-  return 'w:'+s+'|'+((typeof csvStagedProvider==='function' && csvStagedProvider(c)) || '');
+  /* Memoised on the card (B7): a render asks this for every candidate, per
+     corrected field, and each ask was a deburr plus three regexes. The key only
+     moves when the payee, the wording or the bank does, so those are the memo key. */
+  var prov = (typeof csvStagedProvider==='function' && csvStagedProvider(c)) || '';
+  var mk = (c.counterparty||'')+'\u0001'+(c.description||'')+'\u0001'+prov;
+  var m = c._fixKeyMemo;
+  if(m && m.mk === mk) return m.k;
+  var out = '', k = csvPatternKey(c);
+  if(k && k.length>=6) out = 'p:'+k;
+  else { var s = csvSimKey(c); if(s) out = 'w:'+s+'|'+prov; }
+  c._fixKeyMemo = { mk:mk, k:out };
+  return out;
 }
 function csvFixPayee(c){                                             // P8: as the bank printed it; none under the wording key
   if(csvFixKey(c).charAt(0)!=='p') return '';
@@ -2857,13 +2896,46 @@ function csvPickPayCard(id){
    within ±1 day · neither is a card leg (those keep the card-payment flow).
    Greedy, one partner each; any ambiguity proposes nothing. */
 var csvXferDismissed = {};
+/* fhStagedAcct, once per row per render (B3). The chip, the pairing and the
+   signature all ask for the same row's instrument; the answer only moves when the
+   staged rows or the person's accounts do, and both of those end in a render or a
+   rebuild, which bumps csvRenderTick. Keyed on the rows array too, so a rebuild that
+   lands new rows at the same indexes can never read the old row's answer. */
+var csvRenderTick = 0;
+var _csvAcctMemo = { tick:-1, rows:null, map:null };
+function csvAcctOf(c){
+  if(!c || !window.fhStagedAcct) return null;
+  if(typeof c.rowIndex !== 'number') return fhStagedAcct(c);
+  var rows = window._fhStagedRows || null;
+  if(_csvAcctMemo.tick !== csvRenderTick || _csvAcctMemo.rows !== rows || !_csvAcctMemo.map) _csvAcctMemo = { tick:csvRenderTick, rows:rows, map:new Map() };
+  var m = _csvAcctMemo.map;
+  if(m.has(c.rowIndex)) return m.get(c.rowIndex);
+  var ai = fhStagedAcct(c); m.set(c.rowIndex, ai); return ai;
+}
+/* What the pairing reads, as one string: the eligible rows' identity, amount,
+   direction, day and instrument, plus the dismissed keys. Same string, same
+   proposals — so the credits × debits matcher runs once per change, not once
+   per render (B3). */
+function csvXferSig(){
+  if(!csvStagedMode || !csvReview) return '';
+  var rows = window._fhStagedRows || [], parts = [];
+  (csvReview.ready||[]).forEach(function(c){
+    if(c._xfer || c.isTransfer || c._repay || c._loan || c._invest || c._skipImport) return;
+    if(!(c.amount > 0) || !c.date) return;
+    var ai = csvAcctOf(c);
+    parts.push(((rows[c.rowIndex]||{}).id || c.rowIndex)+':'+c.amount+':'+(c.isIncome?1:0)+':'+c.date.getTime()+':'+(ai ? (ai.kind||'')+'/'+(ai.provider||'')+'/'+(ai.tail||'') : '-'));
+  });
+  return parts.join('|')+'#'+Object.keys(csvXferDismissed).join(',');
+}
 function csvXferProposals(){
   if(!csvStagedMode || !csvReview) return [];
+  var sig = csvXferSig(), memo = csvReview._xferMemo;
+  if(memo && memo.sig === sig) return memo.props;
   var credits = [], debits = [];
   (csvReview.ready||[]).forEach(function(c){
     if(c._xfer || c.isTransfer || c._repay || c._loan || c._invest || c._skipImport) return;
     if(!(c.amount > 0) || !c.date) return;
-    var ai = window.fhStagedAcct ? fhStagedAcct(c) : null;
+    var ai = csvAcctOf(c);
     if(!ai || ai.kind === 'credit_card') return;
     (c.isIncome ? credits : debits).push({ c: c, ai: ai });
   });
@@ -2884,6 +2956,7 @@ function csvXferProposals(){
     used[db.c.rowIndex] = 1;
     out.push({ key: key, debit: db, credit: cr });
   });
+  csvReview._xferMemo = { sig: sig, props: out };
   return out;
 }
 /* A captured "Số dư" rides along at commit: store it on the account so the
@@ -3080,6 +3153,26 @@ function csvSumBtnHTML(){
    entry scope + staged mode only — the family model lives elsewhere, and the
    file-import flow keeps charting its own file. Amounts are base units on both
    sides (the ledger stores base; csvBaseAmt converts the queue). */
+/* Identity ticks: a number that moves only when the object in a slot is replaced.
+   Lets a signature say "same array as last time" without serialising it. */
+var _csvIdTicks = { n:0, slots:{} };
+function _csvIdTick(slot, obj){
+  var s = _csvIdTicks.slots[slot];
+  if(!s || s.obj !== obj) s = _csvIdTicks.slots[slot] = { obj:obj, tick:++_csvIdTicks.n };
+  return s.tick;
+}
+/* One short string for "has the personal ledger changed": 19-personal's own
+   signature when it offers one (fhPersonalSig), else the identity of the stats
+   slice and the ledger object plus the row counts. */
+function csvPersonalSig(P, SL){
+  try{ if(typeof window.fhPersonalSig === 'function'){ var s = window.fhPersonalSig(); if(s != null) return String(s); } }catch(e){}
+  P = P || (window.fhPersonalData ? window.fhPersonalData() : null);
+  if(SL === undefined) SL = window.fhPersonalStatsSliceCached ? window.fhPersonalStatsSliceCached() : null;
+  if(!P) return '-';
+  return (P.state||'')+'/'+_csvIdTick('P', P)+'/'+_csvIdTick('slice', SL||null)+'/'+(SL && SL.rows ? SL.rows.length : -1)
+    +'/'+((P.txns||[]).length)+'/'+((P.incomes||[]).length)+'/'+((P.labels||[]).length)+'/'+((P.accounts||[]).length);
+}
+var _csvBookedMemo = { key:null, val:null };
 function csvBookedLedger(){
   if(!csvStagedMode) return null;
   var d = (typeof csvEntryScopeDesc==='function') ? csvEntryScopeDesc() : null;
@@ -3089,6 +3182,11 @@ function csvBookedLedger(){
   var SL = window.fhPersonalStatsSliceCached && window.fhPersonalStatsSliceCached();
   var floorIso = (function(){ var t=new Date(); t.setDate(t.getDate()-365);   // a year is the chart's reach, like the backfill's
     return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0'); })();
+  /* Memoised on its inputs (B3): the strip, the two category trees and the
+     toolbox button all ask for this in one render, and each ask walked the whole
+     stats slice with a label lookup per row. */
+  var key = floorIso+'|'+csvPersonalSig(P, SL)+'|'+(typeof LANG!=='undefined' ? LANG : '')+'|'+((typeof fhTreeOn==='function' && fhTreeOn()) ? 1 : 0);
+  if(_csvBookedMemo.key === key && _csvBookedMemo.val) return _csvBookedMemo.val;
   var byDay={}, byCat={}, byCatIn={}, byLeaf={}, byLeafIn={}, thu=0, chi=0;
   /* leaf resolution for the G6 widget: the DEEPEST node's own label, its root
      only as the section it files under */
@@ -3138,7 +3236,9 @@ function csvBookedLedger(){
     });
     (P.incomes||[]).forEach(function(i2){ if(!i2._unreadable) addInc(i2); });
   }
-  return { byDay:byDay, byCat:byCat, byCatIn:byCatIn, byLeaf:byLeaf, byLeafIn:byLeafIn, thu:thu, chi:chi };
+  var res = { byDay:byDay, byCat:byCat, byCatIn:byCatIn, byLeaf:byLeaf, byLeafIn:byLeafIn, thu:thu, chi:chi };
+  _csvBookedMemo = { key:key, val:res };
+  return res;
 }
 function csvSumData(){
   var r = csvReview; if(!r) return null;
@@ -3539,7 +3639,7 @@ function csvSumTap(col){
    or a guess (payload v2, c._srcAttn). The SAME card the dated list draws, with
    the same tick, editor and CTA bar: only its place on the screen differs. */
 function csvStagedSrcCard(c, i, pickOn, pickWk){
-  var o = { label: L('Máy đoán, bạn xem giúp','A guess, please check'), dateIso: c.dateDisplay, timeStr: csvRowTime(c), attn: true,
+  var o = { key:'ready:'+i, label: L('Máy đoán, bạn xem giúp','A guess, please check'), dateIso: c.dateDisplay, timeStr: csvRowTime(c), attn: true,
             tapFn: "csvToggleExpand('ready',"+i+")", removeFn: "csvReadyRemove("+i+")",
             checkFn: "csvStagedToggle("+i+")", checked: !c._skipImport,
             armed: (csvArmedRemove === i), dim: (pickOn && !csvPickMatch(c, pickWk)) };
@@ -3548,7 +3648,7 @@ function csvStagedSrcCard(c, i, pickOn, pickWk){
     : csvCollapsedCard(c, o);
 }
 function csvStagedDupCard(c, i, tier, pickOn, pickWk){
-  var o = { label: tier === 'sure' ? L('Đã có trong sổ','Already in your ledger') : L('Có thể trùng','Possible duplicate'),
+  var o = { key:'ready:'+i, label: tier === 'sure' ? L('Đã có trong sổ','Already in your ledger') : L('Có thể trùng','Possible duplicate'),
             dateIso: c.dateDisplay, timeStr: csvRowTime(c), attn: tier !== 'sure', repeat: true,
             tapFn: "csvToggleExpand('ready',"+i+")", removeFn: "csvReadyRemove("+i+")",
             checkFn: "csvStagedToggle("+i+")", checked: !c._skipImport,
@@ -3614,13 +3714,224 @@ function csvSureSkipAll(){
   else done(rows.length);
 }
 
-function renderCsvReview(){
+/* Why a confident-looking row still sits under an amber label (the dated list). */
+function csvLowConfLabel(c){
+  // _stmtAttn: a statement row pre-set to "Chuyển khoản nội bộ" on the file's own
+  // one-sided evidence (57). It imports as-is, but it is a claim worth a glance.
+  if(c._stmtAttn) return L('Chuyển giữa tài khoản của mình?','A move between your own accounts?');
+  if(c.catSource === 'fallback') return L('Chưa rõ danh mục','No clear category');
+  if(c.catSource === 'pattern') return L('Đoán theo thói quen','Guessed from your habits');
+  return '';
+}
+/* One card of the dated ready list, collapsed or open. Shared by renderCsvReview
+   and the in-place patch (csvCardPatch), so the two can never draw it differently. */
+function csvReadyListCard(c, i, pickOn, pickWk){
+  var isRepeat = csvIsFlaggedDup(c), lc = csvLowConfLabel(c);
+  var o = { key:'ready:'+i, label:lc || (L('Khoản chi ','Item ')+(i+1)), dateIso:c.dateDisplay,
+            timeStr:csvRowTime(c),
+            attn:!!lc, repeat:isRepeat,
+            tapFn:"csvToggleExpand('ready',"+i+")", removeFn:"csvReadyRemove("+i+")" };
+  if(csvStagedMode){ o.checkFn = "csvStagedToggle("+i+")"; o.checked = !c._skipImport;
+                     o.armed = (csvArmedRemove === i);
+                     o.dim = (pickOn && !csvPickMatch(c, pickWk)); }
+  /* Staged expanded card wears the settings-rows layout with its own CTA
+     bar (delete / import-one) — the explicit Xong
+     button belongs to the file workbench; here the header collapse and
+     the accordion flush already close a card safely. */
+  return csvIsOpen('ready', i)
+    ? csvActiveCard(c, Object.assign({}, o, csvStagedMode
+        /* A flagged card opened is a person asking "same purchase or
+           not?" — the evidence (what matched, how much, when, whose
+           entry) belongs right there, not behind a chip. */
+        ? { fields:true, ctaIdx:i, note:(isRepeat ? esc(csvDupWhy(c)) : null) }
+        : { fields:true,
+            buttons:'<button type="button" class="btn-line" onclick="csvExpandDone()">'+L('Xong','Done')+'</button>' }))
+    : csvCollapsedCard(c, o);
+}
+/* A ready row's card exactly as renderCsvReview would draw it right now, in
+   whichever section its tier sends it to; null when the row is not drawn at all
+   (gone, or hidden by the category filter). */
+function csvReadyCardHTML(i){
+  var c = csvReview && csvReview.ready ? csvReview.ready[i] : null; if(!c) return null;
+  if(csvStagedMode && csvCatHide(c)) return null;
+  var pickOn = csvStagedMode && csvPickCount() > 0, pickWk = pickOn ? csvPickWeekMax() : 0;
+  if(csvStagedMode){
+    var tier = csvDupTier(c);
+    if(tier === 'sure' || tier === 'likely') return csvStagedDupCard(c, i, tier, pickOn, pickWk);
+    if(c._srcAttn) return csvStagedSrcCard(c, i, pickOn, pickWk);
+  }
+  return csvReadyListCard(c, i, pickOn, pickWk);
+}
+/* Swap the named ready cards in place (B8) instead of rebuilding the body. True
+   only when EVERY card was found and redrawn; otherwise nothing is touched and the
+   caller falls back to renderCsvReview. The body must still be ours (sentinel),
+   and the signature is advanced to what a full paint of this state would carry,
+   so the next render call with nothing else changed is skipped. */
+function csvCardPatch(idxs){
+  if(typeof document === 'undefined' || !csvReview) return false;
+  var out = document.getElementById('csv-result'); if(!out || !csvReviewBodyFresh(out)) return false;
+  var els = [], htmls = [];
+  for(var k = 0; k < idxs.length; k++){
+    var el = out.querySelector('.bulk-card[data-ck="ready:'+idxs[k]+'"]'); if(!el) return false;
+    var h = csvReadyCardHTML(idxs[k]); if(!h) return false;
+    els.push(el); htmls.push(h);
+  }
+  els.forEach(function(el, k){
+    var t = document.createElement('div'); t.innerHTML = htmls[k];
+    var n = t.firstElementChild; if(n) el.replaceWith(n);
+  });
+  csvReviewSig = csvReviewSigCompute(); window.csvReviewSig = csvReviewSig;
+  return true;
+}
+/* What a full render does after the body, minus the body: the overlays repaint
+   from state, the open note is measured. */
+function csvAfterPatch(){
+  csvRowSheetSync(); csvToolSheetSync();
+  if(csvStagedMode && csvExpand) csvNoteFit(document.getElementById('csvedit-note'));
+}
+
+/* Redraw the one ready card holding candidate c (a switch inside its carry block,
+   say), or the body when it is not a drawn ready card. For callers in other files
+   that today rebuild the whole body for one card (66-rules). */
+function csvCardRepaintFor(c){
+  var i = (csvReview && csvReview.ready) ? csvReview.ready.indexOf(c) : -1;
+  if(i >= 0 && csvCardPatch([i])){ csvAfterPatch(); return; }
+  renderCsvReview();
+}
+window.csvCardRepaintFor = csvCardRepaintFor;
+/* Redraw only the statement cards block (77-statement-capture: a bank chip, the
+   "Sao kê cũ" fold, an armed ✕), or the body when the block is not ours to swap:
+   a statement step just painted over it, or the queue is not on screen. */
+function csvStmtCardsRepaint(){
+  var out = document.getElementById('csv-result'), box = document.getElementById('csv-stm-cards');
+  if(!out || !box || !csvReviewBodyFresh(out) || typeof window.fhStmtCardsHTML !== 'function'){ renderCsvReview(); return; }
+  box.innerHTML = window.fhStmtCardsHTML();
+  csvReviewSig = csvReviewSigCompute(); window.csvReviewSig = csvReviewSig;
+}
+window.csvStmtCardsRepaint = csvStmtCardsRepaint;
+
+/* ── Render signature (B1) ──────────────────────────────────────────────────
+   renderCsvReview rebuilds the whole body with one innerHTML write, and it is
+   called from ~110 places: every tap, every pick, twice per personal hydrate.
+   Most of those calls change nothing the markup reads. So the body is painted
+   only when this string differs from the one painted last. The string is a
+   cheap, exhaustive list of everything the markup depends on:
+     · the review object itself (identity, so a rebuild always paints) and, per
+       row in every bucket (csvRowSig): its id, tick, dup tier and evidence,
+       source-attention flags, category / label / node and their sources, scope,
+       kind flags and their pickers (card, account, person, position, due date,
+       fee), amount and FX marks, wording, payee, day, time, who, lesson chip,
+       recurring mark, the carry block (_fix: fields, applied counts, ledger scan
+       state, switches), the hand marks, the rule marks, and the staged row's
+       joined receipt / refund link;
+     · group keys and sizes, dup verdicts, deferred flags, problems;
+     · the fold (csvExpand), the armed ✕ (row and bulk), selection touched, the
+       category / person filters, chart zoom and hidden, every reveal window,
+       the money-in fold and its open row, the row sheet, hot field and node
+       picker state, the tool sheet, its open row and node folds, the
+       quick-select conditions, the dismissed pairs, the per-source routes, the
+       default scope and whether the personal ledger is unlocked;
+     · mode, language, currency, the family's categories (chip lists) and
+       members, the staged rows array (identity + length), the personal
+       ledger's signature (the booked layer under the chart), the statement
+       cards (77) and the rules strip (66) as the HTML they would paint, the
+       rules store, and the recurring views' readiness.
+   Anything that paints the body from OUTSIDE this function (77's statement
+   steps, the unlock prompt) removes the sentinel the paint leaves as the body's
+   last child, so the next call paints whatever the state says.
+   csvReviewInvalidate() bumps a salt for a caller that changed something this
+   list cannot see. window.csvReviewSig is the last painted signature;
+   csvReviewSkips counts the calls that painted nothing. */
+var csvReviewSig = null, csvReviewSigSalt = 0, csvReviewSkips = 0;
+function csvReviewInvalidate(){ csvReviewSigSalt++; }
+window.csvReviewInvalidate = csvReviewInvalidate;
+function csvFixSig(fx){
+  if(!fx) return '';
+  var s = fx.id+':'+(fx.ruleOn?1:0)+(fx.ledgerOn?1:0)+(fx.busy?1:0)+(fx.more?1:0)+(fx.rule?1:0)+(fx.peek?1:0)+':'+(fx.on||[]).length+'/'+(fx.off||[]).length;
+  Object.keys(fx.items||{}).forEach(function(f){
+    var it = fx.items[f]; if(!it) return;
+    s += ';'+f+'='+(it.v==null?'':it.v)+'|'+(it.applied ? (it.applied.rows||[]).length : '-')
+      + '|'+(it.ledger ? it.ledger.state+'/'+(it.ledger.rows||[]).length+'/'+(it.ledger.done||[]).length+'/'+(it.ledger.fail||0) : '');
+  });
+  return s;
+}
+function csvRowSig(c){
+  if(!c) return '';
+  var rows = window._fhStagedRows || null, sr = (rows && typeof c.rowIndex==='number') ? rows[c.rowIndex] : null;
+  var rc = sr && sr._rcpt;
+  return [
+    (sr && sr.id) || (c.rowIndex==null ? '' : c.rowIndex), c._skipImport?1:0, csvDupTier(c), c._dupWhy||'', (c._dupTwin && c._dupTwin.id)||'',
+    c._srcAttn?1:0, c._kindPicked?1:0, c._stmtAttn?1:0, c._sigHold?1:0,
+    c.catSource||'', c.categoryName||'', c._incomeCat||'', c._node||'', c._nodeSource||'', c._nodeKind||'', c._scope||'',
+    c.isIncome?1:0, c.isTransfer?1:0, c._xfer?1:0, c._xferDir||'', c._xferOtherId||'', c._xferAddingNew?1:0, c._xferNewName||'',
+    c._repay?1:0, c._repayWho||'', c._loan?1:0, c._loanWho||'', c._loanDue||'', c._invest?1:0, c._investPosId||'', c._investQty==null?'':c._investQty,
+    c._payCardId||'', c.amount==null?'':c.amount, c._fxVnd?1:0, c.description||'', c.counterparty||'', c.dateDisplay||'', c.time===undefined?'u':c.time, c.who||'',
+    c._lessonWhy||'', c._recur||'', c._recurSrc||'', c._fee ? (c._fee.on?1:0)+'/'+c._fee.amount : '',
+    c._hand ? Object.keys(c._hand).join('+') : '', (c.flags||[]).join('+'), c._rule ? JSON.stringify(c._rule) : '',
+    rc ? ((rc.items||[]).length+'/'+(rc.provider||'')+'/'+(rc.seller||'')+'/'+(rc.paid==null?'':rc.paid)+'/'+((rc.adjusted&&rc.adjusted.refunded)||0)) : '',
+    (sr && sr._adjOf) || '', (sr && sr._rcptRowId) || '',
+    csvFixSig(c._fix)
+  ].join('\u001f');
+}
+function csvReviewSigCompute(){
+  var r = csvReview; if(!r) return 'none';
+  var o = [];
+  var push = function(x){ o.push(x == null ? '' : String(x)); };
+  var J = function(x){ try{ return JSON.stringify(x == null ? null : x); }catch(e){ return '!'; } };
+  var safe = function(fn){ try{ return fn(); }catch(e){ return '!'; } };
+  push('v1'); push(csvReviewSigSalt); push(_csvIdTick('review', r));
+  push(csvStagedMode?1:0); push(typeof LANG!=='undefined'?LANG:''); push(typeof CUR!=='undefined'?CUR:'');
+  push((r.problems||[]).length); push(r.mixedSignsNote?1:0); push((r.fileCats||[]).length); push((r.adoptedCats||[]).length);
+  (r.ready||[]).forEach(function(c){ push(csvRowSig(c)); });
+  push('g'); (r.groups||[]).forEach(function(g){ push(g.key+'#'+(g.items||[]).length); (g.items||[]).forEach(function(c){ push(csvRowSig(c)); }); });
+  push('d'); (r.dup||[]).forEach(function(d){ push((d.resolved==null?'n':d.resolved)+'#'+csvRowSig(d.c)); });
+  push('f'); (r.deferred||[]).forEach(function(c){ push(csvRowSig(c)); });
+  push('s');
+  push(csvExpand ? csvExpand.kind+'/'+csvExpand.idx+'/'+(csvExpand.gi==null?'':csvExpand.gi) : '');
+  push(csvArmedRemove==null?'':csvArmedRemove); push(csvBulkArmed?1:0); push(csvSelTouched?1:0);
+  push(csvCatFilter||''); push(csvPersonFilter||''); push(csvSumZoom); push(csvSumHidden?1:0);
+  push(csvRevealCount); push(J(csvRevealSec)); push(csvInflowOpen?1:0); push(csvInflowDetail==null?'':csvInflowDetail);
+  push(csvRowSheet||''); push(csvRowHot||''); push(csvNodeOpen==null?'':J(csvNodeOpen)); push(csvNodeQ||''); push(csvNodeReveal?1:0);
+  push(csvToolSheet||''); push(csvEditRow||''); push(J(csvBulkNodeOpen)); push(J(csvPickF)); push(Object.keys(csvXferDismissed).join(','));
+  push(J(typeof csvTxrRoutes!=='undefined' ? csvTxrRoutes : null));
+  push(safe(function(){ return csvStagedScope(); })); push(safe(function(){ return csvScopeReady()?1:0; }));
+  push(csvFuzzyCats?1:0); push(safe(function(){ return csvAllCats().join('|'); }));
+  push(safe(function(){ return ((window.FAM && window.FAM.members) || []).map(function(m){ return m.name; }).join('|'); }));
+  var rows = window._fhStagedRows || null; push(_csvIdTick('rows', rows)); push(rows ? rows.length : -1);
+  push(safe(function(){ return csvPersonalSig(); }));
+  push(safe(function(){ return (csvStagedMode && typeof window.fhStmtCardsHTML === 'function') ? window.fhStmtCardsHTML() : ''; }));
+  push(safe(function(){ return (csvStagedMode && typeof csvRulesSumHTML === 'function') ? csvRulesSumHTML() : ''; }));
+  push(safe(function(){ return (typeof fhRulesList === 'function') ? J(fhRulesList()) : ''; }));
+  push(safe(function(){ if(!window.fhRecurState) return ''; var a = fhRecurState('pers'), b = fhRecurState('fam'); return (a&&a.ready?1:0)+'/'+((a&&a.at)||0)+'/'+(b&&b.ready?1:0)+'/'+((b&&b.at)||0); }));
+  return o.join('\u001e');
+}
+window.csvReviewSigCompute = csvReviewSigCompute;
+/* The body is ours to skip only while our own sentinel is still its last child. */
+function csvReviewBodyFresh(out){
+  var last = out && out.lastElementChild;
+  return !!(last && last.getAttribute && last.getAttribute('data-csv-sig') === '1');
+}
+
+function renderCsvReview(){ window.fhHeat&&fhHeat.tick('renderCsvReview');
   var out=document.getElementById('csv-result'); if(!out || !csvReview) return;
   /* A statement is open (77): its unlock / mapping / summary step owns the body.
      Background renders — a personal _setState while the modal is on screen, the
      reading watcher's rebuild, a badge refresh — would paint the queue over a
      half-typed password. The flow calls this itself when it ends. */
   if(window.fhStmtFlowActive && window.fhStmtFlowActive()) return;
+  /* Same state as the last paint, and the body still ours: leave the DOM alone
+     (B1). The chrome outside the body (Import button, tools header, overlays) is
+     re-synced because it is cheap and some of it is cleared by hands other than
+     ours (csvStepTakeover). */
+  var sig = csvReviewSigCompute();
+  if(sig === csvReviewSig && csvReviewBodyFresh(out)){
+    csvReviewSkips++;
+    var save0 = document.getElementById('csv-save'), n0 = csvStagedMode ? csvStagedSelected().length : csvReview.ready.length;
+    if(save0){ save0.disabled = (n0===0); save0.textContent = n0>0 ? L('Nhập '+n0,'Import '+n0) : L('Nhập','Import'); }
+    csvTxrHeadSync(); csvRowSheetSync(); csvToolSheetSync();
+    return;
+  }
+  csvRenderTick++;
   var r = csvReview;
   var unresolvedDup = r.dup.filter(function(d){return d.resolved===null;});
   var total = r.ready.length + r.groups.reduce(function(n,g){return n+g.items.length;},0)
@@ -3700,7 +4011,7 @@ function renderCsvReview(){
 
      handledHtml is the middle ground: money in and duplicates, both decided
      for the user and both reversible, shown so neither disappears quietly. */
-  var attnHtml = '', handledHtml = '', handledN = 0;   // handledN counts the cards actually appended (a category filter can hide some)
+  var attnHtml = '', handledHtml = '', handledN = 0, handledLeft = 0;   // handledN counts every card the section holds (a category filter can hide some); handledLeft, those past its reveal window
   var pickOnStaged = csvStagedMode && csvPickCount() > 0;
   var pickWkStaged = pickOnStaged ? csvPickWeekMax() : 0;
   r.groups.forEach(function(g, gi){
@@ -3730,7 +4041,7 @@ function renderCsvReview(){
          gutter; Bỏ qua stays on the expanded card where its explanation is. */
       o.removeFn = null;
     }
-    if(!csvIsOpen('dup', di)){ handledHtml += csvCollapsedCard(d.c, o); handledN++; return; }
+    if(!csvIsOpen('dup', di)){ handledN++; if(handledN > csvRevealSec.handled){ handledLeft++; return; } handledHtml += csvCollapsedCard(d.c, o); return; }
     /* duplicateOfPipeline and duplicateOfSource are the same finding from two
        places -- the pipeline spotted it at 3am, this screen spotted it just now
        -- and which layer noticed is not something anyone reviewing a receipt
@@ -3759,7 +4070,8 @@ function renderCsvReview(){
     var o = { label:why, dateIso:c.dateDisplay, timeStr:csvRowTime(c), invalid:blocking, attn:!blocking,
               tapFn:"csvToggleExpand('defer',"+di+")", removeFn:"csvDeferDrop("+di+")" };
     if(!csvIsOpen('defer', di)){
-      if(blocking) attnHtml += csvCollapsedCard(c, o); else { handledHtml += csvCollapsedCard(c, o); handledN++; }
+      if(blocking) attnHtml += csvCollapsedCard(c, o);
+      else { handledN++; if(handledN > csvRevealSec.handled){ handledLeft++; return; } handledHtml += csvCollapsedCard(c, o); }
       return;
     }
     var card = csvActiveCard(c, Object.assign({}, o, { fields: true,
@@ -3775,20 +4087,7 @@ function renderCsvReview(){
      importable: a catch-all default or a pattern hunch is exactly what someone
      wants to glance at, and burying it under 40 confident rows hides it.
      Confidence decides WHERE a row renders, never whether it imports. */
-  var lowConf = [];
-  r.ready.forEach(function(c, i){
-    // _stmtAttn: a statement row pre-set to "Chuyển khoản nội bộ" on the file's own
-    // one-sided evidence (57). It imports as-is, but it is a claim worth a glance.
-    if(c.catSource === 'fallback' || c.catSource === 'pattern' || c._stmtAttn) lowConf.push({ c:c, i:i });
-  });
-  var lowConfLabel = {};
-  lowConf.forEach(function(e){
-    lowConfLabel[e.i] = e.c._stmtAttn
-      ? L('Chuyển giữa tài khoản của mình?','A move between your own accounts?')
-      : e.c.catSource === 'fallback'
-      ? L('Chưa rõ danh mục','No clear category')
-      : L('Đoán theo thói quen','Guessed from your habits');
-  });
+  // The amber label itself is csvLowConfLabel, asked per card by csvReadyListCard.
 
   var blockedCount = r.deferred.filter(function(c){
     return c.flags.indexOf('date_missing')>=0 || c.flags.indexOf('amount_missing')>=0;
@@ -3836,7 +4135,7 @@ function renderCsvReview(){
   // Statement files waiting to be opened (77-statement-capture.js): one locked
   // card each, above everything else. Opening one turns it into ordinary rows in
   // the buckets below, so this is the only statement-specific thing on the screen.
-  if(csvStagedMode && typeof window.fhStmtCardsHTML === 'function') html += window.fhStmtCardsHTML();
+  if(csvStagedMode && typeof window.fhStmtCardsHTML === 'function') html += '<div id="csv-stm-cards">'+window.fhStmtCardsHTML()+'</div>';   // wrapped so csvStmtCardsRepaint can swap just this block
   if(csvStagedMode && typeof csvRulesSumHTML === 'function') html += csvRulesSumHTML();   // "12 khoản theo quy tắc · Nhập 12 khoản" (carry-rules-spec §6)
 
   // In-review summary — above the first bucket in both flows (top of the list
@@ -3846,12 +4145,23 @@ function renderCsvReview(){
   html += csvSumHTML();
   if(csvStagedMode) html += csvCatWidgetsHTML();   // the category lists right under the strip (Q20b)
 
+  /* Reveal windows for the long sections (B2): whole cards up to the count, then
+     one honest "Hiện thêm N khoản". The open card is always drawn, so an editor
+     can never sit past the window. Counts in the headers stay the full count. */
+  var openReady = (csvExpand && csvExpand.kind === 'ready') ? csvExpand.idx : -1;
+  var attnLeft = 0;
   if(csvStagedMode){
+    var attnWin = csvRevealWindow(likelyRows.concat(srcRows), csvRevealSec.attn, openReady), attnKeep = {};
+    attnLeft = attnWin.left;
+    attnWin.keep.forEach(function(e){ attnKeep[e.i] = 1; });
+    likelyRows = likelyRows.filter(function(e){ return attnKeep[e.i]; });
+    srcRows = srcRows.filter(function(e){ return attnKeep[e.i]; });
     likelyRows.forEach(function(e){ if(csvCatHide(e.c)) return; attnHtml += csvStagedDupCard(e.c, e.i, 'likely', pickOnStaged, pickWkStaged); });
     srcRows.forEach(function(e){ if(csvCatHide(e.c)) return; attnHtml += csvStagedSrcCard(e.c, e.i, pickOnStaged, pickWkStaged); });
   }
   if(attnHtml){
-    html += '<div class="group-h attn">'+L('Cần bạn xem','Needs a look')+'</div><div class="csv-cards">'+attnHtml+'</div>';
+    html += '<div class="group-h attn">'+L('Cần bạn xem','Needs a look')+'</div><div class="csv-cards">'+attnHtml+'</div>'
+          + (attnLeft > 0 ? csvRevealBtnHTML(attnLeft, 'attn') : '');
   }
   /* Already booked: a fact, shown with its evidence, out of the way. Unticked,
      so nothing double-imports; the tick is "nhập vẫn", ✕ retires one, and the
@@ -3860,19 +4170,22 @@ function renderCsvReview(){
      skip-all button steps aside then, because it acts on every sure row and a
      button must not claim less than it does. */
   if(csvStagedMode && sureRows.length){
-    var sureHtml = '', sureShown = 0;
-    sureRows.forEach(function(e){ if(csvCatHide(e.c)) return; sureShown++; sureHtml += csvStagedDupCard(e.c, e.i, 'sure', pickOnStaged, pickWkStaged); });
+    var sureWin = csvRevealWindow(sureRows, csvRevealSec.sure, openReady), sureHtml = '';
+    var sureLeft = sureWin.left, sureShown = sureWin.keep.length + sureLeft;   // the header's count: every matching row, drawn or not
+    sureWin.keep.forEach(function(e){ sureHtml += csvStagedDupCard(e.c, e.i, 'sure', pickOnStaged, pickWkStaged); });
     if(sureShown){
       html += '<div class="group-h csv-sure-h"><span>'+L('Đã có trong sổ','Already in your ledger')+' · '+sureShown+'</span>'
             + (csvCatFilter ? '' : '<button type="button" class="csv-linkbtn" onclick="csvSureSkipAll()">'+esc(L('Bỏ qua cả '+sureRows.length,'Skip all '+sureRows.length))+'</button>')+'</div>'
-            + '<div class="csv-cards">'+sureHtml+'</div>';
+            + '<div class="csv-cards">'+sureHtml+'</div>'
+            + (sureLeft > 0 ? csvRevealBtnHTML(sureLeft, 'sure') : '');
     }
   }
   /* Decided, not asked: money in and duplicates stay out of the import, and
      each card still offers the way back in. */
   if(handledHtml){
     html += '<div class="group-h">'+L('Tụi mình để riêng','Set aside')+' · '+handledN+'</div>'
-          + '<div class="csv-cards">'+handledHtml+'</div>';
+          + '<div class="csv-cards">'+handledHtml+'</div>'
+          + (handledLeft > 0 ? csvRevealBtnHTML(handledLeft, 'handled') : '');
   }
   if(inflow.length){
     var inflowSum = inflow.reduce(function(t,e){ return t + csvBaseAmt(e.c.amount); }, 0);
@@ -3892,8 +4205,10 @@ function renderCsvReview(){
         + '<span class="csv-inflow-chev">'+(csvInflowOpen?'▴':'▾')+'</span>'
       + '</button>';
     if(csvInflowOpen){
-      inflow.forEach(function(e){
+      var inflowLeft = 0;
+      inflow.forEach(function(e, k){
         var open = csvInflowDetail === e.di;
+        if(k >= csvRevealSec.inflow && !open){ inflowLeft++; return; }   // the same reveal window as the cards (B2)
         html += '<button type="button" class="csv-inflow-row'+(open?' open':'')+'" onclick="csvInflowToggle('+e.di+')">'
           + '<span class="csv-inflow-d">'+esc(e.c.dateDisplay ? fmtDayMon(e.c.date) : '')+'</span>'
           + '<span class="csv-inflow-n">'+esc(e.c.description)+'</span>'
@@ -3911,6 +4226,8 @@ function renderCsvReview(){
           + '</div>';
         }
       });
+      if(inflowLeft > 0) html += '<button type="button" class="btn-line" style="width:100%;margin:8px 0 0" onclick="csvRevealMoreIn(\'inflow\')">'
+        + esc(L('Hiện thêm '+inflowLeft+' khoản','Show '+inflowLeft+' more'))+'</button>';
     }
     html += '</div>';
   }
@@ -3980,29 +4297,7 @@ function renderCsvReview(){
       var label = k ? fmtDayMon(dateBuckets[k][0].c.date) : L('Không rõ ngày','No date');
       // id anchors the summary's tap-a-bar scroll (csvSumTap); k is the ISO date
       html += '<div class="group-h"'+(k?' id="csvday-'+k+'"':'')+' style="margin-top:10px">'+esc(label)+'</div><div class="csv-cards">';
-      dateBuckets[k].forEach(function(e){
-        var isRepeat = csvIsFlaggedDup(e.c);
-        var o = { label:lowConfLabel[e.i] || (L('Khoản chi ','Item ')+(e.i+1)), dateIso:e.c.dateDisplay,
-                  timeStr:csvRowTime(e.c),
-                  attn:!!lowConfLabel[e.i], repeat:isRepeat,
-                  tapFn:"csvToggleExpand('ready',"+e.i+")", removeFn:"csvReadyRemove("+e.i+")" };
-        if(csvStagedMode){ o.checkFn = "csvStagedToggle("+e.i+")"; o.checked = !e.c._skipImport;
-                           o.armed = (csvArmedRemove === e.i);
-                           o.dim = (pickOn && !csvPickMatch(e.c, pickWk)); }
-        /* Staged expanded card wears the settings-rows layout with its own CTA
-           bar (delete / import-one) — the explicit Xong
-           button belongs to the file workbench; here the header collapse and
-           the accordion flush already close a card safely. */
-        html += csvIsOpen('ready', e.i)
-          ? csvActiveCard(e.c, Object.assign({}, o, csvStagedMode
-              /* A flagged card opened is a person asking "same purchase or
-                 not?" — the evidence (what matched, how much, when, whose
-                 entry) belongs right there, not behind a chip. */
-              ? { fields:true, ctaIdx:e.i, note:(isRepeat ? esc(csvDupWhy(e.c)) : null) }
-              : { fields:true,
-                  buttons:'<button type="button" class="btn-line" onclick="csvExpandDone()">'+L('Xong','Done')+'</button>' }))
-          : csvCollapsedCard(e.c, o);
-      });
+      dateBuckets[k].forEach(function(e){ html += csvReadyListCard(e.c, e.i, pickOn, pickWk); });
       html += '</div>';
     });
     csvRevealLeft = revealLeft;
@@ -4044,9 +4339,11 @@ function renderCsvReview(){
   }
 
   out.classList.toggle('staged', !!csvStagedMode);   // scopes the calm-list CSS overrides (74-mailbox.css)
-  out.innerHTML = html;
+  window.fhHeat&&fhHeat.tick('renderCsvReview:paint');
+  out.innerHTML = html + '<i data-csv-sig="1" hidden></i>';   // the sentinel: gone whenever someone else paints this body
+  csvReviewSig = sig; window.csvReviewSig = sig;
   csvSumAfterRender();   // re-pin the summary strip (zoom + scroll survive the innerHTML rebuild)
-  if(csvStagedMode) csvNoteFit(document.getElementById('csvedit-note'));   // one line, or two when the note needs it
+  if(csvStagedMode && csvExpand) csvNoteFit(document.getElementById('csvedit-note'));   // one line, or two when the note needs it; the box only exists under an open card (B6)
   var pick=document.getElementById('csv-pick'); if(pick) pick.style.display='none';
 
   csvPersistDraft();
@@ -4082,14 +4379,37 @@ function csvFlushExpand(){
 }
 
 function csvToggleExpand(kind, idx){
+  var wasArmed = csvArmedRemove;     // the card that must lose its "Xoá?" (any other tap disarms)
   csvDisarmRemove();                 // a tap elsewhere is not a confirmation
   csvRowSheet = null; csvRowHot = null;   // a picker belongs to the card that opened it
+  /* The card that was open, and what it looked like before the flush: a flush
+     that changed the row (a typed note, an amount) is an edit, and an edit goes
+     through the full render like every other edit. */
+  var prev = csvExpand, prevC = (prev && prev.kind === 'ready' && csvReview) ? csvReview.ready[prev.idx] : null;
+  var prevSig = prevC ? csvRowSig(prevC) : '';
   if(csvIsOpen(kind, idx)){ csvFlushExpand(); csvExpand = null; }
   else { csvFlushExpand(); csvExpand = { kind:kind, idx:idx }; }
+  /* Only the fold moved: redraw the card that opened or closed (and the one
+     that closed to make room, and the one that lost its armed ✕) in place (B8).
+     Any other kind of card, a changed row, or a card not on screen (a filter, an
+     unrevealed day) takes the full render. */
+  if(kind === 'ready' && (!prev || prev.kind === 'ready') && (!prevC || csvRowSig(prevC) === prevSig)){
+    var idxs = [idx];
+    if(prev && prev.idx !== idx) idxs.push(prev.idx);
+    if(wasArmed !== null && idxs.indexOf(wasArmed) < 0) idxs.push(wasArmed);
+    if(csvCardPatch(idxs)){ csvAfterPatch(); return; }
+  }
   renderCsvReview();
 }
 
-function csvExpandDone(){ csvRowSheet = null; csvRowHot = null; csvFlushExpand(); csvExpand = null; renderCsvReview(); }
+function csvExpandDone(){
+  csvRowSheet = null; csvRowHot = null;
+  var prev = csvExpand, prevC = (prev && prev.kind === 'ready' && csvReview) ? csvReview.ready[prev.idx] : null;
+  var prevSig = prevC ? csvRowSig(prevC) : '';
+  csvFlushExpand(); csvExpand = null;
+  if(prevC && csvRowSig(prevC) === prevSig && csvCardPatch([prev.idx])){ csvAfterPatch(); return; }   // B8: the fold alone changed
+  renderCsvReview();
+}
 
 /* Learning happens on the way OUT of an edit, and only from an explicit pick
    -- csvReadEditor stamps catSource:'user' when the person chose a chip. */
@@ -4789,7 +5109,14 @@ function csvDisarmRemove(){
 function csvReadyRemove(i){
   if(!csvReview) return;
   if(csvStagedMode){
-    if(csvArmedRemove !== i){ csvArmedRemove = i; renderCsvReview(); return; }
+    if(csvArmedRemove !== i){
+      var wasArmed = csvArmedRemove; csvArmedRemove = i;
+      /* Arming changes one ✕ (and un-arms another): redraw those cards in place
+         (B8). The guard keeps this block whole for the harness that evals it alone. */
+      var armIdx = [i]; if(wasArmed !== null) armIdx.push(wasArmed);
+      if(typeof csvCardPatch === 'function' && csvCardPatch(armIdx)){ if(typeof csvAfterPatch === 'function') csvAfterPatch(); return; }
+      renderCsvReview(); return;
+    }
     csvArmedRemove = null;
     var gone = csvReview.ready[i];
     if(typeof csvStmtTagTwin === 'function') csvStmtTagTwin(gone);

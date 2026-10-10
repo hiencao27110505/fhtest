@@ -76,6 +76,41 @@
       } catch (e) { return _DEC_FAILED; }
     };
     const _decTxt = async (b64) => { const v = await _decP(b64); return v === _DEC_FAILED ? null : v; };
+    /* The cached decrypt, for the other personal readers (27-streaks walks up
+       to 4000 rows per recompute and used to open each one cold). Same
+       contract as inside this module: _decP returns the sentinel on failure,
+       _decTxt folds it to null. */
+    window.fhPersonalDecP = _decP;
+    window.fhPersonalDecTxt = _decTxt;
+    window.FH_PDEC_FAILED = _DEC_FAILED;
+
+    /* ── data signature ──────────────────────────────────────────────────────
+       One string over everything the Cá nhân tab and the staged review draw
+       from P: lengths first (cheap early difference), then one line per row.
+       O(n) string joins, no JSON.stringify of the ledger. Two uses: _setState
+       repaints only when it changes (a background hydrate that landed the same
+       ledger costs no paint), and fhPersonalHydrate invalidates the 365-day
+       match slice + the stats slice only when it changes. Exposed so other
+       modules can key their own caches off the same answer. */
+    function _rowSig(t) {
+      return t.id + ':' + (t.version || '') + ':' + (t.updatedAt || '') + ':' + t.amt + ':' + (t.kind || '') + ':' + (t.date || '') + ':' + (t.note || '') + ':' + (t.cat || '') + ':' + (t.node || '')
+        + ':' + (t.labelId || '') + ':' + (t.accountId || '') + ':' + (t.positionId || '') + ':' + (t.qty == null ? '' : t.qty) + ':' + (t.time || '') + ':' + (t.payee || t.who || '')
+        + ':' + (t.recur || '') + ':' + (t.hasReceipt ? 1 : 0) + ':' + (t.photos ? t.photos.length : 0) + ':' + (t._unreadable ? 1 : 0) + ':' + (t.linkId || '') + ':' + (t.spaceId || '') + ':' + (t.due || '');
+    }
+    window.fhPersonalSig = function () {
+      const tx = P.txns || [], old = P.txnsOld || [], db = P.debts || [], ac = P.accounts || [], lb = P.labels || [], mem = P.memory || [];
+      const parts = [P.uid || '', P.mirrorRan ? 1 : 0, P.fromSnapshot ? 1 : 0, P.unreadable || 0, P.budget || 0, P.debtsComplete === false ? 0 : 1,
+        tx.length, old.length, db.length, ac.length, lb.length, mem.length];
+      const cb = P.catBudget || {};
+      for (const k in cb) parts.push(k + '=' + cb[k]);
+      for (let i = 0; i < tx.length; i++) parts.push(_rowSig(tx[i]));
+      for (let i = 0; i < old.length; i++) parts.push(_rowSig(old[i]));
+      for (let i = 0; i < db.length; i++) parts.push(_rowSig(db[i]));
+      for (let i = 0; i < ac.length; i++) { const a = ac[i]; parts.push(a.id + ':' + (a.kind || '') + ':' + (a.name || '') + ':' + (a.tail || '') + ':' + a.anchorK + ':' + (a.anchorAt || '') + ':' + a.extK + ':' + (a.extDate || '') + ':' + a.limitK + ':' + (a.humanVerified ? 1 : 0) + ':' + (a.setupSkippedAt || '') + ':' + (a.statementDay || '') + ':' + (a.dueDay || '') + ':' + (a.providerKey || '') + ':' + a.manualPriceK + ':' + (a.assetSymbol || '')); }
+      for (let i = 0; i < lb.length; i++) { const l = lb[i]; parts.push(l.id + ':' + (l.name || '') + ':' + (l.emoji || '') + ':' + (l.sortOrder || 0) + ':' + ((l.claims || []).length)); }
+      return parts.join('\n');
+    };
+
     /* The bank-email review screen offers "Ghi vào đâu? — Cá nhân", and that chip
        is disabled while this ledger has no key. fhPersonalBoot is fired from
        hydrate and NOT awaited, so a queue opened in the window before the key
@@ -84,9 +119,25 @@
 
        So the state change tells it too. Guarded on the staged review actually
        being on screen, because re-rendering a file import from here would throw
-       away an in-progress edit. */
-    function _setState(s) {
+       away an in-progress edit.
+
+       Paint discipline (2026-10, the hot phone): every family hydrate re-runs
+       the personal boot, and every personal hydrate went loading → ready, each
+       a full repaint of the tab AND of the open queue, four per family refresh
+       for data that had not changed. Now: a 'loading' while a ready view is on
+       screen paints nothing (the ready view stays, exactly what renderPersonal
+       does with _persHadReady, but the queue is spared too); a 'ready' paints
+       only when the data signature differs from the last ready paint. */
+    let _paintState = null, _paintSig = null;
+    function _setState(s) { window.fhHeat && window.fhHeat.tick('persSetState:' + s);
       P.state = s;
+      if (s === 'loading' && _paintState === 'ready') return;          // background refresh: keep the ready view on screen
+      let sig = null;
+      if (s === 'ready') {
+        sig = window.fhPersonalSig();
+        if (_paintState === 'ready' && sig === _paintSig) return;        // same data as last paint: nothing to redraw
+      }
+      _paintState = s; _paintSig = sig;
       try { if (window.renderPersonal) renderPersonal(); } catch (e) {}
       try {
         /* Only while the review is actually ON SCREEN. The modal keeps its
@@ -162,6 +213,10 @@
        A completed boot also debounces 2.5s so the cold-open double-fire
        (afterLogin + the family hydrate's refresh call) costs one hydrate. */
     let _booting = false, _bootGen = 0, _bootDoneAt = 0;
+    let _bootSig = null, _keyGen = 0;
+    /* Every assignment of a NEW P.key goes through here: what every cached
+       plaintext and the unwrapped staging key mean has just changed. */
+    function _keyChanged() { _keyGen++; _decCache.clear(); _pStagingPrivCache = null; try { window.fhStagedOpenCache && window.fhStagedOpenCache.clear(); } catch (e) {} }   // opened staged rows belong to the old key
     window.fhPersonalRetry = function () { _booting = false; _bootGen++; _bootDoneAt = 0; return window.fhPersonalBoot(); };
     window.fhPersonalBoot = async function () {
       if (_booting || !_sb()) return;
@@ -177,10 +232,18 @@
            rather than tearing it down; only a tab with nothing gets the error. */
         if (window._persHadReady) _setState('ready'); else _setState('error');
       }, 12000);
-      _decCache.clear();   // boot is the one place identity can change
       const setS = (s) => { if (gen === _bootGen) _setState(s); };   // stale attempts may not write state
       try {
         P.uid = await _uid(); if (!P.uid) { setS('error'); return; }
+        /* Identity check. The decrypt cache used to be cleared here on EVERY
+           boot, and the boot runs at the tail of every family hydrate (focus,
+           realtime, each write, every 5 minutes), so the cache rarely survived
+           long enough to help and the whole ledger was re-decrypted each time.
+           A ciphertext's meaning changes only when the key, the user or the
+           family changes; _keyGen is bumped by every path that assigns a NEW
+           key (provision, unlock, regen). Same user + family + key: keep it. */
+        const _idSig = P.uid + '|' + ((window.DB && window.DB.fid) || '') + '|' + _keyGen;
+        if (_idSig !== _bootSig) { _decCache.clear(); _pStagingPrivCache = null; _bootSig = _idSig; }
         const kc = await _kGet('p:' + P.uid);
         if (kc && kc.key) {
           P.key = kc.key;
@@ -219,7 +282,7 @@
       const wrapped = await FHCrypto.wrapDek(dekRaw, keys.kWrap);
       const r = await _sb().rpc('init_personal_key', { p_kdf_salt: salt, p_kdf_iters: window.FH_KDF_ITERS_CARD, p_kdf_version: 1, p_wrapped_dek: wrapped });
       if (r.error) { console.warn('init_personal_key failed', r.error); _setState('error'); return; }
-      P.key = await FHCrypto.importDek(dekRaw);
+      P.key = await FHCrypto.importDek(dekRaw); _keyChanged();
       P.rawKey = new Uint8Array(dekRaw);              // in-memory only (never persisted) — enables card regen this session
       await _kPut('p:' + P.uid, P.key);
       window.__fhPersonalCard = card;                 // the one secret to protect — shown once
@@ -235,7 +298,7 @@
       try {
         const keys = await FHCrypto.deriveKeys(p.key, P.wrap.kdf_salt, P.wrap.kdf_iters, P.wrap.kdf_version);
         const raw = await FHCrypto.unwrapDek(P.wrap.wrapped_dek, keys.kWrap);
-        P.key = await FHCrypto.importDek(raw);
+        P.key = await FHCrypto.importDek(raw); _keyChanged();
         P.rawKey = new Uint8Array(raw);
         await _kPut('p:' + P.uid, P.key);
         _pcardCache(p.display);                         // remember the entered card so it's viewable in Settings
@@ -261,8 +324,8 @@
        orphans every box sealed to the first — and there is no way to tell that
        has happened except that rows stop opening. Adopt the winner; never retry
        with a fresh pair. Rotation is a separate, deliberate ceremony. */
-    let _pStagingCache = null;
-    window.fhPersonalStagingKeysForget = function () { _pStagingCache = null; };
+    let _pStagingCache = null, _pStagingPrivCache = null;
+    window.fhPersonalStagingKeysForget = function () { _pStagingCache = null; _pStagingPrivCache = null; };
 
     async function _pStagingKeys() {
       if (_pStagingCache) return _pStagingCache;
@@ -295,13 +358,21 @@
 
     /* The private half, unwrapped with the personal DEK. Requires the personal
        safe to be open — the family DEK is no help here and must not be tried. */
+    /* Memoized for the life of the personal key (_keyChanged / forget drop
+       it): this is called once per staged row the review opens, and each call
+       used to AES-unwrap the same bytes again. Callers get a COPY, because
+       fhPersonalStagingVerify zeroes what it is handed and the memo must
+       survive that. */
     window.fhPersonalStagingPrivKey = async function () {
       if (!P.key) throw new Error('personal_locked');
+      if (_pStagingPrivCache) return new Uint8Array(_pStagingPrivCache);
       const keys = await _pStagingKeys();
       if (!keys || !keys.staging_priv_enc) throw new Error('personal_staging_missing');
       const b64 = await _decTxt(keys.staging_priv_enc);
       if (!b64) throw new Error('personal_staging_unwrap_failed');
-      return _pBytes(b64);
+      const bytes = _pBytes(b64);
+      _pStagingPrivCache = bytes;
+      return new Uint8Array(bytes);
     };
 
     /* Same key-substitution detector the family side runs: re-derive the public
@@ -329,7 +400,7 @@
     }
 
     async function _afterKey() {
-      await window.fhPersonalHydrate();
+      await window.fhPersonalHydrate({ bg: true });   // boot-driven: a refresh, not a write
       _mirrorSoon();
       // personal photos blanked while this ledger was locked can decrypt now
       try { window.__fhPhotoRefresh && __fhPhotoRefresh(); } catch (e) {}
@@ -377,13 +448,21 @@
       return { rows: out, complete: false };
     }
 
-    window.fhPersonalHydrate = async function () {
+    /* opts.bg — a boot-driven background refresh (the family hydrate's tail
+       re-runs fhPersonalBoot on every focus/realtime tick). A plain call is a
+       WRITE hydrate: every write path in this module funnels through one, and
+       that contract is what keeps the review screen's duplicate-match slice
+       and the stats slice honest, so a write still invalidates both
+       unconditionally (a write can touch a row older than the two-month
+       window, which no signature over P.txns would see). A background pass
+       invalidates them only when the landed data actually differs from the
+       last pass, so the 365-day match slice and the all-time stats slice stop
+       being rebuilt cold on every tick for a ledger that did not move. */
+    let _hydSig = null;
+    window.fhPersonalHydrate = async function (opts) { window.fhHeat && window.fhHeat.tick('fhPersonalHydrate');
       if (!P.uid || !P.key) return;
       if (_hydHold) { _hydWanted = true; return; }
-      // Every write path funnels through a re-hydrate, so this is the one spot
-      // that keeps the review screen's duplicate-match slice from going stale.
-      try { window.fhPersonalMatchSliceInvalidate && window.fhPersonalMatchSliceInvalidate(); } catch (e) {}
-      try { window.fhPersonalStatsSliceInvalidate && window.fhPersonalStatsSliceInvalidate(); } catch (e) {}
+      const bg = !!(opts && opts.bg);
       const gen = _bootGen;   // a retry-triggered newer boot orphans this pass: it must not write P
       _setState('loading');
       try {
@@ -543,6 +622,12 @@
         P.incomes = _incomesView(txns);
         P.accounts = accounts; P.debts = debts; P.memory = memory; P.labels = labels;
         P.fromSnapshot = false;                    // this is fresh data —
+        const sig = window.fhPersonalSig();
+        if (!bg || sig !== _hydSig) {
+          try { window.fhPersonalMatchSliceInvalidate && window.fhPersonalMatchSliceInvalidate(); } catch (e) {}
+          try { window.fhPersonalStatsSliceInvalidate && window.fhPersonalStatsSliceInvalidate(); } catch (e) {}
+        }
+        _hydSig = sig;
         _snapSave();                               // — worth caching for the next cold open
         _setState('ready');
         _accountHealSoon();                        // once per session: fold tail-less twins, canonical names
@@ -1788,6 +1873,11 @@
         const famCat = {}; for (const c of (fc.data || [])) famCat[c.id] = { name: c.name != null ? c.name : await fhDecStr(c.name_enc), emoji: c.emoji };
         const from = _winFrom();
 
+        /* Count every row this pass inserts, updates or deletes. The pass used
+           to end in an unconditional hydrate, so a mirror that found nothing to
+           do (the common case: it runs after every family hydrate) still cost a
+           whole personal hydrate and two repaints. */
+        let changed = 0;
         const un = await _sb().from('transactions').select('id,txn_date,category_id,amount,amount_enc,note,note_enc,occurred_time,occurred_time_enc,node,node_enc').eq('family_id', fid).eq('created_by', myMem).eq('status', 'realized').eq('kind', 'expense').is('link_id', null).gte('txn_date', from).limit(100);
         for (const rr of (un.data || [])) {
           const amtS = rr.amount != null ? String(rr.amount) : await fhDecStr(rr.amount_enc);
@@ -1797,9 +1887,15 @@
           const time = await _famTime(rr);
           const fc2 = (rr.category_id && famCat[rr.category_id]) || {};
           const linkId = crypto.randomUUID();
+          /* A write to the realtime-subscribed family table: stamp the echo
+             window (R3) or this row's own echo re-runs the family hydrate on
+             every device in the family, which re-runs this mirror, which... */
+          try { if (window.DB) window.DB._lastLocalWrite = Date.now(); } catch (e) {}
           const u = await _sb().from('transactions').update({ link_id: linkId }).eq('id', rr.id).is('link_id', null).select('id');
+          try { if (window.DB) window.DB._lastLocalWrite = Date.now(); } catch (e) {}
           if (u.error || !u.data || u.data.length !== 1) continue;
           await _insertMaster(linkId, fid, rr.txn_date, amt, note, fc2.name, fc2.emoji, time, null, await _famNode(rr));
+          changed++;
         }
 
         const ln = await _sb().from('transactions').select('id,link_id,txn_date,category_id,amount,amount_enc,note,note_enc,occurred_time,occurred_time_enc,updated_at,node,node_enc').eq('family_id', fid).eq('created_by', myMem).not('link_id', 'is', null).gte('txn_date', from).limit(400);
@@ -1807,7 +1903,7 @@
         const mq = await _sb().from('personal_transactions').select('id,link_id,txn_date,amount_enc,note_enc,occurred_time_enc,updated_at,version,created_at,node_enc').eq('owner_user_id', P.uid).eq('space_id', fid).not('link_id', 'is', null).gte('txn_date', from).order('created_at');
         const mastersBy = {};
         for (const r of (mq.data || [])) {
-          if (mastersBy[r.link_id]) { await _sb().from('personal_transactions').delete().eq('id', r.id); continue; }   // self-heal dup
+          if (mastersBy[r.link_id]) { await _sb().from('personal_transactions').delete().eq('id', r.id); changed++; continue; }   // self-heal dup
           mastersBy[r.link_id] = { id: r.id, updatedAt: r.updated_at, version: r.version || 1, amt: Number(await _decP(r.amount_enc)), note: await _decP(r.note_enc), time: await _decTxt(r.occurred_time_enc), node: _okNode(await _decTxt(r.node_enc)) };
         }
         for (const lid of Object.keys(famBy)) {
@@ -1819,14 +1915,21 @@
           const time = await _famTime(f);
           const fc2 = (f.category_id && famCat[f.category_id]) || {};
           const fNode = await _famNode(f);
-          if (!m) { await _insertMaster(lid, fid, f.txn_date, amt, note, fc2.name, fc2.emoji, time, null, fNode); }
+          if (!m) { await _insertMaster(lid, fid, f.txn_date, amt, note, fc2.name, fc2.emoji, time, null, fNode); changed++; }
           else if (f.updated_at > m.updatedAt && (amt !== m.amt || (note || '') !== (m.note || '') || (time || '') !== (m.time || '') || (fNode || '') !== (m.node || ''))) {
             await _sb().from('personal_transactions').update({ amount_enc: await _encP(amt), note_enc: note ? await _encP(note) : null, cat_name_enc: fc2.name ? await _encP(fc2.name) : null, cat_emoji: fc2.emoji || null, txn_date: f.txn_date, occurred_time_enc: time ? await _encP(time) : null, node_enc: _okNode(fNode) ? await _encP(fNode) : null, version: (m.version || 1) + 1 }).eq('id', m.id);
+            changed++;
           }
         }
-        for (const lid of Object.keys(mastersBy)) { if (!famBy[lid]) await _sb().from('personal_transactions').delete().eq('id', mastersBy[lid].id); }   // tombstone
+        for (const lid of Object.keys(mastersBy)) { if (!famBy[lid]) { await _sb().from('personal_transactions').delete().eq('id', mastersBy[lid].id); changed++; } }   // tombstone
+        const wasRan = P.mirrorRan;
         P.mirrorRan = true;
-        await window.fhPersonalHydrate();
+        /* Hydrate only when this pass wrote something (a write hydrate, so the
+           slices invalidate as for any other write), or when the tab holds no
+           rows yet. A no-op pass that merely flipped mirrorRan still tells the
+           tab, so the "Đang đồng bộ…" note clears without a round trip. */
+        if (changed || !(P.txns || []).length) await window.fhPersonalHydrate();
+        else if (!wasRan && P.state === 'ready') _setState('ready');
       } catch (e) { console.warn('personal mirror failed', e); if (_mirrorTries++ < 5) _mirrorSoon(6000); }
       finally { _mirroring = false; }
     };
@@ -1918,7 +2021,7 @@
         }
         const rr = await _sb().rpc('rotate_personal_key', { p_kdf_salt: salt, p_kdf_iters: window.FH_KDF_ITERS_CARD, p_kdf_version: 1, p_wrapped_dek: newWrapped });
         if (rr.error) throw rr.error;
-        P.key = newKey; P.rawKey = new Uint8Array(newRaw); P.wrap = null;
+        P.key = newKey; P.rawKey = new Uint8Array(newRaw); P.wrap = null; _keyChanged();
         await _kPut('p:' + P.uid, newKey); _pcardCache(card.display); window.__fhPersonalCard = card;
         await window.fhPersonalHydrate();
         return { ok: true, card: card };

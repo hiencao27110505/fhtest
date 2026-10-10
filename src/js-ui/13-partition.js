@@ -11,7 +11,10 @@
      window.catClaims   {categoryName: [codes]}     family partition (30-hydrate.js)
      window.P.labels    [{id,name,emoji,claims:[codes]}] personal partition (19-personal.js)
    Kill switch (C8): localStorage 'fh-tree' === 'off' hides every tree surface. */
-function fhTreeOn(){ try{ return localStorage.getItem('fh-tree')!=='off'; }catch(e){ return true; } }
+var _fhTreeOnAt=0,_fhTreeOnV=true;
+function fhTreeOn(){ /* read at most once a second: callers ask per row, and nothing in the app writes the switch */
+  var now=Date.now(); if(now-_fhTreeOnAt<1000) return _fhTreeOnV; _fhTreeOnAt=now;
+  try{ _fhTreeOnV=localStorage.getItem('fh-tree')!=='off'; }catch(e){ _fhTreeOnV=true; } return _fhTreeOnV; }
 function fhNodeOk(code){ return !!(code && typeof FH_TAX!=='undefined' && FH_TAX.get(code)); }
 function fhNodeVi(code){ var n=fhNodeOk(code)?FH_TAX.get(code):null; return n?n.vi:''; }
 function fhNodePath(code){ return fhNodeOk(code)?FH_TAX.pathVi(code):[]; }

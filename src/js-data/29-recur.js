@@ -533,6 +533,28 @@
     st.rowById = new Map(rows.map((r) => [r.id, r])); st.ready = true; st.at = Date.now();
     return v;
   }
+  /* ── the input gate (2026-10-10) ───────────────────────────────────────────
+     The personal pass ran 2.5 s after EVERY personal hydrate over 760 days of
+     rows, the family pass 4 s after every family hydrate over the whole ledger,
+     and a hydrate fires on realtime, on focus and after every write. The rows
+     handed in rarely differ between two runs, and analyse() over the same rows,
+     the same day, with the same lessons gives the same answer. So each run is
+     signed by what it reads (id, amount, date, node, the stored mark, the
+     receipt's say) plus the day, and a run whose signature matches the last
+     COMPLETED one is skipped. A person's pick clears the gate (fhRecurReanalyse)
+     because it changes the lessons, which the signature cannot see. */
+  const _sigOf = (rows, complete) => {
+    let h = 2166136261, n = 0;
+    const mix = (s) => { s = String(s); for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } h ^= 124; h = Math.imul(h, 16777619) >>> 0; };
+    for (const r of rows || []) {
+      if (!r) continue; n++;
+      mix(r.id); mix(r.amt); mix(r.date); mix(r.node || ''); mix(r.recur || ''); mix(r.recurSrc || '');
+      mix(r.rcPeriod || ''); mix(r.recurSig || ''); mix(r.rcHas ? 1 : 0); mix(r.rcProd || ''); mix(r.renewsOn || '');
+    }
+    return _todayIso() + '|' + n + '|' + (complete ? 1 : 0) + '|' + h.toString(16);
+  };
+  const _lastSig = { pers: null, fam: null };
+  window.fhRecurLastSig = _lastSig;
   function _painted(scope) { try { if (typeof window.fhRecurPainted === 'function') window.fhRecurPainted(scope); } catch (e) { /* a repaint never fails a pass */ } }
 
   window.fhRecurState = function (scope) { return ST[scope === 'fam' ? 'fam' : 'pers']; };
@@ -546,6 +568,7 @@
   /** Rebuild the view from the rows already held (after a person's pick). */
   window.fhRecurReanalyse = function (scope) {
     const k = scope === 'fam' ? 'fam' : 'pers';
+    _lastSig[k] = null;                    // a pick changed the lessons: the next pass must look again
     if (!ST[k].ready) return;
     _build(k, ST[k].rows); _painted(k);
   };
@@ -562,9 +585,11 @@
         if (typeof window.fhPersonalRecurRows !== 'function') return 0;
         const got = await window.fhPersonalRecurRows();
         if (!got || !Array.isArray(got.rows)) return 0;
+        const sig = _sigOf(got.rows, got.complete);
+        if (sig === _lastSig.pers && ST.pers.ready) return 0;   // the same rows, the same day: the view already stands
         const v = _build('pers', got.rows);
         _painted('pers');
-        if (!got.complete || !v.patches.length || typeof window.fhPersonalPatchMany !== 'function') return 0;
+        if (!got.complete || !v.patches.length || typeof window.fhPersonalPatchMany !== 'function') { _lastSig.pers = sig; return 0; }
         const batch = v.patches.slice(0, 400);
         const ok = await window.fhPersonalPatchMany(batch.map((p) => ({ id: p.id, fields: { recur: p.recur, recurSrc: p.src } })));
         if (!ok || !ok.length) return 0;
@@ -576,6 +601,7 @@
           if (typeof window.fhPersonalRecurTouch === 'function') window.fhPersonalRecurTouch(p.id, p.recur, p.src);
         }
         _build('pers', got.rows); _painted('pers');
+        _lastSig.pers = _sigOf(got.rows, got.complete);   // the rows as they now read, marks written
         return n;
       } catch (e) { return 0; } finally { _persBusy = null; }
     })();
@@ -603,10 +629,13 @@
     if (_famBusy) return 0;
     _famBusy = true;
     try {
-      const v = _build('fam', _famRows());
-      _painted('fam');
+      const rows = _famRows();
       const full = !!(window.DB && window.DB._hydrated && window.DB._lastFullAt);
-      if (!full || !v.patches.length || typeof window.fhTxnBulkPatch !== 'function') return 0;
+      const sig = _sigOf(rows, full);
+      if (sig === _lastSig.fam && ST.fam.ready) return 0;    // nothing the pass reads has moved
+      const v = _build('fam', rows);
+      _painted('fam');
+      if (!full || !v.patches.length || typeof window.fhTxnBulkPatch !== 'function') { _lastSig.fam = sig; return 0; }
       let n = 0;
       for (const p of v.patches.slice(0, 12)) {
         try {
@@ -617,6 +646,7 @@
         } catch (e) { /* the next run retries */ }
       }
       if (n) { _build('fam', _famRows()); _painted('fam'); }
+      _lastSig.fam = _sigOf(_famRows(), full);
       return n;
     } finally { _famBusy = false; }
   };

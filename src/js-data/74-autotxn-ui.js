@@ -1476,13 +1476,22 @@
          sent — a check is only a check when both sides were already known. */
       r.family_id = window.DB && window.DB.fid;
       if (personal) r.owner_user_id = (window.fhUser && window.fhUser.id) || null;
-      const priv = await (pool || _atxPrivPool())(personal);
-      const p = window.fhStagingOpenRow(r, priv);
-      _atxStats.unseals++;
-      /* Forwarding seals the detail FLAT; the direct-read worker nests it under
-         raw_extracted. Flatten the nested case up so both shapes read alike. */
-      const re = (p && p.raw_extracted && typeof p.raw_extracted === 'object')
-        ? Object.assign({}, p, p.raw_extracted) : (p || {});
+      /* The session-wide opened-row cache (18 fhStagedOpenCache) comes first: a
+         row the review sheet or the teaser already opened is not opened again
+         here, and what this watcher opens is theirs to reuse. The display memo
+         below stays as the watcher's own second level; the cadence is untouched. */
+      const shared = window.fhStagedOpenCache || null, ck = shared ? shared.keyOf(r) : null;
+      let re = ck ? shared.get(ck) : undefined;
+      if (!re) {
+        const priv = await (pool || _atxPrivPool())(personal);
+        const p = window.fhStagingOpenRow(r, priv);
+        _atxStats.unseals++;
+        /* Forwarding seals the detail FLAT; the direct-read worker nests it under
+           raw_extracted. Flatten the nested case up so both shapes read alike. */
+        re = (p && p.raw_extracted && typeof p.raw_extracted === 'object')
+          ? Object.assign({}, p, p.raw_extracted) : (p || {});
+        if (ck && p) shared.set(ck, re);
+      }
       /* memo_display === '' is a VERDICT ("this memo says nothing"), not a
          missing value, so it must fall through to the counterparty rather than
          resurrect the bank's auto-fill. Same rule the review screen uses. */
@@ -1804,14 +1813,22 @@
 
   let _atxLiveSeq = 0;
 
-  async function _atxPendingCount() {
-    const res = await _atxTxnOnly((txnOnly) => txnOnly(sb.from('email_transactions')
-      .select('id', { count: 'exact', head: true })
-      .eq('review_status', 'pending')));
+  async function _atxPendingCount(extra) {
+    const res = await _atxTxnOnly((txnOnly) => {
+      let q = sb.from('email_transactions')
+        .select('id', { count: 'exact', head: true })
+        .eq('review_status', 'pending');
+      if (typeof extra === 'function') q = extra(q);          // a caller's narrowing (72: the locally retired ids)
+      return txnOnly(q);
+    });
     _atxStats.req++;
     if (res.error) throw res.error;
     return (typeof res.count === 'number') ? res.count : 0;
   }
+  /* The one HEAD count of the pending queue, shared: 72 fhRefreshStagedCount
+     reads it instead of fetching every sealed row to learn how many there are
+     (2026-10-10). Same filter, same helper, no bytes. */
+  if (typeof window !== 'undefined') window.fhStagedPendingHead = _atxPendingCount;
 
   const _atxLiveLine = (n) => L(
     'Tìm được ' + n + ' khoản, đang chờ bạn duyệt.',

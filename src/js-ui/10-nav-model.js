@@ -221,3 +221,54 @@ function renderTrend(){
     return '<div class="tr-m'+(k===selMonth?' sel':'')+'">'+(months[k]._iso?moAbbr(new Date(months[k]._iso+'T00:00:00').getMonth()):months[k].short.slice(0,3))+'</div>';
   }).join('');
 }
+
+/* ---------- covered state (device heat) ----------
+   A full-screen cover (a detail .overlay, a .modal page sheet or screen, the
+   photo .peek, the .celebrate card, the lock wall) hides the active tab, but the
+   tab stays display:block underneath it: its water gauge, reaction posters and
+   home scene keep animating, the tab bar keeps its backdrop blur, and the
+   cash-flow auto-rotate keeps re-rendering, all for pixels nobody can see. One
+   attribute observer over the covers flips body.fh-covered; CSS pauses every
+   animation under .view.on while it is set (15-shell.css) and drops the tab
+   bar's blur (40-spending-tabs.css); cfStartAuto's tick holds; the photo
+   decryptor (57-photo-enc.js) listens for 'fhcover' to re-check tiles that sat
+   under a closed screen. The covers are static in the shell, siblings of
+   #scroll inside #phone, never inside a .view; the lock wall alone is created
+   on demand, so #phone's child list is watched too. The pure part
+   (fhCoverIsOn / fhCoverAnyOn) is what tools/heat-cover-state.test.js pins. */
+function fhCoverIsOn(el){
+  if(!el) return false;
+  if(el.id==='fh-lockwall') return true;                        // mounted = covering (no open class)
+  return !!(el.classList && el.classList.contains('on'));
+}
+function fhCoverAnyOn(els){
+  for(var i=0;i<(els?els.length:0);i++){ if(fhCoverIsOn(els[i])) return true; }
+  return false;
+}
+var _fhCoveredNow=false;
+function fhCovered(){ return _fhCoveredNow; }
+window.fhCovered=fhCovered;
+window.fhCoverAnyOn=fhCoverAnyOn;
+(function(){
+  if(typeof document==='undefined' || typeof MutationObserver==='undefined' || !document.body) return;
+  var SEL='.overlay,.modal,.peek,.celebrate,#fh-lockwall';
+  var phone=document.getElementById('phone'), mo=null;
+  function covers(){ return (phone||document.body).querySelectorAll(SEL); }
+  function watch(){ var cs=covers(); for(var i=0;i<cs.length;i++) mo.observe(cs[i], {attributes:true, attributeFilter:['class']}); }
+  function apply(){
+    var on=fhCoverAnyOn(covers());
+    if(on!==_fhCoveredNow){ _fhCoveredNow=on; document.body.classList.toggle('fh-covered', on); }
+    // every cover change, not only a state flip: a screen opening over an
+    // overlay keeps the state but changes which tiles can be seen
+    try{ document.dispatchEvent(new CustomEvent('fhcover',{detail:{on:on}})); }catch(e){}
+  }
+  try{
+    mo=new MutationObserver(function(muts){
+      for(var i=0;i<muts.length;i++){ if(muts[i].type==='childList'){ watch(); break; } }   // the lock wall mounted or left
+      apply();
+    });
+    watch();
+    if(phone) mo.observe(phone, {childList:true});
+    apply();
+  }catch(e){}
+})();

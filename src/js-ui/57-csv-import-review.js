@@ -206,8 +206,17 @@ function matchCategoryName(guess) {
 }
 
 // whole-word containment, so "an" matches "an uong" but not "banh"
+// One compiled RegExp per word (B5): a build asks this for every file label against
+// every category name, and compiling the same pattern each time was most of the cost.
+var _csvWordRx = new Map();
 function _csvWordIn(needle, hay) {
-  return new RegExp('(^|\\s)' + String(needle).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|\\s)').test(hay);
+  var k = String(needle), rx = _csvWordRx.get(k);
+  if (!rx) {
+    if (_csvWordRx.size > 4000) _csvWordRx.clear();
+    rx = new RegExp('(^|\\s)' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|\\s)');
+    _csvWordRx.set(k, rx);
+  }
+  return rx.test(hay);
 }
 
 /* A memo shaped "X chuyển tiền đến X" — the SAME name on both sides — is a move
@@ -276,14 +285,35 @@ var CSV_MCC_CONCEPT = {
   '8211':'Education','8220':'Education','8299':'Education',
 };
 
+/* The merchant tokens and the composer's brand words, deburred ONCE (B5): the
+   old loop re-folded ~500 tokens for every row of every build. Both tables are
+   static; KW_SHARED is re-read only if the object itself is replaced. */
+var _csvMerchantsD = null, _csvKwSharedD = null;
+function _csvMerchantTable() {
+  if (!_csvMerchantsD) _csvMerchantsD = CSV_MERCHANTS.map(function (m) { return [m[0], m[1].map(function (tok) { return deburr(tok); })]; });
+  return _csvMerchantsD;
+}
+function _csvKwSharedTable() {
+  if (typeof KW_SHARED !== 'object' || !KW_SHARED) return null;
+  if (!_csvKwSharedD || _csvKwSharedD.src !== KW_SHARED) {
+    var out = [];
+    for (var cpt in KW_SHARED) {
+      var ws = [], list = KW_SHARED[cpt] || [];
+      for (var j = 0; j < list.length; j++) { var w = deburr(String(list[j]).toLowerCase()); if (w.length >= 4) ws.push(w); }
+      out.push([cpt, ws]);
+    }
+    _csvKwSharedD = { src: KW_SHARED, list: out };
+  }
+  return _csvKwSharedD.list;
+}
 function csvMerchantConcept(desc) {
   var t = ' ' + deburr(String(desc || '').toLowerCase()).replace(CSV_BANK_NOISE, ' ').replace(/\s+/g, ' ') + ' ';
   if (t.trim().length < 2) return '';
-  var i, j;
-  for (i = 0; i < CSV_MERCHANTS.length; i++) {
-    var concept = CSV_MERCHANTS[i][0], toks = CSV_MERCHANTS[i][1];
+  var i, j, table = _csvMerchantTable();
+  for (i = 0; i < table.length; i++) {
+    var concept = table[i][0], toks = table[i][1];
     for (j = 0; j < toks.length; j++) {
-      if (t.indexOf(deburr(toks[j])) >= 0) return concept;
+      if (t.indexOf(toks[j]) >= 0) return concept;
     }
   }
   /* Then the composer's BRAND words (KW_SHARED) only -- 'grab', 'netflix',
@@ -295,12 +325,12 @@ function csvMerchantConcept(desc) {
      memo full of names: "tra" (tea) sits inside "TRANG", so every transfer
      this family made was being labelled food because of a person's name.
      guessCat already tried those words the safe way, with word boundaries. */
-  if (typeof KW_SHARED === 'object') {
-    for (var cpt in KW_SHARED) {
-      var list = KW_SHARED[cpt];
-      for (j = 0; j < list.length; j++) {
-        var w = deburr(String(list[j]).toLowerCase());
-        if (w.length >= 4 && t.indexOf(w) >= 0) return cpt;
+  var kw = _csvKwSharedTable();
+  if (kw) {
+    for (i = 0; i < kw.length; i++) {
+      var words = kw[i][1];
+      for (j = 0; j < words.length; j++) {
+        if (t.indexOf(words[j]) >= 0) return kw[i][0];
       }
     }
   }
@@ -600,10 +630,16 @@ function _debtNorm(s){
    "nguyen van minh chuyen tien" hits; "minh" inside "minh chau store" also
    hits — accepted, because the people list is tiny (only open balances) and
    this only ever pre-selects. Names under 4 letters never match. */
+var _debtNormMemo = new Map();   // who → _debtNorm(who): the same few names, asked once per candidate (B4)
+function _debtNormOf(s){
+  var k = String(s || ''), v = _debtNormMemo.get(k);
+  if (v === undefined) { if (_debtNormMemo.size > 2000) _debtNormMemo.clear(); v = _debtNorm(k); _debtNormMemo.set(k, v); }
+  return v;
+}
 function _debtNameHit(list, text){
   var nt = ' ' + _debtNorm(text) + ' ';
   for (var i=0;i<list.length;i++){
-    var nw = _debtNorm(list[i].who);
+    var nw = _debtNormOf(list[i].who);
     if (nw.length >= 4 && nt.indexOf(' ' + nw + ' ') >= 0) return list[i];
   }
   return null;
@@ -622,6 +658,25 @@ function csvLendingPass(candidates){
   var oweMe = people.filter(function(p){ return p.balance > 0.5; });
   var haveLessons = !!window.fhKindLesson;
   if (!iOwe.length && !oweMe.length && !haveLessons) return;
+  /* Own-account pair check, indexed (B4). The old form asked every expense row to
+     scan every candidate: n² at a 1000-row backfill, a million comparisons on the
+     phone. The credits are bucketed by exact amount once, each bucket sorted by
+     time, and a row asks only its own bucket for a credit within ±1.5 days. Same
+     answer as before: some money-in row, same amount, both dated, close. */
+  var _incByAmt = new Map();
+  candidates.forEach(function(o){
+    if (!o.isIncome || !o.date || o.amount == null) return;
+    var t = o.date.getTime(); if (t !== t) return;      // an invalid date never paired before either
+    var b = _incByAmt.get(o.amount); if (!b) { b = []; _incByAmt.set(o.amount, b); }
+    b.push(t);
+  });
+  _incByAmt.forEach(function(b){ b.sort(function(x, y){ return x - y; }); });
+  var _lendPaired = function(c){
+    var b = _incByAmt.get(c.amount); if (!b || !c.date) return false;
+    var t = c.date.getTime(), W = 1.5 * 86400000, lo = 0, hi = b.length;
+    while (lo < hi) { var m = (lo + hi) >> 1; if (b[m] < t - W) lo = m + 1; else hi = m; }
+    return lo < b.length && b[lo] <= t + W;
+  };
   candidates.forEach(function(c){
     if (c.isTransfer || c._xfer || c._repay || c._loan || c._invest || c.amount == null) return;
     if (c._sigHold) return;   // a v2 signal already decided this row (email-reading-v2-spec §9: it outranks this pass)
@@ -639,11 +694,7 @@ function csvLendingPass(candidates){
     if (owe){ c._repay = true; c._repayWho = owe.who; c._scope = 'personal'; c._lessonWhy = 'owe'; _lendClearCat(c); return; }
     /* pair-shaped? both legs of an own-account move in the same batch — the
        transfer matcher's territory, not a loan (spec Q15 precedence) */
-    var paired = candidates.some(function(o){
-      return o !== c && o.isIncome && o.amount === c.amount && o.date && c.date
-        && Math.abs(o.date.getTime() - c.date.getTime()) <= 1.5 * 86400000;
-    });
-    if (paired) return;
+    if (_lendPaired(c)) return;
     /* remembered OTC seller → Đầu tư + the position, ahead of the loan
        lesson: an explicit seller→position mapping the person committed once
        is more specific than a banded kind lesson (investment-spec I9). */

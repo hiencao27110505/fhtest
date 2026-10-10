@@ -1,7 +1,7 @@
   // ---- THE hydrate: pull the active family into the app's globals ----
   // opts.windowed → R6 windowed refresh (recent slice merged onto the baseline);
   // no opts / {} → full ledger (the default every existing caller keeps using).
-  window.loadFamilyData = async function loadFamilyData(opts) {
+  window.loadFamilyData = async function loadFamilyData(opts) { window.fhHeat && window.fhHeat.tick('loadFamilyData');
     // "have we ever finished a hydrate" needs its own flag now — DB.fid is seeded
     // at login, so it no longer doubles as one.
     if (!window.DB._hydrated) _showLoading();
@@ -104,7 +104,13 @@
          all downstream UI) keeps seeing plain values. Rows the device can't
          decrypt resolve to null → Number() gives 0, and the lock bar offers the
          passcode prompt. */
+      /* The family decrypt cache (15-crypto) is keyed by ciphertext and only
+         the DEK can change what one means, but an enc-state transition (off →
+         dual → enc) is the moment a row's columns are rewritten wholesale, so
+         drop it there too; it is cheap insurance, not a correctness need. */
+      const _prevEncState = (window.DB.enc && window.DB.enc.enc_state) || 'off';
       window.DB.enc = encMeta || null;
+      if (((encMeta && encMeta.enc_state) || 'off') !== _prevEncState) { try { window.fhDecCacheClear && window.fhDecCacheClear(); } catch (e) {} }
       window.DB.keyWraps = keyWraps || [];                  // Key Card wraps (0042); [] keeps the card flow dormant
       if (encMeta) { try { await fhKeyLoad(fid); } catch (e) {} }
       // sealed staging (18-staging-keys): a cached key on boot is an unlock too —

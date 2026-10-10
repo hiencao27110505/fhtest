@@ -205,12 +205,26 @@
       return null;   // order-level only: the cascade keeps its answer
     }
 
+    /* Opened receipt payloads, kept across runs (2026-10-10). The ledger pass
+       runs four seconds after EVERY personal hydrate and used to open every
+       pending receipt again each time: up to two thousand nacl opens for a
+       set that had not changed. Keyed by id + nonce (the ciphertext's own
+       identity, as 18's shared cache keys it); only readable results are kept,
+       so a locked ledger is retried after unlock. The shaping below reads the
+       cached payload and never writes into it. */
+    var _rjOpened = new Map(), RJ_OPEN_MAX = 3000;
+    function _rjOpenKey(row) { return row.id + '|' + (row.nonce || row.updated_at || row.created_at || ''); }
     /* Open + shape one receipt row. Returns null for unreadable (leave it
        pending; unlocking heals it) and for rows with no receipt block. */
     async function _rjOpen(row) {
       if (!window.fhReadStagedRow) return null;
-      var r = await window.fhReadStagedRow(row);
-      if (!r || r._unreadable) return null;
+      var k = _rjOpenKey(row), r = _rjOpened.get(k);
+      if (!r) {
+        r = await window.fhReadStagedRow(row);
+        if (!r || r._unreadable) return null;
+        _rjOpened.set(k, r);
+        if (_rjOpened.size > RJ_OPEN_MAX) { for (var kk of _rjOpened.keys()) { if (_rjOpened.size <= RJ_OPEN_MAX) break; _rjOpened.delete(kk); } }
+      }
       var x = r.raw_extracted || {};
       var rc = x.receipt;
       if (!rc || typeof rc !== 'object') rc = null;
@@ -274,8 +288,18 @@
     function _rjBlocked(rowId, rcptId) { var b = _rjPicks().b[rowId]; return !!(b && b.indexOf(rcptId) >= 0); }
 
     /* The last opened receipts and queue rows, so a pick on a card can be
-       applied and the rest re-settled without another fetch. */
-    var RJ = { receipts: [], queue: null, at: 0 };
+       applied and the rest re-settled without another fetch. `byId` is the
+       queue indexed once (fhReceiptOffers is asked per card per render, and
+       56 now asks it per statement card too); `offers` memoizes each row's
+       answer for one settled state and is dropped whenever that state moves. */
+    var RJ = { receipts: [], queue: null, at: 0, byId: new Map(), offers: new Map() };
+    function _rjSetState(receipts, queueRows) {
+      RJ.receipts = receipts; RJ.queue = queueRows; RJ.at = Date.now();
+      RJ.byId = new Map();
+      (queueRows || []).forEach(function (q) { if (q && q.id != null && !RJ.byId.has(q.id)) RJ.byId.set(q.id, q); });
+      RJ.offers = new Map();
+    }
+    function _rjSettled() { RJ.offers = new Map(); }
 
     function _rjRowCash(q) {
       var x = q.raw_extracted || {};
@@ -321,6 +345,17 @@
       if (!rows.length) return;
       var cash = {}; rows.forEach(function (q) { cash[q.id] = _rjRowCash(q); });
       var byId = {}; receipts.forEach(function (r) { byId[r.id] = r; });
+      /* The debit rows by exact amount, and the credit rows apart. Every match
+         below starts from "the paid total equals the row's amount", so the
+         bucket is the amount itself and each receipt reads only the rows that
+         could be its own, not the whole queue (2026-10-10: receipts × rows,
+         then receipts × credits × rows, on a thousand-row queue). */
+      var byAmt = {}, credits = [];
+      rows.forEach(function (q) {
+        var c = cash[q.id];
+        if (c.dir === 'debit') (byAmt[c.amt] || (byAmt[c.amt] = [])).push(q);
+        else if (c.dir === 'credit') credits.push(q);
+      });
       var st = _rjPicks();
 
       /* 0. What the person picked stands first. */
@@ -337,9 +372,8 @@
       receipts.forEach(function (r) {
         if (r._joined || !r.paid) return;
         var hits = [];
-        rows.forEach(function (q) {
+        (byAmt[Math.round(r.paid)] || []).forEach(function (q) {
           var c = cash[q.id];
-          if (c.dir !== 'debit' || c.amt !== Math.round(r.paid)) return;
           if (!_rjDayOk(r, c)) return;
           if (r.tail && c.tail && r.tail !== c.tail) return;          // veto
           if (_rjBlocked(q.id, r.id)) return;                         // the person said no
@@ -348,9 +382,13 @@
         hitsOf[r.id] = hits;
       });
       /* Settle one pair at a time, then look again: a row claimed by a clear
-         pair leaves the others' choices narrower, and often decided (RC29). */
-      for (var guard = 0; guard < 500; guard++) {
-        var open = receipts.filter(function (r) { return !r._joined && hitsOf[r.id]; });
+         pair leaves the others' choices narrower, and often decided (RC29).
+         Only receipts with at least one fitting row take part, and each round
+         settles one of them or ends the loop, so the rounds are bounded by
+         their number rather than by a guard. */
+      var withHits = receipts.filter(function (r) { return hitsOf[r.id] && hitsOf[r.id].length; });
+      for (var guard = 0; guard <= withHits.length; guard++) {
+        var open = withHits.filter(function (r) { return !r._joined; });
         var avail = {};
         open.forEach(function (r) { avail[r.id] = hitsOf[r.id].filter(function (h) { return !h.q._rcpt; }); });
         var done = false, i2, r2;
@@ -399,15 +437,16 @@
         if (r._joined || !r.paid || r.clock == null) return;
         if ((hitsOf[r.id] || []).length) return;                      // an exact row exists: that is the ambiguity rule's business
         var paid = Math.round(r.paid), combos = [];
-        rows.forEach(function (C) {
+        credits.forEach(function (C) {
           var c = cash[C.id];
-          if (c.dir !== 'credit' || C._adjOf || c.clock == null) return;
+          if (C._adjOf || c.clock == null) return;
           if (Math.abs(c.clock - r.clock) > RJ_CLOCK_WINDOW) return;  // the refund lands as the trip ends, when the receipt is sent
-          rows.forEach(function (D) {
+          /* charge minus refund equals the receipt: the charge is in the bucket
+             of exactly paid + refund, so only those rows are read */
+          (byAmt[paid + c.amt] || []).forEach(function (D) {
             var d = cash[D.id];
-            if (D === C || d.dir !== 'debit' || D._rcpt || d.clock == null) return;
+            if (D === C || D._rcpt || d.clock == null) return;
             if (d.acct !== c.acct || d.acct.charAt(0) === '|') return; // one account, and a named one
-            if (d.amt - c.amt !== paid) return;
             if (d.clock < c.clock - RJ_HOLD_BEFORE || d.clock > c.clock + RJ_HOLD_AFTER) return;
             if (r.tail && d.tail && r.tail !== d.tail) return;
             if (_rjBlocked(D.id, r.id)) return;
@@ -443,7 +482,7 @@
       out.sort(function (a, b) { return (b.exact - a.exact) || (a.dt - b.dt); });
       return out.slice(0, 6);
     }
-    function _rjRowById(id) { return (RJ.queue || []).filter(function (q) { return q && q.id === id; })[0] || null; }
+    function _rjRowById(id) { return RJ.byId.get(id) || null; }
     /* Forget what this session's pass attached (never a ledger write, never a
        retire) and settle again with the person's word in place. */
     function _rjResettle() {
@@ -454,8 +493,17 @@
       });
       RJ.receipts.forEach(function (r) { if (r._joined === 'queue') { r._joined = null; if (r._rcpt && r._rcpt.adjusted) delete r._rcpt.adjusted; } });
       _rjQueuePass(RJ.receipts, RJ.queue);
+      _rjSettled();
     }
-    window.fhReceiptOffers = function (stagedRowId) { var q = _rjRowById(stagedRowId); return q ? _rjOffersFor(q) : []; };
+    /* Asked once per card per render, and now per statement card too: the
+       answer for a row is computed once per settled state and handed out as a
+       copy until a pass, a pick or a detach moves that state. */
+    window.fhReceiptOffers = function (stagedRowId) {
+      if (RJ.offers.has(stagedRowId)) return RJ.offers.get(stagedRowId).slice();
+      var q = _rjRowById(stagedRowId), out = q ? _rjOffersFor(q) : [];
+      RJ.offers.set(stagedRowId, out);
+      return out.slice();
+    };
     window.fhReceiptAttach = function (stagedRowId, receiptId) {
       var st = _rjPicks();
       st.p[stagedRowId] = receiptId;
@@ -502,11 +550,28 @@
 
     /* One shared pass. `queueRows` — the review's OPENED staged rows when the
        queue is on screen (queue beats ledger, RC10), else null. */
+    /* The ledger pass is gated on what it reads (2026-10-10). It ran four
+       seconds after EVERY personal hydrate, and a hydrate fires on realtime,
+       on focus and after every write, so the same receipts were matched
+       against the same 365-day slice many times an hour. The signature is the
+       receipt set (ids, which the fetch already told us), the slice's identity
+       and length (19 hands back the same array until a write invalidates it),
+       the personal ledger's own signature when 19 exposes one, and the day
+       (grace is a function of time, so once a day the pass runs regardless).
+       A queue open always runs: its rows are new each time. */
+    var _rjLast = { sig: null, slice: null };
+    function _rjLedgerSig(receipts, slice) {
+      var parts = [Math.floor(Date.now() / 864e5), slice ? slice.length : -1,
+        (typeof window.fhPersonalSig === 'function') ? String(window.fhPersonalSig()) : ''];
+      receipts.forEach(function (r) { parts.push(r.id); });
+      return parts.join(',');
+    }
+
     async function _rjRun(queueRows) {
       var receipts = await _rjLoad();
       _rjLedgerCache = null;                 // this pass may attach or retire; the next detail screen reads afresh
       if (queueRows) {
-        RJ.receipts = receipts; RJ.queue = queueRows; RJ.at = Date.now();
+        _rjSetState(receipts, queueRows);
         /* a pick or a block for a row that is gone has nothing left to say */
         var st = _rjPicks(), live = {}, dirty = false;
         queueRows.forEach(function (q) { if (q && q.id) live[q.id] = 1; });
@@ -526,6 +591,11 @@
       if (rest.length && window.fhPersonalMatchSlice && window.fhPersonalSetReceipt) {
         var slice = [];
         try { slice = await fhPersonalMatchSlice() || []; } catch (e) { slice = []; }
+        if (!queueRows) {
+          var sig = _rjLedgerSig(receipts, slice);
+          if (sig === _rjLast.sig && slice === _rjLast.slice) return;   // nothing this pass reads has moved since it last finished
+          _rjLast = { sig: sig, slice: slice };
+        }
         var mult = window.curMult ? curMult() : 1000;
         var claimedLedger = {};
         var candsOf = function (r2) {
@@ -616,6 +686,7 @@
       if (retire.length && window.fhStagedRetireIds) {
         try { await fhStagedRetireIds(Array.from(new Set(retire))); } catch (e) { /* still pending; next pass retries */ }
       }
+      _rjSettled();                          // the ledger pass may have claimed receipts the cards were offered
     }
 
     /* Review open: enrich the opened rows in place (72 calls this after the
@@ -661,6 +732,7 @@
       var ok = await fhPersonalSetReceipt(t.id, r._rcpt, { upgrade: false });
       if (!ok) return false;
       r._joined = 'ledger';
+      _rjSettled();
       if (window.fhStagedRetireIds) { try { await fhStagedRetireIds([r.id].concat(r._copies || [])); } catch (e) { /* next pass retries */ } }
       return true;
     };
@@ -672,10 +744,18 @@
        equality this pass cannot see (their amounts are sealed), so it cannot
        steal them by construction. */
     var _rjTimer = null, _rjBusy = false;
+    /* While the review queue is on screen the queue pass owns the receipts (queue
+       beats ledger, RC10) and the person is about to decide rows the ledger pass
+       would attach to; the automatic pass waits for the queue to close and then
+       runs once. Direct runs are never deferred (2026-10-10, device-heat-spec). */
+    var _rjDeferred = false;
+    function _rjQueueOnScreen() { try { var m = document.getElementById('csv-import-modal'); return !!(m && m.classList.contains('on') && window.csvStagedMode); } catch (e) { return false; } }
+    try { document.addEventListener('fhcover', function () { if (_rjDeferred && !_rjQueueOnScreen()) { _rjDeferred = false; window.fhReceiptLedgerSoon(); } }); } catch (e) { /* tests load this file without a document */ }
     window.fhReceiptLedgerSoon = function () {
       if (_rjTimer) clearTimeout(_rjTimer);
       _rjTimer = setTimeout(async function () {
         _rjTimer = null;
+        if (_rjQueueOnScreen()) { _rjDeferred = true; return; }
         if (_rjBusy) return;
         _rjBusy = true;
         try { await _rjRun(null); } catch (e) { /* next hydrate retries */ }

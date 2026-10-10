@@ -151,12 +151,14 @@
   async function fhParseXlsxBuffer(buf, password) {
     if (!_xlsxSupported()) throw new Error('xlsx_unsupported');
     if (_isOleContainer(buf)) {
-      let kind = 'unsupported';
-      try { kind = window.fhXlsxEncryptionKind(buf); } catch (e) { kind = 'none'; }
-      if (kind === 'none') throw new Error('xls_legacy');              // an old .xls
-      if (kind !== 'agile') throw new Error('xlsx_enc_unsupported');   // a scheme we don't open
+      /* The container is read once and handed on: fhDecryptXlsx takes the
+         object fhXlsxContainer returns, so the FAT walk is not repeated. */
+      let c = null;
+      try { c = window.fhXlsxContainer(buf); } catch (e) { c = { kind: 'none' }; }
+      if (c.kind === 'none') throw new Error('xls_legacy');            // an old .xls
+      if (c.kind !== 'agile') throw new Error('xlsx_enc_unsupported'); // a scheme we don't open
       if (!password) throw new Error('xlsx_encrypted');                // ask, then come back
-      buf = await window.fhDecryptXlsx(buf, password);
+      buf = await window.fhDecryptXlsx(c, password);
     }
 
     // First pass: the parts whose names are fixed.

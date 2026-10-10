@@ -27,6 +27,11 @@ input{font-family:inherit}
 .view{display:none}
 .view.on{display:block;animation:fade .34s cubic-bezier(.4,0,.2,1)}
 @keyframes fade{from{opacity:0}to{opacity:1}}
+/* A full-screen cover is up (10-nav-model.js, body.fh-covered): the tab under it
+   stays display:block, so hold every animation in it. The covers themselves are
+   siblings of #scroll, never inside a .view, so their own motion is untouched. A
+   paused one-shot simply finishes when the cover lifts. */
+body.fh-covered .view.on,body.fh-covered .view.on *{animation-play-state:paused!important}
 .safe{height:max(env(safe-area-inset-top),16px)}
 .spacer{height:10px}
 

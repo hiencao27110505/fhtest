@@ -601,7 +601,7 @@
     try { fhKeyDrop(null); } catch (e) {}
     try { if (window.fhSnapClear) await window.fhSnapClear(); } catch (e) {}
     // IndexedDB stores holding secrets or decrypted data
-    ['fh-keys', 'fh-card', 'fh-snap'].forEach((db) => { try { indexedDB.deleteDatabase(db); } catch (e) {} });
+    ['fh-keys', 'fh-card', 'fh-snap', 'fh-stmt'].forEach((db) => { try { indexedDB.deleteDatabase(db); } catch (e) {} });
     try { window.__fhPhotoCachePurge && window.__fhPhotoCachePurge(); } catch (e) {}
     // Cache Storage: drop the photo/media cache (leave the app shell so an offline
     // reload still works — the shell holds no account data).

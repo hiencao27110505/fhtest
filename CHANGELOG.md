@@ -18,6 +18,60 @@ Going forward, add an entry here when a feature area changes meaningfully — se
 
 ---
 
+## 2026-10-10
+
+### Danh sách, hàng chờ và sao kê thôi làm nóng máy (SW v625)
+
+Third heat report in three weeks (list 2026-10-01, reading loop 2026-09-26, now the
+list, the review queue and the sao kê cards together). Treated as one device budget
+this time. Spec and decision log: `docs/specs/device-heat-spec.md`. Client only, no
+migration. What landed, by approach:
+
+- **A. Hydrate is idempotent.** Family decrypts are cached by ciphertext (`15-crypto.js`,
+  cleared with the DEK); the personal cache is cleared only when key, user or family
+  change; the mirror re-hydrates only when it wrote something; a background refresh
+  with identical data paints nothing (`fhPersonalSig`); bulk patches, deletes and the
+  mirror update stamp the local-write window so realtime no longer echoes them back;
+  one shared hydrate timer for write and realtime; the space RPCs run at most once a
+  minute per render; the snapshot base64 is chunked (it threw above ~120 KB and was
+  swallowed, so encrypted families never warm-booted).
+- **B. The queue patches instead of rebuilding.** `renderCsvReview` returns early on an
+  unchanged signature (fields documented beside it); expand, collapse, remove-arm and
+  rule toggles repaint one card; every section is capped with the same reveal window as
+  the dated list, counts and bulk actions still cover all rows; booked-ledger, transfer
+  proposals and account lookups are memoised; the lending pass is indexed.
+- **C. A statement unlocks once, off the main thread.** The agile spin is a synchronous
+  JS hash loop in a Blob-URL worker (SHA-1/256/384/512 verified against WebCrypto),
+  container parsed once and sized to its streams; a verified unlock keeps the grid by
+  file hash in memory and sealed under the personal DEK in the `fh-stmt` store (cap 20,
+  evicted on commit, dismiss, purge, sign-out). Statement rows in the queue are cached
+  by ciphertext and decrypted 50 at a time.
+- **D. Covered tabs pause.** `body.fh-covered` while any overlay or full-screen modal is
+  on: the tab beneath pauses its animations and drops the tab-bar blur, the Finance
+  rotate timer holds; closed sheets and overlays pause their own spinners; the idle
+  upload pill no longer spins invisibly; standing `will-change` removed; cash-flow render
+  makes one pass over the ledger instead of ~13.
+- **F. Sweeps converge.** Tree backfill keeps marks by row id across hydrates and marks a
+  scope done (cursor v15); recurrence and the receipt ledger pass are gated on input
+  signatures, and the automatic ledger pass waits while the queue is on screen (queue
+  beats ledger) and runs once when it closes; lessons push only when changed (and recur lessons now survive reload);
+  staged rows unseal once into a shared cache with one key unwrap per open; the badge
+  counts with a HEAD request instead of fetching 1000 sealed rows.
+- **G (half).** Photos decrypt on intersection, four at a time, LRU never revokes an
+  on-screen tile; the closed list empties its rows; a selection tap patches one row;
+  `_pBuildTxnCtx` is linear.
+- **H. Meter and harness.** `fhHeat` (decrypts, unseals, fetches, render ticks, long
+  tasks, animations) always on; `tools/boot-harness/queue-perf.js` and
+  `statement-perf.js` with acceptance bars.
+
+Harness after: queue idle 4 s = 0 requests, 0 decrypts, 0 renders, 0 running
+animations; one background hydrate with the queue open = 0 queue repaints, 0 Personal
+repaints (before: 4 and 4); statement KDF 0 ms on the main thread (before: a multi-second
+block per tap); list open unchanged at ~30 ms. 163 tests pass; the two failures are the
+pre-existing ones. Deferred: server-side pre-extraction, thumbnails at upload (spec §11).
+
+---
+
 ## 2026-09-19
 
 ### Sao kê ngân hàng thành giao dịch chờ duyệt (SW v538) — LIVE

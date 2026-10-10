@@ -205,24 +205,65 @@
      must be distinguishable, or the tab claims an empty mailbox on a boot that
      simply has not fetched yet (activation feedback round 4). */
   window._fhStagedKnown = false;
+  /* The last email-transaction count the server actually answered (null until
+     it has). The peek (76) and the streak engine read this instead of fetching
+     the queue to learn its size, and a refresh repaints only when it moves. */
+  window.fhStagedCountKnown = null;
+  /* Pending transactions, COUNTED. Until 2026-10-10 this fetched every pending
+     row with its full sealed payload (up to a thousand rows, on every hydrate
+     tail, resume, statement dismiss, promote and watcher end) just to read
+     `.length`. A HEAD count with the same filters costs the server one index
+     scan and the client no bytes. The rows this device retired locally and the
+     server still returns are subtracted through a second HEAD count narrowed to
+     those ids (the list itself is pruned on the next full fetch, as before).
+     The count is the reading watcher's own helper (74 fhStagedPendingHead), so
+     every reader of the pending queue keeps going through one filter; the
+     fetch stays as the fallback only. */
+  async function _stagedHeadCount() {
+    if (typeof window.fhStagedPendingHead !== 'function') throw new Error('count_unavailable');
+    var n = await window.fhStagedPendingHead();
+    if (typeof n !== 'number') throw new Error('count_unavailable');
+    var retired = _stagedRetiredGet();
+    if (retired.length) {
+      try {
+        var still = await window.fhStagedPendingHead(function (q) { return q.in('id', retired); });
+        if (typeof still === 'number') n = Math.max(0, n - still);
+      } catch (e) { /* the badge may run one high until the next full fetch; never wrong the other way */ }
+    }
+    return n;
+  }
   window.fhRefreshStagedCount = async function () {
     // The reading watcher (74) keeps its own running count; a promote has just
     // changed the truth under it, so its next tick must re-baseline rather than
     // write a stale number back over this one.
     try { window.fhBackfillCountForget && window.fhBackfillCountForget(); } catch (e) {}
-    try { var rows = await fhFetchStagedTxns(); window.fhStagedCount = (typeof window.fhStagedTotal === 'number') ? window.fhStagedTotal : (rows || []).length; window._fhStagedKnown = true; }
-    catch (e) { window.fhStagedCount = 0; }
+    var wasKnown = window._fhStagedKnown, before = window.fhStagedCount, knownBefore = window.fhStagedCountKnown;
+    var n = null;
+    try { n = await _stagedHeadCount(); }
+    catch (eH) {
+      try { var rows = await fhFetchStagedTxns(); n = (typeof window.fhStagedTotal === 'number') ? window.fhStagedTotal : (rows || []).length; }
+      catch (e) { n = null; }
+    }
+    if (n == null) { window.fhStagedCount = 0; }
+    else { window.fhStagedTotal = n; window.fhStagedCount = n; window.fhStagedCountKnown = n; window._fhStagedKnown = true; }
     // Statement rows and the statement cards the list actually shows wait in the
     // same queue, so the same badge counts them (77 says what it counts and why
     // the history backlog is not in it). Head-only, and never allowed to zero
     // the email count.
     try { if (window.fhStmtPendingCount) window.fhStagedCount += (await window.fhStmtPendingCount()) || 0; } catch (e) {}
-    try { if (typeof window.renderCashflowEmailCta === 'function') window.renderCashflowEmailCta(); } catch (e) {}
-    // The Cá nhân tab carries the same CTA and the same badge; it has to hear
-    // the count change too, or one of the two goes stale after every promote.
-    try { if (typeof window.renderPersonal === 'function') window.renderPersonal(); } catch (e) {}
-    // Notices never reach the queue: applied to their account and retired, quietly
-    // (fhNoticesApply throttles itself and never blocks the badge).
+    /* Repaint only when the answer moved: renderPersonal is a whole-tab rebuild,
+       and this refresh runs on every hydrate tail. The first real answer always
+       paints (the tab waits for _fhStagedKnown). */
+    var changed = !wasKnown || before !== window.fhStagedCount || knownBefore !== window.fhStagedCountKnown;
+    if (changed) {
+      try { if (typeof window.renderCashflowEmailCta === 'function') window.renderCashflowEmailCta(); } catch (e) {}
+      // The Cá nhân tab carries the same CTA and the same badge; it has to hear
+      // the count change too, or one of the two goes stale after every promote.
+      try { if (typeof window.renderPersonal === 'function') window.renderPersonal(); } catch (e) {}
+    }
+    // Notices never reach the queue: applied to their account and retired, quietly.
+    // Not gated on the count: a due notice arrives alone and moves no number, and
+    // fhNoticesApply already throttles itself to one read per ten minutes.
     try { if (window.fhNoticesApply) window.fhNoticesApply(); } catch (e) {}
   };
 
@@ -315,7 +356,7 @@
      nothing readable. Both will exist in the table during the transition, so the
      branch is here from the start rather than retrofitted — and the sealed path
      degrades to a visible "locked" row instead of silently vanishing. */
-  async function fhReadStagedRow(row) {
+  async function fhReadStagedRow(row, pool) {
     if (!row.sealed) return row;                       // plaintext era
     if (!window.fhStagingOpenRow) return null;         // sealed, no decryptor wired yet
     try {
@@ -340,22 +381,37 @@
          we already knew. */
       var personal = row.staging_scope === 'personal';
       if (personal) row.owner_user_id = (window.fhUser && window.fhUser.id) || null;
-      var priv = personal
-        ? await window.fhPersonalStagingPrivKey()
-        : await window.fhStagingPrivKey();
-      var payload = window.fhStagingOpenRow(row, priv);
-      /* Two transports seal two SHAPES. The forwarding pipeline spreads the
-         extracted detail fields FLAT into the sealed payload; the direct-read
-         worker NESTS them under `raw_extracted` (stage.mjs). This screen reads
-         memo_display, category_hint, account_masked, flow and _transport at the
-         TOP level — which is where forwarding puts them — so a direct-read row
-         silently lost every one: descriptions fell back to the counterparty,
-         categories never auto-filled, income mis-routed, and the source tag
-         always read "forwarding". Flatten the nested case up so both shapes are
-         identical from here down. The duplicated cash fields agree, so the merge
-         is lossless. */
-      var re = (payload && payload.raw_extracted && typeof payload.raw_extracted === 'object')
-        ? Object.assign({}, payload, payload.raw_extracted) : payload;
+      /* Opened once per session (18-staging-keys fhStagedOpenCache): the box's
+         content never changes, so a row the teaser, the peek, the watcher or an
+         earlier open of this screen already unsealed is not unsealed again. The
+         workflow columns ride OUTSIDE the box and are re-read from the row on
+         every call, below. `pool` (fhStagedPrivPool) resolves the private key
+         once for a whole loop instead of once per row. */
+      var cache = window.fhStagedOpenCache || null;
+      var ck = cache ? cache.keyOf(row) : null;
+      var re = ck ? cache.get(ck) : undefined;
+      if (!re) {
+        var priv = pool ? await pool(personal)
+          : (personal ? await window.fhPersonalStagingPrivKey() : await window.fhStagingPrivKey());
+        var payload = window.fhStagingOpenRow(row, priv);
+        /* Two transports seal two SHAPES. The forwarding pipeline spreads the
+           extracted detail fields FLAT into the sealed payload; the direct-read
+           worker NESTS them under `raw_extracted` (stage.mjs). This screen reads
+           memo_display, category_hint, account_masked, flow and _transport at the
+           TOP level — which is where forwarding puts them — so a direct-read row
+           silently lost every one: descriptions fell back to the counterparty,
+           categories never auto-filled, income mis-routed, and the source tag
+           always read "forwarding". Flatten the nested case up so both shapes are
+           identical from here down. The duplicated cash fields agree, so the merge
+           is lossless. */
+        re = (payload && payload.raw_extracted && typeof payload.raw_extracted === 'object')
+          ? Object.assign({}, payload, payload.raw_extracted) : payload;
+        if (ck && re) cache.set(ck, re);
+      }
+      /* A fresh object per call: callers annotate what they get back (the
+         receipt join, the review's own marks) and must never write into the
+         cached copy another surface will read. */
+      re = Object.assign({}, re);
       return {
         id: row.id, member_id: row.member_id,
         source_provider: row.source_provider, occurred_at: row.occurred_at,
@@ -1007,9 +1063,9 @@
   window.fhStagedCardPayments = async function () {
     var raw;
     try { raw = await fhFetchStagedTxns(); } catch (e) { return []; }
-    var out = [];
+    var out = [], pool = window.fhStagedPrivPool ? window.fhStagedPrivPool() : null;
     for (var i = 0; i < raw.length; i++) {
-      var r = await fhReadStagedRow(raw[i]);
+      var r = await fhReadStagedRow(raw[i], pool);
       if (i % 25 === 0) { await new Promise(function (res) { setTimeout(res, 0); }); }   // yield, keep the tap alive
       if (!r || r._unreadable) continue;
       var re = r.raw_extracted || {};
@@ -1040,9 +1096,9 @@
   window.fhStagedStreakPeek = async function () {
     var raw;
     try { raw = await fhFetchStagedTxns(); } catch (e) { return []; }
-    var out = [];
+    var out = [], pool = window.fhStagedPrivPool ? window.fhStagedPrivPool() : null;
     for (var i = 0; i < raw.length; i++) {
-      var r = await fhReadStagedRow(raw[i]);
+      var r = await fhReadStagedRow(raw[i], pool);
       if (i % 25 === 0) { await new Promise(function (res) { setTimeout(res, 0); }); }
       if (!r || r._unreadable || r.direction === 'credit') continue;
       var re = r.raw_extracted || {};
@@ -1313,11 +1369,18 @@
     // Decrypt in chunks, yielding to paint between them and showing progress —
     // the design rule is "a real round trip must not look frozen".
     var readable = [], locked = 0;
+    /* One private-key resolve for the whole loop, and a row the session has
+       already opened costs no unseal at all (fhStagedOpenCache). The paint
+       yield is paid only around real unseals: a thousand cached rows must not
+       take fifty frames to walk. */
+    var pool = window.fhStagedPrivPool ? window.fhStagedPrivPool() : null;
+    var cache = window.fhStagedOpenCache || null, misses = 0;
     for (var i = 0; i < raw.length; i++) {
-      var r = await fhReadStagedRow(raw[i]);
+      var miss = !(cache && raw[i].sealed && cache.has(cache.keyOf(raw[i])));
+      var r = await fhReadStagedRow(raw[i], pool);
       if (!r || r._unreadable) { locked++; }
       else { readable.push(r); }
-      if (i % 20 === 0) {
+      if (miss && (misses++ % 20 === 0)) {
         _txrLoadMsg(L('Đang mở khoá ', 'Unlocking ') + (i + 1) + '/' + raw.length);
         await _txrYield();
       }

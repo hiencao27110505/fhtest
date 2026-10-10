@@ -387,7 +387,7 @@ function upCardHTML(it){      // {kind:occ|goal|exp,d,name,src?,target?,saved?,a
   return bigPhoto({ src: it.src, ill: ill, eye: dlt, title: it.name, sub: sub, pct: pct, act: it.act });
 }
 
-function renderHome(){
+function renderHome(){ window.fhHeat&&fhHeat.tick('renderHome');
   var box = document.getElementById('home-body'); if(!box) return;
   /* Personal-first: no family yet (fh-nofam). The tab holds ONLY the trigger to
      create a family & invite — never the scene/stats scaffolding with empty data.

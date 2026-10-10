@@ -16,7 +16,20 @@
   const _te = new TextEncoder(), _td = new TextDecoder();
   const _hex = (buf) => Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
   const _unhex = (s) => new Uint8Array((s.match(/../g) || []).map((h) => parseInt(h, 16)));
-  const _b64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf)));
+  /* Chunked on purpose. `String.fromCharCode(...u8)` spreads every byte as a
+     call argument, and engines cap argument counts: V8 throws RangeError past
+     ~120k bytes, Safari far sooner. The encrypted warm-boot snapshot (17-snap-
+     restore via fhEnc) is the whole family ledger as one buffer, so for any
+     real family the encode threw, fhSnapStore caught it silently, and the
+     hydrate had stringified + AES-encrypted the entire ledger for nothing on
+     every tick while encrypted families never warm-booted. 32 KiB a call is
+     well under every engine's limit. */
+  function _b64(buf) {
+    const u8 = (buf instanceof Uint8Array) ? buf : new Uint8Array(buf);
+    const STEP = 0x8000; let s = '';
+    for (let i = 0; i < u8.length; i += STEP) s += String.fromCharCode.apply(null, u8.subarray(i, Math.min(i + STEP, u8.length)));
+    return btoa(s);
+  }
   function _unb64(s) { const bin = atob(s); const a = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return a; }
   function _cat(a, b) { const o = new Uint8Array(a.length + b.length); o.set(a, 0); o.set(b, a.length); return o; }
 
@@ -166,6 +179,30 @@
      the code is asked for again. On a cold start we recover only the CryptoKey, so
      _fhDekRaw is null until the next unlock — a re-wrap then re-enters the code. */
   let _fhDek = null, _fhDekRaw = null, _fhDekFid = null;
+  /* Family decrypt cache, keyed by the CIPHERTEXT string. Correct by
+     construction: one sealed value opens to exactly one plaintext, and every
+     edit re-encrypts under a fresh nonce, which is a brand-new key here, so a
+     stale hit cannot exist. What it buys: loadFamilyData runs on focus, on
+     every realtime tick, 700ms after every local write and every 5 minutes,
+     and each run decrypted the WHOLE ledger again through fhRead (the phone
+     heat of 2026-10). With the cache only ciphertext never seen under this
+     key pays WebCrypto. Failures are never cached (a locked device that
+     unlocks must retry). FIFO-bounded; dropped whenever the DEK changes,
+     the one event that can change what a ciphertext means. */
+  const _FH_DEC_CACHE_MAX = 50000;
+  const _fhDecCache = new Map();
+  function fhDecCacheClear() { _fhDecCache.clear(); }
+  function _fhDecCachePut(ct, pt) {
+    if (_fhDecCache.size >= _FH_DEC_CACHE_MAX) { const k = _fhDecCache.keys().next(); if (!k.done) _fhDecCache.delete(k.value); }
+    _fhDecCache.set(ct, pt);
+  }
+  // every assignment of _fhDek goes through here, so the cache can never outlive its key
+  function _fhDekSet(dek, raw, fid) {
+    if (dek !== _fhDek) fhDecCacheClear();
+    _fhDek = dek; _fhDekRaw = raw; _fhDekFid = fid;
+  }
+  window.fhDecCacheClear = fhDecCacheClear;
+  window.fhDecCacheSize = function () { return _fhDecCache.size; };
   const _KEYS_DB = 'fh-keys', _KEYS_STORE = 'k';
   function _keysOpen() {
     return new Promise((resolve, reject) => {
@@ -191,23 +228,25 @@
   async function fhKeyLoad(fid) {
     if (_fhDek && _fhDekFid === fid) return true;
     const rec = await _keysGet(fid);
-    if (!rec) { _fhDek = null; _fhDekRaw = null; _fhDekFid = null; return false; }
+    if (!rec) { _fhDekSet(null, null, null); return false; }
     if (rec.key) {                                    // preferred: non-extractable CryptoKey at rest
-      _fhDek = rec.key; _fhDekRaw = null; _fhDekFid = fid;   // no raw on a cold start — a re-wrap re-enters the code
+      _fhDekSet(rec.key, null, fid);                  // no raw on a cold start — a re-wrap re-enters the code
       return true;
     }
     if (rec.raw) {                                    // legacy {raw} record → import, upgrade the store to {key}
-      _fhDekRaw = new Uint8Array(rec.raw); _fhDek = await FHCrypto.importDek(_fhDekRaw); _fhDekFid = fid;
+      const raw = new Uint8Array(rec.raw);
+      _fhDekSet(await FHCrypto.importDek(raw), raw, fid);
       try { await _keysPut(fid, _fhDek); } catch (e) {}      // overwrite the plaintext bytes with the CryptoKey handle
       return true;                                    // keep raw in MEMORY this session (never re-persisted)
     }
-    _fhDek = null; _fhDekRaw = null; _fhDekFid = null; return false;
+    _fhDekSet(null, null, null); return false;
   }
   // Adopt a DEK we just created/unwrapped (set-passcode, join, unlock). We keep the
   // raw bytes in memory for the session (re-wrap on a code change) but persist only
   // the non-extractable CryptoKey.
   async function fhKeyAdopt(fid, dekRaw) {
-    _fhDekRaw = new Uint8Array(dekRaw); _fhDek = await FHCrypto.importDek(_fhDekRaw); _fhDekFid = fid;
+    const raw = new Uint8Array(dekRaw);
+    _fhDekSet(await FHCrypto.importDek(raw), raw, fid);
     await _keysPut(fid, _fhDek);
     // photos that rendered blank while this device was locked can decrypt now
     try { if (window.__fhPhotoRefresh) window.__fhPhotoRefresh(); } catch (e) {}
@@ -216,7 +255,7 @@
     try { if (window.fhStagingAfterUnlock) window.fhStagingAfterUnlock(); } catch (e) {}
   }
   function fhKeyDrop(fid) {
-    if (_fhDekFid === fid || fid == null) { _fhDek = null; _fhDekRaw = null; _fhDekFid = null; }
+    if (_fhDekFid === fid || fid == null) _fhDekSet(null, null, null);
     if (fid != null) _keysDel(fid);
     try { if (window.__fhPhotoCachePurge) window.__fhPhotoCachePurge(); } catch (e) {}   // decrypted photo object-URLs die with the key
     try { if (window.fhCardCacheDrop && fid != null) window.fhCardCacheDrop(fid); } catch (e) {}   // local card copy leaves with the family
@@ -235,7 +274,15 @@
 
   // Encrypt a value with the session DEK (null-safe; throws if key missing).
   async function fhEnc(v) { if (!_fhDek) throw new Error('no key'); return FHCrypto.encVal(_fhDek, v); }
-  async function fhDec(b64) { if (!_fhDek) throw new Error('no key'); return FHCrypto.decVal(_fhDek, b64); }
+  async function fhDec(b64) {
+    if (!_fhDek) throw new Error('no key');
+    if (!b64) return null;
+    const hit = _fhDecCache.get(b64);
+    if (hit !== undefined) return hit;
+    const v = await FHCrypto.decVal(_fhDek, b64);     // a throw propagates uncached: a locked→unlocked device must retry
+    _fhDecCachePut(b64, v);
+    return v;
+  }
   async function fhEncBytes(bytes) { if (!_fhDek) throw new Error('no key'); return FHCrypto.encBytes(_fhDek, bytes); }
   async function fhDecBytes(all) { if (!_fhDek) throw new Error('no key'); return FHCrypto.decBytes(_fhDek, all); }
   /* string bridges for the classic-script side (drafts, snapshot): resolve null

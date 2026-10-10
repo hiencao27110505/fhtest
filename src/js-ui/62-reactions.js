@@ -227,11 +227,13 @@ function rxCard(it, compact){
 function renderRxWall(){
   var sec=document.getElementById('rx-wall-sec'), box=document.getElementById('rx-wall'); if(!box) return;
   var items=_rxWallItems();
-  if(!items.length){ if(sec) sec.style.display='none'; box.innerHTML=''; return; }
+  if(!items.length){ if(sec) sec.style.display='none'; setHTMLIf(box, ''); return; }
   if(sec) sec.style.display='';
   var cnt=document.getElementById('rx-wall-count'); if(cnt) cnt.textContent=String(items.length);
   // Home-style "emoji rain" posters in a horizontal rail — the reacted-to photo IS the card.
-  box.innerHTML='<div class="rx-home">'+items.slice(0,8).map(rxHomeCard).join('')+'</div>';
+  // String-compared write: renderTxns calls this on every ledger render, and an
+  // unchanged wall rewritten restarts eight posters' worth of drift animations.
+  setHTMLIf(box, '<div class="rx-home">'+items.slice(0,8).map(rxHomeCard).join('')+'</div>');
 }
 window.renderRxWall=renderRxWall;
 /* the home strip is a horizontal RAIL of "emoji rain" posters — a living moment,

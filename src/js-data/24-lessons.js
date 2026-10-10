@@ -247,10 +247,14 @@
         const r = remote.node[k], mine = L.node[k];
         if (!mine || r.t > mine.t) { L.node[k] = r; changed = true; }
       }
-      /* rules, pins and routes: newest wins per id; a tombstone (rule|id, pin|id)
-         newer than the copy keeps a deletion from coming back */
-      ['rule', 'pin', 'route'].forEach(function (ns) {
+      /* rules, pins, routes and recurrence lessons: newest wins per id; a
+         tombstone (rule|id, pin|id, recur|key) newer than the copy keeps a
+         deletion from coming back. `recur` was pulled but never merged until
+         2026-10-10, so every merchant period taught on another device died on
+         reload and the next save erased the server's copy too. */
+      ['rule', 'pin', 'route', 'recur'].forEach(function (ns) {
         const src = remote[ns] || {};
+        if (!L[ns]) L[ns] = {};
         for (const k in src) {
           const r = src[k], mine = L[ns][k];
           if (!r || typeof r !== 'object') continue;
@@ -258,6 +262,16 @@
         }
       });
       return changed;
+    }
+    /* The blob with its keys in a fixed order, for comparison only (the
+       encrypted copy is the plain stringify). Two devices that hold the same
+       lessons in a different insertion order are holding the same blob. */
+    function _canon(o) {
+      return JSON.stringify(o, function (k, v) {
+        if (!v || typeof v !== 'object' || Array.isArray(v)) return v;
+        const out = {}; Object.keys(v).sort().forEach(function (kk) { out[kk] = v[kk]; });
+        return out;
+      });
     }
     /* Load before the first save, always. The blob is ONE row that a save
        replaces whole, and the pull used to happen only when the review queue
@@ -267,6 +281,12 @@
        will not decrypt, means NO save at all: the server copy is the only one
        and it is left alone until a later save can read it. */
     let _loading = null;
+    /* What the server holds, as far as this device knows: the canonical form of
+       the blob last pushed or last pulled. A save whose blob reads the same is
+       not a save. Until 2026-10-10 fhLessonsSync forced a push on every queue
+       open and every quick-review attempt, so each one encrypted and upserted
+       the whole blob whether or not a single lesson had changed. */
+    let _lastPushedStr = null;
     async function _ensureLoaded() {
       if (_loaded) return true;
       if (!_loading) _loading = (async () => {
@@ -274,6 +294,11 @@
         if (!remote) return false;
         if (_mergeIn(remote) && typeof window.csvLearnedMergeIn === 'function') { try { window.csvLearnedMergeIn(L.cat); } catch (e) {} }
         _loaded = true;
+        /* When this device had nothing of its own, the merged blob IS the
+           server's and there is nothing to push back. Anything local-only
+           (a lesson taught before the pull) leaves the two apart, and the
+           push that follows carries it up as before. */
+        _lastPushedStr = _canon(remote);
         if (typeof window.csvTxrRoutesMergeIn === 'function') { try { window.csvTxrRoutesMergeIn(window.fhRoutesSynced()); } catch (e) {} }
         return true;
       })().finally(() => { _loading = null; });
@@ -282,13 +307,16 @@
     async function _push() {
       const P = _P(); if (!P || !P.uid || !P.key) return;
       if (!(await _ensureLoaded())) return;               // never overwrite a copy we have not read
+      const canon = _canon(L);
+      if (canon === _lastPushedStr) return;              // nothing changed since the server last heard from us
       const seq = ++_saveSeq;
       const ct = await FHCrypto.encVal(P.key, JSON.stringify(L));
       if (!ct || seq !== _saveSeq) return;                // a newer save superseded this one
       const r = await _sb().from('personal_lessons').upsert(
         { owner_user_id: P.uid, lessons_enc: ct, updated_at: new Date().toISOString() },
         { onConflict: 'owner_user_id' });
-      if (r.error) console.warn('personal lessons save failed', r.error);
+      if (r.error) { console.warn('personal lessons save failed', r.error); return; }
+      _lastPushedStr = canon;
     }
     function _saveSoon() {
       if (_saveTimer) clearTimeout(_saveTimer);
@@ -306,7 +334,10 @@
         for (const k in local) if (L.cat[k] !== local[k]) L.cat[k] = local[k];
       }
       await _ensureLoaded();
-      _saveSoon();
+      /* A push only when this device knows something the server does not:
+         _push compares the blob to the last one pushed or pulled and returns
+         without a write when they read the same. */
+      if (_canon(L) !== _lastPushedStr) _saveSoon();
       return true;
     };
     /* A category lesson just changed locally — mirror + schedule a push. */

@@ -57,7 +57,21 @@ function _pBuildTxnCtx(){
   var now=new Date(), ym=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
   /* the 2-month tab window + the on-demand months 3–6 (fhPersonalFetchOlder) */
   var txs=((P&&P.txns)||[]).concat((P&&P.txnsOld)||[]);
-  var acctName=function(id){ var a=id&&(P&&P.accounts||[]).find(function(x){ return x.id===id; }); return a?(a.name||L('Tài khoản','Account')):null; };
+  /* One pre-pass builds the lookups the row loop needs, so a 1000-row ledger is
+     read once rather than once per transfer pair and once per loan row (the old
+     shape was O(n²) and ran on every open and every edit). Same answers as the
+     scans it replaces: first account per id, first debt per id, and for each
+     transfer group the LAST leg of each sign. tools/heat-txn-ctx.test.js holds
+     the old loop as the oracle. */
+  var acctMap=new Map(); (P&&P.accounts||[]).forEach(function(a){ if(!acctMap.has(a.id)) acctMap.set(a.id,a); });
+  var debtMap=new Map(); (P&&P.debts||[]).forEach(function(d){ if(!debtMap.has(d.id)) debtMap.set(d.id,d); });
+  var xferLegs=new Map();                                  // transferGroupId → {from,to} account ids
+  txs.forEach(function(x){
+    if(x.kind!=='transfer' || !x.transferGroupId) return;
+    var g=xferLegs.get(x.transferGroupId); if(!g){ g={from:null,to:null}; xferLegs.set(x.transferGroupId,g); }
+    if((x.amt||0)<0) g.from=x.accountId; else g.to=x.accountId;
+  });
+  var acctName=function(id){ var a=id&&acctMap.get(id); return a?(a.name||L('Tài khoản','Account')):null; };
   var K_INC=L('Thu nhập','Income'), K_XFER=L('Chuyển khoản','Transfers'), K_DEBT=L('Cho vay & nợ','Loans & debts'), K_INV=L('Đầu tư','Investments');
   var kstyle={}; kstyle[K_INC]=['💰','#eefaf3','var(--good)']; kstyle[K_XFER]=['🔁','#eef4fb','var(--cat-other)']; kstyle[K_DEBT]=['💵','#fdf4e8','var(--cat-other)']; kstyle[K_INV]=['📈','#f6eefb','var(--cat-other)'];
   var kindOrder=[], kseen={}, seenXfer={}, treeRows=[];
@@ -108,9 +122,8 @@ function _pBuildTxnCtx(){
         if(seenXfer[t.transferGroupId]) return;             // second leg of a pair already listed
         seenXfer[t.transferGroupId]=1;
         netv=0;                                             // the pair's two legs cancel
-        var from=null,to=null;
-        txs.forEach(function(x){ if(x.kind==='transfer'&&x.transferGroupId===t.transferGroupId){ if((x.amt||0)<0) from=x.accountId; else to=x.accountId; } });
-        var fn=acctName(from), tn=acctName(to);
+        var legs=xferLegs.get(t.transferGroupId)||{from:null,to:null};
+        var fn=acctName(legs.from), tn=acctName(legs.to);
         note=(fn&&tn)?(fn+' → '+tn):(t.note||K_XFER);
         open="openPersonalTransferDetail('"+t.transferGroupId+"')";
       } else {
@@ -120,13 +133,13 @@ function _pBuildTxnCtx(){
       }
     } else if(t.kind==='loan'||t.kind==='repayment'){
       kcat=K_DEBT; ico=(t.kind==='loan')?'💵':'✅';
-      var dR=(P&&P.debts||[]).filter(function(d){ return d.id===t.id; })[0];
+      var dR=debtMap.get(t.id);
       var who=(dR&&dR.who)?(' · '+dR.who):'';
       note=(t.note||(t.kind==='loan'?((t.amt||0)>0?L('Cho vay','Lent'):L('Đi mượn','Borrowed')):L('Trả nợ','Repayment')))+who;
       open="openPersonalTxDetail('"+t.id+"')";
     } else if(t.kind==='investment'){
       kcat=K_INV;
-      var pos=(P&&P.accounts||[]).find(function(a){ return a.id===t.positionId; });
+      var pos=acctMap.get(t.positionId);
       note=((t.amt||0)>0?L('Bán','Sell'):L('Mua','Buy'))+(pos&&pos.name?' '+pos.name:L(' đầu tư',' investment'));
       open="openPersonalTxDetail('"+t.id+"')";
     } else return;
@@ -174,8 +187,9 @@ function txRow(t){
   var tapCls=(personal? (t._open?' tap':'') : ' tap');
   // Select mode: a tap toggles selection (never opens); ineligible rows say why.
   // Selected wears the tick; once anything is selected, misses fade — never hide.
-  var selTick='', selCls='';
+  var selTick='', selCls='', tid='';
   if(selMode){
+    tid=' data-tid="'+escAttr(String(t.id))+'"';            // _txSelPaint patches this row in place on a selection tap
     var elig=window.__txnSelElig?window.__txnSelElig(t):false;
     var selOn=elig && window.__txnSel && window.__txnSel[t.id];
     selTick='<span class="sel-tick'+(elig?'':' no-sel')+'"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg></i></span>';
@@ -204,7 +218,7 @@ function txRow(t){
      && fhTreeLayer(personal?'personal':'family')==='tree' && t.node && typeof fhNodeShort==='function'){
     catTxt=fhNodeShort(t.node)||t.cat;
   }
-  return '<div class="row'+tapCls+selCls+(chip?' has-rx':'')+'"'+rxid+open+'>'+selTick+'<div class="r-ico-wrap">'+tile+av+'</div>'
+  return '<div class="row'+tapCls+selCls+(chip?' has-rx':'')+'"'+rxid+tid+open+'>'+selTick+'<div class="r-ico-wrap">'+tile+av+'</div>'
     +'<div class="r-body"><div class="r-t">'+esc(t.note)+(t.hasReceipt?' <span class="r-rc" aria-label="Có hoá đơn">🧾</span>':'')+'</div><div class="r-s">'+subTxt+'</div></div>'
     +'<div class="r-right">'+amtHtml+'<div class="r-cat">'+esc(catTxt)+'</div></div>'+chip+'</div>';
 }
@@ -370,12 +384,26 @@ function txnRetryOlder(){
 // Reset scope on close: txRow is shared with the family activity list, so it must
 // never be left in personal mode once the overlay is gone.
 function closeTxns(){
-  document.getElementById('txn-overlay').classList.remove('on');
+  var ov=document.getElementById('txn-overlay');
+  ov.classList.remove('on');
   clearTimeout(_txQTimer); _txQTimer=null;
   TXV.selMode=false; TXV.sel={}; TXV._sig=null; TXV._segs=null; TXV._cur=null;
   var bar=document.getElementById('txn-bulkbar'); if(bar) bar.classList.remove('on');
   window.__txnScope='family'; _pTxnCtx=null;
+  /* Once the slide-out has finished, drop the rows: a hidden overlay holding a
+     thousand rows and their photo tiles is layout and memory for nothing, and
+     openTxns repaints from the first chunk anyway. After the transition, so the
+     list does not vanish mid-slide; skipped if it was reopened in the meantime. */
+  clearTimeout(_txClearTimer);
+  _txClearTimer=setTimeout(function(){
+    _txClearTimer=null;
+    if(ov.classList.contains('on')) return;
+    var box=document.getElementById('txn-list'); if(box) box.innerHTML='';
+    var st=document.getElementById('txn-stats'); if(st){ st.innerHTML=''; st.style.display='none'; }
+    TXV._sig=null; TXV._shown=0; TXV._list=null;
+  }, 420);
 }
+var _txClearTimer=null;
 /* Re-pull the personal ledger into the open overlay after an edit/delete made
    from a row here. No-op unless the overlay is on AND in personal scope.
    Filter maps re-key against the fresh ctx but KEEP the user's on/off choices
@@ -447,7 +475,7 @@ function _txFiltersActive(){
   return n>0;
 }
 
-function renderTxnScreen(){
+function renderTxnScreen(){ window.fhHeat&&fhHeat.tick('renderTxnScreen');
   var q=(document.getElementById('txn-q').value||'').trim().toLowerCase();
   var personal=_txnPersonal(), catNarrow=_txCatActive();
   var list=(_txList()||[]).filter(function(t){
@@ -553,8 +581,14 @@ function _txMoreCheck(){
     sc._txMoreBound=1;
     sc.addEventListener('scroll', function(){ if(_txHasMore()) _txMoreCheck(); }, { passive:true });
   }
-  var guard=0;
-  while(_txHasMore() && guard++<50 && sc.scrollTop+sc.clientHeight > sc.scrollHeight-2*(sc.clientHeight||800)) _txMore();
+  /* At most two chunks per call, each decided from one read of the scroller
+     (a read after an append forces layout). If the screen is still short after
+     that, the next check is a frame away rather than in this same loop. */
+  var ch=sc.clientHeight||800, n=0;
+  while(_txHasMore() && n<2 && sc.scrollTop+ch > sc.scrollHeight-2*ch){ _txMore(); n++; }
+  if(n===2 && _txHasMore() && !sc._txMoreRaf){
+    sc._txMoreRaf=requestAnimationFrame(function(){ sc._txMoreRaf=null; _txMoreCheck(); });
+  }
 }
 /* which rows a selection can hold (Q14): personal = every private row — a
    pair selects as ONE and deletes as a pair; only mirror rows refuse (machine-
@@ -624,30 +658,39 @@ function renderTxnStats(list){
     +'<div class="st-tile"><div class="cf-tl">'+L('Ra','Out')+'</div><div class="cf-tv num">'+fmtK(ra)+'</div></div>'
     +'<div class="st-tile"><div class="cf-tl">'+L('Ròng','Net')+'</div><div class="cf-tv num'+(net>0?' pos':'')+'">'+(net>0?'+':(net<0?'−':''))+fmtK(Math.abs(net))+'</div></div>'
     +'</div>'
-    +'<div class="pst" onscroll="txnStripScale(this)">'+cols+'</div>';
+    +'<div class="pst" onscroll="txnStripScale(this,true)">'+cols+'</div>';
   var sp=box.querySelector('.pst');
   if(sp){ sp.scrollLeft=(keep!=null)?keep:sp.scrollWidth; txnStripScale(sp); }
 }
 /* Rescale the strip's bars to the tallest bar currently VISIBLE (rAF-throttled;
    the .pst-b height transition makes the re-normalisation read as a settle).
    Off-view bars clamp at 100% until they scroll in and become the new max. */
-function txnStripScale(sp){
-  if(!sp || sp._raf) return;
+function txnStripScale(sp, pan){
+  if(!sp) return;
+  /* a pan re-normalises every frame: hold the bars' height transition for its
+     duration (.pst.panning, 40-spending-tabs.css) and give it back once the
+     strip has been still for a moment, so the last rescale settles as before */
+  if(pan){
+    if(!sp.classList.contains('panning')) sp.classList.add('panning');
+    clearTimeout(sp._panT);
+    sp._panT=setTimeout(function(){ sp._panT=null; sp.classList.remove('panning'); }, 160);
+  }
+  if(sp._raf) return;
   sp._raf=requestAnimationFrame(function(){
     sp._raf=null;
+    /* all reads first (strip rect, every column rect, each column's value),
+       then all writes: no layout is forced between the two */
     var sr=sp.getBoundingClientRect(), max=0;
-    var cols=sp.querySelectorAll('.pst-c');
-    cols.forEach(function(c){
-      var r=c.getBoundingClientRect();
+    var cols=sp.querySelectorAll('.pst-c'), outs=new Array(cols.length);
+    for(var i=0;i<cols.length;i++){
+      var c=cols[i], r=c.getBoundingClientRect(), o=Number(c.dataset.out)||0;
       c._vis=(r.right>sr.left+4 && r.left<sr.right-4);
-      var o=Number(c.dataset.out)||0;
-      if(c._vis && o>max) max=o;
-    });
-    cols.forEach(function(c){
-      var o=Number(c.dataset.out)||0;
-      var h=max?Math.min(100, Math.max(o?5:0, Math.round(o/max*100))):0;
-      var b=c.querySelector('.pst-b'); if(b) b.style.height=h+'%';
-    });
+      outs[i]=o; if(c._vis && o>max) max=o;
+    }
+    for(var j=0;j<cols.length;j++){
+      var o2=outs[j], h=max?Math.min(100, Math.max(o2?5:0, Math.round(o2/max*100))):0;
+      var b=cols[j]._pstB||(cols[j]._pstB=cols[j].querySelector('.pst-b')); if(b) b.style.height=h+'%';
+    }
   });
 }
 function txnPz(g){ if(TXV.cgrp===g) return; TXV.cgrp=g; TXV.pin=null; TXV._stReset=true; _txSavePrefs(); renderTxnScreen(); }
@@ -868,7 +911,36 @@ function txnSelExit(){ if(TXV.selMode) txnSelMode(); }
 function txnSelToggle(id){
   if(TXV.sel[id]) delete TXV.sel[id]; else TXV.sel[id]=1;
   _txBulkDisarm();
-  renderTxnScreen();
+  _txSelPaint();
+}
+/* A selection change patches the rows already on screen instead of re-emitting
+   the whole list (a thousand rows rebuilt per tap was the hot path): each row's
+   tick and dim state from TXV.sel, the condition chips' on state, the bulk bar.
+   Rows not yet built read TXV.sel when their chunk arrives. Mirrors txRow:
+   selected → is-sel; otherwise is-dim once anything is selected (ineligible
+   rows are never in TXV.sel, so they dim like any other miss). */
+function _txSelPaint(){
+  var box=document.getElementById('txn-list');
+  if(!box || !TXV.selMode){ renderTxnScreen(); return; }
+  var sel=TXV.sel||{}, any=!!Object.keys(sel).length;
+  var rows=box.querySelectorAll('.row[data-tid]');
+  for(var i=0;i<rows.length;i++){
+    var r=rows[i], on=!!sel[r.getAttribute('data-tid')];
+    r.classList.toggle('is-sel', on);
+    r.classList.toggle('is-dim', !on && any);
+  }
+  _txCondChipsSync();
+  renderTxnBulkbar();
+}
+/* the condition chips keep their ids (TXV._conds, built on entering select
+   mode or by a full render); only the on state is re-read */
+function _txCondChipsSync(){
+  var box=document.getElementById('txn-chips'), defs=TXV._conds; if(!box || !defs) return;
+  var chips=box.querySelectorAll('.txn-chip');
+  for(var i=0;i<chips.length && i<defs.length;i++){
+    var d=defs[i], allOn=!!d.ids.length && d.ids.every(function(id){ return TXV.sel[id]; });
+    chips[i].classList.toggle('on', allOn);
+  }
 }
 function txnSelBlocked(why){
   var msg= why==='mirror' ? L('Bản sao từ sổ gia đình · sửa bên sổ gốc','A copy from the family book · edit it there')
@@ -913,7 +985,7 @@ function txnCondTap(i){
   var allOn=d.ids.every(function(id){ return TXV.sel[id]; });
   d.ids.forEach(function(id){ if(allOn) delete TXV.sel[id]; else TXV.sel[id]=1; });
   _txBulkDisarm();
-  renderTxnScreen();
+  _txSelPaint();
 }
 function renderTxnBulkbar(){
   var bar=document.getElementById('txn-bulkbar'); if(!bar) return;

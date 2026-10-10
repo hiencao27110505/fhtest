@@ -154,11 +154,20 @@
       try {
         row.family_id = window.DB && window.DB.fid;            // opener verifies OUR family (see 72)
         row.owner_user_id = (window.fhUser && window.fhUser.id) || null;   // OUR session, never the server's
-        var priv = await window.fhPersonalStagingPrivKey();
-        var payload = window.fhStagingOpenRow(row, priv);
-        // direct-read nests detail under raw_extracted; forwarding spreads it flat (72)
-        var re = (payload && payload.raw_extracted && typeof payload.raw_extracted === 'object')
-          ? Object.assign({}, payload, payload.raw_extracted) : payload;
+        /* The session's opened-row cache (18 fhStagedOpenCache): a row the full
+           review, the peek or the watcher already opened costs no unseal here,
+           and what this sheet opens is theirs. The copy is this call's own. */
+        var cache = window.fhStagedOpenCache || null, ck = cache ? cache.keyOf(row) : null;
+        var re = ck ? cache.get(ck) : undefined;
+        if (!re) {
+          var priv = await window.fhPersonalStagingPrivKey();
+          var payload = window.fhStagingOpenRow(row, priv);
+          // direct-read nests detail under raw_extracted; forwarding spreads it flat (72)
+          re = (payload && payload.raw_extracted && typeof payload.raw_extracted === 'object')
+            ? Object.assign({}, payload, payload.raw_extracted) : payload;
+          if (ck && re) cache.set(ck, re);
+        }
+        re = Object.assign({}, re);
         /* source_provider is a CLEAR COLUMN on the staged row, never inside the
            sealed box — reading it off the payload always found undefined, so
            fhPersonalAccountEnsure got provider:null and minted a provider-less
@@ -566,8 +575,8 @@
     function _qrDestChips() {
       var locked = _qrFamilyLocked();
       return '<div class="choices">' +
-        '<button class="choice' + (QR.dest === 'personal' ? ' on' : '') + '" onclick="fhQrAct(\'dest-pick\',\'personal\')">' + L('🔒 Cá nhân', '🔒 Personal') + '</button>' +
-        '<button class="choice' + (QR.dest === 'family' ? ' on' : '') + (locked ? ' qr-off' : '') + '" onclick="fhQrAct(\'dest-pick\',\'family\')">' + L('🏡 Gia đình', '🏡 Family') + '</button>' +
+        '<button class="choice' + (QR.dest === 'personal' ? ' on' : '') + '" data-v="personal" onclick="fhQrAct(\'dest-pick\',\'personal\')">' + L('🔒 Cá nhân', '🔒 Personal') + '</button>' +
+        '<button class="choice' + (QR.dest === 'family' ? ' on' : '') + (locked ? ' qr-off' : '') + '" data-v="family" onclick="fhQrAct(\'dest-pick\',\'family\')">' + L('🏡 Gia đình', '🏡 Family') + '</button>' +
         '</div>' +
         (locked ? '<div class="qr-inline-note">' + L('Sổ gia đình đang khoá.', 'The family ledger is locked.') + '</div>' : '');
     }
@@ -585,9 +594,36 @@
        chọn" hint); valText is escaped by the caller. */
     function _qrArow(key, labelHtml, valText, bodyHtml) {
       var open = QR.edit === key;
-      return '<div class="field ex-arow' + (open ? ' open' : '') + '">' +
+      return '<div class="field ex-arow' + (open ? ' open' : '') + '" data-k="' + key + '">' +
         '<label onclick="fhQrAct(\'edit\',\'' + key + '\')">' + labelHtml + '<span class="ex-arow-val">' + valText + '</span></label>' +
         bodyHtml + '</div>';
+    }
+    /* A pick inside an open row used to rebuild the whole sheet (every field and
+       every category chip as innerHTML) to move one `.on` class, rewrite one
+       value and close the row. Patch those three things in place; anything
+       missing (the sheet not up, a chip the state names that is not drawn)
+       falls back to the full render. */
+    function _qrPatchPick(key) {
+      var body = document.getElementById('fh-sheet-body');
+      var root = body && body.querySelector('.qr');
+      var row = root && root.querySelector('.ex-arow[data-k="' + key + '"]');
+      if (!row) return false;
+      var want = key === 'cat' ? QR.cat : key === 'dest' ? QR.dest : (QR.acctId || '');
+      var chips = row.querySelectorAll('.choice'), hit = false;
+      for (var i = 0; i < chips.length; i++) {
+        var c = chips[i], v = key === 'cat' ? c.getAttribute('data-c') : key === 'dest' ? c.getAttribute('data-v') : (c.getAttribute('data-id') || '');
+        var on = v === want; if (on) hit = true;
+        if (on) c.classList.add('on'); else c.classList.remove('on');
+      }
+      if (!hit) return false;
+      var val = row.querySelector('.ex-arow-val'); if (!val) return false;
+      val.textContent = key === 'cat' ? _qrCatCell() : key === 'dest' ? _qrDestVal() : _qrAcctVal();
+      row.classList.remove('open');
+      if (key === 'cat') {
+        var go = document.getElementById('qr-go');
+        if (go) go.textContent = QR.cat ? L('Duyệt · ', 'Approve · ') + QR.cat : L('Duyệt', 'Approve');
+      }
+      return true;
     }
     function _qrRender() {
       if (!QR) return;
@@ -735,12 +771,15 @@
        is queued and gets its id only on the next flush. */
     function _qrResolveFamilyTxnId(famTxn) {
       return new Promise(function (resolve) {
-        var t0 = Date.now();
+        var t0 = Date.now(), wait = 150;
         (function poll() {
           var id = famTxn && famTxn._dbId;
           if (id) return resolve(id);
           if (Date.now() - t0 > 8000) return resolve(null);
-          setTimeout(poll, 150);
+          /* Backs off (150, 300, 600, 1200 ms, then every 1.6 s) instead of
+             waking every 150 ms for eight seconds while an offline write waits. */
+          setTimeout(poll, wait);
+          wait = Math.min(wait * 2, 1600);
         })();
       });
     }
@@ -995,16 +1034,16 @@
         return;
       }
       if (a === 'note-live') { QR.desc = String(v == null ? '' : v); return; }   // live, no re-render
-      if (a === 'acct-pick') { QR.acctId = v || null; QR.edit = null; _qrRender(); return; }
+      if (a === 'acct-pick') { QR.acctId = v || null; QR.edit = null; if (!_qrPatchPick('acct')) _qrRender(); return; }
       if (a === 'date-ok') {
         var d = document.getElementById('qr-in-date');
         if (d && /^\d{4}-\d{2}-\d{2}$/.test(d.value)) { QR.dateIso = d.value; QR.time = undefined; }
         QR.edit = null; _qrRender(); return;
       }
-      if (a === 'cat-pick') { QR.cat = v || QR.cat; QR.editedCat = true; QR.edit = null; _qrRender(); return; }
+      if (a === 'cat-pick') { QR.cat = v || QR.cat; QR.editedCat = true; QR.edit = null; if (!_qrPatchPick('cat')) _qrRender(); return; }
       if (a === 'dest-pick') {
         if (v === 'family' && _qrFamilyLocked()) { window.toast && window.toast(L('Sổ gia đình đang khoá', 'The family ledger is locked')); return; }
-        QR.dest = v || QR.dest; if (QR._rule) delete QR._rule.scope; QR.edit = null; _qrRender(); return;
+        QR.dest = v || QR.dest; if (QR._rule) delete QR._rule.scope; QR.edit = null; if (!_qrPatchPick('dest')) _qrRender(); return;
       }
       if (a === 'approve') { _qrApprove(); return; }
       if (a === 'later') { _qrClose(); return; }             // session-suppressed only → eligible again next app open
@@ -1071,6 +1110,9 @@
       _peekInflight = (async function () {
       try {
         if (!window.fhPersonalKeyReady || !fhPersonalKeyReady()) { _peek = { n: 0 }; return _peek; }
+        /* The badge already asked the server (72 fhStagedCountKnown): a queue it
+           counted empty has nothing to peek at, so no fetch and no unseal. */
+        if (window._fhStagedKnown && window.fhStagedCountKnown === 0) { _peek = { n: 0 }; return _peek; }
         var rows = await _qrFetch();
         if (!rows.length) { _peek = { n: 0 }; return _peek; }
         var row = rows[0];

@@ -71,6 +71,11 @@
 .txn-mhead{position:sticky;top:0;z-index:6;display:flex;align-items:baseline;justify-content:space-between;gap:10px;
   font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);
   background:var(--canvas);margin:0;padding:16px 18px 8px}
+/* The list's day-group cards (not their sticky heads, which are siblings): a
+   card out of view is skipped for layout and paint, and its photo tiles never
+   intersect, so the decryptor leaves them alone. The placeholder height keeps
+   the scrollbar honest until the card has been laid out once (auto remembers). */
+#txn-list > .rows{content-visibility:auto;contain-intrinsic-size:auto 320px}
 .txn-mhead .num{font-weight:700;letter-spacing:0;text-transform:none;font-size:12px;color:var(--muted-soft)}
 .txn-mhead .num.pos{color:var(--good)}
 
@@ -145,6 +150,8 @@
 /* overlay */
 .overlay{position:absolute;inset:0;background:var(--canvas);transform:translateX(100%);visibility:hidden;transition:transform .38s cubic-bezier(.32,.72,0,1), visibility 0s linear .38s;z-index:45;display:flex;flex-direction:column}
 .overlay.on{transform:none;visibility:visible;transition:transform .38s cubic-bezier(.32,.72,0,1)}
+/* visibility:hidden does not stop a spinner inside a closed overlay */
+.overlay:not(.on) *{animation-play-state:paused}
 .ov-hero{padding:0 22px 30px;position:relative;color:#fff;background:var(--grad-hero)}
 .ov-hero .safe{height:max(env(safe-area-inset-top),16px)}
 .ov-back{display:inline-flex;align-items:center;gap:2px;color:#fff;font-size:17px;font-weight:600;letter-spacing:-.02em;padding:8px 8px 8px 0;margin-top:4px}

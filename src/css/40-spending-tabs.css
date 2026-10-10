@@ -330,6 +330,9 @@
 .tabbar{position:absolute;left:0;right:0;bottom:0;height:calc(74px + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);
   background:rgba(251,250,252,.86);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);
   border-top:1px solid var(--hairline);display:flex;align-items:flex-start;z-index:30}
+/* under a full-screen cover the bar is not visible, and the blur is the costliest
+   thing WebKit keeps compositing on an idle screen */
+body.fh-covered .tabbar{backdrop-filter:none;-webkit-backdrop-filter:none}
 .tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;color:var(--muted);padding-top:12px}
 .tab.on{color:var(--brand)}
 .tab svg{width:25px;height:25px}
@@ -459,6 +462,10 @@
 .pst-p{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:min(26px,62%);border-radius:7px 7px 0 0;background:var(--fill-neutral);transition:height .25s ease}
 .pst-b.over{background:var(--danger-base)}
 .pst-y{position:absolute;left:50%;transform:translateX(-50%);width:min(32px,78%);height:0;border-top:2px solid var(--muted-soft);z-index:1;transition:bottom .25s ease}
+/* while the strip is being panned (txnStripScale sets .panning) every column is
+   re-normalised each frame; a height transition on top of that is one animation
+   per bar per frame, so the settle is kept for the rest and dropped for the pan */
+.pst.panning .pst-b,.pst.panning .pst-p,.pst.panning .pst-y{transition:none}
 @media (prefers-reduced-motion:reduce){ .pst-b,.pst-p,.pst-y{transition:none} }
 .pst-l{font-size:9px;font-weight:600;line-height:12px;height:12px;color:var(--muted-soft);white-space:nowrap}
 .pst-l.on{color:var(--ink);font-weight:700}

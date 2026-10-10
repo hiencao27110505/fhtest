@@ -29,7 +29,7 @@
       out.push({ id: 'tx-' + i, owner_user_id: UID, amount_enc: 'AAAAAAAA', note_enc: null,
         cat_name_enc: null, counterparty_enc: null, cat_emoji: '🍜', occurred_time_enc: null,
         txn_date: iso, kind: 'expense', space_id: null, link_id: null, version: 1,
-        updated_at: d.toISOString(), created_at: d.toISOString(), account_id: null,
+        updated_at: new Date(Math.floor(d.getTime() / 864e5) * 864e5).toISOString(), created_at: new Date(Math.floor(d.getTime() / 864e5) * 864e5).toISOString(),   /* day-truncated: a row must look the same on every fetch or every hydrate reads as new data */ account_id: null,
         transfer_group_id: null, position_account_id: null, quantity_enc: null, due_date: null });
     }
     return out;

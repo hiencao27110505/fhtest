@@ -247,6 +247,7 @@
               photos = [];
               for (const ct of it.payload.photos_enc) { const p = await fhDec(ct); if (p) photos.push(p); }
             }
+            _stampLocalWrite();   // the flush ends in its own loadFamilyData; the echoes must not add more
             const res = await sb.from('transactions').insert(it.payload.row).select('id').single();
             if (res.error) {
               if (/duplicate key|already exists/i.test(res.error.message || '')) { await _obDel(it.id); continue; }  // a prior replay landed it
@@ -334,6 +335,7 @@
     // Offline → queue durably instead of losing the write.
     if (navigator.onLine === false) { await _obQueueTxn(row, t); return; }
     try {
+      _stampLocalWrite();   // before the round trip: the echo can beat the response back
       const res = await sb.from('transactions').insert(row).select('id').single();
       if (res.error) throw res.error;
       if (res.data) { t._dbId = res.data.id; if (t.photos && t.photos.length) _dbUploadTxnPhotos(t._dbId, t.photos); }
@@ -359,6 +361,7 @@
   async function _dbUpdateTxn(dbId, t, exD) {
     if (_fhWriteLocked()) return;
     try {
+      _stampLocalWrite();   // before the round trip: the echo can beat the response back
       const catId = window.DB.catByName[t.cat] || await _categoryIdForName(t.cat, t.ico, window.catOrder.indexOf(t.cat) + 1);
       const patch = Object.assign(
         { category_id: catId, member_id: _memberIdForWho(t.who), txn_date: _txnIso(t, exD), status: t.future ? 'planned' : 'realized',
@@ -376,11 +379,18 @@
      amounts and notes never travel here, so the E2EE surface is untouched.
      The caller applies its optimistic local math, fires these per row, then
      calls fhTxnBulkDone() ONCE for the deferred full re-hydrate. ── */
+  /* Both stamp _lastLocalWrite (echo suppression, R3) BEFORE the write goes out.
+     They used not to: a bulk edit of N rows produced N realtime echoes that no
+     stamp covered, so every device in the family (this one included) re-ran the
+     whole hydrate cascade per row. _stampLocalWrite is the one helper for it. */
+  function _stampLocalWrite() { try { window.DB._lastLocalWrite = Date.now(); } catch (e) {} }
   window.fhTxnBulkPatch = async function (dbId, patch) {
-    try { await _w(sb.from('transactions').update(patch).eq('id', dbId), 'write transactions'); }
+    _stampLocalWrite();
+    try { await _w(sb.from('transactions').update(patch).eq('id', dbId), 'write transactions'); _stampLocalWrite(); }
     catch (e) { _writeErr('bulk txn patch failed', e); }
   };
   window.fhTxnBulkDelete = async function (dbId, mirrorEventDbId) {
+    _stampLocalWrite();
     // its mirror event goes first, through archive_event — same order as deleteExpense
     try { if (mirrorEventDbId) await _rpc('archive_event', { p_event_id: mirrorEventDbId }); }
     catch (e) { _writeErr('mirror event archive failed', e); }
@@ -389,6 +399,7 @@
   window.fhTxnBulkDone = function () { _syncSoon(true); };
   async function _dbDeleteTxn(dbId) {
     try {
+      _stampLocalWrite();   // before the round trip: the echo can beat the response back
       try {                                                   // remove storage files before the photo rows cascade away
         const ph = (await sb.from('transaction_photos').select('photo_url').eq('transaction_id', dbId)).data || [];
         const files = ph.map((r) => r.photo_url).filter((p) => p && p.indexOf('http') !== 0);

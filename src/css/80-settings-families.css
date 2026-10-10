@@ -88,8 +88,9 @@
   background:rgba(26,17,23,.9);color:#fff;font-size:13px;font-weight:600;letter-spacing:-.01em;
   -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s}
 #fh-uploading.on{opacity:1;transform:translateX(-50%) translateY(0)}
+#fh-uploading:not(.on) .fu-dot{animation-play-state:paused}   /* the pill is display:flex at opacity 0 between uploads: an invisible spinner was running on every screen (device-heat-spec) */
 #fh-uploading .fu-dot{width:13px;height:13px;border:2px solid rgba(255,255,255,.32);border-top-color:#fff;border-radius:50%;animation:fhspin2 .7s linear infinite}
-@media (prefers-reduced-motion:reduce){#fh-uploading .fu-dot{animation-duration:2s}}
+@media (prefers-reduced-motion:reduce){#fh-uploading .fu-dot,#fh-authbusy .fu-dot{animation-duration:2s}}
 /* offline banner — writes are fire-and-forget, so the user needs to know before
    they spend five minutes entering things that will never reach the server */
 #fh-offline{position:fixed;left:50%;transform:translateX(-50%) translateY(-6px);z-index:79;display:none;align-items:center;gap:8px;

@@ -69,15 +69,18 @@ function renderBudget(){
    the dots to switch. Every live view carries a grey "before" bar chosen by
    19-period-compare.js (period-comparison-spec.md). Closed / past months keep the classic
    week chart + week-over-week note (no periods). Reuses renderBudget's month model. */
-function renderCashflow(){
+function renderCashflow(){ window.fhHeat&&fhHeat.tick('renderCashflow');
   var host=document.getElementById('cf-left'); if(!host) return;
   var m=M(), spent=m.spent||0, income=window.monthIncome||0, left=income-spent;
   setTxt('cf-left', fmt(left)); host.classList.toggle('neg', left<0);
   setTxt('cf-in', fmt(income)); setTxt('cf-out', fmt(spent));
 
   var dim=m.dim, dom=m.dom, done=m.done;
-  var daily=[]; for(var i=0;i<=dim;i++) daily[i]=0;
-  (window.txns||[]).forEach(function(t){ if(!t.future && t.month===window.selMonth && t._d && fhCountsAsSpending(t.node)){ var dd=t._d.getDate(); if(dd>=1&&dd<=dim) daily[dd]+=t.amt; } });
+  /* ONE pass over window.txns per render (device heat): the month's per-day
+     totals and the date-keyed map every live view and guide reads below. The
+     auto-rotate re-renders every 4.2s, and the old shape walked the ledger
+     ~13 times per render with a localStorage read per row. */
+  var scan=cfScanTxns(dim), daily=scan.daily, D=scan.map;   // both sums ask fhCountsAsSpending once per node, inside cfScanTxns
 
   if(!window._cfSwipeBound){ cfBindSwipe(); window._cfSwipeBound=true; }
   var live = (selMonth===curMonthKey() && !done);
@@ -95,13 +98,13 @@ function renderCashflow(){
 
   // Live month → three swipeable periods. The state-change push always tracks the DAY
   // state (the meaningful daily alert), independent of which period is on screen.
-  cfMaybePush(m, daily);
+  cfMaybePush(m, daily, D);
   var cfn0=document.getElementById('cf-note'); if(cfn0){ cfn0.className='cf-note'; cfn0.innerHTML=''; }
 
   var period = window.cfPeriod|0;                        // 0 Day · 1 Week · 2 Month
-  if(period===0) cfRenderDay(m, daily);
-  else if(period===2) cfRenderMonth(m, daily);
-  else cfRenderWeek(m, daily);
+  if(period===0) cfRenderDay(m, daily, D);
+  else if(period===2) cfRenderMonth(m, daily, D);
+  else cfRenderWeek(m, daily, D);
   cfSetDots(period);
   renderRequestsCta(); renderCashflowEmailCta();
 }
@@ -125,6 +128,7 @@ function cfStartAuto(card){
   else cfAuto.vis=true;
   cfAuto.timer=setInterval(function(){
     if(document.hidden || !cfAuto.vis) return;             // off-screen or backgrounded → hold
+    if(window.fhCovered && fhCovered()) return;            // a full-screen cover hides the card (the observer above cannot see it)
     if(!(selMonth===curMonthKey()) || M().done) return;    // periods exist only on the live month
     if(Date.now()<cfAuto.paused) return;                   // still cooling down after a manual touch
     cfApplyPeriod(((window.cfPeriod|0)+1)%3, false);       // rotate (does not overwrite the saved pick)
@@ -205,10 +209,24 @@ function cfWowNote(d){                                     // classic week-over-
    whose clock time is known — own time first, else the logged moment when
    it was the same day), the untimed remainder per date, and the ledger's
    first date (coverage yardstick). One pass over window.txns per render. */
-function cfDayMap(){
+/* The spending question (13-partition.js) reads the tree's kill switch from
+   localStorage on EVERY call; over a thousand rows per pass that is the cost.
+   Each sum below still asks the real function, but through a memo that lives
+   for one pass: one answer per distinct node, not one per row. */
+function cfSpendPred(ask){
+  var memo={};
+  return function(node){ var k=node||''; if(!(k in memo)) memo[k]=ask(node); return memo[k]; };
+}
+/* The one ledger walk of a cash-flow render: `daily` (the selected month's
+   per-day totals, indexed by day-of-month) and the date-keyed map (`map`)
+   together, from the same rows and the same predicate. */
+function cfScanTxns(dim){
+  var counts=cfSpendPred(fhCountsAsSpending), sel=window.selMonth;
+  var daily=[]; for(var i=0;i<=dim;i++) daily[i]=0;
   var byDay={}, buoi={}, untimed={}, first=null;
   (window.txns||[]).forEach(function(t){
-    if(t.future || !t._d || !fhCountsAsSpending(t.node)) return;
+    if(t.future || !t._d || !counts(t.node)) return;
+    if(t.month===sel){ var dd=t._d.getDate(); if(dd>=1&&dd<=dim) daily[dd]+=t.amt; }
     var k=fhDateStr(t._d), a=t.amt||0;
     byDay[k]=(byDay[k]||0)+a;
     if(first==null || k<first) first=k;
@@ -216,8 +234,9 @@ function cfDayMap(){
     if(b==null) untimed[k]=(untimed[k]||0)+a;
     else { var arr=buoi[k]||(buoi[k]=[0,0,0,0]); arr[b]+=a; }
   });
-  return {byDay:byDay, buoi:buoi, untimed:untimed, first:first};
+  return { daily:daily, map:{byDay:byDay, buoi:buoi, untimed:untimed, first:first} };
 }
+function cfDayMap(){ return cfScanTxns(0).map; }   // standalone form; renderCashflow passes its own map down instead
 /* cols: [{cur: number | null (a slot still ahead → no cur bar),
            prev: number | null (not covered → no grey bar), label, on}].
    Grey + cur overlap in one column (see .wb in 40-spending-tabs.css); the
@@ -239,8 +258,8 @@ function cfColsHTML(cols){
   return h;
 }
 /* ----- Week (period 1): Mon–Sun of this week, each day vs the same weekday last week ----- */
-function cfRenderWeek(m, daily){
-  var D=cfDayMap(), today=fhDateStr(TODAY), mon=fhMondayOf(today);
+function cfRenderWeek(m, daily, D){
+  D=D||cfDayMap(); var today=fhDateStr(TODAY), mon=fhMondayOf(today);
   var DAYS=isVi()?['T2','T3','T4','T5','T6','T7','CN']:['M','T','W','T','F','S','S'], cols=[];
   for(var k=0;k<7;k++){
     var d=fhAddDays(mon,k), p=fhCmpDay(d);
@@ -249,12 +268,12 @@ function cfRenderWeek(m, daily){
                 label: DAYS[k], on: d===today });
   }
   setHTMLIf('cf-wow', cfColsHTML(cols));
-  cfPeriodGuide(m, daily, 'week');
+  cfPeriodGuide(m, daily, 'week', D);
 }
 /* ----- Day (period 0): today's four buổi vs the same buổi of the same weekday last week ----- */
 function cfBuoiIdx(h){ return fhBuoiIdx(h); }
-function cfRenderDay(m, daily){
-  var D=cfDayMap(), today=fhDateStr(TODAY), prevD=fhCmpDay(today), curB=fhBuoiIdx(new Date().getHours());
+function cfRenderDay(m, daily, D){
+  D=D||cfDayMap(); var today=fhDateStr(TODAY), prevD=fhCmpDay(today), curB=fhBuoiIdx(new Date().getHours());
   var cur=D.buoi[today]||[0,0,0,0], covered=fhCovered(prevD, D.first), prev=D.buoi[prevD]||[0,0,0,0];
   var LB=fhBuoiLabels(), cols=[];
   for(var j=0;j<4;j++){
@@ -267,11 +286,11 @@ function cfRenderDay(m, daily){
      bars — said out loud so the bars and the Ra tile do not look at odds */
   var un=D.untimed[today]||0, cfn=document.getElementById('cf-note');
   if(cfn && Math.round(un)>=1){ cfn.className='cf-note flat'; cfn.innerHTML='<b>'+fmt(un)+'</b> '+L('hôm nay chưa rõ giờ','today with no time'); }
-  cfPeriodGuide(m, daily, 'day');
+  cfPeriodGuide(m, daily, 'day', D);
 }
 /* ----- Month (period 2): four day-of-month buckets (1–7 · 8–14 · 15–21 · 22–end) vs the same buckets last month ----- */
-function cfRenderMonth(m, daily){
-  var D=cfDayMap(), now=TODAY, y=now.getFullYear(), mo=now.getMonth(), dom=now.getDate();
+function cfRenderMonth(m, daily, D){
+  D=D||cfDayMap(); var now=TODAY, y=now.getFullYear(), mo=now.getMonth(), dom=now.getDate();
   var dim=new Date(y,mo+1,0).getDate(), pdim=new Date(y,mo,0).getDate();
   var pm0=fhDateStr(new Date(y,mo-1,1)), covered=fhCovered(pm0, D.first);
   var sum=function(yy,mm,lo,hi){ var s=0; for(var d=lo; d<=hi; d++){ s+=D.byDay[fhDateStr(new Date(yy,mm,d))]||0; } return s; };
@@ -284,7 +303,7 @@ function cfRenderMonth(m, daily){
                 label: LB[j], on: j===curW });
   }
   setHTMLIf('cf-wow', cfColsHTML(cols));
-  cfPeriodGuide(m, daily, 'month');
+  cfPeriodGuide(m, daily, 'month', D);
 }
 /* Daily guide — "Hôm nay còn tiêu được": a per-day allowance minus what's been spent today.
    The allowance is the SAVER of (a) last month's daily average and (b) the budget-pace daily
@@ -361,12 +380,16 @@ function fhGuideLabel(periodKey, state, hasBudget){
 }
 /* Sum spend over an inclusive absolute date range [a,b] (day granularity), crossing month
    boundaries via the full window.txns store. Excludes planned/future entries. */
-function cfSpendRange(a, b){
-  var lo=new Date(a.getFullYear(),a.getMonth(),a.getDate()).getTime();
-  var hi=new Date(b.getFullYear(),b.getMonth(),b.getDate()).getTime();
+function cfSpendRange(a, b, D){
+  var lo=new Date(a.getFullYear(),a.getMonth(),a.getDate()), hi=new Date(b.getFullYear(),b.getMonth(),b.getDate());
   var sum=0;
-  (window.txns||[]).forEach(function(t){ if(t.future||!t._d||!fhCountsAsSpending(t.node)) return;
-    var k=new Date(t._d.getFullYear(),t._d.getMonth(),t._d.getDate()).getTime(); if(k>=lo&&k<=hi) sum+=t.amt; });
+  if(D && D.byDay){                                      // the render's own map: a lookup per day, no ledger walk
+    for(var d=new Date(lo.getTime()); d<=hi; d.setDate(d.getDate()+1)) sum+=D.byDay[fhDateStr(d)]||0;
+    return sum;
+  }
+  var counts=cfSpendPred(fhCountsAsSpending), loT=lo.getTime(), hiT=hi.getTime();
+  (window.txns||[]).forEach(function(t){ if(t.future||!t._d||!counts(t.node)) return;
+    var k=new Date(t._d.getFullYear(),t._d.getMonth(),t._d.getDate()).getTime(); if(k>=loT&&k<=hiT) sum+=t.amt; });
   return sum;
 }
 /* Shared guide compute (Finance + Cá nhân). Returns the colour/number for one period from a
@@ -414,46 +437,48 @@ function fhGuideCompute(p, goalMult, blockWin){
    over/excess amount + red alarm; UNDER → budget left + headroom gauge; PAR → on-par + spent. */
 function fhGuideRender(hostId, periodKey, p, goalMult, blockWin){
   var host=document.getElementById(hostId); if(!host) return null;
-  if(typeof cfWaterSVG!=='function'){ host.style.display='none'; host.innerHTML=''; return null; }
+  if(typeof cfWaterSVG!=='function'){ host.style.display='none'; setHTMLIf(host, ''); return null; }
   var g=fhGuideCompute(p, goalMult, blockWin);
-  if(!g){ host.style.display='none'; host.innerHTML=''; return null; }   // no basis → hide
+  if(!g){ host.style.display='none'; setHTMLIf(host, ''); return null; }   // no basis → hide
   var lbl=fhGuideLabel(periodKey, g.state, g.hasBudget);
   var amt = fmt(g.state==='par' ? g.sofar : g.amount);
   host.classList.remove('ok','warn','hot','over'); host.classList.add(DG_CLASS[g.key]||'ok');
   host.style.display='';
-  host.innerHTML='<span class="dg-lbl">'+lbl+'</span>'
+  /* string-compared write: an unchanged gauge is not rewritten, so its water
+     animations are not restarted on every auto-rotate tick */
+  setHTMLIf(host, '<span class="dg-lbl">'+lbl+'</span>'
     +'<span class="dg-amt num">'+amt+'</span>'
-    +'<span class="dg-vis">'+cfWaterSVG(g.level,g.alarm)+'</span>';
+    +'<span class="dg-vis">'+cfWaterSVG(g.level,g.alarm)+'</span>');
   return g.key;
 }
 /* Period parts for the live month. budgetAllow is the SELF-CORRECTING remaining-budget slice
    (remaining month budget ÷ remaining days × this period's remaining days) so a blown month
    propagates to Day/Week; spentPTD/prevPTD are the like-for-like to-date trend (day → today vs
    a usual day = rolling 30-day avg; week → this week vs last week; month → vs last month). */
-function cfGuideParts(m, periodKey){
+function cfGuideParts(m, periodKey, D){
   var today=TODAY, dim=m.dim, dom=m.dom, wd=(today.getDay()+6)%7;
   var d0=function(off){ return new Date(today.getFullYear(),today.getMonth(),today.getDate()+off); };
-  var spentToday=cfSpendRange(d0(0),d0(0));
-  var spentMTD=cfSpendRange(new Date(today.getFullYear(),today.getMonth(),1),d0(0));
+  var spentToday=cfSpendRange(d0(0),d0(0),D);
+  var spentMTD=cfSpendRange(new Date(today.getFullYear(),today.getMonth(),1),d0(0),D);
   var daysLeftMonth=Math.max(1, dim-dom+1);
   var daysLeftPeriod = periodKey==='day'?1:(periodKey==='week'?Math.min(7-wd,daysLeftMonth):daysLeftMonth);
   var perDay=(m.budget>0)?((m.budget-(spentMTD-spentToday))/daysLeftMonth):null;   // remaining ÷ days-left (may be ≤0)
   var budgetAllow=(perDay!=null)?perDay*daysLeftPeriod:null;
   var spentPTD, prevPTD;
-  if(periodKey==='day'){ spentPTD=spentToday; prevPTD=cfSpendRange(d0(-30),d0(-1))/30; }
-  else if(periodKey==='week'){ spentPTD=cfSpendRange(d0(-wd),d0(0)); prevPTD=cfSpendRange(d0(-wd-7),d0(-7)); }
+  if(periodKey==='day'){ spentPTD=spentToday; prevPTD=cfSpendRange(d0(-30),d0(-1),D)/30; }
+  else if(periodKey==='week'){ spentPTD=cfSpendRange(d0(-wd),d0(0),D); prevPTD=cfSpendRange(d0(-wd-7),d0(-7),D); }
   else { spentPTD=spentMTD; var pm=new Date(today.getFullYear(),today.getMonth()-1,1), pdim=new Date(today.getFullYear(),today.getMonth(),0).getDate();
-    prevPTD=cfSpendRange(pm, new Date(pm.getFullYear(),pm.getMonth(),Math.min(dom,pdim))); }
+    prevPTD=cfSpendRange(pm, new Date(pm.getFullYear(),pm.getMonth(),Math.min(dom,pdim)),D); }
   return {spentToday:spentToday, budgetAllow:budgetAllow, spentPTD:spentPTD, prevPTD:prevPTD};
 }
 /* State-change push (E2EE-safe · client-side): tracks the DAY state regardless of which period
    is on screen. Only the device that just logged an expense fires (window._dgLocalAdd), only
    when today's state worsens, never on green. */
-function cfMaybePush(m, daily){
+function cfMaybePush(m, daily, D){
   var goalMult=1-(window.saveGoalPct||0)/100;
-  var gm=fhGuideCompute(cfGuideParts(m,'month'), goalMult);
+  var gm=fhGuideCompute(cfGuideParts(m,'month',D), goalMult);
   var blockWin=!!(gm && gm.state==='worse' && gm.hasBudget);
-  var g=fhGuideCompute(cfGuideParts(m,'day'), goalMult, blockWin);
+  var g=fhGuideCompute(cfGuideParts(m,'day',D), goalMult, blockWin);
   if(!g){ window._dgLocalAdd=false; return; }
   var key=g.key, _ord={green:0,yellow:1,orange:2,red:3};
   var _prev=(window.dgStateDay===m.dom)?(window.dgState||'green'):'green';
@@ -462,10 +487,10 @@ function cfMaybePush(m, daily){
 }
 /* One guide, per period: self-correcting budget allowance for what's left this period, with the
    previous equivalent period as the orange/red gate. Goal (window.saveGoalPct) tightens it. */
-function cfPeriodGuide(m, daily, periodKey){
+function cfPeriodGuide(m, daily, periodKey, D){
   var goalMult=1-(window.saveGoalPct||0)/100, blockWin=false;
-  if(periodKey!=='month'){ var gm=fhGuideCompute(cfGuideParts(m,'month'), goalMult); blockWin=!!(gm && gm.state==='worse' && gm.hasBudget); }   // MoM gate: month failing ⇒ no day/week win
-  var key=fhGuideRender('cf-daily', periodKey, cfGuideParts(m, periodKey), goalMult, blockWin);
+  if(periodKey!=='month'){ var gm=fhGuideCompute(cfGuideParts(m,'month',D), goalMult); blockWin=!!(gm && gm.state==='worse' && gm.hasBudget); }   // MoM gate: month failing ⇒ no day/week win
+  var key=fhGuideRender('cf-daily', periodKey, cfGuideParts(m, periodKey, D), goalMult, blockWin);
   window.cfDailyState=key;
   return key!=null;
 }
@@ -540,7 +565,7 @@ window.renderRequestsCta=renderRequestsCta;
    the first grant read resolves — which is the honest answer then. Unknown must
    render as the ordinary row, never as held, or a slow network would gate the
    queue for someone who has no mailbox at all. */
-function renderCashflowEmailCta(){
+function renderCashflowEmailCta(){ window.fhHeat&&fhHeat.tick('renderCashflowEmailCta');
   var slot=document.getElementById('cf-email-cta'); if(!slot) return;
   var n=window.fhStagedCount||0;
   var p=(typeof window.fhBackfillProgress==='function') ? window.fhBackfillProgress() : null;
