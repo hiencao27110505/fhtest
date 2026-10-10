@@ -151,6 +151,33 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-10-10 · Trang · receipt scan (Beta) — PUSHED to `main` · no SW bump · client plus one NEW Vercel function · no migration, no Edge Function.**
+  Photograph receipts or pick screenshots (max 10 a pass), Gemini reads them through
+  `api/receipt-extract.js`, the person checks a review list and saves. Brief
+  `docs/briefs/receipt-scan.md`, feature doc `docs/features/receipt-scan.md`.
+  - **It was built on the `earthyteam99/earthy` copy and ported here.** That repo's `main` stopped on
+    27/09 and deploys nowhere; this machine's `origin` now points at this repo again. Five commits
+    were cherry-picked onto `2bd9176`. Hand-merged: `submitBulk` (your `_fhImportRecur` reset kept
+    beside `bulkActive=0`) and the ledger row in `60-transactions.js` (your `tid` and `hasReceipt`
+    kept, `scan-new` added).
+  - **Not your "Hoá đơn".** Scan is a photo the person takes; it shares nothing with the receipt
+    join or `78-receipt-stores.js` except the `78-` prefix (`78-receipt-scan.js` sorts first and
+    neither depends on the other).
+  - **Say so if you are in these:** `src/index.html` (add-sheet row, two new surfaces),
+    `src/js-ui/{21-personal,40-memories,50-sheets-expense-capture,55-expense-photos-writes,60-transactions,70-theme-i18n,90-release-notes}.js`,
+    `src/js-data/{40-txn-writes-outbox,71-mailbox-ui,75-consent-ui}.js`, `src/css/10-tokens.css`
+    (`--cam-*`), `DESIGN.md` §3 §4, **`vercel.json`** (`functions.includeFiles` bundles
+    `supabase/functions/_shared/mailbox/*.mjs` with the scan function).
+  - **Signatures that changed:** `submitBulk(opts)` and `_submitPersonalExpense(opts)` take `quiet`;
+    the personal one also takes `prepared` and returns one boolean per row. `closeModals()` keeps
+    the scrim while a scan batch is on screen. Callers passing nothing behave as before.
+  - **Also in this push, new to this repo:** `tools/ui-harness/*`, `tools/feature-state.js`,
+    `docs/WORKFLOW.md`, the `/feature` `/verify` `/qc` skills. The fixture gained your two
+    `recurrence` columns.
+  - **Open:** the accuracy gate on 20-30 real receipts (`tools/receipt-bench.js`), the Gemini tier
+    for the consent copy, an iPhone pass, one confirmed real read in production. Failing before and
+    after this push, untouched by it: `pipeline/direct-persist-contract.test.js` (Python builder)
+    and `tools/label-fallback-root.test.js` (3 of 21). — Trang
 - **2026-10-09 (evening) · Hien · receipt join: one booking, several payments (RC27–RC31) — PUSHED to `main` · SW `v624` · client plus one worker change that is NOT deployed · no migration.** Cause: a Grab tip mail carries its ride's Booking ID, so the device read ride and tip as copies and deleted the ride's receipt; a fare charged 43.000 then refunded 11.000 never equalled its 32.000 receipt; and two rides 14 minutes apart at one fare were "ambiguous". Spec `receipt-enrichment-spec.md` §22. `src/js-ui/78-receipt-join.js` is largely rewritten below `_rjOpen`: copies key on order id AND paid total and are kept (`_copies`, retired with their winner; `72-txn-review.js` retires `_rcptCopyIds`), clock pairing with a five-minute margin, net matching (charge minus a same-account refund), and a manual door (`fhReceiptOffers/Attach/Detach`, `fhReceiptOffersLedger/AttachLedger`, picks in localStorage `fh-rj-picks:v1`). Card: `56-csv-import-ui.js` (`csvRc*`, a `rcpt` sheet, foot lines). Detail: `61-expense-detail.js` (`_pexdOfferLoad`, `pexdRcAttach`, `pexdRcDetach`). `19-personal.js`: `fhPersonalClearReceipt`. Worker: `receipt-reader.mjs` reads a Grab `tip`, `contract.mjs` lists the key; **`mailbox-sync` is not redeployed**, and nothing on the device depends on it except the tip's name. If you deploy `mailbox-sync` from main, the Grab `tip` key goes live with it (nullable, `PAYLOAD_V` unchanged). If you bump the SW next, start from v624.
 - **2026-10-09 (later) · Hien · recurring detection v3: who is a member (RR25–RR28, incident fix) — PUSHED to `main`, built on top of your `fd8a589` (`v622`) · SW `v623` · client only · no migration · no Edge Function deploy · no data cleanup.** Incident: an 88.000 ₫ Apple film rental was shown as the YouTube Premium series (wrong amount, date and tap target; nothing wrong was written, checked on the plaintext columns). Report `docs/incidents/2026-10-09-recurring-wrong-member.md`, spec `recurring-charges-spec.md` §19. Engine `src/js-data/29-recur.js`: rows of one payee split by the product their receipt names (`rcProd`), a row whose own receipt is not a renewal (`rcHas`, no period) never joins one; `attach` (a proof-less row joins only in step, within 10%), `prune` (one charge per period, proof wins the slot); billers (`billers` in `taxonomy/brands.json`, `FH_BRANDS.isBiller`, passed as `opts.biller`) need a product or one exact amount in step and stay a guess; `series.anchor` (newest proven row) gives amount, name and tap target while `series.latest` stays the newest member. `receiptMeta` returns `has` and `prod`; both row builders in `19-personal.js` carry them. Queue: `csvRecurOf` passes `notRenewal`. If you read `series.latest` for display, read `series.anchor || series.latest`. Tests: engine 72 → 107, flow 43 → 49. If you bump the SW next, start from v623.
 - **2026-10-08 (later) · Hien (second session) · the start card's "Kết nối email ngân hàng" opens the Gmail connect directly — PUSHED to `main` · SW `v622` · client only · no migration · no deploy.**

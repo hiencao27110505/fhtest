@@ -89,11 +89,11 @@ function makeFixture(now) {
   const transactions = txDefs.map((t, i) => {
     const d = addDays(now, -t[0]);
     return { id: uuid('e', i + 1), category_id: CAT[t[1]], member_id: t[2], note: t[4], note_enc: null, amount: t[3], amount_enc: null,
-      occurred_time: t[5], occurred_time_enc: null, txn_date: iso(d), status: 'posted', created_by: t[2] === SHARED ? MINH : t[2], created_at: ts(d) , source: null, instrument: null, node: null, node_enc: null };   // created_by = member id (UI resolves it via DB.memberById)
+      occurred_time: t[5], occurred_time_enc: null, txn_date: iso(d), status: 'posted', created_by: t[2] === SHARED ? MINH : t[2], created_at: ts(d) , source: null, instrument: null, node: null, node_enc: null, recurrence: null, recurrence_source: null };   // created_by = member id (UI resolves it via DB.memberById)
   });
   // one planned (future) expense so the "sắp tới" surfaces have something to show
   transactions.push({ id: uuid('e', 99), category_id: CAT['Nhà cửa'], member_id: SHARED, note: 'Tiền nhà tháng sau', note_enc: null, amount: 6000, amount_enc: null,
-    occurred_time: null, occurred_time_enc: null, txn_date: iso(addDays(now, 12)), status: 'planned', created_by: LAN, created_at: ts(now) , source: null, instrument: null, node: null, node_enc: null });
+    occurred_time: null, occurred_time_enc: null, txn_date: iso(addDays(now, 12)), status: 'planned', created_by: LAN, created_at: ts(now) , source: null, instrument: null, node: null, node_enc: null, recurrence: null, recurrence_source: null });
 
   const events = [
     { id: uuid('b', 1), name: 'Về quê Tết', name_enc: null, emoji: '🧧', cover: 'blue', target_amount: 15000, target_amount_enc: null,

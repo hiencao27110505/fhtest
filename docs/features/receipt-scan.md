@@ -35,7 +35,7 @@ Two doors, both closed by one predicate, `fhIsReceiptSrc(src)`: true for a data 
 
 ## Current State
 
-Shipped to production on 2026-10-10 as a **beta**: both entry rows carry a "Beta" tag (`.scan-beta`) and the release note title ends "(Beta)". It went out without the preview pass, because only founders use production today. 44 client and 29 server unit tests pass; the two save flows (family and personal) pass 32 checks.
+Shipped to production on 2026-10-10 as a **beta**: both entry rows carry a "Beta" tag (`.scan-beta`) and the release note title ends "(Beta)". It went out without the preview pass, because only founders use production today. It was built on the `earthyteam99/earthy` copy of the repo and ported onto `hiencao27110505/fhtest` `main`, which is what production builds from. 44 client and 29 server unit tests pass; the two save flows (family and personal) pass 32 checks.
 
 Fixed on the way out (2026-10-10):
 - **Personal batches dropped their first receipt.** `_submitPersonalExpense` ran the interactive parse over rows built in code, overwriting row 0 with the empty form while the toast still counted it. It now takes `{prepared:true}` like `submitBulk`, and returns one boolean per row so the scan reports only what was written.
