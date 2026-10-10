@@ -3,7 +3,8 @@
   "buildCommand": "npm run build:deploy",
   "functions": {
     "api/receipt-extract.js": {
-      "includeFiles": "supabase/functions/_shared/mailbox/*.mjs"
+      "includeFiles": "supabase/functions/_shared/mailbox/*.mjs",
+      "maxDuration": 60
     }
   }
 }

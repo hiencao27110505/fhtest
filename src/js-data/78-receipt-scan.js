@@ -327,8 +327,9 @@
       sub = '<div class="r-s"><span class="scan-skel" style="width:92px;height:13px"></span></div>';
       right = '<div class="r-amt num"><span class="scan-skel" style="min-width:78px;height:17px"></span></div>';
     } else if (it.state === 'bad' || it.state === 'offline') {
-      title = '<div class="r-t" style="color:var(--muted)">' + esc2(it.state === 'offline' ? L('Chưa gửi được', 'Not sent yet') : L('Chưa đọc được', 'Not read yet')) + '</div>';
-      sub = '<div class="r-s scan-act">' + esc2(L('Chạm để nhập tay', 'Tap to type it in')) + '</div>';
+      const down = it.state === 'bad' && it.err, cr = it.state === 'bad' && it.credit;
+      title = '<div class="r-t" style="color:var(--muted)">' + esc2(it.state === 'offline' ? L('Chưa gửi được', 'Not sent yet') : (down ? L('Máy đọc đang lỗi', 'Reader unavailable') : (cr ? L('Tiền vào, không phải khoản chi', 'Money in, not an expense') : L('Chưa đọc được', 'Not read yet')))) + '</div>';
+      sub = '<div class="r-s scan-act">' + esc2(cr ? L('Chạm nếu vẫn muốn ghi là khoản chi', 'Tap to log it as an expense anyway') : L('Chạm để nhập tay', 'Tap to type it in') + (down ? ' · ' + L('mã ', 'code ') + it.err : '')) + '</div>';
       right = '<div class="r-amt num" style="color:var(--muted-soft)">—</div>';
     } else {
       title = '<div class="r-t">' + esc2(it.note || L('Khoản chi', 'Expense')) + '</div>';
@@ -386,9 +387,17 @@
       const tk = await token(); if (!tk) throw new Error('no session');
       const r = await fetch(ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tk },
         body: JSON.stringify({ image: m[2], mime: m[1], lang: vi() ? 'vi' : 'en' }) });
-      if (!r.ok) throw new Error('http ' + r.status);
+      if (!r.ok) { it.err = String(r.status); throw new Error('http ' + r.status); }
       apply(it, await r.json());
-    } catch (e) { it.state = 'bad'; }
+    } catch (e) {
+      const m = String(e && e.message);
+      if (!it.err && !navigator.onLine) { it.state = 'offline'; return; }            // the signal dropped mid-read: not sent, not a fault
+      it.state = 'bad';
+      if (!it.err && !/no image/.test(m)) it.err = /session/.test(m) ? 'auth' : 'net';   // a photo that failed on the phone never reached the reader
+    }
+    /* it.err = the reader never answered (a status code, 'net', 'auth'), as opposed to
+       answering "this is not a receipt". The row says which: a server fault shown as
+       "could not read your photo" sends the person to retake a perfectly good picture. */
   }
   // Everything below is the ONLY place read values become form values.
   function apply(it, j) {
@@ -402,7 +411,9 @@
     it.date = j.date || it.taken || isoToday();
     if (it.date > isoToday()) it.date = isoToday();                               // a future date would be filed as a proposal, not an expense
     it.time = j.time || '';
-    it.state = (j.flags && j.flags.amount_unverified) ? 'flag' : 'ok';
+    // money coming IN is not an expense: the row says so and is not ready; tapping it opens the form with what was read, for the person to decide
+    it.credit = j.direction === 'credit';
+    it.state = it.credit ? 'bad' : ((j.flags && j.flags.amount_unverified) ? 'flag' : 'ok');
   }
 
   /* ── a row opens the existing expense form, which hands its fields back ─── */
@@ -543,7 +554,10 @@
     const left = S.items;
     const park = left.length > 0 && left.every(function (i) { return i.state === 'bad' || i.state === 'offline'; });
     // the toast is one line that cannot wrap: when photos are set aside, the count of them takes the place of the total
-    toast(park ? L('Đã ghi ' + n + ' khoản · còn ' + left.length + ' ảnh chưa đọc', 'Logged ' + n + ' · ' + left.length + ' not read yet')
+    // a row left because the reader was down, or because it is money coming in, WAS not "unread": say only that it waits
+    const plain = left.every(function (i) { return !i.err && !i.credit; });
+    toast(park ? (plain ? L('Đã ghi ' + n + ' khoản · còn ' + left.length + ' ảnh chưa đọc', 'Logged ' + n + ' · ' + left.length + ' not read yet')
+                        : L('Đã ghi ' + n + ' khoản · còn ' + left.length + ' ảnh chờ bạn xem', 'Logged ' + n + ' · ' + left.length + ' waiting for you'))
                : L('Đã ghi ' + n + ' khoản từ hóa đơn · ' + fmt(sum), 'Logged ' + n + ' from receipts · ' + fmt(sum)));
     if (!left.length) closeReview(); else if (park) parkReview(); else openReview();
   }

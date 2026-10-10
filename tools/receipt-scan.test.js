@@ -156,7 +156,10 @@ const GOOD = { is_transaction: true, amount: 337900, currency: 'VND', date: '202
   t('a foreign currency is never guessed into ₫: the row is typed by hand', /Chưa đọc được/.test(h.rec.html['scan-rows']) && h.el('scan-save').disabled);
   h = harness({ reply: () => ({ status: 429 }) });
   h.__fhScanSeed({ items: [{ src: A, state: 'new' }] }); h.fhScanDone(); await settle(20);
-  t('a rate limit leaves the row unread with its photo, save stays grey', /Chưa đọc được/.test(h.rec.html['scan-rows']) && h.el('scan-save').disabled);
+  t('a rate limit leaves the row unread with its photo, names the reader fault and its code, save stays grey', /Máy đọc đang lỗi/.test(h.rec.html['scan-rows']) && /mã 429/.test(h.rec.html['scan-rows']) && h.el('scan-save').disabled);
+  h = harness({ reply: () => ({ status: 200, body: Object.assign({}, GOOD, { direction: 'credit' }) }) });
+  h.__fhScanSeed({ items: [{ src: A, state: 'new' }] }); h.fhScanDone(); await settle(20);
+  t('money coming in is never filed as an expense: the row says so and save stays grey', /Tiền vào, không phải khoản chi/.test(h.rec.html['scan-rows']) && h.el('scan-save').disabled);
   h = harness({ reply: () => ({ status: 200, body: { is_transaction: false } }) });
   h.__fhScanSeed({ items: [{ src: A, state: 'new' }] }); h.fhScanDone(); await settle(20);
   t('not a receipt: unread, never a phantom amount', /Chưa đọc được/.test(h.rec.html['scan-rows']));
