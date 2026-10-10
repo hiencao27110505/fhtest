@@ -1904,7 +1904,7 @@ as — or the same day as — the deploy. A deploy announced only in
 
 ## 28. Releases (newest first)
 
-### 2026-10-10 — a statement goes into the queue without being asked to · client only, SW v626 · no migration, no deploy · on branch `feat/statement-auto`, NOT merged to `main` yet
+### 2026-10-10 — a statement goes into the queue without being asked to · client only, SW v626 · no migration, no deploy beyond the client
 
 - **For product:** a bank statement used to cost two taps before any of its
   transactions could be reviewed: one on its card in "Duyệt giao dịch", one on a

@@ -20,7 +20,7 @@ Going forward, add an entry here when a feature area changes meaningfully — se
 
 ## 2026-10-10
 
-### Sao kê tự vào hàng chờ, bỏ bước xác nhận (SW v626) — on `feat/statement-auto`, not merged
+### Sao kê tự vào hàng chờ, bỏ bước xác nhận (SW v626)
 
 Receiving a statement cost a tap on its card and a second tap on a summary screen
 before one row reached the review queue. Spec: `docs/specs/statement-capture-spec.md`

@@ -19,7 +19,7 @@ rows captured from ordinary transaction emails.
 > **Amended 2026-10-10: no summary step, and a statement that asks nothing stages
 > itself (S30 to S32).** Built on branch `feat/statement-auto` (worktree
 > `.worktrees/statement-auto`), client only, SW `v626`, no migration, no Edge
-> Function deploy. **Pushed as a branch; not merged to `main` at the time of writing.** §1, §3.2,
+> Function deploy. **Pushed to `main` on 2026-10-10. Not yet exercised on a phone against a real mailbox.** §1, §3.2,
 > §3.3 and §5 below describe the journey as it is after this change; the decision
 > log says what was removed and why.
 
@@ -261,7 +261,7 @@ correction (`fx_final`, "Cập nhật theo sao kê"); remembered ✕; server-sid
 categories in one batched call; the one-time history re-scan; consent v5 with a
 non-blocking offer; the 90-day sweep; erasure on disconnect.
 
-**Built 2026-10-10 (S30 to S32, not yet merged):** the tap flow without a summary
+**Built 2026-10-10 (S30 to S32, on `main`):** the tap flow without a summary
 step; staging with no tap when the queue opens; the line left where the card
 stood, with "Xem"; a confirmed column reading that is not asked about again.
 
