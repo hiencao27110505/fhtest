@@ -63,6 +63,7 @@ Every read writes one row to `scan_read_log` (migration 0159) from the device, a
 | `ms_server`, `ms_auth`, `ms_gemini`, `ms_validate` | the function's own clock, returned in `_t` |
 | `tok_in`, `tok_out`, `tok_think`, `retried`, `model` | what the model call cost, and whether the thinking setting was refused |
 | `outcome`, `err`, `net`, `bytes_sent`, `doc_kind` | how it ended, on what connection, with how big a payload |
+| `g_first`, `g_status`, `tries` (0161) | Gemini's own first and last answer (a status, `timeout` or `network`) and how many times it was asked. A read that succeeded with `tries` 2 recovered from `g_first` |
 
 `ms_request - ms_server` is the network. Compare as rates and medians, not counts:
 

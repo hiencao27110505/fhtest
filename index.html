@@ -54736,7 +54736,8 @@ window.classifyAmount = classifyAmount;
         err: it.err || null, net: n ? String(n).slice(0, 12) : null, lang: vi() ? 'vi' : 'en', doc_kind: M.kind ? String(M.kind).slice(0, 24) : null,
         bytes_sent: int(M.bytes), ms_total: ms(M.t0, now()), ms_compress: ms(M.t0, M.t1), ms_token: ms(M.t1, M.t2), ms_request: ms(M.t2, M.t3),
         ms_server: int(s.total), ms_auth: int(s.auth), ms_gemini: int(s.gemini), ms_validate: int(s.validate), retried: s.retried === true,
-        model: s.model ? String(s.model).slice(0, 48) : null, tok_in: int(s.tok_in), tok_out: int(s.tok_out), tok_think: int(s.tok_think) });
+        model: s.model ? String(s.model).slice(0, 48) : null, tok_in: int(s.tok_in), tok_out: int(s.tok_out), tok_think: int(s.tok_think),
+        g_first: s.g_first ? String(s.g_first).slice(0, 12) : null, g_status: s.g_status ? String(s.g_status).slice(0, 12) : null, tries: int(s.tries) });
       if (q && q.then) q.then(function () {}, function () {});
     } catch (e) {}
   }
@@ -54752,7 +54753,8 @@ window.classifyAmount = classifyAmount;
         body: JSON.stringify({ image: m[2], mime: m[1], lang: vi() ? 'vi' : 'en' }) });
       let j = null; try { j = await r.json(); } catch (e) {}
       M.t3 = now(); M.srv = j && j._t; M.kind = j && j.document_kind;
-      if (!r.ok) { it.err = String(r.status); throw new Error('http ' + r.status); }
+      // ours, then Gemini's own answer behind it: "502/429" is a rate limit, "502/503" an overload, "504/timeout" a hang
+      if (!r.ok) { it.err = String(r.status) + ((M.srv && M.srv.g_status && M.srv.g_status !== '200') ? '/' + String(M.srv.g_status).slice(0, 7) : ''); throw new Error('http ' + r.status); }
       apply(it, j);
       logRead(it, M);
     } catch (e) {

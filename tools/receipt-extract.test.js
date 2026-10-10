@@ -20,6 +20,8 @@ function fakeFetch(opts) {
     if (url.indexOf('/auth/v1/user') >= 0) {
       return opts.authOk === false ? { ok: false, json: async () => ({}) } : { ok: true, json: async () => ({ id: 'user-1' }) };
     }
+    if (opts.hang) return new Promise((_, rej) => { init.signal.addEventListener('abort', () => rej(new Error('aborted'))); });   // never answers; only the abort ends it
+    if (opts.failFirst && calls.filter((c) => c.url.indexOf('/auth/') < 0).length === 1) return { ok: false, status: opts.failFirst, text: async () => 'busy' };
     // a model that refuses the zero thinking budget: 400 while the request carries it, fine without
     if (opts.rejectThinking && JSON.parse(init.body).generationConfig.thinkingConfig) return { ok: false, status: 400, text: async () => 'thinking' };
     if (opts.geminiStatus && opts.geminiStatus !== 200) return { ok: false, status: opts.geminiStatus, text: async () => 'quota' };
@@ -57,6 +59,18 @@ const good = { is_transaction: true, document_kind: 'paper_receipt', amount_text
   t('the read asks for no thinking pass, in one Gemini call', r.code === 200 && f.calls.length === 2 && sent.generationConfig.thinkingConfig.thinkingBudget === 0);
   t('the prompt asks only for lines with numbers, not the whole image', /ONLY the lines/.test(mod.SYSTEM_PROMPT) && !/every line of text/.test(mod.SYSTEM_PROMPT));
 
+  r = res(); f = fakeFetch({ gemini: good, failFirst: 503 });
+  await mod.handler(req(), r, { fetch: f, env, parsers, pauseMs: 0 });
+  t('a refusal is asked once more, the read lands, and the log keeps the first answer', r.code === 200 && r.body.amount === 337900 && r.body._t.tries === 2 && r.body._t.g_first === '503' && r.body._t.g_status === '200');
+
+  r = res(); f = fakeFetch({ geminiStatus: 429 });
+  await mod.handler(req(), r, { fetch: f, env, parsers, pauseMs: 0 });
+  t('two refusals are a 502 that names Gemini\'s own status', r.code === 502 && r.body._t.tries === 2 && r.body._t.g_status === '429' && f.calls.length === 3);
+
+  r = res(); f = fakeFetch({ hang: true });
+  await mod.handler(req(), r, { fetch: f, env, parsers, tryMs: 30, pauseMs: 0 });
+  t('a hang is cut, asked once more, and answers 504 with its timings instead of dying silently', r.code === 504 && r.body._t.g_first === 'timeout' && r.body._t.tries === 2 && typeof r.body._t.gemini === 'number');
+
   r = res(); f = fakeFetch({ gemini: good, rejectThinking: true });
   await mod.handler(req(), r, { fetch: f, env, parsers });
   t('a model that refuses the thinking setting is asked once more without it, and the read still lands',
@@ -91,7 +105,7 @@ const good = { is_transaction: true, document_kind: 'paper_receipt', amount_text
   t('raw_text never reaches the client', !('raw_text' in r.body));
   t('timings ride back, and they are durations and counts only',
     r.body._t && typeof r.body._t.total === 'number' && typeof r.body._t.gemini === 'number' && typeof r.body._t.auth === 'number'
-    && Object.keys(r.body._t).every((k) => ['model', 'total', 'auth', 'gemini', 'validate', 'retried', 'tok_in', 'tok_out', 'tok_think'].includes(k)));
+    && Object.keys(r.body._t).every((k) => ['model', 'total', 'auth', 'gemini', 'validate', 'retried', 'tok_in', 'tok_out', 'tok_think', 'g_first', 'g_status', 'tries'].includes(k)));
 
   console.log('\n-- Gemini failures never leak content --');
   r = res(); f = fakeFetch({ geminiStatus: 429 });

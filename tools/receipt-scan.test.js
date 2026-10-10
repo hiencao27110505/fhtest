@@ -160,7 +160,7 @@ const GOOD = { is_transaction: true, amount: 337900, currency: 'VND', date: '202
     const lg = hl.rec.inserts.filter((x) => x.table === 'scan_read_log');
     const p = lg[0] && lg[0].payload, txt = JSON.stringify(p || {});
     t('a read writes one timing row: outcome, the server legs, and how long the device waited', lg.length === 1 && p.outcome === 'ok' && p.ms_gemini === 3800 && p.ms_server === 4200 && typeof p.ms_total === 'number' && p.doc_kind === 'paper_receipt');
-    t('the timing row carries nothing that was read and nobody\'s id', !/CIRCLE|337900|337\.9|2026-09-12|14:23|Groceries/.test(txt) && Object.keys(p || {}).every((k) => ['outcome', 'err', 'net', 'lang', 'doc_kind', 'bytes_sent', 'ms_total', 'ms_compress', 'ms_token', 'ms_request', 'ms_server', 'ms_auth', 'ms_gemini', 'ms_validate', 'retried', 'model', 'tok_in', 'tok_out', 'tok_think'].includes(k)));
+    t('the timing row carries nothing that was read and nobody\'s id', !/CIRCLE|337900|337\.9|2026-09-12|14:23|Groceries/.test(txt) && Object.keys(p || {}).every((k) => ['outcome', 'err', 'net', 'lang', 'doc_kind', 'bytes_sent', 'ms_total', 'ms_compress', 'ms_token', 'ms_request', 'ms_server', 'ms_auth', 'ms_gemini', 'ms_validate', 'retried', 'model', 'tok_in', 'tok_out', 'tok_think', 'g_first', 'g_status', 'tries'].includes(k)));
   }
   h = harness({ reply: () => ({ status: 429 }) });
   h.__fhScanSeed({ items: [{ src: A, state: 'new' }] }); h.fhScanDone(); await settle(20);

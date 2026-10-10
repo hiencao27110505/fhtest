@@ -160,26 +160,45 @@ async function handler(req, res, deps) {
     // Copying a figure off a receipt needs no reasoning pass, and that pass was most of the wait.
     generationConfig: { responseMimeType: 'application/json', responseSchema: RESPONSE_SCHEMA, temperature: 0, thinkingConfig: { thinkingBudget: 0 } },
   };
-  const ask = (b) => fetchFn(`${GEMINI_URL}?key=${apiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) });
-
-  let geminiRes;
+  /* One attempt = the call AND its body under one clock. Gemini on a busy key either
+     refuses inside a few seconds (429, 503) or sits on the request: on 2026-10-10 one read
+     hung past the function's whole 60 s and the person got a bare 504 with nothing to show
+     for it. So an attempt is cut at TRY_MS, and a refusal or a hang is asked ONCE more.
+     Two attempts and the pause fit inside maxDuration (vercel.json). */
+  const TRY_MS = Number((deps && deps.tryMs) || 25000), PAUSE_MS = Number((deps && deps.pauseMs != null) ? deps.pauseMs : 1200);
+  const attempt = async (b) => {
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), TRY_MS);
+    try {
+      const r = await fetchFn(`${GEMINI_URL}?key=${apiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b), signal: ac.signal });
+      if (!r.ok) return { status: r.status };
+      return { status: 200, data: await r.json() };
+    } catch (e) { return { status: ac.signal.aborted ? 'timeout' : 'network' }; }
+    finally { clearTimeout(timer); }
+  };
   const g0 = Date.now();
-  try {
-    geminiRes = await ask(geminiBody);
+  let a = await attempt(geminiBody);
+  T.g_first = String(a.status); T.tries = 1;
+  if (a.status === 400) {
     /* "-latest" tracks whatever Google's current Flash is, and not every model accepts a
-       zero thinking budget. A 400 here is the request being refused, not the image: ask
-       once more without it, so a model swap upstream costs speed and never the feature. */
-    if (geminiRes.status === 400) {
-      const plain = Object.assign({}, geminiBody, { generationConfig: Object.assign({}, geminiBody.generationConfig) });
-      delete plain.generationConfig.thinkingConfig;
-      T.retried = true;
-      geminiRes = await ask(plain);
-    }
-  } catch (e) { T.gemini = Date.now() - g0; send(502, { error: 'Gemini request failed' }); return; }
-  if (!geminiRes.ok) { T.gemini = Date.now() - g0; send(502, { error: `Gemini returned ${geminiRes.status}` }); return; }   // no body echoed: it could quote the image text
-
-  const data = await geminiRes.json();
-  T.gemini = Date.now() - g0;                                   // headers to full body: the whole model call
+       zero thinking budget. A 400 is the request being refused, not the image: ask once
+       more without it, so a model swap upstream costs speed and never the feature. */
+    const plain = Object.assign({}, geminiBody, { generationConfig: Object.assign({}, geminiBody.generationConfig) });
+    delete plain.generationConfig.thinkingConfig;
+    T.retried = true; T.tries = 2;
+    a = await attempt(plain);
+  } else if (a.status === 'timeout' || a.status === 'network' || a.status === 429 || (typeof a.status === 'number' && a.status >= 500)) {
+    if (a.status !== 'timeout' && PAUSE_MS) await new Promise((r) => setTimeout(r, PAUSE_MS));   // a refusal gets a breath; a hang already cost its wait
+    T.tries = 2;
+    a = await attempt(geminiBody);
+  }
+  T.gemini = Date.now() - g0; T.g_status = String(a.status);
+  if (a.status !== 200) {   // no body echoed: it could quote the image text
+    if (a.status === 'timeout') send(504, { error: 'Gemini timed out' });
+    else send(502, { error: a.status === 'network' ? 'Gemini request failed' : `Gemini returned ${a.status}` });
+    return;
+  }
+  const data = a.data;
   const um = data && data.usageMetadata;
   if (um) { T.tok_in = um.promptTokenCount || 0; T.tok_out = um.candidatesTokenCount || 0; T.tok_think = um.thoughtsTokenCount || 0; }
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
