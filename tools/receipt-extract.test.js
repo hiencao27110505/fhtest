@@ -20,6 +20,8 @@ function fakeFetch(opts) {
     if (url.indexOf('/auth/v1/user') >= 0) {
       return opts.authOk === false ? { ok: false, json: async () => ({}) } : { ok: true, json: async () => ({ id: 'user-1' }) };
     }
+    // a model that refuses the zero thinking budget: 400 while the request carries it, fine without
+    if (opts.rejectThinking && JSON.parse(init.body).generationConfig.thinkingConfig) return { ok: false, status: 400, text: async () => 'thinking' };
     if (opts.geminiStatus && opts.geminiStatus !== 200) return { ok: false, status: opts.geminiStatus, text: async () => 'quota' };
     const text = opts.geminiText != null ? opts.geminiText : JSON.stringify(opts.gemini || {});
     return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text }] } }] }) };
@@ -48,6 +50,17 @@ const good = { is_transaction: true, document_kind: 'paper_receipt', amount_text
   r = res(); f = fakeFetch({ authOk: false });
   await mod.handler(req(), r, { fetch: f, env, parsers });
   t('bad token is 401, only the auth call was made', r.code === 401 && f.calls.length === 1 && f.calls[0].url.indexOf('/auth/') >= 0);
+
+  r = res(); f = fakeFetch({ gemini: good });
+  await mod.handler(req(), r, { fetch: f, env, parsers });
+  const sent = JSON.parse(f.calls[1].init.body);
+  t('the read asks for no thinking pass, in one Gemini call', r.code === 200 && f.calls.length === 2 && sent.generationConfig.thinkingConfig.thinkingBudget === 0);
+  t('the prompt asks only for lines with numbers, not the whole image', /ONLY the lines/.test(mod.SYSTEM_PROMPT) && !/every line of text/.test(mod.SYSTEM_PROMPT));
+
+  r = res(); f = fakeFetch({ gemini: good, rejectThinking: true });
+  await mod.handler(req(), r, { fetch: f, env, parsers });
+  t('a model that refuses the thinking setting is asked once more without it, and the read still lands',
+    r.code === 200 && r.body.amount === 337900 && f.calls.length === 3 && !JSON.parse(f.calls[2].init.body).generationConfig.thinkingConfig);
 
   r = res(); f = fakeFetch();
   await mod.handler(req({ body: { image: 'not base64 at all!!', mime: 'image/jpeg' } }), r, { fetch: f, env, parsers });

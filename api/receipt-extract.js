@@ -58,7 +58,7 @@ Rules:
 - category is one concept from the list, judged from what was bought; "Others" when unsure.
 - document_kind: paper_receipt, bank_app_screenshot, or other.
 - is_transaction is false when the image is not a receipt or a payment screen at all (a menu, a selfie, a page of text). Then leave the other fields empty.
-- raw_text is every line of text you can read in the image, in reading order, one line per string. Copy digits exactly.
+- raw_text is ONLY the lines of the image that contain a number (amounts, totals, dates, times), in reading order, one line per string, at most 20 lines. Copy digits exactly. Always include the line amount_text was copied from. Skip lines with no digits.
 Vietnamese amounts use "." as the thousands separator and "," as the decimal mark. Never invent values that are not in the image.`;
 
 const RESPONSE_SCHEMA = {
@@ -149,12 +149,22 @@ async function handler(req, res, deps) {
       { inline_data: { mime_type: mime, data: image } },
       { text: (body.lang === 'en' ? 'Read this image.' : 'Đọc ảnh này.') },
     ] }],
-    generationConfig: { responseMimeType: 'application/json', responseSchema: RESPONSE_SCHEMA, temperature: 0 },
+    // Copying a figure off a receipt needs no reasoning pass, and that pass was most of the wait.
+    generationConfig: { responseMimeType: 'application/json', responseSchema: RESPONSE_SCHEMA, temperature: 0, thinkingConfig: { thinkingBudget: 0 } },
   };
+  const ask = (b) => fetchFn(`${GEMINI_URL}?key=${apiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) });
 
   let geminiRes;
   try {
-    geminiRes = await fetchFn(`${GEMINI_URL}?key=${apiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(geminiBody) });
+    geminiRes = await ask(geminiBody);
+    /* "-latest" tracks whatever Google's current Flash is, and not every model accepts a
+       zero thinking budget. A 400 here is the request being refused, not the image: ask
+       once more without it, so a model swap upstream costs speed and never the feature. */
+    if (geminiRes.status === 400) {
+      const plain = Object.assign({}, geminiBody, { generationConfig: Object.assign({}, geminiBody.generationConfig) });
+      delete plain.generationConfig.thinkingConfig;
+      geminiRes = await ask(plain);
+    }
   } catch (e) { res.status(502).json({ error: 'Gemini request failed' }); return; }
   if (!geminiRes.ok) { res.status(502).json({ error: `Gemini returned ${geminiRes.status}` }); return; }   // no body echoed: it could quote the image text
 
