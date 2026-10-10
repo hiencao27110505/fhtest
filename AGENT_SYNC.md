@@ -4030,4 +4030,4 @@ hand-merging `index.html`. Both replaced vigilance with structure.
   `fhStagedOpenCache` (18), tree-backfill cursor **v15**, new IndexedDB store `fh-stmt`
   (wiped at sign-out), always-on meter `window.fhHeat` (file 07, js-ui; call
   `fhHeat.tick(name)` in a new render entry point). Harness: `tools/boot-harness/queue-perf.js`,
-  `statement-perf.js`. Not pushed yet.
+  `statement-perf.js`. Pushed to main as e4231ab.
