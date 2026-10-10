@@ -20,6 +20,51 @@ Going forward, add an entry here when a feature area changes meaningfully — se
 
 ## 2026-10-10
 
+### Sao kê đặt số dư cho tài khoản (SW v627)
+
+A statement prints what the setup wizard asked a person to type: the balance, and
+for a card the limit, the statement day and the due day. The app read part of it
+to check its column reading and then dropped it. Spec:
+`docs/specs/statement-balance-spec.md` (SB1 to SB16). Client plus one additive
+migration, `0160_anchor_meta` (applied live 2026-10-10). No Edge Function deploy.
+
+- **The statement is a source of account facts (SB1, SB5).** `fhStmtAccountFacts`
+  (59) takes the closing balance (an account), the last row on the proved chain (a
+  wallet: the newest row of one real file belongs to another pocket and shows 0 ₫)
+  or the closing debt (a card, kept negative), with the day it is true for. It is
+  read when the file is read, so it no longer depends on which rows get imported.
+- **An anchor can carry its own date (SB2, SB3).** A statement balance is true for
+  the statement's last day. `19-anchor.js` (new, pure) brings it forward: rows
+  after that day are added, rows before the statement's edge are inside it, and
+  rows on the edge are added only when the file does not list them (one day for an
+  account or wallet, five for a card, where a purchase can post after the
+  statement date). `fhPersonalBalance` runs this walk; a typed anchor walks as
+  before.
+- **First time a tap, after that nothing (SB6, SB7).** With no number yet, the
+  statement's number waits as an offer and the wizard opens filled from it. Once
+  an account has been confirmed, a newer statement re-anchors it silently. Newest
+  as-of date wins: an old statement or an earlier date never replaces what is
+  there.
+- **Card facts fill empty fields (SB8).** Limit, statement day, due day, from any
+  statement, never over a typed value. The due date and minimum payment feed the
+  tile line a due notice feeds (`fhAcctNoticeSet`).
+- **The tile says how it knows (SB9, SB10).** Coverage is measured from the
+  statement against the ledger, by money. Under 95% with rows after the
+  statement, the tile leads with the dated statement number; totals keep the
+  brought-forward figure.
+- **Also:** the drift badge compares the bank's figure with the ledger as of the
+  same day (SB13); statement rows no longer write the bank-stated balance at
+  import (SB14); the accounts read falls back when the database has no
+  `anchor_meta_enc` yet, so client and migration can land in either order (SB16);
+  the column joins the regen sweep.
+
+Replayed on a real account statement cut at three days: with a complete feed the
+brought-forward figure equals the bank's own closing balance to the đồng; with
+only the alert mail that was captured it is 64 to 136 million short, coverage
+reads 40 to 49%, and the tile leads with the dated number. Tests:
+`tools/statement-balance.test.js` (87), one guard re-pinned in
+`tools/account-setup.test.js`. Screens: `tools/ui-harness/manifests/statement-balance.js`.
+
 ### Sao kê tự vào hàng chờ, bỏ bước xác nhận (SW v626)
 
 Receiving a statement cost a tap on its card and a second tap on a summary screen

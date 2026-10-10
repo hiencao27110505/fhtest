@@ -15,6 +15,14 @@ typed one.**
 > moved to the first home visit. The card reconcile-by-adjustment path is
 > deliberately kept until the wizard proves itself (Q16).
 
+> **Amended 2026-10-10 by `statement-balance-spec.md`** (SW v627, migration
+> 0160). "An account shows a number only after
+> the person has typed one" becomes "typed or confirmed one": a statement's
+> closing balance waits on the account as an offer, the wizard opens filled from
+> it (and from the card's limit and dates), and one tap confirms. An anchor read
+> from a statement is true for the statement's last day, not for the moment it
+> is written; §5's balance rule is otherwise unchanged for typed anchors.
+
 > **How this relates to its siblings.** `full-ledger-spec.md` (0109) gave
 > non-card accounts an anchor and a drift detector; this spec extends the anchor
 > to cards and puts a setup step in front of every number.

@@ -37,10 +37,13 @@ function _exdMetaRow(label, val){
    staged commit (Q8b), nothing saves per-field. */
 var EXD={}, _exdEdit=false;   // pending family-detail changes: {cat, who, amtDisp, note, dateIso, timeStr, photos}; _exdEdit = view (false) or edit (true)
 function _exdDirty(){ return Object.keys(EXD).length>0; }
-function _exdRow(opts){   // {label, val, chg, ro, soft, miss, hot, fn}
+function _exdRow(opts){   // {label, val, chg, ro, soft, miss, hot, fn, by}
   var chev=opts.ro?'':'<svg class="csv-schev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>';
-  var cls='csv-srow'+(opts.ro?' ro':'')+(opts.soft?' soft':'')+(opts.miss?' miss':'')+(opts.hot?' hot':'')+(opts.chg?' chg':'');
-  var inner='<small>'+opts.label+'</small><span class="csv-sval">'+opts.val+chev+'</span>';
+  var cls='csv-srow'+(opts.ro?' ro':'')+(opts.soft?' soft':'')+(opts.miss?' miss':'')+(opts.hot?' hot':'')+(opts.chg?' chg':'')+(opts.by?' rl-has':'');
+  /* `by` = one quiet line under the value saying where it came from, in the
+     shape the review card's "Theo quy tắc" line has (.rl-col, .rcr-by). */
+  var sval='<span class="csv-sval">'+opts.val+chev+'</span>';
+  var inner='<small>'+opts.label+'</small>'+(opts.by?'<span class="rl-col">'+sval+'<span class="rcr-by">'+opts.by+'</span></span>':sval);
   return opts.ro
     ? '<div class="'+cls+'">'+inner+'</div>'
     : '<button type="button" class="'+cls+'" onclick="'+opts.fn+'">'+inner+'</button>';

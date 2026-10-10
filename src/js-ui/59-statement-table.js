@@ -145,6 +145,15 @@ var STMT_LABELS = [
   ['totalCredit', ['phat sinh co', 'tong ghi co', 'total credit']],
   ['holder',      ['chu tai khoan', 'account holder', 'ten chu the', 'cardholder']],
   ['period',      ['thoi gian sao ke', 'ky sao ke', 'period covered', 'statement period']],
+  /* What the setup wizard used to ask a person to type (statement-balance-spec
+     §1). `stmtDate` is the statement date on a card and the print date on an
+     account. `autoDebit` sits before `account`: both labels name an account, and
+     only this one is somebody else's. */
+  ['limit',       ['han muc tin dung', 'credit limit']],
+  ['stmtDate',    ['ngay sao ke', 'ngay in sao ke', 'statement date']],
+  ['dueDate',     ['ngay den han thanh toan', 'ngay den han', 'payment due date', 'due date']],
+  ['minPayment',  ['thanh toan toi thieu', 'minimum payment']],
+  ['autoDebit',   ['so tk trich no', 'tai khoan trich no', 'auto debit account']],
   ['account',     ['so tai khoan', 'account number', 'so the chinh', 'primary card number', 'so vi']]
 ];
 function fhStmtSummary(notes){
@@ -166,6 +175,10 @@ function fhStmtSummary(notes){
           } else if (key === 'account') {
             /* Only the masked tail is ever kept. The full number stays in the file. */
             var dg = raw.replace(/\D/g, ''); if (dg.length >= 4) out.accountTail = dg.slice(-4);
+          } else if (key === 'autoDebit') {
+            var ad = raw.replace(/\D/g, ''); if (ad.length >= 4) out.autoDebitTail = ad.slice(-4);
+          } else if (key === 'stmtDate' || key === 'dueDate') {
+            var dt = fhStmtDate(raw); if (dt) out[key] = dt.date;
           } else { var n = fhStmtNum(raw); if (n !== null) out[key] = Math.abs(n); }
           break;
         }
@@ -497,10 +510,81 @@ function fhStmtParse(grid, rolesOverride, ctx){
     rows: rows, failed: read.failed, summary: summary, proof: proof };
 }
 
+/* ═══ Account facts (docs/specs/statement-balance-spec.md §3) ═══════════════
+   What a parsed statement says about the ACCOUNT, as opposed to its rows: the
+   balance and the day it is true for, and for a card the limit and its dates.
+   `kind` is the account's kind as the capture step decided it.
+
+   The balance is taken only when the file's own arithmetic stands behind it:
+     account  "Số dư cuối kỳ", proved, and equal to the last row's running
+              balance when the file prints both
+     wallet   the balance after the last row ON THE PROVED CHAIN. The newest row
+              is not always it: one real file ends on a row from another pocket
+              that shows 0 ₫, two days after the row that shows the real balance
+     card     "Dư nợ cuối kỳ", proved by the totals, kept NEGATIVE (a debt is a
+              negative asset, the convention every balance in the ledger uses)
+   Anything short of that returns ok:false with a reason, and the card facts
+   that were read all the same.
+
+   `rows` = the file's movements on this account as [day, signed đồng], oldest
+   first: the dated anchor matches the ledger's edge rows against them and
+   measures coverage with them (19-anchor.js). Wallet payments funded from a
+   linked bank never moved this balance and are left out. */
+var STMT_FACT_TRAIL_MAX = 2;       // rows allowed after the chain's last row
+function fhStmtAccountFacts(parsed, kind){
+  var out = { ok: false, why: '', kind: kind || '', n: 0, rows: [] };
+  if (!parsed || !parsed.table || !parsed.rows || !parsed.rows.length) { out.why = 'no_table'; return out; }
+  var sum = parsed.summary || {}, proof = parsed.proof || {}, rows = parsed.rows;   // oldest first
+  var isCard = kind === 'credit_card';
+  var lastDay = rows.reduce(function(d, r){ return r.date > d ? r.date : d; }, rows[0].date);
+  var firstDay = rows.reduce(function(d, r){ return r.date < d ? r.date : d; }, rows[0].date);
+  out.n = rows.length;
+  out.from = (sum.period && sum.period.from) || firstDay;
+  if (sum.limit > 0) out.limitDong = Math.round(sum.limit);
+  if (sum.minPayment > 0) out.minDong = Math.round(sum.minPayment);
+  if (sum.endDebt !== undefined) out.debtDong = Math.round(sum.endDebt);
+  if (sum.autoDebitTail) out.autoDebitTail = sum.autoDebitTail;
+  if (sum.stmtDate) out.stmtDate = sum.stmtDate;
+  if (sum.dueDate) out.dueDate = sum.dueDate;
+
+  var moved = function(r){ return !r.unmoved && !(r.cls && r.cls.fundedElsewhere); };
+  var cut = rows.length - 1;       // index of the last row the balance already contains
+  if (isCard) {
+    if (sum.endDebt === undefined) { out.why = 'no_balance'; return out; }
+    if (!proof.ok || !proof.totals) { out.why = 'unproved'; return out; }
+    out.balDong = -Math.round(sum.endDebt);
+    out.asof = (sum.stmtDate && sum.stmtDate >= lastDay) ? sum.stmtDate : lastDay;
+    out.how = 'debt'; out.open = 5;
+  } else {
+    var chainIx = -1;
+    if (proof.ok && proof.how === 'running') {
+      for (var i = rows.length - 1; i >= 0; i--) {
+        var r = rows[i];
+        if (r.bal !== null && r.bal !== undefined && !r.broken && moved(r)) { chainIx = i; break; }
+      }
+    }
+    if (sum.closing !== undefined && proof.ok) {
+      if (chainIx >= 0 && Math.abs(rows[chainIx].bal - sum.closing) > STMT_TOL) { out.why = 'conflict'; return out; }
+      out.balDong = Math.round(sum.closing);
+      out.asof = (sum.period && sum.period.to && sum.period.to >= lastDay) ? sum.period.to : lastDay;
+      out.how = 'closing';
+    } else if (chainIx >= 0) {
+      if (rows.length - 1 - chainIx > STMT_FACT_TRAIL_MAX) { out.why = 'trailing'; return out; }
+      out.balDong = Math.round(rows[chainIx].bal);
+      out.asof = rows[chainIx].date;
+      out.how = 'chain'; cut = chainIx;
+    } else { out.why = proof.ok ? 'no_balance' : 'unproved'; return out; }
+    out.open = 1;
+  }
+  for (var j = 0; j <= cut; j++) { if (moved(rows[j])) out.rows.push([rows[j].date, Math.round(rows[j].amt)]); }
+  out.ok = true;
+  return out;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { fhStmtNum: fhStmtNum, fhStmtDate: fhStmtDate, fhStmtRoles: fhStmtRoles, fhStmtFindTable: fhStmtFindTable,
     fhStmtSummary: fhStmtSummary, fhStmtRead: fhStmtRead, fhStmtProve: fhStmtProve, fhStmtClassify: fhStmtClassify,
-    fhStmtParse: fhStmtParse, fhStmtHeaderSig: fhStmtHeaderSig, stmtDeburr: stmtDeburr,
+    fhStmtParse: fhStmtParse, fhStmtHeaderSig: fhStmtHeaderSig, stmtDeburr: stmtDeburr, fhStmtAccountFacts: fhStmtAccountFacts,
     STMT_ISSUERS: STMT_ISSUERS, STMT_ISSUER_DEFAULT: STMT_ISSUER_DEFAULT,
     fhStmtIssuer: fhStmtIssuer, fhStmtBankOf: fhStmtBankOf, fhStmtHolder: fhStmtHolder };
 }

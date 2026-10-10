@@ -8191,6 +8191,197 @@ var FH_NOTIFY = (function () {
     keywordPool: keywordPool, deburr: deburr };
 })();
 window.FH_NOTIFY = FH_NOTIFY;
+/* ═══ Dated anchors (docs/specs/statement-balance-spec.md §2, §10, §11) ═══════
+   An account's anchor used to mean one thing: "this number is true NOW, every
+   row before this moment is already inside it" (full-ledger-spec §5.1). A bank
+   statement's closing balance is true for a day in the past, so an anchor read
+   from a statement carries that day, and the ledger rows the statement does not
+   contain bring it forward:
+
+     today = statement balance + rows after its last day
+                               + rows on its EDGE that the file does not list
+
+   The edge is the statement's last day for an account or a wallet (a file
+   exported at noon misses the afternoon) and its last five days for a card (a
+   purchase dated before the statement date can post after it). Rows before the
+   edge are inside the balance whether or not the ledger agrees with the file:
+   the statement is the authority for its own period.
+
+   Pure on purpose: no DOM, no network, no app state. 19-personal.js hands it the
+   account and the account-tagged rows; tools/statement-balance.test.js drives it
+   under Node. Amounts on rows are base units (thousands of đồng); the file's
+   rows in the anchor's meta are đồng, so every comparison is made in đồng. */
+
+var ANCHOR_COV_MIN = 0.95;        // share of the statement's money the ledger must have known (SB10)
+var ANCHOR_EST_TOL = 0.06;        // an estimated foreign amount may sit this far from the settled one
+var ANCHOR_ROWS_MAX = 400;        // file rows kept in the meta, newest
+
+var _ANCHOR_KINDS = { expense: 1, income: 1, transfer: 1, loan: 1, repayment: 1, investment: 1 };
+
+/* What one ledger row does to its account, in base units. Expense and loan
+   drain; everything else carries its sign inside the amount (0105, 0109, 0122,
+   0123). A new kind that moves an account is added HERE. */
+function fhAnchorDelta(r){ return (r.kind === 'expense' || r.kind === 'loan') ? -r.amt : r.amt; }
+
+function _anchorLocalDay(iso){
+  var d = new Date(iso);
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function _anchorAddDays(day, n){
+  var d = new Date(day + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+/* The meta of an anchor that came from a statement and was accepted, else null. */
+function fhAnchorMetaSet(a){
+  var m = a && a.anchorMeta;
+  return (a && a.anchorK != null && m && m.src === 'stmt' && m.state === 'set' && m.asof) ? m : null;
+}
+/* A statement's number waiting on an account that has none yet, else null. */
+function fhAnchorOffer(a){
+  var m = a && a.anchorMeta;
+  return (a && a.anchorK == null && m && m.src === 'stmt' && m.state === 'offer' && m.asof && isFinite(m.k)) ? m : null;
+}
+/* The day an anchor is true for. On a statement anchor `anchor_at` is the END of
+   that day, not the moment it was written, so every reader asks here. */
+function fhAnchorAsof(a){
+  var m = fhAnchorMetaSet(a);
+  if (m) return m.asof;
+  return (a && a.anchorK != null && a.anchorAt) ? _anchorLocalDay(a.anchorAt) : null;
+}
+/* The instant stored in anchor_at for a statement anchor. Statements here are
+   Vietnamese: the day ends at +07:00. A client older than this release reads it
+   as "typed at the end of that day", which is right for every later row. */
+function fhAnchorAtOf(asof){ return new Date(asof + 'T23:59:59+07:00').toISOString(); }
+
+function _anchorEst(r){ return /est\.\]/.test(String(r.note || '')); }
+
+/* The file's rows on the edge, as a multiset: each one can absorb ONE ledger row. */
+function _anchorEdgePool(m){
+  var from = _anchorAddDays(m.asof, -(Math.max(1, m.open || 1) - 1)), pool = {}, byDay = {};
+  (m.rows || []).forEach(function(x){
+    var day = x[0], dong = Math.round(x[1]);
+    if (day < from || day > m.asof) return;
+    var k = day + '|' + dong; pool[k] = (pool[k] || 0) + 1;
+    (byDay[day] = byDay[day] || []).push(dong);
+  });
+  return { from: from, pool: pool, byDay: byDay };
+}
+
+/* The balance. `rows` = the account-tagged ledger rows (all months); `opts.mult`
+   = đồng per base unit; `opts.upto` stops at a day (the drift badge compares
+   like with like). Returns null for an account with no anchor. */
+function fhAnchorWalk(acct, rows, opts){
+  if (!acct || acct.anchorK == null) return null;
+  opts = opts || {};
+  var mult = opts.mult || 1000, upto = opts.upto || null;
+  var m = fhAnchorMetaSet(acct);
+  var anchorDay = (!m && acct.anchorAt) ? _anchorLocalDay(acct.anchorAt) : null;
+  var bal = acct.anchorK, later = { n: 0, sum: 0 }, edgeRows = [];
+  var edge = m ? _anchorEdgePool(m) : null;
+  var add = function(r){ var d = fhAnchorDelta(r); bal += d; later.n++; later.sum += d; };
+  for (var i = 0; i < (rows || []).length; i++) {
+    var r = rows[i];
+    if (!r || r.accountId !== acct.id || r._unreadable || r.amt == null || !_ANCHOR_KINDS[r.kind]) continue;
+    if (upto && r.date > upto) continue;
+    if (m) {
+      if (r.date > m.asof) { add(r); continue; }
+      if (r.date < edge.from) continue;                      // before the edge: inside the statement
+      edgeRows.push(r);
+    } else {
+      if (anchorDay) {
+        if (r.date < anchorDay) continue;
+        if (r.date === anchorDay && (!r.ts || r.ts <= acct.anchorAt)) continue;
+      }
+      add(r);
+    }
+  }
+  if (m && edgeRows.length) {
+    /* Order-independent: exact matches claim their file row first, then a row
+       marked as an estimate may take what is left of its day within tolerance. */
+    edgeRows.sort(function(a, b){ return a.date < b.date ? -1 : (a.date > b.date ? 1 : String(a.id || '').localeCompare(String(b.id || ''))); });
+    var left = [];
+    edgeRows.forEach(function(r){
+      var k = r.date + '|' + Math.round(fhAnchorDelta(r) * mult);
+      if (edge.pool[k] > 0) { edge.pool[k]--; var a = edge.byDay[r.date], ix = a.indexOf(Math.round(fhAnchorDelta(r) * mult)); if (ix >= 0) a.splice(ix, 1); }
+      else left.push(r);
+    });
+    left.forEach(function(r){
+      if (_anchorEst(r)) {
+        var mine = fhAnchorDelta(r) * mult, day = edge.byDay[r.date] || [];
+        for (var j = 0; j < day.length; j++) {
+          var x = day[j];
+          if (x !== 0 && (x < 0) === (mine < 0) && Math.abs(mine - x) <= Math.abs(x) * ANCHOR_EST_TOL) { day.splice(j, 1); return; }
+        }
+      }
+      add(r);                                                // on the edge and not in the file: after the statement
+    });
+  }
+  return { bal: bal, base: acct.anchorK, later: later, asof: m ? m.asof : anchorDay, stmt: !!m };
+}
+
+/* How much of the statement the ledger already knew, by money. Each file row is
+   looked up by (day, đồng) among this account's ledger rows; rows that entered
+   the ledger FROM a statement do not count, or importing a statement would
+   prove its own coverage. Returns null when the meta holds no rows. */
+function fhAnchorCoverage(acct, rows, opts){
+  var m = fhAnchorMetaSet(acct) || fhAnchorOffer(acct);
+  if (!m || !m.rows || !m.rows.length) return null;
+  var mult = (opts && opts.mult) || 1000, pool = {};
+  (rows || []).forEach(function(r){
+    if (!r || r.accountId !== acct.id || r._unreadable || r.amt == null || !_ANCHOR_KINDS[r.kind]) return;
+    if (r.src === 'statement-email') return;
+    if (r.date > m.asof || (m.from && r.date < m.from)) return;
+    var k = r.date + '|' + Math.round(fhAnchorDelta(r) * mult); pool[k] = (pool[k] || 0) + 1;
+  });
+  var sum = 0, got = 0, n = 0, k = 0;
+  m.rows.forEach(function(x){
+    var a = Math.abs(Math.round(x[1])), key = x[0] + '|' + Math.round(x[1]);
+    n++; sum += a;
+    if (pool[key] > 0) { pool[key]--; k++; got += a; }
+  });
+  return { n: n, k: k, sum: sum, got: got, share: sum > 0 ? got / sum : 0 };
+}
+
+/* What a surface shows for an account. `shown` is the figure a tile leads with:
+   the brought-forward balance, or the dated statement number when rows came
+   after the statement and the ledger had not known enough of it (SB10). Totals
+   read `bal`, always. */
+function fhAnchorView(acct, rows, opts){
+  var w = fhAnchorWalk(acct, rows, opts);
+  if (!w) return null;
+  var out = { bal: w.bal, base: w.base, later: w.later, asof: w.asof, src: w.stmt ? 'stmt' : 'typed', mode: 'current', shown: w.bal, cov: null };
+  if (w.stmt && w.later.n > 0) {
+    var c = fhAnchorCoverage(acct, rows, opts);
+    out.cov = c ? c.share : 0;
+    if (!(out.cov >= ANCHOR_COV_MIN)) { out.mode = 'dated'; out.shown = w.base; }
+  }
+  return out;
+}
+
+/* What a statement's balance may do to an account (SB6, SB7):
+     'offer' the account has no number; the wizard will pre-fill this one
+     'set'   the account was confirmed once and this statement is newer
+     'keep'  an equal or newer starting point is already there
+     'none'  the statement carries no balance */
+function fhAnchorDecide(acct, facts){
+  if (!acct || !facts || !facts.ok || !facts.asof || !isFinite(facts.balDong)) return 'none';
+  if (acct.anchorK == null) { var o = fhAnchorOffer(acct); return (!o || facts.asof >= o.asof) ? 'offer' : 'keep'; }
+  var cur = fhAnchorAsof(acct);
+  return (!cur || facts.asof > cur) ? 'set' : 'keep';
+}
+
+/* The meta written beside the anchor. `k` is base units, asset view. */
+function fhAnchorMetaOf(facts, state, mult){
+  var rows = (facts.rows || []).slice(-ANCHOR_ROWS_MAX);
+  return { v: 1, src: 'stmt', state: state, k: facts.balDong / (mult || 1000), sid: facts.sid || null,
+    asof: facts.asof, from: facts.from || (rows.length ? rows[0][0] : facts.asof), open: facts.open || 1, how: facts.how || '', rows: rows };
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { fhAnchorDelta: fhAnchorDelta, fhAnchorMetaSet: fhAnchorMetaSet, fhAnchorOffer: fhAnchorOffer, fhAnchorAsof: fhAnchorAsof,
+    fhAnchorAtOf: fhAnchorAtOf, fhAnchorWalk: fhAnchorWalk, fhAnchorCoverage: fhAnchorCoverage, fhAnchorView: fhAnchorView,
+    fhAnchorDecide: fhAnchorDecide, fhAnchorMetaOf: fhAnchorMetaOf, ANCHOR_COV_MIN: ANCHOR_COV_MIN };
+}
 /* ── Period comparison — which earlier period does a bar compare with?
    (docs/specs/period-comparison-spec.md)
 
@@ -23046,6 +23237,15 @@ var STMT_LABELS = [
   ['totalCredit', ['phat sinh co', 'tong ghi co', 'total credit']],
   ['holder',      ['chu tai khoan', 'account holder', 'ten chu the', 'cardholder']],
   ['period',      ['thoi gian sao ke', 'ky sao ke', 'period covered', 'statement period']],
+  /* What the setup wizard used to ask a person to type (statement-balance-spec
+     §1). `stmtDate` is the statement date on a card and the print date on an
+     account. `autoDebit` sits before `account`: both labels name an account, and
+     only this one is somebody else's. */
+  ['limit',       ['han muc tin dung', 'credit limit']],
+  ['stmtDate',    ['ngay sao ke', 'ngay in sao ke', 'statement date']],
+  ['dueDate',     ['ngay den han thanh toan', 'ngay den han', 'payment due date', 'due date']],
+  ['minPayment',  ['thanh toan toi thieu', 'minimum payment']],
+  ['autoDebit',   ['so tk trich no', 'tai khoan trich no', 'auto debit account']],
   ['account',     ['so tai khoan', 'account number', 'so the chinh', 'primary card number', 'so vi']]
 ];
 function fhStmtSummary(notes){
@@ -23067,6 +23267,10 @@ function fhStmtSummary(notes){
           } else if (key === 'account') {
             /* Only the masked tail is ever kept. The full number stays in the file. */
             var dg = raw.replace(/\D/g, ''); if (dg.length >= 4) out.accountTail = dg.slice(-4);
+          } else if (key === 'autoDebit') {
+            var ad = raw.replace(/\D/g, ''); if (ad.length >= 4) out.autoDebitTail = ad.slice(-4);
+          } else if (key === 'stmtDate' || key === 'dueDate') {
+            var dt = fhStmtDate(raw); if (dt) out[key] = dt.date;
           } else { var n = fhStmtNum(raw); if (n !== null) out[key] = Math.abs(n); }
           break;
         }
@@ -23398,10 +23602,81 @@ function fhStmtParse(grid, rolesOverride, ctx){
     rows: rows, failed: read.failed, summary: summary, proof: proof };
 }
 
+/* ═══ Account facts (docs/specs/statement-balance-spec.md §3) ═══════════════
+   What a parsed statement says about the ACCOUNT, as opposed to its rows: the
+   balance and the day it is true for, and for a card the limit and its dates.
+   `kind` is the account's kind as the capture step decided it.
+
+   The balance is taken only when the file's own arithmetic stands behind it:
+     account  "Số dư cuối kỳ", proved, and equal to the last row's running
+              balance when the file prints both
+     wallet   the balance after the last row ON THE PROVED CHAIN. The newest row
+              is not always it: one real file ends on a row from another pocket
+              that shows 0 ₫, two days after the row that shows the real balance
+     card     "Dư nợ cuối kỳ", proved by the totals, kept NEGATIVE (a debt is a
+              negative asset, the convention every balance in the ledger uses)
+   Anything short of that returns ok:false with a reason, and the card facts
+   that were read all the same.
+
+   `rows` = the file's movements on this account as [day, signed đồng], oldest
+   first: the dated anchor matches the ledger's edge rows against them and
+   measures coverage with them (19-anchor.js). Wallet payments funded from a
+   linked bank never moved this balance and are left out. */
+var STMT_FACT_TRAIL_MAX = 2;       // rows allowed after the chain's last row
+function fhStmtAccountFacts(parsed, kind){
+  var out = { ok: false, why: '', kind: kind || '', n: 0, rows: [] };
+  if (!parsed || !parsed.table || !parsed.rows || !parsed.rows.length) { out.why = 'no_table'; return out; }
+  var sum = parsed.summary || {}, proof = parsed.proof || {}, rows = parsed.rows;   // oldest first
+  var isCard = kind === 'credit_card';
+  var lastDay = rows.reduce(function(d, r){ return r.date > d ? r.date : d; }, rows[0].date);
+  var firstDay = rows.reduce(function(d, r){ return r.date < d ? r.date : d; }, rows[0].date);
+  out.n = rows.length;
+  out.from = (sum.period && sum.period.from) || firstDay;
+  if (sum.limit > 0) out.limitDong = Math.round(sum.limit);
+  if (sum.minPayment > 0) out.minDong = Math.round(sum.minPayment);
+  if (sum.endDebt !== undefined) out.debtDong = Math.round(sum.endDebt);
+  if (sum.autoDebitTail) out.autoDebitTail = sum.autoDebitTail;
+  if (sum.stmtDate) out.stmtDate = sum.stmtDate;
+  if (sum.dueDate) out.dueDate = sum.dueDate;
+
+  var moved = function(r){ return !r.unmoved && !(r.cls && r.cls.fundedElsewhere); };
+  var cut = rows.length - 1;       // index of the last row the balance already contains
+  if (isCard) {
+    if (sum.endDebt === undefined) { out.why = 'no_balance'; return out; }
+    if (!proof.ok || !proof.totals) { out.why = 'unproved'; return out; }
+    out.balDong = -Math.round(sum.endDebt);
+    out.asof = (sum.stmtDate && sum.stmtDate >= lastDay) ? sum.stmtDate : lastDay;
+    out.how = 'debt'; out.open = 5;
+  } else {
+    var chainIx = -1;
+    if (proof.ok && proof.how === 'running') {
+      for (var i = rows.length - 1; i >= 0; i--) {
+        var r = rows[i];
+        if (r.bal !== null && r.bal !== undefined && !r.broken && moved(r)) { chainIx = i; break; }
+      }
+    }
+    if (sum.closing !== undefined && proof.ok) {
+      if (chainIx >= 0 && Math.abs(rows[chainIx].bal - sum.closing) > STMT_TOL) { out.why = 'conflict'; return out; }
+      out.balDong = Math.round(sum.closing);
+      out.asof = (sum.period && sum.period.to && sum.period.to >= lastDay) ? sum.period.to : lastDay;
+      out.how = 'closing';
+    } else if (chainIx >= 0) {
+      if (rows.length - 1 - chainIx > STMT_FACT_TRAIL_MAX) { out.why = 'trailing'; return out; }
+      out.balDong = Math.round(rows[chainIx].bal);
+      out.asof = rows[chainIx].date;
+      out.how = 'chain'; cut = chainIx;
+    } else { out.why = proof.ok ? 'no_balance' : 'unproved'; return out; }
+    out.open = 1;
+  }
+  for (var j = 0; j <= cut; j++) { if (moved(rows[j])) out.rows.push([rows[j].date, Math.round(rows[j].amt)]); }
+  out.ok = true;
+  return out;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { fhStmtNum: fhStmtNum, fhStmtDate: fhStmtDate, fhStmtRoles: fhStmtRoles, fhStmtFindTable: fhStmtFindTable,
     fhStmtSummary: fhStmtSummary, fhStmtRead: fhStmtRead, fhStmtProve: fhStmtProve, fhStmtClassify: fhStmtClassify,
-    fhStmtParse: fhStmtParse, fhStmtHeaderSig: fhStmtHeaderSig, stmtDeburr: stmtDeburr,
+    fhStmtParse: fhStmtParse, fhStmtHeaderSig: fhStmtHeaderSig, stmtDeburr: stmtDeburr, fhStmtAccountFacts: fhStmtAccountFacts,
     STMT_ISSUERS: STMT_ISSUERS, STMT_ISSUER_DEFAULT: STMT_ISSUER_DEFAULT,
     fhStmtIssuer: fhStmtIssuer, fhStmtBankOf: fhStmtBankOf, fhStmtHolder: fhStmtHolder };
 }
@@ -24868,10 +25143,13 @@ function _exdMetaRow(label, val){
    staged commit (Q8b), nothing saves per-field. */
 var EXD={}, _exdEdit=false;   // pending family-detail changes: {cat, who, amtDisp, note, dateIso, timeStr, photos}; _exdEdit = view (false) or edit (true)
 function _exdDirty(){ return Object.keys(EXD).length>0; }
-function _exdRow(opts){   // {label, val, chg, ro, soft, miss, hot, fn}
+function _exdRow(opts){   // {label, val, chg, ro, soft, miss, hot, fn, by}
   var chev=opts.ro?'':'<svg class="csv-schev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>';
-  var cls='csv-srow'+(opts.ro?' ro':'')+(opts.soft?' soft':'')+(opts.miss?' miss':'')+(opts.hot?' hot':'')+(opts.chg?' chg':'');
-  var inner='<small>'+opts.label+'</small><span class="csv-sval">'+opts.val+chev+'</span>';
+  var cls='csv-srow'+(opts.ro?' ro':'')+(opts.soft?' soft':'')+(opts.miss?' miss':'')+(opts.hot?' hot':'')+(opts.chg?' chg':'')+(opts.by?' rl-has':'');
+  /* `by` = one quiet line under the value saying where it came from, in the
+     shape the review card's "Theo quy tắc" line has (.rl-col, .rcr-by). */
+  var sval='<span class="csv-sval">'+opts.val+chev+'</span>';
+  var inner='<small>'+opts.label+'</small>'+(opts.by?'<span class="rl-col">'+sval+'<span class="rcr-by">'+opts.by+'</span></span>':sval);
   return opts.ro
     ? '<div class="'+cls+'">'+inner+'</div>'
     : '<button type="button" class="'+cls+'" onclick="'+opts.fn+'">'+inner+'</button>';
@@ -30659,7 +30937,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v626';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v627';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -32379,6 +32657,28 @@ window.obGoogle = async function () {
       } catch (e) { return _DEC_FAILED; }
     };
     const _decTxt = async (b64) => { const v = await _decP(b64); return v === _DEC_FAILED ? null : v; };
+    /* đồng per base unit, for the anchor math (19-anchor.js compares in đồng). */
+    const _pMult = () => (typeof window.curMult === 'function' ? window.curMult() : 1000);
+    /* The accounts read (0160, statement-balance-spec SB16). `anchor_meta_enc`
+       says where an anchor came from; a database that does not have the column
+       yet answers 42703, and without this fallback that one error emptied the
+       whole accounts list. The column is asked for until the database says no,
+       then never again this session: the feature is simply dormant. */
+    const _ACCT_COLS = 'id,kind,name_enc,tail,provider,provider_key,credit_limit_enc,human_verified,statement_day,due_day,anchor_balance_enc,anchor_at,ext_balance_enc,ext_balance_date,account_number_enc,asset_symbol_enc,asset_unit_enc,asset_class_enc,manual_price_enc,manual_price_at,setup_skipped_at';
+    let _acctMetaCol = true;
+    const _acctColMissing = (err) => !!err && (String(err.code || '') === '42703' || /anchor_meta_enc/i.test(String(err.message || '') + ' ' + String(err.details || '')));
+    async function _acctSelect() {
+      const q = (cols) => _sb().from('personal_accounts').select(cols).eq('owner_user_id', P.uid).is('archived_at', null);
+      if (_acctMetaCol) {
+        const r = await q(_ACCT_COLS + ',anchor_meta_enc');
+        if (!_acctColMissing(r.error)) return r;
+        _acctMetaCol = false;
+      }
+      return q(_ACCT_COLS);
+    }
+    window.fhPersonalAnchorMetaOn = () => _acctMetaCol;
+    /* Only a shape this build understands is kept; anything else reads as "typed". */
+    const _anchorMetaParse = (raw) => { try { const m = raw ? JSON.parse(raw) : null; return (m && m.v === 1 && m.src === 'stmt' && m.asof && isFinite(m.k)) ? m : null; } catch (e) { return null; } };
     /* The cached decrypt, for the other personal readers (27-streaks walks up
        to 4000 rows per recompute and used to open each one cold). Same
        contract as inside this module: _decP returns the sentinel on failure,
@@ -32409,7 +32709,7 @@ window.obGoogle = async function () {
       for (let i = 0; i < tx.length; i++) parts.push(_rowSig(tx[i]));
       for (let i = 0; i < old.length; i++) parts.push(_rowSig(old[i]));
       for (let i = 0; i < db.length; i++) parts.push(_rowSig(db[i]));
-      for (let i = 0; i < ac.length; i++) { const a = ac[i]; parts.push(a.id + ':' + (a.kind || '') + ':' + (a.name || '') + ':' + (a.tail || '') + ':' + a.anchorK + ':' + (a.anchorAt || '') + ':' + a.extK + ':' + (a.extDate || '') + ':' + a.limitK + ':' + (a.humanVerified ? 1 : 0) + ':' + (a.setupSkippedAt || '') + ':' + (a.statementDay || '') + ':' + (a.dueDay || '') + ':' + (a.providerKey || '') + ':' + a.manualPriceK + ':' + (a.assetSymbol || '')); }
+      for (let i = 0; i < ac.length; i++) { const a = ac[i]; parts.push(a.id + ':' + (a.kind || '') + ':' + (a.name || '') + ':' + (a.tail || '') + ':' + a.anchorK + ':' + (a.anchorAt || '') + ':' + a.extK + ':' + (a.extDate || '') + ':' + a.limitK + ':' + (a.humanVerified ? 1 : 0) + ':' + (a.setupSkippedAt || '') + ':' + (a.statementDay || '') + ':' + (a.dueDay || '') + ':' + (a.providerKey || '') + ':' + a.manualPriceK + ':' + (a.assetSymbol || '') + ':' + (a.anchorMeta ? a.anchorMeta.state + '@' + a.anchorMeta.asof + '@' + a.anchorMeta.k + '@' + (a.anchorMeta.sid || '') : '')); }
       for (let i = 0; i < lb.length; i++) { const l = lb[i]; parts.push(l.id + ':' + (l.name || '') + ':' + (l.emoji || '') + ':' + (l.sortOrder || 0) + ':' + ((l.claims || []).length)); }
       return parts.join('\n');
     };
@@ -32787,8 +33087,8 @@ window.obGoogle = async function () {
         const [tr, bd, ac, dr, pp, mm, lb] = await Promise.all([
           _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,counterparty_enc,cat_name_enc,cat_emoji,occurred_time_enc,txn_date,kind,space_id,link_id,version,updated_at,created_at,account_id,transfer_group_id,position_account_id,quantity_enc,source,node_enc,label_id,receipt_enc,recurrence,recurrence_source').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }).order('id')),
           _sb().from('personal_budgets').select('total_enc,cats_enc').eq('owner_user_id', P.uid).eq('month', _monISO()).maybeSingle(),
-          _sb().from('personal_accounts').select('id,kind,name_enc,tail,provider,provider_key,credit_limit_enc,human_verified,statement_day,due_day,anchor_balance_enc,anchor_at,ext_balance_enc,ext_balance_date,account_number_enc,asset_symbol_enc,asset_unit_enc,asset_class_enc,manual_price_enc,manual_price_at,setup_skipped_at').eq('owner_user_id', P.uid).is('archived_at', null),
-          _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,counterparty_enc,cat_name_enc,cat_emoji,txn_date,kind,account_id,transfer_group_id,position_account_id,quantity_enc,due_date,created_at,node_enc,label_id').eq('owner_user_id', P.uid).or('kind.neq.expense,account_id.not.is.null').order('txn_date', { ascending: false }).order('id')),
+          _acctSelect(),
+          _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,counterparty_enc,cat_name_enc,cat_emoji,txn_date,kind,account_id,transfer_group_id,position_account_id,quantity_enc,due_date,created_at,node_enc,label_id,source').eq('owner_user_id', P.uid).or('kind.neq.expense,account_id.not.is.null').order('txn_date', { ascending: false }).order('id')),
           _sb().from('personal_transaction_photos').select('transaction_id,photo_url,sort_order').eq('owner_user_id', P.uid).order('sort_order').limit(800).then((r) => r, () => ({ data: null })),
           _sb().from('personal_review_memory').select('id,key_enc,position_account_id').eq('owner_user_id', P.uid).limit(500).then((r) => r, () => ({ data: null })),
           /* 0144 — the person's own labels (the L2 partition of the category tree).
@@ -32882,6 +33182,10 @@ window.obGoogle = async function () {
             anchorAt: a.anchor_at || null,
             extK: (ext == null || ext === _DEC_FAILED) ? null : Number(ext),
             extDate: a.ext_balance_date || null,
+            /* 0160: an anchor read from a statement carries its own day and the
+               file's rows (state 'set'), or waits as an offer the wizard
+               pre-fills (state 'offer'). Null = typed, or nothing yet. */
+            anchorMeta: a.anchor_meta_enc ? _anchorMetaParse(await _decTxt(a.anchor_meta_enc)) : null,
             /* account setup (0134): "Để sau" on the setup wizard — the account
                stays unverified (no number) but is never re-asked at import */
             setupSkippedAt: a.setup_skipped_at || null,
@@ -32902,6 +33206,7 @@ window.obGoogle = async function () {
           const qRaw = t.quantity_enc ? await _decP(t.quantity_enc) : null;
           debts.push({ id: t.id, date: t.txn_date, kind: t.kind, accountId: t.account_id,
             transferGroupId: t.transfer_group_id, ts: t.created_at, due: t.due_date || null,
+            src: t.source || null,
             positionId: t.position_account_id || null,
             qty: (qRaw == null || qRaw === _DEC_FAILED) ? null : (Number(qRaw) || null),
             amt: bad ? null : Number(a), _unreadable: bad,
@@ -34003,10 +34308,17 @@ window.obGoogle = async function () {
          fhPersonalAnchorSet: declared truth now, older bank numbers dropped.
          Cards pass a NEGATIVE value (a liability is a negative asset). */
       if (fields.hasOwnProperty('anchorK') && isFinite(fields.anchorK)) {
-        row.anchor_balance_enc = await _encP(Number(fields.anchorK)); row.anchor_at = new Date().toISOString();
+        row.anchor_balance_enc = await _encP(Number(fields.anchorK)); row.anchor_at = fields.anchorAt || new Date().toISOString();
         row.ext_balance_enc = null; row.ext_balance_date = null;
       }
+      /* Where the anchor came from (0160, statement-balance-spec §8). A statement
+         passes its meta, and the end of its last day as anchorAt; a typed number
+         passes none, and that absence is the record: an older meta goes. */
+      if (_acctMetaCol && (fields.hasOwnProperty('anchorMeta') || row.anchor_balance_enc)) {
+        row.anchor_meta_enc = fields.anchorMeta ? await _encP(JSON.stringify(fields.anchorMeta)) : null;
+      }
       if (fields.archived) row.archived_at = new Date().toISOString();
+      if (!Object.keys(row).length) return true;
       const r = await _sb().from('personal_accounts').update(row).eq('id', id).eq('owner_user_id', P.uid);
       if (r.error) { console.warn('account update failed', r.error); return false; }
       await window.fhPersonalHydrate(); return true;
@@ -34088,22 +34400,25 @@ window.obGoogle = async function () {
        (−amt) deepens the debt, a payment or reconcile adjustment (+amt) draws
        it down, and fhPersonalDebts reads outstanding = −balance. Un-anchored
        cards return null here and fall back to the window-derived sum there. */
-    window.fhPersonalBalance = function (acctId) {
+    /* Since 0160 the walk itself lives in 19-anchor.js (pure, tested under
+       Node), because an anchor read from a STATEMENT is true for the statement's
+       last day, not for the moment it was written: rows after that day count,
+       rows before its edge are inside, and rows on the edge count only when the
+       file does not list them (statement-balance-spec §2). A typed anchor walks
+       exactly as described above. `upto` stops at a day, for the drift badge. */
+    window.fhPersonalBalance = function (acctId, upto) {
       const a = P.accounts.find((x) => x.id === acctId);
       if (!a || a.anchorK == null) return null;
-      const anchorDay = a.anchorAt ? _localDate(new Date(a.anchorAt)) : null;
-      let bal = a.anchorK;
-      for (const d of P.debts) {
-        if (d.accountId !== acctId || d._unreadable || d.amt == null) continue;
-        if (d.kind !== 'expense' && d.kind !== 'income' && d.kind !== 'transfer'
-            && d.kind !== 'loan' && d.kind !== 'repayment' && d.kind !== 'investment') continue;
-        if (anchorDay) {
-          if (d.date < anchorDay) continue;
-          if (d.date === anchorDay && (!d.ts || d.ts <= a.anchorAt)) continue;
-        }
-        bal += (d.kind === 'expense' || d.kind === 'loan') ? -d.amt : d.amt;
-      }
-      return bal;
+      const w = window.fhAnchorWalk(a, P.debts, { mult: _pMult(), upto: upto || null });
+      return w ? w.bal : null;
+    };
+    /* What a tile or an account screen shows: the brought-forward balance, the
+       statement's own number, how many rows came after it, and which of the two
+       leads (statement-balance-spec §5). Null for an account with no anchor. */
+    window.fhPersonalAcctView = function (acctId) {
+      const a = P.accounts.find((x) => x.id === acctId);
+      if (!a || a.anchorK == null) return null;
+      return window.fhAnchorView(a, P.debts, { mult: _pMult() });
     };
     /* Drift (spec §5.2): the bank's last self-stated balance vs the derived one.
        Only meaningful when both exist; a hair of float noise is not a drift. */
@@ -34113,8 +34428,11 @@ window.obGoogle = async function () {
       /* A bank-stated balance OLDER than the anchor is stale by definition —
          the anchor superseded it. Without this, the first setup after a
          backfill argued against a "Số dư" from weeks ago (spec cause 6). */
-      if (a.anchorAt && a.extDate && a.extDate < _localDate(new Date(a.anchorAt))) return null;
-      const bal = window.fhPersonalBalance(acctId);
+      const asof = window.fhAnchorAsof(a);
+      if (asof && a.extDate && a.extDate < asof) return null;
+      /* The bank said this on extDate, so the ledger is read as of that day too:
+         against today's balance every row recorded since read as a drift. */
+      const bal = window.fhPersonalBalance(acctId, a.extDate || undefined);
       if (bal == null) return null;
       const d = a.extK - bal;
       return Math.abs(d) < 0.5 ? null : { drift: d, extK: a.extK, extDate: a.extDate };
@@ -34122,12 +34440,12 @@ window.obGoogle = async function () {
     /* The anchor: "Số dư hiện tại", declared truth at this moment. */
     window.fhPersonalAnchorSet = async function (acctId, amtK) {
       if (!P.uid || !P.key || !acctId || !(isFinite(amtK))) return false;
-      const r = await _sb().from('personal_accounts').update({
+      const r = await _sb().from('personal_accounts').update(Object.assign({
         anchor_balance_enc: await _encP(Number(amtK)), anchor_at: new Date().toISOString(),
         /* the anchor is newer truth than any captured "Số dư" — drop the old
            bank number so drift can only argue from mail dated after this */
         ext_balance_enc: null, ext_balance_date: null,
-      }).eq('id', acctId).eq('owner_user_id', P.uid);
+      }, _acctMetaCol ? { anchor_meta_enc: null } : {})).eq('id', acctId).eq('owner_user_id', P.uid);
       if (r.error) { console.warn('anchor set failed', r.error); return false; }
       await window.fhPersonalHydrate(); return true;
     };
@@ -34145,6 +34463,39 @@ window.obGoogle = async function () {
       if (r.error) { console.warn('ext balance set failed', r.error); return false; }
       if (a) { a.extK = Number(amtK); a.extDate = day; }   // local update — no full rehydrate for a side-signal
       return true;
+    };
+    /* What a statement says about its account (statement-balance-spec §4), in one
+       write. `facts` comes from fhStmtAccountFacts (59) with `sid` added.
+         card facts  limit, statement day, due day: fill an EMPTY field, from any
+                     statement, never over a value the person typed (SB8)
+         balance     'offer' on an account with no number (the wizard pre-fills
+                     it; nothing is shown as a balance yet), 'set' on one the
+                     person confirmed once when this statement is newer (SB6,
+                     SB7), otherwise untouched
+       Returns what was done: 'offer' | 'set' | 'facts' | 'none'. A statement and
+       an account that disagree on card-or-not are not mixed: a debt is stored
+       negative, and a wrong sign is worse than no number. */
+    window.fhPersonalStmtFacts = async function (acctId, facts) {
+      if (!P.uid || !P.key || !acctId || !facts) return 'none';
+      const a = P.accounts.find((x) => x.id === acctId);
+      if (!a || a.kind === 'investment') return 'none';
+      const mult = _pMult(), fields = {};
+      const isCard = a.kind === 'credit_card', sameSide = isCard === (facts.kind === 'credit_card');
+      const dayOf = (iso) => { const k = iso ? Number(String(iso).slice(8, 10)) : 0; return (k >= 1 && k <= 31) ? k : null; };
+      if (isCard && sameSide) {
+        if (facts.limitDong > 0 && !(a.limitK > 0)) fields.limitK = facts.limitDong / mult;
+        if (dayOf(facts.stmtDate) && !a.statementDay) fields.statementDay = dayOf(facts.stmtDate);
+        if (dayOf(facts.dueDate) && !a.dueDay) fields.dueDay = dayOf(facts.dueDate);
+      }
+      const act = (_acctMetaCol && sameSide) ? window.fhAnchorDecide(a, facts) : 'none';
+      if (act === 'offer' || act === 'set') {
+        fields.anchorMeta = window.fhAnchorMetaOf(facts, act, mult);
+        if (act === 'set') { fields.anchorK = fields.anchorMeta.k; fields.anchorAt = window.fhAnchorAtOf(facts.asof); }
+      }
+      if (!Object.keys(fields).length) return 'none';
+      const ok = await window.fhPersonalAccountUpdate(acctId, fields);
+      if (!ok) return 'none';
+      return (act === 'offer' || act === 'set') ? act : 'facts';
     };
 
     /* mirror — active family, my authored realized expenses → personal masters */
@@ -34266,7 +34617,12 @@ window.obGoogle = async function () {
            the list here must grow with every _enc column the schema gains. */
         const tr = await _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,counterparty_enc,occurred_time_enc,quantity_enc,node_enc,receipt_enc').eq('owner_user_id', P.uid);
         const lb = await _sb().from('personal_labels').select('id,name_enc,claims_enc').eq('owner_user_id', P.uid);
-        const ac = await _sb().from('personal_accounts').select('id,name_enc,credit_limit_enc,anchor_balance_enc,ext_balance_enc,account_number_enc,asset_symbol_enc,asset_unit_enc,asset_class_enc,manual_price_enc').eq('owner_user_id', P.uid);
+        /* anchor_meta_enc (0160) joins the sweep. Asked for the way the hydrate asks:
+           a database without the column must not cost the accounts their pass. */
+        const _acQ = (cols) => _sb().from('personal_accounts').select(cols).eq('owner_user_id', P.uid);
+        const _acCols = 'id,name_enc,credit_limit_enc,anchor_balance_enc,ext_balance_enc,account_number_enc,asset_symbol_enc,asset_unit_enc,asset_class_enc,manual_price_enc';
+        let ac = _acctMetaCol ? await _acQ(_acCols + ',anchor_meta_enc') : await _acQ(_acCols);
+        if (_acctMetaCol && _acctColMissing(ac.error)) { _acctMetaCol = false; ac = await _acQ(_acCols); }
         const bg = await _sb().from('personal_budgets').select('owner_user_id,month,total_enc,cats_enc').eq('owner_user_id', P.uid);
         const ls = await _sb().from('personal_lessons').select('owner_user_id,lessons_enc').eq('owner_user_id', P.uid);
         const rm = await _sb().from('personal_review_memory').select('id,key_enc').eq('owner_user_id', P.uid);
@@ -34281,7 +34637,7 @@ window.obGoogle = async function () {
           if (u.error) throw u.error; n++; if (onProgress) onProgress(n, tot);
         }
         for (const r of (ac.data || [])) {
-          const u = await _sb().from('personal_accounts').update({ name_enc: await reEnc(r.name_enc), credit_limit_enc: await reEnc(r.credit_limit_enc), anchor_balance_enc: await reEnc(r.anchor_balance_enc), ext_balance_enc: await reEnc(r.ext_balance_enc), account_number_enc: await reEnc(r.account_number_enc), asset_symbol_enc: await reEnc(r.asset_symbol_enc), asset_unit_enc: await reEnc(r.asset_unit_enc), asset_class_enc: await reEnc(r.asset_class_enc), manual_price_enc: await reEnc(r.manual_price_enc) }).eq('id', r.id);
+          const u = await _sb().from('personal_accounts').update(Object.assign({ name_enc: await reEnc(r.name_enc), credit_limit_enc: await reEnc(r.credit_limit_enc), anchor_balance_enc: await reEnc(r.anchor_balance_enc), ext_balance_enc: await reEnc(r.ext_balance_enc), account_number_enc: await reEnc(r.account_number_enc), asset_symbol_enc: await reEnc(r.asset_symbol_enc), asset_unit_enc: await reEnc(r.asset_unit_enc), asset_class_enc: await reEnc(r.asset_class_enc), manual_price_enc: await reEnc(r.manual_price_enc) }, _acctMetaCol ? { anchor_meta_enc: await reEnc(r.anchor_meta_enc) } : {})).eq('id', r.id);
           if (u.error) throw u.error; n++; if (onProgress) onProgress(n, tot);
         }
         for (const r of (rm.data || [])) {
@@ -35217,23 +35573,33 @@ window.obGoogle = async function () {
          alike — a window-derived card outstanding is exactly the number that
          broke trust on day one. */
       const setupTile = function (a) {
+        /* A statement may have left its number on the account as an offer
+           (statement-balance-spec §4). Still no number on the tile: an offer is
+           not a balance until the person confirms it. */
+        const offer = window.fhAnchorOffer ? window.fhAnchorOffer(a) : null;
         return '<button class="dbt-tile dbt-setup" onclick="fhAcctSetupWizard([\'' + a.id + '\'])">'
           + '<div class="dbt-tk">' + _e(a.name || 'Tài khoản') + '</div>'
           + '<div class="dbt-tv num dim">—</div>'
-          + '<div class="dbt-ts">Chạm để thiết lập</div></button>';
+          + '<div class="dbt-ts">' + (offer ? 'Xác nhận số từ sao kê' : 'Chạm để thiết lập') + '</div></button>';
       };
       t.d.cards.forEach(function (c) {
         if (!c.verified) { tiles.push(setupTile(c.acct)); return; }
-        const neg = c.outstanding > 0, due = _dueLabel(c.acct);
+        /* The figure the tile leads with, and the line saying how it is known
+           (statement-balance-spec §5): the statement's own debt when the rows
+           after it are an incomplete picture, otherwise the brought-forward one. */
+        const v = window.fhPersonalAcctView ? fhPersonalAcctView(c.acct.id) : null, cap = _anchorCap(v);
+        const out = (v && v.mode === 'dated') ? -v.shown : c.outstanding;
+        const neg = out > 0, due = _dueLabel(c.acct);
         let ht = '<button class="dbt-tile dbt-card-tile" onclick="openDebtAccount(\'' + c.acct.id + '\')">'
           + '<div class="dbt-tk">' + _e(c.acct.name || 'Thẻ') + '</div>'
-          + '<div class="dbt-tv num ' + (neg ? 'owe' : 'owed') + '">' + (neg ? '−' : '+') + fmtK(Math.abs(c.outstanding)) + '</div>';
+          + '<div class="dbt-tv num ' + (neg ? 'owe' : 'owed') + '">' + (neg ? '−' : '+') + fmtK(Math.abs(out)) + '</div>';
         if (c.acct.limitK > 0) {
-          const pct = Math.min(100, Math.round(c.outstanding / c.acct.limitK * 100));
+          const pct = Math.min(100, Math.max(0, Math.round(out / c.acct.limitK * 100)));
           ht += '<div class="dbt-ms"><span>Dùng ' + pct + '%</span><span>hạn ' + fmtK(c.acct.limitK) + '</span></div>'
             + '<div class="dbt-meter"><i style="width:' + pct + '%"></i></div>';
+          if (cap) ht += '<div class="dbt-ts">' + cap + '</div>';
         } else {
-          ht += '<div class="dbt-ts">thẻ tín dụng</div>';
+          ht += '<div class="dbt-ts">' + (cap || 'thẻ tín dụng') + '</div>';
         }
         /* A due notice from the bank's own mail (email-reading-v2-spec §6) says more
            than the due DAY can: this cycle's real date and the minimum payment. One
@@ -35249,14 +35615,15 @@ window.obGoogle = async function () {
          or the honest "chưa có mốc" when no anchor exists (a derived balance
          with no anchor would be confidently wrong). Drift wears a quiet chip. */
       balAccts.forEach(function (a) {
-        const bal = window.fhPersonalBalance ? fhPersonalBalance(a.id) : null;
+        const v = window.fhPersonalAcctView ? fhPersonalAcctView(a.id) : null;
+        const bal = v ? v.shown : (window.fhPersonalBalance ? fhPersonalBalance(a.id) : null);
         if (bal == null) { tiles.push(setupTile(a)); return; }
         const dr = window.fhPersonalDrift ? fhPersonalDrift(a.id) : null;
         const kindLbl = a.kind === 'ewallet' ? 'ví điện tử' : (a.kind === 'cash' ? 'tiền mặt' : 'tài khoản');
         let ht = '<button class="dbt-tile" onclick="openBalAccount(\'' + a.id + '\')">'
           + '<div class="dbt-tk">' + _e(a.name || 'Tài khoản') + '</div>'
           + '<div class="dbt-tv num' + (bal < 0 ? ' owe' : '') + '">' + (bal < 0 ? '−' : '') + fmtK(Math.abs(bal)) + '</div>'
-          + '<div class="dbt-ts">' + kindLbl + '</div>';
+          + '<div class="dbt-ts">' + (_anchorCap(v) || kindLbl) + '</div>';
         if (dr) ht += '<div class="dbt-tchip"><span class="dbt-due">lệch ' + (dr.drift > 0 ? '+' : '−') + fmtK(Math.abs(dr.drift)) + '</span></div>';
         tiles.push(ht + '</button>');
       });
@@ -35355,6 +35722,29 @@ window.obGoogle = async function () {
     window.closeDebt = function () { const ov = document.getElementById('debt-overlay'); if (ov) ov.classList.remove('on'); };
 
     const _dmy = (iso) => iso ? iso.slice(8, 10) + '/' + iso.slice(5, 7) : '';
+    /* How a number read from a statement says where it comes from
+       (statement-balance-spec §5). Empty for a number the person typed. Returns
+       HTML: a tile is narrow, so the second fact gets its own line instead of
+       wrapping wherever it happens to.
+         nothing after the statement      theo sao kê 27/04
+         rows after it, well covered      theo sao kê 27/04 / + 12 khoản sau đó
+         rows after it, thinly covered    đến 27/04 / sau đó −4.2tr      (the tile leads with the statement's number) */
+    const _anchorCap = (v) => {
+      if (!v || v.src !== 'stmt' || !v.asof) return '';
+      const nb = (t) => _e(String(t).replace(/ /g, '\u00a0'));
+      if (v.mode === 'dated') return nb('đến ' + _dmy(v.asof)) + '<br>' + nb('sau đó ' + (v.later.sum < 0 ? '−' : '+') + fmtK(Math.abs(v.later.sum)));
+      return nb('theo sao kê ' + _dmy(v.asof)) + (v.later.n ? '<br>' + nb('+ ' + v.later.n + ' khoản sau đó') : '');
+    };
+    /* The same, in full sentences, for an account's own screen: both figures. */
+    const _anchorLines = (v, isCard) => {
+      if (!v || v.src !== 'stmt' || !v.asof) return '';
+      const sign = (n) => (n < 0 ? '−' : '+') + fmt(Math.abs(n));
+      /* On a card's screen the figure is a debt with no sign, so what came after
+         is said as debt too: a purchase ADDS to it. */
+      let s = 'Theo sao kê ' + _dmy(v.asof) + ': ' + (isCard ? 'dư nợ ' + fmt(Math.abs(v.base)) : fmt(v.base)) + '.';
+      if (v.later.n) s += ' Sau đó ' + v.later.n + ' khoản đã ghi: ' + sign(isCard ? -v.later.sum : v.later.sum) + (v.mode === 'dated' ? '. Có thể còn khoản chưa ghi, sao kê mới sẽ cập nhật lại.' : '.');
+      return s;
+    };
     const _todayIso = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
     /* "Hẹn trả" state for a person (0122): only while they still owe (the nag
        keys off balance > 0, never off which loan row got matched — a partial
@@ -35414,7 +35804,11 @@ window.obGoogle = async function () {
          into setup — the window-derived sum is not a fact worth a hero. */
       const ce = (d.cards || []).find(function (x) { return x.acct.id === acctId; });
       const verified = !!(ce && ce.verified);
-      const out = ce ? ce.outstanding : (b.spend - b.paid);
+      /* A debt read from a statement leads with the statement's own figure while
+         the rows after it are an incomplete picture, as on the tile; the line
+         under the hero gives both figures (statement-balance-spec §5). */
+      const view = (verified && window.fhPersonalAcctView) ? fhPersonalAcctView(acctId) : null;
+      const out = (view && view.mode === 'dated') ? -view.shown : (ce ? ce.outstanding : (b.spend - b.paid));
       const due = _dueLabel(acct);
       let h;
       if (!verified) {
@@ -35428,6 +35822,8 @@ window.obGoogle = async function () {
       if (acct.limitK > 0) meta.push('Hạn mức còn ' + fmt(Math.max(0, acct.limitK - out)) + ' / ' + fmt(acct.limitK));
       if (due) meta.push(due);
       if (meta.length) h += '<div class="dbt-hs">' + meta.join(' · ') + '</div>';
+      const stmtLine = _anchorLines(view, true);
+      if (stmtLine) h += '<div class="dbt-hs">' + _e(stmtLine) + '</div>';
       if (acct.limitK > 0) {
         const pct = Math.min(100, Math.round(out / acct.limitK * 100));
         h += '<div class="dbt-meter big"><i style="width:' + Math.max(0, pct) + '%"></i></div>';
@@ -36012,8 +36408,16 @@ window.obGoogle = async function () {
     const WZ_KINDS = [['credit_card', '💳 Thẻ tín dụng'], ['deposit', '🏦 Tài khoản ngân hàng'], ['ewallet', '📱 Ví điện tử'], ['cash', '💵 Tiền mặt']];
     const _wzKindLbl = (k) => { const f = WZ_KINDS.find((x) => x[0] === k); return f ? f[1] : k; };
     const _wzAmtLabel = (kind) => kind === 'credit_card' ? 'Dư nợ hiện tại' : (kind === 'cash' ? 'Tiền mặt đang có' : 'Số dư hiện tại');
-    const _wzDraft = (acct) => ({ name: acct.name || '', kind: acct.kind, amtK: null, amtSet: false,
-      limitK: acct.limitK > 0 ? acct.limitK : null, stm: acct.statementDay || null, due: acct.dueDay || null });
+    /* A statement may have left its number on the account (statement-balance-spec
+       §4): the draft starts from it, so one tap on Xong confirms. `offer` stays
+       on the draft so the save can tell "kept the statement's number" (stored
+       with the statement's day) from "typed another" (true now, as always). */
+    const _wzDraft = (acct) => {
+      const offer = window.fhAnchorOffer ? window.fhAnchorOffer(acct) : null;
+      return { name: acct.name || '', kind: acct.kind, amtK: offer ? Math.abs(offer.k) : null, amtSet: !!offer, offer: offer,
+        limitK: acct.limitK > 0 ? acct.limitK : null, stm: acct.statementDay || null, due: acct.dueDay || null };
+    };
+    const _wzFromStmt = (d) => !!(d.offer && d.amtSet && Math.abs(d.amtK - Math.abs(d.offer.k)) < 0.0005);
     /* The live number an anchored account shows today: a card's outstanding
        (from the debts derivation), else the anchored balance. */
     const _wzLive = (acct) => {
@@ -36059,14 +36463,19 @@ window.obGoogle = async function () {
       const anchored = w.acct.anchorK != null, live = anchored ? _wzLive(w.acct) : null;
       const row = (typeof window._exdRow === 'function') ? window._exdRow : null;
       const dots = (!settings && n > 1) ? '<div class="wz-dots" aria-hidden="true">' + w.queue.map((_, k) => '<i class="' + (k < i ? 'done' : (k === i ? 'on' : '')) + '"></i>').join('') + '</div>' : '';
-      const why = (!settings && w.intro && i === 0)
-        ? '<div class="wz-why">Email chỉ kể được vài tháng gần đây. Nhập số đang thấy trong app ngân hàng để tụi mình tính đúng từ đây.</div>' : '';
+      const fromStmt = _wzFromStmt(d);
+      const why = (!settings && fromStmt)
+        ? '<div class="wz-why">Số dưới đây đọc từ sao kê của bạn. Xem lại rồi bấm ' + (last ? 'Hoàn tất' : 'Xong') + ', hoặc chạm vào để sửa.</div>'
+        : ((!settings && w.intro && i === 0)
+          ? '<div class="wz-why">Email chỉ kể được vài tháng gần đây. Nhập số đang thấy trong app ngân hàng để tụi mình tính đúng từ đây.</div>' : '');
       let rows = '';
       if (row) {
         if (d.kind !== 'cash') rows += row({ label: 'Loại', val: '<b>' + _wzKindLbl(d.kind) + '</b>', fn: "fhWizSheet('kind')" });
         const shown = d.amtSet ? fmt(d.amtK) : (live != null ? fmt(live) : 'Chưa nhập');
-        rows += row({ label: _wzAmtLabel(d.kind), soft: !d.amtSet && live == null, hot: w.attempted && !d.amtSet, chg: d.amtSet && anchored,
-          val: '<b class="num">' + shown + '</b>', fn: "fhWizSheet('amt')" });
+        /* "hiện tại" would be untrue beside a statement's date: the label goes
+           neutral and the line under the number says which day it is true for. */
+        rows += row({ label: fromStmt ? (isCard ? 'Dư nợ' : 'Số dư') : _wzAmtLabel(d.kind), soft: !d.amtSet && live == null, hot: w.attempted && !d.amtSet, chg: d.amtSet && anchored,
+          val: '<b class="num">' + shown + '</b>', fn: "fhWizSheet('amt')", by: fromStmt ? 'Theo sao kê ' + _dmy(d.offer.asof) : '' });
         if (isCard) {
           rows += row({ label: 'Hạn mức thẻ', soft: !(d.limitK > 0), val: '<b class="num">' + (d.limitK > 0 ? fmt(d.limitK) : 'Để trống nếu không nhớ') + '</b>', fn: "fhWizSheet('lim')" });
           /* the two days are picker rows: the tap opens the OS calendar itself
@@ -36081,7 +36490,8 @@ window.obGoogle = async function () {
       }
       const note = (anchored && !d.amtSet)
         ? (isCard ? 'Sửa số dư nợ là đặt lại mốc, app tính tiếp từ số mới. Ngày chốt và ngày đến hạn dùng để nhắc “đến hạn”.' : 'Sửa số dư là đặt lại mốc, app tính tiếp từ số mới.')
-        : 'Mốc này đã gồm mọi giao dịch trước lúc đặt. Khoản ghi sau đó cộng trừ tiếp lên nó.';
+        : (fromStmt ? 'Số này đúng vào ngày ' + _dmy(d.offer.asof) + '. Khoản ghi sau ngày đó cộng trừ tiếp lên nó.'
+          : 'Mốc này đã gồm mọi giao dịch trước lúc đặt. Khoản ghi sau đó cộng trừ tiếp lên nó.');
       const h = '<div class="wz-head">' + dots + why + '</div>'
         + '<div class="dbt-card wz-namecard"><span class="crs-lbl">Tài khoản</span><input class="crs-in" id="wz-name" value="' + _e(d.name) + '" placeholder="vd. VIB ••1234"></div>'
         + '<div class="exd-meta srows"><div class="csv-srows">' + rows + '</div></div>'
@@ -36157,6 +36567,14 @@ window.obGoogle = async function () {
       const fields = { name: d.name || w.acct.name, kind: d.kind, humanVerified: true,
         limitK: isCard && d.limitK > 0 ? d.limitK : null, statementDay: isCard ? d.stm : null, dueDay: isCard ? d.due : null };
       if (d.amtSet) { fields.anchorK = isCard ? -d.amtK : d.amtK; fields.setupSkipped = false; }
+      /* Kept the statement's number: it is stored with the statement's own day and
+         rows, so the ledger brings it forward (statement-balance-spec SB6). The
+         kind must still be the side the statement was read for. */
+      if (_wzFromStmt(d) && isCard === (w.acct.kind === 'credit_card')) {
+        fields.anchorK = d.offer.k;
+        fields.anchorAt = window.fhAnchorAtOf(d.offer.asof);
+        fields.anchorMeta = Object.assign({}, d.offer, { state: 'set' });
+      }
       let ok = false;
       try { ok = await fhPersonalAccountUpdate(w.acct.id, fields); } catch (e) { ok = false; }
       if (!ok) { if (btn) { btn.disabled = false; btn.textContent = lbl; } window.toast && toast('Chưa lưu được, thử lại'); return; }
@@ -36251,14 +36669,17 @@ window.obGoogle = async function () {
     window.openBalAccount = function (acctId) {
       const P = _P(); if (!P) return;
       const acct = P.accounts.find((a) => a.id === acctId); if (!acct) return;
-      const bal = window.fhPersonalBalance ? fhPersonalBalance(acctId) : null;
+      const view = window.fhPersonalAcctView ? fhPersonalAcctView(acctId) : null;
+      const bal = view ? view.shown : (window.fhPersonalBalance ? fhPersonalBalance(acctId) : null);
       const dr = window.fhPersonalDrift ? fhPersonalDrift(acctId) : null;
       const d = _last || fhPersonalDebts();
       const b = (d.byAcct && d.byAcct[acctId]) || { rows: [] };
       let h = '<div class="dbt-hero2"><div class="dbt-hk">Số dư</div>';
       if (bal != null) {
         h += '<div class="dbt-hv num' + (bal < 0 ? ' owe' : '') + '">' + (bal < 0 ? '−' : '') + fmt(Math.abs(bal)) + '</div>';
-        if (acct.anchorAt) h += '<div class="dbt-hs">mốc đặt ' + _dmy(String(acct.anchorAt).slice(0, 10)) + ' — đã bao gồm mọi giao dịch trước lúc đặt</div>';
+        const stmtLine = _anchorLines(view, false);
+        if (stmtLine) h += '<div class="dbt-hs">' + _e(stmtLine) + '</div>';
+        else if (acct.anchorAt) h += '<div class="dbt-hs">mốc đặt ' + _dmy(String(acct.anchorAt).slice(0, 10)) + ' — đã bao gồm mọi giao dịch trước lúc đặt</div>';
       } else {
         h += '<div class="dbt-hv num dim">—</div>'
           + '<div class="dbt-hs">Chưa có mốc số dư. Nhập số dư hiện tại (xem trong app ngân hàng) để bắt đầu theo dõi.</div>';
@@ -47362,6 +47783,19 @@ window.classifyAmount = classifyAmount;
     return (out.due || out.stmt || out.minK != null || out.debtK != null) ? out : null;
   }
   window.fhNoticeFacts = fhNoticeFacts;
+  /* A card statement states the same things a due notice does (due date, minimum
+     payment, closing debt). It feeds the same on-device record, so the tile line
+     has one source of truth; the newer statement of the two wins. */
+  window.fhAcctNoticeSet = async function (acctId, f) {
+    if (!acctId || !f || !f.due) return false;
+    await _noticeLoad();
+    var cur = (window.fhAcctNoticeFacts || {})[acctId];
+    if (cur && cur.at && f.at && String(cur.at) > String(f.at)) return false;
+    window.fhAcctNoticeFacts[acctId] = { due: f.due, stmt: f.stmt || null, minK: f.minK == null ? null : f.minK, debtK: f.debtK == null ? null : f.debtK, at: String(f.at || '') };
+    await _noticeSave();
+    try { window.renderPersonal && window.renderPersonal(); } catch (e) {}
+    return true;
+  };
 
   var _fhNoticeLoaded = false;
   window.fhNoticesApply = async function () {
@@ -48145,6 +48579,10 @@ window.classifyAmount = classifyAmount;
          per account after the batch — the per-row version was one UPDATE round
          trip per row for a value only the newest row decides. */
       var _recBal = function (acctId) {
+        /* A statement's balance reaches its account when the FILE is read, with
+           the day it is true for (statement-balance-spec SB14). Recorded again
+           here, row by row, it depended on which rows were imported. */
+        if (_sx2 && _sx2._transport === 'statement') return;
         var b = _sx2 && Number(_sx2.balance);
         if (!acctId || !(b > 0)) return;
         var acct = (pd.accounts || []).find(function (a) { return a.id === acctId; });
@@ -53557,15 +53995,33 @@ window.classifyAmount = classifyAmount;
       } catch (e) { /* rows simply arrive without a hint */ }
     }
 
+    /* The account's own facts, off the parsed file. A card's due date and minimum
+       payment also feed the tile line a due notice feeds (72 fhAcctNoticeSet). */
+    function _stmAccountFacts(X, acctId) {
+      try {
+        if (typeof window.fhStmtAccountFacts !== 'function' || typeof window.fhPersonalStmtFacts !== 'function') return;
+        const facts = window.fhStmtAccountFacts(X.parsed, X.acct && X.acct.kind);
+        facts.sid = X.card.id;
+        Promise.resolve(window.fhPersonalStmtFacts(acctId, facts)).catch(() => {});
+        if (facts.kind === 'credit_card' && facts.dueDate && typeof window.fhAcctNoticeSet === 'function') {
+          const mult = typeof window.curMult === 'function' ? window.curMult() : 1000;
+          window.fhAcctNoticeSet(acctId, { due: facts.dueDate, stmt: facts.stmtDate || null,
+            minK: facts.minDong > 0 ? facts.minDong / mult : null, debtK: facts.debtDong != null ? facts.debtDong / mult : null,
+            at: (facts.stmtDate || facts.asof || '') + 'T00:00:00+07:00' });
+        }
+      } catch (e) {}
+    }
+
     /* Write the rows and close the card. `say(text)` is told what is happening.
        Returns { n } = rows written. Throws with nothing half-done: the rows and
        the card change state in ONE transaction. */
     async function _stmWrite(X, say) {
       const card = X.card; say = say || (() => {});
       if (X.confirmedMap && X.parsed.table) _stmMapSet(card.source_provider, X.parsed.sig, X.parsed.table.roles);
+      let acctId = null;
       if (X.acct && window.fhPersonalAccountEnsure) {
         try {
-          const acctId = await window.fhPersonalAccountEnsure({ kind: X.acct.kind, provider: X.acct.provider, tail: X.acct.tail,
+          acctId = await window.fhPersonalAccountEnsure({ kind: X.acct.kind, provider: X.acct.provider, tail: X.acct.tail,
             name: (window.fhProviderName ? window.fhProviderName(X.acct.provider) : X.acct.provider) + (X.acct.tail ? ' ••' + X.acct.tail : '') });
           /* A statement KNOWS what its account is: a running balance is a deposit
              account, a debt summary is a card. The email classifier only guessed, and
@@ -53607,12 +54063,13 @@ window.classifyAmount = classifyAmount;
       /* The rows are in. The sealed file has no job left, so it goes NOW (decision
          S13); the worker's sweep is only the net for a delete that fails here. */
       if (card.object_path) { try { await window.sb.storage.from(STM_BUCKET).remove([card.object_path]); } catch (e) {} }
-      /* The statement's balance needs no step of its own here. Every row carries its
-         running balance (raw_extracted.balance), and the import already records the
-         newest one per account as the bank-stated balance (72 _recBal ->
-         fhPersonalExtBalanceSet). From there the existing surfaces take over: an
-         account with no anchor is asked for one by the post-import setup, and one
-         with an anchor shows the drift badge with its two resolutions. */
+      /* What the file says about the ACCOUNT goes to the account now, read from
+         the file itself and not from whichever rows end up imported
+         (statement-balance-spec SB5): the closing balance with the day it is true
+         for, and a card's limit and dates. Not awaited: the queue is what the
+         person asked for, and an account that misses this statement's facts gets
+         them from the next one. */
+      if (acctId) _stmAccountFacts(X, acctId);
       _stmCards = _stmCards.filter((c) => c.id !== card.id);
       return { n: rows.length };
     }

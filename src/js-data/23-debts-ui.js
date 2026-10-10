@@ -92,23 +92,33 @@
          alike — a window-derived card outstanding is exactly the number that
          broke trust on day one. */
       const setupTile = function (a) {
+        /* A statement may have left its number on the account as an offer
+           (statement-balance-spec §4). Still no number on the tile: an offer is
+           not a balance until the person confirms it. */
+        const offer = window.fhAnchorOffer ? window.fhAnchorOffer(a) : null;
         return '<button class="dbt-tile dbt-setup" onclick="fhAcctSetupWizard([\'' + a.id + '\'])">'
           + '<div class="dbt-tk">' + _e(a.name || 'Tài khoản') + '</div>'
           + '<div class="dbt-tv num dim">—</div>'
-          + '<div class="dbt-ts">Chạm để thiết lập</div></button>';
+          + '<div class="dbt-ts">' + (offer ? 'Xác nhận số từ sao kê' : 'Chạm để thiết lập') + '</div></button>';
       };
       t.d.cards.forEach(function (c) {
         if (!c.verified) { tiles.push(setupTile(c.acct)); return; }
-        const neg = c.outstanding > 0, due = _dueLabel(c.acct);
+        /* The figure the tile leads with, and the line saying how it is known
+           (statement-balance-spec §5): the statement's own debt when the rows
+           after it are an incomplete picture, otherwise the brought-forward one. */
+        const v = window.fhPersonalAcctView ? fhPersonalAcctView(c.acct.id) : null, cap = _anchorCap(v);
+        const out = (v && v.mode === 'dated') ? -v.shown : c.outstanding;
+        const neg = out > 0, due = _dueLabel(c.acct);
         let ht = '<button class="dbt-tile dbt-card-tile" onclick="openDebtAccount(\'' + c.acct.id + '\')">'
           + '<div class="dbt-tk">' + _e(c.acct.name || 'Thẻ') + '</div>'
-          + '<div class="dbt-tv num ' + (neg ? 'owe' : 'owed') + '">' + (neg ? '−' : '+') + fmtK(Math.abs(c.outstanding)) + '</div>';
+          + '<div class="dbt-tv num ' + (neg ? 'owe' : 'owed') + '">' + (neg ? '−' : '+') + fmtK(Math.abs(out)) + '</div>';
         if (c.acct.limitK > 0) {
-          const pct = Math.min(100, Math.round(c.outstanding / c.acct.limitK * 100));
+          const pct = Math.min(100, Math.max(0, Math.round(out / c.acct.limitK * 100)));
           ht += '<div class="dbt-ms"><span>Dùng ' + pct + '%</span><span>hạn ' + fmtK(c.acct.limitK) + '</span></div>'
             + '<div class="dbt-meter"><i style="width:' + pct + '%"></i></div>';
+          if (cap) ht += '<div class="dbt-ts">' + cap + '</div>';
         } else {
-          ht += '<div class="dbt-ts">thẻ tín dụng</div>';
+          ht += '<div class="dbt-ts">' + (cap || 'thẻ tín dụng') + '</div>';
         }
         /* A due notice from the bank's own mail (email-reading-v2-spec §6) says more
            than the due DAY can: this cycle's real date and the minimum payment. One
@@ -124,14 +134,15 @@
          or the honest "chưa có mốc" when no anchor exists (a derived balance
          with no anchor would be confidently wrong). Drift wears a quiet chip. */
       balAccts.forEach(function (a) {
-        const bal = window.fhPersonalBalance ? fhPersonalBalance(a.id) : null;
+        const v = window.fhPersonalAcctView ? fhPersonalAcctView(a.id) : null;
+        const bal = v ? v.shown : (window.fhPersonalBalance ? fhPersonalBalance(a.id) : null);
         if (bal == null) { tiles.push(setupTile(a)); return; }
         const dr = window.fhPersonalDrift ? fhPersonalDrift(a.id) : null;
         const kindLbl = a.kind === 'ewallet' ? 'ví điện tử' : (a.kind === 'cash' ? 'tiền mặt' : 'tài khoản');
         let ht = '<button class="dbt-tile" onclick="openBalAccount(\'' + a.id + '\')">'
           + '<div class="dbt-tk">' + _e(a.name || 'Tài khoản') + '</div>'
           + '<div class="dbt-tv num' + (bal < 0 ? ' owe' : '') + '">' + (bal < 0 ? '−' : '') + fmtK(Math.abs(bal)) + '</div>'
-          + '<div class="dbt-ts">' + kindLbl + '</div>';
+          + '<div class="dbt-ts">' + (_anchorCap(v) || kindLbl) + '</div>';
         if (dr) ht += '<div class="dbt-tchip"><span class="dbt-due">lệch ' + (dr.drift > 0 ? '+' : '−') + fmtK(Math.abs(dr.drift)) + '</span></div>';
         tiles.push(ht + '</button>');
       });
@@ -230,6 +241,29 @@
     window.closeDebt = function () { const ov = document.getElementById('debt-overlay'); if (ov) ov.classList.remove('on'); };
 
     const _dmy = (iso) => iso ? iso.slice(8, 10) + '/' + iso.slice(5, 7) : '';
+    /* How a number read from a statement says where it comes from
+       (statement-balance-spec §5). Empty for a number the person typed. Returns
+       HTML: a tile is narrow, so the second fact gets its own line instead of
+       wrapping wherever it happens to.
+         nothing after the statement      theo sao kê 27/04
+         rows after it, well covered      theo sao kê 27/04 / + 12 khoản sau đó
+         rows after it, thinly covered    đến 27/04 / sau đó −4.2tr      (the tile leads with the statement's number) */
+    const _anchorCap = (v) => {
+      if (!v || v.src !== 'stmt' || !v.asof) return '';
+      const nb = (t) => _e(String(t).replace(/ /g, '\u00a0'));
+      if (v.mode === 'dated') return nb('đến ' + _dmy(v.asof)) + '<br>' + nb('sau đó ' + (v.later.sum < 0 ? '−' : '+') + fmtK(Math.abs(v.later.sum)));
+      return nb('theo sao kê ' + _dmy(v.asof)) + (v.later.n ? '<br>' + nb('+ ' + v.later.n + ' khoản sau đó') : '');
+    };
+    /* The same, in full sentences, for an account's own screen: both figures. */
+    const _anchorLines = (v, isCard) => {
+      if (!v || v.src !== 'stmt' || !v.asof) return '';
+      const sign = (n) => (n < 0 ? '−' : '+') + fmt(Math.abs(n));
+      /* On a card's screen the figure is a debt with no sign, so what came after
+         is said as debt too: a purchase ADDS to it. */
+      let s = 'Theo sao kê ' + _dmy(v.asof) + ': ' + (isCard ? 'dư nợ ' + fmt(Math.abs(v.base)) : fmt(v.base)) + '.';
+      if (v.later.n) s += ' Sau đó ' + v.later.n + ' khoản đã ghi: ' + sign(isCard ? -v.later.sum : v.later.sum) + (v.mode === 'dated' ? '. Có thể còn khoản chưa ghi, sao kê mới sẽ cập nhật lại.' : '.');
+      return s;
+    };
     const _todayIso = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
     /* "Hẹn trả" state for a person (0122): only while they still owe (the nag
        keys off balance > 0, never off which loan row got matched — a partial
@@ -289,7 +323,11 @@
          into setup — the window-derived sum is not a fact worth a hero. */
       const ce = (d.cards || []).find(function (x) { return x.acct.id === acctId; });
       const verified = !!(ce && ce.verified);
-      const out = ce ? ce.outstanding : (b.spend - b.paid);
+      /* A debt read from a statement leads with the statement's own figure while
+         the rows after it are an incomplete picture, as on the tile; the line
+         under the hero gives both figures (statement-balance-spec §5). */
+      const view = (verified && window.fhPersonalAcctView) ? fhPersonalAcctView(acctId) : null;
+      const out = (view && view.mode === 'dated') ? -view.shown : (ce ? ce.outstanding : (b.spend - b.paid));
       const due = _dueLabel(acct);
       let h;
       if (!verified) {
@@ -303,6 +341,8 @@
       if (acct.limitK > 0) meta.push('Hạn mức còn ' + fmt(Math.max(0, acct.limitK - out)) + ' / ' + fmt(acct.limitK));
       if (due) meta.push(due);
       if (meta.length) h += '<div class="dbt-hs">' + meta.join(' · ') + '</div>';
+      const stmtLine = _anchorLines(view, true);
+      if (stmtLine) h += '<div class="dbt-hs">' + _e(stmtLine) + '</div>';
       if (acct.limitK > 0) {
         const pct = Math.min(100, Math.round(out / acct.limitK * 100));
         h += '<div class="dbt-meter big"><i style="width:' + Math.max(0, pct) + '%"></i></div>';
@@ -887,8 +927,16 @@
     const WZ_KINDS = [['credit_card', '💳 Thẻ tín dụng'], ['deposit', '🏦 Tài khoản ngân hàng'], ['ewallet', '📱 Ví điện tử'], ['cash', '💵 Tiền mặt']];
     const _wzKindLbl = (k) => { const f = WZ_KINDS.find((x) => x[0] === k); return f ? f[1] : k; };
     const _wzAmtLabel = (kind) => kind === 'credit_card' ? 'Dư nợ hiện tại' : (kind === 'cash' ? 'Tiền mặt đang có' : 'Số dư hiện tại');
-    const _wzDraft = (acct) => ({ name: acct.name || '', kind: acct.kind, amtK: null, amtSet: false,
-      limitK: acct.limitK > 0 ? acct.limitK : null, stm: acct.statementDay || null, due: acct.dueDay || null });
+    /* A statement may have left its number on the account (statement-balance-spec
+       §4): the draft starts from it, so one tap on Xong confirms. `offer` stays
+       on the draft so the save can tell "kept the statement's number" (stored
+       with the statement's day) from "typed another" (true now, as always). */
+    const _wzDraft = (acct) => {
+      const offer = window.fhAnchorOffer ? window.fhAnchorOffer(acct) : null;
+      return { name: acct.name || '', kind: acct.kind, amtK: offer ? Math.abs(offer.k) : null, amtSet: !!offer, offer: offer,
+        limitK: acct.limitK > 0 ? acct.limitK : null, stm: acct.statementDay || null, due: acct.dueDay || null };
+    };
+    const _wzFromStmt = (d) => !!(d.offer && d.amtSet && Math.abs(d.amtK - Math.abs(d.offer.k)) < 0.0005);
     /* The live number an anchored account shows today: a card's outstanding
        (from the debts derivation), else the anchored balance. */
     const _wzLive = (acct) => {
@@ -934,14 +982,19 @@
       const anchored = w.acct.anchorK != null, live = anchored ? _wzLive(w.acct) : null;
       const row = (typeof window._exdRow === 'function') ? window._exdRow : null;
       const dots = (!settings && n > 1) ? '<div class="wz-dots" aria-hidden="true">' + w.queue.map((_, k) => '<i class="' + (k < i ? 'done' : (k === i ? 'on' : '')) + '"></i>').join('') + '</div>' : '';
-      const why = (!settings && w.intro && i === 0)
-        ? '<div class="wz-why">Email chỉ kể được vài tháng gần đây. Nhập số đang thấy trong app ngân hàng để tụi mình tính đúng từ đây.</div>' : '';
+      const fromStmt = _wzFromStmt(d);
+      const why = (!settings && fromStmt)
+        ? '<div class="wz-why">Số dưới đây đọc từ sao kê của bạn. Xem lại rồi bấm ' + (last ? 'Hoàn tất' : 'Xong') + ', hoặc chạm vào để sửa.</div>'
+        : ((!settings && w.intro && i === 0)
+          ? '<div class="wz-why">Email chỉ kể được vài tháng gần đây. Nhập số đang thấy trong app ngân hàng để tụi mình tính đúng từ đây.</div>' : '');
       let rows = '';
       if (row) {
         if (d.kind !== 'cash') rows += row({ label: 'Loại', val: '<b>' + _wzKindLbl(d.kind) + '</b>', fn: "fhWizSheet('kind')" });
         const shown = d.amtSet ? fmt(d.amtK) : (live != null ? fmt(live) : 'Chưa nhập');
-        rows += row({ label: _wzAmtLabel(d.kind), soft: !d.amtSet && live == null, hot: w.attempted && !d.amtSet, chg: d.amtSet && anchored,
-          val: '<b class="num">' + shown + '</b>', fn: "fhWizSheet('amt')" });
+        /* "hiện tại" would be untrue beside a statement's date: the label goes
+           neutral and the line under the number says which day it is true for. */
+        rows += row({ label: fromStmt ? (isCard ? 'Dư nợ' : 'Số dư') : _wzAmtLabel(d.kind), soft: !d.amtSet && live == null, hot: w.attempted && !d.amtSet, chg: d.amtSet && anchored,
+          val: '<b class="num">' + shown + '</b>', fn: "fhWizSheet('amt')", by: fromStmt ? 'Theo sao kê ' + _dmy(d.offer.asof) : '' });
         if (isCard) {
           rows += row({ label: 'Hạn mức thẻ', soft: !(d.limitK > 0), val: '<b class="num">' + (d.limitK > 0 ? fmt(d.limitK) : 'Để trống nếu không nhớ') + '</b>', fn: "fhWizSheet('lim')" });
           /* the two days are picker rows: the tap opens the OS calendar itself
@@ -956,7 +1009,8 @@
       }
       const note = (anchored && !d.amtSet)
         ? (isCard ? 'Sửa số dư nợ là đặt lại mốc, app tính tiếp từ số mới. Ngày chốt và ngày đến hạn dùng để nhắc “đến hạn”.' : 'Sửa số dư là đặt lại mốc, app tính tiếp từ số mới.')
-        : 'Mốc này đã gồm mọi giao dịch trước lúc đặt. Khoản ghi sau đó cộng trừ tiếp lên nó.';
+        : (fromStmt ? 'Số này đúng vào ngày ' + _dmy(d.offer.asof) + '. Khoản ghi sau ngày đó cộng trừ tiếp lên nó.'
+          : 'Mốc này đã gồm mọi giao dịch trước lúc đặt. Khoản ghi sau đó cộng trừ tiếp lên nó.');
       const h = '<div class="wz-head">' + dots + why + '</div>'
         + '<div class="dbt-card wz-namecard"><span class="crs-lbl">Tài khoản</span><input class="crs-in" id="wz-name" value="' + _e(d.name) + '" placeholder="vd. VIB ••1234"></div>'
         + '<div class="exd-meta srows"><div class="csv-srows">' + rows + '</div></div>'
@@ -1032,6 +1086,14 @@
       const fields = { name: d.name || w.acct.name, kind: d.kind, humanVerified: true,
         limitK: isCard && d.limitK > 0 ? d.limitK : null, statementDay: isCard ? d.stm : null, dueDay: isCard ? d.due : null };
       if (d.amtSet) { fields.anchorK = isCard ? -d.amtK : d.amtK; fields.setupSkipped = false; }
+      /* Kept the statement's number: it is stored with the statement's own day and
+         rows, so the ledger brings it forward (statement-balance-spec SB6). The
+         kind must still be the side the statement was read for. */
+      if (_wzFromStmt(d) && isCard === (w.acct.kind === 'credit_card')) {
+        fields.anchorK = d.offer.k;
+        fields.anchorAt = window.fhAnchorAtOf(d.offer.asof);
+        fields.anchorMeta = Object.assign({}, d.offer, { state: 'set' });
+      }
       let ok = false;
       try { ok = await fhPersonalAccountUpdate(w.acct.id, fields); } catch (e) { ok = false; }
       if (!ok) { if (btn) { btn.disabled = false; btn.textContent = lbl; } window.toast && toast('Chưa lưu được, thử lại'); return; }
@@ -1126,14 +1188,17 @@
     window.openBalAccount = function (acctId) {
       const P = _P(); if (!P) return;
       const acct = P.accounts.find((a) => a.id === acctId); if (!acct) return;
-      const bal = window.fhPersonalBalance ? fhPersonalBalance(acctId) : null;
+      const view = window.fhPersonalAcctView ? fhPersonalAcctView(acctId) : null;
+      const bal = view ? view.shown : (window.fhPersonalBalance ? fhPersonalBalance(acctId) : null);
       const dr = window.fhPersonalDrift ? fhPersonalDrift(acctId) : null;
       const d = _last || fhPersonalDebts();
       const b = (d.byAcct && d.byAcct[acctId]) || { rows: [] };
       let h = '<div class="dbt-hero2"><div class="dbt-hk">Số dư</div>';
       if (bal != null) {
         h += '<div class="dbt-hv num' + (bal < 0 ? ' owe' : '') + '">' + (bal < 0 ? '−' : '') + fmt(Math.abs(bal)) + '</div>';
-        if (acct.anchorAt) h += '<div class="dbt-hs">mốc đặt ' + _dmy(String(acct.anchorAt).slice(0, 10)) + ' — đã bao gồm mọi giao dịch trước lúc đặt</div>';
+        const stmtLine = _anchorLines(view, false);
+        if (stmtLine) h += '<div class="dbt-hs">' + _e(stmtLine) + '</div>';
+        else if (acct.anchorAt) h += '<div class="dbt-hs">mốc đặt ' + _dmy(String(acct.anchorAt).slice(0, 10)) + ' — đã bao gồm mọi giao dịch trước lúc đặt</div>';
       } else {
         h += '<div class="dbt-hv num dim">—</div>'
           + '<div class="dbt-hs">Chưa có mốc số dư. Nhập số dư hiện tại (xem trong app ngân hàng) để bắt đầu theo dõi.</div>';

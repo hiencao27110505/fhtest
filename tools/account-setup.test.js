@@ -66,8 +66,11 @@ t('the day rows open the OS calendar directly (fhPickRow), the day of month is w
 
 console.log('\n-- the anchor supersedes older bank numbers (cause 6) --');
 t('setting an anchor drops the captured Số dư (both writers)', /ext_balance_enc: null, ext_balance_date: null,/.test(data) && /row\.ext_balance_enc = null; row\.ext_balance_date = null;/.test(data));
+/* Since 0160 the anchor's day is asked of fhAnchorAsof: an anchor read from a
+   statement is true for the statement's last day, and anchor_at is the end of
+   that day rather than the moment of writing (statement-balance-spec §8). */
 t('drift ignores a bank number older than the anchor day',
-  /a\.extDate < _localDate\(new Date\(a\.anchorAt\)\)\) return null;/.test(data));
+  /const asof = window\.fhAnchorAsof\(a\);\s+if \(asof && a\.extDate && a\.extDate < asof\) return null;/.test(data));
 t('a pre-anchor Số dư is never stored over the anchor',
   /day < _localDate\(new Date\(a\.anchorAt\)\)\) return true;/.test(data));
 

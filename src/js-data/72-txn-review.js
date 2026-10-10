@@ -1208,6 +1208,19 @@
     return (out.due || out.stmt || out.minK != null || out.debtK != null) ? out : null;
   }
   window.fhNoticeFacts = fhNoticeFacts;
+  /* A card statement states the same things a due notice does (due date, minimum
+     payment, closing debt). It feeds the same on-device record, so the tile line
+     has one source of truth; the newer statement of the two wins. */
+  window.fhAcctNoticeSet = async function (acctId, f) {
+    if (!acctId || !f || !f.due) return false;
+    await _noticeLoad();
+    var cur = (window.fhAcctNoticeFacts || {})[acctId];
+    if (cur && cur.at && f.at && String(cur.at) > String(f.at)) return false;
+    window.fhAcctNoticeFacts[acctId] = { due: f.due, stmt: f.stmt || null, minK: f.minK == null ? null : f.minK, debtK: f.debtK == null ? null : f.debtK, at: String(f.at || '') };
+    await _noticeSave();
+    try { window.renderPersonal && window.renderPersonal(); } catch (e) {}
+    return true;
+  };
 
   var _fhNoticeLoaded = false;
   window.fhNoticesApply = async function () {
@@ -1991,6 +2004,10 @@
          per account after the batch — the per-row version was one UPDATE round
          trip per row for a value only the newest row decides. */
       var _recBal = function (acctId) {
+        /* A statement's balance reaches its account when the FILE is read, with
+           the day it is true for (statement-balance-spec SB14). Recorded again
+           here, row by row, it depended on which rows were imported. */
+        if (_sx2 && _sx2._transport === 'statement') return;
         var b = _sx2 && Number(_sx2.balance);
         if (!acctId || !(b > 0)) return;
         var acct = (pd.accounts || []).find(function (a) { return a.id === acctId; });

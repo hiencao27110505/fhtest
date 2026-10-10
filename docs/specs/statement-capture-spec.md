@@ -668,7 +668,7 @@ Design interview, 2026-09-18 → 19.
 | S7 | **Store a sealed copy** (not fetch-on-demand): under weekly token expiry in Google's Testing status, it is the only option where tapping the card always works. |
 | S8 | Password remembered **opt-in, on this device only**, under the personal key. No password hint from the email body. |
 | S9 | All kinds on, as in the email review. |
-| S10 | One statement, one account; its running balance feeds the existing drift detector and post-import setup. *(Built as that, not as a separate "set the anchor" prompt: the two surfaces already exist.)* |
+| S10 | One statement, one account; its running balance feeds the existing drift detector and post-import setup. *(Built as that, not as a separate "set the anchor" prompt: the two surfaces already exist.)* **Replaced 2026-10-10 by `statement-balance-spec.md` (SB5, SB14):** the balance is read from the file when it is read, with the day it is true for, and becomes the account's anchor (offered the first time, automatic after); statement rows no longer write the bank-stated balance at import. |
 | S11 | History statements are all captured, folded under "Sao kê cũ". |
 | S12 | Rows live in a new owner-only `statement_rows` table, field-encrypted; `email_transactions` is untouched. |
 | S13 | The sealed file is deleted **the moment its rows are written**; unopened files after **90 days**. Redo means picking the file from the device. |

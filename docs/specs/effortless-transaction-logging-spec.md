@@ -1904,6 +1904,32 @@ as — or the same day as — the deploy. A deploy announced only in
 
 ## 28. Releases (newest first)
 
+### 2026-10-10 (evening) — a statement sets the account's balance and a card's facts · SW v627 · migration 0160 APPLIED · no deploy beyond the client
+
+- **For product:** a statement used to bring its transactions and nothing else;
+  the person was then asked to type the balance, and for a card the limit, the
+  statement day and the due day, all of which the file prints. Now the file's
+  closing balance waits on the account, the setup screen opens already filled
+  ("Theo sao kê 27/04"), and one tap confirms. After that first time, each newer
+  statement moves the account's starting point by itself. A statement number is
+  kept with its date: transactions recorded after it are added on top, and the
+  tile says so ("theo sao kê 27/04", "+ 12 khoản sau đó"). When the ledger had
+  not known most of the statement's money, the tile leads with the statement's
+  own number and its date instead of an estimate.
+- **Under the hood:** `59-statement-table.js` reads five more labels and gains
+  `fhStmtAccountFacts`; new pure `19-anchor.js` (edge match, coverage, which
+  figure leads); `19-personal.js` `fhPersonalBalance(id, upto)`,
+  `fhPersonalAcctView`, `fhPersonalStmtFacts`, sealed column `anchor_meta_enc`
+  read through a fallback; `77` `_stmWrite` hands the facts over after
+  `stage_statement_rows`; `72` `_recBal` skips statement rows; `23` wizard and
+  tiles. Guard: `tools/statement-balance.test.js` (87).
+- **Spec sections updated:** none here; `statement-balance-spec.md` (new),
+  `statement-capture-spec.md` S10, `account-setup-spec.md` status.
+- **Watch for:** capture, review and promote are unchanged except that a
+  statement row no longer records "Số dư" on its account at import. The drift
+  badge now compares the bank's figure with the ledger as of the same day, so
+  some badges that argued against today's balance will go quiet.
+
 ### 2026-10-10 — a statement goes into the queue without being asked to · client only, SW v626 · no migration, no deploy beyond the client
 
 - **For product:** a bank statement used to cost two taps before any of its

@@ -76,6 +76,28 @@
       } catch (e) { return _DEC_FAILED; }
     };
     const _decTxt = async (b64) => { const v = await _decP(b64); return v === _DEC_FAILED ? null : v; };
+    /* đồng per base unit, for the anchor math (19-anchor.js compares in đồng). */
+    const _pMult = () => (typeof window.curMult === 'function' ? window.curMult() : 1000);
+    /* The accounts read (0160, statement-balance-spec SB16). `anchor_meta_enc`
+       says where an anchor came from; a database that does not have the column
+       yet answers 42703, and without this fallback that one error emptied the
+       whole accounts list. The column is asked for until the database says no,
+       then never again this session: the feature is simply dormant. */
+    const _ACCT_COLS = 'id,kind,name_enc,tail,provider,provider_key,credit_limit_enc,human_verified,statement_day,due_day,anchor_balance_enc,anchor_at,ext_balance_enc,ext_balance_date,account_number_enc,asset_symbol_enc,asset_unit_enc,asset_class_enc,manual_price_enc,manual_price_at,setup_skipped_at';
+    let _acctMetaCol = true;
+    const _acctColMissing = (err) => !!err && (String(err.code || '') === '42703' || /anchor_meta_enc/i.test(String(err.message || '') + ' ' + String(err.details || '')));
+    async function _acctSelect() {
+      const q = (cols) => _sb().from('personal_accounts').select(cols).eq('owner_user_id', P.uid).is('archived_at', null);
+      if (_acctMetaCol) {
+        const r = await q(_ACCT_COLS + ',anchor_meta_enc');
+        if (!_acctColMissing(r.error)) return r;
+        _acctMetaCol = false;
+      }
+      return q(_ACCT_COLS);
+    }
+    window.fhPersonalAnchorMetaOn = () => _acctMetaCol;
+    /* Only a shape this build understands is kept; anything else reads as "typed". */
+    const _anchorMetaParse = (raw) => { try { const m = raw ? JSON.parse(raw) : null; return (m && m.v === 1 && m.src === 'stmt' && m.asof && isFinite(m.k)) ? m : null; } catch (e) { return null; } };
     /* The cached decrypt, for the other personal readers (27-streaks walks up
        to 4000 rows per recompute and used to open each one cold). Same
        contract as inside this module: _decP returns the sentinel on failure,
@@ -106,7 +128,7 @@
       for (let i = 0; i < tx.length; i++) parts.push(_rowSig(tx[i]));
       for (let i = 0; i < old.length; i++) parts.push(_rowSig(old[i]));
       for (let i = 0; i < db.length; i++) parts.push(_rowSig(db[i]));
-      for (let i = 0; i < ac.length; i++) { const a = ac[i]; parts.push(a.id + ':' + (a.kind || '') + ':' + (a.name || '') + ':' + (a.tail || '') + ':' + a.anchorK + ':' + (a.anchorAt || '') + ':' + a.extK + ':' + (a.extDate || '') + ':' + a.limitK + ':' + (a.humanVerified ? 1 : 0) + ':' + (a.setupSkippedAt || '') + ':' + (a.statementDay || '') + ':' + (a.dueDay || '') + ':' + (a.providerKey || '') + ':' + a.manualPriceK + ':' + (a.assetSymbol || '')); }
+      for (let i = 0; i < ac.length; i++) { const a = ac[i]; parts.push(a.id + ':' + (a.kind || '') + ':' + (a.name || '') + ':' + (a.tail || '') + ':' + a.anchorK + ':' + (a.anchorAt || '') + ':' + a.extK + ':' + (a.extDate || '') + ':' + a.limitK + ':' + (a.humanVerified ? 1 : 0) + ':' + (a.setupSkippedAt || '') + ':' + (a.statementDay || '') + ':' + (a.dueDay || '') + ':' + (a.providerKey || '') + ':' + a.manualPriceK + ':' + (a.assetSymbol || '') + ':' + (a.anchorMeta ? a.anchorMeta.state + '@' + a.anchorMeta.asof + '@' + a.anchorMeta.k + '@' + (a.anchorMeta.sid || '') : '')); }
       for (let i = 0; i < lb.length; i++) { const l = lb[i]; parts.push(l.id + ':' + (l.name || '') + ':' + (l.emoji || '') + ':' + (l.sortOrder || 0) + ':' + ((l.claims || []).length)); }
       return parts.join('\n');
     };
@@ -484,8 +506,8 @@
         const [tr, bd, ac, dr, pp, mm, lb] = await Promise.all([
           _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,counterparty_enc,cat_name_enc,cat_emoji,occurred_time_enc,txn_date,kind,space_id,link_id,version,updated_at,created_at,account_id,transfer_group_id,position_account_id,quantity_enc,source,node_enc,label_id,receipt_enc,recurrence,recurrence_source').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }).order('id')),
           _sb().from('personal_budgets').select('total_enc,cats_enc').eq('owner_user_id', P.uid).eq('month', _monISO()).maybeSingle(),
-          _sb().from('personal_accounts').select('id,kind,name_enc,tail,provider,provider_key,credit_limit_enc,human_verified,statement_day,due_day,anchor_balance_enc,anchor_at,ext_balance_enc,ext_balance_date,account_number_enc,asset_symbol_enc,asset_unit_enc,asset_class_enc,manual_price_enc,manual_price_at,setup_skipped_at').eq('owner_user_id', P.uid).is('archived_at', null),
-          _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,counterparty_enc,cat_name_enc,cat_emoji,txn_date,kind,account_id,transfer_group_id,position_account_id,quantity_enc,due_date,created_at,node_enc,label_id').eq('owner_user_id', P.uid).or('kind.neq.expense,account_id.not.is.null').order('txn_date', { ascending: false }).order('id')),
+          _acctSelect(),
+          _pageAll(() => _sb().from('personal_transactions').select('id,amount_enc,note_enc,counterparty_enc,cat_name_enc,cat_emoji,txn_date,kind,account_id,transfer_group_id,position_account_id,quantity_enc,due_date,created_at,node_enc,label_id,source').eq('owner_user_id', P.uid).or('kind.neq.expense,account_id.not.is.null').order('txn_date', { ascending: false }).order('id')),
           _sb().from('personal_transaction_photos').select('transaction_id,photo_url,sort_order').eq('owner_user_id', P.uid).order('sort_order').limit(800).then((r) => r, () => ({ data: null })),
           _sb().from('personal_review_memory').select('id,key_enc,position_account_id').eq('owner_user_id', P.uid).limit(500).then((r) => r, () => ({ data: null })),
           /* 0144 — the person's own labels (the L2 partition of the category tree).
@@ -579,6 +601,10 @@
             anchorAt: a.anchor_at || null,
             extK: (ext == null || ext === _DEC_FAILED) ? null : Number(ext),
             extDate: a.ext_balance_date || null,
+            /* 0160: an anchor read from a statement carries its own day and the
+               file's rows (state 'set'), or waits as an offer the wizard
+               pre-fills (state 'offer'). Null = typed, or nothing yet. */
+            anchorMeta: a.anchor_meta_enc ? _anchorMetaParse(await _decTxt(a.anchor_meta_enc)) : null,
             /* account setup (0134): "Để sau" on the setup wizard — the account
                stays unverified (no number) but is never re-asked at import */
             setupSkippedAt: a.setup_skipped_at || null,
@@ -599,6 +625,7 @@
           const qRaw = t.quantity_enc ? await _decP(t.quantity_enc) : null;
           debts.push({ id: t.id, date: t.txn_date, kind: t.kind, accountId: t.account_id,
             transferGroupId: t.transfer_group_id, ts: t.created_at, due: t.due_date || null,
+            src: t.source || null,
             positionId: t.position_account_id || null,
             qty: (qRaw == null || qRaw === _DEC_FAILED) ? null : (Number(qRaw) || null),
             amt: bad ? null : Number(a), _unreadable: bad,
@@ -1700,10 +1727,17 @@
          fhPersonalAnchorSet: declared truth now, older bank numbers dropped.
          Cards pass a NEGATIVE value (a liability is a negative asset). */
       if (fields.hasOwnProperty('anchorK') && isFinite(fields.anchorK)) {
-        row.anchor_balance_enc = await _encP(Number(fields.anchorK)); row.anchor_at = new Date().toISOString();
+        row.anchor_balance_enc = await _encP(Number(fields.anchorK)); row.anchor_at = fields.anchorAt || new Date().toISOString();
         row.ext_balance_enc = null; row.ext_balance_date = null;
       }
+      /* Where the anchor came from (0160, statement-balance-spec §8). A statement
+         passes its meta, and the end of its last day as anchorAt; a typed number
+         passes none, and that absence is the record: an older meta goes. */
+      if (_acctMetaCol && (fields.hasOwnProperty('anchorMeta') || row.anchor_balance_enc)) {
+        row.anchor_meta_enc = fields.anchorMeta ? await _encP(JSON.stringify(fields.anchorMeta)) : null;
+      }
       if (fields.archived) row.archived_at = new Date().toISOString();
+      if (!Object.keys(row).length) return true;
       const r = await _sb().from('personal_accounts').update(row).eq('id', id).eq('owner_user_id', P.uid);
       if (r.error) { console.warn('account update failed', r.error); return false; }
       await window.fhPersonalHydrate(); return true;
@@ -1785,22 +1819,25 @@
        (−amt) deepens the debt, a payment or reconcile adjustment (+amt) draws
        it down, and fhPersonalDebts reads outstanding = −balance. Un-anchored
        cards return null here and fall back to the window-derived sum there. */
-    window.fhPersonalBalance = function (acctId) {
+    /* Since 0160 the walk itself lives in 19-anchor.js (pure, tested under
+       Node), because an anchor read from a STATEMENT is true for the statement's
+       last day, not for the moment it was written: rows after that day count,
+       rows before its edge are inside, and rows on the edge count only when the
+       file does not list them (statement-balance-spec §2). A typed anchor walks
+       exactly as described above. `upto` stops at a day, for the drift badge. */
+    window.fhPersonalBalance = function (acctId, upto) {
       const a = P.accounts.find((x) => x.id === acctId);
       if (!a || a.anchorK == null) return null;
-      const anchorDay = a.anchorAt ? _localDate(new Date(a.anchorAt)) : null;
-      let bal = a.anchorK;
-      for (const d of P.debts) {
-        if (d.accountId !== acctId || d._unreadable || d.amt == null) continue;
-        if (d.kind !== 'expense' && d.kind !== 'income' && d.kind !== 'transfer'
-            && d.kind !== 'loan' && d.kind !== 'repayment' && d.kind !== 'investment') continue;
-        if (anchorDay) {
-          if (d.date < anchorDay) continue;
-          if (d.date === anchorDay && (!d.ts || d.ts <= a.anchorAt)) continue;
-        }
-        bal += (d.kind === 'expense' || d.kind === 'loan') ? -d.amt : d.amt;
-      }
-      return bal;
+      const w = window.fhAnchorWalk(a, P.debts, { mult: _pMult(), upto: upto || null });
+      return w ? w.bal : null;
+    };
+    /* What a tile or an account screen shows: the brought-forward balance, the
+       statement's own number, how many rows came after it, and which of the two
+       leads (statement-balance-spec §5). Null for an account with no anchor. */
+    window.fhPersonalAcctView = function (acctId) {
+      const a = P.accounts.find((x) => x.id === acctId);
+      if (!a || a.anchorK == null) return null;
+      return window.fhAnchorView(a, P.debts, { mult: _pMult() });
     };
     /* Drift (spec §5.2): the bank's last self-stated balance vs the derived one.
        Only meaningful when both exist; a hair of float noise is not a drift. */
@@ -1810,8 +1847,11 @@
       /* A bank-stated balance OLDER than the anchor is stale by definition —
          the anchor superseded it. Without this, the first setup after a
          backfill argued against a "Số dư" from weeks ago (spec cause 6). */
-      if (a.anchorAt && a.extDate && a.extDate < _localDate(new Date(a.anchorAt))) return null;
-      const bal = window.fhPersonalBalance(acctId);
+      const asof = window.fhAnchorAsof(a);
+      if (asof && a.extDate && a.extDate < asof) return null;
+      /* The bank said this on extDate, so the ledger is read as of that day too:
+         against today's balance every row recorded since read as a drift. */
+      const bal = window.fhPersonalBalance(acctId, a.extDate || undefined);
       if (bal == null) return null;
       const d = a.extK - bal;
       return Math.abs(d) < 0.5 ? null : { drift: d, extK: a.extK, extDate: a.extDate };
@@ -1819,12 +1859,12 @@
     /* The anchor: "Số dư hiện tại", declared truth at this moment. */
     window.fhPersonalAnchorSet = async function (acctId, amtK) {
       if (!P.uid || !P.key || !acctId || !(isFinite(amtK))) return false;
-      const r = await _sb().from('personal_accounts').update({
+      const r = await _sb().from('personal_accounts').update(Object.assign({
         anchor_balance_enc: await _encP(Number(amtK)), anchor_at: new Date().toISOString(),
         /* the anchor is newer truth than any captured "Số dư" — drop the old
            bank number so drift can only argue from mail dated after this */
         ext_balance_enc: null, ext_balance_date: null,
-      }).eq('id', acctId).eq('owner_user_id', P.uid);
+      }, _acctMetaCol ? { anchor_meta_enc: null } : {})).eq('id', acctId).eq('owner_user_id', P.uid);
       if (r.error) { console.warn('anchor set failed', r.error); return false; }
       await window.fhPersonalHydrate(); return true;
     };
@@ -1842,6 +1882,39 @@
       if (r.error) { console.warn('ext balance set failed', r.error); return false; }
       if (a) { a.extK = Number(amtK); a.extDate = day; }   // local update — no full rehydrate for a side-signal
       return true;
+    };
+    /* What a statement says about its account (statement-balance-spec §4), in one
+       write. `facts` comes from fhStmtAccountFacts (59) with `sid` added.
+         card facts  limit, statement day, due day: fill an EMPTY field, from any
+                     statement, never over a value the person typed (SB8)
+         balance     'offer' on an account with no number (the wizard pre-fills
+                     it; nothing is shown as a balance yet), 'set' on one the
+                     person confirmed once when this statement is newer (SB6,
+                     SB7), otherwise untouched
+       Returns what was done: 'offer' | 'set' | 'facts' | 'none'. A statement and
+       an account that disagree on card-or-not are not mixed: a debt is stored
+       negative, and a wrong sign is worse than no number. */
+    window.fhPersonalStmtFacts = async function (acctId, facts) {
+      if (!P.uid || !P.key || !acctId || !facts) return 'none';
+      const a = P.accounts.find((x) => x.id === acctId);
+      if (!a || a.kind === 'investment') return 'none';
+      const mult = _pMult(), fields = {};
+      const isCard = a.kind === 'credit_card', sameSide = isCard === (facts.kind === 'credit_card');
+      const dayOf = (iso) => { const k = iso ? Number(String(iso).slice(8, 10)) : 0; return (k >= 1 && k <= 31) ? k : null; };
+      if (isCard && sameSide) {
+        if (facts.limitDong > 0 && !(a.limitK > 0)) fields.limitK = facts.limitDong / mult;
+        if (dayOf(facts.stmtDate) && !a.statementDay) fields.statementDay = dayOf(facts.stmtDate);
+        if (dayOf(facts.dueDate) && !a.dueDay) fields.dueDay = dayOf(facts.dueDate);
+      }
+      const act = (_acctMetaCol && sameSide) ? window.fhAnchorDecide(a, facts) : 'none';
+      if (act === 'offer' || act === 'set') {
+        fields.anchorMeta = window.fhAnchorMetaOf(facts, act, mult);
+        if (act === 'set') { fields.anchorK = fields.anchorMeta.k; fields.anchorAt = window.fhAnchorAtOf(facts.asof); }
+      }
+      if (!Object.keys(fields).length) return 'none';
+      const ok = await window.fhPersonalAccountUpdate(acctId, fields);
+      if (!ok) return 'none';
+      return (act === 'offer' || act === 'set') ? act : 'facts';
     };
 
     /* mirror — active family, my authored realized expenses → personal masters */
@@ -1963,7 +2036,12 @@
            the list here must grow with every _enc column the schema gains. */
         const tr = await _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,counterparty_enc,occurred_time_enc,quantity_enc,node_enc,receipt_enc').eq('owner_user_id', P.uid);
         const lb = await _sb().from('personal_labels').select('id,name_enc,claims_enc').eq('owner_user_id', P.uid);
-        const ac = await _sb().from('personal_accounts').select('id,name_enc,credit_limit_enc,anchor_balance_enc,ext_balance_enc,account_number_enc,asset_symbol_enc,asset_unit_enc,asset_class_enc,manual_price_enc').eq('owner_user_id', P.uid);
+        /* anchor_meta_enc (0160) joins the sweep. Asked for the way the hydrate asks:
+           a database without the column must not cost the accounts their pass. */
+        const _acQ = (cols) => _sb().from('personal_accounts').select(cols).eq('owner_user_id', P.uid);
+        const _acCols = 'id,name_enc,credit_limit_enc,anchor_balance_enc,ext_balance_enc,account_number_enc,asset_symbol_enc,asset_unit_enc,asset_class_enc,manual_price_enc';
+        let ac = _acctMetaCol ? await _acQ(_acCols + ',anchor_meta_enc') : await _acQ(_acCols);
+        if (_acctMetaCol && _acctColMissing(ac.error)) { _acctMetaCol = false; ac = await _acQ(_acCols); }
         const bg = await _sb().from('personal_budgets').select('owner_user_id,month,total_enc,cats_enc').eq('owner_user_id', P.uid);
         const ls = await _sb().from('personal_lessons').select('owner_user_id,lessons_enc').eq('owner_user_id', P.uid);
         const rm = await _sb().from('personal_review_memory').select('id,key_enc').eq('owner_user_id', P.uid);
@@ -1978,7 +2056,7 @@
           if (u.error) throw u.error; n++; if (onProgress) onProgress(n, tot);
         }
         for (const r of (ac.data || [])) {
-          const u = await _sb().from('personal_accounts').update({ name_enc: await reEnc(r.name_enc), credit_limit_enc: await reEnc(r.credit_limit_enc), anchor_balance_enc: await reEnc(r.anchor_balance_enc), ext_balance_enc: await reEnc(r.ext_balance_enc), account_number_enc: await reEnc(r.account_number_enc), asset_symbol_enc: await reEnc(r.asset_symbol_enc), asset_unit_enc: await reEnc(r.asset_unit_enc), asset_class_enc: await reEnc(r.asset_class_enc), manual_price_enc: await reEnc(r.manual_price_enc) }).eq('id', r.id);
+          const u = await _sb().from('personal_accounts').update(Object.assign({ name_enc: await reEnc(r.name_enc), credit_limit_enc: await reEnc(r.credit_limit_enc), anchor_balance_enc: await reEnc(r.anchor_balance_enc), ext_balance_enc: await reEnc(r.ext_balance_enc), account_number_enc: await reEnc(r.account_number_enc), asset_symbol_enc: await reEnc(r.asset_symbol_enc), asset_unit_enc: await reEnc(r.asset_unit_enc), asset_class_enc: await reEnc(r.asset_class_enc), manual_price_enc: await reEnc(r.manual_price_enc) }, _acctMetaCol ? { anchor_meta_enc: await reEnc(r.anchor_meta_enc) } : {})).eq('id', r.id);
           if (u.error) throw u.error; n++; if (onProgress) onProgress(n, tot);
         }
         for (const r of (rm.data || [])) {

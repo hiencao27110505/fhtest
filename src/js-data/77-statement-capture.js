@@ -778,15 +778,33 @@
       } catch (e) { /* rows simply arrive without a hint */ }
     }
 
+    /* The account's own facts, off the parsed file. A card's due date and minimum
+       payment also feed the tile line a due notice feeds (72 fhAcctNoticeSet). */
+    function _stmAccountFacts(X, acctId) {
+      try {
+        if (typeof window.fhStmtAccountFacts !== 'function' || typeof window.fhPersonalStmtFacts !== 'function') return;
+        const facts = window.fhStmtAccountFacts(X.parsed, X.acct && X.acct.kind);
+        facts.sid = X.card.id;
+        Promise.resolve(window.fhPersonalStmtFacts(acctId, facts)).catch(() => {});
+        if (facts.kind === 'credit_card' && facts.dueDate && typeof window.fhAcctNoticeSet === 'function') {
+          const mult = typeof window.curMult === 'function' ? window.curMult() : 1000;
+          window.fhAcctNoticeSet(acctId, { due: facts.dueDate, stmt: facts.stmtDate || null,
+            minK: facts.minDong > 0 ? facts.minDong / mult : null, debtK: facts.debtDong != null ? facts.debtDong / mult : null,
+            at: (facts.stmtDate || facts.asof || '') + 'T00:00:00+07:00' });
+        }
+      } catch (e) {}
+    }
+
     /* Write the rows and close the card. `say(text)` is told what is happening.
        Returns { n } = rows written. Throws with nothing half-done: the rows and
        the card change state in ONE transaction. */
     async function _stmWrite(X, say) {
       const card = X.card; say = say || (() => {});
       if (X.confirmedMap && X.parsed.table) _stmMapSet(card.source_provider, X.parsed.sig, X.parsed.table.roles);
+      let acctId = null;
       if (X.acct && window.fhPersonalAccountEnsure) {
         try {
-          const acctId = await window.fhPersonalAccountEnsure({ kind: X.acct.kind, provider: X.acct.provider, tail: X.acct.tail,
+          acctId = await window.fhPersonalAccountEnsure({ kind: X.acct.kind, provider: X.acct.provider, tail: X.acct.tail,
             name: (window.fhProviderName ? window.fhProviderName(X.acct.provider) : X.acct.provider) + (X.acct.tail ? ' ••' + X.acct.tail : '') });
           /* A statement KNOWS what its account is: a running balance is a deposit
              account, a debt summary is a card. The email classifier only guessed, and
@@ -828,12 +846,13 @@
       /* The rows are in. The sealed file has no job left, so it goes NOW (decision
          S13); the worker's sweep is only the net for a delete that fails here. */
       if (card.object_path) { try { await window.sb.storage.from(STM_BUCKET).remove([card.object_path]); } catch (e) {} }
-      /* The statement's balance needs no step of its own here. Every row carries its
-         running balance (raw_extracted.balance), and the import already records the
-         newest one per account as the bank-stated balance (72 _recBal ->
-         fhPersonalExtBalanceSet). From there the existing surfaces take over: an
-         account with no anchor is asked for one by the post-import setup, and one
-         with an anchor shows the drift badge with its two resolutions. */
+      /* What the file says about the ACCOUNT goes to the account now, read from
+         the file itself and not from whichever rows end up imported
+         (statement-balance-spec SB5): the closing balance with the day it is true
+         for, and a card's limit and dates. Not awaited: the queue is what the
+         person asked for, and an account that misses this statement's facts gets
+         them from the next one. */
+      if (acctId) _stmAccountFacts(X, acctId);
       _stmCards = _stmCards.filter((c) => c.id !== card.id);
       return { n: rows.length };
     }
