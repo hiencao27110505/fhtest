@@ -44,11 +44,11 @@ var ICO = {
 };
 
 var RELEASES = [
-  { id:'2026-09-26-quet-hoa-don', date:'2026-09-26', time:'15:40', ver:'v586', icon:ICO.camera,
-    vi:{ t:'Chụp hóa đơn, app tự ghi',
+  { id:'2026-09-26-quet-hoa-don', date:'2026-10-10', time:'15:00', ver:'v586', icon:ICO.camera,
+    vi:{ t:'Chụp hóa đơn, app tự ghi (Beta)',
       problem:'Trả bằng MoMo hay tiền mặt thì chẳng có email nào báo về, nên những khoản đó phải tự gõ lại, mà gõ lúc đang đứng ở quầy thì hay quên.',
       sol:'Giờ bạn chụp hóa đơn hoặc chọn ảnh chụp màn hình, một lúc tới 10 tấm. App đọc số tiền và ngày giúp, bạn xem lại rồi lưu. Chỗ nào app không chắc thì để trống và nói rõ, chứ không đoán bừa. Ảnh hóa đơn đi theo khoản chi, không hiện trong Kỷ niệm.' },
-    en:{ t:'Snap a receipt, and it is logged',
+    en:{ t:'Snap a receipt, and it is logged (Beta)',
       problem:'Paying with MoMo or cash sends no email, so those expenses had to be typed in by hand, and typing at the counter is the moment things get forgotten.',
       sol:'Now you can photograph receipts or pick screenshots, up to 10 at once. The app reads the amount and date, you check and save. Anything it is unsure of is left blank and named rather than guessed. The photo stays with its expense and never shows up in Memories.' } },
   { id:'2026-09-20-tieu-vao-gi', date:'2026-09-20', time:'08:25', ver:'v551', icon:ICO.pie,

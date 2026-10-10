@@ -735,7 +735,7 @@ function renderPersonal(){ window.fhHeat&&fhHeat.tick('renderPersonal');
      +   '<button class="cc-row" onclick="openPersonalBudget()"><span class="cc-ic">'+PIC.chart+'</span><span class="cc-t">'+(P.budget>0?'Ngân sách cá nhân':'Lập ngân sách cá nhân')+'</span>'+_ccChev+'</button>'
      +   '<button class="cc-row" onclick="openTxns(\'personal\')"><span class="cc-ic">'+PIC.list+'</span><span class="cc-t">Xem giao dịch</span>'+_ccChev+'</button>'
      +   '<button class="cc-row" onclick="openPersonalExpense()"><span class="cc-ic">'+PIC.plus+'</span><span class="cc-t">Ghi giao dịch</span>'+_ccChev+'</button>'
-     +   '<button class="cc-row" onclick="fhScanStart(\'personal\')"><span class="cc-ic">'+PIC.scan+'</span><span class="cc-t">'+L('Quét hóa đơn','Scan receipts')+'</span>'+_ccChev+'</button>'
+     +   '<button class="cc-row" onclick="fhScanStart(\'personal\')"><span class="cc-ic">'+PIC.scan+'</span><span class="cc-t">'+L('Quét hóa đơn','Scan receipts')+((window.fhScanWaiting&&fhScanWaiting())?' · '+L(fhScanWaiting()+' ảnh chờ',fhScanWaiting()+' waiting'):'')+'<span class="scan-beta">Beta</span></span>'+_ccChev+'</button>'
      /* Fourth row of the SAME list, not a card of its own — it is one of the
         things you can do from here, and floating it outside the card made it
         read as a stray. Last on purpose: the three above are what you do with

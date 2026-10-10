@@ -4973,6 +4973,8 @@ button.rl-row:active{background:var(--canvas)}
 .scan-act{color:var(--brand-ink)}
 .scan-note{margin:10px 22px 0}
 .scan-note:empty{display:none}
+/* "Beta" beside the two entry rows (DESIGN §3 "Tags & badges": small uppercase pill, brand tint) */
+.scan-beta{display:inline-block;margin-left:8px;padding:2px 7px;border-radius:9999px;background:var(--brand-tint);color:var(--brand-ink);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;vertical-align:middle}
 /* the rows a scan just saved, marked briefly in the ledger */
 .row.scan-new{box-shadow:inset 3px 0 0 var(--brand)}
 /* ═══ Định kỳ — recurring charges (recurring-charges-spec §3, §18.7) ═════════
@@ -5648,7 +5650,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   <div class="sheet-sub" data-t="addSheetSub">Log money, or save a moment.</div>
   <div class="qa-group" data-t="grpFinance">Finance</div>
   <button class="qa" onclick="closeSheet();go('spending');openExpense()"><div class="qi" style="background:var(--grad-brand)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 7h16v13H4zM4 7l2-3h12l2 3M9 12h6"/></svg></div><div><div class="qt" data-t="qaExpenseT">Log a transaction</div><div class="qs" data-t="qaExpenseS">Money in or out</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
-  <button class="qa" onclick="closeSheet();fhScanStart('family')"><div class="qi" style="background:var(--grad-brand)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4.5h8.5L19 10v9.5H5z"/><path d="M13.5 4.5V10H19"/><path d="M8 13h7M8 16.2h4.5"/></svg></div><div><div class="qt" data-t="qaScanT">Scan receipts</div><div class="qs" data-t="qaScanS">Snap or pick up to 10 photos</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+  <button class="qa" onclick="closeSheet();fhScanStart('family')"><div class="qi" style="background:var(--grad-brand)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4.5h8.5L19 10v9.5H5z"/><path d="M13.5 4.5V10H19"/><path d="M8 13h7M8 16.2h4.5"/></svg></div><div><div class="qt"><span data-t="qaScanT">Scan receipts</span><span class="scan-beta">Beta</span></div><div class="qs"><span id="scan-sub" data-t="qaScanS">Snap or pick up to 10 photos</span><span id="scan-wait" class="scan-act"></span></div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
   <button class="qa" onclick="closeSheet();go('spending');openCsvImport()"><div class="qi" style="background:linear-gradient(135deg,var(--brand-2),var(--brand))"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M12 4l-4 4M12 4l4 4"/><path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg></div><div><div class="qt" data-t="qaCsvT">Import from file</div><div class="qs" data-t="qaCsvS">Bring in a CSV from your bank or another app</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
   <button class="qa" onclick="closeSheet();openExpense({type:'income'})"><div class="qi" style="background:var(--grad-brand)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg></div><div><div class="qt" data-t="qaIncomeT">Log income</div><div class="qs" data-t="qaIncomeS">Money coming into the family</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
   <button class="qa" onclick="closeSheet();go('spending');fhSavings()"><div class="qi" style="background:linear-gradient(135deg,#F0B450,#DB8A24)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10a5 5 0 015-5h5a6 6 0 016 6 6 6 0 01-3 5.2V20h-3v-2h-2v2H7v-3a6 6 0 01-4-5zM8 9h.01"/></svg></div><div><div class="qt" data-t="qaSaveT">Add to savings</div><div class="qs" data-t="qaSaveS">Add to the family pool</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>  <button class="qa" onclick="closeSheet();go('spending');openGoal()"><div class="qi" style="background:var(--grad-brand)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.6"/><circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none"/></svg></div><div><div class="qt" data-t="qaGoalT">Create a goal</div><div class="qs" data-t="qaGoalS">Save for something you want to buy or do</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
@@ -10006,7 +10008,7 @@ function renderPersonal(){ window.fhHeat&&fhHeat.tick('renderPersonal');
      +   '<button class="cc-row" onclick="openPersonalBudget()"><span class="cc-ic">'+PIC.chart+'</span><span class="cc-t">'+(P.budget>0?'Ngân sách cá nhân':'Lập ngân sách cá nhân')+'</span>'+_ccChev+'</button>'
      +   '<button class="cc-row" onclick="openTxns(\'personal\')"><span class="cc-ic">'+PIC.list+'</span><span class="cc-t">Xem giao dịch</span>'+_ccChev+'</button>'
      +   '<button class="cc-row" onclick="openPersonalExpense()"><span class="cc-ic">'+PIC.plus+'</span><span class="cc-t">Ghi giao dịch</span>'+_ccChev+'</button>'
-     +   '<button class="cc-row" onclick="fhScanStart(\'personal\')"><span class="cc-ic">'+PIC.scan+'</span><span class="cc-t">'+L('Quét hóa đơn','Scan receipts')+'</span>'+_ccChev+'</button>'
+     +   '<button class="cc-row" onclick="fhScanStart(\'personal\')"><span class="cc-ic">'+PIC.scan+'</span><span class="cc-t">'+L('Quét hóa đơn','Scan receipts')+((window.fhScanWaiting&&fhScanWaiting())?' · '+L(fhScanWaiting()+' ảnh chờ',fhScanWaiting()+' waiting'):'')+'<span class="scan-beta">Beta</span></span>'+_ccChev+'</button>'
      /* Fourth row of the SAME list, not a card of its own — it is one of the
         things you can do from here, and floating it outside the card made it
         read as a stray. Last on purpose: the three above are what you do with
@@ -13283,13 +13285,14 @@ function closeModals(){
   // expense for an undated day), because its batch lives only in memory and
   // closing it would silently destroy every photo still held. Both of its own
   // exits empty paBatch first, so this never traps the user inside it.
-  var keepPa = (typeof paBatch !== 'undefined') && paBatch.length > 0;
+  var keepPa = (typeof paBatch !== 'undefined') && paBatch.length > 0, keepScan = false;
   document.querySelectorAll('.modal.on').forEach(function(m){
     if(keepPa && m.id === 'photo-assign') return;
-    if(m.id === 'scan-review' && window.fhScanHasBatch && fhScanHasBatch()) return;   // the scan batch lives only in memory too
+    // the scan batch lives only in memory too; a swipe-down lands here with the modal dragged away, so put it back under its scrim
+    if(m.id === 'scan-review' && window.fhScanHasBatch && fhScanHasBatch()){ keepScan = true; m.style.transform=''; m.style.transition=''; return; }
     m.classList.remove('on'); m.style.transform=''; m.style.transition='';
   });
-  if(!keepPa) document.getElementById('scrim').classList.remove('on');
+  if(!keepPa && !keepScan) document.getElementById('scrim').classList.remove('on');
   editingTx=null; editingPTx=null; editSnap=null; exPhotos=[]; evPhotos=[]; memPick=null; memPickMulti=null;
   setTxt('ex-title',L('Khoản chi','Expense')); var del=document.getElementById('ex-del'); if(del)del.style.display='none'; var tl9=document.getElementById('ex-toloan'); if(tl9)tl9.style.display='none'; var ti9=document.getElementById('ex-toinvest'); if(ti9)ti9.style.display='none';
   resetDelArm();
@@ -14277,7 +14280,7 @@ function submitBulk(opts){
   window._dgLocalAdd=true;                          // this device just logged → allow a daily-guide state-change push
   renderAll(); renderTxns();
   closeExpense();
-  toast(L('Đã ghi '+n+' khoản · '+fmt(total),'Logged '+n+' · '+fmt(total)));
+  if(!(opts&&opts.quiet)) toast(L('Đã ghi '+n+' khoản · '+fmt(total),'Logged '+n+' · '+fmt(total)));   // opts.quiet: receipt scan fires its own, naming receipts
   if(typeof floatEmojis==='function') floatEmojis('🎉');
   /* Staying put is opt-in. The bank-email queue imports one row at a time, and
      bouncing to the ledger after each would mean reopening the queue for every
@@ -14777,7 +14780,7 @@ function renderExPhoto(){
   }).join('') + (exPhotos.length ? '<div class="photo-strip-note">'+exPhotos.length+L(' ảnh',' photo'+(exPhotos.length!==1?'s':''))
     // a scanned receipt is evidence for its expense, never a memory — the note must not promise Kỷ niệm
     +((window.fhIsReceiptSrc && exPhotos.every(function(s){ return fhIsReceiptSrc(s); }))
-      ? L(' · hóa đơn kèm khoản chi',' · receipt kept with the expense')+' 🧾'
+      ? L(' · hóa đơn kèm khoản chi',exPhotos.length!==1?' · receipts kept with the expense':' · receipt kept with the expense')+' 🧾'
       : L(' · lưu thành kỷ niệm',' · saved as '+(exPhotos.length!==1?'memories':'a memory'))+' 📸')+'</div>' : '');
 }
 function exFormState(){                                     // snapshot used to detect edits
@@ -14938,29 +14941,35 @@ function submitExpense(){
 /* Personal-scope save: writes each draft row straight into the personal ledger
    (space_id null → private), never the family. Mirrors addExpense's finish
    (clear drafts, close, toast) so the flow feels identical. */
-async function _submitPersonalExpense(){
+/* opts.prepared = the rows were built in code (receipt scan), not typed here: skip the
+   interactive parse, which overwrites bulkRows[bulkActive] with whatever the form holds
+   (see submitBulk's own note). A scan never opens the form, so that was an EMPTY row 0:
+   the first receipt of every personal batch was dropped while the toast counted it.
+   opts.quiet = the caller fires its own summary toast. Resolves to one boolean per row. */
+async function _submitPersonalExpense(opts){
   var pd=window.fhPersonalData&&fhPersonalData();
   if(!pd||!pd.key){ window.toast&&toast(L('Mở khoá sổ cá nhân ở tab Cá nhân trước','Unlock your personal ledger first')); return; }
-  if(typeof commitActiveRow==='function') commitActiveRow();
+  if(!(opts&&opts.prepared) && typeof commitActiveRow==='function') commitActiveRow();
   var rows=(typeof bulkRows!=='undefined'?bulkRows:[]).filter(function(r){ return typeof rowHasContent==='function'? rowHasContent(r):(r&&r.amt); });
   if(!rows.length){ if(typeof bulkShowInvalid==='function') bulkShowInvalid(); return; }
   // validate like the family single-row path (amount + a real category)
   for(var k=0;k<rows.length;k++){ if(!(parseAmtBase(rows[k].amt||'')>0 && catValid(rows[k].cat))){ if(typeof bulkShowInvalid==='function'){ bulkShowInvalid(); return; } } }
   // Instrument tag (0105): the optional "Trả bằng gì?" chip. 'cash' materializes
   // the Tiền mặt account on first use; a card pick feeds that card's balance.
-  var acctPick=(typeof chosen==='function')? chosen('ex-acct') : null;
+  var acctPick=(!(opts&&opts.prepared) && typeof chosen==='function')? chosen('ex-acct') : null;   // prepared rows never saw the chip; a leftover pick must not tag them
   var acctId=null;
   if(acctPick){ acctId = (acctPick==='cash' && window.fhPersonalCashAccount) ? await fhPersonalCashAccount() : acctPick; }
-  var ok=0;
+  var ok=0, done=[];
   var _pPhotos=exPhotos.slice();   // photos ride the first row only — single-row is the only way to attach them (parity with submitBulk)
   for(var i=0;i<rows.length;i++){
-    var r=rows[i], amt=parseAmtBase(r.amt||''); if(!(amt>0)) continue;
+    var r=rows[i], amt=parseAmtBase(r.amt||''); done[i]=false; if(!(amt>0)) continue;
+    try{   // one row failing must not hide which rows already landed: the caller retries only the false ones
     var emoji=(window.catStyle&&catStyle[r.cat]&&catStyle[r.cat][0])||'🗂️';
     // Model Y: category is denormalised on the personal row (name + emoji) — no personal-category table.
     // Per-row time (commitActiveRow flushed the active row; the rest already hold theirs).
     var rid=await window.fhPersonalAddExpense(amt, r.note||'', r.cat||null, emoji, r.date||undefined, r.time||undefined, r.source||undefined, {accountId:acctId});
     if(rid){
-      ok++;
+      ok++; done[i]=true;
       // Photos (0114): encrypted under the personal DEK, attached to the new row.
       // A row's own photos win (receipt scan: one receipt per row); else the strip rides row 0.
       var rowPhotos=(r.photos&&r.photos.length)? r.photos : ((i===0)? _pPhotos : []);
@@ -14969,8 +14978,10 @@ async function _submitPersonalExpense(){
         await window.fhPersonalHydrate();
       }
     }
+    }catch(e){ if(typeof console!=='undefined') console.warn('personal row failed', e); }
   }
-  if(ok){ if(typeof clearDrafts==='function') clearDrafts(); if(typeof closeExpense==='function') closeExpense(); window.toast&&toast(L('Đã ghi vào sổ cá nhân','Saved to your personal ledger')); if(typeof renderPersonal==='function') renderPersonal(); }
+  if(ok){ if(typeof clearDrafts==='function') clearDrafts(); if(typeof closeExpense==='function') closeExpense(); if(!(opts&&opts.quiet)) window.toast&&toast(L('Đã ghi vào sổ cá nhân','Saved to your personal ledger')); if(typeof renderPersonal==='function') renderPersonal(); }
+  return done;
 }
 /* Income-scope save: reads the single live editor (amount · when · note) and
    writes to the income book of the chosen scope — personal_incomes or the family
@@ -30668,11 +30679,11 @@ var ICO = {
 };
 
 var RELEASES = [
-  { id:'2026-09-26-quet-hoa-don', date:'2026-09-26', time:'15:40', ver:'v586', icon:ICO.camera,
-    vi:{ t:'Chụp hóa đơn, app tự ghi',
+  { id:'2026-09-26-quet-hoa-don', date:'2026-10-10', time:'15:00', ver:'v586', icon:ICO.camera,
+    vi:{ t:'Chụp hóa đơn, app tự ghi (Beta)',
       problem:'Trả bằng MoMo hay tiền mặt thì chẳng có email nào báo về, nên những khoản đó phải tự gõ lại, mà gõ lúc đang đứng ở quầy thì hay quên.',
       sol:'Giờ bạn chụp hóa đơn hoặc chọn ảnh chụp màn hình, một lúc tới 10 tấm. App đọc số tiền và ngày giúp, bạn xem lại rồi lưu. Chỗ nào app không chắc thì để trống và nói rõ, chứ không đoán bừa. Ảnh hóa đơn đi theo khoản chi, không hiện trong Kỷ niệm.' },
-    en:{ t:'Snap a receipt, and it is logged',
+    en:{ t:'Snap a receipt, and it is logged (Beta)',
       problem:'Paying with MoMo or cash sends no email, so those expenses had to be typed in by hand, and typing at the counter is the moment things get forgotten.',
       sol:'Now you can photograph receipts or pick screenshots, up to 10 at once. The app reads the amount and date, you check and save. Anything it is unsure of is left blank and named rather than guessed. The photo stays with its expense and never shows up in Memories.' } },
   { id:'2026-09-20-tieu-vao-gi', date:'2026-09-20', time:'08:25', ver:'v551', icon:ICO.pie,
@@ -53722,7 +53733,7 @@ window.classifyAmount = classifyAmount;
   const MAX = 10, CONC = 3, ENDPOINT = '/api/receipt-extract';
   const S = { scope: 'family', items: [], open: false, editing: null, stream: null, pending: null,
               camArmed: false, camTimer: null, cancelArmed: false, cancelTimer: null, receipt: new Set(),
-              peekRestore: null, filesPending: 0, newSig: [] };
+              peekRestore: null, filesPending: 0, newSig: [], saving: false };
 
   const $ = (id) => document.getElementById(id);
   const vi = () => (typeof isVi === 'function' ? isVi() : true);
@@ -53738,6 +53749,7 @@ window.classifyAmount = classifyAmount;
     return /\/rcpt_[^/?]*(\?|$)/.test(String(src));
   };
   window.fhScanHasBatch = () => S.open && S.items.length > 0;
+  window.fhScanWaiting = () => (S.open ? S.items.length : 0);   // photos held in a batch; the entry rows say so while it is set aside
   window.fhScanIsNew = (t) => !!(S.newSig && S.newSig.length && t && S.newSig.indexOf((t.note || '') + '|' + (t.amt || 0)) >= 0);
 
   /* ── consent ────────────────────────────────────────────────────────────── */
@@ -53790,7 +53802,7 @@ window.classifyAmount = classifyAmount;
       const camSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 8.6h3L9.2 6h5.6l1.7 2.6h3v9.8h-15z"/><circle cx="12" cy="13.2" r="3.1"/></svg>';
       status = '<div class="cst-group"><div class="cst-lrow"><span class="cst-ic">' + camSvg + '</span>'
         + '<span class="cst-ltxt"><span class="cst-lt">' + esc2(L('Đang gửi ảnh cho AI', 'Sending photos to AI')) + '</span>'
-        + '<span class="cst-ls">' + esc2(when ? L('Bạn đã đồng ý ngày ', 'You agreed on ') + fmtDayMon(when) : L('Chưa có xác nhận nào được ghi nhận.', 'No confirmation on record.')) + '</span></span>'
+        + '<span class="cst-ls">' + esc2(when ? L('Bạn đã đồng ý ngày ', 'You agreed on ') + fmtDayMon(when) : L('Chưa ghi nhận đồng ý nào.', 'No confirmation on record.')) + '</span></span>'
         + '<button type="button" class="cst-stop" onclick="fhScanStop(this)">' + esc2(L('Dừng', 'Stop')) + '</button></div></div>';
     }
     openSheet(
@@ -53954,7 +53966,7 @@ window.classifyAmount = classifyAmount;
     const fresh = S.items.filter(function (i) { return i.state === 'new'; }).length;
     if (fresh && !S.camArmed) {
       S.camArmed = true;
-      toast(L('Chạm lần nữa để bỏ ' + fresh + ' ảnh vừa chụp', 'Tap again to discard the ' + fresh + (fresh === 1 ? ' photo' : ' photos') + ' you just captured'));
+      toast(L('Chạm lần nữa để bỏ ' + fresh + ' ảnh vừa chụp', 'Tap again to discard ' + fresh + (fresh === 1 ? ' photo' : ' photos')));
       clearTimeout(S.camTimer); S.camTimer = setTimeout(function () { S.camArmed = false; }, 3500);
       return;
     }
@@ -53966,12 +53978,15 @@ window.classifyAmount = classifyAmount;
 
   /* ── start ──────────────────────────────────────────────────────────────── */
   window.fhScanStart = function (scope) {
+    /* A batch in progress reopens in the book it was started for, whichever row was
+       tapped. Taking the tapped row's book here would move a private receipt into the
+       family ledger (or the reverse) just because the person came back another way. */
+    if (S.open && S.items.length) { openReview(); return; }
     S.scope = scope === 'personal' ? 'personal' : 'family';
     if (S.scope === 'personal') {
       const pd = window.fhPersonalData && fhPersonalData();
-      if (!pd || !pd.key) { toast(L('Mở khoá sổ cá nhân ở tab Cá nhân trước', 'Unlock your personal ledger in the Cá nhân tab first')); return; }
+      if (!pd || !pd.key) { toast(L('Mở khoá sổ cá nhân ở tab Cá nhân trước', 'Unlock your personal ledger first')); return; }
     }
-    if (S.open && S.items.length) { openReview(); return; }   // a batch in progress: back to it
     S.items = []; S.open = false;
     if (cachedOk()) {
       preacquire();                                // inside the tap
@@ -53995,6 +54010,23 @@ window.classifyAmount = classifyAmount;
   function closeReview() {
     S.open = false; S.items = []; S.cancelArmed = false;
     if (typeof closeModals === 'function') closeModals();
+    syncEntry();
+  }
+  /* Photos nobody can act on yet (unread, unsent) step aside after a save so the ledger,
+     which is the outcome, is what the person sees. The batch stays in memory and the
+     scan row reopens it (fhScanStart). */
+  function parkReview() {
+    const m = $('scan-review'); if (m) m.classList.remove('on');
+    const s = $('scrim'); if (s) s.classList.remove('on');
+    syncEntry();
+  }
+  function syncEntry() {
+    const w = window.fhScanWaiting();
+    // its own element: applyLang() rewrites every [data-t] after each hydrate, so the sub-line itself cannot carry this
+    const q = $('scan-sub'), ww = $('scan-wait');
+    if (q) q.style.display = w ? 'none' : '';
+    if (ww) ww.textContent = w ? L(w + ' ảnh đang chờ nhập tay', w + (w === 1 ? ' photo' : ' photos') + ' waiting to be typed in') : '';
+    try { if (typeof renderPersonal === 'function') renderPersonal(); } catch (e) {}
   }
   function isReady(it) { return (it.state === 'ok' || it.state === 'flag') && parseAmtBase(it.amt || '') > 0 && (typeof catValid !== 'function' || catValid(it.cat)); }
   function total(list) { return list.reduce(function (a, it) { return a + (parseAmtBase(it.amt || '') || 0); }, 0); }
@@ -54026,7 +54058,7 @@ window.classifyAmount = classifyAmount;
     const reading = items.filter(function (i) { return i.state === 'reading' || i.state === 'new'; }).length;
     const ready = items.filter(isReady);
     const head = $('scan-head'), dest = $('scan-dest'), rows = $('scan-rows'), note = $('scan-note'), save = $('scan-save');
-    if (head) head.textContent = reading ? L('Đang đọc ' + n + ' ảnh…', 'Reading ' + n + ' photos…')
+    if (head) head.textContent = reading ? L('Đang đọc ' + n + ' ảnh…', 'Reading ' + n + (n === 1 ? ' photo…' : ' photos…'))
       : (items.some(function (i) { return i.state === 'offline'; }) ? L('Đang ngoại tuyến', 'Offline') : L('Đã đọc ' + ready.length + '/' + n, 'Read ' + ready.length + ' of ' + n));
     if (dest) dest.textContent = (S.scope === 'personal' ? L('Sổ cá nhân', 'Personal book') : L('Sổ gia đình', 'Family book')) + (ready.length ? ' · ' + fmt(total(ready)) : '');
     if (rows) rows.innerHTML = items.map(rowHtml).join('')
@@ -54036,9 +54068,9 @@ window.classifyAmount = classifyAmount;
       const left = items.filter(function (i) { return !isReady(i) && i.state !== 'reading' && i.state !== 'new'; }).length;
       note.textContent = items.some(function (i) { return i.state === 'offline'; })
         ? L('Không có mạng nên chưa gửi ảnh nào đi. Ảnh vẫn ở đây, chạm từng khoản để nhập tay.', 'No connection, so nothing was sent. The photos are still here. Tap each one to type it in.')
-        : (left && !reading ? L('Ảnh chưa đọc được vẫn ở đây sau khi lưu, chạm để nhập tay.', 'Photos we could not read stay here after saving. Tap one to type it in.') : '');
+        : (left && !reading ? L('Chạm ảnh chưa đọc được để nhập tay. Lưu xong, ảnh còn lại chờ trong Quét hóa đơn cho tới khi bạn đóng app.', 'Tap a photo we could not read to type it in. After you save, the rest wait in Scan receipts until you close the app.') : '');
     }
-    if (save) { save.disabled = ready.length === 0; save.textContent = ready.length ? L('Lưu ' + ready.length, 'Save ' + ready.length) : L('Lưu', 'Save'); }
+    if (save && !S.saving) { save.disabled = ready.length === 0; save.textContent = ready.length ? L('Lưu ' + ready.length, 'Save ' + ready.length) : L('Lưu', 'Save'); }
     const c = $('scan-cancel'); if (c && !S.cancelArmed) { c.classList.remove('armed'); c.textContent = L('Huỷ', 'Cancel'); }
   }
 
@@ -54079,6 +54111,7 @@ window.classifyAmount = classifyAmount;
     it.note = (j.counterparty || j.memo || '').trim();
     it.cat = (j.category && typeof familyCatForConcept === 'function') ? familyCatForConcept(j.category) : '';
     it.date = j.date || it.taken || isoToday();
+    if (it.date > isoToday()) it.date = isoToday();                               // a future date would be filed as a proposal, not an expense
     it.time = j.time || '';
     it.state = (j.flags && j.flags.amount_unverified) ? 'flag' : 'ok';
   }
@@ -54101,6 +54134,9 @@ window.classifyAmount = classifyAmount;
       if (idx) idx.textContent = L('Khoản chi ' + (i + 1), 'Expense ' + (i + 1));
       const del = $('ex-del'); if (del) del.style.display = 'none';
       const add = $('bulk-add'); if (add) add.style.display = 'none';
+      // the book and the kind belong to the batch, and nothing reads these two back: a control that does not act must not show
+      const sf = $('ex-scopefield'); if (sf) sf.style.display = 'none';
+      const tyf = $('ex-typefield'); if (tyf) tyf.style.display = 'none';
       if (typeof refreshExCta === 'function') refreshExCta();
       const em = $('expense-modal');
       if (em && typeof MutationObserver !== 'undefined') {
@@ -54170,7 +54206,14 @@ window.classifyAmount = classifyAmount;
     S.items.forEach(function (i) { S.receipt.delete(i.src); });
     closeReview();
   };
+  /* One save at a time: a read landing mid-save re-renders the list, and without the
+     flag that re-enabled Save and let a second save run over the first one's rows. */
   window.fhScanSave = async function (btn) {
+    if (S.saving) return;
+    S.saving = true;
+    try { await save(btn); } finally { S.saving = false; if (S.open) render(); }
+  };
+  async function save(btn) {
     const ready = S.items.filter(isReady);
     if (!ready.length) return;
     if (btn) { btn.disabled = true; btn.textContent = L('Đang lưu…', 'Saving…'); }
@@ -54179,29 +54222,42 @@ window.classifyAmount = classifyAmount;
       return { note: it.note, amt: it.amt, cat: it.cat, date: it.date, time: it.time, _catTouched: true, _timeAuto: false,
                photos: [it.src], source: it.edited ? 'scan-edited' : 'scan' };
     });
-    const n = rows.length, sum = total(ready);
+    let n = rows.length, sum = total(ready);
     S.items = rest;                                    // what is left stays in the review; an empty rest lets closeModals close it
     window.bulkRows = rows; window.bulkActive = 0; window.exType = 'expense';
     if (typeof buildExCatChips === 'function') buildExCatChips();   // addExpense reads the chips; a scan may never have opened the form
-    let ok = true;
+    let ok = true, done = null;
     try {
-      if (S.scope === 'personal') { await _submitPersonalExpense(); }
-      else { submitBulk({ prepared: true, stay: true }); }
+      // prepared: these rows were never typed, so nothing is parsed out of the form; quiet: one toast, fired below
+      if (S.scope === 'personal') { done = await _submitPersonalExpense({ prepared: true, quiet: true }); }
+      else { submitBulk({ prepared: true, stay: true, quiet: true }); }
     } catch (e) { ok = false; toast(_friendly(e)); }
+    if (ok && S.scope === 'personal') {
+      // count only what was written; a row that did not land goes back into the review
+      const lost = ready.filter(function (it, i) { return !(done && done[i]); });
+      if (lost.length === ready.length) { ok = false; toast(L('Chưa lưu được, thử lại', 'Couldn’t save, try again')); }
+      else if (lost.length) { S.items = lost.concat(rest); n = ready.length - lost.length; sum = total(ready) - total(lost); }
+    }
     if (!ok) { S.items = ready.concat(rest); render(); if (btn) btn.disabled = false; return; }
     // landing: the list, with the rows this batch just wrote marked briefly
-    if (S.scope === 'personal') { if (typeof go === 'function') go('personal'); }
-    else {
+    // hydrate rebuilds rows after a write, so the mark keys on what survives it: note + amount
+    S.newSig = rows.map(function (r) { return r.note + '|' + parseAmtBase(r.amt || ''); });
+    if (S.scope === 'personal') {
+      if (typeof go === 'function') go('personal');
+      if (typeof openTxns === 'function') openTxns('personal');   // the list, where the new rows are, not the overview above it
+    } else {
       if (typeof go === 'function') go('spending');
       if (typeof segTo === 'function') segTo('activity');
-      // hydrate rebuilds rows 700ms after a write, so the mark keys on what survives it: note + amount
-      S.newSig = rows.map(function (r) { return r.note + '|' + parseAmtBase(r.amt || ''); });
-      if (typeof renderTxns === 'function') renderTxns();
-      setTimeout(function () { S.newSig = []; if (typeof renderTxns === 'function') renderTxns(); }, 4000);
     }
-    toast(L('Đã ghi ' + n + ' khoản từ hóa đơn · ' + fmt(sum), 'Logged ' + n + ' from receipts · ' + fmt(sum)));
-    if (rest.length) openReview(); else closeReview();
-  };
+    if (typeof renderTxns === 'function') renderTxns();
+    setTimeout(function () { S.newSig = []; if (typeof renderTxns === 'function') renderTxns(); }, 4000);
+    const left = S.items;
+    const park = left.length > 0 && left.every(function (i) { return i.state === 'bad' || i.state === 'offline'; });
+    // the toast is one line that cannot wrap: when photos are set aside, the count of them takes the place of the total
+    toast(park ? L('Đã ghi ' + n + ' khoản · còn ' + left.length + ' ảnh chưa đọc', 'Logged ' + n + ' · ' + left.length + ' not read yet')
+               : L('Đã ghi ' + n + ' khoản từ hóa đơn · ' + fmt(sum), 'Logged ' + n + ' from receipts · ' + fmt(sum)));
+    if (!left.length) closeReview(); else if (park) parkReview(); else openReview();
+  }
 
   /* ── harness seam (tools/ui-harness only): render states without a camera or a network ── */
   window.__fhScanSeed = function (o) {

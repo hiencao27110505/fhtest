@@ -35,11 +35,19 @@ Two doors, both closed by one predicate, `fhIsReceiptSrc(src)`: true for a data 
 
 ## Current State
 
-Built on `feat/receipt-scan` (2026-09-19), not yet shipped. 44 client and 29 server unit tests pass; the save flow passes 16 checks; 14 built screens match their approved target pictures in both languages. Open before release:
+Shipped to production on 2026-10-10 as a **beta**: both entry rows carry a "Beta" tag (`.scan-beta`) and the release note title ends "(Beta)". It went out without the preview pass, because only founders use production today. 44 client and 29 server unit tests pass; the two save flows (family and personal) pass 32 checks.
+
+Fixed on the way out (2026-10-10):
+- **Personal batches dropped their first receipt.** `_submitPersonalExpense` ran the interactive parse over rows built in code, overwriting row 0 with the empty form while the toast still counted it. It now takes `{prepared:true}` like `submitBulk`, and returns one boolean per row so the scan reports only what was written.
+- **One toast per save** (`quiet` on both save paths).
+- **After a save, unreadable photos step aside** (`parkReview`) so the ledger shows. The batch stays in memory, both entry rows say how many photos are waiting, and it reopens in the book it was started for whichever row is tapped.
+- The one-row edit form hides the book and Chi/Thu controls, which it never read back. A read can no longer date an expense in the future. One save at a time (`S.saving`).
+
+Open:
 
 - **The accuracy gate has not run.** `tools/receipt-bench.js` needs 20–30 real receipts and screenshots with answers. Gate: amounts right ≥ 95%, dates ≥ 90%. If it fails, the target becomes typing with the receipt beside you.
 - **The Gemini tier decides what the consent sheet may claim.** The copy says only "theo điều khoản của gói đang dùng" for that reason.
-- **Vercel must trace the dynamic import** of `labeltable.mjs` from the CommonJS function; verify on the preview deploy. The function fails closed (500) if the validator cannot load.
+- **Vercel must bundle `labeltable.mjs`** for the CommonJS function's dynamic import. `vercel.json` now lists it under `functions.includeFiles`, but no real read has been confirmed in production yet. The function fails closed (500) if the validator cannot load.
 - **iPhone-only:** the system picker, the tap-gesture camera rule, torch support, and `100vh` behaviour are verifiable only on a phone.
 - **Not measurable without a migration:** scan attempts, abandons, consent declines.
 

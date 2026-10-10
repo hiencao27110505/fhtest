@@ -35,7 +35,7 @@ module.exports = {
   shots: [
     { name: '01-whatsnew', settleMs: 900, setup: H + `openWhatsNew();` },
     { name: '02-addsheet', settleMs: 900, setup: H + `openSheet('sheet-add');` },
-    { name: '03-personal', settleMs: 1000, setup: H + `go('personal'); setTimeout(function(){ var r=[].find.call(document.querySelectorAll('.cf-cta .cc-row'), function(b){ return /Quét hóa đơn/.test(b.textContent); }); var sc=document.getElementById('scroll'); if(r&&sc) sc.scrollTop=Math.max(0,r.offsetTop-260); },400);` },
+    { name: '03-personal', settleMs: 1000, setup: H + `go('personal'); setTimeout(function(){ var r=[].find.call(document.querySelectorAll('.cf-cta .cc-row'), function(b){ return /Quét hóa đơn|Scan receipts/.test(b.textContent); }); var sc=document.getElementById('scroll'); if(r&&sc) sc.scrollTop=Math.max(0,r.offsetTop-260); },400);` },
     { name: '04-consent', settleMs: 1000, setup: H + `fhScanConsentSheet({});` },
     { name: '05-camera', settleMs: 900, setup: H + `__fhScanSeed({camera:true, still:__R[0].src});` },
     { name: '06-camera-batch', settleMs: 900, setup: H + `__fhScanSeed({camera:true, still:__R[0].src, items:__batch(['ok','ok','ok']).slice(0,3), say:L('Đã chụp 3 · chụp tiếp hoặc chạm Xong','3 captured · keep going or tap Done')});` },

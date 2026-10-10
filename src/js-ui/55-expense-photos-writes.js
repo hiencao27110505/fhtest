@@ -222,7 +222,7 @@ function renderExPhoto(){
   }).join('') + (exPhotos.length ? '<div class="photo-strip-note">'+exPhotos.length+L(' ảnh',' photo'+(exPhotos.length!==1?'s':''))
     // a scanned receipt is evidence for its expense, never a memory — the note must not promise Kỷ niệm
     +((window.fhIsReceiptSrc && exPhotos.every(function(s){ return fhIsReceiptSrc(s); }))
-      ? L(' · hóa đơn kèm khoản chi',' · receipt kept with the expense')+' 🧾'
+      ? L(' · hóa đơn kèm khoản chi',exPhotos.length!==1?' · receipts kept with the expense':' · receipt kept with the expense')+' 🧾'
       : L(' · lưu thành kỷ niệm',' · saved as '+(exPhotos.length!==1?'memories':'a memory'))+' 📸')+'</div>' : '');
 }
 function exFormState(){                                     // snapshot used to detect edits
@@ -383,29 +383,35 @@ function submitExpense(){
 /* Personal-scope save: writes each draft row straight into the personal ledger
    (space_id null → private), never the family. Mirrors addExpense's finish
    (clear drafts, close, toast) so the flow feels identical. */
-async function _submitPersonalExpense(){
+/* opts.prepared = the rows were built in code (receipt scan), not typed here: skip the
+   interactive parse, which overwrites bulkRows[bulkActive] with whatever the form holds
+   (see submitBulk's own note). A scan never opens the form, so that was an EMPTY row 0:
+   the first receipt of every personal batch was dropped while the toast counted it.
+   opts.quiet = the caller fires its own summary toast. Resolves to one boolean per row. */
+async function _submitPersonalExpense(opts){
   var pd=window.fhPersonalData&&fhPersonalData();
   if(!pd||!pd.key){ window.toast&&toast(L('Mở khoá sổ cá nhân ở tab Cá nhân trước','Unlock your personal ledger first')); return; }
-  if(typeof commitActiveRow==='function') commitActiveRow();
+  if(!(opts&&opts.prepared) && typeof commitActiveRow==='function') commitActiveRow();
   var rows=(typeof bulkRows!=='undefined'?bulkRows:[]).filter(function(r){ return typeof rowHasContent==='function'? rowHasContent(r):(r&&r.amt); });
   if(!rows.length){ if(typeof bulkShowInvalid==='function') bulkShowInvalid(); return; }
   // validate like the family single-row path (amount + a real category)
   for(var k=0;k<rows.length;k++){ if(!(parseAmtBase(rows[k].amt||'')>0 && catValid(rows[k].cat))){ if(typeof bulkShowInvalid==='function'){ bulkShowInvalid(); return; } } }
   // Instrument tag (0105): the optional "Trả bằng gì?" chip. 'cash' materializes
   // the Tiền mặt account on first use; a card pick feeds that card's balance.
-  var acctPick=(typeof chosen==='function')? chosen('ex-acct') : null;
+  var acctPick=(!(opts&&opts.prepared) && typeof chosen==='function')? chosen('ex-acct') : null;   // prepared rows never saw the chip; a leftover pick must not tag them
   var acctId=null;
   if(acctPick){ acctId = (acctPick==='cash' && window.fhPersonalCashAccount) ? await fhPersonalCashAccount() : acctPick; }
-  var ok=0;
+  var ok=0, done=[];
   var _pPhotos=exPhotos.slice();   // photos ride the first row only — single-row is the only way to attach them (parity with submitBulk)
   for(var i=0;i<rows.length;i++){
-    var r=rows[i], amt=parseAmtBase(r.amt||''); if(!(amt>0)) continue;
+    var r=rows[i], amt=parseAmtBase(r.amt||''); done[i]=false; if(!(amt>0)) continue;
+    try{   // one row failing must not hide which rows already landed: the caller retries only the false ones
     var emoji=(window.catStyle&&catStyle[r.cat]&&catStyle[r.cat][0])||'🗂️';
     // Model Y: category is denormalised on the personal row (name + emoji) — no personal-category table.
     // Per-row time (commitActiveRow flushed the active row; the rest already hold theirs).
     var rid=await window.fhPersonalAddExpense(amt, r.note||'', r.cat||null, emoji, r.date||undefined, r.time||undefined, r.source||undefined, {accountId:acctId});
     if(rid){
-      ok++;
+      ok++; done[i]=true;
       // Photos (0114): encrypted under the personal DEK, attached to the new row.
       // A row's own photos win (receipt scan: one receipt per row); else the strip rides row 0.
       var rowPhotos=(r.photos&&r.photos.length)? r.photos : ((i===0)? _pPhotos : []);
@@ -414,8 +420,10 @@ async function _submitPersonalExpense(){
         await window.fhPersonalHydrate();
       }
     }
+    }catch(e){ if(typeof console!=='undefined') console.warn('personal row failed', e); }
   }
-  if(ok){ if(typeof clearDrafts==='function') clearDrafts(); if(typeof closeExpense==='function') closeExpense(); window.toast&&toast(L('Đã ghi vào sổ cá nhân','Saved to your personal ledger')); if(typeof renderPersonal==='function') renderPersonal(); }
+  if(ok){ if(typeof clearDrafts==='function') clearDrafts(); if(typeof closeExpense==='function') closeExpense(); if(!(opts&&opts.quiet)) window.toast&&toast(L('Đã ghi vào sổ cá nhân','Saved to your personal ledger')); if(typeof renderPersonal==='function') renderPersonal(); }
+  return done;
 }
 /* Income-scope save: reads the single live editor (amount · when · note) and
    writes to the income book of the chosen scope — personal_incomes or the family

@@ -1,4 +1,9 @@
 {
   "outputDirectory": ".",
-  "buildCommand": "npm run build:deploy"
+  "buildCommand": "npm run build:deploy",
+  "functions": {
+    "api/receipt-extract.js": {
+      "includeFiles": "supabase/functions/_shared/mailbox/*.mjs"
+    }
+  }
 }

@@ -22,7 +22,7 @@
   const MAX = 10, CONC = 3, ENDPOINT = '/api/receipt-extract';
   const S = { scope: 'family', items: [], open: false, editing: null, stream: null, pending: null,
               camArmed: false, camTimer: null, cancelArmed: false, cancelTimer: null, receipt: new Set(),
-              peekRestore: null, filesPending: 0, newSig: [] };
+              peekRestore: null, filesPending: 0, newSig: [], saving: false };
 
   const $ = (id) => document.getElementById(id);
   const vi = () => (typeof isVi === 'function' ? isVi() : true);
@@ -38,6 +38,7 @@
     return /\/rcpt_[^/?]*(\?|$)/.test(String(src));
   };
   window.fhScanHasBatch = () => S.open && S.items.length > 0;
+  window.fhScanWaiting = () => (S.open ? S.items.length : 0);   // photos held in a batch; the entry rows say so while it is set aside
   window.fhScanIsNew = (t) => !!(S.newSig && S.newSig.length && t && S.newSig.indexOf((t.note || '') + '|' + (t.amt || 0)) >= 0);
 
   /* ── consent ────────────────────────────────────────────────────────────── */
@@ -90,7 +91,7 @@
       const camSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 8.6h3L9.2 6h5.6l1.7 2.6h3v9.8h-15z"/><circle cx="12" cy="13.2" r="3.1"/></svg>';
       status = '<div class="cst-group"><div class="cst-lrow"><span class="cst-ic">' + camSvg + '</span>'
         + '<span class="cst-ltxt"><span class="cst-lt">' + esc2(L('Đang gửi ảnh cho AI', 'Sending photos to AI')) + '</span>'
-        + '<span class="cst-ls">' + esc2(when ? L('Bạn đã đồng ý ngày ', 'You agreed on ') + fmtDayMon(when) : L('Chưa có xác nhận nào được ghi nhận.', 'No confirmation on record.')) + '</span></span>'
+        + '<span class="cst-ls">' + esc2(when ? L('Bạn đã đồng ý ngày ', 'You agreed on ') + fmtDayMon(when) : L('Chưa ghi nhận đồng ý nào.', 'No confirmation on record.')) + '</span></span>'
         + '<button type="button" class="cst-stop" onclick="fhScanStop(this)">' + esc2(L('Dừng', 'Stop')) + '</button></div></div>';
     }
     openSheet(
@@ -254,7 +255,7 @@
     const fresh = S.items.filter(function (i) { return i.state === 'new'; }).length;
     if (fresh && !S.camArmed) {
       S.camArmed = true;
-      toast(L('Chạm lần nữa để bỏ ' + fresh + ' ảnh vừa chụp', 'Tap again to discard the ' + fresh + (fresh === 1 ? ' photo' : ' photos') + ' you just captured'));
+      toast(L('Chạm lần nữa để bỏ ' + fresh + ' ảnh vừa chụp', 'Tap again to discard ' + fresh + (fresh === 1 ? ' photo' : ' photos')));
       clearTimeout(S.camTimer); S.camTimer = setTimeout(function () { S.camArmed = false; }, 3500);
       return;
     }
@@ -266,12 +267,15 @@
 
   /* ── start ──────────────────────────────────────────────────────────────── */
   window.fhScanStart = function (scope) {
+    /* A batch in progress reopens in the book it was started for, whichever row was
+       tapped. Taking the tapped row's book here would move a private receipt into the
+       family ledger (or the reverse) just because the person came back another way. */
+    if (S.open && S.items.length) { openReview(); return; }
     S.scope = scope === 'personal' ? 'personal' : 'family';
     if (S.scope === 'personal') {
       const pd = window.fhPersonalData && fhPersonalData();
-      if (!pd || !pd.key) { toast(L('Mở khoá sổ cá nhân ở tab Cá nhân trước', 'Unlock your personal ledger in the Cá nhân tab first')); return; }
+      if (!pd || !pd.key) { toast(L('Mở khoá sổ cá nhân ở tab Cá nhân trước', 'Unlock your personal ledger first')); return; }
     }
-    if (S.open && S.items.length) { openReview(); return; }   // a batch in progress: back to it
     S.items = []; S.open = false;
     if (cachedOk()) {
       preacquire();                                // inside the tap
@@ -295,6 +299,23 @@
   function closeReview() {
     S.open = false; S.items = []; S.cancelArmed = false;
     if (typeof closeModals === 'function') closeModals();
+    syncEntry();
+  }
+  /* Photos nobody can act on yet (unread, unsent) step aside after a save so the ledger,
+     which is the outcome, is what the person sees. The batch stays in memory and the
+     scan row reopens it (fhScanStart). */
+  function parkReview() {
+    const m = $('scan-review'); if (m) m.classList.remove('on');
+    const s = $('scrim'); if (s) s.classList.remove('on');
+    syncEntry();
+  }
+  function syncEntry() {
+    const w = window.fhScanWaiting();
+    // its own element: applyLang() rewrites every [data-t] after each hydrate, so the sub-line itself cannot carry this
+    const q = $('scan-sub'), ww = $('scan-wait');
+    if (q) q.style.display = w ? 'none' : '';
+    if (ww) ww.textContent = w ? L(w + ' ảnh đang chờ nhập tay', w + (w === 1 ? ' photo' : ' photos') + ' waiting to be typed in') : '';
+    try { if (typeof renderPersonal === 'function') renderPersonal(); } catch (e) {}
   }
   function isReady(it) { return (it.state === 'ok' || it.state === 'flag') && parseAmtBase(it.amt || '') > 0 && (typeof catValid !== 'function' || catValid(it.cat)); }
   function total(list) { return list.reduce(function (a, it) { return a + (parseAmtBase(it.amt || '') || 0); }, 0); }
@@ -326,7 +347,7 @@
     const reading = items.filter(function (i) { return i.state === 'reading' || i.state === 'new'; }).length;
     const ready = items.filter(isReady);
     const head = $('scan-head'), dest = $('scan-dest'), rows = $('scan-rows'), note = $('scan-note'), save = $('scan-save');
-    if (head) head.textContent = reading ? L('Đang đọc ' + n + ' ảnh…', 'Reading ' + n + ' photos…')
+    if (head) head.textContent = reading ? L('Đang đọc ' + n + ' ảnh…', 'Reading ' + n + (n === 1 ? ' photo…' : ' photos…'))
       : (items.some(function (i) { return i.state === 'offline'; }) ? L('Đang ngoại tuyến', 'Offline') : L('Đã đọc ' + ready.length + '/' + n, 'Read ' + ready.length + ' of ' + n));
     if (dest) dest.textContent = (S.scope === 'personal' ? L('Sổ cá nhân', 'Personal book') : L('Sổ gia đình', 'Family book')) + (ready.length ? ' · ' + fmt(total(ready)) : '');
     if (rows) rows.innerHTML = items.map(rowHtml).join('')
@@ -336,9 +357,9 @@
       const left = items.filter(function (i) { return !isReady(i) && i.state !== 'reading' && i.state !== 'new'; }).length;
       note.textContent = items.some(function (i) { return i.state === 'offline'; })
         ? L('Không có mạng nên chưa gửi ảnh nào đi. Ảnh vẫn ở đây, chạm từng khoản để nhập tay.', 'No connection, so nothing was sent. The photos are still here. Tap each one to type it in.')
-        : (left && !reading ? L('Ảnh chưa đọc được vẫn ở đây sau khi lưu, chạm để nhập tay.', 'Photos we could not read stay here after saving. Tap one to type it in.') : '');
+        : (left && !reading ? L('Chạm ảnh chưa đọc được để nhập tay. Lưu xong, ảnh còn lại chờ trong Quét hóa đơn cho tới khi bạn đóng app.', 'Tap a photo we could not read to type it in. After you save, the rest wait in Scan receipts until you close the app.') : '');
     }
-    if (save) { save.disabled = ready.length === 0; save.textContent = ready.length ? L('Lưu ' + ready.length, 'Save ' + ready.length) : L('Lưu', 'Save'); }
+    if (save && !S.saving) { save.disabled = ready.length === 0; save.textContent = ready.length ? L('Lưu ' + ready.length, 'Save ' + ready.length) : L('Lưu', 'Save'); }
     const c = $('scan-cancel'); if (c && !S.cancelArmed) { c.classList.remove('armed'); c.textContent = L('Huỷ', 'Cancel'); }
   }
 
@@ -379,6 +400,7 @@
     it.note = (j.counterparty || j.memo || '').trim();
     it.cat = (j.category && typeof familyCatForConcept === 'function') ? familyCatForConcept(j.category) : '';
     it.date = j.date || it.taken || isoToday();
+    if (it.date > isoToday()) it.date = isoToday();                               // a future date would be filed as a proposal, not an expense
     it.time = j.time || '';
     it.state = (j.flags && j.flags.amount_unverified) ? 'flag' : 'ok';
   }
@@ -401,6 +423,9 @@
       if (idx) idx.textContent = L('Khoản chi ' + (i + 1), 'Expense ' + (i + 1));
       const del = $('ex-del'); if (del) del.style.display = 'none';
       const add = $('bulk-add'); if (add) add.style.display = 'none';
+      // the book and the kind belong to the batch, and nothing reads these two back: a control that does not act must not show
+      const sf = $('ex-scopefield'); if (sf) sf.style.display = 'none';
+      const tyf = $('ex-typefield'); if (tyf) tyf.style.display = 'none';
       if (typeof refreshExCta === 'function') refreshExCta();
       const em = $('expense-modal');
       if (em && typeof MutationObserver !== 'undefined') {
@@ -470,7 +495,14 @@
     S.items.forEach(function (i) { S.receipt.delete(i.src); });
     closeReview();
   };
+  /* One save at a time: a read landing mid-save re-renders the list, and without the
+     flag that re-enabled Save and let a second save run over the first one's rows. */
   window.fhScanSave = async function (btn) {
+    if (S.saving) return;
+    S.saving = true;
+    try { await save(btn); } finally { S.saving = false; if (S.open) render(); }
+  };
+  async function save(btn) {
     const ready = S.items.filter(isReady);
     if (!ready.length) return;
     if (btn) { btn.disabled = true; btn.textContent = L('Đang lưu…', 'Saving…'); }
@@ -479,29 +511,42 @@
       return { note: it.note, amt: it.amt, cat: it.cat, date: it.date, time: it.time, _catTouched: true, _timeAuto: false,
                photos: [it.src], source: it.edited ? 'scan-edited' : 'scan' };
     });
-    const n = rows.length, sum = total(ready);
+    let n = rows.length, sum = total(ready);
     S.items = rest;                                    // what is left stays in the review; an empty rest lets closeModals close it
     window.bulkRows = rows; window.bulkActive = 0; window.exType = 'expense';
     if (typeof buildExCatChips === 'function') buildExCatChips();   // addExpense reads the chips; a scan may never have opened the form
-    let ok = true;
+    let ok = true, done = null;
     try {
-      if (S.scope === 'personal') { await _submitPersonalExpense(); }
-      else { submitBulk({ prepared: true, stay: true }); }
+      // prepared: these rows were never typed, so nothing is parsed out of the form; quiet: one toast, fired below
+      if (S.scope === 'personal') { done = await _submitPersonalExpense({ prepared: true, quiet: true }); }
+      else { submitBulk({ prepared: true, stay: true, quiet: true }); }
     } catch (e) { ok = false; toast(_friendly(e)); }
+    if (ok && S.scope === 'personal') {
+      // count only what was written; a row that did not land goes back into the review
+      const lost = ready.filter(function (it, i) { return !(done && done[i]); });
+      if (lost.length === ready.length) { ok = false; toast(L('Chưa lưu được, thử lại', 'Couldn’t save, try again')); }
+      else if (lost.length) { S.items = lost.concat(rest); n = ready.length - lost.length; sum = total(ready) - total(lost); }
+    }
     if (!ok) { S.items = ready.concat(rest); render(); if (btn) btn.disabled = false; return; }
     // landing: the list, with the rows this batch just wrote marked briefly
-    if (S.scope === 'personal') { if (typeof go === 'function') go('personal'); }
-    else {
+    // hydrate rebuilds rows after a write, so the mark keys on what survives it: note + amount
+    S.newSig = rows.map(function (r) { return r.note + '|' + parseAmtBase(r.amt || ''); });
+    if (S.scope === 'personal') {
+      if (typeof go === 'function') go('personal');
+      if (typeof openTxns === 'function') openTxns('personal');   // the list, where the new rows are, not the overview above it
+    } else {
       if (typeof go === 'function') go('spending');
       if (typeof segTo === 'function') segTo('activity');
-      // hydrate rebuilds rows 700ms after a write, so the mark keys on what survives it: note + amount
-      S.newSig = rows.map(function (r) { return r.note + '|' + parseAmtBase(r.amt || ''); });
-      if (typeof renderTxns === 'function') renderTxns();
-      setTimeout(function () { S.newSig = []; if (typeof renderTxns === 'function') renderTxns(); }, 4000);
     }
-    toast(L('Đã ghi ' + n + ' khoản từ hóa đơn · ' + fmt(sum), 'Logged ' + n + ' from receipts · ' + fmt(sum)));
-    if (rest.length) openReview(); else closeReview();
-  };
+    if (typeof renderTxns === 'function') renderTxns();
+    setTimeout(function () { S.newSig = []; if (typeof renderTxns === 'function') renderTxns(); }, 4000);
+    const left = S.items;
+    const park = left.length > 0 && left.every(function (i) { return i.state === 'bad' || i.state === 'offline'; });
+    // the toast is one line that cannot wrap: when photos are set aside, the count of them takes the place of the total
+    toast(park ? L('Đã ghi ' + n + ' khoản · còn ' + left.length + ' ảnh chưa đọc', 'Logged ' + n + ' · ' + left.length + ' not read yet')
+               : L('Đã ghi ' + n + ' khoản từ hóa đơn · ' + fmt(sum), 'Logged ' + n + ' from receipts · ' + fmt(sum)));
+    if (!left.length) closeReview(); else if (park) parkReview(); else openReview();
+  }
 
   /* ── harness seam (tools/ui-harness only): render states without a camera or a network ── */
   window.__fhScanSeed = function (o) {

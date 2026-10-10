@@ -37,7 +37,11 @@ module.exports = {
         t.expect(await t.eval(() => document.querySelectorAll('#tx-rows .row.scan-new').length === 2), 'the two saved rows are marked in the list');
         await t.wait(750);
         const toasts = await t.eval(() => window.__toasts.slice());
-        t.expect(toasts.some((m) => /Đã ghi 2 khoản từ hóa đơn/.test(m)), 'a toast named count and receipts: ' + JSON.stringify(toasts));
+        t.expect(toasts.some((m) => /Đã ghi 2 khoản · còn 1 ảnh chưa đọc/.test(m)), 'a toast named the count and the photo still unread: ' + JSON.stringify(toasts));
+        t.expect(toasts.filter((m) => /Đã ghi \d+ khoản/.test(m)).length === 1, 'exactly one batch toast, not the bulk one as well: ' + JSON.stringify(toasts));
+        t.expect(await t.eval(() => { const e = document.getElementById('toast'); return e.scrollWidth <= e.clientWidth + 1; }), 'the toast fits its pill');
+        t.expect(/1 ảnh đang chờ nhập tay/.test(await t.eval(() => document.getElementById('scan-wait').textContent)), 'the add-sheet row says a photo is waiting');
+        t.expect(await t.eval(() => !document.getElementById('scan-review').classList.contains('on')), 'the review steps aside so the ledger is what shows');
         t.expect(await t.eval(() => window.txns.filter((x) => /^QC /.test(x.note)).length === 2), 'two rows in the local ledger');
         t.expect(await t.eval(() => window.txns.some((x) => x.note === 'QC Circle K' && x.amt === 85)), 'amount landed in base units (85)');
         t.expect(await t.eval(() => window.txns.filter((x) => /^QC /.test(x.note)).every((x) => x.photos && x.photos.length === 1)), 'each saved row carries its own receipt');
@@ -65,6 +69,54 @@ module.exports = {
         t.step('the unread row stayed behind');
         t.expect(await t.eval(() => window.fhScanHasBatch()), 'the batch still holds the unread row');
         t.expect(/Chưa đọc được/.test(await t.eval(() => document.getElementById('scan-rows').textContent)), 'it still reads as not read');
+        await t.eval(`fhScanStart('personal')`);   // came back by the OTHER row
+        await t.wait(300);
+        t.expect(await t.eval(() => document.getElementById('scan-review').classList.contains('on')), 'the scan row reopens the waiting batch');
+        t.expect(/Sổ gia đình/.test(await t.eval(() => document.getElementById('scan-dest').textContent)), 'and it is still a family batch, whichever row reopened it');
+      },
+    },
+    {
+      /* The personal book saves through _submitPersonalExpense, not submitBulk. Its
+         interactive parse used to overwrite row 0 with the empty form, so the FIRST
+         receipt of every personal batch vanished while the toast counted it. */
+      name: 'scan-review-save-personal',
+      lang: 'vi',
+      run: async (t) => {
+        t.step('open the personal book and seed three read receipts');
+        await t.eval(`go('personal')`);
+        await t.wait(1200);
+        /* the harness hangs personal reads so the painted snapshot survives; a save
+           must be allowed through, and its re-read has nothing real to fetch */
+        await t.eval(`(function(){
+          window.__STUB.hang='';
+          window.fhPersonalHydrate=async function(){};
+          var c=document.createElement('canvas'); c.width=120; c.height=160; var x=c.getContext('2d'); x.fillStyle='#fbfaf6'; x.fillRect(0,0,120,160);
+          var a=c.toDataURL('image/jpeg',0.8), _t=isoDate(TODAY);
+          __fhScanSeed({ scope:'personal', items:[
+            { src:a, state:'ok', amt:85, note:'QP Circle K', cat:'Ăn uống', date:_t, time:'08:12' },
+            { src:a, state:'ok', amt:236, note:'QP Long Châu', cat:'Khác', date:_t, time:'16:05' },
+            { src:a, state:'ok', amt:118, note:'QP Highlands', cat:'Ăn uống', date:_t, time:'09:40' } ] });
+        })()`);
+        await t.wait(400);
+        t.expect((await t.eval(() => document.getElementById('scan-save').textContent)) === 'Lưu 3', 'Save counts three rows');
+        t.expect(/Sổ cá nhân/.test(await t.eval(() => document.getElementById('scan-dest').textContent)), 'header names the personal book');
+
+        t.step('save');
+        await t.eval(`(function(){ window.__toasts=[]; var o=window.toast; window.toast=function(m){ window.__toasts.push(String(m)); return o.apply(this, arguments); }; })()`);
+        await t.click('#scan-save');
+        await t.wait(2500);
+        const w = await t.writes();
+        const tx = w.filter((x) => x.table === 'personal_transactions' && x.op === 'insert');
+        t.expect(tx.length === 3, 'three personal_transactions inserts, the first row included (' + tx.length + ')');
+        t.expect(tx.every((x) => x.payload.source === 'scan'), 'each carries source=scan');
+        t.expect(!w.some((x) => x.table === 'transactions' && x.op === 'insert'), 'nothing was written to the family ledger');
+        const ph = w.filter((x) => x.table === 'personal_transaction_photos' && x.op === 'insert');
+        t.expect(ph.length === 3, 'a receipt per row (' + ph.length + ')');
+        const toasts = await t.eval(() => window.__toasts.slice());
+        t.expect(toasts.some((m) => /Đã ghi 3 khoản từ hóa đơn/.test(m)), 'the toast counts what was written: ' + JSON.stringify(toasts));
+        t.expect(!toasts.some((m) => /Đã ghi vào sổ cá nhân/.test(m)), 'one toast, not the personal one as well');
+        t.expect(await t.eval(() => !window.fhScanHasBatch()), 'the batch is finished');
+        await t.shot('03-personal-saved');
       },
     },
   ],

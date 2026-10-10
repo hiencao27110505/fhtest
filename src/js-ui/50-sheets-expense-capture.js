@@ -24,13 +24,14 @@ function closeModals(){
   // expense for an undated day), because its batch lives only in memory and
   // closing it would silently destroy every photo still held. Both of its own
   // exits empty paBatch first, so this never traps the user inside it.
-  var keepPa = (typeof paBatch !== 'undefined') && paBatch.length > 0;
+  var keepPa = (typeof paBatch !== 'undefined') && paBatch.length > 0, keepScan = false;
   document.querySelectorAll('.modal.on').forEach(function(m){
     if(keepPa && m.id === 'photo-assign') return;
-    if(m.id === 'scan-review' && window.fhScanHasBatch && fhScanHasBatch()) return;   // the scan batch lives only in memory too
+    // the scan batch lives only in memory too; a swipe-down lands here with the modal dragged away, so put it back under its scrim
+    if(m.id === 'scan-review' && window.fhScanHasBatch && fhScanHasBatch()){ keepScan = true; m.style.transform=''; m.style.transition=''; return; }
     m.classList.remove('on'); m.style.transform=''; m.style.transition='';
   });
-  if(!keepPa) document.getElementById('scrim').classList.remove('on');
+  if(!keepPa && !keepScan) document.getElementById('scrim').classList.remove('on');
   editingTx=null; editingPTx=null; editSnap=null; exPhotos=[]; evPhotos=[]; memPick=null; memPickMulti=null;
   setTxt('ex-title',L('Khoản chi','Expense')); var del=document.getElementById('ex-del'); if(del)del.style.display='none'; var tl9=document.getElementById('ex-toloan'); if(tl9)tl9.style.display='none'; var ti9=document.getElementById('ex-toinvest'); if(ti9)ti9.style.display='none';
   resetDelArm();
@@ -1018,7 +1019,7 @@ function submitBulk(opts){
   window._dgLocalAdd=true;                          // this device just logged → allow a daily-guide state-change push
   renderAll(); renderTxns();
   closeExpense();
-  toast(L('Đã ghi '+n+' khoản · '+fmt(total),'Logged '+n+' · '+fmt(total)));
+  if(!(opts&&opts.quiet)) toast(L('Đã ghi '+n+' khoản · '+fmt(total),'Logged '+n+' · '+fmt(total)));   // opts.quiet: receipt scan fires its own, naming receipts
   if(typeof floatEmojis==='function') floatEmojis('🎉');
   /* Staying put is opt-in. The bank-email queue imports one row at a time, and
      bouncing to the ledger after each would mean reopening the queue for every

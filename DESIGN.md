@@ -306,6 +306,8 @@ margins overflows).
   `.rows` / `.row` sit at the app gutter; receipt as the row tile; commit from the nav Save with the
   count in its label, as the CSV import review does. States: `.scan-skel` placeholder while reading,
   `.scan-warn` (amber) for a doubtful amount, `.scan-act` (brand ink) for "tap to type it in".
+- **Beta tag** (`.scan-beta`): the brand-tint tag from "Tags & badges", beside the title of both
+  entry rows while the feature is in beta. Remove the two spans and the rule together.
 
 ### Photo / memory system
 - **Mosaic** (`.photo-mosaic`): 6-col grid, dynamic collage by count (1 hero / 2 halves / 3 big+2 /
