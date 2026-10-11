@@ -260,11 +260,11 @@ function buildExAcctChips(selId){
     var cashA=accts.filter(function(a){ return a.kind==='cash'; })[0];
     sel = selId ? ((cashA && selId===cashA.id) ? 'cash' : selId) : null;
   } else { try{ sel=localStorage.getItem(_exAcctMemKey()); }catch(e){ sel=null; } }
-  var ico={credit_card:'💳',deposit:'🏦',ewallet:'📱',cash:'💵'};
-  var h='<button class="choice'+(sel==='cash'?' on':'')+'" data-v="cash" onclick="pickExAcct(this)">💵 Tiền mặt</button>';
+  /* each account wears its provider's face (source-face-spec), cash its own */
+  var h='<button class="choice'+(sel==='cash'?' on':'')+'" data-v="cash" onclick="pickExAcct(this)">'+fhSrcLabel({kind:'cash'},'Tiền mặt')+'</button>';
   accts.forEach(function(a){ if(a.kind==='cash') return;
     if(income && a.kind!=='deposit' && a.kind!=='ewallet') return;
-    h+='<button class="choice'+(sel===a.id?' on':'')+'" data-v="'+a.id+'" onclick="pickExAcct(this)">'+(ico[a.kind]||'💳')+' '+String(a.name||'Tài khoản').replace(/</g,'&lt;')+'</button>'; });
+    h+='<button class="choice'+(sel===a.id?' on':'')+'" data-v="'+a.id+'" onclick="pickExAcct(this)">'+fhSrcLabel(a, a.name||'Tài khoản')+'</button>'; });
   box.innerHTML=h;
 }
 function pickExAcct(btn){

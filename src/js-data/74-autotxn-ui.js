@@ -1619,7 +1619,10 @@
       const n = Math.abs(Number(r._amount) || 0) / mult;
       amt = (r._direction === 'credit' ? '+' : '−') + window.fmt(n);
     }
-    return '<div class="atx-fd-row"><span class="atx-fd-ic">' + _esc(_atxInitials(name)) + '</span>' +
+    /* the bank's own face where the registry knows it (source-face-spec); the
+       initials tile stays for a sender it does not */
+    const face = (r.source_provider && window.fhSrcFaceOf) ? window.fhSrcFaceOf(r.source_provider, 30) : '';
+    return '<div class="atx-fd-row">' + (face || '<span class="atx-fd-ic">' + _esc(_atxInitials(name)) + '</span>') +
       '<span class="atx-fd-b"><span class="atx-fd-t">' + _esc(lead) + '</span>' +
       (sub ? '<span class="atx-fd-s">' + _esc(sub) + '</span>' : '') + '</span>' +
       (amt ? '<span class="atx-fd-a' + (r._direction === 'credit' ? ' in' : '') + '">' + _esc(amt) + '</span>'

@@ -412,6 +412,7 @@
       const armed = _stmArmed === card.id, dead = !!card.keyLocked, sub = _stmSub(card);
       return '<div class="stm-card' + (dead ? ' dim' : '') + '" data-stm="' + _escAttr(card.id) + '">' +
         '<button type="button" class="stm-tap"' + (dead ? ' disabled' : ' onclick="fhStmtOpen(\'' + card.id + '\')"') + '>' +
+          (window.fhSrcFaceOf ? window.fhSrcFaceOf(card.source_provider, 34, 'stm-face') : '') +   // whose statement, at a glance (source-face-spec)
           '<span class="stm-txt"><span class="stm-title">' + _esc(_stmTitle(card)) + '</span>' +
           (sub ? '<span class="stm-sub">' + _esc(sub) + '</span>' : '') + '</span>' +
           (dead ? '' : '<svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>') +

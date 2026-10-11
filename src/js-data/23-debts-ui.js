@@ -87,6 +87,12 @@
          the full width instead of leaving half the row empty — the sparse /
          single-card case (spec Q5). */
       const tiles = [];
+      /* An account tile's name line: the provider's face, then the name
+         (source-face-spec). People and group tiles keep the plain line. */
+      const _tk = function (a, name) {
+        const f = window.fhSrcFace ? window.fhSrcFace(a, 28) : '';
+        return '<div class="dbt-tk' + (f ? ' has-sf' : '') + '">' + f + '<span>' + _e(name) + '</span></div>';
+      };
       /* An account with no anchor shows no number, only the way in (0134,
          spec Q2): a dash and "Chạm để thiết lập". Cards and balance accounts
          alike — a window-derived card outstanding is exactly the number that
@@ -97,7 +103,7 @@
            not a balance until the person confirms it. */
         const offer = window.fhAnchorOffer ? window.fhAnchorOffer(a) : null;
         return '<button class="dbt-tile dbt-setup" onclick="fhAcctSetupWizard([\'' + a.id + '\'])">'
-          + '<div class="dbt-tk">' + _e(a.name || 'Tài khoản') + '</div>'
+          + _tk(a, a.name || 'Tài khoản')
           + '<div class="dbt-tv num dim">—</div>'
           + '<div class="dbt-ts">' + (offer ? 'Xác nhận số từ sao kê' : 'Chạm để thiết lập') + '</div></button>';
       };
@@ -110,7 +116,7 @@
         const out = (v && v.mode === 'dated') ? -v.shown : c.outstanding;
         const neg = out > 0, due = _dueLabel(c.acct);
         let ht = '<button class="dbt-tile dbt-card-tile" onclick="openDebtAccount(\'' + c.acct.id + '\')">'
-          + '<div class="dbt-tk">' + _e(c.acct.name || 'Thẻ') + '</div>'
+          + _tk(c.acct, c.acct.name || 'Thẻ')
           + '<div class="dbt-tv num ' + (neg ? 'owe' : 'owed') + '">' + (neg ? '−' : '+') + fmtK(Math.abs(out)) + '</div>';
         if (c.acct.limitK > 0) {
           const pct = Math.min(100, Math.max(0, Math.round(out / c.acct.limitK * 100)));
@@ -140,7 +146,7 @@
         const dr = window.fhPersonalDrift ? fhPersonalDrift(a.id) : null;
         const kindLbl = a.kind === 'ewallet' ? 'ví điện tử' : (a.kind === 'cash' ? 'tiền mặt' : 'tài khoản');
         let ht = '<button class="dbt-tile" onclick="openBalAccount(\'' + a.id + '\')">'
-          + '<div class="dbt-tk">' + _e(a.name || 'Tài khoản') + '</div>'
+          + _tk(a, a.name || 'Tài khoản')
           + '<div class="dbt-tv num' + (bal < 0 ? ' owe' : '') + '">' + (bal < 0 ? '−' : '') + fmtK(Math.abs(bal)) + '</div>'
           + '<div class="dbt-ts">' + (_anchorCap(v) || kindLbl) + '</div>';
         if (dr) ht += '<div class="dbt-tchip"><span class="dbt-due">lệch ' + (dr.drift > 0 ? '+' : '−') + fmtK(Math.abs(dr.drift)) + '</span></div>';
@@ -232,8 +238,11 @@
     }
 
     /* ── the overlay (zoom in) ─────────────────────────────────────────────── */
-    function _ovOpen(title, bodyHtml) {
-      const t = document.getElementById('dbt-title'); if (t) t.textContent = title;
+    /* `acct` (optional): the account this screen is about; its face leads the
+       title (source-face-spec), so the bank is recognised before it is read. */
+    function _ovOpen(title, bodyHtml, acct) {
+      const t = document.getElementById('dbt-title');
+      if (t) { const f = (acct && window.fhSrcFace) ? window.fhSrcFace(acct, 34, 'in') : ''; if (f) t.innerHTML = f + _e(title); else t.textContent = title; }
       const b = document.getElementById('dbt-body'); if (b) { b.innerHTML = bodyHtml; }
       const ov = document.getElementById('debt-overlay'); if (ov) ov.classList.add('on');
       const sc = document.getElementById('dbt-scroll'); if (sc) sc.scrollTop = 0;
@@ -379,7 +388,7 @@
       });
       h += '</div>';
       h += '<div class="dbt-foot">Trả sao kê là <b>chuyển khoản</b>, không phải chi tiêu — các khoản chi đã được tính lúc quẹt, nên không bị đếm hai lần.</div>';
-      _ovOpen(acct.name || 'Thẻ', h);
+      _ovOpen(acct.name || 'Thẻ', h, acct);
     };
     /* filter the unified card list in place (no re-render) */
     window.fhCardFilter = function (btn, f) {
@@ -1012,7 +1021,8 @@
         : (fromStmt ? 'Số này đúng vào ngày ' + _dmy(d.offer.asof) + '. Khoản ghi sau ngày đó cộng trừ tiếp lên nó.'
           : 'Mốc này đã gồm mọi giao dịch trước lúc đặt. Khoản ghi sau đó cộng trừ tiếp lên nó.');
       const h = '<div class="wz-head">' + dots + why + '</div>'
-        + '<div class="dbt-card wz-namecard"><span class="crs-lbl">Tài khoản</span><input class="crs-in" id="wz-name" value="' + _e(d.name) + '" placeholder="vd. VIB ••1234"></div>'
+        + '<div class="dbt-card wz-namecard"><span class="crs-lbl">Tài khoản</span><div class="wz-nrow">' + (window.fhSrcFace ? window.fhSrcFace(Object.assign({}, w.acct, { kind: d.kind }), 40) : '')
+        + '<input class="crs-in" id="wz-name" value="' + _e(d.name) + '" placeholder="vd. VIB ••1234"></div></div>'
         + '<div class="exd-meta srows"><div class="csv-srows">' + rows + '</div></div>'
         + '<div class="dbt-note">' + note + '</div>'
         + '<div class="dbt-acts">'
@@ -1141,7 +1151,7 @@
       setTxt('exdacct-h', 'Gộp vào tài khoản khác');
       setTxt('exdacct-sub', 'Mọi giao dịch của “' + _acctLbl(src) + '” chuyển sang thẻ bạn chọn');
       setHTML('exdacct-list', targets.map((a) =>
-        '<button type="button" class="choice" onclick="fhAcctMergePick(\'' + srcId + '\',\'' + a.id + '\')">' + _e(_acctLbl(a)) + '</button>').join(''));
+        '<button type="button" class="choice" onclick="fhAcctMergePick(\'' + srcId + '\',\'' + a.id + '\')">' + (window.fhSrcLabel ? window.fhSrcLabel(a, _acctLbl(a)) : _e(_acctLbl(a))) + '</button>').join(''));
       openSheet('sheet-exd-acct');
     };
     /* Step two, same sheet: the consequence in numbers before the tap that
@@ -1236,7 +1246,7 @@
       });
       h += '</div>';
       h += '<div class="dbt-foot">Chuyển giữa tài khoản của mình là <b>chuyển khoản</b> — không tính là chi tiêu hay thu nhập, chỉ đổi chỗ tiền.</div>';
-      _ovOpen(acct.name || 'Tài khoản', h);
+      _ovOpen(acct.name || 'Tài khoản', h, acct);
     };
 
     /* The anchor sheet — "Số dư hiện tại", declared truth (spec §5.1). */

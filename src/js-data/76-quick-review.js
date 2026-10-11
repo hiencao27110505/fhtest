@@ -541,19 +541,21 @@
       var prov = String(QR.row.source_provider || '').replace(/[_-]/g, ' ').trim();
       return L('Từ email', 'From email') + (prov ? ' · ' + prov.toUpperCase() : '');
     }
-    function _qrKindEmoji(k) { return k === 'credit_card' ? '💳' : k === 'ewallet' ? '📱' : k === 'cash' ? '💵' : '🏦'; }
-    // The bank instrument this row came in on, e.g. "💳 VIB ••4751".
+    /* The bank instrument this row came in on, e.g. "VIB ••4751", behind its
+       provider's face (source-face-spec). Returns HTML: the face, then the
+       escaped words. */
     function _qrInstrLabel() {
       var re = QR.re || {};
       var tail = String(re.account_masked || '').replace(/\D/g, '').slice(-4);
       var prov = String(re.source_provider || '').replace(/[_-]/g, ' ').trim();
-      return _qrKindEmoji(re.account_kind) + ' ' + (prov || L('Tài khoản', 'Account')) + (tail ? ' ••' + tail : '');
+      var face = window.fhSrcFace ? window.fhSrcFace({ kind: re.account_kind === 'cash' ? 'cash' : null, provider: prov || null }, 18, 'in') : '';
+      return face + _esc2((prov || L('Tài khoản', 'Account')) + (tail ? ' ••' + tail : ''));
     }
     function _qrAcctVal() {
       if (QR.acctId) {
         var pd = (window.fhPersonalData && fhPersonalData()) || { accounts: [] };
         var a = (pd.accounts || []).find(function (x) { return x.id === QR.acctId; });
-        if (a) return _qrKindEmoji(a.kind) + ' ' + a.name;
+        if (a) return window.fhSrcLabel ? window.fhSrcLabel(a, a.name) : _esc2(a.name);
       }
       return _qrInstrLabel();
     }
@@ -582,9 +584,9 @@
     }
     function _qrAcctChips() {
       var pd = (window.fhPersonalData && fhPersonalData()) || { accounts: [] };
-      var chips = '<button class="choice' + (!QR.acctId ? ' on' : '') + '" onclick="fhQrAct(\'acct-pick\',\'\')">' + _esc2(L('Tự động', 'Auto') + ' · ' + _qrInstrLabel()) + '</button>';
+      var chips = '<button class="choice' + (!QR.acctId ? ' on' : '') + '" onclick="fhQrAct(\'acct-pick\',\'\')">' + _esc2(L('Tự động', 'Auto') + ' · ') + _qrInstrLabel() + '</button>';
       chips += (pd.accounts || []).map(function (a) {
-        return '<button class="choice' + (QR.acctId === a.id ? ' on' : '') + '" onclick="fhQrAct(\'acct-pick\',this.dataset.id)" data-id="' + _esc2(a.id) + '">' + _esc2(_qrKindEmoji(a.kind) + ' ' + a.name) + '</button>';
+        return '<button class="choice' + (QR.acctId === a.id ? ' on' : '') + '" onclick="fhQrAct(\'acct-pick\',this.dataset.id)" data-id="' + _esc2(a.id) + '">' + (window.fhSrcLabel ? window.fhSrcLabel(a, a.name) : _esc2(a.name)) + '</button>';
       }).join('');
       return '<div class="choices">' + chips + '</div>';
     }
@@ -617,7 +619,8 @@
       }
       if (!hit) return false;
       var val = row.querySelector('.ex-arow-val'); if (!val) return false;
-      val.textContent = key === 'cat' ? _qrCatCell() : key === 'dest' ? _qrDestVal() : _qrAcctVal();
+      if (key === 'acct') val.innerHTML = _qrAcctVal();        // HTML: the account's face before its (escaped) name
+      else val.textContent = key === 'cat' ? _qrCatCell() : _qrDestVal();
       row.classList.remove('open');
       if (key === 'cat') {
         var go = document.getElementById('qr-go');
@@ -645,7 +648,7 @@
         '<input id="qr-note-in" value="' + noteVal + '" placeholder="' + notePh + '" oninput="fhQrAct(\'note-live\',this.value)"></div>' +
         _qrArow('dest', L('Ghi vào đâu?', 'Where to?'), _esc2(_qrDestVal()), _qrDestChips());
       if (!income) {
-        fields += _qrArow('acct', L('Trả bằng gì?', 'Paid with?') + ' <span class="opt">' + L('· tuỳ chọn', '· optional') + '</span>', _esc2(_qrAcctVal()), _qrAcctChips());
+        fields += _qrArow('acct', L('Trả bằng gì?', 'Paid with?') + ' <span class="opt">' + L('· tuỳ chọn', '· optional') + '</span>', _qrAcctVal(), _qrAcctChips());
         fields += _qrArow('cat', L('Danh mục', 'Category'), _esc2(_qrCatCell()), _qrCatChips());
       }
       fields += _qrArow('date', L('Khi nào', 'When'), _esc2(_qrDateLabel()),

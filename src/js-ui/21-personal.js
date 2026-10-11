@@ -415,7 +415,7 @@ function persQueueDeckHTML(n){
     top = '<button class="pq-card" onclick="fhEmailTxnCta({scope:\'personal\'})">'
       + '<div class="pq-line"><div class="pq-name"><span class="pq-emo">'+(pk.emoji||'🗂️')+'</span>'+esc(pk.desc || (pos?'Tiền vào':'Giao dịch'))+'</div>'
       + '<div class="pq-amt'+(pos?' pos':'')+'">'+(pos?'+':'−')+amt+'</div></div>'
-      + '<div class="pq-meta"><span>'+esc(when)+'</span><span>'+esc(src)+'</span></div></button>';
+      + '<div class="pq-meta"><span>'+esc(when)+'</span><span>'+(prov?fhSrcFaceOf(pk.provider,14,'in'):'')+esc(src)+'</span></div></button>';
   } else {
     top = '<button class="pq-card" aria-label="Mở hàng chờ duyệt" onclick="fhEmailTxnCta({scope:\'personal\'})"><div class="pq-line"><span class="pq-sk" style="width:52%"></span><span class="pq-sk" style="width:24%"></span></div>'
       + '<div class="pq-meta"><span class="pq-sk" style="width:30%;height:10px"></span><span class="pq-sk" style="width:22%;height:10px"></span></div></button>';
@@ -940,16 +940,16 @@ function _persEmailRow(){
     }
     txList.push(t);
   });
-  var acctName = function(id){
-    var a = id && (P.accounts||[]).find(function(x){ return x.id===id; });
-    return a ? (a.name||'Tài khoản') : null;
-  };
+  var acctOf = function(id){ return (id && (P.accounts||[]).find(function(x){ return x.id===id; })) || null; };
+  var acctName = function(id){ var a = acctOf(id); return a ? (a.name||'Tài khoản') : null; };
+  /* " · <face> name" for a row's subline (source-face-spec): the account wears its provider's face */
+  var acctSub = function(id){ var a = acctOf(id); return a ? ' · '+fhSrcFace(a,14,'in')+(a.name||'Tài khoản').replace(/</g,'&lt;') : ''; };
   /* the pair's two ends, from either leg: negative leg = from, positive = to */
   var pairEnds = function(t){
     var legs = txAll.filter(function(x){ return x.kind==='transfer' && x.transferGroupId===t.transferGroupId; });
     var from=null, to=null;
     legs.forEach(function(l){ if((l.amt||0)<0) from=l.accountId; else to=l.accountId; });
-    return { from: acctName(from), to: acctName(to) };
+    return { from: acctName(from), to: acctName(to), fromA: acctOf(from), toA: acctOf(to) };
   };
   var monUnread = (!inWin && SL) ? SL.unreadable : txList.filter(function(t){ return t._unreadable; }).length;
   h += '</div>';   // /#pers-cats-wrap
@@ -988,7 +988,7 @@ function _persEmailRow(){
         var _inAcct = acctName(t.accountId);
         h += '<div class="row tap" onclick="openPersonalTxDetail(\''+t.id+'\')"><div class="r-ico personal-ico">'+(t.emoji||'💰')+'</div>'
            + '<div class="r-body"><div class="r-t">'+((t.note||t.cat||'Thu nhập').replace(/</g,'&lt;'))+'</div>'
-           + '<div class="r-s">'+meta+(_inAcct?' · '+_inAcct.replace(/</g,'&lt;'):'')+'</div></div>'
+           + '<div class="r-s">'+meta+(_inAcct?acctSub(t.accountId):'')+'</div></div>'
            + right({v:'+'+fmt(t.amt||0), cls:'pos'}, 'Thu nhập');
       } else if(t.kind==='transfer'){
         var ends = t.transferGroupId ? pairEnds(t) : null;
@@ -996,7 +996,9 @@ function _persEmailRow(){
         // a pair taps into its edit sheet (both legs in lockstep); a legacy
         // one-leg card payment has no pair sheet and stays inert
         var xTap = ' tap" onclick="openPersonalTxDetail(\''+t.id+'\')"';   // pair or one-leg card payment: the detail resolves the entry
-        h += '<div class="row'+xTap+'><div class="r-ico personal-ico">🔁</div>'
+        /* the tile is the two accounts' faces; a one-leg card payment wears its card's */
+        var xTile = (ends ? fhSrcPairTile(ends.fromA, ends.toA) : fhSrcPairTile(acctOf(t.accountId), null)) || '<div class="r-ico personal-ico">🔁</div>';
+        h += '<div class="row'+xTap+'>'+xTile
            + '<div class="r-body"><div class="r-t">'+xt+'</div>'
            + '<div class="r-s">'+meta+' · không tính thu chi</div></div>'
            + right({v:fmt(Math.abs(t.amt||0)), cls:'xfer'}, 'Chuyển khoản');
@@ -1041,7 +1043,7 @@ function _persEmailRow(){
         var _catTxt = t.spaceId ? famName(t.spaceId).replace(/</g,'&lt;') : ((t.cat||'Khoản chi').replace(/</g,'&lt;'));
         h += '<div class="row'+(_tap?' tap':'')+'"'+_tap+'>'+_tile
            + '<div class="r-body"><div class="r-t">'+((t.note||t.cat||'Khoản chi').replace(/</g,'&lt;'))+(t.hasReceipt?' <span class="r-rc" aria-label="Có hoá đơn">🧾</span>':'')+'</div>'
-           + '<div class="r-s">'+meta+(_acct?' · '+_acct.replace(/</g,'&lt;'):'')+'</div></div>'
+           + '<div class="r-s">'+meta+(_acct?acctSub(t.accountId):'')+'</div></div>'
            + right({v:'−'+fmt(t.amt||0), cls:''}, _catTxt);
       }
     });

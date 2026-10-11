@@ -259,12 +259,12 @@
       const cashA = accts.find((a) => a.kind === 'cash');
       sel = selId ? ((cashA && selId === cashA.id) ? 'cash' : selId) : null;
     } else { try { sel = localStorage.getItem('fh-last-inc-acct'); } catch (e) { sel = null; } }
-    const ico = { deposit: '🏦', ewallet: '📱' };
+    const lbl = (a, n) => (window.fhSrcLabel ? window.fhSrcLabel(a, n) : _esc(n));   // the account's face before its name (source-face-spec)
     const pick = edit ? 'fhIncPickAcct(this,1)' : 'fhIncPickAcct(this)';
     return '<div class="field"><label>' + L('Vào tài khoản nào?','Into which account?') + ' <span class="opt">' + L('tuỳ chọn','optional') + '</span></label><div class="choices" id="fh-inc-acct">'
-      + '<button type="button" class="choice' + (sel === 'cash' ? ' on' : '') + '" data-v="cash" onclick="' + pick + '">💵 Tiền mặt</button>'
+      + '<button type="button" class="choice' + (sel === 'cash' ? ' on' : '') + '" data-v="cash" onclick="' + pick + '">' + lbl({ kind: 'cash' }, 'Tiền mặt') + '</button>'
       + accts.filter((a) => a.kind === 'deposit' || a.kind === 'ewallet')
-        .map((a) => '<button type="button" class="choice' + (sel === a.id ? ' on' : '') + '" data-v="' + a.id + '" onclick="' + pick + '">' + (ico[a.kind] || '🏦') + ' ' + _esc(a.name || L('Tài khoản','Account')) + '</button>').join('')
+        .map((a) => '<button type="button" class="choice' + (sel === a.id ? ' on' : '') + '" data-v="' + a.id + '" onclick="' + pick + '">' + lbl(a, a.name || L('Tài khoản','Account')) + '</button>').join('')
       + '</div></div>';
   }
   /* Chip toggle — tapping the selected chip clears it (the field is optional).

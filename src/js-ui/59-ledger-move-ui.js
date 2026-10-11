@@ -75,13 +75,12 @@ function fhMoveSheetOpen(){
     if(acct){
       acct.style.display='';
       var pd=window.fhPersonalData && fhPersonalData(); var accts=(pd&&pd.accounts)||[];
-      var ico={deposit:'🏦',ewallet:'📱'};
       // cards stay out (money into your own card is its own kind — T11);
       // no chip selected = "don't tag", same as the capture sheet
-      var h='<button class="choice" data-v="cash" onclick="fhMvAcctPick(this)">💵 Tiền mặt</button>';
+      var h='<button class="choice" data-v="cash" onclick="fhMvAcctPick(this)">'+fhSrcLabel({kind:'cash'},'Tiền mặt')+'</button>';
       accts.forEach(function(a){
         if(a.kind==='cash'||a.kind==='credit_card') return;
-        h+='<button class="choice" data-v="'+escAttr(a.id)+'" onclick="fhMvAcctPick(this)">'+(ico[a.kind]||'🏦')+' '+esc(a.name||'Tài khoản')+'</button>';
+        h+='<button class="choice" data-v="'+escAttr(a.id)+'" onclick="fhMvAcctPick(this)">'+fhSrcLabel(a, a.name||'Tài khoản')+'</button>';
       });
       var abox=document.getElementById('mv-acct'); if(abox) abox.innerHTML=h;
     }

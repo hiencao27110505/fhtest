@@ -949,7 +949,7 @@ function csvCardHead(label, dateIso, removeFn, attn, isError, timeStr, provider,
     var when = dateIso ? esc(bulkDate(dateIso)) + (timeStr ? ' · ' + esc(timeStr) : '') : '';
     var parts = [];
     if (scope) parts.push('<span class="bulk-scope">'+esc(scope)+'</span>');
-    parts.push('<span class="bulk-src'+tone+'">'+esc(provider)+'</span>');
+    parts.push('<span class="bulk-src'+tone+'">'+fhSrcFaceOf(provider,15,'in')+esc(provider)+'</span>');   // the source's face (source-face-spec)
     if (acct) parts.push('<span class="bulk-when">'+esc(acct)+'</span>');   // instrument chip (0105): tín dụng ••1234 / TK / ví
     if (when) parts.push('<span class="bulk-when">'+when+'</span>');
     var tag = source ? '<span class="bulk-transport">'+esc(source)+'</span>' : '';
@@ -1357,18 +1357,18 @@ function csvStagedRowsCard(c, opts){
     if(cur==='cardpay'){
       var cards = csvCreditCards();
       var pc = csvPayCardFor(c);
-      var cardName = '';
-      cards.forEach(function(a){ if(a.id===pc) cardName = a.name || L('Thẻ','Card'); });
+      var cardName = '', cardA = null;
+      cards.forEach(function(a){ if(a.id===pc){ cardName = a.name || L('Thẻ','Card'); cardA = a; } });
       rows += row('paycard', L('Trả cho thẻ','Which card'),
-        cardName ? esc(cardName) : L('Chưa rõ','Not sure'), { soft: !cardName && cards.length>0 });
+        cardName ? fhSrcLabel(cardA, cardName) : L('Chưa rõ','Not sure'), { soft: !cardName && cards.length>0 });
     }
     if(cur==='xfer'){
-      var accts = csvXferAccounts(c), sel = c._xferOtherId || '', an = '';
-      accts.forEach(function(a){ if(a.id===sel) an = a.name || L('Tài khoản','Account'); });
-      if(sel==='_cash') an = L('Tiền mặt','Cash');
+      var accts = csvXferAccounts(c), sel = c._xferOtherId || '', an = '', anA = null;
+      accts.forEach(function(a){ if(a.id===sel){ an = a.name || L('Tài khoản','Account'); anA = a; } });
+      if(sel==='_cash'){ an = L('Tiền mặt','Cash'); anA = { kind:'cash' }; }
       rows += row('xferacct',
         ((c.isIncome || c._xferDir === 'in') ? L('Chuyển từ đâu','From where') : L('Chuyển đến đâu','To where')),
-        an ? esc(an) : L('Chọn tài khoản','Pick one'), { soft: !an });
+        an ? fhSrcLabel(anA, an) : L('Chọn tài khoản','Pick one'), { soft: !an });
     }
     if(cur==='repay'){
       rows += row('repay', (c.isIncome || c._xferDir === 'in') ? L('Ai trả bạn','Who repaid') : L('Trả nợ cho ai','Repaying whom'),
@@ -1767,7 +1767,7 @@ function csvRowSheetHTML(c){
     var pc = csvPayCardFor(c);
     title = L('Trả cho thẻ nào','Which card');
     body = '<div class="choices">'
-      + cards.map(function(a){ return chip(pc===a.id, "csvSheetPick('paycard','"+a.id+"')", esc(a.name||L('Thẻ','Card'))); }).join('')
+      + cards.map(function(a){ return chip(pc===a.id, "csvSheetPick('paycard','"+a.id+"')", fhSrcLabel(a, a.name||L('Thẻ','Card'))); }).join('')
       + chip(!pc, "csvSheetPick('paycard','')", esc(L('Chưa rõ','Not sure')))
       + '</div>'
       + (cards.length ? '' : '<div class="csv-scope-note">'+esc(L('Chưa có thẻ tín dụng nào — vẫn ghi được, gán thẻ sau ở mục Nợ & cho vay.','No credit card yet — it still imports, assign a card later in Owing & lending.'))+'</div>');
@@ -1775,8 +1775,8 @@ function csvRowSheetHTML(c){
     var accts = csvXferAccounts(c), sel = c._xferOtherId || '';
     title = (c.isIncome || c._xferDir === 'in') ? L('Chuyển từ đâu?','From which account?') : L('Chuyển đến đâu?','To which account?');
     body = '<div class="choices">'
-      + accts.map(function(a){ return chip(sel===a.id, "csvSheetPick('xferacct','"+a.id+"')", esc(a.name||L('Tài khoản','Account'))); }).join('')
-      + chip(sel==='_cash', "csvSheetPick('xferacct','_cash')", esc(L('Tiền mặt','Cash')))
+      + accts.map(function(a){ return chip(sel===a.id, "csvSheetPick('xferacct','"+a.id+"')", fhSrcLabel(a, a.name||L('Tài khoản','Account'))); }).join('')
+      + chip(sel==='_cash', "csvSheetPick('xferacct','_cash')", fhSrcLabel({kind:'cash'}, L('Tiền mặt','Cash')))
       + chip(!!c._xferAddingNew, "csvSheetXferAddNew()", '＋ '+esc(L('Tài khoản khác','Other account')))
       + '</div>'
       + (c._xferAddingNew
@@ -2716,7 +2716,7 @@ function csvRowKindField(c){
     var cards = csvCreditCards();
     var pc = csvPayCardFor(c);
     h += '<div class="field csv-paycardf"><label>'+esc(L('Trả cho thẻ nào','Which card'))+'</label><div class="choices">'
-      + cards.map(function(a){ return '<button type="button" class="choice'+(pc===a.id?' on':'')+'" onclick="csvPickPayCard(\''+a.id+'\')">'+esc(a.name||'Thẻ')+'</button>'; }).join('')
+      + cards.map(function(a){ return '<button type="button" class="choice'+(pc===a.id?' on':'')+'" onclick="csvPickPayCard(\''+a.id+'\')">'+fhSrcLabel(a, a.name||'Thẻ')+'</button>'; }).join('')
       + '<button type="button" class="choice'+(!pc?' on':'')+'" onclick="csvPickPayCard(\'\')">'+esc(L('Chưa rõ','Not sure'))+'</button>'
       + '</div>'
       + (cards.length ? '' : '<div class="csv-scope-note">'+esc(L('Chưa có thẻ tín dụng nào — vẫn ghi được, gán thẻ sau ở mục Nợ & cho vay.','No credit card yet — it still imports, assign a card later in Owing & lending.'))+'</div>')
@@ -2730,8 +2730,8 @@ function csvRowKindField(c){
     var accts = csvXferAccounts(c);
     var sel = c._xferOtherId || '';
     h += '<div class="field csv-paycardf"><label>'+esc(credit?L('Chuyển từ đâu?','From which account?'):L('Chuyển đến đâu?','To which account?'))+'</label><div class="choices">'
-      + accts.map(function(a){ return '<button type="button" class="choice'+(sel===a.id?' on':'')+'" onclick="csvPickXferAcct(\''+a.id+'\')">'+esc(a.name||'Tài khoản')+'</button>'; }).join('')
-      + '<button type="button" class="choice'+(sel==='_cash'?' on':'')+'" onclick="csvPickXferAcct(\'_cash\')">'+esc(L('Tiền mặt','Cash'))+'</button>'
+      + accts.map(function(a){ return '<button type="button" class="choice'+(sel===a.id?' on':'')+'" onclick="csvPickXferAcct(\''+a.id+'\')">'+fhSrcLabel(a, a.name||'Tài khoản')+'</button>'; }).join('')
+      + '<button type="button" class="choice'+(sel==='_cash'?' on':'')+'" onclick="csvPickXferAcct(\'_cash\')">'+fhSrcLabel({kind:'cash'}, L('Tiền mặt','Cash'))+'</button>'
       + '<button type="button" class="choice'+(c._xferAddingNew?' on':'')+'" onclick="csvXferAddNew()">＋ '+esc(L('Tài khoản khác','Other account'))+'</button>'
       + '</div>'
       + (c._xferAddingNew

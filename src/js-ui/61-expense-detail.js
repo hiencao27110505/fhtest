@@ -97,7 +97,7 @@ function renderExpenseDetail(){
   var mm=_exdMasterOf(t);
   var isAuthor=!!(window.DB&&DB.ownerMemberId&&t._createdBy===DB.ownerMemberId);
   var mAcct=(mm&&mm.accountId&&mm.pd)?((mm.pd.accounts||[]).find(function(a){ return a.id===mm.accountId; })||null):null;
-  var acctVal=mAcct?esc(mAcct.name||L('Tài khoản','Account')):(t.inst?esc(t.inst):L('Chưa gắn','Not tagged'));
+  var acctVal=mAcct?fhSrcLabel(mAcct, mAcct.name||L('Tài khoản','Account')):(t.inst?fhSrcFaceInst(t.inst,18,'in')+esc(t.inst):L('Chưa gắn','Not tagged'));
   var ph=(EXD.photos!==undefined)?EXD.photos:(t.photos||(t.photo?[t.photo]:[]));
   var fIso=(EXD.dateIso!=null)?EXD.dateIso:((typeof txDateInput==='function')?txDateInput(t):'');
   var fDateLbl=(EXD.dateIso!=null)?fmtDateLong(new Date(EXD.dateIso+'T00:00:00')):_exdDate(t);
@@ -112,7 +112,7 @@ function renderExpenseDetail(){
       +'<div class="exd-amt num">'+esc(vAmtDisp)+(CUR==='VND'?' ₫':'')+'</div>'
       +'<div class="exd-note">'+esc(vNote||L('Khoản chi','Expense'))+'</div>'
       +'<div class="exd-prov">'+esc(_exdDate(t))+(vTime?'<span class="sep">·</span>'+esc(vTime):'')
-        +(t.inst?'<span class="sep">·</span>'+esc(t.inst):'')+'</div>'
+        +(t.inst?'<span class="sep">·</span>'+fhSrcFaceInst(t.inst,15,'in')+esc(t.inst):'')+'</div>'
       +(isFuture?('<div class="exd-plan'+(incoming?' wait':'')+'">'+(incoming?L('chờ bạn duyệt','awaiting your review'):('📅 '+L('Chi tiêu dự kiến','Planned')))+'</div>'):'')
       +'</div>'
       +((!ph.length && canEdit && t._dbId)?_exdDoorHTML(t):'');
@@ -276,10 +276,9 @@ function exdSheetAcctFam(){
   var mm=_exdMasterOf(t); if(!mm) return;
   setTxt('exdacct-h', L('Nguồn tiền','Money source'));
   setTxt('exdacct-sub', L('Gắn để dư nợ thẻ, số dư tài khoản tính đúng · chỉ sổ của bạn biết thẻ nào','Tag it so the card or account balance is right · only your ledger knows which'));
-  var ico={deposit:'🏦',ewallet:'📱',credit_card:'💳',cash:'💵'};
   var h='<button type="button" class="choice'+(mm.accountId?'':' on')+'" onclick="exdPickAcctFam(&#39;&#39;)">'+L('Chưa gắn','Not tagged')+'</button>';
   ((mm.pd.accounts||[]).filter(function(a){ return a.kind!=='investment'; })).forEach(function(a){
-    h+='<button type="button" class="choice'+(a.id===mm.accountId?' on':'')+'" onclick="exdPickAcctFam(&#39;'+escAttr(a.id)+'&#39;)">'+(ico[a.kind]||'🏦')+' '+esc(a.name||L('Tài khoản','Account'))+'</button>';
+    h+='<button type="button" class="choice'+(a.id===mm.accountId?' on':'')+'" onclick="exdPickAcctFam(&#39;'+escAttr(a.id)+'&#39;)">'+fhSrcLabel(a, a.name||L('Tài khoản','Account'))+'</button>';
   });
   setHTML('exdacct-list', h);
   openSheet('sheet-exd-acct');
@@ -555,6 +554,8 @@ function _pexdEntry(){
 }
 function _pexdAcct(id){ var pd=fhPersonalData(); return id?((pd.accounts||[]).find(function(a){ return a.id===id; })||null):null; }
 function _pexdAcctName(id, fallback){ var a=_pexdAcct(id); return a?esc(a.name||'Tài khoản'):(fallback||'Chưa rõ'); }
+/* the same, as a row's value: the account's face before its name (source-face-spec) */
+function _pexdAcctVal(id, fallback){ var a=_pexdAcct(id); return a?fhSrcLabel(a, a.name||'Tài khoản'):(fallback||'Chưa rõ'); }
 var _PEXD_KIND={ expense:'Chi tiêu', income:'Thu nhập', loan:'🤝 Cho vay', borrow:'🤝 Đi mượn', repayIn:'🤝 Thu nợ', repayOut:'🤝 Trả nợ',
   buy:'📈 Đầu tư', sell:'📈 Bán đầu tư', xfer:'🔁 Chuyển khoản nội bộ', cardpay:'💳 Trả nợ thẻ', adjust:'Điều chỉnh dư nợ' };
 function _pexdKindLbl(E){
@@ -801,11 +802,11 @@ function renderPersonalTxDetail(){
   }
   if(k==='xfer'){
     var noFrom=!vFrom, noTo=!vTo;
-    rows+=R('Từ tài khoản',noFrom?'Chọn tài khoản':_pexdAcctName(vFrom),{miss:noFrom, live:noFrom, chg:PXD.fromAccountId!==undefined, fn:"pexdSheetAcct('from')"});
-    rows+=R('Đến tài khoản',noTo?'Chọn tài khoản':_pexdAcctName(vTo),{miss:noTo, live:noTo, chg:PXD.toAccountId!==undefined, fn:"pexdSheetAcct('to')"});
+    rows+=R('Từ tài khoản',noFrom?'Chọn tài khoản':_pexdAcctVal(vFrom),{miss:noFrom, live:noFrom, chg:PXD.fromAccountId!==undefined, fn:"pexdSheetAcct('from')"});
+    rows+=R('Đến tài khoản',noTo?'Chọn tài khoản':_pexdAcctVal(vTo),{miss:noTo, live:noTo, chg:PXD.toAccountId!==undefined, fn:"pexdSheetAcct('to')"});
   }
-  if(k==='cardpay') rows+=R('Trả cho thẻ',_pexdAcctName(vCard,'Chưa rõ'),{chg:PXD.cardId!==undefined, soft:!vCard, fn:"pexdSheetAcct('card')"});
-  if(k==='adjust') rows+=R('Thẻ',_pexdAcctName(t.accountId,'Chưa rõ'),{ro:true});
+  if(k==='cardpay') rows+=R('Trả cho thẻ',_pexdAcctVal(vCard,'Chưa rõ'),{chg:PXD.cardId!==undefined, soft:!vCard, fn:"pexdSheetAcct('card')"});
+  if(k==='adjust') rows+=R('Thẻ',_pexdAcctVal(t.accountId,'Chưa rõ'),{ro:true});
   if(ed && k!=='adjust'){
     rows+=fhPickRow({label:'Ngày', type:'date', value:vDate||'', on:'exdPickDate', arg:'pers', chg:PXD.dateIso!=null, val:'<b class="num">'+esc(dateVal)+'</b>'});
     rows+=fhPickRow({label:'Giờ', type:'time', value:vTime||'', on:'exdPickTime', arg:'pers', clear:true, chg:PXD.timeStr!==undefined, soft:!vTime,
@@ -816,7 +817,7 @@ function renderPersonalTxDetail(){
   }
   if(k==='expense'||k==='loan'||k==='repay'||k==='invest'||k==='income'){
     var toLbl=(E.isIn)?'Vào tài khoản nào':'Nguồn tiền';
-    rows+=R(toLbl,_pexdAcctName(acctId,'Chưa rõ'),{chg:PXD.hasOwnProperty('accountId'), soft:!acctId, fn:"pexdSheetAcct('acct')"});
+    rows+=R(toLbl,_pexdAcctVal(acctId,'Chưa rõ'),{chg:PXD.hasOwnProperty('accountId'), soft:!acctId, fn:"pexdSheetAcct('acct')"});
   }
   var html;
   if(!ed){
@@ -1129,7 +1130,7 @@ function _pexdChoices(title, sub, listHtml){ setTxt('exdacct-h', title); setTxt(
 var _pexdAcctWhich='acct';
 function pexdSheetAcct(which){
   var E=_pexdEntry(); if(!E) return; _pexdAcctWhich=which;
-  var pd=E.pd, ico={deposit:'🏦',ewallet:'📱',credit_card:'💳',cash:'💵'};
+  var pd=E.pd;
   var cur, list, title, sub='Thay đổi chờ Lưu';
   if(which==='card'){ title='Trả cho thẻ'; cur=PXD.cardId!==undefined?PXD.cardId:E.t.accountId; list=(pd.accounts||[]).filter(function(a){ return a.kind==='credit_card'&&!a.archivedAt; }); }
   else if(which==='from'||which==='to'){
@@ -1140,7 +1141,7 @@ function pexdSheetAcct(which){
     if(E.broken && !_pexdEdit) sub='Chọn xong là ghi ngay, để số dư hai bên khớp';
   } else { title=E.isIn?'Vào tài khoản nào':'Nguồn tiền'; cur=PXD.hasOwnProperty('accountId')?PXD.accountId:(E.t.accountId||null); list=(pd.accounts||[]).filter(function(a){ return a.kind!=='investment'&&!a.archivedAt; }); sub='Gắn để số dư tài khoản tính được · thay đổi chờ Lưu'; }
   var h=(which==='from'||which==='to')?'':'<button type="button" class="choice'+(cur?'':' on')+'" onclick="pexdPickAcct(&#39;&#39;)">Chưa gắn</button>';
-  list.forEach(function(a){ h+='<button type="button" class="choice'+(a.id===cur?' on':'')+'" onclick="pexdPickAcct(&#39;'+escAttr(a.id)+'&#39;)">'+(ico[a.kind]||'🏦')+' '+esc(a.name||'Tài khoản')+'</button>'; });
+  list.forEach(function(a){ h+='<button type="button" class="choice'+(a.id===cur?' on':'')+'" onclick="pexdPickAcct(&#39;'+escAttr(a.id)+'&#39;)">'+fhSrcLabel(a, a.name||'Tài khoản')+'</button>'; });
   _pexdChoices(title, sub, h);
 }
 window.pexdSheetAcct=pexdSheetAcct;
@@ -1258,11 +1259,10 @@ function pexdToTransferSheet(id){
   var pd=(window.fhPersonalDebts&&fhPersonalDebts())||{accounts:[]};
   var P=window.fhPersonalData?fhPersonalData():null;
   var row=((P&&P.txns)||[]).find(function(t){ return t.id===id; });
-  var ico={deposit:'🏦',ewallet:'📱',credit_card:'💳',cash:'💵',investment:'📈'};
   var list=((pd.accounts)||[]).filter(function(a){ return !a.archivedAt && a.id!==(row&&row.accountId); });
   var h=list.map(function(a){
     return '<button type="button" class="choice" onclick="pexdPickXferTo(&#39;'+escAttr(a.id)+'&#39;)">'
-      +(ico[a.kind]||'🏦')+' '+esc(a.name||'Tài khoản')+'</button>';
+      +fhSrcLabel(a, a.name||'Tài khoản')+'</button>';
   }).join('');
   if(!h) h='<div class="exd-rx-empty">Chưa có tài khoản nào để chuyển tới. Thêm ở mục Tài sản trước nhé.</div>';
   _pexdChoices('Tiền này đi đâu?', 'Chọn nơi nhận để hai bên số dư khớp nhau', h);

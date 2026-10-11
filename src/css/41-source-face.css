@@ -1,0 +1,30 @@
+/* ── Money-source face (09-source-face.js, source-face-spec.md) ──────────────
+   A monogram on the provider's own colour. --sfs is the side in px and --sfh
+   the colour, both set inline from the registry; with no --sfh the face is
+   neutral. One shape at every size (the brand tile's rounded square), so a
+   bank reads the same on a tile, in a chip and inside a line of text. The
+   type scales with the side and with how many letters it has to hold. */
+.sf{--sfs:28px;display:inline-flex;align-items:center;justify-content:center;flex:none;box-sizing:border-box;
+  width:var(--sfs);height:var(--sfs);border-radius:calc(var(--sfs) * .3);background:var(--sfh,var(--id-none));color:var(--white);
+  font-family:var(--disp);font-weight:800;font-style:normal;font-size:calc(var(--sfs) * .54);line-height:1;letter-spacing:-.02em;
+  text-transform:none;white-space:nowrap;overflow:hidden;-webkit-user-select:none;user-select:none}
+.sf[data-n="2"]{font-size:calc(var(--sfs) * .43)}
+.sf[data-n="3"]{font-size:calc(var(--sfs) * .355)}
+.sf[data-n="4"]{font-size:calc(var(--sfs) * .29);letter-spacing:-.04em}
+.sf.dk{color:var(--ink)}                                   /* a light brand colour: the generator chose dark ink */
+.sf.em{background:var(--id-none-tint);font-size:calc(var(--sfs) * .58)}   /* cash, a position: the kind's emoji */
+/* inside a line of text, before the name it belongs to */
+.sf.in{margin-right:6px;vertical-align:-.2em}
+.choice .sf.in{vertical-align:-.22em}
+.choice.on .sf{box-shadow:0 0 0 1.5px var(--white)}
+/* an asset tile's name line, an account screen's title, the setup screen's name field */
+.dbt-tk.has-sf{display:flex;align-items:center;gap:8px}
+.dbt-tk.has-sf>span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.debt-bento>.dbt-tile{min-width:0}                         /* a long name ellipsises instead of widening its column */
+.txn-title .sf.in{margin-right:10px;vertical-align:middle;position:relative;top:-.09em}
+.wz-nrow{display:flex;align-items:center;gap:10px}
+.wz-nrow .crs-in{flex:1;min-width:0}
+/* a list row that moves money between two sources: from, then to over its corner */
+.r-ico.sfp{position:relative;background:none}
+.r-ico.sfp .sf{position:absolute;left:1px;top:1px}
+.r-ico.sfp .sf+.sf{left:auto;top:auto;right:1px;bottom:1px;box-shadow:0 0 0 2px var(--white)}

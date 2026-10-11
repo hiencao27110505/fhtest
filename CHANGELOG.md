@@ -18,6 +18,22 @@ Going forward, add an entry here when a feature area changes meaningfully — se
 
 ---
 
+## 2026-10-11
+
+### Tài khoản mang mặt của ngân hàng (SW v628)
+
+Every place the app names a bank account, a card or a wallet printed text only.
+Each money source now wears a face: a monogram on the provider's own colour,
+read from a `face` block on its entry in `taxonomy/providers.json`. One
+renderer (`src/js-ui/09-source-face.js`) serves every surface: Tài sản tiles,
+account screens and setup, every account picker, the source rows on detail
+screens, the queue card, list rows (a row between two accounts wears both
+faces as its tile), the "Vừa tìm thấy" feed and statement cards. The generator
+writes faces to the client target only, so the worker's `providers.mjs` is
+unchanged. A provider with no colour in the registry wears a neutral monogram;
+nothing derives a colour. Spec: `docs/specs/source-face-spec.md`. Client only,
+no migration, no Edge Function deploy.
+
 ## 2026-10-10
 
 ### Sao kê đặt số dư cho tài khoản (SW v627)
