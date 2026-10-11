@@ -121,6 +121,8 @@ console.log('\n-- signature: same state, same string --');
     'expand a card': "csvExpand = { kind:'ready', idx:2 };",
     'arm a ✕': 'csvArmedRemove = 3;',
     'arm the bulk ✕': 'csvBulkArmed = true;',
+    'fold "Cần bạn xem"': 'csvAttnFold = true;',
+    'arm the skip-all of "Cần bạn xem"': 'csvLikelyArmed = true;',
     'change a scope': "csvReview.ready[4]._scope = 'personal';",
     'change a kind': 'csvReview.ready[5]._xfer = true;',
     'change a node': "csvReview.ready[6]._node = 'food';",

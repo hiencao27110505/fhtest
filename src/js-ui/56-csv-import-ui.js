@@ -565,7 +565,8 @@ function csvBuildReview(sources, opts){
   opts = opts || {};
   /* keepView: the reading-mode watcher rebuilds every few seconds as rows
      stage — the person's zoom, pan, filter and reveal must survive those. */
-  if(!opts.keepView){ csvRevealCount = CSV_REVEAL_STEP; csvRevealSec = csvRevealSecBlank(); }   // a fresh review starts at the first window
+  if(!opts.keepView){ csvRevealCount = CSV_REVEAL_STEP; csvRevealSec = csvRevealSecBlank(); csvAttnFold = false; }   // a fresh review starts at the first window, "Cần bạn xem" open
+  csvLikelyArmed = false;
 
   csvCatMerges = {}; csvCatAmbiguous = {};   // recomputed every build
   csvPendingCats = [];                       // adoption is re-decided each build
@@ -1127,11 +1128,15 @@ function csvCollapsedCard(c, opts){
         ? L('Kèm phí '+csvFmt(c._fee.amount)+', ghi thành một khoản riêng','Plus a '+csvFmt(c._fee.amount)+' fee, logged as its own item')
         : L('Có phí '+csvFmt(c._fee.amount)+', chưa ghi','Has a '+csvFmt(c._fee.amount)+' fee, not logged'))+'</span>';
     }
+    /* Why this row is asked about (transaction-review-spec §3a): said on the card
+       itself, under the row's own lines, so the answer does not need the card
+       opened first. */
+    var askHtml = opts.ask ? csvDupAskHTML(opts.ask) : '';
     return '<div class="bulk-card'+(opts.invalid?' invalid':(opts.attn?' attn':''))+(opts.dim?' is-dim':'')+(opts.key?' data-ck="'+escAttr(opts.key)+'"':'')+'">' + ck
       + '<button type="button" class="bulk-tap scv-tap" onclick="'+opts.tapFn+'" aria-label="'+L('Sửa khoản này','Edit this item')+'">'
       + topHtml
       + '<span class="scv-money">'+amtHtml+catHtml+learnHtml+dupHtml+'</span>'
-      + memoHtml + footHtml
+      + memoHtml + footHtml + askHtml
       + '</button>' + rm + '</div>';
   }
 
@@ -3023,29 +3028,79 @@ function csvDupTier(c){ return (c && c._dupTier) || (csvIsFlaggedDup(c) ? 'likel
    Certainty and suspicion read differently on purpose: a resolved_before hit
    is message-id equality (a fact), an amount-within-3-days hit is a guess
    worth one look. */
-function csvDupWhy(c){
+/* The other half of a flag, as one line: what the matched row says, how much,
+   when, which book, who logged it. `noAmt` leaves the amount out, for a line
+   that sits under a sentence already saying the two amounts are equal. */
+function csvDupTwinLine(t, noAmt){
   var mult = (typeof curMult === 'function' ? curMult() : 1) || 1;
-  var ev = function(t){
-    if(!t) return '';
-    if(t._d){                                                   // a ledger row
-      var bits = [];
-      var label = String(t.note || t.cat || '').trim();
-      if(label) bits.push('“' + label + '”');
-      if(t.amtD != null) bits.push(fmt(t.amtD / mult));
-      if(typeof fmtDayMon === 'function') bits.push(fmtDayMon(t._d) + (t.time ? ' ' + t.time : ''));
-      bits.push(t.book === 'personal' ? L('sổ Riêng tư','Personal book') : L('sổ Gia đình','Family book'));
-      if(t.book === 'family' && t.who && t.who !== 'Shared') bits.push(L(t.who + ' đã ghi', 'logged by ' + t.who));
-      return bits.join(' · ');
+  if(!t) return '';
+  if(t._d){                                                   // a ledger row
+    var bits = [];
+    var label = String(t.note || t.cat || '').trim();
+    if(label) bits.push('“' + label + '”');
+    if(t.amtD != null && !noAmt) bits.push(fmt(t.amtD / mult));
+    if(typeof fmtDayMon === 'function') bits.push(fmtDayMon(t._d) + (t.time ? ' ' + t.time : ''));
+    bits.push(t.book === 'personal' ? L('sổ Riêng tư','Personal book') : L('sổ Gia đình','Family book'));
+    if(t.book === 'family' && t.who && t.who !== 'Shared') bits.push(L(t.who + ' đã ghi', 'logged by ' + t.who));
+    return bits.join(' · ');
+  }
+  // another row of this queue
+  var qb = [];
+  if(t.description) qb.push('“' + t.description + '”');
+  if(t.amount != null && !noAmt) qb.push(fmt(Number(t.amount) / mult));
+  if(t.date && typeof fmtDayMon === 'function') qb.push(fmtDayMon(t.date) + (typeof csvRowTime === 'function' && csvRowTime(t) ? ' ' + csvRowTime(t) : ''));
+  var prov = (typeof csvStagedProvider === 'function' && csvStagedProvider(t)) || '';
+  if(prov) qb.push(prov);
+  return qb.join(' · ');
+}
+/* Why a "có thể trùng" row is asked about, short enough for the collapsed card
+   (transaction-review-spec §3a): one sentence, and the row it was matched against.
+   The sentence states what the two rows share; the second line shows the other
+   row, so the person compares instead of recalling. Null for anything that is
+   not an open question (a `sure` row keeps its own, longer wording). */
+function csvDupAsk(c){
+  if(!c || csvDupTier(c) !== 'likely') return null;
+  var twin = c._dupTwin || c.duplicateOfExisting || c.duplicateNearMiss || c.duplicateOfSource || null;
+  var why = c._dupWhy || (c.duplicateOfBatch ? 'in_batch' : (c.duplicateOfPipeline || c.duplicateOfSource) ? 'cross_source' : '');
+  var txt = '';
+  switch(why){
+    case 'exact_day':
+      txt = L('Cùng số tiền, cùng ngày với một khoản trong sổ', 'Same amount and day as a row in your ledger'); break;
+    case 'card_posting': {
+      /* How long before: both dates are calendar days (57 strips the clock). */
+      var n = (twin && twin._d && c.date && typeof c.date.getTime === 'function') ? Math.round((c.date.getTime() - twin._d.getTime()) / 864e5) : 0;
+      var ago = n === 1 ? L('hôm trước', 'the day before') : n > 1 ? L(n + ' ngày trước', n + ' days earlier') : L('mấy ngày trước', 'a few days earlier');
+      txt = c._dupShared
+        ? L('Cùng số tiền, cùng nơi chi với một khoản đã nhập ' + ago, 'Same amount and merchant as a row imported ' + ago)
+        : L('Cùng số tiền với một khoản đã nhập ' + ago, 'Same amount as a row imported ' + ago);
+      break;
     }
-    // another row of this queue
-    var qb = [];
-    if(t.description) qb.push('“' + t.description + '”');
-    if(t.amount != null) qb.push(fmt(Number(t.amount) / mult));
-    if(t.date && typeof fmtDayMon === 'function') qb.push(fmtDayMon(t.date) + (typeof csvRowTime === 'function' && csvRowTime(t) ? ' ' + csvRowTime(t) : ''));
-    var prov = (typeof csvStagedProvider === 'function' && csvStagedProvider(t)) || '';
-    if(prov) qb.push(prov);
-    return qb.join(' · ');
-  };
+    case 'kind_conflict':
+      txt = L('Trùng nội dung, số tiền và ngày với một khoản ghi ngược chiều thu chi', 'Same text, amount and day as a row filed the other way round'); break;
+    case 'cross_source':
+      txt = L('Một nguồn khác cũng báo số tiền này trong 3 ngày', 'Another source reported this amount within 3 days'); break;
+    case 'same_bank_pair':
+      txt = L('Cùng ngân hàng báo số tiền này hai lần', 'The same bank reported this amount twice'); break;
+    case 'statement_echo':
+      txt = L('Sao kê và email cùng báo số tiền này trong một ngày', 'A statement and an email both reported this amount on one day'); break;
+    case 'pipeline':
+      txt = L('Một email từ nguồn khác cũng báo số tiền này trong 3 ngày', 'An email from another source reported this amount within 3 days'); break;
+    case 'in_batch':
+      txt = L('Xuất hiện hai lần với cùng nội dung và số tiền', 'Appears twice with the same text and amount'); break;
+    default:
+      txt = twin ? L('Cùng số tiền với một khoản trong sổ, cách nhau không quá 3 ngày', 'Same amount as a row in your ledger, within 3 days') : '';
+  }
+  if(!txt) return null;
+  /* The amounts are equal in every case above, so the second line leaves it out. */
+  return { why: txt, twin: csvDupTwinLine(twin, true) };
+}
+function csvDupAskHTML(a){
+  if(!a || !a.why) return '';
+  return '<span class="scv-why"><span class="scv-why-r">'+esc(a.why)+'</span>'
+    + (a.twin ? '<span class="scv-why-t">'+esc(a.twin)+'</span>' : '')+'</span>';
+}
+function csvDupWhy(c){
+  var ev = function(t){ return csvDupTwinLine(t, false); };
   var twin = c._dupTwin || c.duplicateOfExisting || c.duplicateNearMiss || c.duplicateOfSource || null;
   var e = ev(twin);
   switch(c._dupWhy || ''){
@@ -3658,9 +3713,13 @@ function csvStagedDupCard(c, i, tier, pickOn, pickWk){
      its own edit path, so there the difference is shown and the person edits it. */
   var fix = (c._dupWhy === 'fx_final' && c._dupTwin && c._dupTwin.book === 'personal')
     ? '<button type="button" class="csv-linkbtn csv-fxfix" onclick="event.stopPropagation();csvFxAdopt('+i+')">'+esc(L('Cập nhật theo sao kê','Update from the statement'))+'</button>' : '';
+  /* An open question says its reason in both states, in the same words: on the
+     collapsed card under the row's own lines, on the open card where the longer
+     note used to be (transaction-review-spec §3a). A booked row keeps its note. */
+  var ask = tier === 'sure' ? null : csvDupAsk(c);
   return csvIsOpen('ready', i)
-    ? csvActiveCard(c, Object.assign({}, o, { fields:true, ctaIdx:i, note: esc(csvDupWhy(c)) + (fix ? '<div class="csv-fxfix-row">'+fix+'</div>' : '') }))
-    : csvCollapsedCard(c, o);
+    ? csvActiveCard(c, Object.assign({}, o, { fields:true, ctaIdx:i, note: (ask ? csvDupAskHTML(ask) : esc(csvDupWhy(c))) + (fix ? '<div class="csv-fxfix-row">'+fix+'</div>' : '') }))
+    : csvCollapsedCard(c, ask ? Object.assign({}, o, { ask: ask }) : o);
 }
 /* "Cập nhật theo sao kê": the booked personal row takes the statement's amount (the
    bank's final figure replaces our estimate), and the statement row is retired --
@@ -3710,6 +3769,58 @@ function csvSureSkipAll(){
   renderCsvReview();
   if(typeof csvTxrHeadSync === 'function') csvTxrHeadSync();
   var done = function(n){ if(typeof toast === 'function') toast(L('Đã bỏ qua '+n+' khoản đã có trong sổ','Skipped '+n+' already-booked rows')); };
+  if(window.fhStagedDropMany) window.fhStagedDropMany(rows).then(done).catch(function(){ done(rows.length); });
+  else done(rows.length);
+}
+
+/* ── "Cần bạn xem": the fold and the one-tap answer (transaction-review-spec §3a) ──
+   csvAttnFold folds the section's cards away under its header, which keeps the
+   count, so nothing is hidden without saying how much. Reset on a fresh review:
+   rows that need a look must not start out of sight. Staged queue only. */
+var csvAttnFold = false;
+var csvAttnJustOpened = false;   // the paint right after an unfold eases the cards in, once
+/* Does the open editor sit inside "Cần bạn xem"? Folding the section closes it;
+   and a card opened from elsewhere while the section is folded is still drawn. */
+function csvAttnHolds(e){
+  if(!e || !csvReview) return false;
+  if(e.kind === 'group') return true;
+  if(e.kind === 'defer'){
+    var d = csvReview.deferred[e.idx];
+    return !!(d && d.flags && (d.flags.indexOf('date_missing') >= 0 || d.flags.indexOf('amount_missing') >= 0));
+  }
+  if(e.kind === 'ready' && csvStagedMode){
+    var c = csvReview.ready[e.idx], tier = c ? csvDupTier(c) : '';
+    return !!(c && (tier === 'likely' || (!tier && c._srcAttn)));
+  }
+  return false;
+}
+function csvAttnToggle(){
+  if(!csvReview) return;
+  csvDisarmRemove();
+  if(!csvAttnFold && csvAttnHolds(csvExpand)){ csvFlushExpand(); csvExpand = null; csvRowSheet = null; csvRowHot = null; }
+  csvAttnFold = !csvAttnFold;
+  csvAttnJustOpened = !csvAttnFold;
+  renderCsvReview();
+}
+/* "Bỏ qua N khoản có thể trùng": retire every open duplicate question at once.
+   Unlike "đã có trong sổ" these are guesses, and a wrong one retires a real
+   transaction, so it arms first (DESIGN: destructive is arm-then-confirm) and
+   the armed label repeats the count. Any other tap disarms (csvDisarmRemove).
+   One RPC, local-first, like every other retire here. Rows under "Cần bạn xem"
+   for another reason (a guessed kind, a missing category) are not touched.
+   csvLikelyArmed lives beside csvArmedRemove, with the one disarm they share. */
+function csvLikelySkipAll(){
+  if(!csvReview || !csvStagedMode) return;
+  var rows = csvReview.ready.filter(function(c){ return csvDupTier(c) === 'likely'; });
+  if(!rows.length) return;
+  if(!csvLikelyArmed){ csvDisarmRemove(); csvLikelyArmed = true; renderCsvReview(); return; }
+  csvLikelyArmed = false;
+  csvFlushExpand();                 // an edit in progress on a row that stays is kept
+  csvReview.ready = csvReview.ready.filter(function(c){ return csvDupTier(c) !== 'likely'; });
+  csvExpand = null; csvRowSheet = null; csvRowHot = null; csvDisarmRemove();
+  renderCsvReview();
+  if(typeof csvTxrHeadSync === 'function') csvTxrHeadSync();
+  var done = function(n){ if(typeof toast === 'function') toast(L('Đã bỏ qua '+n+' khoản có thể trùng','Skipped '+n+' possible duplicates')); };
   if(window.fhStagedDropMany) window.fhStagedDropMany(rows).then(done).catch(function(){ done(rows.length); });
   else done(rows.length);
 }
@@ -3770,6 +3881,9 @@ function csvReadyCardHTML(i){
 function csvCardPatch(idxs){
   if(typeof document === 'undefined' || !csvReview) return false;
   var out = document.getElementById('csv-result'); if(!out || !csvReviewBodyFresh(out)) return false;
+  /* The "Cần bạn xem" header is body markup too: a tap that just disarmed its
+     skip-all must repaint it, which only the full render does. */
+  if(!csvLikelyArmed && out.querySelector('.csv-attn-h .csv-linkbtn.armed')) return false;
   var els = [], htmls = [];
   for(var k = 0; k < idxs.length; k++){
     var el = out.querySelector('.bulk-card[data-ck="ready:'+idxs[k]+'"]'); if(!el) return false;
@@ -3826,6 +3940,7 @@ window.csvStmtCardsRepaint = csvStmtCardsRepaint;
        joined receipt / refund link;
      · group keys and sizes, dup verdicts, deferred flags, problems;
      · the fold (csvExpand), the armed ✕ (row and bulk), selection touched, the
+       "Cần bạn xem" fold and its armed skip-all, the
        category / person filters, chart zoom and hidden, every reveal window,
        the money-in fold and its open row, the row sheet, hot field and node
        picker state, the tool sheet, its open row and node folds, the
@@ -3889,6 +4004,7 @@ function csvReviewSigCompute(){
   push('s');
   push(csvExpand ? csvExpand.kind+'/'+csvExpand.idx+'/'+(csvExpand.gi==null?'':csvExpand.gi) : '');
   push(csvArmedRemove==null?'':csvArmedRemove); push(csvBulkArmed?1:0); push(csvSelTouched?1:0);
+  push(csvAttnFold?1:0); push(csvLikelyArmed?1:0);
   push(csvCatFilter||''); push(csvPersonFilter||''); push(csvSumZoom); push(csvSumHidden?1:0);
   push(csvRevealCount); push(J(csvRevealSec)); push(csvInflowOpen?1:0); push(csvInflowDetail==null?'':csvInflowDetail);
   push(csvRowSheet||''); push(csvRowHot||''); push(csvNodeOpen==null?'':J(csvNodeOpen)); push(csvNodeQ||''); push(csvNodeReveal?1:0);
@@ -4012,6 +4128,7 @@ function renderCsvReview(){ window.fhHeat&&fhHeat.tick('renderCsvReview');
      handledHtml is the middle ground: money in and duplicates, both decided
      for the user and both reversible, shown so neither disappears quietly. */
   var attnHtml = '', handledHtml = '', handledN = 0, handledLeft = 0;   // handledN counts every card the section holds (a category filter can hide some); handledLeft, those past its reveal window
+  var attnN = 0;   // every card "Cần bạn xem" holds under the current filter, drawn or not: its header says this number, folded or open
   var pickOnStaged = csvStagedMode && csvPickCount() > 0;
   var pickWkStaged = pickOnStaged ? csvPickWeekMax() : 0;
   r.groups.forEach(function(g, gi){
@@ -4019,6 +4136,7 @@ function renderCsvReview(){ window.fhHeat&&fhHeat.tick('renderCsvReview');
     var proxy = { description:g.items[0].description, amount:g.items.reduce(function(s,it){return s+it.amount;},0), categoryName:null, dateDisplay:g.items[0].dateDisplay, rowIndex:g.items[0] && g.items[0].rowIndex };
     var o = { label:head, dateIso:g.items[0].dateDisplay, attn:true,
               tapFn:"csvToggleExpand('group',"+gi+")", removeFn:"csvSkipGroup("+gi+")" };
+    attnN++;
     attnHtml += csvIsOpen('group', gi)
       ? csvActiveCard(proxy, Object.assign({}, o, { instantChips:true }))
       : csvCollapsedCard(proxy, o);
@@ -4069,6 +4187,7 @@ function renderCsvReview(){ window.fhHeat&&fhHeat.tick('renderCsvReview');
     var blocking = c.flags.indexOf('date_missing')>=0 || c.flags.indexOf('amount_missing')>=0;
     var o = { label:why, dateIso:c.dateDisplay, timeStr:csvRowTime(c), invalid:blocking, attn:!blocking,
               tapFn:"csvToggleExpand('defer',"+di+")", removeFn:"csvDeferDrop("+di+")" };
+    if(blocking) attnN++;
     if(!csvIsOpen('defer', di)){
       if(blocking) attnHtml += csvCollapsedCard(c, o);
       else { handledN++; if(handledN > csvRevealSec.handled){ handledLeft++; return; } handledHtml += csvCollapsedCard(c, o); }
@@ -4150,16 +4269,43 @@ function renderCsvReview(){ window.fhHeat&&fhHeat.tick('renderCsvReview');
      can never sit past the window. Counts in the headers stay the full count. */
   var openReady = (csvExpand && csvExpand.kind === 'ready') ? csvExpand.idx : -1;
   var attnLeft = 0;
+  /* Folded (staged queue only): the header and its count stay, the cards are not
+     built at all. A card opened from elsewhere while folded is still drawn, so an
+     editor can never sit inside a closed section. */
+  var attnFold = csvStagedMode && csvAttnFold && !csvAttnHolds(csvExpand);
+  var likelyAll = likelyRows.length;   // what the skip-all acts on: every open duplicate question, drawn or not
   if(csvStagedMode){
     var attnWin = csvRevealWindow(likelyRows.concat(srcRows), csvRevealSec.attn, openReady), attnKeep = {};
     attnLeft = attnWin.left;
+    attnN += attnWin.keep.length + attnLeft;
     attnWin.keep.forEach(function(e){ attnKeep[e.i] = 1; });
     likelyRows = likelyRows.filter(function(e){ return attnKeep[e.i]; });
     srcRows = srcRows.filter(function(e){ return attnKeep[e.i]; });
-    likelyRows.forEach(function(e){ if(csvCatHide(e.c)) return; attnHtml += csvStagedDupCard(e.c, e.i, 'likely', pickOnStaged, pickWkStaged); });
-    srcRows.forEach(function(e){ if(csvCatHide(e.c)) return; attnHtml += csvStagedSrcCard(e.c, e.i, pickOnStaged, pickWkStaged); });
+    if(!attnFold){
+      likelyRows.forEach(function(e){ if(csvCatHide(e.c)) return; attnHtml += csvStagedDupCard(e.c, e.i, 'likely', pickOnStaged, pickWkStaged); });
+      srcRows.forEach(function(e){ if(csvCatHide(e.c)) return; attnHtml += csvStagedSrcCard(e.c, e.i, pickOnStaged, pickWkStaged); });
+    }
   }
-  if(attnHtml){
+  if(csvStagedMode && attnN){
+    /* The header is the fold: title, count and a chevron in one 44px target.
+       The skip-all sits beside it while the cards are in view and no category
+       filter narrows them, because it acts on every open duplicate question and
+       a button must not claim less than it does (same rule as "Bỏ qua cả N"). */
+    var skipHtml = (!attnFold && !csvCatFilter && likelyAll)
+      ? '<button type="button" class="csv-linkbtn'+(csvLikelyArmed ? ' armed' : '')+'" onclick="csvLikelySkipAll()">'
+        + esc(csvLikelyArmed ? L('Bỏ qua '+likelyAll+' khoản?','Skip '+likelyAll+'?') : L('Bỏ qua '+likelyAll+' khoản có thể trùng','Skip '+likelyAll+' possible duplicates'))+'</button>'
+      : '';
+    html += '<div class="group-h attn csv-attn-h'+(attnFold ? ' folded' : '')+'">'
+          + '<button type="button" class="csv-fold" onclick="csvAttnToggle()" aria-expanded="'+(attnFold ? 'false' : 'true')+'">'
+          + '<span>'+L('Cần bạn xem','Needs a look')+' · '+attnN+'</span>'
+          + '<span class="csv-fold-chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span>'
+          + '</button>' + skipHtml + '</div>';
+    if(!attnFold){
+      html += '<div class="csv-cards'+(csvAttnJustOpened ? ' csv-attn-in' : '')+'">'+attnHtml+'</div>'
+            + (attnLeft > 0 ? csvRevealBtnHTML(attnLeft, 'attn') : '');
+    }
+    csvAttnJustOpened = false;
+  } else if(attnHtml){
     html += '<div class="group-h attn">'+L('Cần bạn xem','Needs a look')+'</div><div class="csv-cards">'+attnHtml+'</div>'
           + (attnLeft > 0 ? csvRevealBtnHTML(attnLeft, 'attn') : '');
   }
@@ -5108,12 +5254,14 @@ function csvToolSheetSync(){
    The CSV file flow is untouched — there is nothing to retire there, the rows
    only exist in the page. */
 var csvArmedRemove = null;
+var csvLikelyArmed = false;   // "Bỏ qua N khoản có thể trùng" tapped once (csvLikelySkipAll)
 
-/* One disarm for both the per-row ✕ and the bulk ✕ — "any other tap disarms"
-   has to mean any, or a tick could leave a loaded bulk delete behind it. */
+/* One disarm for the per-row ✕, the bulk ✕ and the skip-all of "Cần bạn xem":
+   "any other tap disarms" has to mean any, or a tick could leave a loaded bulk
+   delete behind it. */
 function csvDisarmRemove(){
-  var was = (csvArmedRemove !== null) || csvBulkArmed;
-  csvArmedRemove = null; csvBulkArmed = false;
+  var was = (csvArmedRemove !== null) || csvBulkArmed || csvLikelyArmed;
+  csvArmedRemove = null; csvBulkArmed = false; csvLikelyArmed = false;
   return was;
 }
 

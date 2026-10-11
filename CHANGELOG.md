@@ -20,6 +20,42 @@ Going forward, add an entry here when a feature area changes meaningfully — se
 
 ## 2026-10-11
 
+### "Cần bạn xem": gập lại được, thẻ nói luôn lý do, bỏ qua một lượt (SW v632)
+
+Three additions to the staged queue's "Cần bạn xem" section. Spec:
+`docs/specs/transaction-review-spec.md` §3a. Client only, no migration, no Edge
+Function deploy.
+
+- **The header folds the section.** "Cần bạn xem · N" with a chevron is one 44px
+  button (`csvAttnToggle`, `.csv-fold`). Folded, the count stays and the cards
+  are not built. Folding closes an editor open inside the section; a card opened
+  from elsewhere while folded is still drawn. Not stored: a fresh review opens
+  with the section open.
+- **A collapsed "có thể trùng" card says why.** Two lines under a hairline
+  (`.scv-why`): one sentence for what the two rows share, then the matched row
+  (words, day and clock, book, who logged it). `csvDupAsk` writes them and the
+  open card shows the same two lines in place of the longer note. Nine reasons,
+  listed in the spec; none uses a dash-joined clause or a softener. "Đã có trong
+  sổ" cards and "máy đoán" cards are unchanged.
+- **"Bỏ qua N khoản có thể trùng".** Retires every `likely` row in one
+  `fhStagedDropMany` call, drawn or past the reveal window, and nothing else.
+  Arms first ("Bỏ qua N khoản?" in `--danger`), any other tap disarms
+  (`csvDisarmRemove` now covers three armed things). Hidden under a category
+  filter and while the section is folded.
+- **Render signature** gains `csvAttnFold` and `csvLikelyArmed`. `csvCardPatch`
+  stands down while the painted header is still armed.
+- **Checked by eye** in headless Chrome at 390 px with the app's CSS and the real
+  card builders (open, armed, folded, one card open, after the skip). Not tried on
+  a real phone.
+- **Tests.** `tools/review-attention.test.js` new, 70; two rows added to the
+  signature table in `tools/heat-queue-render.test.js`. Twenty mutations of the
+  new code each turn the new test red. Suite 171 green, the same two failing as
+  before (`direct-persist-contract`, `label-fallback-root`).
+- **Found, not fixed:** the card key is written inside the class attribute
+  (`class="bulk-card attn data-ck="ready:0""`), so in a browser no card carries
+  `data-ck` and the in-place swap from device-heat B8 never matches. Every open,
+  close and arm falls back to the full render. See the spec's last paragraph.
+
 ### "Cần bạn xem" thôi hỏi những khoản tự nó đã trả lời (SW v631)
 
 A card purchase at ARTISAN PATINA on 04/07 at 18:40 was asked about as a possible

@@ -132,6 +132,113 @@ delete) that appears the moment you start selecting; below the list, the Import
 button in the nav is always visible, greyed until at least one row is selected,
 and labelled with the live count ("Nhập 12").
 
+### 3a. "Cần bạn xem" in the staged queue: fold, reason on the card, skip all (2026-10-11)
+
+Status: BUILT, client only, SW v632. `src/js-ui/56-csv-import-ui.js`,
+`src/css/74-mailbox.css`, `tools/review-attention.test.js` (new, 70 cases). Staged
+(bank-email) queue only; the file-import flow keeps its plain header.
+
+**The problem.** A "có thể trùng" card said why it was asked about only after it
+was opened, so answering five of them meant five opens. The section could not be
+put away while working through the dated list. And a row that turned out to be a
+duplicate could only be dismissed one card at a time, from inside the open card.
+
+**A1. The header is the fold.** "Cần bạn xem · N" with a chevron, one 44px
+target. Tapping it folds the section's cards away; the header and the count stay,
+so nothing is hidden without saying how much.
+
+- N counts every card the section holds under the current category filter, drawn
+  or past the reveal window: merchant groups, rows missing a date or an amount,
+  open duplicate questions, guessed kinds.
+- Folded, the cards are not built at all, which is the cheapest state the section
+  has.
+- Folding closes an editor that is open inside the section (through the normal
+  flush, so a typed edit is kept). An editor open elsewhere is left alone.
+- A card opened from elsewhere while the section is folded is still drawn: an
+  editor never sits inside a closed section.
+- The fold is not remembered. A fresh review opens with the section open, because
+  rows that need a look must not start out of sight. The reading-mode rebuild
+  (`keepView`) keeps it as the person left it.
+
+**A2. The reason is on the card.** A collapsed "có thể trùng" card ends with two
+lines under a hairline: one sentence saying what the two rows share, then the row
+it was matched against (its words, day and clock, book, and who logged it in the
+family book). The amount is left off the second line because the sentence already
+says the amounts are equal. Open, the card shows the same two lines where the
+longer note was. One function writes both (`csvDupAsk`).
+
+| Reason (engine `why`) | Sentence |
+|---|---|
+| `exact_day` | Cùng số tiền, cùng ngày với một khoản trong sổ |
+| `card_posting`, a notice | Cùng số tiền với một khoản đã nhập 3 ngày trước ("hôm trước" for one day) |
+| `card_posting`, same merchant | Cùng số tiền, cùng nơi chi với một khoản đã nhập 2 ngày trước |
+| `kind_conflict` | Trùng nội dung, số tiền và ngày với một khoản ghi ngược chiều thu chi |
+| `cross_source` | Một nguồn khác cũng báo số tiền này trong 3 ngày |
+| `same_bank_pair` | Cùng ngân hàng báo số tiền này hai lần |
+| `statement_echo` | Sao kê và email cùng báo số tiền này trong một ngày |
+| `pipeline` | Một email từ nguồn khác cũng báo số tiền này trong 3 ngày |
+| `in_batch` | Xuất hiện hai lần với cùng nội dung và số tiền |
+
+Copy rules for these lines: a plain statement of fact, no dash-joined second
+clause, no "bạn xem", "bạn quyết định" or "có thể là" (the chip and the section
+already say it is a question), no softeners.
+
+Not in A2: a "máy đoán" card has no matched row and no reason text to move, so it
+keeps its chip and nothing else; an "Đã có trong sổ" card keeps its collapsed
+shape and its longer open note.
+
+**A3. Skip every open duplicate question at once.** "Bỏ qua N khoản có thể
+trùng", a text button on the right of the header.
+
+- It retires the `likely` rows and nothing else: not guessed kinds, not rows
+  missing a category, not "Đã có trong sổ" (which has its own "Bỏ qua cả N").
+- N is every such row, drawn or past the reveal window, and that is what it
+  retires. One RPC, local-first (`fhStagedDropMany`), like every other retire.
+- These are guesses, and a wrong one retires a real transaction, so it arms first
+  (DESIGN: destructive is arm-then-confirm): one tap turns the label into "Bỏ qua
+  N khoản?" in the danger colour, a second carries it out. Any other tap disarms
+  (`csvDisarmRemove`, shared with the row ✕ and the bulk delete).
+- It steps aside while a category filter is on and while the section is folded:
+  it acts on every open duplicate question, and a button must not claim less than
+  it does or act on cards nobody can see.
+- Toast: "Đã bỏ qua N khoản có thể trùng".
+
+**Design.** Nothing new is invented where a piece existed: the header is
+`.group-h`, the button is `.csv-linkbtn` as in "Đã có trong sổ", the armed colour
+is `--danger` as on the row ✕, the chevron is an inline SVG like the open card's. Two
+pieces are new and named here: `.csv-fold` (a section header that folds its
+section) and `.scv-why` (the two reason lines). No fill, no accent bar, no icon on
+the reason: text under a `--divider` hairline. Unfolding eases the cards in once
+(220 ms, off under reduced motion); nothing animates at rest.
+
+**Device heat.** Two new fields in the render signature (`csvAttnFold`,
+`csvLikelyArmed`); a fold or an arm is one paint, and a render with neither
+changed is still skipped. Folded, the section builds zero cards. The reason lines
+add no fetch and no decrypt: they read the verdict the engine already left on the
+row.
+
+**Decisions**
+
+| # | Decision |
+|---|---|
+| A1 | The header folds the section and always shows the count. |
+| A2 | The fold resets on a fresh review and is not stored. |
+| A3 | A reason is one sentence plus the matched row, the same in both card states. |
+| A4 | The matched row's amount is not repeated when the sentence says it is equal. |
+| A5 | Skip-all acts on open duplicate questions only, counts all of them, and arms first. |
+| A6 | Skip-all hides under a category filter and while folded. |
+| A7 | Staged queue only. |
+
+**Rendered** in headless Chrome at 390 px with the app's own CSS and the real card
+builders: open, armed, folded, one card open, and after the skip.
+
+**Found while rendering, not changed here.** The card key attribute is written
+inside the class attribute (`class="bulk-card attn data-ck="ready:0""`), so in a
+browser no card carries `data-ck` and the in-place card swap (`csvCardPatch`,
+device-heat B8) never finds its card: every open, close and arm takes the full
+render. It is correct, only slower than B8 intended. Fixing it turns on a path
+that has not run on a device, so it is left for its own change.
+
 ### 4. What you can do to a row
 
 Every card can be **ticked** (include in this import — all rows arrive ticked),

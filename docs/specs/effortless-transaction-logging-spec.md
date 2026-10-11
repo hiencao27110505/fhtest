@@ -1904,6 +1904,17 @@ as — or the same day as — the deploy. A deploy announced only in
 
 ## 28. Releases (newest first)
 
+### 2026-10-11 (late night) — "Cần bạn xem" folds, says why on the card, and skips duplicates in one go · client only, SW v632 · no migration, no deploy beyond the client
+
+- **For product:** the section's header shows how many cards it holds and folds
+  them away. A "có thể trùng" card says, while still collapsed, what it shares
+  with which booked row ("Cùng số tiền với một khoản đã nhập 3 ngày trước", then
+  the row itself). "Bỏ qua N khoản có thể trùng" dismisses every such card after
+  a second, confirming tap.
+- **Under the hood:** `transaction-review-spec.md` §3a (A1 to A7). Two new fields
+  in the queue's render signature; a folded section builds no cards; the reason
+  lines read the verdict already on the row.
+
 ### 2026-10-11 (night) — a duplicate guess the rows contradict is not made · client only, SW v631 · no migration, no deploy beyond the client
 
 - **For product:** "Cần bạn xem" no longer asks whether a card purchase is a
