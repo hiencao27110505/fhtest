@@ -13,7 +13,16 @@
  *   4. A short leading word is not trusted on its own ("TP HCM quỹ" is not
  *      TPBank), while a real bank word still finds its bank ("VCB lương").
  *   5. Names are escaped: an account is named by a person.
- *   6. Every surface the spec lists still calls the one renderer, so a
+ *   6. The three shapes. v628 put a one-letter square inside a line of text:
+ *      a 7px letter nobody could read, "V" for three banks, and a subline
+ *      that wrapped on every row (the 2026-10-11 phone screenshot). So: the
+ *      square only from 26px, the TAG under that with the whole monogram and
+ *      type never under 9.5px, standing in place of the provider's name, and
+ *      the BADGE on a list tile's corner.
+ *   7. List rows: no mark and no bank name in a subline, no bank face at
+ *      tile size, the subline on one line, and a mirror row's corner left to
+ *      the family mark.
+ *   8. Every surface the spec lists still calls the one renderer, so a
  *      refactor cannot quietly drop a surface back to plain text.
  */
 'use strict';
@@ -65,18 +74,58 @@ t('cash wears its emoji', !!of({ kind: 'cash', name: 'Tiền mặt' }).em);
 t('a registry provider with no face falls back to a monogram of its label', (F.ofKey('pvcombank') || {}).mono === 'PVC' && (F.ofKey('9pay') || {}).mono.length > 0);
 t('a receipt sender has no face (sellers wear a brand)', F.ofKey('grab') === null);
 t('an instrument string resolves by its bank', (F.ofInst('VIB · tín dụng ••4512') || {}).mono === 'VIB' && !!(F.ofInst('Tiền mặt') || {}).em);
-t('nothing in, nothing out', W.fhSrcFace(null, 28) === '' && W.fhSrcFaceOf('', 28) === '' && W.fhSrcFaceInst(null) === '');
+t('nothing in, nothing out', W.fhSrcFace(null, 28) === '' && W.fhSrcFaceOf('', 28) === '' && W.fhSrcFaceInst(null) === '' && W.fhSrcInstLabel(null) === '');
 
-console.log('\n-- the mark --');
-t('26px and up shows the whole monogram', />VCB</.test(W.fhSrcFaceKey('vietcombank', 28)));
-t('under 26px a long monogram is one letter', />V</.test(W.fhSrcFaceKey('vietcombank', 18)));
-t('under 26px a two-letter monogram stays whole', />MB</.test(W.fhSrcFaceKey('mbbank', 18)));
+console.log('\n-- the three shapes --');
+const css = read('src/css/41-source-face.css');
+t('26px and up is the square with the whole monogram', /class="sf" [^>]*data-n="3"[^>]*>VCB</.test(W.fhSrcFaceKey('vietcombank', 28)));
+t('under 26px it is the tag, still the whole monogram', /class="sf tg in"[^>]*>VCB</.test(W.fhSrcFaceKey('vietcombank', 18, 'in')));
+t('VIB, Vietcombank and VPBank no longer share a letter in a line of text',
+  new Set(['vib', 'vietcombank', 'vpbank'].map((k) => W.fhSrcFaceKey(k, 18).replace(/<[^>]+>/g, ''))).size === 3);
+t('a tag is never shorter than 16px, so its type never drops under 9.5px', /--sfs:16px/.test(W.fhSrcFaceKey('vib', 14)) && /\.sf\.tg\{[^}]*font-size:max\(9\.5px/.test(css));
 t('the colour rides inline as --sfh', /--sfh:#[0-9A-F]{6}/.test(W.fhSrcFaceKey('vib', 28)));
-t('a light colour asks for dark ink', /class="sf dk/.test(W.fhSrcFaceKey('shb', 28)));
-t('the face is decoration beside a name (aria-hidden)', /aria-hidden="true"/.test(W.fhSrcFaceKey('vib', 28)));
-t('fhSrcLabel escapes the name a person typed', W.fhSrcLabel({ kind: 'deposit', providerKey: 'vib' }, '<b>x</b>').indexOf('&lt;b&gt;x&lt;/b&gt;') > 0);
-t('two accounts make a paired tile, one account a full one, none makes nothing',
-  /r-ico sfp/.test(W.fhSrcPairTile({ providerKey: 'vib' }, { providerKey: 'momo' })) && /sf r-ico/.test(W.fhSrcPairTile({ providerKey: 'vib' }, null)) && W.fhSrcPairTile(null, null) === '');
+t('a light colour asks for dark ink, on the square and on the badge', /class="sf dk/.test(W.fhSrcFaceKey('shb', 28)) && /class="r-src dk"/.test(W.fhSrcBadge({ providerKey: 'shb' })));
+t('a face is decoration beside words (aria-hidden)', /aria-hidden="true"/.test(W.fhSrcFaceKey('vib', 28)) && /aria-hidden="true"/.test(W.fhSrcBadge({ providerKey: 'vib' })));
+t('a monogram made from the name itself gives no tag (it would repeat the name)', W.fhSrcFace({ kind: 'deposit', name: 'Quỹ đen' }, 18) === '' && />QĐ</.test(W.fhSrcFace({ kind: 'deposit', name: 'Quỹ đen' }, 28)));
+t('cash keeps its emoji square at any size', /class="sf em/.test(W.fhSrcFace({ kind: 'cash' }, 18)));
+
+console.log('\n-- a tag stands in place of the provider\'s name --');
+const txt = (h) => h.replace(/<[^>]+>/g, '|');
+t('"Vietcombank ••2279" becomes tag + "••2279"', txt(W.fhSrcLabel({ providerKey: 'vietcombank' }, 'Vietcombank ••2279')) === '|VCB|••2279');
+t('"VCB lương" becomes tag + "lương"', txt(W.fhSrcLabel({ providerKey: 'vietcombank' }, 'VCB lương')) === '|VCB|lương');
+t('an account named exactly its provider is the tag alone', txt(W.fhSrcLabel({ providerKey: 'momo' }, 'MoMo')) === '|MoMo|');
+t('a name that does not start with the provider is kept whole', txt(W.fhSrcLabel({ providerKey: 'vib' }, 'Thẻ chính')) === '|VIB|Thẻ chính');
+t('a word that merely begins like the provider is not cut ("VIBrant")', txt(W.fhSrcLabel({ providerKey: 'vib' }, 'VIBrant quỹ')) === '|VIB|VIBrant quỹ');
+t('a hand-named account is its name, no mark', W.fhSrcLabel({ kind: 'deposit', name: 'Quỹ đen' }, 'Quỹ đen') === 'Quỹ đen');
+t('fhSrcLabel escapes what a person typed', W.fhSrcLabel({ kind: 'deposit', providerKey: 'vib' }, '<b>x</b>').indexOf('&lt;b&gt;x&lt;/b&gt;') > 0);
+t('an instrument string keeps the words after the provider', txt(W.fhSrcInstLabel('VIB · tín dụng ••4512')) === '|VIB|tín dụng ••4512');
+t('an unknown instrument string is printed as it is, escaped', W.fhSrcInstLabel('Quỹ <chung>') === 'Quỹ &lt;chung&gt;');
+t('a provider named alone: its tag when the registry has its colour', /class="sf tg nm"[^>]*>VCB</.test(W.fhSrcName('Vietcombank', 'Vietcombank')));
+t('a provider with no colour, or unknown, stays words', W.fhSrcName('lpbank', 'LPBank') === 'LPBank' && W.fhSrcName('standard chartered', 'Standard Chartered') === 'Standard Chartered');
+
+console.log('\n-- list rows: the badge, the four digits, the transfer tile --');
+t('the badge is one letter', />V<\/span>$/.test(W.fhSrcBadge({ providerKey: 'vietcombank' })));
+t('a two-letter monogram stays whole on the badge', /data-n="2"[^>]*>MB</.test(W.fhSrcBadge({ providerKey: 'mbbank' })));
+t('cash wears its emoji badge and says nothing in the subline', /r-src em/.test(W.fhSrcBadge({ kind: 'cash' })) && W.fhSrcRowSub({ kind: 'cash', name: 'Tiền mặt' }) === '');
+t('no account, no badge', W.fhSrcBadge(null) === '' && W.fhSrcRowSub(null) === '');
+t('the subline says the four digits', W.fhSrcRowSub({ providerKey: 'vib', name: 'VIB ••4751', tail: '4751' }) === '••4751');
+t('an account with no number says its name', W.fhSrcRowSub({ kind: 'deposit', name: 'Quỹ đen' }) === 'Quỹ đen');
+t('a transfer names both ends without their numbers', W.fhSrcXferTitle({ name: 'VIB ••5140' }, { name: 'Vietcombank ••2279' }) === 'VIB → Vietcombank');
+t('two accounts at one bank keep their numbers', W.fhSrcXferTitle({ name: 'VIB ••5140' }, { name: 'VIB ••4751' }) === 'VIB ••5140 → VIB ••4751');
+t('an unknown end gives no title (the caller keeps the note)', W.fhSrcXferTitle({ name: 'VIB ••5140' }, null) === '');
+t('the transfer tile is neutral: no bank colour, no monogram', /r-ico personal-ico xf/.test(W.FH_SRC_XFER_TILE) && !/--sfh|class="sf/.test(W.FH_SRC_XFER_TILE));
+t('the paired-face tile and the full-size bank tile are gone', typeof W.fhSrcPairTile === 'undefined' && !/sfp/.test(css));
+const tab = read('src/js-ui/21-personal.js'), txs = read('src/js-ui/60-transactions.js');
+const listFrom = tab.slice(tab.indexOf('var srcSub'), tab.indexOf("h += '<div class=\"empty-note\">'"));
+t('Cá nhân tab: no face and no bank name inside a subline', !/fhSrcFace\(|acctName\(t\.accountId\)|fhSrcLabel\(/.test(listFrom));
+t('Cá nhân tab: expense, income and transfer sublines stay on one line', (listFrom.match(/class="r-s r-s1"/g) || []).length === 3 && /\.r-s\.r-s1\{white-space:nowrap/.test(css));
+t('Cá nhân tab: a mirror row keeps 🏡 on the corner and names no account', /t\.spaceId \? '<div class="r-ico-wrap">'\+_tile\+'<div class="r-scope">🏡<\/div><\/div>' : srcTile\(_tile, t\.accountId\)/.test(tab) && /\(t\.spaceId\?'':srcSub\(t\.accountId\)\)/.test(tab));
+t('Cá nhân tab: a transfer no longer says "không tính thu chi" (the grey amount and the kind word do)',
+  !/không tính thu chi/.test(listFrom.slice(listFrom.indexOf("t.kind==='transfer'"), listFrom.indexOf("t.kind==='investment'")).replace(/\/\*[\s\S]*?\*\//g, '')));
+t('Giao dịch: the badge sits in the tile wrap, the digits in the one-line subline', /tile\+av\+\(\(sf&&sf\.b\)\|\|''\)/.test(txs) && /class="r-s r-s1">'\+subTxt/.test(txs) && /if\(sf&&sf\.s\) subTxt\+=' · '\+esc\(sf\.s\)/.test(txs));
+t('Giao dịch: a family row names its source in words (its corner is the member\'s)', /if\(t\.inst\) subTxt\+=' · '\+esc\(t\.inst\);/.test(txs));
+t('Giao dịch: a mirror row is not marked', /if\(!\(t\.spaceId\|\|t\.linkId\)\) mark\(t\.id, acctMap\.get\(t\.accountId\)\)/.test(txs));
+t('the ctx shape heat-txn-ctx.test.js pins is untouched (marks ride beside it)', !/_faces:/.test(txs) && /_pTxnFaces=faceOf;/.test(txs));
 
 console.log('\n-- every surface still calls the renderer --');
 const SURFACES = [
@@ -86,23 +135,23 @@ const SURFACES = [
   ['src/js-data/23-debts-ui.js', /fhSrcLabel\(a, _acctLbl\(a\)\)/, 'merge picker'],
   ['src/js-ui/50-sheets-expense-capture.js', /fhSrcLabel\(a, a\.name/, '"Trả bằng gì?" chips'],
   ['src/js-data/70-goals-income-onboard-ui.js', /fhSrcLabel/, '"Vào tài khoản nào?" chips'],
-  ['src/js-data/76-quick-review.js', /fhSrcLabel\(a, a\.name\)/, 'quick review'],
+  ['src/js-data/76-quick-review.js', /fhSrcLabel\(a, a\.name\)/, 'quick review chips'],
+  ['src/js-data/76-quick-review.js', /fhSrcName\(prov, name\)/, 'quick review source'],
   ['src/js-ui/59-ledger-move-ui.js', /fhSrcLabel\(a, a\.name/, 'ledger-move sheet'],
   ['src/js-ui/61-expense-detail.js', /function _pexdAcctVal/, 'personal detail rows'],
-  ['src/js-ui/61-expense-detail.js', /fhSrcFaceInst\(t\.inst,18,'in'\)/, 'family detail "Nguồn tiền"'],
-  ['src/js-ui/56-csv-import-ui.js', /fhSrcFaceOf\(provider,15,'in'\)/, 'queue card source'],
+  ['src/js-ui/61-expense-detail.js', /fhSrcInstLabel\(t\.inst\)/, 'family detail "Nguồn tiền"'],
+  ['src/js-ui/56-csv-import-ui.js', /fhSrcName\(provider, provider\)/, 'queue card source'],
   ['src/js-ui/56-csv-import-ui.js', /fhSrcLabel\(cardA, cardName\)/, 'queue card "Trả cho thẻ"'],
-  ['src/js-ui/60-transactions.js', /_pTxnFaces\[t\.id\]/, 'Giao dịch transfer rows'],
-  ['src/js-ui/60-transactions.js', /fhSrcFaceInst\(t\.inst,14,'in'\)/, 'family row source'],
-  ['src/js-ui/60-transactions.js', /fhSrcFaceId\(o\.k,18,'in'\)/, '"Nguồn tiền" filter'],
-  ['src/js-ui/21-personal.js', /fhSrcPairTile\(ends\.fromA, ends\.toA\)/, 'Cá nhân tab transfer rows'],
-  ['src/js-ui/21-personal.js', /var acctSub/, 'Cá nhân tab row source'],
+  ['src/js-ui/60-transactions.js', /FH_SRC_XFER_TILE/, 'Giao dịch transfer rows'],
+  ['src/js-ui/60-transactions.js', /fhSrcLabel\(FH_SRC_FACE\.byId\(o\.k\), o\.lbl\)/, '"Nguồn tiền" filter'],
+  ['src/js-ui/60-transactions.js', /fhSrcInstLabel\(o\.k\)/, 'family "Nguồn tiền" filter'],
+  ['src/js-ui/21-personal.js', /srcTile\(FH_SRC_XFER_TILE, xAcct\)/, 'Cá nhân tab transfer rows'],
+  ['src/js-ui/21-personal.js', /fhSrcName\(pk\.provider, prov\)/, 'Cá nhân tab queue peek'],
   ['src/js-data/74-autotxn-ui.js', /fhSrcFaceOf\(r\.source_provider, 30\)/, '"Vừa tìm thấy" feed'],
   ['src/js-data/77-statement-capture.js', /fhSrcFaceOf\(card\.source_provider, 34/, 'statement cards'],
 ];
 const cache = {};
 for (const [file, re, name] of SURFACES) t(name, re.test(cache[file] || (cache[file] = read(file))), file);
-t('the ctx shape heat-txn-ctx.test.js pins is untouched (faces ride beside it)', !/_faces:/.test(read('src/js-ui/60-transactions.js')));
 
 console.log('\n' + pass + ' passed' + (fail ? ', ' + fail + ' FAILED' : ''));
 process.exit(fail ? 1 : 0);

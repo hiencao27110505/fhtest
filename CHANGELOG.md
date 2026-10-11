@@ -20,6 +20,22 @@ Going forward, add an entry here when a feature area changes meaningfully — se
 
 ## 2026-10-11
 
+### Mặt ngân hàng: ba hình cho ba chỗ, huy hiệu ở góc ô (SW v630)
+
+The first pass (v628) used one shape at every size and put a one-letter face
+inside list sublines. On a real phone the same day: the subline wrapped on
+every row, the letter was about 7.5px tall, VIB, Vietcombank and VPBank were
+all "V", and a row between accounts wore a 42px bank tile that read as a
+seller. This pass gives the face three shapes. The square (26px and up) is
+unchanged. Under 26px it is a tag with the whole monogram, type never under
+9.5px, standing in place of the provider's name ("VCB" + "••2279"). On a list
+row the account is a badge on the tile's corner and its four digits in a
+subline that stays on one line. A row between accounts wears a neutral
+two-arrow tile and is titled "VIB → Vietcombank"; "không tính thu chi" leaves
+that subline. Chosen from eight options in `mockups/source-face-options.html`
+(option 1). Spec: `docs/specs/source-face-spec.md` §2 to §4, S8 to S14. Client
+only, no migration, no Edge Function deploy.
+
 ### Số dư từ sao kê thôi chờ xác nhận (SW v629)
 
 The first time a statement stated a balance for an account with no number, the

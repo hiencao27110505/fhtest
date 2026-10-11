@@ -97,7 +97,7 @@ function renderExpenseDetail(){
   var mm=_exdMasterOf(t);
   var isAuthor=!!(window.DB&&DB.ownerMemberId&&t._createdBy===DB.ownerMemberId);
   var mAcct=(mm&&mm.accountId&&mm.pd)?((mm.pd.accounts||[]).find(function(a){ return a.id===mm.accountId; })||null):null;
-  var acctVal=mAcct?fhSrcLabel(mAcct, mAcct.name||L('Tài khoản','Account')):(t.inst?fhSrcFaceInst(t.inst,18,'in')+esc(t.inst):L('Chưa gắn','Not tagged'));
+  var acctVal=mAcct?fhSrcLabel(mAcct, mAcct.name||L('Tài khoản','Account')):(t.inst?fhSrcInstLabel(t.inst):L('Chưa gắn','Not tagged'));
   var ph=(EXD.photos!==undefined)?EXD.photos:(t.photos||(t.photo?[t.photo]:[]));
   var fIso=(EXD.dateIso!=null)?EXD.dateIso:((typeof txDateInput==='function')?txDateInput(t):'');
   var fDateLbl=(EXD.dateIso!=null)?fmtDateLong(new Date(EXD.dateIso+'T00:00:00')):_exdDate(t);
@@ -112,7 +112,7 @@ function renderExpenseDetail(){
       +'<div class="exd-amt num">'+esc(vAmtDisp)+(CUR==='VND'?' ₫':'')+'</div>'
       +'<div class="exd-note">'+esc(vNote||L('Khoản chi','Expense'))+'</div>'
       +'<div class="exd-prov">'+esc(_exdDate(t))+(vTime?'<span class="sep">·</span>'+esc(vTime):'')
-        +(t.inst?'<span class="sep">·</span>'+fhSrcFaceInst(t.inst,15,'in')+esc(t.inst):'')+'</div>'
+        +(t.inst?'<span class="sep">·</span>'+fhSrcInstLabel(t.inst):'')+'</div>'
       +(isFuture?('<div class="exd-plan'+(incoming?' wait':'')+'">'+(incoming?L('chờ bạn duyệt','awaiting your review'):('📅 '+L('Chi tiêu dự kiến','Planned')))+'</div>'):'')
       +'</div>'
       +((!ph.length && canEdit && t._dbId)?_exdDoorHTML(t):'');

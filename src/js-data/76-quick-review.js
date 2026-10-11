@@ -541,15 +541,15 @@
       var prov = String(QR.row.source_provider || '').replace(/[_-]/g, ' ').trim();
       return L('Từ email', 'From email') + (prov ? ' · ' + prov.toUpperCase() : '');
     }
-    /* The bank instrument this row came in on, e.g. "VIB ••4751", behind its
-       provider's face (source-face-spec). Returns HTML: the face, then the
-       escaped words. */
+    /* The bank instrument this row came in on, e.g. "VIB ••4751". Returns HTML:
+       the bank's tag in place of its name when the registry has its colour
+       (source-face-spec §2), then the escaped four digits. */
     function _qrInstrLabel() {
       var re = QR.re || {};
       var tail = String(re.account_masked || '').replace(/\D/g, '').slice(-4);
       var prov = String(re.source_provider || '').replace(/[_-]/g, ' ').trim();
-      var face = window.fhSrcFace ? window.fhSrcFace({ kind: re.account_kind === 'cash' ? 'cash' : null, provider: prov || null }, 18, 'in') : '';
-      return face + _esc2((prov || L('Tài khoản', 'Account')) + (tail ? ' ••' + tail : ''));
+      var name = prov || L('Tài khoản', 'Account');
+      return ((prov && window.fhSrcName) ? window.fhSrcName(prov, name) : _esc2(name)) + _esc2(tail ? ' ••' + tail : '');
     }
     function _qrAcctVal() {
       if (QR.acctId) {

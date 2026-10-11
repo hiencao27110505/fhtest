@@ -949,7 +949,7 @@ function csvCardHead(label, dateIso, removeFn, attn, isError, timeStr, provider,
     var when = dateIso ? esc(bulkDate(dateIso)) + (timeStr ? ' · ' + esc(timeStr) : '') : '';
     var parts = [];
     if (scope) parts.push('<span class="bulk-scope">'+esc(scope)+'</span>');
-    parts.push('<span class="bulk-src'+tone+'">'+fhSrcFaceOf(provider,15,'in')+esc(provider)+'</span>');   // the source's face (source-face-spec)
+    parts.push('<span class="bulk-src'+tone+'">'+fhSrcName(provider, provider)+'</span>');   // the bank's tag in place of its name when the registry has its colour (source-face-spec §2)
     if (acct) parts.push('<span class="bulk-when">'+esc(acct)+'</span>');   // instrument chip (0105): tín dụng ••1234 / TK / ví
     if (when) parts.push('<span class="bulk-when">'+when+'</span>');
     var tag = source ? '<span class="bulk-transport">'+esc(source)+'</span>' : '';

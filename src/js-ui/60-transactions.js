@@ -36,7 +36,7 @@ function spAv(who){ var a=spMap[(who||'').toLowerCase()]||['av-shared','👥']; 
    as before — nothing changes on that path. */
 window.__txnScope='family';
 var _pTxnCtx=null;                     // built on open from fhPersonalData()
-var _pTxnFaces={};                     // row id → tile HTML for rows between accounts (source-face-spec), rebuilt with the ctx
+var _pTxnFaces={};                     // row id → {b: corner badge, s: subline text, tile, title} (source-face-spec §3), rebuilt with the ctx
 function _txnPersonal(){ return window.__txnScope==='personal'; }
 function _txList(){ return _txnPersonal() ? (_pTxnCtx?_pTxnCtx.rows:[]) : (window.txns||[]); }
 function _txCatOrder(){ return _txnPersonal() ? (_pTxnCtx?_pTxnCtx.catOrder:[]) : (window.catOrder||[]); }
@@ -73,10 +73,18 @@ function _pBuildTxnCtx(){
     if((x.amt||0)<0) g.from=x.accountId; else g.to=x.accountId;
   });
   var acctName=function(id){ var a=id&&acctMap.get(id); return a?(a.name||L('Tài khoản','Account')):null; };
-  /* source-face-spec: a row that moves money between accounts wears their faces
-     as its tile. Kept beside the ctx (row id → tile HTML), not in it: the ctx's
-     shape is pinned by heat-txn-ctx.test.js. */
-  var faceOf={}, pairTile=function(id,a,b){ var h=(typeof fhSrcPairTile==='function')?fhSrcPairTile(a||null,b||null):''; if(h) faceOf[id]=h; };
+  /* source-face-spec §3: a row says which account it moved with a badge on its
+     tile's corner and that account's four digits in the subline; a row between
+     two accounts wears the neutral transfer tile and names both ends. Kept
+     beside the ctx (row id → marks), not in it: the ctx's shape is pinned by
+     heat-txn-ctx.test.js. */
+  var faceOf={}, srcOn=(typeof fhSrcBadge==='function');
+  var mark=function(id, a, extra){
+    if(!srcOn) return;
+    var m=extra||{};
+    if(a){ m.b=fhSrcBadge(a); if(!m.noSub){ m.s=fhSrcRowSub(a); } }
+    if(m.b||m.s||m.tile||m.title) faceOf[id]=m;
+  };
   var K_INC=L('Thu nhập','Income'), K_XFER=L('Chuyển khoản','Transfers'), K_DEBT=L('Cho vay & nợ','Loans & debts'), K_INV=L('Đầu tư','Investments');
   var kstyle={}; kstyle[K_INC]=['💰','#eefaf3','var(--good)']; kstyle[K_XFER]=['🔁','#eef4fb','var(--cat-other)']; kstyle[K_DEBT]=['💵','#fdf4e8','var(--cat-other)']; kstyle[K_INV]=['📈','#f6eefb','var(--cat-other)'];
   var kindOrder=[], kseen={}, seenXfer={}, treeRows=[];
@@ -100,6 +108,7 @@ function _pBuildTxnCtx(){
         node:t.node||null,                                      // 0144 — what the tree filter and the chip sheet read
         _cp:t.who||null,                                        // P5/A15 — a personal row's payee is `who` (counterparty_enc); the person filter ('@key') keys on this
         _kg:'chi', _net:-(t.amt||0), _src:t.src||null, _acct:t.accountId||null, _mirror:!!(t.spaceId||t.linkId) });
+      if(!(t.spaceId||t.linkId)) mark(t.id, acctMap.get(t.accountId));     // a mirror row keeps its corner for the family
       if((t.date||'').slice(0,7)===ym){
         /* Not spending → out of the label totals too, so "Danh mục của tôi" and
            "Tiêu vào gì" add up to the same money. treeRows still gets the row:
@@ -121,6 +130,7 @@ function _pBuildTxnCtx(){
     if(t.kind==='income'){
       kcat=K_INC; note=t.note||t.cat||K_INC; sign='+'; cls='pos'; ico=t.emoji||'💰';
       open="openPersonalTxDetail('"+t.id+"')";
+      mark(t.id, acctMap.get(t.accountId));               // the account the money reached
     } else if(t.kind==='transfer'){
       kcat=K_XFER;
       if(t.transferGroupId){
@@ -130,13 +140,14 @@ function _pBuildTxnCtx(){
         var legs=xferLegs.get(t.transferGroupId)||{from:null,to:null};
         var fn=acctName(legs.from), tn=acctName(legs.to);
         note=(fn&&tn)?(fn+' → '+tn):(t.note||K_XFER);
-        pairTile(t.id, acctMap.get(legs.from), acctMap.get(legs.to));
+        var fa=acctMap.get(legs.from), ta=acctMap.get(legs.to);
+        mark(t.id, fa, { tile:srcOn?FH_SRC_XFER_TILE:'', title:srcOn?fhSrcXferTitle(fa,ta):'', noSub:true });
         open="openPersonalTransferDetail('"+t.transferGroupId+"')";
       } else {
         // legacy one-leg transfer = a card payment tagged to the card (0105) — no pair sheet
         var cn=acctName(t.accountId);
         note=t.note||(cn?L('Trả nợ thẻ ','Card payment ')+cn:L('Chuyển khoản','Transfer'));
-        pairTile(t.id, acctMap.get(t.accountId), null);
+        mark(t.id, acctMap.get(t.accountId), { tile:srcOn?FH_SRC_XFER_TILE:'' });
       }
     } else if(t.kind==='loan'||t.kind==='repayment'){
       kcat=K_DEBT; ico=(t.kind==='loan')?'💵':'✅';
@@ -178,13 +189,14 @@ function txRow(t){
   // observer decrypts .enc backgrounds in place); category text moves under the
   // bold amount, so the subline holds only the date.
   var ph=(t.photos&&t.photos.length)?t.photos[0]:t.photo;
+  var sf=personal?_pTxnFaces[t.id]:null;                         // the account this row moved (source-face-spec §3)
   /* RR23: photo, then the seller's logo, then the category emoji. Only money
      that was spent can wear a logo (a personal row's payee is _cp; a family
      row has only its note, since `who` there is the member who paid). */
   var bd=(!ph && (!personal || t._kg==='chi') && !t.future && window.FH_BRANDS && FH_BRANDS.forRow)
         ? FH_BRANDS.forRow({ node:t.node, payee:personal?t._cp:null, note:t.note }) : null;
   var tile=ph?'<div class="r-ico ph" style="background-image:url('+escAttr(ph)+')"></div>'
-          :(personal&&_pTxnFaces[t.id])?_pTxnFaces[t.id]
+          :(sf&&sf.tile)?sf.tile
           :bd?'<div class="r-ico brand" style="--bh:#'+bd.hex+'" role="img" aria-label="'+escAttr(bd.label)+'">'+FH_BRANDS.svg(bd,23)+'</div>'
             :'<div class="r-ico" style="background:'+s[1]+';color:'+s[2]+'">'+esc(t.ico)+'</div>';
   var av=personal?'':spAv(t.who);                                 // personal ledger has no members
@@ -218,7 +230,8 @@ function txRow(t){
   var _dm=window.__txnDateMode||null;
   var subTxt=_dm==='time' ? (t.time?esc(t.time):dstr)
            : dstr+(t.time?' · '+esc(t.time):'');
-  if(t.inst) subTxt+=' · '+fhSrcFaceInst(t.inst,14,'in')+esc(t.inst);   // 0131 money source, quiet, same voice, behind its face
+  if(t.inst) subTxt+=' · '+esc(t.inst);            // 0131 money source, quiet, same voice (a family row's corner is the member's)
+  if(sf&&sf.s) subTxt+=' · '+esc(sf.s);            // a personal row: the account's four digits; its badge is on the tile
   /* 0144 — the right-hand label follows the reader's chosen layer: their own
      category by default, the tree's leaf when they are reading by "Loại chi
      tiêu". A row with no node keeps its category, never an empty slot. */
@@ -227,8 +240,8 @@ function txRow(t){
      && fhTreeLayer(personal?'personal':'family')==='tree' && t.node && typeof fhNodeShort==='function'){
     catTxt=fhNodeShort(t.node)||t.cat;
   }
-  return '<div class="row'+tapCls+selCls+(chip?' has-rx':'')+((window.fhScanIsNew&&fhScanIsNew(t))?' scan-new':'')+'"'+rxid+tid+open+'>'+selTick+'<div class="r-ico-wrap">'+tile+av+'</div>'
-    +'<div class="r-body"><div class="r-t">'+esc(t.note)+(t.hasReceipt?' <span class="r-rc" aria-label="Có hoá đơn">🧾</span>':'')+'</div><div class="r-s">'+subTxt+'</div></div>'
+  return '<div class="row'+tapCls+selCls+(chip?' has-rx':'')+((window.fhScanIsNew&&fhScanIsNew(t))?' scan-new':'')+'"'+rxid+tid+open+'>'+selTick+'<div class="r-ico-wrap">'+tile+av+((sf&&sf.b)||'')+'</div>'
+    +'<div class="r-body"><div class="r-t">'+esc((sf&&sf.title)||t.note)+(t.hasReceipt?' <span class="r-rc" aria-label="Có hoá đơn">🧾</span>':'')+'</div><div class="r-s r-s1">'+subTxt+'</div></div>'
     +'<div class="r-right">'+amtHtml+'<div class="r-cat">'+esc(catTxt)+'</div></div>'+chip+'</div>';
 }
 var txFilter=null; // {type:'cat'|'mem', val:'Fun'|'Emma'}
@@ -872,12 +885,12 @@ function txnSheetSrc(){
   if(_txnPersonal()){
     h+='<span class="crs-lbl" style="margin-top:16px">'+L('Nguồn tiền','Money source')+'</span><div class="choices">'
       +_txAcctDefs().map(function(o){
-        return '<button type="button" class="choice'+(TXV.accts[o.k]?' on':'')+'" onclick="txnFiltTap(&#39;accts&#39;,&#39;'+escAttr(o.k)+'&#39;)">'+(o.k!=='_none'?fhSrcFaceId(o.k,18,'in'):'')+esc(o.lbl)+'</button>';
+        return '<button type="button" class="choice'+(TXV.accts[o.k]?' on':'')+'" onclick="txnFiltTap(&#39;accts&#39;,&#39;'+escAttr(o.k)+'&#39;)">'+(o.k!=='_none'?fhSrcLabel(FH_SRC_FACE.byId(o.k), o.lbl):esc(o.lbl))+'</button>';
       }).join('')+'</div>';
   } else if(_txInstDefs().length>1){
     h+='<span class="crs-lbl" style="margin-top:16px">'+L('Nguồn tiền · từ email trở đi','Money source · from email onward')+'</span><div class="choices">'
       +_txInstDefs().map(function(o){
-        return '<button type="button" class="choice'+(TXV.insts[o.k]?' on':'')+'" onclick="txnFiltTap(&#39;insts&#39;,&#39;'+escAttr(o.k)+'&#39;)">'+(o.k!=='_none'?fhSrcFaceInst(o.k,18,'in'):'')+esc(o.lbl)+'</button>';
+        return '<button type="button" class="choice'+(TXV.insts[o.k]?' on':'')+'" onclick="txnFiltTap(&#39;insts&#39;,&#39;'+escAttr(o.k)+'&#39;)">'+(o.k!=='_none'?fhSrcInstLabel(o.k):esc(o.lbl))+'</button>';
       }).join('')+'</div>';
   }
   b.innerHTML=h;
@@ -1093,7 +1106,7 @@ function txnBulkSheet(kind){
     s.textContent=subsetSub(nAcct, L('khoản thu chi','money rows'));
     var defs=((_pTxnCtx&&_pTxnCtx.acctDefs)||[]).slice();
     list.innerHTML=defs.map(function(a){
-      return '<button type="button" class="choice" onclick="txnBulkAcctPick(&#39;'+escAttr(a.k)+'&#39;)">'+fhSrcFaceId(a.k,18,'in')+esc(a.lbl)+'</button>';
+      return '<button type="button" class="choice" onclick="txnBulkAcctPick(&#39;'+escAttr(a.k)+'&#39;)">'+fhSrcLabel(FH_SRC_FACE.byId(a.k), a.lbl)+'</button>';
     }).join('')+'<button type="button" class="choice" onclick="txnBulkAcctPick(&#39;&#39;)">'+L('Tiền mặt / bỏ gắn','Cash / untag')+'</button>';
   }
   openSheet('sheet-txnbulk');

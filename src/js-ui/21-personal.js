@@ -411,11 +411,10 @@ function persQueueDeckHTML(n){
     var amt = fmt(pk.amount/mult);
     var when = (pk.dateIso ? pk.dateIso.slice(8,10)+'/'+pk.dateIso.slice(5,7) : '') + (pk.time ? ' · '+pk.time : '');
     var prov = pk.provider ? ((typeof window.fhProviderName==='function' && fhProviderName(pk.provider)) || String(pk.provider).toUpperCase()) : '';
-    var src = prov + (pk.tail ? ' ••'+pk.tail : '');
     top = '<button class="pq-card" onclick="fhEmailTxnCta({scope:\'personal\'})">'
       + '<div class="pq-line"><div class="pq-name"><span class="pq-emo">'+(pk.emoji||'🗂️')+'</span>'+esc(pk.desc || (pos?'Tiền vào':'Giao dịch'))+'</div>'
       + '<div class="pq-amt'+(pos?' pos':'')+'">'+(pos?'+':'−')+amt+'</div></div>'
-      + '<div class="pq-meta"><span>'+esc(when)+'</span><span>'+(prov?fhSrcFaceOf(pk.provider,14,'in'):'')+esc(src)+'</span></div></button>';
+      + '<div class="pq-meta"><span>'+esc(when)+'</span><span>'+(prov?fhSrcName(pk.provider, prov):'')+esc(pk.tail?' ••'+pk.tail:'')+'</span></div></button>';
   } else {
     top = '<button class="pq-card" aria-label="Mở hàng chờ duyệt" onclick="fhEmailTxnCta({scope:\'personal\'})"><div class="pq-line"><span class="pq-sk" style="width:52%"></span><span class="pq-sk" style="width:24%"></span></div>'
       + '<div class="pq-meta"><span class="pq-sk" style="width:30%;height:10px"></span><span class="pq-sk" style="width:22%;height:10px"></span></div></button>';
@@ -942,8 +941,11 @@ function _persEmailRow(){
   });
   var acctOf = function(id){ return (id && (P.accounts||[]).find(function(x){ return x.id===id; })) || null; };
   var acctName = function(id){ var a = acctOf(id); return a ? (a.name||'Tài khoản') : null; };
-  /* " · <face> name" for a row's subline (source-face-spec): the account wears its provider's face */
-  var acctSub = function(id){ var a = acctOf(id); return a ? ' · '+fhSrcFace(a,14,'in')+(a.name||'Tài khoản').replace(/</g,'&lt;') : ''; };
+  /* source-face-spec §3: a row says which account it moved with a badge on its
+     tile's corner (srcTile) and that account's four digits in the subline
+     (srcSub). The subline carries no mark and no bank name. */
+  var srcSub = function(id){ var s = fhSrcRowSub(acctOf(id)); return s ? ' · '+esc(s) : ''; };
+  var srcTile = function(tile, id){ return '<div class="r-ico-wrap">'+tile+fhSrcBadge(acctOf(id))+'</div>'; };
   /* the pair's two ends, from either leg: negative leg = from, positive = to */
   var pairEnds = function(t){
     var legs = txAll.filter(function(x){ return x.kind==='transfer' && x.transferGroupId===t.transferGroupId; });
@@ -985,22 +987,26 @@ function _persEmailRow(){
       };
       if(t.kind==='income'){
         // taps into the income edit sheet — amount · date · note · receiving account
-        var _inAcct = acctName(t.accountId);
-        h += '<div class="row tap" onclick="openPersonalTxDetail(\''+t.id+'\')"><div class="r-ico personal-ico">'+(t.emoji||'💰')+'</div>'
+        h += '<div class="row tap" onclick="openPersonalTxDetail(\''+t.id+'\')">'+srcTile('<div class="r-ico personal-ico">'+(t.emoji||'💰')+'</div>', t.accountId)
            + '<div class="r-body"><div class="r-t">'+((t.note||t.cat||'Thu nhập').replace(/</g,'&lt;'))+'</div>'
-           + '<div class="r-s">'+meta+(_inAcct?acctSub(t.accountId):'')+'</div></div>'
+           + '<div class="r-s r-s1">'+meta+srcSub(t.accountId)+'</div></div>'
            + right({v:'+'+fmt(t.amt||0), cls:'pos'}, 'Thu nhập');
       } else if(t.kind==='transfer'){
         var ends = t.transferGroupId ? pairEnds(t) : null;
-        var xt = ends && ends.from && ends.to ? (ends.from+' → '+ends.to) : ((t.note||'Chuyển khoản').replace(/</g,'&lt;'));
+        /* "VIB → Vietcombank": both ends by name, numbers off unless the names alone read the same */
+        var xt = esc((ends && fhSrcXferTitle(ends.fromA, ends.toA)) || t.note || 'Chuyển khoản');
         // a pair taps into its edit sheet (both legs in lockstep); a legacy
         // one-leg card payment has no pair sheet and stays inert
         var xTap = ' tap" onclick="openPersonalTxDetail(\''+t.id+'\')"';   // pair or one-leg card payment: the detail resolves the entry
-        /* the tile is the two accounts' faces; a one-leg card payment wears its card's */
-        var xTile = (ends ? fhSrcPairTile(ends.fromA, ends.toA) : fhSrcPairTile(acctOf(t.accountId), null)) || '<div class="r-ico personal-ico">🔁</div>';
-        h += '<div class="row'+xTap+'>'+xTile
+        /* the neutral transfer tile, never a bank's face at tile size (it read as
+           the shop that was paid). The badge is the account the money left; a
+           one-leg row (a card payment tagged to its card) wears that account's
+           and says its four digits. The grey amount and "Chuyển khoản" already
+           say this is not spending, so the subline no longer repeats it. */
+        var xAcct = ends ? (ends.fromA && ends.fromA.id) : t.accountId;
+        h += '<div class="row'+xTap+'>'+srcTile(FH_SRC_XFER_TILE, xAcct)
            + '<div class="r-body"><div class="r-t">'+xt+'</div>'
-           + '<div class="r-s">'+meta+' · không tính thu chi</div></div>'
+           + '<div class="r-s r-s1">'+meta+(ends?'':srcSub(t.accountId))+'</div></div>'
            + right({v:fmt(Math.abs(t.amt||0)), cls:'xfer'}, 'Chuyển khoản');
       } else if(t.kind==='investment'){
         /* One leg, signed inside the ciphertext: buy −X, sell +X (0123). Taps
@@ -1038,12 +1044,13 @@ function _persEmailRow(){
           ? '<div class="r-ico ph" style="background-image:url('+escAttr(t.photos[0])+')"></div>'
           : _bd ? '<div class="r-ico brand" style="--bh:#'+_bd.hex+'" role="img" aria-label="'+escAttr(_bd.label)+'">'+FH_BRANDS.svg(_bd,23)+'</div>'
           : '<div class="r-ico personal-ico">'+(t.emoji||'🗂️')+'</div>';
-        if(t.spaceId) _tile='<div class="r-ico-wrap">'+_tile+'<div class="r-scope">🏡</div></div>';
-        var _acct = !t.spaceId ? acctName(t.accountId) : null;
+        /* one corner, one meaning per row: a family expense keeps 🏡 there and
+           names no account; a private row wears its account's badge */
+        _tile = t.spaceId ? '<div class="r-ico-wrap">'+_tile+'<div class="r-scope">🏡</div></div>' : srcTile(_tile, t.accountId);
         var _catTxt = t.spaceId ? famName(t.spaceId).replace(/</g,'&lt;') : ((t.cat||'Khoản chi').replace(/</g,'&lt;'));
         h += '<div class="row'+(_tap?' tap':'')+'"'+_tap+'>'+_tile
            + '<div class="r-body"><div class="r-t">'+((t.note||t.cat||'Khoản chi').replace(/</g,'&lt;'))+(t.hasReceipt?' <span class="r-rc" aria-label="Có hoá đơn">🧾</span>':'')+'</div>'
-           + '<div class="r-s">'+meta+(_acct?acctSub(t.accountId):'')+'</div></div>'
+           + '<div class="r-s r-s1">'+meta+(t.spaceId?'':srcSub(t.accountId))+'</div></div>'
            + right({v:'−'+fmt(t.amt||0), cls:''}, _catTxt);
       }
     });

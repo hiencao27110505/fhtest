@@ -1,9 +1,9 @@
 /* ── Money-source face (09-source-face.js, source-face-spec.md) ──────────────
    A monogram on the provider's own colour. --sfs is the side in px and --sfh
    the colour, both set inline from the registry; with no --sfh the face is
-   neutral. One shape at every size (the brand tile's rounded square), so a
-   bank reads the same on a tile, in a chip and inside a line of text. The
-   type scales with the side and with how many letters it has to hold. */
+   neutral. Three shapes: the SQUARE (26px and up, the whole monogram), the
+   TAG (.tg, inside a line of text or a chip, the whole monogram, type never
+   under 9.5px) and the BADGE (.r-src, one letter on a list tile's corner). */
 .sf{--sfs:28px;display:inline-flex;align-items:center;justify-content:center;flex:none;box-sizing:border-box;
   width:var(--sfs);height:var(--sfs);border-radius:calc(var(--sfs) * .3);background:var(--sfh,var(--id-none));color:var(--white);
   font-family:var(--disp);font-weight:800;font-style:normal;font-size:calc(var(--sfs) * .54);line-height:1;letter-spacing:-.02em;
@@ -13,9 +13,13 @@
 .sf[data-n="4"]{font-size:calc(var(--sfs) * .29);letter-spacing:-.04em}
 .sf.dk{color:var(--ink)}                                   /* a light brand colour: the generator chose dark ink */
 .sf.em{background:var(--id-none-tint);font-size:calc(var(--sfs) * .58)}   /* cash, a position: the kind's emoji */
-/* inside a line of text, before the name it belongs to */
+/* the TAG: as wide as its monogram, in a line of text or a chip */
+.sf.tg{width:auto;padding:0 calc(var(--sfs) * .3);border-radius:calc(var(--sfs) * .32);font-size:max(9.5px,calc(var(--sfs) * .58));letter-spacing:.01em}
 .sf.in{margin-right:6px;vertical-align:-.2em}
-.choice .sf.in{vertical-align:-.22em}
+.sf.tg.in{vertical-align:.08em}
+.sf.tg.nm{vertical-align:.06em}                            /* standing in place of a provider's name */
+.choice .sf.tg.in{vertical-align:.14em}
+.choice .sf.em.in{vertical-align:-.22em}
 .choice.on .sf{box-shadow:0 0 0 1.5px var(--white)}
 /* an asset tile's name line, an account screen's title, the setup screen's name field */
 .dbt-tk.has-sf{display:flex;align-items:center;gap:8px}
@@ -24,7 +28,17 @@
 .txn-title .sf.in{margin-right:10px;vertical-align:middle;position:relative;top:-.09em}
 .wz-nrow{display:flex;align-items:center;gap:10px}
 .wz-nrow .crs-in{flex:1;min-width:0}
-/* a list row that moves money between two sources: from, then to over its corner */
-.r-ico.sfp{position:relative;background:none}
-.r-ico.sfp .sf{position:absolute;left:1px;top:1px}
-.r-ico.sfp .sf+.sf{left:auto;top:auto;right:1px;bottom:1px;box-shadow:0 0 0 2px var(--white)}
+/* ── list rows: the account a row moves, as a badge on its tile's corner ──
+   Same corner and ring as the family mark (.r-scope), which keeps the corner
+   on a mirror row. A light brand colour takes dark ink, as on the square. */
+.r-src{position:absolute;bottom:-4px;right:-5px;box-sizing:border-box;width:22px;height:22px;border-radius:7px;border:2px solid var(--white);
+  background:var(--sfh,var(--id-none));color:var(--white);display:flex;align-items:center;justify-content:center;
+  font-family:var(--disp);font-weight:800;font-style:normal;font-size:10px;line-height:1;-webkit-user-select:none;user-select:none}
+.r-src[data-n="2"]{font-size:9.5px;letter-spacing:-.06em}
+.r-src.dk{color:var(--ink)}
+.r-src.em{background:var(--id-none-tint);font-size:11px}
+/* a row between accounts: the neutral tile, two arrows */
+.r-ico.xf{color:var(--muted)}
+.r-ico.xf svg{display:block}
+/* a subline that holds short facts stays on one line */
+.r-s.r-s1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
