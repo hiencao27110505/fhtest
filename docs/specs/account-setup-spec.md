@@ -23,6 +23,15 @@ typed one.**
 > from a statement is true for the statement's last day, not for the moment it
 > is written; §5's balance rule is otherwise unchanged for typed anchors.
 
+> **Amended again 2026-10-11 by `statement-balance-spec.md` SB17** (SW v629,
+> client only). The rule is now "an account shows a number once the person has
+> typed one **or a statement has stated one**". The offer and the pre-filled
+> wizard step of the paragraph above are gone: a statement's closing balance is
+> the account's anchor the moment the file is read, and such an account never
+> enters this wizard. The wizard and "Chạm để thiết lập" are for accounts no
+> statement has spoken for, where a lookback window of mail is still all the
+> app has and §1's problem still holds.
+
 > **How this relates to its siblings.** `full-ledger-spec.md` (0109) gave
 > non-card accounts an anchor and a drift detector; this spec extends the anchor
 > to cards and puts a setup step in front of every number.

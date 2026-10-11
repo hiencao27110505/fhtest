@@ -17,6 +17,16 @@ bring it forward to today.
 > not yet run against a real mailbox**: the first real statement opened after this
 > release is the first real test.
 
+> **Amended 2026-10-11: the first number is no longer confirmed (SB17 to SB19,
+> SW `v629`, client only, no migration).** Hien's story after using the feature:
+> the number read from the statement was right, so the step that asked him to
+> look at it and tap was only a step. A statement's balance is now the account's
+> starting point the moment the file is read, on an account with no number as
+> much as on one that has an older one. Nothing prompts, and nothing hints that
+> there is something to confirm: the tile shows the number and "theo sao kê
+> 27/04". §4, §6, §7, §8 and §11 below are rewritten to say so; SB6 is replaced
+> by SB17. Guard: `tools/statement-balance.test.js` (106 checks).
+
 > **Siblings.** `statement-capture-spec.md` owns how a statement file becomes
 > review rows; this spec replaces its S10 hand-off ("the running balance feeds the
 > existing drift detector"). `account-setup-spec.md` owns the wizard and the rule
@@ -97,22 +107,32 @@ the queue as before.
 
 ## 4. First time, and every time after
 
-**An account with no number yet.** The statement's number waits on the account as
-an offer. Nothing is shown as a balance. The tile says "Xác nhận số từ sao kê",
-and the setup wizard opens already filled:
+**An account with no number yet.** The statement's number becomes the account's
+starting point when the file is read. The person is not asked, and nothing on
+screen says there is something to check: the tile shows the number with "theo sao
+kê 27/04" under it, and the account joins the totals. This holds for an account
+the person had put off with "Để sau" too. "Để sau" meant "do not ask me", and
+nobody is asking.
 
-- the number, on a row labelled "Số dư" or "Dư nợ" (not "hiện tại", which would be
-  untrue beside a past date), with the line "Theo sao kê 27/04" under it;
-- for a card: hạn mức, ngày chốt sao kê and ngày đến hạn, read from the file;
-- the note under the rows: "Số này đúng vào ngày 27/04. Khoản ghi sau ngày đó cộng
-  trừ tiếp lên nó."
+Such an account never reaches the setup wizard: the wizard walks accounts with no
+number, and this one has one. The wizard is back to what it was before this spec,
+a place where a person types a number for an account no statement has spoken for.
+A card's hạn mức, ngày chốt sao kê and ngày đến hạn still arrive filled, because
+the statement wrote them to the card's own fields (SB8).
 
-One tap on Xong keeps the statement's number with its date. Typing another number
-is still allowed and is treated as before: true now.
+*(Until 2026-10-11 this first number was an offer: the tile said "Xác nhận số từ
+sao kê", the wizard opened filled from it, and one tap on Xong kept it. Removed
+by SB17.)*
 
-**An account the person has confirmed once.** A later statement moves the starting
+**An account that already has a number.** A later statement moves the starting
 point by itself, with no question. This holds for a number that was typed and for
 one that came from a statement.
+
+**Changing a number the statement set.** Nothing is locked. "Cài đặt" on the
+account screen takes a typed number, which is true now and replaces the
+statement's, and on a card "Số chưa khớp? Cập nhật dư nợ thực tế" still books an
+adjustment on top. A typed number dated after the statement's last day is never
+overwritten by that statement or an older one.
 
 **Never backwards.** A statement replaces the current starting point only when its
 date is later. An old statement opened from "Sao kê cũ" changes nothing on an
@@ -169,8 +189,11 @@ no incoming money. The gap is that reader's, and it is what coverage is for.)
 ## 6. What does not change
 
 - Nothing imports by itself. A statement's rows still wait in the review queue.
+  The balance does not wait with them: it comes from the file's own closing
+  figure, not from the rows (SB5).
 - A typed number still means "true now", and still clears the bank-stated balance.
-- An account with no number shows no number. An offer is not a balance.
+- An account with no number shows no number: a dash and "Chạm để thiết lập".
+  Since SB17 that is only an account no statement has stated a number for.
 - The drift badge keeps its two resolutions. It now compares the bank's figure with
   the ledger's figure for the same day (SB13).
 - "Cập nhật dư nợ thực tế" on a card still books a dated adjustment on top.
@@ -187,6 +210,9 @@ no incoming money. The gap is that reader's, and it is what coverage is for.)
 | The person's personal ledger is locked when the statement is read | Nothing is written; the rows stage as before and the next statement carries the facts |
 | A client older than this release reads a statement anchor | It reads the date as "typed at the end of that day": correct after the last day, and it may count that day's rows twice |
 | A database without the `0160` column (it was applied before the client shipped, so this is the safety net, not the plan) | The account read falls back to the old column list; the feature is dormant and nothing else changes |
+| The statement's number is wrong and nobody was asked (SB17) | It shows, dated ("theo sao kê 27/04"). The proofs of §3 are the only gate now: a file whose own numbers disagree gives no number. The person corrects it in "Cài đặt" or with the card's "Cập nhật dư nợ thực tế"; the next statement replaces it |
+| An account was anchored by a statement and mail later says it is the other kind | The kind is left alone (SB18). A card's debt is stored negative, and re-kinded as a deposit it would read as an overdrawn balance. The person can still change the kind in "Cài đặt" |
+| An account still holds the offer v627 left (SB19) | Read as its anchor at once, on this device and from a saved snapshot, and written once. A debt offer on an account that is no longer a card, or the reverse, is not promoted and the account keeps its dash |
 
 ---
 
@@ -215,9 +241,17 @@ owner-only policy. It holds a JSON object:
 }
 ```
 
-- `state: 'offer'`: `anchor_balance_enc` is still null; `k` is what the wizard
-  pre-fills. `state: 'set'`: `anchor_balance_enc` holds `k` and `anchor_at` is the
-  end of the as-of day (`asof` 23:59:59 +07:00).
+- `state: 'set'`: `anchor_balance_enc` holds `k` and `anchor_at` is the end of
+  the as-of day (`asof` 23:59:59 +07:00). This is the only state written since
+  SB17.
+- `state: 'offer'` (v627 only): `anchor_balance_enc` is null and `k` is the number
+  the wizard used to pre-fill. Nothing writes it any more. `fhAnchorPromote` turns
+  one into the `set` anchor it would have become: in memory as the accounts are
+  read (fresh hydrate and saved snapshot alike), then in one write per account,
+  once a session, guarded by `anchor_balance_enc is null` so it never lands on an
+  account another device has anchored since (SB19). On 2026-10-11 the live
+  database held no such row; the promotion is for device snapshots and for any
+  offer written before a device takes this release.
 - A typed anchor writes `anchor_meta_enc = null`. That is how the two are told
   apart.
 - `rows` are amounts and days only, no words. They serve the edge match and the
@@ -236,7 +270,7 @@ No value class leaves the device that did not before. Nothing new is plaintext.
 | `src/js-data/19-personal.js` | Hydrate reads and decrypts the column, tolerant of its absence; `fhPersonalBalance(id, upto)` runs the walk; `fhPersonalAcctView`; `fhPersonalStmtFacts` applies a statement's facts; `fhPersonalAccountUpdate` takes `anchorAt` and `anchorMeta`; regen sweep; signature |
 | `src/js-data/77-statement-capture.js` | `_stmWrite` hands the facts over after the rows are staged, in both the tap flow and the unattended one |
 | `src/js-data/72-txn-review.js` | `_recBal` skips statement rows; `fhAcctNoticeSet` lets a statement feed the card tile line |
-| `src/js-data/23-debts-ui.js` | Wizard pre-fill and the "Theo sao kê" line; tile and account-screen captions |
+| `src/js-data/23-debts-ui.js` | Tile and account-screen captions. *(The wizard pre-fill and its "Theo sao kê" line were removed by SB17: the wizard draft starts empty again.)* |
 | `src/js-ui/61-expense-detail.js` | `_exdRow` takes an optional `by`: one quiet line under a row's value, in the review card's `.rl-col` / `.rcr-by` shape. Rows that pass none are unchanged |
 
 `19-anchor.js` and the facts reader are pure and run under Node:
@@ -269,11 +303,14 @@ Amounts are compared in đồng (`Math.round(base × curMult())`). The file's ro
 
 | Account | Statement | Result |
 |---|---|---|
-| No anchor, no offer | Has a balance | `offer` |
-| No anchor, an offer | As-of date the same or later | `offer` (replaces it) |
-| No anchor, an offer | Earlier | `keep` |
+| No anchor | Has a balance | `set` |
 | Anchored | As-of date later than the anchor's | `set` |
 | Anchored | Same day or earlier | `keep` |
+| Any | No balance (its own numbers disagreed, SB11) | `none` |
+
+`offer` is no longer a result (SB17). `fhPersonalStmtFacts` still refuses to mix
+sides before it asks: a card statement never sets a deposit account, or the
+reverse.
 
 The anchor's date is `meta.asof` for a statement anchor and the local day of
 `anchor_at` for a typed one.
@@ -287,6 +324,13 @@ The anchor's date is `meta.asof` for a statement anchor and the local day of
   through `fhAnchorAsof(acct)`.
 - The edge window sizes (1 and 5) are part of stored anchors. Changing them
   changes only anchors written afterwards.
+- `human_verified` no longer covers every anchored account: a statement anchors
+  one without the person passing through the wizard. Machine code that re-kinds
+  an account must also ask `anchorK == null` (SB18). Both places that do
+  (`72-txn-review.js`, `77-statement-capture.js`) already ask.
+- Nothing may show a number as "waiting to be confirmed". If a future source of
+  balances is less sure than a statement's own proofs, it gives no number
+  (SB11's stance), not a number with a question on it.
 
 ## 13. Open
 
@@ -311,7 +355,7 @@ The anchor's date is `meta.asof` for a statement anchor and the local day of
 | SB3 | Today's figure is the statement balance plus the ledger rows the statement does not contain, by three rules: after the last day, before the edge window, matched on the edge. |
 | SB4 | The edge window is one day for accounts and wallets, five for cards. |
 | SB5 | The number comes from the file when it is read: the closing figure, or the last row on the proved chain. It does not depend on which rows are imported. |
-| SB6 | First time: the number is offered and the person confirms with one tap. After that, later statements re-anchor silently. Amends `account-setup-spec.md` "a number only after the person has typed one" to "after the person has typed or confirmed one". |
+| SB6 | ~~First time: the number is offered and the person confirms with one tap. After that, later statements re-anchor silently.~~ **Replaced 2026-10-11 by SB17.** |
 | SB7 | Newest as-of date wins. A statement never replaces a newer starting point, typed or read. |
 | SB8 | Card facts (limit, statement day, due day) fill empty fields from any statement and never overwrite a typed value. |
 | SB9 | Coverage is measured from the statement against the ledger, by money, excluding rows that entered from a statement. |
@@ -322,6 +366,9 @@ The anchor's date is `meta.asof` for a statement anchor and the local day of
 | SB14 | Statement rows no longer write the bank-stated balance at import; the anchor carries it. |
 | SB15 | The wallet's balance is the last row on the proved chain, not the newest row. |
 | SB16 | The account read tolerates a database without the column, so the client and the migration can land in either order. |
+| SB17 | A statement's balance is set on an account with no number without asking, exactly as on one that has an older number. No prompt, no "confirm" hint on the tile, no pre-filled wizard step. The proofs of §3 are the gate; the dated caption ("theo sao kê 27/04") is how the person knows where the number came from. Amends `account-setup-spec.md` to "an account shows a number once the person has typed one or a statement has stated one". Decided by Hien 2026-10-11 after using SB6: the suggestion was accurate and the confirmation added nothing. |
+| SB18 | Machine code never re-kinds an account that holds a number. Before SB17 every anchored account had passed through the wizard and was `human_verified`, which was the only guard. |
+| SB19 | An offer left by v627 becomes the anchor it would have become: in memory on read, then one guarded write. An offer on the wrong side (a debt on a non-card, a balance on a card) is not promoted. |
 
 ## 15. Related
 

@@ -183,16 +183,15 @@ console.log('\n-- an anchor read from a card statement --');
   t('an estimate too far off (10%) is not absorbed', near(A.fhAnchorWalk(acct, [Object.assign({}, est, { amt: 2600 })], { mult: 1000 }).bal, -3000 - 2600));
 }
 
-console.log('\n-- what a statement may do to an account (SB6, SB7) --');
+console.log('\n-- what a statement may do to an account (SB7, SB17) --');
 {
   const none = { id: 'acc', kind: 'deposit', anchorK: null, anchorMeta: null };
-  t('no number yet: the statement is OFFERED', A.fhAnchorDecide(none, fb) === 'offer');
-  const offered = stmtAcct(fb, 'offer');
-  t('an offer is not a balance', A.fhAnchorWalk(offered, []) === null && A.fhAnchorOffer(offered) !== null && A.fhAnchorMetaSet(offered) === null);
-  t('a newer statement replaces the offer', A.fhAnchorDecide(offered, Object.assign({}, fb, { asof: '2026-09-30' })) === 'offer');
-  t('an older statement does not', A.fhAnchorDecide(offered, Object.assign({}, fb, { asof: '2026-07-31' })) === 'keep');
+  t('no number yet: the statement SETS it, nobody is asked (SB17)', A.fhAnchorDecide(none, fb) === 'set');
+  t('...also on an account the person had put off with "Để sau"', A.fhAnchorDecide(Object.assign({ setupSkippedAt: '2026-09-01T00:00:00.000Z' }, none), fb) === 'set');
+  t('...and on a card with no number', A.fhAnchorDecide({ id: 'acc', kind: 'credit_card', anchorK: null, anchorMeta: null }, fc) === 'set');
+  t('nothing decides "offer" any more', ['2026-04-27', '2026-08-31', '2026-09-30'].every((d) => A.fhAnchorDecide(none, Object.assign({}, fb, { asof: d })) === 'set'));
   const set = stmtAcct(fb);
-  t('confirmed once, a NEWER statement re-anchors with no question', A.fhAnchorDecide(set, Object.assign({}, fb, { asof: '2026-09-30' })) === 'set');
+  t('a NEWER statement re-anchors with no question', A.fhAnchorDecide(set, Object.assign({}, fb, { asof: '2026-09-30' })) === 'set');
   t('the same statement again changes nothing', A.fhAnchorDecide(set, fb) === 'keep');
   t('an old statement opened late changes nothing', A.fhAnchorDecide(set, Object.assign({}, fb, { asof: '2026-04-27' })) === 'keep');
   const typedLater = { id: 'acc', kind: 'deposit', anchorK: 5, anchorAt: '2026-09-20T05:00:00.000Z', anchorMeta: null };
@@ -203,6 +202,26 @@ console.log('\n-- what a statement may do to an account (SB6, SB7) --');
   t('the meta: version, source, the statement, base units, asset view', m.v === 1 && m.src === 'stmt' && m.sid === 'S1' && near(m.k, -1519.522) && m.open === 5 && m.asof === '2026-08-31');
   const big = { ok: true, kind: 'deposit', balDong: 1, asof: '2026-08-31', rows: Array.from({ length: 900 }, (_, i) => ['2026-08-01', i]) };
   t('the meta keeps the newest 400 rows of a long file', A.fhAnchorMetaOf(big, 'set', 1000).rows.length === 400 && A.fhAnchorMetaOf(big, 'set', 1000).rows[399][1] === 899);
+}
+
+console.log('\n-- an offer v627 left waiting becomes the anchor (SB17) --');
+{
+  const offered = stmtAcct(fb, 'offer');
+  t('the old shape is still recognised, and is still not a balance by itself', A.fhAnchorOffer(offered) !== null && A.fhAnchorWalk(offered, []) === null && A.fhAnchorMetaSet(offered) === null);
+  const up = A.fhAnchorPromote(offered);
+  t('it is promoted to the statement\'s number, on the statement\'s day', !!up && near(up.anchorK, fb.balDong / 1000) && up.anchorAt === A.fhAnchorAtOf(fb.asof) && up.anchorMeta.state === 'set' && up.anchorMeta.asof === fb.asof);
+  t('the file\'s rows ride along, and the stored offer is not mutated', up.anchorMeta.rows === offered.anchorMeta.rows && offered.anchorMeta.state === 'offer');
+  const now = Object.assign({}, offered, up);
+  t('promoted, it reads exactly as a statement anchor that was set', A.fhAnchorOffer(now) === null && A.fhAnchorMetaSet(now) !== null && A.fhAnchorAsof(now) === fb.asof && near(A.fhAnchorWalk(now, [], { mult: 1000 }).bal, fb.balDong / 1000));
+  t('...brought forward by a row after the statement', near(A.fhAnchorWalk(now, [row('p1', '2026-09-03', 'expense', 100)], { mult: 1000 }).bal, fb.balDong / 1000 - 100));
+  t('...and gives way only to a newer statement', A.fhAnchorDecide(now, fb) === 'keep' && A.fhAnchorDecide(now, Object.assign({}, fb, { asof: '2026-09-30' })) === 'set');
+  t('promoting twice is a no-op', A.fhAnchorPromote(now) === null);
+  const cardOffer = stmtAcct(fc, 'offer'), upC = A.fhAnchorPromote(cardOffer);
+  t('a card\'s offer becomes its debt, negative', !!upC && upC.anchorK < 0 && upC.anchorMeta.how === 'debt');
+  t('a debt is never promoted under a deposit (the sign would read as overdrawn)', A.fhAnchorPromote(Object.assign({}, cardOffer, { kind: 'deposit' })) === null);
+  t('a balance is never promoted under a card', A.fhAnchorPromote(Object.assign({}, offered, { kind: 'credit_card' })) === null);
+  t('an account that already has a number is left alone', A.fhAnchorPromote(Object.assign({}, offered, { anchorK: 5 })) === null && A.fhAnchorPromote(stmtAcct(fb)) === null);
+  t('no meta, nothing to promote', A.fhAnchorPromote({ id: 'acc', kind: 'deposit', anchorK: null, anchorMeta: null }) === null && A.fhAnchorPromote(null) === null);
 }
 
 console.log('\n-- coverage, and which figure a tile leads with (SB9, SB10) --');
@@ -247,7 +266,7 @@ t('a typed number clears the statement meta, in the wizard\'s write and in the a
 t('a statement anchor is written with the statement\'s day, not with now', /row\.anchor_at = fields\.anchorAt \|\| new Date\(\)\.toISOString\(\);/.test(data));
 t('the sealed column joins the regen sweep (a column left out is lost on a new card)',
   /_acQ\(_acCols \+ ',anchor_meta_enc'\)/.test(data) && /_acctMetaCol \? \{ anchor_meta_enc: await reEnc\(r\.anchor_meta_enc\) \} : \{\}/.test(data));
-t('the paint signature sees an offer arrive or an anchor move', /a\.anchorMeta \? a\.anchorMeta\.state \+ '@' \+ a\.anchorMeta\.asof \+ '@' \+ a\.anchorMeta\.k/.test(data));
+t('the paint signature sees an anchor arrive or move', /a\.anchorMeta \? a\.anchorMeta\.state \+ '@' \+ a\.anchorMeta\.asof \+ '@' \+ a\.anchorMeta\.k/.test(data));
 t('card facts fill EMPTY fields only (SB8)', /facts\.limitDong > 0 && !\(a\.limitK > 0\)/.test(data) && /dayOf\(facts\.stmtDate\) && !a\.statementDay/.test(data) && /dayOf\(facts\.dueDate\) && !a\.dueDay/.test(data));
 t('a statement and an account that disagree on card-or-not are never mixed', /const act = \(_acctMetaCol && sameSide\) \? window\.fhAnchorDecide\(a, facts\) : 'none';/.test(data));
 t('the statement hands its facts over once the rows are staged, tap flow and unattended alike',
@@ -255,10 +274,25 @@ t('the statement hands its facts over once the rows are staged, tap flow and una
 t('...without being waited for', /Promise\.resolve\(window\.fhPersonalStmtFacts\(acctId, facts\)\)\.catch\(\(\) => \{\}\);/.test(stm));
 t('statement rows no longer write the bank-stated balance at import (SB14)', /var _recBal = function \(acctId\) \{[\s\S]{0,420}if \(_sx2 && _sx2\._transport === 'statement'\) return;/.test(review));
 t('a card statement feeds the tile line a due notice feeds, newest wins', /window\.fhAcctNoticeSet = async function \(acctId, f\)[\s\S]{0,260}String\(cur\.at\) > String\(f\.at\)\) return false;/.test(review));
-t('the wizard opens pre-filled from the offer', /const offer = window\.fhAnchorOffer \? window\.fhAnchorOffer\(acct\) : null;\s+return \{ name: acct\.name \|\| '', kind: acct\.kind, amtK: offer \? Math\.abs\(offer\.k\) : null, amtSet: !!offer, offer: offer,/.test(debts));
-t('keeping the statement\'s number stores it with the statement\'s day; typing another stays "true now"',
-  /if \(_wzFromStmt\(d\) && isCard === \(w\.acct\.kind === 'credit_card'\)\) \{\s+fields\.anchorK = d\.offer\.k;\s+fields\.anchorAt = window\.fhAnchorAtOf\(d\.offer\.asof\);\s+fields\.anchorMeta = Object\.assign\(\{\}, d\.offer, \{ state: 'set' \}\);/.test(debts));
-t('an offer shows no number on the tile, only the way in', /offer \? 'Xác nhận số từ sao kê' : 'Chạm để thiết lập'/.test(debts) && /<div class="dbt-tv num dim">—<\/div>/.test(debts));
+/* SB17: no step between the statement and the number. */
+t('a statement writes the anchor itself: number, day and meta in one write, state "set"',
+  /if \(act === 'set'\) \{\s+fields\.anchorMeta = window\.fhAnchorMetaOf\(facts, 'set', mult\);\s+fields\.anchorK = fields\.anchorMeta\.k; fields\.anchorAt = window\.fhAnchorAtOf\(facts\.asof\);/.test(data));
+t('nothing writes or reports an offer', !/'offer'/.test(data.replace(/\/\*[\s\S]*?\*\//g, '')) && !/'offer'/.test(stm));
+t('no surface reads an offer: not the tile, not the wizard', !/fhAnchorOffer|_wzFromStmt|d\.offer|Xác nhận số từ sao kê|đọc từ sao kê của bạn/.test(debts));
+t('the wizard draft starts empty: the only number it takes is a typed one', /const _wzDraft = \(acct\) => \(\{ name: acct\.name \|\| '', kind: acct\.kind, amtK: null, amtSet: false,/.test(debts));
+t('an account nothing has stated a number for still shows a dash and the way in', /<div class="dbt-tv num dim">—<\/div>'\s+\+ '<div class="dbt-ts">Chạm để thiết lập<\/div><\/button>';/.test(debts));
+t('a waiting offer is promoted in memory as the accounts are read, fresh and from the snapshot',
+  /const promoOwed = _anchorPromoteMem\(accounts\);/.test(data) && /P\.accounts = s\.accounts \|\| \[\];[^\n]*\n\s+_anchorPromoteMem\(P\.accounts\);/.test(data)
+  && /const up = window\.fhAnchorPromote\(a\);\s+if \(!up\) continue;\s+a\.anchorK = up\.anchorK; a\.anchorAt = up\.anchorAt; a\.anchorMeta = up\.anchorMeta;/.test(data));
+t('...and written once per session, only where the account still has no number',
+  /_anchorPromoteSoon\(promoOwed\);/.test(data) && /todo\.forEach\(\(o\) => _promoTried\.add\(o\.id\)\);/.test(data)
+  && /\.eq\('id', o\.id\)\.eq\('owner_user_id', uid\)\.is\('anchor_balance_enc', null\);/.test(data));
+t('...loudly when it fails', /console\.warn\('anchor promote failed', o\.id, r\.error\)/.test(data));
+t('the machine never re-kinds an account that holds a number (a card\'s debt is negative)',
+  /cur\.kind === 'credit_card' && !cur\.humanVerified && cur\.anchorK == null && window\.fhPersonalAccountUpdate/.test(review)
+  && /acct\.kind !== X\.acct\.kind && !acct\.humanVerified && acct\.anchorK == null && window\.fhPersonalAccountUpdate/.test(stm));
+t('the post-import wizard asks only for accounts with no number, so a statement\'s account is never in it',
+  /\.filter\(\(a\) => a\.kind !== 'investment' && a\.anchorK == null && !a\.setupSkippedAt/.test(data));
 t('tiles lead with `shown` and say how the number is known', /const bal = v \? v\.shown : /.test(debts) && /const out = \(v && v\.mode === 'dated'\) \? -v\.shown : c\.outstanding;/.test(debts) && /\(_anchorCap\(v\) \|\| kindLbl\)/.test(debts));
 
 console.log('\n' + (fail ? fail + ' FAILED, ' : 'ALL ') + pass + ' PASSED');

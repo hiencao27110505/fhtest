@@ -8394,10 +8394,25 @@ function fhAnchorMetaSet(a){
   var m = a && a.anchorMeta;
   return (a && a.anchorK != null && m && m.src === 'stmt' && m.state === 'set' && m.asof) ? m : null;
 }
-/* A statement's number waiting on an account that has none yet, else null. */
+/* A statement's number left WAITING on an account that has none, else null.
+   Only v627 wrote these: until SB17 the first number was an offer the person
+   confirmed in the wizard. Nothing writes one any more, and nothing shows one:
+   fhAnchorPromote turns each into the anchor it would have become. */
 function fhAnchorOffer(a){
   var m = a && a.anchorMeta;
   return (a && a.anchorK == null && m && m.src === 'stmt' && m.state === 'offer' && m.asof && isFinite(m.k)) ? m : null;
+}
+/* The anchor a waiting offer becomes (SB17), as the fields of one account
+   write, else null. The account must still be on the side the statement was
+   read for: a card's debt is stored negative, and under a deposit that would
+   read as an overdrawn balance. A wrong sign is worse than no number. */
+function fhAnchorPromote(a){
+  var m = fhAnchorOffer(a);
+  if (!m || !a.kind || a.kind === 'investment') return null;
+  if ((m.how === 'debt') !== (a.kind === 'credit_card')) return null;
+  var meta = {}; for (var k in m) meta[k] = m[k];
+  meta.state = 'set';
+  return { anchorK: m.k, anchorAt: fhAnchorAtOf(m.asof), anchorMeta: meta };
 }
 /* The day an anchor is true for. On a statement anchor `anchor_at` is the END of
    that day, not the moment it was written, so every reader asks here. */
@@ -8516,14 +8531,14 @@ function fhAnchorView(acct, rows, opts){
   return out;
 }
 
-/* What a statement's balance may do to an account (SB6, SB7):
-     'offer' the account has no number; the wizard will pre-fill this one
-     'set'   the account was confirmed once and this statement is newer
+/* What a statement's balance may do to an account (SB7, SB17):
+     'set'   the account has no number, or this statement is newer than the
+             starting point it has. Nobody is asked either way.
      'keep'  an equal or newer starting point is already there
-     'none'  the statement carries no balance */
+     'none'  the statement carries no balance (its own numbers disagreed, SB11) */
 function fhAnchorDecide(acct, facts){
   if (!acct || !facts || !facts.ok || !facts.asof || !isFinite(facts.balDong)) return 'none';
-  if (acct.anchorK == null) { var o = fhAnchorOffer(acct); return (!o || facts.asof >= o.asof) ? 'offer' : 'keep'; }
+  if (acct.anchorK == null) return 'set';
   var cur = fhAnchorAsof(acct);
   return (!cur || facts.asof > cur) ? 'set' : 'keep';
 }
@@ -8536,7 +8551,7 @@ function fhAnchorMetaOf(facts, state, mult){
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { fhAnchorDelta: fhAnchorDelta, fhAnchorMetaSet: fhAnchorMetaSet, fhAnchorOffer: fhAnchorOffer, fhAnchorAsof: fhAnchorAsof,
+  module.exports = { fhAnchorDelta: fhAnchorDelta, fhAnchorMetaSet: fhAnchorMetaSet, fhAnchorOffer: fhAnchorOffer, fhAnchorPromote: fhAnchorPromote, fhAnchorAsof: fhAnchorAsof,
     fhAnchorAtOf: fhAnchorAtOf, fhAnchorWalk: fhAnchorWalk, fhAnchorCoverage: fhAnchorCoverage, fhAnchorView: fhAnchorView,
     fhAnchorDecide: fhAnchorDecide, fhAnchorMetaOf: fhAnchorMetaOf, ANCHOR_COV_MIN: ANCHOR_COV_MIN };
 }
@@ -31105,7 +31120,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v628';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v629';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -32851,6 +32866,47 @@ window.obGoogle = async function () {
        to 4000 rows per recompute and used to open each one cold). Same
        contract as inside this module: _decP returns the sentinel on failure,
        _decTxt folds it to null. */
+    /* A statement's number that v627 left waiting on an account as an offer (it
+       asked for one tap in the wizard first) is the account's anchor since SB17.
+       In memory it becomes one as the accounts are read, so no surface ever
+       meets an offer; the same fields are then written once. Returns what is
+       owed to the database. Deterministic, so a hydrate that lands the same
+       rows lands the same signature. */
+    function _anchorPromoteMem(list) {
+      const owed = [];
+      if (typeof window.fhAnchorPromote !== 'function') return owed;
+      for (const a of list || []) {
+        const up = window.fhAnchorPromote(a);
+        if (!up) continue;
+        a.anchorK = up.anchorK; a.anchorAt = up.anchorAt; a.anchorMeta = up.anchorMeta;
+        a.extK = null; a.extDate = null;             // as every anchor write does
+        owed.push({ id: a.id, up: up });
+      }
+      return owed;
+    }
+    /* The one write per promoted account. Tried once a session: an update that
+       matches no row is not an error here, and without the latch it would be
+       retried by every hydrate. `anchor_balance_enc is null` keeps it off an
+       account another device has anchored since this one read it. */
+    const _promoTried = new Set();
+    function _anchorPromoteSoon(owed) {
+      const uid = P.uid, todo = (owed || []).filter((o) => !_promoTried.has(o.id));
+      if (!todo.length || !uid || !P.key || !_acctMetaCol) return;
+      todo.forEach((o) => _promoTried.add(o.id));
+      setTimeout(async () => {
+        for (const o of todo) {
+          if (P.uid !== uid || !P.key) return;
+          try {
+            const r = await _sb().from('personal_accounts').update({
+              anchor_balance_enc: await _encP(Number(o.up.anchorK)), anchor_at: o.up.anchorAt,
+              anchor_meta_enc: await _encP(JSON.stringify(o.up.anchorMeta)),
+              ext_balance_enc: null, ext_balance_date: null,
+            }).eq('id', o.id).eq('owner_user_id', uid).is('anchor_balance_enc', null);
+            if (r.error) console.warn('anchor promote failed', o.id, r.error);
+          } catch (e) { console.warn('anchor promote failed', o.id, e); }
+        }
+      }, 1200);
+    }
     window.fhPersonalDecP = _decP;
     window.fhPersonalDecTxt = _decTxt;
     window.FH_PDEC_FAILED = _DEC_FAILED;
@@ -32945,6 +33001,7 @@ window.obGoogle = async function () {
         const s = JSON.parse(await FHCrypto.decVal(P.key, rec.key));
         if (!s || s.v !== 1 || s.uid !== P.uid || !Array.isArray(s.txns)) return false;
         P.txns = s.txns; P.debts = s.debts || []; P.accounts = s.accounts || []; P.memory = s.memory || []; P.labels = s.labels || [];
+        _anchorPromoteMem(P.accounts);             // a snapshot saved before SB17 may hold an offer; the fresh hydrate writes it
         P.budget = s.budget || 0; P.catBudget = s.catBudget || {};
         P.unreadable = s.unreadable || 0; P.debtsComplete = s.debtsComplete !== false;
         P.incomes = _incomesView(P.txns);
@@ -33351,8 +33408,8 @@ window.obGoogle = async function () {
             extK: (ext == null || ext === _DEC_FAILED) ? null : Number(ext),
             extDate: a.ext_balance_date || null,
             /* 0160: an anchor read from a statement carries its own day and the
-               file's rows (state 'set'), or waits as an offer the wizard
-               pre-fills (state 'offer'). Null = typed, or nothing yet. */
+               file's rows (state 'set'). Null = typed, or nothing yet. A row
+               v627 left in state 'offer' is promoted below (SB17). */
             anchorMeta: a.anchor_meta_enc ? _anchorMetaParse(await _decTxt(a.anchor_meta_enc)) : null,
             /* account setup (0134): "Để sau" on the setup wizard — the account
                stays unverified (no number) but is never re-asked at import */
@@ -33367,6 +33424,7 @@ window.obGoogle = async function () {
             manualPriceAt: a.manual_price_at || null,
             accountNumber: a.account_number_enc ? await _decTxt(a.account_number_enc) : null });
         }
+        const promoOwed = _anchorPromoteMem(accounts);
         const debts = [];
         for (const t of dr.rows) {
           const a = await _decP(t.amount_enc), bad = (a === _DEC_FAILED);
@@ -33407,6 +33465,7 @@ window.obGoogle = async function () {
         _snapSave();                               // — worth caching for the next cold open
         _setState('ready');
         _accountHealSoon();                        // once per session: fold tail-less twins, canonical names
+        _anchorPromoteSoon(promoOwed);             // SB17: an offer v627 left waiting is written as the anchor it now is
         /* 0144 — the tree, after the ledger is up and never before it: seed the
            person's labels on their first hydrate, then let the idle sweep give
            old rows a node. Both are best-effort; neither may cost a hydrate. */
@@ -34636,11 +34695,11 @@ window.obGoogle = async function () {
        write. `facts` comes from fhStmtAccountFacts (59) with `sid` added.
          card facts  limit, statement day, due day: fill an EMPTY field, from any
                      statement, never over a value the person typed (SB8)
-         balance     'offer' on an account with no number (the wizard pre-fills
-                     it; nothing is shown as a balance yet), 'set' on one the
-                     person confirmed once when this statement is newer (SB6,
-                     SB7), otherwise untouched
-       Returns what was done: 'offer' | 'set' | 'facts' | 'none'. A statement and
+         balance     'set' on an account with no number, and on one whose
+                     starting point is older than this statement (SB7, SB17).
+                     Nobody is asked: the tile simply shows the number and
+                     says "theo sao kê". Otherwise untouched
+       Returns what was done: 'set' | 'facts' | 'none'. A statement and
        an account that disagree on card-or-not are not mixed: a debt is stored
        negative, and a wrong sign is worse than no number. */
     window.fhPersonalStmtFacts = async function (acctId, facts) {
@@ -34656,14 +34715,14 @@ window.obGoogle = async function () {
         if (dayOf(facts.dueDate) && !a.dueDay) fields.dueDay = dayOf(facts.dueDate);
       }
       const act = (_acctMetaCol && sameSide) ? window.fhAnchorDecide(a, facts) : 'none';
-      if (act === 'offer' || act === 'set') {
-        fields.anchorMeta = window.fhAnchorMetaOf(facts, act, mult);
-        if (act === 'set') { fields.anchorK = fields.anchorMeta.k; fields.anchorAt = window.fhAnchorAtOf(facts.asof); }
+      if (act === 'set') {
+        fields.anchorMeta = window.fhAnchorMetaOf(facts, 'set', mult);
+        fields.anchorK = fields.anchorMeta.k; fields.anchorAt = window.fhAnchorAtOf(facts.asof);
       }
       if (!Object.keys(fields).length) return 'none';
       const ok = await window.fhPersonalAccountUpdate(acctId, fields);
       if (!ok) return 'none';
-      return (act === 'offer' || act === 'set') ? act : 'facts';
+      return act === 'set' ? 'set' : 'facts';
     };
 
     /* mirror — active family, my authored realized expenses → personal masters */
@@ -35746,15 +35805,15 @@ window.obGoogle = async function () {
          spec Q2): a dash and "Chạm để thiết lập". Cards and balance accounts
          alike — a window-derived card outstanding is exactly the number that
          broke trust on day one. */
+      /* Only an account NOTHING has stated a number for lands here. A statement's
+         balance is the account's anchor the moment the file is read
+         (statement-balance-spec SB17), so such an account wears its number and
+         "theo sao kê" like any other, with no step in between. */
       const setupTile = function (a) {
-        /* A statement may have left its number on the account as an offer
-           (statement-balance-spec §4). Still no number on the tile: an offer is
-           not a balance until the person confirms it. */
-        const offer = window.fhAnchorOffer ? window.fhAnchorOffer(a) : null;
         return '<button class="dbt-tile dbt-setup" onclick="fhAcctSetupWizard([\'' + a.id + '\'])">'
           + _tk(a, a.name || 'Tài khoản')
           + '<div class="dbt-tv num dim">—</div>'
-          + '<div class="dbt-ts">' + (offer ? 'Xác nhận số từ sao kê' : 'Chạm để thiết lập') + '</div></button>';
+          + '<div class="dbt-ts">Chạm để thiết lập</div></button>';
       };
       t.d.cards.forEach(function (c) {
         if (!c.verified) { tiles.push(setupTile(c.acct)); return; }
@@ -36585,16 +36644,13 @@ window.obGoogle = async function () {
     const WZ_KINDS = [['credit_card', '💳 Thẻ tín dụng'], ['deposit', '🏦 Tài khoản ngân hàng'], ['ewallet', '📱 Ví điện tử'], ['cash', '💵 Tiền mặt']];
     const _wzKindLbl = (k) => { const f = WZ_KINDS.find((x) => x[0] === k); return f ? f[1] : k; };
     const _wzAmtLabel = (kind) => kind === 'credit_card' ? 'Dư nợ hiện tại' : (kind === 'cash' ? 'Tiền mặt đang có' : 'Số dư hiện tại');
-    /* A statement may have left its number on the account (statement-balance-spec
-       §4): the draft starts from it, so one tap on Xong confirms. `offer` stays
-       on the draft so the save can tell "kept the statement's number" (stored
-       with the statement's day) from "typed another" (true now, as always). */
-    const _wzDraft = (acct) => {
-      const offer = window.fhAnchorOffer ? window.fhAnchorOffer(acct) : null;
-      return { name: acct.name || '', kind: acct.kind, amtK: offer ? Math.abs(offer.k) : null, amtSet: !!offer, offer: offer,
-        limitK: acct.limitK > 0 ? acct.limitK : null, stm: acct.statementDay || null, due: acct.dueDay || null };
-    };
-    const _wzFromStmt = (d) => !!(d.offer && d.amtSet && Math.abs(d.amtK - Math.abs(d.offer.k)) < 0.0005);
+    /* The wizard only ever meets a number the person types. A statement's
+       balance never passes through here (statement-balance-spec SB17): it is the
+       account's anchor already, and such an account is not in the queue. What a
+       statement still pre-fills is a card's limit and two days, which it wrote
+       to the account's own fields (SB8). */
+    const _wzDraft = (acct) => ({ name: acct.name || '', kind: acct.kind, amtK: null, amtSet: false,
+      limitK: acct.limitK > 0 ? acct.limitK : null, stm: acct.statementDay || null, due: acct.dueDay || null });
     /* The live number an anchored account shows today: a card's outstanding
        (from the debts derivation), else the anchored balance. */
     const _wzLive = (acct) => {
@@ -36640,19 +36696,14 @@ window.obGoogle = async function () {
       const anchored = w.acct.anchorK != null, live = anchored ? _wzLive(w.acct) : null;
       const row = (typeof window._exdRow === 'function') ? window._exdRow : null;
       const dots = (!settings && n > 1) ? '<div class="wz-dots" aria-hidden="true">' + w.queue.map((_, k) => '<i class="' + (k < i ? 'done' : (k === i ? 'on' : '')) + '"></i>').join('') + '</div>' : '';
-      const fromStmt = _wzFromStmt(d);
-      const why = (!settings && fromStmt)
-        ? '<div class="wz-why">Số dưới đây đọc từ sao kê của bạn. Xem lại rồi bấm ' + (last ? 'Hoàn tất' : 'Xong') + ', hoặc chạm vào để sửa.</div>'
-        : ((!settings && w.intro && i === 0)
-          ? '<div class="wz-why">Email chỉ kể được vài tháng gần đây. Nhập số đang thấy trong app ngân hàng để tụi mình tính đúng từ đây.</div>' : '');
+      const why = (!settings && w.intro && i === 0)
+        ? '<div class="wz-why">Email chỉ kể được vài tháng gần đây. Nhập số đang thấy trong app ngân hàng để tụi mình tính đúng từ đây.</div>' : '';
       let rows = '';
       if (row) {
         if (d.kind !== 'cash') rows += row({ label: 'Loại', val: '<b>' + _wzKindLbl(d.kind) + '</b>', fn: "fhWizSheet('kind')" });
         const shown = d.amtSet ? fmt(d.amtK) : (live != null ? fmt(live) : 'Chưa nhập');
-        /* "hiện tại" would be untrue beside a statement's date: the label goes
-           neutral and the line under the number says which day it is true for. */
-        rows += row({ label: fromStmt ? (isCard ? 'Dư nợ' : 'Số dư') : _wzAmtLabel(d.kind), soft: !d.amtSet && live == null, hot: w.attempted && !d.amtSet, chg: d.amtSet && anchored,
-          val: '<b class="num">' + shown + '</b>', fn: "fhWizSheet('amt')", by: fromStmt ? 'Theo sao kê ' + _dmy(d.offer.asof) : '' });
+        rows += row({ label: _wzAmtLabel(d.kind), soft: !d.amtSet && live == null, hot: w.attempted && !d.amtSet, chg: d.amtSet && anchored,
+          val: '<b class="num">' + shown + '</b>', fn: "fhWizSheet('amt')" });
         if (isCard) {
           rows += row({ label: 'Hạn mức thẻ', soft: !(d.limitK > 0), val: '<b class="num">' + (d.limitK > 0 ? fmt(d.limitK) : 'Để trống nếu không nhớ') + '</b>', fn: "fhWizSheet('lim')" });
           /* the two days are picker rows: the tap opens the OS calendar itself
@@ -36667,8 +36718,7 @@ window.obGoogle = async function () {
       }
       const note = (anchored && !d.amtSet)
         ? (isCard ? 'Sửa số dư nợ là đặt lại mốc, app tính tiếp từ số mới. Ngày chốt và ngày đến hạn dùng để nhắc “đến hạn”.' : 'Sửa số dư là đặt lại mốc, app tính tiếp từ số mới.')
-        : (fromStmt ? 'Số này đúng vào ngày ' + _dmy(d.offer.asof) + '. Khoản ghi sau ngày đó cộng trừ tiếp lên nó.'
-          : 'Mốc này đã gồm mọi giao dịch trước lúc đặt. Khoản ghi sau đó cộng trừ tiếp lên nó.');
+        : 'Mốc này đã gồm mọi giao dịch trước lúc đặt. Khoản ghi sau đó cộng trừ tiếp lên nó.';
       const h = '<div class="wz-head">' + dots + why + '</div>'
         + '<div class="dbt-card wz-namecard"><span class="crs-lbl">Tài khoản</span><div class="wz-nrow">' + (window.fhSrcFace ? window.fhSrcFace(Object.assign({}, w.acct, { kind: d.kind }), 40) : '')
         + '<input class="crs-in" id="wz-name" value="' + _e(d.name) + '" placeholder="vd. VIB ••1234"></div></div>'
@@ -36745,14 +36795,6 @@ window.obGoogle = async function () {
       const fields = { name: d.name || w.acct.name, kind: d.kind, humanVerified: true,
         limitK: isCard && d.limitK > 0 ? d.limitK : null, statementDay: isCard ? d.stm : null, dueDay: isCard ? d.due : null };
       if (d.amtSet) { fields.anchorK = isCard ? -d.amtK : d.amtK; fields.setupSkipped = false; }
-      /* Kept the statement's number: it is stored with the statement's own day and
-         rows, so the ledger brings it forward (statement-balance-spec SB6). The
-         kind must still be the side the statement was read for. */
-      if (_wzFromStmt(d) && isCard === (w.acct.kind === 'credit_card')) {
-        fields.anchorK = d.offer.k;
-        fields.anchorAt = window.fhAnchorAtOf(d.offer.asof);
-        fields.anchorMeta = Object.assign({}, d.offer, { state: 'set' });
-      }
       let ok = false;
       try { ok = await fhPersonalAccountUpdate(w.acct.id, fields); } catch (e) { ok = false; }
       if (!ok) { if (btn) { btn.disabled = false; btn.textContent = lbl; } window.toast && toast('Chưa lưu được, thử lại'); return; }
@@ -47683,11 +47725,16 @@ window.classifyAmount = classifyAmount;
                as a card that a PRINTED fact (or a verified format's fact) now
                says is a deposit. A fact beats the guess that minted the card;
                a guess never overwrites a fact, and nothing overwrites a kind
-               the person set themselves (human_verified). */
+               the person set themselves (human_verified), nor the kind of an
+               account that already holds a number: a card's anchor is its debt,
+               stored negative, and re-kinded it would read as an overdrawn
+               balance. Since statement-balance SB17 a statement anchors an
+               account without the person passing through the wizard, so
+               human_verified alone no longer covers every anchored account. */
             if (idE && aiE.kind === 'deposit' && x && Number(x.v) >= 2 && x.src && typeof x.src === 'object'
                 && (x.src.account_kind === 'printed' || x.src.account_kind === 'template')) {
               var cur = acctById(idE);
-              if (cur && cur.kind === 'credit_card' && !cur.humanVerified && window.fhPersonalAccountUpdate) {
+              if (cur && cur.kind === 'credit_card' && !cur.humanVerified && cur.anchorK == null && window.fhPersonalAccountUpdate) {
                 try { if (await window.fhPersonalAccountUpdate(idE, { kind: 'deposit' })) { cur.kind = 'deposit'; made = true; } } catch (eK) {}
               }
             }
@@ -54211,9 +54258,12 @@ window.classifyAmount = classifyAmount;
           /* A statement KNOWS what its account is: a running balance is a deposit
              account, a debt summary is a card. The email classifier only guessed, and
              it filed a real VIB account as a credit card. Correct a guessed kind; leave
-             one the person set themselves (human_verified) alone. */
+             one the person set themselves (human_verified) alone, and one that
+             already holds a number: its anchor carries the sign of the kind it was
+             set under (a card's debt is negative), and fhPersonalStmtFacts will not
+             mix a statement into an account of the other side. */
           const acct = acctId && window.fhPersonalData ? (window.fhPersonalData().accounts || []).find((a) => a.id === acctId) : null;
-          if (acct && acct.kind !== X.acct.kind && !acct.humanVerified && window.fhPersonalAccountUpdate) {
+          if (acct && acct.kind !== X.acct.kind && !acct.humanVerified && acct.anchorK == null && window.fhPersonalAccountUpdate) {
             try { await window.fhPersonalAccountUpdate(acctId, { kind: X.acct.kind }); acct.kind = X.acct.kind; } catch (e) {}
           }
         } catch (e) {}

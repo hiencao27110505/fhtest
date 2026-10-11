@@ -4,7 +4,12 @@
 
    The seed writes straight into the personal snapshot the harness painted (the
    harness hangs personal reads, so nothing replaces it): accounts in every state
-   the spec names, and ledger rows around each statement's last day. */
+   the spec names, and ledger rows around each statement's last day.
+
+   Since SB17 a statement's number is the account's anchor with no step in
+   between. Two accounts below start as the offer v627 used to leave and pass
+   through fhAnchorPromote the way the accounts read does; one has no number from
+   anywhere, and is the only one that still shows the dash and meets the wizard. */
 const SEED = `(function(){
   var P = fhPersonalData();
   var iso = function(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
@@ -15,9 +20,11 @@ const SEED = `(function(){
   var acct = function(o){ return Object.assign({ tail:'', provider:'', providerKey:null, humanVerified:true, statementDay:null, dueDay:null, limitK:null,
     anchorK:null, anchorAt:null, extK:null, extDate:null, setupSkippedAt:null, anchorMeta:null, assetSymbol:null, assetUnit:null, assetClass:null, manualPriceK:null, manualPriceAt:null, accountNumber:null }, o); };
   var fileB = [[day(-30), 18000000], [day(-25), -2000000], [day(-20), -350000], [day(-14), -80000]];
+  var promoted = function(a){ return Object.assign(a, fhAnchorPromote(a) || {}); };
   P.accounts = [
-    acct({ id:'a-vib', kind:'deposit', name:'VIB ••5140', anchorMeta: meta('offer', 132615.72, 1, fileB) }),
-    acct({ id:'a-card', kind:'credit_card', name:'VIB ••4751', limitK:200000, statementDay:31, dueDay:25, anchorMeta: meta('offer', -253.9, 5, [[day(-13), -253900]], 'debt') }),
+    promoted(acct({ id:'a-vib', kind:'deposit', name:'VIB ••5140', humanVerified:false, anchorMeta: meta('offer', 132615.72, 1, fileB) })),
+    promoted(acct({ id:'a-card', kind:'credit_card', name:'VIB ••4751', humanVerified:false, limitK:200000, statementDay:31, dueDay:25, anchorMeta: meta('offer', -253.9, 5, [[day(-13), -253900]], 'debt') })),
+    acct({ id:'a-acb', kind:'deposit', name:'ACB ••7781', humanVerified:false }),
     acct({ id:'a-momo', kind:'ewallet', name:'MoMo ••1217', anchorK:3003.878, anchorAt:at, anchorMeta: meta('set', 3003.878, 1, [[day(-12), -39000]], 'chain') }),
     acct({ id:'a-vcb', kind:'deposit', name:'Vietcombank ••2279', anchorK:48200, anchorAt:at, anchorMeta: meta('set', 48200, 1, fileB) }),
     acct({ id:'a-tcb', kind:'deposit', name:'Techcombank ••8890', anchorK:76400, anchorAt:at, anchorMeta: meta('set', 76400, 1, fileB) }),
@@ -59,8 +66,9 @@ module.exports = {
   themes: ['sage'],
   shots: [
     { name: 'tiles',           setup: TILES, settleMs: 1100 },
-    { name: 'wizard-account',  setup: after(`fhAcctSetupWizard(['a-vib'], { intro: true });`), settleMs: 1100 },
-    { name: 'wizard-card',     setup: after(`fhAcctSetupWizard(['a-card']);`), settleMs: 1100 },
+    { name: 'account-from-statement', setup: after(`openBalAccount('a-vib');`), settleMs: 1100 },
+    { name: 'card-from-statement',    setup: after(`openDebtAccount('a-card');`), settleMs: 1100 },
+    { name: 'wizard-no-statement',    setup: after(`fhAcctSetupWizard(['a-acb'], { intro: true });`), settleMs: 1100 },
     { name: 'account-covered', setup: after(`openBalAccount('a-vcb');`), settleMs: 1100 },
     { name: 'account-dated',   setup: after(`openBalAccount('a-tcb');`), settleMs: 1100 },
     { name: 'card-statement',  setup: after(`openDebtAccount('a-vp');`), settleMs: 1100 }

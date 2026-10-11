@@ -1904,6 +1904,29 @@ as — or the same day as — the deploy. A deploy announced only in
 
 ## 28. Releases (newest first)
 
+### 2026-10-11 — a statement's balance is used without asking · client only, SW v629 · no migration, no deploy beyond the client
+
+- **For product:** the first time a statement stated a balance for an account
+  that had none, the person was asked to look at it and tap once ("Xác nhận số từ
+  sao kê", then a pre-filled setup screen). The number was right, so the step is
+  gone. An account that is in the ledger and has no balance yet takes the
+  statement's closing balance the moment the statement is read, and shows it
+  with "theo sao kê 27/04". Nothing prompts and nothing marks the number as
+  waiting. An account with no statement still shows a dash and "Chạm để thiết
+  lập", and still gets the typed setup screen. A number can be changed any time
+  in "Cài đặt".
+- **Under the hood:** `19-anchor.js` `fhAnchorDecide` no longer answers `offer`,
+  new pure `fhAnchorPromote`; `19-personal.js` promotes a leftover v627 offer in
+  memory on read and writes it once (`_anchorPromoteMem`, `_anchorPromoteSoon`);
+  `23-debts-ui.js` loses the offer tile line and the wizard pre-fill; `72` and
+  `77` no longer re-kind an account that holds a number. Guard:
+  `tools/statement-balance.test.js` (106).
+- **Spec sections updated:** none here; `statement-balance-spec.md` (§4, §6, §7,
+  §8, §11, SB17 to SB19), `account-setup-spec.md` status.
+- **Watch for:** a wrong statement number now shows without anyone having seen
+  it first. The only gate is the file's own proofs; the caption carries the
+  statement's date so the source is visible.
+
 ### 2026-10-10 (evening) — a statement sets the account's balance and a card's facts · SW v627 · migration 0160 APPLIED · no deploy beyond the client
 
 - **For product:** a statement used to bring its transactions and nothing else;

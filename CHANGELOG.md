@@ -20,6 +20,46 @@ Going forward, add an entry here when a feature area changes meaningfully — se
 
 ## 2026-10-11
 
+### Số dư từ sao kê thôi chờ xác nhận (SW v629)
+
+The first time a statement stated a balance for an account with no number, the
+number waited as an offer: the tile said "Xác nhận số từ sao kê" and the setup
+wizard opened filled, for one tap on Xong. After using it Hien found the number
+right every time, so the tap was only a step. Spec:
+`docs/specs/statement-balance-spec.md` SB17 to SB19 (SB6 replaced). Client only,
+no migration, no Edge Function deploy.
+
+- **A statement sets the first number too (SB17).** `fhAnchorDecide` answers
+  `set` for an account with no anchor; `offer` is no longer a result.
+  `fhPersonalStmtFacts` writes number, day and meta in one write. The account
+  never enters the post-import wizard, which only walks accounts with no number.
+  An account put off with "Để sau" is set as well.
+- **Nothing asks, nothing hints.** The tile line "Xác nhận số từ sao kê", the
+  wizard pre-fill, its "Số dưới đây đọc từ sao kê của bạn…" lead and its "Theo
+  sao kê" row line are removed. The tile's "theo sao kê 27/04" caption stays: it
+  says where the number came from and asks for nothing. An account no statement
+  has spoken for keeps the dash and "Chạm để thiết lập".
+- **Offers already written are promoted (SB19).** `fhAnchorPromote` (19-anchor,
+  pure) turns a v627 offer into the anchor it would have become. The accounts
+  read applies it in memory (fresh hydrate and saved snapshot), then writes it
+  once per session per account, only where `anchor_balance_enc is null`. Not
+  promoted when the account is no longer on the statement's side. The live
+  database held no offer on the day this shipped.
+- **The machine never re-kinds an account that holds a number (SB18).** The two
+  places that correct a guessed kind (`72-txn-review.js`, `77-statement-capture.js`)
+  relied on `human_verified`, which the wizard set. A statement-anchored account
+  has not been through the wizard, and a card's negative debt re-kinded as a
+  deposit would read as an overdrawn balance.
+- **What still gates a number:** the file's own proofs (SB11). A statement whose
+  closing figure and last row disagree gives no number, as before.
+
+Tests: `tools/statement-balance.test.js` 87 → 106 (the offer checks rewritten,
+promotion and the re-kind guard added; each new rule broken once on purpose).
+Screens: `tools/ui-harness/manifests/statement-balance.js`; the built app was
+also booted from a snapshot holding offers and showed their numbers with no
+prompt. Not run on a phone, and the one-time promotion write was not exercised
+against a real database (there is no offer there to promote).
+
 ### Tài khoản mang mặt của ngân hàng (SW v628)
 
 Every place the app names a bank account, a card or a wallet printed text only.

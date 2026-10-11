@@ -97,15 +97,15 @@
          spec Q2): a dash and "Chạm để thiết lập". Cards and balance accounts
          alike — a window-derived card outstanding is exactly the number that
          broke trust on day one. */
+      /* Only an account NOTHING has stated a number for lands here. A statement's
+         balance is the account's anchor the moment the file is read
+         (statement-balance-spec SB17), so such an account wears its number and
+         "theo sao kê" like any other, with no step in between. */
       const setupTile = function (a) {
-        /* A statement may have left its number on the account as an offer
-           (statement-balance-spec §4). Still no number on the tile: an offer is
-           not a balance until the person confirms it. */
-        const offer = window.fhAnchorOffer ? window.fhAnchorOffer(a) : null;
         return '<button class="dbt-tile dbt-setup" onclick="fhAcctSetupWizard([\'' + a.id + '\'])">'
           + _tk(a, a.name || 'Tài khoản')
           + '<div class="dbt-tv num dim">—</div>'
-          + '<div class="dbt-ts">' + (offer ? 'Xác nhận số từ sao kê' : 'Chạm để thiết lập') + '</div></button>';
+          + '<div class="dbt-ts">Chạm để thiết lập</div></button>';
       };
       t.d.cards.forEach(function (c) {
         if (!c.verified) { tiles.push(setupTile(c.acct)); return; }
@@ -936,16 +936,13 @@
     const WZ_KINDS = [['credit_card', '💳 Thẻ tín dụng'], ['deposit', '🏦 Tài khoản ngân hàng'], ['ewallet', '📱 Ví điện tử'], ['cash', '💵 Tiền mặt']];
     const _wzKindLbl = (k) => { const f = WZ_KINDS.find((x) => x[0] === k); return f ? f[1] : k; };
     const _wzAmtLabel = (kind) => kind === 'credit_card' ? 'Dư nợ hiện tại' : (kind === 'cash' ? 'Tiền mặt đang có' : 'Số dư hiện tại');
-    /* A statement may have left its number on the account (statement-balance-spec
-       §4): the draft starts from it, so one tap on Xong confirms. `offer` stays
-       on the draft so the save can tell "kept the statement's number" (stored
-       with the statement's day) from "typed another" (true now, as always). */
-    const _wzDraft = (acct) => {
-      const offer = window.fhAnchorOffer ? window.fhAnchorOffer(acct) : null;
-      return { name: acct.name || '', kind: acct.kind, amtK: offer ? Math.abs(offer.k) : null, amtSet: !!offer, offer: offer,
-        limitK: acct.limitK > 0 ? acct.limitK : null, stm: acct.statementDay || null, due: acct.dueDay || null };
-    };
-    const _wzFromStmt = (d) => !!(d.offer && d.amtSet && Math.abs(d.amtK - Math.abs(d.offer.k)) < 0.0005);
+    /* The wizard only ever meets a number the person types. A statement's
+       balance never passes through here (statement-balance-spec SB17): it is the
+       account's anchor already, and such an account is not in the queue. What a
+       statement still pre-fills is a card's limit and two days, which it wrote
+       to the account's own fields (SB8). */
+    const _wzDraft = (acct) => ({ name: acct.name || '', kind: acct.kind, amtK: null, amtSet: false,
+      limitK: acct.limitK > 0 ? acct.limitK : null, stm: acct.statementDay || null, due: acct.dueDay || null });
     /* The live number an anchored account shows today: a card's outstanding
        (from the debts derivation), else the anchored balance. */
     const _wzLive = (acct) => {
@@ -991,19 +988,14 @@
       const anchored = w.acct.anchorK != null, live = anchored ? _wzLive(w.acct) : null;
       const row = (typeof window._exdRow === 'function') ? window._exdRow : null;
       const dots = (!settings && n > 1) ? '<div class="wz-dots" aria-hidden="true">' + w.queue.map((_, k) => '<i class="' + (k < i ? 'done' : (k === i ? 'on' : '')) + '"></i>').join('') + '</div>' : '';
-      const fromStmt = _wzFromStmt(d);
-      const why = (!settings && fromStmt)
-        ? '<div class="wz-why">Số dưới đây đọc từ sao kê của bạn. Xem lại rồi bấm ' + (last ? 'Hoàn tất' : 'Xong') + ', hoặc chạm vào để sửa.</div>'
-        : ((!settings && w.intro && i === 0)
-          ? '<div class="wz-why">Email chỉ kể được vài tháng gần đây. Nhập số đang thấy trong app ngân hàng để tụi mình tính đúng từ đây.</div>' : '');
+      const why = (!settings && w.intro && i === 0)
+        ? '<div class="wz-why">Email chỉ kể được vài tháng gần đây. Nhập số đang thấy trong app ngân hàng để tụi mình tính đúng từ đây.</div>' : '';
       let rows = '';
       if (row) {
         if (d.kind !== 'cash') rows += row({ label: 'Loại', val: '<b>' + _wzKindLbl(d.kind) + '</b>', fn: "fhWizSheet('kind')" });
         const shown = d.amtSet ? fmt(d.amtK) : (live != null ? fmt(live) : 'Chưa nhập');
-        /* "hiện tại" would be untrue beside a statement's date: the label goes
-           neutral and the line under the number says which day it is true for. */
-        rows += row({ label: fromStmt ? (isCard ? 'Dư nợ' : 'Số dư') : _wzAmtLabel(d.kind), soft: !d.amtSet && live == null, hot: w.attempted && !d.amtSet, chg: d.amtSet && anchored,
-          val: '<b class="num">' + shown + '</b>', fn: "fhWizSheet('amt')", by: fromStmt ? 'Theo sao kê ' + _dmy(d.offer.asof) : '' });
+        rows += row({ label: _wzAmtLabel(d.kind), soft: !d.amtSet && live == null, hot: w.attempted && !d.amtSet, chg: d.amtSet && anchored,
+          val: '<b class="num">' + shown + '</b>', fn: "fhWizSheet('amt')" });
         if (isCard) {
           rows += row({ label: 'Hạn mức thẻ', soft: !(d.limitK > 0), val: '<b class="num">' + (d.limitK > 0 ? fmt(d.limitK) : 'Để trống nếu không nhớ') + '</b>', fn: "fhWizSheet('lim')" });
           /* the two days are picker rows: the tap opens the OS calendar itself
@@ -1018,8 +1010,7 @@
       }
       const note = (anchored && !d.amtSet)
         ? (isCard ? 'Sửa số dư nợ là đặt lại mốc, app tính tiếp từ số mới. Ngày chốt và ngày đến hạn dùng để nhắc “đến hạn”.' : 'Sửa số dư là đặt lại mốc, app tính tiếp từ số mới.')
-        : (fromStmt ? 'Số này đúng vào ngày ' + _dmy(d.offer.asof) + '. Khoản ghi sau ngày đó cộng trừ tiếp lên nó.'
-          : 'Mốc này đã gồm mọi giao dịch trước lúc đặt. Khoản ghi sau đó cộng trừ tiếp lên nó.');
+        : 'Mốc này đã gồm mọi giao dịch trước lúc đặt. Khoản ghi sau đó cộng trừ tiếp lên nó.';
       const h = '<div class="wz-head">' + dots + why + '</div>'
         + '<div class="dbt-card wz-namecard"><span class="crs-lbl">Tài khoản</span><div class="wz-nrow">' + (window.fhSrcFace ? window.fhSrcFace(Object.assign({}, w.acct, { kind: d.kind }), 40) : '')
         + '<input class="crs-in" id="wz-name" value="' + _e(d.name) + '" placeholder="vd. VIB ••1234"></div></div>'
@@ -1096,14 +1087,6 @@
       const fields = { name: d.name || w.acct.name, kind: d.kind, humanVerified: true,
         limitK: isCard && d.limitK > 0 ? d.limitK : null, statementDay: isCard ? d.stm : null, dueDay: isCard ? d.due : null };
       if (d.amtSet) { fields.anchorK = isCard ? -d.amtK : d.amtK; fields.setupSkipped = false; }
-      /* Kept the statement's number: it is stored with the statement's own day and
-         rows, so the ledger brings it forward (statement-balance-spec SB6). The
-         kind must still be the side the statement was read for. */
-      if (_wzFromStmt(d) && isCard === (w.acct.kind === 'credit_card')) {
-        fields.anchorK = d.offer.k;
-        fields.anchorAt = window.fhAnchorAtOf(d.offer.asof);
-        fields.anchorMeta = Object.assign({}, d.offer, { state: 'set' });
-      }
       let ok = false;
       try { ok = await fhPersonalAccountUpdate(w.acct.id, fields); } catch (e) { ok = false; }
       if (!ok) { if (btn) { btn.disabled = false; btn.textContent = lbl; } window.toast && toast('Chưa lưu được, thử lại'); return; }

@@ -43,10 +43,25 @@ function fhAnchorMetaSet(a){
   var m = a && a.anchorMeta;
   return (a && a.anchorK != null && m && m.src === 'stmt' && m.state === 'set' && m.asof) ? m : null;
 }
-/* A statement's number waiting on an account that has none yet, else null. */
+/* A statement's number left WAITING on an account that has none, else null.
+   Only v627 wrote these: until SB17 the first number was an offer the person
+   confirmed in the wizard. Nothing writes one any more, and nothing shows one:
+   fhAnchorPromote turns each into the anchor it would have become. */
 function fhAnchorOffer(a){
   var m = a && a.anchorMeta;
   return (a && a.anchorK == null && m && m.src === 'stmt' && m.state === 'offer' && m.asof && isFinite(m.k)) ? m : null;
+}
+/* The anchor a waiting offer becomes (SB17), as the fields of one account
+   write, else null. The account must still be on the side the statement was
+   read for: a card's debt is stored negative, and under a deposit that would
+   read as an overdrawn balance. A wrong sign is worse than no number. */
+function fhAnchorPromote(a){
+  var m = fhAnchorOffer(a);
+  if (!m || !a.kind || a.kind === 'investment') return null;
+  if ((m.how === 'debt') !== (a.kind === 'credit_card')) return null;
+  var meta = {}; for (var k in m) meta[k] = m[k];
+  meta.state = 'set';
+  return { anchorK: m.k, anchorAt: fhAnchorAtOf(m.asof), anchorMeta: meta };
 }
 /* The day an anchor is true for. On a statement anchor `anchor_at` is the END of
    that day, not the moment it was written, so every reader asks here. */
@@ -165,14 +180,14 @@ function fhAnchorView(acct, rows, opts){
   return out;
 }
 
-/* What a statement's balance may do to an account (SB6, SB7):
-     'offer' the account has no number; the wizard will pre-fill this one
-     'set'   the account was confirmed once and this statement is newer
+/* What a statement's balance may do to an account (SB7, SB17):
+     'set'   the account has no number, or this statement is newer than the
+             starting point it has. Nobody is asked either way.
      'keep'  an equal or newer starting point is already there
-     'none'  the statement carries no balance */
+     'none'  the statement carries no balance (its own numbers disagreed, SB11) */
 function fhAnchorDecide(acct, facts){
   if (!acct || !facts || !facts.ok || !facts.asof || !isFinite(facts.balDong)) return 'none';
-  if (acct.anchorK == null) { var o = fhAnchorOffer(acct); return (!o || facts.asof >= o.asof) ? 'offer' : 'keep'; }
+  if (acct.anchorK == null) return 'set';
   var cur = fhAnchorAsof(acct);
   return (!cur || facts.asof > cur) ? 'set' : 'keep';
 }
@@ -185,7 +200,7 @@ function fhAnchorMetaOf(facts, state, mult){
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { fhAnchorDelta: fhAnchorDelta, fhAnchorMetaSet: fhAnchorMetaSet, fhAnchorOffer: fhAnchorOffer, fhAnchorAsof: fhAnchorAsof,
+  module.exports = { fhAnchorDelta: fhAnchorDelta, fhAnchorMetaSet: fhAnchorMetaSet, fhAnchorOffer: fhAnchorOffer, fhAnchorPromote: fhAnchorPromote, fhAnchorAsof: fhAnchorAsof,
     fhAnchorAtOf: fhAnchorAtOf, fhAnchorWalk: fhAnchorWalk, fhAnchorCoverage: fhAnchorCoverage, fhAnchorView: fhAnchorView,
     fhAnchorDecide: fhAnchorDecide, fhAnchorMetaOf: fhAnchorMetaOf, ANCHOR_COV_MIN: ANCHOR_COV_MIN };
 }

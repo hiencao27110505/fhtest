@@ -810,9 +810,12 @@
           /* A statement KNOWS what its account is: a running balance is a deposit
              account, a debt summary is a card. The email classifier only guessed, and
              it filed a real VIB account as a credit card. Correct a guessed kind; leave
-             one the person set themselves (human_verified) alone. */
+             one the person set themselves (human_verified) alone, and one that
+             already holds a number: its anchor carries the sign of the kind it was
+             set under (a card's debt is negative), and fhPersonalStmtFacts will not
+             mix a statement into an account of the other side. */
           const acct = acctId && window.fhPersonalData ? (window.fhPersonalData().accounts || []).find((a) => a.id === acctId) : null;
-          if (acct && acct.kind !== X.acct.kind && !acct.humanVerified && window.fhPersonalAccountUpdate) {
+          if (acct && acct.kind !== X.acct.kind && !acct.humanVerified && acct.anchorK == null && window.fhPersonalAccountUpdate) {
             try { await window.fhPersonalAccountUpdate(acctId, { kind: X.acct.kind }); acct.kind = X.acct.kind; } catch (e) {}
           }
         } catch (e) {}

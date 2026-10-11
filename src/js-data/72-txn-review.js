@@ -930,11 +930,16 @@
                as a card that a PRINTED fact (or a verified format's fact) now
                says is a deposit. A fact beats the guess that minted the card;
                a guess never overwrites a fact, and nothing overwrites a kind
-               the person set themselves (human_verified). */
+               the person set themselves (human_verified), nor the kind of an
+               account that already holds a number: a card's anchor is its debt,
+               stored negative, and re-kinded it would read as an overdrawn
+               balance. Since statement-balance SB17 a statement anchors an
+               account without the person passing through the wizard, so
+               human_verified alone no longer covers every anchored account. */
             if (idE && aiE.kind === 'deposit' && x && Number(x.v) >= 2 && x.src && typeof x.src === 'object'
                 && (x.src.account_kind === 'printed' || x.src.account_kind === 'template')) {
               var cur = acctById(idE);
-              if (cur && cur.kind === 'credit_card' && !cur.humanVerified && window.fhPersonalAccountUpdate) {
+              if (cur && cur.kind === 'credit_card' && !cur.humanVerified && cur.anchorK == null && window.fhPersonalAccountUpdate) {
                 try { if (await window.fhPersonalAccountUpdate(idE, { kind: 'deposit' })) { cur.kind = 'deposit'; made = true; } } catch (eK) {}
               }
             }

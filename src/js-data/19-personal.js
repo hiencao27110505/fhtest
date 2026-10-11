@@ -102,6 +102,47 @@
        to 4000 rows per recompute and used to open each one cold). Same
        contract as inside this module: _decP returns the sentinel on failure,
        _decTxt folds it to null. */
+    /* A statement's number that v627 left waiting on an account as an offer (it
+       asked for one tap in the wizard first) is the account's anchor since SB17.
+       In memory it becomes one as the accounts are read, so no surface ever
+       meets an offer; the same fields are then written once. Returns what is
+       owed to the database. Deterministic, so a hydrate that lands the same
+       rows lands the same signature. */
+    function _anchorPromoteMem(list) {
+      const owed = [];
+      if (typeof window.fhAnchorPromote !== 'function') return owed;
+      for (const a of list || []) {
+        const up = window.fhAnchorPromote(a);
+        if (!up) continue;
+        a.anchorK = up.anchorK; a.anchorAt = up.anchorAt; a.anchorMeta = up.anchorMeta;
+        a.extK = null; a.extDate = null;             // as every anchor write does
+        owed.push({ id: a.id, up: up });
+      }
+      return owed;
+    }
+    /* The one write per promoted account. Tried once a session: an update that
+       matches no row is not an error here, and without the latch it would be
+       retried by every hydrate. `anchor_balance_enc is null` keeps it off an
+       account another device has anchored since this one read it. */
+    const _promoTried = new Set();
+    function _anchorPromoteSoon(owed) {
+      const uid = P.uid, todo = (owed || []).filter((o) => !_promoTried.has(o.id));
+      if (!todo.length || !uid || !P.key || !_acctMetaCol) return;
+      todo.forEach((o) => _promoTried.add(o.id));
+      setTimeout(async () => {
+        for (const o of todo) {
+          if (P.uid !== uid || !P.key) return;
+          try {
+            const r = await _sb().from('personal_accounts').update({
+              anchor_balance_enc: await _encP(Number(o.up.anchorK)), anchor_at: o.up.anchorAt,
+              anchor_meta_enc: await _encP(JSON.stringify(o.up.anchorMeta)),
+              ext_balance_enc: null, ext_balance_date: null,
+            }).eq('id', o.id).eq('owner_user_id', uid).is('anchor_balance_enc', null);
+            if (r.error) console.warn('anchor promote failed', o.id, r.error);
+          } catch (e) { console.warn('anchor promote failed', o.id, e); }
+        }
+      }, 1200);
+    }
     window.fhPersonalDecP = _decP;
     window.fhPersonalDecTxt = _decTxt;
     window.FH_PDEC_FAILED = _DEC_FAILED;
@@ -196,6 +237,7 @@
         const s = JSON.parse(await FHCrypto.decVal(P.key, rec.key));
         if (!s || s.v !== 1 || s.uid !== P.uid || !Array.isArray(s.txns)) return false;
         P.txns = s.txns; P.debts = s.debts || []; P.accounts = s.accounts || []; P.memory = s.memory || []; P.labels = s.labels || [];
+        _anchorPromoteMem(P.accounts);             // a snapshot saved before SB17 may hold an offer; the fresh hydrate writes it
         P.budget = s.budget || 0; P.catBudget = s.catBudget || {};
         P.unreadable = s.unreadable || 0; P.debtsComplete = s.debtsComplete !== false;
         P.incomes = _incomesView(P.txns);
@@ -602,8 +644,8 @@
             extK: (ext == null || ext === _DEC_FAILED) ? null : Number(ext),
             extDate: a.ext_balance_date || null,
             /* 0160: an anchor read from a statement carries its own day and the
-               file's rows (state 'set'), or waits as an offer the wizard
-               pre-fills (state 'offer'). Null = typed, or nothing yet. */
+               file's rows (state 'set'). Null = typed, or nothing yet. A row
+               v627 left in state 'offer' is promoted below (SB17). */
             anchorMeta: a.anchor_meta_enc ? _anchorMetaParse(await _decTxt(a.anchor_meta_enc)) : null,
             /* account setup (0134): "Để sau" on the setup wizard — the account
                stays unverified (no number) but is never re-asked at import */
@@ -618,6 +660,7 @@
             manualPriceAt: a.manual_price_at || null,
             accountNumber: a.account_number_enc ? await _decTxt(a.account_number_enc) : null });
         }
+        const promoOwed = _anchorPromoteMem(accounts);
         const debts = [];
         for (const t of dr.rows) {
           const a = await _decP(t.amount_enc), bad = (a === _DEC_FAILED);
@@ -658,6 +701,7 @@
         _snapSave();                               // — worth caching for the next cold open
         _setState('ready');
         _accountHealSoon();                        // once per session: fold tail-less twins, canonical names
+        _anchorPromoteSoon(promoOwed);             // SB17: an offer v627 left waiting is written as the anchor it now is
         /* 0144 — the tree, after the ledger is up and never before it: seed the
            person's labels on their first hydrate, then let the idle sweep give
            old rows a node. Both are best-effort; neither may cost a hydrate. */
@@ -1887,11 +1931,11 @@
        write. `facts` comes from fhStmtAccountFacts (59) with `sid` added.
          card facts  limit, statement day, due day: fill an EMPTY field, from any
                      statement, never over a value the person typed (SB8)
-         balance     'offer' on an account with no number (the wizard pre-fills
-                     it; nothing is shown as a balance yet), 'set' on one the
-                     person confirmed once when this statement is newer (SB6,
-                     SB7), otherwise untouched
-       Returns what was done: 'offer' | 'set' | 'facts' | 'none'. A statement and
+         balance     'set' on an account with no number, and on one whose
+                     starting point is older than this statement (SB7, SB17).
+                     Nobody is asked: the tile simply shows the number and
+                     says "theo sao kê". Otherwise untouched
+       Returns what was done: 'set' | 'facts' | 'none'. A statement and
        an account that disagree on card-or-not are not mixed: a debt is stored
        negative, and a wrong sign is worse than no number. */
     window.fhPersonalStmtFacts = async function (acctId, facts) {
@@ -1907,14 +1951,14 @@
         if (dayOf(facts.dueDate) && !a.dueDay) fields.dueDay = dayOf(facts.dueDate);
       }
       const act = (_acctMetaCol && sameSide) ? window.fhAnchorDecide(a, facts) : 'none';
-      if (act === 'offer' || act === 'set') {
-        fields.anchorMeta = window.fhAnchorMetaOf(facts, act, mult);
-        if (act === 'set') { fields.anchorK = fields.anchorMeta.k; fields.anchorAt = window.fhAnchorAtOf(facts.asof); }
+      if (act === 'set') {
+        fields.anchorMeta = window.fhAnchorMetaOf(facts, 'set', mult);
+        fields.anchorK = fields.anchorMeta.k; fields.anchorAt = window.fhAnchorAtOf(facts.asof);
       }
       if (!Object.keys(fields).length) return 'none';
       const ok = await window.fhPersonalAccountUpdate(acctId, fields);
       if (!ok) return 'none';
-      return (act === 'offer' || act === 'set') ? act : 'facts';
+      return act === 'set' ? 'set' : 'facts';
     };
 
     /* mirror — active family, my authored realized expenses → personal masters */
