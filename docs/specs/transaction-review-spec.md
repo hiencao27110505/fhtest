@@ -578,6 +578,13 @@ personal rows always leave it null.
 > likely rows join "Cần bạn xem"; both stay unticked in the list so Chọn nhanh and
 > Chỉnh sửa keep working. Rationale, measurements and the remaining phases:
 > `dedup-flaws-review.md`.
+>
+> **2026-10-11: a guess the rows contradict is not made.** A card posting is asked
+> about only when the mail is a notice (it names the bank, or payload v2 says
+> `counterparty_kind = bank`) or names the same merchant as the booked row, and only
+> when it comes after that row. Two bank clocks on different days, or two hours or
+> more apart on one day, are two events: no chip. "On a credit card" alone no longer
+> flags. `dedup-flaws-review.md` Part F.
 
 
 **The ledger is the sole anchor of truth** (decided 2026-09-03): email-reading

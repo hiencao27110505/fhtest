@@ -20,6 +20,44 @@ Going forward, add an entry here when a feature area changes meaningfully — se
 
 ## 2026-10-11
 
+### "Cần bạn xem" thôi hỏi những khoản tự nó đã trả lời (SW v631)
+
+A card purchase at ARTISAN PATINA on 04/07 at 18:40 was asked about as a possible
+duplicate of a GRAB ride on 01/07 at 12:38, because both cost 130.000 ₫. Spec:
+`docs/specs/dedup-flaws-review.md` Part F. Client only, no migration, no Edge
+Function deploy.
+
+- **Cause.** The engine's `card_posting` rule fired on "the row is on a credit
+  card OR names a bank" plus an equal amount within three days either side of an
+  email-sourced row. It was written for a posting notice, which names the bank
+  itself; the credit-card half made every card purchase a suspect. And the engine
+  only counted agreement: two different merchants and two bank clocks hours or
+  days apart lowered nothing.
+- **F-R1, the posting rule.** A row is asked about as a posting only when it is a
+  notice (payload v2 `counterparty_kind = bank`, or the bank words in the name) or
+  a card row sharing a merchant word with the booked row, and only when the booked
+  row's day is before its own.
+- **F-R2, two moments.** `fhDedupTwoMoments`: when both rows carry a clock a
+  machine read off a bank mail or a statement, different days, or 120 minutes or
+  more on one day, are two events. It clears `exact_day` and the merchant branch
+  of `card_posting`. A notice, a hand-typed row and a date-only bank never
+  trigger it. A `sure` verdict is never touched.
+- **Wiring.** One new optional candidate field, `counterpartyKind`, passed by the
+  review screen (57) and quick review (76) from the already-open payload. No new
+  fetch, decrypt, index field or render; the render signature reads the same
+  verdict fields as before.
+- **Measured (synthetic, the real queue is sealed and was not read).** 200 queues
+  of 30 new card purchases plus 8 true duplicates against 158 booked email rows:
+  new rows asked about 4.96 → 0.33 of 30, true duplicates caught 8 of 8 before and
+  after.
+- **Accepted gaps** (Part F §F7): a hold and a final charge days apart with the
+  same merchant and both clocks is no longer asked about; same-day pairs inside
+  two hours still ask.
+- **Tests.** `tools/dedup-engine.test.js` 38 → 62; `tools/dedup-evidence-flow.test.js`
+  new, 14, through the real `bucketCsvCandidates`. Nine mutations of the two rules
+  each turn the engine test red. Suite 170 green, the same two failing as before
+  (`direct-persist-contract`, `label-fallback-root`).
+
 ### Mặt ngân hàng: ba hình cho ba chỗ, huy hiệu ở góc ô (SW v630)
 
 The first pass (v628) used one shape at every size and put a one-letter face

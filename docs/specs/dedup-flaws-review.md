@@ -1,6 +1,8 @@
 # Duplicate flagging in the email review queue: 20 flaws, 80 options, one plan
 
-Status: design review, 2026-09-16. Not a spec yet; nothing here is built.
+Status: design review, 2026-09-16. Phase 1 (Part E) built the same day. Part F
+(evidence of difference, 2026-10-11) is built and is the current word on the
+card-posting and same-day rules.
 Companion to `effortless-transaction-logging-spec.md` §7, §18, §19 and
 `transaction-review-spec.md` §F. Code under review:
 `src/js-ui/57-csv-import-review.js` (`bucketCsvCandidates`, the seven client
@@ -732,3 +734,176 @@ review screen, quick review, the personal slice, and the tests (`tools/dedup-eng
 38 cases). Replayed on the same real export: 70 sure (70 correct), 9 likely (8 correct),
 0 false chips, 0 misses (the refund's kind conflict is a *likely*; the posting notice
 pairs through the bank-named counterparty rule). Phase 2 and 3 not started.
+
+---
+
+# Part F: evidence of difference (2026-10-11)
+
+Status: BUILT, client only, SW v631. `src/js-ui/58-dedup-engine.js`, two callers
+(`57-csv-import-review.js`, `76-quick-review.js`), `tools/dedup-engine.test.js`
+(38 → 62 cases) and `tools/dedup-evidence-flow.test.js` (new, 14 cases through
+the real bucketing). No migration, no Edge Function deploy.
+
+## F1. The problem
+
+"Cần bạn xem" asked about rows that carried enough on their face to answer
+themselves. The reported case, from a real queue on 2026-10-11:
+
+| | Queue row | Booked row it was asked about |
+|---|---|---|
+| Source | VIB credit card ••4751, direct read | personal book, imported from email |
+| Text | ARTISAN PATINA | "Thanh toán GRAB" |
+| Amount | 130.000 ₫ | 130.000 ₫ |
+| Day and clock | 04/07 18:40 | 01/07 12:38 |
+
+Another merchant, three days apart, two bank clocks six hours apart. The only
+thing the rows share is a round price. The card still read "có thể là thông báo
+thẻ của cùng một lần chi", sat unticked, and left quick review.
+
+## F2. Root causes
+
+1. **The posting rule asked for too little.** `card_posting` fired on
+   `accountKind === 'credit_card' || fhDedupBankNamed(counterparty)`. It was
+   written for one real pair (Part D: VIB's posting notice, which names the bank
+   itself, three days after the Foody alert). The credit-card half made every
+   purchase on a credit card a suspect of every equal amount in the window.
+2. **The engine counted agreement and never contradiction.** A shared word or a
+   shared minute raised a verdict; nothing lowered one. "No word in common" read
+   the same as "nothing known", even when both rows named a merchant and both
+   carried a bank clock.
+3. **The window was wider than its description.** The review screen strips the
+   clock from a staged row's date (`parseCsvDateValue`), so "3.5 days" is three
+   calendar days; and the distance was absolute, so a row three days BEFORE the
+   booked one was asked about too, although every description of the rule says
+   "after".
+4. **A weak guess costs as much as a strong one.** Any `likely` unticks the row,
+   moves it to "Cần bạn xem" and sends it out of quick review. The answer is not
+   kept (C2-5), so the same row asks again on the next open until it is imported
+   or dismissed.
+
+Causes 1 to 3 are fixed here. Cause 4 is unchanged; see F6.
+
+## F3. Rules
+
+Two rules. Both act on a guess (`likely`); neither can touch a `sure` verdict.
+
+**F-R1. A posting is a notice, or the same merchant, and it comes after.**
+`card_posting` now needs all of:
+
+- exact amount, the same kind, the booked row from email (unchanged);
+- the booked row's calendar day is BEFORE the queue row's (new), within the
+  3.5-day window (unchanged);
+- and one of:
+  - the queue row is a **notice**: payload v2 says `counterparty_kind = bank`, or
+    the counterparty's name carries the bank words (`fhDedupBankNamed`), or the
+    row has no counterparty and its only text does. With or without
+    `account_kind`, as before;
+  - the queue row is on a credit card AND shares a merchant word with the booked
+    row AND the two are not two moments (F-R2).
+
+**F-R2. Two bank clocks are two moments.** `fhDedupTwoMoments(c, t, sameDay)` is
+true only when every one of these holds:
+
+- the queue row is not a notice (a notice's clock is the posting's, never the
+  purchase's);
+- the booked row was read by a machine: its `source` is `direct-email`,
+  `forwarding-email` or `statement-email`. A hand-typed row's time is when it was
+  typed;
+- both rows carry a clock;
+- on different days: always. On the same day: the clocks are at least
+  `FH_DEDUP_MOMENT_GAP` = 120 minutes apart.
+
+It clears two guesses: `exact_day` (same amount, same day, no word in common) and
+the merchant branch of `card_posting`. Anything unknown answers false and the
+question is still asked.
+
+**Why 120 minutes.** The pairs that ARE one purchase with two clocks sit close
+together: a bank alert and the wallet's receipt for one swipe (minutes), a hold
+and its charge on a ride or a delivery (under an hour or so). The in-queue
+`statement_echo` rule already treats five minutes as the edge of "the same
+clock"; this one is wider on purpose because the cost of clearing a true pair is
+a silent double count. A same-day pair inside the gap keeps asking.
+
+## F4. What each shape does now
+
+| Shape | Before | Now |
+|---|---|---|
+| Card purchase at another merchant, another day, equal amount | asks | nothing |
+| The same, and the queue row is BEFORE the booked row | asks | nothing |
+| Posting notice (names the bank), 1 to 3 days after the email row | asks | asks |
+| Posting notice dated before the booked row | asks | nothing |
+| Card row, same merchant, later day, a clock missing on either side | asks | asks |
+| Card row, same merchant, later day, both clocks (a daily coffee, a daily ride) | asks | nothing |
+| Same day, equal amount, no shared word, bank clocks 2 h or more apart | asks | nothing |
+| Same day, equal amount, no shared word, clocks minutes apart (bank + wallet) | asks | asks |
+| Same day, equal amount, against a hand-typed row | asks | asks |
+| Same day, date-only bank | asks | asks |
+| Same day, same merchant word or same minute (`sure`) | sure | sure |
+
+## F5. Performance and neighbours
+
+- **Device heat.** Both rules are constant-time tests inside the loop that already
+  walks one amount bucket per candidate. No new fetch, no new decrypt, no new
+  index field, no new render. The verdict fields the render signature reads
+  (`csvReviewSigCompute`: tier, why, twin id) are the same fields as before.
+- **Inputs.** One new optional candidate field, `counterpartyKind`, read from the
+  already-open payload (`raw_extracted.counterparty_kind`). Rows sealed before
+  payload v2 have none and fall back to the name test, as they did.
+- **Ledger rows.** Nothing new is read: the index already carried `time`, `src`
+  and `day` for both books.
+- **Quick review.** Any verdict sends a row to the full queue, so every guess
+  that is no longer made returns a row to the one-tap path.
+- **Untouched.** `sure` tiers, `kind_conflict`, `fx_final`, every in-queue rule
+  (`cross_source`, `same_bank_pair`, `statement_echo`, pipeline flag), in-batch,
+  `resolved_before`, the richer-copy merge, the receipt join, "Bỏ qua cả N",
+  Chọn nhanh filters, copy in `csvDupWhy`.
+
+## F6. Measured
+
+Synthetic only: the owner's queue is sealed and was not read. 200 queues, each
+30 genuinely new credit-card purchases plus 4 true posting notices and 4 true
+same-day bank-and-wallet echoes, against 158 booked email rows (three a day for
+50 days plus the eight twins, 26 round price points, 12 merchants). Real engine, before and after:
+
+| | New rows asked about (of 30) | True duplicates caught (of 8) |
+|---|---|---|
+| Before | 4.96 | 8.00 |
+| After | 0.33 | 8.00 |
+
+The price points were chosen by hand, so the absolute rate is illustrative; the
+direction is not. The 0.33 left are same-day pairs inside the two-hour gap.
+Each rule was broken once (nine mutations, including the gap at 60 and at 180
+minutes) and the engine test went red every time; the flow test goes red on the
+old engine (6 of 14) and when the screen stops passing `counterparty_kind`.
+
+## F7. Known gaps, accepted
+
+| Gap | Why it is accepted |
+|---|---|
+| A hold and a final charge for one stay or rental, days apart, both mailed as card alerts with a clock and the same merchant | No longer asked about. It was only ever caught on credit cards inside three days. A daily habit has the same shape and is far more common. Closing this properly needs a reference fingerprint (Phase 2, item 9). |
+| A posting notice that names the merchant, not the bank, and carries its own clock | Not observed in any measured mailbox. Without a clock on either side it still asks. |
+| Family rows imported from email between 2026-08-31 and 2026-09-14 carry the import run's clock (Part D) | A re-staged copy of such a mail shares the merchant word and stays `sure`. Only a row whose note was since rewritten by hand could be cleared by a wrong clock. |
+| Same day, different merchants, inside two hours | Still asks. Narrowing it further needs the account on both sides. |
+
+## F8. Decision log
+
+| # | Decision |
+|---|---|
+| F1 | A guess may be withdrawn by evidence; a fact may not. The two-moments test never runs on a `sure` tier. |
+| F2 | "On a credit card" is not evidence of a posting. A notice is one that names the bank, or says so in payload v2. |
+| F3 | A posting comes after the purchase, by calendar day. |
+| F4 | A clock counts only when a machine read it off a bank mail or a statement. |
+| F5 | Same-day gap is 120 minutes, wider than the in-queue five, because a wrongly cleared pair double-counts silently. |
+| F6 | The same alert shape on two days is two purchases, in the ledger as it already was in the queue ("the same shape twice is two real transfers"). |
+| F7 | No per-bank cases, no new clear column, no model call, nothing leaves the device. |
+
+## F9. Considered, not built in this round
+
+| Approach | Outcome |
+|---|---|
+| Account-aware gate (same card twice = two purchases; two banks = two accounts) | Deferred. Many booked rows have no account tag, and a statement row re-reporting an email row on the same account must still pair, so the rule needs the mail's shape on the booked row first. |
+| Habitual-amount dampening (an amount seen three or more times in the slice is not evidence) | Deferred. F-R1 and F-R2 remove the measured cases without a heuristic that can hide a real posting of a habitual amount. |
+| A third "weak" tier that stays ticked | Rejected again (Part E): a true duplicate in that tier imports by default. |
+| Remembering the answer per pair (C2-5) | Next. Ids only, or sealed like learned categories (C4-5). It stops the second ask, not the first. |
+| One batch card for all weak suspects | Not needed while the section stays short; revisit with real counts. |
+| Keyed reference fingerprint and mail shape on the booked row (Phase 2, items 8 to 9) | Still the structural fix: it turns a true pair into a fact. Needs a migration, a `mailbox-sync` deploy and the Apps Script paste. |

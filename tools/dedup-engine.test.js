@@ -7,9 +7,11 @@
  *   sure   = same amount, same day, same merchant word OR same minute;
  *            or a rounded hand-log (<1.000đ) with the merchant word.
  *   likely = same amount, same day, no words agree, on the person's own row;
- *            a card posting ≤3.5 days after an email row; a kind conflict on
- *            an identical long text; two notices of one purchase in the queue.
- *   none   = another member's same-amount row, a different day, a transfer.
+ *            a card posting notice ≤3 days after an email row; a kind conflict
+ *            on an identical long text; two notices of one purchase in the queue.
+ *   none   = another member's same-amount row, a different day, a transfer,
+ *            and a guess the two rows contradict (two bank clocks that are two
+ *            moments; a card purchase at another merchant on another day).
  */
 const fs = require('fs');
 const path = require('path');
@@ -170,6 +172,73 @@ console.log('\n-- units: base-unit ledger rows against đồng candidates --');
 v = run([cand({ amount: 92500, at: '2026-08-29T14:05', desc: 'SHOPEE - VIETNAM 87821624' })],
         [fam({ day: '2026-08-29', amtD: 92500, note: 'SHOPEE - VIETNAM 87821624' })]);
 t('92.5 stored is 92.500đ staged', tier(v[0]) === 'sure', tier(v[0]));
+
+/* ── Evidence of difference (dedup-flaws-review.md Part F, 2026-10-11) ─────────
+   `app` builds a candidate the way the review screen does: the date is the
+   calendar day at local midnight and the clock rides beside it (57 strips the
+   time before parsing). The cases above keep the clock inside the Date, which
+   is why none of them saw a row three days away. */
+const app = (o) => Object.assign(cand(o), { date: day(o.at.slice(0, 10)) });
+const grab = () => per({ day: '2026-07-01', amtD: 130000, note: 'Thanh toán GRAB', src: 'direct-email', time: '12:38' });
+
+console.log('\n-- none: a card purchase is not a posting notice (real queue, 2026-10-11) --');
+v = run([app({ amount: 130000, at: '2026-07-04T18:40', desc: 'ARTISAN PATINA', cp: 'ARTISAN PATINA', ak: 'credit_card', prov: 'VIB', kind: 'bank' })], [], [grab()]);
+t('ARTISAN PATINA on the 4th at 18:40 is not the GRAB ride of the 1st at 12:38', tier(v[0]) === 'none', tier(v[0]) + (v[0] ? ':' + v[0].why : ''));
+v = run([app({ amount: 130000, at: '2026-07-04', desc: 'ARTISAN PATINA', cp: 'ARTISAN PATINA', ak: 'credit_card' })], [], [per({ day: '2026-07-01', amtD: 130000, note: 'Thanh toán GRAB', src: 'direct-email' })]);
+t('nor when neither row has a clock: another merchant on another day is enough', tier(v[0]) === 'none', tier(v[0]));
+v = run([app({ amount: 130000, at: '2026-07-04T18:40', desc: 'ARTISAN PATINA', cp: 'ARTISAN PATINA', ak: 'credit_card', ckind: 'merchant' })], [grab2()], []);
+t('the family book gets the same answer', tier(v[0]) === 'none', tier(v[0]));
+function grab2(){ return fam({ day: '2026-07-01', amtD: 130000, note: 'Thanh toán GRAB', src: 'direct-email', time: '12:38' }); }
+
+console.log('\n-- likely: the posting notice the rule was written for still asks --');
+v = run([app({ amount: 130000, at: '2026-07-04T11:28', desc: 'Ngân hàng TMCP Quốc tế Việt Nam', cp: 'Ngân hàng TMCP Quốc tế Việt Nam', ak: 'credit_card' })], [], [grab()]);
+t('a mail that names the bank itself, three days after the email row', tier(v[0]) === 'likely' && v[0].why === 'card_posting', tier(v[0]));
+v = run([app({ amount: 130000, at: '2026-07-04T11:28', desc: 'Ngân hàng TMCP Quốc tế Việt Nam', cp: 'Ngân hàng TMCP Quốc tế Việt Nam' })], [], [grab()]);
+t('with or without the account kind (rows staged before the classifier)', tier(v[0]) === 'likely' && v[0].why === 'card_posting', tier(v[0]));
+v = run([Object.assign(app({ amount: 130000, at: '2026-07-04T11:28', desc: 'VIB', cp: 'VIB', ak: 'credit_card' }), { counterpartyKind: 'bank' })], [], [grab()]);
+t('payload v2 says so outright: counterparty_kind bank', tier(v[0]) === 'likely' && v[0].why === 'card_posting', tier(v[0]));
+v = run([app({ amount: 130000, at: '2026-07-04T11:28', desc: 'VIB', cp: 'VIB', ak: 'credit_card' })], [], [grab()]);
+t('the bare issuer name without that field is not read as a notice', tier(v[0]) === 'none', tier(v[0]));
+v = run([app({ amount: 130000, at: '2026-06-28T11:28', desc: 'Ngân hàng TMCP Quốc tế Việt Nam', cp: 'Ngân hàng TMCP Quốc tế Việt Nam', ak: 'credit_card' })], [], [grab()]);
+t('a notice cannot come BEFORE the purchase it settles', tier(v[0]) === 'none', tier(v[0]));
+v = run([app({ amount: 130000, at: '2026-07-04T11:28', desc: 'Ngân hàng TMCP Quốc tế Việt Nam', cp: 'Ngân hàng TMCP Quốc tế Việt Nam', ak: 'credit_card' })], [], [per({ day: '2026-07-01', amtD: 130000, note: 'Grab', time: '12:38' })]);
+t('against a hand-typed row it stays nothing', tier(v[0]) === 'none', tier(v[0]));
+v = run([app({ amount: 130000, at: '2026-07-06T11:28', desc: 'Ngân hàng TMCP Quốc tế Việt Nam', cp: 'Ngân hàng TMCP Quốc tế Việt Nam', ak: 'credit_card' })], [], [grab()]);
+t('five days later is outside the window', tier(v[0]) === 'none', tier(v[0]));
+
+console.log('\n-- a card row naming the same merchant: asked only when nothing says two moments --');
+v = run([app({ amount: 130000, at: '2026-07-03', desc: 'GRAB', cp: 'GRAB', ak: 'credit_card' })], [], [grab()]);
+t('same merchant, two days later, no clock on the new row: likely', tier(v[0]) === 'likely' && v[0].why === 'card_posting' && v[0].shared === 'grab', tier(v[0]));
+v = run([app({ amount: 130000, at: '2026-07-03T08:15', desc: 'GRAB', cp: 'GRAB', ak: 'credit_card' })], [], [per({ day: '2026-07-01', amtD: 130000, note: 'Thanh toán GRAB', src: 'direct-email' })]);
+t('same merchant, no clock on the booked row: likely', tier(v[0]) === 'likely', tier(v[0]));
+v = run([app({ amount: 130000, at: '2026-07-02T08:15', desc: 'GRAB', cp: 'GRAB', ak: 'credit_card' })], [], [grab()]);
+t('the same ride price the next morning, both with a bank clock: two rides', tier(v[0]) === 'none', tier(v[0]));
+v = run([app({ amount: 130000, at: '2026-07-03', desc: 'GRAB', cp: 'GRAB', ak: 'deposit' })], [], [grab()]);
+t('off a credit card there was never a posting to speak of', tier(v[0]) === 'none', tier(v[0]));
+
+console.log('\n-- same day: two bank clocks hours apart are two events --');
+var morning = () => per({ day: '2026-07-04', amtD: 130000, note: 'Thanh toán GRAB', src: 'direct-email', time: '12:38' });
+v = run([app({ amount: 130000, at: '2026-07-04T18:40', desc: 'ARTISAN PATINA', cp: 'ARTISAN PATINA' })], [], [morning()]);
+t('12:38 and 18:40, different words: nothing', tier(v[0]) === 'none', tier(v[0]));
+v = run([app({ amount: 130000, at: '2026-07-04T12:41', desc: 'ARTISAN PATINA', cp: 'ARTISAN PATINA' })], [], [morning()]);
+t('three minutes apart (a bank alert and a wallet receipt of one swipe) still asks', tier(v[0]) === 'likely' && v[0].why === 'exact_day', tier(v[0]));
+v = run([app({ amount: 130000, at: '2026-07-04T14:08', desc: 'ARTISAN PATINA', cp: 'ARTISAN PATINA' })], [], [morning()]);
+t('ninety minutes apart still asks (a hold and its charge)', tier(v[0]) === 'likely', tier(v[0]));
+v = run([app({ amount: 130000, at: '2026-07-04T14:38', desc: 'ARTISAN PATINA', cp: 'ARTISAN PATINA' })], [], [morning()]);
+t('two hours apart is the line', tier(v[0]) === 'none', tier(v[0]));
+v = run([app({ amount: 130000, at: '2026-07-04', desc: 'ARTISAN PATINA', cp: 'ARTISAN PATINA' })], [], [morning()]);
+t('a date-only bank has no clock to disagree with: asks', tier(v[0]) === 'likely', tier(v[0]));
+v = run([app({ amount: 130000, at: '2026-07-04T18:40', desc: 'ARTISAN PATINA', cp: 'ARTISAN PATINA' })], [], [per({ day: '2026-07-04', amtD: 130000, note: 'ăn trưa', time: '12:38' })]);
+t('a hand-typed row\'s time is when it was typed, not when it was paid: asks', tier(v[0]) === 'likely', tier(v[0]));
+v = run([app({ amount: 130000, at: '2026-07-04T18:40', desc: 'ARTISAN PATINA', cp: 'ARTISAN PATINA' })], [], [per({ day: '2026-07-04', amtD: 130000, note: 'Sao kê VIB', src: 'statement-email', time: '09:00' })]);
+t('a statement row\'s clock is a bank clock too', tier(v[0]) === 'none', tier(v[0]));
+v = run([app({ amount: 130000, at: '2026-07-04T18:40', desc: 'Ngân hàng TMCP Quốc tế Việt Nam', cp: 'Ngân hàng TMCP Quốc tế Việt Nam' })], [], [morning()]);
+t('a notice\'s clock is the posting\'s, so it never clears anything: asks', tier(v[0]) === 'likely', tier(v[0]));
+
+console.log('\n-- a fact is never cleared by a clock --');
+v = run([app({ amount: 130000, at: '2026-07-04T18:40', desc: 'GRAB*RIDE', cp: 'GRAB' })], [], [morning()]);
+t('same day, same merchant word, six hours apart: still sure', tier(v[0]) === 'sure' && v[0].why === 'exact_merchant', tier(v[0]));
+t('the clock helper refuses what it cannot read', fhDedupMinutes('18:40') === 1120 && fhDedupMinutes('') === -1 && fhDedupMinutes(null) === -1 && fhDedupMinutes('7:05') === 425);
 
 console.log('\n' + (fail === 0 ? 'ALL ' + pass + ' PASSED' : pass + ' passed, ' + fail + ' FAILED'));
 process.exit(fail ? 1 : 0);

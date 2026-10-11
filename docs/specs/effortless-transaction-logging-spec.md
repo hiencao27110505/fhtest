@@ -1904,6 +1904,21 @@ as — or the same day as — the deploy. A deploy announced only in
 
 ## 28. Releases (newest first)
 
+### 2026-10-11 (night) — a duplicate guess the rows contradict is not made · client only, SW v631 · no migration, no deploy beyond the client
+
+- **For product:** "Cần bạn xem" no longer asks whether a card purchase is a
+  repeat of a booked row it merely shares a price with. The reported card: ARTISAN
+  PATINA on 04/07 at 18:40 against a GRAB ride on 01/07 at 12:38, both 130.000 ₫.
+  A posting notice (the mail that names the bank itself, a few days after the
+  purchase) is still asked about, and so is a same-day pair whose two sources
+  report within two hours of each other.
+- **Under the hood:** `dedup-flaws-review.md` Part F. Two rules in
+  `58-dedup-engine.js`: the card-posting guess needs a notice or a shared merchant
+  word and must come after the booked row; two machine-read bank clocks on
+  different days, or 120 minutes apart on one day, are two events. One new
+  optional candidate field (`counterpartyKind`). Constant-time, nothing new
+  fetched, decrypted or drawn.
+
 ### 2026-10-11 — a statement's balance is used without asking · client only, SW v629 · no migration, no deploy beyond the client
 
 - **For product:** the first time a statement stated a balance for an account

@@ -397,6 +397,7 @@
                 amount: Number(opened.amount) || 0, date: oa0, dateDisplay: oa0 && !isNaN(oa0.getTime()) ? _qrLocalIso(oa0) : '',
                 time: _qrTime(cand.occurred_at, opened) || '', description: _qrDesc(opened), counterparty: opened.counterparty || '',
                 isIncome: f0 === 'income', isTransfer: f0 === 'transfer', accountKind: opened.account_kind || null,
+                counterpartyKind: opened.counterparty_kind || '',
                 provider: cand.source_provider || '', currency: opened.currency || 'VND' }], dupIndex)[0];
               if (v) {
                 _qrSessionSkip[cand.id] = true;

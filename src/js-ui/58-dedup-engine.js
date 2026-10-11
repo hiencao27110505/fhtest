@@ -9,14 +9,17 @@
                (under 1.000đ apart) with a shared merchant word. Measured on a
                real queue: 70 of 70 correct.
      likely  — "Có thể trùng". Same amount, same day, no text agreement, on the
-               person's own row; a card posting within 3.5 days of an earlier
-               email row; a kind conflict on an identical long text; two
-               notices of one purchase inside the queue; a pipeline flag the
-               screen cannot overrule. The person decides.
+               person's own row; a card POSTING NOTICE (the mail names the bank
+               itself) up to 3 days after an email row, or a card row naming
+               the same merchant as one; a kind conflict on an identical long
+               text; two notices of one purchase inside the queue; a pipeline
+               flag the screen cannot overrule. The person decides.
      (none)  — everything else. Same amount three days later in another
                member's book, same round amount on a different day: no chip,
                the row stays ticked. All ten false flags on the measured queue
-               were in this class.
+               were in this class. So is a guess the rows themselves contradict
+               (Part F, 2026-10-11): two bank clocks that are two moments, or a
+               card purchase at another merchant on another day.
 
    Two passes: every candidate is scored against an amount-bucketed ledger
    index (O(n) lookups, never O(n×m)), then ledger rows are claimed one-to-one
@@ -76,6 +79,35 @@ function fhDedupCur(v){
   return s;
 }
 
+/* EVIDENCE OF DIFFERENCE (dedup-flaws-review.md Part F). The tiers below only
+   ever counted agreement, so "no word in common" read the same as "nothing
+   known", and a card purchase at ARTISAN PATINA on the 4th at 18:40 was asked
+   about against a GRAB ride on the 1st at 12:38 because the two cost the same
+   (real queue, 2026-10-11). Two rules, both about a GUESS and never about a
+   fact: a `sure` verdict is not touched by either.
+
+   A posting notice is the bank telling the card what an earlier purchase
+   settled at: it names the bank, not a shop, and its clock is the posting's.
+   payload v2 states that outright (counterparty_kind); older rows are read by
+   the bank words in the name, or in the row's only text when no name was read. */
+function fhDedupNotice(c){ return !!c && (c.counterpartyKind === 'bank' || fhDedupBankNamed(c.counterparty || c.description)); }
+function fhDedupMinutes(s){ var m = /^(\d{1,2}):(\d{2})/.exec(String(s || '')); return m ? (+m[1]) * 60 + (+m[2]) : -1; }
+/* Two bank clocks further apart than this on one day are two events. Wide on
+   purpose: a bank alert and the wallet's receipt for one swipe, or a hold and
+   its charge (a ride booked, then finished), land inside it and still ask. */
+var FH_DEDUP_MOMENT_GAP = 120;
+/* Are these two rows two MOMENTS? Only when both carry a clock a machine read
+   off a bank mail or a statement: a hand-typed row's time is when it was
+   typed, a date-only bank has none, and a posting notice's clock was never the
+   purchase's. Anything unknown answers false, and the question is still asked. */
+function fhDedupTwoMoments(c, t, sameDay){
+  if(!c || !t || fhDedupNotice(c)) return false;
+  if(!/email/.test(t.src || '')) return false;
+  var a = fhDedupMinutes(c.time), b = fhDedupMinutes(t.time);
+  if(a < 0 || b < 0) return false;
+  return sameDay ? Math.abs(a - b) >= FH_DEDUP_MOMENT_GAP : true;
+}
+
 /* THE LEDGER THIS IMPORT WILL LAND IN — both books, when both are in play.
    Destination is per row and editable until Import, so the index is wider than
    "the book this row is going to": a hit in either book is worth the same tap.
@@ -128,7 +160,8 @@ function fhDedupLedgerIndex(){
    Candidate shape (all optional except amount/date):
      amount (đồng), date (Date), dateDisplay 'YYYY-MM-DD', time 'HH:MM' | '',
      description, counterparty, isIncome, isTransfer (card payment / own
-     transfer / loan — never matched to spending), accountKind, provider. */
+     transfer / loan — never matched to spending), accountKind, provider,
+     counterpartyKind (payload v2: 'bank' marks a posting notice). */
 function fhDedupLedgerOptions(c, index){
   if(!c || c.amount == null || !(c.date instanceof Date) || isNaN(c.date.getTime())) return [];
   if(c.isTransfer) return [];
@@ -153,8 +186,15 @@ function fhDedupLedgerOptions(c, index){
       if(t.kind === want){
         if(sameDay && exact && (shared || minute)){ tier = 'sure'; why = shared ? 'exact_merchant' : 'exact_minute'; }
         else if(sameDay && shared){ tier = 'sure'; why = 'rounded_merchant'; }
-        else if(sameDay && exact){ if(t.mine !== false){ tier = 'likely'; why = 'exact_day'; } }
-        else if(exact && (c.accountKind === 'credit_card' || fhDedupBankNamed(c.counterparty)) && /email/.test(t.src || '')){ tier = 'likely'; why = 'card_posting'; }
+        else if(sameDay && exact){ if(t.mine !== false && !fhDedupTwoMoments(c, t, true)){ tier = 'likely'; why = 'exact_day'; } }
+        /* A card posting after the email that announced the purchase. AFTER, by
+           calendar day: a notice cannot precede what it settles. Then either the
+           mail is a notice, or it is a card row naming the SAME merchant as the
+           booked one and nothing says the two are two moments. "On a credit
+           card" alone used to be enough here, which made every card purchase a
+           suspect of every equal amount within three days either side. */
+        else if(exact && t.day && t.day < day && /email/.test(t.src || '')
+                && (fhDedupNotice(c) || (c.accountKind === 'credit_card' && shared && !fhDedupTwoMoments(c, t, false)))){ tier = 'likely'; why = 'card_posting'; }
       } else if((t.kind === 'expense' || t.kind === 'income') && sameDay && exact && fhDedupSharedCount(ctok, ttok) >= 2){
         tier = 'likely'; why = 'kind_conflict';   // the earlier import filed it the other way round
       }

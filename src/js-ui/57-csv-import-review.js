@@ -1794,6 +1794,7 @@ function bucketCsvCandidates(candidates, mixedSigns) {
              description: c._hasDesc ? c.description : '', counterparty: c.counterparty || '',
              isIncome: !!c.isIncome, isTransfer: !!(c.isTransfer || c._xfer || c._repay || c._loan || c._invest),
              accountKind: (rx && rx.account_kind) || null, shape: (rx && rx.transaction_type) || '',
+             counterpartyKind: (rx && rx.counterparty_kind) || '',   // 'bank' = a posting notice (58, Part F)
              provider: (meta && meta.provider) || '', kind: (meta && meta.kind) || '',
              currency: (meta && meta.currency) || '', pipelineDupOf: (meta && meta.pipelineDup) ? meta.dupOfId : '',
              statement: !!(rx && rx._transport === 'statement') };
