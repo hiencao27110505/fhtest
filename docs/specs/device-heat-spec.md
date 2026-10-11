@@ -248,3 +248,62 @@ SHA-1, 1003 vs 345 for SHA-512. List open unchanged at 29 ms.
 - `docs/specs/statement-capture-spec.md` §unlock: the agile decryption and the
   measured 1.1 s laptop spin.
 - `tools/boot-harness/README.md`: harness scenarios and acceptance bars.
+
+## 13. Correction, 2026-10-11: the card swap (B8) had never run on a device
+
+Status: FIXED, client only, SW v633. `src/js-ui/56-csv-import-ui.js`,
+`tools/card-swap.test.js` (new, 29 cases).
+
+**What was wrong.** B8 swaps one card in place when a card is opened, closed or
+armed (`csvCardPatch`), and finds it by `.bulk-card[data-ck="ready:N"]`. Both card
+builders wrote that key inside the class attribute:
+
+```
+'<div class="bulk-card' + … + ' data-ck="ready:0"' + '">'
+  →  <div class="bulk-card attn data-ck="ready:0"">
+```
+
+A browser reads that as a class list ending in the token `data-ck=`, and no
+`data-ck` attribute at all. Checked in headless Chrome on the pre-fix code: 6
+cards, 0 with `data-ck`. So `csvCardPatch` returned false on every call and every
+open, close and arm fell back to the full render. Nothing was drawn wrong; the
+queue was only doing the work B8 was meant to remove.
+
+**Why the tests passed.** `tools/heat-queue-render.test.js` replaces
+`csvCollapsedCard` and `csvActiveCard` with flat stubs, and the stubs write the
+attribute correctly. The swap was tested against markup the app never produced.
+The spec's own figure for an idle queue (0 paints) was true and is unaffected;
+the "opening a card swaps that card" claim in §4 B was not true on a device.
+
+**The fix.** The closing quote of `class` moves in front of the key, in the three
+places a card's root is written (`csvCollapsedCard` twice, `csvActiveCard` once).
+
+**What turning it on needed.** A path that has never run is new code, so before
+it shipped:
+
+- `tools/card-swap.test.js` runs the REAL card builders against a fake body that
+  finds a card the way a browser does (a real attribute, a matching close tag),
+  and holds one invariant for every swap: **after a swap, the body is byte for
+  byte what a full render of the same state paints.** Ten kinds of tap are
+  checked that way (open, open-another, close, a "có thể trùng" card, arm, the
+  armed card losing its arm, a guessed kind, a booked card, `csvExpandDone`,
+  `csvCardRepaintFor`).
+- The same sequence was run in headless Chrome with the real DOM and the app's
+  CSS: 7 cards, 7 with `data-ck`, every swap equal to the full render, and a card
+  that was not part of the swap kept its DOM node.
+- Two states where a full render moves more than the card now make the swap stand
+  down: the "Cần bạn xem" header still showing an armed skip-all, and a folded
+  "Cần bạn xem" whose own card is being opened or closed (the section appears or
+  folds away with it). Both are pinned.
+- A row whose content changed while its card was open (a typed note) still takes
+  the full render, as B8 always intended; pinned.
+
+**Known difference, accepted.** A card drawn only because it held the open editor
+past a section's reveal window stays drawn, collapsed, after it is closed by a
+swap, until the next full render. Nothing opens a card past the window today
+except code, and the next render corrects it.
+
+| # | Decision |
+|---|---|
+| K13 | A swap is correct only if it equals the full render; that equality is the test, with the real builders. |
+| K14 | A test that stubs the thing a selector depends on proves nothing about the selector. The swap's lookup is tested against real markup. |

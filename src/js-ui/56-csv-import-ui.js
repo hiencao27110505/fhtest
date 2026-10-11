@@ -1132,7 +1132,7 @@ function csvCollapsedCard(c, opts){
        itself, under the row's own lines, so the answer does not need the card
        opened first. */
     var askHtml = opts.ask ? csvDupAskHTML(opts.ask) : '';
-    return '<div class="bulk-card'+(opts.invalid?' invalid':(opts.attn?' attn':''))+(opts.dim?' is-dim':'')+(opts.key?' data-ck="'+escAttr(opts.key)+'"':'')+'">' + ck
+    return '<div class="bulk-card'+(opts.invalid?' invalid':(opts.attn?' attn':''))+(opts.dim?' is-dim':'')+'"'+(opts.key?' data-ck="'+escAttr(opts.key)+'"':'')+'>' + ck
       + '<button type="button" class="bulk-tap scv-tap" onclick="'+opts.tapFn+'" aria-label="'+L('Sửa khoản này','Edit this item')+'">'
       + topHtml
       + '<span class="scv-money">'+amtHtml+catHtml+learnHtml+dupHtml+'</span>'
@@ -1141,7 +1141,7 @@ function csvCollapsedCard(c, opts){
   }
 
   // File-import flow: unchanged — index label + date header, note, amount·category.
-  return '<div class="bulk-card'+(opts.invalid?' invalid':(opts.attn?' attn':''))+(opts.dim?' is-dim':'')+(opts.key?' data-ck="'+escAttr(opts.key)+'"':'')+'">' + ck
+  return '<div class="bulk-card'+(opts.invalid?' invalid':(opts.attn?' attn':''))+(opts.dim?' is-dim':'')+'"'+(opts.key?' data-ck="'+escAttr(opts.key)+'"':'')+'>' + ck
     + '<button type="button" class="bulk-tap" onclick="'+opts.tapFn+'" aria-label="'+L('Sửa khoản này','Edit this item')+'">'
     + csvCardHead(opts.label, opts.dateIso, null, opts.invalid || opts.attn, opts.invalid, opts.timeStr, csvStagedProvider(c), '', '', '')
     + (opts.noPick
@@ -1265,7 +1265,7 @@ function csvActiveCard(c, opts){
         + '<span class="bulk-chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></svg></span>'
       + '</button>'
     : headInner;
-  return '<div class="bulk-card active'+(opts.invalid?' invalid':(opts.attn?' attn':''))+(opts.key?' data-ck="'+escAttr(opts.key)+'"':'')+'">'
+  return '<div class="bulk-card active'+(opts.invalid?' invalid':(opts.attn?' attn':''))+'"'+(opts.key?' data-ck="'+escAttr(opts.key)+'"':'')+'>'
     + '<div class="bulk-head">'+head+rm+'</div>'
     + '<div class="csv-card-body">'+body+'</div></div>';
 }
@@ -3875,7 +3875,10 @@ function csvReadyCardHTML(i){
 }
 /* Swap the named ready cards in place (B8) instead of rebuilding the body. True
    only when EVERY card was found and redrawn; otherwise nothing is touched and the
-   caller falls back to renderCsvReview. The body must still be ours (sentinel),
+   caller falls back to renderCsvReview. A card is found by its data-ck, which
+   both card builders write as an attribute of its own (until 2026-10-11 it was
+   written inside class="…", no card carried it in a browser, and this function
+   returned false on every call: device-heat-spec §13). The body must still be ours (sentinel),
    and the signature is advanced to what a full paint of this state would carry,
    so the next render call with nothing else changed is skipped. */
 function csvCardPatch(idxs){
@@ -3884,6 +3887,11 @@ function csvCardPatch(idxs){
   /* The "Cần bạn xem" header is body markup too: a tap that just disarmed its
      skip-all must repaint it, which only the full render does. */
   if(!csvLikelyArmed && out.querySelector('.csv-attn-h .csv-linkbtn.armed')) return false;
+  /* A folded "Cần bạn xem" draws its cards only while one of them holds the open
+     editor. Opening or closing such a card moves the whole section, not one card. */
+  if(csvAttnFold){
+    for(var f = 0; f < idxs.length; f++){ if(csvAttnHolds({ kind:'ready', idx:idxs[f] })) return false; }
+  }
   var els = [], htmls = [];
   for(var k = 0; k < idxs.length; k++){
     var el = out.querySelector('.bulk-card[data-ck="ready:'+idxs[k]+'"]'); if(!el) return false;

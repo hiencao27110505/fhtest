@@ -232,12 +232,14 @@ row.
 **Rendered** in headless Chrome at 390 px with the app's own CSS and the real card
 builders: open, armed, folded, one card open, and after the skip.
 
-**Found while rendering, not changed here.** The card key attribute is written
-inside the class attribute (`class="bulk-card attn data-ck="ready:0""`), so in a
-browser no card carries `data-ck` and the in-place card swap (`csvCardPatch`,
-device-heat B8) never finds its card: every open, close and arm takes the full
-render. It is correct, only slower than B8 intended. Fixing it turns on a path
-that has not run on a device, so it is left for its own change.
+**Found while rendering, fixed the same night (SW v633).** The card key attribute
+was written inside the class attribute (`class="bulk-card attn data-ck="ready:0""`),
+so in a browser no card carried `data-ck` and the in-place card swap
+(`csvCardPatch`, device-heat B8) never found its card: every open, close and arm
+took the full render. Fixed, with the swap now held to "equals a full render" by
+`tools/card-swap.test.js`: `device-heat-spec.md` §13. Two things from this section
+make the swap stand down: an armed skip-all still painted in the header, and a
+folded "Cần bạn xem" whose own card is being opened or closed.
 
 ### 4. What you can do to a row
 

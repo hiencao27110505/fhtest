@@ -20,6 +20,31 @@ Going forward, add an entry here when a feature area changes meaningfully — se
 
 ## 2026-10-11
 
+### Mở, đóng một thẻ trong hàng chờ thôi vẽ lại cả danh sách (SW v633)
+
+The in-place card swap from the device-heat work (B8, `csvCardPatch`) had never
+run on a device. Spec: `docs/specs/device-heat-spec.md` §13. Client only, no
+migration, no Edge Function deploy.
+
+- **Cause.** `csvCollapsedCard` and `csvActiveCard` wrote the card's key inside
+  the class attribute (`class="bulk-card attn data-ck="ready:0""`). A browser sees
+  no `data-ck`, so the swap's lookup found nothing and every open, close and arm
+  rebuilt the whole body. `tools/heat-queue-render.test.js` stubs both builders
+  with correct markup, which is why it passed.
+- **Fix.** The class attribute is closed before the key, in three places.
+- **Guards for the newly live path.** The swap stands down while the "Cần bạn
+  xem" header still shows an armed skip-all, and when a folded "Cần bạn xem" has
+  one of its own cards opened or closed. A row whose content changed still takes
+  the full render.
+- **Tests.** `tools/card-swap.test.js` new, 29, with the real card builders: the
+  key is a real attribute on every card (staged, file flow, open card), and after
+  every swap the body equals a full render of the same state, byte for byte. Red
+  on the pre-fix code (19 failures). Five breakages of the fix and its guards each
+  turn a test red. Suite 172 green, the same two failing as before.
+- **Checked in a browser.** The same tap sequence in headless Chrome with the
+  real DOM: 7 cards, 7 with `data-ck` (0 before), every swap equal to the full
+  render, untouched cards keep their DOM node. Not tried on a real phone.
+
 ### "Cần bạn xem": gập lại được, thẻ nói luôn lý do, bỏ qua một lượt (SW v632)
 
 Three additions to the staged queue's "Cần bạn xem" section. Spec:

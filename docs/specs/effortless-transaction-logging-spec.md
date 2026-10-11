@@ -1904,6 +1904,16 @@ as — or the same day as — the deploy. A deploy announced only in
 
 ## 28. Releases (newest first)
 
+### 2026-10-11 (later still) — a card opens without the list being redrawn · client only, SW v633 · no migration, no deploy beyond the client
+
+- **For product:** nothing looks different. Opening, closing or arming a card in
+  the queue now changes that one card, as the device-heat work intended; until
+  now every such tap rebuilt the whole list.
+- **Under the hood:** `device-heat-spec.md` §13. The card's key was written
+  inside its class attribute, so a browser never saw it and the in-place swap
+  never found a card. Three lines; a new test holds every swap equal to a full
+  render, with the real card builders.
+
 ### 2026-10-11 (late night) — "Cần bạn xem" folds, says why on the card, and skips duplicates in one go · client only, SW v632 · no migration, no deploy beyond the client
 
 - **For product:** the section's header shows how many cards it holds and folds
