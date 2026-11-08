@@ -1,0 +1,114 @@
+{
+  "feature": "consent-gate-target",
+  "shots": {
+    "01-queue-line.vi.sage": {
+      "errors": 0,
+      "lint": {
+        "targets": 24,
+        "overflow": 0,
+        "language": 0,
+        "pageScroll": 0
+      }
+    },
+    "01-queue-empty.vi.sage": {
+      "errors": 0,
+      "lint": {
+        "targets": 11,
+        "overflow": 0,
+        "language": 0,
+        "pageScroll": 0
+      }
+    },
+    "01-settings-rows.vi.sage": {
+      "errors": 0,
+      "lint": {
+        "targets": 11,
+        "overflow": 0,
+        "language": 0,
+        "pageScroll": 0
+      }
+    },
+    "02-sheet-scoped.vi.sage": {
+      "errors": 0,
+      "lint": {
+        "targets": 12,
+        "overflow": 0,
+        "language": 0,
+        "pageScroll": 0
+      }
+    },
+    "03-agreed.vi.sage": {
+      "errors": 0,
+      "lint": {
+        "targets": 24,
+        "overflow": 0,
+        "language": 0,
+        "pageScroll": 0
+      }
+    },
+    "05-stores-off.vi.sage": {
+      "errors": 0,
+      "lint": {
+        "targets": 11,
+        "overflow": 0,
+        "language": 0,
+        "pageScroll": 0
+      }
+    },
+    "01-queue-line.en.sage": {
+      "errors": 0,
+      "lint": {
+        "targets": 24,
+        "overflow": 0,
+        "language": 11,
+        "pageScroll": 0
+      }
+    },
+    "01-queue-empty.en.sage": {
+      "errors": 0,
+      "lint": {
+        "targets": 11,
+        "overflow": 0,
+        "language": 10,
+        "pageScroll": 0
+      }
+    },
+    "01-settings-rows.en.sage": {
+      "errors": 0,
+      "lint": {
+        "targets": 11,
+        "overflow": 0,
+        "language": 10,
+        "pageScroll": 0
+      }
+    },
+    "02-sheet-scoped.en.sage": {
+      "errors": 0,
+      "lint": {
+        "targets": 12,
+        "overflow": 0,
+        "language": 10,
+        "pageScroll": 0
+      }
+    },
+    "03-agreed.en.sage": {
+      "errors": 0,
+      "lint": {
+        "targets": 24,
+        "overflow": 0,
+        "language": 11,
+        "pageScroll": 0
+      }
+    },
+    "05-stores-off.en.sage": {
+      "errors": 0,
+      "lint": {
+        "targets": 11,
+        "overflow": 0,
+        "language": 10,
+        "pageScroll": 0
+      }
+    }
+  },
+  "flows": {}
+}

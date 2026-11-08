@@ -34,6 +34,9 @@ on screen **while** the read runs instead of after it.
 > lane during an active backfill (it 403-storms unpaced today); (3) re-introduce
 > one-get on its own; (4) only then reconsider chaining, and only for a SOLE
 > backfill that provably owns the quota. `0153` column stays applied, unused.
+> **Part 3 (§16–§19) is the resolution record**: the full cause analysis with
+> code anchors, the quota arithmetic that bounds what any fix can achieve, and
+> the measured ladder those four levers belong to.
 
 > **How this relates to its siblings.** `activation-journey-spec.md` §5c is what
 > this spec amends: its revision of 2026-09-24 made reading mode progress-only
@@ -337,3 +340,100 @@ Invariants:
 - `docs/specs/activation-journey-spec.md` — §5c, the decision this amends.
 - `docs/features/direct-mailbox-read.md` — pipeline, cursor, hold semantics.
 - `docs/specs/transaction-review-spec.md` — the surface this hands off to.
+
+---
+
+# Part 3 — Resolution (2026-09-27)
+
+The record of why problem 01 exists, what bounds any fix, and the ladder out.
+Written after the two reverted builds, from an independent re-verification of
+every claim against the code at the reverted baseline and the live database
+(read-only), 2026-09-27. Rungs R1–R4 are the four levers the Status block
+names, here with their mechanism, prediction and rollback; R5 needs the
+founder's un-park call and nothing below assumes it.
+
+## 16. The arithmetic that bounds everything
+
+The 26/09 tally for the UT mailbox: ~1,200 mails judged — 598 rejected as
+junk at the header (20 units each), 597 kept and read head-then-body (40
+units each), listing ~12 pages (5 units each).
+
+```
+598 × 20  =  11,960 units      (buying "no")
+597 × 40  =  23,880 units      (buying transactions)
+listing   ≈      60 units
+          ≈  36,000 units  ÷ 4,500/min  ≈  8.0 minutes of pure quota time
+after one-get (kept mail 40 → 20):  ≈ 24,000 units  ≈ 5.3 minutes
+at the true ~6,000 ceiling:                          ≈ 4.0 minutes
+```
+
+**Ninety seconds for a full 365-day read of this mailbox is arithmetically
+unreachable.** The wall is Gmail's per-mailbox allowance, not the pipeline.
+Every pipeline rung below buys stability and minutes; only making the first
+picture not require the whole window (§2's slice) can buy the moment. This is
+why both 27/09 builds were doomed even without their contention bug: they
+optimised the schedule of a spend whose total the quota fixes.
+
+## 17. Ten causes, assessed
+
+Each verified 2026-09-27 against the reverted baseline and production data;
+none taken from documentation alone.
+
+| # | Cause | Position in the why-chain | Verdict, evidence |
+|---|---|---|---|
+| C1 | **The quota wall.** ~36k units of mail against ~6k units/min per mailbox | why no speed-only fix reaches 90 s | CONFIRMED · §16; unit prices `worker.mjs:287-294`; read_tally 26/09 |
+| C2 | **Two live readers split one allowance.** The pacing ledger `_units` is a per-run local; each reader honestly caps at 4,500 → combined 9,000 on a ~6,000 ceiling → sustained 403s | why both 27/09 builds regressed | CONFIRMED · `worker.mjs:478-493`; live today: `trang.nguyen.wh@gmail.com` carries two active grants (logins `gichisreading@`, 09-05, and its own, 09-23) |
+| C3 | **The lease enforces per-grant, not per-mailbox.** `take_mailbox_lease(p_grant) … where id = p_grant`; the migration is titled "one reader per mailbox" but keys on grant id. 0137/0138 later allowed many grants per email; nobody re-keyed the lease | why C2 is possible at all — the "second of something" hazard from `AGENT_SYNC.md` §3, verbatim | CONFIRMED · `0145:28-42` |
+| C4 | **Unpaced side lanes spend the same allowance invisibly.** The statement lane lists, gets and pulls attachments through raw `ctx.fetch`; `pacedFetch` covers only the four transaction-loop sites, so the lane's spend never enters the ledger it competes with. The 1,500-unit reserve for push/probes is a hope, not a throttle | why 403s persist even under a "working" pacer | CONFIRMED · `statement.mjs:198,210,256` vs `worker.mjs:688,825,829,1174` |
+| C5 | **Reset deletes by login, not by mailbox.** `reset.sql:111` sweeps grants of the target auth user; a grant on the same Gmail from another login survives every reset | why the real cause hid through two builds and poisoned every measurement | CONFIRMED · the 15/09 grant on the UT mailbox is still in the table |
+| C6 | **The junk tax.** Gmail filters by sender domain only; banks send marketing and OTP from those domains. 598 of 1,200 mails were bought at 20 units each just to be rejected — the junk memory keys on (sender, subject shape) and must buy the header to consult itself. About a third of the whole budget buys "no" | why this mailbox costs 36k units | CONFIRMED · `worker.mjs:539-541, 1084-1090`; tally 26/09 |
+| C7 | **Head-then-body double get.** Kept mail pays 2 × 20 units for a metadata pass whose bandwidth saving never mattered server-side. One-get (F16) is right; it died only because it rode a bundle that regressed for C2 | why kept mail costs 40, not 20 | CONFIRMED · `worker.mjs:825,829` in the baseline |
+| C8 | **Minute quantization.** A capped run stops itself and waits for the `* * * * *` lane (0097); 10–12 slices → ~10 idle minutes on top of the quota floor. Chaining attacks exactly this — but any 403 sets `rateLimited`, which correctly breaks the chain, so under C2+C4 contention the chain died precisely when it was needed | why 8 quota-minutes became 11½–20 wall-minutes; why chaining "failed" without being wrong | CONFIRMED · `0097:95`; `worker.mjs:1028` |
+| C9 | **Cold-start economics are the real first-user case.** The 25/09 UT run paid 8 model calls and 852 `format_seed` passes (19–20 min); the 11m33 benchmark ran warm. Every benchmark since is warm; every actual activation is cold | why our numbers systematically understate the wait this spec exists to fix | CONFIRMED · the report's own 25/09 vs 26/09 tallies |
+| C10 | **Two client causes turn minutes into "crashed".** (a) `fhBackfillHolds` gates the whole screen until `backfilled_at`, though only dedup and import need completeness — 195 opened rows sat invisible from minute four; a write-constraint applied to a view. (b) The only moving number derives days-read from the oldest pending row, which can move at most once per run — every inter-run gap is a flat line, matching the observed 45–55 s freezes | why 12 minutes was experienced as three crashes | CONFIRMED · `72-txn-review.js:1213-1215, 257-265`; `_atxFrontier` / `_atxDaysRead` |
+
+Ruled out, for the record: the model as bottleneck (0 calls on the warm run);
+the five-minute lane (0097's minute lane exists and ran); function cold starts
+and fetch bandwidth (the run is quota-bound, not IO-bound).
+
+The shape of the whole: one immovable constraint (C1), two contention defects
+(C3, C4) that made honest self-pacing a lie, one process defect (C5) that hid
+them, two cost inefficiencies (C6, C7), one scheduling inefficiency (C8), one
+measurement bias (C9), and two perception defects (C10) that converted minutes
+into "crashed". The 27/09 builds optimised C8 while C2–C4 were active —
+optimisation downstream of the actual bottleneck.
+
+## 18. The ladder
+
+One rung per landing. Each rung ships alone, is measured before and after on
+the same mailbox, and is reverted alone if its prediction misses. Order:
+stabilise the quota, then cheapen the read, then remove idle, and only then
+move the moment.
+
+| Rung | Change | Prediction (measured, or the rung reverts) | Notes |
+|---|---|---|---|
+| **R0** | Measurement hygiene: the reset flow sweeps or reports same-mailbox grants across logins; any timing run is refused while `mailbox_grants` holds >1 grant for the mailbox | none — R0 is what makes the other predictions attributable | closes C5. Also decide the live `trang.nguyen.wh` duplicate pair — real contention today, not test residue |
+| **R1** | Lease keyed to the mailbox: take/renew/release by `lower(btrim(email))` (a small `mailbox_leases` table, or equivalent), so readers of one mailbox take turns. Grants keep their own queues and cursors — 0137/0138's two-readers feature survives; only simultaneity goes | zero `gmail_rate_limited` holds during a sole backfill; duration ≈ 11m33 unchanged | closes C3, and with it C2. A shared mailbox's second backfill now queues behind the first — acceptable, and unavoidable given a per-user allowance |
+| **R2** | The statement lane joins the budget: hand it `pacedFetch`, and hold the lane off while `backfilled_at is null` (its per-message memory means it loses nothing by waiting) | no lane-attributed 403s in the run logs; duration unchanged | closes C4's known half; push/watch/probe spend stays inside the 1,500-unit reserve and is re-examined only if 403s persist |
+| **R3** | One-get re-landed alone (F15/F16 stand: work-budget semantics, `?format=full` once, junk settles on its single get) | 11m33 → **≈ 7.5–8 min**, zero 403s | closes C7. This is the rung the 14m08 build buried |
+| **R4** | Chaining (§2c as specced: lease-gated, budget and pacing window travel in the chain body, `rateLimited` still breaks the chain) — only after R1–R3 have each held their prediction | → **≈ 5.5–6 min**, no flat minutes between slices | closes C8. This is the floor (§16); speed work stops here |
+| **R5a** | *(un-park, founder's call)* Progress measures work (F6, §2d's headline half): found-count and amount as the moving numbers, day-count demoted. Client-only, ships alone | no "frozen" verdict in a re-run UT at unchanged speed; no interval > 5 s without on-screen change | closes C10(b) independently of everything above |
+| **R5b** | *(un-park, founder's call)* The 45-day first slice + `first_slice_at` hold-release (§2, §2b; 0153 is already applied and waiting) | first light **≤ ~2 min** (≈ 200 mails ≈ 4–6k units), the year still delivered behind it; the 90 s criterion becomes reachable | closes C10(a) by geometry, not by blanket; §2b's 3-day band keeps the dup constraint honest |
+| **R5c** | *(optional, last)* Live assembly during the slice (§3) | the §7 criteria in full | only worth its complexity if R5a+R5b still miss the 90 s mark |
+
+## 19. How each rung is measured
+
+- **Cold, not warm (C9).** Acceptance runs use a mailbox the reader has never
+  seen: junk memory empty, no learned formats, model calls live. A warm re-run
+  may be recorded alongside, never instead.
+- **Sole reader, verified (C5).** Before the stopwatch starts:
+  `select count(*) from mailbox_grants where lower(btrim(email)) = <mailbox>`
+  must be 1, and the run's summary must show zero `gmail_rate_limited`.
+- **One number per rung.** connected_at → backfilled_at from `mailbox_grants`,
+  plus the 403 count from the logs for the window. A rung that moves neither
+  in the predicted direction is reverted the same day, alone.
+- **No UI change rides a pipeline rung** (F18 stands). R5a–R5c each ride
+  nothing and carry nothing.
+- The shared-singleton rules apply to every rung: migration numbers claimed at
+  apply time, `mailbox-sync` diffed against the live version before deploy,
+  `CACHE_NAME` read from `origin/main` before any client build.

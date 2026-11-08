@@ -159,6 +159,14 @@ genuinely means no statement is captured. A new connect asks for v5 as usual.
 > `(user, kind, version)` row at the current version; declining writes nothing and
 > is never a withdrawal; the server keeps checking the recorded version itself.
 > The queue itself needs v4 only and is never blocked by a later version.
+>
+> **PDF statements ride under v5, no new version (2026-11-08, `docs/specs/pdf-statements-spec.md`).**
+> The v5 text names "Excel/CSV" as examples of a statement file. A PDF statement
+> changes nothing the sheet promises: the same sealing to the person's key, the same
+> 90-day hold, the same opening and reading on the device only, the password never
+> leaving it. The format is not a matter of substance, so the sheet text is read as
+> "a statement file, whatever its format" and the version stays 5. The next edit to
+> the v5 text for any other reason should drop the format examples.
 
 **Erasure.** Disconnect (both paths) calls `purge_my_statements()` first: parsed rows
 deleted, cards dismissed, sealed paths returned and removed by the device. The sweep

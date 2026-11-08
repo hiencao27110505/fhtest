@@ -4,7 +4,7 @@
     "personal.vi.sage": {
       "errors": 0,
       "lint": {
-        "targets": 9,
+        "targets": 11,
         "overflow": 0,
         "language": 0,
         "pageScroll": 0
@@ -58,7 +58,7 @@
     "budget-sheet.vi.sage": {
       "errors": 0,
       "lint": {
-        "targets": 7,
+        "targets": 10,
         "overflow": 0,
         "language": 0,
         "pageScroll": 0
@@ -76,7 +76,7 @@
     "personal.vi.ocean": {
       "errors": 0,
       "lint": {
-        "targets": 9,
+        "targets": 11,
         "overflow": 0,
         "language": 0,
         "pageScroll": 0
@@ -130,7 +130,7 @@
     "budget-sheet.vi.ocean": {
       "errors": 0,
       "lint": {
-        "targets": 7,
+        "targets": 10,
         "overflow": 0,
         "language": 0,
         "pageScroll": 0
@@ -139,9 +139,9 @@
     "personal.en.sage": {
       "errors": 0,
       "lint": {
-        "targets": 9,
+        "targets": 11,
         "overflow": 0,
-        "language": 11,
+        "language": 10,
         "pageScroll": 0
       }
     },
@@ -193,9 +193,9 @@
     "budget-sheet.en.sage": {
       "errors": 0,
       "lint": {
-        "targets": 7,
+        "targets": 8,
         "overflow": 0,
-        "language": 1,
+        "language": 4,
         "pageScroll": 0
       }
     },
@@ -211,9 +211,9 @@
     "personal.en.ocean": {
       "errors": 0,
       "lint": {
-        "targets": 9,
+        "targets": 11,
         "overflow": 0,
-        "language": 11,
+        "language": 10,
         "pageScroll": 0
       }
     },
@@ -265,9 +265,9 @@
     "budget-sheet.en.ocean": {
       "errors": 0,
       "lint": {
-        "targets": 7,
+        "targets": 8,
         "overflow": 0,
-        "language": 1,
+        "language": 4,
         "pageScroll": 0
       }
     }

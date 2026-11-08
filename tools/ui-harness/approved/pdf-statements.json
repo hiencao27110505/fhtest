@@ -1,0 +1,78 @@
+{
+  "feature": "pdf-statements",
+  "shots": {
+    "01-card-unread.vi.sage": {
+      "errors": 0,
+      "lint": {
+        "targets": 15,
+        "overflow": 0,
+        "language": 0,
+        "pageScroll": 0
+      }
+    },
+    "02-card-pdf.vi.sage": {
+      "errors": 0,
+      "lint": {
+        "targets": 15,
+        "overflow": 0,
+        "language": 0,
+        "pageScroll": 0
+      }
+    },
+    "03-password.vi.sage": {
+      "errors": 0,
+      "lint": {
+        "targets": 15,
+        "overflow": 0,
+        "language": 0,
+        "pageScroll": 0
+      }
+    },
+    "04-read.vi.sage": {
+      "errors": 0,
+      "lint": {
+        "targets": 14,
+        "overflow": 0,
+        "language": 0,
+        "pageScroll": 0
+      }
+    },
+    "01-card-unread.en.sage": {
+      "errors": 0,
+      "lint": {
+        "targets": 15,
+        "overflow": 0,
+        "language": 10,
+        "pageScroll": 0
+      }
+    },
+    "02-card-pdf.en.sage": {
+      "errors": 0,
+      "lint": {
+        "targets": 15,
+        "overflow": 0,
+        "language": 10,
+        "pageScroll": 0
+      }
+    },
+    "03-password.en.sage": {
+      "errors": 0,
+      "lint": {
+        "targets": 15,
+        "overflow": 0,
+        "language": 10,
+        "pageScroll": 0
+      }
+    },
+    "04-read.en.sage": {
+      "errors": 0,
+      "lint": {
+        "targets": 14,
+        "overflow": 0,
+        "language": 10,
+        "pageScroll": 0
+      }
+    }
+  },
+  "flows": {}
+}

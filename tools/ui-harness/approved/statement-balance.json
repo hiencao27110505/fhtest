@@ -1,0 +1,69 @@
+{
+  "feature": "statement-balance",
+  "shots": {
+    "tiles.vi.sage": {
+      "errors": 0,
+      "lint": {
+        "targets": 1,
+        "overflow": 0,
+        "language": 0,
+        "pageScroll": 0
+      }
+    },
+    "account-from-statement.vi.sage": {
+      "errors": 0,
+      "lint": {
+        "targets": 13,
+        "overflow": 0,
+        "language": 0,
+        "pageScroll": 0
+      }
+    },
+    "card-from-statement.vi.sage": {
+      "errors": 0,
+      "lint": {
+        "targets": 16,
+        "overflow": 0,
+        "language": 0,
+        "pageScroll": 0
+      }
+    },
+    "wizard-no-statement.vi.sage": {
+      "errors": 0,
+      "lint": {
+        "targets": 12,
+        "overflow": 0,
+        "language": 0,
+        "pageScroll": 0
+      }
+    },
+    "account-covered.vi.sage": {
+      "errors": 0,
+      "lint": {
+        "targets": 13,
+        "overflow": 0,
+        "language": 0,
+        "pageScroll": 0
+      }
+    },
+    "account-dated.vi.sage": {
+      "errors": 0,
+      "lint": {
+        "targets": 13,
+        "overflow": 0,
+        "language": 0,
+        "pageScroll": 0
+      }
+    },
+    "card-statement.vi.sage": {
+      "errors": 0,
+      "lint": {
+        "targets": 16,
+        "overflow": 0,
+        "language": 0,
+        "pageScroll": 0
+      }
+    }
+  },
+  "flows": {}
+}
