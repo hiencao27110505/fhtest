@@ -298,7 +298,10 @@ The grid builder:
 derivation off the main thread; the grid builder is cheap and runs on the main
 thread after `getTextContent()` resolves. The same unlock cache rules as the
 spreadsheet path apply (device-heat spec, approach C): the grid is remembered by
-file hash in memory and in the sealed `fh-stmt` IndexedDB store.
+file hash in memory and in the sealed `fh-stmt` IndexedDB store, **under a key
+that carries the builder's version** (`STM_GRID_V` in 77, since 2026-11-08). Bump
+it whenever the grid builder's output changes for the same bytes; otherwise a
+fixed reader keeps meeting the old grid of every file the device has opened.
 
 **Loading pdf.js.** `vendor/pdfjs/` is same-origin and not precached; the SW's
 same-origin path serves it network-first, cached after the first fetch. The

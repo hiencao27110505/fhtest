@@ -93,6 +93,8 @@ t('an unreadable row always asks, remembered mapping or not', /_stmNeedsAsk = \(
 t('the ask screen lists the unreadable rows by day and cell', /const un = p\.unreadable \|\| \[\];/.test(src) && /không đọc được số tiền/.test(src) && /could not read the amount/.test(src));
 t('the write plans over p.rows only, which never hold an unreadable row', /_stmBatched\(p\.rows,/.test(src) && !/p\.unreadable[^\n]*_stmWrite|_stmWrite[^\n]*unreadable/.test(src));
 t('a totals mismatch is said as itself, not as "no totals"', /Tổng trong file không khớp với các dòng đọc được/.test(src) && /do not match the rows we read/.test(src));
+t('the device grid cache is keyed by the builder version, so a fixed builder never meets its old grid',
+  /const STM_GRID_V = \d+;/.test(src) && (src.match(/sha = _stmGridKey\(sha\);/g) || []).length === 3 && /\+ '#' \+ STM_GRID_V/.test(src));
 
 console.log('\n' + (fail ? 'FAILED ' + fail + ' of ' + (pass + fail) : 'ALL ' + pass + ' PASSED'));
 process.exit(fail ? 1 : 0);

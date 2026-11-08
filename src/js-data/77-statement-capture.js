@@ -607,7 +607,14 @@
        personal key is locked. Writes are serialised so a delete can never land
        before the put it is meant to undo. */
     const STM_GRID_DB = 'fh-stmt', STM_GRID_STORE = 'grid', STM_GRID_MAX = 20;
-    const _stmGridMem = new Map();                   // sha -> grid, this session
+    /* The cache holds what the GRID BUILDER read, so its key carries the
+       builder's version: bump STM_GRID_V whenever 43-pdf-grid.js or
+       42-xlsx-parse.js changes what it returns for the same bytes, or a fixed
+       reader keeps meeting the old grid of a file it has seen (2026-11-08: the
+       geometric cut, PS30). Entries under an old key fall out by age. */
+    const STM_GRID_V = 2;
+    const _stmGridKey = (sha) => sha ? String(sha) + '#' + STM_GRID_V : '';
+    const _stmGridMem = new Map();                   // key -> grid, this session
     function _stmGridMemSet(sha, grid) {
       if (_stmGridMem.has(sha)) _stmGridMem.delete(sha);
       _stmGridMem.set(sha, grid);
@@ -632,6 +639,7 @@
     let _stmGridQ = Promise.resolve();
     const _stmGridSeq = (fn) => { const p = _stmGridQ.then(fn, fn); _stmGridQ = p.catch(() => {}); return p; };
     async function _stmGridGet(sha) {
+      sha = _stmGridKey(sha);
       if (!sha) return null;
       if (_stmGridMem.has(sha)) return _stmGridMem.get(sha);
       if (!(window.fhPersonalKeyReady && window.fhPersonalKeyReady())) return null;
@@ -645,6 +653,7 @@
       } catch (e) { return null; }
     }
     function _stmGridPut(sha, grid) {
+      sha = _stmGridKey(sha);
       if (!sha || !grid) return Promise.resolve();
       _stmGridMemSet(sha, grid);
       if (!(window.fhPersonalKeyReady && window.fhPersonalKeyReady())) return Promise.resolve();
@@ -660,6 +669,7 @@
       });
     }
     function _stmGridDel(sha) {
+      sha = _stmGridKey(sha);
       if (!sha) return Promise.resolve();
       _stmGridMem.delete(sha);
       return _stmGridSeq(() => _stmGridTx('readwrite', (st) => st.delete(sha)).catch(() => {}));
