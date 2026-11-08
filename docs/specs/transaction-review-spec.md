@@ -437,6 +437,15 @@ reflect that:
 
 - **Empty** — "Chưa có giao dịch mới / Nothing to review." If rows exist but are
   all locked, the copy says so instead.
+- **Something is off by consent** (designed 2026-11-08, `consent-gate-spec.md`
+  CG5, not built): while the person's recorded `bank_email` consent is below what
+  statements (v5) or store receipts (v6) need, the queue shows on **every** open,
+  above the cards and in the empty sheet, one line per feature: *"Sao kê từ email
+  đang tắt · Bật"*, *"Hoá đơn từ cửa hàng đang tắt · Bật"*. "Bật" opens the
+  consent sheet scoped to that feature; "Để sau" leaves the line. This replaces
+  the once-per-session soft offer (`fhConsentOffer`, §2), which is retired: the
+  queue itself needs v4 only and is never blocked by a later version. The line
+  joins the render signature so it is one paint, not a rebuild.
 - **Partly locked** — some rows couldn't be decrypted (a locked device, a stale
   app shell, or real tampering). They are *counted and shown*, never silently
   skipped: a note says "N giao dịch chưa mở khoá được" and tells the person to

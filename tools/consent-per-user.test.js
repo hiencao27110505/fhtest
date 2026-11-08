@@ -105,31 +105,32 @@ const CURRENT = [{ version: FH_CONSENT_V, consented_at: '2026-09-22T07:38:00Z' }
   // ── the way back for someone already connected ────────────────────────────
   console.log('\n-- connected with no record: something must ask --');
 
+  /* consent-gate-spec (2026-11-08): the once-a-session soft offer is gone. What
+     asks now is the feature's own door, every tap, and the status rows the queue
+     and Settings draw from what this tab has read. A person with NO record is
+     below every need, so both rows are off and the statements door shows the
+     sheet scoped to statements. */
   window.fhUser = { id: 'user-C' };
   SELECT_ROWS = []; SHEETS = []; CONNECTION = { email: 'someone@example.com' };
-  global.sessionStorage._m = {};
-  let went = false;
-  let carryOn = await window.fhConsentOffer(() => { went = true; });
-  t('connected, no record: the sheet is shown',
-    carryOn === false && SHEETS.length === 1, 'carryOn=' + carryOn + ' sheets=' + SHEETS.length);
+  let met = await window.fhConsentNeed('statements', () => {});
+  t('no record: the statements door shows the sheet, scoped',
+    met === false && SHEETS.length === 1 && /SAO KÊ TỪ EMAIL/.test(SHEETS[0]), 'met=' + met + ' sheets=' + SHEETS.length);
+  let rows = window.fhConsentStatusHTML({ onlyOff: true });
+  t('no record: both status rows are off',
+    /data-cst="statements"/.test(rows) && /data-cst="receipts"/.test(rows) && /Đang tắt/.test(rows), rows.slice(0, 120));
 
-  SELECT_ROWS = []; SHEETS = []; CONNECTION = null;
-  global.sessionStorage._m = {};
-  carryOn = await window.fhConsentOffer(() => {});
-  t('NOT connected, no record: the connect flow owns the ask, carry on',
-    carryOn === true && SHEETS.length === 0);
+  SHEETS = [];
+  met = await window.fhConsentNeed('statements', () => {});
+  t('a second tap asks again: no session latch', met === false && SHEETS.length === 1);
 
   SELECT_ROWS = CURRENT; SHEETS = []; CONNECTION = { email: 'someone@example.com' };
-  global.sessionStorage._m = {};
-  carryOn = await window.fhConsentOffer(() => {});
-  t('connected WITH a current record: nothing to say',
-    carryOn === true && SHEETS.length === 0);
+  met = await window.fhConsentNeed('statements', () => {});
+  t('a current record: the door passes with no sheet', met === true && SHEETS.length === 0);
+  t('a current record: no status row is off', window.fhConsentStatusHTML({ onlyOff: true }) === '');
+  t('a current record: Settings draws both rows on',
+    (window.fhConsentStatusHTML({}).match(/Đang bật/g) || []).length === 2);
 
-  /* A statement-lane refusal is server-side and silent, so the only thing
-     standing between "no record" and "no statements, forever" is the offer
-     above. Pin that it survives a rename of the connection accessor. */
-  t('the offer asks the connection, not a cached flag',
-    /fhAutoTxnConnection/.test(consentSrc), 'fhConsentOffer no longer checks the connection');
+  t('the soft offer is gone from the source', !/fhConsentOffer|fh-cst-offered/.test(consentSrc));
   t('the consent cache is keyed to the uid',
     /_cstUid/.test(consentSrc) && /fhUser/.test(consentSrc), 'uid keying is gone');
 

@@ -43,6 +43,9 @@ const MAILS = {
   wallet: { from: 'MoMo <no-reply@mservice.com.vn>', subject: 'Sao kê lịch sử giao dịch',
             body: 'MoMo xin gửi tới Quý khách Chi tiết giao dịch cho số ví 0900000001 từ ngày 20/06/2026 đến ngày 18/09/2026.', file: '0900000001_24307969.xlsx' },
   invoice: { from: 'VIB <info@myvib.vib.com.vn>', subject: 'Hoa don dien tu so 0012345', body: 'Kinh gui Quy khach hoa don dien tu.', file: 'hoadon.xlsx' },
+  /* pdf-statements-spec PS1: a PDF statement from a known sender is captured like a workbook */
+  pdfcard: { from: 'Techcombank Credit Card <thetindung@techcombank.com.vn>', subject: 'Techcombank – Thong bao sao ke the tin dung – Statement - 10-2026',
+             body: 'Kinh gui Quy khach TRAN VAN A, Techcombank tran trong gui den Quy khach sao ke the tin dung thang 10/2026 dinh kem.', file: '19736101992011_Stmt.pdf' },
 };
 function gmailMessage(id) {
   const m = MAILS[id];
@@ -105,11 +108,11 @@ function makeCtx(opts) {
 const grant = (over) => Object.assign({ id: 'g1', user_id: OWNER, member_id: 'm1', family_id: 'f1', email: 'me@gmail.com', default_scope: 'family' }, over || {});
 
 console.log('\n-- helpers --');
-t('xlsx and csv are statements by name, nothing else is', ST.statementExt('a.XLSX') === 'xlsx' && ST.statementExt('b.csv') === 'csv' && ST.statementExt('c.pdf') === '' && ST.statementExt('d.xls') === '' && ST.statementExt('e.zip') === '');
+t('xlsx, csv and pdf are statements by name, nothing else is (PS1)', ST.statementExt('a.XLSX') === 'xlsx' && ST.statementExt('b.csv') === 'csv' && ST.statementExt('c.pdf') === 'pdf' && ST.statementExt('d.xls') === '' && ST.statementExt('e.zip') === '');
 t('the verdict key drops EVERY digit, so one verdict covers every month',
   ST.statementShape('SAO KE THE TIN DUNG VIB CASH BACK THANG 09 NAM 2026') === ST.statementShape('SAO KE THE TIN DUNG VIB CASH BACK THANG 10 NAM 2026'));
 t('...and a forward prefix lands on the same key', ST.statementShape('Fwd: Sao kê tài khoản') === ST.statementShape('Sao kê tài khoản'));
-t('the lane lists files only, from known senders only', /has:attachment \(filename:xlsx OR filename:csv\)$/.test(ST.statementQuery(2, [])) && /^\(from:/.test(ST.statementQuery(2, [])));
+t('the lane lists files only, from known senders only', /has:attachment \(filename:xlsx OR filename:csv OR filename:pdf\)$/.test(ST.statementQuery(2, [])) && /^\(from:/.test(ST.statementQuery(2, [])));
 var d = ST.statementDetails(MAILS.wallet.subject, MAILS.wallet.body);
 t('period read from the mail\'s own words', d.period_from === '2026-06-20' && d.period_to === '2026-09-18', d);
 t('only the account TAIL is read, never the number', d.account_tail === '0001' && JSON.stringify(d).indexOf('0900000001') < 0, d);
@@ -172,6 +175,14 @@ t('...and is decided on the next run, nothing lost', slow.store.files.length ===
 var next = makeCtx({ shapes: Array.from(c.store.shapes.entries()), ids: ['card'] });
 r = await ST.runStatementLane(grant(), next);
 t('next month, same format: zero model calls', next.store.modelAsked === 0 && r.summary.captured === 1);
+/* pdf-statements-spec PS1/PS2: a PDF statement is listed, judged by its subject
+   shape and sealed like a workbook; the server stores the extension and holds no
+   opinion on readability. */
+var pdfRun = makeCtx({ shapes: [['thetindung@techcombank.com.vn|' + ST.statementShape(MAILS.pdfcard.subject), true]], ids: ['pdfcard'] });
+r = await ST.runStatementLane(grant(), pdfRun);
+t('a PDF statement from a known sender is captured, as a pdf, with no model call',
+  r.summary.captured === 1 && pdfRun.store.files.length === 1 && pdfRun.store.files[0].file_ext === 'pdf' && pdfRun.store.files[0].status === 'pending' && pdfRun.store.modelAsked === 0, r.summary);
+t('...sealed to the personal key like every statement', pdfRun.store.objects.size === 1 && !!pdfRun.store.files[0].meta_sealed);
 c = makeCtx({ model429: true }); r = await ST.runStatementLane(grant(), c);
 t('rate-limited: no row at all, so the mail is met again next run', c.store.files.length === 0 && r.summary.undecided >= 1 && r.summary.status === 'more', r.summary);
 t('...and it is NOT remembered as "not a statement"', c.store.shapes.size === 0);

@@ -86,6 +86,10 @@ var STMT_ROLES = [
   ['balance',     ['so du', 'balance', 'du no']],
   ['debit',       ['ghi no', 'debit', 'phat sinh no', 'rut ra', 'so tien ghi no', 'tien ra', 'withdrawal']],
   ['credit',      ['ghi co', 'credit', 'phat sinh co', 'gui vao', 'so tien ghi co', 'tien vao', 'deposit']],
+  /* a card statement's "Số tiền giao dịch gốc / Original Amount" carries the
+     currency; it is NOT the amount (pdf-statements-spec PS12). Before `amount`
+     so 'so tien' never claims it. */
+  ['fxAmount',    ['so tien giao dich goc', 'original amount', 'so tien goc', 'nguyen te']],
   ['amount',      ['so tien', 'amount', 'gia tri']],
   ['ref',         ['ma giao dich', 'ma gd', 'so tham chieu', 'so but toan', 'so ct', 'so chung tu', 'reference', 'transaction id', 'ref no', 'ref']],
   ['mcc',         ['mcc']],
@@ -117,18 +121,28 @@ function fhStmtHeaderSig(headerCells){
    amount. Body rows are the rows under it whose date cell is a date; everything
    else (preamble, sub-headers, totals) is kept as `notes` for the summary reader. */
 function fhStmtFindTable(grid, rolesOverride){
-  var headerIdx = -1, roles = null;
+  /* The header names a date, an amount and at least one more role. A bilingual
+     preamble (a PDF card statement) prints "Credit Limit" beside "Payment due
+     date", which the words alone read as credit + date; the real header names
+     more. The first usable row is the fallback, which is every file read before
+     PDFs arrived. */
+  var headerIdx = -1, roles = null, firstIdx = -1, firstRoles = null;
   for (var i = 0; i < grid.length && i < 80; i++) {
     var r = fhStmtRoles(grid[i] || []);
-    if (_stmtRolesUsable(r)) { headerIdx = i; roles = r; break; }
+    if (!_stmtRolesUsable(r)) continue;
+    if (firstIdx < 0) { firstIdx = i; firstRoles = r; }
+    if (Object.keys(r).length >= 3) { headerIdx = i; roles = r; break; }
   }
+  if (headerIdx < 0) { headerIdx = firstIdx; roles = firstRoles; }
   if (headerIdx < 0) return null;
   if (rolesOverride) roles = rolesOverride;
   var body = [], notes = [];
   for (var j = 0; j < grid.length; j++) {
     if (j === headerIdx) continue;
     var cells = grid[j] || [];
-    if (j > headerIdx && fhStmtDate(cells[roles.date])) body.push({ i: j, cells: cells });
+    /* a fee row on a card statement has no transaction date, only a post date
+       (pdf-statements-spec PS10): the post date is its day */
+    if (j > headerIdx && (fhStmtDate(cells[roles.date]) || (roles.postDate !== undefined && fhStmtDate(cells[roles.postDate])))) body.push({ i: j, cells: cells });
     else if (cells.some(function(x){ return String(x == null ? '' : x).trim() !== ''; })) notes.push(cells);
   }
   return { headerIdx: headerIdx, headers: (grid[headerIdx] || []).map(String), roles: roles, body: body, notes: notes };
@@ -151,7 +165,7 @@ var STMT_LABELS = [
      only this one is somebody else's. */
   ['limit',       ['han muc tin dung', 'credit limit']],
   ['stmtDate',    ['ngay sao ke', 'ngay in sao ke', 'statement date']],
-  ['dueDate',     ['ngay den han thanh toan', 'ngay den han', 'payment due date', 'due date']],
+  ['dueDate',     ['ngay den han thanh toan', 'ngay den han', 'thoi han thanh toan', 'payment due date', 'due date']],
   ['minPayment',  ['thanh toan toi thieu', 'minimum payment']],
   ['autoDebit',   ['so tk trich no', 'tai khoan trich no', 'auto debit account']],
   ['account',     ['so tai khoan', 'account number', 'so the chinh', 'primary card number', 'so vi']]
@@ -199,7 +213,7 @@ function fhStmtRead(table){
   var R = table.roles, rows = [], failed = 0;
   var cell = function(cells, role){ return R[role] === undefined ? '' : String(cells[R[role]] == null ? '' : cells[R[role]]).trim(); };
   table.body.forEach(function(b){
-    var when = fhStmtDate(b.cells[R.date]); if (!when) return;
+    var when = fhStmtDate(b.cells[R.date]) || (R.postDate !== undefined ? fhStmtDate(b.cells[R.postDate]) : null); if (!when) return;
     var amt = null;
     if (R.amount !== undefined) amt = fhStmtNum(b.cells[R.amount]);
     else {
@@ -209,8 +223,16 @@ function fhStmtRead(table){
     if (amt === null || amt === 0) return;
     if (R.status !== undefined && _stmtHas(stmtWords(b.cells[R.status]), STMT_FAILED)) { failed++; return; }
     var bal = R.balance !== undefined ? fhStmtNum(b.cells[R.balance]) : null;
+    /* the original amount with its currency: "12.50 USD" is a foreign purchase
+       (fx on the row), "45,000 VND" is nothing new */
+    var fx = null;
+    if (R.fxAmount !== undefined) {
+      var fxRaw = cell(b.cells, 'fxAmount'), fxCur = (fxRaw.match(/\b([A-Z]{3})\b/) || [])[1] || '';
+      var fxNum = fhStmtNum(fxRaw.replace(/[A-Z]{3}/g, ''));
+      if (fxCur && fxCur !== 'VND' && fxCur !== 'VNĐ' && fxNum !== null) fx = { amount: Math.abs(fxNum), currency: fxCur };
+    }
     rows.push({
-      i: b.i, date: when.date, time: when.time, key: when.key, amt: amt, bal: bal,
+      i: b.i, date: when.date, time: when.time, key: when.key, amt: amt, bal: bal, fx: fx,
       description: cell(b.cells, 'description').replace(/\s+/g, ' '),
       ref: cell(b.cells, 'ref'), mcc: (cell(b.cells, 'mcc').match(/\d{4}/) || [''])[0],
       fromAcct: cell(b.cells, 'fromAcct'), fromName: cell(b.cells, 'fromName'),

@@ -78,6 +78,16 @@
   window.fhReceiptStoresPaint = async function (conn) {
     _conn = conn || _conn;
     if (!document.getElementById('atx-rc')) return;
+    /* The list is the registry consent's (v7) surface. Below it, the mailbox
+       does not read the registry, so showing live toggles would be a lie; one
+       row says what is off and opens the sheet scoped to it (consent-gate-spec
+       §3.3). Unknown yet (nothing read) falls through to the list. */
+    if (window.fhConsentMet && window.fhConsentMet('stores') === false && window.fhConsentStatusHTML) {
+      const off = document.getElementById('atx-rc');
+      if (off) off.innerHTML = window.fhConsentStatusHTML({ features: ['stores'], eyebrow: L('Đọc hoá đơn từ', 'Reading receipts from'),
+        foot: L('Bật để chọn cửa hàng nào được đọc hoá đơn cho hộp thư này.', 'Turn on to pick the stores whose receipts we read for this mailbox.') });
+      return;
+    }
     const st = await load(_conn);
     const el = document.getElementById('atx-rc'); if (el) el.innerHTML = render(st);
   };

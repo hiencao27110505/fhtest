@@ -90,8 +90,9 @@ The classic block and the module block have **different scopes** — this is the
 ## 4. Service worker & caching — `sw.js` (critical)
 
 - **Bump `CACHE_NAME`** (currently `familyhub-v296`) when you change any **precached asset**:
-  `vendor/supabase.js`, the two woff2 fonts, `manifest.json`, or the icons. Without a bump, clients keep
-  the old cached bytes.
+  `vendor/supabase.js`, the two woff2 fonts, `manifest.json`, or the icons, **or `vendor/pdfjs/*`** (not
+  precached, but cached cache-first on first use, so an upgrade is invisible without a bump). Without a
+  bump, clients keep the old cached bytes.
 - **Editing `sw.js` itself does NOT need a bump** — it is not in the precache `ASSETS` list; the browser
   updates the SW by its own byte-diff on registration. (Bumping is *a* way to force invalidation, not a
   requirement of editing the SW.)

@@ -316,6 +316,56 @@ pre-existing ones. Deferred: server-side pre-extraction, thumbnails at upload (s
 
 ---
 
+## 2026-11-08
+
+### Email capture: the consent asks at the feature's door, PDF statements read, and a coverage matrix (SW v634, branch `feat/email-capture`, not yet on main)
+
+Three things one teammate's silent statement exposed (a Techcombank card PDF that
+produced nothing anywhere), built together. Specs: `docs/specs/consent-gate-spec.md`,
+`docs/specs/pdf-statements-spec.md`, `docs/specs/statement-coverage-spec.md`.
+
+- **Consent gate** (client only). `FH_CONSENT_NEEDS` names the `bank_email` version
+  each email sub-feature needs (statements 5, receipts 6, the store list 7; the
+  connect door the current text), pinned to the worker's constants by
+  `tools/consent-gate.test.js`. One gate, `fhConsentNeed(feature, go)`, replaces
+  `fhConsentEnsure` (kept as an alias) and the once-a-session `fhConsentOffer`,
+  which is gone with its `sessionStorage` latch: a door tapped twice asks twice,
+  "Để sau" writes nothing. The sheet is scoped: legal kicker + the feature,
+  title "Bật sao kê từ email", one lead sentence, only the feature's change entry
+  (the rest counted into the folded full text). Status rows in the privacy
+  sheet's own row grammar (`.cst-lrow` in `.cst-group`, "Sao kê từ email ·
+  Đang tắt ›") at the top of the staged queue (in its render signature), in the
+  queue's empty sheet, and in Settings → Email ngân hàng; an on row opens the
+  read-only text; the store list stands aside below v7. Toast after the write:
+  "Đã bật sao kê từ email". Flow `tools/ui-harness/flows/consent-gate.flow.js`.
+- **PDF statements.** The lane lists and seals `filename:pdf` from known senders
+  (`STATEMENT_EXTS`, one tally stage `stmt_pdf_captured`); readability is the
+  client's judgement (`fhStmtReaders`), so a card for a type this build cannot
+  read says so and opens the file door. `src/js-data/43-pdf-grid.js` (new) turns
+  pdf.js text items into the spreadsheet grid: header on the raw runs (three
+  roles required; a bilingual preamble prints "Credit Limit" beside "Payment due
+  date"), columns from the header's runs snapped to where the body starts,
+  carried across pages, two-line descriptions joined, a figure pdf.js glued to
+  the words after it split, a due date under its time rejoined. 59 gains the
+  `fxAmount` role (before `amount`), the post date as a fee row's day, and
+  "thời hạn thanh toán" as a due-date label. 77: pdf branch, `pdf_*` codes mapped
+  beside the xlsx ones, file door accepts `.pdf`, the remembered password keyed
+  per (bank, product). 56: "Nhập file sao kê" accepts `.pdf` through the same
+  table finder. pdf.js 4.10.38 vendored under `vendor/pdfjs/`, loaded on the
+  first PDF open, not precached (`tools/vendor-pin.test.js`). Verified on the
+  synthetic fixture (`tools/make-pdf-fixture.py`, AES-256) and, locally, on the
+  real file: 35 rows, totals exact. Not built: §7 (learning an unknown layout,
+  needs `statement_formats`), OCR.
+- **Coverage matrix.** `taxonomy/statement-formats.json` (four rows, all
+  supported), `tools/gen-statement-coverage.js` (`npm run coverage`: writes
+  `statement-capture-spec.md` §15 between markers, prints seed SQL),
+  `tools/statement-coverage.test.js` (a supported row must prove through the real
+  reader; no orphan fixture, no orphan seed, no stale table).
+- Guards: `tools/consent-gate.test.js` (+35), `tools/consent-per-user.test.js`
+  (rewritten for the gate), `tools/statement-pdf.test.js` (24), `tools/vendor-pin.test.js`
+  (7), `tools/statement-coverage.test.js` (28), `pipeline/statement-lane.test.js`
+  (pdf in the query).
+
 ## 2026-09-19
 
 ### Quét hóa đơn: ảnh thành khoản chi (preview)

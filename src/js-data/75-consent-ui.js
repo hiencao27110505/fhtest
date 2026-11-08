@@ -45,6 +45,36 @@
 
      Write each line as the CHANGE, not the state: "we now also send X" beats
      "we protect your data". */
+  /* THE CONSENT EACH FEATURE NEEDS (consent-gate-spec §5). One monotone
+     bank_email version covers every email sub-feature; what differs per feature
+     is the version it was added in, and the words the sheet opens with when
+     that feature's own door is tapped. `v` is pinned to the worker's constants
+     by tools/consent-gate.test.js (STATEMENT_CONSENT_V, RECEIPT_CONSENT_V,
+     RECEIPT_REGISTRY_V), so client and lane can never name different numbers.
+     bank_email is the first-time door (connect): it asks for the CURRENT text,
+     because a connection made today is made under today's words, and keeps
+     today's headline (no title, no lead). `learn` (the statement-layout learn
+     step, v8) is added with that bump, not before. */
+  var FH_CONSENT_NEEDS = {
+    bank_email: { kind: 'bank_email', v: FH_CONSENT_V, kicker: ['EMAIL NGÂN HÀNG', 'BANK EMAIL'], title: null, lead: null },
+    statements: { kind: 'bank_email', v: 5, kicker: ['SAO KÊ TỪ EMAIL', 'STATEMENTS FROM EMAIL'],
+                  title: ['Bật sao kê từ email', 'Turn on statements from email'],
+                  lead:  ['Để đọc sao kê gửi kèm email, cần bạn đồng ý thêm một điều.', 'To read statements attached to your emails, there is one more thing to agree to.'],
+                  row:   ['Sao kê từ email', 'Statements from email'], glyph: 'file',
+                  done:  ['Đã bật sao kê từ email', 'Statements from email are on'] },
+    receipts:   { kind: 'bank_email', v: 6, kicker: ['HOÁ ĐƠN TỪ CỬA HÀNG', 'STORE RECEIPTS'],
+                  title: ['Bật hoá đơn từ cửa hàng', 'Turn on store receipts'],
+                  lead:  ['Để đọc hoá đơn từ cửa hàng, cần bạn đồng ý thêm một điều.', 'To read store receipts, there is one more thing to agree to.'],
+                  row:   ['Hoá đơn từ cửa hàng', 'Store receipts'], glyph: 'receipt',
+                  done:  ['Đã bật hoá đơn từ cửa hàng', 'Store receipts are on'] },
+    stores:     { kind: 'bank_email', v: 7, kicker: ['CHỌN CỬA HÀNG', 'CHOOSE STORES'],
+                  title: ['Chọn cửa hàng được đọc hoá đơn', 'Choose the stores we read receipts from'],
+                  lead:  ['Để tự chọn cửa hàng cho hộp thư này, cần bạn đồng ý thêm một điều.', 'To pick the stores for this mailbox, there is one more thing to agree to.'],
+                  row:   ['Chọn cửa hàng', 'Choose stores'], glyph: 'receipt',
+                  done:  ['Đã bật chọn cửa hàng', 'You can now choose stores'] },
+    scan:       { kind: 'receipt_scan', v: 1, kicker: ['QUÉT HOÁ ĐƠN', 'RECEIPT SCAN'], title: null, lead: null }
+  };
+
   var FH_CONSENT_CHANGES = {
     bank_email: {
       4: ['Lần đầu gặp một mẫu email của ngân hàng, email đó được gửi nguyên văn cho AI của Google một lần, để học cách đọc mẫu. Những email sau cùng mẫu không được gửi đi nữa.',
@@ -94,25 +124,35 @@
   /* The block that leads a re-consent. Absent entirely for a first-time
      consent -- there is nothing to have changed, and a "what's new" box on a
      screen someone has never seen is noise. */
-  function _cstChangedBlock(kind, prior, current) {
+  /* `focusV` (a scoped door, consent-gate-spec §3.2): the block holds that one
+     version's entry and its footer counts the rest, which stay in the folded
+     full text, so the sheet for "Bật sao kê từ email" is about statements and
+     fits one screen with its buttons. */
+  function _cstChangedBlock(kind, prior, current, focusV) {
     if (!prior || !prior.version || prior.version >= current) return '';
-    var items = _cstChangesSince(kind, prior.version, current);
-    if (!items.length) return '';
+    var all = _cstChangesSince(kind, prior.version, current);
+    if (!all.length) return '';
+    var items = focusV ? all.filter(function (i) { return i.v === focusV; }) : all;
+    if (!items.length) items = all;
+    var rest = all.length - items.length;
     var when = prior.consented_at ? new Date(prior.consented_at) : null;
+    var foot = rest > 0
+      ? L('Bản hiện tại cũng gồm ' + rest + ' thay đổi khác, nằm trong toàn văn bên dưới.',
+          'The current text also carries ' + rest + ' other change' + (rest > 1 ? 's' : '') + ', in the full text below.')
+      : L('Bạn đã đồng ý bản v' + prior.version + (when ? ' ngày ' + fmtDayMon(when) : '') + '. Phần còn lại giữ nguyên.',
+          'You agreed to v' + prior.version + (when ? ' on ' + fmtDayMon(when) : '') + '. Everything else is unchanged.');
     return '<div class="cst-changed">' +
       '<div class="cst-changed-h">' + _esc(L('Có gì thay đổi từ lần trước',
                                              'What changed since you agreed')) + '</div>' +
       '<ul class="cst-changed-l">' +
         items.map(function (i) { return '<li>' + _esc(i.text) + '</li>'; }).join('') +
       '</ul>' +
-      '<div class="cst-changed-f">' + _esc(L(
-        'Bạn đã đồng ý bản v' + prior.version + (when ? ' ngày ' + fmtDayMon(when) : '') + '. Phần còn lại giữ nguyên.',
-        'You agreed to v' + prior.version + (when ? ' on ' + fmtDayMon(when) : '') + '. Everything else is unchanged.')) + '</div>' +
+      '<div class="cst-changed-f">' + _esc(foot) + '</div>' +
       '</div>';
   }
 
   (function () {
-    var _cstKnown = null, _cstUid = null;
+    var _cstKnown = null, _cstUid = null, _cstReadUid = null;   // _cstReadUid: a read completed for this uid (a null record is then a fact, not "not yet")
 
     async function _cstFetch() {
       /* THE CACHE BELONGS TO A PERSON, NOT TO A PAGE LOAD (2026-09-22). `_cstKnown`
@@ -132,21 +172,42 @@
         .limit(1);
       if (res.error) throw res.error;
       _cstKnown = (res.data && res.data[0]) || null;
+      _cstReadUid = _uid;
       return _cstKnown;
     }
 
-    /* The layer-2 gate. True = consent exists, caller proceeds inline.
-       False = the sheet is up and `then` re-enters the flow after a recorded
-       agree. Unreadable record fails closed to ASKING. */
-    window.fhConsentEnsure = async function (then) {
+    /* THE GATE (consent-gate-spec §6). One function for every door: the feature
+       names the version it needs; the sheet is scoped to that feature. True =
+       the need is met, the caller proceeds inline. False = the sheet is up and
+       `then` re-enters the flow after a recorded agree. Unreadable record fails
+       closed to ASKING. No session latch: a door tapped twice asks twice (CG3);
+       "Để sau" writes nothing and keeps nothing.
+       receipt_scan has its own kind and sheet (78-receipt-scan.js); the gate
+       hands that door to it so one call shape covers every feature. */
+    window.fhConsentNeed = async function (feature, then) {
+      var need = FH_CONSENT_NEEDS[feature] || FH_CONSENT_NEEDS.bank_email;
+      if (need.kind !== FH_CONSENT_KIND) return false;   // receipt scan keeps its own gate (78-receipt-scan.js asks on every use)
       var rec = null;
       try { rec = await _cstFetch(); } catch (e) { /* unreadable: ask again */ }
-      if (rec && rec.version >= FH_CONSENT_V) return true;
+      if (rec && rec.version >= need.v) return true;
       /* Hand the record over rather than letting the sheet fetch it again:
          one round trip, and the sheet renders in this turn instead of a
          microtask later, so the CTA does not sit dead after the tap. */
-      window.fhConsentSheet({ then: then, prior: rec, priorKnown: true });
+      window.fhConsentSheet({ then: then, prior: rec, priorKnown: true, feature: feature });
       return false;
+    };
+    /* The connect doors' name for the first-time gate (71, 74): the current
+       version, today's headline. Kept as an alias for one release. */
+    window.fhConsentEnsure = function (then) { return window.fhConsentNeed('bank_email', then); };
+
+    /* true | false | null: is this feature's need met, from what this tab has
+       already READ for the signed-in person. null = nothing read yet, which a
+       status row must draw as nothing, never as "off". */
+    window.fhConsentMet = function (feature) {
+      var need = FH_CONSENT_NEEDS[feature]; if (!need || need.kind !== FH_CONSENT_KIND) return null;
+      var _uid = (window.fhUser && window.fhUser.id) || '';
+      if (_cstReadUid !== _uid || _cstUid !== _uid) return null;
+      return !!(_cstKnown && _cstKnown.version >= need.v);
     };
 
     function _cstKicker(extra) {
@@ -612,16 +673,25 @@
           '<button class="btn-skip" onclick="fhConsentLater()">' + _esc(L('Để sau', 'Not now')) + '</button>';
       }
 
-      var changed = ro ? '' : _cstChangedBlock(FH_CONSENT_KIND, accepted, FH_CONSENT_V);
+      /* A scoped door (consent-gate-spec §3.2): the kicker keeps its legal label
+         and names the feature after it; the title is the verb the row's outcome
+         and the toast use; the lead is one sentence in .sheet-sub; the change
+         block holds the feature's own entry. The first-time door (bank_email)
+         and the read-only sheet keep today's headline. */
+      var need = (!ro && opts.feature && FH_CONSENT_NEEDS[opts.feature]) || null;
+      var scoped = !!(need && need.title);
+      var changed = ro ? '' : _cstChangedBlock(FH_CONSENT_KIND, accepted, FH_CONSENT_V, scoped ? need.v : 0);
       _fhSheet(
-        _cstKicker(L('EMAIL NGÂN HÀNG', 'BANK EMAIL')) +
-        '<div class="sheet-h">' + _esc(L('Ngân hàng gửi, Earthy niêm phong, nhà bạn mở.', 'Your bank sends it, Earthy seals it, your family opens it.')) + '</div>' +
+        _cstKicker(need ? L(need.kicker[0], need.kicker[1]) : L('EMAIL NGÂN HÀNG', 'BANK EMAIL')) +
+        '<div class="sheet-h">' + _esc(scoped ? L(need.title[0], need.title[1])
+          : L('Ngân hàng gửi, Earthy niêm phong, nhà bạn mở.', 'Your bank sends it, Earthy seals it, your family opens it.')) + '</div>' +
+        (scoped ? '<div class="sheet-sub">' + _esc(L(need.lead[0], need.lead[1])) + '</div>' : '') +
         (ro ? '' : changed) +
         (changed ? _cstFullTextFold(rows, FH_CONSENT_V) : '<div class="cst-body">' + rows + '</div>') +
         footer);
 
       window._cstThen = ro ? null : (opts.then || null);
-      window._cstLater = ro ? null : (opts.later || null);
+      window._cstFeature = ro ? null : (opts.feature || null);
     };
 
     /* Ordered to the statutory triad -- what, why, how -- then the rest of
@@ -683,42 +753,72 @@
         _esc(L('Nếu không đồng ý, chỉ tính năng này không bật.', 'If you decline, only this feature stays off.')) + '</div>';
     }
 
-    /* "Để sau". On the blocking gate this only closes the sheet, as it always has.
-       On the soft offer below it also carries on to where the person was going. */
+    /* "Để sau": the sheet closes and nothing else happens. Nothing is recorded,
+       nothing is remembered; the next tap on the same door asks again (CG3).
+       The once-per-session soft offer that used to live here (the "offer" path,
+       2026-09) is gone: a person who tapped Để sau once stayed below v5 with
+       nothing ever saying so. The status rows below are what says so now. */
     window.fhConsentLater = function () {
-      var later = window._cstLater; window._cstLater = null; window._cstThen = null;
+      window._cstThen = null; window._cstFeature = null;
       _closeOv();
-      if (typeof later === 'function') later();
     };
 
-    /* The SOFT offer, for someone already connected under an older text.
-       A new version that adds processing (v5: statement files are stored) must not
-       switch off what they already agreed to -- bank-email capture carries on under
-       their existing consent -- but the new part stays off until they say yes. So the
-       sheet is shown once per session on the way into the email review, with what
-       changed at the top, and BOTH answers continue to the review. The statement
-       lane on the server checks the recorded version itself (statement.mjs), so
-       "Để sau" genuinely means no statement is captured.
-       Returns true = nothing to offer, carry on now; false = the sheet is up and
-       `go` runs after either answer. */
-    window.fhConsentOffer = async function (go) {
-      var rec = null;
-      try { rec = await _cstFetch(); } catch (e) { return true; }
-      if (rec && rec.version >= FH_CONSENT_V) return true;         // current: nothing to say
-      /* NO RECORD AT ALL, yet here they are on the way into the review: the
-         comment this replaces said "the connect flow asks", which is true only
-         for someone not connected yet. A mailbox connected while the cache
-         above was lying (see _cstFetch) leaves a person nothing would EVER ask
-         again, and no statement is captured for as long as that holds. Asking
-         here is the only way back. */
-      if (!rec) {
-        var _conn = null;
-        try { _conn = window.fhAutoTxnConnection ? await window.fhAutoTxnConnection() : null; } catch (eC) {}
-        if (!_conn) return true;                                   // not connected: the connect flow asks
+    /* ── the status rows (consent-gate-spec §7) ──────────────────────────────
+       One row per email sub-feature, in the privacy sheet's own row grammar
+       (_cstNavRow: glyph · title · muted value · chevron). An "Đang tắt" row
+       opens the scoped sheet; an "Đang bật" row opens the read-only text, so
+       the chevron always navigates. Drawn by the review queue (only the rows
+       that are off, under its cards), by the queue's empty sheet, and by
+       Settings → Email ngân hàng (every row, with its state). Nothing read yet
+       for this person draws nothing: a false "off" would be a lie on the screen
+       that exists to tell the truth. */
+    var _CST_STATUS_FEATURES = ['statements', 'receipts'], _cstPrimedUid = null;
+    function _cstStatusRow(feature, on) {
+      var need = FH_CONSENT_NEEDS[feature];
+      var call = on ? "fhConsentReview('" + FH_CONSENT_KIND + "')" : "fhConsentTap('" + feature + "')";
+      return '<button class="cst-lrow" data-cst="' + feature + '" onclick="' + call + '">' +
+        '<span class="cst-ic">' + _mbxGlyph(need.glyph) + '</span>' +
+        '<span class="cst-ltxt"><span class="cst-lt">' + _esc(L(need.row[0], need.row[1])) + '</span></span>' +
+        '<span class="cst-val">' + _esc(on ? L('Đang bật', 'On') : L('Đang tắt', 'Off')) + '</span>' +
+        _CST_CHEV + '</button>';
+    }
+    window.fhConsentStatusHTML = function (opts) {
+      opts = opts || {};
+      var feats = opts.features || _CST_STATUS_FEATURES, rows = '', unknown = false;
+      feats.forEach(function (f) {
+        var met = window.fhConsentMet(f);
+        if (met === null) { unknown = true; return; }
+        if (opts.onlyOff && met) return;
+        rows += _cstStatusRow(f, met);
+      });
+      var _uid = (window.fhUser && window.fhUser.id) || '';
+      if (unknown && _cstPrimedUid !== _uid) {          // first paint before the first read, per person: read, then repaint
+        _cstPrimedUid = _uid;
+        _cstFetch().then(function () { window.fhConsentStatusRefresh(); }).catch(function () { _cstPrimedUid = null; });
       }
-      try { if (sessionStorage.getItem('fh-cst-offered') === String(FH_CONSENT_V)) return true; sessionStorage.setItem('fh-cst-offered', String(FH_CONSENT_V)); } catch (e) {}
-      window.fhConsentSheet({ then: go, later: go, prior: rec, priorKnown: true });
-      return false;
+      if (!rows) return '';
+      var eyebrow = (opts.eyebrow === undefined) ? L('Đọc từ email', 'From email') : opts.eyebrow;
+      return '<div class="rcs" data-cst-status="1">' +
+        (eyebrow ? '<div class="atx-seq-lbl">' + _esc(eyebrow) + '</div>' : '') +
+        '<div class="cst-group">' + rows + '</div>' +
+        (opts.foot ? '<div class="cst-foot">' + _esc(opts.foot) + '</div>' : '') +
+        '</div>';
+    };
+    window.fhConsentTap = async function (feature) {
+      var met = await window.fhConsentNeed(feature, window.fhConsentStatusRefresh);
+      if (met) window.fhConsentStatusRefresh();        // met meanwhile (another device agreed): the row was stale
+    };
+    /* Every surface that drew a block re-asks for it. The queue goes through its
+       own render, whose signature carries the block, so an unchanged state is
+       one skipped paint (device-heat B) and a changed one is one paint. */
+    window.fhConsentStatusRefresh = function () {
+      try {
+        var m = document.getElementById('csv-import-modal');
+        if (window.csvStagedMode && m && m.classList.contains('on') && typeof renderCsvReview === 'function') renderCsvReview();
+      } catch (e) {}
+      try { var s = document.getElementById('sheet-cst'); if (s) s.innerHTML = window.fhConsentStatusHTML({ onlyOff: true }); } catch (e) {}
+      try { var a = document.getElementById('atx-cst'); if (a) a.innerHTML = window.fhConsentStatusHTML({}); } catch (e) {}
+      try { if (window.fhReceiptStoresPaint && document.getElementById('atx-rc')) window.fhReceiptStoresPaint(); } catch (e) {}
     };
 
     window.fhConsentAgree = async function (btn) {
@@ -731,8 +831,16 @@
         return;
       }
       _cstKnown = { version: FH_CONSENT_V, consented_at: new Date().toISOString() };
+      _cstReadUid = _cstUid;
       var then = window._cstThen; window._cstThen = null;
+      var feat = window._cstFeature; window._cstFeature = null;
       _closeOv();
+      /* The toast is the row's outcome in words (DESIGN §4.2: after the write
+         landed, which it just did). The first-time door says nothing extra: its
+         own flow continues on the next screen. */
+      var need = feat && FH_CONSENT_NEEDS[feat];
+      if (need && need.done && window.toast) window.toast(L(need.done[0], need.done[1]));
+      try { window.fhConsentStatusRefresh(); } catch (e) {}
       if (typeof then === 'function') then();
     };
 

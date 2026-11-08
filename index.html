@@ -4861,6 +4861,8 @@ button.csv-srow:active{background:var(--surface)}
 .stm-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
 .stm-title{font-size:14.5px;font-weight:700;color:var(--ink);letter-spacing:-.1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .stm-sub{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* a card this build cannot read says why, in full (pdf-statements-spec §3) */
+.stm-card.unread .stm-sub{white-space:normal;line-height:1.4}
 .stm-tap .chev{color:var(--chev);flex-shrink:0}
 /* The line a staged statement leaves where its card stood (77 _stmNotesHTML): a
    card's shape without a card's weight, so it reads as a receipt, not as work. */
@@ -5808,9 +5810,9 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
         <div class="csv-empty-t" data-t="csvEmptyT">Bring your history along</div>
         <div class="csv-empty-s" data-t="csvEmptyS">A CSV or Excel file from your bank or your old expense app — we'll read it, sort it, and you check before anything's added.</div>
         <button type="button" class="btn-line" style="width:100%;margin:16px 0 0" onclick="document.getElementById('csv-file-input').click()" data-t="csvChoose">Choose a file</button>
-        <div class="csv-empty-hint" data-t="csvHint">CSV or Excel (.xlsx) · Vietcombank · MB Bank · Money Lover · Misa</div>
+        <div class="csv-empty-hint" data-t="csvHint">CSV, Excel (.xlsx) or PDF · Vietcombank · MB Bank · Money Lover · Misa</div>
       </div>
-      <input type="file" id="csv-file-input" multiple accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onchange="onCsvFileSelected(this)" style="display:none">
+      <input type="file" id="csv-file-input" multiple accept=".csv,.xlsx,.pdf,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/pdf" onchange="onCsvFileSelected(this)" style="display:none">
     </div>
     <div id="csv-result"></div>
   </div>
@@ -15897,6 +15899,26 @@ function csvReadOneFile(file, password){
       reject(new Error(L('Tụi mình đọc được file CSV và Excel (.xlsx). Với định dạng này, bạn mở ra rồi lưu thành CSV hoặc .xlsx nhé.','We can read CSV and Excel (.xlsx). For this format, open it and save as CSV or .xlsx.')));
       return;
     }
+    /* A PDF statement (pdf-statements-spec PS17): the same grid builder and
+       table finder the statement card uses, so the manual door and the card
+       read one way. The header row and the body rows become {headers, rows}
+       for the column mapper; the preamble and the totals stay out. */
+    if(/\.pdf$/i.test(file.name)){
+      if(!window.fhPdfGrid){ reject(new Error(L('Bản này chưa đọc được file PDF.','This build cannot read PDF files.'))); return; }
+      file.arrayBuffer().then(function(buf){ return window.fhPdfGrid(new Uint8Array(buf), password); }).then(function(grid){
+        var table = (typeof fhStmtFindTable === 'function') ? fhStmtFindTable(grid) : null;
+        if(!table || !table.body.length){ reject(new Error(L('Không thấy bảng giao dịch trong file PDF này.','No transaction table found in this PDF.'))); return; }
+        resolve({ headers: table.headers, rows: table.body.map(function(b){ return b.cells; }) });
+      }, function(err){
+        var code = (err && err.message) || '';
+        if(code === 'pdf_encrypted'){ var e4 = new Error('xlsx_encrypted'); e4.locked = true; reject(e4); return; }
+        if(code === 'bad_password'){ var e5 = new Error('bad_password'); e5.locked = true; e5.wrong = true; reject(e5); return; }
+        if(code === 'pdf_scanned'){ reject(new Error(L('File PDF này là ảnh chụp, app chưa đọc được. Nếu ngân hàng có bản Excel/CSV, chọn file đó.','This PDF is a scan, which the app cannot read yet. If your bank offers Excel/CSV, pick that file.'))); return; }
+        if(code === 'pdf_lib'){ reject(new Error(L('Chưa tải được bộ đọc PDF. Kiểm tra mạng rồi thử lại nhé.','Could not load the PDF reader. Check your connection and try again.'))); return; }
+        reject(new Error(L('Không đọc được file PDF này.','Could not read this PDF.')));
+      });
+      return;
+    }
     if(/\.xlsx$/i.test(file.name)){
       if(!(window.fhXlsxSupported && window.fhXlsxSupported())){
         reject(new Error(L('Trình duyệt này chưa đọc được file Excel. Bạn lưu thành CSV giúp nhé.','This browser can\'t open Excel files yet. Save it as CSV instead.')));
@@ -19672,6 +19694,7 @@ function csvReviewSigCompute(){
   push(safe(function(){ return ((window.FAM && window.FAM.members) || []).map(function(m){ return m.name; }).join('|'); }));
   var rows = window._fhStagedRows || null; push(_csvIdTick('rows', rows)); push(rows ? rows.length : -1);
   push(safe(function(){ return csvPersonalSig(); }));
+  push(safe(function(){ return (csvStagedMode && typeof window.fhConsentMet === 'function') ? String(window.fhConsentMet('statements'))+'/'+String(window.fhConsentMet('receipts')) : ''; }));   // the consent rows' state, pure (the painter may start a read)
   push(safe(function(){ return (csvStagedMode && typeof window.fhStmtCardsHTML === 'function') ? window.fhStmtCardsHTML() : ''; }));
   push(safe(function(){ return (csvStagedMode && typeof csvRulesSumHTML === 'function') ? csvRulesSumHTML() : ''; }));
   push(safe(function(){ return (typeof fhRulesList === 'function') ? J(fhRulesList()) : ''; }));
@@ -19908,6 +19931,10 @@ function renderCsvReview(){ window.fhHeat&&fhHeat.tick('renderCsvReview');
     html += csvSpendPanel(r);   // the file breakdown panel is import-only
   }
 
+  // Something is off by consent (consent-gate-spec CG5, 75-consent-ui): one row per
+  // email sub-feature below the person's recorded version, on EVERY open, above
+  // everything else. Agreeing repaints through the signature below.
+  if(csvStagedMode && typeof window.fhConsentStatusHTML === 'function') html += '<div id="csv-cst">'+window.fhConsentStatusHTML({ onlyOff:true, eyebrow:'' })+'</div>';   // no eyebrow in the queue (the approved target): a stack of cards needs none
   // Statement files waiting to be opened (77-statement-capture.js): one locked
   // card each, above everything else. Opening one turns it into ordinary rows in
   // the buckets below, so this is the only statement-specific thing on the screen.
@@ -23671,6 +23698,10 @@ var STMT_ROLES = [
   ['balance',     ['so du', 'balance', 'du no']],
   ['debit',       ['ghi no', 'debit', 'phat sinh no', 'rut ra', 'so tien ghi no', 'tien ra', 'withdrawal']],
   ['credit',      ['ghi co', 'credit', 'phat sinh co', 'gui vao', 'so tien ghi co', 'tien vao', 'deposit']],
+  /* a card statement's "Số tiền giao dịch gốc / Original Amount" carries the
+     currency; it is NOT the amount (pdf-statements-spec PS12). Before `amount`
+     so 'so tien' never claims it. */
+  ['fxAmount',    ['so tien giao dich goc', 'original amount', 'so tien goc', 'nguyen te']],
   ['amount',      ['so tien', 'amount', 'gia tri']],
   ['ref',         ['ma giao dich', 'ma gd', 'so tham chieu', 'so but toan', 'so ct', 'so chung tu', 'reference', 'transaction id', 'ref no', 'ref']],
   ['mcc',         ['mcc']],
@@ -23702,18 +23733,28 @@ function fhStmtHeaderSig(headerCells){
    amount. Body rows are the rows under it whose date cell is a date; everything
    else (preamble, sub-headers, totals) is kept as `notes` for the summary reader. */
 function fhStmtFindTable(grid, rolesOverride){
-  var headerIdx = -1, roles = null;
+  /* The header names a date, an amount and at least one more role. A bilingual
+     preamble (a PDF card statement) prints "Credit Limit" beside "Payment due
+     date", which the words alone read as credit + date; the real header names
+     more. The first usable row is the fallback, which is every file read before
+     PDFs arrived. */
+  var headerIdx = -1, roles = null, firstIdx = -1, firstRoles = null;
   for (var i = 0; i < grid.length && i < 80; i++) {
     var r = fhStmtRoles(grid[i] || []);
-    if (_stmtRolesUsable(r)) { headerIdx = i; roles = r; break; }
+    if (!_stmtRolesUsable(r)) continue;
+    if (firstIdx < 0) { firstIdx = i; firstRoles = r; }
+    if (Object.keys(r).length >= 3) { headerIdx = i; roles = r; break; }
   }
+  if (headerIdx < 0) { headerIdx = firstIdx; roles = firstRoles; }
   if (headerIdx < 0) return null;
   if (rolesOverride) roles = rolesOverride;
   var body = [], notes = [];
   for (var j = 0; j < grid.length; j++) {
     if (j === headerIdx) continue;
     var cells = grid[j] || [];
-    if (j > headerIdx && fhStmtDate(cells[roles.date])) body.push({ i: j, cells: cells });
+    /* a fee row on a card statement has no transaction date, only a post date
+       (pdf-statements-spec PS10): the post date is its day */
+    if (j > headerIdx && (fhStmtDate(cells[roles.date]) || (roles.postDate !== undefined && fhStmtDate(cells[roles.postDate])))) body.push({ i: j, cells: cells });
     else if (cells.some(function(x){ return String(x == null ? '' : x).trim() !== ''; })) notes.push(cells);
   }
   return { headerIdx: headerIdx, headers: (grid[headerIdx] || []).map(String), roles: roles, body: body, notes: notes };
@@ -23736,7 +23777,7 @@ var STMT_LABELS = [
      only this one is somebody else's. */
   ['limit',       ['han muc tin dung', 'credit limit']],
   ['stmtDate',    ['ngay sao ke', 'ngay in sao ke', 'statement date']],
-  ['dueDate',     ['ngay den han thanh toan', 'ngay den han', 'payment due date', 'due date']],
+  ['dueDate',     ['ngay den han thanh toan', 'ngay den han', 'thoi han thanh toan', 'payment due date', 'due date']],
   ['minPayment',  ['thanh toan toi thieu', 'minimum payment']],
   ['autoDebit',   ['so tk trich no', 'tai khoan trich no', 'auto debit account']],
   ['account',     ['so tai khoan', 'account number', 'so the chinh', 'primary card number', 'so vi']]
@@ -23784,7 +23825,7 @@ function fhStmtRead(table){
   var R = table.roles, rows = [], failed = 0;
   var cell = function(cells, role){ return R[role] === undefined ? '' : String(cells[R[role]] == null ? '' : cells[R[role]]).trim(); };
   table.body.forEach(function(b){
-    var when = fhStmtDate(b.cells[R.date]); if (!when) return;
+    var when = fhStmtDate(b.cells[R.date]) || (R.postDate !== undefined ? fhStmtDate(b.cells[R.postDate]) : null); if (!when) return;
     var amt = null;
     if (R.amount !== undefined) amt = fhStmtNum(b.cells[R.amount]);
     else {
@@ -23794,8 +23835,16 @@ function fhStmtRead(table){
     if (amt === null || amt === 0) return;
     if (R.status !== undefined && _stmtHas(stmtWords(b.cells[R.status]), STMT_FAILED)) { failed++; return; }
     var bal = R.balance !== undefined ? fhStmtNum(b.cells[R.balance]) : null;
+    /* the original amount with its currency: "12.50 USD" is a foreign purchase
+       (fx on the row), "45,000 VND" is nothing new */
+    var fx = null;
+    if (R.fxAmount !== undefined) {
+      var fxRaw = cell(b.cells, 'fxAmount'), fxCur = (fxRaw.match(/\b([A-Z]{3})\b/) || [])[1] || '';
+      var fxNum = fhStmtNum(fxRaw.replace(/[A-Z]{3}/g, ''));
+      if (fxCur && fxCur !== 'VND' && fxCur !== 'VNĐ' && fxNum !== null) fx = { amount: Math.abs(fxNum), currency: fxCur };
+    }
     rows.push({
-      i: b.i, date: when.date, time: when.time, key: when.key, amt: amt, bal: bal,
+      i: b.i, date: when.date, time: when.time, key: when.key, amt: amt, bal: bal, fx: fx,
       description: cell(b.cells, 'description').replace(/\s+/g, ' '),
       ref: cell(b.cells, 'ref'), mcc: (cell(b.cells, 'mcc').match(/\d{4}/) || [''])[0],
       fromAcct: cell(b.cells, 'fromAcct'), fromName: cell(b.cells, 'fromName'),
@@ -29666,7 +29715,7 @@ var EN_DEFAULT={
   qaSuggestT:'Share feedback', qaSuggestS:'An idea or something you wish for',
   qaCsvT:'Import from file', qaCsvS:'Bring in a CSV from your bank or another app',
   /* csv import modal */
-  csvModalTitle:'Import from file', csvEmptyT:'Bring your history along', csvEmptyS:'A CSV or Excel file from your bank or your old expense app — we\'ll read it, sort it, and you check before anything\'s added.', csvChoose:'Choose a file', csvHint:'CSV or Excel (.xlsx) · Vietcombank · MB Bank · Money Lover · Misa', csvPickAgain:'Choose a different file', csvSave:'Import',
+  csvModalTitle:'Import from file', csvEmptyT:'Bring your history along', csvEmptyS:'A CSV or Excel file from your bank or your old expense app — we\'ll read it, sort it, and you check before anything\'s added.', csvChoose:'Choose a file', csvHint:'CSV, Excel (.xlsx) or PDF · Vietcombank · MB Bank · Money Lover · Misa', csvPickAgain:'Choose a different file', csvSave:'Import',
   /* suggest modal */
   suggestTitle:'We hear you 💛', suggestSub:'An idea, a gripe, a feature you wish existed — tell us anything.',
   founderNote:'We read every note. Thanks for helping us make it better.',
@@ -29781,7 +29830,7 @@ var I18N={
     qaSuggestT:'Góp ý', qaSuggestS:'Một ý tưởng hay điều bạn mong muốn',
     qaCsvT:'Nhập từ file', qaCsvS:'Đưa dữ liệu CSV từ ngân hàng hoặc app khác vào',
     /* csv import modal */
-    csvModalTitle:'Nhập từ file', csvEmptyT:'Mang cả lịch sử chi tiêu theo nhé', csvEmptyS:'File CSV hoặc Excel từ ngân hàng hay app chi tiêu cũ — tụi mình đọc và tự xếp, bạn xem lại rồi mới nhập.', csvChoose:'Chọn file', csvHint:'File CSV hoặc Excel (.xlsx) · Vietcombank · MB Bank · Money Lover · Misa', csvPickAgain:'Chọn file khác', csvSave:'Nhập',
+    csvModalTitle:'Nhập từ file', csvEmptyT:'Mang cả lịch sử chi tiêu theo nhé', csvEmptyS:'File CSV hoặc Excel từ ngân hàng hay app chi tiêu cũ — tụi mình đọc và tự xếp, bạn xem lại rồi mới nhập.', csvChoose:'Chọn file', csvHint:'File CSV, Excel (.xlsx) hoặc PDF · Vietcombank · MB Bank · Money Lover · Misa', csvPickAgain:'Chọn file khác', csvSave:'Nhập',
     /* suggest modal */
     suggestTitle:'Tụi mình nghe bạn nè 💛', suggestSub:'Một ý tưởng, một điều chưa ưng, hay tính năng bạn ước có — kể tụi mình nghe hết nha.',
     founderNote:'Tụi mình đọc hết mọi góp ý. Cảm ơn bạn đã giúp app tốt hơn nha.',
@@ -31452,7 +31501,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v633';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v634';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -31473,6 +31522,20 @@ var ICO = {
 };
 
 var RELEASES = [
+  { id:'2026-11-08-sao-ke-pdf', date:'2026-11-08', time:'16:00', ver:'v634', icon:ICO.envelope,
+    vi:{ t:'Sao kê PDF giờ đọc được',
+      problem:'Nhiều ngân hàng gửi sao kê thẻ dạng PDF có mật khẩu. Trước giờ app chỉ nhận file Excel và CSV, nên sao kê PDF về hộp thư mà không thấy đâu trong mục duyệt, cũng không ai báo.',
+      sol:'App giờ nhận sao kê PDF như file Excel: thẻ sao kê hiện trong mục duyệt, bạn nhập mật khẩu một lần ngay trên máy, các khoản vào hàng chờ để bạn xem rồi mới ghi. File lạ chưa đọc được vẫn hiện thành thẻ và nói rõ vì sao, kèm đường chọn file từ máy.' },
+    en:{ t:'PDF statements now read',
+      problem:'Many banks email card statements as a locked PDF. The app only took Excel and CSV, so a PDF statement landed in the mailbox and never showed up in Review, with nothing saying so.',
+      sol:'The app now takes PDF statements like Excel files: the statement card shows in Review, you type the password once on your device, and the rows wait for your check before anything is written. A file it cannot read yet still shows as a card that says why, with a way to pick the file yourself.' } },
+  { id:'2026-11-08-bat-tung-phan', date:'2026-11-08', time:'16:00', ver:'v634', icon:ICO.shield,
+    vi:{ t:'Bật từng phần đọc email, ngay chỗ bạn cần',
+      problem:'Đọc sao kê và hoá đơn từ email cần bạn đồng ý thêm một điều, nhưng tờ đồng ý chỉ hiện một lần mỗi phiên. Bấm Để sau một lần là phần đó im lặng tắt luôn, không chỗ nào cho biết.',
+      sol:'Giờ mục Duyệt giao dịch và Cài đặt có hàng riêng cho từng phần: Sao kê từ email, Hoá đơn từ cửa hàng. Phần nào đang tắt thì ghi rõ, chạm vào là đọc đúng điều cần đồng ý và bật ngay tại chỗ. Để sau thì vẫn để sau, lần tới chạm lại hỏi lại.' },
+    en:{ t:'Switch on each email feature right where you need it',
+      problem:'Reading statements and receipts from email needs one more agreement, but the sheet showed once a session. One tap on Not now and that part quietly stayed off, with nothing telling you.',
+      sol:'Review and Settings now carry a row for each part: Statements from email, Store receipts. A part that is off says so, and a tap shows exactly what to agree to and switches it on there. Not now still means not now, and the next tap asks again.' } },
   { id:'2026-10-10-quet-hoa-don', date:'2026-10-10', time:'15:00', ver:'v625', icon:ICO.camera,
     vi:{ t:'Chụp hóa đơn, app tự ghi (Beta)',
       problem:'Trả bằng MoMo hay tiền mặt thì chẳng có email nào báo về, nên những khoản đó phải tự gõ lại, mà gõ lúc đang đứng ở quầy thì hay quên.',
@@ -42212,6 +42275,250 @@ window.obGoogle = async function () {
   window.fhParseXlsxFile = fhParseXlsxFile;
   window.fhXlsxSupported = _xlsxSupported;
 
+  /* ═══ PDF statement → the spreadsheet grid (pdf-statements-spec.md §11) ═══
+     A bank's PDF statement is read on the device, like a locked workbook: pdf.js
+     opens it (password callback included), gives every page's text items with
+     their coordinates, and this file turns those items into the same grid of
+     rows and cells 42-xlsx-parse.js hands over -- so 59-statement-table.js
+     (table finder, proof, classifier, account facts) needs no PDF branch.
+
+     What the one real file taught (spec §4, Techcombank card, 3 pages):
+       - ONE header, on page 1, bilingual over two text lines; pages 2-3
+         continue with no header and every column keeps its x. So the header's
+         column ranges are found once and carried across every page, never
+         re-detected per page.
+       - a description spans two lines; a fee row has no transaction date, only
+         a post date; the totals block and a glossary follow the table.
+     Rules: rows = items clustered by y; cells = items joined across small gaps;
+     columns = the header cells' x-ranges, a cell assigned by its CENTRE (figures
+     are right-aligned and a wide one starts left of its heading); a row whose
+     cells all sit in the last column joins the row above (the second line of a
+     description); the second header line, digit-free and inside the columns,
+     merges into the header so both languages name the roles; a bare date on a
+     line of its own in the preamble joins the line above it (a due date printed
+     under its time).
+
+     pdf.js is vendored (vendor/pdfjs/, pinned to pdfjs-dist by
+     tools/vendor-pin.test.js) and loaded on the first PDF open, never precached:
+     1.3 MB would double every service-worker bump. Its own worker runs the
+     parsing and the AES key derivation off the main thread.
+
+     Pure where it can be: fhPdfItemsToGrid takes items and returns a grid, so
+     tools/pdf-grid.test.js runs the REAL builder on items pdfjs-dist extracts
+     under Node from the synthetic fixture. fhPdfGrid is the browser door. */
+  (function () {
+    const PDF_LIB = './vendor/pdfjs/pdf.min.mjs', PDF_WORKER = './vendor/pdfjs/pdf.worker.min.mjs';   // relative on purpose: a bare specifier does not resolve in a module
+    let _lib = null;
+    window.fhPdfReady = function () {
+      if (!_lib) {
+        _lib = import(PDF_LIB).then((m) => { m.GlobalWorkerOptions.workerSrc = PDF_WORKER; return m; })
+          .catch((e) => { _lib = null; throw e; });
+      }
+      return _lib;
+    };
+    /* Does this build read this extension? The card for a file nobody reads yet
+       (spec §3) asks exactly this; the server never has an opinion. */
+    window.fhStmtReaders = function () { return { xlsx: true, csv: true, pdf: true }; };
+
+    const _isDate = (s) => /^\s*\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}\s*$/.test(String(s || ''));
+    const _isPageNo = (s) => /^\s*\d{1,3}\s*\/\s*\d{1,3}\s*$/.test(String(s || ''));
+
+    /* items: [{str, x, y, w, h}] with y measured from the TOP of the page, per
+       page in order. Returns the grid: an array of rows, each an array of cell
+       strings. opts.roles / opts.usable are 59's fhStmtRoles / _stmtRolesUsable
+       (window globals in the app; handed in by the test). */
+    function fhPdfItemsToGrid(pages, opts) {
+      opts = opts || {};
+      const roles = opts.roles || window.fhStmtRoles, usable = opts.usable || window._stmtRolesUsable;
+      /* 1. rows: cluster by y per page, read top to bottom; cells: items joined
+            across gaps smaller than half a glyph height */
+      const rows = [];
+      (pages || []).forEach((pg, pi) => {
+        const items = (pg.items || []).filter((it) => it && String(it.str).trim() !== '')
+          .slice().sort((a, b) => (a.y - b.y) || (a.x - b.x));
+        let cur = null;
+        items.forEach((it) => {
+          const tol = Math.max(2, (it.h || 10) * 0.4);
+          if (!cur || Math.abs(it.y - cur.y) > tol) { cur = { page: pi, y: it.y, items: [] }; rows.push(cur); }
+          cur.items.push(it);
+        });
+      });
+      rows.forEach((r) => {
+        r.items.sort((a, b) => a.x - b.x);
+        const cells = [];
+        r.items.forEach((it) => {
+          const last = cells[cells.length - 1];
+          const gap = last ? it.x - last.x1 : Infinity;
+          const glue = Math.max(3, (it.h || 10) * 0.5);
+          if (last && gap < glue) { last.text += (gap > 0.8 ? ' ' : '') + it.str; last.x1 = Math.max(last.x1, it.x + (it.w || 0)); }
+          else cells.push({ x0: it.x, x1: it.x + (it.w || 0), text: it.str });
+        });
+        cells.forEach((c) => { c.text = c.text.replace(/\s+/g, ' ').trim(); });
+        r.cells = cells.filter((c) => c.text !== '');
+      });
+
+      /* 2. the header. Headings are printed as one text run each, often so close
+            that gap-merging joins two ("Ngày giao dịch Ngày cập nhật hệ") and the
+            date role is lost -- so the header is looked for on the RAW runs first,
+            and its column spans come from those runs' x. A row counts as the
+            header when it names a date, an amount and at least one more role: a
+            bilingual preamble prints "Credit Limit" beside "Payment due date",
+            which is a date and a credit by the words alone, and a real header
+            names more. Fallbacks: the gap-merged cells, then the first usable row. */
+      const rolesOf = (texts) => (roles ? roles(texts) : null);
+      const strong = (rl) => !!rl && (usable ? usable(rl) : (rl.date !== undefined)) && Object.keys(rl).length >= 3;
+      const weak = (rl) => !!rl && (usable ? usable(rl) : (rl.date !== undefined));
+      let h = -1, hv = null, first = null;
+      for (let i = 0; i < rows.length && i < 120; i++) {
+        const raw = rows[i].items.map((it) => ({ x0: it.x, x1: it.x + (it.w || 0), text: String(it.str).replace(/\s+/g, ' ').trim() })).filter((c) => c.text);
+        const variants = [raw, rows[i].cells];
+        for (const v of variants) {
+          const rl = rolesOf(v.map((c) => c.text));
+          if (strong(rl)) { h = i; hv = v; break; }
+          if (!first && weak(rl)) first = { i: i, v: v };
+        }
+        if (h >= 0) break;
+      }
+      if (h < 0 && first) { h = first.i; hv = first.v; }
+      const out = [];
+      if (h < 0) {                                   // no table: every line as it reads, for the summary and the "no table" card
+        rows.forEach((r) => out.push(r.cells.map((c) => c.text)));
+        return out;
+      }
+      /* 2a. the header's column spans come from its runs; the second header
+             line (bilingual), digit-free, folds into them so both languages
+             name the roles ("Ngày cập nhật hệ" + "thống Post Date") */
+      const head = rows[h], hcells = hv;
+      /* Column starts: each heading's x, SNAPPED to where the body's runs
+         actually start under it when they do so consistently (a tight cluster
+         of run starts within 12 pt of the heading). The real file prints its
+         descriptions a few points left of their heading, and a boundary on the
+         heading alone handed every memo to the credit column. Figures are
+         right-aligned and never cluster, so their columns keep the heading's x. */
+      const starts = {};
+      for (let i = h + 1; i < rows.length; i++) rows[i].items.forEach((it) => { const k = Math.round(it.x / 2) * 2; starts[k] = (starts[k] || 0) + 1; });
+      const bodyN = Math.max(1, rows.length - h - 1);
+      const snap = (x) => {
+        let best = x, bestN = 0;
+        Object.keys(starts).forEach((k) => { const kx = +k, n = starts[k]; if (Math.abs(kx - x) <= 12 && n > bestN && n >= Math.max(4, bodyN * 0.15)) { best = Math.min(x, kx); bestN = n; } });
+        return best;
+      };
+      const colX = hcells.map((c, i) => i === 0 ? c.x0 : snap(c.x0));
+      const spans = colX.map((x, i) => ({ x0: i === 0 ? -Infinity : x - 2, x1: i === colX.length - 1 ? Infinity : colX[i + 1] - 2 }));
+      /* a run belongs to the column its START falls in: a heading and the text
+         under it share a left edge, and a right-aligned figure starts at or after
+         its heading's start while its centre can stray into the next column (the
+         real file's credit figures did exactly that). Known limit: a figure wider
+         than its heading starts in the column before. */
+      const colOf = (c) => { for (let i = spans.length - 1; i >= 0; i--) if (c.x0 >= spans[i].x0) return i; return 0; };
+      let skip = -1;
+      const next = rows[h + 1];
+      if (next && next.page === head.page && !next.items.some((it) => /\d/.test(it.str))) {
+        const merged = hcells.map((c) => c.text);
+        next.items.forEach((it) => { const i = colOf({ x0: it.x, x1: it.x + (it.w || 0) }); merged[i] += ' ' + String(it.str).trim(); });
+        if (next.items.length) { head.merged = merged; skip = h + 1; }
+      }
+      /* 3. the preamble as it is, with a lone bare date rejoining the line it
+            belongs to: the nearest line above (up to three) whose last cell is a
+            clock time, else the line above. A due date printed under its time. */
+      for (let i = 0; i < h; i++) {
+        const texts = rows[i].cells.map((c) => c.text);
+        if (texts.length === 1 && _isDate(texts[0]) && out.length) {
+          let k = out.length - 1;
+          for (let back = out.length - 1; back >= Math.max(0, out.length - 3); back--) {
+            if (/^\d{1,2}:\d{2}$/.test(out[back][out[back].length - 1] || '')) { k = back; break; }
+          }
+          const prev = out[k];
+          prev[prev.length - 1] = (texts[0] + ' ' + prev[prev.length - 1]).trim();
+        } else out.push(texts);
+      }
+      out.push((head.merged || hcells.map((c) => c.text)).map((x) => x.replace(/\s+/g, ' ').trim()));
+      const headerIdx = out.length - 1, lastCol = spans.length - 1;
+      const hr = roles ? roles(out[headerIdx]) : {};
+      const dateCols = [hr.date, hr.postDate].filter((x) => x !== undefined);
+      const numCols = new Set(['debit', 'credit', 'amount', 'balance', 'fxAmount'].map((k) => hr[k]).filter((x) => x !== undefined));
+      /* pdf.js glues a figure to the words that follow it when the gap is under a
+         space ("5,386,180 Thanh toan no the tin dung …" came as ONE run, starting
+         in the credit column). A run that starts in a figure column and reads as
+         a figure followed by words is split: the figure stays, the words move to
+         where they would have started. */
+      const FIG = /^(-?[\d][\d.,]*\s*(?:[A-Z]{3})?)\s+(\S.*)$/;
+      const split = (c) => {
+        if (!numCols.has(colOf(c))) return [c];
+        const m = FIG.exec(c.text); if (!m) return [c];
+        const at = c.x0 + (c.x1 - c.x0) * ((m[1].length + 1) / c.text.length);
+        return [{ x0: c.x0, x1: at, text: m[1].trim() }, { x0: at, x1: c.x1, text: m[2].trim() }];
+      };
+
+      /* 4. every later row lands in the header's columns, across pages */
+      let lastBody = -1;
+      for (let i = h + 1; i < rows.length; i++) {
+        if (i === skip) continue;
+        const runs = rows[i].items.map((it) => ({ x0: it.x, x1: it.x + (it.w || 0), text: String(it.str).replace(/\s+/g, ' ').trim() })).filter((c) => c.text && !_isPageNo(c.text)).flatMap(split);
+        if (!runs.length) continue;
+        const row = new Array(spans.length).fill('');
+        const used = new Set();
+        runs.forEach((c) => { const k = colOf(c); row[k] = (row[k] ? row[k] + ' ' : '') + c.text; used.add(k); });
+        const hasDate = dateCols.some((k) => _isDate(row[k]));
+        /* the second line of a description: only the last column is filled and
+           the row above is a body row */
+        if (!hasDate && used.size === 1 && used.has(lastCol) && lastBody >= 0 && lastBody === out.length - 1) {
+          out[lastBody][lastCol] = (out[lastBody][lastCol] + ' ' + row[lastCol]).trim();
+          continue;
+        }
+        if (hasDate) { out.push(row); lastBody = out.length - 1; continue; }
+        /* anything else after the table (the totals block, the glossary) keeps
+           its gap-merged cells, so a bilingual label stays one cell and its
+           figure is the next one, which is how the summary reader expects it */
+        out.push(rows[i].cells.map((c) => c.text).filter((x) => !_isPageNo(x)));
+      }
+      return out;
+    }
+    window.fhPdfItemsToGrid = fhPdfItemsToGrid;
+
+    /* The browser door: bytes (+ password) → grid. Throws the codes the
+       statement flow already maps: 'pdf_encrypted' (needs a password),
+       'bad_password', 'pdf_scanned' (no text layer), 'pdf_unsupported'. */
+    window.fhPdfGrid = async function (bytes, password) {
+      let lib;
+      try { lib = await window.fhPdfReady(); }
+      catch (e) { throw new Error('pdf_lib'); }        // the reader could not be fetched (offline, or a blocked module): say so, never "unreadable"
+      const data = new Uint8Array(bytes instanceof ArrayBuffer ? bytes.slice(0) : bytes);   // pdf.js transfers the buffer to its worker: hand it a copy, whatever the caller holds
+      let doc;
+      try {
+        doc = await lib.getDocument({ data: data, password: password || undefined, isEvalSupported: false, useWorkerFetch: false, stopAtErrors: false }).promise;
+      } catch (e) {
+        if (e && e.name === 'PasswordException') throw new Error(e.code === 2 ? 'bad_password' : 'pdf_encrypted');
+        throw new Error('pdf_unsupported');
+      }
+      const pages = [];
+      try {
+        for (let p = 1; p <= doc.numPages; p++) {
+          const page = await doc.getPage(p);
+          const vp = page.getViewport({ scale: 1 });
+          const tc = await page.getTextContent();
+          pages.push({ height: vp.height, items: (tc.items || []).filter((it) => it.str && it.str.trim()).map((it) => ({
+            str: it.str, x: it.transform[4], y: vp.height - it.transform[5], w: it.width || 0, h: Math.abs(it.transform[3]) || it.height || 10 })) });
+          try { page.cleanup(); } catch (e2) {}
+        }
+      } finally { try { await doc.destroy(); } catch (e3) {} }
+      if (!pages.some((pg) => pg.items.length)) throw new Error('pdf_scanned');
+      return fhPdfItemsToGrid(pages);
+    };
+    /* pdfjs-dist's way of reading items, in one place, so the Node test and the
+       app extract the same shape (the test passes its own `lib`). */
+    window.fhPdfPagesOf = async function (lib, bytes, password, extra) {
+      const doc = await lib.getDocument(Object.assign({ data: new Uint8Array(bytes), password: password || undefined, isEvalSupported: false, useWorkerFetch: false }, extra || {})).promise;
+      const pages = [];
+      for (let p = 1; p <= doc.numPages; p++) {
+        const page = await doc.getPage(p), vp = page.getViewport({ scale: 1 }), tc = await page.getTextContent();
+        pages.push({ height: vp.height, items: (tc.items || []).filter((it) => it.str && it.str.trim()).map((it) => ({
+          str: it.str, x: it.transform[4], y: vp.height - it.transform[5], w: it.width || 0, h: Math.abs(it.transform[3]) || it.height || 10 })) });
+      }
+      try { await doc.destroy(); } catch (e) {}
+      return pages;
+    };
+  })();
 /* ═══ Redact-before-sharing (CSV-IMPORT-ENCRYPTION.md) ═══════════════════════
    One shared utility for masking sample data before it leaves the device to
    a third-party model (Gemini today; the bank-email pipeline will need the
@@ -46798,6 +47105,10 @@ window.classifyAmount = classifyAmount;
     fwd:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 6.5 19 12l-6 5.5"/><path d="M19 12H8.5a4.5 4.5 0 0 0-4.5 4.5V18"/></svg>',
     copy:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2.4"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></svg>',
     done:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4 4 10-10.5"/></svg>',
+    /* the consent text's own marks for the two email sub-features (same paths
+       as 74's _ATX_SVG), so a status row and the consent row it opens match */
+    file:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 3.5H8.2a2.6 2.6 0 0 0-2.6 2.6v11.8a2.6 2.6 0 0 0 2.6 2.6h7.6a2.6 2.6 0 0 0 2.6-2.6V8.4z"/><path d="M13.5 3.5v4.9h4.9"/><path d="M9.2 12.6h5.6"/><path d="M9.2 16.2h3.6"/></svg>',
+    receipt: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.6v16.8l2-1.3 2 1.3 2-1.3 2 1.3 2-1.3 2 1.3V3.6z"/><path d="M9.4 8.4h5.2"/><path d="M9.4 12.2h5.2"/></svg>',
     bell:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15.4V11a6 6 0 1 0-12 0v4.4L4.6 17.9h14.8z"/><path d="M10 20.4a2.2 2.2 0 0 0 4 0"/></svg>',
     cam:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 8.6h3L9.2 6h5.6l1.7 2.6h3v9.8h-15z"/><circle cx="12" cy="13.2" r="3.1"/></svg>',
   };
@@ -47399,11 +47710,10 @@ window.classifyAmount = classifyAmount;
        • linked           → the review sheet, which itself shows an empty modal
                             when there is nothing, or the list of cards. */
   window.fhEmailTxnCta = async function (preset) {
-    /* Consent moved on (v5: statement files)? Offer it here, once a session, without
-       blocking: both answers carry on into this same function (75-consent-ui.js). */
-    if (window.fhConsentOffer) {
-      try { if (!(await window.fhConsentOffer(function () { window.fhEmailTxnCta(preset); }))) return; } catch (e) {}
-    }
+    /* A consent that moved on (v5 statements, v6 receipts) is no longer offered
+       here as a once-a-session sheet: the queue itself shows a status row per
+       feature that is off, on every open, and each row opens the sheet scoped
+       to that feature (consent-gate-spec CG5, CG6; 75-consent-ui.js). */
     /* The entry SOURCE is the context. Opening from the Cá nhân tab means "these
        are mine" and defaults the cards to the personal ledger — the same affordance
        openPersonalExpense() gives the expense modal; opening from a space (family)
@@ -48584,6 +48894,9 @@ window.classifyAmount = classifyAmount;
             '<span class="cc-ic">' + _mbxGlyph('check') + '</span>' +
             '<span class="cc-t">' + _esc(L('Ghi tay một khoản', 'Log one by hand')) + '</span></button>' : '') +
           '</div>') +
+        /* after the two doors the sentence above introduces: what is off by consent,
+           one row each, opening the sheet scoped to it (consent-gate-spec CG5) */
+        ((!locked && window.fhConsentStatusHTML) ? '<div id="sheet-cst">' + window.fhConsentStatusHTML({ onlyOff: true }) + '</div>' : '') +
         '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Đóng', 'Close')) + '</button>');
       return;
     }
@@ -50605,6 +50918,10 @@ window.classifyAmount = classifyAmount;
          or is still running. Rendered from the cached phase and filled in by
          _atxStatusProgress once the counts come back; a slot that starts empty
          and fills is honest, a number that starts wrong is not. */
+      /* consent-gate-spec CG5: the email sub-features and whether each is on,
+         one row each (75-consent-ui fhConsentStatusHTML); an off row opens the
+         sheet scoped to it, an on row the read-only text. */
+      '<div id="atx-cst">' + (window.fhConsentStatusHTML ? window.fhConsentStatusHTML({}) : '') + '</div>' +
       '<div id="atx-pg"></div>' +
       '<div id="atx-feed"></div>' +
       /* receipt-providers-spec §3.1: the stores whose receipts this mailbox
@@ -51908,6 +52225,36 @@ window.classifyAmount = classifyAmount;
 
      Write each line as the CHANGE, not the state: "we now also send X" beats
      "we protect your data". */
+  /* THE CONSENT EACH FEATURE NEEDS (consent-gate-spec §5). One monotone
+     bank_email version covers every email sub-feature; what differs per feature
+     is the version it was added in, and the words the sheet opens with when
+     that feature's own door is tapped. `v` is pinned to the worker's constants
+     by tools/consent-gate.test.js (STATEMENT_CONSENT_V, RECEIPT_CONSENT_V,
+     RECEIPT_REGISTRY_V), so client and lane can never name different numbers.
+     bank_email is the first-time door (connect): it asks for the CURRENT text,
+     because a connection made today is made under today's words, and keeps
+     today's headline (no title, no lead). `learn` (the statement-layout learn
+     step, v8) is added with that bump, not before. */
+  var FH_CONSENT_NEEDS = {
+    bank_email: { kind: 'bank_email', v: FH_CONSENT_V, kicker: ['EMAIL NGÂN HÀNG', 'BANK EMAIL'], title: null, lead: null },
+    statements: { kind: 'bank_email', v: 5, kicker: ['SAO KÊ TỪ EMAIL', 'STATEMENTS FROM EMAIL'],
+                  title: ['Bật sao kê từ email', 'Turn on statements from email'],
+                  lead:  ['Để đọc sao kê gửi kèm email, cần bạn đồng ý thêm một điều.', 'To read statements attached to your emails, there is one more thing to agree to.'],
+                  row:   ['Sao kê từ email', 'Statements from email'], glyph: 'file',
+                  done:  ['Đã bật sao kê từ email', 'Statements from email are on'] },
+    receipts:   { kind: 'bank_email', v: 6, kicker: ['HOÁ ĐƠN TỪ CỬA HÀNG', 'STORE RECEIPTS'],
+                  title: ['Bật hoá đơn từ cửa hàng', 'Turn on store receipts'],
+                  lead:  ['Để đọc hoá đơn từ cửa hàng, cần bạn đồng ý thêm một điều.', 'To read store receipts, there is one more thing to agree to.'],
+                  row:   ['Hoá đơn từ cửa hàng', 'Store receipts'], glyph: 'receipt',
+                  done:  ['Đã bật hoá đơn từ cửa hàng', 'Store receipts are on'] },
+    stores:     { kind: 'bank_email', v: 7, kicker: ['CHỌN CỬA HÀNG', 'CHOOSE STORES'],
+                  title: ['Chọn cửa hàng được đọc hoá đơn', 'Choose the stores we read receipts from'],
+                  lead:  ['Để tự chọn cửa hàng cho hộp thư này, cần bạn đồng ý thêm một điều.', 'To pick the stores for this mailbox, there is one more thing to agree to.'],
+                  row:   ['Chọn cửa hàng', 'Choose stores'], glyph: 'receipt',
+                  done:  ['Đã bật chọn cửa hàng', 'You can now choose stores'] },
+    scan:       { kind: 'receipt_scan', v: 1, kicker: ['QUÉT HOÁ ĐƠN', 'RECEIPT SCAN'], title: null, lead: null }
+  };
+
   var FH_CONSENT_CHANGES = {
     bank_email: {
       4: ['Lần đầu gặp một mẫu email của ngân hàng, email đó được gửi nguyên văn cho AI của Google một lần, để học cách đọc mẫu. Những email sau cùng mẫu không được gửi đi nữa.',
@@ -51957,25 +52304,35 @@ window.classifyAmount = classifyAmount;
   /* The block that leads a re-consent. Absent entirely for a first-time
      consent -- there is nothing to have changed, and a "what's new" box on a
      screen someone has never seen is noise. */
-  function _cstChangedBlock(kind, prior, current) {
+  /* `focusV` (a scoped door, consent-gate-spec §3.2): the block holds that one
+     version's entry and its footer counts the rest, which stay in the folded
+     full text, so the sheet for "Bật sao kê từ email" is about statements and
+     fits one screen with its buttons. */
+  function _cstChangedBlock(kind, prior, current, focusV) {
     if (!prior || !prior.version || prior.version >= current) return '';
-    var items = _cstChangesSince(kind, prior.version, current);
-    if (!items.length) return '';
+    var all = _cstChangesSince(kind, prior.version, current);
+    if (!all.length) return '';
+    var items = focusV ? all.filter(function (i) { return i.v === focusV; }) : all;
+    if (!items.length) items = all;
+    var rest = all.length - items.length;
     var when = prior.consented_at ? new Date(prior.consented_at) : null;
+    var foot = rest > 0
+      ? L('Bản hiện tại cũng gồm ' + rest + ' thay đổi khác, nằm trong toàn văn bên dưới.',
+          'The current text also carries ' + rest + ' other change' + (rest > 1 ? 's' : '') + ', in the full text below.')
+      : L('Bạn đã đồng ý bản v' + prior.version + (when ? ' ngày ' + fmtDayMon(when) : '') + '. Phần còn lại giữ nguyên.',
+          'You agreed to v' + prior.version + (when ? ' on ' + fmtDayMon(when) : '') + '. Everything else is unchanged.');
     return '<div class="cst-changed">' +
       '<div class="cst-changed-h">' + _esc(L('Có gì thay đổi từ lần trước',
                                              'What changed since you agreed')) + '</div>' +
       '<ul class="cst-changed-l">' +
         items.map(function (i) { return '<li>' + _esc(i.text) + '</li>'; }).join('') +
       '</ul>' +
-      '<div class="cst-changed-f">' + _esc(L(
-        'Bạn đã đồng ý bản v' + prior.version + (when ? ' ngày ' + fmtDayMon(when) : '') + '. Phần còn lại giữ nguyên.',
-        'You agreed to v' + prior.version + (when ? ' on ' + fmtDayMon(when) : '') + '. Everything else is unchanged.')) + '</div>' +
+      '<div class="cst-changed-f">' + _esc(foot) + '</div>' +
       '</div>';
   }
 
   (function () {
-    var _cstKnown = null, _cstUid = null;
+    var _cstKnown = null, _cstUid = null, _cstReadUid = null;   // _cstReadUid: a read completed for this uid (a null record is then a fact, not "not yet")
 
     async function _cstFetch() {
       /* THE CACHE BELONGS TO A PERSON, NOT TO A PAGE LOAD (2026-09-22). `_cstKnown`
@@ -51995,21 +52352,42 @@ window.classifyAmount = classifyAmount;
         .limit(1);
       if (res.error) throw res.error;
       _cstKnown = (res.data && res.data[0]) || null;
+      _cstReadUid = _uid;
       return _cstKnown;
     }
 
-    /* The layer-2 gate. True = consent exists, caller proceeds inline.
-       False = the sheet is up and `then` re-enters the flow after a recorded
-       agree. Unreadable record fails closed to ASKING. */
-    window.fhConsentEnsure = async function (then) {
+    /* THE GATE (consent-gate-spec §6). One function for every door: the feature
+       names the version it needs; the sheet is scoped to that feature. True =
+       the need is met, the caller proceeds inline. False = the sheet is up and
+       `then` re-enters the flow after a recorded agree. Unreadable record fails
+       closed to ASKING. No session latch: a door tapped twice asks twice (CG3);
+       "Để sau" writes nothing and keeps nothing.
+       receipt_scan has its own kind and sheet (78-receipt-scan.js); the gate
+       hands that door to it so one call shape covers every feature. */
+    window.fhConsentNeed = async function (feature, then) {
+      var need = FH_CONSENT_NEEDS[feature] || FH_CONSENT_NEEDS.bank_email;
+      if (need.kind !== FH_CONSENT_KIND) return false;   // receipt scan keeps its own gate (78-receipt-scan.js asks on every use)
       var rec = null;
       try { rec = await _cstFetch(); } catch (e) { /* unreadable: ask again */ }
-      if (rec && rec.version >= FH_CONSENT_V) return true;
+      if (rec && rec.version >= need.v) return true;
       /* Hand the record over rather than letting the sheet fetch it again:
          one round trip, and the sheet renders in this turn instead of a
          microtask later, so the CTA does not sit dead after the tap. */
-      window.fhConsentSheet({ then: then, prior: rec, priorKnown: true });
+      window.fhConsentSheet({ then: then, prior: rec, priorKnown: true, feature: feature });
       return false;
+    };
+    /* The connect doors' name for the first-time gate (71, 74): the current
+       version, today's headline. Kept as an alias for one release. */
+    window.fhConsentEnsure = function (then) { return window.fhConsentNeed('bank_email', then); };
+
+    /* true | false | null: is this feature's need met, from what this tab has
+       already READ for the signed-in person. null = nothing read yet, which a
+       status row must draw as nothing, never as "off". */
+    window.fhConsentMet = function (feature) {
+      var need = FH_CONSENT_NEEDS[feature]; if (!need || need.kind !== FH_CONSENT_KIND) return null;
+      var _uid = (window.fhUser && window.fhUser.id) || '';
+      if (_cstReadUid !== _uid || _cstUid !== _uid) return null;
+      return !!(_cstKnown && _cstKnown.version >= need.v);
     };
 
     function _cstKicker(extra) {
@@ -52475,16 +52853,25 @@ window.classifyAmount = classifyAmount;
           '<button class="btn-skip" onclick="fhConsentLater()">' + _esc(L('Để sau', 'Not now')) + '</button>';
       }
 
-      var changed = ro ? '' : _cstChangedBlock(FH_CONSENT_KIND, accepted, FH_CONSENT_V);
+      /* A scoped door (consent-gate-spec §3.2): the kicker keeps its legal label
+         and names the feature after it; the title is the verb the row's outcome
+         and the toast use; the lead is one sentence in .sheet-sub; the change
+         block holds the feature's own entry. The first-time door (bank_email)
+         and the read-only sheet keep today's headline. */
+      var need = (!ro && opts.feature && FH_CONSENT_NEEDS[opts.feature]) || null;
+      var scoped = !!(need && need.title);
+      var changed = ro ? '' : _cstChangedBlock(FH_CONSENT_KIND, accepted, FH_CONSENT_V, scoped ? need.v : 0);
       _fhSheet(
-        _cstKicker(L('EMAIL NGÂN HÀNG', 'BANK EMAIL')) +
-        '<div class="sheet-h">' + _esc(L('Ngân hàng gửi, Earthy niêm phong, nhà bạn mở.', 'Your bank sends it, Earthy seals it, your family opens it.')) + '</div>' +
+        _cstKicker(need ? L(need.kicker[0], need.kicker[1]) : L('EMAIL NGÂN HÀNG', 'BANK EMAIL')) +
+        '<div class="sheet-h">' + _esc(scoped ? L(need.title[0], need.title[1])
+          : L('Ngân hàng gửi, Earthy niêm phong, nhà bạn mở.', 'Your bank sends it, Earthy seals it, your family opens it.')) + '</div>' +
+        (scoped ? '<div class="sheet-sub">' + _esc(L(need.lead[0], need.lead[1])) + '</div>' : '') +
         (ro ? '' : changed) +
         (changed ? _cstFullTextFold(rows, FH_CONSENT_V) : '<div class="cst-body">' + rows + '</div>') +
         footer);
 
       window._cstThen = ro ? null : (opts.then || null);
-      window._cstLater = ro ? null : (opts.later || null);
+      window._cstFeature = ro ? null : (opts.feature || null);
     };
 
     /* Ordered to the statutory triad -- what, why, how -- then the rest of
@@ -52546,42 +52933,72 @@ window.classifyAmount = classifyAmount;
         _esc(L('Nếu không đồng ý, chỉ tính năng này không bật.', 'If you decline, only this feature stays off.')) + '</div>';
     }
 
-    /* "Để sau". On the blocking gate this only closes the sheet, as it always has.
-       On the soft offer below it also carries on to where the person was going. */
+    /* "Để sau": the sheet closes and nothing else happens. Nothing is recorded,
+       nothing is remembered; the next tap on the same door asks again (CG3).
+       The once-per-session soft offer that used to live here (the "offer" path,
+       2026-09) is gone: a person who tapped Để sau once stayed below v5 with
+       nothing ever saying so. The status rows below are what says so now. */
     window.fhConsentLater = function () {
-      var later = window._cstLater; window._cstLater = null; window._cstThen = null;
+      window._cstThen = null; window._cstFeature = null;
       _closeOv();
-      if (typeof later === 'function') later();
     };
 
-    /* The SOFT offer, for someone already connected under an older text.
-       A new version that adds processing (v5: statement files are stored) must not
-       switch off what they already agreed to -- bank-email capture carries on under
-       their existing consent -- but the new part stays off until they say yes. So the
-       sheet is shown once per session on the way into the email review, with what
-       changed at the top, and BOTH answers continue to the review. The statement
-       lane on the server checks the recorded version itself (statement.mjs), so
-       "Để sau" genuinely means no statement is captured.
-       Returns true = nothing to offer, carry on now; false = the sheet is up and
-       `go` runs after either answer. */
-    window.fhConsentOffer = async function (go) {
-      var rec = null;
-      try { rec = await _cstFetch(); } catch (e) { return true; }
-      if (rec && rec.version >= FH_CONSENT_V) return true;         // current: nothing to say
-      /* NO RECORD AT ALL, yet here they are on the way into the review: the
-         comment this replaces said "the connect flow asks", which is true only
-         for someone not connected yet. A mailbox connected while the cache
-         above was lying (see _cstFetch) leaves a person nothing would EVER ask
-         again, and no statement is captured for as long as that holds. Asking
-         here is the only way back. */
-      if (!rec) {
-        var _conn = null;
-        try { _conn = window.fhAutoTxnConnection ? await window.fhAutoTxnConnection() : null; } catch (eC) {}
-        if (!_conn) return true;                                   // not connected: the connect flow asks
+    /* ── the status rows (consent-gate-spec §7) ──────────────────────────────
+       One row per email sub-feature, in the privacy sheet's own row grammar
+       (_cstNavRow: glyph · title · muted value · chevron). An "Đang tắt" row
+       opens the scoped sheet; an "Đang bật" row opens the read-only text, so
+       the chevron always navigates. Drawn by the review queue (only the rows
+       that are off, under its cards), by the queue's empty sheet, and by
+       Settings → Email ngân hàng (every row, with its state). Nothing read yet
+       for this person draws nothing: a false "off" would be a lie on the screen
+       that exists to tell the truth. */
+    var _CST_STATUS_FEATURES = ['statements', 'receipts'], _cstPrimedUid = null;
+    function _cstStatusRow(feature, on) {
+      var need = FH_CONSENT_NEEDS[feature];
+      var call = on ? "fhConsentReview('" + FH_CONSENT_KIND + "')" : "fhConsentTap('" + feature + "')";
+      return '<button class="cst-lrow" data-cst="' + feature + '" onclick="' + call + '">' +
+        '<span class="cst-ic">' + _mbxGlyph(need.glyph) + '</span>' +
+        '<span class="cst-ltxt"><span class="cst-lt">' + _esc(L(need.row[0], need.row[1])) + '</span></span>' +
+        '<span class="cst-val">' + _esc(on ? L('Đang bật', 'On') : L('Đang tắt', 'Off')) + '</span>' +
+        _CST_CHEV + '</button>';
+    }
+    window.fhConsentStatusHTML = function (opts) {
+      opts = opts || {};
+      var feats = opts.features || _CST_STATUS_FEATURES, rows = '', unknown = false;
+      feats.forEach(function (f) {
+        var met = window.fhConsentMet(f);
+        if (met === null) { unknown = true; return; }
+        if (opts.onlyOff && met) return;
+        rows += _cstStatusRow(f, met);
+      });
+      var _uid = (window.fhUser && window.fhUser.id) || '';
+      if (unknown && _cstPrimedUid !== _uid) {          // first paint before the first read, per person: read, then repaint
+        _cstPrimedUid = _uid;
+        _cstFetch().then(function () { window.fhConsentStatusRefresh(); }).catch(function () { _cstPrimedUid = null; });
       }
-      try { if (sessionStorage.getItem('fh-cst-offered') === String(FH_CONSENT_V)) return true; sessionStorage.setItem('fh-cst-offered', String(FH_CONSENT_V)); } catch (e) {}
-      window.fhConsentSheet({ then: go, later: go, prior: rec, priorKnown: true });
-      return false;
+      if (!rows) return '';
+      var eyebrow = (opts.eyebrow === undefined) ? L('Đọc từ email', 'From email') : opts.eyebrow;
+      return '<div class="rcs" data-cst-status="1">' +
+        (eyebrow ? '<div class="atx-seq-lbl">' + _esc(eyebrow) + '</div>' : '') +
+        '<div class="cst-group">' + rows + '</div>' +
+        (opts.foot ? '<div class="cst-foot">' + _esc(opts.foot) + '</div>' : '') +
+        '</div>';
+    };
+    window.fhConsentTap = async function (feature) {
+      var met = await window.fhConsentNeed(feature, window.fhConsentStatusRefresh);
+      if (met) window.fhConsentStatusRefresh();        // met meanwhile (another device agreed): the row was stale
+    };
+    /* Every surface that drew a block re-asks for it. The queue goes through its
+       own render, whose signature carries the block, so an unchanged state is
+       one skipped paint (device-heat B) and a changed one is one paint. */
+    window.fhConsentStatusRefresh = function () {
+      try {
+        var m = document.getElementById('csv-import-modal');
+        if (window.csvStagedMode && m && m.classList.contains('on') && typeof renderCsvReview === 'function') renderCsvReview();
+      } catch (e) {}
+      try { var s = document.getElementById('sheet-cst'); if (s) s.innerHTML = window.fhConsentStatusHTML({ onlyOff: true }); } catch (e) {}
+      try { var a = document.getElementById('atx-cst'); if (a) a.innerHTML = window.fhConsentStatusHTML({}); } catch (e) {}
+      try { if (window.fhReceiptStoresPaint && document.getElementById('atx-rc')) window.fhReceiptStoresPaint(); } catch (e) {}
     };
 
     window.fhConsentAgree = async function (btn) {
@@ -52594,8 +53011,16 @@ window.classifyAmount = classifyAmount;
         return;
       }
       _cstKnown = { version: FH_CONSENT_V, consented_at: new Date().toISOString() };
+      _cstReadUid = _cstUid;
       var then = window._cstThen; window._cstThen = null;
+      var feat = window._cstFeature; window._cstFeature = null;
       _closeOv();
+      /* The toast is the row's outcome in words (DESIGN §4.2: after the write
+         landed, which it just did). The first-time door says nothing extra: its
+         own flow continues on the next screen. */
+      var need = feat && FH_CONSENT_NEEDS[feat];
+      if (need && need.done && window.toast) window.toast(L(need.done[0], need.done[1]));
+      try { window.fhConsentStatusRefresh(); } catch (e) {}
       if (typeof then === 'function') then();
     };
 
@@ -53940,6 +54365,9 @@ window.classifyAmount = classifyAmount;
              row exactly as it sees an email row. Null = nothing decided. */
           node: p.node || null,
           counterparty: p.counterparty || '', _transport: 'statement',
+          /* the original amount in its currency, the way an email row carries it,
+             so the fx_final tier and the note tag read a statement row alike */
+          fx_amount: p.fx ? p.fx.amount : null, fx_currency: p.fx ? p.fx.currency : null,
           /* `stmt.flow` is the STATEMENT's own word for the row (fhStmtClassify:
              fee, refund, salary, topup, cardpay), not the three-value `flow` above,
              which is the email pipeline's vocabulary and has to stay that way for
@@ -53989,6 +54417,7 @@ window.classifyAmount = classifyAmount;
       return {
         sid: sid, date: row.date, time: row.time || '', sec: (row.key || '').slice(17, 19) || '00',
         amt: row.amt, bal: (c.fundedElsewhere ? null : row.bal), ref: row.ref || '',
+        fx: row.fx || null,                                   // a foreign purchase's original amount + currency (pdf-statements-spec PS12)
         memo: c.memo == null ? '' : c.memo, counterparty: c.counterparty || '', person: !!c.person,
         flow: c.flow || '', xfer: xfer, attn: xfer, incomeCat: incomeCat, fundedElsewhere: !!c.fundedElsewhere,
         /* payload v2 — the other side, and whose statement this is. */
@@ -54165,12 +54594,18 @@ window.classifyAmount = classifyAmount;
     /* What the statement is OF, from the mail's own subject: a bank sends a card
        statement and an account statement on the same morning, and "Sao kê VIB · 13/07"
        twice tells the person nothing. Empty when the subject does not say. */
-    function _stmKindWord(card) {
+    /* the product a statement is OF, as a language-free token (the password
+       scope keys on it) and as the word the title shows */
+    function _stmKindKey(card) {
       const subj = String((card.meta && card.meta.subject) || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-      if (/the tin dung|credit card/.test(subj)) return L('thẻ tín dụng', 'credit card');
-      if (/tai khoan|account/.test(subj)) return L('tài khoản', 'account');
-      if (/momo|zalopay|shopeepay|vi dien tu|wallet/.test(subj + ' ' + String(card.source_provider).toLowerCase())) return L('ví', 'wallet');
+      if (/the tin dung|credit card/.test(subj)) return 'card';
+      if (/tai khoan|account/.test(subj)) return 'account';
+      if (/momo|zalopay|shopeepay|vi dien tu|wallet/.test(subj + ' ' + String(card.source_provider).toLowerCase())) return 'wallet';
       return '';
+    }
+    function _stmKindWord(card) {
+      const k = _stmKindKey(card);
+      return k === 'card' ? L('thẻ tín dụng', 'credit card') : (k === 'account' ? L('tài khoản', 'account') : (k === 'wallet' ? L('ví', 'wallet') : ''));
     }
     function _stmTitle(card) {
       const bank = (window.fhProviderName ? window.fhProviderName(card.source_provider) : card.source_provider) + (_stmKindWord(card) ? ' ' + _stmKindWord(card) : '');
@@ -54189,10 +54624,16 @@ window.classifyAmount = classifyAmount;
       if (m.account_tail) bits.push('••' + m.account_tail);
       return bits.join(' ');
     }
+    /* pdf-statements-spec §3: a file type THIS build has no reader for is still a
+       card, saying so and pointing at the one way out; the day the reader ships
+       the same stored card opens. The server never decides readability. */
+    const _stmCanRead = (card) => { const r = window.fhStmtReaders ? window.fhStmtReaders() : { xlsx: true, csv: true }; return !!r[String(card.file_ext || '').toLowerCase()]; };
     function _stmCardHTML(card) {
-      const armed = _stmArmed === card.id, dead = !!card.keyLocked, sub = _stmSub(card);
-      return '<div class="stm-card' + (dead ? ' dim' : '') + '" data-stm="' + _escAttr(card.id) + '">' +
-        '<button type="button" class="stm-tap"' + (dead ? ' disabled' : ' onclick="fhStmtOpen(\'' + card.id + '\')"') + '>' +
+      const armed = _stmArmed === card.id, dead = !!card.keyLocked, unread = !dead && !_stmCanRead(card);
+      const sub = unread ? L('File ' + String(card.file_ext || '').toUpperCase() + ', app chưa đọc được. Nếu ngân hàng có bản Excel/CSV, chọn file đó ở đây.',
+                             'The app cannot read ' + String(card.file_ext || '').toUpperCase() + ' files yet. If your bank offers Excel/CSV, pick that file here.') : _stmSub(card);
+      return '<div class="stm-card' + (dead ? ' dim' : '') + (unread ? ' unread' : '') + '" data-stm="' + _escAttr(card.id) + '">' +
+        '<button type="button" class="stm-tap"' + (dead ? ' disabled' : ' onclick="' + (unread ? 'fhStmtOpenFile(\'' + card.id + '\')' : 'fhStmtOpen(\'' + card.id + '\')') + '"') + '>' +
           (window.fhSrcFaceOf ? window.fhSrcFaceOf(card.source_provider, 34, 'stm-face') : '') +   // whose statement, at a glance (source-face-spec)
           '<span class="stm-txt"><span class="stm-title">' + _esc(_stmTitle(card)) + '</span>' +
           (sub ? '<span class="stm-sub">' + _esc(sub) + '</span>' : '') + '</span>' +
@@ -54338,10 +54779,18 @@ window.classifyAmount = classifyAmount;
     /* ── the remembered password: opt-in, this device only ─────────────────── */
     const _stmPwKey = () => 'fh-stmt-pw:' + (_stmUid() || '');
     async function _stmPwAll() { try { const raw = localStorage.getItem(_stmPwKey()); return raw ? await _stmDecJson(raw) : {}; } catch (e) { return {}; } }
-    async function _stmPwGet(provider) { return (await _stmPwAll())[String(provider || '').toLowerCase()] || ''; }
-    async function _stmPwSet(provider, pw) {
-      const all = await _stmPwAll(); const k = String(provider || '').toLowerCase();
-      if (pw) all[k] = pw; else delete all[k];
+    /* Remembered per (bank, product): a Techcombank CARD pdf and a Techcombank
+       ACCOUNT workbook can carry different passwords (pdf-statements-spec PS16).
+       The scope is the provider plus the kind word the subject gives; a bank-only
+       key written before this rule still reads (the fallback). */
+    const _stmPwScope = (card) => String(card && card.source_provider || '').toLowerCase() + (card && _stmKindKey(card) ? '|' + _stmKindKey(card) : '');   // a token, never the L() word: the scope must not move with the UI language
+    async function _stmPwGet(scope) {
+      const all = await _stmPwAll(), k = String(scope || '').toLowerCase();
+      return all[k] || all[k.split('|')[0]] || '';
+    }
+    async function _stmPwSet(scope, pw) {
+      const all = await _stmPwAll(); const k = String(scope || '').toLowerCase();
+      if (pw) all[k] = pw; else if (k in all) delete all[k]; else delete all[k.split('|')[0]];   // forget only the key that was tried
       try { localStorage.setItem(_stmPwKey(), await _stmEncJson(all)); } catch (e) {}
     }
     window.fhStmtForgetPasswords = function () { try { localStorage.removeItem(_stmPwKey()); } catch (e) {} };
@@ -54457,6 +54906,13 @@ window.classifyAmount = classifyAmount;
     async function _stmGrid(X) {
       if (X.cached && X.grid) return X.grid;
       const ext = X.localExt || X.card.file_ext;
+      /* pdf-statements-spec §11: pdf.js text items → the same grid; the codes it
+         throws ('pdf_encrypted', 'bad_password', 'pdf_scanned', 'pdf_unsupported')
+         are mapped where the xlsx codes are. */
+      if (ext === 'pdf') {
+        if (!window.fhPdfGrid) throw new Error('pdf_unsupported');
+        return window.fhPdfGrid(X.bytes, X.password || undefined);
+      }
       if (ext === 'csv') {
         const u = X.bytes; let text;
         if (u[0] === 0xFF && u[1] === 0xFE) text = new TextDecoder('utf-16le').decode(u);
@@ -54678,7 +55134,7 @@ window.classifyAmount = classifyAmount;
       const kept = await _stmGridGet(card.meta && card.meta.file_sha256);
       if (kept) { X.grid = kept; X.cached = true; }
       else {
-        const pw = await _stmPwGet(card.source_provider);
+        const pw = await _stmPwGet(_stmPwScope(card));
         if (why === 'password' && !pw) return { left: 'password' };   // still locked, still no password: not worth the download
         await _stmFetch(X);
         X.password = pw;
@@ -54687,9 +55143,10 @@ window.classifyAmount = classifyAmount;
       try { parsed = await _stmRead(X); }
       catch (e) {
         const code = String(e && e.message || '');
-        if (code === 'bad_password') { await _stmPwSet(card.source_provider, ''); return { left: 'password' }; }   // a remembered password stopped working
-        if (code === 'xlsx_encrypted') return { left: 'password' };
-        if (code === 'xlsx_enc_unsupported' || code === 'xls_legacy' || code === 'xlsx_unsupported') return { left: 'unsupported' };
+        if (code === 'bad_password') { await _stmPwSet(_stmPwScope(card), ''); return { left: 'password' }; }   // a remembered password stopped working
+        if (code === 'xlsx_encrypted' || code === 'pdf_encrypted') return { left: 'password' };
+        if (code === 'pdf_lib') return { left: '' };                       // the reader did not load this time: the card waits for a tap
+        if (code === 'xlsx_enc_unsupported' || code === 'xls_legacy' || code === 'xlsx_unsupported' || code === 'pdf_unsupported' || code === 'pdf_scanned') return { left: 'unsupported' };
         throw e;
       }
       if (!parsed.table || !parsed.rows.length || _stmNeedsAsk(X)) return { left: '' };
@@ -54769,6 +55226,13 @@ window.classifyAmount = classifyAmount;
     function _stmBackBtn() { return '<button type="button" class="csv-linkbtn csv-unlock-skip" onclick="fhStmtCancel()">' + _esc(L('Để sau', 'Not now')) + '</button>'; }
     window.fhStmtCancel = function () { S = null; window.renderCsvReview && window.renderCsvReview(); };
 
+    /* The door on a card this build cannot read (pdf-statements-spec §3): straight
+       to "pick the file from your device", the one way out that exists. */
+    window.fhStmtOpenFile = function (id) {
+      const card = _stmCards.find((c) => c.id === id); if (!card) return;
+      S = { card: card, bytes: null, password: '', remember: false, parsed: null, acct: null };
+      return _stmAskFile();
+    };
     window.fhStmtOpen = async function (id) {
       const card = _stmCards.find((c) => c.id === id); if (!card) return;
       const X = S = { card: card, bytes: null, password: '', remember: false, parsed: null, acct: null };
@@ -54787,18 +55251,22 @@ window.classifyAmount = classifyAmount;
           : L('Chưa tải được file. Thử lại, hoặc chọn file từ máy.', 'Could not fetch the file. Try again, or pick it from your device.'), true);
       }
       if (S !== X) return;
-      X.password = await _stmPwGet(card.source_provider);
+      X.password = await _stmPwGet(_stmPwScope(card));
       if (S !== X) return;
       return _stmParse();
     };
 
-    function _stmFail(msg, offerFile) {
+    function _stmFail(msg, offerFile, offerRetry) {
       _stmPaint(_stmHead(_stmTitle(S.card)) + '<div class="csv-unlock-err">' + _esc(msg) + '</div>' +
+        (offerRetry ? '<button type="button" class="btn-line csv-unlock-go" onclick="fhStmtRetry()">' + _esc(L('Thử lại', 'Try again')) + '</button>' : '') +
         (offerFile ? '<button type="button" class="btn-line csv-unlock-go" onclick="fhStmtAskFile()">' + _esc(L('Chọn file từ máy', 'Pick file from device')) + '</button>' : '') + _stmBackBtn());
     }
+    /* the one step that can fail for a reason that passes (the reader did not
+       download): the same run, read again */
+    window.fhStmtRetry = function () { if (S) return _stmParse(); };
     function _stmAskFile() {
       _stmPaint(_stmHead(_stmTitle(S.card), L('Chọn file sao kê này từ máy.', 'Pick this statement\'s file from your device.')) +
-        '<input type="file" id="stm-file" accept=".xlsx,.csv" hidden onchange="fhStmtFilePicked(this)">' +
+        '<input type="file" id="stm-file" accept=".xlsx,.csv,.pdf" hidden onchange="fhStmtFilePicked(this)">' +
         '<button type="button" class="btn-line csv-unlock-go" onclick="document.getElementById(\'stm-file\').click()">' + _esc(L('Chọn file', 'Pick file')) + '</button>' + _stmBackBtn());
     }
     window.fhStmtAskFile = _stmAskFile;
@@ -54806,7 +55274,7 @@ window.classifyAmount = classifyAmount;
       const f = input && input.files && input.files[0]; if (!f || !S) return;
       S.bytes = new Uint8Array(await f.arrayBuffer());
       S.ab = null; S.grid = null; S.cached = false; S.verified = false;   // a file from the device is not checked against the hash, so it is not kept
-      S.localExt = /\.csv$/i.test(f.name) ? 'csv' : 'xlsx';
+      S.localExt = /\.csv$/i.test(f.name) ? 'csv' : (/\.pdf$/i.test(f.name) ? 'pdf' : 'xlsx');
       return _stmParse();
     };
 
@@ -54817,16 +55285,19 @@ window.classifyAmount = classifyAmount;
       catch (e) {
         if (S !== X) return;
         const code = String(e && e.message || '');
-        if (code === 'xlsx_encrypted' || code === 'bad_password') {
-          if (code === 'bad_password' && X.password && !wrong) { await _stmPwSet(X.card.source_provider, ''); }   // a remembered password stopped working
+        if (code === 'xlsx_encrypted' || code === 'pdf_encrypted' || code === 'bad_password') {
+          if (code === 'bad_password' && X.password && !wrong) { await _stmPwSet(_stmPwScope(X.card), ''); }   // a remembered password stopped working
           return _stmAskPassword(code === 'bad_password' && (wrong || X.password));
         }
+        if (code === 'pdf_scanned') return _stmFail(L('File này là ảnh chụp, app chưa đọc được. Nếu ngân hàng có bản Excel/CSV, chọn file đó.', 'This file is a scan, which the app cannot read yet. If your bank offers Excel/CSV, pick that file.'), true);
+        if (code === 'pdf_lib') return _stmFail(L('Chưa tải được bộ đọc PDF. Kiểm tra mạng rồi thử lại nhé.', 'Could not load the PDF reader. Check your connection and try again.'), false, true);
+        if (code === 'pdf_unsupported') return _stmFail(L('Chưa đọc được file PDF này.', 'Could not read this PDF.'), true);
         if (code === 'xlsx_enc_unsupported' || code === 'xls_legacy') return _stmFail(L('Kiểu khoá của file này tụi mình chưa mở được.', 'This file is locked in a way we cannot open yet.'), false);
         if (code === 'xlsx_unsupported') return _stmFail(L('Trình duyệt chưa đọc được file Excel. Cập nhật rồi thử lại nhé.', 'This browser cannot read Excel files. Update it and try again.'), false);
         return _stmFail(L('Chưa đọc được file này.', 'Could not read this file.'), false);
       }
       if (S !== X) return;
-      if (X.remember && X.password) await _stmPwSet(X.card.source_provider, X.password);
+      if (X.remember && X.password) await _stmPwSet(_stmPwScope(X.card), X.password);
       if (S !== X) return;
       if (!parsed.table || !parsed.rows.length) return _stmFail(L('Không thấy bảng giao dịch trong file này.', 'No transaction table found in this file.'), false);
       if (_stmNeedsAsk(X)) return _stmAskMapping();
@@ -54834,13 +55305,17 @@ window.classifyAmount = classifyAmount;
     }
 
     function _stmAskPassword(wrong) {
-      const bank = window.fhProviderName ? window.fhProviderName(S.card.source_provider) : S.card.source_provider;
+      /* "sao kê thẻ tín dụng Techcombank" in Vietnamese, "Techcombank credit card
+         statement" in English: the product sits before the bank in one and after
+         it in the other, so the phrase is composed per language (PS16). */
+      const bankName = window.fhProviderName ? window.fhProviderName(S.card.source_provider) : S.card.source_provider, kindW = _stmKindWord(S.card);
+      const bank = L('sao kê ' + (kindW ? kindW + ' ' : '') + bankName, bankName + (kindW ? ' ' + kindW : '') + ' statement');
       _stmPaint(_stmHead(L('File này có mật khẩu', 'This file needs a password'), _stmTitle(S.card)) +
         '<input id="stm-pw" type="password" class="csv-pw" autocomplete="off" placeholder="' + _escAttr(L('Nhập mật khẩu mở file', 'Enter the password')) + '" onkeydown="if(event.key===\'Enter\'){event.preventDefault();fhStmtUnlock();}">' +
         (wrong ? '<div class="csv-unlock-err">' + _esc(L('Mật khẩu chưa đúng, thử lại nhé', 'That password didn\'t work, try again')) + '</div>' : '') +
-        '<label class="stm-remember"><input type="checkbox" id="stm-rem"' + (S.remember ? ' checked' : '') + '> <span>' + _esc(L('Nhớ mật khẩu sao kê ' + bank + ' trên máy này', 'Remember ' + bank + ' statement password on this device')) + '</span></label>' +
+        '<label class="stm-remember"><input type="checkbox" id="stm-rem"' + (S.remember ? ' checked' : '') + '> <span>' + _esc(L('Nhớ mật khẩu ' + bank + ' trên máy này', 'Remember the ' + bank + ' password on this device')) + '</span></label>' +
         '<button type="button" class="btn-line csv-unlock-go" onclick="fhStmtUnlock()">' + _esc(L('Mở file', 'Unlock')) + '</button>' +
-        '<div class="csv-unlock-note">' + _esc(L('Mật khẩu chỉ dùng trên máy bạn, không gửi đi đâu. Nếu chọn nhớ, tụi mình giữ nó trên máy này, có mã hoá, và sao kê ' + bank + ' lần sau tự vào hàng chờ.', 'The password stays on your device and is never sent anywhere. If you choose to remember it, it is kept on this device, encrypted, and the next ' + bank + ' statement goes into the queue by itself.')) + '</div>' + _stmBackBtn());
+        '<div class="csv-unlock-note">' + _esc(L('Mật khẩu chỉ dùng trên máy bạn, không gửi đi đâu. Nếu chọn nhớ, tụi mình giữ nó trên máy này, có mã hoá, và ' + bank + ' lần sau tự vào hàng chờ.', 'The password stays on your device and is never sent anywhere. If you choose to remember it, it is kept on this device, encrypted, and the next ' + bank + ' statement goes into the queue by itself.')) + '</div>' + _stmBackBtn());
       const el = document.getElementById('stm-pw'); if (el) { try { el.focus(); } catch (e) {} }
     }
     window.fhStmtUnlock = function () {
@@ -55601,6 +56076,16 @@ window.classifyAmount = classifyAmount;
   window.fhReceiptStoresPaint = async function (conn) {
     _conn = conn || _conn;
     if (!document.getElementById('atx-rc')) return;
+    /* The list is the registry consent's (v7) surface. Below it, the mailbox
+       does not read the registry, so showing live toggles would be a lie; one
+       row says what is off and opens the sheet scoped to it (consent-gate-spec
+       §3.3). Unknown yet (nothing read) falls through to the list. */
+    if (window.fhConsentMet && window.fhConsentMet('stores') === false && window.fhConsentStatusHTML) {
+      const off = document.getElementById('atx-rc');
+      if (off) off.innerHTML = window.fhConsentStatusHTML({ features: ['stores'], eyebrow: L('Đọc hoá đơn từ', 'Reading receipts from'),
+        foot: L('Bật để chọn cửa hàng nào được đọc hoá đơn cho hộp thư này.', 'Turn on to pick the stores whose receipts we read for this mailbox.') });
+      return;
+    }
     const st = await load(_conn);
     const el = document.getElementById('atx-rc'); if (el) el.innerHTML = render(st);
   };

@@ -30,6 +30,10 @@
     fwd:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 6.5 19 12l-6 5.5"/><path d="M19 12H8.5a4.5 4.5 0 0 0-4.5 4.5V18"/></svg>',
     copy:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2.4"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></svg>',
     done:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4 4 10-10.5"/></svg>',
+    /* the consent text's own marks for the two email sub-features (same paths
+       as 74's _ATX_SVG), so a status row and the consent row it opens match */
+    file:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 3.5H8.2a2.6 2.6 0 0 0-2.6 2.6v11.8a2.6 2.6 0 0 0 2.6 2.6h7.6a2.6 2.6 0 0 0 2.6-2.6V8.4z"/><path d="M13.5 3.5v4.9h4.9"/><path d="M9.2 12.6h5.6"/><path d="M9.2 16.2h3.6"/></svg>',
+    receipt: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.6v16.8l2-1.3 2 1.3 2-1.3 2 1.3 2-1.3 2 1.3V3.6z"/><path d="M9.4 8.4h5.2"/><path d="M9.4 12.2h5.2"/></svg>',
     bell:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15.4V11a6 6 0 1 0-12 0v4.4L4.6 17.9h14.8z"/><path d="M10 20.4a2.2 2.2 0 0 0 4 0"/></svg>',
     cam:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 8.6h3L9.2 6h5.6l1.7 2.6h3v9.8h-15z"/><circle cx="12" cy="13.2" r="3.1"/></svg>',
   };

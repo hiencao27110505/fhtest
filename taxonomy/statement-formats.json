@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "updated": "2026-11-08",
+  "note": "One row per statement format the app has met (statement-coverage-spec.md). `status`: supported = a fixture proves through the real reader; unsupported = known and not readable; unverified = seen or reported, no sample yet. `password_rule` is an engineer's note for fixtures, never shown in the app. `subject_shape` is recomputed from `subject_sample` by the test (statementShape in statement.mjs).",
+  "formats": [
+    {
+      "provider": "vib",
+      "sender": "info@myvib.vib.com.vn",
+      "product": "account",
+      "ext": "xlsx",
+      "locked": false,
+      "password_rule": "none",
+      "subject_sample": "Sao kê tài khoản",
+      "subject_shape": "sao kê tài khoản",
+      "status": "supported",
+      "fixture": "bank-account.xlsx",
+      "seen": "2026-09-19",
+      "note": "header on row 15 under a preamble; debit and credit columns; newest first; running balance; opening, closing and totals"
+    },
+    {
+      "provider": "vib",
+      "sender": "info@card.vib.com.vn",
+      "product": "card",
+      "ext": "xlsx",
+      "locked": true,
+      "password_rule": "unknown (locked xlsx, agile encryption)",
+      "subject_sample": "SAO KE THE TIN DUNG VIB CASH BACK THANG 09 NAM 2026",
+      "subject_shape": "sao ke the tin dung vib cash back thang nam",
+      "status": "supported",
+      "fixture": "credit-card.locked.xlsx",
+      "seen": "2026-09-19",
+      "note": "header on row 25 under merged cells; sub-header rows inside the table; totals after it; credits printed negative; MCC column"
+    },
+    {
+      "provider": "momo",
+      "sender": "no-reply@mservice.com.vn",
+      "product": "wallet",
+      "ext": "xlsx",
+      "locked": true,
+      "password_rule": "stated in the mail body (never surfaced, S8)",
+      "subject_sample": "Sao kê lịch sử giao dịch",
+      "subject_shape": "sao kê lịch sử giao dịch",
+      "status": "supported",
+      "fixture": "ewallet.locked.xlsx",
+      "seen": "2026-09-19",
+      "note": "headers on row 1; one signed column; timestamps to the second; failed rows still carry amounts; rows paid from a linked bank leave the balance unmoved"
+    },
+    {
+      "provider": "techcombank",
+      "sender": "thetindung@techcombank.com.vn",
+      "product": "card",
+      "ext": "pdf",
+      "locked": true,
+      "password_rule": "unknown (8 digits on the one sample)",
+      "subject_sample": "Techcombank – Thong bao sao ke the tin dung – Statement - 10-2026",
+      "subject_shape": "techcombank thong bao sao ke the tin dung statement",
+      "status": "supported",
+      "fixture": "credit-card-techcombank.locked.pdf",
+      "seen": "2026-11-08",
+      "note": "AES-256 PDF, text layer; one bilingual header on page 1, pages 2-3 continue with no header; two-line descriptions; fee rows with a post date only; original-amount column with currency; negative = owed; glossary page. Shape not yet seeded in statement_shapes (the generator prints the SQL)."
+    }
+  ]
+}

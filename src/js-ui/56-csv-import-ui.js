@@ -248,6 +248,26 @@ function csvReadOneFile(file, password){
       reject(new Error(L('Tụi mình đọc được file CSV và Excel (.xlsx). Với định dạng này, bạn mở ra rồi lưu thành CSV hoặc .xlsx nhé.','We can read CSV and Excel (.xlsx). For this format, open it and save as CSV or .xlsx.')));
       return;
     }
+    /* A PDF statement (pdf-statements-spec PS17): the same grid builder and
+       table finder the statement card uses, so the manual door and the card
+       read one way. The header row and the body rows become {headers, rows}
+       for the column mapper; the preamble and the totals stay out. */
+    if(/\.pdf$/i.test(file.name)){
+      if(!window.fhPdfGrid){ reject(new Error(L('Bản này chưa đọc được file PDF.','This build cannot read PDF files.'))); return; }
+      file.arrayBuffer().then(function(buf){ return window.fhPdfGrid(new Uint8Array(buf), password); }).then(function(grid){
+        var table = (typeof fhStmtFindTable === 'function') ? fhStmtFindTable(grid) : null;
+        if(!table || !table.body.length){ reject(new Error(L('Không thấy bảng giao dịch trong file PDF này.','No transaction table found in this PDF.'))); return; }
+        resolve({ headers: table.headers, rows: table.body.map(function(b){ return b.cells; }) });
+      }, function(err){
+        var code = (err && err.message) || '';
+        if(code === 'pdf_encrypted'){ var e4 = new Error('xlsx_encrypted'); e4.locked = true; reject(e4); return; }
+        if(code === 'bad_password'){ var e5 = new Error('bad_password'); e5.locked = true; e5.wrong = true; reject(e5); return; }
+        if(code === 'pdf_scanned'){ reject(new Error(L('File PDF này là ảnh chụp, app chưa đọc được. Nếu ngân hàng có bản Excel/CSV, chọn file đó.','This PDF is a scan, which the app cannot read yet. If your bank offers Excel/CSV, pick that file.'))); return; }
+        if(code === 'pdf_lib'){ reject(new Error(L('Chưa tải được bộ đọc PDF. Kiểm tra mạng rồi thử lại nhé.','Could not load the PDF reader. Check your connection and try again.'))); return; }
+        reject(new Error(L('Không đọc được file PDF này.','Could not read this PDF.')));
+      });
+      return;
+    }
     if(/\.xlsx$/i.test(file.name)){
       if(!(window.fhXlsxSupported && window.fhXlsxSupported())){
         reject(new Error(L('Trình duyệt này chưa đọc được file Excel. Bạn lưu thành CSV giúp nhé.','This browser can\'t open Excel files yet. Save it as CSV instead.')));
@@ -4023,6 +4043,7 @@ function csvReviewSigCompute(){
   push(safe(function(){ return ((window.FAM && window.FAM.members) || []).map(function(m){ return m.name; }).join('|'); }));
   var rows = window._fhStagedRows || null; push(_csvIdTick('rows', rows)); push(rows ? rows.length : -1);
   push(safe(function(){ return csvPersonalSig(); }));
+  push(safe(function(){ return (csvStagedMode && typeof window.fhConsentMet === 'function') ? String(window.fhConsentMet('statements'))+'/'+String(window.fhConsentMet('receipts')) : ''; }));   // the consent rows' state, pure (the painter may start a read)
   push(safe(function(){ return (csvStagedMode && typeof window.fhStmtCardsHTML === 'function') ? window.fhStmtCardsHTML() : ''; }));
   push(safe(function(){ return (csvStagedMode && typeof csvRulesSumHTML === 'function') ? csvRulesSumHTML() : ''; }));
   push(safe(function(){ return (typeof fhRulesList === 'function') ? J(fhRulesList()) : ''; }));
@@ -4259,6 +4280,10 @@ function renderCsvReview(){ window.fhHeat&&fhHeat.tick('renderCsvReview');
     html += csvSpendPanel(r);   // the file breakdown panel is import-only
   }
 
+  // Something is off by consent (consent-gate-spec CG5, 75-consent-ui): one row per
+  // email sub-feature below the person's recorded version, on EVERY open, above
+  // everything else. Agreeing repaints through the signature below.
+  if(csvStagedMode && typeof window.fhConsentStatusHTML === 'function') html += '<div id="csv-cst">'+window.fhConsentStatusHTML({ onlyOff:true, eyebrow:'' })+'</div>';   // no eyebrow in the queue (the approved target): a stack of cards needs none
   // Statement files waiting to be opened (77-statement-capture.js): one locked
   // card each, above everything else. Opening one turns it into ordinary rows in
   // the buckets below, so this is the only statement-specific thing on the screen.

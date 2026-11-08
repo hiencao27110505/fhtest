@@ -159,6 +159,9 @@
              row exactly as it sees an email row. Null = nothing decided. */
           node: p.node || null,
           counterparty: p.counterparty || '', _transport: 'statement',
+          /* the original amount in its currency, the way an email row carries it,
+             so the fx_final tier and the note tag read a statement row alike */
+          fx_amount: p.fx ? p.fx.amount : null, fx_currency: p.fx ? p.fx.currency : null,
           /* `stmt.flow` is the STATEMENT's own word for the row (fhStmtClassify:
              fee, refund, salary, topup, cardpay), not the three-value `flow` above,
              which is the email pipeline's vocabulary and has to stay that way for
@@ -208,6 +211,7 @@
       return {
         sid: sid, date: row.date, time: row.time || '', sec: (row.key || '').slice(17, 19) || '00',
         amt: row.amt, bal: (c.fundedElsewhere ? null : row.bal), ref: row.ref || '',
+        fx: row.fx || null,                                   // a foreign purchase's original amount + currency (pdf-statements-spec PS12)
         memo: c.memo == null ? '' : c.memo, counterparty: c.counterparty || '', person: !!c.person,
         flow: c.flow || '', xfer: xfer, attn: xfer, incomeCat: incomeCat, fundedElsewhere: !!c.fundedElsewhere,
         /* payload v2 — the other side, and whose statement this is. */
@@ -384,12 +388,18 @@
     /* What the statement is OF, from the mail's own subject: a bank sends a card
        statement and an account statement on the same morning, and "Sao kê VIB · 13/07"
        twice tells the person nothing. Empty when the subject does not say. */
-    function _stmKindWord(card) {
+    /* the product a statement is OF, as a language-free token (the password
+       scope keys on it) and as the word the title shows */
+    function _stmKindKey(card) {
       const subj = String((card.meta && card.meta.subject) || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-      if (/the tin dung|credit card/.test(subj)) return L('thẻ tín dụng', 'credit card');
-      if (/tai khoan|account/.test(subj)) return L('tài khoản', 'account');
-      if (/momo|zalopay|shopeepay|vi dien tu|wallet/.test(subj + ' ' + String(card.source_provider).toLowerCase())) return L('ví', 'wallet');
+      if (/the tin dung|credit card/.test(subj)) return 'card';
+      if (/tai khoan|account/.test(subj)) return 'account';
+      if (/momo|zalopay|shopeepay|vi dien tu|wallet/.test(subj + ' ' + String(card.source_provider).toLowerCase())) return 'wallet';
       return '';
+    }
+    function _stmKindWord(card) {
+      const k = _stmKindKey(card);
+      return k === 'card' ? L('thẻ tín dụng', 'credit card') : (k === 'account' ? L('tài khoản', 'account') : (k === 'wallet' ? L('ví', 'wallet') : ''));
     }
     function _stmTitle(card) {
       const bank = (window.fhProviderName ? window.fhProviderName(card.source_provider) : card.source_provider) + (_stmKindWord(card) ? ' ' + _stmKindWord(card) : '');
@@ -408,10 +418,16 @@
       if (m.account_tail) bits.push('••' + m.account_tail);
       return bits.join(' ');
     }
+    /* pdf-statements-spec §3: a file type THIS build has no reader for is still a
+       card, saying so and pointing at the one way out; the day the reader ships
+       the same stored card opens. The server never decides readability. */
+    const _stmCanRead = (card) => { const r = window.fhStmtReaders ? window.fhStmtReaders() : { xlsx: true, csv: true }; return !!r[String(card.file_ext || '').toLowerCase()]; };
     function _stmCardHTML(card) {
-      const armed = _stmArmed === card.id, dead = !!card.keyLocked, sub = _stmSub(card);
-      return '<div class="stm-card' + (dead ? ' dim' : '') + '" data-stm="' + _escAttr(card.id) + '">' +
-        '<button type="button" class="stm-tap"' + (dead ? ' disabled' : ' onclick="fhStmtOpen(\'' + card.id + '\')"') + '>' +
+      const armed = _stmArmed === card.id, dead = !!card.keyLocked, unread = !dead && !_stmCanRead(card);
+      const sub = unread ? L('File ' + String(card.file_ext || '').toUpperCase() + ', app chưa đọc được. Nếu ngân hàng có bản Excel/CSV, chọn file đó ở đây.',
+                             'The app cannot read ' + String(card.file_ext || '').toUpperCase() + ' files yet. If your bank offers Excel/CSV, pick that file here.') : _stmSub(card);
+      return '<div class="stm-card' + (dead ? ' dim' : '') + (unread ? ' unread' : '') + '" data-stm="' + _escAttr(card.id) + '">' +
+        '<button type="button" class="stm-tap"' + (dead ? ' disabled' : ' onclick="' + (unread ? 'fhStmtOpenFile(\'' + card.id + '\')' : 'fhStmtOpen(\'' + card.id + '\')') + '"') + '>' +
           (window.fhSrcFaceOf ? window.fhSrcFaceOf(card.source_provider, 34, 'stm-face') : '') +   // whose statement, at a glance (source-face-spec)
           '<span class="stm-txt"><span class="stm-title">' + _esc(_stmTitle(card)) + '</span>' +
           (sub ? '<span class="stm-sub">' + _esc(sub) + '</span>' : '') + '</span>' +
@@ -557,10 +573,18 @@
     /* ── the remembered password: opt-in, this device only ─────────────────── */
     const _stmPwKey = () => 'fh-stmt-pw:' + (_stmUid() || '');
     async function _stmPwAll() { try { const raw = localStorage.getItem(_stmPwKey()); return raw ? await _stmDecJson(raw) : {}; } catch (e) { return {}; } }
-    async function _stmPwGet(provider) { return (await _stmPwAll())[String(provider || '').toLowerCase()] || ''; }
-    async function _stmPwSet(provider, pw) {
-      const all = await _stmPwAll(); const k = String(provider || '').toLowerCase();
-      if (pw) all[k] = pw; else delete all[k];
+    /* Remembered per (bank, product): a Techcombank CARD pdf and a Techcombank
+       ACCOUNT workbook can carry different passwords (pdf-statements-spec PS16).
+       The scope is the provider plus the kind word the subject gives; a bank-only
+       key written before this rule still reads (the fallback). */
+    const _stmPwScope = (card) => String(card && card.source_provider || '').toLowerCase() + (card && _stmKindKey(card) ? '|' + _stmKindKey(card) : '');   // a token, never the L() word: the scope must not move with the UI language
+    async function _stmPwGet(scope) {
+      const all = await _stmPwAll(), k = String(scope || '').toLowerCase();
+      return all[k] || all[k.split('|')[0]] || '';
+    }
+    async function _stmPwSet(scope, pw) {
+      const all = await _stmPwAll(); const k = String(scope || '').toLowerCase();
+      if (pw) all[k] = pw; else if (k in all) delete all[k]; else delete all[k.split('|')[0]];   // forget only the key that was tried
       try { localStorage.setItem(_stmPwKey(), await _stmEncJson(all)); } catch (e) {}
     }
     window.fhStmtForgetPasswords = function () { try { localStorage.removeItem(_stmPwKey()); } catch (e) {} };
@@ -676,6 +700,13 @@
     async function _stmGrid(X) {
       if (X.cached && X.grid) return X.grid;
       const ext = X.localExt || X.card.file_ext;
+      /* pdf-statements-spec §11: pdf.js text items → the same grid; the codes it
+         throws ('pdf_encrypted', 'bad_password', 'pdf_scanned', 'pdf_unsupported')
+         are mapped where the xlsx codes are. */
+      if (ext === 'pdf') {
+        if (!window.fhPdfGrid) throw new Error('pdf_unsupported');
+        return window.fhPdfGrid(X.bytes, X.password || undefined);
+      }
       if (ext === 'csv') {
         const u = X.bytes; let text;
         if (u[0] === 0xFF && u[1] === 0xFE) text = new TextDecoder('utf-16le').decode(u);
@@ -897,7 +928,7 @@
       const kept = await _stmGridGet(card.meta && card.meta.file_sha256);
       if (kept) { X.grid = kept; X.cached = true; }
       else {
-        const pw = await _stmPwGet(card.source_provider);
+        const pw = await _stmPwGet(_stmPwScope(card));
         if (why === 'password' && !pw) return { left: 'password' };   // still locked, still no password: not worth the download
         await _stmFetch(X);
         X.password = pw;
@@ -906,9 +937,10 @@
       try { parsed = await _stmRead(X); }
       catch (e) {
         const code = String(e && e.message || '');
-        if (code === 'bad_password') { await _stmPwSet(card.source_provider, ''); return { left: 'password' }; }   // a remembered password stopped working
-        if (code === 'xlsx_encrypted') return { left: 'password' };
-        if (code === 'xlsx_enc_unsupported' || code === 'xls_legacy' || code === 'xlsx_unsupported') return { left: 'unsupported' };
+        if (code === 'bad_password') { await _stmPwSet(_stmPwScope(card), ''); return { left: 'password' }; }   // a remembered password stopped working
+        if (code === 'xlsx_encrypted' || code === 'pdf_encrypted') return { left: 'password' };
+        if (code === 'pdf_lib') return { left: '' };                       // the reader did not load this time: the card waits for a tap
+        if (code === 'xlsx_enc_unsupported' || code === 'xls_legacy' || code === 'xlsx_unsupported' || code === 'pdf_unsupported' || code === 'pdf_scanned') return { left: 'unsupported' };
         throw e;
       }
       if (!parsed.table || !parsed.rows.length || _stmNeedsAsk(X)) return { left: '' };
@@ -988,6 +1020,13 @@
     function _stmBackBtn() { return '<button type="button" class="csv-linkbtn csv-unlock-skip" onclick="fhStmtCancel()">' + _esc(L('Để sau', 'Not now')) + '</button>'; }
     window.fhStmtCancel = function () { S = null; window.renderCsvReview && window.renderCsvReview(); };
 
+    /* The door on a card this build cannot read (pdf-statements-spec §3): straight
+       to "pick the file from your device", the one way out that exists. */
+    window.fhStmtOpenFile = function (id) {
+      const card = _stmCards.find((c) => c.id === id); if (!card) return;
+      S = { card: card, bytes: null, password: '', remember: false, parsed: null, acct: null };
+      return _stmAskFile();
+    };
     window.fhStmtOpen = async function (id) {
       const card = _stmCards.find((c) => c.id === id); if (!card) return;
       const X = S = { card: card, bytes: null, password: '', remember: false, parsed: null, acct: null };
@@ -1006,18 +1045,22 @@
           : L('Chưa tải được file. Thử lại, hoặc chọn file từ máy.', 'Could not fetch the file. Try again, or pick it from your device.'), true);
       }
       if (S !== X) return;
-      X.password = await _stmPwGet(card.source_provider);
+      X.password = await _stmPwGet(_stmPwScope(card));
       if (S !== X) return;
       return _stmParse();
     };
 
-    function _stmFail(msg, offerFile) {
+    function _stmFail(msg, offerFile, offerRetry) {
       _stmPaint(_stmHead(_stmTitle(S.card)) + '<div class="csv-unlock-err">' + _esc(msg) + '</div>' +
+        (offerRetry ? '<button type="button" class="btn-line csv-unlock-go" onclick="fhStmtRetry()">' + _esc(L('Thử lại', 'Try again')) + '</button>' : '') +
         (offerFile ? '<button type="button" class="btn-line csv-unlock-go" onclick="fhStmtAskFile()">' + _esc(L('Chọn file từ máy', 'Pick file from device')) + '</button>' : '') + _stmBackBtn());
     }
+    /* the one step that can fail for a reason that passes (the reader did not
+       download): the same run, read again */
+    window.fhStmtRetry = function () { if (S) return _stmParse(); };
     function _stmAskFile() {
       _stmPaint(_stmHead(_stmTitle(S.card), L('Chọn file sao kê này từ máy.', 'Pick this statement\'s file from your device.')) +
-        '<input type="file" id="stm-file" accept=".xlsx,.csv" hidden onchange="fhStmtFilePicked(this)">' +
+        '<input type="file" id="stm-file" accept=".xlsx,.csv,.pdf" hidden onchange="fhStmtFilePicked(this)">' +
         '<button type="button" class="btn-line csv-unlock-go" onclick="document.getElementById(\'stm-file\').click()">' + _esc(L('Chọn file', 'Pick file')) + '</button>' + _stmBackBtn());
     }
     window.fhStmtAskFile = _stmAskFile;
@@ -1025,7 +1068,7 @@
       const f = input && input.files && input.files[0]; if (!f || !S) return;
       S.bytes = new Uint8Array(await f.arrayBuffer());
       S.ab = null; S.grid = null; S.cached = false; S.verified = false;   // a file from the device is not checked against the hash, so it is not kept
-      S.localExt = /\.csv$/i.test(f.name) ? 'csv' : 'xlsx';
+      S.localExt = /\.csv$/i.test(f.name) ? 'csv' : (/\.pdf$/i.test(f.name) ? 'pdf' : 'xlsx');
       return _stmParse();
     };
 
@@ -1036,16 +1079,19 @@
       catch (e) {
         if (S !== X) return;
         const code = String(e && e.message || '');
-        if (code === 'xlsx_encrypted' || code === 'bad_password') {
-          if (code === 'bad_password' && X.password && !wrong) { await _stmPwSet(X.card.source_provider, ''); }   // a remembered password stopped working
+        if (code === 'xlsx_encrypted' || code === 'pdf_encrypted' || code === 'bad_password') {
+          if (code === 'bad_password' && X.password && !wrong) { await _stmPwSet(_stmPwScope(X.card), ''); }   // a remembered password stopped working
           return _stmAskPassword(code === 'bad_password' && (wrong || X.password));
         }
+        if (code === 'pdf_scanned') return _stmFail(L('File này là ảnh chụp, app chưa đọc được. Nếu ngân hàng có bản Excel/CSV, chọn file đó.', 'This file is a scan, which the app cannot read yet. If your bank offers Excel/CSV, pick that file.'), true);
+        if (code === 'pdf_lib') return _stmFail(L('Chưa tải được bộ đọc PDF. Kiểm tra mạng rồi thử lại nhé.', 'Could not load the PDF reader. Check your connection and try again.'), false, true);
+        if (code === 'pdf_unsupported') return _stmFail(L('Chưa đọc được file PDF này.', 'Could not read this PDF.'), true);
         if (code === 'xlsx_enc_unsupported' || code === 'xls_legacy') return _stmFail(L('Kiểu khoá của file này tụi mình chưa mở được.', 'This file is locked in a way we cannot open yet.'), false);
         if (code === 'xlsx_unsupported') return _stmFail(L('Trình duyệt chưa đọc được file Excel. Cập nhật rồi thử lại nhé.', 'This browser cannot read Excel files. Update it and try again.'), false);
         return _stmFail(L('Chưa đọc được file này.', 'Could not read this file.'), false);
       }
       if (S !== X) return;
-      if (X.remember && X.password) await _stmPwSet(X.card.source_provider, X.password);
+      if (X.remember && X.password) await _stmPwSet(_stmPwScope(X.card), X.password);
       if (S !== X) return;
       if (!parsed.table || !parsed.rows.length) return _stmFail(L('Không thấy bảng giao dịch trong file này.', 'No transaction table found in this file.'), false);
       if (_stmNeedsAsk(X)) return _stmAskMapping();
@@ -1053,13 +1099,17 @@
     }
 
     function _stmAskPassword(wrong) {
-      const bank = window.fhProviderName ? window.fhProviderName(S.card.source_provider) : S.card.source_provider;
+      /* "sao kê thẻ tín dụng Techcombank" in Vietnamese, "Techcombank credit card
+         statement" in English: the product sits before the bank in one and after
+         it in the other, so the phrase is composed per language (PS16). */
+      const bankName = window.fhProviderName ? window.fhProviderName(S.card.source_provider) : S.card.source_provider, kindW = _stmKindWord(S.card);
+      const bank = L('sao kê ' + (kindW ? kindW + ' ' : '') + bankName, bankName + (kindW ? ' ' + kindW : '') + ' statement');
       _stmPaint(_stmHead(L('File này có mật khẩu', 'This file needs a password'), _stmTitle(S.card)) +
         '<input id="stm-pw" type="password" class="csv-pw" autocomplete="off" placeholder="' + _escAttr(L('Nhập mật khẩu mở file', 'Enter the password')) + '" onkeydown="if(event.key===\'Enter\'){event.preventDefault();fhStmtUnlock();}">' +
         (wrong ? '<div class="csv-unlock-err">' + _esc(L('Mật khẩu chưa đúng, thử lại nhé', 'That password didn\'t work, try again')) + '</div>' : '') +
-        '<label class="stm-remember"><input type="checkbox" id="stm-rem"' + (S.remember ? ' checked' : '') + '> <span>' + _esc(L('Nhớ mật khẩu sao kê ' + bank + ' trên máy này', 'Remember ' + bank + ' statement password on this device')) + '</span></label>' +
+        '<label class="stm-remember"><input type="checkbox" id="stm-rem"' + (S.remember ? ' checked' : '') + '> <span>' + _esc(L('Nhớ mật khẩu ' + bank + ' trên máy này', 'Remember the ' + bank + ' password on this device')) + '</span></label>' +
         '<button type="button" class="btn-line csv-unlock-go" onclick="fhStmtUnlock()">' + _esc(L('Mở file', 'Unlock')) + '</button>' +
-        '<div class="csv-unlock-note">' + _esc(L('Mật khẩu chỉ dùng trên máy bạn, không gửi đi đâu. Nếu chọn nhớ, tụi mình giữ nó trên máy này, có mã hoá, và sao kê ' + bank + ' lần sau tự vào hàng chờ.', 'The password stays on your device and is never sent anywhere. If you choose to remember it, it is kept on this device, encrypted, and the next ' + bank + ' statement goes into the queue by itself.')) + '</div>' + _stmBackBtn());
+        '<div class="csv-unlock-note">' + _esc(L('Mật khẩu chỉ dùng trên máy bạn, không gửi đi đâu. Nếu chọn nhớ, tụi mình giữ nó trên máy này, có mã hoá, và ' + bank + ' lần sau tự vào hàng chờ.', 'The password stays on your device and is never sent anywhere. If you choose to remember it, it is kept on this device, encrypted, and the next ' + bank + ' statement goes into the queue by itself.')) + '</div>' + _stmBackBtn());
       const el = document.getElementById('stm-pw'); if (el) { try { el.focus(); } catch (e) {} }
     }
     window.fhStmtUnlock = function () {

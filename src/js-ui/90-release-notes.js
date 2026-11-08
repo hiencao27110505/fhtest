@@ -44,6 +44,20 @@ var ICO = {
 };
 
 var RELEASES = [
+  { id:'2026-11-08-sao-ke-pdf', date:'2026-11-08', time:'16:00', ver:'v634', icon:ICO.envelope,
+    vi:{ t:'Sao kê PDF giờ đọc được',
+      problem:'Nhiều ngân hàng gửi sao kê thẻ dạng PDF có mật khẩu. Trước giờ app chỉ nhận file Excel và CSV, nên sao kê PDF về hộp thư mà không thấy đâu trong mục duyệt, cũng không ai báo.',
+      sol:'App giờ nhận sao kê PDF như file Excel: thẻ sao kê hiện trong mục duyệt, bạn nhập mật khẩu một lần ngay trên máy, các khoản vào hàng chờ để bạn xem rồi mới ghi. File lạ chưa đọc được vẫn hiện thành thẻ và nói rõ vì sao, kèm đường chọn file từ máy.' },
+    en:{ t:'PDF statements now read',
+      problem:'Many banks email card statements as a locked PDF. The app only took Excel and CSV, so a PDF statement landed in the mailbox and never showed up in Review, with nothing saying so.',
+      sol:'The app now takes PDF statements like Excel files: the statement card shows in Review, you type the password once on your device, and the rows wait for your check before anything is written. A file it cannot read yet still shows as a card that says why, with a way to pick the file yourself.' } },
+  { id:'2026-11-08-bat-tung-phan', date:'2026-11-08', time:'16:00', ver:'v634', icon:ICO.shield,
+    vi:{ t:'Bật từng phần đọc email, ngay chỗ bạn cần',
+      problem:'Đọc sao kê và hoá đơn từ email cần bạn đồng ý thêm một điều, nhưng tờ đồng ý chỉ hiện một lần mỗi phiên. Bấm Để sau một lần là phần đó im lặng tắt luôn, không chỗ nào cho biết.',
+      sol:'Giờ mục Duyệt giao dịch và Cài đặt có hàng riêng cho từng phần: Sao kê từ email, Hoá đơn từ cửa hàng. Phần nào đang tắt thì ghi rõ, chạm vào là đọc đúng điều cần đồng ý và bật ngay tại chỗ. Để sau thì vẫn để sau, lần tới chạm lại hỏi lại.' },
+    en:{ t:'Switch on each email feature right where you need it',
+      problem:'Reading statements and receipts from email needs one more agreement, but the sheet showed once a session. One tap on Not now and that part quietly stayed off, with nothing telling you.',
+      sol:'Review and Settings now carry a row for each part: Statements from email, Store receipts. A part that is off says so, and a tap shows exactly what to agree to and switches it on there. Not now still means not now, and the next tap asks again.' } },
   { id:'2026-10-10-quet-hoa-don', date:'2026-10-10', time:'15:00', ver:'v625', icon:ICO.camera,
     vi:{ t:'Chụp hóa đơn, app tự ghi (Beta)',
       problem:'Trả bằng MoMo hay tiền mặt thì chẳng có email nào báo về, nên những khoản đó phải tự gõ lại, mà gõ lúc đang đứng ở quầy thì hay quên.',

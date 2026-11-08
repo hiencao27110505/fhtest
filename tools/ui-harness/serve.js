@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 
 const MIME = {
-  '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json',
+  '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json',
   '.png': 'image/png', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.css': 'text/css',
   '.webmanifest': 'application/manifest+json', '.ico': 'image/x-icon'
 };

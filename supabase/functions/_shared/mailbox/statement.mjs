@@ -51,7 +51,10 @@ export const STATEMENT_MAX_BYTES = 10 * 1024 * 1024;
 export const STATEMENT_MAX_PER_RUN = 6;
 export const STATEMENT_MODEL_CALLS_PER_RUN = 2;
 
-export const STATEMENT_EXTS = ['xlsx', 'csv'];
+/* pdf-statements-spec PS1: every statement from a known sender is captured,
+   whatever file it carries; readability is the CLIENT's judgement at open time
+   (PS2), so the server stores the extension and holds no opinion. */
+export const STATEMENT_EXTS = ['xlsx', 'csv', 'pdf'];
 
 /** The provider a statement row records, spelled the registry's way when the
  *  registry knows the name (account-identity-spec P4). The sender table's own
@@ -93,7 +96,7 @@ export function statementShape(subject) {
 
 /** The Gmail query for this lane: the same known senders, files only. */
 export function statementQuery(days, domains) {
-  return senders.inboxQuery(days, domains) + ' has:attachment (filename:xlsx OR filename:csv)';
+  return senders.inboxQuery(days, domains) + ' has:attachment (filename:xlsx OR filename:csv OR filename:pdf)';
 }
 
 /**
@@ -282,7 +285,12 @@ export async function runStatementLane(grant, ctx) {
         object_path: path, meta_sealed: meta.sealed, meta_eph_pub: meta.eph_pub, meta_nonce: meta.nonce, enc_v: meta.enc_v,
         status: 'pending', backfill: !!rescan,
       });
-      if (inserted) summary.captured++;
+      if (inserted) {
+        summary.captured++;
+        /* which file types people actually get, per spec §3: the one number
+           that says where the next reader is worth building */
+        if (statementExt(file.filename) === 'pdf') { try { await db.bumpReadTally?.('stmt_pdf_captured'); } catch { /* telemetry never costs a run */ } }
+      }
       else if (db.deleteStatementObjects) await db.deleteStatementObjects([path]);   // lost a race: drop our copy
     }
     owned.add(id);

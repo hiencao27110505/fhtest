@@ -272,11 +272,10 @@
        • linked           → the review sheet, which itself shows an empty modal
                             when there is nothing, or the list of cards. */
   window.fhEmailTxnCta = async function (preset) {
-    /* Consent moved on (v5: statement files)? Offer it here, once a session, without
-       blocking: both answers carry on into this same function (75-consent-ui.js). */
-    if (window.fhConsentOffer) {
-      try { if (!(await window.fhConsentOffer(function () { window.fhEmailTxnCta(preset); }))) return; } catch (e) {}
-    }
+    /* A consent that moved on (v5 statements, v6 receipts) is no longer offered
+       here as a once-a-session sheet: the queue itself shows a status row per
+       feature that is off, on every open, and each row opens the sheet scoped
+       to that feature (consent-gate-spec CG5, CG6; 75-consent-ui.js). */
     /* The entry SOURCE is the context. Opening from the Cá nhân tab means "these
        are mine" and defaults the cards to the personal ledger — the same affordance
        openPersonalExpense() gives the expense modal; opening from a space (family)
@@ -1457,6 +1456,9 @@
             '<span class="cc-ic">' + _mbxGlyph('check') + '</span>' +
             '<span class="cc-t">' + _esc(L('Ghi tay một khoản', 'Log one by hand')) + '</span></button>' : '') +
           '</div>') +
+        /* after the two doors the sentence above introduces: what is off by consent,
+           one row each, opening the sheet scoped to it (consent-gate-spec CG5) */
+        ((!locked && window.fhConsentStatusHTML) ? '<div id="sheet-cst">' + window.fhConsentStatusHTML({ onlyOff: true }) + '</div>' : '') +
         '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Đóng', 'Close')) + '</button>');
       return;
     }

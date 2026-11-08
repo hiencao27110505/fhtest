@@ -93,7 +93,7 @@ const utf16 = (s) => { const u = new Uint8Array(s.length * 2); for (let i = 0; i
 
   console.log('\n-- 3. the locked fixtures open on the main-thread path --');
   const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'statements', 'manifest.json'), 'utf8'));
-  const locked = manifest.fixtures.filter((f) => f.password);
+  const locked = manifest.fixtures.filter((f) => f.password && /\.xlsx$/.test(f.file));   // the PDF fixture is pdf.js's, not this decrypter's
   t('the fixture set has locked workbooks with a known password', locked.length >= 1, manifest.fixtures.map((f) => f.file));
   const fixtureBuf = (name) => { const b = fs.readFileSync(path.join(__dirname, 'fixtures', 'statements', name)); return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength); };
   const looksLikeXlsx = (ab) => { const u = new Uint8Array(ab); const s = Buffer.from(u).toString('latin1'); return u[0] === 0x50 && u[1] === 0x4b && s.indexOf('xl/workbook.xml') > 0 && s.indexOf('xl/worksheets/sheet1.xml') > 0; };

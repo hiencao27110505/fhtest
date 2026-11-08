@@ -148,6 +148,18 @@ bank-email capture carries on. The v5 sheet is *offered* once a session on the w
 into the email review (`fhConsentOffer`), what changed at the top, and "Để sau"
 genuinely means no statement is captured. A new connect asks for v5 as usual.
 
+> **Amended 2026-11-08 (`docs/specs/consent-gate-spec.md`, built on `feat/email-capture`).**
+> The once-per-session offer is retired. Each feature names the version it needs
+> (statements 5, receipts 6, the store list 7, later the statement-layout learn 8)
+> and asks for it **at its own door, every time the door is tapped**, with a
+> sheet scoped to that feature: what it adds, the changes since the person's
+> version, the full text folded. While anything is off, the review queue and
+> Settings show a row per feature ("Sao kê từ email · Đang tắt ›") on every
+> open. The record's meaning is unchanged: agreeing inserts one
+> `(user, kind, version)` row at the current version; declining writes nothing and
+> is never a withdrawal; the server keeps checking the recorded version itself.
+> The queue itself needs v4 only and is never blocked by a later version.
+
 **Erasure.** Disconnect (both paths) calls `purge_my_statements()` first: parsed rows
 deleted, cards dismissed, sealed paths returned and removed by the device. The sweep
 also drops capture data for any owner who no longer has a mailbox grant.

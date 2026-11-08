@@ -28,6 +28,24 @@
       "bank_funded": 2,
       "order": "newest-first",
       "closing": 2615000.0
+    },
+    {
+      "file": "credit-card-techcombank.locked.pdf",
+      "password": "01011990",
+      "rows": 32,
+      "failed": 0,
+      "ext": "pdf",
+      "layout": "credit card, PDF: one bilingual header on page 1, pages 2+ with no header, two-line descriptions, fee rows with post date only, an original-amount column with currency, negative = owed",
+      "totals": {
+        "prevDebt": 3250000,
+        "totalDebit": 3329340,
+        "totalCredit": 3250000,
+        "endDebt": 3329340
+      },
+      "fee_rows": 1,
+      "fx_rows": 1,
+      "pages": 3,
+      "stmtDate": "2026-10-28"
     }
   ]
 }

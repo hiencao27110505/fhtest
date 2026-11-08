@@ -399,6 +399,83 @@ console.log('\n-- the gate asks exactly when it should --');
   t('cancel retires the request rather than erasing history',
     /update deletion_requests set cancelled_at/.test(mig84));
 
+  // ── the per-feature gate (consent-gate-spec CG1–CG5, CG11) ───────────────
+  console.log('\n-- the per-feature gate --');
+  const stmtSrc = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'functions', '_shared', 'mailbox', 'statement.mjs'), 'utf8');
+  const sendersSrc = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'functions', '_shared', 'mailbox', 'senders.mjs'), 'utf8');
+  const wk = (src, name) => Number((src.match(new RegExp('export const ' + name + ' = (\\d+)')) || [])[1]);
+  reset({ data: [], error: null });
+  t('statements need = STATEMENT_CONSENT_V (the lane)', FH_CONSENT_NEEDS.statements.v === wk(stmtSrc, 'STATEMENT_CONSENT_V'));
+  t('receipts need = RECEIPT_CONSENT_V (the worker)', FH_CONSENT_NEEDS.receipts.v === wk(sendersSrc, 'RECEIPT_CONSENT_V'));
+  t('stores need = RECEIPT_REGISTRY_V (the worker)', FH_CONSENT_NEEDS.stores.v === wk(sendersSrc, 'RECEIPT_REGISTRY_V'));
+  t('the connect door needs the CURRENT text', FH_CONSENT_NEEDS.bank_email.v === FH_CONSENT_V);
+  t('the learn need is absent until its bump lands', !FH_CONSENT_NEEDS.learn);
+  t('every need below the current version has a change entry to show', Object.keys(FH_CONSENT_NEEDS).every((k) => {
+    const n = FH_CONSENT_NEEDS[k]; return n.kind !== 'bank_email' || !n.title || !!FH_CONSENT_CHANGES.bank_email[n.v]; }));
+
+  // a v4 person taps the statements door: the sheet is scoped to statements
+  reset({ data: [{ version: 4, consented_at: '2026-08-01T10:00:00Z' }], error: null });
+  let met = await window.fhConsentNeed('statements', () => {});
+  t('v4: the statements door shows the sheet', met === false && SHEETS.length === 1);
+  const sh = SHEETS[0] || '';
+  t('the kicker keeps its legal label and names the feature', /ĐỒNG Ý XỬ LÝ DỮ LIỆU CÁ NHÂN · SAO KÊ TỪ EMAIL/.test(sh));
+  t('the title is the verb the row and the toast use', /<div class="sheet-h">Bật sao kê từ email<\/div>/.test(sh));
+  t('the lead is one sentence in .sheet-sub', /<div class="sheet-sub">Để đọc sao kê gửi kèm email, cần bạn đồng ý thêm một điều\.<\/div>/.test(sh));
+  t('the change block holds the feature\'s own entry only', (sh.match(/<li>/g) || []).length === 1 && /sao kê/i.test(sh.split('<li>')[1] || ''));
+  t('its footer counts the rest, in the folded full text', /cũng gồm 2 thay đổi khác/.test(sh) && /cst-fold/.test(sh));
+  t('the full text is still presented (folded), so the record stays provable', /Đọc toàn bộ nội dung bản v/.test(sh));
+
+  // Để sau writes nothing; the next tap asks again
+  window.fhConsentLater();
+  t('Để sau records nothing', INSERTS.length === 0);
+  met = await window.fhConsentNeed('statements', () => {});
+  t('the same door asks again: no session latch', met === false && SHEETS.filter((x) => /SAO KÊ TỪ EMAIL/.test(x)).length === 2);
+
+  // the status rows follow the record
+  let rows = window.fhConsentStatusHTML({ onlyOff: true });
+  t('v4: both rows off, in the privacy sheet\'s row grammar', /data-cst="statements"/.test(rows) && /data-cst="receipts"/.test(rows)
+    && (rows.match(/class="cst-lrow"/g) || []).length === 2 && /cst-group/.test(rows) && /Đang tắt/.test(rows) && !/Đang bật/.test(rows));
+  t('an off row opens the scoped sheet, not the read-only one', /onclick="fhConsentTap\('statements'\)"/.test(rows));
+  t('the row states the value only (no verb beside the chevron)', !/Bật<\/span>/.test(rows) && /cst-chev/.test(rows));
+  reset({ data: [{ version: 5, consented_at: '2026-09-20T10:00:00Z' }], error: null });
+  await window.fhConsentNeed('receipts', () => {});
+  rows = window.fhConsentStatusHTML({ onlyOff: true });
+  t('v5: only the receipts row is off in the queue', !/data-cst="statements"/.test(rows) && /data-cst="receipts"/.test(rows));
+  rows = window.fhConsentStatusHTML({});
+  t('v5: Settings shows statements on and receipts off', /data-cst="statements"[^>]*onclick="fhConsentReview\('bank_email'\)"/.test(rows) && /Đang bật/.test(rows) && /Đang tắt/.test(rows));
+  t('v5: the store list is below its need', window.fhConsentMet('stores') === false);
+  reset({ data: [{ version: FH_CONSENT_V, consented_at: '2026-10-01T10:00:00Z' }], error: null });
+  met = await window.fhConsentNeed('statements', () => {});
+  t('current: the door passes and nothing is off', met === true && window.fhConsentStatusHTML({ onlyOff: true }) === '');
+  reset({ data: [], error: null });
+  t('nothing read yet draws nothing, never a false "off"', (function () { window.fhUser = { id: 'fresh-' + Date.now() }; const r = window.fhConsentStatusHTML({}); window.fhUser = undefined; return r === ''; })());
+
+  // agreeing from a scoped door: one row at the current version, the feature's toast
+  reset({ data: [{ version: 4, consented_at: '2026-08-01T10:00:00Z' }], error: null });
+  const toasts = []; const _toast0 = window.toast; window.toast = (m) => toasts.push(m);
+  await window.fhConsentNeed('statements', () => {});
+  await window.fhConsentAgree({});
+  t('agree writes one bank_email row at the current version', INSERTS.length === 1 && INSERTS[0].row.version === FH_CONSENT_V && INSERTS[0].row.kind === 'bank_email');
+  t('the toast is the row\'s outcome in words', toasts.length === 1 && toasts[0] === 'Đã bật sao kê từ email');
+  t('after agreeing nothing is off', window.fhConsentStatusHTML({ onlyOff: true }) === '');
+  window.toast = _toast0;
+
+  // wiring: the surfaces draw the block and the queue's signature carries it
+  const csvSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'js-ui', '56-csv-import-ui.js'), 'utf8');
+  const reviewSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'js-data', '72-txn-review.js'), 'utf8');
+  const storesSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'js-data', '78-receipt-stores.js'), 'utf8');
+  t('the staged queue draws the block above its cards, only the off rows, without an eyebrow', /id="csv-cst"[^;]*fhConsentStatusHTML\(\{[^}]*onlyOff\s*:\s*true[^}]*eyebrow\s*:\s*''[^}]*\}\)/.test(csvSrc));
+  t('the rows\' state is in the queue\'s render signature (pure: fhConsentMet, not the painter)', /function csvReviewSigCompute\(\)[\s\S]*fhConsentMet\('statements'\)[\s\S]*fhConsentMet\('receipts'\)/.test(csvSrc) && !/function csvReviewSigCompute\(\)[\s\S]{0,4000}fhConsentStatusHTML/.test(csvSrc));
+  t('receipt scan keeps its own gate: the needs table names its kind, fhConsentNeed hands it back without a sheet',
+    FH_CONSENT_NEEDS.scan.kind === 'receipt_scan' && (await window.fhConsentNeed('scan', () => {})) === false
+    && !/fhScanConsentSheet/.test((consentSrc.split('window.fhConsentNeed = async function')[1] || '').split('window.fhConsentEnsure')[0]));
+  t('the empty sheet draws the block after its doors', /id="sheet-cst"[^;]*fhConsentStatusHTML\(\{[^}]*onlyOff\s*:\s*true[^}]*\}\)/.test(reviewSrc));
+  t('the review no longer calls the retired offer', !/fhConsentOffer/.test(reviewSrc));
+  t('Settings draws every row with its state', /id="atx-cst"[^;]*fhConsentStatusHTML\(\{\s*\}\)/.test(autotxnSrc));
+  t('the store list stands aside below v7', /fhConsentMet\('stores'\) === false/.test(storesSrc));
+  t('the connect doors go through the gate', /fhConsentEnsure/.test(mailboxSrc) && /fhConsentEnsure/.test(autotxnSrc) && /fhConsentEnsure = function \(then\) \{ return window\.fhConsentNeed\('bank_email', then\); \}/.test(consentSrc));
+  t('no session latch anywhere in the module', !/sessionStorage/.test(consentSrc));
+
   console.log('\n-- migration 0082 --');
   t('RLS enabled', /enable row level security/.test(migration));
   t('policies use the initplan form (0022 rule)',

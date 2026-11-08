@@ -933,6 +933,10 @@
          or is still running. Rendered from the cached phase and filled in by
          _atxStatusProgress once the counts come back; a slot that starts empty
          and fills is honest, a number that starts wrong is not. */
+      /* consent-gate-spec CG5: the email sub-features and whether each is on,
+         one row each (75-consent-ui fhConsentStatusHTML); an off row opens the
+         sheet scoped to it, an on row the read-only text. */
+      '<div id="atx-cst">' + (window.fhConsentStatusHTML ? window.fhConsentStatusHTML({}) : '') + '</div>' +
       '<div id="atx-pg"></div>' +
       '<div id="atx-feed"></div>' +
       /* receipt-providers-spec §3.1: the stores whose receipts this mailbox
