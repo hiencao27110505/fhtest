@@ -1,5 +1,5 @@
 # Consent gate  (brief, 2026-11-08)
-Status: shipped-preview
+Status: merged
 
 Written end first, per `docs/WORKFLOW.md`. The design is `docs/specs/consent-gate-spec.md` (CG1–CG12, grilled 2026-11-08); this brief is the journey and the acceptance for building it. Client only, no migration.
 

@@ -1,5 +1,5 @@
 # PDF statements  (brief, 2026-11-08)
-Status: shipped-preview
+Status: merged
 
 Built big-bang with the consent gate and the coverage matrix, by the founder's call (2026-11-08), so stage 2 (a target storyboard shown to users) was skipped for this feature: the design is `docs/specs/pdf-statements-spec.md` (PS1–PS29, grilled the same day on one real file) and the built storyboard is the first picture. §7 of that spec (learning an unknown layout) needs the `statement_formats` migration and is NOT built here; its SQL is handed to the user.
 

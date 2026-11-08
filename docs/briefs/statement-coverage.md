@@ -1,5 +1,5 @@
 # Statement coverage matrix  (brief, 2026-11-08)
-Status: shipped-preview
+Status: merged
 
 Built big-bang with the consent gate and PDF statements (founder's call, 2026-11-08). No screens: this is a repo artefact. Design: `docs/specs/statement-coverage-spec.md` (SC1–SC9).
 
