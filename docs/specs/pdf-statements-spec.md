@@ -151,6 +151,18 @@ Identical to a locked spreadsheet, on purpose:
   repayment (PS10).
 - **A scanned PDF stops with a card**, not an error: "File này là ảnh chụp, app
   chưa đọc được. Nếu ngân hàng có bản Excel/CSV, chọn file đó." No OCR (PS9).
+- **An amount cell is one figure, or the row is unreadable** (PS30, 2026-11-08).
+  `fhStmtFigure` accepts one number with its separators, an optional sign or
+  accounting parens and an optional currency word, and nothing else; a cell with
+  digits that is not that, or a figure of 100 tỷ or more, marks the row
+  *unreadable*. Unreadable rows are kept apart from the rows, the proof cannot
+  pass while any exist (`how: 'unreadable'`), the capture flow names them by day
+  and cell on the ask screen ("Có 2 dòng tụi mình không đọc được số tiền"), and
+  they are never written to the queue. A cell with no digit at all is empty, not
+  unreadable. Why: two real card PDFs glued a repayment's figure to its memo in
+  a shape the word-pattern split did not foresee, and the permissive number
+  reader turned 7,270,899 ₫ into 7,270,899,672,708,996 ₫ in the review queue.
+  The next glue will be different again; the shape check does not depend on it.
 
 ## 7. When the app has never seen this layout
 
@@ -255,6 +267,15 @@ The grid builder:
    column whose x-range contains the item's x. Pages 2–n are not re-scanned for a
    header; a header row met again (some banks repeat it) is dropped by its
    signature (`fhStmtHeaderSig`).
+   **Glued runs are cut by geometry** (2026-11-08): pdf.js joins neighbouring
+   cells into one run when the gap is under a space. A run that reaches past a
+   column boundary is cut at that boundary, at the nearest space its average
+   glyph width puts there (3 characters of slack), boundary after boundary; the
+   remainder belongs to the next column. A run with no space near the boundary
+   stays whole in its start column, where the reader refuses it as an amount
+   (§6, unreadable rows). The earlier rule, "a figure followed by words in a
+   figure column", is gone: it was one glue's shape, and the next glue (a figure
+   glued to a figure) did not have it.
 4. **Continuation lines.** A row with no date in the `date` column and no date in
    the `post_date` column, whose items all sit in the `description` column, is
    joined to the row above with a space. This is how the two-line description
@@ -372,6 +393,7 @@ Grilling of 2026-11-08, five rounds.
 | PS27 | The learn call lives in a Vercel function cloned from receipt scan, not in the mailbox worker. | The request starts on the device; the worker never sees the file |
 | PS28 | One call per format across all users; a known format is answered from the table. | Free-tier economics |
 | PS29 | Build order: §3 → §4–§6 → §7; the coverage matrix is the acceptance gate; thresholds: ≥ 80% of captured PDFs prove silently in the first 4 weeks, kill below 50%. | — |
+| PS30 | An amount cell is one figure or the row is unreadable; unreadable rows are named and never queued; glued runs are cut by column geometry, not by a word pattern (2026-11-08). | Two real files, one day after launch: a repayment reached the queue as a 16-digit amount. A word pattern fits the glue it was written for; a shape check and a geometric cut fit the next one |
 
 ## 15. Testing
 

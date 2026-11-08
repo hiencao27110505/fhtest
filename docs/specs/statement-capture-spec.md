@@ -491,6 +491,16 @@ proof: both orders and both signs are tried and the one that reconciles wins.
 Rows that individually break a proven mapping are information, not errors: in a
 wallet statement they are payments funded from somewhere else (§11).
 
+**Unreadable rows** (2026-11-08, pdf-statements-spec PS30). Before any row
+becomes money, its amount cell must be **one figure** (`fhStmtFigure`: one
+number, separators, an optional sign or parens, an optional currency word) and
+under 100 tỷ. A dated row whose amount cell holds digits in any other shape is
+*unreadable*: it is kept apart from the rows, the proof cannot pass while one
+exists (`proof.how === 'unreadable'`, whatever the other rows reconcile to), the
+ask screen names each by day and cell, and the write never includes it. A
+remembered mapping does not bypass this: it answers which column is which, not
+what a cell holds.
+
 The parser must cope with what real files do: a table header on row 25 under a
 merged-cell preamble, sub-header rows inside the table ("Số thẻ/Số tài khoản: …"),
 totals rows after the table, two-line bilingual header cells, dates as text.
@@ -640,7 +650,7 @@ three real files on the machine that owns them: all three prove.
 | provider | sender | product | file | locked | status | fixture | seen | note |
 |---|---|---|---|---|---|---|---|---|
 | momo | no-reply@mservice.com.vn | wallet | xlsx | yes | **supported** | `ewallet.locked.xlsx` | 2026-09-19 | headers on row 1; one signed column; timestamps to the second; failed rows still carry amounts; rows paid from a linked bank leave the balance unmoved |
-| techcombank | thetindung@techcombank.com.vn | card | pdf | yes | **supported** | `credit-card-techcombank.locked.pdf` | 2026-11-08 | AES-256 PDF, text layer; one bilingual header on page 1, pages 2-3 continue with no header; two-line descriptions; fee rows with a post date only; original-amount column with currency; negative = owed; glossary page. Shape not yet seeded in statement_shapes (the generator prints the SQL). |
+| techcombank | thetindung@techcombank.com.vn | card | pdf | yes | **supported** | `credit-card-techcombank.locked.pdf` | 2026-11-08 | AES-256 PDF, text layer; one bilingual header on page 1, pages 2-3 continue with no header; two-line descriptions; fee rows with a post date only; original-amount column with currency; negative = owed; glossary page. Shape seeded in statement_shapes (0162). Two real files (statements of 2026-09-30 and 2026-10-29) glued the repayment figure to its memo in one text run; since 2026-11-08 the grid cuts glued runs at the column boundary and a cell that is not one figure makes the row unreadable (pdf-statements-spec PS30). |
 | vib | info@myvib.vib.com.vn | account | xlsx | no | **supported** | `bank-account.xlsx` | 2026-09-19 | header on row 15 under a preamble; debit and credit columns; newest first; running balance; opening, closing and totals |
 | vib | info@card.vib.com.vn | card | xlsx | yes | **supported** | `credit-card.locked.xlsx` | 2026-09-19 | header on row 25 under merged cells; sub-header rows inside the table; totals after it; credits printed negative; MCC column |
 <!-- coverage:end -->

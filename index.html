@@ -23666,6 +23666,24 @@ function fhStmtNum(v){
   return isFinite(n) ? (neg ? -n : n) : null;
 }
 
+/* ONE figure, or nothing. fhStmtNum is deliberately permissive (a summary cell
+   reads ": 6,636,000 VND"); an AMOUNT cell is held to a stricter shape: one
+   number with its separators, an optional sign or accounting parens, an optional
+   currency word before or after. Two figures in one cell, a figure trailed by
+   words, a date: not an amount, null. Two real PDF statements glued a payment's
+   figure to its memo and the permissive reader made 7,270,899 into
+   7,270,899,672,708,996; a cell that is not one figure must stop here. A cell
+   with no digit at all ("-", "N/A") is simply empty, not unreadable. */
+var STMT_FIGURE = /^[\s:]*(?:[A-Za-zĐđ₫]{1,4}\.?\s*)?([+\-]?\s*\(?\s*[+\-]?\s*\d+(?:[.,]\d+)*\s*\)?)\s*(?:[A-Za-zĐđ₫]{1,4}\.?)?\s*$/;
+var STMT_AMT_MAX = 1e11;           // đồng: no personal statement row is 100 tỷ; above it the cell was misread
+function fhStmtFigure(v){
+  if (typeof v === 'number') return isFinite(v) ? v : null;
+  var s = String(v == null ? '' : v).trim();
+  if (s === '') return null;
+  var m = STMT_FIGURE.exec(s); if (!m) return null;
+  return fhStmtNum(m[1]);
+}
+
 /* "dd/mm/yyyy", "dd/mm/yyyy HH:MM:SS", "dd-mm-yyyy HH:MM", ISO. Statements here are
    Vietnamese: day comes first. Returns { date, time, key } or null; `key` orders
    rows in time and is only ever compared, never shown. A row with no clock gets
@@ -23822,16 +23840,30 @@ var STMT_FAILED = ['that bai', 'khong thanh cong', 'failed', 'fail', 'da huy', '
    (one real card statement does the latter), so both columns are read by
    magnitude and the column decides the sign. */
 function fhStmtRead(table){
-  var R = table.roles, rows = [], failed = 0;
+  var R = table.roles, rows = [], failed = 0, unreadable = [];
   var cell = function(cells, role){ return R[role] === undefined ? '' : String(cells[R[role]] == null ? '' : cells[R[role]]).trim(); };
   table.body.forEach(function(b){
     var when = fhStmtDate(b.cells[R.date]) || (R.postDate !== undefined ? fhStmtDate(b.cells[R.postDate]) : null); if (!when) return;
+    /* An amount cell that holds digits but is not one figure, or a figure no
+       personal statement can hold, marks the ROW unreadable: it is kept apart
+       and named to the person (fhStmtProve, 77 _stmAskMapping), never read as
+       money and never dropped unseen. */
+    var bad = null;
+    var fig = function(role){
+      var raw = cell(b.cells, role);
+      if (!/\d/.test(raw)) return null;
+      var n = fhStmtFigure(raw);
+      if (n === null) { bad = bad || { role: role, cell: raw, why: 'shape' }; return null; }
+      if (Math.abs(n) >= STMT_AMT_MAX) { bad = bad || { role: role, cell: raw, why: 'huge' }; return null; }
+      return n;
+    };
     var amt = null;
-    if (R.amount !== undefined) amt = fhStmtNum(b.cells[R.amount]);
+    if (R.amount !== undefined) amt = fig('amount');
     else {
-      var db = Math.abs(fhStmtNum(b.cells[R.debit]) || 0), cr = Math.abs(fhStmtNum(b.cells[R.credit]) || 0);
+      var db = Math.abs(fig('debit') || 0), cr = Math.abs(fig('credit') || 0);
       if (db || cr) amt = cr - db;
     }
+    if (bad) { unreadable.push({ i: b.i, date: when.date, role: bad.role, cell: bad.cell, why: bad.why }); return; }
     if (amt === null || amt === 0) return;
     if (R.status !== undefined && _stmtHas(stmtWords(b.cells[R.status]), STMT_FAILED)) { failed++; return; }
     var bal = R.balance !== undefined ? fhStmtNum(b.cells[R.balance]) : null;
@@ -23851,15 +23883,15 @@ function fhStmtRead(table){
       toAcct: cell(b.cells, 'toAcct'), toName: cell(b.cells, 'toName')
     });
   });
-  return { rows: rows, failed: failed };
+  return { rows: rows, failed: failed, unreadable: unreadable };
 }
 
 /* The proof. Returns { ok, how, ratio, order, totals, oldestFirst } and marks each
    row that broke a proven running balance: `unmoved` when the balance simply did
    not change (paid from somewhere else), `broken` otherwise. */
-function fhStmtProve(rows, summary){
+function fhStmtProve(rows, summary, unreadable){
   summary = summary || {};
-  var out = { ok: false, how: '', ratio: 0, order: 'file', totals: false, oldestFirst: rows.slice() };
+  var out = { ok: false, how: '', ratio: 0, order: 'file', totals: false, oldestFirst: rows.slice(), unreadable: (unreadable || []).length };
   if (!rows.length) return out;
   var withBal = rows.filter(function(r){ return r.bal !== null; });
   /* `strict` = the balance moved by exactly the amount. `soft` also accepts a DEBIT
@@ -23901,6 +23933,10 @@ function fhStmtProve(rows, summary){
 
   if (out.ratio >= STMT_PROOF_MIN) { out.ok = true; out.how = 'running'; }
   else if (out.totals) { out.ok = true; out.how = 'totals'; }
+  /* A row the reader could not read is a row the file has and the rows do not:
+     no arithmetic over the rest can stand for it. The reading is shown with
+     those rows named, whatever the rest reconciles to. */
+  if (out.unreadable) { out.ok = false; out.how = 'unreadable'; }
 
   if (out.how === 'running' || (out.ok && withBal.length >= 3)) {
     var seq = out.oldestFirst.filter(function(r){ return r.bal !== null; });
@@ -24128,10 +24164,10 @@ function fhStmtClassify(row, ctx){
    a strange file: `table: null` means "no table found". */
 function fhStmtParse(grid, rolesOverride, ctx){
   var table = fhStmtFindTable(grid || [], rolesOverride);
-  if (!table) return { table: null, issuer: STMT_ISSUER_DEFAULT.id, rows: [], failed: 0, summary: {}, proof: { ok: false, how: '', ratio: 0 } };
+  if (!table) return { table: null, issuer: STMT_ISSUER_DEFAULT.id, rows: [], failed: 0, unreadable: [], summary: {}, proof: { ok: false, how: '', ratio: 0, unreadable: 0 } };
   var summary = fhStmtSummary(table.notes);
   var read = fhStmtRead(table);
-  var proof = fhStmtProve(read.rows, summary);
+  var proof = fhStmtProve(read.rows, summary, read.unreadable);
   var profile = fhStmtIssuer(table.roles, ctx || {});
   /* The holder is read once, off every row, before any row is classified: the
      self test asks "is the other side me?", and one row cannot answer that. */
@@ -24141,7 +24177,7 @@ function fhStmtParse(grid, rolesOverride, ctx){
     return Object.assign({}, r, { cls: c });
   });
   return { table: table, issuer: profile.id, holder: holderName, sig: fhStmtHeaderSig(table.headers),
-    rows: rows, failed: read.failed, summary: summary, proof: proof };
+    rows: rows, failed: read.failed, unreadable: read.unreadable, summary: summary, proof: proof };
 }
 
 /* ═══ Account facts (docs/specs/statement-balance-spec.md §3) ═══════════════
@@ -24216,7 +24252,7 @@ function fhStmtAccountFacts(parsed, kind){
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { fhStmtNum: fhStmtNum, fhStmtDate: fhStmtDate, fhStmtRoles: fhStmtRoles, fhStmtFindTable: fhStmtFindTable,
+  module.exports = { fhStmtNum: fhStmtNum, fhStmtFigure: fhStmtFigure, fhStmtDate: fhStmtDate, fhStmtRoles: fhStmtRoles, fhStmtFindTable: fhStmtFindTable,
     fhStmtSummary: fhStmtSummary, fhStmtRead: fhStmtRead, fhStmtProve: fhStmtProve, fhStmtClassify: fhStmtClassify,
     fhStmtParse: fhStmtParse, fhStmtHeaderSig: fhStmtHeaderSig, stmtDeburr: stmtDeburr, fhStmtAccountFacts: fhStmtAccountFacts,
     STMT_ISSUERS: STMT_ISSUERS, STMT_ISSUER_DEFAULT: STMT_ISSUER_DEFAULT,
@@ -31501,7 +31537,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v634';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v635';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -31522,6 +31558,13 @@ var ICO = {
 };
 
 var RELEASES = [
+  { id:'2026-11-08-sao-ke-dong-khong-doc-duoc', date:'2026-11-08', time:'18:30', ver:'v635', icon:ICO.shield,
+    vi:{ t:'Sao kê: dòng không đọc được sẽ được nêu tên',
+      problem:'Vài file sao kê PDF in số tiền dính liền với nội dung. App đọc nhầm cả cụm thành một con số, nên một khoản trả thẻ vài triệu hiện trong hàng chờ thành hàng triệu tỷ.',
+      sol:'Giờ mỗi ô số tiền phải là đúng một con số. Dòng nào không đọc được, app nêu ngày và nội dung ô đó cho bạn xem, để dòng đó ngoài hàng chờ, các dòng còn lại vẫn vào như thường.' },
+    en:{ t:'Statements: rows we cannot read are named',
+      problem:'Some PDF statements print the amount run together with the memo. The app read the whole run as one number, so a card payment of a few million showed up in the queue as millions of billions.',
+      sol:'Every amount cell now has to be exactly one number. A row we cannot read is shown to you by day and cell, kept out of the queue, and the other rows go in as usual.' } },
   { id:'2026-11-08-sao-ke-pdf', date:'2026-11-08', time:'16:00', ver:'v634', icon:ICO.envelope,
     vi:{ t:'Sao kê PDF giờ đọc được',
       problem:'Nhiều ngân hàng gửi sao kê thẻ dạng PDF có mật khẩu. Trước giờ app chỉ nhận file Excel và CSV, nên sao kê PDF về hộp thư mà không thấy đâu trong mục duyệt, cũng không ai báo.',
@@ -42437,17 +42480,42 @@ window.obGoogle = async function () {
       const hr = roles ? roles(out[headerIdx]) : {};
       const dateCols = [hr.date, hr.postDate].filter((x) => x !== undefined);
       const numCols = new Set(['debit', 'credit', 'amount', 'balance', 'fxAmount'].map((k) => hr[k]).filter((x) => x !== undefined));
-      /* pdf.js glues a figure to the words that follow it when the gap is under a
-         space ("5,386,180 Thanh toan no the tin dung …" came as ONE run, starting
-         in the credit column). A run that starts in a figure column and reads as
-         a figure followed by words is split: the figure stays, the words move to
-         where they would have started. */
-      const FIG = /^(-?[\d][\d.,]*\s*(?:[A-Z]{3})?)\s+(\S.*)$/;
+      /* pdf.js glues neighbouring cells into ONE text run when the gap between
+         them is under a space: "5,386,180 Thanh toan no the tin dung …" came as
+         one run starting in the credit column, and two real files glued a
+         payment's figure to its memo in a way no word pattern foresaw (a credit
+         of 7,270,899 became 7,270,899,672,708,996 and the memo became a date).
+         The cut is GEOMETRIC, not lexical: a run that reaches past a column
+         boundary is cut at that boundary, at the nearest space the run's
+         average glyph width puts there, boundary after boundary. A run with no
+         space near the boundary stays whole in its start column, where the
+         reader's own shape check (59 fhStmtFigure) refuses it as an amount
+         instead of guessing: an unreadable row is shown, never invented. A
+         run that starts in the last column crosses no boundary. */
+      const CUT_SLACK = 3;   // characters either side of the boundary where a space counts as the cut (more, the further the boundary: the average glyph width drifts)
       const split = (c) => {
-        if (!numCols.has(colOf(c))) return [c];
-        const m = FIG.exec(c.text); if (!m) return [c];
-        const at = c.x0 + (c.x1 - c.x0) * ((m[1].length + 1) / c.text.length);
-        return [{ x0: c.x0, x1: at, text: m[1].trim() }, { x0: at, x1: c.x1, text: m[2].trim() }];
+        const text = c.text, n = text.length, k0 = colOf(c);
+        if (!n || c.x1 <= c.x0 || k0 >= lastCol) return [c];
+        const cw = (c.x1 - c.x0) / n, out = [];
+        let from = 0, x0 = c.x0;
+        for (let k = k0; k < lastCol; k++) {
+          const bx = spans[k].x1;                       // where column k+1 begins
+          if (c.x1 <= bx + cw) break;                   // the run ends inside column k
+          const at = Math.round((bx - c.x0) / cw);      // the character under the boundary
+          const slack = Math.max(CUT_SLACK, Math.ceil(at * 0.15));
+          let sp = -1;
+          for (let d = 0; d <= slack && sp < 0; d++) {
+            if (at + d > from && at + d < n && text[at + d] === ' ') sp = at + d;
+            else if (at - d > from && at - d < n && text[at - d] === ' ') sp = at - d;
+          }
+          if (sp < 0) break;                            // no space near the boundary: leave the rest whole
+          const left = text.slice(from, sp).trim();
+          if (left) out.push({ x0: x0, x1: c.x0 + sp * cw, text: left });
+          from = sp + 1; x0 = Math.max(c.x0 + from * cw, spans[k + 1].x0);   // the remainder belongs to column k+1
+        }
+        const rest = text.slice(from).trim();
+        if (rest) out.push({ x0: x0, x1: c.x1, text: rest });
+        return out.length ? out : [c];
       };
 
       /* 4. every later row lands in the header's columns, across pages */
@@ -54953,7 +55021,9 @@ window.classifyAmount = classifyAmount;
        file with no balance and no totals can never prove itself, and asking the
        same question every month is the chore the remembered mapping exists to
        remove (spec section 3.3, step 3). */
-    const _stmNeedsAsk = (X) => !X.parsed.proof.ok && !X.keptMap;
+    /* A row whose amount could not be read is always the person's to see: a
+       remembered mapping answers which column is which, not what a cell holds. */
+    const _stmNeedsAsk = (X) => (X.parsed.unreadable && X.parsed.unreadable.length > 0) || (!X.parsed.proof.ok && !X.keptMap);
 
     /* Which kind of account the statement belongs to: a wallet by provider, a card when
        the summary block speaks of debt, otherwise a deposit account. */
@@ -55329,14 +55399,38 @@ window.classifyAmount = classifyAmount;
     /* The proof could not pass: say what was read and let the person decide. The
        arithmetic is shown, not hidden -- "9 of 40 rows add up" is the reason to doubt. */
     function _stmAskMapping() {
-      const p = S.parsed, R = p.table.roles, H = p.table.headers;
+      const p = S.parsed, R = p.table.roles, H = p.table.headers, sum = p.summary || {};
       const names = { date: L('Ngày', 'Date'), description: L('Nội dung', 'Description'), amount: L('Số tiền', 'Amount'), debit: L('Tiền ra', 'Money out'), credit: L('Tiền vào', 'Money in'), balance: L('Số dư', 'Balance') };
       const rowsHtml = Object.keys(names).filter((k) => R[k] !== undefined).map((k) =>
         '<div class="stm-maprow"><span>' + _esc(names[k]) + '</span><b>' + _esc(String(H[R[k]] || '').replace(/\s+/g, ' ').slice(0, 40)) + '</b></div>').join('');
-      _stmPaint(_stmHead(L('Tụi mình đọc cột thế này, đúng chưa?', 'Did we read the columns right?'),
-          L('File không có số dư hay tổng để tự kiểm, nên nhờ bạn xem qua.', 'This file has no balance or totals to check against, so please take a look.')) +
+      /* Three reasons the reading stops here, each said as itself: rows whose
+         amount could not be read (named, and left out of the queue); totals in
+         the file that the rows do not add up to; a file with nothing to check
+         against. */
+      const un = p.unreadable || [];
+      const hasTotals = sum.totalDebit !== undefined || sum.totalCredit !== undefined || sum.endDebt !== undefined || sum.closing !== undefined;
+      const dmy = (d) => { const m = /^(\d{4})-(\d\d)-(\d\d)$/.exec(d || ''); return m ? m[3] + '/' + m[2] : ''; };
+      const unHtml = un.length ? '<div class="stm-map">' + un.slice(0, 6).map((r) =>
+        '<div class="stm-maprow"><span>' + _esc(dmy(r.date)) + '</span><b>' + _esc(String(r.cell || '').replace(/\s+/g, ' ').slice(0, 40)) + '</b></div>').join('') +
+        (un.length > 6 ? '<div class="stm-maprow"><span></span><b>' + _esc(L('và ' + (un.length - 6) + ' dòng nữa', 'and ' + (un.length - 6) + ' more')) + '</b></div>' : '') + '</div>' : '';
+      let title, lead;
+      if (un.length) {
+        title = L(un.length === 1 ? 'Có 1 dòng tụi mình không đọc được số tiền' : 'Có ' + un.length + ' dòng tụi mình không đọc được số tiền',
+                  un.length === 1 ? 'One row where we could not read the amount' : un.length + ' rows where we could not read the amount');
+        lead = L('Mấy dòng này để lại, không vào hàng chờ. Bạn xem qua rồi tự thêm nếu cần.', 'These rows stay out of the queue. Look them over and add them by hand if needed.');
+      } else if (hasTotals) {
+        title = L('Tụi mình đọc cột thế này, đúng chưa?', 'Did we read the columns right?');
+        lead = L('Tổng trong file không khớp với các dòng đọc được, nên nhờ bạn xem qua.', 'The totals in the file do not match the rows we read, so please take a look.');
+      } else {
+        title = L('Tụi mình đọc cột thế này, đúng chưa?', 'Did we read the columns right?');
+        lead = L('File không có số dư hay tổng để tự kiểm, nên nhờ bạn xem qua.', 'This file has no balance or totals to check against, so please take a look.');
+      }
+      const note = un.length
+        ? L(p.rows.length + ' dòng còn lại đọc được. Bấm "Đúng rồi" là vào hàng chờ duyệt, chưa ghi vào sổ.', p.rows.length + ' other rows read fine. "Looks right" sends them to the review queue, not to the ledger.')
+        : L(p.rows.length + ' giao dịch. Bấm "Đúng rồi" là vào hàng chờ duyệt, chưa ghi vào sổ.', p.rows.length + ' transactions. "Looks right" sends them to the review queue, not to the ledger.');
+      _stmPaint(_stmHead(title, lead) + unHtml +
         '<div class="stm-map">' + rowsHtml + '</div>' +
-        '<div class="csv-unlock-note">' + _esc(L(p.rows.length + ' giao dịch. Bấm "Đúng rồi" là vào hàng chờ duyệt, chưa ghi vào sổ.', p.rows.length + ' transactions. "Looks right" sends them to the review queue, not to the ledger.')) + '</div>' +
+        '<div class="csv-unlock-note">' + _esc(note) + '</div>' +
         '<button type="button" class="btn-line csv-unlock-go" onclick="fhStmtMappingOk()">' + _esc(L('Đúng rồi', 'Looks right')) + '</button>' + _stmBackBtn());
     }
     window.fhStmtMappingOk = function () { if (S && S.parsed) { S.confirmedMap = true; return _stmGo(); } };

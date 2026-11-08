@@ -57,7 +57,7 @@
       "status": "supported",
       "fixture": "credit-card-techcombank.locked.pdf",
       "seen": "2026-11-08",
-      "note": "AES-256 PDF, text layer; one bilingual header on page 1, pages 2-3 continue with no header; two-line descriptions; fee rows with a post date only; original-amount column with currency; negative = owed; glossary page. Shape not yet seeded in statement_shapes (the generator prints the SQL)."
+      "note": "AES-256 PDF, text layer; one bilingual header on page 1, pages 2-3 continue with no header; two-line descriptions; fee rows with a post date only; original-amount column with currency; negative = owed; glossary page. Shape seeded in statement_shapes (0162). Two real files (statements of 2026-09-30 and 2026-10-29) glued the repayment figure to its memo in one text run; since 2026-11-08 the grid cuts glued runs at the column boundary and a cell that is not one figure makes the row unreadable (pdf-statements-spec PS30)."
     }
   ]
 }

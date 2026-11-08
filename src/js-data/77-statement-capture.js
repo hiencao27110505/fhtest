@@ -747,7 +747,9 @@
        file with no balance and no totals can never prove itself, and asking the
        same question every month is the chore the remembered mapping exists to
        remove (spec section 3.3, step 3). */
-    const _stmNeedsAsk = (X) => !X.parsed.proof.ok && !X.keptMap;
+    /* A row whose amount could not be read is always the person's to see: a
+       remembered mapping answers which column is which, not what a cell holds. */
+    const _stmNeedsAsk = (X) => (X.parsed.unreadable && X.parsed.unreadable.length > 0) || (!X.parsed.proof.ok && !X.keptMap);
 
     /* Which kind of account the statement belongs to: a wallet by provider, a card when
        the summary block speaks of debt, otherwise a deposit account. */
@@ -1123,14 +1125,38 @@
     /* The proof could not pass: say what was read and let the person decide. The
        arithmetic is shown, not hidden -- "9 of 40 rows add up" is the reason to doubt. */
     function _stmAskMapping() {
-      const p = S.parsed, R = p.table.roles, H = p.table.headers;
+      const p = S.parsed, R = p.table.roles, H = p.table.headers, sum = p.summary || {};
       const names = { date: L('Ngày', 'Date'), description: L('Nội dung', 'Description'), amount: L('Số tiền', 'Amount'), debit: L('Tiền ra', 'Money out'), credit: L('Tiền vào', 'Money in'), balance: L('Số dư', 'Balance') };
       const rowsHtml = Object.keys(names).filter((k) => R[k] !== undefined).map((k) =>
         '<div class="stm-maprow"><span>' + _esc(names[k]) + '</span><b>' + _esc(String(H[R[k]] || '').replace(/\s+/g, ' ').slice(0, 40)) + '</b></div>').join('');
-      _stmPaint(_stmHead(L('Tụi mình đọc cột thế này, đúng chưa?', 'Did we read the columns right?'),
-          L('File không có số dư hay tổng để tự kiểm, nên nhờ bạn xem qua.', 'This file has no balance or totals to check against, so please take a look.')) +
+      /* Three reasons the reading stops here, each said as itself: rows whose
+         amount could not be read (named, and left out of the queue); totals in
+         the file that the rows do not add up to; a file with nothing to check
+         against. */
+      const un = p.unreadable || [];
+      const hasTotals = sum.totalDebit !== undefined || sum.totalCredit !== undefined || sum.endDebt !== undefined || sum.closing !== undefined;
+      const dmy = (d) => { const m = /^(\d{4})-(\d\d)-(\d\d)$/.exec(d || ''); return m ? m[3] + '/' + m[2] : ''; };
+      const unHtml = un.length ? '<div class="stm-map">' + un.slice(0, 6).map((r) =>
+        '<div class="stm-maprow"><span>' + _esc(dmy(r.date)) + '</span><b>' + _esc(String(r.cell || '').replace(/\s+/g, ' ').slice(0, 40)) + '</b></div>').join('') +
+        (un.length > 6 ? '<div class="stm-maprow"><span></span><b>' + _esc(L('và ' + (un.length - 6) + ' dòng nữa', 'and ' + (un.length - 6) + ' more')) + '</b></div>' : '') + '</div>' : '';
+      let title, lead;
+      if (un.length) {
+        title = L(un.length === 1 ? 'Có 1 dòng tụi mình không đọc được số tiền' : 'Có ' + un.length + ' dòng tụi mình không đọc được số tiền',
+                  un.length === 1 ? 'One row where we could not read the amount' : un.length + ' rows where we could not read the amount');
+        lead = L('Mấy dòng này để lại, không vào hàng chờ. Bạn xem qua rồi tự thêm nếu cần.', 'These rows stay out of the queue. Look them over and add them by hand if needed.');
+      } else if (hasTotals) {
+        title = L('Tụi mình đọc cột thế này, đúng chưa?', 'Did we read the columns right?');
+        lead = L('Tổng trong file không khớp với các dòng đọc được, nên nhờ bạn xem qua.', 'The totals in the file do not match the rows we read, so please take a look.');
+      } else {
+        title = L('Tụi mình đọc cột thế này, đúng chưa?', 'Did we read the columns right?');
+        lead = L('File không có số dư hay tổng để tự kiểm, nên nhờ bạn xem qua.', 'This file has no balance or totals to check against, so please take a look.');
+      }
+      const note = un.length
+        ? L(p.rows.length + ' dòng còn lại đọc được. Bấm "Đúng rồi" là vào hàng chờ duyệt, chưa ghi vào sổ.', p.rows.length + ' other rows read fine. "Looks right" sends them to the review queue, not to the ledger.')
+        : L(p.rows.length + ' giao dịch. Bấm "Đúng rồi" là vào hàng chờ duyệt, chưa ghi vào sổ.', p.rows.length + ' transactions. "Looks right" sends them to the review queue, not to the ledger.');
+      _stmPaint(_stmHead(title, lead) + unHtml +
         '<div class="stm-map">' + rowsHtml + '</div>' +
-        '<div class="csv-unlock-note">' + _esc(L(p.rows.length + ' giao dịch. Bấm "Đúng rồi" là vào hàng chờ duyệt, chưa ghi vào sổ.', p.rows.length + ' transactions. "Looks right" sends them to the review queue, not to the ledger.')) + '</div>' +
+        '<div class="csv-unlock-note">' + _esc(note) + '</div>' +
         '<button type="button" class="btn-line csv-unlock-go" onclick="fhStmtMappingOk()">' + _esc(L('Đúng rồi', 'Looks right')) + '</button>' + _stmBackBtn());
     }
     window.fhStmtMappingOk = function () { if (S && S.parsed) { S.confirmedMap = true; return _stmGo(); } };

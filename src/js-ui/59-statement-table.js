@@ -54,6 +54,24 @@ function fhStmtNum(v){
   return isFinite(n) ? (neg ? -n : n) : null;
 }
 
+/* ONE figure, or nothing. fhStmtNum is deliberately permissive (a summary cell
+   reads ": 6,636,000 VND"); an AMOUNT cell is held to a stricter shape: one
+   number with its separators, an optional sign or accounting parens, an optional
+   currency word before or after. Two figures in one cell, a figure trailed by
+   words, a date: not an amount, null. Two real PDF statements glued a payment's
+   figure to its memo and the permissive reader made 7,270,899 into
+   7,270,899,672,708,996; a cell that is not one figure must stop here. A cell
+   with no digit at all ("-", "N/A") is simply empty, not unreadable. */
+var STMT_FIGURE = /^[\s:]*(?:[A-Za-zĐđ₫]{1,4}\.?\s*)?([+\-]?\s*\(?\s*[+\-]?\s*\d+(?:[.,]\d+)*\s*\)?)\s*(?:[A-Za-zĐđ₫]{1,4}\.?)?\s*$/;
+var STMT_AMT_MAX = 1e11;           // đồng: no personal statement row is 100 tỷ; above it the cell was misread
+function fhStmtFigure(v){
+  if (typeof v === 'number') return isFinite(v) ? v : null;
+  var s = String(v == null ? '' : v).trim();
+  if (s === '') return null;
+  var m = STMT_FIGURE.exec(s); if (!m) return null;
+  return fhStmtNum(m[1]);
+}
+
 /* "dd/mm/yyyy", "dd/mm/yyyy HH:MM:SS", "dd-mm-yyyy HH:MM", ISO. Statements here are
    Vietnamese: day comes first. Returns { date, time, key } or null; `key` orders
    rows in time and is only ever compared, never shown. A row with no clock gets
@@ -210,16 +228,30 @@ var STMT_FAILED = ['that bai', 'khong thanh cong', 'failed', 'fail', 'da huy', '
    (one real card statement does the latter), so both columns are read by
    magnitude and the column decides the sign. */
 function fhStmtRead(table){
-  var R = table.roles, rows = [], failed = 0;
+  var R = table.roles, rows = [], failed = 0, unreadable = [];
   var cell = function(cells, role){ return R[role] === undefined ? '' : String(cells[R[role]] == null ? '' : cells[R[role]]).trim(); };
   table.body.forEach(function(b){
     var when = fhStmtDate(b.cells[R.date]) || (R.postDate !== undefined ? fhStmtDate(b.cells[R.postDate]) : null); if (!when) return;
+    /* An amount cell that holds digits but is not one figure, or a figure no
+       personal statement can hold, marks the ROW unreadable: it is kept apart
+       and named to the person (fhStmtProve, 77 _stmAskMapping), never read as
+       money and never dropped unseen. */
+    var bad = null;
+    var fig = function(role){
+      var raw = cell(b.cells, role);
+      if (!/\d/.test(raw)) return null;
+      var n = fhStmtFigure(raw);
+      if (n === null) { bad = bad || { role: role, cell: raw, why: 'shape' }; return null; }
+      if (Math.abs(n) >= STMT_AMT_MAX) { bad = bad || { role: role, cell: raw, why: 'huge' }; return null; }
+      return n;
+    };
     var amt = null;
-    if (R.amount !== undefined) amt = fhStmtNum(b.cells[R.amount]);
+    if (R.amount !== undefined) amt = fig('amount');
     else {
-      var db = Math.abs(fhStmtNum(b.cells[R.debit]) || 0), cr = Math.abs(fhStmtNum(b.cells[R.credit]) || 0);
+      var db = Math.abs(fig('debit') || 0), cr = Math.abs(fig('credit') || 0);
       if (db || cr) amt = cr - db;
     }
+    if (bad) { unreadable.push({ i: b.i, date: when.date, role: bad.role, cell: bad.cell, why: bad.why }); return; }
     if (amt === null || amt === 0) return;
     if (R.status !== undefined && _stmtHas(stmtWords(b.cells[R.status]), STMT_FAILED)) { failed++; return; }
     var bal = R.balance !== undefined ? fhStmtNum(b.cells[R.balance]) : null;
@@ -239,15 +271,15 @@ function fhStmtRead(table){
       toAcct: cell(b.cells, 'toAcct'), toName: cell(b.cells, 'toName')
     });
   });
-  return { rows: rows, failed: failed };
+  return { rows: rows, failed: failed, unreadable: unreadable };
 }
 
 /* The proof. Returns { ok, how, ratio, order, totals, oldestFirst } and marks each
    row that broke a proven running balance: `unmoved` when the balance simply did
    not change (paid from somewhere else), `broken` otherwise. */
-function fhStmtProve(rows, summary){
+function fhStmtProve(rows, summary, unreadable){
   summary = summary || {};
-  var out = { ok: false, how: '', ratio: 0, order: 'file', totals: false, oldestFirst: rows.slice() };
+  var out = { ok: false, how: '', ratio: 0, order: 'file', totals: false, oldestFirst: rows.slice(), unreadable: (unreadable || []).length };
   if (!rows.length) return out;
   var withBal = rows.filter(function(r){ return r.bal !== null; });
   /* `strict` = the balance moved by exactly the amount. `soft` also accepts a DEBIT
@@ -289,6 +321,10 @@ function fhStmtProve(rows, summary){
 
   if (out.ratio >= STMT_PROOF_MIN) { out.ok = true; out.how = 'running'; }
   else if (out.totals) { out.ok = true; out.how = 'totals'; }
+  /* A row the reader could not read is a row the file has and the rows do not:
+     no arithmetic over the rest can stand for it. The reading is shown with
+     those rows named, whatever the rest reconciles to. */
+  if (out.unreadable) { out.ok = false; out.how = 'unreadable'; }
 
   if (out.how === 'running' || (out.ok && withBal.length >= 3)) {
     var seq = out.oldestFirst.filter(function(r){ return r.bal !== null; });
@@ -516,10 +552,10 @@ function fhStmtClassify(row, ctx){
    a strange file: `table: null` means "no table found". */
 function fhStmtParse(grid, rolesOverride, ctx){
   var table = fhStmtFindTable(grid || [], rolesOverride);
-  if (!table) return { table: null, issuer: STMT_ISSUER_DEFAULT.id, rows: [], failed: 0, summary: {}, proof: { ok: false, how: '', ratio: 0 } };
+  if (!table) return { table: null, issuer: STMT_ISSUER_DEFAULT.id, rows: [], failed: 0, unreadable: [], summary: {}, proof: { ok: false, how: '', ratio: 0, unreadable: 0 } };
   var summary = fhStmtSummary(table.notes);
   var read = fhStmtRead(table);
-  var proof = fhStmtProve(read.rows, summary);
+  var proof = fhStmtProve(read.rows, summary, read.unreadable);
   var profile = fhStmtIssuer(table.roles, ctx || {});
   /* The holder is read once, off every row, before any row is classified: the
      self test asks "is the other side me?", and one row cannot answer that. */
@@ -529,7 +565,7 @@ function fhStmtParse(grid, rolesOverride, ctx){
     return Object.assign({}, r, { cls: c });
   });
   return { table: table, issuer: profile.id, holder: holderName, sig: fhStmtHeaderSig(table.headers),
-    rows: rows, failed: read.failed, summary: summary, proof: proof };
+    rows: rows, failed: read.failed, unreadable: read.unreadable, summary: summary, proof: proof };
 }
 
 /* ═══ Account facts (docs/specs/statement-balance-spec.md §3) ═══════════════
@@ -604,7 +640,7 @@ function fhStmtAccountFacts(parsed, kind){
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { fhStmtNum: fhStmtNum, fhStmtDate: fhStmtDate, fhStmtRoles: fhStmtRoles, fhStmtFindTable: fhStmtFindTable,
+  module.exports = { fhStmtNum: fhStmtNum, fhStmtFigure: fhStmtFigure, fhStmtDate: fhStmtDate, fhStmtRoles: fhStmtRoles, fhStmtFindTable: fhStmtFindTable,
     fhStmtSummary: fhStmtSummary, fhStmtRead: fhStmtRead, fhStmtProve: fhStmtProve, fhStmtClassify: fhStmtClassify,
     fhStmtParse: fhStmtParse, fhStmtHeaderSig: fhStmtHeaderSig, stmtDeburr: stmtDeburr, fhStmtAccountFacts: fhStmtAccountFacts,
     STMT_ISSUERS: STMT_ISSUERS, STMT_ISSUER_DEFAULT: STMT_ISSUER_DEFAULT,

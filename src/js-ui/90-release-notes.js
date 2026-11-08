@@ -44,6 +44,13 @@ var ICO = {
 };
 
 var RELEASES = [
+  { id:'2026-11-08-sao-ke-dong-khong-doc-duoc', date:'2026-11-08', time:'18:30', ver:'v635', icon:ICO.shield,
+    vi:{ t:'Sao kê: dòng không đọc được sẽ được nêu tên',
+      problem:'Vài file sao kê PDF in số tiền dính liền với nội dung. App đọc nhầm cả cụm thành một con số, nên một khoản trả thẻ vài triệu hiện trong hàng chờ thành hàng triệu tỷ.',
+      sol:'Giờ mỗi ô số tiền phải là đúng một con số. Dòng nào không đọc được, app nêu ngày và nội dung ô đó cho bạn xem, để dòng đó ngoài hàng chờ, các dòng còn lại vẫn vào như thường.' },
+    en:{ t:'Statements: rows we cannot read are named',
+      problem:'Some PDF statements print the amount run together with the memo. The app read the whole run as one number, so a card payment of a few million showed up in the queue as millions of billions.',
+      sol:'Every amount cell now has to be exactly one number. A row we cannot read is shown to you by day and cell, kept out of the queue, and the other rows go in as usual.' } },
   { id:'2026-11-08-sao-ke-pdf', date:'2026-11-08', time:'16:00', ver:'v634', icon:ICO.envelope,
     vi:{ t:'Sao kê PDF giờ đọc được',
       problem:'Nhiều ngân hàng gửi sao kê thẻ dạng PDF có mật khẩu. Trước giờ app chỉ nhận file Excel và CSV, nên sao kê PDF về hộp thư mà không thấy đâu trong mục duyệt, cũng không ai báo.',

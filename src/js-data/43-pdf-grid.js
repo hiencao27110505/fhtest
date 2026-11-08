@@ -160,17 +160,42 @@
       const hr = roles ? roles(out[headerIdx]) : {};
       const dateCols = [hr.date, hr.postDate].filter((x) => x !== undefined);
       const numCols = new Set(['debit', 'credit', 'amount', 'balance', 'fxAmount'].map((k) => hr[k]).filter((x) => x !== undefined));
-      /* pdf.js glues a figure to the words that follow it when the gap is under a
-         space ("5,386,180 Thanh toan no the tin dung …" came as ONE run, starting
-         in the credit column). A run that starts in a figure column and reads as
-         a figure followed by words is split: the figure stays, the words move to
-         where they would have started. */
-      const FIG = /^(-?[\d][\d.,]*\s*(?:[A-Z]{3})?)\s+(\S.*)$/;
+      /* pdf.js glues neighbouring cells into ONE text run when the gap between
+         them is under a space: "5,386,180 Thanh toan no the tin dung …" came as
+         one run starting in the credit column, and two real files glued a
+         payment's figure to its memo in a way no word pattern foresaw (a credit
+         of 7,270,899 became 7,270,899,672,708,996 and the memo became a date).
+         The cut is GEOMETRIC, not lexical: a run that reaches past a column
+         boundary is cut at that boundary, at the nearest space the run's
+         average glyph width puts there, boundary after boundary. A run with no
+         space near the boundary stays whole in its start column, where the
+         reader's own shape check (59 fhStmtFigure) refuses it as an amount
+         instead of guessing: an unreadable row is shown, never invented. A
+         run that starts in the last column crosses no boundary. */
+      const CUT_SLACK = 3;   // characters either side of the boundary where a space counts as the cut (more, the further the boundary: the average glyph width drifts)
       const split = (c) => {
-        if (!numCols.has(colOf(c))) return [c];
-        const m = FIG.exec(c.text); if (!m) return [c];
-        const at = c.x0 + (c.x1 - c.x0) * ((m[1].length + 1) / c.text.length);
-        return [{ x0: c.x0, x1: at, text: m[1].trim() }, { x0: at, x1: c.x1, text: m[2].trim() }];
+        const text = c.text, n = text.length, k0 = colOf(c);
+        if (!n || c.x1 <= c.x0 || k0 >= lastCol) return [c];
+        const cw = (c.x1 - c.x0) / n, out = [];
+        let from = 0, x0 = c.x0;
+        for (let k = k0; k < lastCol; k++) {
+          const bx = spans[k].x1;                       // where column k+1 begins
+          if (c.x1 <= bx + cw) break;                   // the run ends inside column k
+          const at = Math.round((bx - c.x0) / cw);      // the character under the boundary
+          const slack = Math.max(CUT_SLACK, Math.ceil(at * 0.15));
+          let sp = -1;
+          for (let d = 0; d <= slack && sp < 0; d++) {
+            if (at + d > from && at + d < n && text[at + d] === ' ') sp = at + d;
+            else if (at - d > from && at - d < n && text[at - d] === ' ') sp = at - d;
+          }
+          if (sp < 0) break;                            // no space near the boundary: leave the rest whole
+          const left = text.slice(from, sp).trim();
+          if (left) out.push({ x0: x0, x1: c.x0 + sp * cw, text: left });
+          from = sp + 1; x0 = Math.max(c.x0 + from * cw, spans[k + 1].x0);   // the remainder belongs to column k+1
+        }
+        const rest = text.slice(from).trim();
+        if (rest) out.push({ x0: x0, x1: c.x1, text: rest });
+        return out.length ? out : [c];
       };
 
       /* 4. every later row lands in the header's columns, across pages */

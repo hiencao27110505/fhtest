@@ -318,6 +318,34 @@ pre-existing ones. Deferred: server-side pre-extraction, thumbnails at upload (s
 
 ## 2026-11-08
 
+### Statement rows the reader cannot read are named, never invented (SW v635, branch `fix/stmt-unreadable`)
+
+One day after PDF statements went live, two real Techcombank card files put a
+repayment of 7,270,899 ₫ into the review queue as 7,270,899,672,708,996 ₫ with the
+date as its memo: pdf.js had glued the credit figure to its memo in a shape the
+"figure followed by words" split did not foresee, and the permissive number reader
+swallowed the whole cell. Three layers now stand between a glued run and the queue
+(`docs/specs/pdf-statements-spec.md` §6, §11, PS30; `statement-capture-spec.md` §10):
+
+- `43-pdf-grid.js`: a run that reaches past a column boundary is cut at that
+  boundary, at the nearest space its average glyph width puts there, boundary after
+  boundary. Geometry, not a word pattern, so the next glue meets the same rule. A run
+  with no space near the boundary stays whole.
+- `59-statement-table.js`: `fhStmtFigure`, one figure or nothing. A dated row whose
+  amount cell holds digits in any other shape, or a figure of 100 tỷ or more, is
+  *unreadable*: kept apart from the rows (`parsed.unreadable`), and the proof cannot
+  pass while one exists (`proof.how === 'unreadable'`). A cell with no digit is empty.
+- `77-statement-capture.js`: an unreadable row always asks, remembered mapping or
+  not; the ask screen names each row by day and cell and says they stay out of the
+  queue; the write never includes them. The same screen now also says when the
+  file's totals do not match, instead of claiming the file has none.
+
+`tools/statement-unreadable.test.js` pins all three layers (the glued cell that
+reached the queue, figure + memo, figure + figure, a memo in the last column, a run
+with no space near the boundary, the ask copy). The real July file still proves
+exactly through the new cut. Not rendered on a phone; the ask screen reuses
+`.stm-map` rows.
+
 ### Email capture: the consent asks at the feature's door, PDF statements read, and a coverage matrix (SW v634, branch `feat/email-capture`, not yet on main)
 
 Three things one teammate's silent statement exposed (a Techcombank card PDF that
