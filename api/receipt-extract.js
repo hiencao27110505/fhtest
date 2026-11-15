@@ -9,9 +9,24 @@
 // cross-check and then dropped — it does not go back to the client.
 //
 // Requires GEMINI_API_KEY (already set for the CSV mapper). GEMINI_MODEL optional.
+//
+// Model (2026-11-15): the email pipeline's Flash-Lite (llm.mjs DEFAULT_MODEL), not
+// "gemini-flash-latest". On the same free key, five real receipt photos got 0 of 5 reads
+// from flash-latest (503 "high demand", 60 s hangs) and 5 of 5 from Flash-Lite in 2 to
+// 4 s, every amount right. Production had logged 3 of 6 reads failing on flash-latest.
 
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-flash-latest';
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
+const geminiUrl = (model) => `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+const GEMINI_URL = geminiUrl(GEMINI_MODEL);
+/* Copying a figure off a receipt needs no reasoning pass, and on Flash that pass was most
+   of the wait, so Flash is told to skip it. Flash-Lite thinks nothing by default and
+   REFUSES the setting with a 400, which would cost every read a wasted call; it is never
+   sent to a Lite model. Exported so tools/receipt-bench.js sends exactly this. */
+function genConfig(model) {
+  const g = { responseMimeType: 'application/json', responseSchema: RESPONSE_SCHEMA, temperature: 0 };
+  if (!/-lite\b/.test(String(model || ''))) g.thinkingConfig = { thinkingBudget: 0 };
+  return g;
+}
 
 // Public Supabase config (same values shipped in the client; safe to embed — RLS protects
 // data). Used only to verify the caller's access token before spending a Gemini call.
@@ -134,7 +149,8 @@ async function handler(req, res, deps) {
      They ride back on every answer after sign-in, failures included, because a slow failure
      is the one most worth explaining. The device writes the row; this function logs nothing. */
   const t0 = Date.now();
-  const T = { model: GEMINI_MODEL };
+  const model = (deps && deps.model) || GEMINI_MODEL;
+  const T = { model };
   const send = (code, obj) => { T.total = Date.now() - t0; res.status(code).json(Object.assign(obj, { _t: T })); };
 
   const authz = req.headers['authorization'] || req.headers['Authorization'] || '';
@@ -157,8 +173,7 @@ async function handler(req, res, deps) {
       { inline_data: { mime_type: mime, data: image } },
       { text: (body.lang === 'en' ? 'Read this image.' : 'Đọc ảnh này.') },
     ] }],
-    // Copying a figure off a receipt needs no reasoning pass, and that pass was most of the wait.
-    generationConfig: { responseMimeType: 'application/json', responseSchema: RESPONSE_SCHEMA, temperature: 0, thinkingConfig: { thinkingBudget: 0 } },
+    generationConfig: genConfig(model),
   };
   /* One attempt = the call AND its body under one clock. Gemini on a busy key either
      refuses inside a few seconds (429, 503) or sits on the request: on 2026-10-10 one read
@@ -170,7 +185,7 @@ async function handler(req, res, deps) {
     const ac = new AbortController();
     const timer = setTimeout(() => ac.abort(), TRY_MS);
     try {
-      const r = await fetchFn(`${GEMINI_URL}?key=${apiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b), signal: ac.signal });
+      const r = await fetchFn(`${geminiUrl(model)}?key=${apiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b), signal: ac.signal });
       if (!r.ok) return { status: r.status };
       return { status: 200, data: await r.json() };
     } catch (e) { return { status: ac.signal.aborted ? 'timeout' : 'network' }; }
@@ -179,7 +194,7 @@ async function handler(req, res, deps) {
   const g0 = Date.now();
   let a = await attempt(geminiBody);
   T.g_first = String(a.status); T.tries = 1;
-  if (a.status === 400) {
+  if (a.status === 400 && geminiBody.generationConfig.thinkingConfig) {
     /* "-latest" tracks whatever Google's current Flash is, and not every model accepts a
        zero thinking budget. A 400 is the request being refused, not the image: ask once
        more without it, so a model swap upstream costs speed and never the feature. */
@@ -222,3 +237,5 @@ module.exports.CONCEPTS = CONCEPTS;
 module.exports.SYSTEM_PROMPT = SYSTEM_PROMPT;   // for tools/receipt-bench.js, so the bench sends exactly what production sends
 module.exports.RESPONSE_SCHEMA = RESPONSE_SCHEMA;
 module.exports.GEMINI_URL = GEMINI_URL;
+module.exports.GEMINI_MODEL = GEMINI_MODEL;
+module.exports.genConfig = genConfig;

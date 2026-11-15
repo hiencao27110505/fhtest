@@ -54,6 +54,18 @@ Going forward, add an entry here when a feature area changes meaningfully — se
   the same day. Spec `docs/specs/spaces-spec.md`, feature doc
   `docs/features/spaces.md`.
 
+## 2026-11-15
+
+### Quét hóa đơn đọc bằng Gemini Flash-Lite: 2 giây thay vì nửa phút
+
+`api/receipt-extract.js` defaults to `gemini-3.5-flash-lite`, the email pipeline's model,
+instead of `gemini-flash-latest`. Same free key, same prompt, schema and validator: five real
+receipt photos read 5/5 amounts and 5/5 dates at p50 2.4 s, where `flash-latest` answered none
+of them (503 "high demand", 60 s hangs) and production had logged 3 of 6 reads failing and
+15–38 s waits. The zero thinking budget is no longer sent to a Lite model, which refuses it with
+a 400 (`genConfig()`, shared with `tools/receipt-bench.js`); a 400 on a request without it is not
+retried. `scan_read_log.model` shows the switch. Tests 36 → 38. Feature doc: Current State.
+
 ## 2026-10-11
 
 ### Mở, đóng một thẻ trong hàng chờ thôi vẽ lại cả danh sách (SW v633)

@@ -45,7 +45,8 @@ Fixed on the way out (2026-10-10):
 
 Open:
 
-- **The accuracy gate has not run.** `tools/receipt-bench.js` needs 20–30 real receipts and screenshots with answers. Gate: amounts right ≥ 95%, dates ≥ 90%. If it fails, the target becomes typing with the receipt beside you.
+- **The accuracy gate has run on 5 photos, not 20–30.** 2026-11-15, `tools/receipt-bench.js` on Flash-Lite: amounts 5/5, dates 5/5, p50 2.4 s (four paper receipts, one shot twice: a supermarket, two cafés, one crumpled under another receipt). The gate (amounts ≥ 95%, dates ≥ 90%) still needs 20–30 images, including screenshots, which none of these were.
+- **Model: `gemini-3.5-flash-lite` since 2026-11-15** (was `gemini-flash-latest`). On the free key the old model answered 0 of the same 5 photos (503 "high demand", 60 s hangs) and production had logged 3 of 6 reads failing on 2026-10-10. Lite refuses the zero thinking budget with a 400, so `genConfig()` never sends it to a Lite model; the 400 retry stays for other models. The free key starts answering 429 after about a dozen reads in a few minutes, so a full 10-photo batch can still meet it; the one retry after a pause is the only cover today.
 - **The Gemini tier decides what the consent sheet may claim.** The copy says only "theo điều khoản của gói đang dùng" for that reason.
 - **Vercel must bundle `labeltable.mjs`** for the CommonJS function's dynamic import. `vercel.json` now lists it under `functions.includeFiles`, but no real read has been confirmed in production yet. The function fails closed (500) if the validator cannot load.
 - **iPhone-only:** the system picker, the tap-gesture camera rule, torch support, and `100vh` behaviour are verifiable only on a phone.

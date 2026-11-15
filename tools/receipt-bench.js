@@ -35,7 +35,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const body = {
       system_instruction: { parts: [{ text: api.SYSTEM_PROMPT }] },
       contents: [{ role: 'user', parts: [{ inline_data: { mime_type: mime(f), data: b64 } }, { text: 'Đọc ảnh này.' }] }],
-      generationConfig: { responseMimeType: 'application/json', responseSchema: api.RESPONSE_SCHEMA, temperature: 0, thinkingConfig: { thinkingBudget: 0 } },   // same as production (api/receipt-extract.js)
+      generationConfig: api.genConfig(api.GEMINI_MODEL),   // same as production (api/receipt-extract.js), model from GEMINI_MODEL or its default
     };
     const t0 = Date.now();
     let out = null, err = null;

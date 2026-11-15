@@ -18,7 +18,7 @@ function fakeFetch(opts) {
   const fn = async (url, init) => {
     calls.push({ url, init });
     if (url.indexOf('/auth/v1/user') >= 0) {
-      return opts.authOk === false ? { ok: false, json: async () => ({}) } : { ok: true, json: async () => ({ id: 'user-1' }) };
+      return opts.authOk === false ? { ok: false, json: async () => ({}) } : { ok: true, json: async () => ({ id: opts.uid || 'user-1' }) };
     }
     if (opts.hang) return new Promise((_, rej) => { init.signal.addEventListener('abort', () => rej(new Error('aborted'))); });   // never answers; only the abort ends it
     if (opts.failFirst && calls.filter((c) => c.url.indexOf('/auth/') < 0).length === 1) return { ok: false, status: opts.failFirst, text: async () => 'busy' };
@@ -56,7 +56,17 @@ const good = { is_transaction: true, document_kind: 'paper_receipt', amount_text
   r = res(); f = fakeFetch({ gemini: good });
   await mod.handler(req(), r, { fetch: f, env, parsers });
   const sent = JSON.parse(f.calls[1].init.body);
-  t('the read asks for no thinking pass, in one Gemini call', r.code === 200 && f.calls.length === 2 && sent.generationConfig.thinkingConfig.thinkingBudget === 0);
+  t('the default model is Flash-Lite, asked without the thinking setting it refuses, in one Gemini call',
+    /-lite$/.test(mod.GEMINI_MODEL) && f.calls[1].url.indexOf(mod.GEMINI_MODEL) >= 0 && r.code === 200 && f.calls.length === 2 && !sent.generationConfig.thinkingConfig && r.body._t.model === mod.GEMINI_MODEL);
+
+  // a second person, so these extra reads stay under the per-person limit of 12 a minute
+  r = res(); f = fakeFetch({ gemini: good, uid: 'user-2' });
+  await mod.handler(req(), r, { fetch: f, env, parsers, model: 'gemini-flash-latest' });
+  t('a non-Lite model is still asked for no thinking pass', r.code === 200 && f.calls.length === 2 && JSON.parse(f.calls[1].init.body).generationConfig.thinkingConfig.thinkingBudget === 0 && f.calls[1].url.indexOf('gemini-flash-latest') >= 0);
+
+  r = res(); f = fakeFetch({ geminiStatus: 400, uid: 'user-2' });
+  await mod.handler(req(), r, { fetch: f, env, parsers });
+  t('a 400 on a request without the thinking setting is not retried: it is the request, not the setting', r.code === 502 && r.body._t.tries === 1 && f.calls.length === 2);
   t('the prompt asks only for lines with numbers, not the whole image', /ONLY the lines/.test(mod.SYSTEM_PROMPT) && !/every line of text/.test(mod.SYSTEM_PROMPT));
 
   r = res(); f = fakeFetch({ gemini: good, failFirst: 503 });
@@ -72,7 +82,7 @@ const good = { is_transaction: true, document_kind: 'paper_receipt', amount_text
   t('a hang is cut, asked once more, and answers 504 with its timings instead of dying silently', r.code === 504 && r.body._t.g_first === 'timeout' && r.body._t.tries === 2 && typeof r.body._t.gemini === 'number');
 
   r = res(); f = fakeFetch({ gemini: good, rejectThinking: true });
-  await mod.handler(req(), r, { fetch: f, env, parsers });
+  await mod.handler(req(), r, { fetch: f, env, parsers, model: 'gemini-flash-latest' });
   t('a model that refuses the thinking setting is asked once more without it, and the read still lands',
     r.code === 200 && r.body.amount === 337900 && f.calls.length === 3 && !JSON.parse(f.calls[2].init.body).generationConfig.thinkingConfig);
 
