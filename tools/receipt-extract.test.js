@@ -3,6 +3,8 @@
    Drives the REAL handler with a fake fetch (auth + Gemini) and a fake res, and
    the REAL validate() with the REAL bank-email parsers. No network, no key. */
 const path = require('path');
+// The defaults are what is under test, so a GEMINI_MODEL exported for the bench must not leak in.
+delete process.env.GEMINI_MODEL;
 const mod = require(path.join(__dirname, '..', 'api', 'receipt-extract.js'));
 
 let pass = 0, fail = 0;
