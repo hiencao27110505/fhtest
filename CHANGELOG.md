@@ -19,6 +19,17 @@ Going forward, add an entry here when a feature area changes meaningfully — se
 ---
 
 
+## 2026-11-22 (later) · Spaces: an invite that reaches an installed app (SW v637, migration `0166`)
+
+- First real invite failed: an iPhone opens a scanned code in a browser, never
+  in the installed app, and the pending invite lived in a window variable that
+  the Google sign-in redirect wiped.
+- The space key now also travels sealed to the invitee's account
+  (`invitations.key_sealed`, nacl box to `personal_keys.staging_pub`): add the
+  email and an existing user joins with one tap. Hand-off sheet + "Dán link
+  mời" for a link opened in a browser; the pending invite survives the sign-in
+  round trip. Spec section 21 states the trust trade-off of the sealed road.
+
 ## 2026-11-22 · Spaces ("Nhóm"): one shared container (SW v636, migration `0165_spaces`)
 
 - Family and friend groups become one concept, a space with a profile of

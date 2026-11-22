@@ -215,3 +215,69 @@ function fhSplitLine(s, myId, fmtFn){
   var vi = (typeof isVi !== 'function') || isVi();
   return (vi ? 'chia ' : 'split ') + (s.map._parts || n) + (mine > 0 ? ' · ' + (vi ? 'bạn ' : 'you ') + f(mine) : '');
 }
+
+/* ── The space key, sealed to one invitee (spaces-spec section 21) ───────────
+   A link cannot open an installed web app on an iPhone, so the key also
+   travels this way: the owner's device seals the space's Key Card to the
+   invitee's own public key (the X25519 half every account already has for
+   sealed bank mail, personal_keys.staging_pub) and the server stores only that
+   box. The invitee's device opens it with a private key that never leaves
+   their personal safe.
+
+   The box binds the space id and the invited email INSIDE it, so one moved
+   onto another invitation is refused when opened. What it cannot prove is that
+   the public key the server handed the owner really is the invitee's: `p`
+   carries a short fingerprint of that key so the two people can compare
+   ("mã xác nhận") if they want certainty.
+
+   `naclLib` is passed in (window.nacl in the app, the vendored file in tests). */
+function _spB64(bytes){ var s = ''; for(var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]); return btoa(s); }
+function _spBytes(b64){ var bin = atob(String(b64)), out = new Uint8Array(bin.length); for(var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i); return out; }
+function _spUtf8(str){ var e = unescape(encodeURIComponent(String(str))), out = new Uint8Array(e.length); for(var i = 0; i < e.length; i++) out[i] = e.charCodeAt(i); return out; }
+function _spFromUtf8(bytes){ var s = ''; for(var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]); return decodeURIComponent(escape(s)); }
+/* Six characters that name a public key: enough for two people to read to each
+   other, not a secret. */
+function fhSpaceKeyCode(pubB64){
+  var id = fhSpaceLinkId('pub:' + String(pubB64 || '')).replace(/-/g, '').toUpperCase();
+  return id.slice(0, 2) + '-' + id.slice(2, 4) + '-' + id.slice(4, 6);
+}
+function fhSpaceSealMake(naclLib, fid, email, card, pubB64){
+  var pub = _spBytes(pubB64);
+  if(pub.length !== 32) throw new Error('bad_pubkey');
+  var eph = naclLib.box.keyPair(), nonce = naclLib.randomBytes(naclLib.box.nonceLength);
+  var msg = _spUtf8(JSON.stringify({ v: 1, f: String(fid), m: String(email || '').toLowerCase().trim(), k: String(card) }));
+  var box = naclLib.box(msg, nonce, pub, eph.secretKey);
+  for(var i = 0; i < eph.secretKey.length; i++) eph.secretKey[i] = 0;
+  return JSON.stringify({ v: 1, e: _spB64(eph.publicKey), n: _spB64(nonce), c: _spB64(box), p: fhSpaceKeyCode(pubB64) });
+}
+/* → { ok, card, code } or { ok:false, error }. `fid` is the space the caller
+   believes this is for; a box made for another space is refused. */
+function fhSpaceSealOpen(naclLib, sealedStr, privBytes, fid){
+  var o;
+  try{ o = JSON.parse(String(sealedStr)); }catch(e){ return { ok: false, error: 'format' }; }
+  if(!o || o.v !== 1 || !o.e || !o.n || !o.c) return { ok: false, error: 'format' };
+  var opened;
+  try{ opened = naclLib.box.open(_spBytes(o.c), _spBytes(o.n), _spBytes(o.e), privBytes); }catch(e){ opened = null; }
+  if(!opened) return { ok: false, error: 'not_for_this_key' };
+  var m;
+  try{ m = JSON.parse(_spFromUtf8(opened)); }catch(e){ return { ok: false, error: 'format' }; }
+  if(!m || m.v !== 1 || !m.k) return { ok: false, error: 'format' };
+  if(String(m.f) !== String(fid)) return { ok: false, error: 'other_space' };
+  return { ok: true, card: m.k, email: m.m || '', code: o.p || '' };
+}
+/* An invite link, read: { fid, card (the opaque fragment value, or null), name }. */
+function fhSpaceLinkParse(src){
+  var s = String(src == null ? '' : src);
+  var m = s.match(/[#&?]fh-s=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
+  if(!m) return null;
+  var k = s.match(/[#&]fh-k=([^&\s]+)/i), n = s.match(/[#&]fh-n=([^&\s]+)/i), name = '';
+  if(n){ try{ name = decodeURIComponent(n[1]).slice(0, 60); }catch(e){ name = ''; } }
+  return { fid: m[1].toLowerCase(), k: k ? k[1] : null, name: name };
+}
+/* The browsers that live inside another app and usually cannot finish a Google
+   sign-in. Telegram and iMessage on iOS open a real Safari sheet and are not here. */
+function fhInAppBrowser(ua){
+  var u = String(ua || '');
+  if(/Zalo|FBAN|FBAV|FB_IAB|Instagram|Line\/|TikTok|musical_ly|MicroMessenger|KAKAOTALK|Snapchat/i.test(u)) return true;
+  return /; wv\)/.test(u);                                // an Android WebView
+}

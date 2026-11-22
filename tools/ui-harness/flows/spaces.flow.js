@@ -327,7 +327,7 @@ module.exports = {
         await t.shot('02-card');
         await t.eval(`fhModalSave()`); await t.wait(700);
         const inv = await t.eval(() => ({ title: document.getElementById('fh-modal-title').innerText, qr: !!document.querySelector('#sp-qr-wrap canvas'), body: document.getElementById('fh-modal-body').innerText }));
-        t.expect(/Mời vào nhóm/.test(inv.title) && inv.qr && /Chia sẻ link mời/.test(inv.body) && /Email Google/i.test(inv.body), 'invite sheet: QR, link, email');
+        t.expect(/Mời vào nhóm/.test(inv.title) && inv.qr && /Chia sẻ link mời/.test(inv.body) && /Email Google/i.test(inv.body) && inv.body.search(/Email Google/i) < inv.body.search(/Chia sẻ link mời/), 'invite sheet: email first, then the link and QR for someone without the app');
         await t.shot('03-invite');
 
         t.step('Done opens the new space');
@@ -395,6 +395,87 @@ module.exports = {
         const r = await t.eval(() => fhSpaceSettle(DB.fid, { fromMember: 'x', toMember: 'y', amtK: 1 }));
         t.expect(r && r.ok === false && r.error === 'closed', 'a settle-up is refused: ' + JSON.stringify(r));
         await t.shot('01-closed');
+      },
+    },
+    {
+      name: 'k-the-key-travels-sealed-to-the-invitee',
+      lang: 'vi',
+      run: async (t) => {
+        await t.eval(FRIEND); await t.wait(300);
+        t.step('the owner adds an email: the key is sealed to that account, nothing readable reaches the server');
+        await t.eval(`(function(){ var kp = nacl.box.keyPair(); window.__lan = kp; var b=''; for(var i=0;i<32;i++) b+=String.fromCharCode(kp.publicKey[i]); __STUB.invPub = btoa(b);
+          window.__card = FHCrypto.genCard().display; localStorage.setItem('fh-scard:'+DB.fid, window.__card); fhSpaceInviteSheet(DB.fid); })()`); await t.wait(500);
+        const url = await t.eval(() => fhSpaceInviteUrl(DB.fid));
+        t.expect(/#fh-s=[0-9a-f-]{36}&fh-k=[^&]+&fh-n=H/.test(url), 'the invite link carries id, key and the space name: ' + url.replace(/fh-k=[^&]+/, 'fh-k=…'));
+        await t.type('#sp-inv-email', 'Lan@gmail.com');
+        await t.eval(`fhSpaceInvAdd()`); await t.wait(900);
+        const wl = await t.eval(() => __STUB.wl[DB.fid]);
+        t.expect(wl.length === 1 && wl[0].email === 'lan@gmail.com' && typeof wl[0].key_sealed === 'string', 'one pending invite with a sealed key');
+        const card = await t.eval(() => window.__card);
+        t.expect(wl[0].key_sealed.indexOf(card) < 0 && !/gmail/.test(wl[0].key_sealed), 'the stored box shows neither the card nor the email');
+        const pend = await t.eval(() => document.getElementById('sp-inv-pending').innerText);
+        t.expect(/lan@gmail\.com/i.test(pend) && /Đã gửi kèm mã khóa/.test(pend) && /Mã xác nhận [0-9A-F]{2}-[0-9A-F]{2}-[0-9A-F]{2}/.test(pend), 'the list says so, with the check code: ' + pend.replace(/\n/g, ' | '));
+        await t.shot('01-owner');
+
+        t.step('only the invitee\'s private key opens it, and it yields the card');
+        const opened = await t.eval(() => { const s = __STUB.wl[DB.fid][0].key_sealed; return { mine: fhSpaceSealOpen(nacl, s, __lan.secretKey, DB.fid), other: fhSpaceSealOpen(nacl, s, nacl.box.keyPair().secretKey, DB.fid), code: fhSpaceKeyCode(__STUB.invPub) }; });
+        t.expect(opened.mine.ok && opened.mine.card === card && opened.mine.email === 'lan@gmail.com', 'Lan opens it: ' + JSON.stringify({ ok: opened.mine.ok, email: opened.mine.email }));
+        t.expect(opened.other.ok === false, 'a stranger does not');
+        t.expect(pend.indexOf(opened.code) >= 0, 'the code the owner saw is the code of Lan\'s key');
+
+        t.step('an email with no account: no key, the list says to send the link');
+        await t.eval(`__STUB.invPub = null`);
+        await t.type('#sp-inv-email', 'khoa@gmail.com');
+        await t.eval(`fhSpaceInvAdd()`); await t.wait(900);
+        const pend2 = await t.eval(() => document.getElementById('sp-inv-pending').innerText);
+        t.expect(/khoa@gmail\.com/i.test(pend2) && /Chưa có tài khoản Earthy/.test(pend2), 'said plainly: ' + pend2.replace(/\n/g, ' | ').slice(0, 200));
+        t.step('…and once that person has an account, the owner\'s device seals to them without being asked');
+        await t.eval(`(function(){ var b=''; var kp=nacl.box.keyPair(); for(var i=0;i<32;i++) b+=String.fromCharCode(kp.publicKey[i]); __STUB.invPub = btoa(b); })()`);
+        const n = await t.eval(() => fhSpaceSealPending(DB.fid));
+        t.expect(n === 1 && (await t.eval(() => __STUB.wl[DB.fid].every((i) => !!i.key_sealed))), 'the waiting invite got its key: ' + n);
+      },
+    },
+    {
+      name: 'l-an-invite-reaches-the-installed-app-by-paste',
+      lang: 'vi',
+      run: async (t) => {
+        const OTHER = 'dddddddd-0000-4000-8000-000000000001';
+        const link = 'https://fhtest-opal.vercel.app/#fh-s=' + OTHER + '&fh-n=' + encodeURIComponent('Phượt Đà Lạt');
+        t.step('a link opened where nobody is signed in: the hand-off sheet');
+        await t.eval((l) => { fhSpacePendingFromText(l); window.__fhPendingSpaceUrl = l; window.__fhPendingSpaceFresh = true; const r = localStorage.getItem('fh-resume'); localStorage.removeItem('fh-resume'); fhSpaceHandoffShow(); localStorage.setItem('fh-resume', r || '1'); }, link);
+        await t.wait(300);
+        const ho = await t.eval(() => (document.getElementById('sp-handoff') || {}).innerText || '');
+        t.expect(/Phượt Đà Lạt/.test(ho) && /Sao chép lời mời/.test(ho) && /Dán link mời/.test(ho) && /tiếp tục trên trình duyệt này/i.test(ho), 'names the space and both ways forward');
+        await t.shot('01-handoff');
+        t.expect(JSON.parse(await t.eval(() => sessionStorage.getItem('fh-pending-space'))).fid === OTHER, 'the invite is kept for the sign-in round trip (sessionStorage)');
+        await t.eval(() => { document.getElementById('sp-ho-here').click(); });
+        t.expect(!(await t.eval(() => !!document.getElementById('sp-handoff'))), '"continue here" closes the sheet');
+        await t.eval(() => { window.__fhPendingSpace = null; sessionStorage.removeItem('fh-pending-space'); });
+
+        t.step('in the app: Dán link mời');
+        await t.eval(`go('personal')`); await t.wait(900);
+        t.expect(/Dán link mời/.test(await t.eval(() => document.getElementById('pers-spaces-wrap').innerText)), 'the Nhóm section offers it');
+        await t.eval((id) => { __STUB.joinable = [{ family_id: id, name: 'Phượt Đà Lạt', type: 'friend', profile: { preset: 'friend' }, members: 3 }]; navigator.clipboard.readText = () => Promise.reject(new Error('denied')); fhSpacePasteInvite(); }, OTHER);
+        await t.wait(500);
+        t.expect(/Dán link mời/.test(await t.eval(() => document.getElementById('fh-modal-title').innerText)), 'clipboard refused → a field to paste into');
+        await t.eval(`fhModalSave()`); await t.wait(300);
+        t.expect(await t.eval(() => document.getElementById('fh-modal').classList.contains('on')), 'an empty field does not submit');
+        await t.type('#sp-paste-in', 'Vào nhóm nhé ' + link);
+        await t.shot('02-paste');
+        const before = await t.eval(() => (window.__stubLog || []).length);
+        await t.eval(`fhModalSave()`); await t.wait(2500);
+        const calls = await t.eval((n) => (window.__stubLog || []).slice(n).filter((e) => e.phase === 'start' && /^rpc:/.test(e.route)).map((e) => e.route), before);
+        t.expect(calls.indexOf('rpc:join_with_whitelist') >= 0, 'joined: ' + JSON.stringify(calls));
+        t.expect(calls.indexOf('rpc:space_my_sealed_key') >= 0, 'asked for the key sealed to this account (the link carried none)');
+        t.expect(calls.indexOf('rpc:switch_family') > calls.indexOf('rpc:join_with_whitelist'), 'and the space was opened');
+        t.expect(await t.eval((id) => !!fhSpaceGet(id), OTHER), 'the space is in the roster');
+        t.expect((await t.eval(() => sessionStorage.getItem('fh-pending-space'))) === null, 'the pending invite is consumed');
+
+        t.step('clipboard allowed: one tap, no field');
+        const OTHER2 = 'eeeeeeee-0000-4000-8000-000000000001';
+        await t.eval((id) => { __STUB.joinable.push({ family_id: id, name: 'Cầu lông', type: 'friend', profile: { preset: 'friend' }, members: 2 }); navigator.clipboard.readText = () => Promise.resolve('https://x/#fh-s=' + id); _closeOv(); return fhSpacePasteInvite(); }, OTHER2);
+        await t.wait(1500);
+        t.expect(await t.eval((id) => !!fhSpaceGet(id), OTHER2), 'joined straight from the clipboard');
       },
     },
   ],

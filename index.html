@@ -5303,6 +5303,16 @@ button.sp-li:active{background:var(--canvas)}
 .sp-num{min-width:52px;justify-content:center}
 .sp-mini{flex:none;min-height:44px;padding:10px 4px 10px 12px;border:0;background:none;font:inherit;font-size:14px;font-weight:600;color:var(--danger);cursor:pointer;-webkit-tap-highlight-color:transparent}
 .sp-home-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+/* an invite link opened where nobody is signed in: the hand-off to the installed app */
+.sp-handoff{position:absolute;inset:0;z-index:9990;background:var(--canvas);display:flex;align-items:center;justify-content:center;padding:calc(24px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom));overflow:auto}
+.sp-ho-in{width:100%;max-width:420px;text-align:center}
+.sp-ho-mark{font-size:44px;line-height:1;margin-bottom:14px}
+.sp-ho-t{font-family:var(--disp);font-size:22px;font-weight:700;letter-spacing:-.5px;color:var(--ink);line-height:1.25;margin-bottom:10px}
+.sp-ho-s{font-size:15px;line-height:1.55;color:var(--ink-2);margin-bottom:22px}
+.sp-ho-warn{margin-top:16px;padding:12px 14px;border-radius:14px;background:var(--amber-tint,var(--surface));color:var(--ink-2);font-size:13.5px;line-height:1.5;text-align:left}
+.sp-ho-foot{margin-top:16px;font-size:12.5px;line-height:1.5;color:var(--muted)}
+.sp-ho-ta{position:absolute;left:-9999px;top:0;opacity:0}
+.dbt-invite .dbt-empty-s{font-size:13.5px;color:var(--muted);margin-top:6px}
 /* ---------- What's new (release notes) — Apple "What's New" pattern ---------- */
 .wn-intro{font-family:var(--text);font-size:15px;line-height:1.45;color:var(--muted);letter-spacing:-.01em;margin:-2px 0 24px}
 .wn-list{display:flex;flex-direction:column;gap:28px}
@@ -8738,6 +8748,72 @@ function fhSplitLine(s, myId, fmtFn){
   var n = fhSplitMembers(s.map).length, mine = Number(s.map[myId]) || 0, f = fmtFn || function(v){ return String(v); };
   var vi = (typeof isVi !== 'function') || isVi();
   return (vi ? 'chia ' : 'split ') + (s.map._parts || n) + (mine > 0 ? ' · ' + (vi ? 'bạn ' : 'you ') + f(mine) : '');
+}
+
+/* ── The space key, sealed to one invitee (spaces-spec section 21) ───────────
+   A link cannot open an installed web app on an iPhone, so the key also
+   travels this way: the owner's device seals the space's Key Card to the
+   invitee's own public key (the X25519 half every account already has for
+   sealed bank mail, personal_keys.staging_pub) and the server stores only that
+   box. The invitee's device opens it with a private key that never leaves
+   their personal safe.
+
+   The box binds the space id and the invited email INSIDE it, so one moved
+   onto another invitation is refused when opened. What it cannot prove is that
+   the public key the server handed the owner really is the invitee's: `p`
+   carries a short fingerprint of that key so the two people can compare
+   ("mã xác nhận") if they want certainty.
+
+   `naclLib` is passed in (window.nacl in the app, the vendored file in tests). */
+function _spB64(bytes){ var s = ''; for(var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]); return btoa(s); }
+function _spBytes(b64){ var bin = atob(String(b64)), out = new Uint8Array(bin.length); for(var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i); return out; }
+function _spUtf8(str){ var e = unescape(encodeURIComponent(String(str))), out = new Uint8Array(e.length); for(var i = 0; i < e.length; i++) out[i] = e.charCodeAt(i); return out; }
+function _spFromUtf8(bytes){ var s = ''; for(var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]); return decodeURIComponent(escape(s)); }
+/* Six characters that name a public key: enough for two people to read to each
+   other, not a secret. */
+function fhSpaceKeyCode(pubB64){
+  var id = fhSpaceLinkId('pub:' + String(pubB64 || '')).replace(/-/g, '').toUpperCase();
+  return id.slice(0, 2) + '-' + id.slice(2, 4) + '-' + id.slice(4, 6);
+}
+function fhSpaceSealMake(naclLib, fid, email, card, pubB64){
+  var pub = _spBytes(pubB64);
+  if(pub.length !== 32) throw new Error('bad_pubkey');
+  var eph = naclLib.box.keyPair(), nonce = naclLib.randomBytes(naclLib.box.nonceLength);
+  var msg = _spUtf8(JSON.stringify({ v: 1, f: String(fid), m: String(email || '').toLowerCase().trim(), k: String(card) }));
+  var box = naclLib.box(msg, nonce, pub, eph.secretKey);
+  for(var i = 0; i < eph.secretKey.length; i++) eph.secretKey[i] = 0;
+  return JSON.stringify({ v: 1, e: _spB64(eph.publicKey), n: _spB64(nonce), c: _spB64(box), p: fhSpaceKeyCode(pubB64) });
+}
+/* → { ok, card, code } or { ok:false, error }. `fid` is the space the caller
+   believes this is for; a box made for another space is refused. */
+function fhSpaceSealOpen(naclLib, sealedStr, privBytes, fid){
+  var o;
+  try{ o = JSON.parse(String(sealedStr)); }catch(e){ return { ok: false, error: 'format' }; }
+  if(!o || o.v !== 1 || !o.e || !o.n || !o.c) return { ok: false, error: 'format' };
+  var opened;
+  try{ opened = naclLib.box.open(_spBytes(o.c), _spBytes(o.n), _spBytes(o.e), privBytes); }catch(e){ opened = null; }
+  if(!opened) return { ok: false, error: 'not_for_this_key' };
+  var m;
+  try{ m = JSON.parse(_spFromUtf8(opened)); }catch(e){ return { ok: false, error: 'format' }; }
+  if(!m || m.v !== 1 || !m.k) return { ok: false, error: 'format' };
+  if(String(m.f) !== String(fid)) return { ok: false, error: 'other_space' };
+  return { ok: true, card: m.k, email: m.m || '', code: o.p || '' };
+}
+/* An invite link, read: { fid, card (the opaque fragment value, or null), name }. */
+function fhSpaceLinkParse(src){
+  var s = String(src == null ? '' : src);
+  var m = s.match(/[#&?]fh-s=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
+  if(!m) return null;
+  var k = s.match(/[#&]fh-k=([^&\s]+)/i), n = s.match(/[#&]fh-n=([^&\s]+)/i), name = '';
+  if(n){ try{ name = decodeURIComponent(n[1]).slice(0, 60); }catch(e){ name = ''; } }
+  return { fid: m[1].toLowerCase(), k: k ? k[1] : null, name: name };
+}
+/* The browsers that live inside another app and usually cannot finish a Google
+   sign-in. Telegram and iMessage on iOS open a real Safari sheet and are not here. */
+function fhInAppBrowser(ua){
+  var u = String(ua || '');
+  if(/Zalo|FBAN|FBAV|FB_IAB|Instagram|Line\/|TikTok|musical_ly|MicroMessenger|KAKAOTALK|Snapchat/i.test(u)) return true;
+  return /; wv\)/.test(u);                                // an Android WebView
 }
 /* ── Spaces ("Nhóm") — how the shell follows the open space ───────────────────
    The other three tabs show whichever space is open. What they show follows
@@ -32539,7 +32615,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v636';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v637';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -32561,6 +32637,13 @@ var ICO = {
 };
 
 var RELEASES = [
+  { id:'2026-11-22-moi-vao-nhom', date:'2026-11-22', time:'23:00', ver:'v637', icon:ICO.people,
+    vi:{ t:'Mời vào nhóm: bấm một cái là vào',
+      problem:'Trên iPhone, quét mã mời chỉ mở được trình duyệt, không mở được Earthy đã cài. Người được mời thấy màn đăng nhập, đăng nhập xong thì lời mời biến mất.',
+      sol:'Giờ bạn chỉ cần thêm email: ai đã có Earthy sẽ thấy lời mời ngay trong mục Nhóm, kèm sẵn mã khóa, bấm Tham gia là vào. Ai nhận link thì có nút "Sao chép lời mời", rồi vào Earthy bấm "Dán link mời". Người chưa có tài khoản tiếp tục trên trình duyệt và lời mời không còn mất sau khi đăng nhập.' },
+    en:{ t:'Invites to a space: one tap and you are in',
+      problem:'On an iPhone, scanning an invite code can only open the browser, never the installed Earthy. The invitee saw a sign-in screen, and after signing in the invite was gone.',
+      sol:'Now you just add their email: anyone who already has Earthy sees the invite under Spaces, key included, and joins with one tap. Someone who gets a link has a "Copy the invite" button, then taps "Paste an invite" in Earthy. Someone with no account continues in the browser, and the invite no longer disappears after sign-in.' } },
   { id:'2026-11-22-nhom', date:'2026-11-22', time:'21:00', ver:'v636', icon:ICO.people,
     vi:{ t:'Gia đình hay bạn bè, đều là một Nhóm',
       problem:'Chi chung với bạn bè trước giờ chỉ có một sổ chia tiền nhỏ nằm trong Tài sản, không ảnh, không cảm xúc, và không vào sổ của riêng bạn.',
@@ -37220,14 +37303,80 @@ window.obGoogle = async function () {
       return r.error ? { ok: false, error: r.error.message } : { ok: true };
     };
 
-    /* The invite link: the space id and its Key Card in the fragment, so the
-       invitee types nothing (S40). The fragment never reaches a server. The
-       owner still has to add the invitee's email: the whitelist is the access
-       rule, the link only carries the key. */
+    /* ── the key reaches the invitee two ways ─────────────────────────────── */
+    /* (1) Sealed to their account (spaces-spec section 21): when the owner adds
+       an email, this device seals the space's Key Card to that account's public
+       key. Their installed app opens it in one tap; nothing is scanned or typed.
+       An email with no account yet has no key to seal to; the owner's device
+       tries again whenever it lists the invites. */
+    window.fhSpaceSealFor = async function (fid, email) {
+      const card = window.fhSpaceCardCached(fid);
+      if (!card) return { ok: false, error: 'no_card' };            // this device joined without the card text; another owner device has it
+      if (!window.nacl) return { ok: false, error: 'no_nacl' };
+      const pk = await _sb().rpc('space_invite_pubkey', { p_family_id: fid, p_email: email });
+      if (pk.error) return { ok: false, error: /function|schema cache/i.test(pk.error.message || '') ? 'old_server' : pk.error.message };
+      if (!pk.data) return { ok: false, error: 'no_account' };
+      let sealed;
+      try { sealed = fhSpaceSealMake(window.nacl, fid, email, card, pk.data); } catch (e) { return { ok: false, error: 'seal_failed' }; }
+      const r = await _sb().rpc('space_invite_seal', { p_family_id: fid, p_email: email, p_sealed: sealed });
+      if (r.error) return { ok: false, error: r.error.message };
+      return { ok: true, code: fhSpaceKeyCode(pk.data) };
+    };
+    /* Seal every pending invite of a space I own that has no key yet. Quiet. */
+    window.fhSpaceSealPending = async function (fid, list) {
+      const sp = window.fhSpaceGet(fid);
+      if (!sp || !sp.isOwner || sp.type === 'family' || !window.fhSpaceCardCached(fid)) return 0;
+      const rows = list || await window.fhSpaceInvites(fid);
+      let n = 0;
+      for (const i of rows) { if (i && i.status === 'pending' && !i.sealed) { const r = await window.fhSpaceSealFor(fid, i.email); if (r.ok) n++; else if (r.error === 'old_server') break; } }
+      return n;
+    };
+    /* The invitee's side: open the box with my own private key and unlock. */
+    window.fhSpaceUnlockSealed = async function (fid, sealedStr) {
+      try {
+        if (!window.nacl || !window.fhPersonalStagingPrivKey) return { ok: false, error: 'no_key' };
+        let sealed = sealedStr;
+        if (!sealed) {
+          const r = await _sb().rpc('space_my_sealed_key', { p_family_id: fid });
+          if (r.error || !r.data) return { ok: false, error: 'none' };
+          sealed = r.data;
+        }
+        let priv;
+        try { priv = await window.fhPersonalStagingPrivKey(); } catch (e) { return { ok: false, error: 'personal_locked' }; }
+        const o = fhSpaceSealOpen(window.nacl, sealed, priv, fid);
+        for (let i = 0; i < priv.length; i++) priv[i] = 0;
+        if (!o.ok) return o;
+        return await window.fhSpaceUnlock(fid, o.card);
+      } catch (e) { return { ok: false, error: 'failed' }; }
+    };
+    /* My own confirmation code: what an owner who invited me should see next to
+       my email. Null until the personal safe has made its keypair. */
+    window.fhSpaceMyKeyCode = async function () {
+      try { const r = await _sb().rpc('get_personal_staging_key', {}); return (r.data && r.data.staging_pub) ? fhSpaceKeyCode(r.data.staging_pub) : null; } catch (e) { return null; }
+    };
+
+    /* (2) The invite link: the space id, its Key Card and its name in the
+       fragment, which never reaches a server. It is what a person with no
+       account yet opens, and what gets pasted into an installed app that a link
+       cannot open (every iPhone). The owner still adds the invitee's email: the
+       whitelist is the access rule, the link only carries the key. */
     window.fhSpaceInviteUrl = function (fid) {
       const disp = window.fhSpaceCardCached(fid); if (!disp) return null;
+      const sp = window.fhSpaceGet(fid);
       const k = FHCrypto.cardUrl(disp); const i = k.indexOf('#fh-k=');
-      return k.slice(0, i) + '#fh-s=' + fid + '&fh-k=' + k.slice(i + 6);
+      return k.slice(0, i) + '#fh-s=' + fid + '&fh-k=' + k.slice(i + 6) + (sp && sp.name ? '&fh-n=' + encodeURIComponent(String(sp.name).slice(0, 60)) : '');
+    };
+    /* A pending invite survives the sign-in redirect in sessionStorage (same
+       tab only, gone when the tab closes). It used to live in a window variable,
+       which the redirect to Google and back wiped: the person signed in and
+       nothing happened. */
+    const PEND_SS = 'fh-pending-space';
+    function _pendSet(p) { window.__fhPendingSpace = p; try { if (p) sessionStorage.setItem(PEND_SS, JSON.stringify(p)); else sessionStorage.removeItem(PEND_SS); } catch (e) {} }
+    window.fhSpacePendingFromText = function (text) {
+      const l = fhSpaceLinkParse(text); if (!l) return false;
+      const card = l.k ? FHCrypto.parseKeyFragment('#fh-k=' + l.k) : null;
+      _pendSet({ fid: l.fid, card: card ? card.display : null, name: l.name || '' });
+      return true;
     };
     /* Landing: runs at module load, BEFORE the family card landing in
        67-card-ui.js, which would otherwise take this card for the family's.
@@ -37235,18 +37384,24 @@ window.obGoogle = async function () {
     (function _spaceLinkLanding() {
       try {
         const src = location.hash || '';
-        const m = src.match(/[#&]fh-s=([0-9a-f-]{36})/i);
-        if (!m) return;
-        const card = FHCrypto.parseKeyFragment(src);
-        try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
-        window.__fhPendingSpace = { fid: m[1].toLowerCase(), card: card ? card.display : null };
+        if (fhSpaceLinkParse(src)) {
+          const raw = location.href;
+          try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+          window.fhSpacePendingFromText(src);
+          window.__fhPendingSpaceUrl = raw;                          // for the hand-off sheet's copy button; memory only
+          window.__fhPendingSpaceFresh = true;
+          return;
+        }
+        const saved = sessionStorage.getItem(PEND_SS);
+        if (saved) { const p = JSON.parse(saved); if (p && p.fid) window.__fhPendingSpace = p; }
       } catch (e) {}
     })();
     /* Called once the person is signed in. Joins if they are invited, unlocks
-       with the card from the link, and opens the space. */
+       with the card from the link (or the box sealed to them), opens the space. */
     window.fhSpacePendingJoin = async function () {
       const p = window.__fhPendingSpace; if (!p) return false;
-      window.__fhPendingSpace = null;
+      _pendSet(null);
+      try { const ho = document.getElementById('sp-handoff'); if (ho) ho.remove(); } catch (e) {}
       await window.fhSpacesBoot({ force: true });
       let sp = window.fhSpaceGet(p.fid);
       if (!sp) {
@@ -37254,13 +37409,16 @@ window.obGoogle = async function () {
         if (!j.ok) {
           window.toast && toast(/not_whitelisted/.test(j.error || '')
             ? L('Email này chưa được mời vào nhóm. Nhờ chủ nhóm thêm email của bạn.', 'This email is not invited yet. Ask the owner to add it.')
-            : L('Chưa vào được nhóm, thử lại sau', 'Could not join the space, try again later'));
+            : (/invite_expired/.test(j.error || '') ? L('Lời mời đã hết hạn. Nhờ chủ nhóm mời lại.', 'The invite has expired. Ask the owner to invite you again.')
+            : L('Chưa vào được nhóm, thử lại sau', 'Could not join the space, try again later')));
           return false;
         }
         await window.fhSpacesBoot({ force: true });
         sp = window.fhSpaceGet(p.fid);
       }
-      if (p.card && !S.keys[p.fid]) { const u = await window.fhSpaceUnlock(p.fid, p.card); if (!u.ok) window.toast && toast(L('Mã khóa trong link không mở được nhóm này', 'The code in the link does not open this space')); }
+      if (!S.keys[p.fid]) { const kc = await _kGet(p.fid); if (kc && kc.key) S.keys[p.fid] = kc.key; }
+      if (!S.keys[p.fid] && p.card) { const u = await window.fhSpaceUnlock(p.fid, p.card); if (!u.ok) window.toast && toast(L('Mã khóa trong link không mở được nhóm này', 'The code in the link does not open this space')); }
+      if (!S.keys[p.fid]) await window.fhSpaceUnlockSealed(p.fid);
       if (sp) { await window.fhSpaceOpen(p.fid); return true; }
       return false;
     };
@@ -38917,7 +39075,7 @@ window.obGoogle = async function () {
     const _amtOf = (id) => window.parseAmtBase ? parseAmtBase(($(id) || {}).value || '') : 0;
 
     /* ── the Nhóm section on Tài chính ─────────────────────────────────────── */
-    let _invites = [], _invitesAt = 0, _busy = false;
+    let _invites = [], _invitesAt = 0, _busy = false, _sealAt = 0;
     function _netOf(sp) {
       const S = _S();
       if (!S.list.some((x) => x.id === sp.id)) return { kind: 'none' };          // keeps no balances
@@ -38944,9 +39102,10 @@ window.obGoogle = async function () {
       const S = _S(); if (!S) return '';
       const activeId = (window.DB && window.DB.fid) || ((S.all.find((x) => x.isActive) || {}).id) || null;
       let h = '<div id="pers-spaces-wrap"><div class="section-h"><span class="tl"><span class="t">' + L('Nhóm', 'Spaces') + '</span></span>'
-        + '<span class="acts"><a onclick="fhSpaceCreateSheet()">' + L('＋ Tạo nhóm', '＋ New space') + '</a></span></div>';
+        + '<span class="acts"><a onclick="fhSpacePasteInvite()">' + L('Dán link mời', 'Paste an invite') + '</a><a onclick="fhSpaceCreateSheet()">' + L('＋ Tạo nhóm', '＋ New space') + '</a></span></div>';
       _invites.forEach(function (inv) {
         h += '<section class="dbt-empty dbt-invite"><div class="dbt-empty-t"><b>' + _e(inv.invited_by || L('Một người bạn', 'A friend')) + '</b> ' + L('mời bạn vào nhóm', 'invited you to') + ' <b>' + _e(inv.family_name || L('Nhóm', 'a space')) + '</b>.</div>'
+          + (inv.key_sealed ? '<div class="dbt-empty-s">' + L('Mã khóa của nhóm đã gửi kèm lời mời này. Bấm là vào.', 'The space key came with this invite. One tap and you are in.') + '</div>' : '')
           + '<div class="dbt-empty-cta"><button type="button" onclick="fhSpaceAcceptInvite(\'' + inv.family_id + '\')">' + L('Tham gia', 'Join') + '</button></div></section>';
       });
       if (!S.all.length) {
@@ -38986,6 +39145,12 @@ window.obGoogle = async function () {
             if (S.keys[sp.id] && (!S.data[sp.id] || Date.now() - S.data[sp.id].at > 60000)) { await fhSpaceHydrate(sp.id); changed = true; }
           }
           if (changed) { _redraw(); try { window.persDebtRedraw && window.persDebtRedraw(); } catch (e) {} }
+          /* an invitee who had no account when I invited them has one now: seal
+             the key to them. At most every ten minutes, owned spaces only. */
+          if (force || Date.now() - _sealAt >= 600000) {
+            _sealAt = Date.now();
+            for (const sp of S.all) { if (sp.isOwner && sp.type !== 'family' && !sp.closed && window.fhSpaceCardCached(sp.id)) { try { await fhSpaceSealPending(sp.id); } catch (e) {} } }
+          }
         } catch (e) { console.warn('spaces refresh failed', e); }
         finally { _busy = false; }
       })();
@@ -38995,17 +39160,46 @@ window.obGoogle = async function () {
       const S = _S(), sp = fhSpaceGet(fid); if (!sp) return;
       /* a friend space is opened with its own Key Card; a family has its own
          door (passcode or card) that the lock wall already handles */
-      if (sp.type !== 'family' && !S.keys[fid]) { window.fhSpaceUnlockSheet(fid); return; }
+      if (sp.type !== 'family' && !S.keys[fid]) {
+        /* the key may be waiting, sealed to this account (a second device, or an
+           invite accepted before its key arrived): try that before asking */
+        fhSpaceUnlockSealed(fid).then(function (r) { if (r && r.ok) fhSpaceOpen(fid); else window.fhSpaceUnlockSheet(fid); });
+        return;
+      }
       fhSpaceOpen(fid);
     };
     window.fhSpaceAcceptInvite = async function (fid) {
       const r = await fhSpaceJoin(fid);
       if (!r.ok) { window.toast && toast(L('Chưa tham gia được. Nhờ chủ nhóm mời lại nhé.', 'Could not join. Ask the owner to invite you again.')); return; }
+      const inv = _invites.find((i) => i.family_id === fid);
       _invites = _invites.filter((i) => i.family_id !== fid); _invitesAt = 0;
       await fhSpacesBoot({ force: true });
       _redraw();
+      if (!_S().keys[fid]) await fhSpaceUnlockSealed(fid, inv && inv.key_sealed);   // the key the owner's device sealed to this account
       if (_S().keys[fid]) { fhSpaceOpen(fid); return; }
       window.fhSpaceUnlockSheet(fid);
+    };
+    /* "Dán link mời": the way an invite reaches an installed app that a link
+       cannot open (every iPhone). Reads the clipboard on this tap; if the
+       browser will not hand it over, or it holds no invite, asks for a paste. */
+    async function _pasteGo(text) {
+      if (!window.fhSpacePendingFromText(text)) return false;
+      window.toast && toast(L('Đang vào nhóm…', 'Joining…'));
+      const ok = await window.fhSpacePendingJoin();
+      if (!ok) _redraw();
+      return true;
+    }
+    window.fhSpacePasteInvite = async function () {
+      let text = '';
+      try { if (navigator.clipboard && navigator.clipboard.readText) text = await navigator.clipboard.readText(); } catch (e) { text = ''; }
+      if (text && await _pasteGo(text)) return;
+      _fhModal({
+        title: L('Dán link mời', 'Paste an invite'), saveLabel: L('Vào nhóm', 'Join'), reqMsg: L('Dán link mời vào ô này nhé', 'Paste the invite link here'),
+        body: '<div class="field"><label>' + L('Link mời', 'Invite link') + '</label><textarea id="sp-paste-in" rows="3" autocapitalize="none" autocomplete="off" placeholder="https://…#fh-s=…" oninput="fhModalDirty()"></textarea></div>'
+          + '<div class="dbt-note">' + L('Người mời gửi bạn một đường link hoặc mã QR. Mở nó, bấm "Sao chép lời mời", rồi dán vào đây.', 'Whoever invited you sent a link or a QR code. Open it, tap "Copy the invite", then paste it here.') + '</div>',
+        required: function () { return [{ el: $('sp-paste-in'), ok: !!fhSpaceLinkParse(($('sp-paste-in') || {}).value || '') }]; },
+        save: async function () { const v = ($('sp-paste-in') || {}).value || ''; return function () { _pasteGo(v); }; },
+      });
     };
     /* older entry points (push taps, the Tài sản tile that used to hold spaces) */
     window.openDebtSpace = function (fid) { window.fhSpaceRowTap(fid); };
@@ -39134,13 +39328,23 @@ window.obGoogle = async function () {
 
     /* ── invite: QR and link (they carry the key), and the email whitelist ─── */
     let _invCtx = null;
+    const _sealCodes = {};     // email → the confirmation code of the key this device sealed to, this session
     async function _invPending(fid) {
       const box = $('sp-inv-pending'); if (!box) return;
       const list = (await fhSpaceInvites(fid)).filter((i) => i && i.status === 'pending');
       if (!$('sp-inv-pending')) return;
+      /* an invite with no key yet: the person had no account when it was sent.
+         Try again now; repaint if any of them took. */
+      if (!_invPending._busy && list.some((i) => !i.sealed)) {
+        _invPending._busy = 1;
+        fhSpaceSealPending(fid, list).then(function (n) { _invPending._busy = 0; if (n && $('sp-inv-pending')) _invPending(fid); }, function () { _invPending._busy = 0; });
+      }
+      const st = (i) => i.sealed
+        ? L('Đã gửi kèm mã khóa. Bạn ấy mở Earthy là thấy lời mời.', 'The key went with it. They will see the invite when they open Earthy.') + (_sealCodes[i.email] ? ' ' + L('Mã xác nhận ', 'Check code ') + _sealCodes[i.email] : '')
+        : L('Chưa có tài khoản Earthy. Gửi link mời cho bạn ấy.', 'No Earthy account yet. Send them the invite link.');
       box.innerHTML = list.length
         ? '<div class="field"><label>' + L('Đang chờ tham gia', 'Waiting to join') + '</label><div class="rl-list sp-sw">' + list.map((i) =>
-            '<div class="rl-row"><span class="rl-t"><b>' + _e(i.email) + '</b></span><button type="button" class="sp-mini" onclick="fhSpaceInvCancel(this)" data-em="' + _e(i.email) + '">' + L('Huỷ mời', 'Cancel') + '</button></div>').join('') + '</div></div>'
+            '<div class="rl-row"><span class="rl-t"><b>' + _e(i.email) + '</b><small>' + _e(st(i)) + '</small></span><button type="button" class="sp-mini" onclick="fhSpaceInvCancel(this)" data-em="' + _e(i.email) + '">' + L('Huỷ mời', 'Cancel') + '</button></div>').join('') + '</div></div>'
         : '';
     }
     window.fhSpaceInvCancel = async function (btn) {
@@ -39171,18 +39375,22 @@ window.obGoogle = async function () {
       const done = function () { if (opts.thenOpen) fhSpaceOpen(fid); };
       _fhModal({
         title: L('Mời vào nhóm', 'Invite to the space'), saveLabel: L('Xong', 'Done'),
-        body: (url
-            ? '<div id="sp-qr-wrap"></div>'
-              + '<div class="dbt-note" style="text-align:center;padding-top:0">' + L('Bạn bè quét mã hoặc mở link là có sẵn mã khóa, không phải gõ gì. Link mang theo chìa khóa của nhóm, chỉ gửi cho người bạn mời.', 'Friends scan the code or open the link and the key is already there, with nothing to type. The link carries the space key, so send it only to people you invite.') + '</div>'
-              + '<button type="button" class="fh-s-cta" onclick="fhSpaceInvShare()">' + L('Chia sẻ link mời', 'Share the invite link') + '</button>'
-              + '<button type="button" class="fh-s-line" onclick="fhSpaceInvCopy()">' + L('Sao chép link', 'Copy link') + '</button>'
-            : '<div class="dbt-note">' + L('Máy này chưa giữ mã khóa của nhóm nên chưa tạo được link. Mời bằng email bên dưới và gửi mã khóa riêng.', 'This device does not hold the space code, so it cannot make a link. Invite by email below and send the code separately.') + '</div>')
-          + (sp.isOwner
-            ? '<div class="field" style="margin-top:22px"><label>' + L('Email Google của người được mời', 'Invitee Google email') + '</label><input id="sp-inv-email" inputmode="email" autocapitalize="none" placeholder="ban@gmail.com" oninput="fhModalDirty()"></div>'
-              + '<button type="button" class="fh-s-line" style="margin-top:0" onclick="fhSpaceInvAdd()">' + L('Thêm vào danh sách mời', 'Add to the invite list') + '</button>'
-              + '<div class="dbt-note" style="padding-left:0;padding-right:0">' + L('Chỉ email bạn thêm ở đây mới vào được nhóm. Link mời chỉ mang mã khóa.', 'Only the emails you add here can join. The link only carries the key.') + '</div>'
+        /* The email comes first: for someone who already has Earthy it is the
+           whole invite (the key is sealed to their account). The link and the QR
+           are for a person who has no account yet. */
+        body: (sp.isOwner
+            ? '<div class="field"><label>' + L('Email Google của người được mời', 'Invitee Google email') + '</label><input id="sp-inv-email" inputmode="email" autocapitalize="none" placeholder="ban@gmail.com" oninput="fhModalDirty()"></div>'
+              + '<button type="button" class="fh-s-cta" onclick="fhSpaceInvAdd()">' + L('Mời', 'Invite') + '</button>'
+              + '<div class="dbt-note" style="padding-left:0;padding-right:0">' + L('Ai đã có tài khoản Earthy sẽ thấy lời mời ngay trong app, kèm sẵn mã khóa: bấm Tham gia là vào. Chỉ email bạn thêm ở đây mới vào được nhóm.', 'Someone who already has an Earthy account sees the invite in the app, key included: one tap on Join. Only the emails you add here can join.') + '</div>'
             : '<div class="dbt-note">' + L('Chủ nhóm là người thêm email được mời.', 'The owner adds the emails that may join.') + '</div>')
-          + '<div id="sp-inv-pending"></div>',
+          + '<div id="sp-inv-pending"></div>'
+          + '<div class="field" style="margin-top:22px"><label>' + L('Người chưa có Earthy', 'For someone without Earthy') + '</label></div>'
+          + (url
+            ? '<div id="sp-qr-wrap"></div>'
+              + '<div class="dbt-note" style="text-align:center;padding-top:0">' + L('Gửi link hoặc cho quét mã. Link mang theo mã khóa của nhóm, chỉ gửi cho người bạn mời. Trên iPhone, link mở bằng trình duyệt và hướng dẫn họ dán vào Earthy.', 'Send the link or let them scan the code. The link carries the space key, so send it only to people you invite. On an iPhone it opens in the browser and tells them how to paste it into Earthy.') + '</div>'
+              + '<button type="button" class="fh-s-line" style="margin-top:0" onclick="fhSpaceInvShare()">' + L('Chia sẻ link mời', 'Share the invite link') + '</button>'
+              + '<button type="button" class="fh-s-ghost" onclick="fhSpaceInvCopy()">' + L('Sao chép link', 'Copy link') + '</button>'
+            : '<div class="dbt-note">' + L('Máy này chưa giữ mã khóa của nhóm nên chưa tạo được link.', 'This device does not hold the space code, so it cannot make a link.') + '</div>'),
         after: function () {
           if (url && window.fhQrCanvas) { try { const cv = window.fhQrCanvas(url, 6, 4); cv.className = 'sp-qr'; const w = $('sp-qr-wrap'); if (w) w.appendChild(cv); } catch (e) {} }
           _invPending(fid);
@@ -39197,7 +39405,11 @@ window.obGoogle = async function () {
       const r = await fhSpaceInvite(_invCtx.fid, v);
       if (!r.ok) { window.toast && toast(/already_member/.test(r.error || '') ? L('Người này đã ở trong nhóm rồi', 'They are already in the space') : L('Chưa mời được, thử lại', 'Could not invite, try again')); return; }
       if (el) el.value = '';
-      window.toast && toast(L('Đã thêm. Gửi link mời cho bạn ấy nhé.', 'Added. Now send them the invite link.'));
+      /* seal the key to their account right away; no account yet → the link is the way */
+      const sl = await fhSpaceSealFor(_invCtx.fid, v.toLowerCase());
+      if (sl.ok) _sealCodes[v.toLowerCase()] = sl.code;
+      window.toast && toast(sl.ok ? L('Đã mời, kèm sẵn mã khóa', 'Invited, key included')
+                                  : L('Đã thêm. Gửi thêm link mời nhé.', 'Added. Send them the link too.'));
       _invPending(_invCtx.fid);
     };
 
@@ -39406,6 +39618,41 @@ window.obGoogle = async function () {
       try { if (typeof renderExpenseDetailIfOpen === 'function') renderExpenseDetailIfOpen(); _afterMoney(); if (window.loadFamilyData) window.loadFamilyData({ windowed: true }); } catch (e) {}
       try { window.fhNotify && window.fhNotify('space_expense', { familyId: fid, tx: tx._dbId }); } catch (e) {}
     };
+
+    /* ── an invite link opened in a browser where nobody is signed in ──────── */
+    /* On an iPhone a link (or a scanned QR) can only open a browser, never the
+       installed app, and the two do not share storage. So the browser's job is
+       to hand the invite over: copy it, open Earthy from the home screen, paste.
+       Someone with no app yet simply continues here; the invite waits through
+       the sign-in. */
+    function _handoff() {
+      const p = window.__fhPendingSpace; if (!p || !window.__fhPendingSpaceFresh) return;
+      const standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+      let resumed = false; try { resumed = !!localStorage.getItem('fh-resume'); } catch (e) {}
+      if (standalone || resumed) return;                 // signed in here: afterLogin joins directly
+      const inapp = fhInAppBrowser(navigator.userAgent);
+      const ov = document.createElement('div'); ov.id = 'sp-handoff'; ov.className = 'sp-handoff';
+      ov.innerHTML = '<div class="sp-ho-in">'
+        + '<div class="sp-ho-mark">🤝</div>'
+        + '<div class="sp-ho-t">' + (p.name ? L('Bạn được mời vào nhóm ', 'You are invited to ') + '<b>' + _e(p.name) + '</b>' : L('Bạn được mời vào một nhóm trên Earthy', 'You are invited to a space on Earthy')) + '</div>'
+        + '<div class="sp-ho-s">' + L('Đã cài Earthy trên máy này? Sao chép lời mời, mở Earthy từ màn hình chính, vào Tài chính, mục Nhóm, bấm "Dán link mời".', 'Already have Earthy on this phone? Copy the invite, open Earthy from your home screen, go to Finance, Spaces, and tap "Paste an invite".') + '</div>'
+        + '<button type="button" class="fh-s-cta" id="sp-ho-copy">' + L('Sao chép lời mời', 'Copy the invite') + '</button>'
+        + '<button type="button" class="fh-s-line" id="sp-ho-here">' + L('Chưa cài, tiếp tục trên trình duyệt này', 'No app yet, continue in this browser') + '</button>'
+        + (inapp ? '<div class="sp-ho-warn">' + L('Trình duyệt trong ứng dụng này thường không đăng nhập Google được. Bấm dấu ••• hoặc biểu tượng la bàn rồi chọn mở bằng Safari hay Chrome.', 'This in-app browser usually cannot complete Google sign-in. Use the ••• or compass button to open it in Safari or Chrome.') + '</div>' : '')
+        + '<div class="sp-ho-foot">' + L('Lời mời mang theo mã khóa của nhóm. Chỉ dán vào Earthy, đừng gửi cho người khác.', 'The invite carries the space key. Paste it only into Earthy; do not pass it on.') + '</div>'
+        + '</div>';
+      (document.getElementById('phone') || document.body).appendChild(ov);
+      $('sp-ho-copy').onclick = async function () {
+        const url = window.__fhPendingSpaceUrl || '';
+        let ok = false;
+        try { await navigator.clipboard.writeText(url); ok = true; } catch (e) {}
+        if (!ok) { try { const ta = document.createElement('textarea'); ta.value = url; ta.setAttribute('readonly', ''); ta.className = 'sp-ho-ta'; ov.appendChild(ta); ta.select(); ok = document.execCommand('copy'); ta.remove(); } catch (e) {} }
+        this.textContent = ok ? L('Đã sao chép. Giờ mở Earthy và dán.', 'Copied. Now open Earthy and paste.') : L('Chưa sao chép được. Giữ lâu vào thanh địa chỉ để chép.', 'Could not copy. Long-press the address bar to copy.');
+      };
+      $('sp-ho-here').onclick = function () { ov.remove(); };
+    }
+    window.fhSpaceHandoffShow = _handoff;
+    try { _handoff(); } catch (e) {}
   })();
   /* ═══ Personal lessons — synced, encrypted (0122) ═══════════════════════════
      docs/specs/lending-capture-spec.md §3.

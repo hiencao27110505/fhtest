@@ -676,3 +676,61 @@ Change, in `supabase/functions/push-send/index.ts`:
 The client sends `family_id` on every social push and opens the right space
 when one is tapped. The function is deployed by Hien after a diff against the
 live version (ground rule: a redeploy replaces whatever is live).
+
+## 21. How an invite reaches the invitee (added 2026-11-22, S42 to S44)
+
+Found on the first real invite: Hien's friend scanned the QR on an iPhone and
+landed in a browser, signed out, and after signing in nothing happened.
+
+**Why.** An iPhone never opens a link or a scanned code in an installed web
+app: it opens Safari, or the scanning app's own browser. That browser is a
+separate copy of the app with its own storage. On top of that the first build
+kept the invite in a window variable, and "Continue with Google" reloads the
+page, so the invite was gone by the time the person was signed in. And Google
+often refuses sign-in inside another app's browser.
+
+**Three roads, all built.**
+
+| Road | For whom | What happens |
+|---|---|---|
+| The key sealed to the account (S42) | someone who already has Earthy | The owner adds the email. The owner's device seals the space's Key Card to that account's public key (`personal_keys.staging_pub`, the keypair every account already has for sealed bank mail) and stores the box on the invitation. The invitee opens Earthy, sees the invite in the Nhóm section, taps Tham gia, and is in. Nothing is scanned, pasted or typed. |
+| Paste (S43) | an iPhone that was sent a link anyway | The browser shows a hand-off sheet: "Sao chép lời mời", then open Earthy from the home screen and tap "Dán link mời" in the Nhóm section. One tap reads the clipboard; if the browser will not hand it over, a field to paste into. |
+| Continue in the browser (S44) | someone with no account yet | "Chưa cài, tiếp tục trên trình duyệt này". The invite now waits in `sessionStorage` through the sign-in round trip and joins on return. In an in-app browser the sheet says to open it in Safari or Chrome. |
+
+The invite sheet puts the email first, since for an existing user it is the
+whole invite, and the link and QR below it under "Người chưa có Earthy".
+
+**An invitee with no account when invited** has no key to seal to. The owner's
+device seals to them later: whenever it lists that space's invites, and at
+most every ten minutes from the Nhóm section's refresh. Until then the list
+says "Chưa có tài khoản Earthy. Gửi link mời cho bạn ấy."
+
+**A second device of the invitee** asks for the same box
+(`space_my_sealed_key`) before it asks for a code.
+
+**What this trusts that the link does not.** The owner's device asks the
+server which public key belongs to the invited email. A server that answered
+with a key of its own could open the box. The box binds the space id and the
+email inside it, so it cannot be moved to another invitation, but it cannot
+prove whose key it was sealed to. The owner's list shows a six-character
+"mã xác nhận" of the key it sealed to; comparing it with the invitee is the
+check, and it is optional. This is a deliberate step down from "the key never
+goes near the server in any form" for the sake of a one-tap join; the link
+remains available to anyone who prefers it. Security invariant 2 still holds:
+no space key is wrapped by another space's key or by a key its member does not
+own.
+
+**Schema** (`supabase/migrations/0166_space_invite_sealed_key.sql`):
+`invitations.key_sealed`; `space_invite_pubkey` (owner only, and only for an
+email with a pending invite in that space, so it is not an account-probing
+oracle beyond the people the owner already invited); `space_invite_seal`;
+`space_my_sealed_key`; `space_whitelist_list` returns `sealed`;
+`find_my_invites` returns `key_sealed`. A client on the old schema falls back
+to the link.
+
+| # | Decision |
+|---|---|
+| S42 | The space key also travels sealed to the invitee's account, so an existing user joins with one tap in the installed app. |
+| S43 | A link opened where nobody is signed in shows a hand-off sheet; the installed app has "Dán link mời". |
+| S44 | An invite survives the sign-in round trip; an in-app browser is told to open Safari or Chrome. |
+

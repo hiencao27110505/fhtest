@@ -78,6 +78,15 @@ the stub is not Postgres: the book pass writing real `personal_transactions`
 rows; every changed SQL function; the invite link opened on a second device;
 push delivery across spaces; removing a member.
 
+## Invites (spec section 21)
+
+A link cannot open an installed web app on an iPhone, so the key reaches an
+invitee three ways: sealed to their account (`fhSpaceSealFor`,
+`fhSpaceUnlockSealed`, `invitations.key_sealed`; one tap on Tham gia), pasted
+(`fhSpacePasteInvite`, after the browser's hand-off sheet), or by continuing in
+the browser (the pending invite lives in `sessionStorage` across the sign-in
+redirect). The seal and its checks are pure functions in `15-spaces-core.js`.
+
 ## Known gaps
 
 - A family that turns Kỷ niệm or Mục tiêu off still shows those blocks on its

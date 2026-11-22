@@ -11,7 +11,7 @@
    space pass never writes there. The plan those frames show is pinned by
    tools/spaces-core.test.js. */
 const H = `
-try{ if(window._closeOv) _closeOv(); closeModals(); closeSheet(); if(window.closePersonalTxDetail) closePersonalTxDetail(); }catch(e){}
+try{ if(window._closeOv) _closeOv(); closeModals(); closeSheet(); if(window.closePersonalTxDetail) closePersonalTxDetail(); var _ho=document.getElementById('sp-handoff'); if(_ho) _ho.remove(); }catch(e){}
 try{ var _ts=document.getElementById('toast'); if(_ts) _ts.classList.remove('on'); }catch(e){}
 window.__sp = async function(o){
   o = o || {};
@@ -114,6 +114,11 @@ module.exports = {
     { name: '10-settle', settleMs: 1900, setup: H + then(`go('spending'); fhSpaceSettleSheet(DB.fid);`) },
     { name: '11-profile', settleMs: 1900, setup: H + then(`fhSpaceProfileSheet();`) },
     { name: '12-outcome', settleMs: 2600, setup: H + `__sp({ settled:true }).then(function(){ go('spending'); toast(L('Đã ghi trả nợ. Nhóm đã cân bằng.','Settle-up recorded. The space is square.')); });` },
+
+    /* the invite reaches an installed app (spaces-spec section 21) */
+    { name: '05-invited-key', settleMs: 2600, setup: H + `__sp({ invites:[{ family_id:'cccccccc-0000-4000-8000-000000000001', family_name:L('Phượt Đà Lạt','Da Lat trip'), family_type:'friend', invited_by:'Lan', key_sealed:'{}' }] }).then(function(){ __nhom(); });` },
+    { name: '05-invite-handoff', settleMs: 1600, setup: H + `(function(){ var l='https://fhtest-opal.vercel.app/#fh-s=dddddddd-0000-4000-8000-000000000001&fh-n='+encodeURIComponent(L('Hội bạn thân','Close friends')); fhSpacePendingFromText(l); window.__fhPendingSpaceUrl=l; window.__fhPendingSpaceFresh=true; var r=localStorage.getItem('fh-resume'); localStorage.removeItem('fh-resume'); var o=document.getElementById('sp-handoff'); if(o) o.remove(); fhSpaceHandoffShow(); localStorage.setItem('fh-resume', r||'1'); window.__fhPendingSpace=null; sessionStorage.removeItem('fh-pending-space'); })();` },
+    { name: '05-invite-paste', settleMs: 2200, setup: H + `(function(){ var o=document.getElementById('sp-handoff'); if(o) o.remove(); })(); ` + then(`go('personal'); navigator.clipboard.readText=function(){ return Promise.reject(new Error('x')); }; fhSpacePasteInvite();`) },
 
     /* a captured bank row, filed into the space from the review queue */
     { name: '13-capture-queue', settleMs: 2200, setup: H + then(`__q(); setTimeout(function(){ __qscroll(document.querySelector('#csv-result .bulk-check'), 118); },400);`) },

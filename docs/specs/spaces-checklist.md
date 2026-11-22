@@ -163,6 +163,21 @@ One helper, `fhSpaceHas`, and one gate per surface (map from the sweep):
 - [x] Docs: `docs/features/spaces.md`, `CHANGELOG.md`, `AGENT_SYNC.md`,
       release note, brief status.
 
+## 12. The invite reaches the invitee (spec section 21)
+
+- [x] The key sealed to the invitee's account; opened only by their key; a box
+      moved to another space refused (`tools/spaces-core.test.js`, flow k).
+- [x] Owner's device seals on invite, and later for an invitee who had no
+      account; the list says which is which, with the check code.
+- [x] Hand-off sheet for a link opened where nobody is signed in; in-app
+      browser notice.
+- [x] "Dán link mời" in the Nhóm section: clipboard in one tap, a field when
+      the browser refuses (flow l).
+- [x] The pending invite survives the sign-in round trip (sessionStorage).
+- [x] Invite sheet: email first, link and QR under "Người chưa có Earthy".
+- [ ] `0166_space_invite_sealed_key` applied.
+- [ ] Seen on two real phones: invite by email, Tham gia, in.
+
 ## What the unticked lines mean
 
 Unticked in sections 1 to 11 = **written, not seen working**. The code is on

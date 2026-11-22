@@ -113,7 +113,19 @@
     }
     if (name === 'rpc:space_close') { var c0 = ctx.args.p_family_id === FID ? (CFG.space = CFG.space || {}) : (CFG.spaces || []).filter(function (r) { return r.family_id === ctx.args.p_family_id; })[0]; if (c0) c0.closed = ctx.args.p_closed !== false; return null; }
     if (name === 'rpc:find_my_invites') return CFG.invites || [];
-    if (name === 'rpc:space_whitelist_list' || name === 'rpc:space_whitelist_add' || name === 'rpc:space_whitelist_cancel') return [];
+    /* invites: a tiny whitelist per space, and the key sealed to an invitee
+       (spaces-spec section 21). CFG.invPub = the public key the "server" says an
+       invited email has (null = no account yet). */
+    CFG.wl = CFG.wl || {};
+    var wlOf = function (fid) { return (CFG.wl[fid] = CFG.wl[fid] || []); };
+    var wlOut = function (fid) { return wlOf(fid).filter(function (i) { return i.status === 'pending'; }).map(function (i) { return { email: i.email, status: i.status, expires_at: null, sealed: !!i.key_sealed }; }); };
+    if (name === 'rpc:space_whitelist_list') return wlOut(ctx.args.p_family_id);
+    if (name === 'rpc:space_whitelist_add') { var em = String(ctx.args.p_email || '').toLowerCase(); if (!wlOf(ctx.args.p_family_id).some(function (i) { return i.email === em; })) wlOf(ctx.args.p_family_id).push({ email: em, status: 'pending', key_sealed: null }); return wlOut(ctx.args.p_family_id); }
+    if (name === 'rpc:space_whitelist_cancel') { wlOf(ctx.args.p_family_id).forEach(function (i) { if (i.email === String(ctx.args.p_email || '').toLowerCase()) i.status = 'expired'; }); return wlOut(ctx.args.p_family_id); }
+    if (name === 'rpc:space_invite_pubkey') return CFG.invPub || null;
+    if (name === 'rpc:space_invite_seal') { var hit = wlOf(ctx.args.p_family_id).filter(function (i) { return i.email === String(ctx.args.p_email || '').toLowerCase() && i.status === 'pending'; })[0]; if (hit) hit.key_sealed = ctx.args.p_sealed; return !!hit; }
+    if (name === 'rpc:space_my_sealed_key') return (CFG.mySealed && CFG.mySealed[ctx.args.p_family_id]) || null;
+    if (name === 'rpc:join_with_whitelist') { var jr = (CFG.joinable || []).filter(function (r) { return r.family_id === ctx.args.p_family_id; })[0]; if (jr && !(CFG.spaces || []).some(function (r) { return r.family_id === jr.family_id; })) CFG.spaces.push(jr); return { family_id: ctx.args.p_family_id }; }
     if (TABLES[name.replace('from:', '')]) {
       var tn = name.replace('from:', ''), q = (ctx && ctx.eq) || {};
       var out = TABLES[tn].filter(function (r) { return Object.keys(q).every(function (k) { return r[k] === q[k]; }); });
