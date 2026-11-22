@@ -18,7 +18,7 @@
     const _amtOf = (id) => window.parseAmtBase ? parseAmtBase(($(id) || {}).value || '') : 0;
 
     /* ── the Nhóm section on Tài chính ─────────────────────────────────────── */
-    let _invites = [], _invitesAt = 0, _busy = false;
+    let _invites = [], _invitesAt = 0, _busy = false, _sealAt = 0;
     function _netOf(sp) {
       const S = _S();
       if (!S.list.some((x) => x.id === sp.id)) return { kind: 'none' };          // keeps no balances
@@ -45,9 +45,10 @@
       const S = _S(); if (!S) return '';
       const activeId = (window.DB && window.DB.fid) || ((S.all.find((x) => x.isActive) || {}).id) || null;
       let h = '<div id="pers-spaces-wrap"><div class="section-h"><span class="tl"><span class="t">' + L('Nhóm', 'Spaces') + '</span></span>'
-        + '<span class="acts"><a onclick="fhSpaceCreateSheet()">' + L('＋ Tạo nhóm', '＋ New space') + '</a></span></div>';
+        + '<span class="acts"><a onclick="fhSpacePasteInvite()">' + L('Dán link mời', 'Paste an invite') + '</a><a onclick="fhSpaceCreateSheet()">' + L('＋ Tạo nhóm', '＋ New space') + '</a></span></div>';
       _invites.forEach(function (inv) {
         h += '<section class="dbt-empty dbt-invite"><div class="dbt-empty-t"><b>' + _e(inv.invited_by || L('Một người bạn', 'A friend')) + '</b> ' + L('mời bạn vào nhóm', 'invited you to') + ' <b>' + _e(inv.family_name || L('Nhóm', 'a space')) + '</b>.</div>'
+          + (inv.key_sealed ? '<div class="dbt-empty-s">' + L('Mã khóa của nhóm đã gửi kèm lời mời này. Bấm là vào.', 'The space key came with this invite. One tap and you are in.') + '</div>' : '')
           + '<div class="dbt-empty-cta"><button type="button" onclick="fhSpaceAcceptInvite(\'' + inv.family_id + '\')">' + L('Tham gia', 'Join') + '</button></div></section>';
       });
       if (!S.all.length) {
@@ -87,6 +88,12 @@
             if (S.keys[sp.id] && (!S.data[sp.id] || Date.now() - S.data[sp.id].at > 60000)) { await fhSpaceHydrate(sp.id); changed = true; }
           }
           if (changed) { _redraw(); try { window.persDebtRedraw && window.persDebtRedraw(); } catch (e) {} }
+          /* an invitee who had no account when I invited them has one now: seal
+             the key to them. At most every ten minutes, owned spaces only. */
+          if (force || Date.now() - _sealAt >= 600000) {
+            _sealAt = Date.now();
+            for (const sp of S.all) { if (sp.isOwner && sp.type !== 'family' && !sp.closed && window.fhSpaceCardCached(sp.id)) { try { await fhSpaceSealPending(sp.id); } catch (e) {} } }
+          }
         } catch (e) { console.warn('spaces refresh failed', e); }
         finally { _busy = false; }
       })();
@@ -96,17 +103,46 @@
       const S = _S(), sp = fhSpaceGet(fid); if (!sp) return;
       /* a friend space is opened with its own Key Card; a family has its own
          door (passcode or card) that the lock wall already handles */
-      if (sp.type !== 'family' && !S.keys[fid]) { window.fhSpaceUnlockSheet(fid); return; }
+      if (sp.type !== 'family' && !S.keys[fid]) {
+        /* the key may be waiting, sealed to this account (a second device, or an
+           invite accepted before its key arrived): try that before asking */
+        fhSpaceUnlockSealed(fid).then(function (r) { if (r && r.ok) fhSpaceOpen(fid); else window.fhSpaceUnlockSheet(fid); });
+        return;
+      }
       fhSpaceOpen(fid);
     };
     window.fhSpaceAcceptInvite = async function (fid) {
       const r = await fhSpaceJoin(fid);
       if (!r.ok) { window.toast && toast(L('Chưa tham gia được. Nhờ chủ nhóm mời lại nhé.', 'Could not join. Ask the owner to invite you again.')); return; }
+      const inv = _invites.find((i) => i.family_id === fid);
       _invites = _invites.filter((i) => i.family_id !== fid); _invitesAt = 0;
       await fhSpacesBoot({ force: true });
       _redraw();
+      if (!_S().keys[fid]) await fhSpaceUnlockSealed(fid, inv && inv.key_sealed);   // the key the owner's device sealed to this account
       if (_S().keys[fid]) { fhSpaceOpen(fid); return; }
       window.fhSpaceUnlockSheet(fid);
+    };
+    /* "Dán link mời": the way an invite reaches an installed app that a link
+       cannot open (every iPhone). Reads the clipboard on this tap; if the
+       browser will not hand it over, or it holds no invite, asks for a paste. */
+    async function _pasteGo(text) {
+      if (!window.fhSpacePendingFromText(text)) return false;
+      window.toast && toast(L('Đang vào nhóm…', 'Joining…'));
+      const ok = await window.fhSpacePendingJoin();
+      if (!ok) _redraw();
+      return true;
+    }
+    window.fhSpacePasteInvite = async function () {
+      let text = '';
+      try { if (navigator.clipboard && navigator.clipboard.readText) text = await navigator.clipboard.readText(); } catch (e) { text = ''; }
+      if (text && await _pasteGo(text)) return;
+      _fhModal({
+        title: L('Dán link mời', 'Paste an invite'), saveLabel: L('Vào nhóm', 'Join'), reqMsg: L('Dán link mời vào ô này nhé', 'Paste the invite link here'),
+        body: '<div class="field"><label>' + L('Link mời', 'Invite link') + '</label><textarea id="sp-paste-in" rows="3" autocapitalize="none" autocomplete="off" placeholder="https://…#fh-s=…" oninput="fhModalDirty()"></textarea></div>'
+          + '<div class="dbt-note">' + L('Người mời gửi bạn một đường link hoặc mã QR. Mở nó, bấm "Sao chép lời mời", rồi dán vào đây.', 'Whoever invited you sent a link or a QR code. Open it, tap "Copy the invite", then paste it here.') + '</div>',
+        required: function () { return [{ el: $('sp-paste-in'), ok: !!fhSpaceLinkParse(($('sp-paste-in') || {}).value || '') }]; },
+        save: async function () { const v = ($('sp-paste-in') || {}).value || ''; return function () { _pasteGo(v); }; },
+      });
     };
     /* older entry points (push taps, the Tài sản tile that used to hold spaces) */
     window.openDebtSpace = function (fid) { window.fhSpaceRowTap(fid); };
@@ -235,13 +271,23 @@
 
     /* ── invite: QR and link (they carry the key), and the email whitelist ─── */
     let _invCtx = null;
+    const _sealCodes = {};     // email → the confirmation code of the key this device sealed to, this session
     async function _invPending(fid) {
       const box = $('sp-inv-pending'); if (!box) return;
       const list = (await fhSpaceInvites(fid)).filter((i) => i && i.status === 'pending');
       if (!$('sp-inv-pending')) return;
+      /* an invite with no key yet: the person had no account when it was sent.
+         Try again now; repaint if any of them took. */
+      if (!_invPending._busy && list.some((i) => !i.sealed)) {
+        _invPending._busy = 1;
+        fhSpaceSealPending(fid, list).then(function (n) { _invPending._busy = 0; if (n && $('sp-inv-pending')) _invPending(fid); }, function () { _invPending._busy = 0; });
+      }
+      const st = (i) => i.sealed
+        ? L('Đã gửi kèm mã khóa. Bạn ấy mở Earthy là thấy lời mời.', 'The key went with it. They will see the invite when they open Earthy.') + (_sealCodes[i.email] ? ' ' + L('Mã xác nhận ', 'Check code ') + _sealCodes[i.email] : '')
+        : L('Chưa có tài khoản Earthy. Gửi link mời cho bạn ấy.', 'No Earthy account yet. Send them the invite link.');
       box.innerHTML = list.length
         ? '<div class="field"><label>' + L('Đang chờ tham gia', 'Waiting to join') + '</label><div class="rl-list sp-sw">' + list.map((i) =>
-            '<div class="rl-row"><span class="rl-t"><b>' + _e(i.email) + '</b></span><button type="button" class="sp-mini" onclick="fhSpaceInvCancel(this)" data-em="' + _e(i.email) + '">' + L('Huỷ mời', 'Cancel') + '</button></div>').join('') + '</div></div>'
+            '<div class="rl-row"><span class="rl-t"><b>' + _e(i.email) + '</b><small>' + _e(st(i)) + '</small></span><button type="button" class="sp-mini" onclick="fhSpaceInvCancel(this)" data-em="' + _e(i.email) + '">' + L('Huỷ mời', 'Cancel') + '</button></div>').join('') + '</div></div>'
         : '';
     }
     window.fhSpaceInvCancel = async function (btn) {
@@ -272,18 +318,22 @@
       const done = function () { if (opts.thenOpen) fhSpaceOpen(fid); };
       _fhModal({
         title: L('Mời vào nhóm', 'Invite to the space'), saveLabel: L('Xong', 'Done'),
-        body: (url
-            ? '<div id="sp-qr-wrap"></div>'
-              + '<div class="dbt-note" style="text-align:center;padding-top:0">' + L('Bạn bè quét mã hoặc mở link là có sẵn mã khóa, không phải gõ gì. Link mang theo chìa khóa của nhóm, chỉ gửi cho người bạn mời.', 'Friends scan the code or open the link and the key is already there, with nothing to type. The link carries the space key, so send it only to people you invite.') + '</div>'
-              + '<button type="button" class="fh-s-cta" onclick="fhSpaceInvShare()">' + L('Chia sẻ link mời', 'Share the invite link') + '</button>'
-              + '<button type="button" class="fh-s-line" onclick="fhSpaceInvCopy()">' + L('Sao chép link', 'Copy link') + '</button>'
-            : '<div class="dbt-note">' + L('Máy này chưa giữ mã khóa của nhóm nên chưa tạo được link. Mời bằng email bên dưới và gửi mã khóa riêng.', 'This device does not hold the space code, so it cannot make a link. Invite by email below and send the code separately.') + '</div>')
-          + (sp.isOwner
-            ? '<div class="field" style="margin-top:22px"><label>' + L('Email Google của người được mời', 'Invitee Google email') + '</label><input id="sp-inv-email" inputmode="email" autocapitalize="none" placeholder="ban@gmail.com" oninput="fhModalDirty()"></div>'
-              + '<button type="button" class="fh-s-line" style="margin-top:0" onclick="fhSpaceInvAdd()">' + L('Thêm vào danh sách mời', 'Add to the invite list') + '</button>'
-              + '<div class="dbt-note" style="padding-left:0;padding-right:0">' + L('Chỉ email bạn thêm ở đây mới vào được nhóm. Link mời chỉ mang mã khóa.', 'Only the emails you add here can join. The link only carries the key.') + '</div>'
+        /* The email comes first: for someone who already has Earthy it is the
+           whole invite (the key is sealed to their account). The link and the QR
+           are for a person who has no account yet. */
+        body: (sp.isOwner
+            ? '<div class="field"><label>' + L('Email Google của người được mời', 'Invitee Google email') + '</label><input id="sp-inv-email" inputmode="email" autocapitalize="none" placeholder="ban@gmail.com" oninput="fhModalDirty()"></div>'
+              + '<button type="button" class="fh-s-cta" onclick="fhSpaceInvAdd()">' + L('Mời', 'Invite') + '</button>'
+              + '<div class="dbt-note" style="padding-left:0;padding-right:0">' + L('Ai đã có tài khoản Earthy sẽ thấy lời mời ngay trong app, kèm sẵn mã khóa: bấm Tham gia là vào. Chỉ email bạn thêm ở đây mới vào được nhóm.', 'Someone who already has an Earthy account sees the invite in the app, key included: one tap on Join. Only the emails you add here can join.') + '</div>'
             : '<div class="dbt-note">' + L('Chủ nhóm là người thêm email được mời.', 'The owner adds the emails that may join.') + '</div>')
-          + '<div id="sp-inv-pending"></div>',
+          + '<div id="sp-inv-pending"></div>'
+          + '<div class="field" style="margin-top:22px"><label>' + L('Người chưa có Earthy', 'For someone without Earthy') + '</label></div>'
+          + (url
+            ? '<div id="sp-qr-wrap"></div>'
+              + '<div class="dbt-note" style="text-align:center;padding-top:0">' + L('Gửi link hoặc cho quét mã. Link mang theo mã khóa của nhóm, chỉ gửi cho người bạn mời. Trên iPhone, link mở bằng trình duyệt và hướng dẫn họ dán vào Earthy.', 'Send the link or let them scan the code. The link carries the space key, so send it only to people you invite. On an iPhone it opens in the browser and tells them how to paste it into Earthy.') + '</div>'
+              + '<button type="button" class="fh-s-line" style="margin-top:0" onclick="fhSpaceInvShare()">' + L('Chia sẻ link mời', 'Share the invite link') + '</button>'
+              + '<button type="button" class="fh-s-ghost" onclick="fhSpaceInvCopy()">' + L('Sao chép link', 'Copy link') + '</button>'
+            : '<div class="dbt-note">' + L('Máy này chưa giữ mã khóa của nhóm nên chưa tạo được link.', 'This device does not hold the space code, so it cannot make a link.') + '</div>'),
         after: function () {
           if (url && window.fhQrCanvas) { try { const cv = window.fhQrCanvas(url, 6, 4); cv.className = 'sp-qr'; const w = $('sp-qr-wrap'); if (w) w.appendChild(cv); } catch (e) {} }
           _invPending(fid);
@@ -298,7 +348,11 @@
       const r = await fhSpaceInvite(_invCtx.fid, v);
       if (!r.ok) { window.toast && toast(/already_member/.test(r.error || '') ? L('Người này đã ở trong nhóm rồi', 'They are already in the space') : L('Chưa mời được, thử lại', 'Could not invite, try again')); return; }
       if (el) el.value = '';
-      window.toast && toast(L('Đã thêm. Gửi link mời cho bạn ấy nhé.', 'Added. Now send them the invite link.'));
+      /* seal the key to their account right away; no account yet → the link is the way */
+      const sl = await fhSpaceSealFor(_invCtx.fid, v.toLowerCase());
+      if (sl.ok) _sealCodes[v.toLowerCase()] = sl.code;
+      window.toast && toast(sl.ok ? L('Đã mời, kèm sẵn mã khóa', 'Invited, key included')
+                                  : L('Đã thêm. Gửi thêm link mời nhé.', 'Added. Send them the link too.'));
       _invPending(_invCtx.fid);
     };
 
@@ -507,4 +561,39 @@
       try { if (typeof renderExpenseDetailIfOpen === 'function') renderExpenseDetailIfOpen(); _afterMoney(); if (window.loadFamilyData) window.loadFamilyData({ windowed: true }); } catch (e) {}
       try { window.fhNotify && window.fhNotify('space_expense', { familyId: fid, tx: tx._dbId }); } catch (e) {}
     };
+
+    /* ── an invite link opened in a browser where nobody is signed in ──────── */
+    /* On an iPhone a link (or a scanned QR) can only open a browser, never the
+       installed app, and the two do not share storage. So the browser's job is
+       to hand the invite over: copy it, open Earthy from the home screen, paste.
+       Someone with no app yet simply continues here; the invite waits through
+       the sign-in. */
+    function _handoff() {
+      const p = window.__fhPendingSpace; if (!p || !window.__fhPendingSpaceFresh) return;
+      const standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+      let resumed = false; try { resumed = !!localStorage.getItem('fh-resume'); } catch (e) {}
+      if (standalone || resumed) return;                 // signed in here: afterLogin joins directly
+      const inapp = fhInAppBrowser(navigator.userAgent);
+      const ov = document.createElement('div'); ov.id = 'sp-handoff'; ov.className = 'sp-handoff';
+      ov.innerHTML = '<div class="sp-ho-in">'
+        + '<div class="sp-ho-mark">🤝</div>'
+        + '<div class="sp-ho-t">' + (p.name ? L('Bạn được mời vào nhóm ', 'You are invited to ') + '<b>' + _e(p.name) + '</b>' : L('Bạn được mời vào một nhóm trên Earthy', 'You are invited to a space on Earthy')) + '</div>'
+        + '<div class="sp-ho-s">' + L('Đã cài Earthy trên máy này? Sao chép lời mời, mở Earthy từ màn hình chính, vào Tài chính, mục Nhóm, bấm "Dán link mời".', 'Already have Earthy on this phone? Copy the invite, open Earthy from your home screen, go to Finance, Spaces, and tap "Paste an invite".') + '</div>'
+        + '<button type="button" class="fh-s-cta" id="sp-ho-copy">' + L('Sao chép lời mời', 'Copy the invite') + '</button>'
+        + '<button type="button" class="fh-s-line" id="sp-ho-here">' + L('Chưa cài, tiếp tục trên trình duyệt này', 'No app yet, continue in this browser') + '</button>'
+        + (inapp ? '<div class="sp-ho-warn">' + L('Trình duyệt trong ứng dụng này thường không đăng nhập Google được. Bấm dấu ••• hoặc biểu tượng la bàn rồi chọn mở bằng Safari hay Chrome.', 'This in-app browser usually cannot complete Google sign-in. Use the ••• or compass button to open it in Safari or Chrome.') + '</div>' : '')
+        + '<div class="sp-ho-foot">' + L('Lời mời mang theo mã khóa của nhóm. Chỉ dán vào Earthy, đừng gửi cho người khác.', 'The invite carries the space key. Paste it only into Earthy; do not pass it on.') + '</div>'
+        + '</div>';
+      (document.getElementById('phone') || document.body).appendChild(ov);
+      $('sp-ho-copy').onclick = async function () {
+        const url = window.__fhPendingSpaceUrl || '';
+        let ok = false;
+        try { await navigator.clipboard.writeText(url); ok = true; } catch (e) {}
+        if (!ok) { try { const ta = document.createElement('textarea'); ta.value = url; ta.setAttribute('readonly', ''); ta.className = 'sp-ho-ta'; ov.appendChild(ta); ta.select(); ok = document.execCommand('copy'); ta.remove(); } catch (e) {} }
+        this.textContent = ok ? L('Đã sao chép. Giờ mở Earthy và dán.', 'Copied. Now open Earthy and paste.') : L('Chưa sao chép được. Giữ lâu vào thanh địa chỉ để chép.', 'Could not copy. Long-press the address bar to copy.');
+      };
+      $('sp-ho-here').onclick = function () { ov.remove(); };
+    }
+    window.fhSpaceHandoffShow = _handoff;
+    try { _handoff(); } catch (e) {}
   })();

@@ -206,14 +206,80 @@
       return r.error ? { ok: false, error: r.error.message } : { ok: true };
     };
 
-    /* The invite link: the space id and its Key Card in the fragment, so the
-       invitee types nothing (S40). The fragment never reaches a server. The
-       owner still has to add the invitee's email: the whitelist is the access
-       rule, the link only carries the key. */
+    /* ── the key reaches the invitee two ways ─────────────────────────────── */
+    /* (1) Sealed to their account (spaces-spec section 21): when the owner adds
+       an email, this device seals the space's Key Card to that account's public
+       key. Their installed app opens it in one tap; nothing is scanned or typed.
+       An email with no account yet has no key to seal to; the owner's device
+       tries again whenever it lists the invites. */
+    window.fhSpaceSealFor = async function (fid, email) {
+      const card = window.fhSpaceCardCached(fid);
+      if (!card) return { ok: false, error: 'no_card' };            // this device joined without the card text; another owner device has it
+      if (!window.nacl) return { ok: false, error: 'no_nacl' };
+      const pk = await _sb().rpc('space_invite_pubkey', { p_family_id: fid, p_email: email });
+      if (pk.error) return { ok: false, error: /function|schema cache/i.test(pk.error.message || '') ? 'old_server' : pk.error.message };
+      if (!pk.data) return { ok: false, error: 'no_account' };
+      let sealed;
+      try { sealed = fhSpaceSealMake(window.nacl, fid, email, card, pk.data); } catch (e) { return { ok: false, error: 'seal_failed' }; }
+      const r = await _sb().rpc('space_invite_seal', { p_family_id: fid, p_email: email, p_sealed: sealed });
+      if (r.error) return { ok: false, error: r.error.message };
+      return { ok: true, code: fhSpaceKeyCode(pk.data) };
+    };
+    /* Seal every pending invite of a space I own that has no key yet. Quiet. */
+    window.fhSpaceSealPending = async function (fid, list) {
+      const sp = window.fhSpaceGet(fid);
+      if (!sp || !sp.isOwner || sp.type === 'family' || !window.fhSpaceCardCached(fid)) return 0;
+      const rows = list || await window.fhSpaceInvites(fid);
+      let n = 0;
+      for (const i of rows) { if (i && i.status === 'pending' && !i.sealed) { const r = await window.fhSpaceSealFor(fid, i.email); if (r.ok) n++; else if (r.error === 'old_server') break; } }
+      return n;
+    };
+    /* The invitee's side: open the box with my own private key and unlock. */
+    window.fhSpaceUnlockSealed = async function (fid, sealedStr) {
+      try {
+        if (!window.nacl || !window.fhPersonalStagingPrivKey) return { ok: false, error: 'no_key' };
+        let sealed = sealedStr;
+        if (!sealed) {
+          const r = await _sb().rpc('space_my_sealed_key', { p_family_id: fid });
+          if (r.error || !r.data) return { ok: false, error: 'none' };
+          sealed = r.data;
+        }
+        let priv;
+        try { priv = await window.fhPersonalStagingPrivKey(); } catch (e) { return { ok: false, error: 'personal_locked' }; }
+        const o = fhSpaceSealOpen(window.nacl, sealed, priv, fid);
+        for (let i = 0; i < priv.length; i++) priv[i] = 0;
+        if (!o.ok) return o;
+        return await window.fhSpaceUnlock(fid, o.card);
+      } catch (e) { return { ok: false, error: 'failed' }; }
+    };
+    /* My own confirmation code: what an owner who invited me should see next to
+       my email. Null until the personal safe has made its keypair. */
+    window.fhSpaceMyKeyCode = async function () {
+      try { const r = await _sb().rpc('get_personal_staging_key', {}); return (r.data && r.data.staging_pub) ? fhSpaceKeyCode(r.data.staging_pub) : null; } catch (e) { return null; }
+    };
+
+    /* (2) The invite link: the space id, its Key Card and its name in the
+       fragment, which never reaches a server. It is what a person with no
+       account yet opens, and what gets pasted into an installed app that a link
+       cannot open (every iPhone). The owner still adds the invitee's email: the
+       whitelist is the access rule, the link only carries the key. */
     window.fhSpaceInviteUrl = function (fid) {
       const disp = window.fhSpaceCardCached(fid); if (!disp) return null;
+      const sp = window.fhSpaceGet(fid);
       const k = FHCrypto.cardUrl(disp); const i = k.indexOf('#fh-k=');
-      return k.slice(0, i) + '#fh-s=' + fid + '&fh-k=' + k.slice(i + 6);
+      return k.slice(0, i) + '#fh-s=' + fid + '&fh-k=' + k.slice(i + 6) + (sp && sp.name ? '&fh-n=' + encodeURIComponent(String(sp.name).slice(0, 60)) : '');
+    };
+    /* A pending invite survives the sign-in redirect in sessionStorage (same
+       tab only, gone when the tab closes). It used to live in a window variable,
+       which the redirect to Google and back wiped: the person signed in and
+       nothing happened. */
+    const PEND_SS = 'fh-pending-space';
+    function _pendSet(p) { window.__fhPendingSpace = p; try { if (p) sessionStorage.setItem(PEND_SS, JSON.stringify(p)); else sessionStorage.removeItem(PEND_SS); } catch (e) {} }
+    window.fhSpacePendingFromText = function (text) {
+      const l = fhSpaceLinkParse(text); if (!l) return false;
+      const card = l.k ? FHCrypto.parseKeyFragment('#fh-k=' + l.k) : null;
+      _pendSet({ fid: l.fid, card: card ? card.display : null, name: l.name || '' });
+      return true;
     };
     /* Landing: runs at module load, BEFORE the family card landing in
        67-card-ui.js, which would otherwise take this card for the family's.
@@ -221,18 +287,24 @@
     (function _spaceLinkLanding() {
       try {
         const src = location.hash || '';
-        const m = src.match(/[#&]fh-s=([0-9a-f-]{36})/i);
-        if (!m) return;
-        const card = FHCrypto.parseKeyFragment(src);
-        try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
-        window.__fhPendingSpace = { fid: m[1].toLowerCase(), card: card ? card.display : null };
+        if (fhSpaceLinkParse(src)) {
+          const raw = location.href;
+          try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+          window.fhSpacePendingFromText(src);
+          window.__fhPendingSpaceUrl = raw;                          // for the hand-off sheet's copy button; memory only
+          window.__fhPendingSpaceFresh = true;
+          return;
+        }
+        const saved = sessionStorage.getItem(PEND_SS);
+        if (saved) { const p = JSON.parse(saved); if (p && p.fid) window.__fhPendingSpace = p; }
       } catch (e) {}
     })();
     /* Called once the person is signed in. Joins if they are invited, unlocks
-       with the card from the link, and opens the space. */
+       with the card from the link (or the box sealed to them), opens the space. */
     window.fhSpacePendingJoin = async function () {
       const p = window.__fhPendingSpace; if (!p) return false;
-      window.__fhPendingSpace = null;
+      _pendSet(null);
+      try { const ho = document.getElementById('sp-handoff'); if (ho) ho.remove(); } catch (e) {}
       await window.fhSpacesBoot({ force: true });
       let sp = window.fhSpaceGet(p.fid);
       if (!sp) {
@@ -240,13 +312,16 @@
         if (!j.ok) {
           window.toast && toast(/not_whitelisted/.test(j.error || '')
             ? L('Email này chưa được mời vào nhóm. Nhờ chủ nhóm thêm email của bạn.', 'This email is not invited yet. Ask the owner to add it.')
-            : L('Chưa vào được nhóm, thử lại sau', 'Could not join the space, try again later'));
+            : (/invite_expired/.test(j.error || '') ? L('Lời mời đã hết hạn. Nhờ chủ nhóm mời lại.', 'The invite has expired. Ask the owner to invite you again.')
+            : L('Chưa vào được nhóm, thử lại sau', 'Could not join the space, try again later')));
           return false;
         }
         await window.fhSpacesBoot({ force: true });
         sp = window.fhSpaceGet(p.fid);
       }
-      if (p.card && !S.keys[p.fid]) { const u = await window.fhSpaceUnlock(p.fid, p.card); if (!u.ok) window.toast && toast(L('Mã khóa trong link không mở được nhóm này', 'The code in the link does not open this space')); }
+      if (!S.keys[p.fid]) { const kc = await _kGet(p.fid); if (kc && kc.key) S.keys[p.fid] = kc.key; }
+      if (!S.keys[p.fid] && p.card) { const u = await window.fhSpaceUnlock(p.fid, p.card); if (!u.ok) window.toast && toast(L('Mã khóa trong link không mở được nhóm này', 'The code in the link does not open this space')); }
+      if (!S.keys[p.fid]) await window.fhSpaceUnlockSealed(p.fid);
       if (sp) { await window.fhSpaceOpen(p.fid); return true; }
       return false;
     };

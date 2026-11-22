@@ -41,3 +41,13 @@ button.sp-li:active{background:var(--canvas)}
 .sp-num{min-width:52px;justify-content:center}
 .sp-mini{flex:none;min-height:44px;padding:10px 4px 10px 12px;border:0;background:none;font:inherit;font-size:14px;font-weight:600;color:var(--danger);cursor:pointer;-webkit-tap-highlight-color:transparent}
 .sp-home-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+/* an invite link opened where nobody is signed in: the hand-off to the installed app */
+.sp-handoff{position:absolute;inset:0;z-index:9990;background:var(--canvas);display:flex;align-items:center;justify-content:center;padding:calc(24px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom));overflow:auto}
+.sp-ho-in{width:100%;max-width:420px;text-align:center}
+.sp-ho-mark{font-size:44px;line-height:1;margin-bottom:14px}
+.sp-ho-t{font-family:var(--disp);font-size:22px;font-weight:700;letter-spacing:-.5px;color:var(--ink);line-height:1.25;margin-bottom:10px}
+.sp-ho-s{font-size:15px;line-height:1.55;color:var(--ink-2);margin-bottom:22px}
+.sp-ho-warn{margin-top:16px;padding:12px 14px;border-radius:14px;background:var(--amber-tint,var(--surface));color:var(--ink-2);font-size:13.5px;line-height:1.5;text-align:left}
+.sp-ho-foot{margin-top:16px;font-size:12.5px;line-height:1.5;color:var(--muted)}
+.sp-ho-ta{position:absolute;left:-9999px;top:0;opacity:0}
+.dbt-invite .dbt-empty-s{font-size:13.5px;color:var(--muted);margin-top:6px}

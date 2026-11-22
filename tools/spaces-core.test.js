@@ -247,4 +247,67 @@ t('the split line', () => {
   assert.strictEqual(F.fhSplitLine(null, 'a'), '');
 });
 
+/* ── the key, sealed to one invitee ── */
+const nacl = require(path.join(__dirname, '..', 'vendor', 'tweetnacl.js'));
+ctx.btoa = (s) => Buffer.from(s, 'binary').toString('base64');
+ctx.atob = (s) => Buffer.from(s, 'base64').toString('binary');
+ctx.unescape = unescape; ctx.escape = escape; ctx.encodeURIComponent = encodeURIComponent; ctx.decodeURIComponent = decodeURIComponent;
+ctx.Uint8Array = Uint8Array; ctx.JSON = JSON;
+const b64 = (u) => Buffer.from(u).toString('base64');
+const FID = '0b9c2f4e-7a11-4c3d-9e2f-000000000001', CARD = 'FH-7K2M-Q9XD-4TNB-HW6C-AB12-CD34-EF';
+const lan = nacl.box.keyPair(), khoa = nacl.box.keyPair();
+t('sealed to Lan: Lan opens it and gets the card', () => {
+  const s = F.fhSpaceSealMake(nacl, FID, 'Lan@Gmail.com ', CARD, b64(lan.publicKey));
+  const r = F.fhSpaceSealOpen(nacl, s, lan.secretKey, FID);
+  assert.strictEqual(r.ok, true); assert.strictEqual(r.card, CARD); assert.strictEqual(r.email, 'lan@gmail.com');
+});
+t('the stored box holds no readable card, space id or email', () => {
+  const s = F.fhSpaceSealMake(nacl, FID, 'lan@gmail.com', CARD, b64(lan.publicKey));
+  assert.ok(!s.includes(CARD) && !s.includes(FID) && !/gmail/.test(s) && !/7K2M/.test(s));
+  eq(Object.keys(JSON.parse(s)).sort(), ['c', 'e', 'n', 'p', 'v']);
+});
+t('nobody else can open it', () => {
+  const s = F.fhSpaceSealMake(nacl, FID, 'lan@gmail.com', CARD, b64(lan.publicKey));
+  eq(F.fhSpaceSealOpen(nacl, s, khoa.secretKey, FID), { ok: false, error: 'not_for_this_key' });
+});
+t('a box moved onto another space is refused', () => {
+  const s = F.fhSpaceSealMake(nacl, FID, 'lan@gmail.com', CARD, b64(lan.publicKey));
+  eq(F.fhSpaceSealOpen(nacl, s, lan.secretKey, '0b9c2f4e-7a11-4c3d-9e2f-000000000002'), { ok: false, error: 'other_space' });
+});
+t('tampered bytes and junk are refused, never thrown', () => {
+  const o = JSON.parse(F.fhSpaceSealMake(nacl, FID, 'lan@gmail.com', CARD, b64(lan.publicKey)));
+  const raw = Buffer.from(o.c, 'base64'); raw[5] ^= 1; o.c = raw.toString('base64');
+  eq(F.fhSpaceSealOpen(nacl, JSON.stringify(o), lan.secretKey, FID), { ok: false, error: 'not_for_this_key' });
+  eq(F.fhSpaceSealOpen(nacl, 'not json', lan.secretKey, FID), { ok: false, error: 'format' });
+  eq(F.fhSpaceSealOpen(nacl, '{"v":2}', lan.secretKey, FID), { ok: false, error: 'format' });
+});
+t('two seals of the same card differ (fresh ephemeral key and nonce)', () => {
+  assert.notStrictEqual(F.fhSpaceSealMake(nacl, FID, 'a@b.c', CARD, b64(lan.publicKey)), F.fhSpaceSealMake(nacl, FID, 'a@b.c', CARD, b64(lan.publicKey)));
+});
+t('a wrong-length public key is refused before anything is sealed', () => {
+  assert.throws(() => F.fhSpaceSealMake(nacl, FID, 'a@b.c', CARD, b64(new Uint8Array(8))), /bad_pubkey/);
+});
+t('the confirmation code names the key: stable, 6 characters, different keys differ', () => {
+  const a = F.fhSpaceKeyCode(b64(lan.publicKey));
+  assert.match(a, /^[0-9A-F]{2}-[0-9A-F]{2}-[0-9A-F]{2}$/);
+  assert.strictEqual(a, F.fhSpaceKeyCode(b64(lan.publicKey)));
+  assert.notStrictEqual(a, F.fhSpaceKeyCode(b64(khoa.publicKey)));
+  assert.strictEqual(JSON.parse(F.fhSpaceSealMake(nacl, FID, 'a@b.c', CARD, b64(lan.publicKey))).p, a);
+});
+t('an invite link is read from a URL, a bare fragment or pasted text around it', () => {
+  const u = 'https://x.app/#fh-s=' + FID + '&fh-k=RkgtN0sy&fh-n=H%E1%BB%99i%20b%E1%BA%A1n%20th%C3%A2n';
+  eq(F.fhSpaceLinkParse(u), { fid: FID, k: 'RkgtN0sy', name: 'Hội bạn thân' });
+  eq(F.fhSpaceLinkParse('Vào nhóm nhé: ' + u + ' nha'), { fid: FID, k: 'RkgtN0sy', name: 'Hội bạn thân' });
+  eq(F.fhSpaceLinkParse('#fh-s=' + FID.toUpperCase()), { fid: FID, k: null, name: '' });
+  assert.strictEqual(F.fhSpaceLinkParse('https://x.app/#fh-k=RkgtN0sy'), null);   // a family card link is not a space invite
+  assert.strictEqual(F.fhSpaceLinkParse(''), null);
+});
+t('in-app browsers are recognised; Safari, Chrome and a Telegram Safari sheet are not', () => {
+  assert.strictEqual(F.fhInAppBrowser('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Zalo iOS/24.10'), true);
+  assert.strictEqual(F.fhInAppBrowser('Mozilla/5.0 (iPhone) AppleWebKit/605.1.15 Mobile/15E148 [FBAN/FBIOS;FBAV/480.0]'), true);
+  assert.strictEqual(F.fhInAppBrowser('Mozilla/5.0 (Linux; Android 14; Pixel 8 Build/UQ1A; wv) AppleWebKit/537.36 Chrome/126 Mobile Safari/537.36'), true);
+  assert.strictEqual(F.fhInAppBrowser('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1'), false);
+  assert.strictEqual(F.fhInAppBrowser('Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/126.0 Mobile Safari/537.36'), false);
+});
+
 console.log('\nspaces-core: ' + n + ' checks passed');

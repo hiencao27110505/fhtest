@@ -45,6 +45,13 @@ var ICO = {
 };
 
 var RELEASES = [
+  { id:'2026-11-22-moi-vao-nhom', date:'2026-11-22', time:'23:00', ver:'v637', icon:ICO.people,
+    vi:{ t:'Mời vào nhóm: bấm một cái là vào',
+      problem:'Trên iPhone, quét mã mời chỉ mở được trình duyệt, không mở được Earthy đã cài. Người được mời thấy màn đăng nhập, đăng nhập xong thì lời mời biến mất.',
+      sol:'Giờ bạn chỉ cần thêm email: ai đã có Earthy sẽ thấy lời mời ngay trong mục Nhóm, kèm sẵn mã khóa, bấm Tham gia là vào. Ai nhận link thì có nút "Sao chép lời mời", rồi vào Earthy bấm "Dán link mời". Người chưa có tài khoản tiếp tục trên trình duyệt và lời mời không còn mất sau khi đăng nhập.' },
+    en:{ t:'Invites to a space: one tap and you are in',
+      problem:'On an iPhone, scanning an invite code can only open the browser, never the installed Earthy. The invitee saw a sign-in screen, and after signing in the invite was gone.',
+      sol:'Now you just add their email: anyone who already has Earthy sees the invite under Spaces, key included, and joins with one tap. Someone who gets a link has a "Copy the invite" button, then taps "Paste an invite" in Earthy. Someone with no account continues in the browser, and the invite no longer disappears after sign-in.' } },
   { id:'2026-11-22-nhom', date:'2026-11-22', time:'21:00', ver:'v636', icon:ICO.people,
     vi:{ t:'Gia đình hay bạn bè, đều là một Nhóm',
       problem:'Chi chung với bạn bè trước giờ chỉ có một sổ chia tiền nhỏ nằm trong Tài sản, không ảnh, không cảm xúc, và không vào sổ của riêng bạn.',
