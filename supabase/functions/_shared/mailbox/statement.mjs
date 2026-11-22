@@ -36,6 +36,8 @@ import * as senders from './senders.mjs';
 import { FH_PROVIDERS } from './providers.mjs';
 import { sealForFamily, sealBytes } from './sealed-box.mjs';
 import { toGeminiSchema, callGemini } from './llm.mjs';
+import { runLabeler, labelerReady } from './labelers/index.mjs';
+import * as jev from './labelers/jev.mjs';
 
 /** The consent version that first says a statement file is stored. Must equal
  *  FH_CONSENT_V's statement bump in src/js-data/75-consent-ui.js. */
@@ -143,13 +145,19 @@ const VERDICT_SCHEMA = { type: 'object', properties: { is_statement: { type: 'bo
  * read as `false`: a wrong "no" makes a statement vanish with nothing to notice.
  */
 export async function statementVerdict(message, files, cfg, fetchImpl) {
-  if (!cfg || !cfg.apiKey) return null;
+  if (!cfg || !labelerReady(VERDICT_LABELERS, cfg, 'statement_verdict')) return null;
+  const text = 'Sender: ' + senders.addressOf(message.from) + '\nSubject: ' + message.subject +
+    '\nAttached files: ' + files.map(f => f.filename).join(', ') +
+    '\n\n' + String(message.body || '').slice(0, 4000);
+  const v = await runLabeler(VERDICT_LABELERS, 'statement_verdict', cfg, fetchImpl, text);
+  return typeof v === 'boolean' ? v : null;
+}
+
+/* The Gemini strategy: same text, JSON boolean. */
+async function geminiStatementVerdict(cfg, fetchImpl, text) {
   const r = await callGemini('statement_verdict', {
     systemInstruction: { parts: [{ text: VERDICT_SYSTEM }] },
-    contents: [{ role: 'user', parts: [{ text:
-      'Sender: ' + senders.addressOf(message.from) + '\nSubject: ' + message.subject +
-      '\nAttached files: ' + files.map(f => f.filename).join(', ') +
-      '\n\n' + String(message.body || '').slice(0, 4000) }] }],
+    contents: [{ role: 'user', parts: [{ text }] }],
     generationConfig: { responseMimeType: 'application/json', responseSchema: toGeminiSchema(VERDICT_SCHEMA) },
   }, cfg, fetchImpl);
   if (r.transportError || !r.ok) return null;
@@ -158,6 +166,11 @@ export async function statementVerdict(message, files, cfg, fetchImpl) {
   if (!answer) return null;
   try { const p = JSON.parse(answer); return typeof p.is_statement === 'boolean' ? p.is_statement : null; } catch { return null; }
 }
+
+const VERDICT_LABELERS = {
+  gemini: { ready: (cfg) => !!(cfg && cfg.apiKey), run: geminiStatementVerdict },
+  jev: jev.statementVerdict,
+};
 
 async function _sha256Hex(bytes, subtle) {
   const d = new Uint8Array(await subtle.digest('SHA-256', bytes));

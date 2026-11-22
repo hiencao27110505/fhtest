@@ -46,6 +46,7 @@
                        a few named mails, for writing a reader against the
                        real shape. */
 import { createDb } from "../_shared/mailbox/db.mjs";
+import { labelerCfgFromEnv, labelerStatus } from "../_shared/mailbox/labelers/index.mjs";
 import { fromBytea, decryptToken } from "../_shared/mailbox/token-crypto.mjs";
 import { readTransaction } from "../_shared/mailbox/extract.mjs";
 import { enrichCategory } from "../_shared/mailbox/classify.mjs";
@@ -203,6 +204,9 @@ Deno.serve(async (req: Request) => {
     model: env("GEMINI_MODEL") || undefined,
     // Through the proxy like every other write: counted, not stored.
     logLlm: (rec: Record<string, unknown>) => db.recordLlmCall(rec),
+    // Same labeling-provider switch as mailbox-sync, so LABELER=jev can be
+    // measured here on a TEST mailbox before production sees it.
+    ...labelerCfgFromEnv(env),
   };
   // `subtle` was missing here, so the cascade could not hash a merchant key and
   // silently skipped its correction and cache tiers: the dry run measured a
@@ -288,5 +292,5 @@ Deno.serve(async (req: Request) => {
       raw: buildPayload({ reading: toReading(x, message), senderKind: sender.senderKind || sender.kind, readerV }).raw_extracted,
     });
   });
-  return json({ grant: grant.id, email: grant.email, days, skip, max, next: skip + max < allIds.length ? skip + max : null, modelCalls, modelCallsUsed: bud.used(), classifyCallsLeft: ctx.classifyBudget.left, readerV, build: BUILD_ID, wouldWrite: dry.wouldWrite, tally, fetchErrors, stages, rows });
+  return json({ grant: grant.id, email: grant.email, days, skip, max, next: skip + max < allIds.length ? skip + max : null, modelCalls, modelCallsUsed: bud.used(), classifyCallsLeft: ctx.classifyBudget.left, readerV, build: BUILD_ID, wouldWrite: dry.wouldWrite, labeler: labelerStatus(llm), tally, fetchErrors, stages, rows });
 });

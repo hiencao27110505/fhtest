@@ -31,6 +31,8 @@
    the transaction stages exactly as before. */
 
 import { toGeminiSchema, callGemini } from './llm.mjs';
+import { runLabeler, labelerReady } from './labelers/index.mjs';
+import * as jev from './labelers/jev.mjs';
 import { TAX, keywordNode, conceptOf, poolOf } from './taxonomy.mjs';
 import { looksLikePerson } from './labeltable.mjs';
 
@@ -218,19 +220,33 @@ function _answerText(r) {
    where all-null is a legitimate "unknowable" that DOES get negatively cached.
    A node the tree does not know is rejected (stays null) rather than stored. */
 export async function classifyMerchant(text, cfg, fetchImpl) {
-  if (!cfg || !cfg.apiKey) return { ok: false };
+  if (!cfg || !labelerReady(SINGLE, cfg, 'classify_merchant')) return { ok: false };
+  const a = await runLabeler(SINGLE, 'classify_merchant', cfg, fetchImpl, text);
+  if (!a) return { ok: false };                     // could not ask → no cache, retry-eligible
+  return { ok: true, ..._fromAnswer(a) };
+}
+
+/* The Gemini strategy for one merchant. null = could not ask; an all-null triple
+   is a real "unknowable" answer. */
+async function geminiClassifyMerchant(cfg, fetchImpl, text) {
   const r = await callGemini('classify_merchant', {
     systemInstruction: { parts: [{ text: CLASSIFY_SYSTEM }] },
     contents: [{ role: 'user', parts: [{ text: 'Merchant: ' + String(text).slice(0, 200) }] }],
     generationConfig: { responseMimeType: 'application/json', responseSchema: toGeminiSchema(CLASSIFY_SCHEMA) },
   }, cfg, fetchImpl);
-  if (r.transportError || !r.ok) return { ok: false };   // 429/5xx/network → one-shot, no retry, no cache
+  if (r.transportError || !r.ok) return null;   // 429/5xx/network → one-shot, no retry, no cache
   const answer = _answerText(r);
-  if (!answer) return { ok: true, node: null, concept: null, pool: null };
-  let parsed;
-  try { parsed = JSON.parse(answer); } catch { return { ok: true, node: null, concept: null, pool: null }; }
-  return { ok: true, ..._fromAnswer(parsed) };
+  const blank = { node: null, concept: null, pool: null };
+  if (!answer) return blank;
+  try { return JSON.parse(answer) || blank; } catch { return blank; }
 }
+
+/* Strategy tables (labelers/index.mjs). Which one runs is configuration:
+   LABELER / LABELER_CLASSIFY_MERCHANT, default gemini. */
+const SINGLE = {
+  gemini: { ready: (cfg) => !!(cfg && cfg.apiKey), run: geminiClassifyMerchant },
+  jev: jev.classifyMerchant,
+};
 
 function merchantText(extraction) {
   return String(extraction.counterparty_display || extraction.counterparty || '') +
@@ -419,7 +435,14 @@ function _batchGeminiSchema() {
    transport, no key -- which the caller must treat as "not tried", never as
    "unknowable": a null here is not cached. */
 export async function classifyMerchantsBatch(texts, cfg, fetchImpl) {
-  if (!cfg || !cfg.apiKey || !texts || !texts.length) return null;
+  if (!cfg || !texts || !texts.length || !labelerReady(BATCH, cfg, 'classify_merchant')) return null;
+  const answers = await runLabeler(BATCH, 'classify_merchant', cfg, fetchImpl, texts);
+  if (!answers) return null;
+  return texts.map((_, i) => _fromAnswer(answers[i]));
+}
+
+/* The Gemini strategy for a batch: raw answers aligned with `texts`, or null. */
+async function geminiClassifyMerchantsBatch(cfg, fetchImpl, texts) {
   const list = texts.map((x, i) => (i + 1) + '. ' + String(x).slice(0, 80).replace(/\s+/g, ' ')).join('\n');
   const r = await callGemini('classify_merchant_batch', {
     systemInstruction: { parts: [{ text: BATCH_SYSTEM }] },
@@ -439,6 +462,11 @@ export async function classifyMerchantsBatch(texts, cfg, fetchImpl) {
   }
   return out;
 }
+
+const BATCH = {
+  gemini: { ready: (cfg) => !!(cfg && cfg.apiKey), run: geminiClassifyMerchantsBatch },
+  jev: jev.classifyMerchants,
+};
 
 /* names -> { concepts: {name: concept|null}, nodes: {name: node|null}, ... }.
    Precedence is enrichCategory's, per name: the person's own correction, the tree
