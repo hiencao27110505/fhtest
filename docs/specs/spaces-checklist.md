@@ -177,6 +177,8 @@ One helper, `fhSpaceHas`, and one gate per surface (map from the sweep):
 - [x] Invite sheet: email first, link and QR under "Người chưa có Earthy".
 - [x] `0166_space_invite_sealed_key` applied by Hien in the SQL editor, verified.
 - [x] "＋ Mời" on the space's first tab and in the switcher reopens the invite sheet.
+- [x] Inviting by email pushes to the invitee's devices (`space_invite`, spec
+      section 22); a second invite seconds later is not swallowed (flow k).
 - [ ] Seen on two real phones: invite by email, Tham gia, in.
 
 ## What the unticked lines mean

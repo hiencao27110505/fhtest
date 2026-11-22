@@ -19,6 +19,12 @@ Going forward, add an entry here when a feature area changes meaningfully — se
 ---
 
 
+## 2026-11-22 (night) · Spaces: inviting by email notifies the invitee (SW v638, `push-send` redeployed)
+
+- "Mời" was silent. `push-send` gains `space_invite`: to the invited person's
+  own devices, only when the caller owns the space and that email has a
+  pending invitation in it. Tap lands on the Nhóm section. Spec section 22.
+
 ## 2026-11-22 (later) · Spaces: an invite that reaches an installed app (SW v637, migration `0166`)
 
 - First real invite failed: an iPhone opens a scanned code in a browser, never

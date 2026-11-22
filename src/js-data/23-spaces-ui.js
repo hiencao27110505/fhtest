@@ -352,6 +352,10 @@
       /* seal the key to their account right away; no account yet → the link is the way */
       const sl = await fhSpaceSealFor(_invCtx.fid, v.toLowerCase());
       if (sl.ok) _sealCodes[v.toLowerCase()] = sl.code;
+      /* tell them: a push to the invitee's own devices (push-send checks that I own
+         the space and that this email has a pending invite). No account, or
+         notifications off → nothing is sent, and the link is still their road. */
+      try { window.fhNotify && window.fhNotify('space_invite', { familyId: _invCtx.fid, email: v.toLowerCase(), ck: v.toLowerCase() }); } catch (e) {}
       window.toast && toast(sl.ok ? L('Đã mời, kèm sẵn mã khóa', 'Invited, key included')
                                   : L('Đã thêm. Gửi thêm link mời nhé.', 'Added. Send them the link too.'));
       _invPending(_invCtx.fid);

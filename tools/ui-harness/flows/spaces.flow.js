@@ -410,10 +410,13 @@ module.exports = {
           window.__card = FHCrypto.genCard().display; localStorage.setItem('fh-scard:'+DB.fid, window.__card); fhSpaceInviteSheet(DB.fid); })()`); await t.wait(500);
         const url = await t.eval(() => fhSpaceInviteUrl(DB.fid));
         t.expect(/#fh-s=[0-9a-f-]{36}&fh-k=[^&]+&fh-n=H/.test(url), 'the invite link carries id, key and the space name: ' + url.replace(/fh-k=[^&]+/, 'fh-k=…'));
+        await t.eval(`(function(){ window.__inv = []; var o = sb.functions.invoke; sb.functions.invoke = function(n, a){ window.__inv.push({ n: n, body: a && a.body }); return o.apply(this, arguments); }; window.fhUser = window.fhUser || { id: 'x' }; })()`);
         await t.type('#sp-inv-email', 'Lan@gmail.com');
         await t.eval(`fhSpaceInvAdd()`); await t.wait(900);
         const wl = await t.eval(() => __STUB.wl[DB.fid]);
         t.expect(wl.length === 1 && wl[0].email === 'lan@gmail.com' && typeof wl[0].key_sealed === 'string', 'one pending invite with a sealed key');
+        const inv1 = await t.eval(() => window.__inv.filter((x) => x.n === 'push-send' && x.body && x.body.kind === 'space_invite'));
+        t.expect(inv1.length === 1 && inv1[0].body.email === 'lan@gmail.com' && inv1[0].body.family_id === (await t.eval(() => DB.fid)) && !('ck' in inv1[0].body), 'the invitee is notified: one space_invite push for that email and space: ' + JSON.stringify(inv1.map((x) => x.body)));
         const card = await t.eval(() => window.__card);
         t.expect(wl[0].key_sealed.indexOf(card) < 0 && !/gmail/.test(wl[0].key_sealed), 'the stored box shows neither the card nor the email');
         const pend = await t.eval(() => document.getElementById('sp-inv-pending').innerText);
@@ -430,6 +433,7 @@ module.exports = {
         await t.eval(`__STUB.invPub = null`);
         await t.type('#sp-inv-email', 'khoa@gmail.com');
         await t.eval(`fhSpaceInvAdd()`); await t.wait(900);
+        t.expect((await t.eval(() => window.__inv.filter((x) => x.body && x.body.kind === 'space_invite').map((x) => x.body.email))).join() === 'lan@gmail.com,khoa@gmail.com', 'a second invite seconds later is not swallowed by the cooldown');
         const pend2 = await t.eval(() => document.getElementById('sp-inv-pending').innerText);
         t.expect(/khoa@gmail\.com/i.test(pend2) && /Chưa có tài khoản Earthy/.test(pend2), 'said plainly: ' + pend2.replace(/\n/g, ' | ').slice(0, 200));
         t.step('…and once that person has an account, the owner\'s device seals to them without being asked');

@@ -734,3 +734,26 @@ to the link.
 | S43 | A link opened where nobody is signed in shows a hand-off sheet; the installed app has "Dán link mời". |
 | S44 | An invite survives the sign-in round trip; an in-app browser is told to open Safari or Chrome. |
 
+## 22. Telling the invitee (added 2026-11-22, S45)
+
+Adding an email wrote the invitation and sealed the key, and told nobody: the
+invitee found out only by opening the app and looking at the Nhóm section.
+
+Now "Mời" also sends one push to the invitee's own devices. `push-send` gains
+the kind `space_invite`, the only one whose audience is not a member. It is
+sent only when all of these hold, each read on the server: the caller owns the
+space and it is a friend or trip space; the email has a pending, unexpired
+invitation there; an account with that email exists. So it reaches nobody the
+owner has not already invited. The copy says who invites and the space's name,
+in the reader's own language, and where to tap; it carries no key and no
+amount. Tapping it lands on Tài chính at the Nhóm section.
+
+Inviting the same email again sends it again, which is the way to remind
+someone. Nothing is sent to a person with no account or with notifications
+off; the link is still their road. An invite sent before the person signed up
+is not announced later.
+
+| # | Decision |
+|---|---|
+| S45 | Inviting by email notifies the invitee's devices, under the owner-and-pending-invite check above. |
+

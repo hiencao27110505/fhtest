@@ -32618,7 +32618,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v637';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v638';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -39412,6 +39412,10 @@ window.obGoogle = async function () {
       /* seal the key to their account right away; no account yet → the link is the way */
       const sl = await fhSpaceSealFor(_invCtx.fid, v.toLowerCase());
       if (sl.ok) _sealCodes[v.toLowerCase()] = sl.code;
+      /* tell them: a push to the invitee's own devices (push-send checks that I own
+         the space and that this email has a pending invite). No account, or
+         notifications off → nothing is sent, and the link is still their road. */
+      try { window.fhNotify && window.fhNotify('space_invite', { familyId: _invCtx.fid, email: v.toLowerCase(), ck: v.toLowerCase() }); } catch (e) {}
       window.toast && toast(sl.ok ? L('Đã mời, kèm sẵn mã khóa', 'Invited, key included')
                                   : L('Đã thêm. Gửi thêm link mời nhé.', 'Added. Send them the link too.'));
       _invPending(_invCtx.fid);
@@ -45949,9 +45953,12 @@ window.classifyAmount = classifyAmount;
     try {
       if (!window.DB || !window.DB.fid || !window.fhUser) return;
       const now = Date.now();
-      if (_pushLastSent[kind] && now - _pushLastSent[kind] < 12000) return;
-      _pushLastSent[kind] = now;
-      const body = Object.assign({ kind: kind }, data || {});
+      /* the cooldown is per kind; `ck` narrows it (one invite per email must not
+         swallow the invite to the next email typed seconds later) */
+      const ck = kind + ((data && data.ck) ? ':' + data.ck : '');
+      if (_pushLastSent[ck] && now - _pushLastSent[ck] < 12000) return;
+      _pushLastSent[ck] = now;
+      const body = Object.assign({ kind: kind }, data || {}); delete body.ck;
       /* Spaces: say WHICH container this is about. The function honours it only
          for a member, and without it falls back to the open one as before. A
          write into a space that is not the open one (review filing a captured
@@ -45980,6 +45987,14 @@ window.classifyAmount = classifyAmount;
   function _fhNavGo(nav) {
     try {
       if (!nav || !nav.k) return;
+      /* An invitation: the person is not a member yet, so there is no space to
+         open. Land on Tài chính at the Nhóm section, where the invite waits. */
+      if (nav.k === 'space_invite') {
+        if (window.go) window.go('personal');
+        try { if (window.persSpacesAfterRender) window.persSpacesAfterRender({ force: true }); } catch (e) {}
+        setTimeout(function () { try { const w = document.getElementById('pers-spaces-wrap'), sc = document.getElementById('scroll'); if (w && sc) sc.scrollTop = Math.max(0, w.offsetTop - 130); } catch (e) {} }, 900);
+        return;
+      }
       /* Spaces: a notification about a space that is not the open one opens that
          space first (nav.f, set by push-send). Its own route then runs against
          the right data on the hydrate that follows; here the tap just lands. */

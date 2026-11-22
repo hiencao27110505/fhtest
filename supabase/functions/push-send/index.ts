@@ -54,7 +54,7 @@ async function getAppServer(): Promise<webpush.ApplicationServer | null> {
 // service-role branch checks that kind itself.
 // space_expense / space_settle (docs/specs/spaces-spec.md section 20): a shared
 // expense or a settle-up in ANY space the caller belongs to, open or not.
-const KINDS = ["reaction", "weather", "request_new", "request_response", "expense_new", "expense_bulk", "memory_new", "savegoal", "dgstate", "space_expense", "space_settle"];
+const KINDS = ["reaction", "weather", "request_new", "request_response", "expense_new", "expense_bulk", "memory_new", "savegoal", "dgstate", "space_expense", "space_settle", "space_invite"];
 
 /* txn_review is the one kind with no human actor and no family audience.
  *
@@ -129,7 +129,13 @@ function buildCopy(
 ): { title: string; body: string } {
   const vi = lang !== "en";
   let title: string, body: string;
-  if (kind === "space_expense") {
+  if (kind === "space_invite") {
+    // to ONE person who is not a member yet: who invites, into what. No key, no amount.
+    title = vi ? `${name} mời bạn vào một nhóm` : `${name} invited you to a space`;
+    body = vi
+      ? (space ? `${space}. Mở Earthy, vào Tài chính, mục Nhóm, bấm Tham gia.` : "Mở Earthy, vào Tài chính, mục Nhóm, bấm Tham gia.")
+      : (space ? `${space}. Open Earthy, go to Finance, Spaces, and tap Join.` : "Open Earthy, go to Finance, Spaces, and tap Join.");
+  } else if (kind === "space_expense") {
     // content-free by rule: who and where, never how much or what for
     title = space ? `${name} · ${space}` : `${name} 🧾`;
     body = vi ? "Vừa ghi một khoản chung." : "Just logged a shared expense.";
@@ -342,9 +348,36 @@ Deno.serve(async (req: Request) => {
       .eq("family_id", fid).eq("user_id", user.id).is("archived_at", null).maybeSingle();
     if (!actor) return json({ error: "no member" }, 400);
 
-    const { data: fam } = await admin.from("families").select("default_language,name,type,archived_at").eq("id", fid).maybeSingle();
+    const { data: fam } = await admin.from("families").select("default_language,name,type,archived_at,owner_id").eq("id", fid).maybeSingle();
     if (!fam || fam.archived_at || fam.type === "personal") return json({ error: "no family" }, 400);
-    const lang = fam && fam.default_language === "en" ? "en" : "vi";
+    let lang = fam && fam.default_language === "en" ? "en" : "vi";
+
+    /* space_invite (spaces-spec section 22): the one kind whose audience is NOT
+       a member. It goes to the person behind an invited email, and only when
+       every one of these holds, all read server-side:
+         - the caller OWNS this space, and it is a friend/trip space;
+         - that email has a PENDING, unexpired invitation in this space;
+         - an account with that email exists.
+       So it can reach nobody the owner has not already invited, and says
+       nothing an invitation does not already say. */
+    let inviteUser: string | null = null;
+    if (kind === "space_invite") {
+      const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+      if (!email || email.length > 200) return json({ error: "bad email" }, 400);
+      if (fam.owner_id !== user.id || (fam.type !== "friend" && fam.type !== "trip")) return json({ error: "forbidden" }, 403);
+      const { data: invs } = await admin.from("invitations").select("invited_email,expires_at")
+        .eq("family_id", fid).eq("status", "pending");
+      const now = Date.now();
+      const ok = (invs || []).some((i: { invited_email: string | null; expires_at: string | null }) =>
+        String(i.invited_email || "").toLowerCase() === email && (!i.expires_at || new Date(i.expires_at).getTime() > now));
+      if (!ok) return json({ error: "not invited" }, 403);
+      // exact, case-insensitive match done here: ilike would treat _ and % in an address as wildcards
+      const { data: profs } = await admin.from("profiles").select("id,email,language").ilike("email", email.replace(/[\\%_]/g, "\\$&"));
+      const prof2 = (profs || []).find((p: { email: string | null }) => String(p.email || "").toLowerCase() === email);
+      if (!prof2 || prof2.id === user.id) return json({ sent: 0, pruned: 0 });   // no account yet (the link is their road), or the owner's own address
+      inviteUser = prof2.id;
+      if (prof2.language === "en" || prof2.language === "vi") lang = prof2.language;   // the reader's language, not the space's
+    }
 
     /* Recipients: the OTHER members of this container, wherever their devices
        are "seated". A device's push_subscriptions row carries the container the
@@ -372,7 +405,11 @@ Deno.serve(async (req: Request) => {
       const { data: s2 } = await q;
       (s2 || []).forEach((s: Sub) => { if (s.owner_user_id !== user.id) byId[s.id] = s; });
     }
-    const subs = Object.values(byId);
+    let subs = Object.values(byId);
+    if (inviteUser) {
+      const { data: s3 } = await admin.from("push_subscriptions").select("id,endpoint,p256dh,auth,owner_user_id,member_id").eq("owner_user_id", inviteUser);
+      subs = (s3 || []) as Sub[];                         // the invitee's devices, and nobody else's
+    }
     if (!subs.length) return json({ sent: 0, pruned: 0 });
 
     const srv = await getAppServer();

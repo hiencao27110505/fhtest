@@ -315,9 +315,12 @@
     try {
       if (!window.DB || !window.DB.fid || !window.fhUser) return;
       const now = Date.now();
-      if (_pushLastSent[kind] && now - _pushLastSent[kind] < 12000) return;
-      _pushLastSent[kind] = now;
-      const body = Object.assign({ kind: kind }, data || {});
+      /* the cooldown is per kind; `ck` narrows it (one invite per email must not
+         swallow the invite to the next email typed seconds later) */
+      const ck = kind + ((data && data.ck) ? ':' + data.ck : '');
+      if (_pushLastSent[ck] && now - _pushLastSent[ck] < 12000) return;
+      _pushLastSent[ck] = now;
+      const body = Object.assign({ kind: kind }, data || {}); delete body.ck;
       /* Spaces: say WHICH container this is about. The function honours it only
          for a member, and without it falls back to the open one as before. A
          write into a space that is not the open one (review filing a captured
@@ -346,6 +349,14 @@
   function _fhNavGo(nav) {
     try {
       if (!nav || !nav.k) return;
+      /* An invitation: the person is not a member yet, so there is no space to
+         open. Land on Tài chính at the Nhóm section, where the invite waits. */
+      if (nav.k === 'space_invite') {
+        if (window.go) window.go('personal');
+        try { if (window.persSpacesAfterRender) window.persSpacesAfterRender({ force: true }); } catch (e) {}
+        setTimeout(function () { try { const w = document.getElementById('pers-spaces-wrap'), sc = document.getElementById('scroll'); if (w && sc) sc.scrollTop = Math.max(0, w.offsetTop - 130); } catch (e) {} }, 900);
+        return;
+      }
       /* Spaces: a notification about a space that is not the open one opens that
          space first (nav.f, set by push-send). Its own route then runs against
          the right data on the hydrate that follows; here the tap just lands. */
