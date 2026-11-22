@@ -1904,6 +1904,30 @@ as — or the same day as — the deploy. A deploy announced only in
 
 ## 28. Releases (newest first)
 
+### 2026-11-22 (later) — the provider switch is taken out again; the statement question now says PDF · `mailbox-sync` v83, `mailbox-dryrun` v22, `merchant-concepts` v14 · no migration, no client change
+
+- **For product:** still nothing changes for anyone: every labeling question is
+  answered by Gemini, as before the switch. One wording fix: the "is this mail a
+  statement?" question now says the file can be a spreadsheet **or a PDF** (PDF
+  statements have been captured since v78), and names the near misses a bank
+  sends with a file (a receipt for one payment, a fee schedule, a notice).
+- **Under the hood:** `96d9318`, a `git revert` of `11a183d`: `labelers/` and
+  every read of `LABELER` / `JEV_API_KEY` are gone, so the three functions are
+  byte-identical to `d136f16` except `statement.mjs` `VERDICT_SYSTEM`. Project
+  secrets `LABELER` and `JEV_API_KEY` removed after the first tick. Why taken
+  out: measured against today's Gemini (`gemini-3.5-flash-lite`, response
+  schema), Jev and Google's Decisions API were far behind on merchant names
+  (55-61% and 26-43% exact vs ~92%) and only tied on the statement and sender
+  verdicts (100% on synthetic mail); both vendors' docs say the model judges
+  what is in its input, not knowledge in its weights. Details in `AGENT_SYNC.md`.
+- **Checked after deploy:** before it, live matched `e0e7fcc` file for file;
+  after it, all three re-downloaded byte-identical to `96d9318`, no `labelers/`.
+  First tick on v83 (06:50) returned 200, no function errors.
+- **Spec sections updated:** none; the cascade and the statement lane behave as
+  the sections already say. The prompt wording is not quoted in this document.
+- **Watch for:** statement shapes decided from now on use the new wording;
+  shapes already in `statement_shapes` are not re-asked.
+
 ### 2026-11-22 — the labeling calls can switch provider (Gemini or Jev), still Gemini · `mailbox-sync` v82, `mailbox-dryrun` v21, `merchant-concepts` v13 · no migration, no client change
 
 - **For product:** nothing changes for anyone. Category guesses, the "is this a
