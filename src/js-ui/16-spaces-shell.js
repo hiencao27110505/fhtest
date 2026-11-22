@@ -254,7 +254,9 @@ function fhSpaceCanEditSplit(tx){
 function fhSpaceSplitRowsHTML(tx){
   if(!fhSpaceHas('split') || !tx || !tx._dbId || typeof _exdRow !== 'function') return '';
   var s = fhSpaceShareOf(tx._dbId), my = fhSpaceMyMemberId(fhSpaceActiveId());
-  var h = _exdRow({ label:L('Tính thế nào','How it counts'), ro:true, val:'<b>'+esc(_spSplitValue(s))+'</b>',
+  /* tappable right here for whoever recorded or paid it: an unsplit bill is fixed in one tap, without going through Sửa */
+  var can = fhSpaceCanEditSplit(tx);
+  var h = _exdRow({ label:L('Tính thế nào','How it counts'), ro:!can, fn:"fhSpaceEditSplitSheet('"+escAttr(String(tx.id))+"')", val:'<b>'+esc(_spSplitValue(s))+'</b>',
     by: (s && s.map._bill) ? (L('Hoá đơn ','Bill ')+fmt(s.map._bill)+' · '+fmt(s.map._out)+L(' ngoài nhóm',' outside the space')) : (s ? '' : L('Không ai nợ ai','Nobody owes anybody')) });
   if(!s) return h;
   fhSplitMembers(s.map).forEach(function(mid){

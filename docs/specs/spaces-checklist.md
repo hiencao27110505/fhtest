@@ -181,6 +181,12 @@ One helper, `fhSpaceHas`, and one gate per surface (map from the sweep):
       section 22); a second invite seconds later is not swallowed (flow k).
 - [ ] Seen on two real phones: invite by email, Tham gia, in.
 
+## 13. Scanned receipts (spec section 23)
+
+- [x] Scan review names the space; one split for the batch, defaulting to the
+      space's; each receipt saved with its own share row (flow m).
+- [x] A saved unsplit expense can be split from its detail screen (flow n).
+
 ## What the unticked lines mean
 
 Unticked in sections 1 to 11 = **written, not seen working**. The code is on

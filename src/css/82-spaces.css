@@ -51,3 +51,5 @@ button.sp-li:active{background:var(--canvas)}
 .sp-ho-foot{margin-top:16px;font-size:12.5px;line-height:1.5;color:var(--muted)}
 .sp-ho-ta{position:absolute;left:-9999px;top:0;opacity:0}
 .dbt-invite .dbt-empty-s{font-size:13.5px;color:var(--muted);margin-top:6px}
+/* the batch's split under a scan review's rows */
+.scan-split{margin:14px 16px 4px;background:var(--white);border-radius:16px;box-shadow:var(--shadow-card);padding:0 14px}

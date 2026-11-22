@@ -757,3 +757,26 @@ is not announced later.
 |---|---|
 | S45 | Inviting by email notifies the invitee's devices, under the owner-and-pending-invite check above. |
 
+## 23. Scanned receipts in a space (added 2026-11-22, S46)
+
+Found on first use: a receipt scanned into a friend space was saved as a
+plain shared row. The scan review never asked how it was counted, so nothing
+was split and nobody's balance moved. The scan path was the one way into a
+space that the Chung or Chia work had missed.
+
+The scan review now names the space as its destination and carries one split
+for the batch under its rows ("Tính thế nào"), pre-filled with the space's
+default: Chia đều among every member, the person scanning as payer. Tapping
+it opens the shared split control (payer, members, number of shares; typed
+amounts are not offered, since one setting covers several bills). On save
+each receipt becomes its own expense with its own share row. Chung writes no
+shares. A split batch needs a connection.
+
+An expense that is already in unsplit can be fixed from its detail screen:
+"Tính thế nào" is tappable there for whoever recorded or paid it, without
+going through Sửa.
+
+| # | Decision |
+|---|---|
+| S46 | A scan batch into a space with Chia tiền takes one split for all its receipts, defaulting to the space's. |
+

@@ -19,6 +19,13 @@ Going forward, add an entry here when a feature area changes meaningfully — se
 ---
 
 
+## 2026-11-22 (late) · Spaces: a scanned receipt is split like any other expense (SW v639)
+
+- A receipt scanned into a friend space was saved unsplit: the scan review
+  built its rows without a split, so no share row was written. The review now
+  carries one split for the batch (the space's default, changeable), and the
+  detail screen's "Tính thế nào" is tappable to fix a row already saved.
+
 ## 2026-11-22 (night) · Spaces: inviting by email notifies the invitee (SW v638, `push-send` redeployed)
 
 - "Mời" was silent. `push-send` gains `space_invite`: to the invited person's

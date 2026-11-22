@@ -151,6 +151,8 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-11-22 (late) · Hien — Spaces: scanned receipts are split · branch `fix/scan-split` · SW `v639` · client only, no migration, no Edge Function.**
+  `78-receipt-scan.js` saved scan rows into a space with no split (so no `txn_shares` row, no balance). The scan review now holds one split for the batch and hands each row's split to `submitBulk` (`rows[k].split`, same hand-off the review queue uses). `17-spaces-split-ui.js` learned `noExact` / `batch`. Spec section 23.
 - **2026-11-22 (night) · Hien — Spaces: inviting by email notifies the invitee · SW `v638` · `push-send` DEPLOYED v28 → v29 from branch `feat/spaces-invite-push` (live matched `main` file for file before the deploy) · no migration.**
   New kind `space_invite` in `push-send`: to the invited person's own devices only, and only when the caller owns the space and that email has a pending invitation there. Client: `fhNotify('space_invite', …)` after "Mời", per-email cooldown key, tap lands on the Nhóm section. Spec section 22.
 - **2026-11-22 (later) · Hien — Spaces invite fix · branch `feat/spaces-invite` (worktree `.worktrees/spaces`) · SW `v637` · `0166_space_invite_sealed_key` APPLIED 2026-11-22 by Hien in the SQL editor (next free is `0167`, `0164` still reserved) · no Edge Function change · on `main`.**

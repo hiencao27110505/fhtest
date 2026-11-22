@@ -38,6 +38,68 @@
     return /\/rcpt_[^/?]*(\?|$)/.test(String(src));
   };
   window.fhScanHasBatch = () => S.open && S.items.length > 0;
+  window.fhScanEditing = () => S.editing != null;   // a scan row is open in the expense sheet: its split belongs to the batch, not to that sheet
+
+  /* ── Spaces: a scanned receipt filed into a space that keeps balances ─────
+     The first build wrote every scanned receipt as a plain shared row: nothing
+     asked how it was counted and nothing was split, so a bill photographed for
+     the group moved nobody's balance. The review now carries ONE split for the
+     batch, pre-filled with the space's default (Chia đều among every member,
+     the person scanning as payer), shown under the rows and changeable there. */
+  function splitOn() {
+    return S.scope === 'family' && typeof fhSpaceHas === 'function' && fhSpaceHas('split') && !(typeof fhSpaceClosed === 'function' && fhSpaceClosed());
+  }
+  function splitCfg() {
+    const fid = window.DB && window.DB.fid;
+    if (S.split && S.split.fid === fid) return S.split;
+    const mem = window.fhSpaceMembers(fid).map(function (m) { return m.id; });
+    S.split = { fid: fid, mode: window.fhSpaceProfile(fid).mode, payer: window.fhSpaceMyMemberId(fid), members: mem, parts: mem.length, outName: '' };
+    return S.split;
+  }
+  /* One receipt's split under the batch's setting: null for Chung, or what the
+     write path seals after the row is in. */
+  function splitFor(amtK) {
+    if (!splitOn()) return null;
+    const c = splitCfg(), fid = c.fid;
+    if (c.mode !== 'chia') return null;
+    const live = window.fhSpaceMembers(fid).map(function (m) { return m.id; });
+    let ids = (c.members || []).filter(function (id) { return live.indexOf(id) >= 0; });
+    if (!ids.length) ids = live;
+    if (!ids.length) return null;
+    const r = fhSplitCompute({ amt: amtK, members: ids, parts: Math.max(ids.length, c.parts || ids.length) });
+    if (!r.ok) return null;
+    return { payerId: c.payer || window.fhSpaceMyMemberId(fid), rule: 'equal', payload: fhSplitPayload(r, amtK), outName: (r.out > 0 ? (c.outName || null) : null), out: r.out, bill: amtK, inside: r.inside };
+  }
+  function splitRowHtml(nReady) {
+    const c = splitCfg(), fid = c.fid, mem = window.fhSpaceMembers(fid);
+    if (!mem.length) {
+      /* members come on the light path; ask once and repaint when they land */
+      if (!splitRowHtml._ask && window.fhSpaceHydrate) { splitRowHtml._ask = 1; window.fhSpaceHydrate(fid).then(function () { splitRowHtml._ask = 0; S.split = null; render(); }, function () { splitRowHtml._ask = 0; }); }
+      return '';
+    }
+    const n = (c.members || []).filter(function (id) { return mem.some(function (m) { return m.id === id; }); }).length || mem.length;
+    const parts = Math.max(n, c.parts || n);
+    const payer = (mem.filter(function (m) { return m.id === c.payer; })[0] || {}).name || '';
+    const val = c.mode !== 'chia' ? L('Chung', 'Shared') : (parts > n ? L('Chia ', 'Split ') + parts + L(' phần', ' ways') : L('Chia đều · ', 'Split equally · ') + n + L(' người', ' people'));
+    const by = c.mode !== 'chia' ? L('Không ai nợ ai', 'Nobody owes anybody')
+      : ((payer ? payer + ' ' + L('trả', 'paid') : '') + (parts > n ? ' · ' + (parts - n) + L(' phần ngoài nhóm', ' outside the space') : '') + (nReady > 1 ? ' · ' + L('áp cho cả ', 'for all ') + nReady + L(' hóa đơn', ' receipts') : ''));
+    return '<div class="csv-srows scan-split"><button type="button" class="csv-srow rl-has" onclick="fhScanSplitSheet()"><small>' + esc2(L('Tính thế nào', 'How it counts')) + '</small>'
+      + '<span class="rl-col"><span class="csv-sval"><b>' + esc2(val) + '</b><svg class="csv-schev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></span>'
+      + '<span class="rcr-by">' + esc2(by) + '</span></span></button></div>';
+  }
+  window.fhScanSplitSheet = function () {
+    if (!splitOn()) return;
+    const c = splitCfg(), ready = S.items.filter(isReady);
+    fhSplitStart({ fid: c.fid, amt: ready.length === 1 ? parseAmtBase(ready[0].amt || '') : 0, mode: c.mode, payer: c.payer, members: c.members, parts: c.parts, outName: c.outName,
+      onChange: function () { const f = FH_SPLIT; if (!f) return; c.mode = f.mode; c.payer = f.payer; c.members = Object.keys(f.ticked); c.parts = f.parts; c.outName = f.outName; } });
+    FH_SPLIT._host = 'scan'; FH_SPLIT.noExact = true;         // one setting for several bills: typed amounts fit no batch
+    FH_SPLIT.batch = ready.length > 1;
+    openSheet('<div class="sheet-h">' + esc2(L('Chia tiền', 'Splitting')) + '</div>'
+      + (ready.length > 1 ? '<div class="sheet-sub">' + esc2(L('Áp cho cả ' + ready.length + ' hóa đơn trong lượt này.', 'Applies to all ' + ready.length + ' receipts in this batch.')) + '</div>' : '')
+      + '<div id="spx">' + fhSplitHTML() + '</div>'
+      + '<button type="button" class="fh-s-cta" style="margin-top:18px" onclick="fhScanSplitDone()">' + esc2(L('Xong', 'Done')) + '</button>');
+  };
+  window.fhScanSplitDone = function () { if (typeof fhSplitEnd === 'function') fhSplitEnd(); if (window._closeOv) window._closeOv(); if (S.open) { $('scrim').classList.add('on'); render(); } };
   window.fhScanWaiting = () => (S.open ? S.items.length : 0);   // photos held in a batch; the entry rows say so while it is set aside
   window.fhScanIsNew = (t) => !!(S.newSig && S.newSig.length && t && S.newSig.indexOf((t.note || '') + '|' + (t.amt || 0)) >= 0);
 
@@ -297,7 +359,7 @@
     render();
   }
   function closeReview() {
-    S.open = false; S.items = []; S.cancelArmed = false;
+    S.open = false; S.items = []; S.cancelArmed = false; S.split = null;
     if (typeof closeModals === 'function') closeModals();
     syncEntry();
   }
@@ -350,7 +412,10 @@
     const head = $('scan-head'), dest = $('scan-dest'), rows = $('scan-rows'), note = $('scan-note'), save = $('scan-save');
     if (head) head.textContent = reading ? L('Đang đọc ' + n + ' ảnh…', 'Reading ' + n + (n === 1 ? ' photo…' : ' photos…'))
       : (items.some(function (i) { return i.state === 'offline'; }) ? L('Đang ngoại tuyến', 'Offline') : L('Đã đọc ' + ready.length + '/' + n, 'Read ' + ready.length + ' of ' + n));
-    if (dest) dest.textContent = (S.scope === 'personal' ? L('Sổ cá nhân', 'Personal book') : L('Sổ gia đình', 'Family book')) + (ready.length ? ' · ' + fmt(total(ready)) : '');
+    /* the destination by its own name: a friend space is not "the family book" */
+    const famLbl = (typeof fhSpaceIsFamily === 'function' && !fhSpaceIsFamily() && typeof csvSpaceLabelOpen === 'function') ? csvSpaceLabelOpen() : L('Sổ gia đình', 'Family book');
+    if (dest) dest.textContent = (S.scope === 'personal' ? L('Sổ cá nhân', 'Personal book') : famLbl) + (ready.length ? ' · ' + fmt(total(ready)) : '');
+    const sx = $('scan-split'); if (sx) { const h = (splitOn() && ready.length) ? splitRowHtml(ready.length) : ''; if (sx.innerHTML !== h) sx.innerHTML = h; }
     if (rows) rows.innerHTML = items.map(rowHtml).join('')
       + '<div class="row tap" onclick="fhScanMore()"><div class="r-ico-wrap"><div class="pers-r-ico"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></div></div>'
       + '<div class="r-body"><div class="r-t scan-act">' + esc2(L('Chụp thêm ảnh', 'Capture more')) + '</div></div></div>';
@@ -545,9 +610,21 @@
     if (!ready.length) return;
     if (btn) { btn.disabled = true; btn.textContent = L('Đang lưu…', 'Saving…'); }
     const rest = S.items.filter(function (i) { return !isReady(i); });
+    /* Spaces: each receipt carries the batch's split to the write (submitBulk
+       hands it over like source/inst). A share row is sealed online, so a Chia
+       batch needs the network; the space row records the members' part when a
+       share lies outside the space (S32); the payer is the row's member. */
+    const chia = splitOn() && splitCfg().mode === 'chia';
+    if (chia && navigator.onLine === false) { toast(L('Chia tiền cần có mạng. Thử lại khi có mạng, hoặc đổi sang Chung.', 'A split needs a connection. Try again online, or switch to Shared.')); if (btn) btn.disabled = false; return; }
+    const friend = S.scope === 'family' && typeof fhSpaceIsFamily === 'function' && !fhSpaceIsFamily();
+    const meName = friend ? fhSpaceMemberName(window.fhSpaceMyMemberId(window.DB.fid)) : '';
     const rows = ready.map(function (it) {
-      return { note: it.note, amt: it.amt, cat: it.cat, date: it.date, time: it.time, _catTouched: true, _timeAuto: false,
+      const sp = chia ? splitFor(parseAmtBase(it.amt || '')) : null;
+      const row = { note: it.note, amt: (sp && sp.out > 0) ? amtToInput(sp.inside) : it.amt, cat: it.cat, date: it.date, time: it.time, _catTouched: true, _timeAuto: false,
                photos: [it.src], source: it.edited ? 'scan-edited' : 'scan' };
+      if (sp) { row.split = sp; row.who = fhSpaceMemberName(sp.payerId) || meName; }
+      else if (meName) row.who = meName;                 // no shared seat outside a family: the person scanning paid
+      return row;
     });
     let n = rows.length, sum = total(ready);
     S.items = rest;                                    // what is left stays in the review; an empty rest lets closeModals close it

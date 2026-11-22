@@ -485,5 +485,88 @@ module.exports = {
         t.expect(await t.eval((id) => !!fhSpaceGet(id), OTHER2), 'joined straight from the clipboard');
       },
     },
+    {
+      name: 'm-a-scanned-receipt-is-split-in-the-space',
+      lang: 'vi',
+      run: async (t) => {
+        await t.eval(FRIEND); await t.wait(300);
+        const SEED = `(function(){
+          var c=document.createElement('canvas'); c.width=120; c.height=160; var x=c.getContext('2d'); x.fillStyle='#fbfaf6'; x.fillRect(0,0,120,160); x.fillStyle='#222'; x.fillText('TONG',10,80);
+          var a=c.toDataURL('image/jpeg',0.8); x.fillText('2',10,100); var b=c.toDataURL('image/jpeg',0.8); var _t=isoDate(TODAY);
+          __fhScanSeed({ scope:'family', items:[
+            { src:a, state:'ok', amt:176.25, note:'Lẩu nướng', cat:'Ăn uống', date:_t, time:'19:10' },
+            { src:b, state:'ok', amt:90, note:'Trà sữa', cat:'Ăn uống', date:_t, time:'20:05' } ] });
+        })()`;
+        t.step('the review names the space and shows how the batch is counted');
+        await t.eval(SEED); await t.wait(500);
+        t.expect(/Hội bạn thân/.test(await t.eval(() => document.getElementById('scan-dest').textContent)), 'the destination is the space, not "Sổ gia đình"');
+        const row = await t.eval(() => document.getElementById('scan-split').innerText);
+        t.expect(/Tính thế nào/i.test(row) && /Chia đều · 2 người/.test(row) && /Minh trả/.test(row) && /áp cho cả 2 hóa đơn/.test(row), 'the batch split, pre-filled with the space default: ' + row.replace(/\n/g, ' | '));
+        await t.shot('01-review');
+
+        t.step('the split sheet changes it for the whole batch');
+        await t.eval(`fhScanSplitSheet()`); await t.wait(300);
+        const sheet = await t.eval(() => document.getElementById('fh-sheet-body').innerText);
+        t.expect(/Chia tiền/.test(sheet) && /Ai trả\?/i.test(sheet) && /Chia mấy phần\?/i.test(sheet) && !/Tự nhập từng phần/.test(sheet), 'payer, members, shares; no typed amounts for a batch');
+        await t.shot('02-sheet');
+        await t.eval(`fhScanSplitDone()`); await t.wait(200);
+        t.expect(await t.eval(() => document.getElementById('scan-review').classList.contains('on')), 'back on the review');
+
+        t.step('save: each receipt becomes a split expense');
+        const before = (await t.writes()).length;
+        await t.eval(() => fhScanSave(document.getElementById('scan-save'))); await t.wait(2600);
+        const w = (await t.writes()).slice(before);
+        const ins = w.filter((x) => x.table === 'transactions' && x.op === 'insert');
+        t.expect(ins.length === 2 && ins.map((x) => Number(x.payload.amount)).sort((a, b) => a - b).join() === '90,176.25', 'two expense rows: ' + JSON.stringify(ins.map((x) => x.payload.amount)));
+        t.expect(w.filter((x) => x.table === 'txn_shares').length === 2, 'and two sealed share rows');
+        const st = await t.eval(state);
+        t.expect(st.shares === 2 && Math.abs(st.net - 133.125) < 0.001, 'the other member owes half of both bills: ' + JSON.stringify(st));
+
+        t.step('Chung for the batch writes no shares');
+        await t.eval(SEED); await t.wait(400);
+        await t.eval(`fhScanSplitSheet(); fhSplitAct('mode','chung'); fhScanSplitDone();`); await t.wait(300);
+        t.expect(/Chung/.test(await t.eval(() => document.getElementById('scan-split').innerText)), 'the row says Chung');
+        const b2 = (await t.writes()).length;
+        await t.eval(() => fhScanSave(document.getElementById('scan-save'))); await t.wait(2200);
+        const w2 = (await t.writes()).slice(b2);
+        t.expect(w2.filter((x) => x.table === 'transactions' && x.op === 'insert').length === 2 && w2.filter((x) => x.table === 'txn_shares').length === 0, 'two rows, no shares');
+        t.expect(Math.abs((await t.eval(state)).net - 133.125) < 0.001, 'and no balance moved');
+      },
+    },
+    {
+      name: 'n-a-saved-chung-expense-can-be-split-afterwards',
+      lang: 'vi',
+      run: async (t) => {
+        await t.eval(FRIEND); await t.wait(300);
+        t.step('a bill that went in unsplit (the scanned receipt of 22/11)');
+        await t.eval(`go('spending'); openExpense({ scope: 'family' })`); await t.wait(500);
+        await t.eval(() => { const b = document.querySelector('#ex-scope [data-v="family"]'); if (b) b.click(); });
+        await t.eval(`fhSplitAct('mode','chung')`);
+        await t.type('#ex-note', 'Hoá đơn quét');
+        await t.eval(() => { const c = document.querySelector('#ex-cat [data-v="Ăn uống"]'); if (c) c.click(); });
+        await t.type('#ex-amt', '176250'); await t.wait(200);
+        await t.click('#ex-save'); await t.wait(2200);
+        t.expect((await t.eval(state)).net === 0, 'nothing owed yet');
+        const id = await t.eval(() => (window.txns.find((x) => x.note === 'Hoá đơn quét') || {}).id);
+        t.expect(!!id && await t.eval((i) => !!txById(i)._dbId, id), 'the row is saved: ' + id);
+
+        t.step('its detail screen says Chung, and the edit row opens the split');
+        await t.eval((i) => openExpenseDetail(i), id); await t.wait(500);
+        const view = await t.eval(() => (document.querySelector('.exd-view') || document.body).innerText);
+        t.expect(/Tính thế nào/i.test(view) && /Chung/.test(view), 'view shows how it counts');
+        await t.eval((i) => fhSpaceEditSplitSheet(i), id); await t.wait(400);
+        const sheet = await t.eval(() => document.getElementById('fh-sheet-body').innerText);
+        t.expect(/176\.250/.test(sheet) && /Chung/.test(sheet) && /Chia/.test(sheet), 'the sheet opens on this bill: ' + sheet.replace(/\n/g, ' | ').slice(0, 120));
+        await t.eval(`fhSplitAct('mode','chia')`); await t.wait(200);
+        await t.shot('01-split-sheet');
+        const before = (await t.writes()).length;
+        await t.eval((i) => fhSpaceEditSplitSave(i), id); await t.wait(1800);
+        const w = (await t.writes()).slice(before);
+        t.expect(w.filter((x) => x.table === 'txn_shares' && x.op === 'upsert').length === 1, 'the share row is written: ' + JSON.stringify(w.map((x) => x.table + ':' + x.op)));
+        t.expect(w.filter((x) => x.table === 'transactions' && x.op === 'insert').length === 0, 'no second expense');
+        const st = await t.eval(state);
+        t.expect(Math.abs(st.net - 88.125) < 0.001, 'now the other member owes half: ' + JSON.stringify(st));
+      },
+    },
   ],
 };

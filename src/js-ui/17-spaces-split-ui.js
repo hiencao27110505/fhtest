@@ -38,7 +38,7 @@ function _spxChip(label, on, act, cls){
 function _spxHint(){
   var s = FH_SPLIT, res = fhSplitResult();
   if(!res || res.mode !== 'chia') return '';
-  if(!(s.amt > 0)) return L('Nhập số tiền để xem mỗi phần.','Enter the amount to see each share.');
+  if(!(s.amt > 0)) return s.batch ? L('Mỗi hóa đơn chia theo cách này.','Each receipt is split this way.') : L('Nhập số tiền để xem mỗi phần.','Enter the amount to see each share.');
   if(!res.ok){
     if(res.err === 'members') return '<span class="warn">'+L('Chọn ít nhất một người trong nhóm.','Pick at least one member.')+'</span>';
     if(res.err === 'over') return '<span class="warn">'+L('Các phần đang nhiều hơn hoá đơn ','The shares add up to more than the bill by ')+fmt(fhK3(res.sum - s.amt))+'.</span>';
@@ -84,7 +84,7 @@ function fhSplitHTML(){
           ? '<div class="field-hint">'+L('Phần ngoài nhóm không vào nhóm. Nó nằm trong sổ của người trả là khoản cần thu.','An outside share stays out of the space. It sits in the payer’s own book as money to collect.')+'</div>'
             + '<input id="spx-outname" placeholder="'+L('Tên người đó · tuỳ chọn','Their name · optional')+'" maxlength="40" value="'+escAttr(s.outName||'')+'" oninput="fhSplitAct(\'outname\',this)">'
           : '')
-      + '<div class="field-hint"><a onclick="fhSplitAct(\'exact\',\'1\')">'+L('Tự nhập từng phần','Enter amounts')+'</a></div></div>';
+      + (s.noExact ? '' : '<div class="field-hint"><a onclick="fhSplitAct(\'exact\',\'1\')">'+L('Tự nhập từng phần','Enter amounts')+'</a></div>') + '</div>';
   }
   return h;
 }
@@ -124,6 +124,7 @@ function fhSplitAct(a, v){
    steps aside for a Chia one, whose payer is chosen here. */
 function fhExSplitActive(){
   if(typeof editingTx !== 'undefined' && (editingTx || editingPTx)) return false;
+  if(window.fhScanEditing && fhScanEditing()) return false;   // a scanned receipt being corrected: the batch's split is set on the scan review
   if(typeof exType !== 'undefined' && exType === 'income') return false;
   if(typeof chosen !== 'function' || chosen('ex-scope') !== 'family') return false;
   return typeof fhSpaceHas === 'function' && fhSpaceHas('split') && !fhSpaceClosed();
