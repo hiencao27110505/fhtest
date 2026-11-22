@@ -1904,6 +1904,37 @@ as — or the same day as — the deploy. A deploy announced only in
 
 ## 28. Releases (newest first)
 
+### 2026-11-22 — the labeling calls can switch provider (Gemini or Jev), still Gemini · `mailbox-sync` v82, `mailbox-dryrun` v21, `merchant-concepts` v13 · no migration, no client change
+
+- **For product:** nothing changes for anyone. Category guesses, the "is this a
+  statement" check and the sender verdicts are still answered by Gemini. What is
+  new is a switch: the same four questions can be put to Jev (TypeSafe) instead,
+  once consent names it. It is off.
+- **Under the hood:** `11a183d`. New `_shared/mailbox/labelers/` (`index.mjs`:
+  selection, fallback, `labelerStatus`; `jev.mjs`: the Jev client). The four
+  labeling calls (`classifyMerchant` / `classifyMerchantsBatch`, item-category
+  `askModel`, `statementVerdict`, discovery `askVerdicts`) go through it; the
+  Gemini bodies are unchanged. Extraction is untouched and stays Gemini. Project
+  secret `LABELER=gemini` (set 05:40, was `jev,gemini` from 05:29 but never read
+  by the old code); `JEV_API_KEY` is set and unused while `LABELER` is gemini.
+  Each request logs `mailbox-sync labeler {"chain","active","keys"}`; the run
+  and dryrun replies carry `labeler`. Live `mailbox-sync` matched `main` file for
+  file before the deploy; `mailbox-dryrun` (v20) and `merchant-concepts` (v12)
+  were older than `main`, so they also pick up what `main` had since (receipt
+  `tip`, PDF statement ext, taxonomy v4 in `merchant-concepts`). Re-downloaded
+  after deploy: all three byte-identical to the commit.
+- **Spec sections updated:** none. Behaviour is unchanged while `LABELER` is
+  gemini; the category cascade and statement lane read as before. Sections will
+  need the provider named when Jev is turned on.
+- **Checked after deploy:** first tick on v82 (05:45) logged
+  `{"chain":"gemini","active":"gemini","keys":{"gemini":true}}` and returned 200, no
+  function errors.
+- **Watch for:** the `labeler` log line should say `"active":"gemini"`;
+  `llm_calls.model` should stay `gemini-…` only. Do not set `LABELER=jev` (the
+  secret is project-wide) before consent v6 names TypeSafe and its DPA (region,
+  retention, subprocessors) is read. Quality is unmeasured:
+  `node tools/labeler-bench.mjs` first.
+
 ### 2026-10-11 (later still) — a card opens without the list being redrawn · client only, SW v633 · no migration, no deploy beyond the client
 
 - **For product:** nothing looks different. Opening, closing or arming a card in
