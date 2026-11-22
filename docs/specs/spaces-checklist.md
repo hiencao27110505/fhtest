@@ -175,7 +175,8 @@ One helper, `fhSpaceHas`, and one gate per surface (map from the sweep):
       the browser refuses (flow l).
 - [x] The pending invite survives the sign-in round trip (sessionStorage).
 - [x] Invite sheet: email first, link and QR under "Người chưa có Earthy".
-- [ ] `0166_space_invite_sealed_key` applied.
+- [x] `0166_space_invite_sealed_key` applied by Hien in the SQL editor, verified.
+- [x] "＋ Mời" on the space's first tab and in the switcher reopens the invite sheet.
 - [ ] Seen on two real phones: invite by email, Tham gia, in.
 
 ## What the unticked lines mean

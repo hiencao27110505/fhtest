@@ -176,6 +176,7 @@
       _fhSheet('<div class="sheet-h">' + L('Nhóm của bạn', 'Your spaces') + '</div>'
         + (S.all.length ? '<div class="rl-list sp-sw" style="margin-top:14px">' + S.all.map(item).join('') + '</div>' : '<div class="dbt-note">' + L('Bạn chưa ở trong nhóm nào.', 'You are not in any space yet.') + '</div>')
         + '<button type="button" class="fh-s-line" style="margin-top:16px" onclick="_closeOv();fhSpaceCreateSheet()">' + L('＋ Tạo nhóm', '＋ New space') + '</button>'
+        + ((activeId && fhSpaceGet(activeId) && fhSpaceGet(activeId).type !== 'family' && !fhSpaceGet(activeId).closed) ? '<button type="button" class="fh-s-ghost" onclick="_closeOv();fhSpaceInviteSheet()">' + L('Mời vào nhóm đang mở', 'Invite to the open space') + '</button>' : '')
         + (activeId && fhSpaceGet(activeId) ? '<button type="button" class="fh-s-ghost" onclick="_closeOv();fhSpaceProfileSheet()">' + L('Tuỳ chỉnh nhóm đang mở', 'Settings of the open space') + '</button>' : '')
         + '<button type="button" class="fh-s-ghost" onclick="_closeOv();fhFamilyJoinByCode()">' + L('Tham gia gia đình bằng mã', 'Join a family with a code') + '</button>');
     };

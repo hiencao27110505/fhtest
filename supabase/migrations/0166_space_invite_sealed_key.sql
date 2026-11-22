@@ -1,4 +1,8 @@
 -- 0166_space_invite_sealed_key.sql
+-- APPLIED 2026-11-22 by Hien in the Supabase SQL editor (not in schema_migrations,
+-- like 0163 and 0165). Verified after: the column, the three new functions, the
+-- two widened ones and the grants are in place. Next free is 0167.
+--
 -- Spaces: the key of a space travels with the invitation, sealed to the
 -- invitee's own account (docs/specs/spaces-spec.md section 21).
 --

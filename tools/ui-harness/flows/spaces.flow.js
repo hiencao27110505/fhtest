@@ -95,6 +95,9 @@ module.exports = {
         t.expect(await t.eval(() => getComputedStyle(document.getElementById('home-sky')).display === 'none'), 'the sky is hidden');
         const home = await t.eval(() => document.getElementById('home-body').innerText);
         t.expect(/Hội bạn thân/.test(home) && /Ghi khoản chung/.test(home) && /Ghi trả nợ/.test(home), 'space home: name and the two actions');
+        await t.eval(() => { document.querySelector('#home-body .sp-invite').click(); }); await t.wait(400);
+        t.expect(/Mời vào nhóm/.test(await t.eval(() => document.getElementById('fh-modal-title').innerText)) && await t.eval(() => document.getElementById('fh-modal').classList.contains('on')), 'the Mời button on the space home reopens the invite sheet');
+        await t.eval(`_closeOv()`);
         await t.shot('01-home');
 
         t.step('money tab opens on balances, not the family cash-flow card');
