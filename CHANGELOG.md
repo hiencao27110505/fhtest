@@ -33,7 +33,7 @@ Going forward, add an entry here when a feature area changes meaningfully — se
   own device with existing row kinds (`source = 'space:<id>'`).
 - Fixes the old split ledger's roster, which read `id` / `owner_id` from a
   function that returns `family_id` / `is_owner`.
-- Needs `docs/specs/spaces-migration-draft.sql` applied and `push-send`
+- Needs `supabase/migrations/0165_spaces.sql` applied and `push-send`
   redeployed. Spec `docs/specs/spaces-spec.md`, feature doc
   `docs/features/spaces.md`.
 

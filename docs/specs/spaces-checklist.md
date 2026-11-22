@@ -6,16 +6,14 @@ agent session applies SQL, deploys a function or pushes `main`.
 
 Worktree `../fh-spaces`, branch `feat/spaces`. Claim in `AGENT_SYNC.md`.
 
-## 0. Before the client ships (Hien)
+## 0. Before the client ships
 
-- [ ] Review `docs/specs/spaces-migration-draft.sql` against the live
-      definitions (`pg_get_functiondef`) of: `switch_family`, `leave_family`,
-      `leave_space`, `archive_family`, `archive_member`, `create_space`,
-      `my_families`, `auth_space_ids`.
-- [ ] Claim the number in `AGENT_SYNC.md`, copy the draft into
-      `supabase/migrations/`, apply it, commit it.
-- [ ] Diff live `push-send` against `main`, then deploy it from the branch.
-- [ ] Say "push main".
+- [x] Live definitions of the eight replaced functions compared with the repo
+      bases (2026-11-22): all matched.
+- [x] `0165_spaces` applied by Hien in the SQL editor, verified, committed.
+- [ ] Live `push-send` (v24) diffed against `main`: identical `index.ts`.
+      Deploy from the branch.
+- [ ] Merge to `main`.
 
 Order matters: the migration first (old clients keep working with it), the
 function second (old clients keep working with it), the client last.

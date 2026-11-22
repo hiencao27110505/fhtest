@@ -59,7 +59,7 @@ between a family and a group of friends is a profile of switches.
 | `src/js-data/23-spaces-ui.js` | Nhóm section, switcher, create, profile, invite, unlock, settle sheets |
 | `src/js-data/23-spaces-book.js` | The book pass, capture into a non-open space, the tap sheet for space rows |
 | `src/css/82-spaces.css` | The gates and the few new layout rules |
-| `docs/specs/spaces-migration-draft.sql` | The schema change, drafted for Hien to apply |
+| `supabase/migrations/0165_spaces.sql` | The schema change, drafted for Hien to apply |
 | `tools/ui-harness/flows/spaces.flow.js` | Ten journeys against the stub |
 
 ## Current State

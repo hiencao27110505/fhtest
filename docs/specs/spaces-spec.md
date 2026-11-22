@@ -15,7 +15,7 @@ differences are a profile of switches and not a different kind of thing.
 > as a map of the work. The brief is `docs/briefs/spaces.md`, the target
 > screens `tools/ui-harness/manifests/spaces-target.js`, the build checklist
 > `docs/specs/spaces-checklist.md`, the SQL for Hien to apply
-> `docs/specs/spaces-migration-draft.sql`. Where the code already does
+> `supabase/migrations/0165_spaces.sql`. Where the code already does
 > something, the section says so and cites it.
 
 > **How this relates to its siblings.** `borrowing-lending-spec.md` shipped
@@ -427,7 +427,7 @@ path (the active space's key is loaded on switch, as a family's is today).
 
 ## 11. Data model changes
 
-One migration, drafted in `docs/specs/spaces-migration-draft.sql` for Hien to
+One migration, drafted in `supabase/migrations/0165_spaces.sql` for Hien to
 review, number and apply. No agent session writes `supabase/migrations/*`.
 All additive, or a widened guard.
 

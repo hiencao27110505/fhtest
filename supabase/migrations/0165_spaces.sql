@@ -1,21 +1,24 @@
--- DRAFT, NOT APPLIED. For Hien to review, number and apply (next free number
--- after checking AGENT_SYNC.md and origin/main; 0164 is reserved for
--- statement_formats). Written from the repo's migrations on 2026-11-22; the
--- live database was not read. Before applying, compare each function below
--- with pg_get_functiondef of the live one: if the live body differs from the
--- repo file named in the comment, merge by hand.
+-- 0165_spaces.sql
+-- Spaces ("Nhóm"), docs/specs/spaces-spec.md sections 10, 11 and 19.
+-- APPLIED 2026-11-22 by Hien in the Supabase SQL editor (so, like 0163, it is
+-- not in supabase_migrations.schema_migrations). 0164 stays reserved for
+-- statement_formats.
 --
--- Spaces ("Nhóm"), docs/specs/spaces-spec.md sections 10, 11 and 16.
+-- Checked against the live definitions (pg_get_functiondef, 2026-11-22) of
+-- switch_family, leave_family, leave_space, archive_family, archive_member,
+-- create_space, my_families and auth_space_ids before applying: each matched
+-- the repo migration it is based on. Verified after: both columns, the six
+-- new functions, the widened guards and the grants are in place.
+--
 -- Everything here is additive or widens an existing guard. Nothing is dropped
--- except the 3-argument create_space, which is replaced by a 4-argument one.
+-- except the 3-argument create_space, replaced by a 4-argument one whose
+-- fourth argument defaults, so the old client's call still resolves.
 --
--- What changes in behaviour the moment this is applied, before any client
--- ships: (1) a friend/trip space can be made the active container by
--- switch_family; no shipped client offers that except the family picker, where
--- tapping a space used to fail and now works. (2) auth_space_ids() covers
--- family memberships too, so the additive 0106a policies let a member read a
--- family they belong to while another container is active. Membership was
--- already the access rule; the active slot only chose which one hydrates.
+-- Behaviour that changed the moment this was applied: (1) switch_family
+-- accepts a friend/trip space; (2) auth_space_ids() covers family memberships
+-- too, so the additive 0106a policies let a member read a family they belong
+-- to while another container is the active one. Membership was already the
+-- access rule; the active slot only chose which one hydrates.
 
 -- ── 1. profile + closed ──────────────────────────────────────────────────────
 -- Plaintext on purpose: booleans and one default mode. It says what a space can
@@ -113,14 +116,11 @@ begin
   select family_id, user_id into v_family, v_user from members where id = p_member_id;
   if v_family is null then raise exception 'member not found'; end if;
   if not _is_owner(v_family) then raise exception 'only the owner can remove members'; end if;
-  if v_user = auth.uid() then raise exception 'owner_cannot_leave'; end if;
   update members set archived_at = now() where id = p_member_id;
   if v_user is not null then
     update profiles set family_id = _next_active_space(v_user, v_family) where id = v_user and family_id = v_family;
   end if;
 end $$;
--- NOTE for review: the "owner cannot remove themselves" line is new. Drop it if
--- a family owner archiving their own seat is a path you rely on.
 
 -- ── 7. create_space: carries a profile ───────────────────────────────────────
 -- Base: 0106a:70. The 3-argument form is dropped so a 3-named-argument call
