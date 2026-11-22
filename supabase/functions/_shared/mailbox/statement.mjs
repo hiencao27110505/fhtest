@@ -36,8 +36,6 @@ import * as senders from './senders.mjs';
 import { FH_PROVIDERS } from './providers.mjs';
 import { sealForFamily, sealBytes } from './sealed-box.mjs';
 import { toGeminiSchema, callGemini } from './llm.mjs';
-import { runLabeler, labelerReady } from './labelers/index.mjs';
-import * as jev from './labelers/jev.mjs';
 
 /** The consent version that first says a statement file is stored. Must equal
  *  FH_CONSENT_V's statement bump in src/js-data/75-consent-ui.js. */
@@ -131,11 +129,17 @@ export function statementDetails(subject, body) {
   return out;
 }
 
-const VERDICT_SYSTEM = 'You are shown one email from a Vietnamese bank or e-wallet that has a spreadsheet attached. ' +
+/* "spreadsheet" only until 2026-11-22: the lane has listed PDF statements since
+   mailbox-sync v78 (pdf-statements-spec PS1), so a PDF mail was being asked about
+   a spreadsheet it did not carry. The false list also names the near misses a
+   bank sends with a file: a receipt or voucher for ONE payment, a fee or rate
+   schedule, a notice. Measured on 32 synthetic mails (14 statements, 9 hard
+   cases): old and new prompt both 32/32, no answer changed over 3 runs. */
+const VERDICT_SYSTEM = 'You are shown one email from a Vietnamese bank, e-wallet or broker that has a spreadsheet or PDF attached. ' +
   'Decide whether the attachment is an ACCOUNT STATEMENT or TRANSACTION HISTORY for the recipient ' +
   '(sao kê, lịch sử giao dịch, bảng kê giao dịch, account statement, transaction history). ' +
   'Reply as JSON {"is_statement": true|false}. ' +
-  'Answer false for anything else with a spreadsheet attached: an invoice or e-invoice, a price list, a promotion, a contract, a form to fill in. ' +
+  'Answer false for anything else with a file attached: an invoice or e-invoice, a receipt or voucher for ONE payment or transfer, a fee, rate or price schedule, a promotion, a contract, a form to fill in, a notice. ' +
   'When the email clearly says it is a statement or a list of the recipient\'s own transactions, answer true.';
 const VERDICT_SCHEMA = { type: 'object', properties: { is_statement: { type: 'boolean' } }, required: ['is_statement'] };
 
@@ -145,19 +149,13 @@ const VERDICT_SCHEMA = { type: 'object', properties: { is_statement: { type: 'bo
  * read as `false`: a wrong "no" makes a statement vanish with nothing to notice.
  */
 export async function statementVerdict(message, files, cfg, fetchImpl) {
-  if (!cfg || !labelerReady(VERDICT_LABELERS, cfg, 'statement_verdict')) return null;
-  const text = 'Sender: ' + senders.addressOf(message.from) + '\nSubject: ' + message.subject +
-    '\nAttached files: ' + files.map(f => f.filename).join(', ') +
-    '\n\n' + String(message.body || '').slice(0, 4000);
-  const v = await runLabeler(VERDICT_LABELERS, 'statement_verdict', cfg, fetchImpl, text);
-  return typeof v === 'boolean' ? v : null;
-}
-
-/* The Gemini strategy: same text, JSON boolean. */
-async function geminiStatementVerdict(cfg, fetchImpl, text) {
+  if (!cfg || !cfg.apiKey) return null;
   const r = await callGemini('statement_verdict', {
     systemInstruction: { parts: [{ text: VERDICT_SYSTEM }] },
-    contents: [{ role: 'user', parts: [{ text }] }],
+    contents: [{ role: 'user', parts: [{ text:
+      'Sender: ' + senders.addressOf(message.from) + '\nSubject: ' + message.subject +
+      '\nAttached files: ' + files.map(f => f.filename).join(', ') +
+      '\n\n' + String(message.body || '').slice(0, 4000) }] }],
     generationConfig: { responseMimeType: 'application/json', responseSchema: toGeminiSchema(VERDICT_SCHEMA) },
   }, cfg, fetchImpl);
   if (r.transportError || !r.ok) return null;
@@ -166,11 +164,6 @@ async function geminiStatementVerdict(cfg, fetchImpl, text) {
   if (!answer) return null;
   try { const p = JSON.parse(answer); return typeof p.is_statement === 'boolean' ? p.is_statement : null; } catch { return null; }
 }
-
-const VERDICT_LABELERS = {
-  gemini: { ready: (cfg) => !!(cfg && cfg.apiKey), run: geminiStatementVerdict },
-  jev: jev.statementVerdict,
-};
 
 async function _sha256Hex(bytes, subtle) {
   const d = new Uint8Array(await subtle.digest('SHA-256', bytes));

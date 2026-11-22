@@ -27,7 +27,6 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { createDb } from "../_shared/mailbox/db.mjs";
 import { conceptsForMerchants, BATCH_MAX } from "../_shared/mailbox/classify.mjs";
-import { labelerCfgFromEnv, labelerStatus } from "../_shared/mailbox/labelers/index.mjs";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -62,17 +61,16 @@ Deno.serve(async (req) => {
     if (!names.length) return json({ concepts: {}, nodes: {}, limited: false });
 
     const db = createDb(SUPABASE_URL, SERVICE_KEY, fetch);
-    const llm = {
-      apiKey: Deno.env.get("GEMINI_CLASSIFY") === "off" ? null : Deno.env.get("GEMINI_API_KEY"),
-      model: Deno.env.get("GEMINI_MODEL") || undefined,
-      logLlm: (rec: Record<string, unknown>) => db.recordLlmCall(rec),
-      // GEMINI_CLASSIFY=off stays a kill switch for EVERY provider: without
-      // the labeler cfg no Jev key is ready either.
-      ...(Deno.env.get("GEMINI_CLASSIFY") === "off" ? {} : labelerCfgFromEnv((k: string) => Deno.env.get(k))),
-    };
-    const out = await conceptsForMerchants(names, user.id, { db, fetch, subtle: crypto.subtle, llm });
-    // Counts only. Never the names. `labeler`: which provider was on (names/booleans).
-    console.log(JSON.stringify({ ev: "merchant_concepts", n: out.total, asked: out.asked, limited: out.limited, labeler: labelerStatus(llm) }));
+    const out = await conceptsForMerchants(names, user.id, {
+      db, fetch, subtle: crypto.subtle,
+      llm: {
+        apiKey: Deno.env.get("GEMINI_CLASSIFY") === "off" ? null : Deno.env.get("GEMINI_API_KEY"),
+        model: Deno.env.get("GEMINI_MODEL") || undefined,
+        logLlm: (rec: Record<string, unknown>) => db.recordLlmCall(rec),
+      },
+    });
+    // Counts only. Never the names.
+    console.log(JSON.stringify({ ev: "merchant_concepts", n: out.total, asked: out.asked, limited: out.limited }));
     /* 0144 — the cascade already decides a tree NODE first and derives the
        legacy concept from it (classify.mjs conceptsForMerchants); this used to
        hand back only the concept, so a statement row reached the review with

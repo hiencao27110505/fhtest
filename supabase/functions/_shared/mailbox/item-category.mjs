@@ -43,8 +43,6 @@
 
 import { TAX } from './taxonomy.mjs';
 import { callGemini, toGeminiSchema } from './llm.mjs';
-import { runLabeler, labelerReady } from './labelers/index.mjs';
-import * as jev from './labelers/jev.mjs';
 
 /** Bump when the prompt or the ladder changes MEANING: every older row in
  *  item_signatures becomes a miss and is re-learned. */
@@ -106,19 +104,9 @@ const ITEM_SCHEMA = {
  *  (null = unknowable), or NULL when the model could not be asked — which the
  *  caller treats as "not tried", never as an answer: nothing is cached. */
 async function askModel(entries, provider, serviceType, cfg, fetchImpl) {
-  if (!cfg || !entries.length || !labelerReady(ITEM_LABELERS, cfg, 'classify_item')) return null;
-  const lines = entries.map((e) => '[' + provider + (serviceType ? ' / ' + serviceType : '') + '] '
-    + e.key.replace(/^hn\|/, '').replace(/^sub\|/, 'subscription ').replace(/^store\|/, 'store ').replace(/\|/g, ' | '));
-  const out = await runLabeler(ITEM_LABELERS, 'classify_item', cfg, fetchImpl, entries, lines);
-  if (!out) return null;
-  // validNode is the gate whichever provider answered.
-  for (const [k, v] of out) out.set(k, validNode(v));
-  return out;
-}
-
-/* The Gemini strategy: the numbered list in one prompt. */
-async function geminiAskModel(cfg, fetchImpl, entries, lines) {
-  const list = lines.map((l, i) => (i + 1) + '. ' + l).join('\n');
+  if (!cfg || !cfg.apiKey || !entries.length) return null;
+  const list = entries.map((e, i) => (i + 1) + '. [' + provider + (serviceType ? ' / ' + serviceType : '') + '] '
+    + e.key.replace(/^hn\|/, '').replace(/^sub\|/, 'subscription ').replace(/^store\|/, 'store ').replace(/\|/g, ' | ')).join('\n');
   const r = await callGemini('classify_item_batch', {
     systemInstruction: { parts: [{ text: ITEM_SYSTEM }] },
     contents: [{ role: 'user', parts: [{ text: list }] }],
@@ -137,11 +125,6 @@ async function geminiAskModel(cfg, fetchImpl, entries, lines) {
   }
   return out;
 }
-
-const ITEM_LABELERS = {
-  gemini: { ready: (cfg) => !!(cfg && cfg.apiKey), run: geminiAskModel },
-  jev: jev.classifyItems,
-};
 
 /**
  * Fills `receipt.items[].node` and `.sig` in place. Never throws: every tier

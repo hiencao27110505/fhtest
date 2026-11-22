@@ -30,8 +30,6 @@ import * as senders from './senders.mjs';
 import * as gmail from './gmail.mjs';
 import { normalizeSubjectTemplate } from './extract.mjs';
 import { callGemini, toGeminiSchema } from './llm.mjs';
-import { runLabeler, labelerReady } from './labelers/index.mjs';
-import * as jev from './labelers/jev.mjs';
 
 /** Subject words a receipt tends to carry. Quoted phrases match as phrases.
  *  "subscription" earns its place (renewal receipts) and costs a few notices
@@ -82,25 +80,8 @@ const VERDICT_SCHEMA = {
 };
 
 async function askVerdicts(shapes, cfg, fetchImpl) {
-  if (!cfg || !shapes.length || !labelerReady(DISCOVERY_LABELERS, cfg, 'discovery_verdict')) return null;
-  const lines = shapes.map((s) => 'from: ' + s.display + ' <' + s.sender + '>  subject: ' + s.sample);
-  const answers = await runLabeler(DISCOVERY_LABELERS, 'discovery_verdict', cfg, fetchImpl, lines);
-  if (!answers) return null;
-  const out = new Map();
-  shapes.forEach((s, i) => {
-    const it = answers[i];
-    if (!it) return;
-    const v = ['receipt', 'bill', 'campaign', 'other'].indexOf(it.verdict) >= 0 ? it.verdict : 'other';
-    const store = (typeof it.store === 'string' && it.store.trim()) ? it.store.trim().slice(0, 60) : null;
-    out.set(s.sender + '\u0001' + s.template, { verdict: v, store });
-  });
-  return out;
-}
-
-/* The Gemini strategy: one numbered prompt; an aligned array (holes where the
-   model skipped a line), or null when it could not be asked. */
-async function geminiVerdicts(cfg, fetchImpl, lines) {
-  const list = lines.map((l, i) => (i + 1) + '. ' + l).join('\n');
+  if (!cfg || !cfg.apiKey || !shapes.length) return null;
+  const list = shapes.map((s, i) => (i + 1) + '. from: ' + s.display + ' <' + s.sender + '>  subject: ' + s.sample).join('\n');
   const r = await callGemini('discovery_verdict', {
     systemInstruction: { parts: [{ text: VERDICT_SYSTEM }] },
     contents: [{ role: 'user', parts: [{ text: list }] }],
@@ -112,19 +93,16 @@ async function geminiVerdicts(cfg, fetchImpl, lines) {
   if (!text) return null;
   let parsed;
   try { parsed = JSON.parse(text); } catch { return null; }
-  const out = new Array(lines.length);
+  const out = new Map();
   for (const it of (parsed && parsed.items) || []) {
     const idx = Number(it && it.i) - 1;
-    if (idx < 0 || idx >= lines.length) continue;
-    out[idx] = it;
+    if (idx < 0 || idx >= shapes.length) continue;
+    const v = ['receipt', 'bill', 'campaign', 'other'].indexOf(it.verdict) >= 0 ? it.verdict : 'other';
+    const store = (typeof it.store === 'string' && it.store.trim()) ? it.store.trim().slice(0, 60) : null;
+    out.set(shapes[idx].sender + '\u0001' + shapes[idx].template, { verdict: v, store });
   }
   return out;
 }
-
-const DISCOVERY_LABELERS = {
-  gemini: { ready: (cfg) => !!(cfg && cfg.apiKey), run: geminiVerdicts },
-  jev: jev.discoveryVerdicts,
-};
 
 /** The display name part of a From header, without quotes or the address. */
 function displayOf(from) {

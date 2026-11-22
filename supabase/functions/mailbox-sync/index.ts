@@ -15,7 +15,6 @@ import nacl from "npm:tweetnacl@1.0.3";
 import { runAll, runOne, runPush, renewWatches, runCoverageProbe, BUILD_ID, MODEL_PRIORITY } from "../_shared/mailbox/worker.mjs";
 import { runIngest } from "../_shared/mailbox/ingest.mjs";
 import { createDb } from "../_shared/mailbox/db.mjs";
-import { labelerCfgFromEnv, labelerStatus } from "../_shared/mailbox/labelers/index.mjs";
 import { fromBytea } from "../_shared/mailbox/token-crypto.mjs";
 import { decodePushEnvelope } from "../_shared/mailbox/gmail.mjs";
 
@@ -61,10 +60,6 @@ Deno.serve(async (req: Request) => {
      learned formats and on give-ups (0147 reader_build). */
   const db = createDb(supabaseUrl, serviceKey, fetch, { readerBuild: BUILD_ID });
   const ctx = baseCtx(db, supabaseUrl, serviceKey, dedupKey, tokenKey);
-  /* Which provider labels this request (LABELER + keys): one log line per
-     request, and stamped on the run replies below. Names and booleans only. */
-  const labeler = labelerStatus(ctx.llm);
-  console.log("mailbox-sync labeler", JSON.stringify(labeler));
 
   /* ── push: one mailbox, right now ──────────────────────────────────────────
      This is the path that makes a notification arrive with the bank email
@@ -153,7 +148,7 @@ Deno.serve(async (req: Request) => {
       try {
         const out = await runOne(body.grant, ctx);
         console.log("mailbox-sync targeted run", JSON.stringify(out));
-        return json({ ...out, labeler }, 200);
+        return json(out, 200);
       } catch (e) {
         console.error("mailbox-sync targeted run failed:", e);
         return json({ error: String((e as Error)?.message || e) }, 500);
@@ -173,7 +168,7 @@ Deno.serve(async (req: Request) => {
   try {
     const watches = await renewWatches(ctx);
     const out = await runAll(ctx);
-    return json({ ...out, watches, labeler });
+    return json({ ...out, watches });
   } catch (e) {
     console.error("mailbox-sync run failed:", e);
     return json({ error: String((e as Error)?.message || e) }, 500);
@@ -211,11 +206,6 @@ function baseCtx(
       // call, best-effort. Threaded through the llm cfg because both callers
       // (extract, classifyMerchant) already receive it.
       logLlm: (rec: Record<string, unknown>) => db.recordLlmCall(rec),
-      // Which provider answers the LABELING calls (classify, item, statement and
-      // discovery verdicts): LABELER = gemini | jev | jev,gemini, plus
-      // JEV_API_KEY. Unset = gemini, as before. Extraction never reads these
-      // (labelers/index.mjs).
-      ...labelerCfgFromEnv(env),
     },
     /* Per-RUN ceiling on the category cascade's one-shot classify calls (#2), so
        a backfill that meets hundreds of new merchants at once cannot burst past
