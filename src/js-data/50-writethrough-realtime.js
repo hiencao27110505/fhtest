@@ -57,9 +57,20 @@
       if (window.BULK_SAVING && window._fhImportNode) nt.node = window._fhImportNode;
       /* recurring-charges-spec RR1: the reviewed recurrence rides the same hand-off. */
       if (window.BULK_SAVING) { nt.recur = window._fhImportRecur || null; nt.recurSrc = window._fhImportRecurSrc || null; }
+      /* Spaces (spaces-spec 5.1, section 12). A Chia expense carries its split,
+         set by whoever called addExpense (the sheet, or review filing a captured
+         row). Its place in the author's own book is their SHARE, written by the
+         space pass, so the full-amount tagged master is not written: the account
+         rides along as a hint instead. */
+      const _split = window._exSplitPending || null; window._exSplitPending = null;
+      if (_split) { _split.acct = nt.pAcct || null; nt._split = _split; nt.pAcct = null; nt.linkId = null; }
+      /* Hiện nguồn tiền off: the space row never carries which bank or card paid.
+         Not written at all, rather than written and hidden. */
+      if (nt.inst && typeof fhSpaceHas === 'function' && !fhSpaceHas('source')) nt.inst = null;
     }
     const newKeys = (window.order || []).filter((k) => beforeOrder.indexOf(k) < 0);
     const inserted = nt ? _dbInsertTxn(nt, exD) : Promise.resolve();
+    if (nt && nt._split) { const _sfid = window.DB.fid; inserted.then(() => { if (window.fhSpaceAfterSplitSave) window.fhSpaceAfterSplitSave(_sfid, nt); }); }
     // a future expense is a proposal — nudge the family's closed-app devices to review it
     if (nt && nt.future) {
       inserted.then(() => { window.fhNotify && window.fhNotify('request_new', { et: 'expense', eid: nt._dbId || null }); });
@@ -67,8 +78,8 @@
       // a normal log → nudge the rest of the family. A photo-expense (mirror event spawned)
       // reads as "added new photos"; a plain one as "logged an expense". Bulk saves stay
       // silent here and submitBulk() sends one summary instead. Tap routes to the expense.
-      const _k = newKeys.length ? 'memory_new' : 'expense_new';
-      inserted.then(() => { window.fhNotify && window.fhNotify(_k, { tx: nt._dbId || null }); });
+      const _k = newKeys.length ? 'memory_new' : ((typeof fhSpaceIsFamily === 'function' && !fhSpaceIsFamily()) ? 'space_expense' : 'expense_new');   // 'cho nhà' is a family's wording
+      if (!nt._split) inserted.then(() => { window.fhNotify && window.fhNotify(_k, { tx: nt._dbId || null }); });   // a split sends its own, once the shares are in
     }
     if (newKeys.length) {
       // Wait for the transaction's id before writing its mirror event — the

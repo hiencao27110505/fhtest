@@ -14,6 +14,16 @@
   // localStorage. Unset → null snapshot, exactly the boot harness's behaviour.
   if (CFG.family === undefined) { try { CFG.family = JSON.parse(localStorage.getItem('stub-family') || 'null'); } catch (e) { CFG.family = null; } }
   if (CFG.lang == null) CFG.lang = localStorage.getItem('stub-lang') || 'vi';   // profiles.language: the app copies it into LANG on login
+  /* Spaces (docs/specs/spaces-spec.md). 'stub-space' = { type, profile, name, closed }
+     for the ACTIVE container (default: a plain family); 'stub-spaces' = extra
+     roster rows [{ family_id, name, type, profile, members, is_owner }];
+     'stub-invites' = find_my_invites rows. txn_shares and settle_ups are kept in
+     a tiny table store so a split written in a flow comes back on the next read. */
+  if (CFG.space === undefined) { try { CFG.space = JSON.parse(localStorage.getItem('stub-space') || 'null'); } catch (e) { CFG.space = null; } }
+  if (CFG.spaces === undefined) { try { CFG.spaces = JSON.parse(localStorage.getItem('stub-spaces') || '[]') || []; } catch (e) { CFG.spaces = []; } }
+  if (CFG.invites === undefined) { try { CFG.invites = JSON.parse(localStorage.getItem('stub-invites') || '[]') || []; } catch (e) { CFG.invites = []; } }
+  var TABLES = (CFG.tables = CFG.tables || { txn_shares: [], settle_ups: [] });
+  var ACTIVE = null;                                    // set by switch_family; null = the fixture family
 
   var UID = '00000000-0000-4000-8000-000000000001';
   var FID = '00000000-0000-4000-8000-0000000000fa';
@@ -47,6 +57,20 @@
   function applyWrite(table, ctx) {
     var F = CFG.family;
     var rows = Array.isArray(ctx.payload) ? ctx.payload : [ctx.payload || {}];
+    if (TABLES[table]) {                                 // spaces: txn_shares (one per txn_id) and settle_ups
+      var T = TABLES[table], hit = function (r) { return Object.keys(ctx.eq || {}).every(function (k) { return r[k] === ctx.eq[k]; }); };
+      if (ctx.op === 'insert' || ctx.op === 'upsert') {
+        var made = rows.map(function (r) {
+          var old = (table === 'txn_shares') ? T.filter(function (x) { return x.txn_id === r.txn_id; })[0] : null;
+          if (old) { Object.assign(old, r); return old; }
+          var n = Object.assign({ id: 'stub-' + table + '-' + (++SEQ) }, r); T.push(n); return n;
+        });
+        return ctx.single ? made[0] : made;
+      }
+      if (ctx.op === 'delete') TABLES[table] = T.filter(function (r) { return !hit(r); });
+      if (ctx.op === 'update') T.forEach(function (r) { if (hit(r)) Object.assign(r, ctx.payload); });
+      return null;
+    }
     if (ctx.op === 'insert' || ctx.op === 'upsert') {
       var out = rows.map(function (r) { return Object.assign({ id: 'stub-' + table + '-' + (++SEQ) }, r); });
       if (F && Array.isArray(F[table])) out.forEach(function (r) { F[table].push(r); });
@@ -72,8 +96,34 @@
       W.reactions = (F.reactions || []).filter(function (r) { return keep.has(r.transaction_id); });
       return W;
     }
-    if (name === 'rpc:my_families') return [{ family_id: FID, name: F && F.family ? F.family.name : 'Test Fam', is_active: true, is_owner: true, type: 'family' }];
+    if (name === 'rpc:my_families') {
+      var sp0 = CFG.space || {};
+      var act = ACTIVE || FID;
+      return [{ family_id: FID, name: sp0.name || (F && F.family ? F.family.name : 'Test Fam'), is_active: act === FID, is_owner: sp0.is_owner !== false, type: sp0.type || 'family',
+        profile: sp0.profile || {}, closed: !!sp0.closed, members: F && F.members ? F.members.filter(function (m) { return !m.is_shared; }).length : 1 }]
+        .concat((CFG.spaces || []).map(function (r) { return Object.assign({ is_owner: false, type: 'friend', profile: {}, closed: false, members: 1 }, r, { is_active: act === r.family_id }); }));
+    }
+    if (name === 'rpc:switch_family') { ACTIVE = ctx.args.p_family_id; return null; }
+    if (name === 'rpc:create_space') { var nid = 'aaaaaaaa-0000-4000-8000-' + String(++SEQ).padStart(12, '0'); CFG.spaces.push({ family_id: nid, name: ctx.args.p_name, type: ctx.args.p_type || 'friend', profile: ctx.args.p_profile || {}, is_owner: true, members: 1 }); return nid; }
+    if (name === 'rpc:init_space_card') return 'stub-wrap';
+    if (name === 'rpc:space_update') {
+      var tgt = ctx.args.p_family_id === FID ? (CFG.space = CFG.space || {}) : (CFG.spaces || []).filter(function (r) { return r.family_id === ctx.args.p_family_id; })[0];
+      if (tgt) { if (ctx.args.p_name) tgt.name = ctx.args.p_name; if (ctx.args.p_profile) tgt.profile = ctx.args.p_profile; }
+      return { family_id: ctx.args.p_family_id };
+    }
+    if (name === 'rpc:space_close') { var c0 = ctx.args.p_family_id === FID ? (CFG.space = CFG.space || {}) : (CFG.spaces || []).filter(function (r) { return r.family_id === ctx.args.p_family_id; })[0]; if (c0) c0.closed = ctx.args.p_closed !== false; return null; }
+    if (name === 'rpc:find_my_invites') return CFG.invites || [];
+    if (name === 'rpc:space_whitelist_list' || name === 'rpc:space_whitelist_add' || name === 'rpc:space_whitelist_cancel') return [];
+    if (TABLES[name.replace('from:', '')]) {
+      var tn = name.replace('from:', ''), q = (ctx && ctx.eq) || {};
+      var out = TABLES[tn].filter(function (r) { return Object.keys(q).every(function (k) { return r[k] === q[k]; }); });
+      return ctx && ctx.single ? (out[0] || null) : out;
+    }
     if (F && name === 'rpc:get_family_snapshot') return F;
+    /* the spaces light path (22-spaces.js fhSpaceHydrate) reads the fixture's own
+       rows by explicit id; recognised by its column list so no other read changes */
+    if (F && name === 'from:transactions' && ctx && ctx.sel && ctx.sel.indexOf('amount,amount_enc,note,note_enc') >= 0) return (F.transactions || []).filter(function (r) { return r.status !== 'planned'; }).slice().sort(function (a, b) { return a.txn_date < b.txn_date ? 1 : -1; });
+    if (F && name === 'from:categories' && ctx && ctx.sel === 'id,name,name_enc,emoji') return F.categories || [];
     if (F && name === 'from:members') return F.members;
     if (F && name === 'from:user_consents') {   // a consented user: both gates (bank_email v4, app_data v1) already agreed
       var rows = [{ kind: 'app_data', version: 1, consented_at: '2026-01-01T00:00:00Z' }, { kind: 'bank_email', version: 4, consented_at: '2026-01-01T00:00:00Z' }];
@@ -112,7 +162,8 @@
   function builder(table) {
     var ctx = { single: false, table: table };
     var b = {};
-    ['select', 'neq', 'is', 'in', 'or', 'gte', 'lte', 'gt', 'lt',
+    b.select = function (cols) { if (!ctx.op) ctx.sel = String(cols || ''); return b; };
+    ['neq', 'is', 'in', 'or', 'gte', 'lte', 'gt', 'lt',
      'like', 'ilike', 'not', 'order', 'range', 'limit', 'filter', 'match'].forEach(function (m) {
       b[m] = function () { return b; };
     });

@@ -1,0 +1,43 @@
+/* ── Spaces ("Nhóm") ─────────────────────────────────────────────────────────
+   What the shell hides when a switch of the open space's profile is off
+   (16-spaces-shell.js sets the classes on <html>). An existing family has none
+   of them set. !important because several of these elements have their display
+   toggled inline by their own renderers. */
+.sp-no-moments #t-events,.sp-no-moments .sp-g-moments{display:none!important}
+.sp-no-goals .sp-g-goals,.sp-no-goals #goal-card,.sp-no-goals #goals-empty{display:none!important}
+.sp-no-budget .sp-g-budget,.sp-no-budget #fin-setup{display:none!important}
+.sp-no-react #rx-wall-sec{display:none!important}
+.sp-no-house #home-sky{display:none!important}
+.sp-friend .sp-g-fam{display:none!important}
+html:not(.sp-friend) .sp-g-friend{display:none!important}
+/* a friend space has no income, no "còn lại", no family streak: its money tab
+   opens on what the space spent and who owes whom (#sp-split-box) */
+.sp-friend #v-spending>.cf-card,.sp-friend #fam-streaks,.sp-friend #trend-sec{display:none!important}
+.sp-closed .fab{display:none!important}
+/* no "Chung" seat outside a family: the payer of a space expense is a real member (S38) */
+.sp-friend #ex-who .choice[data-v="Both"]{display:none}
+#ex-splitfield:empty{display:none}
+#spx .dbt-exrow{margin-top:8px}
+#spx input{margin-top:10px}
+
+.sp-chip-row{margin-bottom:12px}
+.sp-chip-row:empty{display:none}
+.sp-hdr-acts{display:flex;align-items:center;gap:8px;flex:none}
+.sp-gear{flex:none}
+.sp-pad{padding:14px 20px}
+.sp-cf{margin-top:4px}
+button.sp-li{width:100%;border:0;background:none;font:inherit;color:inherit;text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent}
+button.sp-li:active{background:var(--canvas)}
+
+/* the Nhóm section on Tài chính: the ledger's own rows, one per space */
+.sp-rows .r-ico{font-size:22px}
+.sp-rows .r-amt.owed{color:var(--good)}
+.sp-rows .r-amt.owe{color:var(--danger)}
+
+/* switches and members on the profile sheet reuse .rl-list / .rl-row / .cry-sw */
+.sp-sw .rl-t small{white-space:normal}
+.sp-sw .rl-row[disabled]{opacity:1;cursor:default}
+.sp-qr{width:200px;height:200px;image-rendering:pixelated;border-radius:8px;display:block;margin:4px auto 12px}
+.sp-num{min-width:52px;justify-content:center}
+.sp-mini{flex:none;min-height:44px;padding:10px 4px 10px 12px;border:0;background:none;font:inherit;font-size:14px;font-weight:600;color:var(--danger);cursor:pointer;-webkit-tap-highlight-color:transparent}
+.sp-home-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}

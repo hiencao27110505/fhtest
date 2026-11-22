@@ -123,7 +123,7 @@ t('Cá nhân tab: a mirror row keeps 🏡 on the corner and names no account', /
 t('Cá nhân tab: a transfer no longer says "không tính thu chi" (the grey amount and the kind word do)',
   !/không tính thu chi/.test(listFrom.slice(listFrom.indexOf("t.kind==='transfer'"), listFrom.indexOf("t.kind==='investment'")).replace(/\/\*[\s\S]*?\*\//g, '')));
 t('Giao dịch: the badge sits in the tile wrap, the digits in the one-line subline', /tile\+av\+\(\(sf&&sf\.b\)\|\|''\)/.test(txs) && /class="r-s r-s1">'\+subTxt/.test(txs) && /if\(sf&&sf\.s\) subTxt\+=' · '\+esc\(sf\.s\)/.test(txs));
-t('Giao dịch: a family row names its source in words (its corner is the member\'s)', /if\(t\.inst\) subTxt\+=' · '\+esc\(t\.inst\);/.test(txs));
+t('Giao dịch: a family row names its source in words (its corner is the member\'s)', /if\(t\.inst && \([^\n]*\) subTxt\+=' · '\+esc\(t\.inst\);/.test(txs));   // since spaces: others see it only where the space's Hiện nguồn tiền is on
 t('Giao dịch: a mirror row is not marked', /if\(!\(t\.spaceId\|\|t\.linkId\)\) mark\(t\.id, acctMap\.get\(t\.accountId\)\)/.test(txs));
 t('the ctx shape heat-txn-ctx.test.js pins is untouched (marks ride beside it)', !/_faces:/.test(txs) && /_pTxnFaces=faceOf;/.test(txs));
 

@@ -560,7 +560,7 @@
       }
       return _qrInstrLabel();
     }
-    function _qrDestVal() { return (QR.dest === 'family' ? L('🏡 Gia đình', '🏡 Family') : L('🔒 Cá nhân', '🔒 Personal')) + ((QR._rule && QR._rule.scope) ? ' · ' + L('theo quy tắc', 'by rule') : ''); }
+    function _qrDestVal() { return (QR.dest === 'family' ? (typeof csvSpaceLabelOpen === 'function' ? csvSpaceLabelOpen() : L('🏡 Gia đình', '🏡 Family')) : L('🔒 Cá nhân', '🔒 Personal')) + ((QR._rule && QR._rule.scope) ? ' · ' + L('theo quy tắc', 'by rule') : ''); }
     function _qrCatCell() {
       if (QR.flow === 'income') return '💰 ' + L('Thu nhập', 'Income');
       if (!QR.cat) return L('Chưa chọn', 'Not set');
@@ -579,7 +579,7 @@
       var locked = _qrFamilyLocked();
       return '<div class="choices">' +
         '<button class="choice' + (QR.dest === 'personal' ? ' on' : '') + '" data-v="personal" onclick="fhQrAct(\'dest-pick\',\'personal\')">' + L('🔒 Cá nhân', '🔒 Personal') + '</button>' +
-        '<button class="choice' + (QR.dest === 'family' ? ' on' : '') + (locked ? ' qr-off' : '') + '" data-v="family" onclick="fhQrAct(\'dest-pick\',\'family\')">' + L('🏡 Gia đình', '🏡 Family') + '</button>' +
+        '<button class="choice' + (QR.dest === 'family' ? ' on' : '') + (locked ? ' qr-off' : '') + '" data-v="family" onclick="fhQrAct(\'dest-pick\',\'family\')">' + _esc2(typeof csvSpaceLabelOpen === 'function' ? csvSpaceLabelOpen() : L('🏡 Gia đình', '🏡 Family')) + '</button>' +
         '</div>' +
         (locked ? '<div class="qr-inline-note">' + L('Sổ gia đình đang khoá.', 'The family ledger is locked.') + '</div>' : '');
     }
@@ -757,6 +757,23 @@
       // so confirm a row was actually added before the caller retires the
       // staged draft — otherwise a no-op write would delete the draft and lose
       // the transaction. It unshifts window.txns on success.
+      /* Spaces (spaces-spec 7.1): filed to an open space whose new expenses
+         default to Chia, the one-tap sheet uses that default: equally among
+         every member, the person whose account it left as payer. Anything finer
+         is the full queue's job. Members not read yet → not written at all,
+         rather than written as a Chung row nobody asked for. */
+      window._exSplitPending = null;
+      var _qrSplit = false;
+      try {
+        if (typeof fhSpaceHas === 'function' && fhSpaceHas('split') && window.fhSpaceProfile().mode === 'chia') {
+          var _sf = window.DB.fid, _mem = window.fhSpaceMembers(_sf).map(function (m) { return m.id; }), _my = window.fhSpaceMyMemberId(_sf);
+          var _ak = Number(QR.amount || 0) / (typeof curMult === 'function' ? curMult() : 1000);
+          var _sr = _mem.length ? fhSplitCompute({ amt: _ak, members: _mem }) : { ok: false };
+          if (!_sr.ok || !_my) { try { window.fhSpaceHydrate && window.fhSpaceHydrate(_sf); } catch (eH) {} window.BULK_SAVING = false; return false; }
+          window._exSplitPending = { payerId: _my, rule: 'equal', payload: fhSplitPayload(_sr, _ak), outName: null, out: 0, bill: _ak };
+          _qrSplit = true;
+        }
+      } catch (eS) { window._exSplitPending = null; }
       var before = (window.txns || []).length;
       try { window.addExpense(); }
       catch (e) { window.BULK_SAVING = false; window._fhImportSrc = null; window._fhImportInst = null; window._fhImportAcct = null; window._fhImportLink = null; window._fhImportNode = null; console.warn('quick family write failed', e); return false; }
@@ -767,7 +784,8 @@
          The 700ms reload replaces window.txns wholesale, but this reference
          keeps the _dbId set on it. */
       QR._famTxn = (window.txns || [])[0] || null;
-      try { window.fhNotify && window.fhNotify('expense_new', {}); } catch (e) {}   // one nudge to the family
+      window._exSplitPending = null;
+      if (!_qrSplit) { try { window.fhNotify && window.fhNotify('expense_new', {}); } catch (e) {} }   // one nudge to the family (a split sends its own once the shares are in)
       return true;
     }
     /* Wait for the family txn's id (the insert stamps it a beat after the

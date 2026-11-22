@@ -362,7 +362,7 @@ function submitExpense(){
   if(!editingTx){
     // Parse/split whatever is still in the input (the user may tap Lưu without blurring first).
     if(typeof commitActiveRow==='function') commitActiveRow();
-    if(typeof bulkRows!=='undefined' && bulkRows.length>1){ submitBulk(); return; }
+    if(typeof bulkRows!=='undefined' && bulkRows.length>1){ if(typeof fhExSplitBeforeSave==='function' && fhExSplitBeforeSave()===false) return; submitBulk(); return; }
     // Single expense: still block an incomplete row (missing amount or category) — shake it
     // rather than silently saving a phantom category.
     if(typeof bulkRows!=='undefined' && bulkRows.length===1){
@@ -374,7 +374,10 @@ function submitExpense(){
     }
   }
   var adopting = !editingTx && paPending;   // expense created from the bulk-assign screen
+  // Spaces: a Chia expense hands its split to the write (17-spaces-split-ui.js); a split that does not add up stops here.
+  if(!editingTx && typeof fhExSplitBeforeSave==='function' && fhExSplitBeforeSave()===false) return;
   if(editingTx) saveExpenseEdit(); else addExpense();
+  window._exSplitPending=null;               // consumed by the write; never left for a later, unrelated save
   // addExpense() bails without closing when the form is invalid; only drop the
   // photos from the batch once the expense actually landed.
   if(adopting && !document.getElementById('expense-modal').classList.contains('on')) paAdopt();

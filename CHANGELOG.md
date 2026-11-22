@@ -18,6 +18,25 @@ Going forward, add an entry here when a feature area changes meaningfully — se
 
 ---
 
+
+## 2026-11-22 · Spaces ("Nhóm"): one shared container (branch `feat/spaces`, SW v636, NOT yet live)
+
+- Family and friend groups become one concept, a space with a profile of
+  switches (`families.profile`). Any space can be opened; the other tabs show
+  the open one and follow its switches. Tài chính gains a Nhóm section listing
+  every space with what is owed.
+- Chung or Chia on the expense sheet and on a review card, with a member
+  subset, a number of shares (shares above the member count stay out of the
+  space as a loan in the payer's own book), or exact amounts. Balances,
+  who-pays-whom and settle-up on the space's money tab.
+- The person's own book holds their share of every space, written by their
+  own device with existing row kinds (`source = 'space:<id>'`).
+- Fixes the old split ledger's roster, which read `id` / `owner_id` from a
+  function that returns `family_id` / `is_owner`.
+- Needs `docs/specs/spaces-migration-draft.sql` applied and `push-send`
+  redeployed. Spec `docs/specs/spaces-spec.md`, feature doc
+  `docs/features/spaces.md`.
+
 ## 2026-10-11
 
 ### Mở, đóng một thẻ trong hàng chờ thôi vẽ lại cả danh sách (SW v633)

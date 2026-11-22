@@ -1790,7 +1790,7 @@
     /* The zoom-out numbers. Pure derivation over P.debts/P.accounts — spaces
        are merged in by the UI from the spaces module (different key domain). */
     window.fhPersonalDebts = function () {
-      const cards = [], people = {}, byAcct = {};
+      const cards = [], people = {}, byAcct = {}, spaceNets = {};
       for (const d of P.debts) {
         if (d._unreadable) continue;
         if (d.accountId) {
@@ -1798,6 +1798,15 @@
           if (d.kind === 'expense') b.spend += d.amt;
           else if (d.kind === 'transfer') b.paid += d.amt;
           b.rows.push(d);
+        }
+        if ((d.kind === 'loan' || d.kind === 'repayment') && fhIsSpaceWho(d.who)) {
+          /* my position against a SPACE (spaces-spec section 12): written by the
+             space pass, summed per space, never a person. The Nhóm section shows
+             the space's own figure when it can read the space; this is what the
+             book knows by itself. */
+          const sf = fhSpaceWhoFid(d.who);
+          spaceNets[sf] = (spaceNets[sf] || 0) + (d.kind === 'loan' ? d.amt : -d.amt);
+          continue;
         }
         if (d.kind === 'loan' || d.kind === 'repayment') {
           const k = d.who || '—';
@@ -1829,7 +1838,7 @@
       /* accounts still awaiting setup — cards and balance accounts alike,
          skipped ones included: they are still "chưa thiết lập" */
       const unverified = P.accounts.filter((a) => a.kind !== 'investment' && a.anchorK == null).length;
-      return { cards: cards, people: persons, byAcct: byAcct, owe: owe, owed: owed, unverified: unverified };
+      return { cards: cards, people: persons, byAcct: byAcct, owe: owe, owed: owed, unverified: unverified, spaceNets: spaceNets };
     };
     /* The accounts the setup wizard should walk (0134): every non-investment
        account with no anchor and no "Để sau", optionally narrowed to a set of
@@ -1995,8 +2004,19 @@
            do (the common case: it runs after every family hydrate) still cost a
            whole personal hydrate and two repaints. */
         let changed = 0;
+        /* A Chia expense is not mirrored here: its place in this book is the
+           person's SHARE, written per member by the space pass below
+           (fhSpaceBookSync). Only rows with no share row (Chung) are adopted. */
+        const shared = {};
+        if (typeof fhSpaceHas === 'function' && fhSpaceHas('split')) {
+          const sq = await _sb().from('txn_shares').select('txn_id').eq('family_id', fid);
+          if (sq.error) throw sq.error;                      // never adopt a row we could not rule out
+          (sq.data || []).forEach((r) => { shared[r.txn_id] = 1; });
+          try { if (window._exSplitInFlight) Object.keys(window._exSplitInFlight).forEach((k) => { shared[k] = 1; }); } catch (e) {}
+        }
         const un = await _sb().from('transactions').select('id,txn_date,category_id,amount,amount_enc,note,note_enc,occurred_time,occurred_time_enc,node,node_enc').eq('family_id', fid).eq('created_by', myMem).eq('status', 'realized').eq('kind', 'expense').is('link_id', null).gte('txn_date', from).limit(100);
         for (const rr of (un.data || [])) {
+          if (shared[rr.id]) continue;
           const amtS = rr.amount != null ? String(rr.amount) : await fhDecStr(rr.amount_enc);
           if (amtS == null || amtS === '') continue;
           const amt = Number(amtS); if (!isFinite(amt)) continue;
@@ -2017,9 +2037,10 @@
 
         const ln = await _sb().from('transactions').select('id,link_id,txn_date,category_id,amount,amount_enc,note,note_enc,occurred_time,occurred_time_enc,updated_at,node,node_enc').eq('family_id', fid).eq('created_by', myMem).not('link_id', 'is', null).gte('txn_date', from).limit(400);
         const famBy = {}; (ln.data || []).forEach((r) => { famBy[r.link_id] = r; });
-        const mq = await _sb().from('personal_transactions').select('id,link_id,txn_date,amount_enc,note_enc,occurred_time_enc,updated_at,version,created_at,node_enc').eq('owner_user_id', P.uid).eq('space_id', fid).not('link_id', 'is', null).gte('txn_date', from).order('created_at');
+        const mq = await _sb().from('personal_transactions').select('id,link_id,txn_date,amount_enc,note_enc,occurred_time_enc,updated_at,version,created_at,node_enc,source').eq('owner_user_id', P.uid).eq('space_id', fid).not('link_id', 'is', null).gte('txn_date', from).order('created_at');
         const mastersBy = {};
         for (const r of (mq.data || [])) {
+          if (r.source && String(r.source).indexOf('space:') === 0) continue;   // the space pass owns these; this engine would read them as orphans and delete them
           if (mastersBy[r.link_id]) { await _sb().from('personal_transactions').delete().eq('id', r.id); changed++; continue; }   // self-heal dup
           mastersBy[r.link_id] = { id: r.id, updatedAt: r.updated_at, version: r.version || 1, amt: Number(await _decP(r.amount_enc)), note: await _decP(r.note_enc), time: await _decTxt(r.occurred_time_enc), node: _okNode(await _decTxt(r.node_enc)) };
         }
@@ -2171,6 +2192,59 @@
       const r = await _insertMaster(linkId, fid, dateIso, Number(amt), note, catName, catEmoji, timeStr, accountId, node);
       if (r.error) { console.warn('master insert failed', r.error); return false; }
       return true;
+    };
+    /* ── Spaces: the rows a space puts into this book (spaces-spec section 12) ──
+       Machine-owned, like mirror masters: link_id set (so every personal write
+       path leaves them alone) and source = 'space:<family_id>', which is how
+       this module finds them and how the Chung mirror above knows to skip them.
+       The plan and the diff are pure (15-spaces-core.js); this is only the I/O. */
+    window.fhPersonalSpaceReady = function () { return !!(P.uid && P.key); };
+    window.fhPersonalSpaceList = async function (fid) {
+      if (!P.uid || !P.key) return null;
+      let q;
+      try { q = await _pageAll(() => _sb().from('personal_transactions').select('id,link_id,kind,txn_date,amount_enc,account_id,created_at').eq('owner_user_id', P.uid).eq('source', 'space:' + fid).order('created_at')); }
+      catch (e) { return null; }                          // a failed read is "unknown", never "empty": the pass must not insert on top of it
+      if (!q.complete) return null;
+      const out = [];
+      for (const r of q.rows) { const a = await _decP(r.amount_enc); out.push({ id: r.id, link: r.link_id, kind: r.kind, date: r.txn_date, amt: a === _DEC_FAILED ? NaN : Number(a), accountId: r.account_id }); }
+      return out;
+    };
+    /* d = fhSpaceBookDiff(...). ctx: { cats: {id:{name,emoji}}, acctFor(srcId) → my account id or null,
+       outName(srcId) → the name typed for an outside share, or null }. Returns the count written. */
+    window.fhPersonalSpaceApply = async function (fid, d, ctx) {
+      if (!P.uid || !P.key || !d) return 0;
+      ctx = ctx || {};
+      let n = 0;
+      for (const p of d.ins) {
+        const cat = (p.kind === 'expense' && p.catId && ctx.cats && ctx.cats[p.catId]) || {};
+        const acct = (p.amt > 0 && ctx.acctFor) ? (ctx.acctFor(p.src) || null) : null;       // only money I paid out has an account
+        const who = p.role === 'o' ? ((ctx.outName && ctx.outName(p.src)) || 'Ngoài nhóm') : p.who;
+        const r = await _sb().from('personal_transactions').insert({ owner_user_id: P.uid, space_id: p.role === 'o' ? null : fid, link_id: p.link,
+          txn_date: p.date, kind: p.kind, version: 1, source: 'space:' + fid,
+          amount_enc: await _encP(Number(p.amt)), note_enc: p.note ? await _encP(p.note) : null,
+          cat_name_enc: cat.name ? await _encP(cat.name) : null, cat_emoji: cat.emoji || null,
+          occurred_time_enc: (p.kind === 'expense' && p.time) ? await _encP(p.time) : null,
+          counterparty_enc: who ? await _encP(who) : null, account_id: acct });
+        if (!r.error) n++; else console.warn('space row insert failed', r.error);
+      }
+      for (const u of d.upd) {
+        const r = await _sb().from('personal_transactions').update({ amount_enc: await _encP(Number(u.want.amt)), txn_date: u.want.date, kind: u.want.kind,
+          note_enc: u.want.note ? await _encP(u.want.note) : null }).eq('id', u.have.id).eq('owner_user_id', P.uid);
+        if (!r.error) n++;
+      }
+      for (const h of d.del) { const r = await _sb().from('personal_transactions').delete().eq('id', h.id).eq('owner_user_id', P.uid); if (!r.error) n++; }
+      if (n) await window.fhPersonalHydrate();
+      return n;
+    };
+    /* Name the person behind an outside share (S32). The row is machine-owned,
+       so the ordinary edit path refuses it; the name is the one field of it
+       that belongs to the person. */
+    window.fhPersonalSpaceOutRename = async function (rowId, name) {
+      if (!P.uid || !P.key || !rowId) return false;
+      const nm = String(name || '').trim(); if (!nm || fhIsSpaceWho(nm)) return false;
+      const r = await _sb().from('personal_transactions').update({ counterparty_enc: await _encP(nm) }).eq('id', rowId).eq('owner_user_id', P.uid).like('source', 'space:%').eq('kind', 'loan');
+      if (r.error) return false;
+      await window.fhPersonalHydrate(); return true;
     };
     /* ── 0144: personal labels (the L2 partition) ───────────────────────────
        A label is the person's own bucket: a name, an emoji, and the tree nodes

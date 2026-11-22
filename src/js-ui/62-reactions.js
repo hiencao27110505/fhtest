@@ -60,6 +60,7 @@ function _rxMineOn(txDbId){
 
 /* ---- A · the inline chip appended into a transaction row's body ---- */
 function rxChip(t){
+  if(typeof fhSpaceHas==='function' && !fhSpaceHas('react')) return '';
   var rs=t && t.reactions; if(!rs || !rs.length) return '';
   var lead=rs[0]; for(var i=1;i<rs.length;i++){ if(rs[i].at>lead.at) lead=rs[i]; }
   var seen={}, emos='';
@@ -158,6 +159,7 @@ window.throwReaction=throwReaction;
   var LP=460, MOVE=12, timer=null, sx=0, sy=0, rxid=null;
   function clear(){ if(timer){ clearTimeout(timer); timer=null; } rxid=null; }
   function start(e, pt){
+    if(typeof fhSpaceHas==='function' && !fhSpaceHas('react')) return;
     var row=e.target.closest && e.target.closest('.row[data-rxid]'); if(!row) return;
     rxid=row.getAttribute('data-rxid'); sx=pt.clientX; sy=pt.clientY;
     clearTimeout(timer);
@@ -226,6 +228,7 @@ function rxCard(it, compact){
 }
 function renderRxWall(){
   var sec=document.getElementById('rx-wall-sec'), box=document.getElementById('rx-wall'); if(!box) return;
+  if(typeof fhSpaceHas==='function' && !fhSpaceHas('react')){ if(sec) sec.style.display='none'; setHTMLIf(box, ''); return; }
   var items=_rxWallItems();
   if(!items.length){ if(sec) sec.style.display='none'; setHTMLIf(box, ''); return; }
   if(sec) sec.style.display='';
@@ -273,14 +276,16 @@ function rxHomeCard(it){
     +'</button>';
 }
 function rxHomeStripHTML(){
+  if(typeof fhSpaceHas==='function' && !fhSpaceHas('react')) return '';
   var items=_rxWallItems(); if(!items.length) return '';
-  var head=(typeof _sectionH==='function')?_sectionH(L('Hoạt động gia đình','Family activity'),'go(&#39;spending&#39;)'):'';
+  var head=(typeof _sectionH==='function')?_sectionH((typeof fhSpaceIsFamily==='function' && !fhSpaceIsFamily())?L('Cảm xúc trong nhóm','Reactions in the space'):L('Hoạt động gia đình','Family activity'),'go(&#39;spending&#39;)'):'';
   return head+'<div class="rx-home">'+items.slice(0,8).map(rxHomeCard).join('')+'</div>';
 }
 window.rxHomeStripHTML=rxHomeStripHTML;
 /* the newest reaction, only if it's fresh enough to feel like live chatter —
    feeds the little speech bubble that drifts up from the pet/tree in the scene */
 function rxNewestForScene(){
+  if(typeof fhSpaceHas==='function' && !fhSpaceHas('react')) return null;
   var items=_rxWallItems(); if(!items.length) return null;
   var it=items[0], lead=it.lead;
   try{ if((Date.now()-new Date(lead.at).getTime())/3600000 >= 12) return null; }catch(e){}
@@ -306,6 +311,7 @@ function _rxBusy(){
   return false;
 }
 function rxCheckArrivals(){
+  if(typeof fhSpaceHas==='function' && !fhSpaceHas('react')) return;
   var mid=window.DB && window.DB.ownerMemberId; if(!mid) return;
   if(window.editingTx!=null || document.hidden || _rxBusy()) return;     // never interrupt an edit / a backgrounded app
   var all=(window.reactions||[]).filter(function(r){ var t=rxTxByDbId(r.txId); return r.memberId!==mid && t && !t.future; });   // anyone else's reaction on a loaded REALIZED txn (future = a review, handled by reqCheckArrivals)

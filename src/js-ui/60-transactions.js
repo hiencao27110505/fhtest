@@ -152,7 +152,7 @@ function _pBuildTxnCtx(){
     } else if(t.kind==='loan'||t.kind==='repayment'){
       kcat=K_DEBT; ico=(t.kind==='loan')?'💵':'✅';
       var dR=debtMap.get(t.id);
-      var who=(dR&&dR.who)?(' · '+dR.who):'';
+      var who=(dR&&dR.who)?(' · '+((typeof fhWhoLabel==='function')?fhWhoLabel(dR.who):dR.who)):'';
       note=(t.note||(t.kind==='loan'?((t.amt||0)>0?L('Cho vay','Lent'):L('Đi mượn','Borrowed')):L('Trả nợ','Repayment')))+who;
       open="openPersonalTxDetail('"+t.id+"')";
     } else if(t.kind==='investment'){
@@ -230,7 +230,13 @@ function txRow(t){
   var _dm=window.__txnDateMode||null;
   var subTxt=_dm==='time' ? (t.time?esc(t.time):dstr)
            : dstr+(t.time?' · '+esc(t.time):'');
-  if(t.inst) subTxt+=' · '+esc(t.inst);            // 0131 money source, quiet, same voice (a family row's corner is the member's)
+  /* 0131 money source, quiet, same voice (a family row's corner is the member's).
+     Others see it only where the space says so (Hiện nguồn tiền); your own rows always show it. */
+  if(t.inst && (personal || typeof fhSpaceHas!=='function' || fhSpaceHas('source') || t._createdBy===(window.DB&&DB.ownerMemberId))) subTxt+=' · '+esc(t.inst);
+  /* a Chia expense: who paid leads the subline, how it was cut replaces the category */
+  var _spi=(!personal && typeof fhSpaceRowInfo==='function')?fhSpaceRowInfo(t):null;
+  if(_spi && _spi.sub) subTxt=esc(_spi.sub)+' · '+subTxt;
+  if(_spi && _spi.bill) subTxt+=' · '+esc(_spi.bill);
   if(sf&&sf.s) subTxt+=' · '+esc(sf.s);            // a personal row: the account's four digits; its badge is on the tile
   /* 0144 — the right-hand label follows the reader's chosen layer: their own
      category by default, the tree's leaf when they are reading by "Loại chi
@@ -242,7 +248,7 @@ function txRow(t){
   }
   return '<div class="row'+tapCls+selCls+(chip?' has-rx':'')+((window.fhScanIsNew&&fhScanIsNew(t))?' scan-new':'')+'"'+rxid+tid+open+'>'+selTick+'<div class="r-ico-wrap">'+tile+av+((sf&&sf.b)||'')+'</div>'
     +'<div class="r-body"><div class="r-t">'+esc((sf&&sf.title)||t.note)+(t.hasReceipt?' <span class="r-rc" aria-label="Có hoá đơn">🧾</span>':'')+'</div><div class="r-s r-s1">'+subTxt+'</div></div>'
-    +'<div class="r-right">'+amtHtml+'<div class="r-cat">'+esc(catTxt)+'</div></div>'+chip+'</div>';
+    +'<div class="r-right">'+amtHtml+'<div class="r-cat">'+esc((_spi&&_spi.right)||catTxt)+'</div></div>'+chip+'</div>';
 }
 var txFilter=null; // {type:'cat'|'mem', val:'Fun'|'Emma'}
 function txMatch(t){
@@ -261,6 +267,7 @@ function txMatch(t){
 // Binary status, said with a wink: "sếp" is the reviewing family member —
 // the vợ/chồng-là-sếp joke everyone already makes.
 function _futSub(creatorId, pending){
+  if(typeof fhSpaceHas==='function' && !fhSpaceHas('ask')) return '<span class="st-ok">'+L('dự kiến','planned')+'</span>';   // nobody signs off in this space
   var st = pending ? '<span class="st-wait">'+L('chờ sếp duyệt','awaiting the boss')+'</span>'
                    : '<span class="st-ok">'+L('sếp duyệt rồi','boss said yes')+'</span>';
   var nm = (creatorId && typeof _reqName==='function') ? _reqName(creatorId) : '';
@@ -1438,6 +1445,7 @@ function addExpense(){
     closeExpense();
     if(hadPhoto){ toast(L('Đã ghi '+fmt(amt)+' · lưu vào Kỷ niệm 📸','Logged '+fmt(amt)+' · saved to Memories 📸')); floatEmojis('📸'); }
     else if(catBudget[cat] && wasUnder && jul.catSpent[cat]>catBudget[cat]) toast(L('Lưu ý: '+esc(cat)+' đã vượt ngân sách','Heads up: '+esc(cat)+' is now over budget'));
+    else if(typeof fhSpaceHas==='function' && !fhSpaceHas('budget')) toast(L('Đã ghi '+fmt(amt),'Logged '+fmt(amt)));   // no budget in this space: nothing is "left to spend"
     else toast(L('Đã ghi '+fmt(amt)+' · còn '+fmt(Math.max(0,months[curMonthKey()].budget-jul.spent))+' an toàn để tiêu','Logged '+fmt(amt)+' · '+fmt(Math.max(0,months[curMonthKey()].budget-jul.spent))+' safe to spend'));
     if(catOv && curDetail){ openCat(curDetail.type,curDetail.val); }   // logged from a category detail → refresh it
     else { go('spending'); segTo('overview'); }

@@ -49,7 +49,7 @@ function fhWarmAbandon() {
   // before any session check) — leaving them behind after sign-out let a
   // previous account's family name/members render on the next cold start,
   // on a device where two accounts actually sign in and out of the same app.
-  try { if (window.fhSnapClear) window.fhSnapClear(); else localStorage.removeItem('fh-snap'); localStorage.removeItem('fh-fam'); localStorage.removeItem('fh-onboarded'); localStorage.removeItem('fh-nofam'); } catch (e) { }
+  try { if (window.fhSnapClear) window.fhSnapClear(); else localStorage.removeItem('fh-snap'); localStorage.removeItem('fh-fam'); localStorage.removeItem('fh-onboarded'); localStorage.removeItem('fh-nofam'); localStorage.removeItem('fh-spaces'); } catch (e) { }   // fh-spaces: the roster of spaces (names, profiles) is per account too
   document.documentElement.classList.remove('fh-warm', 'fh-stale', 'fh-warm-boot', 'fh-nofam');
   const onb = g('onboarding'); if (onb) onb.classList.remove('done');
 }
@@ -99,13 +99,26 @@ async function afterLogin(session) {
   try { fams = (await _rpc('my_families')) || []; }
   catch (e) { famsErr = e; console.warn('my_families failed', e); }
   fams = fams.filter((f) => f.type !== 'personal');   // the personal ledger (0071) is never a "family" here
+  // every shared container is a space (spaces-spec): seed the roster the Nhóm
+  // section, the switcher and the profile gates read, without a second call
+  if (!famsErr) { try { if (window.fhSpacesSeed) window.fhSpacesSeed(fams, session.user.id); } catch (e) { } }
   if (famsErr) {
     fhResumeFail(); fhWarmAbandon();
     window.toast && window.toast(_friendly(famsErr));
     return;
   }
   const onb = g('onboarding');
-  const active = fams.find((f) => f.is_active);
+  let active = fams.find((f) => f.is_active);
+  /* In spaces but none open (the open one was closed, or they were removed from
+     it): open the first one, families first, rather than asking on a full-screen
+     picker. A server that still refuses a friend space as the active container
+     leaves this unset, and the person lands on Tài chính, where the Nhóm section
+     lists them. */
+  if (!active && fams.length) {
+    const pick = fams.find((f) => (f.type || 'family') === 'family') || fams[0];
+    try { await _rpc('switch_family', { p_family_id: pick.family_id }); pick.is_active = true; active = pick; if (window.fhSpacesSeed) window.fhSpacesSeed(fams, session.user.id); }
+    catch (e) { console.warn('auto-open space failed', e); }
+  }
   if (active) {
     if (onb) onb.classList.add('done');
     // Authoritative active family, straight from the server. Seeding it here
@@ -120,8 +133,7 @@ async function afterLogin(session) {
     try { await window.loadFamilyData(); }     // auto-enter the active family → real data + DB.fid set
     finally { fhResumeDone(); }                // (no go('home') here — it would stomp on deep links)
   } else if (fams.length) {
-    fhResumeFail(); fhWarmAbandon();           // no active family → the picker owns the screen
-    showFamilyPicker(fams);                    // in families but none active → pick one
+    fhEnterPersonalOnly();                     // spaces exist but none could be opened: Tài chính lists them
   } else {
     /* Personal-first (2026-09): a brand-new account is NOT pushed into creating a
        family. Only a waiting family invite opens the family door; otherwise the
@@ -141,6 +153,8 @@ async function afterLogin(session) {
       fhEnterPersonalOnly();
     }
   }
+  // an invite link to a space opened the app (22-spaces.js): join, unlock, open
+  try { if (window.__fhPendingSpace && window.fhSpacePendingJoin) await window.fhSpacePendingJoin(); } catch (e) { }
 }
 
 /* Personal-first entry: signed in, no family anywhere. Abandon any stale family
@@ -252,6 +266,15 @@ async function loadActiveFamily() {
   if (typeof window.applyFam === 'function') window.applyFam();
 }
 
+/* "Tham gia bằng mã": the join door the old full-screen picker carried. The
+   switcher sheet (23-spaces-ui.js) offers it now. */
+window.fhFamilyJoinByCode = function () {
+  const onb = g('onboarding');
+  if (onb) onb.classList.remove('done');
+  if (window.FAM) window.FAM.mode = 'join';
+  window.__obFromPicker = false; window.__obFromApp = true;
+  if (typeof window.obGo === 'function') window.obGo('start');
+};
 window.fhSwitchFamily = async function () {
   let fams;
   // A failed lookup must not look like "you have no families" — that used to
@@ -259,6 +282,8 @@ window.fhSwitchFamily = async function () {
   try { fams = await _rpc('my_families'); }
   catch (e) { window.toast && window.toast(_friendly(e)); return; }
   fams = (fams || []).filter((f) => f.type !== 'personal');   // never offer the personal ledger as a family to switch into
+  try { if (window.fhSpacesSeed) window.fhSpacesSeed(fams); } catch (e) { }
+  if (typeof window.fhSpaceSwitcher === 'function') { window.fhSpaceSwitcher(); return; }   // every space, in one sheet
   if (!fams || !fams.length) { window.toast && window.toast(L('Chưa có gia đình nào khác', 'No other families yet')); return; }
   showFamilyPicker(fams, { dismissible: true });     // opened from Settings → must be escapable
 };

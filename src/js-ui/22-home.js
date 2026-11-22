@@ -406,6 +406,9 @@ function renderHome(){ window.fhHeat&&fhHeat.tick('renderHome');
       + '</div>');
     return;
   }
+  /* A space with Ngôi nhà off: no sky, no scene, no moods. Its first tab is the
+     space itself (16-spaces-shell.js). The sky is hidden by .sp-no-house. */
+  if(typeof fhSpaceHas==='function' && !fhSpaceHas('house')){ fhSpaceHomeRender(box); return; }
   buildMemRecords();
   var evs = window.events || {}, ord = window.order || [];
   var isMirrorK = function(k){ var e = evs[k]; return !!(e && (e._srcTxn || e.fromExpense)); };

@@ -1851,8 +1851,14 @@
        csvReview.ready, and reading a candidate out of it afterwards reads a list
        that has already been emptied. */
     var picked = (typeof csvStagedSelected === 'function') ? csvStagedSelected() : [];
-    var mine = [], theirs = [], famInc = [];
+    var mine = [], theirs = [], famInc = [], spSettles = [], spAway = [];
     picked.forEach(function (c) {
+      /* Spaces (spaces-spec section 7): money in that the person confirmed as a
+         member settling up goes to that space's settle-ups; an expense filed to
+         a space that is not the open one is written with that space's own key.
+         Everything else keeps the two roads it always had. */
+      if (c._spSettle && typeof csvRowScope === 'function' && csvRowScope(c) !== 'personal') { spSettles.push(c); return; }
+      if (typeof csvRowScope === 'function' && csvRowScope(c) !== 'personal' && !c.isIncome && typeof csvSpaceIsOpen === 'function' && !csvSpaceIsOpen(c)) { spAway.push(c); return; }
       if (typeof csvRowScope === 'function' && csvRowScope(c) === 'personal') mine.push(c);
       /* A family-scoped INCOME row goes to the family income book — the family
          expense importer (csvPromote) writes expenses only, and money-in must
@@ -2332,9 +2338,10 @@
          eager materialization), reserve a link_id, and let the family writer
          create the tagged master (account-setup-spec §6). Locked ledger → no
          tag, exactly as before. Never lets a resolution error block the import. */
-      if (theirs.length && pd && pd.state === 'ready' && window.fhPersonalAccountEnsure) {
-        for (var ti = 0; ti < theirs.length; ti++) {
-          var tc = theirs[ti], tAi = null;
+      var _tagThese = theirs.concat(spAway, spSettles);
+      if (_tagThese.length && pd && pd.state === 'ready' && window.fhPersonalAccountEnsure) {
+        for (var ti = 0; ti < _tagThese.length; ti++) {
+          var tc = _tagThese[ti], tAi = null;
           try { tAi = window.fhStagedAcct ? window.fhStagedAcct(tc) : null; } catch (eTa) {}
           if (!tAi) continue;
           try {
@@ -2347,6 +2354,21 @@
       // ledger writes. It did not always: an earlier version assumed a promise
       // and resolved instantly, which meant the delete below could race the
       // write and destroy a staged row whose transaction never landed.
+      /* spaces: rows for a space that is not the open one, and settle-ups */
+      for (var sa = 0; sa < spAway.length; sa++) {
+        var rA = await window.fhSpaceCaptureWrite(spAway[sa]);
+        if (!rA || !rA.ok) throw new Error('space write failed at row ' + sa + ': ' + (rA && rA.error));
+      }
+      for (var ss = 0; ss < spSettles.length; ss++) {
+        var rS = await window.fhSpaceCaptureSettle(spSettles[ss]);
+        if (!rS || !rS.ok) throw new Error('space settle failed at row ' + ss + ': ' + (rS && rS.error));
+      }
+      if (spAway.length || spSettles.length) {
+        var _spN = spAway.length + spSettles.length, _spOne = (spAway[0] || spSettles[0]);
+        window.toast && window.toast(_spN === 1 && typeof csvSpaceObj === 'function' && csvSpaceObj(_spOne)
+          ? (spSettles.length ? L('Đã ghi trả nợ trong ', 'Settle-up recorded in ') : L('Đã ghi vào ', 'Saved to ')) + csvSpaceObj(_spOne).name
+          : L('Đã ghi ' + _spN + ' khoản vào nhóm', 'Saved ' + _spN + ' to your spaces'));
+      }
       if (theirs.length) await csvPromote(theirs);
 
       if (mine.length) {

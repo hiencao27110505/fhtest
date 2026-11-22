@@ -25,7 +25,9 @@
       const spaces = [];
       const S = _S();
       if (S && S.list) for (const sp of S.list) {
-        const net = (S.data[sp.id]) ? fhSpaceMyNet(sp.id) : null;   // null = not loaded yet
+        /* the space's own figure when this device can read it; else what the
+           personal book knows by itself (the rows the space pass wrote) */
+        const net = (S.data[sp.id]) ? fhSpaceMyNet(sp.id) : ((d.spaceNets && d.spaceNets[sp.id] != null) ? d.spaceNets[sp.id] : null);
         spaces.push({ sp: sp, net: net, ready: !!S.keys[sp.id], loaded: !!S.data[sp.id] });
         if (net != null) { if (net > 0) owed += net; else owe += -net; }
       }
@@ -39,20 +41,15 @@
       /* positions (kind='investment') belong to the Đầu tư bento, never here —
          a position is an asset with a derived value, not an anchored account */
       const balAccts = (P.accounts || []).filter((a) => a.kind !== 'credit_card' && a.kind !== 'investment');
-      const hasAny = t.d.cards.length || t.d.people.length || t.spaces.length || _spaceInvites.length || balAccts.length;
+      const hasAny = t.d.cards.length || t.d.people.length || balAccts.length;   // spaces have their own section now (23-spaces-ui.js)
       let h = '<div id="pers-debts-wrap"' + (window.persMaskIs && persMaskIs('debts') ? ' class="sec-masked"' : '') + '>'
         + '<div class="section-h" id="pers-debts-h"><span class="tl"><span class="t">Tài sản</span>' + (window.persEyeHTML ? persEyeHTML('debts') : '') + '</span>'
         + '<span class="acts"><a onclick="fhAssetsAddSheet()">＋ Thêm</a></span></div>';
-      /* pending space invites — above everything, they need a decision */
-      _spaceInvites.forEach(function (inv) {
-        h += '<section class="dbt-empty dbt-invite"><div class="dbt-empty-t"><b>' + _e(inv.invited_by || 'Bạn của bạn') + '</b> mời bạn vào nhóm chia tiền <b>' + _e(inv.family_name || 'Nhóm') + '</b>.</div>'
-          + '<div class="dbt-empty-cta"><button onclick="fhSpaceAcceptInvite(\'' + inv.family_id + '\')">Tham gia nhóm</button></div></section>';
-      });
       if (!hasAny) {
         h += (window.fhEmptyCard
-          ? fhEmptyCard({ e: '🤝', t: 'Bạn đang nợ ai, ai nợ bạn?', s: 'Thẻ tín dụng, cho vay, chia tiền nhóm, cùng một chỗ.',
-              btns: [{ t: 'Ghi cho vay / mượn', on: 'fhDebtLoanSheet()' }, { t: 'Tạo nhóm chia tiền', on: 'fhSpaceCreateSheet()' }] })
-          : '<section class="dbt-empty"><div class="dbt-empty-cta"><button onclick="fhDebtLoanSheet()">Ghi cho vay / mượn</button><button onclick="fhSpaceCreateSheet()">Tạo nhóm chia tiền</button></div></section>')
+          ? fhEmptyCard({ e: '🤝', t: 'Bạn đang nợ ai, ai nợ bạn?', s: 'Thẻ tín dụng và các khoản cho vay, cùng một chỗ.',
+              btns: [{ t: 'Ghi cho vay / mượn', on: 'fhDebtLoanSheet()' }] })
+          : '<section class="dbt-empty"><div class="dbt-empty-cta"><button onclick="fhDebtLoanSheet()">Ghi cho vay / mượn</button></div></section>')
           + '</div>';
         return h;
       }
@@ -152,20 +149,6 @@
         if (dr) ht += '<div class="dbt-tchip"><span class="dbt-due">lệch ' + (dr.drift > 0 ? '+' : '−') + fmtK(Math.abs(dr.drift)) + '</span></div>';
         tiles.push(ht + '</button>');
       });
-      t.spaces.forEach(function (s) {
-        const net = s.net, known = net != null;
-        let ht = '<button class="dbt-tile" onclick="openDebtSpace(\'' + s.sp.id + '\')">'
-          + '<div class="dbt-tk">' + _e(s.sp.name) + '</div>';
-        if (known && Math.abs(net) > 0.5) {
-          ht += '<div class="dbt-tv num ' + (net < 0 ? 'owe' : 'owed') + '">' + (net < 0 ? '−' : '+') + fmtK(Math.abs(net)) + '</div>'
-            + '<div class="dbt-ts">' + (net < 0 ? 'bạn nợ nhóm' : 'nhóm nợ bạn') + '</div>';
-        } else if (known) {
-          ht += '<div class="dbt-tv num">0đ</div><div class="dbt-ts">đã cân bằng</div>';
-        } else {
-          ht += '<div class="dbt-tv num">…</div><div class="dbt-ts">' + (s.ready ? 'đang tải' : 'nhập thẻ nhóm để mở') + '</div>';
-        }
-        tiles.push(ht + '</button>');
-      });
       t.d.people.forEach(function (p, i) {
         if (Math.abs(p.balance) < 0.5) return;
         const owedMe = p.balance > 0;
@@ -184,51 +167,10 @@
       return h;
     };
 
-    /* Space data arrives async — refresh ONLY this section in place.
-       opts.force re-reads the roster and the invites regardless of age; the
-       plain call (what every renderPersonal makes) accepts a roster and an
-       invite list at most 60s old, since both used to be two RPCs per paint. */
-    let _spaceInvites = [], _invitesAt = 0;
-    const INVITES_EVERY = 60000;
-    window.persDebtAfterRender = function (opts) {
-      const S = _S(); if (!S || _spinning) return;
-      const force = !!(opts && opts.force);
-      _spinning = true;
-      (async function () {
-        try {
-          await fhSpacesBoot(force ? { force: true } : undefined);
-          let changed = false;
-          /* Pending SPACE invites (filtered out of the onboarding door) land
-             here: "bạn được mời vào nhóm X". */
-          if (force || Date.now() - _invitesAt >= INVITES_EVERY) try {
-            const r = await window.sb.rpc('find_my_invites');
-            _invitesAt = Date.now();
-            const invs = (Array.isArray(r.data) ? r.data : []).filter((i) =>
-              (i.family_type === 'friend' || i.family_type === 'trip')
-              && !(S.list || []).some((sp) => sp.id === i.family_id));
-            if (invs.length !== _spaceInvites.length) changed = true;
-            _spaceInvites = invs;
-          } catch (e) {}
-          for (const sp of (S.list || [])) {
-            if (S.keys[sp.id] && (!S.data[sp.id] || Date.now() - S.data[sp.id].at > 60000)) {
-              await fhSpaceHydrate(sp.id); changed = true;
-            }
-          }
-          if (changed) _redraw();
-        } catch (e) { console.warn('debt spaces refresh failed', e); }
-        finally { _spinning = false; }
-      })();
-    };
-    window.fhSpaceAcceptInvite = async function (fid) {
-      const r = await fhSpaceJoin(fid);
-      if (!r.ok) { window.toast && toast('Chưa tham gia được — nhờ chủ nhóm mời lại nhé'); return; }
-      _spaceInvites = _spaceInvites.filter((i) => i.family_id !== fid);
-      _invitesAt = 0;                       // the next pass re-reads the invites
-      await fhSpacesBoot({ force: true });  // the roster just changed
-      _redraw();
-      window.toast && toast('Đã vào nhóm — nhập thẻ nhóm để đọc sổ');
-      openDebtSpace(fid);
-    };
+    /* Space balances arrive async (23-spaces-ui.js reads them); when they do,
+       this section's rings are redrawn in place through persDebtRedraw. */
+    window.persDebtAfterRender = function (opts) { if (window.persSpacesAfterRender) window.persSpacesAfterRender(opts); };
+    window.persDebtRedraw = function () { _redraw(); };
     function _redraw() {
       const el = document.getElementById('pers-debts-wrap');
       if (el && window.persDebtSection) {
@@ -642,88 +584,7 @@
     };
 
     /* ③ space detail */
-    window.openDebtSpace = function (fid) {
-      const S = _S(); if (!S) return;
-      const sp = (S.list || []).find((x) => x.id === fid); if (!sp) return;
-      if (!S.keys[fid]) {
-        _ovOpen(sp.name,
-          '<div class="dbt-hero2"><div class="dbt-hk">Nhóm đang khoá</div>'
-          + '<div class="dbt-hs" style="margin-top:8px">Nhập thẻ nhóm (người tạo nhóm gửi cho bạn) để mở sổ chia tiền.</div></div>'
-          + '<div class="dbt-card" style="padding:14px 16px">'
-          + '<input id="dbt-unlock-in" class="dbt-in" placeholder="XXXX-XXXX-XXXX-XXXX" autocomplete="off">'
-          + '<button class="dbt-btn primary" style="width:100%;margin-top:10px" onclick="fhSpaceTryUnlock(\'' + fid + '\')">Mở nhóm</button></div>');
-        return;
-      }
-      const d = S.data[fid];
-      if (!d) { fhSpaceHydrate(fid).then(() => openDebtSpace(fid)); _ovOpen(sp.name, '<div class="dbt-note" style="padding:20px">Đang tải…</div>'); return; }
-      const my = fhSpaceMyMemberId(fid);
-      const net = fhSpaceMyNet(fid);
-      const bal = fhSpaceBalances(fid) || [];
-      const pairs = fhSpacePairwise(fid) || [];
-      let h = '<div class="dbt-hero2"><div class="dbt-hk">' + (net >= 0 ? 'Bạn được nợ trong nhóm này' : 'Bạn đang nợ trong nhóm này') + '</div>'
-        + '<div class="dbt-hv num ' + (net >= 0 ? 'owed' : 'owe') + '">' + fmt(Math.abs(net)) + '</div></div>';
-      h += '<div class="dbt-acts">'
-        + '<button class="dbt-btn primary" onclick="fhSpaceSplitSheet(\'' + fid + '\')">Chia khoản mới</button>'
-        + '<button class="dbt-btn tinted" onclick="fhSpaceSettleSheet(\'' + fid + '\')">Ghi trả nợ</button>'
-        + '</div>';
-      h += '<div class="dbt-sec">Số dư nhóm</div><div class="dbt-card">';
-      bal.forEach(function (b, i) {
-        h += '<div class="dbt-mb"><span class="dbt-av" style="background:' + _avColor(i) + '">' + _e((b.member.name || '?').charAt(0).toUpperCase()) + '</span>'
-          + '<span class="dbt-mbn">' + _e(b.member.name) + (b.member.id === my ? '<i class="dbt-you">bạn</i>' : '') + '</span>'
-          + '<span class="dbt-mbv num ' + (b.net >= 0 ? 'owed' : 'owe') + '">' + (b.net >= 0 ? '+' : '−') + fmt(Math.abs(b.net)) + '</span></div>';
-      });
-      pairs.forEach(function (pr) {
-        h += '<div class="dbt-pair">⇄ ' + _e(pr.from.name) + ' → ' + _e(pr.to.name) + '<span class="num">' + fmt(pr.amt) + '</span></div>';
-      });
-      h += '</div>';
-      h += '<div class="dbt-sec">Chi tiêu chung</div><div class="dbt-card">';
-      if (!d.txns.length) h += '<div class="dbt-note">Chưa có khoản nào. Bấm “Chia khoản mới” để bắt đầu.</div>';
-      d.txns.slice(0, 40).forEach(function (t) {
-        const s = d.shares[t.id];
-        const payer = s && d.members.find((m) => m.id === s.payer);
-        h += '<div class="dbt-li"><span class="dbt-lic">🧾</span>'
-          + '<span class="dbt-lib"><span class="dbt-lin">' + _e(t.note || 'Khoản chi') + '</span>'
-          + '<span class="dbt-lis">' + (payer ? _e(payer.name) + ' trả · ' : '') + _dmy(t.date) + '</span></span>'
-          + '<span class="dbt-liv num">' + (t._unreadable ? '—' : fmt(t.amt)) + '</span></div>';
-      });
-      (d.settles || []).slice(0, 20).forEach(function (s) {
-        const f = d.members.find((m) => m.id === s.from), tt = d.members.find((m) => m.id === s.to);
-        h += '<div class="dbt-li"><span class="dbt-lic">✅</span>'
-          + '<span class="dbt-lib"><span class="dbt-lin">' + _e(f ? f.name : '?') + ' trả ' + _e(tt ? tt.name : '?') + '</span>'
-          + '<span class="dbt-lis">' + _dmy(s.date) + '</span></span>'
-          + '<span class="dbt-liv num owed">' + (s._unreadable ? '—' : fmt(s.amt)) + '</span></div>';
-      });
-      h += '</div>';
-      h += '<div class="dbt-acts2">'
-        + '<button onclick="fhSpaceInviteSheet(\'' + fid + '\')">Mời bạn vào nhóm</button>'
-        + (window.fhSpaceCardCached(fid) ? '<button onclick="fhSpaceCardShow(\'' + fid + '\')">Xem thẻ nhóm</button>' : '')
-        + '<button class="danger" onclick="fhSpaceLeaveArm(\'' + fid + '\')">Rời nhóm</button>'
-        + '</div>';
-      _ovOpen(sp.name, h);
-    };
-
-    window.fhSpaceTryUnlock = async function (fid) {
-      const v = (document.getElementById('dbt-unlock-in') || {}).value || '';
-      const r = await fhSpaceUnlock(fid, v);
-      if (!r.ok) { window.toast && toast('Thẻ chưa đúng, thử lại nhé'); return; }
-      await fhSpaceHydrate(fid);
-      openDebtSpace(fid); _redraw();
-    };
-    window.fhSpaceCardShow = function (fid) {
-      const disp = window.fhSpaceCardCached(fid); if (!disp) return;
-      _fhModal({ title: 'Thẻ nhóm', saveLabel: 'Xong',
-        body: '<div class="dbt-cardshow num">' + _e(disp) + '</div>'
-          + '<div class="dbt-note">Gửi thẻ này cho người được mời — họ cần nó để đọc được sổ nhóm. Đừng đăng công khai.</div>',
-        save: async function () {} });
-    };
-    let _leaveArm = null;
-    window.fhSpaceLeaveArm = async function (fid) {
-      if (_leaveArm !== fid) { _leaveArm = fid; window.toast && toast('Bấm lần nữa để rời nhóm'); setTimeout(() => { if (_leaveArm === fid) _leaveArm = null; }, 4000); return; }
-      _leaveArm = null;
-      const r = await fhSpaceLeave(fid);
-      if (r.ok) { closeDebt(); _redraw(); window.toast && toast('Đã rời nhóm'); }
-      else window.toast && toast(r.error === 'owner_cannot_leave' ? 'Chủ nhóm không rời được nhóm của mình' : 'Chưa rời được, thử lại');
-    };
+    /* the space screens moved to 23-spaces-ui.js: a space is opened, not zoomed into */
 
     /* ── sheets (all via _fhModal) ─────────────────────────────────────────── */
     const _amtIn = (id, ph) => '<div class="field"><label>Số tiền</label><input class="num" id="' + id + '" inputmode="numeric" placeholder="' + (ph || '0 ₫') + '" oninput="fhModalDirty()"></div>';
@@ -1386,125 +1247,4 @@
     };
 
     /* space create → card intro → invite */
-    window.fhSpaceCreateSheet = function () {
-      _fhModal({
-        title: 'Nhóm chia tiền', saveLabel: 'Tạo nhóm', reqMsg: 'Đặt tên nhóm nhé',
-        body: '<div class="field"><label>Tên nhóm</label><input id="dbt-spname" placeholder="vd. Đà Lạt 10/2026" oninput="fhModalDirty()"></div>'
-          + '<div class="dbt-note">Nhóm có sổ chia tiền riêng, mã hoá bằng thẻ nhóm — ai có thẻ mới đọc được. Gia đình bạn không thấy nhóm này.</div>',
-        required: function () { return [{ el: document.getElementById('dbt-spname'), ok: !!((document.getElementById('dbt-spname') || {}).value || '').trim() }]; },
-        save: async function () {
-          const name = ((document.getElementById('dbt-spname') || {}).value || '').trim();
-          const r = await fhSpaceCreate(name, 'friend');
-          if (!r.ok) throw new Error(r.error || 'create_failed');
-          const fid = r.fid, disp = r.card.display;
-          return function () {
-            _fhModal({ title: 'Thẻ nhóm — giữ kỹ', saveLabel: 'Đã lưu thẻ, tiếp tục',
-              body: '<div class="dbt-cardshow num">' + _e(disp) + '</div>'
-                + '<div class="dbt-note">Đây là chìa khoá của sổ nhóm. Gửi cho từng người bạn mời (Zalo/tin nhắn) — không có thẻ thì không đọc được. Thẻ cũng được lưu trên máy này.</div>',
-              save: async function () { return function () { fhSpaceInviteSheet(fid); }; } });
-          };
-        },
-      });
-    };
-
-    window.fhSpaceInviteSheet = function (fid) {
-      _fhModal({
-        title: 'Mời vào nhóm', saveLabel: 'Mời', reqMsg: 'Điền email nhé',
-        body: '<div class="field"><label>Email Google của bạn ấy</label><input id="dbt-inv" inputmode="email" placeholder="ban@gmail.com" oninput="fhModalDirty()"></div>'
-          + '<div class="dbt-note">Bạn ấy đăng nhập FamilyHub bằng email này, vào Tài Chính → nhóm sẽ hiện lời mời. Nhớ gửi kèm thẻ nhóm.</div>',
-        required: function () { return [{ el: document.getElementById('dbt-inv'), ok: /@.+\./.test(((document.getElementById('dbt-inv') || {}).value || '')) }]; },
-        save: async function () {
-          const r = await fhSpaceInvite(fid, ((document.getElementById('dbt-inv') || {}).value || '').trim());
-          if (!r.ok) { const e = new Error(r.error || 'invite_failed'); if (/already_member/.test(r.error || '')) e.fhMsg = 'Bạn ấy đã ở trong nhóm rồi'; throw e; }
-          window.toast && toast('Đã mời — nhớ gửi thẻ nhóm cho bạn ấy');
-          return function () { openDebtSpace(fid); };
-        },
-      });
-    };
-
-    /* split expense */
-    window.fhSpaceSplitSheet = function (fid) {
-      const S = _S(); const d = S.data[fid]; if (!d) return;
-      const cats = d.cats || [], mems = d.members || [];
-      const my = fhSpaceMyMemberId(fid);
-      let body = '<div class="field"><label>Chi cho gì?</label><input id="dbt-snote" placeholder="vd. Ăn tối BBQ" oninput="fhModalDirty()"></div>'
-        + _amtIn('dbt-amt')
-        + '<div class="field"><label>Nhóm chi</label><div class="choices" id="dbt-scat">'
-        + cats.map((c, i) => '<button class="choice' + (i === 0 ? ' on' : '') + '" data-v="' + c.id + '" onclick="pick(\'dbt-scat\',this)">' + (c.emoji || '🏷️') + ' ' + _e(c.name) + '</button>').join('') + '</div></div>'
-        + '<div class="field"><label>Ai trả?</label><div class="choices" id="dbt-spayer">'
-        + mems.map((m) => '<button class="choice' + (m.id === my ? ' on' : '') + '" data-v="' + m.id + '" onclick="pick(\'dbt-spayer\',this)">' + _e(m.name) + '</button>').join('') + '</div></div>'
-        + '<div class="field"><label>Chia sao?</label><div class="choices" id="dbt-srule">'
-        + '<button class="choice on" data-v="equal" onclick="pick(\'dbt-srule\',this);fhSplitRule()">Chia đều</button>'
-        + '<button class="choice" data-v="exact" onclick="pick(\'dbt-srule\',this);fhSplitRule()">Tự nhập</button></div></div>'
-        + '<div id="dbt-sexact" style="display:none">'
-        + mems.map((m) => '<div class="field-row dbt-exrow"><span class="dbt-exn">' + _e(m.name) + '</span><input class="num" id="dbt-ex-' + m.id + '" inputmode="numeric" placeholder="0 ₫" oninput="fhModalDirty()"></div>').join('')
-        + '</div>';
-      _fhModal({
-        title: 'Chia khoản mới', saveLabel: 'Ghi &amp; chia'.replace('&amp;', '&'), reqMsg: 'Điền nội dung và số tiền nhé',
-        body: body,
-        required: function () { return [
-          { el: document.getElementById('dbt-snote'), ok: !!((document.getElementById('dbt-snote') || {}).value || '').trim() },
-          { el: document.getElementById('dbt-amt'), ok: _amtOf('dbt-amt') > 0 },
-        ]; },
-        save: async function () {
-          const amt = _amtOf('dbt-amt');
-          const rule = (typeof chosen === 'function' && chosen('dbt-srule')) || 'equal';
-          const shares = {};
-          if (rule === 'exact') {
-            let sum = 0;
-            mems.forEach((m) => { const v = _amtOf('dbt-ex-' + m.id); if (v > 0) { shares[m.id] = v; sum += v; } });
-            if (Math.abs(sum - amt) > 1) { const e = new Error('shares_mismatch'); e.fhMsg = 'Các phần chia phải cộng đúng bằng tổng (' + fmt(amt) + ')'; throw e; }
-          } else {
-            const per = amt / mems.length;
-            let acc = 0;
-            mems.forEach((m, i) => { const v = (i === mems.length - 1) ? (amt - acc) : Math.round(per * 10) / 10; shares[m.id] = v; acc += v; });
-          }
-          const r = await fhSpaceAddExpense(fid, {
-            amtK: amt, note: ((document.getElementById('dbt-snote') || {}).value || '').trim(),
-            catId: (typeof chosen === 'function' && chosen('dbt-scat')) || (cats[0] && cats[0].id),
-            payerMemberId: (typeof chosen === 'function' && chosen('dbt-spayer')) || my,
-            rule: rule, shares: shares,
-          });
-          if (!r.ok) throw new Error(r.error || 'save_failed');
-          window.toast && toast('Đã chia cho ' + mems.length + ' người');
-          return function () { openDebtSpace(fid); _redraw(); };
-        },
-      });
-    };
-    window.fhSplitRule = function () {
-      const ex = document.getElementById('dbt-sexact');
-      if (ex) ex.style.display = (typeof chosen === 'function' && chosen('dbt-srule')) === 'exact' ? '' : 'none';
-    };
-
-    /* settle-up: directed member→member transfer (Q8b) */
-    window.fhSpaceSettleSheet = function (fid) {
-      const S = _S(); const d = S.data[fid]; if (!d) return;
-      const mems = d.members || [], my = fhSpaceMyMemberId(fid);
-      const pairs = fhSpacePairwise(fid) || [];
-      const mine = pairs.find((p) => p.from.id === my) || pairs[0] || null;
-      _fhModal({
-        title: 'Ghi trả nợ', saveLabel: 'Ghi lại', reqMsg: 'Chọn người và số tiền nhé',
-        body: '<div class="field"><label>Ai trả?</label><div class="choices" id="dbt-sufrom">'
-          + mems.map((m) => '<button class="choice' + ((mine ? mine.from.id : my) === m.id ? ' on' : '') + '" data-v="' + m.id + '" onclick="pick(\'dbt-sufrom\',this)">' + _e(m.name) + '</button>').join('') + '</div></div>'
-          + '<div class="field"><label>Trả cho ai?</label><div class="choices" id="dbt-suto">'
-          + mems.map((m) => '<button class="choice' + (mine && mine.to.id === m.id ? ' on' : '') + '" data-v="' + m.id + '" onclick="pick(\'dbt-suto\',this)">' + _e(m.name) + '</button>').join('') + '</div></div>'
-          + _amtIn('dbt-amt', mine ? fmt(mine.amt) : '0 ₫')
-          + '<div class="dbt-note">Ai trong nhóm cũng ghi được — số dư của cả hai bên cập nhật ngay.</div>',
-        required: function () {
-          const f = typeof chosen === 'function' ? chosen('dbt-sufrom') : null, t = typeof chosen === 'function' ? chosen('dbt-suto') : null;
-          return [
-            { el: document.getElementById('dbt-suto'), ok: !!(f && t && f !== t) },
-            { el: document.getElementById('dbt-amt'), ok: _amtOf('dbt-amt') > 0 },
-          ];
-        },
-        save: async function () {
-          const r = await fhSpaceSettle(fid, {
-            fromMember: chosen('dbt-sufrom'), toMember: chosen('dbt-suto'), amtK: _amtOf('dbt-amt'),
-          });
-          if (!r.ok) throw new Error(r.error || 'save_failed');
-          window.toast && toast('Đã ghi trả nợ');
-          return function () { openDebtSpace(fid); _redraw(); };
-        },
-      });
-    };
   })();

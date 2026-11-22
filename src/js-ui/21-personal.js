@@ -643,6 +643,7 @@ function renderPersonal(){ window.fhHeat&&fhHeat.tick('renderPersonal');
      populated, so without this the card said a faceless "Nhóm". */
   var famName = function(fid){
     if(window.DB && DB.fid===fid && window.FAM && FAM.familyName) return FAM.familyName;
+    var sp=(window.fhSpaceGet && fhSpaceGet(fid))||null; if(sp && sp.name) return sp.name;   // every space the person is in (22-spaces.js roster)
     var f=(P.fams||[]).find(function(x){return x.family_id===fid;}); return f? f.name : 'Nhóm';
   };
 
@@ -837,6 +838,12 @@ function _persEmailRow(){
 /* ── Nợ & cho vay — the balance-sheet dimension (stocks, not flows), between
      the month's cash-flow card and the month's spending cards. Built by
      23-debts-ui.js (js-data) so it can share the modal helper + space keys. ── */
+  /* ── Nhóm — every shared space the person belongs to, families included, with
+     what they owe or are owed in each (spaces-spec section 4.1). Built by
+     23-spaces-ui.js. Tài chính is the person's whole picture and the door to
+     everything related, so the list lives here and nowhere else. ── */
+  h += (window.persSpacesSection ? persSpacesSection() : '');
+
   h += (window.persDebtSection ? persDebtSection() : '');
 
   /* ── Đầu tư — the asset dimension, the debts bento's sibling (0123). Built
@@ -1023,9 +1030,10 @@ function _persEmailRow(){
            the person zoom-in uses (edit · hẹn trả · convert-back · delete), so
            a loan is correctable wherever it is seen (0122). */
         var _dR = (P.debts||[]).filter(function(d){ return d.id===t.id; })[0];
-        var _who = (_dR && _dR.who) ? ' · '+_dR.who.replace(/</g,'&lt;') : '';
+        var _spW = !!(_dR && typeof fhIsSpaceWho==='function' && fhIsSpaceWho(_dR.who));   // my position against a space, written by the space pass
+        var _who = (_dR && _dR.who) ? ' · '+String(_spW?fhWhoLabel(_dR.who):_dR.who).replace(/</g,'&lt;') : '';
         var _due = (_dR && t.kind==='loan' && _dR.due) ? ' · hẹn trả '+_dR.due.slice(8,10)+'/'+_dR.due.slice(5,7) : '';
-        var _lbl = t.kind==='loan' ? ((t.amt||0)>0?'Cho vay':'Đi mượn') : 'Trả nợ';
+        var _lbl = _spW ? (t.kind==='loan' ? ((t.amt||0)>0?'Nhóm nợ bạn':'Bạn nợ nhóm') : 'Trả nợ nhóm') : (t.kind==='loan' ? ((t.amt||0)>0?'Cho vay':'Đi mượn') : 'Trả nợ');
         h += '<div class="row tap" onclick="openPersonalTxDetail(\''+t.id+'\')"><div class="r-ico personal-ico">'+(t.kind==='loan'?'💵':'✅')+'</div>'
            + '<div class="r-body"><div class="r-t">'+((t.note||(t.kind==='loan'?'Cho vay / mượn':'Trả nợ')).replace(/</g,'&lt;'))+_who+'</div>'
            + '<div class="r-s">'+meta+_due+'</div></div>'

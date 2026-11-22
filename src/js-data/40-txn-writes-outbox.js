@@ -376,6 +376,8 @@
         await fhField('occurred_time', _okTxnTime(t.time)),   // clearing the time drops back to day-only
         await fhField('node', _okNode(t.node)));               // 0144: tree node code, or null
       await _w(sb.from('transactions').update(patch).eq('id', dbId), 'write transactions');
+      // spaces: a shared expense's split follows an edited amount or payer
+      try { if (window.fhSpaceRescaleAfterEdit && !t.future) await window.fhSpaceRescaleAfterEdit(window.DB.fid, dbId, t.amt, patch.member_id); } catch (e) {}
       await _dbSyncTxnPhotos(dbId, t.photos);
       _syncSoon(true);   // edit may target/move an out-of-window row → full hydrate (edits are infrequent)
     } catch (e) { _writeErr('txn update failed', e); }

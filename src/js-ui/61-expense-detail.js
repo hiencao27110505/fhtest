@@ -94,6 +94,9 @@ function renderExpenseDetail(){
   if(incoming) _exdEdit=false;                                   // someone else's proposal: review only, never edit
   var nav=document.getElementById('exd-nav'); if(nav) nav.innerHTML=_exdNavHTML(canEdit);
   var famName=(window.FAM&&FAM.familyName)||L('Gia đình','Family');
+  var spMark=(typeof fhSpaceMark==='function' && window.fhSpaceActive)?fhSpaceMark(fhSpaceActive()):'🏡';
+  /* others see which bank or card paid only where the space says so; the author always does */
+  var showInst=!!t.inst && (typeof fhSpaceHas!=='function' || fhSpaceHas('source') || !!(window.DB&&DB.ownerMemberId&&t._createdBy===DB.ownerMemberId));
   var mm=_exdMasterOf(t);
   var isAuthor=!!(window.DB&&DB.ownerMemberId&&t._createdBy===DB.ownerMemberId);
   var mAcct=(mm&&mm.accountId&&mm.pd)?((mm.pd.accounts||[]).find(function(a){ return a.id===mm.accountId; })||null):null;
@@ -112,18 +115,19 @@ function renderExpenseDetail(){
       +'<div class="exd-amt num">'+esc(vAmtDisp)+(CUR==='VND'?' ₫':'')+'</div>'
       +'<div class="exd-note">'+esc(vNote||L('Khoản chi','Expense'))+'</div>'
       +'<div class="exd-prov">'+esc(_exdDate(t))+(vTime?'<span class="sep">·</span>'+esc(vTime):'')
-        +(t.inst?'<span class="sep">·</span>'+fhSrcInstLabel(t.inst):'')+'</div>'
+        +(showInst?'<span class="sep">·</span>'+fhSrcInstLabel(t.inst):'')+'</div>'
       +(isFuture?('<div class="exd-plan'+(incoming?' wait':'')+'">'+(incoming?L('chờ bạn duyệt','awaiting your review'):('📅 '+L('Chi tiêu dự kiến','Planned')))+'</div>'):'')
       +'</div>'
       +((!ph.length && canEdit && t._dbId)?_exdDoorHTML(t):'');
-    rows+=_exdRow({label:L('Ghi vào đâu','Where to'), ro:true, val:'<b>🏡 '+esc(famName)+'</b>'});
+    rows+=_exdRow({label:L('Ghi vào đâu','Where to'), ro:true, val:'<b>'+esc(spMark)+' '+esc(famName)+'</b>'});
     rows+=_exdRow({label:L('Loại khoản','Kind'), ro:true, val:'<b>'+(isFuture?L('Chi tiêu dự kiến','Planned expense'):L('Chi tiêu','Spending'))+'</b>'});
     rows+=_exdRow({label:L('Danh mục','Category'), ro:true, val:'<b>'+s[0]+' '+esc(vCat)+'</b>'});
     rows+=_exdNodeRow(t, false);
     rows+=_exdRow({label:whoLbl, ro:true, val:whoVal});
+    if(!isFuture && typeof fhSpaceSplitRowsHTML==='function') rows+=fhSpaceSplitRowsHTML(t);   // Chung or Chia, and each share
     rows+=_exdRow({label:L('Ngày','Date'), ro:true, val:'<b class="num">'+esc(_exdDate(t))+'</b>'});
     rows+=_exdRow({label:L('Giờ','Time'), ro:true, soft:!vTime, val:'<b class="num">'+(vTime?esc(vTime):L('Chỉ tính theo ngày','Day only'))+'</b>'});
-    if(mm||t.inst) rows+=_exdRow({label:L('Nguồn tiền','Money source'), ro:true, soft:!(mAcct||t.inst), val:'<b>'+acctVal+'</b>'});
+    if(mm||showInst) rows+=_exdRow({label:L('Nguồn tiền','Money source'), ro:true, soft:!(mAcct||t.inst), val:'<b>'+acctVal+'</b>'});
     html+='<div class="exd-meta srows"><div class="csv-srows">'+rows+'</div></div>';
     if(ph.length){
       html+=_exdSecH(L('Ảnh','Photos'), ph.length)
@@ -155,6 +159,7 @@ function renderExpenseDetail(){
     rows+=_exdNodeRow(t, true);
     if(window.FH_RECUR && !isFuture) rows+=_exdRecurRow(t, 'fam');
     rows+=_exdRow({label:whoLbl, chg:EXD.who!=null, ro:isFuture, val:whoVal, fn:"exdSheetWho()"});
+    if(!isFuture && typeof fhSpaceSplitEditRowHTML==='function') rows+=fhSpaceSplitEditRowHTML(t);
     rows+=fhPickRow({label:L('Ngày','Date'), type:'date', value:fIso, on:'exdPickDate', arg:'fam', chg:EXD.dateIso!=null,
       val:'<b class="num">'+esc(fDateLbl)+'</b>'});
     rows+=fhPickRow({label:L('Giờ','Time'), type:'time', value:vTime||'', on:'exdPickTime', arg:'fam', clear:true, chg:EXD.timeStr!==undefined, soft:!vTime,
@@ -163,7 +168,7 @@ function renderExpenseDetail(){
        AUTHOR, whose mirror master carries the real account tag (0134,
        account-setup-spec §6). That pick writes straight away (its sheet says so). */
     if(mm) rows+=_exdRow({label:L('Nguồn tiền','Money source'), soft:!mm.accountId, val:'<b>'+acctVal+'</b>', fn:'exdSheetAcctFam()'});
-    else if(t.inst) rows+=_exdRow({label:L('Nguồn tiền','Money source'), ro:true, val:'<b>'+esc(t.inst)+'</b>'});
+    else if(showInst) rows+=_exdRow({label:L('Nguồn tiền','Money source'), ro:true, val:'<b>'+esc(t.inst)+'</b>'});
     html+='<div class="csv-srows">'+rows+'</div></div>';
     if(ph.length){
       html+=_exdSecH(L('Ảnh','Photos'), ph.length)

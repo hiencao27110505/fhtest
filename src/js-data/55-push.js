@@ -318,11 +318,18 @@
       if (_pushLastSent[kind] && now - _pushLastSent[kind] < 12000) return;
       _pushLastSent[kind] = now;
       const body = Object.assign({ kind: kind }, data || {});
+      /* Spaces: say WHICH container this is about. The function honours it only
+         for a member, and without it falls back to the open one as before. A
+         write into a space that is not the open one (review filing a captured
+         row there) passes data.familyId. */
+      body.family_id = body.familyId || window.DB.fid; delete body.familyId;
       /* committed-enc family: members.name is ciphertext server-side, so the
          edge function can't derive the actor's first name anymore. The sender's
          device supplies it — same trust boundary as the payload it already
          builds, and the function only accepts it when the DB name is null. */
-      if (fhEncState() === 'enc') {
+      if (body.family_id !== window.DB.fid) {
+        try { const sd = window.fhSpacesData().data[body.family_id], mid = window.fhSpaceMyMemberId(body.family_id); const mm = sd && sd.members.find((x) => x.id === mid); if (mm && mm.name) body.actorName = String(mm.name).slice(0, 40); } catch (e) {}
+      } else if (fhEncState() === 'enc') {
         const me = window.DB.memberById && window.DB.memberById[window.DB.ownerMemberId];
         if (me && me.name) body.actorName = String(me.name).slice(0, 40);
       }
@@ -339,6 +346,17 @@
   function _fhNavGo(nav) {
     try {
       if (!nav || !nav.k) return;
+      /* Spaces: a notification about a space that is not the open one opens that
+         space first (nav.f, set by push-send). Its own route then runs against
+         the right data on the hydrate that follows; here the tap just lands. */
+      if (nav.f && window.DB && window.DB.fid && nav.f !== window.DB.fid && window.fhSpaceGet && window.fhSpaceGet(nav.f) && window.fhSpaceRowTap) {
+        window.fhSpaceRowTap(nav.f); return;
+      }
+      if (nav.k === 'space_expense' || nav.k === 'space_settle') {
+        if (nav.tx) { const st = (window.txns || []).find((x) => x._dbId === nav.tx); if (st && window.openExpenseDetail) { window.openExpenseDetail(st.id); return; } }
+        if (window.go) window.go('spending');
+        return;
+      }
       if (nav.k === 'weather') { window.go && window.go('home'); return; }   // moods live on the home sky
       /* Staged bank transactions: the notification says only that something is
          waiting, so the tap has to land on the queue itself for it to mean

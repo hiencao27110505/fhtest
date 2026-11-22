@@ -139,6 +139,26 @@ function fhDedupLedgerIndex(){
           book: 'family', note: t.note || '', cat: t.cat || '', who: t.who || '', mine: mine,
           inst: t.inst || '', src: t.src || '', time: t.time || '' });
   });
+  /* Spaces (spaces-spec 7.3): every OTHER space this device has read. A bank row
+     for a bill someone already recorded in a space is flagged like any other
+     repeat; the open space is `window.txns` above. A space row has no clock
+     time and no import source, so the engine treats it as a hand-typed row. */
+  try{
+    var S = (typeof window !== 'undefined' && window.fhSpacesData) ? window.fhSpacesData() : null;
+    var openId = (typeof window !== 'undefined' && window.DB && window.DB.fid) || null;
+    (S ? S.list : []).forEach(function(sp){
+      var d = S.data[sp.id]; if(!d || sp.id === openId) return;
+      var my = window.fhSpaceMyMemberId ? window.fhSpaceMyMemberId(sp.id) : null;
+      d.txns.forEach(function(t){
+        if(t._unreadable || t.amt == null || !t.date) return;
+        var dt = new Date(t.date + 'T00:00:00'); if(isNaN(dt.getTime())) return;
+        var s = d.shares[t.id], bill = (s && s.map && s.map._bill) ? Number(s.map._bill) : Number(t.amt);   // the bank saw the whole bill
+        add({ id: t.id, amtD: bill * mult, _d: dt, day: fhDedupDay(dt), kind: 'expense',
+              book: 'space', spaceId: sp.id, spaceName: sp.name || '', note: t.note || '', cat: '', who: '', mine: (my ? t.payer === my : null),
+              inst: '', src: '', time: t.time || '' });
+      });
+    });
+  }catch(e){}
   var mineRows = (typeof window !== 'undefined' && window._fhPersonalMatchSlice) || null;
   if(!mineRows || !mineRows.length){
     var pd = (typeof window !== 'undefined' && typeof window.fhPersonalData === 'function') ? window.fhPersonalData() : null;

@@ -440,6 +440,13 @@
 
       try { localStorage.setItem('fh-fam', JSON.stringify(window.FAM)); localStorage.setItem('fh-lang', window.LANG); localStorage.setItem('fh-cur', window.CUR); } catch (e) {}
 
+      // the open space's profile decides what the shell shows (16-spaces-shell.js).
+      // A space this device has not seen in the roster yet (first open after a
+      // join, a switch made on another device) is read now, off the critical path.
+      try {
+        if (window.fhSpaceShellApply) window.fhSpaceShellApply();
+        if (window.fhSpaceGet && !window.fhSpaceGet(fid) && window.fhSpacesBoot) window.fhSpacesBoot({ force: true }).then(() => { try { window.fhSpaceShellApply(); window.renderAll && window.renderAll(); } catch (e) {} });
+      } catch (e) {}
       // render everything
       if (typeof window.applyLang === 'function') window.applyLang();
       if (typeof window.applyCurrency === 'function') window.applyCurrency(); else { window.renderAll && window.renderAll(); window.renderEvents && window.renderEvents(); window.renderTxns && window.renderTxns(); }
@@ -457,6 +464,7 @@
       // home sky repaints — this is what makes a mood set on one phone appear on
       // the others when the realtime tick re-runs loadFamilyData.
       try {
+        if (typeof fhSpaceHas === 'function' && !fhSpaceHas('house')) throw new Error('no house');   // the open space has no sky to paint
         const wr = await sb.from('member_weather').select('member_id,weather,updated_at').eq('family_id', fid);
         const wmap = {}; (wr.data || []).forEach((r) => { wmap[r.member_id] = { weather: r.weather, at: r.updated_at }; });
         window.memberWeather = wmap;
@@ -464,6 +472,15 @@
       } catch (e) { window.memberWeather = window.memberWeather || {}; }
       try { if (window.fhPushResync) window.fhPushResync(); } catch (e) {}   // web push: re-point this device's subscription row at the active family (per-family, self-heals on switch)
       try { if (window.fhPushFirstVisitOffer) window.fhPushFirstVisitOffer(); } catch (e) {}   // once per member, first home visit (0134 epic): the notification offer
+      /* shares and settle-ups of the open space ride the light path (22-spaces.js):
+         refresh them with the hydrate, at most every 15s, and repaint what shows them */
+      try {
+        if (typeof fhSpaceHas === 'function' && fhSpaceHas('split') && window.fhSpacesData && window.fhSpaceHydrate) {
+          const _S = window.fhSpacesData(), _d = _S.data[fid];
+          const _go = () => { if (_S.keys[fid] && (!_d || Date.now() - _d.at > 15000)) window.fhSpaceHydrate(fid).then(() => { try { window.fhSpaceSplitBoxRender && window.fhSpaceSplitBoxRender(); window.renderTxns && window.renderTxns(); if (typeof fhSpaceHas === 'function' && !fhSpaceHas('house') && window.renderHome) window.renderHome(); } catch (e) {} }); };
+          if (_S.keys[fid]) _go(); else if (window.fhSpacesBoot) window.fhSpacesBoot().then(_go);
+        }
+      } catch (e) {}
       try { if (window.rxAfterHydrate) window.rxAfterHydrate(); } catch (e) {}   // reactions: refresh the wall + play any just-arrived reaction moment
       try { if (window.reqAfterHydrate) window.reqAfterHydrate(); } catch (e) {}   // future-expense requests: refresh mounts/hub + play any just-arrived decision
       try { if (window.fhPersonalBoot) window.fhPersonalBoot(); } catch (e) {}     // personal ledger (0082): provision/unlock, hydrate, mirror my authored rows

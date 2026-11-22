@@ -150,7 +150,10 @@ function fhMoveCancel(){
    truth, no bespoke read-only view. Write-inertness is unchanged. */
 function fhMirrorRowTap(pid){
   var P=window.fhPersonalData && fhPersonalData(); if(!P) return;
-  var t=(P.txns||[]).filter(function(x){ return x.id===pid; })[0];
+  var t=(P.txns||[]).filter(function(x){ return x.id===pid; })[0] || (P.debts||[]).filter(function(x){ return x.id===pid; })[0];
+  /* a row the space pass wrote (my share, what the space owes me, a settle-up,
+     an outside share): its own sheet, wherever that space is (23-spaces-book.js) */
+  if(t && t.src && String(t.src).indexOf('space:')===0){ if(window.fhSpaceBookRowTap) fhSpaceBookRowTap(t); return; }
   if(!t || !t.spaceId) return;
   if(!window.DB || t.spaceId!==DB.fid){ toast('Khoản này thuộc nhóm khác — mở nhóm đó để xem'); return; }
   if(!t.linkId){ toast('Đang đồng bộ khoản này — thử lại sau nhé'); return; }

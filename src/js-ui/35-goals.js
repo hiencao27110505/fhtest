@@ -6,6 +6,7 @@ function achievedGoal(g){ return !!(g && (g.achieved || (g.target>0 && g.saved>=
 var goalsDoneOpen=false;
 function toggleGoalsDone(){ goalsDoneOpen=!goalsDoneOpen; renderGoals(); }
 function renderGoals(){
+  if(typeof fhSpaceHas==='function' && !fhSpaceHas('goals')){ var _gc0=document.getElementById('goal-card'); if(_gc0) _gc0.style.display='none'; var _ge0=document.getElementById('goals-empty'); if(_ge0) _ge0.innerHTML=''; return; }
   var goals=window.goals||{}, ord=window.goalOrder||[];
   var hasGoals=ord.length>0;
   // The Tích lũy card always shows — the savings total is worth seeing even with no
@@ -91,6 +92,7 @@ function renderGoals(){
 }
 function onGoalInput(){ if(typeof fhClearInvalid==='function') fhClearInvalid('goal-modal'); }   // Save stays enabled (DESIGN §4.4)
 function openGoal(){
+  if(typeof fhSpaceHas==='function' && !fhSpaceHas('goals')) return;
   ['goal-name','goal-amt','goal-date','goal-init'].forEach(function(id){ var e=document.getElementById(id); if(e)e.value=''; });
   if(typeof fhClearInvalid==='function') fhClearInvalid('goal-modal');
   openSheet('goal-modal');

@@ -1,7 +1,8 @@
 /* ---------- sheets ---------- */
 function openSheet(id){
   if(id==='sheet-expense'){ openExpense(); return; }        // expense form is a full-screen modal
-  if(id==='sheet-event'){ openEventModal(); return; }        // new-event form is a full-screen modal
+  if(id==='sheet-event'){ if(typeof fhSpaceHas==='function' && !fhSpaceHas('moments')) return; openEventModal(); return; }        // new-event form is a full-screen modal
+  if(id==='sheet-budget' && (typeof fhSpaceHas==='function' && !fhSpaceHas('budget'))) return;         // the open space keeps no budget
   if(id==='sheet-fund') buildFundChoices();
   if(id==='sheet-month') buildMonthChoices();
   if(id==='sheet-pmonth' && window.buildPMonthChoices) buildPMonthChoices();
@@ -316,6 +317,7 @@ function _applyExLayout(){
   // Title reflects the TYPE (follows the Chi/Thu toggle) but never the scope — the
   // Cá nhân/Gia đình chip already shows that, so no "cá nhân" suffix.
   var t=document.getElementById('ex-title'); if(t) t.textContent = income ? L('Khoản thu','Income') : L('Khoản chi','Expense');
+  if(typeof fhExSplitSync==='function') fhExSplitSync();   // Chung or Chia, in a space that keeps balances
 }
 /* Drag a bottom sheet / modal DOWN to dismiss — axis-locked so it never fights scrolling. */
 function initSheetDrag(sheet, closeFn){
@@ -995,6 +997,7 @@ function submitBulk(opts){
     window._fhImportNode = (rows[k] && rows[k].node) || null;    // 0144 the node reviewed for this row; null on a hand-typed row → the composer's guess stands
     window._fhImportRecur = (rows[k] && rows[k].recur) || null;        // recurring-charges-spec RR1
     window._fhImportRecurSrc = (rows[k] && rows[k].recurSrc) || null;
+    window._exSplitPending = (rows[k] && rows[k].split) || null;      // spaces: a reviewed Chia row carries its split to the write
     BULK_SAVING=true;
     try{ window.addExpense(); } finally{ BULK_SAVING=false; }
   }
@@ -1004,6 +1007,7 @@ function submitBulk(opts){
   window._fhImportLink=null;
   window._fhImportNode=null;
   window._fhImportRecur=null; window._fhImportRecurSrc=null;
+  window._exSplitPending=null;
   bulkActive=0;
   exPhotos=[];
   // One nudge for the whole batch — each row's own addExpense() stayed silent under

@@ -150,7 +150,8 @@ var EN_DEFAULT={
   ariaCode:'6-digit family passcode',
   monthlyBudget:'Monthly budget',
   /* tabs */
-  tabHome:'Home', tabMoney:'Family', tabMoments:'Moments',
+  tabHome:'Home', tabMoney:'Family', tabMoments:'Moments', tabSpace:'Space', tabSpend:'Spending',
+  finHeadSp:'Spending', finSubSp:'What the space spent, and who owes whom.', momentsSubSp:"The space's plans, memories and album.", setSpaceProfile:'This space',
   /* greeting */
   morning:'Good morning', afternoon:'Good afternoon', evening:'Good evening', greetSub:'Another day, together.',
   budgetBtn:'Budget',
@@ -223,7 +224,7 @@ var EN_DEFAULT={
   /* settings sheet */
   settingsTitle:'Settings',
   setAutoTxn:'Auto-log transactions', badgeNew:'New',
-  setMyProfile:'My profile', setRules:'Rules', setLanguage:'Language', setSwitchFamily:'Switch family', inviteMember2:'Invite a member', setManageFamily:'Manage family & members', setDevices:'Signed-in devices', setEncryption:'Money encryption', setMailbox:'Connect bank email', setReviewTxns:'Review transactions',
+  setMyProfile:'My profile', setRules:'Rules', setLanguage:'Language', setSwitchFamily:'Switch space', inviteMember2:'Invite a member', setManageFamily:'Manage family & members', setDevices:'Signed-in devices', setEncryption:'Money encryption', setMailbox:'Connect bank email', setReviewTxns:'Review transactions',
   setSavedEvents:'Saved for events', setIncome:'Income', setNotifications:'Notifications', setRestartOnboarding:'Restart onboarding', setSignOut:'Sign out',
   /* generic edit modal */
   fhModalEdit:'Edit',
@@ -265,7 +266,8 @@ var I18N={
     ariaCode:'Mã gia đình 6 số',
     monthlyBudget:'Ngân sách hằng tháng',
     /* tabs */
-    tabHome:'Nhà', tabMoney:'Gia đình', tabMoments:'Khoảnh khắc',
+    tabHome:'Nhà', tabMoney:'Gia đình', tabMoments:'Khoảnh khắc', tabSpace:'Nhóm', tabSpend:'Chi tiêu',
+    finHeadSp:'Chi tiêu', finSubSp:'Nhóm đã chi gì, ai đang nợ ai.', momentsSubSp:'Dự định, kỷ niệm và album của nhóm.', setSpaceProfile:'Nhóm này',
     /* greeting */
     morning:'Chào buổi sáng', afternoon:'Chào buổi chiều', evening:'Chào buổi tối', greetSub:'Một ngày nữa bên nhau.',
     budgetBtn:'Ngân sách',
@@ -338,7 +340,7 @@ var I18N={
     /* settings sheet */
     settingsTitle:'Cài đặt',
     setAutoTxn:'Tự động ghi giao dịch', badgeNew:'Mới',
-    setMyProfile:'Hồ sơ của tôi', setRules:'Quy tắc', setLanguage:'Ngôn ngữ', setSwitchFamily:'Đổi gia đình', inviteMember2:'Mời thành viên', setManageFamily:'Quản lý gia đình & thành viên', setDevices:'Thiết bị đăng nhập', setEncryption:'Mã hóa tài chính', setMailbox:'Kết nối email ngân hàng', setReviewTxns:'Duyệt giao dịch',
+    setMyProfile:'Hồ sơ của tôi', setRules:'Quy tắc', setLanguage:'Ngôn ngữ', setSwitchFamily:'Đổi nhóm', inviteMember2:'Mời thành viên', setManageFamily:'Quản lý gia đình & thành viên', setDevices:'Thiết bị đăng nhập', setEncryption:'Mã hóa tài chính', setMailbox:'Kết nối email ngân hàng', setReviewTxns:'Duyệt giao dịch',
     setSavedEvents:'Quỹ cho sự kiện', setIncome:'Thu nhập', setNotifications:'Thông báo', setRestartOnboarding:'Chạy lại phần giới thiệu', setSignOut:'Đăng xuất',
     /* generic edit modal */
     fhModalEdit:'Chỉnh sửa',

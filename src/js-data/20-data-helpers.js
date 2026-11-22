@@ -132,7 +132,7 @@
       window.loadFamilyData && window.loadFamilyData(f ? {} : { windowed: true });
     }, ms);
   }
-  function _syncSoon(full) { try { window.DB._lastLocalWrite = Date.now(); } catch (e) {} try { if (window.fhPersonalMirrorSoon) window.fhPersonalMirrorSoon(); } catch (e) {} _scheduleHydrate(700, full); }
+  function _syncSoon(full) { try { window.DB._lastLocalWrite = Date.now(); } catch (e) {} try { if (window.fhSpaceStale) window.fhSpaceStale(window.DB.fid); } catch (e) {} try { if (window.fhPersonalMirrorSoon) window.fhPersonalMirrorSoon(); } catch (e) {} _scheduleHydrate(700, full); }
   // Is a loaded transaction (by DB id) older than the current refresh window? Unknown
   // id → treated as old (forces full) so an out-of-window change is never missed.
   function _isOldTxnById(dbId) {

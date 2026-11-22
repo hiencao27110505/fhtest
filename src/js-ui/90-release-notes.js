@@ -40,10 +40,18 @@ var ICO = {
   bell:'<path d="M12 4.2a5.3 5.3 0 00-5.3 5.3c0 3.9-1.3 5.3-2.2 6.3h15c-.9-1-2.2-2.4-2.2-6.3A5.3 5.3 0 0012 4.2z"/><path d="M9.9 18.9a2.2 2.2 0 004.2 0M12 2.4v1.8"/>',
   install:'<path d="M12 3v10.5M8 9.7l4 4 4-4"/><path d="M4.5 15v2.7A2.3 2.3 0 006.8 20h10.4a2.3 2.3 0 002.3-2.3V15"/>',
   bolt:'<path d="M13 2.7 5.8 12.6a.6.6 0 00.5 1H10l-1 7.7 7.2-9.9a.6.6 0 00-.5-1H12l1-7.7z"/>',
-  swap:'<path d="M4 9h13M13.5 5.5 17 9l-3.5 3.5"/><path d="M20 15H7M10.5 11.5 7 15l3.5 3.5"/>'
+  swap:'<path d="M4 9h13M13.5 5.5 17 9l-3.5 3.5"/><path d="M20 15H7M10.5 11.5 7 15l3.5 3.5"/>',
+  people:'<circle cx="9" cy="8.5" r="3.2"/><path d="M3 19c0-3.2 2.7-5.2 6-5.2s6 2 6 5.2"/><circle cx="17" cy="9.5" r="2.4"/><path d="M16.5 14c2.6.2 4.5 1.9 4.5 4.6"/>'
 };
 
 var RELEASES = [
+  { id:'2026-11-22-nhom', date:'2026-11-22', time:'21:00', ver:'v636', icon:ICO.people,
+    vi:{ t:'Gia đình hay bạn bè, đều là một Nhóm',
+      problem:'Chi chung với bạn bè trước giờ chỉ có một sổ chia tiền nhỏ nằm trong Tài sản, không ảnh, không cảm xúc, và không vào sổ của riêng bạn.',
+      sol:'Giờ gia đình hay nhóm bạn đều là một Nhóm: chọn những gì nhóm cần, mời bạn bằng một đường link, rồi ghi khoản chung hoặc chia cho từng người. Mọi nhóm của bạn nằm ở mục Nhóm trong Tài chính, kèm số bạn đang nợ hay được nợ. Khoản từ email ngân hàng cũng ghi thẳng được vào nhóm, và sổ của bạn chỉ tính phần của bạn.' },
+    en:{ t:'Family or friends, every group is a Space',
+      problem:'Sharing costs with friends used to mean a small split ledger tucked inside Assets, with no photos, no reactions, and nothing reaching your own book.',
+      sol:'Family or friends, every group is now a Space: pick what the group needs, invite people with a link, then log shared expenses or split them between members. All your spaces sit under Spaces on the Finance tab, with what you owe or are owed. A bank-email transaction can be filed straight into a space, and your own book counts only your share.' } },
   { id:'2026-11-08-sao-ke-dong-khong-doc-duoc', date:'2026-11-08', time:'18:30', ver:'v635', icon:ICO.shield,
     vi:{ t:'Sao kê: dòng không đọc được sẽ được nêu tên',
       problem:'Vài file sao kê PDF in số tiền dính liền với nội dung. App đọc nhầm cả cụm thành một con số, nên một khoản trả thẻ vài triệu hiện trong hàng chờ thành hàng triệu tỷ.',

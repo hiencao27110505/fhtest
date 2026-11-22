@@ -616,6 +616,7 @@ function csvBuildReview(sources, opts){
   csvMarkSummaryRows(candidates);      // a trailing total is not a transaction
   csvPatternPass(candidates);          // habits the dictionary can't name
   csvLendingPass(candidates);          // loans & repayments the balances + lessons can name (0122)
+  try{ if(typeof csvSpaceSettlePass==='function') csvSpaceSettlePass(candidates); }catch(e){}   // money in that matches what a member of one of my spaces owes me
   var signMode = csvResolveSignMode(candidates);
   /* Sign-majority guessing is for FILES, whose one amount column hides the
      direction. A staged bank-email row carries `direction` from the pipeline —
@@ -1054,7 +1055,7 @@ function csvCollapsedCard(c, opts){
      the amount and whether it is classified right; the memo is the noise. */
   if(csvStagedMode){
     var r = csvRowShape(c, opts.isDup || opts.repeat);
-    var scope = !opts.isDup ? (csvRowScope(c)==='personal' ? L('🔒 Riêng tư','🔒 Private') : L('🏡 Gia đình','🏡 Family')) : '';
+    var scope = !opts.isDup ? (csvRowScope(c)==='personal' ? L('🔒 Riêng tư','🔒 Private') : ((typeof csvSpaceOf==='function') ? csvSpaceLabel(c) : L('🏡 Gia đình','🏡 Family'))) : '';   // any shared space, by name (18-spaces-capture.js)
     /* RR23, placement 5: a plain expense whose seller the registry knows wears
        that seller's mark inside the category pill. The texts are asked in the
        order the row trusts them: the receipt's own product signature, the
@@ -1214,7 +1215,7 @@ function csvActiveCard(c, opts){
     // Which face this row wears right now (0109): income keeps its own category
     // set; a transfer leg / repayment / card payment has no category at all.
     var isIncomeNow = !!(c.isIncome && !c._xfer && !c._repay && !c._invest);
-    var noCat = c.isTransfer || c._xfer || c._repay || c._loan || c._invest;
+    var noCat = c.isTransfer || c._xfer || c._repay || c._loan || c._invest || !!c._spSettle;
     var incChips = FH_INCOME_CATS.map(function(name){
       return '<button type="button" class="choice'+(name===(c._incomeCat||'Khác')?' on':'')+'" data-v="'+escAttr(name)+'" onclick="pick(\'csvedit-inccats\',this)">'+esc(name)+'</button>';
     }).join('');
@@ -1305,7 +1306,7 @@ function csvRowKindCur(c){
 }
 function csvStagedRowsCard(c, opts){
   var isIncomeNow = !!(c.isIncome && !c._xfer && !c._repay && !c._invest);
-  var noCat = c.isTransfer || c._xfer || c._repay || c._loan || c._invest;
+  var noCat = c.isTransfer || c._xfer || c._repay || c._loan || c._invest || !!c._spSettle;
   var noteLbl = noCat ? L('Ghi chú','Note') : (isIncomeNow ? L('Tiền gì vậy?','What money is this?') : L('Chi cho gì?','What for?'));
   /* Amount leads as a top input field — the number people most want to see and
      change — above the description. csvReadEditor(#csvedit-amt) reads it back with
@@ -1343,7 +1344,7 @@ function csvStagedRowsCard(c, opts){
   var rows = '';
   var sc = csvRowScope(c);
   rows += row('scope', L('Ghi vào đâu','Where to'),
-    sc==='personal' ? L('🔒 Cá nhân','🔒 Personal') : L('🏡 Gia đình','🏡 Family'));
+    sc==='personal' ? L('🔒 Cá nhân','🔒 Personal') : ((typeof csvSpaceOf==='function') ? esc(csvSpaceLabel(c)) : L('🏡 Gia đình','🏡 Family')), (sc!=='personal' && c._spSettle) ? { by:'<span class="rcr-by">'+esc(L('Gợi ý','Suggested'))+'</span>' } : undefined);
   /* 0144 — "Tiêu vào gì": the tree's read of the purchase, editable here so a
      wrong guess is fixed once, at the moment the person is already looking at
      the row, rather than after it lands in the ledger. */
@@ -1400,6 +1401,12 @@ function csvStagedRowsCard(c, opts){
         c._repayWho ? esc(c._repayWho) : L('Chọn','Pick'), { soft: !c._repayWho });
     }
   }
+  /* Spaces (spaces-spec 7.1): a row filed to a space that keeps balances says who
+     paid (the person whose account it left) and how the bill is counted; money in
+     that matches what a member owes is offered as a settle-up. */
+  var _spOn = (typeof csvSpaceOf==='function');                 // 18-spaces-capture.js; absent only where this file is loaded on its own
+  if(_spOn && sc!=='personal' && c._spSettle) rows += csvSpaceSettleRowsHTML(row, c);
+  else if(_spOn && sc!=='personal' && !opts.isDup && csvSpaceSplitOn(c)) rows += csvSpaceRowsHTML(row, c);
   if(!noCat){
     if(isIncomeNow){
       rows += row('inccat', L('Danh mục','Category'), esc(c._incomeCat || 'Khác'));
@@ -1412,7 +1419,7 @@ function csvStagedRowsCard(c, opts){
     if(sc!=='personal' && !c.isIncome) rows += csvRecurRow(row, c);   // recurring-charges-spec RR6, both ledgers
   }
   var mems = (window.FAM && FAM.members) || [];
-  if(mems.length && sc!=='personal' && !opts.isDup){
+  if(mems.length && sc!=='personal' && !opts.isDup && (!_spOn || (csvSpaceIsOpen(c) && !c._spSettle && !csvSpaceSplitOn(c)))){
     var whoSel = c.who || csvDefaultWho();
     rows += row('who', L('Ai trả','Who paid'), whoSel==='Both' ? L('Chung','Both') : esc(whoSel || ''));
   }
@@ -1504,13 +1511,16 @@ function csvStagedRowsCard(c, opts){
      when a carried field changed (apply-to-similar-spec A22). */
   if(opts.ctaIdx !== undefined){
     var i = opts.ctaIdx;
+    /* what the others in the space will see, said before the tap (spaces-spec 7.1) */
+    if(csvStagedMode && (typeof csvSpaceOf==='function') && csvRowScope(c)!=='personal' && (c._spSettle || !fhSpaceIsFamily() || !csvSpaceIsOpen(c)))
+      h += c._spSettle ? csvSpaceSettleNoteHTML(c) : csvSpaceNoteHTML(c);
     h += '<div class="csv-cta">' + fixBtn
       + '<button type="button" class="csv-cta-del'+(csvArmedRemove===i?' armed':'')+'" onclick="csvReadyRemove('+i+')"'
       + ' aria-label="'+escAttr(csvArmedRemove===i ? L('Xác nhận xoá khoản này','Confirm removing this item') : L('Xoá khoản này','Remove this item'))+'">'
       + (csvArmedRemove===i ? esc(L('Xoá?','Delete?'))
           : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6"/></svg>')
       + '</button>'
-      + '<button type="button" class="csv-cta-go" onclick="csvImportOne('+i+')">✓ '+esc(L('Nhập khoản này','Import this one'))+'</button>'
+      + '<button type="button" class="csv-cta-go" onclick="csvImportOne('+i+')">✓ '+esc((csvStagedMode && (typeof csvSpaceOf==='function') && csvRowScope(c)!=='personal' && (c._spSettle || !fhSpaceIsFamily() || !csvSpaceIsOpen(c))) ? csvSpaceCtaLabel(c) : L('Nhập khoản này','Import this one'))+'</button>'
       + '</div>';
   } else if(fixBtn){
     h += '<div class="csv-cta">'+fixBtn+'</div>';   // cards with their own verbs (trùng, để riêng, nhóm) still get the door
@@ -1580,6 +1590,7 @@ function csvRowSheetOpen(f){
   csvDisarmRemove();
   csvRowSheet = f;
   if(f==='node'){ csvNodeOpen = null; csvNodeQ = ''; csvNodeReveal = true; }   // a fresh open starts from the row's node
+  if(f==='split') csvSpaceSplitSheetStart(c);            // the row's split, in the shared control
   renderCsvReview();
 }
 function csvRowSheetClose(){ csvRowSheet = null; renderCsvReview(); }
@@ -1590,7 +1601,13 @@ function csvRowSheetClose(){ csvRowSheet = null; renderCsvReview(); }
 function csvSheetPick(f, v){
   csvRowSheet = null; csvRowHot = f;
   if(f==='rcpt'){ csvRcAttach(v); return; }
-  if(f==='scope'){ csvPickRowScope(v); renderCsvReview(); return; }   // locked pick refuses without rendering
+  if(f==='spsettle'){ var cs = csvExpandedCandidate(); if(cs){ cs._spSettle = null; cs._spSettleOff = true; cs._spaceId = null; csvPickRowScope('personal'); } renderCsvReview(); return; }
+  if(f==='scope' && String(v).indexOf('space:')===0){            // a named space; 'family' alone still means the open one
+    var c0 = csvExpandedCandidate();
+    if(c0 && csvSpacePick(c0, String(v).slice(6))) csvPickRowScope('family');
+    renderCsvReview(); return;
+  }
+  if(f==='scope'){ var c1 = csvExpandedCandidate(); if(c1){ if(v==='personal'){ if(c1._spSettle){ c1._spSettle = null; c1._spSettleOff = true; } } else c1._spaceId = null; } csvPickRowScope(v); renderCsvReview(); return; }   // locked pick refuses without rendering
   if(f==='kind'){ csvPickRowKind(v); return; }
   if(f==='paycard'){ csvPickPayCard(v); return; }
   if(f==='xferacct'){ csvPickXferAcct(v); return; }
@@ -1713,11 +1730,18 @@ function csvRowSheetHTML(c){
   if(f==='scope'){
     var sc = csvRowScope(c), locked = !csvScopeReady();
     title = L('Ghi vào đâu?','Where does this go?');
-    body = '<div class="choices">'
-      + chip(sc==='personal', "csvSheetPick('scope','personal')", esc(L('🔒 Cá nhân','🔒 Personal')))
-      + chip(sc==='family', "csvSheetPick('scope','family')", esc(L('🏡 Gia đình','🏡 Family')))
-      + '</div>'
+    body = (typeof csvSpaceOf==='function') ? csvSpaceScopeChipsHTML(c, chip, locked)       // Cá nhân, then every space the person is in
+      : ('<div class="choices">' + chip(sc==='personal', "csvSheetPick('scope','personal')", esc(L('🔒 Cá nhân','🔒 Personal'))) + chip(sc==='family', "csvSheetPick('scope','family')", esc(L('🏡 Gia đình','🏡 Family'))) + '</div>')
       + (locked ? '<div class="csv-scope-note">'+esc(L('Sổ cá nhân đang khoá — mở ở tab Cá nhân để chọn được.','Personal ledger is locked — unlock it on the Cá nhân tab to pick it.'))+'</div>' : '');
+  } else if(f==='split'){
+    title = L('Chia tiền','Splitting');
+    body = csvSpaceSplitSheetBody();
+  } else if(f==='spsettle'){
+    title = L('Loại khoản','Kind');
+    body = '<div class="choices">'
+      + chip(true, "csvRowSheetClose()", '🤝 '+esc(c._spSettle ? c._spSettle.fromName : '')+' '+esc(L('trả nợ nhóm','settles up')))
+      + chip(false, "csvSheetPick('spsettle','off')", esc(L('Không phải trả nợ nhóm','Not a settle-up')))
+      + '</div>';
   } else if(f==='rcpt'){
     var rOff = (window.fhReceiptOffers && csvRcStagedId(c)) ? fhReceiptOffers(csvRcStagedId(c)) : [];
     title = L('Hoá đơn nào của khoản này?','Which receipt is this?');
@@ -3060,7 +3084,7 @@ function csvDupTwinLine(t, noAmt){
     if(label) bits.push('“' + label + '”');
     if(t.amtD != null && !noAmt) bits.push(fmt(t.amtD / mult));
     if(typeof fmtDayMon === 'function') bits.push(fmtDayMon(t._d) + (t.time ? ' ' + t.time : ''));
-    bits.push(t.book === 'personal' ? L('sổ Riêng tư','Personal book') : L('sổ Gia đình','Family book'));
+    bits.push(t.book === 'personal' ? L('sổ Riêng tư','Personal book') : (t.book === 'space' ? (t.spaceName || L('một nhóm của bạn','one of your spaces')) : ((typeof fhSpaceIsFamily==='function' && !fhSpaceIsFamily() && typeof csvSpaceLabelOpen==='function') ? csvSpaceLabelOpen() : L('sổ Gia đình','Family book'))));
     if(t.book === 'family' && t.who && t.who !== 'Shared') bits.push(L(t.who + ' đã ghi', 'logged by ' + t.who));
     return bits.join(' · ');
   }
@@ -5474,8 +5498,14 @@ function csvPromote(subset, opts){
       // writethrough like source/inst below; _nodeTouched keeps the composer's own
       // guess off a node the person picked, same meaning as in csvRowShape.
       var _pn = csvPromoteNode(c);
-      return { note: c.description, amt: String(Math.round(c.amount)), cat: c.categoryName,
-               who: c.who || csvDefaultWho(), date: c.dateDisplay, _invalid: false,
+      /* Spaces: a Chia row carries its split to the write (submitBulk hands it over
+         like source/inst); the space records the members' part and the person whose
+         account it left is the payer (spaces-spec 7.2, S32). */
+      var _spl = (csvStagedMode && typeof csvSpaceSplitPending==='function' && csvSpaceIsOpen(c)) ? csvSpaceSplitPending(c) : null;
+      var _splWho = _spl ? (fhSpaceMemberName(_spl.payerId) || csvDefaultWho()) : null;
+      return { note: c.description, amt: String(Math.round(_spl ? _spl.inside * curMult() : c.amount)), cat: c.categoryName,
+               split: _spl,
+               who: _splWho || c.who || csvDefaultWho(), date: c.dateDisplay, _invalid: false,
                _catTouched: true,
                node: _pn, _nodeTouched: (_pn && (c._nodeSource === 'user' || c._nodeSource === 'rule')) || undefined,
                // 0100 provenance: a staged row's transport ('direct-email'/'forwarding-email'),

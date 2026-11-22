@@ -19,6 +19,7 @@ function go(name){
   // family tab — Home included — funnels to Tài chính, the famless account's only
   // home (deep links / push routes can still call go with them).
   if((name==='spending'||name==='events'||name==='home') && document.documentElement.classList.contains('fh-nofam')) name='personal';
+  if(name==='events' && (typeof fhSpaceHas==='function' && !fhSpaceHas('moments'))) name='home';   // the open space has no Khoảnh khắc tab (deep links and push taps land here too)
   document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('on'); });
   document.getElementById('v-'+name).classList.add('on');
   document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('on'); });
@@ -96,7 +97,9 @@ function eventsReserved(){ return order.reduce(function(s,k){ return achievedNow
 // live on obj._reviews; persisted ones in window.DB.reviewsByEntity keyed 'type:dbId'
 // (migration 0024). created_by is the REQUESTER (distinct from the payer), and is
 // excluded from the alignment tally — only ANOTHER member's 🥰 aligns it.
-function _entCreatorId(type, obj){ return obj ? (obj._createdBy || obj.by || obj._by || null) : null; }
+/* A space with Đề xuất cần duyệt off has no requester: every proposal reads as
+   a plain planned row, so nothing waits for anyone's sign-off (spaces-spec section 3). */
+function _entCreatorId(type, obj){ if(typeof fhSpaceHas==='function' && !fhSpaceHas('ask')) return null; return obj ? (obj._createdBy || obj.by || obj._by || null) : null; }
 function _entReviews(type, dbId, obj){
   if(obj && obj._reviews && obj._reviews.length) return obj._reviews;
   if(obj && obj.reviews && obj.reviews.length) return obj.reviews;          // legacy local field (expense)

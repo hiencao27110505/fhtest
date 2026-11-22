@@ -52,7 +52,9 @@ async function getAppServer(): Promise<webpush.ApplicationServer | null> {
 // Deliberately WITHOUT txn_review: this list guards the user-JWT path, and a
 // client must never be able to fan a review notice out to the family. The
 // service-role branch checks that kind itself.
-const KINDS = ["reaction", "weather", "request_new", "request_response", "expense_new", "expense_bulk", "memory_new", "savegoal", "dgstate"];
+// space_expense / space_settle (docs/specs/spaces-spec.md section 20): a shared
+// expense or a settle-up in ANY space the caller belongs to, open or not.
+const KINDS = ["reaction", "weather", "request_new", "request_response", "expense_new", "expense_bulk", "memory_new", "savegoal", "dgstate", "space_expense", "space_settle"];
 
 /* txn_review is the one kind with no human actor and no family audience.
  *
@@ -123,11 +125,18 @@ const REVIEW_LINES: Record<string, { vi: string; en: string }> = {
 
 function buildCopy(
   kind: string, name: string, emoji: string, rough: boolean, lang: string, count: number,
-  pct: number, state: string,
+  pct: number, state: string, space = "",
 ): { title: string; body: string } {
   const vi = lang !== "en";
   let title: string, body: string;
-  if (kind === "savegoal") {
+  if (kind === "space_expense") {
+    // content-free by rule: who and where, never how much or what for
+    title = space ? `${name} · ${space}` : `${name} 🧾`;
+    body = vi ? "Vừa ghi một khoản chung." : "Just logged a shared expense.";
+  } else if (kind === "space_settle") {
+    title = space ? `${name} · ${space}` : `${name} ✅`;
+    body = vi ? "Vừa ghi một khoản trả nợ có bạn." : "Recorded a settle-up that involves you.";
+  } else if (kind === "savegoal") {
     // a saving GOAL is a percentage, not a money amount → E2EE-neutral, safe to state
     if (pct > 0) {
       title = `${name} 🎯`;
@@ -319,24 +328,52 @@ Deno.serve(async (req: Request) => {
     if (typeof body.et === "string" && ENTITY_TYPES.indexOf(body.et) >= 0) nav.et = body.et;
     if (typeof body.eid === "string" && body.eid.length < 64) nav.eid = body.eid;
 
-    // the caller's active family + member seat (server-derived, never trusted from the body)
+    /* Which container this is about. The caller's ACTIVE one by default, as
+       always. A client may name another (body.family_id) so that an expense
+       filed into a space that is not the open one still reaches that space's
+       members; it is honoured only if the membership check right below finds
+       the caller in it, so it can never widen an audience. */
     const { data: prof } = await admin.from("profiles").select("family_id").eq("id", user.id).maybeSingle();
-    const fid = prof && prof.family_id;
+    const wantFid = (typeof body.family_id === "string" && /^[0-9a-f-]{36}$/i.test(body.family_id)) ? body.family_id : null;
+    const fid = wantFid || (prof && prof.family_id);
     if (!fid) return json({ error: "no family" }, 400);
+    nav.f = fid;   // lets the tapped notification open the right space
     const { data: actor } = await admin.from("members").select("id,name")
       .eq("family_id", fid).eq("user_id", user.id).is("archived_at", null).maybeSingle();
     if (!actor) return json({ error: "no member" }, 400);
 
-    const { data: fam } = await admin.from("families").select("default_language").eq("id", fid).maybeSingle();
+    const { data: fam } = await admin.from("families").select("default_language,name,type,archived_at").eq("id", fid).maybeSingle();
+    if (!fam || fam.archived_at || fam.type === "personal") return json({ error: "no family" }, 400);
     const lang = fam && fam.default_language === "en" ? "en" : "vi";
 
-    // recipients: every opted-in device in the family except the actor's;
-    // a target member id (the requester on request_response) narrows it further
-    let q = admin.from("push_subscriptions").select("id,endpoint,p256dh,auth")
-      .eq("family_id", fid).neq("member_id", actor.id);
-    if (target) q = q.eq("member_id", target);
-    const { data: subs } = await q;
-    if (!subs || !subs.length) return json({ sent: 0, pruned: 0 });
+    /* Recipients: the OTHER members of this container, wherever their devices
+       are "seated". A device's push_subscriptions row carries the container the
+       app was last open on (55-push.js re-points it at every switch), so
+       selecting by that seat alone would miss a member who is sitting in another
+       space. Membership is the audience; the seat is kept as a second road for
+       rows written before owner_user_id existed (0152).
+       A target member id (the requester on request_response, the other side of a
+       settle-up) narrows it further. */
+    let mq = admin.from("members").select("id,user_id")
+      .eq("family_id", fid).is("archived_at", null).neq("id", actor.id);
+    if (target) mq = mq.eq("id", target);
+    const { data: others } = await mq;
+    const userIds = (others || []).map((m: { user_id: string | null }) => m.user_id).filter((u: string | null) => !!u && u !== user.id) as string[];
+    type Sub = { id: string; endpoint: string; p256dh: string; auth: string; owner_user_id?: string | null; member_id?: string | null };
+    const byId: Record<string, Sub> = {};
+    if (userIds.length) {
+      const { data: s1 } = await admin.from("push_subscriptions").select("id,endpoint,p256dh,auth,owner_user_id,member_id").in("owner_user_id", userIds);
+      (s1 || []).forEach((s: Sub) => { byId[s.id] = s; });
+    }
+    {
+      let q = admin.from("push_subscriptions").select("id,endpoint,p256dh,auth,owner_user_id,member_id")
+        .eq("family_id", fid).neq("member_id", actor.id);
+      if (target) q = q.eq("member_id", target);
+      const { data: s2 } = await q;
+      (s2 || []).forEach((s: Sub) => { if (s.owner_user_id !== user.id) byId[s.id] = s; });
+    }
+    const subs = Object.values(byId);
+    if (!subs.length) return json({ sent: 0, pruned: 0 });
 
     const srv = await getAppServer();
     if (!srv) return json({ error: "push not configured" }, 500);
@@ -347,7 +384,7 @@ Deno.serve(async (req: Request) => {
     let actorName = (actor.name || "").trim();
     if (!actorName && typeof body.actorName === "string") actorName = body.actorName.trim().slice(0, 40);
     const firstName = actorName.split(/\s+/)[0] || "FamilyHub";
-    const copy = buildCopy(kind, firstName, emoji, rough, lang, count, pct, state);
+    const copy = buildCopy(kind, firstName, emoji, rough, lang, count, pct, state, String(fam.name || "").slice(0, 40));
     const payload = JSON.stringify({
       title: copy.title,
       body: copy.body,

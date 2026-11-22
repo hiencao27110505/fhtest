@@ -265,6 +265,9 @@
       if (!window.fhKeyReady || !window.fhKeyReady()) return;
       if (!window.nacl) return;                     // vendor script missing/blocked: never break unlock
       var fid = window.DB && window.DB.fid;
+      /* A mail staging key belongs to a family. A friend space never receives
+         bank mail (grant_mailbox_access binds to a family), so it gets none. */
+      if (typeof fhSpaceIsFamily === 'function' && !fhSpaceIsFamily()) return;
       if (!fid || _stagingCheckedFids[fid]) return;
       _stagingCheckedFids[fid] = true;
       try {
