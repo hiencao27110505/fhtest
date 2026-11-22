@@ -1,5 +1,5 @@
 # Spaces (Nhóm), release 1  (brief, 2026-11-21)
-Status: shipped-preview
+Status: merged
 
 Spec: `docs/specs/spaces-spec.md` (decisions S1 to S31). This brief covers
 release 1 only: the foundation. Release 2 (the personal book and capture) and

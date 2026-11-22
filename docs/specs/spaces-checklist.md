@@ -11,9 +11,11 @@ Worktree `../fh-spaces`, branch `feat/spaces`. Claim in `AGENT_SYNC.md`.
 - [x] Live definitions of the eight replaced functions compared with the repo
       bases (2026-11-22): all matched.
 - [x] `0165_spaces` applied by Hien in the SQL editor, verified, committed.
-- [ ] Live `push-send` (v24) diffed against `main`: identical `index.ts`.
-      Deploy from the branch.
-- [ ] Merge to `main`.
+- [x] Live `push-send` (v24) diffed against `main`: `index.ts` identical;
+      deployed from the branch 2026-11-22 (it also carries main's current
+      `taxonomy.mjs`, which was newer than the deployed copy). Boots, and
+      refuses an unauthenticated call with its own 401.
+- [x] Merged to `main`.
 
 Order matters: the migration first (old clients keep working with it), the
 function second (old clients keep working with it), the client last.

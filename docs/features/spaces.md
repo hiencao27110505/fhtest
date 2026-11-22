@@ -64,9 +64,9 @@ between a family and a group of friends is a profile of switches.
 
 ## Current State
 
-Built on `feat/spaces` (2026-11-22). Client complete for the checklist except
-the lines it leaves unticked. **Not live:** the migration is a draft and
-`push-send` is edited but not deployed.
+Live since 2026-11-22: `0165_spaces` applied, `push-send` redeployed, client
+on `main` (SW v636). Client complete for the checklist except the lines it
+leaves unticked.
 
 Verified in the harness (stub backend, real client): shell gating for a
 family and a friend space, Chung and Chia from the expense sheet, outside

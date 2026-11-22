@@ -19,7 +19,7 @@ Going forward, add an entry here when a feature area changes meaningfully — se
 ---
 
 
-## 2026-11-22 · Spaces ("Nhóm"): one shared container (branch `feat/spaces`, SW v636, NOT yet live)
+## 2026-11-22 · Spaces ("Nhóm"): one shared container (SW v636, migration `0165_spaces`)
 
 - Family and friend groups become one concept, a space with a profile of
   switches (`families.profile`). Any space can be opened; the other tabs show
@@ -33,8 +33,8 @@ Going forward, add an entry here when a feature area changes meaningfully — se
   own device with existing row kinds (`source = 'space:<id>'`).
 - Fixes the old split ledger's roster, which read `id` / `owner_id` from a
   function that returns `family_id` / `is_owner`.
-- Needs `supabase/migrations/0165_spaces.sql` applied and `push-send`
-  redeployed. Spec `docs/specs/spaces-spec.md`, feature doc
+- `supabase/migrations/0165_spaces.sql` applied and `push-send` redeployed
+  the same day. Spec `docs/specs/spaces-spec.md`, feature doc
   `docs/features/spaces.md`.
 
 ## 2026-10-11
