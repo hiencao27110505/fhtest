@@ -112,7 +112,7 @@
         const row = Object.assign(
           { family_id: fid, category_id: catId, member_id: payer, txn_date: t.date, status: 'realized',
             created_by: me, link_id: linkId, source: null },
-          await fhField('amount', t.amt), await fhField('note', t.note || ''),
+          await fhField('amount', opts.amt != null ? opts.amt : t.amt), await fhField('note', t.note || ''),
           await fhField('occurred_time', t.time || null));
         const ins = await _mv().from('transactions').insert(row).select('id').single();
         if (ins.error || !ins.data) {
@@ -131,7 +131,15 @@
         _mvJClear();
         // a family-visible expense just appeared — nudge the household exactly
         // like a freshly-logged one (payload carries no amount, as ever)
-        try { window.fhNotify && fhNotify('expense_new', { tx: ins.data.id }); } catch (e) {}
+        /* Spaces: moved in as a Chia expense. Its share row is sealed before the
+           mirror runs, so the mirror drops the master this move just made and
+           the space pass writes my share in its place (spaces-spec 24). A share
+           write that fails leaves an ordinary Chung row, and says so. */
+        if (opts.split && window.fhSpaceAfterSplitSave) {
+          try { await window.fhSpaceAfterSplitSave(fid, { _dbId: ins.data.id, _split: opts.split }); } catch (e) { console.warn('move: split not saved', e); }
+        } else {
+          try { window.fhNotify && fhNotify('expense_new', { tx: ins.data.id }); } catch (e) {}
+        }
         try { window.loadFamilyData && loadFamilyData(); } catch (e) {}
         try { await window.fhPersonalHydrate(); } catch (e) {}
         try { window.fhPersonalMirrorSoon && fhPersonalMirrorSoon(); } catch (e) {}

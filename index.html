@@ -6211,6 +6211,7 @@ button.sp-li:active{background:var(--canvas)}
   <div class="sheet-h" id="mv-h">Chuyển sổ</div>
   <div class="sheet-sub" id="mv-sub"></div>
   <div id="mv-facts"></div>
+  <div id="mv-split"></div>
   <div class="field" id="mv-payerfield" style="display:none"><label>Ai trả?</label><div class="choices" id="mv-payer"></div></div>
   <div class="field" id="mv-acctfield" style="display:none"><label>Trả bằng gì? <span class="opt">· tuỳ chọn</span></label><div class="choices" id="mv-acct"></div></div>
   <button class="cta" id="mv-go" onclick="fhMoveConfirm()">Chuyển</button>
@@ -24529,6 +24530,7 @@ function fhMoveEligibleEdit(){
     if(!t || t.spaceId || t.linkId || t.kind!=='expense' || t._unreadable) return null;
     if(t.date && t.date>isoDate(TODAY)) return null;                                  // M6: realized only
     if(!(window.DB && DB.fid && DB.ownerMemberId)) return null;
+    if(typeof fhSpaceClosed==='function' && fhSpaceClosed()) return null;              // a closed space takes nothing new
     if(window.fhEncState && fhEncState()!=='off' && !(window.fhKeyReady && fhKeyReady())) return null;
     return {cur:'personal'};
   }
@@ -24552,35 +24554,67 @@ function fhMoveChipTap(v){
   _mvCtx=(el.cur==='personal') ? {dir:'p2f', pid:editingPTx, cur:el.cur} : {dir:'f2p', localId:editingTx, cur:el.cur};
   fhMoveSheetOpen();
 }
+/* Spaces: is the open space something other than the family, and does it keep
+   balances? Then the move asks what every other way in asks (spaces-spec 24):
+   Chung or Chia, who paid, who shares. */
+function _mvFriend(){ return typeof fhSpaceIsFamily==='function' && !fhSpaceIsFamily(); }
+function _mvSpName(){ return (typeof fhSpaceName==='function') ? fhSpaceName(window.fhSpaceActive ? fhSpaceActive() : null) : ''; }
+function _mvSplitOn(){ return !!(_mvCtx && _mvCtx.dir==='p2f' && typeof fhSpaceHas==='function' && fhSpaceHas('split') && typeof fhSplitStart==='function'); }
+function _mvSplitLayout(){
+  var chia=!!(FH_SPLIT && FH_SPLIT._host==='mv' && FH_SPLIT.mode==='chia');
+  var payer=document.getElementById('mv-payerfield'); if(payer) payer.style.display=chia?'none':'';   // a Chia expense names its payer in the control
+}
+function _mvSplitPaint(amt){
+  var box=document.getElementById('mv-split'); if(!box) return;
+  if(!_mvSplitOn()){ box.innerHTML=''; return; }
+  var fid=DB.fid;
+  fhSplitStart({ fid:fid, amt:amt, mode:window.fhSpaceProfile().mode, onChange:_mvSplitLayout });
+  FH_SPLIT._host='mv';
+  box.innerHTML='<div id="spx">'+fhSplitHTML()+'</div>';
+  _mvSplitLayout();
+  /* members are read on the light path; if they are not here yet, ask and repaint */
+  if(!fhSpaceMembers(fid).length && window.fhSpaceHydrate && fhSpacesData().keys[fid] && !_mvSplitPaint._ask){
+    _mvSplitPaint._ask=1;
+    fhSpaceHydrate(fid).then(function(){ _mvSplitPaint._ask=0; if(_mvCtx && _mvCtx.dir==='p2f') _mvSplitPaint(amt); }, function(){ _mvSplitPaint._ask=0; });
+  }
+}
 function fhMoveSheetOpen(){
   if(!_mvCtx) return;
   var facts='', payer=document.getElementById('mv-payerfield'), acct=document.getElementById('mv-acctfield');
+  var friend=_mvFriend(), spn=_mvSpName();
   if(_mvCtx.dir==='p2f'){
     var t=(typeof _pTxById==='function')?_pTxById(_mvCtx.pid):null;
     if(!t){ _mvCtx=null; return; }
-    setTxt('mv-h','Chuyển sang sổ gia đình?');
-    setTxt('mv-sub','Cả nhà sẽ thấy khoản này. Muốn giấu lại sau cũng không xoá được điều mọi người đã thấy.');
+    setTxt('mv-h', friend ? 'Chuyển sang nhóm '+spn+'?' : 'Chuyển sang sổ gia đình?');
+    setTxt('mv-sub', friend ? 'Cả nhóm sẽ thấy khoản này. Muốn giấu lại sau cũng không xoá được điều mọi người đã thấy.'
+                            : 'Cả nhà sẽ thấy khoản này. Muốn giấu lại sau cũng không xoá được điều mọi người đã thấy.');
     facts+='<div class="mv-fact">'+esc(t.note||t.cat||'Khoản chi')+' · '+fmt(t.amt||0)+'</div>';
     var ph=(t.photos||[]).length;
-    if(ph) facts+='<div class="mv-fact">📷 '+ph+' ảnh đi kèm được giữ nguyên — cả nhà xem được</div>';
+    if(ph) facts+='<div class="mv-fact">📷 '+ph+' ảnh đi kèm được giữ nguyên — '+(friend?'cả nhóm':'cả nhà')+' xem được</div>';
     if(t.accountId) facts+='<div class="mv-fact">Tài khoản đã gắn vẫn được giữ trong sổ của bạn</div>';
     if(payer){
       payer.style.display='';
       var mine=(typeof _reqName==='function' && window.DB)?_reqName(DB.ownerMemberId):null;
       var box=document.getElementById('mv-payer');
-      if(box) box.innerHTML=Object.keys(window.membersMeta||{}).map(function(n){
+      /* outside a family there is no shared seat: only the people in the space can have paid (S20) */
+      var names=Object.keys(window.membersMeta||{});
+      if(friend && window.fhSpaceMembers){ var real=fhSpaceMembers(DB.fid).map(function(m){ return m.name; }); if(real.length) names=names.filter(function(n){ return real.indexOf(n)>=0; }); }
+      if(box) box.innerHTML=names.map(function(n){
         return '<button class="choice'+(n===mine?' on':'')+'" data-v="'+escAttr(n)+'" onclick="pick(\'mv-payer\',this)">'+esc(n)+'</button>';
       }).join('');
     }
     if(acct) acct.style.display='none';
+    _mvSplitPaint(t.amt||0);
   } else {
+    var sbox=document.getElementById('mv-split'); if(sbox) sbox.innerHTML='';
     var f=(typeof txById==='function')?txById(_mvCtx.localId):null;
     if(!f){ _mvCtx=null; return; }
     setTxt('mv-h','Chuyển về sổ riêng?');
-    setTxt('mv-sub','Khoản này rời khỏi sổ gia đình. Cả nhà đã thấy nó rồi — chuyển sổ chỉ đổi nơi ghi, không đổi điều đó.');
+    setTxt('mv-sub', friend ? 'Khoản này rời khỏi nhóm '+spn+', cách chia của nó cũng mất theo. Cả nhóm đã thấy nó rồi, chuyển sổ chỉ đổi nơi ghi.'
+                            : 'Khoản này rời khỏi sổ gia đình. Cả nhà đã thấy nó rồi — chuyển sổ chỉ đổi nơi ghi, không đổi điều đó.');
     facts+='<div class="mv-fact">'+esc(f.note||f.cat||'Khoản chi')+' · '+fmt(f.amt||0)+'</div>';
     var rx=(f.reactions||[]).length;
-    if(rx) facts+='<div class="mv-fact">💬 '+rx+' cảm xúc của cả nhà sẽ mất</div>';
+    if(rx) facts+='<div class="mv-fact">💬 '+rx+' cảm xúc của '+(friend?'cả nhóm':'cả nhà')+' sẽ mất</div>';
     var phf=(f.photos||(f.photo?[f.photo]:[])).length;
     if(phf) facts+='<div class="mv-fact">📷 '+phf+' ảnh chuyển theo vào sổ riêng</div>';
     if(payer) payer.style.display='none';
@@ -24615,7 +24649,20 @@ async function fhMoveConfirm(){
     if(_mvCtx.dir==='p2f'){
       var payerName=chosen('mv-payer');
       var payerId=(payerName && window._memberIdForWho)?_memberIdForWho(payerName):null;
-      r=await fhLedgerMoveToFamily(_mvCtx.pid, {payerMemberId:payerId||undefined});
+      var mo={payerMemberId:payerId||undefined};
+      if(_mvSplitOn() && FH_SPLIT && FH_SPLIT._host==='mv' && FH_SPLIT.mode==='chia'){
+        var res=fhSplitResult();
+        if(!res.ok){
+          toast(res.err==='members' ? 'Chọn ít nhất một người trong nhóm' : res.err==='over' ? 'Các phần đang nhiều hơn hoá đơn' : 'Khoản này chưa có số tiền để chia');
+          if(btn){ btn.disabled=false; btn.textContent='Chuyển'; }
+          return;
+        }
+        var src=(typeof _pTxById==='function')?_pTxById(_mvCtx.pid):null;
+        /* the space records the members' part (S32); the rest is a loan in my own book */
+        mo={ payerMemberId:res.payer, amt:res.r.inside,
+             split:{ payerId:res.payer, rule:res.rule, payload:res.payload, outName:res.outName||null, acct:(src&&src.accountId)||null } };
+      }
+      r=await fhLedgerMoveToFamily(_mvCtx.pid, mo);
     } else {
       var a=chosen('mv-acct')||'', acctId=null;
       if(a==='cash' && window.fhPersonalCashAccount) acctId=await fhPersonalCashAccount();
@@ -24626,12 +24673,13 @@ async function fhMoveConfirm(){
   if(btn){ btn.disabled=false; btn.textContent='Chuyển'; }
   if(r && r.ok){
     var dir=_mvCtx.dir; _mvCtx=null;
+    if(typeof fhSplitEnd==='function' && typeof FH_SPLIT!=='undefined' && FH_SPLIT && FH_SPLIT._host==='mv') fhSplitEnd();
     closeSheet(); closeModals();
     if(typeof closeExpenseDetail==='function') closeExpenseDetail();
     if(typeof closePersonalTxDetail==='function') closePersonalTxDetail();   // move may have started from the personal detail screen
     if(typeof renderPersonal==='function') renderPersonal();
     if(typeof refreshPersonalTxnOverlay==='function') refreshPersonalTxnOverlay();
-    toast(dir==='p2f'?'Đã chuyển sang sổ gia đình':'Đã chuyển về sổ riêng');
+    toast(dir==='p2f'?(_mvFriend()?'Đã chuyển sang nhóm '+_mvSpName():'Đã chuyển sang sổ gia đình'):'Đã chuyển về sổ riêng');
     return;
   }
   if(r && r.pending){
@@ -24650,7 +24698,9 @@ async function fhMoveConfirm(){
   toast(msg);
 }
 function fhMoveCancel(){
-  var el=fhMoveEligibleEdit(); _mvCtx=null; closeSheet();
+  var el=fhMoveEligibleEdit(); _mvCtx=null;
+  if(typeof fhSplitEnd==='function' && typeof FH_SPLIT!=='undefined' && FH_SPLIT && FH_SPLIT._host==='mv') fhSplitEnd();
+  closeSheet();
   // if the edit MODAL launched this, keep its scrim up; from the detail screen
   // (pexdMove) there is no modal underneath — a forced scrim would stick
   var sc=document.getElementById('scrim');
@@ -32625,7 +32675,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v639';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v640';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -36370,15 +36420,27 @@ window.obGoogle = async function () {
 
         const ln = await _sb().from('transactions').select('id,link_id,txn_date,category_id,amount,amount_enc,note,note_enc,occurred_time,occurred_time_enc,updated_at,node,node_enc').eq('family_id', fid).eq('created_by', myMem).not('link_id', 'is', null).gte('txn_date', from).limit(400);
         const famBy = {}; (ln.data || []).forEach((r) => { famBy[r.link_id] = r; });
-        const mq = await _sb().from('personal_transactions').select('id,link_id,txn_date,amount_enc,note_enc,occurred_time_enc,updated_at,version,created_at,node_enc,source').eq('owner_user_id', P.uid).eq('space_id', fid).not('link_id', 'is', null).gte('txn_date', from).order('created_at');
+        const mq = await _sb().from('personal_transactions').select('id,link_id,txn_date,amount_enc,note_enc,occurred_time_enc,updated_at,version,created_at,node_enc,source,account_id').eq('owner_user_id', P.uid).eq('space_id', fid).not('link_id', 'is', null).gte('txn_date', from).order('created_at');
         const mastersBy = {};
         for (const r of (mq.data || [])) {
           if (r.source && String(r.source).indexOf('space:') === 0) continue;   // the space pass owns these; this engine would read them as orphans and delete them
           if (mastersBy[r.link_id]) { await _sb().from('personal_transactions').delete().eq('id', r.id); changed++; continue; }   // self-heal dup
-          mastersBy[r.link_id] = { id: r.id, updatedAt: r.updated_at, version: r.version || 1, amt: Number(await _decP(r.amount_enc)), note: await _decP(r.note_enc), time: await _decTxt(r.occurred_time_enc), node: _okNode(await _decTxt(r.node_enc)) };
+          mastersBy[r.link_id] = { id: r.id, acct: r.account_id || null, updatedAt: r.updated_at, version: r.version || 1, amt: Number(await _decP(r.amount_enc)), note: await _decP(r.note_enc), time: await _decTxt(r.occurred_time_enc), node: _okNode(await _decTxt(r.node_enc)) };
         }
         for (const lid of Object.keys(famBy)) {
           const f = famBy[lid], m = mastersBy[lid];
+          /* A row that was Chung and is now Chia (split afterwards, or moved in
+             from this book as a split): my share is the space pass's to write,
+             so the full-amount master steps aside. The account it carried goes
+             with it as a hint for the share rows. */
+          if (shared[f.id]) {
+            if (m) {
+              try { if (m.acct && window.fhSpaceBookHint) window.fhSpaceBookHint(f.id, { acct: m.acct }); } catch (e) {}
+              await _sb().from('personal_transactions').delete().eq('id', m.id); changed++;
+              try { window.fhSpaceBookSyncSoon && window.fhSpaceBookSyncSoon(fid, 1200); } catch (e) {}
+            }
+            continue;
+          }
           const amtS = f.amount != null ? String(f.amount) : await fhDecStr(f.amount_enc);
           if (amtS == null || amtS === '') continue;
           const amt = Number(amtS); if (!isFinite(amt)) continue;
@@ -36974,7 +37036,7 @@ window.obGoogle = async function () {
         const row = Object.assign(
           { family_id: fid, category_id: catId, member_id: payer, txn_date: t.date, status: 'realized',
             created_by: me, link_id: linkId, source: null },
-          await fhField('amount', t.amt), await fhField('note', t.note || ''),
+          await fhField('amount', opts.amt != null ? opts.amt : t.amt), await fhField('note', t.note || ''),
           await fhField('occurred_time', t.time || null));
         const ins = await _mv().from('transactions').insert(row).select('id').single();
         if (ins.error || !ins.data) {
@@ -36993,7 +37055,15 @@ window.obGoogle = async function () {
         _mvJClear();
         // a family-visible expense just appeared — nudge the household exactly
         // like a freshly-logged one (payload carries no amount, as ever)
-        try { window.fhNotify && fhNotify('expense_new', { tx: ins.data.id }); } catch (e) {}
+        /* Spaces: moved in as a Chia expense. Its share row is sealed before the
+           mirror runs, so the mirror drops the master this move just made and
+           the space pass writes my share in its place (spaces-spec 24). A share
+           write that fails leaves an ordinary Chung row, and says so. */
+        if (opts.split && window.fhSpaceAfterSplitSave) {
+          try { await window.fhSpaceAfterSplitSave(fid, { _dbId: ins.data.id, _split: opts.split }); } catch (e) { console.warn('move: split not saved', e); }
+        } else {
+          try { window.fhNotify && fhNotify('expense_new', { tx: ins.data.id }); } catch (e) {}
+        }
         try { window.loadFamilyData && loadFamilyData(); } catch (e) {}
         try { await window.fhPersonalHydrate(); } catch (e) {}
         try { window.fhPersonalMirrorSoon && fhPersonalMirrorSoon(); } catch (e) {}
@@ -38943,7 +39013,7 @@ window.obGoogle = async function () {
     function _hintsSave(h) { try { const k = Object.keys(h); if (k.length > 200) k.slice(0, k.length - 200).forEach((x) => { delete h[x]; }); localStorage.setItem(HINT_LS, JSON.stringify(h)); } catch (e) {} }
     window.fhSpaceBookHint = function (txnId, o) {
       if (!txnId || !o) return;
-      const h = _hints(); h[txnId] = { a: o.acct || null, n: o.outName || null }; _hintsSave(h);
+      const h = _hints(), was = h[txnId] || {}; h[txnId] = { a: o.acct || was.a || null, n: o.outName || was.n || null }; _hintsSave(h);   // a later caller that knows only one half keeps the other
     };
 
     const _running = {}, _again = {}, _timers = {};

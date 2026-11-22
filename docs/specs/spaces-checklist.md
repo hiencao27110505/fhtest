@@ -187,6 +187,13 @@ One helper, `fhSpaceHas`, and one gate per surface (map from the sweep):
       space's; each receipt saved with its own share row (flow m).
 - [x] A saved unsplit expense can be split from its detail screen (flow n).
 
+## 14. Moving a personal row into a space (spec section 24)
+
+- [x] The move sheet names the space, carries the split control, lists only
+      members as payers; the move writes the expense and its share row (flow o).
+- [ ] The full-amount mirror row steps aside once a row has a share row
+      (written; the harness has no mirror pass to run it against).
+
 ## What the unticked lines mean
 
 Unticked in sections 1 to 11 = **written, not seen working**. The code is on

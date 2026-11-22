@@ -780,3 +780,29 @@ going through Sửa.
 |---|---|
 | S46 | A scan batch into a space with Chia tiền takes one split for all its receipts, defaulting to the space's. |
 
+## 24. Moving a row from the personal book into a space (added 2026-11-22, S47)
+
+A private expense can be moved into the open space from its edit sheet
+("Ghi vào đâu"). The confirm sheet was written for the family and stayed that
+way: it said "sổ gia đình", offered the shared seat as payer, and moved the
+row as a plain shared expense.
+
+The sheet now names the space and, where the space has Chia tiền, carries the
+same split control as every other way in, on the space's default. A Chia move
+names its payer inside the control; a Chung move keeps the payer chips, which
+outside a family list only the members (S20). With an outside share the space
+row carries the members' part and the rest is a loan in the mover's own book
+(S32). A closed space takes no moves.
+
+In the mover's book, a Chia row is counted as their share, written by the
+space pass (section 12). The full-amount mirror row therefore steps aside for
+any expense that has a share row: the one the move just made, and the one a
+Chung expense had before it was split from its detail screen (section 23).
+The account that row carried is kept as the hint for the share rows.
+
+Moving a row back out of a space removes its split with it.
+
+| # | Decision |
+|---|---|
+| S47 | A move into a space asks how the bill counts, like every other way in; a split row keeps no full-amount mirror in the mover's book. |
+

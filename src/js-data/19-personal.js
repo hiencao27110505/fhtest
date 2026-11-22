@@ -2037,15 +2037,27 @@
 
         const ln = await _sb().from('transactions').select('id,link_id,txn_date,category_id,amount,amount_enc,note,note_enc,occurred_time,occurred_time_enc,updated_at,node,node_enc').eq('family_id', fid).eq('created_by', myMem).not('link_id', 'is', null).gte('txn_date', from).limit(400);
         const famBy = {}; (ln.data || []).forEach((r) => { famBy[r.link_id] = r; });
-        const mq = await _sb().from('personal_transactions').select('id,link_id,txn_date,amount_enc,note_enc,occurred_time_enc,updated_at,version,created_at,node_enc,source').eq('owner_user_id', P.uid).eq('space_id', fid).not('link_id', 'is', null).gte('txn_date', from).order('created_at');
+        const mq = await _sb().from('personal_transactions').select('id,link_id,txn_date,amount_enc,note_enc,occurred_time_enc,updated_at,version,created_at,node_enc,source,account_id').eq('owner_user_id', P.uid).eq('space_id', fid).not('link_id', 'is', null).gte('txn_date', from).order('created_at');
         const mastersBy = {};
         for (const r of (mq.data || [])) {
           if (r.source && String(r.source).indexOf('space:') === 0) continue;   // the space pass owns these; this engine would read them as orphans and delete them
           if (mastersBy[r.link_id]) { await _sb().from('personal_transactions').delete().eq('id', r.id); changed++; continue; }   // self-heal dup
-          mastersBy[r.link_id] = { id: r.id, updatedAt: r.updated_at, version: r.version || 1, amt: Number(await _decP(r.amount_enc)), note: await _decP(r.note_enc), time: await _decTxt(r.occurred_time_enc), node: _okNode(await _decTxt(r.node_enc)) };
+          mastersBy[r.link_id] = { id: r.id, acct: r.account_id || null, updatedAt: r.updated_at, version: r.version || 1, amt: Number(await _decP(r.amount_enc)), note: await _decP(r.note_enc), time: await _decTxt(r.occurred_time_enc), node: _okNode(await _decTxt(r.node_enc)) };
         }
         for (const lid of Object.keys(famBy)) {
           const f = famBy[lid], m = mastersBy[lid];
+          /* A row that was Chung and is now Chia (split afterwards, or moved in
+             from this book as a split): my share is the space pass's to write,
+             so the full-amount master steps aside. The account it carried goes
+             with it as a hint for the share rows. */
+          if (shared[f.id]) {
+            if (m) {
+              try { if (m.acct && window.fhSpaceBookHint) window.fhSpaceBookHint(f.id, { acct: m.acct }); } catch (e) {}
+              await _sb().from('personal_transactions').delete().eq('id', m.id); changed++;
+              try { window.fhSpaceBookSyncSoon && window.fhSpaceBookSyncSoon(fid, 1200); } catch (e) {}
+            }
+            continue;
+          }
           const amtS = f.amount != null ? String(f.amount) : await fhDecStr(f.amount_enc);
           if (amtS == null || amtS === '') continue;
           const amt = Number(amtS); if (!isFinite(amt)) continue;

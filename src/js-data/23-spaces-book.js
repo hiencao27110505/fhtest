@@ -20,7 +20,7 @@
     function _hintsSave(h) { try { const k = Object.keys(h); if (k.length > 200) k.slice(0, k.length - 200).forEach((x) => { delete h[x]; }); localStorage.setItem(HINT_LS, JSON.stringify(h)); } catch (e) {} }
     window.fhSpaceBookHint = function (txnId, o) {
       if (!txnId || !o) return;
-      const h = _hints(); h[txnId] = { a: o.acct || null, n: o.outName || null }; _hintsSave(h);
+      const h = _hints(), was = h[txnId] || {}; h[txnId] = { a: o.acct || was.a || null, n: o.outName || was.n || null }; _hintsSave(h);   // a later caller that knows only one half keeps the other
     };
 
     const _running = {}, _again = {}, _timers = {};

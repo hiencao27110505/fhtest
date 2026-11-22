@@ -151,6 +151,8 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-11-22 (late) · Hien — Spaces: move a personal row into a space with its split · branch `fix/move-split` · SW `v640` · client only, no migration, no Edge Function.**
+  `59-ledger-move-ui.js` (sheet names the space, hosts the split control as host `mv`), `21-ledger-move.js` (`opts.split`, `opts.amt`), `19-personal.js` mirror: a linked row with a share row keeps NO master (deleted, its account kept as a book hint). `fhSpaceBookHint` now merges. Spec section 24.
 - **2026-11-22 (late) · Hien — Spaces: scanned receipts are split · branch `fix/scan-split` · SW `v639` · client only, no migration, no Edge Function.**
   `78-receipt-scan.js` saved scan rows into a space with no split (so no `txn_shares` row, no balance). The scan review now holds one split for the batch and hands each row's split to `submitBulk` (`rows[k].split`, same hand-off the review queue uses). `17-spaces-split-ui.js` learned `noExact` / `batch`. Spec section 23.
 - **2026-11-22 (night) · Hien — Spaces: inviting by email notifies the invitee · SW `v638` · `push-send` DEPLOYED v28 → v29 from branch `feat/spaces-invite-push` (live matched `main` file for file before the deploy) · no migration.**

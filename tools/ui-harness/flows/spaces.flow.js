@@ -568,5 +568,59 @@ module.exports = {
         t.expect(Math.abs(st.net - 88.125) < 0.001, 'now the other member owes half: ' + JSON.stringify(st));
       },
     },
+    {
+      /* 22/11: a row already in the personal book, moved into the friend space
+         from its edit sheet. The confirm sheet said "sổ gia đình", offered the
+         Shared seat as payer and never asked how the bill counts. */
+      name: 'o-a-personal-expense-moved-into-the-space-is-split',
+      lang: 'vi',
+      run: async (t) => {
+        await t.eval(FRIEND); await t.wait(300);
+        t.step('a private expense, opened in its edit sheet');
+        const ready = await t.eval(`(async function(){
+          var P = fhPersonalData();
+          __STUB.hang = '';                 // the harness parks personal reads by default; this journey needs them answered
+          if(!P.key) P.key = await FHCrypto.importDek(crypto.getRandomValues(new Uint8Array(32)));
+          if(!P.uid) P.uid = '00000000-0000-4000-8000-000000000001';
+          var d = new Date(Date.now() - 3*86400e3), iso = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+          P.txns = (P.txns||[]).concat([{ id:'ptx-move-1', kind:'expense', amt:1200, note:'Ve may bay ca hoi', cat:'Đi lại', emoji:'✈️', date:iso, accountId:null, photos:[] }]);
+          openPersonalTxEdit('ptx-move-1');
+          return { el: fhMoveEligibleEdit(), guard: fhLedgerMoveGuard() };
+        })()`);
+        await t.wait(500);
+        t.expect(ready.el && ready.el.cur === 'personal' && !ready.guard, 'the row can move: ' + JSON.stringify(ready));
+
+        t.step('choosing the space opens a sheet that asks how it counts');
+        await t.eval(`fhMoveChipTap('family')`); await t.wait(600);
+        const sh = await t.eval(() => ({ on: document.getElementById('sheet-move').classList.contains('on'), h: document.getElementById('mv-h').innerText,
+          text: document.getElementById('sheet-move').innerText, spx: !!document.querySelector('#mv-split #spx'),
+          payerShown: document.getElementById('mv-payerfield').style.display !== 'none',
+          host: window.FH_SPLIT ? FH_SPLIT._host + ':' + FH_SPLIT.mode : null }));
+        t.expect(sh.on && /nhóm Hội bạn thân/.test(sh.h) && !/gia đình|Cả nhà/.test(sh.text), 'the sheet names the space: ' + sh.h);
+        t.expect(sh.spx && sh.host === 'mv:chia' && /Tính thế nào/i.test(sh.text), 'the split control is on the sheet, on the space default: ' + sh.host);
+        t.expect(!sh.payerShown, 'a Chia move names its payer in the control only');
+        t.expect(/Chia đều, mỗi người/.test(sh.text), 'each share is shown: ' + sh.text.replace(/\n/g, ' | ').slice(-160));
+        await t.shot('01-move-sheet');
+
+        t.step('Chung brings the payer chips back, without the shared seat');
+        await t.eval(`fhSplitAct('mode','chung')`); await t.wait(200);
+        const ch = await t.eval(() => ({ shown: document.getElementById('mv-payerfield').style.display !== 'none',
+          chips: [].map.call(document.querySelectorAll('#mv-payer .choice'), (b) => b.dataset.v), seats: Object.keys(window.membersMeta || {}),
+          real: fhSpaceMembers(DB.fid).map((m) => m.name) }));
+        t.expect(ch.shown && ch.chips.length === ch.real.length && ch.chips.every((n) => ch.real.indexOf(n) >= 0), 'payer chips are the members: ' + JSON.stringify(ch));
+        await t.eval(`fhSplitAct('mode','chia')`); await t.wait(200);
+
+        t.step('Chuyển writes the expense and its split');
+        const before = (await t.writes()).length;
+        await t.eval(`void fhMoveConfirm()`); await t.wait(3500);
+        const w = (await t.writes()).slice(before);
+        t.expect(w.filter((x) => x.table === 'transactions' && x.op === 'insert').length === 1, 'one expense in the space: ' + JSON.stringify(w.map((x) => x.table + ':' + x.op)));
+        t.expect(w.filter((x) => x.table === 'txn_shares' && x.op === 'upsert').length === 1, 'its share row is written');
+        t.expect(w.filter((x) => x.table === 'personal_transactions' && x.op === 'update').length >= 1, 'the private row is converted');
+        const st = await t.eval(state);
+        t.expect(Math.abs(st.net - 600) < 0.001, 'the other member owes half: ' + JSON.stringify(st));
+        t.expect(await t.eval(() => !window.FH_SPLIT && !document.getElementById('sheet-move').classList.contains('on')), 'the sheet is closed and the control released');
+      },
+    },
   ],
 };

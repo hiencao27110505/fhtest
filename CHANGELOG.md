@@ -19,6 +19,18 @@ Going forward, add an entry here when a feature area changes meaningfully — se
 ---
 
 
+## 2026-11-22 (late) · Spaces: a personal row moved into a space is split (SW v640)
+
+- Moving a private expense into a friend space from its edit sheet used the
+  family's confirm sheet: "sổ gia đình", the shared seat as payer, no split.
+  `59-ledger-move-ui.js` now names the space and hosts the shared split control
+  (host `mv`); `fhLedgerMoveToFamily` takes `opts.split` / `opts.amt` and seals
+  the share row through `fhSpaceAfterSplitSave`.
+- `fhPersonalMirror` (19-personal.js) deletes the full-amount master of any
+  linked row that has a share row. Before this, a Chung expense split afterwards
+  was counted twice in its author's book (the master plus the share rows).
+- Flow `o`. Spec section 24, S47. Client only.
+
 ## 2026-11-22 (late) · Spaces: a scanned receipt is split like any other expense (SW v639)
 
 - A receipt scanned into a friend space was saved unsplit: the scan review
