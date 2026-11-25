@@ -265,6 +265,14 @@ function fhStmtSummary(notes, preambleN){
   return out;
 }
 
+/* A cell that ends with a figure printed the way money is: thousands
+   separators, or two decimals, optionally signed or in parens. A date, a phone
+   number, a bare id or a currency-trailed original amount does not. */
+var STMT_MONEY_END = /(?:^|\s)[+\-(]?\d{1,3}(?:[.,]\d{3})+(?:[.,]\d{1,2})?\)?$|(?:^|\s)[+\-(]?\d+[.,]\d{2}\)?$/;
+/* ...and the cells where such a figure is expected or harmless: the days, the
+   running balance, the original amount, and the amount cells themselves. */
+var STMT_NOT_MONEY_CELL = ['date', 'postDate', 'balance', 'fxAmount', 'amount', 'debit', 'credit'];
+
 var STMT_FAILED = ['that bai', 'khong thanh cong', 'failed', 'fail', 'da huy', 'bi huy', 'cancelled', 'canceled', 'declined', 'tu choi', 'rejected'];
 
 /* Body rows -> neutral row objects, in FILE order. `amt` is signed: money out is
@@ -294,6 +302,18 @@ function fhStmtRead(table){
     else {
       var db = Math.abs(fig('debit') || 0), cr = Math.abs(fig('credit') || 0);
       if (db || cr) amt = cr - db;
+    }
+    /* The amount cells hold no digit at all, yet another cell of the row ENDS
+       with a money-shaped figure: the figure was filed under the wrong column
+       (a PDF prints a figure wider than its heading left of it). Such a row
+       used to vanish here with no trace and sink the proof; it is named
+       instead. A row whose amount cells read "0.0" has digits and is not this. */
+    if (!bad && !/\d/.test(cell(b.cells, 'amount') + cell(b.cells, 'debit') + cell(b.cells, 'credit'))) {
+      for (var ci = 0; ci < b.cells.length && !bad; ci++) {
+        if (STMT_NOT_MONEY_CELL.some(function(k){ return R[k] === ci; })) continue;
+        var cs = String(b.cells[ci] == null ? '' : b.cells[ci]).replace(/\s+/g, ' ').trim();
+        if (STMT_MONEY_END.test(cs)) bad = { role: Object.keys(R).filter(function(k){ return R[k] === ci; })[0] || '', cell: cs, why: 'misplaced' };
+      }
     }
     if (bad) { unreadable.push({ i: b.i, date: when.date, role: bad.role, cell: bad.cell, why: bad.why }); return; }
     if (amt === null || amt === 0) return;
@@ -591,6 +611,31 @@ function fhStmtClassify(row, ctx){
   return out;
 }
 
+/* R3, when the arithmetic cannot say: which sign does the file's own wording
+   give its single amount column? Only rows worded one way and not the other
+   count: "mua hang", "thanh toan gd" and a fee are money out; "hoan tra",
+   "hoan tien", "refund" are money in, and so is "thanh toan sao ke the" on a
+   card (on an account the same words pay the card, money out, so they count
+   only when the summary speaks of debt or names a card number). -1 when at
+   least 3 rows are worded and at least 90% of them contradict the printed
+   sign; otherwise 1, the printed sign. */
+var STMT_WORD_MIN = 3, STMT_WORD_SHARE = 0.9;
+function fhStmtWordsSay(rows, summary){
+  summary = summary || {};
+  var card = summary.prevDebt !== undefined || summary.endDebt !== undefined ||
+    (summary.accountTails || []).some(function(t){ return t.label === 'card' && t.where === 'preamble'; });
+  var n = 0, against = 0;
+  (rows || []).forEach(function(r){
+    var w = stmtWords(r.description);
+    var out = _stmtHas(w, ['mua hang', 'thanh toan gd']) || (_stmtHas(w, ['phi']) && !_stmtHas(w, ['hoc phi', 'hoan phi']));
+    var inn = _stmtHas(w, ['hoan tra', 'hoan tien', 'refund']) || (card && _stmtHas(w, ['thanh toan sao ke the']));
+    if (out === inn) return;                       // unworded, or worded both ways
+    n++;
+    if ((out && r.amt > 0) || (inn && r.amt < 0)) against++;
+  });
+  return (n >= STMT_WORD_MIN && against / n >= STMT_WORD_SHARE) ? -1 : 1;
+}
+
 /* One call for the whole file. `rolesOverride` is a remembered or hand-confirmed
    mapping; `ctx` is what the app already knows about the file before opening it
    ({ provider }), which is half of how the issuer is recognised. Never throws on
@@ -600,21 +645,30 @@ function fhStmtParse(grid, rolesOverride, ctx){
   var table = fhStmtFindTable(grid || [], rolesOverride);
   var none = function(why){ return { table: null, why: why, issuer: STMT_ISSUER_DEFAULT.id, rows: [], failed: 0, unreadable: [], summary: {}, proof: { ok: false, how: '', ratio: 0, unreadable: 0, sign: 1 } }; };
   if (!table) return none('no_table');
-  if (fhStmtNotMoney(table.headers)) return none('not_money');
   var summary = fhStmtSummary(table.notes, table.preambleN);
+  /* R1: a points column rejects the file only when nothing else in it speaks
+     of money. Some banks print points earned beside each purchase of the real
+     card statement; there the points column has no role and is simply not read. */
+  var moneyEvidence = ['opening', 'closing', 'prevDebt', 'endDebt', 'totalDebit', 'totalCredit'].some(function(k){ return summary[k] !== undefined; })
+    || table.roles.balance !== undefined;
+  if (!moneyEvidence && fhStmtNotMoney(table.headers)) return none('not_money');
   var read = fhStmtRead(table);
   var proof = fhStmtProve(read.rows, summary, read.unreadable);
   /* R3. One signed amount column carries the bank's convention, not ours: one
      card statement prints purchases positive and payments negative. When the
      printed sign does not prove, the inverted one is put to the same checks,
      and the sign that proves is the sign; the rows go on in the app's convention
-     (money out negative). If neither proves, nothing is guessed: the printed
-     sign stands and the file asks (77 _stmNeedsAsk). Two-column files take the
-     sign from the column and never come here. */
+     (money out negative). Two-column files take the sign from the column and
+     never come here. */
   if (!proof.ok && !read.unreadable.length && table.roles.amount !== undefined && read.rows.length) {
     var flipped = read.rows.map(function(r){ return Object.assign({}, r, { amt: -r.amt }); });
     var proof2 = fhStmtProve(flipped, summary, read.unreadable);
     if (proof2.ok) { read.rows = flipped; proof = proof2; proof.sign = -1; }
+    /* Neither sign proves: the file's own wording decides the file's sign, and
+       only when it is near unanimous. The file still asks (proof.ok stays
+       false); what changes is that the question, and the rows behind it, are
+       the right way round. Mixed or thin evidence keeps the printed sign. */
+    else if (fhStmtWordsSay(read.rows, summary) === -1) { read.rows = flipped; proof = proof2; proof.sign = -1; }
   }
   var profile = fhStmtIssuer(table.roles, ctx || {});
   /* The holder is read once, off every row, before any row is classified: the
@@ -702,7 +756,7 @@ function fhStmtAccountFacts(parsed, kind){
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { fhStmtNum: fhStmtNum, fhStmtFigure: fhStmtFigure, fhStmtDate: fhStmtDate, fhStmtRoles: fhStmtRoles, fhStmtFindTable: fhStmtFindTable,
     fhStmtSummary: fhStmtSummary, fhStmtRead: fhStmtRead, fhStmtProve: fhStmtProve, fhStmtClassify: fhStmtClassify,
-    fhStmtParse: fhStmtParse, fhStmtHeaderSig: fhStmtHeaderSig, stmtDeburr: stmtDeburr, fhStmtAccountFacts: fhStmtAccountFacts, fhStmtNotMoney: fhStmtNotMoney,
+    fhStmtParse: fhStmtParse, fhStmtHeaderSig: fhStmtHeaderSig, stmtDeburr: stmtDeburr, fhStmtAccountFacts: fhStmtAccountFacts, fhStmtNotMoney: fhStmtNotMoney, fhStmtWordsSay: fhStmtWordsSay,
     STMT_ISSUERS: STMT_ISSUERS, STMT_ISSUER_DEFAULT: STMT_ISSUER_DEFAULT,
     fhStmtIssuer: fhStmtIssuer, fhStmtBankOf: fhStmtBankOf, fhStmtHolder: fhStmtHolder };
 }

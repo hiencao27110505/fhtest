@@ -13,8 +13,9 @@
        - a description spans two lines; a fee row has no transaction date, only
          a post date; the totals block and a glossary follow the table.
      Rules: rows = items clustered by y; cells = items joined across small gaps;
-     columns = the header cells' x-ranges, a cell assigned by its CENTRE (figures
-     are right-aligned and a wide one starts left of its heading); a row whose
+     columns = the header cells' x-ranges, a cell assigned by where it starts,
+     or, when a right-aligned figure wider than its heading starts in the column
+     before, by the heading it overlaps more (colFor); a row whose
      cells all sit in the last column joins the row above (the second line of a
      description); the second header line, digit-free and inside the columns,
      merges into the header so both languages name the roles; a bare date on a
@@ -131,9 +132,20 @@
       /* a run belongs to the column its START falls in: a heading and the text
          under it share a left edge, and a right-aligned figure starts at or after
          its heading's start while its centre can stray into the next column (the
-         real file's credit figures did exactly that). Known limit: a figure wider
-         than its heading starts in the column before. */
+         real file's credit figures did exactly that). */
       const colOf = (c) => { for (let i = spans.length - 1; i >= 0; i--) if (c.x0 >= spans[i].x0) return i; return 0; };
+      /* ...except a figure WIDER than its heading: right-aligned to the
+         heading's right edge, it starts left of the heading and so in the column
+         before. One real card PDF filed four of five payments under MCC that
+         way ("6012-Member Financial -1,366,000.00"), the amount cell came out
+         empty and the rows were lost before any proof could see them (reconcile
+         R3). So a run that starts in column k and still reaches past column
+         k+1's boundary goes to whichever of the two HEADINGS its extent overlaps
+         more. A credit figure whose end strays a few points into the next
+         column overlaps its own heading far more, and stays. */
+      const hx = hcells.map((c) => ({ x0: c.x0, x1: c.x1 }));
+      const over = (c, k) => Math.max(0, Math.min(c.x1, hx[k].x1) - Math.max(c.x0, hx[k].x0));
+      const colFor = (c) => { const k = colOf(c); return (k < spans.length - 1 && c.x1 > spans[k].x1 && over(c, k + 1) > over(c, k)) ? k + 1 : k; };
       let skip = -1;
       const next = rows[h + 1];
       if (next && next.page === head.page && !next.items.some((it) => /\d/.test(it.str))) {
@@ -206,7 +218,7 @@
         if (!runs.length) continue;
         const row = new Array(spans.length).fill('');
         const used = new Set();
-        runs.forEach((c) => { const k = colOf(c); row[k] = (row[k] ? row[k] + ' ' : '') + c.text; used.add(k); });
+        runs.forEach((c) => { const k = colFor(c); row[k] = (row[k] ? row[k] + ' ' : '') + c.text; used.add(k); });
         const hasDate = dateCols.some((k) => _isDate(row[k]));
         /* the second line of a description: only the last column is filled and
            the row above is a body row */

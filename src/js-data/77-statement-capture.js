@@ -422,11 +422,13 @@
        card, saying so and pointing at the one way out; the day the reader ships
        the same stored card opens. The server never decides readability. */
     const _stmCanRead = (card) => { const r = window.fhStmtReaders ? window.fhStmtReaders() : { xlsx: true, csv: true }; return !!r[String(card.file_ext || '').toLowerCase()]; };
-    function _stmCardHTML(card) {
+    /* `memo` is the device's why-a-card-was-left map (_stmAutoGet), read ONCE
+       per list by the caller, not once per card. */
+    function _stmCardHTML(card, memo) {
       const armed = _stmArmed === card.id, dead = !!card.keyLocked, unread = !dead && !_stmCanRead(card);
       /* A points statement (R1) stays a card that says what it is; ✕ puts it
-         away. Known once the file was read, by either path (_stmAutoGet). */
-      const points = !dead && !unread && _stmAutoGet()[card.id] === 'not_money';
+         away. Known once the file was read, by either path. */
+      const points = !dead && !unread && !!memo && memo[card.id] === 'not_money';
       const sub = unread ? L('File ' + String(card.file_ext || '').toUpperCase() + ', app chưa đọc được. Nếu ngân hàng có bản Excel/CSV, chọn file đó ở đây.',
                              'The app cannot read ' + String(card.file_ext || '').toUpperCase() + ' files yet. If your bank offers Excel/CSV, pick that file here.')
         : points ? L('Sao kê điểm thưởng, không có khoản tiền nào.', 'A reward points statement, with no money movements.') : _stmSub(card);
@@ -441,6 +443,7 @@
           (armed ? _esc(L('Bỏ?', 'Remove?')) : '✕') + '</button>' +
         '</div>';
     }
+    const _stmCardsOf = (cards) => { const memo = _stmAutoGet(); return cards.map((c) => _stmCardHTML(c, memo)).join(''); };
     /* Filter by bank. Six statements from two banks is already a list worth narrowing,
        and a year of history is thirty. Chips appear only when there is a choice to make;
        the same chip style as "Chọn nhanh", so it reads as the same kind of control. */
@@ -497,7 +500,7 @@
       const fresh = _stmCards.filter((c) => !c.backfill && (!_stmProvF || _stmProvOf(c) === _stmProvF));
       if (!fresh.length) return '';
       return '<div class="group-h attn">' + _esc(L('Sao kê', 'Statements')) + ' · ' + fresh.length + '</div>' +
-        '<div class="csv-cards">' + fresh.map(_stmCardHTML).join('') + '</div>';
+        '<div class="csv-cards">' + _stmCardsOf(fresh) + '</div>';
     }
     /* The wrapper stays while there is any fresh card, filtered out or not, so
        a chip tap has somewhere to repaint into; a backlog-only queue adds nothing. */
@@ -547,7 +550,7 @@
       if (!old.length) return h + '<div class="ctp-m"><b>' + _esc(L('Không còn sao kê cũ nào.', 'No older statements left.')) + '</b></div>';
       h += '<div class="cts-sub">' + _esc(L('Sao kê tìm thấy khi đọc lịch sử email. Mở cái nào cần, bỏ cái nào không.',
         'Statements found while reading email history. Open what you need, dismiss the rest.')) + '</div>';
-      return h + '<div class="csv-cards">' + old.map(_stmCardHTML).join('') + '</div>';
+      return h + '<div class="csv-cards">' + _stmCardsOf(old) + '</div>';
     };
     /* Kept for the bridge. Nothing reads _stmOldOpen since the backlog moved into
        the toolbox drawer (56 csvToolOpen('stmtold')), so the flip repaints nothing. */
@@ -626,8 +629,9 @@
        builder's version: bump STM_GRID_V whenever 43-pdf-grid.js or
        42-xlsx-parse.js changes what it returns for the same bytes, or a fixed
        reader keeps meeting the old grid of a file it has seen (2026-11-08: the
-       geometric cut, PS30). Entries under an old key fall out by age. */
-    const STM_GRID_V = 2;
+       geometric cut, PS30; 2026-11-25: a figure wider than its heading, 43
+       colFor). Entries under an old key fall out by age. */
+    const STM_GRID_V = 3;
     const _stmGridKey = (sha) => sha ? String(sha) + '#' + STM_GRID_V : '';
     const _stmGridMem = new Map();                   // key -> grid, this session
     function _stmGridMemSet(sha, grid) {
@@ -814,7 +818,11 @@
        every staged payload carries it (`fp`), so the queue's own read is enough:
        the same query as fhStmtLoad, decrypted through the same cache. Rows this
        device retired but the server still holds are counted too: the person
-       already decided on them. */
+       already decided on them. Known limit: that query is ONE page, the newest
+       STM_ROW_PAGE (1000) rows by day. With more waiting than that, a copy of an
+       older waiting row is not seen here and goes in again; the queue then shows
+       it twice, as it did before R9. Accepted: a thousand waiting statement rows
+       is a queue nobody is working through. */
     async function _stmWaiting(sid) {
       const res = await window.sb.from('statement_rows')
         .select('id,statement_id,row_index,txn_date,payload_enc').order('txn_date', { ascending: false }).limit(STM_ROW_PAGE);
