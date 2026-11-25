@@ -108,6 +108,20 @@ function fhDedupTwoMoments(c, t, sameDay){
   return sameDay ? Math.abs(a - b) >= FH_DEDUP_MOMENT_GAP : true;
 }
 
+/* The direction of a ledger row's money on its account, from its kind and its
+   stored sign: the same convention the account balances walk (19-personal.js,
+   "Contribution"): expense and loan move -amt (an expense is stored +X; a loan
+   +X lent drains, -X borrowed fills), income, transfer, repayment and
+   investment move +amt (transfer and investment legs carry their sign inside
+   the ciphertext; a legacy one-leg top-up is +X into its account). An unknown
+   kind reads like the index's default, expense. -1 = out, +1 = in.
+   (reconcile-spec R11: the new matcher compares this, never the kind.) */
+function fhDedupFlow(kind, amt){
+  var a = Number(amt) || 0;
+  var s = (kind === 'income' || kind === 'transfer' || kind === 'repayment' || kind === 'investment') ? a : -a;
+  return s < 0 ? -1 : 1;
+}
+
 /* THE LEDGER THIS IMPORT WILL LAND IN — both books, when both are in play.
    Destination is per row and editable until Import, so the index is wider than
    "the book this row is going to": a hit in either book is worth the same tap.
@@ -121,11 +135,19 @@ function fhDedupTwoMoments(c, t, sameDay){
    confirm a duplicate only with text or minute agreement, never on amount and
    day alone (five of ten false flags on the measured queue were exactly that).
 
-   Personal rows: the review-time slice (fhPersonalMatchSlice, 365-day horizon,
-   all kinds) when present, else the ~2-month tab cache. MIRRORS ARE DROPPED —
+   Personal rows: the review-time slice (fhPersonalMatchSlice, 365-day horizon
+   or the period being judged when that reaches further back (R18), all kinds)
+   when present, else the ~2-month tab cache. MIRRORS ARE DROPPED —
    a family row the person authored is copied into their personal book with a
    link, and indexing both let two candidates each claim "their own" copy of
-   one purchase. */
+   one purchase.
+
+   reconcile-spec §11 (R11, R18): every entry also carries `absD` (unsigned
+   đồng), `dir` ('out' | 'in', the money's direction on its account), `acct`
+   (personal only, on BOTH personal paths: the slice names it `acct`, the tab
+   cache `accountId`), `party` (the personal counterparty; `who` stays '' so
+   the rules below read exactly what they always read) and `refs` (none yet;
+   Part 4 fills them). The rules in this file read none of those five. */
 function fhDedupLedgerIndex(){
   var mult = (typeof curMult === 'function' ? curMult() : 1) || 1;
   var myMember = (typeof window !== 'undefined' && window.DB && window.DB.ownerMemberId) || null;
@@ -137,7 +159,8 @@ function fhDedupLedgerIndex(){
     if(t.who === 'Shared') mine = null;
     add({ id: t.id, amtD: Number(t.amt) * mult, _d: t._d, day: fhDedupDay(t._d), kind: t.kind || 'expense',
           book: 'family', note: t.note || '', cat: t.cat || '', who: t.who || '', mine: mine,
-          inst: t.inst || '', src: t.src || '', time: t.time || '' });
+          inst: t.inst || '', src: t.src || '', time: t.time || '',
+          absD: Math.abs(Number(t.amt) * mult), dir: fhDedupFlow(t.kind || 'expense', t.amt) < 0 ? 'out' : 'in', acct: null, party: '', refs: null });
   });
   /* Spaces (spaces-spec 7.3): every OTHER space this device has read. A bank row
      for a bill someone already recorded in a space is flagged like any other
@@ -155,7 +178,8 @@ function fhDedupLedgerIndex(){
         var s = d.shares[t.id], bill = (s && s.map && s.map._bill) ? Number(s.map._bill) : Number(t.amt);   // the bank saw the whole bill
         add({ id: t.id, amtD: bill * mult, _d: dt, day: fhDedupDay(dt), kind: 'expense',
               book: 'space', spaceId: sp.id, spaceName: sp.name || '', note: t.note || '', cat: '', who: '', mine: (my ? t.payer === my : null),
-              inst: '', src: '', time: t.time || '' });
+              inst: '', src: '', time: t.time || '',
+              absD: Math.abs(bill * mult), dir: 'out', acct: null, party: '', refs: null });
       });
     });
   }catch(e){}
@@ -171,7 +195,9 @@ function fhDedupLedgerIndex(){
     if(isNaN(d.getTime())) return;
     add({ id: t.id, amtD: Number(t.amt) * mult, _d: d, day: fhDedupDay(d), kind: t.kind || 'expense',
           book: 'personal', note: t.note || '', cat: t.cat || '', who: '', mine: true,
-          inst: '', src: t.src || '', time: t.time || '', acct: t.acct || null });
+          inst: '', src: t.src || '', time: t.time || '', acct: t.acct || t.accountId || null,
+          absD: Math.abs(Number(t.amt) * mult), dir: fhDedupFlow(t.kind || 'expense', t.amt) < 0 ? 'out' : 'in',
+          party: (t.who != null ? t.who : t.payee) || '', refs: t.refs || null });
   });
   return { rows: rows, byAmt: byAmt };
 }
