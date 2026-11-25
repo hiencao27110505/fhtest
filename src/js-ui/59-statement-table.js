@@ -154,16 +154,28 @@ function fhStmtFindTable(grid, rolesOverride){
   if (headerIdx < 0) { headerIdx = firstIdx; roles = firstRoles; }
   if (headerIdx < 0) return null;
   if (rolesOverride) roles = rolesOverride;
-  var body = [], notes = [];
+  var body = [], notes = [], preambleN = 0;
   for (var j = 0; j < grid.length; j++) {
     if (j === headerIdx) continue;
     var cells = grid[j] || [];
     /* a fee row on a card statement has no transaction date, only a post date
        (pdf-statements-spec PS10): the post date is its day */
     if (j > headerIdx && (fhStmtDate(cells[roles.date]) || (roles.postDate !== undefined && fhStmtDate(cells[roles.postDate])))) body.push({ i: j, cells: cells });
-    else if (cells.some(function(x){ return String(x == null ? '' : x).trim() !== ''; })) notes.push(cells);
+    else if (cells.some(function(x){ return String(x == null ? '' : x).trim() !== ''; })) { notes.push(cells); if (j < headerIdx) preambleN++; }
   }
-  return { headerIdx: headerIdx, headers: (grid[headerIdx] || []).map(String), roles: roles, body: body, notes: notes };
+  /* `preambleN`: the first preambleN notes sit above the header, the rest are
+     sub-header and totals rows inside or after the table (R2 tells them apart). */
+  return { headerIdx: headerIdx, headers: (grid[headerIdx] || []).map(String), roles: roles, body: body, notes: notes, preambleN: preambleN };
+}
+
+/* A points or miles column makes the table a loyalty statement, not a money one
+   (reconcile-spec R1): its "Số tiền" is what the purchases cost, already on the
+   card's own statement. Only a HEADER cell counts: a money statement may well
+   mention points in its preamble. Bare "dam" (dặm) is left out on purpose: it is
+   also the "đảm" of "đảm bảo". */
+var STMT_POINTS = ['so diem', 'diem thuong', 'diem tich luy', 'loyalty point', 'loyalty points', 'reward point', 'reward points', 'so dam', 'dam bay', 'miles'];
+function fhStmtNotMoney(headerCells){
+  return (headerCells || []).some(function(h){ return _stmtHas(stmtWords(h), STMT_POINTS); });
 }
 
 /* The summary block: label cell, then the first cell to its right that reads as
@@ -188,14 +200,35 @@ var STMT_LABELS = [
   ['autoDebit',   ['so tk trich no', 'tai khoan trich no', 'auto debit account']],
   ['account',     ['so tai khoan', 'account number', 'so the chinh', 'primary card number', 'so vi']]
 ];
-function fhStmtSummary(notes){
-  var out = {};
-  (notes || []).forEach(function(cells){
+/* A card number, by its label or by its printed shape ("512345******6789"). */
+var STMT_CARD_LABELS = ['so the chinh', 'primary card number'];
+var STMT_PAN = /^\d{4,8}[*xX•.]{3,}\d{4}$/;
+/* `preambleN` (from fhStmtFindTable): how many leading notes sit above the
+   header. Absent, every note counts as preamble.
+
+   Every label but `account` is read once, first hit wins. `account` is read
+   every time (R2): a card statement names the card number, the card's own
+   account number and, on sub-header rows inside the table, both again. Each
+   number goes to `accountTails` in file order, distinct by label and tail:
+     [{ tail: '6789', label: 'card' | 'account', where: 'preamble' | 'table' }]
+   `accountTail` is the card number from the preamble when there is one, else
+   the first account number from the preamble. A number seen only inside the
+   table is collected and never becomes `accountTail`. */
+function fhStmtSummary(notes, preambleN){
+  var out = {}, tails = [], seenTail = {};
+  (notes || []).forEach(function(cells, ni){
+    var where = (preambleN === undefined || ni < preambleN) ? 'preamble' : 'table';
     for (var c = 0; c < cells.length; c++) {
       var w = stmtWords(cells[c]); if (w.trim() === '') continue;
       for (var k = 0; k < STMT_LABELS.length; k++) {
         var key = STMT_LABELS[k][0];
-        if (out[key] !== undefined || !_stmtHas(w, STMT_LABELS[k][1])) continue;
+        if (!_stmtHas(w, STMT_LABELS[k][1])) continue;
+        /* The guard reads the field each key writes; it used to test out.account
+           and out.autoDebit, which nothing writes, so the LAST account line won.
+           A second auto-debit line stops here too, never falling through to
+           `account`: it is still somebody else's account. */
+        if (key === 'autoDebit' && out.autoDebitTail !== undefined) break;
+        if (key !== 'account' && key !== 'autoDebit' && out[key] !== undefined) continue;
         for (var v = c + 1; v < cells.length; v++) {
           var raw = String(cells[v] == null ? '' : cells[v]).replace(/^\s*:\s*/, '').trim();
           if (raw === '') continue;
@@ -206,7 +239,12 @@ function fhStmtSummary(notes){
             if (a && b) out.period = { from: a.date, to: b.date };
           } else if (key === 'account') {
             /* Only the masked tail is ever kept. The full number stays in the file. */
-            var dg = raw.replace(/\D/g, ''); if (dg.length >= 4) out.accountTail = dg.slice(-4);
+            var dg = raw.replace(/\D/g, '');
+            if (dg.length >= 4) {
+              var lbl = (_stmtHas(w, STMT_CARD_LABELS) || STMT_PAN.test(raw.replace(/\s+/g, ''))) ? 'card' : 'account';
+              var tk = lbl + '|' + dg.slice(-4);
+              if (!seenTail[tk]) { seenTail[tk] = true; tails.push({ tail: dg.slice(-4), label: lbl, where: where }); }
+            }
           } else if (key === 'autoDebit') {
             var ad = raw.replace(/\D/g, ''); if (ad.length >= 4) out.autoDebitTail = ad.slice(-4);
           } else if (key === 'stmtDate' || key === 'dueDate') {
@@ -218,6 +256,12 @@ function fhStmtSummary(notes){
       }
     }
   });
+  if (tails.length) {
+    out.accountTails = tails;
+    var pre = tails.filter(function(t){ return t.where === 'preamble'; });
+    var primary = pre.filter(function(t){ return t.label === 'card'; })[0] || pre[0];
+    if (primary) out.accountTail = primary.tail;
+  }
   return out;
 }
 
@@ -274,12 +318,13 @@ function fhStmtRead(table){
   return { rows: rows, failed: failed, unreadable: unreadable };
 }
 
-/* The proof. Returns { ok, how, ratio, order, totals, oldestFirst } and marks each
-   row that broke a proven running balance: `unmoved` when the balance simply did
-   not change (paid from somewhere else), `broken` otherwise. */
+/* The proof. Returns { ok, how, ratio, order, totals, oldestFirst, sign } and marks
+   each row that broke a proven running balance: `unmoved` when the balance simply
+   did not change (paid from somewhere else), `broken` otherwise. `sign` is 1 here;
+   fhStmtParse sets -1 when a single amount column proved only inverted (R3). */
 function fhStmtProve(rows, summary, unreadable){
   summary = summary || {};
-  var out = { ok: false, how: '', ratio: 0, order: 'file', totals: false, oldestFirst: rows.slice(), unreadable: (unreadable || []).length };
+  var out = { ok: false, how: '', ratio: 0, order: 'file', totals: false, oldestFirst: rows.slice(), unreadable: (unreadable || []).length, sign: 1 };
   if (!rows.length) return out;
   var withBal = rows.filter(function(r){ return r.bal !== null; });
   /* `strict` = the balance moved by exactly the amount. `soft` also accepts a DEBIT
@@ -549,13 +594,28 @@ function fhStmtClassify(row, ctx){
 /* One call for the whole file. `rolesOverride` is a remembered or hand-confirmed
    mapping; `ctx` is what the app already knows about the file before opening it
    ({ provider }), which is half of how the issuer is recognised. Never throws on
-   a strange file: `table: null` means "no table found". */
+   a strange file: `table: null` means no money table, and `why` says which:
+   'no_table' (none found) or 'not_money' (a points statement, R1). */
 function fhStmtParse(grid, rolesOverride, ctx){
   var table = fhStmtFindTable(grid || [], rolesOverride);
-  if (!table) return { table: null, issuer: STMT_ISSUER_DEFAULT.id, rows: [], failed: 0, unreadable: [], summary: {}, proof: { ok: false, how: '', ratio: 0, unreadable: 0 } };
-  var summary = fhStmtSummary(table.notes);
+  var none = function(why){ return { table: null, why: why, issuer: STMT_ISSUER_DEFAULT.id, rows: [], failed: 0, unreadable: [], summary: {}, proof: { ok: false, how: '', ratio: 0, unreadable: 0, sign: 1 } }; };
+  if (!table) return none('no_table');
+  if (fhStmtNotMoney(table.headers)) return none('not_money');
+  var summary = fhStmtSummary(table.notes, table.preambleN);
   var read = fhStmtRead(table);
   var proof = fhStmtProve(read.rows, summary, read.unreadable);
+  /* R3. One signed amount column carries the bank's convention, not ours: one
+     card statement prints purchases positive and payments negative. When the
+     printed sign does not prove, the inverted one is put to the same checks,
+     and the sign that proves is the sign; the rows go on in the app's convention
+     (money out negative). If neither proves, nothing is guessed: the printed
+     sign stands and the file asks (77 _stmNeedsAsk). Two-column files take the
+     sign from the column and never come here. */
+  if (!proof.ok && !read.unreadable.length && table.roles.amount !== undefined && read.rows.length) {
+    var flipped = read.rows.map(function(r){ return Object.assign({}, r, { amt: -r.amt }); });
+    var proof2 = fhStmtProve(flipped, summary, read.unreadable);
+    if (proof2.ok) { read.rows = flipped; proof = proof2; proof.sign = -1; }
+  }
   var profile = fhStmtIssuer(table.roles, ctx || {});
   /* The holder is read once, off every row, before any row is classified: the
      self test asks "is the other side me?", and one row cannot answer that. */
@@ -642,7 +702,7 @@ function fhStmtAccountFacts(parsed, kind){
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { fhStmtNum: fhStmtNum, fhStmtFigure: fhStmtFigure, fhStmtDate: fhStmtDate, fhStmtRoles: fhStmtRoles, fhStmtFindTable: fhStmtFindTable,
     fhStmtSummary: fhStmtSummary, fhStmtRead: fhStmtRead, fhStmtProve: fhStmtProve, fhStmtClassify: fhStmtClassify,
-    fhStmtParse: fhStmtParse, fhStmtHeaderSig: fhStmtHeaderSig, stmtDeburr: stmtDeburr, fhStmtAccountFacts: fhStmtAccountFacts,
+    fhStmtParse: fhStmtParse, fhStmtHeaderSig: fhStmtHeaderSig, stmtDeburr: stmtDeburr, fhStmtAccountFacts: fhStmtAccountFacts, fhStmtNotMoney: fhStmtNotMoney,
     STMT_ISSUERS: STMT_ISSUERS, STMT_ISSUER_DEFAULT: STMT_ISSUER_DEFAULT,
     fhStmtIssuer: fhStmtIssuer, fhStmtBankOf: fhStmtBankOf, fhStmtHolder: fhStmtHolder };
 }

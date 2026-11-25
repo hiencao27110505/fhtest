@@ -52,7 +52,9 @@ t('every row read', a.rows.length === am.rows, a.rows.length);
 t('summary read from side-by-side label pairs', a.summary.opening === am.opening && a.summary.closing === am.closing && a.summary.totalDebit === am.total_debit && a.summary.totalCredit === am.total_credit, a.summary);
 t('period read', a.summary.period && a.summary.period.from === '2026-08-01' && a.summary.period.to === '2026-08-31', a.summary.period);
 t('only the account TAIL is kept', a.summary.accountTail === '3444' && JSON.stringify(a.summary).indexOf('000111222333444') < 0);
+t('one account number, collected with its label (R2)', JSON.stringify(a.summary.accountTails) === JSON.stringify([{ tail: '3444', label: 'account', where: 'preamble' }]), a.summary.accountTails);
 t('proof passes on the running balance', a.proof.ok && a.proof.how === 'running' && a.proof.ratio === 1, a.proof);
+t('two columns: the column gives the sign, nothing is inverted (R3)', a.proof.sign === 1);
 t('and the totals agree too', a.proof.totals === true);
 t('row order discovered: newest-first', a.proof.order === 'newest-first');
 t('rows handed back oldest-first', a.rows[0].date === '2026-08-01' && a.rows[a.rows.length - 1].date === '2026-08-28');
@@ -86,6 +88,13 @@ t('the row uses the TRANSACTION date, not the post date', c.rows.some((r) => /Fo
 t('repayment recognised', c.rows.filter((r) => r.cls.flow === 'cardpay').length === 1);
 t('FX fee is a fee', c.rows.some((r) => r.cls.flow === 'fee' && /Ngoại Tệ/.test(r.description)));
 t('card tail only', c.summary.accountTail === '6789', c.summary.accountTail);
+/* R2. The card number wins because it IS the card number, not because a
+   sub-header inside the table happens to repeat it last. */
+t('both preamble numbers collected in file order, the in-table repeats not twice', JSON.stringify(c.summary.accountTails) ===
+  JSON.stringify([{ tail: '6789', label: 'card', where: 'preamble' }, { tail: '3456', label: 'account', where: 'preamble' }]), c.summary.accountTails);
+var cNoRepeat = S.fhStmtParse(grid('credit-card').filter((r) => !/^Số thẻ\/ Số tài khoản/.test(r[0])));
+t('without the in-table sub-headers the card number is still the account', cNoRepeat.summary.accountTail === '6789' && cNoRepeat.proof.ok, cNoRepeat.summary.accountTail);
+t('the auto-debit account is read once and never taken for the card', c.summary.autoDebitTail === '3444' && !c.summary.accountTails.some((x) => x.tail === '3444'));
 
 console.log('\n-- e-wallet: signed column, failed rows, payments funded elsewhere --');
 var w = S.fhStmtParse(grid('ewallet')), wm = meta('ewallet');
@@ -94,6 +103,7 @@ t('roles incl. names before accounts', ['date', 'ref', 'description', 'fromAcct'
 t('names and accounts did not collide', new Set(['fromAcct', 'fromName', 'toAcct', 'toName'].map((k) => w.table.roles[k])).size === 4);
 t('the failed row is dropped and counted', w.failed === wm.failed && w.rows.length === wm.rows - wm.failed, { failed: w.failed, rows: w.rows.length });
 t('proof passes though two rows did not move the balance', w.proof.ok && w.proof.how === 'running' && w.proof.strict < 0.9 && w.proof.ratio >= 0.9, { strict: w.proof.strict, ratio: w.proof.ratio });
+t('one signed column that proves as printed keeps its printed sign (R3)', w.proof.sign === 1);
 var un = w.rows.filter((r) => r.unmoved);
 t('rows that did not move the balance are marked', un.length === wm.bank_funded, un.map((r) => r.description));
 t('...and read as funded elsewhere', un.every((r) => r.cls.fundedElsewhere));
@@ -119,8 +129,9 @@ var bad2 = S.fhStmtParse(grid('bank-account'), Object.assign({}, g2.roles, { deb
 t('debit and credit swapped: proof refuses', bad2.proof.ok === false, bad2.proof);
 
 console.log('\n-- never throws on a strange file --');
-t('empty grid', S.fhStmtParse([]).table === null);
+t('empty grid', S.fhStmtParse([]).table === null && S.fhStmtParse([]).why === 'no_table');
 t('a sheet with no table', S.fhStmtParse([['Xin chào'], ['Không có bảng nào ở đây']]).table === null);
+t('a points table is no money table (R1, more in statement-safety.test.js)', S.fhStmtParse(grid('credit-card-points')).why === 'not_money');
 t('header signature carries labels, never values', /so tien/.test(w.sig) && !/\d{5,}/.test(w.sig));
 
 console.log('\n' + (fail ? fail + ' FAILED, ' : 'ALL ') + pass + ' PASSED');
