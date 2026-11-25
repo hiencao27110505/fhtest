@@ -1196,7 +1196,10 @@
         /* R1: said once here, and kept on the card through the same memory the
            unattended pass writes, so the list says it too. */
         const m = _stmAutoGet(); m[X.card.id] = 'not_money'; _stmAutoSet(m);
-        return _stmFail(L('Đây là sao kê điểm thưởng, không có khoản tiền nào để thêm.', 'This is a reward points statement, with no money movements to add.'), false);
+        /* Not a failure, so not _stmFail's red line: the file was read and it
+           is simply not about money. A plain lead and a way back. */
+        return _stmPaint(_stmHead(_stmTitle(S.card), L('Đây là sao kê điểm thưởng, không có khoản tiền nào để thêm.', 'This is a reward points statement, with no money movements to add.')) +
+          '<button type="button" class="csv-linkbtn csv-unlock-skip" onclick="fhStmtCancel()">' + _esc(L('Đóng', 'Close')) + '</button>');
       }
       if (!parsed.table || !parsed.rows.length) return _stmFail(L('Không thấy bảng giao dịch trong file này.', 'No transaction table found in this file.'), false);
       if (_stmNeedsAsk(X)) return _stmAskMapping();
