@@ -31,6 +31,14 @@ const nodeCrypto = require('crypto');
      reading against, so the vocabulary's reading has to be confirmed by a person. */
   const BAL = T.fhStmtParse(GRID, null, { provider: 'MoMo' }).table.roles.balance;
   const GRID_NOBAL = GRID.map((r) => r.filter((_, i) => i !== BAL));
+  /* A card statement for a mail that says "thẻ tín dụng": the wallet's grid
+     under a card subject is a file whose evidence disagrees, which asks (R4). */
+  const CARD = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'statements', 'credit-card.grid.json'), 'utf8'));
+  /* Next month's statement: every day a month on and every transaction id new,
+     so none of its rows is already waiting from the first (R9). */
+  const nextMonth = (g) => g.map((r) => r.map((c) => String(c)
+    .replace(/\b(\d\d)\/08\/2026/g, (m, d) => String(Math.min(+d, 30)).padStart(2, '0') + '/09/2026')
+    .replace(/^9\d{10}$/, (m) => String(+m + 1e9))));
   const SRC = fs.readFileSync(path.join(__dirname, '..', 'src', 'js-data', '77-statement-capture.js'), 'utf8');
   const src18 = fs.readFileSync(path.join(__dirname, '..', 'src', 'js-data', '18-staging-keys.js'), 'utf8');
   const fx = (name) => { const j = src18.indexOf('function ' + name); if (j < 0) { console.error(name + ' not found'); process.exit(1); } return src18.slice(j, src18.indexOf('\n    }', j) + 6); };
@@ -47,7 +55,7 @@ const nodeCrypto = require('crypto');
       const bytes = new Uint8Array(nodeCrypto.randomBytes(256));
       const sha = nodeCrypto.createHash('sha256').update(bytes).digest('hex');
       const msg = 'm-' + id;
-      const m = SB.sealForFamily(Object.assign({ filename: id + '.xlsx', subject: o.subject || 'Sao kê lịch sử giao dịch', file_sha256: sha, period_month: o.month || '2026-09' }, {}), pub, OWNER, msg, { nacl, rng: nodeCrypto.webcrypto }, 'personal');
+      const m = SB.sealForFamily(Object.assign({ filename: id + '.xlsx', subject: o.subject || 'Sao kê lịch sử giao dịch', file_sha256: sha, period_month: o.month || '2026-09' }, o.tail ? { account_tail: o.tail } : {}), pub, OWNER, msg, { nacl, rng: nodeCrypto.webcrypto }, 'personal');
       const f = { id, gmail_message_id: msg, part_index: 0, source_provider: provider, received_at: '2026-09-' + String(28 - (seq++)).padStart(2, '0') + 'T16:38:00+00:00', file_ext: 'xlsx', byte_size: 256,
         object_path: OWNER + '/' + id + '.sealed', meta_sealed: m.sealed, meta_eph_pub: m.eph_pub, meta_nonce: m.nonce, enc_v: m.enc_v, status: 'pending', backfill: !!o.backfill };
       sv.files.push(f);
@@ -156,7 +164,7 @@ const nodeCrypto = require('crypto');
   t('a tap on one still opens it, and it goes straight in', sv.staged.length === 1 && sv.staged[0].p_statement_id === 'old1' && A.calls.reopened === 1);
 
   console.log('\n-- 4. a locked file waits for its password, and is not fetched again to find that out --');
-  sv = server(); ls = mkStore(); sv.add('c1', 'VIB', { password: 'hunter2', subject: 'SAO KE THE TIN DUNG VIB THANG 08 NAM 2026', month: '2026-08' });
+  sv = server(); ls = mkStore(); sv.add('c1', 'VIB', { password: 'hunter2', subject: 'SAO KE THE TIN DUNG VIB THANG 08 NAM 2026', month: '2026-08', grid: CARD });
   A = boot(sv, ls);
   out = await A.open();
   t('first open: fetched once, found locked, left as a card', sv.downloads === 1 && sv.staged.length === 0 && out.cards.length === 1 && A.el('csv-result').innerHTML === '');
@@ -173,7 +181,7 @@ const nodeCrypto = require('crypto');
   B.el('stm-pw').value = 'hunter2'; B.el('stm-rem').checked = true;
   B.window.fhStmtUnlock(); await wait(150);
   t('the right password goes straight to the queue: no summary in between', sv.staged.length === 1 && sv.staged[0].p_statement_id === 'c1' && B.calls.reopened === 1 && B.window.fhStmtFlowActive() === false, sv.staged.length);
-  sv.add('c2', 'VIB', { password: 'hunter2', subject: 'SAO KE THE TIN DUNG VIB THANG 09 NAM 2026', month: '2026-09' });
+  sv.add('c2', 'VIB', { password: 'hunter2', subject: 'SAO KE THE TIN DUNG VIB THANG 09 NAM 2026', month: '2026-09', grid: nextMonth(CARD) });
   sv.add('m9', 'MoMo', { password: 'other' });
   let C = boot(sv, ls);                               // next month, a new session
   out = await C.open();
@@ -208,13 +216,17 @@ const nodeCrypto = require('crypto');
   t('a tap shows which column was read as what', /Tụi mình đọc cột thế này/.test(html) && /fhStmtMappingOk/.test(html) && /chưa ghi vào sổ/.test(html));
   await A.window.fhStmtMappingOk();
   t('"Đúng rồi" sends the rows in', sv.staged.length === 1 && sv.staged[0].p_rows.length === 13);
-  sv.add('n2', 'MoMo', { grid: GRID_NOBAL });
+  sv.add('n2', 'MoMo', { grid: nextMonth(GRID_NOBAL) });
   B = boot(sv, ls);
   out = await B.open();
   t('the next statement of that format is not asked about again: it stages itself', sv.staged.length === 2 && sv.staged[1].p_statement_id === 'n2' && out.cards.length === 0);
+  t('...because it is the same account, kind and sign the person confirmed (R5), and all its rows go in', sv.staged[1].p_rows.length === 13, sv.staged[1].p_rows.length);
   sv.add('n3', 'VIB', { grid: GRID_NOBAL });
   out = await B.open();
   t('the same columns from another sender are a different format, and still ask', sv.staged.length === 2 && out.cards.length === 1 && out.cards[0].id === 'n3');
+  sv.add('n4', 'MoMo', { grid: nextMonth(nextMonth(GRID_NOBAL)), tail: '1217' });
+  out = await B.open();
+  t('the same format for ANOTHER account asks: the confirmed answer was about the first one (R5)', sv.staged.length === 2 && out.cards.some((c) => c.id === 'n4'), out.cards.map((c) => c.id));
 
   console.log('\n-- 8. bounded: the person asked for a queue, not a wait --');
   sv = server(); ls = mkStore(); sv.add('a', 'MoMo'); sv.add('b', 'VIB'); sv.add('c', 'TPBank');

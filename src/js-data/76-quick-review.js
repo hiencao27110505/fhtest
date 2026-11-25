@@ -380,7 +380,10 @@
            (where the chip and the evidence live) and the next clean row is
            tried instead. Locked or failing ledgers degrade to no index, which
            the engine reads as "nothing to match" — the teaser still works. */
-        var row = null, re = null, dupIndex = null;
+        var row = null, re = null, dupIndex = null, reconAccts = null;
+        /* R18: the slice reaches back to the oldest row this sheet may judge. */
+        var qRange = window.fhReconSliceRange ? window.fhReconSliceRange(pool.slice(0, 6).map(function (r) { return r.occurred_at; })) : null;
+        var reconOn = !!(window.fhReconMode && window.fhReconMode() !== 'off' && window.fhReconCandFacts);
         for (var pi = 0; pi < pool.length && pi < 6; pi++) {
           var cand = pool[pi];
           var opened = await _qrOpen(cand);
@@ -388,17 +391,29 @@
           if (window.fhDedupAssess && window.fhDedupLedgerIndex) {
             try {
               if (dupIndex === null) {
-                try { window._fhPersonalMatchSlice = window.fhPersonalMatchSlice ? await window.fhPersonalMatchSlice() : null; } catch (eS) {}
+                try { window._fhPersonalMatchSlice = window.fhPersonalMatchSlice ? await window.fhPersonalMatchSlice(qRange) : null; } catch (eS) {}
                 dupIndex = window.fhDedupLedgerIndex();
+                if (reconOn) reconAccts = window.fhReconAcctIndex();
               }
               var oa0 = cand.occurred_at ? new Date(cand.occurred_at) : null;
               var f0 = opened.flow || (opened.direction === 'credit' ? 'income' : 'expense');
-              var v = window.fhDedupAssess([{
+              var qc = {
                 amount: Number(opened.amount) || 0, date: oa0, dateDisplay: oa0 && !isNaN(oa0.getTime()) ? _qrLocalIso(oa0) : '',
                 time: _qrTime(cand.occurred_at, opened) || '', description: _qrDesc(opened), counterparty: opened.counterparty || '',
                 isIncome: f0 === 'income', isTransfer: f0 === 'transfer', accountKind: opened.account_kind || null,
                 counterpartyKind: opened.counterparty_kind || '',
-                provider: cand.source_provider || '', currency: opened.currency || 'VND' }], dupIndex)[0];
+                provider: cand.source_provider || '', currency: opened.currency || 'VND' };
+              /* reconcile-spec §11: the new matcher's facts, beside the old fields
+                 (58-recon.js, the same helper the full review uses). */
+              if (reconOn) {
+                try {   // a throw here must not skip the old engine's gate below
+                  var qf = window.fhReconCandFacts({ rx: opened, provider: qc.provider, staged: true,
+                    otherKind: !!(opened.transaction_type && opened.transaction_type !== 'bank_txn' && opened.transaction_type !== 'p2p_transfer'),
+                    isIncome: qc.isIncome, text: qc.description + ' ' + qc.counterparty }, reconAccts);
+                  for (var qk in qf) qc[qk] = qf[qk];
+                } catch (eF) {}
+              }
+              var v = (window.fhReconRun ? window.fhReconRun([qc], dupIndex, {}) : window.fhDedupAssess([qc], dupIndex))[0];
               if (v) {
                 _qrSessionSkip[cand.id] = true;
                 if (opts.force) { if (window.fhTxnReviewSheet) window.fhTxnReviewSheet(); return; }

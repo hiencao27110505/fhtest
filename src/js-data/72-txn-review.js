@@ -1491,9 +1491,13 @@
        be that old, the tab cache reaches back one month) must be here BEFORE
        bucketing runs. Locked or failing personal ledger → empty slice → the
        matcher falls back to the short cache, and the queue still opens. */
+    /* R18 (reconcile-spec): the slice reaches back to the oldest row in the
+       queue, minus four days, when that is older than its fixed horizon. */
+    var _mRange = window.fhReconSliceRange
+      ? window.fhReconSliceRange(readable.map(function (r) { return r && r.occurred_at; })) : null;
     try {
       window._fhPersonalMatchSlice = window.fhPersonalMatchSlice
-        ? await window.fhPersonalMatchSlice() : null;
+        ? await window.fhPersonalMatchSlice(_mRange) : null;
     } catch (e) { window._fhPersonalMatchSlice = null; }
 
     csvLearnLoad();
