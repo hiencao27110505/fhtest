@@ -24,6 +24,11 @@ const nodeCrypto = require('crypto');
   const FILE = new Uint8Array(nodeCrypto.randomBytes(2048));                  // stands in for the .xlsx bytes
   const sha = nodeCrypto.createHash('sha256').update(FILE).digest('hex');
   const GRID = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'statements', 'ewallet.grid.json'), 'utf8'));
+  /* What the "file" reads as. The card statement (c1) gets a card's grid: the
+     wallet's grid under a "thẻ tín dụng" subject is a file whose evidence
+     disagrees, and that asks (reconcile-spec R4). */
+  const CARD = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'statements', 'credit-card.grid.json'), 'utf8'));
+  let gridNow = GRID;
   const mkFile = (id, msg, provider, subject, extra) => {
     const m = SB.sealForFamily(Object.assign({ filename: id + '.xlsx', subject, file_sha256: sha }, extra || {}), pub, OWNER, msg, { nacl, rng: nodeCrypto.webcrypto }, 'personal');
     return { id, gmail_message_id: msg, part_index: 0, source_provider: provider, received_at: '2026-09-18T16:38:00+00:00', file_ext: 'xlsx', byte_size: 100,
@@ -65,7 +70,7 @@ const nodeCrypto = require('crypto');
     fs.readFileSync(path.join(__dirname, '..', 'src', 'js-data', '77-statement-capture.js'), 'utf8'))(
     window, {}, (vi) => vi, (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;'), (s) => String(s), _rpc,
     { _m: {}, getItem(k) { return this._m[k] || null; }, setItem(k, v) { this._m[k] = v; }, removeItem(k) { delete this._m[k]; } }, { setItem() {} }, document, nodeCrypto.webcrypto,
-    async () => GRID, (n) => Math.round(n).toLocaleString('vi-VN') + 'đ');
+    async () => gridNow, (n) => Math.round(n).toLocaleString('vi-VN') + 'đ');
 
   console.log('\n-- 1. the cards: told apart, and narrowed by bank --');
   await window.fhStmtLoad();
@@ -121,6 +126,7 @@ const nodeCrypto = require('crypto');
   await window.fhStmtLoad();
   let failNext = true; const rpcWas = calls.rpc.length;
   rpcGate = { then: (res, rej) => { if (failNext) { failNext = false; rej(new Error('net')); } else res(); } };
+  gridNow = CARD;
   await window.fhStmtOpen('c1');
   html = el('csv-result').innerHTML;
   t('the step says it could not save, with "Thử lại" and a way out', /Chưa lưu được/.test(html) && /fhStmtCommit\(\)/.test(html) && /Thử lại/.test(html) && /fhStmtCancel/.test(html), html.slice(0, 200));
