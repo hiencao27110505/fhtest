@@ -9,10 +9,14 @@
      proves two      two owned accounts; two machine-read clocks 120 minutes
                      or more apart; two source IDs of one kind that differ;
                      two queue rows of one lane in one shape; opts.notDup (R17).
+                     (Opposite directions are their own question, R13, and
+                     never for a refund or a transfer leg.)
      raises to sure  the same source ID; the same account and a shared word or
                      the same memo; the same account and the same minute; the
                      same account and mutual uniqueness; no account on the
                      booked side and mutual uniqueness in the book (R15).
+                     Across a day, only with the same ID or a shift the
+                     clock explains (R12 as amended; _fhRcShiftOk).
      everything else that agrees and is not proved different: likely.
 
    Same contract as fhDedupAssess (58-dedup-engine.js): an array parallel to
@@ -72,6 +76,31 @@ function _fhRcTwoMoments(a, b, dd){
   if(a.clock < 0 || b.clock < 0) return false;
   return Math.abs(dd * 1440 + a.clock - b.clock) >= FH_DEDUP_MOMENT_GAP;
 }
+/* R12 as amended (2026-11-25): one day of tolerance makes a pair a CANDIDATE;
+   it makes it certain only when the shift is explained. Exactly one side is
+   day-only, and the other side's MACHINE clock says why the days differ: the
+   day-only row is the day after and the clock is late, or the day before and
+   the clock is early. Measured on one bank's year: every next-day account row
+   had its alert at 21:12 or later, every day-early card row an alert before
+   07:00. Anything else a day off (Monday's unbooked purchase against Tuesday's
+   booked twin, a clockless booked row, two clocked rows) stays `likely`. The
+   same ID needs no explaining; fx_final keeps its own window. */
+var FH_RECON_LATE_MIN = 1200;    // 20:00
+var FH_RECON_EARLY_MIN = 420;    // 07:00
+function _fhRcShiftOk(a, b, dd){   // dd = a.dn - b.dn
+  if(dd === 0) return true;
+  if(a.hand || b.hand) return false;    // a typed row's day and time are both the person's, never the bank's cut-off
+  var aDay = a.min < 0, bDay = b.min < 0;
+  if(aDay === bDay) return false;
+  var c = aDay ? b : a;                 // the side with a time
+  if(c.clock < 0) return false;         // a typed time or a notice's posting time explains nothing
+  var after = aDay ? dd > 0 : dd < 0;   // the day-only row is the day AFTER the clocked one
+  return after ? c.clock >= FH_RECON_LATE_MIN : c.clock < FH_RECON_EARLY_MIN;
+}
+/* `sure` when the days agree or the shift is explained; else the same why, as a guess. */
+function _fhRcSure(why, cls, dd, shared, shiftOk){
+  return shiftOk ? _fhRcV('sure', why, cls, dd, shared, true) : _fhRcV('likely', why, 5, dd, shared, true);
+}
 
 /* Uniqueness without a scan: rows are counted by direction|đồng|day, overall
    and per account (an empty account counted under its own key). The partners
@@ -111,7 +140,7 @@ function _fhRcCand(c, i){
     min: timed ? fhDedupMinutes(c.time) : -1,
     clock: (timed && !fhDedupNotice(c)) ? fhDedupMinutes(c.time) : -1,   // a posting notice's clock is the posting's (F-R2)
     acct: c.acctId || null, ref: ref, refKind: refKind, refs: (ref && refKind) ? [{ k: refKind, v: ref }] : null,
-    lane: c.lane || '', stmt: !!c.statement || c.lane === 'statement',
+    lane: c.lane || '', stmt: !!c.statement || c.lane === 'statement', xfer: !!c.isTransfer,
     refund: !!c.refundWorded || FH_RECON_REFUND.test(_fhRcText(words)),
     prov: fhDedupCanon(c.provider || ''), cur: fhDedupCur(c.currency),
     shape: (c.shape || '') + '|' + (c.accountKind || '') + '|' + (fhDedupBankNamed(c.counterparty) ? 1 : 0) };
@@ -132,6 +161,7 @@ function _fhRcBook(index){
     var note = t.note || '', party = t.party || '';
     var nm = (String(note).match(/(\d{2}:\d{2})\s*$/) || [])[1] || '';
     var e = { k: k, t: t, abs: abs, dn: dn, dir: dir, hand: !t.src, acct: t.acct || null,
+      xfer: t.kind === 'transfer' || t.kind === 'repayment',
       tok: fhDedupTokens(note + ' ' + party), text: _fhRcText(note),
       min: t.time ? fhDedupMinutes(t.time) : -1, noteMin: nm ? fhDedupMinutes(nm) : -1,
       clock: (t.time && /email/.test(t.src || '')) ? fhDedupMinutes(t.time) : -1,
@@ -169,23 +199,26 @@ function _fhRcJudgeBook(x, e, uniq, opts){
      posting's, not that there were two events. */
   if(ref <= 0 && _fhRcTwoMoments(x, e, dd)) return null;
   if(x.dir !== e.dir){
-    // R13: opposite direction is its own question, never a refund's.
-    if(exact && sameDay && !x.refund && !e.refund && fhDedupSharedCount(x.tok, e.tok) >= 2) return _fhRcV('likely', 'direction_conflict', 6, dd, shared, exact);
+    /* R13: opposite direction is its own question, never a refund's. Nor a
+       transfer's: the two legs of one repayment (the deposit's debit, the
+       card's "payment received") look exactly like this, and pairing legs is
+       Part 5's leg_of_transfer, not a misread. */
+    if(exact && sameDay && !x.refund && !e.refund && !x.xfer && !e.xfer && fhDedupSharedCount(x.tok, e.tok) >= 2) return _fhRcV('likely', 'direction_conflict', 6, dd, shared, exact);
     return null;
   }
   if(!exact && !(e.hand && diff < 1000 && shared)) return null;       // rounded: typed by hand, under 1.000 đ, a word agrees
-  var sameAcct = !!(x.acct && x.acct === e.acct);
+  var sameAcct = !!(x.acct && x.acct === e.acct), shiftOk = _fhRcShiftOk(x, e, dd);
   if(ref > 0) return _fhRcV('sure', 'same_ref', 0, dd, shared, exact);
   if(!exact) return sameDay ? _fhRcV('sure', 'rounded_merchant', 1, dd, shared, false) : _fhRcV('likely', 'rounded_merchant', 5, dd, shared, false);
-  if(sameAcct && (shared || _fhRcMemoSame(x.text, e.text))) return _fhRcV('sure', 'acct_text', 1, dd, shared, true);
+  if(sameAcct && (shared || _fhRcMemoSame(x.text, e.text))) return _fhRcSure('acct_text', 1, dd, shared, shiftOk);
   if(sameDay && shared) return _fhRcV('sure', 'exact_merchant', 1, dd, shared, true);
   if(sameAcct && minute) return _fhRcV('sure', 'acct_minute', 2, dd, shared, true);
   if(minute) return _fhRcV('sure', 'exact_minute', 2, dd, shared, true);
   /* Uniqueness alone never makes a wallet row sure: a wallet repeats amounts
      (76 genuine repeats measured, 11 within two minutes). R15, Part 6. */
   if(uniq && x.lane !== 'wallet'){
-    if(sameAcct) return _fhRcV('sure', 'acct_unique', 3, dd, shared, true);
-    if(!e.acct && (x.abs > FH_RECON_BOOK_MIN || shared)) return _fhRcV('sure', 'book_unique', 3, dd, shared, true);
+    if(sameAcct) return _fhRcSure('acct_unique', 3, dd, shared, shiftOk);
+    if(!e.acct && (x.abs > FH_RECON_BOOK_MIN || shared)) return _fhRcSure('book_unique', 3, dd, shared, shiftOk);
   }
   return _fhRcV('likely', shared ? 'exact_merchant' : 'exact_day', 5, dd, shared, true);
 }
@@ -213,12 +246,12 @@ function _fhRcJudgeQueue(b, a, opts){
   var shared = fhDedupShared(b.tok, a.tok), sameDay = dd === 0;
   var minute = sameDay && b.min >= 0 && b.min === a.min;
   if(a.dir !== b.dir){
-    if(sameDay && !a.refund && !b.refund && fhDedupSharedCount(b.tok, a.tok) >= 2) return _fhRcV('likely', 'direction_conflict', 6, dd, shared, true);
+    if(sameDay && !a.refund && !b.refund && !a.xfer && !b.xfer && fhDedupSharedCount(b.tok, a.tok) >= 2) return _fhRcV('likely', 'direction_conflict', 6, dd, shared, true);   // R13, as for the book
     return null;
   }
   var sameAcct = !!(a.acct && a.acct === b.acct);
   if(ref > 0) return _fhRcV('sure', 'same_ref', 0, dd, shared, true);
-  if(sameAcct && (shared || _fhRcMemoSame(b.text, a.text))) return _fhRcV('sure', 'acct_text', 1, dd, shared, true);
+  if(sameAcct && (shared || _fhRcMemoSame(b.text, a.text))) return _fhRcSure('acct_text', 1, dd, shared, _fhRcShiftOk(b, a, dd));
   if(sameAcct && minute) return _fhRcV('sure', 'acct_minute', 2, dd, shared, true);
   return _fhRcV('likely', a.prov !== b.prov ? 'cross_source' : (a.stmt !== b.stmt ? 'statement_echo' : 'same_bank_pair'), 5, dd, shared, true);
 }
@@ -449,7 +482,7 @@ function fhReconMode(){
 /* Shadow record: COUNTS ONLY. No amount, name, memo, id or date is kept, in
    memory or on disk; why codes appear only as keys. `last` is the latest
    bucketing, `total` the running sum on this device. */
-var FH_RECON_SHADOW = null;
+var FH_RECON_SHADOW = null, FH_RECON_SHADOW_FP = '';
 var FH_RECON_COUNTS = ['judged', 'oldSure', 'oldLikely', 'newSure', 'newLikely', 'same', 'twinDiffers', 'oldOnly', 'newOnly', 'tierDiffers'];
 function _fhRcZero(){ var z = { newWhy: {} }; FH_RECON_COUNTS.forEach(function(k){ z[k] = 0; }); return z; }
 function _fhRcNum(v){ v = Number(v); return isFinite(v) && v >= 0 ? Math.floor(v) : 0; }
@@ -494,9 +527,19 @@ function fhReconShadowRecord(oldV, newV){
     else if(o.tier !== v.tier) z.tierDiffers++;
     else { z.same++; if(!_fhRcSameTwin(o, v)) z.twinDiffers++; }
   }
-  FH_RECON_COUNTS.forEach(function(k){ s.total[k] += z[k]; });
-  for(var w in z.newWhy) s.total.newWhy[w] = (s.total.newWhy[w] || 0) + z.newWhy[w];
-  s.last = z; s.runs++;
+  s.last = z;
+  /* One open queue is bucketed many times (every rebuild), so a total that
+     added every run would count the same rows again and again. A run whose
+     counts equal the previous run's is the same queue: `last` is replaced,
+     `total` and `runs` are not. The fingerprint lives in memory only (it is
+     a string; the stored record holds numbers). */
+  var fp = JSON.stringify(z) + '|' + oldV.length;
+  if(fp !== FH_RECON_SHADOW_FP){
+    FH_RECON_SHADOW_FP = fp;
+    FH_RECON_COUNTS.forEach(function(k){ s.total[k] += z[k]; });
+    for(var w in z.newWhy) s.total.newWhy[w] = (s.total.newWhy[w] || 0) + z.newWhy[w];
+    s.runs++;
+  }
   _fhRcSave(s);
 }
 

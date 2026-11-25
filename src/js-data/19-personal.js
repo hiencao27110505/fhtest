@@ -810,11 +810,12 @@
       } catch (e) { console.warn('personal match slice failed', e); return []; }
     };
     /* A write through this module makes the cached slice stale by definition.
-       R18: so is the copy the review screen parked on window for the
-       synchronous matcher (72, 76). Dropping it makes the next bucketing read
-       the fresh tab cache instead of a ledger that may still hold a deleted
-       row, until the next queue open awaits the slice again. */
-    window.fhPersonalMatchSliceInvalidate = function () { _matchSlice = null; _matchFrom = ''; window._fhPersonalMatchSlice = null; };
+       The copy the review screen parked on window (window._fhPersonalMatchSlice,
+       72 and 76) is deliberately left as it is: known to be stale after a write
+       during an open review, but complete, where the tab cache it would fall
+       back to holds two months and drops older twins mid-session. Release 3 of
+       reconcile-spec patches the slice in place on writes instead. */
+    window.fhPersonalMatchSliceInvalidate = function () { _matchSlice = null; _matchFrom = ''; };
 
     /* ── Recurrence slice (recurring-charges-spec §18.1, RR10) ───────────────
        The tab holds two months. A monthly charge needs two occurrences to be

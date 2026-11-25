@@ -87,6 +87,42 @@ both('alert at 14:00, statement row two days later: nothing',
   { day: '2026-10-10', time: '14:00', amt: 330000, dir: 'out', text: 'WINMART', acct: 'card', lane: 'alert' },
   { day: '2026-10-12', amt: 330000, dir: 'out', text: 'WINMART', acct: 'card', lane: 'statement' }, none);
 
+console.log('\n-- R12 as amended: a day apart is sure only when a machine clock explains it --');
+both('a 10:00 alert, statement row dated the NEXT day, same card, same merchant: likely',
+  { day: '2026-11-03', time: '10:00', amt: 142000, dir: 'out', text: 'LOTTE MART', acct: 'card', lane: 'alert' },
+  { day: '2026-11-04', amt: 142000, dir: 'out', text: 'LOTTE MART Q7', acct: 'card', lane: 'statement' }, is('likely', 'acct_text', 1));
+both('a 14:00 alert, statement row dated the day BEFORE: likely',
+  { day: '2026-11-03', time: '14:00', amt: 142000, dir: 'out', text: 'LOTTE MART', acct: 'card', lane: 'alert' },
+  { day: '2026-11-02', amt: 142000, dir: 'out', text: 'LOTTE MART Q7', acct: 'card', lane: 'statement' }, is('likely', 'acct_text', -1));
+both('the edges: 20:00 next day is sure', { day: '2026-11-03', time: '20:00', amt: 142000, dir: 'out', text: 'LOTTE MART', acct: 'card', lane: 'alert' },
+  { day: '2026-11-04', amt: 142000, dir: 'out', text: 'LOTTE MART', acct: 'card', lane: 'statement' }, is('sure', 'acct_text', 1));
+both('and 07:00 day before is not', { day: '2026-11-03', time: '07:00', amt: 142000, dir: 'out', text: 'LOTTE MART', acct: 'card', lane: 'alert' },
+  { day: '2026-11-02', amt: 142000, dir: 'out', text: 'LOTTE MART', acct: 'card', lane: 'statement' }, is('likely', 'acct_text', -1));
+// Onboarding: a statement reaches back before the mailbox was connected. Monday was never
+// booked; Tuesday's identical purchase was. Monday's statement row must not vanish into it.
+var tue = booked({ day: '2026-11-10', time: '10:00', amt: 75000, dir: 'out', text: 'CIRCLE K', acct: 'card', lane: 'alert' });
+var mon = (text) => arriving({ day: '2026-11-09', amt: 75000, dir: 'out', text: text, acct: 'card', lane: 'statement' });
+var vMon = run([mon('CIRCLE K')], [tue])[0];
+t('Monday\'s statement row against Tuesday\'s booked alert, same words: likely, never sure', vMon && vMon.tier === 'likely' && vMon.dayShift === -1, show(vMon));
+vMon = run([mon('POS 4421')], [tue])[0];
+t('the same with no word in common (mutual uniqueness only): likely', vMon && vMon.tier === 'likely' && vMon.why === 'acct_unique', show(vMon));
+var vMonQ = run([arriving({ day: '2026-11-10', time: '10:00', amt: 75000, dir: 'out', text: 'CIRCLE K', acct: 'card', lane: 'alert' }), mon('CIRCLE K')], []);
+t('the same pair both waiting in the queue: likely', vMonQ.filter(Boolean).length === 1 && vMonQ.filter(Boolean)[0].tier === 'likely', vMonQ.map(show));
+var clockless = (day, src, acct) => booked({ day: day, amt: 640000, dir: 'out', text: 'tien dien', acct: acct, src: src });
+var vCl = run([arriving({ day: '2026-11-12', amt: 640000, dir: 'out', text: 'EVN HCMC', acct: null, lane: 'statement' })], [clockless('2026-11-11', 'file-import', null)])[0];
+t('a clockless booked row one day off, unique both ways, day-only statement row: likely book_unique', vCl && vCl.tier === 'likely' && vCl.why === 'book_unique', show(vCl));
+vCl = run([arriving({ day: '2026-11-11', time: '22:30', amt: 640000, dir: 'out', text: 'EVN HCMC', acct: 'dep', lane: 'alert' })], [clockless('2026-11-12', null, 'dep')])[0];
+t('a hand-typed clockless row the day after a 22:30 alert: likely (a typed date explains no cut-off)', vCl && vCl.tier === 'likely' && vCl.why === 'acct_unique', show(vCl));
+vCl = run([arriving({ day: '2026-11-12', amt: 640000, dir: 'out', text: 'EVN HCMC', acct: 'dep', lane: 'statement' })],
+  [booked({ day: '2026-11-11', time: '22:30', amt: 640000, dir: 'out', text: 'tien dien', acct: 'dep', src: null })])[0];
+t('a hand-typed row\'s 22:30 is not a machine clock: likely', vCl && vCl.tier === 'likely', show(vCl));
+var notice = arriving({ day: '2026-11-13', time: '05:30', amt: 640000, dir: 'out', text: 'GD THE 4751', cp: 'Ngân hàng TMCP Quốc tế Việt Nam', acct: 'card', lane: 'alert' });
+vCl = run([notice], [booked({ day: '2026-11-12', amt: 640000, dir: 'out', text: 'GD THE 4751', acct: 'card', lane: 'statement' })])[0];
+t('a posting notice\'s 05:30 is the posting\'s, not a purchase clock: likely', vCl && vCl.tier === 'likely', show(vCl));
+both('the same ID needs no explaining across a day',
+  { day: '2026-11-03', time: '10:00', amt: 142000, dir: 'out', text: 'A', acct: 'momo', lane: 'wallet', prov: 'MoMo', ref: 'MM77' },
+  { day: '2026-11-04', amt: 142000, dir: 'out', text: 'B', acct: 'momo', lane: 'wallet', prov: 'MoMo', ref: 'MM77' }, is('sure', 'same_ref', 1));
+
 console.log('\n-- R14: a card repayment, booked as a transfer on the deposit account --');
 var repA = { day: '2026-10-15', time: '09:12', amt: 8400000, dir: 'out', text: 'THANH TOAN THE TIN DUNG 4321', acct: 'dep', lane: 'alert', kind: 'transfer' };
 var repB = { day: '2026-10-15', amt: 8400000, dir: 'out', text: 'TT THE TD', acct: 'dep', lane: 'statement', kind: 'transfer' };
@@ -168,6 +204,21 @@ var flipped = { day: '2026-10-25', time: '11:00', amt: 499000, dir: 'in', text: 
 both('opposite direction, same wording, same account, same day: likely direction_conflict', buy, flipped, is('likely', 'direction_conflict', 0));
 both('the same, refund-worded by the payload only (refundWorded): no flag', buy, Object.assign({}, flipped, { refund: true }), (v, sgn) => sgn === 1 ? !v : true);
 both('the same, one shared word only: no flag', buy, Object.assign({}, flipped, { text: 'SHOPEE' }), none);
+// The two legs of one card repayment, accounts unknown: Part 5's question, not a misread.
+var payOut = { day: '2026-10-25', time: '09:00', amt: 6200000, dir: 'out', text: 'THANH TOAN THE TIN DUNG VISA', lane: 'alert', kind: 'transfer' };
+var payIn = { day: '2026-10-25', amt: 6200000, dir: 'in', text: 'THANH TOAN THE TIN DUNG VISA', lane: 'statement', kind: 'transfer' };
+var vLeg = run([arriving(payIn)], [booked(payOut)])[0];
+t('a card statement\'s "payment received" (isTransfer) against the booked payment: nothing', !vLeg, show(vLeg));
+vLeg = run([arriving(payIn)], [booked(Object.assign({}, payOut, { kind: 'expense' }))])[0];
+t('transfer-shaped on the candidate side only: nothing', !vLeg, show(vLeg));
+vLeg = run([arriving(Object.assign({}, payIn, { kind: 'income' }))], [booked(payOut)])[0];
+t('transfer-shaped on the booked side only (kind transfer): nothing', !vLeg, show(vLeg));
+vLeg = run([arriving(Object.assign({}, payIn, { kind: 'income' }))], [booked(Object.assign({}, payOut, { kind: 'repayment' }))])[0];
+t('booked as a repayment: nothing', !vLeg, show(vLeg));
+vLeg = run([arriving(Object.assign({}, payIn, { kind: 'income' }))], [booked(Object.assign({}, payOut, { kind: 'expense' }))])[0];
+t('neither side transfer-shaped: still likely direction_conflict', vLeg && vLeg.why === 'direction_conflict', show(vLeg));
+var vLegQ = run([arriving(payOut), arriving(payIn)], []);
+t('the two legs both waiting in the queue: nothing', vLegQ.every((v) => !v), vLegQ.map(show));
 
 console.log('\n-- proves two events: two different owned accounts --');
 both('same amount, same day, same words on two owned accounts: nothing',
@@ -184,9 +235,9 @@ both('same day, clocks 30 minutes apart, no word, no account: likely exact_day',
 both('a day apart, both clocked, hours apart: nothing',
   { day: '2026-10-27', time: '09:00', amt: 75000, dir: 'out', text: 'CIRCLE K', acct: 'card', lane: 'alert' },
   { day: '2026-10-28', time: '09:00', amt: 75000, dir: 'out', text: 'CIRCLE K', acct: 'card', lane: 'alert' }, none);
-both('23:58 and 00:01 the next day (three minutes): still one event, sure',
+both('23:58 and 00:01 the next day (three minutes): not cleared, but two clocks explain no shift: likely',
   { day: '2026-10-27', time: '23:58', amt: 75000, dir: 'out', text: 'CIRCLE K', acct: 'card', lane: 'alert' },
-  { day: '2026-10-28', time: '00:01', amt: 75000, dir: 'out', text: 'CIRCLE K Q7', acct: 'card', lane: 'statement' }, is('sure', 'acct_text', 1));
+  { day: '2026-10-28', time: '00:01', amt: 75000, dir: 'out', text: 'CIRCLE K Q7', acct: 'card', lane: 'statement' }, is('likely', 'acct_text', 1));
 var handTimed = run([arriving({ day: '2026-10-27', time: '18:40', amt: 75000, dir: 'out', text: 'CIRCLE K', lane: 'alert' })],
   [booked({ day: '2026-10-27', time: '09:00', amt: 75000, dir: 'out', text: 'do an vat', src: null })])[0];
 t('a hand-typed row\'s time is never a clock: still likely', handTimed && handTimed.tier === 'likely', show(handTimed));
@@ -198,9 +249,12 @@ both('same account, same minute, no word: sure acct_minute',
 both('no account, same day, merchant word: sure exact_merchant (the old rule)',
   { day: '2026-10-28', time: '14:22', amt: 88000, dir: 'out', text: 'AEON NGUYEN VAN LINH', lane: 'alert' },
   { day: '2026-10-28', amt: 88000, dir: 'out', text: 'AEON MALL', lane: 'statement' }, is('sure', 'exact_merchant', 0));
-both('no account, a day apart, merchant word, unique both ways: sure book_unique (R15 with a word)',
+both('no account, next day after a 14:22 alert, merchant word, unique: likely book_unique (the shift is not explained)',
   { day: '2026-10-28', time: '14:22', amt: 88000, dir: 'out', text: 'AEON NGUYEN VAN LINH', lane: 'alert' },
-  { day: '2026-10-29', amt: 88000, dir: 'out', text: 'AEON MALL', lane: 'statement' }, is('sure', 'book_unique'));
+  { day: '2026-10-29', amt: 88000, dir: 'out', text: 'AEON MALL', lane: 'statement' }, is('likely', 'book_unique', 1));
+both('the same after a 21:40 alert: sure book_unique',
+  { day: '2026-10-28', time: '21:40', amt: 88000, dir: 'out', text: 'AEON NGUYEN VAN LINH', lane: 'alert' },
+  { day: '2026-10-29', amt: 88000, dir: 'out', text: 'AEON MALL', lane: 'statement' }, is('sure', 'book_unique', 1));
 var aeonX = run([arriving({ day: '2026-10-29', amt: 88000, dir: 'out', text: 'AEON MALL', lane: 'statement' })],
   [booked({ day: '2026-10-28', time: '14:22', amt: 88000, dir: 'out', text: 'AEON NGUYEN VAN LINH' }), booked({ day: '2026-10-30', time: '10:00', amt: 88000, dir: 'out', text: 'BACH HOA XANH' })])[0];
 t('the same with a second booked row of that amount in the window: likely exact_merchant (a word alone proves nothing across days)', aeonX && aeonX.tier === 'likely' && aeonX.why === 'exact_merchant', show(aeonX));
@@ -412,7 +466,8 @@ const shadowSnap = snap(queueRun('shadow'));
 t('shadow: every bucket identical to off', shadowSnap === offSnap, { off: offSnap, shadow: shadowSnap });
 t('the default (no setting) is shadow, and identical too', snap(queueRun(null)) === offSnap);
 const rec = fhReconShadow();
-t('the shadow ran (two runs, every row judged)', rec.runs === 2 && rec.last.judged > 0 && rec.total.judged === 2 * rec.last.judged, rec);
+t('the shadow ran, every row judged', rec.last.judged === Q.length, rec);
+t('two identical runs (one queue bucketed twice) count once', rec.runs === 1 && rec.total.judged === rec.last.judged, rec);
 t('it saw what the old engine missed (the repayment: new-only)', rec.last.newOnly >= 1, rec.last);
 const onlyNumbers = (o) => Object.keys(o).every((k) => typeof o[k] === 'number' ? isFinite(o[k]) : (o[k] && typeof o[k] === 'object' && !Array.isArray(o[k]) && onlyNumbers(o[k])));
 t('the in-memory record holds only numbers', onlyNumbers(rec), rec);
@@ -421,8 +476,15 @@ t('the stored record holds only numbers', onlyNumbers(stored), stored);
 const keys = JSON.stringify(stored);
 t('and no amount, name, memo or id', !/259|8400|SHOPEE|PHUC|MOMO|NGUYEN|"s\d|"L\d|dep|card|2026/i.test(keys), keys);
 t('window.fhReconShadow is exposed', window.fhReconShadow === fhReconShadow);
+const savedQ = Q.pop();
+queueRun('shadow');
+Q.push(savedQ);
+t('a changed run counts again', rec.runs === 2 && rec.total.judged === 2 * Q.length - 1 && rec.last.judged === Q.length - 1, rec);
+queueRun('shadow');
+t('and the queue back as it was counts again (it differs from the run before it)', rec.runs === 3 && rec.last.judged === Q.length, rec);
+const totalNow = rec.total.judged;
 FH_RECON_SHADOW = null;
-t('the running total survives a reload', fhReconShadow().total.judged === rec.total.judged && fhReconShadow().runs === 2);
+t('the running total survives a reload', fhReconShadow().total.judged === totalNow && fhReconShadow().runs === 3);
 
 const realAssess = fhReconAssess;
 fhReconAssess = function(){ throw new Error('boom'); };
