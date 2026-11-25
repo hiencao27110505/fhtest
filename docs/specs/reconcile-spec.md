@@ -130,11 +130,15 @@ tests and synthetic fixtures under `tools/`.
 
 ## 6. Decisions
 
-- **R1. A table with a points column is not a money table.** A header cell that
-  reads as points ("so diem", "diem thuong", "loyalty point", "reward point",
-  "dam", "miles") makes `fhStmtParse` return no table with `why:'not_money'`. The
-  card says the file is a points statement and is put away; it never asks for a
-  mapping.
+- **R1. A table with a points column and no money evidence is not a money
+  table.** A header cell that reads as points ("so diem", "diem thuong",
+  "loyalty point", "reward point", "so dam", "miles") in a file that has no
+  opening or closing balance, no debt lines, no debit or credit totals and no
+  running-balance column makes `fhStmtParse` return no table with
+  `why:'not_money'`. The card says the file is a points statement; it never asks
+  for a mapping. A real card statement that prints points earned beside each
+  purchase still has its debt totals and is read as money. *(Narrowed in review:
+  a points column alone rejected too much.)*
 - **R2. The account label is read once, and a card answers to its card number.**
   `fhStmtSummary` collects every account-labelled number into
   `summary.accountTails` (ordered, distinct) with the label that named each. The
@@ -145,8 +149,19 @@ tests and synthetic fixtures under `tools/`.
 - **R3. One amount column gets its sign from the file's own arithmetic.** With a
   single `amount` role, `fhStmtProve` tries the printed sign and the inverted
   sign against the totals checks; the sign that proves is the sign. If neither
-  proves, wording decides per row only where it is unambiguous ("Mua hàng",
-  "Thanh toán" out; "Hoàn", "Refund" in) and the file asks (R5).
+  proves, the file's own wording decides the sign for the whole file, never row
+  by row: with at least three unambiguously worded rows ("Mua hàng", "Phí" out;
+  "Hoàn", "Refund", a card's "Thanh toán sao kê thẻ" in) of which nine in ten
+  contradict the printed sign, the file is inverted. It still asks (R5); the
+  confirm screen then shows money out and money in the right way round.
+- **R3b. A right-aligned amount belongs to its column, and a dated row is never
+  dropped unseen.** *(Found in review, on a real card statement PDF: four of five
+  payment rows vanished.)* Amounts are right-aligned, so a longer figure starts
+  left of its header and `43-pdf-grid.js` filed it under the previous column;
+  `fhStmtRead` then saw an empty amount cell and skipped the row without a word.
+  The grid assigns by the item's extent, not its left edge; and a dated row whose
+  amount cells hold no digits while another cell ends in a money-shaped figure is
+  `unreadable`, named to the person through the existing path.
 - **R4. Kind takes the subject and the labels as evidence.** `_stmAcctKind` reads
   debt lines as now, then the mail's own kind word (`_stmKindKey`: "thẻ tín
   dụng", "credit card") and the presence of a card number. A file whose evidence
@@ -252,14 +267,25 @@ Everything else that passes "must agree" and is not proved different is
 - **R11. Kind is not a gate.** A booked loan, transfer or expense can each be the
   copy of a statement row; the card names what the booked row is recorded as.
   *(Hien: aligned.)*
-- **R12. One day of tolerance, for every source.** Per-bank cut-offs are not
-  learned: the data shows a fuzzy band, not a cut-off, and with the account and
-  the exact amount agreeing the tolerance produced no false pair. *(Replaces the
-  earlier per-clock window idea.)*
+- **R12. One day of tolerance, for every source; certainty across a day needs a
+  clock that explains it.** Per-bank cut-offs are not learned: the data shows a
+  fuzzy band, not a cut-off. Any pair one day apart is a candidate. It can be
+  `sure` only when the source IDs are the same, or exactly one side is day-only
+  and the other side's machine clock explains the shift: the day-only row is the
+  day after and the clock is 20:00 or later, or it is the day before and the
+  clock is before 07:00. Every other day-shifted pair is `likely`. On the
+  measured year every next-day account row had an alert at 21:12 or later and
+  every day-early card row an alert before 07:00, so 498 of the 499 pairs stay
+  `sure` and one becomes `likely`. *(Tightened in review: a statement that
+  covers days before the mailbox was connected carries rows with no booked
+  alert, and yesterday's identical purchase must not be swallowed as a copy of
+  today's.)*
 - **R13. Opposite direction is its own question.** Same account, exact amount,
   same day, identical wording apart from direction, and neither row worded as a
   refund ("Hoàn", "Refund", "Reversal"): `likely`, why `direction_conflict`. A
-  refund-worded row is never a duplicate of its purchase.
+  refund-worded row is never a duplicate of its purchase. The rule does not
+  apply when either side is a transfer, repayment or own-account move: two legs
+  of one transfer look exactly like this and are Part 5's.
 - **R14. Transfers, repayments and loans are matched like anything else.** The
   `isTransfer` early return goes. Part 5 decides what a matched pair of legs
   means.
@@ -277,9 +303,12 @@ Everything else that passes "must agree" and is not proved different is
   is written to the lessons blob, namespace `ndup`, and proves two events from
   then on. Entries for booked rows that no longer exist are pruned on load.
 - **R18. The matcher reads the ledger for the period it is judging.** The match
-  slice is loaded for `[earliest candidate day - 4, latest + 4]`, not a fixed
-  horizon, and `window._fhPersonalMatchSlice` is refreshed after every write that
-  invalidates it. The tab-cache fallback maps `accountId` to `acct`.
+  slice reaches back to the earliest candidate day minus 4 when that is older
+  than its fixed horizon. The tab-cache fallback maps `accountId` to `acct`. The
+  copy parked on `window` for the synchronous matcher still goes stale after a
+  write during an open review, as it does today; release 3 patches it in place
+  on writes. Dropping it instead was tried and rejected in review: the matcher
+  would fall back to two months of memory in mid-session.
 - **R19. Foreign-currency alerts keep the existing `fx_final` rule**, moved into
   the new module unchanged and with the account added to "must agree".
 
@@ -473,10 +502,13 @@ Synthetic rows only; real data never enters the repo.
   number wins, both collected), the single signed column (inverted sign proves),
   the unproved file with a `v:1` mapping (asks), the same statement as two files
   (second adds nothing), two real equal rows (both stay).
-- A parity harness that is NOT committed with data: `tools/recon-parity.js` reads
-  a local, git-ignored corpus when one exists and prints counts only (found,
-  missed, false) for the old engine and the new. On the measured corpus the
-  target is 499 of 499 with no false `sure`.
+- A parity run on the measured corpus, done by the reviewer outside the repo
+  (the corpus is real data and its scripts are not committed), counts only. First
+  run of the new matcher, 2026-11-25: 499 of 499 true pairs found, every one
+  `sure`, no wrong twin, no false flag, against 386 for the old engine. With the
+  account unknown on both sides: 499 of 499, and 53 `direction_conflict` flags on
+  the legs of card repayments, which is what R13's last sentence now excludes.
+  The run is repeated after every change to §10.
 - Gates before every preview: `npm run check && npm test`, the boot harness
   timing run, `flows/baseline.flow.js`.
 
