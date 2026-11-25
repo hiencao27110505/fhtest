@@ -24007,10 +24007,15 @@ function bucketCsvCandidates(candidates, mixedSigns) {
      show evidence for, or nothing. The legacy flag names are kept on the row
      for the chips, the filters and the tests that read them. */
   var index = (typeof fhDedupLedgerIndex === 'function') ? fhDedupLedgerIndex() : { rows: [], byAmt: {} };
+  /* reconcile-spec §11 / R20: the new matcher (58-recon.js) reads a few more
+     facts per row. Added beside the old fields, never in place of one, and
+     only when it will run; the owned-account lookup is built once here. */
+  var reconOn = (typeof fhReconMode === 'function') && fhReconMode() !== 'off' && typeof fhReconCandFacts === 'function';
+  var reconAccts = reconOn ? fhReconAcctIndex() : null;
   var ecs = rest.map(function(c){
     var meta = (staged && window.fhStagedMeta) ? window.fhStagedMeta(c.rowIndex) : null;
     var rx = (staged && typeof window.fhStagedRawX === 'function') ? window.fhStagedRawX(c.rowIndex) : null;
-    return { amount: c.amount, date: c.date, dateDisplay: c.dateDisplay,
+    var ec = { amount: c.amount, date: c.date, dateDisplay: c.dateDisplay,
              time: (staged && typeof csvRowTime === 'function') ? (csvRowTime(c) || '') : '',
              description: c._hasDesc ? c.description : '', counterparty: c.counterparty || '',
              isIncome: !!c.isIncome, isTransfer: !!(c.isTransfer || c._xfer || c._repay || c._loan || c._invest),
@@ -24019,14 +24024,24 @@ function bucketCsvCandidates(candidates, mixedSigns) {
              provider: (meta && meta.provider) || '', kind: (meta && meta.kind) || '',
              currency: (meta && meta.currency) || '', pipelineDupOf: (meta && meta.pipelineDup) ? meta.dupOfId : '',
              statement: !!(rx && rx._transport === 'statement') };
+    if (reconOn) {
+      try {   // never at the queue's expense: a row without facts is matched as "nothing known"
+        var facts = fhReconCandFacts({ rx: rx, provider: ec.provider, staged: staged, receipt: !!c._receipt,
+          otherKind: !!(meta && meta.kind === 'other'), isIncome: !!c.isIncome, xferDir: c._xferDir,
+          text: (c.description || '') + ' ' + (c.counterparty || '') + ' ' + ((rx && (rx.memo_display || rx.memo)) || '') }, reconAccts);
+        for (var fk in facts) ec[fk] = facts[fk];
+      } catch (eF) {}
+    }
+    return ec;
   });
-  var verdicts = (typeof fhDedupAssess === 'function')
-    ? fhDedupAssess(ecs, index, { kindById: window.fhStagedKindById })
+  var dopts = { kindById: window.fhStagedKindById };
+  var verdicts = (typeof fhReconRun === 'function') ? fhReconRun(ecs, index, dopts)
+    : (typeof fhDedupAssess === 'function') ? fhDedupAssess(ecs, index, dopts)
     : ecs.map(function(){ return null; });
 
   rest.forEach(function(c, i) {
     var v = verdicts[i];
-    if (ecs[i].pipelineDupOverruled) c.pipelineDupOverruled = true;   // two banks; falls through to the normal path
+    if (ecs[i].pipelineDupOverruled || (verdicts.overruled && verdicts.overruled[i])) c.pipelineDupOverruled = true;   // two banks; falls through to the normal path
     if (v) {
       c._dupTier = v.tier; c._dupWhy = v.why; c._dupTwin = v.twin; c._dupTwinKind = v.twinKind; c._dupShared = v.shared || '';
       if (v.twinKind === 'ledger') {
@@ -24164,6 +24179,20 @@ function fhDedupTwoMoments(c, t, sameDay){
   return sameDay ? Math.abs(a - b) >= FH_DEDUP_MOMENT_GAP : true;
 }
 
+/* The direction of a ledger row's money on its account, from its kind and its
+   stored sign: the same convention the account balances walk (19-personal.js,
+   "Contribution"): expense and loan move -amt (an expense is stored +X; a loan
+   +X lent drains, -X borrowed fills), income, transfer, repayment and
+   investment move +amt (transfer and investment legs carry their sign inside
+   the ciphertext; a legacy one-leg top-up is +X into its account). An unknown
+   kind reads like the index's default, expense. -1 = out, +1 = in.
+   (reconcile-spec R11: the new matcher compares this, never the kind.) */
+function fhDedupFlow(kind, amt){
+  var a = Number(amt) || 0;
+  var s = (kind === 'income' || kind === 'transfer' || kind === 'repayment' || kind === 'investment') ? a : -a;
+  return s < 0 ? -1 : 1;
+}
+
 /* THE LEDGER THIS IMPORT WILL LAND IN — both books, when both are in play.
    Destination is per row and editable until Import, so the index is wider than
    "the book this row is going to": a hit in either book is worth the same tap.
@@ -24177,11 +24206,19 @@ function fhDedupTwoMoments(c, t, sameDay){
    confirm a duplicate only with text or minute agreement, never on amount and
    day alone (five of ten false flags on the measured queue were exactly that).
 
-   Personal rows: the review-time slice (fhPersonalMatchSlice, 365-day horizon,
-   all kinds) when present, else the ~2-month tab cache. MIRRORS ARE DROPPED —
+   Personal rows: the review-time slice (fhPersonalMatchSlice, 365-day horizon
+   or the period being judged when that reaches further back (R18), all kinds)
+   when present, else the ~2-month tab cache. MIRRORS ARE DROPPED —
    a family row the person authored is copied into their personal book with a
    link, and indexing both let two candidates each claim "their own" copy of
-   one purchase. */
+   one purchase.
+
+   reconcile-spec §11 (R11, R18): every entry also carries `absD` (unsigned
+   đồng), `dir` ('out' | 'in', the money's direction on its account), `acct`
+   (personal only, on BOTH personal paths: the slice names it `acct`, the tab
+   cache `accountId`), `party` (the personal counterparty; `who` stays '' so
+   the rules below read exactly what they always read) and `refs` (none yet;
+   Part 4 fills them). The rules in this file read none of those five. */
 function fhDedupLedgerIndex(){
   var mult = (typeof curMult === 'function' ? curMult() : 1) || 1;
   var myMember = (typeof window !== 'undefined' && window.DB && window.DB.ownerMemberId) || null;
@@ -24193,7 +24230,8 @@ function fhDedupLedgerIndex(){
     if(t.who === 'Shared') mine = null;
     add({ id: t.id, amtD: Number(t.amt) * mult, _d: t._d, day: fhDedupDay(t._d), kind: t.kind || 'expense',
           book: 'family', note: t.note || '', cat: t.cat || '', who: t.who || '', mine: mine,
-          inst: t.inst || '', src: t.src || '', time: t.time || '' });
+          inst: t.inst || '', src: t.src || '', time: t.time || '',
+          absD: Math.abs(Number(t.amt) * mult), dir: fhDedupFlow(t.kind || 'expense', t.amt) < 0 ? 'out' : 'in', acct: null, party: '', refs: null });
   });
   /* Spaces (spaces-spec 7.3): every OTHER space this device has read. A bank row
      for a bill someone already recorded in a space is flagged like any other
@@ -24211,7 +24249,8 @@ function fhDedupLedgerIndex(){
         var s = d.shares[t.id], bill = (s && s.map && s.map._bill) ? Number(s.map._bill) : Number(t.amt);   // the bank saw the whole bill
         add({ id: t.id, amtD: bill * mult, _d: dt, day: fhDedupDay(dt), kind: 'expense',
               book: 'space', spaceId: sp.id, spaceName: sp.name || '', note: t.note || '', cat: '', who: '', mine: (my ? t.payer === my : null),
-              inst: '', src: '', time: t.time || '' });
+              inst: '', src: '', time: t.time || '',
+              absD: Math.abs(bill * mult), dir: 'out', acct: null, party: '', refs: null });
       });
     });
   }catch(e){}
@@ -24227,7 +24266,9 @@ function fhDedupLedgerIndex(){
     if(isNaN(d.getTime())) return;
     add({ id: t.id, amtD: Number(t.amt) * mult, _d: d, day: fhDedupDay(d), kind: t.kind || 'expense',
           book: 'personal', note: t.note || '', cat: t.cat || '', who: '', mine: true,
-          inst: '', src: t.src || '', time: t.time || '', acct: t.acct || null });
+          inst: '', src: t.src || '', time: t.time || '', acct: t.acct || t.accountId || null,
+          absD: Math.abs(Number(t.amt) * mult), dir: fhDedupFlow(t.kind || 'expense', t.amt) < 0 ? 'out' : 'in',
+          party: (t.who != null ? t.who : t.payee) || '', refs: t.refs || null });
   });
   return { rows: rows, byAmt: byAmt };
 }
@@ -24511,6 +24552,569 @@ function fhDedupAssess(cands, index, opts){
   window.fhPhotoRetry = function(){ hide(); if(lastInput){ try { lastInput.click(); } catch(e){} } };
 })();
 
+/* ═══ Reconcile matcher — docs/specs/reconcile-spec.md Part 3 (§9 to §13) ═══
+   One money event is one row. This pairs the copies of one event by the facts
+   BOTH copies carry, whatever produced them and whichever arrived first (R10):
+
+     must agree      direction of money; amount to the đồng (or under 1.000 đ
+                     when the booked row was typed by hand and a word agrees);
+                     days at most one apart; the account when both sides name
+                     an owned one.
+     proves two      two owned accounts; two machine-read clocks 120 minutes
+                     or more apart; two source IDs of one kind that differ;
+                     two queue rows of one lane in one shape; opts.notDup (R17).
+                     (Opposite directions are their own question, R13, and
+                     never for a refund or a transfer leg.)
+     raises to sure  the same source ID; the same account and a shared word or
+                     the same memo; the same account and the same minute; the
+                     same account and mutual uniqueness; no account on the
+                     booked side and mutual uniqueness in the book (R15).
+                     Across a day, only with the same ID or a shift the
+                     clock explains (R12 as amended; _fhRcShiftOk).
+     everything else that agrees and is not proved different: likely.
+
+   Same contract as fhDedupAssess (58-dedup-engine.js): an array parallel to
+   `cands`, each null or { tier, why, twin, twinKind, twinIndex?, shared,
+   dayShift }, dayShift = the candidate's day minus its twin's. The matcher is
+   pure: it reads only its arguments and writes nothing (the one exception is a
+   memo of the book's lookup tables on the index object it is handed, which is
+   built per bucketing and never enumerated). No DOM, no storage.
+
+   Below the matcher: the input builders (account lookup, candidate facts, the
+   slice range) and the R20 mode and shadow counters. Those read app state; the
+   matcher never calls them. */
+
+var FH_RECON_DEFAULT = 'shadow';     // R20: the build default; localStorage 'fh-recon' overrides it per device
+var FH_RECON_BOOK_MIN = 200000;      // R15: đồng; below this a book-wide uniqueness needs a shared word
+/* R13: a refund is never anyone's duplicate through the opposite-direction rule.
+   Run on deburred, lower-cased, space-separated text ("hoàn tiền", "hoan tra"). */
+var FH_RECON_REFUND = /\bhoan\b|\brefund|\breversal/;
+
+function _fhRcDayNum(s){
+  var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s || ''));
+  return m ? Math.round(Date.UTC(+m[1], +m[2] - 1, +m[3]) / 864e5) : null;
+}
+function _fhRcText(s){ return fhDedupDeburr(s).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); }
+/* "Identical memo text": after normalising, one contains the other. Six
+   characters at least, so an empty or two-letter memo never agrees with
+   everything. Catches memos made only of stop words or a bare reference
+   number, which fhDedupTokens drops. */
+function _fhRcMemoSame(a, b){
+  if(a.length < 6 || b.length < 6) return false;
+  return a.indexOf(b) >= 0 || b.indexOf(a) >= 0;
+}
+function _fhRcRef(s){ return String(s == null ? '' : s).replace(/\s+/g, '').toUpperCase(); }
+/* 1 = the same source ID, -1 = IDs of the same kind that differ (two events),
+   0 = nothing comparable. A kind is the issuer (provider key): a wallet's
+   transaction id and a bank's reference are never compared. Ledger rows carry
+   no refs in this wave; Part 4 fills `refs` and must normalise them alike. */
+function _fhRcRefs(x, refs){
+  if(!x.ref || !x.refKind || !refs) return 0;
+  var other = false;
+  for(var i = 0; i < refs.length; i++){
+    var r = refs[i];
+    if(!r || r.k !== x.refKind || !r.v) continue;
+    if(_fhRcRef(r.v) === x.ref) return 1;
+    other = true;
+  }
+  return other ? -1 : 0;
+}
+/* Two moments (dedup-flaws-review F-R2, generalised): both sides carry a clock
+   a machine read and they are FH_DEDUP_MOMENT_GAP minutes or more apart, measured
+   across the day boundary. The spec says "or on different days"; measuring the
+   real gap instead keeps an alert at 23:58 and its wallet receipt at 00:01 one
+   event, and every other different-day pair (a day apart in a ±1 window) is
+   still two moments. Day-only rows, hand-typed rows and posting notices have
+   no clock here (clock < 0) and never prove anything. */
+function _fhRcTwoMoments(a, b, dd){
+  if(a.clock < 0 || b.clock < 0) return false;
+  return Math.abs(dd * 1440 + a.clock - b.clock) >= FH_DEDUP_MOMENT_GAP;
+}
+/* R12 as amended (2026-11-25): one day of tolerance makes a pair a CANDIDATE;
+   it makes it certain only when the shift is explained. Exactly one side is
+   day-only, and the other side's MACHINE clock says why the days differ: the
+   day-only row is the day after and the clock is late, or the day before and
+   the clock is early. Measured on one bank's year: every next-day account row
+   had its alert at 21:12 or later, every day-early card row an alert before
+   07:00. Anything else a day off (Monday's unbooked purchase against Tuesday's
+   booked twin, a clockless booked row, two clocked rows) stays `likely`. The
+   same ID needs no explaining; fx_final keeps its own window. */
+var FH_RECON_LATE_MIN = 1200;    // 20:00
+var FH_RECON_EARLY_MIN = 420;    // 07:00
+function _fhRcShiftOk(a, b, dd){   // dd = a.dn - b.dn
+  if(dd === 0) return true;
+  if(a.hand || b.hand) return false;    // a typed row's day and time are both the person's, never the bank's cut-off
+  var aDay = a.min < 0, bDay = b.min < 0;
+  if(aDay === bDay) return false;
+  var c = aDay ? b : a;                 // the side with a time
+  if(c.clock < 0) return false;         // a typed time or a notice's posting time explains nothing
+  var after = aDay ? dd > 0 : dd < 0;   // the day-only row is the day AFTER the clocked one
+  return after ? c.clock >= FH_RECON_LATE_MIN : c.clock < FH_RECON_EARLY_MIN;
+}
+/* `sure` when the days agree or the shift is explained; else the same why, as a guess. */
+function _fhRcSure(why, cls, dd, shared, shiftOk){
+  return shiftOk ? _fhRcV('sure', why, cls, dd, shared, true) : _fhRcV('likely', why, 5, dd, shared, true);
+}
+
+/* Uniqueness without a scan: rows are counted by direction|đồng|day, overall
+   and per account (an empty account counted under its own key). The partners
+   of a row are the rows on the OTHER side with its direction, its exact
+   amount, a day either way and no account that says otherwise: three map
+   reads. Pairs a later rule clears still count, so uniqueness errs towards
+   "not unique". */
+function _fhRcKey(dir, abs, dn){ return dir + '|' + Math.round(abs) + '|' + dn; }
+function _fhRcCount(cnt, dir, abs, dn, acct){
+  var k = _fhRcKey(dir, abs, dn), ka = k + '|' + (acct || '');
+  cnt[k] = (cnt[k] || 0) + 1;
+  cnt[ka] = (cnt[ka] || 0) + 1;
+}
+function _fhRcPartners(cnt, dir, abs, dn, acct){
+  var n = 0;
+  for(var d = dn - 1; d <= dn + 1; d++){
+    var k = _fhRcKey(dir, abs, d);
+    n += acct ? (cnt[k + '|' + acct] || 0) + (cnt[k + '|'] || 0) : (cnt[k] || 0);
+  }
+  return n;
+}
+
+/* One candidate, read once. Direction comes from `dir` (the staged row's own
+   debit/credit, set by fhReconCandFacts) because isIncome is cleared on every
+   transfer-shaped row (57); a candidate without it falls back to isIncome. */
+function _fhRcCand(c, i){
+  if(!c || c.amount == null || !(c.date instanceof Date) || isNaN(c.date.getTime())) return null;
+  var dn = _fhRcDayNum(c.dateDisplay || fhDedupDay(c.date)), abs = Math.abs(Number(c.amount));
+  if(dn == null || !isFinite(abs)) return null;
+  var words = (c.description || '') + ' ' + (c.counterparty || '');
+  var timed = !!c.time && c.timePrecision !== 'day';
+  var ref = _fhRcRef(c.ref);
+  var refKind = ref ? (c.acctProviderKey || fhDedupCanon(c.provider || '')) : '';
+  return { i: i, c: c, abs: abs, dn: dn,
+    dir: (c.dir === 'in' || c.dir === 'out') ? c.dir : (c.isIncome ? 'in' : 'out'),
+    tok: fhDedupTokens(words), text: _fhRcText(c.description || c.counterparty || ''),
+    min: timed ? fhDedupMinutes(c.time) : -1,
+    clock: (timed && !fhDedupNotice(c)) ? fhDedupMinutes(c.time) : -1,   // a posting notice's clock is the posting's (F-R2)
+    acct: c.acctId || null, ref: ref, refKind: refKind, refs: (ref && refKind) ? [{ k: refKind, v: ref }] : null,
+    lane: c.lane || '', stmt: !!c.statement || c.lane === 'statement', xfer: !!c.isTransfer,
+    refund: !!c.refundWorded || FH_RECON_REFUND.test(_fhRcText(words)),
+    prov: fhDedupCanon(c.provider || ''), cur: fhDedupCur(c.currency),
+    shape: (c.shape || '') + '|' + (c.accountKind || '') + '|' + (fhDedupBankNamed(c.counterparty) ? 1 : 0) };
+}
+
+/* The book, read once per index. A row typed by hand has no `src`: its time is
+   when it was typed and never a clock, and it is the only side a rounded
+   amount may come from (the old engine's rounded_merchant). A machine clock is
+   the old engine's test: a row imported from mail or a statement. */
+function _fhRcBook(index){
+  if(index._recon) return index._recon;
+  var list = [], byAbs = {}, cnt = {};
+  (index.rows || []).forEach(function(t, k){
+    var dn = _fhRcDayNum(t.day), amt = Number(t.amtD);
+    if(dn == null || !isFinite(amt)) return;
+    var abs = t.absD != null ? Number(t.absD) : Math.abs(amt);
+    var dir = (t.dir === 'in' || t.dir === 'out') ? t.dir : (fhDedupFlow(t.kind, amt) < 0 ? 'out' : 'in');
+    var note = t.note || '', party = t.party || '';
+    var nm = (String(note).match(/(\d{2}:\d{2})\s*$/) || [])[1] || '';
+    var e = { k: k, t: t, abs: abs, dn: dn, dir: dir, hand: !t.src, acct: t.acct || null,
+      xfer: t.kind === 'transfer' || t.kind === 'repayment',
+      tok: fhDedupTokens(note + ' ' + party), text: _fhRcText(note),
+      min: t.time ? fhDedupMinutes(t.time) : -1, noteMin: nm ? fhDedupMinutes(nm) : -1,
+      clock: (t.time && /email/.test(t.src || '')) ? fhDedupMinutes(t.time) : -1,
+      refs: t.refs || null, refund: FH_RECON_REFUND.test(_fhRcText(note + ' ' + party)) };
+    list.push(e);
+    var b = fhDedupBucket(abs); (byAbs[b] = byAbs[b] || []).push(e);
+    _fhRcCount(cnt, dir, abs, dn, e.acct);
+  });
+  index._recon = { list: list, byAbs: byAbs, cnt: cnt };
+  return index._recon;
+}
+
+/* Pair rank (R16): certain pairs first, ID, then words, then minute, then
+   uniqueness; fx_final; then every guess; a direction conflict last. */
+function _fhRcV(tier, why, cls, dd, shared, exact){
+  return { tier: tier, why: why, cls: cls, dd: dd, shared: shared || '', exact: exact };
+}
+
+/* A queue row against one booked row: null (not a candidate, or proved two
+   events) or a ranked verdict. `uniq` = mutual uniqueness, already counted. */
+function _fhRcJudgeBook(x, e, uniq, opts){
+  var dd = x.dn - e.dn;
+  if(dd < -1 || dd > 1) return null;                                  // R12: one day either way
+  if(x.acct && e.acct && x.acct !== e.acct) return null;              // two owned accounts (Part 5 funding is not in this wave)
+  var ref = _fhRcRefs(x, e.refs);
+  if(ref < 0) return null;
+  if(opts.notDup && opts.notDup(x.c, e.t)) return null;               // R17 hook
+  var diff = Math.abs(x.abs - e.abs), exact = diff < 1, sameDay = dd === 0;
+  var shared = fhDedupShared(x.tok, e.tok);
+  var minute = sameDay && x.min >= 0 && (x.min === e.min || x.min === e.noteMin);
+  /* Another member's family row confirms only with a word or the minute
+     (dedup-flaws-review FP2: five of ten measured false flags). Kept. */
+  if(e.t.mine === false && !shared && !minute && ref <= 0) return null;
+  /* A shared source ID is a fact: a clock gap then means one clock is a
+     posting's, not that there were two events. */
+  if(ref <= 0 && _fhRcTwoMoments(x, e, dd)) return null;
+  if(x.dir !== e.dir){
+    /* R13: opposite direction is its own question, never a refund's. Nor a
+       transfer's: the two legs of one repayment (the deposit's debit, the
+       card's "payment received") look exactly like this, and pairing legs is
+       Part 5's leg_of_transfer, not a misread. */
+    if(exact && sameDay && !x.refund && !e.refund && !x.xfer && !e.xfer && fhDedupSharedCount(x.tok, e.tok) >= 2) return _fhRcV('likely', 'direction_conflict', 6, dd, shared, exact);
+    return null;
+  }
+  if(!exact && !(e.hand && diff < 1000 && shared)) return null;       // rounded: typed by hand, under 1.000 đ, a word agrees
+  var sameAcct = !!(x.acct && x.acct === e.acct), shiftOk = _fhRcShiftOk(x, e, dd);
+  if(ref > 0) return _fhRcV('sure', 'same_ref', 0, dd, shared, exact);
+  if(!exact) return sameDay ? _fhRcV('sure', 'rounded_merchant', 1, dd, shared, false) : _fhRcV('likely', 'rounded_merchant', 5, dd, shared, false);
+  if(sameAcct && (shared || _fhRcMemoSame(x.text, e.text))) return _fhRcSure('acct_text', 1, dd, shared, shiftOk);
+  if(sameDay && shared) return _fhRcV('sure', 'exact_merchant', 1, dd, shared, true);
+  if(sameAcct && minute) return _fhRcV('sure', 'acct_minute', 2, dd, shared, true);
+  if(minute) return _fhRcV('sure', 'exact_minute', 2, dd, shared, true);
+  /* Uniqueness alone never makes a wallet row sure: a wallet repeats amounts
+     (76 genuine repeats measured, 11 within two minutes). R15, Part 6. */
+  if(uniq && x.lane !== 'wallet'){
+    if(sameAcct) return _fhRcSure('acct_unique', 3, dd, shared, shiftOk);
+    if(!e.acct && (x.abs > FH_RECON_BOOK_MIN || shared)) return _fhRcSure('book_unique', 3, dd, shared, shiftOk);
+  }
+  return _fhRcV('likely', shared ? 'exact_merchant' : 'exact_day', 5, dd, shared, true);
+}
+
+/* Two queue rows: `b` is the one that would be flagged, `a` the one kept.
+   Same must-agree and proofs as the book, exact amounts only (nothing in the
+   queue is typed by hand), plus the queue's own proof: one lane, one shape. */
+function _fhRcBankLane(x){ return x.lane === 'alert' || x.lane === 'statement'; }
+function _fhRcJudgeQueue(b, a, opts){
+  var dd = b.dn - a.dn;
+  if(dd < -1 || dd > 1) return null;
+  if(Math.abs(a.abs - b.abs) >= 1 || a.cur !== b.cur) return null;
+  if(!a.prov || !b.prov) return null;                                 // an unknown source: refuse to guess (as the old engine)
+  if(a.acct && b.acct && a.acct !== b.acct) return null;
+  var ref = _fhRcRefs(b, a.refs);
+  if(ref < 0) return null;
+  if(opts.notDup && opts.notDup(b.c, a.c)) return null;
+  if(ref <= 0){
+    if(a.stmt && b.stmt) return null;                                 // two rows of one statement, or two R9 did not fold
+    if(a.prov === b.prov){
+      if(a.stmt === b.stmt && a.shape === b.shape) return null;       // one bank, one shape twice: two real movements
+    } else if(a.lane === b.lane || (_fhRcBankLane(a) && _fhRcBankLane(b))) return null;   // two banks, or two wallets: two accounts
+    if(_fhRcTwoMoments(b, a, dd)) return null;
+  }
+  var shared = fhDedupShared(b.tok, a.tok), sameDay = dd === 0;
+  var minute = sameDay && b.min >= 0 && b.min === a.min;
+  if(a.dir !== b.dir){
+    if(sameDay && !a.refund && !b.refund && !a.xfer && !b.xfer && fhDedupSharedCount(b.tok, a.tok) >= 2) return _fhRcV('likely', 'direction_conflict', 6, dd, shared, true);   // R13, as for the book
+    return null;
+  }
+  var sameAcct = !!(a.acct && a.acct === b.acct);
+  if(ref > 0) return _fhRcV('sure', 'same_ref', 0, dd, shared, true);
+  if(sameAcct && (shared || _fhRcMemoSame(b.text, a.text))) return _fhRcSure('acct_text', 1, dd, shared, _fhRcShiftOk(b, a, dd));
+  if(sameAcct && minute) return _fhRcV('sure', 'acct_minute', 2, dd, shared, true);
+  return _fhRcV('likely', a.prov !== b.prov ? 'cross_source' : (a.stmt !== b.stmt ? 'statement_echo' : 'same_bank_pair'), 5, dd, shared, true);
+}
+/* Which of two queue copies is kept: the earlier day; on one day the one with
+   a machine clock (the poorer copy is flagged); then arrival order. */
+function _fhRcKeeps(a, b){
+  if(a.dn !== b.dn) return a.dn < b.dn;
+  if((a.clock >= 0) !== (b.clock >= 0)) return a.clock >= 0;
+  return a.i < b.i;
+}
+function _fhRcOrder(p, q){
+  return (p.cls - q.cls) || (Math.abs(p.dd) - Math.abs(q.dd)) || ((p.exact ? 0 : 1) - (q.exact ? 0 : 1))
+      || (p.x.i - q.x.i) || ((p.e ? p.e.k : p.a.i) - (q.e ? q.e.k : q.a.i));
+}
+
+/* Verdicts for a whole batch (R16: one-to-one, over the batch, never per row).
+   opts.kindById(id) as for fhDedupAssess; opts.notDup(cand, entry) -> true
+   proves two events (R17, wired in the next wave). The returned array also
+   carries `overruled[i]` for a pipeline flag proved wrong (two banks), which
+   the old engine wrote onto the candidate instead. */
+function fhReconAssess(cands, index, opts){
+  opts = opts || {};
+  index = index || { rows: [] };
+  var n = cands.length, out = new Array(n), X = new Array(n), qcnt = {}, i;
+  for(i = 0; i < n; i++){
+    out[i] = null; X[i] = _fhRcCand(cands[i], i);
+    if(X[i]) _fhRcCount(qcnt, X[i].dir, X[i].abs, X[i].dn, X[i].acct);
+  }
+  var book = _fhRcBook(index), pairs = [], paired = {};
+
+  // 1. Every candidate against the book: one amount bucket either side, ±1 day.
+  X.forEach(function(x){
+    if(!x) return;
+    var pc = _fhRcPartners(book.cnt, x.dir, x.abs, x.dn, x.acct), k = fhDedupBucket(x.abs);
+    for(var b = k - 1; b <= k + 1; b++){
+      var rows = book.byAbs[b]; if(!rows) continue;
+      for(var j = 0; j < rows.length; j++){
+        var e = rows[j];
+        if(e.dn < x.dn - 1 || e.dn > x.dn + 1) continue;
+        var uniq = pc === 1 && Math.abs(x.abs - e.abs) < 1 && _fhRcPartners(qcnt, e.dir, e.abs, e.dn, e.acct) === 1;
+        var v = _fhRcJudgeBook(x, e, uniq, opts);
+        if(v){ v.x = x; v.e = e; pairs.push(v); paired[x.i] = 1; }
+      }
+    }
+  });
+
+  /* 2. R19: a card statement's final figure against a booked foreign-currency
+     ESTIMATE. The old engine's fx_final, unchanged (only for a statement row
+     that found nothing else, only an expense whose note says "est.", the same
+     merchant word, a few days, within 6%), with the account added to "must
+     agree", and the direction: the old engine never reached this for a
+     transfer (its early return), and with R14 a money-in transfer must not
+     match a booked purchase. Its dayShift is the real distance, up to four
+     days. */
+  X.forEach(function(x){
+    var c = x && x.c;
+    if(!x || paired[x.i] || !c.statement || c.isIncome) return;
+    var lo = fhDedupBucket(x.abs * 0.94), hi = fhDedupBucket(x.abs * 1.06);
+    for(var fb = lo; fb <= hi; fb++){
+      var rows = book.byAbs[fb]; if(!rows) continue;
+      for(var j = 0; j < rows.length; j++){
+        var e = rows[j], t = e.t;
+        if(t.kind !== 'expense' || !/\[[\d.,]+ [A-Z]{3}[^\]]*est\.\]/.test(String(t.note || ''))) continue;
+        if(Math.abs(x.dn - e.dn) > 4 || x.dir !== e.dir) continue;
+        if(x.acct && e.acct && x.acct !== e.acct) continue;
+        var fshared = fhDedupShared(x.tok, fhDedupTokens(String(t.note || '').replace(/\[[^\]]*\]/g, ' ')));
+        if(!fshared) continue;
+        var fv = _fhRcV('sure', 'fx_final', 4, x.dn - e.dn, fshared, false);
+        fv.x = x; fv.e = e; pairs.push(fv);
+      }
+    }
+  });
+
+  // 3. Claim, best pair first; a booked row explains one candidate.
+  pairs.sort(_fhRcOrder);
+  var claimed = {};
+  pairs.forEach(function(p){
+    if(out[p.x.i] || claimed[p.e.k]) return;
+    claimed[p.e.k] = 1;
+    out[p.x.i] = { tier: p.tier, why: p.why, twin: p.e.t, twinKind: 'ledger', shared: p.shared, dayShift: p.dd };
+  });
+
+  /* 4. The queue against itself, for rows the book did not explain. A kept row
+     explains at most one row of each other source (lane, statement or not,
+     provider), so an alert pairs with one statement row and one wallet row of
+     the same event, and a third equal statement row stays its own purchase. */
+  var byAbsQ = {}, qpairs = [];
+  X.forEach(function(x){ if(x){ var b = fhDedupBucket(x.abs); (byAbsQ[b] = byAbsQ[b] || []).push(x); } });
+  X.forEach(function(b){
+    if(!b || out[b.i]) return;
+    var peers = byAbsQ[fhDedupBucket(b.abs)] || [];
+    for(var p = 0; p < peers.length; p++){
+      var a = peers[p];
+      if(a === b || !_fhRcKeeps(a, b)) continue;
+      var v = _fhRcJudgeQueue(b, a, opts);
+      if(v){ v.x = b; v.a = a; qpairs.push(v); }
+    }
+  });
+  qpairs.sort(_fhRcOrder);
+  var qclaimed = {};
+  qpairs.forEach(function(p){
+    var key = p.a.i + '|' + p.x.lane + '|' + (p.x.stmt ? 1 : 0) + '|' + p.x.prov;
+    if(out[p.x.i] || qclaimed[key]) return;
+    qclaimed[key] = 1;
+    out[p.x.i] = { tier: p.tier, why: p.why, twin: cands[p.a.i], twinKind: 'queue', twinIndex: p.a.i, shared: p.shared, dayShift: p.dd };
+  });
+
+  /* 5. The pipeline's flag, as the old engine treats it: a suspicion, dropped
+     when it can be proved wrong (two banks). No transfer exemption (R14). */
+  var overruled = [];
+  for(i = 0; i < n; i++){
+    var c = cands[i];
+    if(!X[i] || out[i] || !c.pipelineDupOf) continue;
+    var mk = typeof opts.kindById === 'function' ? opts.kindById(c.pipelineDupOf) : '';
+    if(c.kind === 'bank' && mk === 'bank') overruled[i] = true;
+    else out[i] = { tier: 'likely', why: 'pipeline', twin: null, twinKind: 'pipeline', shared: '', dayShift: 0 };
+  }
+  out.overruled = overruled;
+  return out;
+}
+
+/* ── Inputs (reconcile-spec §11). Read app state; never called by the matcher. ── */
+
+/* The person's owned accounts by "providerKey|tail" -> [ids]. Built once per
+   bucketing. Synchronous on purpose: fhPersonalAccountEnsure creates accounts
+   and is async, and the matcher must not wait on, or cause, a write. The
+   `alias` namespace (R8) is Part 2's and is not read yet. */
+function _fhRcProvKey(name){
+  try {
+    if(typeof fhAcctProviderKey === 'function' && typeof window !== 'undefined' && window.FH_PROVIDERS) return fhAcctProviderKey(name || '') || '';
+  } catch(e){}
+  return fhDedupCanon(name || '');
+}
+function fhReconAcctIndex(accounts){
+  var list = accounts;
+  if(!list){
+    try {
+      var pd = (typeof window !== 'undefined' && typeof window.fhPersonalData === 'function') ? window.fhPersonalData() : null;
+      list = (pd && pd.accounts) || [];
+    } catch(e){ list = []; }
+  }
+  var idx = {};
+  list.forEach(function(a){
+    if(!a || !a.id || a.kind === 'investment') return;
+    var tail = String(a.tail == null ? '' : a.tail).replace(/\D/g, '').slice(-4);
+    var key = a.providerKey || _fhRcProvKey(a.provider);
+    if(tail.length !== 4 || !key) return;
+    (idx[key + '|' + tail] = idx[key + '|' + tail] || []).push(a.id);
+  });
+  return idx;
+}
+
+/* The lane a queue row came by (reconcile-spec §9). From the transport and
+   the sealed sender kind, wallet first because R15 is about wallets however
+   their rows arrive:
+     file       not a staged row (a CSV/XLSX the person picked);
+     scan       a merchant's own receipt mail (sender_kind 'receipt', the
+                receipt flag), or any other non-bank sender (transaction_type
+                is derived from the sender kind: anything but bank_txn /
+                p2p_transfer is not a bank). Same facts as a scan: the
+                seller's words, often a clock, no account. No photo scan
+                reaches the queue today (78-receipt-scan books directly);
+     wallet     an e-wallet account, a wallet-grained sender kind, or a
+                wallet provider (the fhStagedAcct list);
+     statement  a row read from a statement file (_transport 'statement');
+     alert      every other staged row: a bank's mail. */
+function fhReconLane(src){
+  if(!src || !src.staged) return 'file';
+  var rx = src.rx || {}, sk = rx.sender_kind || '';
+  if(src.receipt || sk === 'receipt') return 'scan';
+  if(rx.account_kind === 'ewallet' || (sk && sk !== 'bank')
+     || /momo|zalopay|shopeepay|viettelmoney/.test(fhDedupCanon(src.provider || ''))) return 'wallet';
+  if(rx._transport === 'statement') return 'statement';
+  if(src.otherKind) return 'scan';
+  return 'alert';
+}
+
+/* The fields §11 adds to a candidate, for both call sites (57, 76):
+     src = { rx: the opened payload or null, provider: source_provider,
+             staged, receipt, otherKind, isIncome, xferDir, text }
+   `dir` comes from the payload's own debit/credit when it has one (57 clears
+   isIncome on every transfer-shaped row, so isIncome alone cannot say which
+   way a card repayment moved); a file row falls back to isIncome / _xferDir. */
+function fhReconCandFacts(src, acctIdx){
+  src = src || {};
+  var rx = src.rx || null, prov = src.provider || '';
+  var tail = rx ? String(rx.account_masked || '').replace(/\D/g, '').slice(-4) : '';
+  if(tail.length !== 4) tail = '';
+  var pkey = prov ? _fhRcProvKey(prov) : '';
+  var hits = (acctIdx && pkey && tail) ? (acctIdx[pkey + '|' + tail] || []) : [];
+  var dw = rx && rx.direction;
+  return {
+    acctTail: tail || null, acctProviderKey: pkey || null,
+    acctId: hits.length === 1 ? hits[0] : null,                          // exactly one owned match, else unknown
+    ref: (rx && rx.reference_number) ? String(rx.reference_number) : '',
+    timePrecision: (rx && rx.time_precision) || '',
+    lane: fhReconLane(src),
+    dir: dw === 'credit' ? 'in' : dw === 'debit' ? 'out' : ((src.isIncome || src.xferDir === 'in') ? 'in' : 'out'),
+    refundWorded: !!(rx && rx.stmt && rx.stmt.flow === 'refund') || FH_RECON_REFUND.test(_fhRcText(src.text || ''))
+  };
+}
+
+/* R18: the period the queue is judging, as the match slice's lower bound:
+   the earliest row minus 4 days (the latest plus 4 is informational; the slice
+   has no upper bound). Null when no row has a readable date. */
+function fhReconSliceRange(dates){
+  var lo = null, hi = null;
+  (dates || []).forEach(function(v){
+    var d = v instanceof Date ? v : (v ? new Date(v) : null);
+    if(!d || isNaN(d.getTime())) return;
+    if(lo === null || d < lo) lo = d;
+    if(hi === null || d > hi) hi = d;
+  });
+  if(!lo) return null;
+  var a = new Date(lo.getTime()), b = new Date(hi.getTime());
+  a.setDate(a.getDate() - 4); b.setDate(b.getDate() + 4);
+  return { from: fhDedupDay(a), to: fhDedupDay(b) };
+}
+
+/* ── R20: mode and shadow ─────────────────────────────────────────────────── */
+
+function fhReconMode(){
+  var v = '';
+  try { v = (typeof localStorage !== 'undefined' && localStorage) ? (localStorage.getItem('fh-recon') || '') : ''; } catch(e){ v = ''; }
+  return (v === 'off' || v === 'shadow' || v === 'on') ? v : FH_RECON_DEFAULT;
+}
+
+/* Shadow record: COUNTS ONLY. No amount, name, memo, id or date is kept, in
+   memory or on disk; why codes appear only as keys. `last` is the latest
+   bucketing, `total` the running sum on this device. */
+var FH_RECON_SHADOW = null, FH_RECON_SHADOW_FP = '';
+var FH_RECON_COUNTS = ['judged', 'oldSure', 'oldLikely', 'newSure', 'newLikely', 'same', 'twinDiffers', 'oldOnly', 'newOnly', 'tierDiffers'];
+function _fhRcZero(){ var z = { newWhy: {} }; FH_RECON_COUNTS.forEach(function(k){ z[k] = 0; }); return z; }
+function _fhRcNum(v){ v = Number(v); return isFinite(v) && v >= 0 ? Math.floor(v) : 0; }
+function _fhRcClean(p){
+  var z = _fhRcZero();
+  if(!p || typeof p !== 'object') return z;
+  FH_RECON_COUNTS.forEach(function(k){ z[k] = _fhRcNum(p[k]); });
+  var w = p.newWhy;
+  if(w && typeof w === 'object') for(var k in w){ if(/^[a-z_]{1,32}$/.test(k)) z.newWhy[k] = _fhRcNum(w[k]); }
+  return z;
+}
+function fhReconShadow(){
+  if(!FH_RECON_SHADOW){
+    var s = { runs: 0, errors: 0, last: _fhRcZero(), total: _fhRcZero() };
+    try {
+      var raw = (typeof localStorage !== 'undefined' && localStorage) ? localStorage.getItem('fh-recon-shadow') : null;
+      var p = raw ? JSON.parse(raw) : null;
+      if(p && typeof p === 'object'){ s.runs = _fhRcNum(p.runs); s.errors = _fhRcNum(p.errors); s.last = _fhRcClean(p.last); s.total = _fhRcClean(p.total); }
+    } catch(e){}
+    FH_RECON_SHADOW = s;
+  }
+  return FH_RECON_SHADOW;
+}
+if(typeof window !== 'undefined') window.fhReconShadow = fhReconShadow;
+function _fhRcSave(s){
+  try { if(typeof localStorage !== 'undefined' && localStorage) localStorage.setItem('fh-recon-shadow', JSON.stringify(s)); } catch(e){}
+}
+function _fhRcSameTwin(o, v){
+  if(o.twinKind !== v.twinKind) return false;
+  return o.twinKind === 'queue' ? o.twinIndex === v.twinIndex : o.twin === v.twin;
+}
+function fhReconShadowRecord(oldV, newV){
+  var s = fhReconShadow(), z = _fhRcZero();
+  for(var i = 0; i < oldV.length; i++){
+    var o = oldV[i] || null, v = (newV && newV[i]) || null;
+    z.judged++;
+    if(o) z[o.tier === 'sure' ? 'oldSure' : 'oldLikely']++;
+    if(v){ z[v.tier === 'sure' ? 'newSure' : 'newLikely']++; z.newWhy[v.why] = (z.newWhy[v.why] || 0) + 1; }
+    if(!o && !v) z.same++;
+    else if(o && !v) z.oldOnly++;
+    else if(!o && v) z.newOnly++;
+    else if(o.tier !== v.tier) z.tierDiffers++;
+    else { z.same++; if(!_fhRcSameTwin(o, v)) z.twinDiffers++; }
+  }
+  s.last = z;
+  /* One open queue is bucketed many times (every rebuild), so a total that
+     added every run would count the same rows again and again. A run whose
+     counts equal the previous run's is the same queue: `last` is replaced,
+     `total` and `runs` are not. The fingerprint lives in memory only (it is
+     a string; the stored record holds numbers). */
+  var fp = JSON.stringify(z) + '|' + oldV.length;
+  if(fp !== FH_RECON_SHADOW_FP){
+    FH_RECON_SHADOW_FP = fp;
+    FH_RECON_COUNTS.forEach(function(k){ s.total[k] += z[k]; });
+    for(var w in z.newWhy) s.total.newWhy[w] = (s.total.newWhy[w] || 0) + z.newWhy[w];
+    s.runs++;
+  }
+  _fhRcSave(s);
+}
+
+/* The one dispatch both call sites use. 'off': the old engine. 'shadow': the
+   old engine decides, exactly as before; then this one runs on the same
+   inputs, inside a catch, and only counts. 'on': this one decides, and a throw
+   falls back to the old engine. Cheap by construction: no read beyond the
+   index already built, nothing per repaint (bucketing runs per build). */
+function fhReconRun(cands, index, opts){
+  var mode = fhReconMode();
+  if(mode === 'on'){
+    try { return fhReconAssess(cands, index, opts); }
+    catch(e){ try { fhReconShadow().errors++; } catch(e2){} }
+  }
+  var old = (typeof fhDedupAssess === 'function') ? fhDedupAssess(cands, index, opts) : cands.map(function(){ return null; });
+  if(mode === 'shadow'){
+    try { fhReconShadowRecord(old, fhReconAssess(cands, index, opts)); }
+    catch(e){ try { var s = fhReconShadow(); s.errors++; _fhRcSave(s); } catch(e2){} }
+  }
+  return old;
+}
 /* ── Cross-ledger move UI (0114) — docs/specs/cross-ledger-move-spec.md ──
    The scope chips (🏡/🔒), hidden in edit mode until this epic, become the
    move affordance: for a move-eligible row the chips reappear selected on the
@@ -24883,16 +25487,28 @@ function fhStmtFindTable(grid, rolesOverride){
   if (headerIdx < 0) { headerIdx = firstIdx; roles = firstRoles; }
   if (headerIdx < 0) return null;
   if (rolesOverride) roles = rolesOverride;
-  var body = [], notes = [];
+  var body = [], notes = [], preambleN = 0;
   for (var j = 0; j < grid.length; j++) {
     if (j === headerIdx) continue;
     var cells = grid[j] || [];
     /* a fee row on a card statement has no transaction date, only a post date
        (pdf-statements-spec PS10): the post date is its day */
     if (j > headerIdx && (fhStmtDate(cells[roles.date]) || (roles.postDate !== undefined && fhStmtDate(cells[roles.postDate])))) body.push({ i: j, cells: cells });
-    else if (cells.some(function(x){ return String(x == null ? '' : x).trim() !== ''; })) notes.push(cells);
+    else if (cells.some(function(x){ return String(x == null ? '' : x).trim() !== ''; })) { notes.push(cells); if (j < headerIdx) preambleN++; }
   }
-  return { headerIdx: headerIdx, headers: (grid[headerIdx] || []).map(String), roles: roles, body: body, notes: notes };
+  /* `preambleN`: the first preambleN notes sit above the header, the rest are
+     sub-header and totals rows inside or after the table (R2 tells them apart). */
+  return { headerIdx: headerIdx, headers: (grid[headerIdx] || []).map(String), roles: roles, body: body, notes: notes, preambleN: preambleN };
+}
+
+/* A points or miles column makes the table a loyalty statement, not a money one
+   (reconcile-spec R1): its "Số tiền" is what the purchases cost, already on the
+   card's own statement. Only a HEADER cell counts: a money statement may well
+   mention points in its preamble. Bare "dam" (dặm) is left out on purpose: it is
+   also the "đảm" of "đảm bảo". */
+var STMT_POINTS = ['so diem', 'diem thuong', 'diem tich luy', 'loyalty point', 'loyalty points', 'reward point', 'reward points', 'so dam', 'dam bay', 'miles'];
+function fhStmtNotMoney(headerCells){
+  return (headerCells || []).some(function(h){ return _stmtHas(stmtWords(h), STMT_POINTS); });
 }
 
 /* The summary block: label cell, then the first cell to its right that reads as
@@ -24917,14 +25533,35 @@ var STMT_LABELS = [
   ['autoDebit',   ['so tk trich no', 'tai khoan trich no', 'auto debit account']],
   ['account',     ['so tai khoan', 'account number', 'so the chinh', 'primary card number', 'so vi']]
 ];
-function fhStmtSummary(notes){
-  var out = {};
-  (notes || []).forEach(function(cells){
+/* A card number, by its label or by its printed shape ("512345******6789"). */
+var STMT_CARD_LABELS = ['so the chinh', 'primary card number'];
+var STMT_PAN = /^\d{4,8}[*xX•.]{3,}\d{4}$/;
+/* `preambleN` (from fhStmtFindTable): how many leading notes sit above the
+   header. Absent, every note counts as preamble.
+
+   Every label but `account` is read once, first hit wins. `account` is read
+   every time (R2): a card statement names the card number, the card's own
+   account number and, on sub-header rows inside the table, both again. Each
+   number goes to `accountTails` in file order, distinct by label and tail:
+     [{ tail: '6789', label: 'card' | 'account', where: 'preamble' | 'table' }]
+   `accountTail` is the card number from the preamble when there is one, else
+   the first account number from the preamble. A number seen only inside the
+   table is collected and never becomes `accountTail`. */
+function fhStmtSummary(notes, preambleN){
+  var out = {}, tails = [], seenTail = {};
+  (notes || []).forEach(function(cells, ni){
+    var where = (preambleN === undefined || ni < preambleN) ? 'preamble' : 'table';
     for (var c = 0; c < cells.length; c++) {
       var w = stmtWords(cells[c]); if (w.trim() === '') continue;
       for (var k = 0; k < STMT_LABELS.length; k++) {
         var key = STMT_LABELS[k][0];
-        if (out[key] !== undefined || !_stmtHas(w, STMT_LABELS[k][1])) continue;
+        if (!_stmtHas(w, STMT_LABELS[k][1])) continue;
+        /* The guard reads the field each key writes; it used to test out.account
+           and out.autoDebit, which nothing writes, so the LAST account line won.
+           A second auto-debit line stops here too, never falling through to
+           `account`: it is still somebody else's account. */
+        if (key === 'autoDebit' && out.autoDebitTail !== undefined) break;
+        if (key !== 'account' && key !== 'autoDebit' && out[key] !== undefined) continue;
         for (var v = c + 1; v < cells.length; v++) {
           var raw = String(cells[v] == null ? '' : cells[v]).replace(/^\s*:\s*/, '').trim();
           if (raw === '') continue;
@@ -24935,7 +25572,12 @@ function fhStmtSummary(notes){
             if (a && b) out.period = { from: a.date, to: b.date };
           } else if (key === 'account') {
             /* Only the masked tail is ever kept. The full number stays in the file. */
-            var dg = raw.replace(/\D/g, ''); if (dg.length >= 4) out.accountTail = dg.slice(-4);
+            var dg = raw.replace(/\D/g, '');
+            if (dg.length >= 4) {
+              var lbl = (_stmtHas(w, STMT_CARD_LABELS) || STMT_PAN.test(raw.replace(/\s+/g, ''))) ? 'card' : 'account';
+              var tk = lbl + '|' + dg.slice(-4);
+              if (!seenTail[tk]) { seenTail[tk] = true; tails.push({ tail: dg.slice(-4), label: lbl, where: where }); }
+            }
           } else if (key === 'autoDebit') {
             var ad = raw.replace(/\D/g, ''); if (ad.length >= 4) out.autoDebitTail = ad.slice(-4);
           } else if (key === 'stmtDate' || key === 'dueDate') {
@@ -24947,8 +25589,22 @@ function fhStmtSummary(notes){
       }
     }
   });
+  if (tails.length) {
+    out.accountTails = tails;
+    var pre = tails.filter(function(t){ return t.where === 'preamble'; });
+    var primary = pre.filter(function(t){ return t.label === 'card'; })[0] || pre[0];
+    if (primary) out.accountTail = primary.tail;
+  }
   return out;
 }
+
+/* A cell that ends with a figure printed the way money is: thousands
+   separators, or two decimals, optionally signed or in parens. A date, a phone
+   number, a bare id or a currency-trailed original amount does not. */
+var STMT_MONEY_END = /(?:^|\s)[+\-(]?\d{1,3}(?:[.,]\d{3})+(?:[.,]\d{1,2})?\)?$|(?:^|\s)[+\-(]?\d+[.,]\d{2}\)?$/;
+/* ...and the cells where such a figure is expected or harmless: the days, the
+   running balance, the original amount, and the amount cells themselves. */
+var STMT_NOT_MONEY_CELL = ['date', 'postDate', 'balance', 'fxAmount', 'amount', 'debit', 'credit'];
 
 var STMT_FAILED = ['that bai', 'khong thanh cong', 'failed', 'fail', 'da huy', 'bi huy', 'cancelled', 'canceled', 'declined', 'tu choi', 'rejected'];
 
@@ -24980,6 +25636,18 @@ function fhStmtRead(table){
       var db = Math.abs(fig('debit') || 0), cr = Math.abs(fig('credit') || 0);
       if (db || cr) amt = cr - db;
     }
+    /* The amount cells hold no digit at all, yet another cell of the row ENDS
+       with a money-shaped figure: the figure was filed under the wrong column
+       (a PDF prints a figure wider than its heading left of it). Such a row
+       used to vanish here with no trace and sink the proof; it is named
+       instead. A row whose amount cells read "0.0" has digits and is not this. */
+    if (!bad && !/\d/.test(cell(b.cells, 'amount') + cell(b.cells, 'debit') + cell(b.cells, 'credit'))) {
+      for (var ci = 0; ci < b.cells.length && !bad; ci++) {
+        if (STMT_NOT_MONEY_CELL.some(function(k){ return R[k] === ci; })) continue;
+        var cs = String(b.cells[ci] == null ? '' : b.cells[ci]).replace(/\s+/g, ' ').trim();
+        if (STMT_MONEY_END.test(cs)) bad = { role: Object.keys(R).filter(function(k){ return R[k] === ci; })[0] || '', cell: cs, why: 'misplaced' };
+      }
+    }
     if (bad) { unreadable.push({ i: b.i, date: when.date, role: bad.role, cell: bad.cell, why: bad.why }); return; }
     if (amt === null || amt === 0) return;
     if (R.status !== undefined && _stmtHas(stmtWords(b.cells[R.status]), STMT_FAILED)) { failed++; return; }
@@ -25003,12 +25671,13 @@ function fhStmtRead(table){
   return { rows: rows, failed: failed, unreadable: unreadable };
 }
 
-/* The proof. Returns { ok, how, ratio, order, totals, oldestFirst } and marks each
-   row that broke a proven running balance: `unmoved` when the balance simply did
-   not change (paid from somewhere else), `broken` otherwise. */
+/* The proof. Returns { ok, how, ratio, order, totals, oldestFirst, sign } and marks
+   each row that broke a proven running balance: `unmoved` when the balance simply
+   did not change (paid from somewhere else), `broken` otherwise. `sign` is 1 here;
+   fhStmtParse sets -1 when a single amount column proved only inverted (R3). */
 function fhStmtProve(rows, summary, unreadable){
   summary = summary || {};
-  var out = { ok: false, how: '', ratio: 0, order: 'file', totals: false, oldestFirst: rows.slice(), unreadable: (unreadable || []).length };
+  var out = { ok: false, how: '', ratio: 0, order: 'file', totals: false, oldestFirst: rows.slice(), unreadable: (unreadable || []).length, sign: 1 };
   if (!rows.length) return out;
   var withBal = rows.filter(function(r){ return r.bal !== null; });
   /* `strict` = the balance moved by exactly the amount. `soft` also accepts a DEBIT
@@ -25275,16 +25944,65 @@ function fhStmtClassify(row, ctx){
   return out;
 }
 
+/* R3, when the arithmetic cannot say: which sign does the file's own wording
+   give its single amount column? Only rows worded one way and not the other
+   count: "mua hang", "thanh toan gd" and a fee are money out; "hoan tra",
+   "hoan tien", "refund" are money in, and so is "thanh toan sao ke the" on a
+   card (on an account the same words pay the card, money out, so they count
+   only when the summary speaks of debt or names a card number). -1 when at
+   least 3 rows are worded and at least 90% of them contradict the printed
+   sign; otherwise 1, the printed sign. */
+var STMT_WORD_MIN = 3, STMT_WORD_SHARE = 0.9;
+function fhStmtWordsSay(rows, summary){
+  summary = summary || {};
+  var card = summary.prevDebt !== undefined || summary.endDebt !== undefined ||
+    (summary.accountTails || []).some(function(t){ return t.label === 'card' && t.where === 'preamble'; });
+  var n = 0, against = 0;
+  (rows || []).forEach(function(r){
+    var w = stmtWords(r.description);
+    var out = _stmtHas(w, ['mua hang', 'thanh toan gd']) || (_stmtHas(w, ['phi']) && !_stmtHas(w, ['hoc phi', 'hoan phi']));
+    var inn = _stmtHas(w, ['hoan tra', 'hoan tien', 'refund']) || (card && _stmtHas(w, ['thanh toan sao ke the']));
+    if (out === inn) return;                       // unworded, or worded both ways
+    n++;
+    if ((out && r.amt > 0) || (inn && r.amt < 0)) against++;
+  });
+  return (n >= STMT_WORD_MIN && against / n >= STMT_WORD_SHARE) ? -1 : 1;
+}
+
 /* One call for the whole file. `rolesOverride` is a remembered or hand-confirmed
    mapping; `ctx` is what the app already knows about the file before opening it
    ({ provider }), which is half of how the issuer is recognised. Never throws on
-   a strange file: `table: null` means "no table found". */
+   a strange file: `table: null` means no money table, and `why` says which:
+   'no_table' (none found) or 'not_money' (a points statement, R1). */
 function fhStmtParse(grid, rolesOverride, ctx){
   var table = fhStmtFindTable(grid || [], rolesOverride);
-  if (!table) return { table: null, issuer: STMT_ISSUER_DEFAULT.id, rows: [], failed: 0, unreadable: [], summary: {}, proof: { ok: false, how: '', ratio: 0, unreadable: 0 } };
-  var summary = fhStmtSummary(table.notes);
+  var none = function(why){ return { table: null, why: why, issuer: STMT_ISSUER_DEFAULT.id, rows: [], failed: 0, unreadable: [], summary: {}, proof: { ok: false, how: '', ratio: 0, unreadable: 0, sign: 1 } }; };
+  if (!table) return none('no_table');
+  var summary = fhStmtSummary(table.notes, table.preambleN);
+  /* R1: a points column rejects the file only when nothing else in it speaks
+     of money. Some banks print points earned beside each purchase of the real
+     card statement; there the points column has no role and is simply not read. */
+  var moneyEvidence = ['opening', 'closing', 'prevDebt', 'endDebt', 'totalDebit', 'totalCredit'].some(function(k){ return summary[k] !== undefined; })
+    || table.roles.balance !== undefined;
+  if (!moneyEvidence && fhStmtNotMoney(table.headers)) return none('not_money');
   var read = fhStmtRead(table);
   var proof = fhStmtProve(read.rows, summary, read.unreadable);
+  /* R3. One signed amount column carries the bank's convention, not ours: one
+     card statement prints purchases positive and payments negative. When the
+     printed sign does not prove, the inverted one is put to the same checks,
+     and the sign that proves is the sign; the rows go on in the app's convention
+     (money out negative). Two-column files take the sign from the column and
+     never come here. */
+  if (!proof.ok && !read.unreadable.length && table.roles.amount !== undefined && read.rows.length) {
+    var flipped = read.rows.map(function(r){ return Object.assign({}, r, { amt: -r.amt }); });
+    var proof2 = fhStmtProve(flipped, summary, read.unreadable);
+    if (proof2.ok) { read.rows = flipped; proof = proof2; proof.sign = -1; }
+    /* Neither sign proves: the file's own wording decides the file's sign, and
+       only when it is near unanimous. The file still asks (proof.ok stays
+       false); what changes is that the question, and the rows behind it, are
+       the right way round. Mixed or thin evidence keeps the printed sign. */
+    else if (fhStmtWordsSay(read.rows, summary) === -1) { read.rows = flipped; proof = proof2; proof.sign = -1; }
+  }
   var profile = fhStmtIssuer(table.roles, ctx || {});
   /* The holder is read once, off every row, before any row is classified: the
      self test asks "is the other side me?", and one row cannot answer that. */
@@ -25371,7 +26089,7 @@ function fhStmtAccountFacts(parsed, kind){
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { fhStmtNum: fhStmtNum, fhStmtFigure: fhStmtFigure, fhStmtDate: fhStmtDate, fhStmtRoles: fhStmtRoles, fhStmtFindTable: fhStmtFindTable,
     fhStmtSummary: fhStmtSummary, fhStmtRead: fhStmtRead, fhStmtProve: fhStmtProve, fhStmtClassify: fhStmtClassify,
-    fhStmtParse: fhStmtParse, fhStmtHeaderSig: fhStmtHeaderSig, stmtDeburr: stmtDeburr, fhStmtAccountFacts: fhStmtAccountFacts,
+    fhStmtParse: fhStmtParse, fhStmtHeaderSig: fhStmtHeaderSig, stmtDeburr: stmtDeburr, fhStmtAccountFacts: fhStmtAccountFacts, fhStmtNotMoney: fhStmtNotMoney, fhStmtWordsSay: fhStmtWordsSay,
     STMT_ISSUERS: STMT_ISSUERS, STMT_ISSUER_DEFAULT: STMT_ISSUER_DEFAULT,
     fhStmtIssuer: fhStmtIssuer, fhStmtBankOf: fhStmtBankOf, fhStmtHolder: fhStmtHolder };
 }
@@ -35153,14 +35871,23 @@ window.obGoogle = async function () {
        amount/note/cat only, decrypted once and cached per session; the review
        screen awaits it BEFORE bucketing because the matcher is synchronous.
        Returns [] rather than throwing — a locked ledger degrades to the short
-       cache, never blocks the queue from opening. */
-    let _matchSlice = null;
-    window.fhPersonalMatchSlice = async function () {
+       cache, never blocks the queue from opening.
+
+       reconcile-spec R18: `range` ({ from: 'YYYY-MM-DD' }, built by
+       fhReconSliceRange as the earliest row being judged minus 4 days) moves
+       the lower bound further back when the queue holds a row older than the
+       horizon; it never narrows it. Same query, only an earlier `gte`. The
+       cache remembers how far back it reaches and is reused for any request
+       it already covers. */
+    let _matchSlice = null, _matchFrom = '';
+    window.fhPersonalMatchSlice = async function (range) {
       if (!P.uid || !P.key) return [];
-      if (_matchSlice) return _matchSlice;
+      const d = new Date(); d.setDate(d.getDate() - 365);
+      let from = _localDate(d);
+      const want = range && typeof range.from === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(range.from) ? range.from : '';
+      if (want && want < from) from = want;
+      if (_matchSlice && _matchFrom && _matchFrom <= from) return _matchSlice;
       try {
-        const d = new Date(); d.setDate(d.getDate() - 365);
-        const from = _localDate(d);
         /* Every kind, and the mirror link: the dedup engine (58) gates on kind
            itself and DROPS mirrors — a family row the person authored is copied
            here with link_id set, and indexing both let two staged copies of one
@@ -35179,12 +35906,17 @@ window.obGoogle = async function () {
             who: t.counterparty_enc ? await _decTxt(t.counterparty_enc) : null,   // A15: the payee, for "… và M khoản đã ghi" (apply-to-similar-spec)
             time: t.occurred_time_enc ? (await _decTxt(t.occurred_time_enc)) : '' });
         }
-        _matchSlice = out;
+        _matchSlice = out; _matchFrom = from;
         return out;
       } catch (e) { console.warn('personal match slice failed', e); return []; }
     };
-    /* A write through this module makes the cached slice stale by definition. */
-    window.fhPersonalMatchSliceInvalidate = function () { _matchSlice = null; };
+    /* A write through this module makes the cached slice stale by definition.
+       The copy the review screen parked on window (window._fhPersonalMatchSlice,
+       72 and 76) is deliberately left as it is: known to be stale after a write
+       during an open review, but complete, where the tab cache it would fall
+       back to holds two months and drops older twins mid-session. Release 3 of
+       reconcile-spec patches the slice in place on writes instead. */
+    window.fhPersonalMatchSliceInvalidate = function () { _matchSlice = null; _matchFrom = ''; };
 
     /* ── Recurrence slice (recurring-charges-spec §18.1, RR10) ───────────────
        The tab holds two months. A monthly charge needs two occurrences to be
@@ -44436,11 +45168,13 @@ window.obGoogle = async function () {
        - a description spans two lines; a fee row has no transaction date, only
          a post date; the totals block and a glossary follow the table.
      Rules: rows = items clustered by y; cells = items joined across small gaps;
-     columns = the header cells' x-ranges, a cell assigned by its CENTRE (figures
-     are right-aligned and a wide one starts left of its heading); a row whose
-     cells all sit in the last column joins the row above (the second line of a
-     description); the second header line, digit-free and inside the columns,
-     merges into the header so both languages name the roles; a bare date on a
+     columns = the header cells' x-ranges, a cell assigned by where it starts,
+     or, when a right-aligned figure wider than its heading starts in the column
+     before, by the heading it overlaps more (colFor); a line whose cells all
+     sit in the description column (the last column when no heading says
+     description), closer below than a row pitch, joins the row above (the next
+     line of a description, chained); the second header line, digit-free and
+     inside the columns, merges into the header so both languages name the roles; a bare date on a
      line of its own in the preamble joins the line above it (a due date printed
      under its time).
 
@@ -44554,9 +45288,20 @@ window.obGoogle = async function () {
       /* a run belongs to the column its START falls in: a heading and the text
          under it share a left edge, and a right-aligned figure starts at or after
          its heading's start while its centre can stray into the next column (the
-         real file's credit figures did exactly that). Known limit: a figure wider
-         than its heading starts in the column before. */
+         real file's credit figures did exactly that). */
       const colOf = (c) => { for (let i = spans.length - 1; i >= 0; i--) if (c.x0 >= spans[i].x0) return i; return 0; };
+      /* ...except a figure WIDER than its heading: right-aligned to the
+         heading's right edge, it starts left of the heading and so in the column
+         before. One real card PDF filed four of five payments under MCC that
+         way ("6012-Member Financial -1,366,000.00"), the amount cell came out
+         empty and the rows were lost before any proof could see them (reconcile
+         R3). So a run that starts in column k and still reaches past column
+         k+1's boundary goes to whichever of the two HEADINGS its extent overlaps
+         more. A credit figure whose end strays a few points into the next
+         column overlaps its own heading far more, and stays. */
+      const hx = hcells.map((c) => ({ x0: c.x0, x1: c.x1 }));
+      const over = (c, k) => Math.max(0, Math.min(c.x1, hx[k].x1) - Math.max(c.x0, hx[k].x0));
+      const colFor = (c) => { const k = colOf(c); return (k < spans.length - 1 && c.x1 > spans[k].x1 && over(c, k + 1) > over(c, k)) ? k + 1 : k; };
       let skip = -1;
       const next = rows[h + 1];
       if (next && next.page === head.page && !next.items.some((it) => /\d/.test(it.str))) {
@@ -44621,23 +45366,46 @@ window.obGoogle = async function () {
         return out.length ? out : [c];
       };
 
+      /* A description runs on below its row: in the LAST column on one real
+         layout, in a MIDDLE column on another (the real card PDF, where every
+         card payment wraps onto two or three lines). A continuation line fills
+         the description column and nothing else, and it sits closer below the
+         line above it than one body row sits below the next. That pitch is
+         measured here, never assumed: the smallest distance between two dated
+         rows on one page. A layout with no description role keeps the last
+         column, as before. */
+      const descCol = hr.description !== undefined ? hr.description : lastCol;
+      let pitch = Infinity, prevDated = null;
+      for (let i = h + 1; i < rows.length; i++) {
+        if (!rows[i].items.some((it) => _isDate(it.str) && dateCols.indexOf(colOf({ x0: it.x })) >= 0)) continue;
+        if (prevDated && prevDated.page === rows[i].page && rows[i].y > prevDated.y) pitch = Math.min(pitch, rows[i].y - prevDated.y);
+        prevDated = rows[i];
+      }
+      const CONT_SHARE = 0.85;   // a continuation sits under 85% of a row pitch below the line above it
+
       /* 4. every later row lands in the header's columns, across pages */
-      let lastBody = -1;
+      let lastBody = -1, lastLine = null;              // lastLine: the body row, or its latest continuation
       for (let i = h + 1; i < rows.length; i++) {
         if (i === skip) continue;
         const runs = rows[i].items.map((it) => ({ x0: it.x, x1: it.x + (it.w || 0), text: String(it.str).replace(/\s+/g, ' ').trim() })).filter((c) => c.text && !_isPageNo(c.text)).flatMap(split);
         if (!runs.length) continue;
         const row = new Array(spans.length).fill('');
         const used = new Set();
-        runs.forEach((c) => { const k = colOf(c); row[k] = (row[k] ? row[k] + ' ' : '') + c.text; used.add(k); });
+        runs.forEach((c) => { const k = colFor(c); row[k] = (row[k] ? row[k] + ' ' : '') + c.text; used.add(k); });
         const hasDate = dateCols.some((k) => _isDate(row[k]));
-        /* the second line of a description: only the last column is filled and
-           the row above is a body row */
-        if (!hasDate && used.size === 1 && used.has(lastCol) && lastBody >= 0 && lastBody === out.length - 1) {
-          out[lastBody][lastCol] = (out[lastBody][lastCol] + ' ' + row[lastCol]).trim();
+        /* the next line of a description: only the description column is
+           filled, the line just output is a body row (or this row's earlier
+           continuation, so a third line chains after the second), and it sits
+           closer than a row pitch on the same page. A label (a cell in the
+           first or a date column), a new body row, or a note a full pitch
+           below is never swallowed. "09/2026" here is the description's tail. */
+        if (!hasDate && used.size === 1 && used.has(descCol) && lastBody >= 0 && lastBody === out.length - 1 && lastLine &&
+            lastLine.page === rows[i].page && rows[i].y - lastLine.y < pitch * CONT_SHARE) {
+          out[lastBody][descCol] = (out[lastBody][descCol] + ' ' + row[descCol]).trim();
+          lastLine = rows[i];
           continue;
         }
-        if (hasDate) { out.push(row); lastBody = out.length - 1; continue; }
+        if (hasDate) { out.push(row); lastBody = out.length - 1; lastLine = rows[i]; continue; }
         /* anything else after the table (the totals block, the glossary) keeps
            its gap-merged cells, so a bilingual label stays one cell and its
            figure is the next one, which is how the summary reader expects it */
@@ -51140,9 +51908,13 @@ window.classifyAmount = classifyAmount;
        be that old, the tab cache reaches back one month) must be here BEFORE
        bucketing runs. Locked or failing personal ledger → empty slice → the
        matcher falls back to the short cache, and the queue still opens. */
+    /* R18 (reconcile-spec): the slice reaches back to the oldest row in the
+       queue, minus four days, when that is older than its fixed horizon. */
+    var _mRange = window.fhReconSliceRange
+      ? window.fhReconSliceRange(readable.map(function (r) { return r && r.occurred_at; })) : null;
     try {
       window._fhPersonalMatchSlice = window.fhPersonalMatchSlice
-        ? await window.fhPersonalMatchSlice() : null;
+        ? await window.fhPersonalMatchSlice(_mRange) : null;
     } catch (e) { window._fhPersonalMatchSlice = null; }
 
     csvLearnLoad();
@@ -55678,7 +56450,10 @@ window.classifyAmount = classifyAmount;
            (where the chip and the evidence live) and the next clean row is
            tried instead. Locked or failing ledgers degrade to no index, which
            the engine reads as "nothing to match" — the teaser still works. */
-        var row = null, re = null, dupIndex = null;
+        var row = null, re = null, dupIndex = null, reconAccts = null;
+        /* R18: the slice reaches back to the oldest row this sheet may judge. */
+        var qRange = window.fhReconSliceRange ? window.fhReconSliceRange(pool.slice(0, 6).map(function (r) { return r.occurred_at; })) : null;
+        var reconOn = !!(window.fhReconMode && window.fhReconMode() !== 'off' && window.fhReconCandFacts);
         for (var pi = 0; pi < pool.length && pi < 6; pi++) {
           var cand = pool[pi];
           var opened = await _qrOpen(cand);
@@ -55686,17 +56461,29 @@ window.classifyAmount = classifyAmount;
           if (window.fhDedupAssess && window.fhDedupLedgerIndex) {
             try {
               if (dupIndex === null) {
-                try { window._fhPersonalMatchSlice = window.fhPersonalMatchSlice ? await window.fhPersonalMatchSlice() : null; } catch (eS) {}
+                try { window._fhPersonalMatchSlice = window.fhPersonalMatchSlice ? await window.fhPersonalMatchSlice(qRange) : null; } catch (eS) {}
                 dupIndex = window.fhDedupLedgerIndex();
+                if (reconOn) reconAccts = window.fhReconAcctIndex();
               }
               var oa0 = cand.occurred_at ? new Date(cand.occurred_at) : null;
               var f0 = opened.flow || (opened.direction === 'credit' ? 'income' : 'expense');
-              var v = window.fhDedupAssess([{
+              var qc = {
                 amount: Number(opened.amount) || 0, date: oa0, dateDisplay: oa0 && !isNaN(oa0.getTime()) ? _qrLocalIso(oa0) : '',
                 time: _qrTime(cand.occurred_at, opened) || '', description: _qrDesc(opened), counterparty: opened.counterparty || '',
                 isIncome: f0 === 'income', isTransfer: f0 === 'transfer', accountKind: opened.account_kind || null,
                 counterpartyKind: opened.counterparty_kind || '',
-                provider: cand.source_provider || '', currency: opened.currency || 'VND' }], dupIndex)[0];
+                provider: cand.source_provider || '', currency: opened.currency || 'VND' };
+              /* reconcile-spec §11: the new matcher's facts, beside the old fields
+                 (58-recon.js, the same helper the full review uses). */
+              if (reconOn) {
+                try {   // a throw here must not skip the old engine's gate below
+                  var qf = window.fhReconCandFacts({ rx: opened, provider: qc.provider, staged: true,
+                    otherKind: !!(opened.transaction_type && opened.transaction_type !== 'bank_txn' && opened.transaction_type !== 'p2p_transfer'),
+                    isIncome: qc.isIncome, text: qc.description + ' ' + qc.counterparty }, reconAccts);
+                  for (var qk in qf) qc[qk] = qf[qk];
+                } catch (eF) {}
+              }
+              var v = (window.fhReconRun ? window.fhReconRun([qc], dupIndex, {}) : window.fhDedupAssess([qc], dupIndex))[0];
               if (v) {
                 _qrSessionSkip[cand.id] = true;
                 if (opts.force) { if (window.fhTxnReviewSheet) window.fhTxnReviewSheet(); return; }
@@ -56879,11 +57666,17 @@ window.classifyAmount = classifyAmount;
        card, saying so and pointing at the one way out; the day the reader ships
        the same stored card opens. The server never decides readability. */
     const _stmCanRead = (card) => { const r = window.fhStmtReaders ? window.fhStmtReaders() : { xlsx: true, csv: true }; return !!r[String(card.file_ext || '').toLowerCase()]; };
-    function _stmCardHTML(card) {
+    /* `memo` is the device's why-a-card-was-left map (_stmAutoGet), read ONCE
+       per list by the caller, not once per card. */
+    function _stmCardHTML(card, memo) {
       const armed = _stmArmed === card.id, dead = !!card.keyLocked, unread = !dead && !_stmCanRead(card);
+      /* A points statement (R1) stays a card that says what it is; ✕ puts it
+         away. Known once the file was read, by either path. */
+      const points = !dead && !unread && !!memo && memo[card.id] === 'not_money';
       const sub = unread ? L('File ' + String(card.file_ext || '').toUpperCase() + ', app chưa đọc được. Nếu ngân hàng có bản Excel/CSV, chọn file đó ở đây.',
-                             'The app cannot read ' + String(card.file_ext || '').toUpperCase() + ' files yet. If your bank offers Excel/CSV, pick that file here.') : _stmSub(card);
-      return '<div class="stm-card' + (dead ? ' dim' : '') + (unread ? ' unread' : '') + '" data-stm="' + _escAttr(card.id) + '">' +
+                             'The app cannot read ' + String(card.file_ext || '').toUpperCase() + ' files yet. If your bank offers Excel/CSV, pick that file here.')
+        : points ? L('Sao kê điểm thưởng, không có khoản tiền nào.', 'A reward points statement, with no money movements.') : _stmSub(card);
+      return '<div class="stm-card' + (dead ? ' dim' : '') + (unread || points ? ' unread' : '') + '" data-stm="' + _escAttr(card.id) + '">' +
         '<button type="button" class="stm-tap"' + (dead ? ' disabled' : ' onclick="' + (unread ? 'fhStmtOpenFile(\'' + card.id + '\')' : 'fhStmtOpen(\'' + card.id + '\')') + '"') + '>' +
           (window.fhSrcFaceOf ? window.fhSrcFaceOf(card.source_provider, 34, 'stm-face') : '') +   // whose statement, at a glance (source-face-spec)
           '<span class="stm-txt"><span class="stm-title">' + _esc(_stmTitle(card)) + '</span>' +
@@ -56894,6 +57687,7 @@ window.classifyAmount = classifyAmount;
           (armed ? _esc(L('Bỏ?', 'Remove?')) : '✕') + '</button>' +
         '</div>';
     }
+    const _stmCardsOf = (cards) => { const memo = _stmAutoGet(); return cards.map((c) => _stmCardHTML(c, memo)).join(''); };
     /* Filter by bank. Six statements from two banks is already a list worth narrowing,
        and a year of history is thirty. Chips appear only when there is a choice to make;
        the same chip style as "Chọn nhanh", so it reads as the same kind of control. */
@@ -56950,7 +57744,7 @@ window.classifyAmount = classifyAmount;
       const fresh = _stmCards.filter((c) => !c.backfill && (!_stmProvF || _stmProvOf(c) === _stmProvF));
       if (!fresh.length) return '';
       return '<div class="group-h attn">' + _esc(L('Sao kê', 'Statements')) + ' · ' + fresh.length + '</div>' +
-        '<div class="csv-cards">' + fresh.map(_stmCardHTML).join('') + '</div>';
+        '<div class="csv-cards">' + _stmCardsOf(fresh) + '</div>';
     }
     /* The wrapper stays while there is any fresh card, filtered out or not, so
        a chip tap has somewhere to repaint into; a backlog-only queue adds nothing. */
@@ -56961,9 +57755,10 @@ window.classifyAmount = classifyAmount;
        how many rows went into the queue, and the account they were filed under
        (the one thing the retired summary step said that the queue does not).
        "Xem" narrows the queue to those rows; ✕ only hides the line. */
+    const _stmKindName = (kind) => ({ ewallet: L('Ví', 'Wallet'), credit_card: L('Thẻ tín dụng', 'Credit card'), deposit: L('Tài khoản', 'Account') }[kind] || '');
     function _stmNoteAdd(X, res) {
       const bank = window.fhProviderName ? window.fhProviderName(X.card.source_provider) : X.card.source_provider;
-      const kind = { ewallet: L('Ví', 'Wallet'), credit_card: L('Thẻ tín dụng', 'Credit card'), deposit: L('Tài khoản', 'Account') }[X.acct && X.acct.kind] || '';
+      const kind = _stmKindName(X.acct && X.acct.kind);
       const tail = X.acct && X.acct.tail ? ' ••' + X.acct.tail : '';
       _stmNotes = _stmNotes.filter((n) => n.sid !== X.card.id);
       /* No-break spaces inside the account's name: when the line wraps on a phone
@@ -56999,7 +57794,7 @@ window.classifyAmount = classifyAmount;
       if (!old.length) return h + '<div class="ctp-m"><b>' + _esc(L('Không còn sao kê cũ nào.', 'No older statements left.')) + '</b></div>';
       h += '<div class="cts-sub">' + _esc(L('Sao kê tìm thấy khi đọc lịch sử email. Mở cái nào cần, bỏ cái nào không.',
         'Statements found while reading email history. Open what you need, dismiss the rest.')) + '</div>';
-      return h + '<div class="csv-cards">' + old.map(_stmCardHTML).join('') + '</div>';
+      return h + '<div class="csv-cards">' + _stmCardsOf(old) + '</div>';
     };
     /* Kept for the bridge. Nothing reads _stmOldOpen since the backlog moved into
        the toolbox drawer (56 csvToolOpen('stmtold')), so the flip repaints nothing. */
@@ -57047,9 +57842,19 @@ window.classifyAmount = classifyAmount;
     window.fhStmtForgetPasswords = function () { try { localStorage.removeItem(_stmPwKey()); } catch (e) {} };
 
     /* ── the remembered column reading: per sender + header shape, this device ── */
+    /* An entry remembers what the person confirmed (R5): v2 is
+       { v: 2, roles, tail, kind, sign }. An entry saved before R5 is the bare
+       roles object and reads back as { v: 1, roles }: it still says which column
+       is which, but not which account, kind and sign were seen, so it asks once
+       more and is saved as v2 on that answer. */
     const _stmMapKey = () => 'fh-stmt-map:' + (_stmUid() || '');
-    function _stmMapGet(provider, sig) { try { return (JSON.parse(localStorage.getItem(_stmMapKey()) || '{}'))[String(provider).toLowerCase() + '|' + sig] || null; } catch (e) { return null; } }
-    function _stmMapSet(provider, sig, roles) { try { const all = JSON.parse(localStorage.getItem(_stmMapKey()) || '{}'); all[String(provider).toLowerCase() + '|' + sig] = roles; localStorage.setItem(_stmMapKey(), JSON.stringify(all)); } catch (e) {} }
+    function _stmMapGet(provider, sig) {
+      try {
+        const e = (JSON.parse(localStorage.getItem(_stmMapKey()) || '{}'))[String(provider).toLowerCase() + '|' + sig];
+        return !e ? null : (e.v === 2 ? e : { v: 1, roles: e });
+      } catch (e) { return null; }
+    }
+    function _stmMapSet(provider, sig, entry) { try { const all = JSON.parse(localStorage.getItem(_stmMapKey()) || '{}'); all[String(provider).toLowerCase() + '|' + sig] = entry; localStorage.setItem(_stmMapKey(), JSON.stringify(all)); } catch (e) {} }
 
     /* ── the unlock cache: the opened grid, by file hash ──────────────────────
        Opening a locked statement is a download, a sealed-box open, a SHA-256 and
@@ -57068,8 +57873,9 @@ window.classifyAmount = classifyAmount;
        builder's version: bump STM_GRID_V whenever 43-pdf-grid.js or
        42-xlsx-parse.js changes what it returns for the same bytes, or a fixed
        reader keeps meeting the old grid of a file it has seen (2026-11-08: the
-       geometric cut, PS30). Entries under an old key fall out by age. */
-    const STM_GRID_V = 2;
+       geometric cut, PS30; 2026-11-25: a figure wider than its heading, 43
+       colFor). Entries under an old key fall out by age. */
+    const STM_GRID_V = 3;
     const _stmGridKey = (sha) => sha ? String(sha) + '#' + STM_GRID_V : '';
     const _stmGridMem = new Map();                   // key -> grid, this session
     function _stmGridMemSet(sha, grid) {
@@ -57145,7 +57951,7 @@ window.classifyAmount = classifyAmount;
        alone the moment anything would have to be asked.
 
        X = { card, bytes, ab, grid, cached, verified, password, localExt, parsed,
-             keptMap, confirmedMap, acct, fresh, decidedCount, auto } */
+             kept, kindAsk, confirmedMap, acct, fresh, decidedCount, waitingCount, auto } */
 
     /* Download the sealed file, open the seal, and check it is THIS card's file. */
     async function _stmFetch(X) {
@@ -57201,40 +58007,89 @@ window.classifyAmount = classifyAmount;
          read as this wallet's account ids. */
       const pctx = { provider: X.card.source_provider };
       let parsed = window.fhStmtParse(grid, null, pctx);
-      X.keptMap = false;
-      if (parsed.table && !parsed.proof.ok) {
-        const kept = _stmMapGet(X.card.source_provider, parsed.sig);
-        if (kept) { parsed = window.fhStmtParse(grid, kept, pctx); X.keptMap = !!parsed.table; }
-      }
+      X.kept = parsed.table ? _stmMapGet(X.card.source_provider, parsed.sig) : null;
+      if (parsed.table && !parsed.proof.ok && X.kept) parsed = window.fhStmtParse(grid, X.kept.roles, pctx);
       X.parsed = parsed; X.grid = grid;
+      /* The account is known before anyone is asked: the question shows it (R6)
+         and a remembered answer is compared with it (R5). */
+      X.acct = parsed.table ? _stmAcct(X) : null;
       return parsed;
     }
-    /* Does the reading still need the person? Not when the arithmetic proves it,
-       and not when they confirmed this very reading on an earlier statement: a
+    /* Does the reading still need the person? Not when the arithmetic proves it
+       and the kind of account is not in doubt (R4). Otherwise, not when they
+       confirmed this format before for this very account, kind and sign (R5): a
        file with no balance and no totals can never prove itself, and asking the
        same question every month is the chore the remembered mapping exists to
-       remove (spec section 3.3, step 3). */
+       remove (spec section 3.3, step 3). A reading kept from before R5 (v1) says
+       nothing about the account, so it asks once more: that is how a points
+       statement filed under a card's other number staged itself unseen. */
     /* A row whose amount could not be read is always the person's to see: a
        remembered mapping answers which column is which, not what a cell holds. */
-    const _stmNeedsAsk = (X) => (X.parsed.unreadable && X.parsed.unreadable.length > 0) || (!X.parsed.proof.ok && !X.keptMap);
+    const _stmConfirmed = (X) => {
+      const k = X.kept, a = X.acct || {};
+      return !!(k && k.v === 2 && k.tail === a.tail && k.kind === a.kind && k.sign === ((X.parsed.proof && X.parsed.proof.sign) || 1));
+    };
+    const _stmNeedsAsk = (X) => (X.parsed.unreadable && X.parsed.unreadable.length > 0) || ((!X.parsed.proof.ok || !!X.kindAsk) && !_stmConfirmed(X));
 
-    /* Which kind of account the statement belongs to: a wallet by provider, a card when
-       the summary block speaks of debt, otherwise a deposit account. */
+    /* Which kind of account the statement belongs to, and whether the evidence
+       agrees (R4). A wallet by provider. Otherwise, in this order: debt lines in
+       the summary (a card), the mail's own kind word (_stmKindKey), a card number
+       in the preamble (59 accountTails); with none of them, a deposit account.
+       A card with no debt lines, debt lines on a mail that names an account, or
+       a card number on a mail that names an account: `kind` is the best guess
+       and `ask` sends the file to the person. */
     function _stmAcctKind(X) {
       const prov = String(X.card.source_provider || '').toLowerCase();
-      if (/momo|zalopay|shopeepay|viettel|vnpay/.test(prov)) return 'ewallet';
+      if (/momo|zalopay|shopeepay|viettel|vnpay/.test(prov)) return { kind: 'ewallet', ask: false };
       const sum = X.parsed.summary || {};
-      return (sum.prevDebt !== undefined || sum.endDebt !== undefined) ? 'credit_card' : 'deposit';
+      const debt = sum.prevDebt !== undefined || sum.endDebt !== undefined;
+      const word = _stmKindKey(X.card);
+      const cardNo = (sum.accountTails || []).some((t) => t.label === 'card' && t.where === 'preamble');
+      const kind = (debt || word === 'card' || (cardNo && word !== 'account')) ? 'credit_card' : 'deposit';
+      return { kind: kind, ask: kind === 'credit_card' ? (!debt || word === 'account') : cardNo };
+    }
+    /* { provider, kind, tail } of the account the statement belongs to. */
+    function _stmAcct(X) {
+      const sum = X.parsed.summary || {}, k = _stmAcctKind(X);
+      X.kindAsk = k.ask;
+      return { provider: X.card.source_provider, kind: k.kind, tail: sum.accountTail || (X.card.meta && X.card.meta.account_tail) || '' };
     }
 
-    /* The account, and which rows are new to this person. Rows they already
-       decided on (imported or removed) are not written again -- the one place a
-       statement row is dropped unseen, allowed because the key is exact and the
-       decision was theirs. */
+    /* R9: how many of each fingerprint are already WAITING in the queue from
+       another statement file: the same statement mailed twice, a PDF beside its
+       spreadsheet, two periods that overlap. A row's fingerprint already names
+       its account (provider and tail, or the bank's own transaction id), and
+       every staged payload carries it (`fp`), so the queue's own read is enough:
+       the same query as fhStmtLoad, decrypted through the same cache. Rows this
+       device retired but the server still holds are counted too: the person
+       already decided on them. Known limit: that query is ONE page, the newest
+       STM_ROW_PAGE (1000) rows by day. With more waiting than that, a copy of an
+       older waiting row is not seen here and goes in again; the queue then shows
+       it twice, as it did before R9. Accepted: a thousand waiting statement rows
+       is a queue nobody is working through. */
+    async function _stmWaiting(sid) {
+      const res = await window.sb.from('statement_rows')
+        .select('id,statement_id,row_index,txn_date,payload_enc').order('txn_date', { ascending: false }).limit(STM_ROW_PAGE);
+      if (res.error) throw res.error;
+      const n = new Map();
+      await _stmBatched((res.data || []).filter((r) => r.statement_id !== sid), async (r) => {
+        const hit = _stmRowCache.get(r.id);
+        let p = hit && hit.enc === r.payload_enc ? hit.p : null;
+        if (!p) { try { p = await _stmDecJson(r.payload_enc); _stmRowCacheSet(r.id, r.payload_enc, p); } catch (e) { return; } }
+        if (p && p.fp) n.set(p.fp, (n.get(p.fp) || 0) + 1);
+      });
+      return n;
+    }
+
+    /* Which rows are new to this person. Rows they already decided on (imported
+       or removed) are not written again -- the one place a statement row is
+       dropped unseen, allowed because the key is exact and the decision was
+       theirs. Rows already waiting from another file of this account are not
+       written twice either (R9). */
     async function _stmPlan(X) {
-      const p = X.parsed, sum = p.summary || {};
-      const tail = sum.accountTail || (X.card.meta && X.card.meta.account_tail) || '';
-      X.acct = { provider: X.card.source_provider, kind: _stmAcctKind(X), tail: tail };
+      const p = X.parsed;
+      if (!X.acct) X.acct = _stmAcct(X);
+      const tail = X.acct.tail;
       const fps = await _stmBatched(p.rows, (r) => _stmFp(fhStmtCanonical(X.card.source_provider, tail, r)));
       let decided = new Set();
       try {
@@ -57253,9 +58108,24 @@ window.classifyAmount = classifyAmount;
         if (X.auto) throw e;
         decided = new Set();
       }
-      X.fresh = [];
-      p.rows.forEach((r, i) => { if (!decided.has(fps[i])) X.fresh.push({ r: r, fp: fps[i] }); });
-      X.decidedCount = p.rows.length - X.fresh.length;
+      /* Same rule as above: unseen, a failed lookup stops the run; on a tap the
+         rows are shown. */
+      let waiting = new Map();
+      try { waiting = await _stmWaiting(X.card.id); }
+      catch (e) { if (X.auto) throw e; waiting = new Map(); }
+      /* Equal rows are counted, not merely seen: two real purchases of one
+         amount on one day are two rows with one fingerprint. The n-th copy here
+         is dropped only while another file already holds n of them. */
+      const used = new Map();
+      X.fresh = []; X.waitingCount = 0;
+      p.rows.forEach((r, i) => {
+        const fp = fps[i];
+        if (decided.has(fp)) return;
+        const k = used.get(fp) || 0;
+        if (k < (waiting.get(fp) || 0)) { used.set(fp, k + 1); X.waitingCount++; return; }
+        X.fresh.push({ r: r, fp: fp });
+      });
+      X.decidedCount = p.rows.length - X.fresh.length - X.waitingCount;
     }
 
     /* Merchant names only -- never a person, an amount or a date -- to the
@@ -57301,7 +58171,9 @@ window.classifyAmount = classifyAmount;
        the card change state in ONE transaction. */
     async function _stmWrite(X, say) {
       const card = X.card; say = say || (() => {});
-      if (X.confirmedMap && X.parsed.table) _stmMapSet(card.source_provider, X.parsed.sig, X.parsed.table.roles);
+      /* R5: the answer is kept with what was on the screen when it was given. */
+      if (X.confirmedMap && X.parsed.table) _stmMapSet(card.source_provider, X.parsed.sig, { v: 2, roles: X.parsed.table.roles,
+        tail: (X.acct && X.acct.tail) || '', kind: (X.acct && X.acct.kind) || '', sign: (X.parsed.proof && X.parsed.proof.sign) || 1 });
       let acctId = null;
       if (X.acct && window.fhPersonalAccountEnsure) {
         try {
@@ -57378,9 +58250,10 @@ window.classifyAmount = classifyAmount;
 
        WHY A CARD WAS LEFT is remembered per card on this device only when
        finding it out costs a download: 'password' (locked, and no password that
-       works is remembered) and 'unsupported' (a lock or a format this device
-       cannot read). A locked card is tried again once a password for its bank is
-       remembered. A reading that needs confirming leaves no mark: its grid is
+       works is remembered), 'unsupported' (a lock or a format this device
+       cannot read) and 'not_money' (a points statement, R1: the card says so
+       and is never tried again). A locked card is tried again once a password
+       for its bank is remembered. A reading that needs confirming leaves no mark: its grid is
        kept, so asking again is free. A failure that may pass (offline, a dropped
        request) is retried in the next session, not on every open of this one. */
     const STM_AUTO_MAX = 2, STM_AUTO_MS = 8000, STM_AUTO_HINT_MS = 4000;
@@ -57412,6 +58285,7 @@ window.classifyAmount = classifyAmount;
         if (code === 'xlsx_enc_unsupported' || code === 'xls_legacy' || code === 'xlsx_unsupported' || code === 'pdf_unsupported' || code === 'pdf_scanned') return { left: 'unsupported' };
         throw e;
       }
+      if (parsed.why === 'not_money') return { left: 'not_money' };          // R1: no rows, no question; the card says so
       if (!parsed.table || !parsed.rows.length || _stmNeedsAsk(X)) return { left: '' };
       await _stmPlan(X);
       const res = await _stmWrite(X);
@@ -57432,7 +58306,7 @@ window.classifyAmount = classifyAmount;
         for (const card of cards) {
           if (done.length >= STM_AUTO_MAX || Date.now() - t0 > STM_AUTO_MS) break;
           if (card.backfill || card.status !== 'pending' || card.keyLocked || !card.meta || !card.object_path) continue;
-          if (_stmAutoTried.has(card.id) || memo[card.id] === 'unsupported') continue;
+          if (_stmAutoTried.has(card.id) || memo[card.id] === 'unsupported' || memo[card.id] === 'not_money') continue;
           if (S && S.card && S.card.id === card.id) continue;        // the person is in this one right now
           window.fhHeat && window.fhHeat.tick('fhStmtAuto');
           try { say && say(L('Đang đọc ', 'Reading ') + _stmTitle(card) + '…'); } catch (e) {}
@@ -57562,6 +58436,12 @@ window.classifyAmount = classifyAmount;
       if (S !== X) return;
       if (X.remember && X.password) await _stmPwSet(_stmPwScope(X.card), X.password);
       if (S !== X) return;
+      if (parsed.why === 'not_money') {
+        /* R1: said once here, and kept on the card through the same memory the
+           unattended pass writes, so the list says it too. */
+        const m = _stmAutoGet(); m[X.card.id] = 'not_money'; _stmAutoSet(m);
+        return _stmFail(L('Đây là sao kê điểm thưởng, không có khoản tiền nào để thêm.', 'This is a reward points statement, with no money movements to add.'), false);
+      }
       if (!parsed.table || !parsed.rows.length) return _stmFail(L('Không thấy bảng giao dịch trong file này.', 'No transaction table found in this file.'), false);
       if (_stmNeedsAsk(X)) return _stmAskMapping();
       return _stmGo();
@@ -57611,6 +58491,10 @@ window.classifyAmount = classifyAmount;
         title = L(un.length === 1 ? 'Có 1 dòng tụi mình không đọc được số tiền' : 'Có ' + un.length + ' dòng tụi mình không đọc được số tiền',
                   un.length === 1 ? 'One row where we could not read the amount' : un.length + ' rows where we could not read the amount');
         lead = L('Mấy dòng này để lại, không vào hàng chờ. Bạn xem qua rồi tự thêm nếu cần.', 'These rows stay out of the queue. Look them over and add them by hand if needed.');
+      } else if (p.proof.ok) {
+        /* the arithmetic stands and the kind of account is what is in doubt (R4) */
+        title = L('Tụi mình đọc file thế này, đúng chưa?', 'Did we read this file right?');
+        lead = L('Tụi mình chưa chắc đây là thẻ tín dụng hay tài khoản, nên nhờ bạn xem qua.', 'We are not sure whether this is a credit card or an account, so please take a look.');
       } else if (hasTotals) {
         title = L('Tụi mình đọc cột thế này, đúng chưa?', 'Did we read the columns right?');
         lead = L('Tổng trong file không khớp với các dòng đọc được, nên nhờ bạn xem qua.', 'The totals in the file do not match the rows we read, so please take a look.');
@@ -57621,7 +58505,23 @@ window.classifyAmount = classifyAmount;
       const note = un.length
         ? L(p.rows.length + ' dòng còn lại đọc được. Bấm "Đúng rồi" là vào hàng chờ duyệt, chưa ghi vào sổ.', p.rows.length + ' other rows read fine. "Looks right" sends them to the review queue, not to the ledger.')
         : L(p.rows.length + ' giao dịch. Bấm "Đúng rồi" là vào hàng chờ duyệt, chưa ghi vào sổ.', p.rows.length + ' transactions. "Looks right" sends them to the review queue, not to the ledger.');
-      _stmPaint(_stmHead(title, lead) + unHtml +
+      /* R6: what "Đúng rồi" will do, said before the columns: which account the
+         rows go under, as what kind, how many, and how much goes each way. A
+         points file read as income, or a card filed under its other number,
+         shows here as itself. */
+      const A = S.acct || {}, bank = window.fhProviderName ? window.fhProviderName(S.card.source_provider) : S.card.source_provider;
+      const acctWord = { credit_card: L('thẻ', 'card'), deposit: L('tài khoản', 'account'), ewallet: L('ví', 'wallet') }[A.kind] || '';
+      let moneyOut = 0, moneyIn = 0;
+      p.rows.forEach((r) => { if (r.amt < 0) moneyOut -= r.amt; else moneyIn += r.amt; });
+      const money = (n) => (typeof csvFmt === 'function' ? csvFmt(n) : String(Math.round(n)));
+      const planRow = (k, v) => '<div class="stm-maprow"><span>' + _esc(k) + '</span><b>' + _esc(v) + '</b></div>';
+      const planHtml = '<div class="stm-map">' +
+        planRow(L('Tài khoản', 'Account'), bank + ' · ' + acctWord + (A.tail ? ' ••' + A.tail : '')) +
+        planRow(L('Loại', 'Kind'), _stmKindName(A.kind)) +
+        planRow(L('Số khoản', 'Rows'), String(p.rows.length)) +
+        planRow(L('Tiền ra', 'Money out'), money(moneyOut)) +
+        planRow(L('Tiền vào', 'Money in'), money(moneyIn)) + '</div>';
+      _stmPaint(_stmHead(title, lead) + planHtml + unHtml +
         '<div class="stm-map">' + rowsHtml + '</div>' +
         '<div class="csv-unlock-note">' + _esc(note) + '</div>' +
         '<button type="button" class="btn-line csv-unlock-go" onclick="fhStmtMappingOk()">' + _esc(L('Đúng rồi', 'Looks right')) + '</button>' + _stmBackBtn());
