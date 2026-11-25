@@ -8,13 +8,15 @@ rows look alike" with "pair the copies of one money event by the facts they
 share", and turns a matched copy from something thrown away into something that
 improves the row already in the book.
 
-> **Status, 2026-11-25. SPEC, build starting.** Integration branch `feat/recon`,
-> worktree `.worktrees/recon`. Client only: no migration, no Edge Function deploy
-> is needed for anything in Parts 2 to 6. Two server follow-ups are written as
-> hand-overs in §19 and are Hien's to run. Decisions R1 to R31 below. Hien
-> answered the design rounds in conversation and closed with "let's write the
-> specs and start"; decisions marked *(assumed)* are recommendations he did not
-> answer one by one and can still reverse.
+> **Status, 2026-11-25. Releases 1 and 2 BUILT and PUSHED to `main` the same day**
+> (Part 2 statement safety, R1 to R6, R3b, R9; Part 3 matcher in shadow, R10 to
+> R20), SW `v641`, one merge commit from `feat/recon`. Client only: no migration,
+> no Edge Function deploy. Not run on a phone before the push. R7 and R8
+> (aliases, "which account is this?"), Parts 4 to 6 and switching the matcher on
+> are not built. Two server follow-ups are hand-overs in §19 and are Hien's to
+> run. Decisions R1 to R31 below. Hien answered the design rounds in conversation
+> and closed with "let's write the specs and start"; decisions marked *(assumed)*
+> are recommendations he did not answer one by one and can still reverse.
 
 > **Siblings.** `dedup-flaws-review.md` Parts A to F own the engine as it stands
 > (`src/js-ui/58-dedup-engine.js`); this spec supersedes its tiering rules and

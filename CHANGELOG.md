@@ -19,6 +19,45 @@ Going forward, add an entry here when a feature area changes meaningfully — se
 ---
 
 
+## 2026-11-25 · Reconcile, wave 1: statement safety, and the new duplicate matcher in shadow (SW v641)
+
+Spec `docs/specs/reconcile-spec.md` (R1 to R31). Client only, no migration, no
+Edge Function deploy. One merge commit, so one `git revert -m 1` undoes it.
+
+- **Statement safety (changes what people see).** A loyalty-points statement is
+  no longer read as an account statement: a points column in a file with no
+  balance, debt or totals is `not_money`, the card says so and adds no rows (R1).
+  `fhStmtSummary`'s first-hit guard tested a field nothing writes, so the LAST
+  account label in a file won; a card now answers to its card number and every
+  number is collected in `summary.accountTails` (R2). One signed amount column
+  takes its sign from the file's totals, or from its wording when it has none
+  (`proof.sign`, R3). The kind of account reads the mail's own word and the card
+  number, and asks when the evidence disagrees (R4). A file that cannot prove
+  itself stages unseen only when the person confirmed this account, kind and
+  sign before; the remembered mapping is `{v:2, roles, tail, kind, sign}` and a
+  v1 entry asks once more (R5). The confirm screen says the account, kind, row
+  count, money out and money in (R6). Rows already waiting from another file of
+  the same account are not staged twice (R9).
+- **Two PDF reader bugs, live since PDF statements shipped.** A right-aligned
+  amount wider than its heading was filed under the previous column and the row
+  was dropped without a word (four of five payments on one real card
+  statement); a description wrapping in a middle column was cut at its first
+  line. `43-pdf-grid.js` assigns by overlap and joins wrapped lines by measured
+  row pitch; `fhStmtRead` names a dated row with a stray amount `unreadable`.
+  `STM_GRID_V` is 3.
+- **The new matcher, in shadow (changes nothing people see).**
+  `src/js-ui/58-recon.js`: copies of one money event are paired by the facts
+  both carry (account, direction, exact amount, days at most one apart),
+  one-to-one over the batch; kind is no gate and transfers are matched. The old
+  engine still decides every verdict; `fhReconRun` runs both and the device
+  keeps counts only (`window.fhReconShadow()`). `localStorage['fh-recon']` =
+  `off | shadow | on`, default `shadow`.
+- Measured on one person's real year, outside the repo: the old engine finds
+  386 of 499 true alert-and-statement pairs, the new matcher 499 (498 certain,
+  one asked), no wrong twin, no false flag.
+- Tests: `statement-safety` (69), `pdf-grid` (15), `recon` (167). Suite 180
+  pass, the same three failures as before. Not run on a phone before this push.
+
 ## 2026-11-22 (late) · Spaces: a personal row moved into a space is split (SW v640)
 
 - Moving a private expense into a friend space from its edit sheet used the
