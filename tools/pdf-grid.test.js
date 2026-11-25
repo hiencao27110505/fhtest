@@ -50,19 +50,47 @@ t('a credit figure ending a few points into the next column stays a credit', g2[
 const g3 = gridOf(HEAD.concat([it(160, 30, '06/08/2026', 40), it(160, 101, '07/08/2026', 40), it(160, 172, 'Mua Hàng / ANORDERWITHAVERYLONGMERCHANTNAMENOSPACE', 196), it(160, 527, '79,000.00', 38)]));
 t('a description that runs past the next boundary but overlaps its own heading more stays a description', g3[1][2] === 'Mua Hàng / ANORDERWITHAVERYLONGMERCHANTNAMENOSPACE' && g3[1][3] === '' && g3[1][4] === '79,000.00', g3[1]);
 
-console.log('\n-- a description on two lines --');
+console.log('\n-- a description on more than one line --');
 /* Description in the LAST column (the Techcombank layout): the second line
    joins the row above, so the description is one cell. */
 const g4 = gridOf(TCB.concat([it(120, 28, '29/09/2026', 40), it(120, 104, '30/09/2026', 40), it(120, 300, '120,000', 30), it(120, 440, 'Giao dịch thanh toán/Purchase - Số Thẻ/Card No:', 180),
   it(130, 440, 'MPOS*BY PREM QUAN 1 VN', 90)]));
 t('in the last column: one cell, the two lines joined by a space', g4.length === 2 && g4[1][4] === 'Giao dịch thanh toán/Purchase - Số Thẻ/Card No: MPOS*BY PREM QUAN 1 VN', g4);
-/* Description in a MIDDLE column (the layout above). KNOWN GAP, reported
-   2026-11-25 and not fixed here: the second line is NOT joined. It comes out as
-   a row of its own with no date, which the reader keeps as a note, and the
-   body row's description stops at the end of its first line. */
-const g5 = gridOf(HEAD.concat(lost, [it(155, 172, 'tiep theo dong hai', 80)]));
-t('KNOWN GAP: in a middle column the second line is a row of its own, not part of the description', g5.length === 3 && g5[1][2] === 'Thanh toan sao ke the Master Card 08 TRAN THI MAI' &&
-  JSON.stringify(g5[2]) === JSON.stringify(['tiep theo dong hai']), g5);
+/* Description in a MIDDLE column: the real card PDF's own layout, where every
+   card payment wraps. Real positions (y grows downward, items h 8): a two-line
+   sub-header, an ordinary row, the wrapped row with two more lines (the third
+   a "09/2026" fragment, not a date), the next row. Rows are 15 or more apart,
+   continuation lines 9. */
+const MID = HEAD.concat([
+  it(479, 30, 'Số thẻ / Số tài khoản', 79), it(479, 172, '000000000123456', 67), it(491, 30, 'Card number / Account', 102),
+  it(507, 30, '02/08/2026', 40), it(507, 101, '04/08/2026', 40), it(507, 172, 'Mua Hàng / Foody', 107), it(507, 362, '5812-Eating Places', 74), it(507, 522, '-210,600.00', 43),
+  it(522, 30, '05/08/2026', 40), it(522, 101, '05/08/2026', 40), it(522, 172, '000000000123456 - TRAN THI MAI -', 183), it(522, 362, '6012-Member Financial', 84), it(522, 516, '-1,366,000.00', 49),
+  it(531, 172, 'Thanh toan sao ke the Master Card', 171),
+  it(540, 172, '09/2026', 29),
+  it(550, 30, '06/08/2026', 40), it(550, 101, '07/08/2026', 40), it(550, 172, 'Mua Hàng / APPLE.COM/BILL', 110), it(550, 362, '5818-Digital Goods', 70), it(550, 527, '79,000.00', 38)]);
+const g5 = gridOf(MID);
+const w5 = g5.find((r) => r[0] === '05/08/2026');
+t('in a middle column: ONE body row, its three lines joined with single spaces', !!w5 && w5[2] === '000000000123456 - TRAN THI MAI - Thanh toan sao ke the Master Card 09/2026', w5);
+t('...its MCC and amount cells untouched', w5 && w5[3] === '6012-Member Financial' && w5[4] === '-1,366,000.00', w5);
+t('...no line of it left over as a row of its own', !g5.some((r) => r.length === 1 && /Thanh toan|^09\/2026$/.test(r[0])), g5);
+t('the two sub-header lines are still notes, the rows around the wrap intact', JSON.stringify(g5.slice(1)) === JSON.stringify([
+  ['Số thẻ / Số tài khoản', '000000000123456'], ['Card number / Account'],
+  ['02/08/2026', '04/08/2026', 'Mua Hàng / Foody', '5812-Eating Places', '-210,600.00'],
+  ['05/08/2026', '05/08/2026', '000000000123456 - TRAN THI MAI - Thanh toan sao ke the Master Card 09/2026', '6012-Member Financial', '-1,366,000.00'],
+  ['06/08/2026', '07/08/2026', 'Mua Hàng / APPLE.COM/BILL', '5818-Digital Goods', '79,000.00']]), g5);
+const p5 = S.fhStmtParse(g5);
+t('through the reader: three rows, the wrapped one read as the card repayment', p5.rows.length === 3 && p5.rows.some((r) => r.amt === -1366000 && r.cls.flow === 'cardpay'), p5.rows.map((r) => [r.description, r.cls.flow]));
+
+console.log('\n-- what a continuation must not swallow --');
+/* a label row right under a body row: a cell in the first column and one in the description column */
+const g6 = gridOf(MID.concat([it(559, 30, 'Số thẻ / Số tài khoản', 79), it(559, 172, '512345******6789', 67)]));
+t('a label row directly under a body row is not joined', g6[g6.length - 1].length === 2 && g6[g6.length - 1][0] === 'Số thẻ / Số tài khoản' &&
+  g6.find((r) => r[0] === '06/08/2026')[2] === 'Mua Hàng / APPLE.COM/BILL', g6.slice(-2));
+/* a line in the description column only, but a full row pitch below the last row */
+const g7 = gridOf(MID.concat([it(565, 172, 'Tong cong', 40)]));
+t('a description-column line a full row pitch below is not joined', g7.find((r) => r[0] === '06/08/2026')[2] === 'Mua Hàng / APPLE.COM/BILL' && g7[g7.length - 1][0] === 'Tong cong', g7.slice(-2));
+/* a continuation never crosses a new body row: the next dated row starts fresh */
+t('a new body row is never part of the one above', g5.filter((r) => /^\d\d\/\d\d\/2026$/.test(r[0])).length === 3);
 
 console.log('\n' + (fail ? fail + ' FAILED, ' : 'ALL ') + pass + ' PASSED');
 process.exit(fail ? 1 : 0);

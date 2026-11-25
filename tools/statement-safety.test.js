@@ -352,14 +352,12 @@ const nodeCrypto = require('crypto');
   const K3 = parsedKeys(midGrid);
   t('(setup) the PDF reading of it proves, inverted, every amount in its cell', K3.q.proof.ok && K3.q.proof.sign === -1 && K3.q.rows.length === 9 && K3.q.unreadable.length === 0, K3.q.proof);
   const pay = K3.q.rows.findIndex((r) => r.amt === 2150000);
-  t('every row but the wrapped one has the spreadsheet\'s key', K3.keys.every((k, i) => i === pay || k === K1.keys[i]), K3.keys);
-  /* KNOWN GAP, reported 2026-11-25 and not papered over: in a middle column
-     the grid does not rejoin a description's second line (pdf-grid.test.js).
-     The row keeps only its first line, so its key differs from the
-     spreadsheet's by more than whitespace, R9 cannot match it, and the
-     classifier loses the repayment words on the second line. */
-  t('KNOWN GAP: the wrapped row keeps only its first line, so its key differs and it is no longer read as a repayment',
-    K3.q.rows[pay].description === WRAP1 && K3.keys[pay] !== K1.keys[pay] && K3.q.rows[pay].cls.flow === '' && K1.q.rows[pay].cls.flow === 'cardpay', K3.q.rows[pay].description);
+  /* The payment's description wraps in the MIDDLE column, as every card
+     payment does on the real card PDF: the grid joins the second line back
+     with one space (43, the description column's continuation lines). */
+  t('the middle-column PDF and the spreadsheet give the same key for every row, the wrapped one included',
+    K3.keys.length === 9 && JSON.stringify(K3.keys) === JSON.stringify(K1.keys) && K3.q.rows[pay].description === WRAP, [K3.keys, K1.keys]);
+  t('...and the wrapped payment is read as the card repayment', K3.q.rows[pay].cls.flow === 'cardpay' && K1.q.rows[pay].cls.flow === 'cardpay', K3.q.rows[pay].cls);
   /* (b) the Techcombank layout: the description is the LAST column, and its
      second line joins the first with a space: one cell, one key. */
   const reorder = (g) => g.map((r) => r[0] === 'Ngày giao dịch' || /^\d\d\/\d\d\/2026$/.test(r[0]) ? [r[0], r[1], r[3], r[4], r[2]] : r);

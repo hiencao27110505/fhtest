@@ -15,10 +15,11 @@
      Rules: rows = items clustered by y; cells = items joined across small gaps;
      columns = the header cells' x-ranges, a cell assigned by where it starts,
      or, when a right-aligned figure wider than its heading starts in the column
-     before, by the heading it overlaps more (colFor); a row whose
-     cells all sit in the last column joins the row above (the second line of a
-     description); the second header line, digit-free and inside the columns,
-     merges into the header so both languages name the roles; a bare date on a
+     before, by the heading it overlaps more (colFor); a line whose cells all
+     sit in the description column (the last column when no heading says
+     description), closer below than a row pitch, joins the row above (the next
+     line of a description, chained); the second header line, digit-free and
+     inside the columns, merges into the header so both languages name the roles; a bare date on a
      line of its own in the preamble joins the line above it (a due date printed
      under its time).
 
@@ -210,8 +211,25 @@
         return out.length ? out : [c];
       };
 
+      /* A description runs on below its row: in the LAST column on one real
+         layout, in a MIDDLE column on another (the real card PDF, where every
+         card payment wraps onto two or three lines). A continuation line fills
+         the description column and nothing else, and it sits closer below the
+         line above it than one body row sits below the next. That pitch is
+         measured here, never assumed: the smallest distance between two dated
+         rows on one page. A layout with no description role keeps the last
+         column, as before. */
+      const descCol = hr.description !== undefined ? hr.description : lastCol;
+      let pitch = Infinity, prevDated = null;
+      for (let i = h + 1; i < rows.length; i++) {
+        if (!rows[i].items.some((it) => _isDate(it.str) && dateCols.indexOf(colOf({ x0: it.x })) >= 0)) continue;
+        if (prevDated && prevDated.page === rows[i].page && rows[i].y > prevDated.y) pitch = Math.min(pitch, rows[i].y - prevDated.y);
+        prevDated = rows[i];
+      }
+      const CONT_SHARE = 0.85;   // a continuation sits under 85% of a row pitch below the line above it
+
       /* 4. every later row lands in the header's columns, across pages */
-      let lastBody = -1;
+      let lastBody = -1, lastLine = null;              // lastLine: the body row, or its latest continuation
       for (let i = h + 1; i < rows.length; i++) {
         if (i === skip) continue;
         const runs = rows[i].items.map((it) => ({ x0: it.x, x1: it.x + (it.w || 0), text: String(it.str).replace(/\s+/g, ' ').trim() })).filter((c) => c.text && !_isPageNo(c.text)).flatMap(split);
@@ -220,13 +238,19 @@
         const used = new Set();
         runs.forEach((c) => { const k = colFor(c); row[k] = (row[k] ? row[k] + ' ' : '') + c.text; used.add(k); });
         const hasDate = dateCols.some((k) => _isDate(row[k]));
-        /* the second line of a description: only the last column is filled and
-           the row above is a body row */
-        if (!hasDate && used.size === 1 && used.has(lastCol) && lastBody >= 0 && lastBody === out.length - 1) {
-          out[lastBody][lastCol] = (out[lastBody][lastCol] + ' ' + row[lastCol]).trim();
+        /* the next line of a description: only the description column is
+           filled, the line just output is a body row (or this row's earlier
+           continuation, so a third line chains after the second), and it sits
+           closer than a row pitch on the same page. A label (a cell in the
+           first or a date column), a new body row, or a note a full pitch
+           below is never swallowed. "09/2026" here is the description's tail. */
+        if (!hasDate && used.size === 1 && used.has(descCol) && lastBody >= 0 && lastBody === out.length - 1 && lastLine &&
+            lastLine.page === rows[i].page && rows[i].y - lastLine.y < pitch * CONT_SHARE) {
+          out[lastBody][descCol] = (out[lastBody][descCol] + ' ' + row[descCol]).trim();
+          lastLine = rows[i];
           continue;
         }
-        if (hasDate) { out.push(row); lastBody = out.length - 1; continue; }
+        if (hasDate) { out.push(row); lastBody = out.length - 1; lastLine = rows[i]; continue; }
         /* anything else after the table (the totals block, the glossary) keeps
            its gap-merged cells, so a bilingual label stays one cell and its
            figure is the next one, which is how the summary reader expects it */
