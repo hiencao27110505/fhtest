@@ -1,0 +1,13 @@
+[["Sao kê điểm thưởng thẻ tín dụng / Reward Monthly Statement"],
+["TRAN THI MAI"],
+["Số thẻ chính (Primary Card Number)", "512345******6789"],
+["Số tài khoản thẻ (Card Account Number)", "C000000000123456"],
+["Kỳ sao kê (Statement period)", "25/08/2026 - 31/08/2026"],
+["Tổng điểm thưởng tích lũy kỳ trước (Point carried forward)", "1,250.00"],
+["Điểm thưởng phát sinh trong kỳ (Points earned)", "1,060.00"],
+["Tổng điểm thưởng hiện có (Point balance)", "2,310.00"],
+["Ngày giao dịch (Transaction Date)", "Ngày hạch toán (Post Date)", "Diễn giải (Details)", "MCC (MCC)", "Số tiền (VND) (Amount)", "Số điểm (Loyalty points)"],
+["25/08/2026", "26/08/2026", "Mua Hàng / Foody", "5812", "185,000.00", "185.00"],
+["27/08/2026", "28/08/2026", "Mua Hàng / SHOPEE", "5311", "236,000.00", "236.00"],
+["29/08/2026", "30/08/2026", "Mua Hàng / GRAB*A-1234", "4121", "227,000.00", "227.00"],
+["31/08/2026", "02/09/2026", "Mua Hàng / WINMART Q1", "", "412,300.00", "412.00"]]

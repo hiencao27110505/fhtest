@@ -422,11 +422,17 @@
        card, saying so and pointing at the one way out; the day the reader ships
        the same stored card opens. The server never decides readability. */
     const _stmCanRead = (card) => { const r = window.fhStmtReaders ? window.fhStmtReaders() : { xlsx: true, csv: true }; return !!r[String(card.file_ext || '').toLowerCase()]; };
-    function _stmCardHTML(card) {
+    /* `memo` is the device's why-a-card-was-left map (_stmAutoGet), read ONCE
+       per list by the caller, not once per card. */
+    function _stmCardHTML(card, memo) {
       const armed = _stmArmed === card.id, dead = !!card.keyLocked, unread = !dead && !_stmCanRead(card);
+      /* A points statement (R1) stays a card that says what it is; ✕ puts it
+         away. Known once the file was read, by either path. */
+      const points = !dead && !unread && !!memo && memo[card.id] === 'not_money';
       const sub = unread ? L('File ' + String(card.file_ext || '').toUpperCase() + ', app chưa đọc được. Nếu ngân hàng có bản Excel/CSV, chọn file đó ở đây.',
-                             'The app cannot read ' + String(card.file_ext || '').toUpperCase() + ' files yet. If your bank offers Excel/CSV, pick that file here.') : _stmSub(card);
-      return '<div class="stm-card' + (dead ? ' dim' : '') + (unread ? ' unread' : '') + '" data-stm="' + _escAttr(card.id) + '">' +
+                             'The app cannot read ' + String(card.file_ext || '').toUpperCase() + ' files yet. If your bank offers Excel/CSV, pick that file here.')
+        : points ? L('Sao kê điểm thưởng, không có khoản tiền nào.', 'A reward points statement, with no money movements.') : _stmSub(card);
+      return '<div class="stm-card' + (dead ? ' dim' : '') + (unread || points ? ' unread' : '') + '" data-stm="' + _escAttr(card.id) + '">' +
         '<button type="button" class="stm-tap"' + (dead ? ' disabled' : ' onclick="' + (unread ? 'fhStmtOpenFile(\'' + card.id + '\')' : 'fhStmtOpen(\'' + card.id + '\')') + '"') + '>' +
           (window.fhSrcFaceOf ? window.fhSrcFaceOf(card.source_provider, 34, 'stm-face') : '') +   // whose statement, at a glance (source-face-spec)
           '<span class="stm-txt"><span class="stm-title">' + _esc(_stmTitle(card)) + '</span>' +
@@ -437,6 +443,7 @@
           (armed ? _esc(L('Bỏ?', 'Remove?')) : '✕') + '</button>' +
         '</div>';
     }
+    const _stmCardsOf = (cards) => { const memo = _stmAutoGet(); return cards.map((c) => _stmCardHTML(c, memo)).join(''); };
     /* Filter by bank. Six statements from two banks is already a list worth narrowing,
        and a year of history is thirty. Chips appear only when there is a choice to make;
        the same chip style as "Chọn nhanh", so it reads as the same kind of control. */
@@ -493,7 +500,7 @@
       const fresh = _stmCards.filter((c) => !c.backfill && (!_stmProvF || _stmProvOf(c) === _stmProvF));
       if (!fresh.length) return '';
       return '<div class="group-h attn">' + _esc(L('Sao kê', 'Statements')) + ' · ' + fresh.length + '</div>' +
-        '<div class="csv-cards">' + fresh.map(_stmCardHTML).join('') + '</div>';
+        '<div class="csv-cards">' + _stmCardsOf(fresh) + '</div>';
     }
     /* The wrapper stays while there is any fresh card, filtered out or not, so
        a chip tap has somewhere to repaint into; a backlog-only queue adds nothing. */
@@ -504,9 +511,10 @@
        how many rows went into the queue, and the account they were filed under
        (the one thing the retired summary step said that the queue does not).
        "Xem" narrows the queue to those rows; ✕ only hides the line. */
+    const _stmKindName = (kind) => ({ ewallet: L('Ví', 'Wallet'), credit_card: L('Thẻ tín dụng', 'Credit card'), deposit: L('Tài khoản', 'Account') }[kind] || '');
     function _stmNoteAdd(X, res) {
       const bank = window.fhProviderName ? window.fhProviderName(X.card.source_provider) : X.card.source_provider;
-      const kind = { ewallet: L('Ví', 'Wallet'), credit_card: L('Thẻ tín dụng', 'Credit card'), deposit: L('Tài khoản', 'Account') }[X.acct && X.acct.kind] || '';
+      const kind = _stmKindName(X.acct && X.acct.kind);
       const tail = X.acct && X.acct.tail ? ' ••' + X.acct.tail : '';
       _stmNotes = _stmNotes.filter((n) => n.sid !== X.card.id);
       /* No-break spaces inside the account's name: when the line wraps on a phone
@@ -542,7 +550,7 @@
       if (!old.length) return h + '<div class="ctp-m"><b>' + _esc(L('Không còn sao kê cũ nào.', 'No older statements left.')) + '</b></div>';
       h += '<div class="cts-sub">' + _esc(L('Sao kê tìm thấy khi đọc lịch sử email. Mở cái nào cần, bỏ cái nào không.',
         'Statements found while reading email history. Open what you need, dismiss the rest.')) + '</div>';
-      return h + '<div class="csv-cards">' + old.map(_stmCardHTML).join('') + '</div>';
+      return h + '<div class="csv-cards">' + _stmCardsOf(old) + '</div>';
     };
     /* Kept for the bridge. Nothing reads _stmOldOpen since the backlog moved into
        the toolbox drawer (56 csvToolOpen('stmtold')), so the flip repaints nothing. */
@@ -590,9 +598,19 @@
     window.fhStmtForgetPasswords = function () { try { localStorage.removeItem(_stmPwKey()); } catch (e) {} };
 
     /* ── the remembered column reading: per sender + header shape, this device ── */
+    /* An entry remembers what the person confirmed (R5): v2 is
+       { v: 2, roles, tail, kind, sign }. An entry saved before R5 is the bare
+       roles object and reads back as { v: 1, roles }: it still says which column
+       is which, but not which account, kind and sign were seen, so it asks once
+       more and is saved as v2 on that answer. */
     const _stmMapKey = () => 'fh-stmt-map:' + (_stmUid() || '');
-    function _stmMapGet(provider, sig) { try { return (JSON.parse(localStorage.getItem(_stmMapKey()) || '{}'))[String(provider).toLowerCase() + '|' + sig] || null; } catch (e) { return null; } }
-    function _stmMapSet(provider, sig, roles) { try { const all = JSON.parse(localStorage.getItem(_stmMapKey()) || '{}'); all[String(provider).toLowerCase() + '|' + sig] = roles; localStorage.setItem(_stmMapKey(), JSON.stringify(all)); } catch (e) {} }
+    function _stmMapGet(provider, sig) {
+      try {
+        const e = (JSON.parse(localStorage.getItem(_stmMapKey()) || '{}'))[String(provider).toLowerCase() + '|' + sig];
+        return !e ? null : (e.v === 2 ? e : { v: 1, roles: e });
+      } catch (e) { return null; }
+    }
+    function _stmMapSet(provider, sig, entry) { try { const all = JSON.parse(localStorage.getItem(_stmMapKey()) || '{}'); all[String(provider).toLowerCase() + '|' + sig] = entry; localStorage.setItem(_stmMapKey(), JSON.stringify(all)); } catch (e) {} }
 
     /* ── the unlock cache: the opened grid, by file hash ──────────────────────
        Opening a locked statement is a download, a sealed-box open, a SHA-256 and
@@ -611,8 +629,9 @@
        builder's version: bump STM_GRID_V whenever 43-pdf-grid.js or
        42-xlsx-parse.js changes what it returns for the same bytes, or a fixed
        reader keeps meeting the old grid of a file it has seen (2026-11-08: the
-       geometric cut, PS30). Entries under an old key fall out by age. */
-    const STM_GRID_V = 2;
+       geometric cut, PS30; 2026-11-25: a figure wider than its heading, 43
+       colFor). Entries under an old key fall out by age. */
+    const STM_GRID_V = 3;
     const _stmGridKey = (sha) => sha ? String(sha) + '#' + STM_GRID_V : '';
     const _stmGridMem = new Map();                   // key -> grid, this session
     function _stmGridMemSet(sha, grid) {
@@ -688,7 +707,7 @@
        alone the moment anything would have to be asked.
 
        X = { card, bytes, ab, grid, cached, verified, password, localExt, parsed,
-             keptMap, confirmedMap, acct, fresh, decidedCount, auto } */
+             kept, kindAsk, confirmedMap, acct, fresh, decidedCount, waitingCount, auto } */
 
     /* Download the sealed file, open the seal, and check it is THIS card's file. */
     async function _stmFetch(X) {
@@ -744,40 +763,89 @@
          read as this wallet's account ids. */
       const pctx = { provider: X.card.source_provider };
       let parsed = window.fhStmtParse(grid, null, pctx);
-      X.keptMap = false;
-      if (parsed.table && !parsed.proof.ok) {
-        const kept = _stmMapGet(X.card.source_provider, parsed.sig);
-        if (kept) { parsed = window.fhStmtParse(grid, kept, pctx); X.keptMap = !!parsed.table; }
-      }
+      X.kept = parsed.table ? _stmMapGet(X.card.source_provider, parsed.sig) : null;
+      if (parsed.table && !parsed.proof.ok && X.kept) parsed = window.fhStmtParse(grid, X.kept.roles, pctx);
       X.parsed = parsed; X.grid = grid;
+      /* The account is known before anyone is asked: the question shows it (R6)
+         and a remembered answer is compared with it (R5). */
+      X.acct = parsed.table ? _stmAcct(X) : null;
       return parsed;
     }
-    /* Does the reading still need the person? Not when the arithmetic proves it,
-       and not when they confirmed this very reading on an earlier statement: a
+    /* Does the reading still need the person? Not when the arithmetic proves it
+       and the kind of account is not in doubt (R4). Otherwise, not when they
+       confirmed this format before for this very account, kind and sign (R5): a
        file with no balance and no totals can never prove itself, and asking the
        same question every month is the chore the remembered mapping exists to
-       remove (spec section 3.3, step 3). */
+       remove (spec section 3.3, step 3). A reading kept from before R5 (v1) says
+       nothing about the account, so it asks once more: that is how a points
+       statement filed under a card's other number staged itself unseen. */
     /* A row whose amount could not be read is always the person's to see: a
        remembered mapping answers which column is which, not what a cell holds. */
-    const _stmNeedsAsk = (X) => (X.parsed.unreadable && X.parsed.unreadable.length > 0) || (!X.parsed.proof.ok && !X.keptMap);
+    const _stmConfirmed = (X) => {
+      const k = X.kept, a = X.acct || {};
+      return !!(k && k.v === 2 && k.tail === a.tail && k.kind === a.kind && k.sign === ((X.parsed.proof && X.parsed.proof.sign) || 1));
+    };
+    const _stmNeedsAsk = (X) => (X.parsed.unreadable && X.parsed.unreadable.length > 0) || ((!X.parsed.proof.ok || !!X.kindAsk) && !_stmConfirmed(X));
 
-    /* Which kind of account the statement belongs to: a wallet by provider, a card when
-       the summary block speaks of debt, otherwise a deposit account. */
+    /* Which kind of account the statement belongs to, and whether the evidence
+       agrees (R4). A wallet by provider. Otherwise, in this order: debt lines in
+       the summary (a card), the mail's own kind word (_stmKindKey), a card number
+       in the preamble (59 accountTails); with none of them, a deposit account.
+       A card with no debt lines, debt lines on a mail that names an account, or
+       a card number on a mail that names an account: `kind` is the best guess
+       and `ask` sends the file to the person. */
     function _stmAcctKind(X) {
       const prov = String(X.card.source_provider || '').toLowerCase();
-      if (/momo|zalopay|shopeepay|viettel|vnpay/.test(prov)) return 'ewallet';
+      if (/momo|zalopay|shopeepay|viettel|vnpay/.test(prov)) return { kind: 'ewallet', ask: false };
       const sum = X.parsed.summary || {};
-      return (sum.prevDebt !== undefined || sum.endDebt !== undefined) ? 'credit_card' : 'deposit';
+      const debt = sum.prevDebt !== undefined || sum.endDebt !== undefined;
+      const word = _stmKindKey(X.card);
+      const cardNo = (sum.accountTails || []).some((t) => t.label === 'card' && t.where === 'preamble');
+      const kind = (debt || word === 'card' || (cardNo && word !== 'account')) ? 'credit_card' : 'deposit';
+      return { kind: kind, ask: kind === 'credit_card' ? (!debt || word === 'account') : cardNo };
+    }
+    /* { provider, kind, tail } of the account the statement belongs to. */
+    function _stmAcct(X) {
+      const sum = X.parsed.summary || {}, k = _stmAcctKind(X);
+      X.kindAsk = k.ask;
+      return { provider: X.card.source_provider, kind: k.kind, tail: sum.accountTail || (X.card.meta && X.card.meta.account_tail) || '' };
     }
 
-    /* The account, and which rows are new to this person. Rows they already
-       decided on (imported or removed) are not written again -- the one place a
-       statement row is dropped unseen, allowed because the key is exact and the
-       decision was theirs. */
+    /* R9: how many of each fingerprint are already WAITING in the queue from
+       another statement file: the same statement mailed twice, a PDF beside its
+       spreadsheet, two periods that overlap. A row's fingerprint already names
+       its account (provider and tail, or the bank's own transaction id), and
+       every staged payload carries it (`fp`), so the queue's own read is enough:
+       the same query as fhStmtLoad, decrypted through the same cache. Rows this
+       device retired but the server still holds are counted too: the person
+       already decided on them. Known limit: that query is ONE page, the newest
+       STM_ROW_PAGE (1000) rows by day. With more waiting than that, a copy of an
+       older waiting row is not seen here and goes in again; the queue then shows
+       it twice, as it did before R9. Accepted: a thousand waiting statement rows
+       is a queue nobody is working through. */
+    async function _stmWaiting(sid) {
+      const res = await window.sb.from('statement_rows')
+        .select('id,statement_id,row_index,txn_date,payload_enc').order('txn_date', { ascending: false }).limit(STM_ROW_PAGE);
+      if (res.error) throw res.error;
+      const n = new Map();
+      await _stmBatched((res.data || []).filter((r) => r.statement_id !== sid), async (r) => {
+        const hit = _stmRowCache.get(r.id);
+        let p = hit && hit.enc === r.payload_enc ? hit.p : null;
+        if (!p) { try { p = await _stmDecJson(r.payload_enc); _stmRowCacheSet(r.id, r.payload_enc, p); } catch (e) { return; } }
+        if (p && p.fp) n.set(p.fp, (n.get(p.fp) || 0) + 1);
+      });
+      return n;
+    }
+
+    /* Which rows are new to this person. Rows they already decided on (imported
+       or removed) are not written again -- the one place a statement row is
+       dropped unseen, allowed because the key is exact and the decision was
+       theirs. Rows already waiting from another file of this account are not
+       written twice either (R9). */
     async function _stmPlan(X) {
-      const p = X.parsed, sum = p.summary || {};
-      const tail = sum.accountTail || (X.card.meta && X.card.meta.account_tail) || '';
-      X.acct = { provider: X.card.source_provider, kind: _stmAcctKind(X), tail: tail };
+      const p = X.parsed;
+      if (!X.acct) X.acct = _stmAcct(X);
+      const tail = X.acct.tail;
       const fps = await _stmBatched(p.rows, (r) => _stmFp(fhStmtCanonical(X.card.source_provider, tail, r)));
       let decided = new Set();
       try {
@@ -796,9 +864,24 @@
         if (X.auto) throw e;
         decided = new Set();
       }
-      X.fresh = [];
-      p.rows.forEach((r, i) => { if (!decided.has(fps[i])) X.fresh.push({ r: r, fp: fps[i] }); });
-      X.decidedCount = p.rows.length - X.fresh.length;
+      /* Same rule as above: unseen, a failed lookup stops the run; on a tap the
+         rows are shown. */
+      let waiting = new Map();
+      try { waiting = await _stmWaiting(X.card.id); }
+      catch (e) { if (X.auto) throw e; waiting = new Map(); }
+      /* Equal rows are counted, not merely seen: two real purchases of one
+         amount on one day are two rows with one fingerprint. The n-th copy here
+         is dropped only while another file already holds n of them. */
+      const used = new Map();
+      X.fresh = []; X.waitingCount = 0;
+      p.rows.forEach((r, i) => {
+        const fp = fps[i];
+        if (decided.has(fp)) return;
+        const k = used.get(fp) || 0;
+        if (k < (waiting.get(fp) || 0)) { used.set(fp, k + 1); X.waitingCount++; return; }
+        X.fresh.push({ r: r, fp: fp });
+      });
+      X.decidedCount = p.rows.length - X.fresh.length - X.waitingCount;
     }
 
     /* Merchant names only -- never a person, an amount or a date -- to the
@@ -844,7 +927,9 @@
        the card change state in ONE transaction. */
     async function _stmWrite(X, say) {
       const card = X.card; say = say || (() => {});
-      if (X.confirmedMap && X.parsed.table) _stmMapSet(card.source_provider, X.parsed.sig, X.parsed.table.roles);
+      /* R5: the answer is kept with what was on the screen when it was given. */
+      if (X.confirmedMap && X.parsed.table) _stmMapSet(card.source_provider, X.parsed.sig, { v: 2, roles: X.parsed.table.roles,
+        tail: (X.acct && X.acct.tail) || '', kind: (X.acct && X.acct.kind) || '', sign: (X.parsed.proof && X.parsed.proof.sign) || 1 });
       let acctId = null;
       if (X.acct && window.fhPersonalAccountEnsure) {
         try {
@@ -921,9 +1006,10 @@
 
        WHY A CARD WAS LEFT is remembered per card on this device only when
        finding it out costs a download: 'password' (locked, and no password that
-       works is remembered) and 'unsupported' (a lock or a format this device
-       cannot read). A locked card is tried again once a password for its bank is
-       remembered. A reading that needs confirming leaves no mark: its grid is
+       works is remembered), 'unsupported' (a lock or a format this device
+       cannot read) and 'not_money' (a points statement, R1: the card says so
+       and is never tried again). A locked card is tried again once a password
+       for its bank is remembered. A reading that needs confirming leaves no mark: its grid is
        kept, so asking again is free. A failure that may pass (offline, a dropped
        request) is retried in the next session, not on every open of this one. */
     const STM_AUTO_MAX = 2, STM_AUTO_MS = 8000, STM_AUTO_HINT_MS = 4000;
@@ -955,6 +1041,7 @@
         if (code === 'xlsx_enc_unsupported' || code === 'xls_legacy' || code === 'xlsx_unsupported' || code === 'pdf_unsupported' || code === 'pdf_scanned') return { left: 'unsupported' };
         throw e;
       }
+      if (parsed.why === 'not_money') return { left: 'not_money' };          // R1: no rows, no question; the card says so
       if (!parsed.table || !parsed.rows.length || _stmNeedsAsk(X)) return { left: '' };
       await _stmPlan(X);
       const res = await _stmWrite(X);
@@ -975,7 +1062,7 @@
         for (const card of cards) {
           if (done.length >= STM_AUTO_MAX || Date.now() - t0 > STM_AUTO_MS) break;
           if (card.backfill || card.status !== 'pending' || card.keyLocked || !card.meta || !card.object_path) continue;
-          if (_stmAutoTried.has(card.id) || memo[card.id] === 'unsupported') continue;
+          if (_stmAutoTried.has(card.id) || memo[card.id] === 'unsupported' || memo[card.id] === 'not_money') continue;
           if (S && S.card && S.card.id === card.id) continue;        // the person is in this one right now
           window.fhHeat && window.fhHeat.tick('fhStmtAuto');
           try { say && say(L('Đang đọc ', 'Reading ') + _stmTitle(card) + '…'); } catch (e) {}
@@ -1105,6 +1192,12 @@
       if (S !== X) return;
       if (X.remember && X.password) await _stmPwSet(_stmPwScope(X.card), X.password);
       if (S !== X) return;
+      if (parsed.why === 'not_money') {
+        /* R1: said once here, and kept on the card through the same memory the
+           unattended pass writes, so the list says it too. */
+        const m = _stmAutoGet(); m[X.card.id] = 'not_money'; _stmAutoSet(m);
+        return _stmFail(L('Đây là sao kê điểm thưởng, không có khoản tiền nào để thêm.', 'This is a reward points statement, with no money movements to add.'), false);
+      }
       if (!parsed.table || !parsed.rows.length) return _stmFail(L('Không thấy bảng giao dịch trong file này.', 'No transaction table found in this file.'), false);
       if (_stmNeedsAsk(X)) return _stmAskMapping();
       return _stmGo();
@@ -1154,6 +1247,10 @@
         title = L(un.length === 1 ? 'Có 1 dòng tụi mình không đọc được số tiền' : 'Có ' + un.length + ' dòng tụi mình không đọc được số tiền',
                   un.length === 1 ? 'One row where we could not read the amount' : un.length + ' rows where we could not read the amount');
         lead = L('Mấy dòng này để lại, không vào hàng chờ. Bạn xem qua rồi tự thêm nếu cần.', 'These rows stay out of the queue. Look them over and add them by hand if needed.');
+      } else if (p.proof.ok) {
+        /* the arithmetic stands and the kind of account is what is in doubt (R4) */
+        title = L('Tụi mình đọc file thế này, đúng chưa?', 'Did we read this file right?');
+        lead = L('Tụi mình chưa chắc đây là thẻ tín dụng hay tài khoản, nên nhờ bạn xem qua.', 'We are not sure whether this is a credit card or an account, so please take a look.');
       } else if (hasTotals) {
         title = L('Tụi mình đọc cột thế này, đúng chưa?', 'Did we read the columns right?');
         lead = L('Tổng trong file không khớp với các dòng đọc được, nên nhờ bạn xem qua.', 'The totals in the file do not match the rows we read, so please take a look.');
@@ -1164,7 +1261,23 @@
       const note = un.length
         ? L(p.rows.length + ' dòng còn lại đọc được. Bấm "Đúng rồi" là vào hàng chờ duyệt, chưa ghi vào sổ.', p.rows.length + ' other rows read fine. "Looks right" sends them to the review queue, not to the ledger.')
         : L(p.rows.length + ' giao dịch. Bấm "Đúng rồi" là vào hàng chờ duyệt, chưa ghi vào sổ.', p.rows.length + ' transactions. "Looks right" sends them to the review queue, not to the ledger.');
-      _stmPaint(_stmHead(title, lead) + unHtml +
+      /* R6: what "Đúng rồi" will do, said before the columns: which account the
+         rows go under, as what kind, how many, and how much goes each way. A
+         points file read as income, or a card filed under its other number,
+         shows here as itself. */
+      const A = S.acct || {}, bank = window.fhProviderName ? window.fhProviderName(S.card.source_provider) : S.card.source_provider;
+      const acctWord = { credit_card: L('thẻ', 'card'), deposit: L('tài khoản', 'account'), ewallet: L('ví', 'wallet') }[A.kind] || '';
+      let moneyOut = 0, moneyIn = 0;
+      p.rows.forEach((r) => { if (r.amt < 0) moneyOut -= r.amt; else moneyIn += r.amt; });
+      const money = (n) => (typeof csvFmt === 'function' ? csvFmt(n) : String(Math.round(n)));
+      const planRow = (k, v) => '<div class="stm-maprow"><span>' + _esc(k) + '</span><b>' + _esc(v) + '</b></div>';
+      const planHtml = '<div class="stm-map">' +
+        planRow(L('Tài khoản', 'Account'), bank + ' · ' + acctWord + (A.tail ? ' ••' + A.tail : '')) +
+        planRow(L('Loại', 'Kind'), _stmKindName(A.kind)) +
+        planRow(L('Số khoản', 'Rows'), String(p.rows.length)) +
+        planRow(L('Tiền ra', 'Money out'), money(moneyOut)) +
+        planRow(L('Tiền vào', 'Money in'), money(moneyIn)) + '</div>';
+      _stmPaint(_stmHead(title, lead) + planHtml + unHtml +
         '<div class="stm-map">' + rowsHtml + '</div>' +
         '<div class="csv-unlock-note">' + _esc(note) + '</div>' +
         '<button type="button" class="btn-line csv-unlock-go" onclick="fhStmtMappingOk()">' + _esc(L('Đúng rồi', 'Looks right')) + '</button>' + _stmBackBtn());
