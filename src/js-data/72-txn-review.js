@@ -1491,9 +1491,13 @@
        be that old, the tab cache reaches back one month) must be here BEFORE
        bucketing runs. Locked or failing personal ledger → empty slice → the
        matcher falls back to the short cache, and the queue still opens. */
+    /* R18 (reconcile-spec): the slice reaches back to the oldest row in the
+       queue, minus four days, when that is older than its fixed horizon. */
+    var _mRange = window.fhReconSliceRange
+      ? window.fhReconSliceRange(readable.map(function (r) { return r && r.occurred_at; })) : null;
     try {
       window._fhPersonalMatchSlice = window.fhPersonalMatchSlice
-        ? await window.fhPersonalMatchSlice() : null;
+        ? await window.fhPersonalMatchSlice(_mRange) : null;
     } catch (e) { window._fhPersonalMatchSlice = null; }
 
     csvLearnLoad();
@@ -1501,6 +1505,12 @@
        before the lending pass reads it. Best-effort — a failed sync degrades
        to whatever this device already knows, never blocks the queue. */
     try { if (window.fhLessonsSync) await window.fhLessonsSync(); } catch (e) {}
+    /* R18: a write that landed during that await cleared the slice
+       (fhPersonalMatchSliceInvalidate); read it again rather than bucket
+       against the two-month tab cache. Cached slices cost nothing here. */
+    if (!window._fhPersonalMatchSlice && window.fhPersonalMatchSlice) {
+      try { window._fhPersonalMatchSlice = await window.fhPersonalMatchSlice(_mRange); } catch (e) {}
+    }
     csvBuildReview([fhStagedAsCsvSource(readable)], {});
     /* Every candidate carries its staged row's id from here on (_stagedId), so
        retirement never depends on rowIndex still pointing at a live entry of

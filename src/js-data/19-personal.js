@@ -770,14 +770,23 @@
        amount/note/cat only, decrypted once and cached per session; the review
        screen awaits it BEFORE bucketing because the matcher is synchronous.
        Returns [] rather than throwing — a locked ledger degrades to the short
-       cache, never blocks the queue from opening. */
-    let _matchSlice = null;
-    window.fhPersonalMatchSlice = async function () {
+       cache, never blocks the queue from opening.
+
+       reconcile-spec R18: `range` ({ from: 'YYYY-MM-DD' }, built by
+       fhReconSliceRange as the earliest row being judged minus 4 days) moves
+       the lower bound further back when the queue holds a row older than the
+       horizon; it never narrows it. Same query, only an earlier `gte`. The
+       cache remembers how far back it reaches and is reused for any request
+       it already covers. */
+    let _matchSlice = null, _matchFrom = '';
+    window.fhPersonalMatchSlice = async function (range) {
       if (!P.uid || !P.key) return [];
-      if (_matchSlice) return _matchSlice;
+      const d = new Date(); d.setDate(d.getDate() - 365);
+      let from = _localDate(d);
+      const want = range && typeof range.from === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(range.from) ? range.from : '';
+      if (want && want < from) from = want;
+      if (_matchSlice && _matchFrom && _matchFrom <= from) return _matchSlice;
       try {
-        const d = new Date(); d.setDate(d.getDate() - 365);
-        const from = _localDate(d);
         /* Every kind, and the mirror link: the dedup engine (58) gates on kind
            itself and DROPS mirrors — a family row the person authored is copied
            here with link_id set, and indexing both let two staged copies of one
@@ -796,12 +805,16 @@
             who: t.counterparty_enc ? await _decTxt(t.counterparty_enc) : null,   // A15: the payee, for "… và M khoản đã ghi" (apply-to-similar-spec)
             time: t.occurred_time_enc ? (await _decTxt(t.occurred_time_enc)) : '' });
         }
-        _matchSlice = out;
+        _matchSlice = out; _matchFrom = from;
         return out;
       } catch (e) { console.warn('personal match slice failed', e); return []; }
     };
-    /* A write through this module makes the cached slice stale by definition. */
-    window.fhPersonalMatchSliceInvalidate = function () { _matchSlice = null; };
+    /* A write through this module makes the cached slice stale by definition.
+       R18: so is the copy the review screen parked on window for the
+       synchronous matcher (72, 76). Dropping it makes the next bucketing read
+       the fresh tab cache instead of a ledger that may still hold a deleted
+       row, until the next queue open awaits the slice again. */
+    window.fhPersonalMatchSliceInvalidate = function () { _matchSlice = null; _matchFrom = ''; window._fhPersonalMatchSlice = null; };
 
     /* ── Recurrence slice (recurring-charges-spec §18.1, RR10) ───────────────
        The tab holds two months. A monthly charge needs two occurrences to be

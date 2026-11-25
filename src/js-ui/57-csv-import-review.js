@@ -1786,10 +1786,15 @@ function bucketCsvCandidates(candidates, mixedSigns) {
      show evidence for, or nothing. The legacy flag names are kept on the row
      for the chips, the filters and the tests that read them. */
   var index = (typeof fhDedupLedgerIndex === 'function') ? fhDedupLedgerIndex() : { rows: [], byAmt: {} };
+  /* reconcile-spec §11 / R20: the new matcher (58-recon.js) reads a few more
+     facts per row. Added beside the old fields, never in place of one, and
+     only when it will run; the owned-account lookup is built once here. */
+  var reconOn = (typeof fhReconMode === 'function') && fhReconMode() !== 'off' && typeof fhReconCandFacts === 'function';
+  var reconAccts = reconOn ? fhReconAcctIndex() : null;
   var ecs = rest.map(function(c){
     var meta = (staged && window.fhStagedMeta) ? window.fhStagedMeta(c.rowIndex) : null;
     var rx = (staged && typeof window.fhStagedRawX === 'function') ? window.fhStagedRawX(c.rowIndex) : null;
-    return { amount: c.amount, date: c.date, dateDisplay: c.dateDisplay,
+    var ec = { amount: c.amount, date: c.date, dateDisplay: c.dateDisplay,
              time: (staged && typeof csvRowTime === 'function') ? (csvRowTime(c) || '') : '',
              description: c._hasDesc ? c.description : '', counterparty: c.counterparty || '',
              isIncome: !!c.isIncome, isTransfer: !!(c.isTransfer || c._xfer || c._repay || c._loan || c._invest),
@@ -1798,14 +1803,24 @@ function bucketCsvCandidates(candidates, mixedSigns) {
              provider: (meta && meta.provider) || '', kind: (meta && meta.kind) || '',
              currency: (meta && meta.currency) || '', pipelineDupOf: (meta && meta.pipelineDup) ? meta.dupOfId : '',
              statement: !!(rx && rx._transport === 'statement') };
+    if (reconOn) {
+      try {   // never at the queue's expense: a row without facts is matched as "nothing known"
+        var facts = fhReconCandFacts({ rx: rx, provider: ec.provider, staged: staged, receipt: !!c._receipt,
+          otherKind: !!(meta && meta.kind === 'other'), isIncome: !!c.isIncome, xferDir: c._xferDir,
+          text: (c.description || '') + ' ' + (c.counterparty || '') + ' ' + ((rx && (rx.memo_display || rx.memo)) || '') }, reconAccts);
+        for (var fk in facts) ec[fk] = facts[fk];
+      } catch (eF) {}
+    }
+    return ec;
   });
-  var verdicts = (typeof fhDedupAssess === 'function')
-    ? fhDedupAssess(ecs, index, { kindById: window.fhStagedKindById })
+  var dopts = { kindById: window.fhStagedKindById };
+  var verdicts = (typeof fhReconRun === 'function') ? fhReconRun(ecs, index, dopts)
+    : (typeof fhDedupAssess === 'function') ? fhDedupAssess(ecs, index, dopts)
     : ecs.map(function(){ return null; });
 
   rest.forEach(function(c, i) {
     var v = verdicts[i];
-    if (ecs[i].pipelineDupOverruled) c.pipelineDupOverruled = true;   // two banks; falls through to the normal path
+    if (ecs[i].pipelineDupOverruled || (verdicts.overruled && verdicts.overruled[i])) c.pipelineDupOverruled = true;   // two banks; falls through to the normal path
     if (v) {
       c._dupTier = v.tier; c._dupWhy = v.why; c._dupTwin = v.twin; c._dupTwinKind = v.twinKind; c._dupShared = v.shared || '';
       if (v.twinKind === 'ledger') {
